@@ -175,3 +175,75 @@ export interface Household {
   use_soon_days: number;
   today: string;
 }
+
+// --- Stock (the Pantry screen, contract 6.4) ---------------------------------------
+
+/** One packet, one bag, one carton: kept separately so the oldest is used first. */
+export interface Lot {
+  id: number;
+  stock: AmountOut;
+  use_by: string | null;
+  days_left: number | null;
+  use_soon: boolean;
+  added_on: string;
+  frozen_on: string | null;
+  size_id: number | null;
+  /** Holds less than its size: show "· open" and the ¼ ½ ¾ Full picks. */
+  open: boolean;
+}
+
+/** One food in one place. */
+export interface Group {
+  food: { id: number; name: string; counted_as: CountedAs };
+  stock: AmountOut;
+  lots_count: number;
+  dates_count: number;
+  use_by: string | null;
+  days_left: number | null;
+  use_soon: boolean;
+  running_low: boolean;
+  lots: Lot[];
+}
+
+export interface PantryPlace extends Place {
+  items: number;
+  groups: Group[];
+}
+
+export type PantryFilter = 'all' | 'use_soon' | 'running_low' | 'staples';
+
+export interface Pantry {
+  today: string;
+  counts: { items: number; tubs: number; use_soon: number; running_low: number };
+  places: PantryPlace[];
+  staples: Ref[];
+}
+
+export interface UseSoonLot {
+  id: number;
+  food: Ref;
+  place: Place;
+  stock: AmountOut;
+  use_by: string | null;
+  days_left: number | null;
+  /** "Paneer · 1 of 2 packs". */
+  position: number;
+  of: number;
+}
+
+/** The answer to every stock write: the change, and the food's groups as they are now. */
+export interface StockWrite {
+  change: Change | null;
+  groups: Group[];
+  /** Asked to use more than there was: how much was missing. */
+  short_by: AmountOut | null;
+}
+
+export interface ChangeLine {
+  food: Ref;
+  lot_id: number | null;
+  before: AmountOut;
+  after: AmountOut;
+  place_before: Ref | null;
+  place_after: Ref | null;
+}
