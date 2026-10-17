@@ -167,6 +167,8 @@ export interface UndoResult {
   change: Change;
   undone: Change;
   food: Food | null;
+  /** Removed ingredients this Undo returned to Ingredients (the message says so). */
+  brought_back: { id: number; name: string }[];
 }
 
 export interface Household {

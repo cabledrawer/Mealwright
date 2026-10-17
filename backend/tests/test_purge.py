@@ -231,6 +231,7 @@ def test_undo_puts_stock_back_into_a_removed_ingredient(kitchen: TestClient) -> 
     assert undo["result"] == "done"
     assert undo["message"] == "Ghee is back in Ingredients, with 100\u00a0g in the Cupboard."
     assert undo["food"]["name"] == "Ghee"
+    assert undo["brought_back"] == [{"id": ghee["id"], "name": "Ghee"}]
     # Back in the list and in the pantry, and never purged.
     names = [f["name"] for f in kitchen.get(f"{API}/foods").json()["foods"]]
     assert names == ["Ghee"]

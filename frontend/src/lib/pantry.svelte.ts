@@ -4,7 +4,8 @@
 // the server's wording ("1½ packets · about 750 g") replaces any guess.
 
 import { ApiError } from './api';
-import { listChanges, serverUndo } from './client/changes';
+import { listChanges, serverUndo, undoToast } from './client/changes';
+import type { UndoResult } from './client/types';
 import { patchFood } from './client/foods';
 import {
   addStock,
@@ -268,8 +269,9 @@ export class PantryModel {
     const undone = this.changes;
     this.changes = this.changes.map((c) => (c.id === change.id ? { ...c, can_undo: false } : c));
     try {
-      const message = await serverUndo(change.id)();
-      toasts.show(message || `Undone: ${change.summary}`);
+      let answer: UndoResult | null = null;
+      await serverUndo(change.id, (result) => (answer = result))();
+      toasts.show(undoToast(change.summary, answer));
     } catch (error) {
       this.changes = undone;
       toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo — try again', {

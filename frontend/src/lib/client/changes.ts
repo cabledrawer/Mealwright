@@ -29,7 +29,8 @@ export const undoChange = (id: number, idempotencyKey: string) =>
 /**
  * How to undo a change on the server, for an Undo button. The undo has its own ID, made
  * once, so pressing Try again never undoes twice. Shows the server's message when it
- * could only put back some of it (or nothing); "Undone" otherwise.
+ * could only put back some of it (or nothing) or brought a removed ingredient back;
+ * "Undone" otherwise.
  */
 export function serverUndo(
   changeId: number,
@@ -40,8 +41,20 @@ export function serverUndo(
     const result = await undoChange(changeId, idempotencyKey);
     kitchen.changed({ elsewhere: true });
     after?.(result);
-    return result.result === 'done' ? undefined : result.message;
+    return result.result === 'done' && !result.brought_back?.length ? undefined : result.message;
   };
+}
+
+/**
+ * What to tell the person after Undo from the Recent changes list: "Undone: Used about
+ * ½ tub Yogurt", plus the server's words when it brought a removed ingredient back
+ * ("Yogurt is back in Ingredients, with ½ tub in the Fridge.") or could only put back some.
+ */
+export function undoToast(summary: string, result: UndoResult | null): string {
+  if (!result) return `Undone: ${summary}`;
+  if (result.result !== 'done') return result.message;
+  if (result.brought_back?.length) return `Undone: ${summary}. ${result.message}`;
+  return `Undone: ${summary}`;
 }
 
 /** For Ctrl+Z after a reload: your own latest change that can still be undone. */

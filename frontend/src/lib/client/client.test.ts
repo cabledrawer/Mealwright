@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kitchen } from '$lib/freshness.svelte';
-import { lastOwnChange, serverUndo } from './changes';
+import { lastOwnChange, serverUndo, undoToast } from './changes';
+import type { UndoResult } from './types';
 import { listFoods, patchFood } from './foods';
 import { defaultCupMl, settleHousehold } from './household';
 
@@ -80,6 +81,26 @@ describe('undo on the server', () => {
     const message = 'Put back 150 g of the 500 g — the rest has been used since.';
     fakeServer([200, { result: 'partly', message, change }]);
     expect(await serverUndo(812)()).toBe(message);
+  });
+
+  it('says so when the Undo brought a removed ingredient back', async () => {
+    const message = 'Yogurt is back in Ingredients, with ½ tub in the Fridge.';
+    fakeServer([
+      200,
+      { result: 'done', message, change, brought_back: [{ id: 5, name: 'Yogurt' }] }
+    ]);
+    expect(await serverUndo(812)()).toBe(message);
+    const result = { result: 'done', message, brought_back: [{ id: 5, name: 'Yogurt' }] };
+    expect(undoToast('Used about ½ tub Yogurt', result as UndoResult)).toBe(
+      'Undone: Used about ½ tub Yogurt. Yogurt is back in Ingredients, with ½ tub in the Fridge.'
+    );
+  });
+
+  it('the Recent changes toast names the change, or gives the server’s words if partly', () => {
+    const done = { result: 'done', message: 'Undone.', brought_back: [] } as unknown as UndoResult;
+    expect(undoToast('Used 1 pack Paneer', done)).toBe('Undone: Used 1 pack Paneer');
+    const partly = { result: 'partly', message: 'Took back 150 g.', brought_back: [] };
+    expect(undoToast('Added Toor dal', partly as unknown as UndoResult)).toBe('Took back 150 g.');
   });
 
   it('a retry sends the same undo ID, so it never undoes twice', async () => {

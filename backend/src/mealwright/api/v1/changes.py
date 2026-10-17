@@ -198,6 +198,7 @@ class UndoOut(BaseModel):
     undone: ChangeOut  # the change that was undone
     food: FoodOut | None
     groups: list[GroupOut]  # the pantry groups touched, as they are now
+    brought_back: list[Ref]  # removed ingredients this Undo returned to Ingredients
 
 
 def _plain(food: Food, milli: int) -> str:
@@ -268,7 +269,13 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
         for place_id in (line.place_before_id, line.place_after_id):
             if place_id is not None:
                 pairs.add((line.food_id, place_id))
+    revived = []
+    for food_id in data.get("brought_back", []):
+        back = kitchen.db.get(Food, food_id)
+        if back is not None:
+            revived.append(Ref(id=back.id, name=back.name))
     return UndoOut(
+        brought_back=revived,
         result=result,
         message=data.get("message", UNDO_MESSAGES[result]),
         change=change_out(kitchen, undo),
