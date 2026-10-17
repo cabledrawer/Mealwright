@@ -2,6 +2,11 @@
 
 Allowed (cabledrawer 17 Oct): MIT, MIT-0, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0,
 MPL-2.0, BlueOak-1.0.0.
+Also allowed for development-only packages, never for anything in the app image (cabledrawer
+17 Oct): 0BSD, Unlicense, CC0-1.0 and Zlib. Development-only means: Python packages needed
+only by the dev group in uv.lock, and every package of an npm project given with
+--npm-dev (the browser tests in e2e/). The web app's own npm packages always count as
+shipped, even devDependencies, because the build bundles parts of some of them (Svelte).
 GPL-2.0-only is never allowed. OFL-1.1 is allowed for fonts only, so never for a Python
 package. MPL-2.0 packages marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B)
 must be rejected: MPL-2.0 only works with AGPL through that secondary-licence clause.
@@ -12,7 +17,8 @@ has checked such a package by hand, add it to REVIEWED with a note.
 Run inside the project environment (stdlib only):
 
     uv run python -I scripts/check_licences.py                   # Python packages
-    uv run python -I scripts/check_licences.py --npm ../e2e      # an npm project
+    uv run python -I scripts/check_licences.py --npm ../frontend # an npm project that ships
+    uv run python -I scripts/check_licences.py --npm-dev ../e2e  # a dev-only npm project
 
 For npm, it reads the project's package-lock.json, which records every package's
 licence. OFL-1.1 is accepted only for font packages (FONT_PACKAGES).
@@ -21,6 +27,7 @@ licence. OFL-1.1 is accepted only for font packages (FONT_PACKAGES).
 import json
 import re
 import sys
+import tomllib
 from importlib.metadata import Distribution, distributions
 from pathlib import Path
 
@@ -43,6 +50,12 @@ ALLOWED = {
     "MIT-0",  # cabledrawer 17 Oct (cffi)
     "BlueOak-1.0.0",  # cabledrawer 17 Oct (minimatch, used by ESLint)
 }
+
+# Allowed only for development-only packages (cabledrawer 17 Oct, standing rule; spec section 8).
+DEV_ONLY = frozenset({"0BSD", "Unlicense", "CC0-1.0", "Zlib"})
+DEV_ALLOWED = frozenset(ALLOWED | DEV_ONLY)
+
+LOCK_FILE = Path(__file__).resolve().parent.parent / "uv.lock"
 
 # Trove classifiers that name exactly one allowed licence. The generic
 # "BSD License" classifier is left out on purpose: it could be BSD-4-Clause.
@@ -163,7 +176,7 @@ def has_exhibit_b(dist: Distribution) -> bool:
     return False
 
 
-def check(dist: Distribution) -> tuple[bool, str]:
+def check(dist: Distribution, dev: bool = False) -> tuple[bool, str]:
     name = (dist.metadata["Name"] or "").lower()
     if name in REVIEWED:
         licence, note = REVIEWED[name]
@@ -172,14 +185,48 @@ def check(dist: Distribution) -> tuple[bool, str]:
     if expression is None:
         return False, f"can't tell ({source}); check by hand"
     try:
-        allowed = evaluate(expression)
+        allowed = evaluate(expression, DEV_ALLOWED if dev else ALLOWED)
     except ValueError, IndexError:
         return False, f"can't read {expression!r}; check by hand"
     if not allowed:
+        if not dev and evaluate(expression, DEV_ALLOWED):
+            return False, f"{expression} is allowed for development-only packages, not this one"
         return False, f"{expression} is not on the allow list"
     if "MPL-2.0" in expression and has_exhibit_b(dist):
         return False, f"{expression}, but marked 'Incompatible With Secondary Licenses'"
-    return True, f"{expression} ({source})"
+    return True, f"{expression} ({source}{', dev only' if dev else ''})"
+
+
+def normalise(name: str) -> str:
+    """A package name as uv.lock writes it (PEP 503)."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def runtime_packages(lock_text: str) -> set[str]:
+    """Names of the packages the app needs to run, read from uv.lock.
+
+    Walks the project's own dependencies (with their extras), not its dev group. Markers
+    are ignored, so a package needed on any platform counts: that only makes the check
+    stricter.
+    """
+    lock = tomllib.loads(lock_text)
+    packages = {p["name"]: p for p in lock.get("package", [])}
+    needed: set[str] = set()
+    todo = [
+        dep for name in SELF if name in packages for dep in packages[name].get("dependencies", [])
+    ]
+    while todo:
+        dep = todo.pop()
+        name = dep["name"]
+        package = packages.get(name, {})
+        extras = dep.get("extra", [])
+        if name in needed and not extras:
+            continue
+        needed.add(normalise(name))
+        todo.extend(package.get("dependencies", []))
+        for extra in extras:
+            todo.extend(package.get("optional-dependencies", {}).get(extra, []))
+    return needed
 
 
 def _has_exhibit_b_files(folder: Path) -> bool:
@@ -195,7 +242,9 @@ def _has_exhibit_b_files(folder: Path) -> bool:
     return False
 
 
-def check_npm_package(name: str, info: dict[str, object], folder: Path) -> tuple[bool, str]:
+def check_npm_package(
+    name: str, info: dict[str, object], folder: Path, dev: bool = False
+) -> tuple[bool, str]:
     if name in REVIEWED:
         licence, note = REVIEWED[name]
         return True, f"{licence} (checked by hand: {note})"
@@ -205,19 +254,22 @@ def check_npm_package(name: str, info: dict[str, object], folder: Path) -> tuple
     if not isinstance(raw, str) or not raw.strip():
         return False, "no licence in package-lock.json; check by hand"
     licence = raw
-    allowed = ALLOWED | {"OFL-1.1"} if FONT_PACKAGES.match(name) else ALLOWED
+    base = DEV_ALLOWED if dev else ALLOWED
+    allowed = base | {"OFL-1.1"} if FONT_PACKAGES.match(name) else base
     try:
         ok = evaluate(licence, allowed)
     except ValueError, IndexError:
         return False, f"can't read {licence!r}; check by hand"
     if not ok:
+        if not dev and evaluate(licence, DEV_ALLOWED):
+            return False, f"{licence} is allowed for development-only packages, not this one"
         return False, f"{licence} is not on the allow list"
     if "MPL-2.0" in licence and folder.is_dir() and _has_exhibit_b_files(folder):
         return False, f"{licence}, but marked 'Incompatible With Secondary Licenses'"
-    return True, licence
+    return True, f"{licence}, dev only" if dev else licence
 
 
-def main_npm(project: Path) -> int:
+def main_npm(project: Path, dev: bool = False) -> int:
     lock = json.loads((project / "package-lock.json").read_text())
     failures = 0
     count = 0
@@ -225,7 +277,7 @@ def main_npm(project: Path) -> int:
         if not key or info.get("link"):
             continue  # the project itself, or a link to a local folder
         name = info.get("name") or key.rsplit("node_modules/", 1)[-1]
-        ok, detail = check_npm_package(name, info, project / key)
+        ok, detail = check_npm_package(name, info, project / key, dev)
         count += 1
         failures += not ok
         print(f"{'ok  ' if ok else 'FAIL'}  {name} {info.get('version', '?')}: {detail}")
@@ -234,8 +286,9 @@ def main_npm(project: Path) -> int:
 
 
 def main() -> int:
-    if len(sys.argv) == 3 and sys.argv[1] == "--npm":
-        return main_npm(Path(sys.argv[2]))
+    if len(sys.argv) == 3 and sys.argv[1] in {"--npm", "--npm-dev"}:
+        return main_npm(Path(sys.argv[2]), dev=sys.argv[1] == "--npm-dev")
+    runtime = runtime_packages(LOCK_FILE.read_text())
     failures = 0
     seen: set[str] = set()
     for dist in sorted(distributions(), key=lambda d: (d.metadata["Name"] or "").lower()):
@@ -243,7 +296,7 @@ def main() -> int:
         if name in SELF or name in seen:
             continue
         seen.add(name)
-        ok, detail = check(dist)
+        ok, detail = check(dist, dev=normalise(name) not in runtime)
         failures += not ok
         print(f"{'ok  ' if ok else 'FAIL'}  {name} {dist.version}: {detail}")
     print(f"\n{len(seen)} packages, {failures} not allowed")

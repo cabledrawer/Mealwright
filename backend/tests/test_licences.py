@@ -121,3 +121,51 @@ def test_npm_lockfile(lic: ModuleType, tmp_path: Path) -> None:
         ' "node_modules/b": {"version": "2.0.0", "license": "SSPL-1.0"}}}'
     )
     assert lic.main_npm(tmp_path) == 1
+
+
+@pytest.mark.parametrize("licence", ["0BSD", "Unlicense", "CC0-1.0", "Zlib"])
+def test_dev_only_licences(lic: ModuleType, tmp_path: Path, licence: str) -> None:
+    dist = FakeDist("tool", **{"License-Expression": licence})
+    assert lic.check(dist, dev=True)[0] is True
+    ok, detail = lic.check(dist)
+    assert not ok and "development-only" in detail
+    info = {"version": "1.0.0", "license": licence}
+    assert lic.check_npm_package("tool", info, tmp_path, dev=True)[0] is True
+    assert lic.check_npm_package("tool", info, tmp_path)[0] is False
+
+
+def test_dev_only_never_relaxes_the_rest(lic: ModuleType, tmp_path: Path) -> None:
+    for licence in ["GPL-2.0-only", "SSPL-1.0", "OFL-1.1"]:
+        info = {"version": "1.0.0", "license": licence}
+        assert lic.check_npm_package("tool", info, tmp_path, dev=True)[0] is False
+
+
+def test_runtime_packages_follow_the_lock(lic: ModuleType) -> None:
+    lock = """
+version = 1
+[[package]]
+name = "mealwright"
+dependencies = [{ name = "fastapi" }, { name = "uvicorn", extra = ["standard"] }]
+[package.dev-dependencies]
+dev = [{ name = "pytest" }]
+
+[[package]]
+name = "fastapi"
+dependencies = [{ name = "Typing_Extensions" }]
+
+[[package]]
+name = "uvicorn"
+[package.optional-dependencies]
+standard = [{ name = "uvloop" }]
+
+[[package]]
+name = "pytest"
+dependencies = [{ name = "pluggy" }]
+"""
+    assert lic.runtime_packages(lock) == {"fastapi", "typing-extensions", "uvicorn", "uvloop"}
+
+
+def test_real_lock_marks_dev_tools_as_dev(lic: ModuleType) -> None:
+    runtime = lic.runtime_packages(lic.LOCK_FILE.read_text())
+    assert {"fastapi", "sqlalchemy", "argon2-cffi"} <= runtime
+    assert not {"pytest", "mypy", "ruff"} & runtime

@@ -11,7 +11,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGS="$ROOT/.check/logs"
-IMAGE="mealwright:check"
+IMAGE="${CHECK_IMAGE:-mealwright:check}"   # set CHECK_IMAGE to run ./check in two worktrees at once
 
 # npm: no security-audit upload of the package list (osv-scanner covers it), no check
 # for newer npm versions, no funding messages. See docs/dev/dev-tools-privacy.md.
@@ -84,7 +84,7 @@ fi
 # They start the real app on 127.0.0.1 with an empty data folder.
 if [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell'
-  step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm ../e2e
+  step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
   step "browser: tests"          sh -c 'cd e2e && npx playwright test'
 else
