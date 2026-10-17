@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Runs everything CI would run. There is no CI runner during 0.x (cabledrawer 17 Oct),
+# so run this before every pull request and paste the summary into the description.
+#
+#   ./check
+#
+# Each step's full output goes to .check/logs/<step>.log. The script fails if any
+# step fails or isn't set up yet, and ends with a pass/fail summary.
+
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOGS="$ROOT/.check/logs"
+IMAGE="mealwright:check"
+rm -rf "$LOGS" && mkdir -p "$LOGS"
+
+names=() results=() notes=() times=()
+
+record() { names+=("$1"); results+=("$2"); notes+=("$3"); times+=("$4"); }
+
+# step <name> <command...>: run a command, log its output, record PASS or FAIL.
+step() {
+  local name="$1"; shift
+  local log="$LOGS/${name// /-}.log" start=$SECONDS
+  printf '%-28s ' "$name"
+  if (cd "$ROOT" && "$@") >"$log" 2>&1; then
+    record "$name" PASS "" "$((SECONDS - start))s"
+    echo "PASS"
+  else
+    record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
+    echo "FAIL"
+    tail -n 40 "$log" | sed 's/^/    /'
+  fi
+}
+
+skip() { printf '%-28s SKIP (%s)\n' "$1" "$2"; record "$1" SKIP "$2" "-"; }
+not_set_up() { printf '%-28s NOT SET UP (%s)\n' "$1" "$2"; record "$1" "NOT SET UP" "$2" "-"; }
+
+need() { command -v "$1" >/dev/null 2>&1; }
+
+backend() { (cd backend && "$@"); }
+
+echo "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
+echo
+
+# --- Backend -----------------------------------------------------------------
+if need uv; then
+  step "backend: sync"           backend uv sync --frozen
+  step "backend: ruff format"    backend uv run --frozen ruff format --check .
+  step "backend: ruff lint"      backend uv run --frozen ruff check .
+  step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
+  step "backend: pytest"         backend uv run --frozen pytest -q
+  step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
+  step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py
+else
+  record "backend" FAIL "uv is not installed" "-"; echo "backend                      FAIL (uv is not installed)"
+fi
+
+# --- Frontend ----------------------------------------------------------------
+if [[ -f "$ROOT/frontend/package.json" ]]; then
+  step "frontend: install"       sh -c 'cd frontend && npm ci --no-audit --no-fund'
+  step "frontend: lint"          sh -c 'cd frontend && npm run lint'
+  step "frontend: svelte-check"  sh -c 'cd frontend && npm run check'
+  step "frontend: tests"         sh -c 'cd frontend && npm test'
+  not_set_up "frontend: licences" "to be written with the frontend"
+else
+  skip "frontend" "no frontend yet"
+fi
+
+# --- Security scanners (waiting for cabledrawer's OK on how to run each one) ------
+not_set_up "pip-audit"   "waiting for cabledrawer's OK"
+not_set_up "osv-scanner" "waiting for cabledrawer's OK"
+not_set_up "code scan"   "Bandit or Semgrep: waiting for cabledrawer's OK"
+
+# --- Docker image ------------------------------------------------------------
+if [[ -f "$ROOT/Dockerfile" ]]; then
+  step "image: build"            docker build -t "$IMAGE" .
+  step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
+                                   --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
+  not_set_up "image: trivy" "waiting for cabledrawer's OK"
+else
+  skip "image" "no Dockerfile yet"
+fi
+
+# --- Summary -----------------------------------------------------------------
+pass=0 fail=0 skipped=0 missing=0
+for r in "${results[@]}"; do
+  case "$r" in
+    PASS) ((pass++)) ;;
+    FAIL) ((fail++)) ;;
+    SKIP) ((skipped++)) ;;
+    *)    ((missing++)) ;;
+  esac
+done
+
+echo
+echo "## ./check summary"
+echo
+echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
+echo
+echo "| Step | Result | Time | Note |"
+echo "|---|---|---|---|"
+for i in "${!names[@]}"; do
+  echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
+done
+echo
+if ((fail == 0 && missing == 0)); then
+  echo "**RESULT: PASS** ($pass passed, $skipped skipped as not applicable yet)"
+  exit 0
+fi
+echo "**RESULT: FAIL** ($fail failed, $missing not set up, $pass passed, $skipped skipped)"
+exit 1

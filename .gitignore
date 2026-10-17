@@ -30,3 +30,6 @@ compose.yaml
 .idea/
 .DS_Store
 Thumbs.db
+
+# ./check logs
+/.check/
