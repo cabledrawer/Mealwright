@@ -215,14 +215,18 @@ def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:
     handler = DailyLogFile(folder)
     try:
         background = jobs.scheduler(kitchen.app.state.sessionmaker, handler)  # type: ignore[attr-defined]
-        assert {job.id for job in background.get_jobs()} == {"history", "log-tidy"}
+        assert {job.id for job in background.get_jobs()} == {
+            "history",
+            "removed-ingredients",
+            "log-tidy",
+        }
         background.start()
         assert background.running
         # A late run still runs (asleep at midnight, busy on the hour).
         assert all(job.misfire_grace_time is None for job in background.get_jobs())
         background.shutdown(wait=False)
         without_log = jobs.scheduler(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
-        assert [job.id for job in without_log.get_jobs()] == ["history"]
+        assert {job.id for job in without_log.get_jobs()} == {"history", "removed-ingredients"}
     finally:
         handler.close()
 

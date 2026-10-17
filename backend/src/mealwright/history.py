@@ -11,7 +11,7 @@ someone has changed since are left alone, and the result says so ("partly").
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import status
@@ -30,6 +30,7 @@ from mealwright.models import (
     FoodConversion,
     FoodMerge,
     FoodName,
+    FoodNotSame,
     FoodSize,
     FoodStandIn,
     Household,
@@ -687,3 +688,77 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
     )
     db.commit()
     return thinned
+
+
+# --- Removed ingredients (a scheduled job) ------------------------------------------------------
+
+# A little past the undo window, so a removal can't vanish while its Undo is still offered.
+PURGE_MARGIN = timedelta(hours=1)
+
+
+def purge_removed(db: DbSession, household: Household, now: datetime | None = None) -> int:
+    """Delete ingredients removed longer ago than the undo window, entirely (spec section
+    6: "Remove from Ingredients" deletes that food's record). Returns how many went.
+
+    - Its own records go: other names, sizes, "can use instead" links both ways, ask-once
+      answers, "not the same" pairs, emptied packets, and its per-packet history lines
+      and monthly totals.
+    - Ingredients merged into it go too: they only existed so old links would lead to it.
+      Their merge history goes with them.
+    - The history stays readable: every change keeps its sentence ("Used 200 g Toor dal",
+      "Removed Toor dal from Ingredients") and who did it; only its link to the
+      ingredient is cleared. Changes to other ingredients are untouched.
+    """
+    now = now or utcnow()
+    cutoff = now - undo_window(household) - PURGE_MARGIN
+    removed = set(
+        db.scalars(
+            select(Food.id).where(
+                Food.household_id == household.id,
+                Food.removed_at.is_not(None),
+                Food.removed_at < cutoff,
+            )
+        )
+    )
+    if not removed:
+        return 0
+    gone = set(removed)
+    frontier = set(removed)
+    while frontier:
+        merged_in = set(
+            db.scalars(
+                select(Food.id).where(
+                    Food.household_id == household.id, Food.merged_into_id.in_(frontier)
+                )
+            )
+        )
+        frontier = merged_in - gone
+        gone |= frontier
+
+    ids = list(gone)
+    db.execute(update(Change).where(Change.food_id.in_(ids)).values(food_id=None))
+    db.execute(delete(ChangeLine).where(ChangeLine.food_id.in_(ids)))
+    db.execute(delete(ChangeMonth).where(ChangeMonth.food_id.in_(ids)))
+    db.execute(delete(StockLot).where(StockLot.food_id.in_(ids)))
+    db.execute(
+        delete(FoodNotSame).where(
+            or_(FoodNotSame.food_a_id.in_(ids), FoodNotSame.food_b_id.in_(ids))
+        )
+    )
+    db.execute(
+        delete(FoodStandIn).where(
+            or_(FoodStandIn.food_id.in_(ids), FoodStandIn.stand_in_id.in_(ids))
+        )
+    )
+    db.execute(delete(FoodConversion).where(FoodConversion.food_id.in_(ids)))
+    db.execute(delete(FoodSize).where(FoodSize.food_id.in_(ids)))
+    db.execute(delete(FoodName).where(FoodName.food_id.in_(ids)))
+    db.execute(
+        delete(FoodMerge).where(
+            or_(FoodMerge.from_food_id.in_(ids), FoodMerge.into_food_id.in_(ids))
+        )
+    )
+    db.execute(update(Food).where(Food.id.in_(ids)).values(merged_into_id=None))
+    db.execute(delete(Food).where(Food.id.in_(ids)))
+    db.commit()
+    return len(ids)

@@ -11,7 +11,10 @@ Every job is added in `scheduler()`, in one place:
   midnight, it runs when it wakes; at start-up, mealwright.logs puts aside a file from an
   earlier day.
 
-Neither job has a lateness limit (misfire_grace_time=None): a late run still runs.
+- **Removed ingredients** (spec section 6): just after start-up and then every hour,
+  ingredients removed longer ago than the undo window (7 days) are deleted for good.
+
+No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
 Nothing here makes a network connection.
 """
@@ -58,6 +61,28 @@ def thin_history(factory: sessionmaker[Session], now: datetime | None = None) ->
                 log.exception("Couldn't thin the history (will try again within the hour)")
 
 
+def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | None = None) -> None:
+    """Delete ingredients removed longer ago than the undo window. Runs straight after
+    start-up and then every hour. Never raises."""
+    from mealwright.history import purge_removed  # imported here: history needs the API
+
+    now = now or datetime.now(UTC)
+    with factory() as db:
+        try:
+            households = list(db.scalars(select(Household)))
+        except Exception:
+            log.exception("Couldn't tidy removed ingredients (will try again within the hour)")
+            return
+        for household in households:
+            try:
+                purged = purge_removed(db, household, now)
+                if purged:
+                    log.info("Deleted %d removed ingredients for good", purged)
+            except Exception:
+                db.rollback()
+                log.exception("Couldn't tidy removed ingredients (will try again within the hour)")
+
+
 def scheduler(
     factory: sessionmaker[Session], log_file: DailyLogFile | None = None
 ) -> BackgroundScheduler:
@@ -73,6 +98,14 @@ def scheduler(
         next_run_time=datetime.now(UTC),  # catch up straight away, off the start-up path
         id="history",
         name="Thin old history",
+    )
+    jobs.add_job(
+        purge_removed_ingredients,
+        CronTrigger(minute=40, timezone=UTC),
+        args=[factory],
+        next_run_time=datetime.now(UTC),
+        id="removed-ingredients",
+        name="Delete removed ingredients for good",
     )
     if log_file is not None:
         jobs.add_job(
