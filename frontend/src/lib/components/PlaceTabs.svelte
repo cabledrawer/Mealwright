@@ -2,13 +2,15 @@
   export interface Tab {
     id: string;
     label: string;
+    /** Always shown. The others, from the end, move under "More" when they don't fit. */
+    pinned?: boolean;
   }
 </script>
 
 <script lang="ts">
-  // The phone Pantry's tabs (lead's ruling, 17 Oct): All · every place · Use soon, as a
-  // pill segmented control. Places that don't fit go under "More", so nothing scrolls
-  // sideways (spec "Decided for 0.2", Places on screen).
+  // The phone Pantry's tabs (lead's ruling, 17 Oct), as a pill segmented control, in
+  // the order given. Tabs that don't fit go under "More", so nothing scrolls sideways
+  // (spec "Decided for 0.2", Places on screen).
   import Icon from './Icon.svelte';
 
   let {
@@ -16,7 +18,6 @@
     selected = $bindable(),
     panelId
   }: {
-    /** All, then each place, then Use soon. The first and last always show. */
     tabs: Tab[];
     selected: string;
     panelId: string;
@@ -31,27 +32,39 @@
   const GAP = 2;
   const PADDING = 6;
 
-  /** How many of the middle tabs (places) fit beside All, Use soon and maybe More. */
+  const unpinned = $derived(tabs.filter((t) => !t.pinned));
+
+  /** How many of the tabs that can move (in order) fit beside the pinned ones. */
   const fitting = $derived.by(() => {
-    const middle = tabs.length - 2;
-    if (!width || widths.length !== tabs.length) return middle;
+    if (!width || widths.length !== tabs.length) return unpinned.length;
+    const pinnedWidth = tabs.reduce((sum, t, i) => sum + (t.pinned ? widths[i]! : 0), 0);
+    const movable = tabs.map((t, i) => (t.pinned ? null : widths[i]!)).filter((w) => w !== null);
+    const pinnedCount = tabs.length - movable.length;
     const total = (n: number, withMore: boolean) =>
-      widths[0]! +
-      widths.at(-1)! +
-      widths.slice(1, 1 + n).reduce((sum, w) => sum + w, 0) +
+      pinnedWidth +
+      movable.slice(0, n).reduce((sum, w) => sum + w, 0) +
       (withMore ? moreWidth : 0) +
-      GAP * (n + 1 + (withMore ? 1 : 0)) +
+      GAP * (pinnedCount + n + (withMore ? 1 : 0) - 1) +
       PADDING;
-    if (total(middle, false) <= width) return middle;
-    let n = middle - 1;
+    if (total(movable.length, false) <= width) return movable.length;
+    let n = movable.length - 1;
     while (n > 0 && total(n, true) > width) n--;
     return n;
   });
 
-  const shown = $derived([tabs[0]!, ...tabs.slice(1, 1 + fitting)]);
-  const hidden = $derived(tabs.slice(1 + fitting, -1));
-  const last = $derived(tabs.at(-1)!);
+  const hidden = $derived(unpinned.slice(fitting));
   const hiddenSelected = $derived(hidden.find((t) => t.id === selected));
+
+  /** What the tab list shows, in order, with More where the first hidden tab was. */
+  const row = $derived.by(() => {
+    const out: (Tab | 'more')[] = [];
+    for (const tab of tabs) {
+      if (hidden.includes(tab)) {
+        if (!out.includes('more')) out.push('more');
+      } else out.push(tab);
+    }
+    return out;
+  });
 
   function choose(id: string) {
     selected = id;
@@ -70,7 +83,9 @@
 
   /** Arrow keys move between tabs, as in any tab list. */
   function keys(event: KeyboardEvent) {
-    const visible = [...shown, ...(hiddenSelected ? [hiddenSelected] : []), last];
+    const visible = row
+      .map((item) => (item === 'more' ? hiddenSelected : item))
+      .filter((t): t is Tab => !!t);
     const i = visible.findIndex((t) => t.id === selected);
     if (event.key === 'ArrowRight') choose(visible[(i + 1) % visible.length]!.id);
     else if (event.key === 'ArrowLeft')
@@ -92,44 +107,36 @@
   </div>
 
   <div class="tabs" role="tablist" aria-label="Where" tabindex="-1" onkeydown={keys}>
-    {#each shown as tab (tab.id)}
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        aria-selected={selected === tab.id}
-        aria-controls={panelId}
-        tabindex={selected === tab.id ? 0 : -1}
-        onclick={() => choose(tab.id)}>{tab.label}</button
-      >
+    {#each row as item (item === 'more' ? 'more' : item.id)}
+      {#if item === 'more'}
+        <button
+          type="button"
+          role="tab"
+          class="tab more"
+          aria-selected={!!hiddenSelected}
+          aria-controls={panelId}
+          aria-haspopup="true"
+          aria-expanded={menuOpen}
+          tabindex={hiddenSelected ? 0 : -1}
+          onclick={() => (menuOpen = !menuOpen)}
+          >{hiddenSelected?.label ?? 'More'} <Icon name="chevron-down" size={14} /></button
+        >
+      {:else}
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          aria-selected={selected === item.id}
+          aria-controls={panelId}
+          tabindex={selected === item.id ? 0 : -1}
+          onclick={() => choose(item.id)}>{item.label}</button
+        >
+      {/if}
     {/each}
-    {#if hidden.length}
-      <button
-        type="button"
-        role="tab"
-        class="tab more"
-        aria-selected={!!hiddenSelected}
-        aria-controls={panelId}
-        aria-haspopup="true"
-        aria-expanded={menuOpen}
-        tabindex={hiddenSelected ? 0 : -1}
-        onclick={() => (menuOpen = !menuOpen)}
-        >{hiddenSelected?.label ?? 'More'} <Icon name="chevron-down" size={14} /></button
-      >
-    {/if}
-    <button
-      type="button"
-      role="tab"
-      class="tab"
-      aria-selected={selected === last.id}
-      aria-controls={panelId}
-      tabindex={selected === last.id ? 0 : -1}
-      onclick={() => choose(last.id)}>{last.label}</button
-    >
   </div>
 
   {#if menuOpen}
-    <ul class="menu" id="{uid}-menu" aria-label="More places">
+    <ul class="menu" id="{uid}-menu" aria-label="More">
       {#each hidden as tab (tab.id)}
         <li>
           <button

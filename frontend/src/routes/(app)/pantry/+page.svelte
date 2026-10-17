@@ -68,10 +68,13 @@
       : undefined
   );
 
+  // Phone tabs, in order. Pinned tabs always show; the others, from the end, go under
+  // "More" when they don't fit. (cabledrawer is deciding whether Use soon moves into More:
+  // that's `pinned: false` on its line.)
   const tabs = $derived([
-    { id: 'all', label: 'All' },
+    { id: 'all', label: 'All', pinned: true },
     ...places.map((p) => ({ id: `place-${p.id}`, label: p.name })),
-    { id: 'use-soon', label: 'Use soon' }
+    { id: 'use-soon', label: 'Use soon', pinned: true }
   ]);
 
   const phonePlaces = $derived(
