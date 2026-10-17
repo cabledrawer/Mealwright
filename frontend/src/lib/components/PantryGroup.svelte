@@ -319,8 +319,14 @@
     gap: var(--space-3);
   }
 
+  .some label {
+    flex: 1;
+    min-width: 0;
+  }
+
   .some input {
-    width: 7rem;
+    width: 100%;
+    max-width: 8rem;
   }
 
   .small-field {
