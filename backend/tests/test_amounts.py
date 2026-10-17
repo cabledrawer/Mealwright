@@ -50,6 +50,11 @@ TUB = Size(9, "tub", "tubs", 500_000)
         (1_500, "count", None, None, "1½ left"),
         (0, "count", None, None, "0 left"),
         (0, "weight", PACKET, None, "0 g"),
+        (200, "count", None, None, "under ½ left"),
+        (240, "count", None, "egg", "under ½ egg"),
+        (4, "weight", None, None, "under 0.1 g"),
+        (49, "volume", None, None, "under 0.1 ml"),
+        (50, "weight", None, None, "0.1 g"),
     ],
 )
 def test_as_sold_display(
@@ -186,3 +191,20 @@ def test_about_is_two_significant_figures(milli: int) -> None:
     assert abs(rounded - value) <= abs(value) * Decimal("0.05")
     digits = rounded.normalize().as_tuple().digits
     assert len(digits) <= 2 or all(d == 0 for d in digits[2:])
+
+
+@given(
+    st.integers(min_value=1, max_value=10**12),
+    st.sampled_from(["weight", "volume", "count"]),
+    st.one_of(st.none(), sizes_milli),
+    st.sampled_from([None, "egg"]),
+)
+def test_some_never_shows_as_nothing(
+    milli: int, counted_as: str, size_milli: int | None, word: str | None
+) -> None:
+    """A non-zero amount never reads as zero ("0 g", "0 left", "0 eggs")."""
+    size = Size(1, "packet", "packets", size_milli) if size_milli else None
+    shown = as_sold(milli, counted_as, size, word, None)  # type: ignore[arg-type]
+    for text in (shown.short, *shown.display.split(" · ")):
+        assert not text.startswith("0 "), shown.display
+        assert "about 0 " not in text, shown.display

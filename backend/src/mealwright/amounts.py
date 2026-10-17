@@ -153,6 +153,8 @@ def _with_unit(value: Decimal, counted_as: CountedAs) -> str:
 def exact_text(milli: int, counted_as: CountedAs) -> str:
     """An amount as typed or bought: "200 g", "7.5 g", "1 kg", "1.25 kg", "1.5 L"."""
     value = Decimal(milli) / MILLI
+    if 0 < value < Decimal("0.05"):  # would round to nothing: never show "0 g" for some
+        return "under " + _with_unit(Decimal("0.1"), counted_as)
     if value >= 10:
         return _with_unit(value.quantize(Decimal(1), rounding=ROUND_HALF_UP), counted_as)
     return _with_unit(value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), counted_as)
@@ -167,6 +169,8 @@ def count_text(milli: int, word: str | None, word_plural: str | None) -> str:
     """Count foods, to the nearest ½: "1½ onions" style, or "9 left" with no count word."""
     halves = round_half_up(Decimal(milli) / 500)
     number = quarters_text(halves * 2)
+    if halves == 0 and milli > 0:  # never "0 left" when there's some
+        return f"under ½ {word}" if word else "under ½ left"
     if word:
         many = halves not in (1, 2)  # "½ slice", "1 slice", "0 slices", "1½ slices"
         return f"{number} {(word_plural or plural(word)) if many else word}"
