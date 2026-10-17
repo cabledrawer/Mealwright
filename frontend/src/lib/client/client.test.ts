@@ -66,7 +66,7 @@ describe('foods', () => {
 });
 
 describe('undo on the server', () => {
-  const change = { id: 830, summary: 'Undid: Added 1 packet toor dal' };
+  const change = { id: 830, summary: 'Undid: Added 1 packet Toor dal' };
 
   it('says "Undone" when all of it was put back, and tells screens to refresh', async () => {
     const calls = fakeServer([200, { result: 'done', message: 'Undone.', change }]);

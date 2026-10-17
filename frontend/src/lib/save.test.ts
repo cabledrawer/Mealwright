@@ -192,7 +192,7 @@ describe('ask once', () => {
     food_id: 7,
     food_name: 'Toor dal',
     kind: 'weight_per_ml',
-    question: 'About how much does 1 cup of toor dal weigh?',
+    question: 'About how much does 1 cup of Toor dal weigh?',
     unit: 'g',
     per: 'cup',
     cup_ml: 250,
@@ -254,7 +254,7 @@ describe('Undo and a question', () => {
       food_id: 7,
       food_name: 'Toor dal',
       kind: 'item_weight' as const,
-      question: 'About how much does 1 toor dal weigh?',
+      question: 'Toor dal: about how much does one weigh?',
       suggested: 100
     };
     const change = placeChange({ place: 'Cupboard' }, 'Fridge', async (_id, answers) => {
@@ -277,11 +277,11 @@ describe("the server's own words", () => {
     const change = placeChange(
       { place: 'Cupboard' },
       'Fridge',
-      async () => 'Moved toor dal → Fridge'
+      async () => 'Moved Toor dal → Fridge'
     );
     change.undo = { label: 'Moved', labelFrom: (summary) => summary, run: () => {} };
     await save(change);
-    expect(toasts.current?.message).toBe('Moved toor dal → Fridge');
+    expect(toasts.current?.message).toBe('Moved Toor dal → Fridge');
   });
 
   it('a refusal can be handled by the caller instead of a toast', async () => {

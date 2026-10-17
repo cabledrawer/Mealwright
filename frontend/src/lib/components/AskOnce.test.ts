@@ -11,7 +11,7 @@ const ask: Ask = {
   food_id: 7,
   food_name: 'Toor dal',
   kind: 'weight_per_ml',
-  question: 'About how much does 1 cup of toor dal weigh?',
+  question: 'About how much does 1 cup of Toor dal weigh?',
   unit: 'g',
   per: 'cup',
   cup_ml: 250,
@@ -82,7 +82,7 @@ describe('the "ask once" question', () => {
     const answer = askOnce.ask({
       ...ask,
       kind: 'item_weight',
-      question: 'About how much does 1 toor dal weigh?',
+      question: 'Toor dal: about how much does one weigh?',
       per: 'item',
       suggested: null
     });

@@ -1,5 +1,5 @@
 // "Ask once" (spec, Foods and units): when the server needs a figure it doesn't know
-// ("About how much does 1 cup of toor dal weigh?"), the app asks, with a "Remember for
+// ("About how much does 1 cup of Toor dal weigh?"), the app asks, with a "Remember for
 // next time" switch, and sends the same change again with the answer (contract 4.4).
 // AskOnce.svelte shows the question; save() waits for the answer.
 

@@ -26,7 +26,7 @@ describe('the ingredient editor, opened from anywhere', () => {
       'GET /shops': [200, SHOPS],
       'PATCH /foods/7': (request) => {
         food = { ...food, ...(request.body as object) } as typeof food;
-        return [200, { food, change: changeOf(900, 'Changed toor dal') }];
+        return [200, { food, change: changeOf(900, 'Changed Toor dal') }];
       },
       'POST /foods/7/other-names': (request) => {
         const name = (request.body as { name: string }).name;
@@ -103,7 +103,7 @@ describe('the ingredient editor, opened from anywhere', () => {
     const patch = requests.find((r) => r.method === 'PATCH')!;
     expect(patch.body).toEqual({ staple: true });
     expect(patch.headers['idempotency-key']).toMatch(UUID);
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Changed toor dal'));
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Changed Toor dal'));
     expect(toasts.current?.action?.label).toBe('Undo');
 
     toasts.act();
