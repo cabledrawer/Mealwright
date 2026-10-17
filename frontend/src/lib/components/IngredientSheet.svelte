@@ -2,16 +2,16 @@
   // Shows the ingredient editor when something asks for it (ingredientEditor.open):
   // a sheet from the bottom on phones, a panel on the right on desktop. A real modal
   // dialog, so focus stays inside, Escape closes it, and focus goes back afterwards.
-  import { foodById } from '$lib/foods.sample.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import IngredientEditor from './IngredientEditor.svelte';
 
   let dialog: HTMLDialogElement;
-  const food = $derived(foodById(ingredientEditor.foodId));
+  let name = $state('');
+  const foodId = $derived(ingredientEditor.foodId);
 
   $effect(() => {
-    if (food && !dialog.open) dialog.showModal();
-    else if (!food && dialog.open) dialog.close();
+    if (foodId !== null && !dialog.open) dialog.showModal();
+    else if (foodId === null && dialog.open) dialog.close();
   });
 
   // Escape fires "cancel" straight away. (Not "close": that arrives a moment later, and
@@ -25,14 +25,22 @@
 
 <dialog
   bind:this={dialog}
-  aria-label={food ? `Edit ${food.name.toLocaleLowerCase()}` : 'Edit ingredient'}
+  aria-label={name ? `Edit ${name.toLocaleLowerCase()}` : 'Edit ingredient'}
   oncancel={() => ingredientEditor.close()}
   onclick={closeOnBackdrop}
 >
-  {#if food}
+  {#if foodId !== null}
     <div class="body">
       <span class="handle" aria-hidden="true"></span>
-      <IngredientEditor {food} variant="sheet" onclose={() => ingredientEditor.close()} />
+      {#key foodId}
+        <IngredientEditor
+          {foodId}
+          variant="sheet"
+          onname={(n) => (name = n)}
+          onclose={() => ingredientEditor.close()}
+          onopen={(id) => ingredientEditor.open(id)}
+        />
+      {/key}
     </div>
   {/if}
 </dialog>
@@ -84,7 +92,7 @@
   @media (min-width: 768px) {
     dialog {
       inset: var(--space-7) var(--space-7) var(--space-7) auto;
-      width: min(420px, calc(100vw - 2 * var(--space-7)));
+      width: min(440px, calc(100vw - 2 * var(--space-7)));
       height: auto;
       max-height: calc(100dvh - 2 * var(--space-7));
       margin: 0;

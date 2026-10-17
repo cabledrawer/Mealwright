@@ -1,222 +1,559 @@
 <script lang="ts">
-  // The ingredient editor's contents (mockups Ingredients-Phone, Ingredients-Desktop).
-  // The same component everywhere: inside the phone sheet / desktop panel
-  // (IngredientSheet.svelte), and beside the list on the Ingredients page.
+  // The ingredient editor (mockups Ingredients-Phone, Ingredients-Desktop). The same
+  // component everywhere: in the phone sheet / desktop panel (IngredientSheet.svelte)
+  // and beside the list on the Ingredients page. Saves as you go: each field is saved
+  // when it's left or switched, with Undo (foodEditor.svelte.ts).
   //
-  // SKELETON: edits change the placeholder kitchen only. Saving through the API (with
-  // Undo) arrives with the 0.2 API. "Used in N recipes" waits for recipes (0.4).
-  import { describeSaleUnit, type Food } from '$lib/foods';
-  import { kitchen } from '$lib/foods.sample.svelte';
-  import { undoHistory } from '$lib/undo.svelte';
+  // Waiting for later milestones (spec "Decided for 0.2"): "Used in N recipes" (0.4).
+  import { parseAmount } from '$lib/amountText';
+  import type { CountedAs, Food, Ref } from '$lib/client/types';
+  import { FoodModel } from '$lib/foodEditor.svelte';
+  import { placesAndShops } from '$lib/placesAndShops.svelte';
+  import { toasts } from '$lib/toast.svelte';
+  import FoodPicker from './FoodPicker.svelte';
   import Switch from './Switch.svelte';
 
   let {
-    food,
+    foodId,
     variant,
-    onclose
+    onname,
+    onclose,
+    onopen
   }: {
-    food: Food;
+    foodId: number;
+    /** Tells the dialog or panel around the editor the food's name ("Edit toor dal"). */
+    onname?: (name: string) => void;
     /** "sheet" on phones (with Done), "panel" beside the list on desktop. */
     variant: 'sheet' | 'panel';
     onclose?: () => void;
+    /** Show another food instead ("name taken → open it"). */
+    onopen?: (id: number) => void;
   } = $props();
 
   const uid = $props.id();
+  const model = $derived(new FoodModel(foodId));
 
+  $effect(() => {
+    model.onGone = () => onclose?.();
+    model.onOpenOther = (id) => onopen?.(id);
+    void model.load();
+    placesAndShops.load().catch(() => {});
+  });
+
+  const food = $derived(model.food);
+
+  $effect(() => {
+    onname?.(food?.name ?? '');
+  });
+
+  let renaming = $state(false);
   let addingName = $state(false);
-  let newName = $state('');
-  let addingStandIn = $state(false);
+  let addingSize = $state(false);
+  let addingShop = $state(false);
+  let picking = $state<'stand-in' | 'merge' | null>(null);
+  let lowProblem = $state<string | null>(null);
+  let sizeProblem = $state<string | null>(null);
 
-  const standIns = $derived(
-    food.standInIds
-      .map((id) => kitchen.foods.find((other) => other.id === id))
-      .filter((other): other is Food => !!other)
-  );
-  const standInChoices = $derived(
-    kitchen.foods.filter((other) => other.id !== food.id && !food.standInIds.includes(other.id))
+  const COUNTED: { value: CountedAs; label: string }[] = [
+    { value: 'weight', label: 'By weight' },
+    { value: 'volume', label: 'By volume' },
+    { value: 'count', label: 'One by one' }
+  ];
+
+  const sizeUnits = $derived(
+    food?.counted_as === 'weight'
+      ? ['g', 'kg']
+      : food?.counted_as === 'volume'
+        ? ['ml', 'l']
+        : [food?.count_word_plural ?? 'items']
   );
 
-  function addName() {
-    const name = newName.trim();
-    if (name && !food.otherNames.some((n) => n.toLocaleLowerCase() === name.toLocaleLowerCase())) {
-      food.otherNames.push(name);
-    }
-    newName = '';
+  const lower = (text: string) => text.toLocaleLowerCase();
+  const valueOf = (event: Event) => (event.currentTarget as HTMLInputElement).value;
+
+  function rename(event: Event) {
+    renaming = false;
+    const name = valueOf(event).trim();
+    if (!food || !name || name === food.name) return;
+    void model.setField({ name }, (f) => (f.name = name), `Renamed to ${name}`);
+  }
+
+  function addName(event: Event) {
+    const name = valueOf(event).trim();
     addingName = false;
+    if (!food || !name) return;
+    const taken =
+      lower(food.name) === lower(name) ||
+      food.other_names.some((n) => lower(n.name) === lower(name));
+    if (!taken) void model.addName(name);
   }
 
-  function removeName(name: string) {
-    food.otherNames = food.otherNames.filter((n) => n !== name);
+  /** "200 g" or "200" → 200 (grams). Empty → null (forget it). Nonsense → undefined. */
+  function grams(text: string): number | null | undefined {
+    const t = text.trim().toLowerCase().replace(/\s*g$/, '').replace(',', '.');
+    if (!t) return null;
+    const n = Number(t);
+    return n > 0 ? n : undefined;
   }
 
-  function addStandIn(event: Event) {
-    const id = Number((event.currentTarget as HTMLSelectElement).value);
-    if (id) food.standInIds.push(id);
-    addingStandIn = false;
+  function setCupWeight(event: Event) {
+    const value = grams(valueOf(event));
+    if (value === undefined || !food) return;
+    void model.setField(
+      { cup_weight: value },
+      (f) =>
+        (f.cup_weight =
+          value === null
+            ? null
+            : { grams: value, from: 'you', cup_ml: f.cup_weight?.cup_ml ?? 250 }),
+      value === null ? 'Forgot the weight of 1 cup' : `Weight of 1 cup: ${value} g`
+    );
   }
 
-  function removeStandIn(id: number) {
-    food.standInIds = food.standInIds.filter((other) => other !== id);
+  function setItemWeight(event: Event) {
+    const value = grams(valueOf(event));
+    if (value === undefined || !food) return;
+    void model.setField(
+      { item_weight: value },
+      (f) => (f.item_weight = value === null ? null : { grams: value, from: 'you' }),
+      value === null ? 'Forgot the weight of one' : `Weight of one: ${value} g`
+    );
   }
 
-  /** Focus a field as soon as it appears (the "+ Add" boxes). */
+  function setRunningLow(event: Event) {
+    if (!food) return;
+    const text = valueOf(event).trim();
+    if (!text) {
+      lowProblem = null;
+      void model.setField(
+        { running_low_at: null },
+        (f) => (f.running_low_at = null),
+        'No running-low level'
+      );
+      return;
+    }
+    const amount = parseAmount(text, food);
+    if (!amount) {
+      lowProblem = 'Try something like ½ packet or 250 g.';
+      return;
+    }
+    lowProblem = null;
+    void model.setField(
+      { running_low_at: amount },
+      (f) => (f.running_low_at = { amount: amount.amount, display: text }),
+      `Running low at ${text}`
+    );
+  }
+
+  function setCountedAs(event: Event) {
+    const value = valueOf(event) as CountedAs;
+    void model.setField(
+      { counted_as: value },
+      (f) => (f.counted_as = value),
+      'Changed how it’s counted'
+    );
+  }
+
+  function setCountWord(event: Event) {
+    const word = valueOf(event).trim() || null;
+    if (!food || word === food.count_word) return;
+    void model.setField(
+      { count_word: word },
+      (f) => (f.count_word = word),
+      word ? `Counted in ${word}s` : 'Counted one by one'
+    );
+  }
+
+  function setPlace(event: Event) {
+    const id = Number(valueOf(event)) || null;
+    const place = placesAndShops.places.find((p) => p.id === id) ?? null;
+    void model.setField(
+      { place_id: id },
+      (f) => (f.place = place && { id: place.id, name: place.name }),
+      place ? `Lives in ${place.name}` : 'No usual place'
+    );
+  }
+
+  function setShop(shop: Ref | null) {
+    void model.setField(
+      { shop_id: shop?.id ?? null },
+      (f) => (f.shop = shop),
+      shop ? `Usual shop: ${shop.name}` : 'No usual shop'
+    );
+  }
+
+  async function addShop(event: Event) {
+    const name = valueOf(event).trim();
+    addingShop = false;
+    if (!name) return;
+    try {
+      setShop(await placesAndShops.addShop(name));
+    } catch {
+      toasts.show('Couldn’t add that shop — try again', { tone: 'problem' });
+    }
+  }
+
+  function addSize(event: SubmitEvent) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget as HTMLFormElement);
+    const name = String(form.get('name') ?? '')
+      .trim()
+      .toLowerCase();
+    const amount = Number(String(form.get('amount') ?? '').replace(',', '.'));
+    const unit = food?.counted_as === 'count' ? 'count' : String(form.get('unit') ?? '');
+    if (!name || !(amount > 0)) {
+      sizeProblem = 'Give the size a name and an amount, like packet = 500 g.';
+      return;
+    }
+    sizeProblem = null;
+    addingSize = false;
+    void model.addSize(name, amount, unit);
+  }
+
+  function pickStandIn(other: Ref) {
+    picking = null;
+    void model.addStandIn(other);
+  }
+
+  function pickMerge(other: Ref) {
+    picking = null;
+    void model.mergeInto(other);
+  }
+
+  /** Enter saves a box; Escape closes it without saving. */
+  function boxKeys(close: () => void) {
+    return (event: KeyboardEvent) => {
+      const box = event.currentTarget as HTMLInputElement;
+      if (event.key === 'Enter') box.blur();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        box.value = box.defaultValue;
+        close();
+      }
+    };
+  }
+
   function focusOnShow(node: HTMLElement) {
     node.focus();
   }
+
+  const excluded = (f: Food) => [f.id, ...f.stand_ins.map((s) => s.id)];
 </script>
 
 <div class="editor {variant}">
-  <header>
-    <h2 id="{uid}-title">{food.name}</h2>
-    {#if variant === 'sheet'}
-      <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
-    {:else}
-      <span class="saves">Saves as you go</span>
+  {#if !food}
+    <header>
+      <h2>{model.problem ? 'Ingredient' : 'Loading…'}</h2>
+      {#if variant === 'sheet'}
+        <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
+      {/if}
+    </header>
+    {#if model.problem}
+      <p class="hint" role="alert">{model.problem}</p>
+      <button type="button" class="quiet" onclick={() => void model.load()}>Try again</button>
     {/if}
-  </header>
-
-  <section aria-labelledby="{uid}-names">
-    <h3 id="{uid}-names">Other names</h3>
-    <ul class="chips">
-      {#each food.otherNames as name (name)}
-        <li class="chip">
-          {name}<button
-            type="button"
-            class="remove"
-            aria-label="Remove {name}"
-            onclick={() => removeName(name)}>✕</button
+  {:else}
+    <header>
+      {#if renaming}
+        <input
+          class="rename"
+          aria-label="Name"
+          value={food.name}
+          use:focusOnShow
+          onchange={rename}
+          onblur={() => (renaming = false)}
+          onkeydown={boxKeys(() => (renaming = false))}
+        />
+      {:else}
+        <h2>
+          <button type="button" class="name" title="Rename" onclick={() => (renaming = true)}
+            >{food.name}</button
           >
+        </h2>
+      {/if}
+      {#if variant === 'sheet'}
+        <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
+      {:else}
+        <span class="saves">Saves as you go</span>
+      {/if}
+    </header>
+
+    {#if food.maybe_same.length}
+      <section class="maybe" aria-labelledby="{uid}-maybe">
+        <h3 id="{uid}-maybe">Maybe the same</h3>
+        {#each food.maybe_same as other (other.id)}
+          <div class="maybe-row">
+            <span>Is it the same as <b>{other.name}</b>?</span>
+            <span class="maybe-buttons">
+              <button type="button" class="merge-now" onclick={() => void model.mergeInto(other)}
+                >Merge</button
+              >
+              <button type="button" class="quiet" onclick={() => void model.notTheSame(other)}
+                >Not the same</button
+              >
+            </span>
+          </div>
+        {/each}
+      </section>
+    {/if}
+
+    <section aria-labelledby="{uid}-names">
+      <h3 id="{uid}-names">Other names</h3>
+      <ul class="chips">
+        {#each food.other_names as name (name.id)}
+          <li class="chip">
+            {name.name}<button
+              type="button"
+              class="remove"
+              aria-label="Remove {name.name}"
+              onclick={() => void model.removeName(name)}>✕</button
+            >
+          </li>
+        {/each}
+        <li>
+          {#if addingName}
+            <input
+              class="chip-input"
+              aria-label="Another name for {lower(food.name)}"
+              use:focusOnShow
+              onchange={addName}
+              onblur={() => (addingName = false)}
+              onkeydown={boxKeys(() => (addingName = false))}
+            />
+          {:else}
+            <button type="button" class="add" onclick={() => (addingName = true)}>+ Add</button>
+          {/if}
         </li>
-      {/each}
-      <li>
-        {#if addingName}
+      </ul>
+      <p class="hint">Recipe imports match any of these names.</p>
+    </section>
+
+    <section aria-labelledby="{uid}-sold">
+      <h3 id="{uid}-sold">How it's sold</h3>
+      <ul class="sold">
+        {#each food.sizes as size (size.id)}
+          <li>
+            <span class="size-name">
+              {size.display}
+              {#if size.added_when_shopping && !size.usual}
+                <span class="note">added when shopping</span>
+              {/if}
+            </span>
+            <span class="size-end">
+              {#if size.usual}
+                <span class="tag">Usual</span>
+              {:else}
+                <button type="button" class="link" onclick={() => void model.makeUsual(size)}
+                  >Make usual</button
+                >
+              {/if}
+              <button
+                type="button"
+                class="remove"
+                aria-label="Remove the {size.name} size"
+                onclick={() => void model.removeSize(size)}>✕</button
+              >
+            </span>
+          </li>
+        {/each}
+        <li class="add-row">
+          {#if addingSize}
+            <form class="size-form" onsubmit={addSize}>
+              <label>
+                Name
+                <input name="name" placeholder="packet" use:focusOnShow />
+              </label>
+              <span class="equals" aria-hidden="true">=</span>
+              <label>
+                Amount
+                <input name="amount" inputmode="decimal" placeholder="500" />
+              </label>
+              <label>
+                Unit
+                <select name="unit">
+                  {#each sizeUnits as unit (unit)}<option>{unit}</option>{/each}
+                </select>
+              </label>
+              <span class="size-buttons">
+                <button type="submit" class="small-main">Add</button>
+                <button type="button" class="quiet" onclick={() => (addingSize = false)}
+                  >Cancel</button
+                >
+              </span>
+              {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
+            </form>
+          {:else}
+            <button type="button" class="link" onclick={() => (addingSize = true)}>
+              + Add a size
+            </button>
+          {/if}
+        </li>
+      </ul>
+    </section>
+
+    <div class="fields">
+      <label>
+        Counted
+        <select value={food.counted_as} onchange={setCountedAs}>
+          {#each COUNTED as option (option.value)}
+            <option value={option.value}>{option.label}</option>
+          {/each}
+        </select>
+      </label>
+      {#if food.counted_as === 'count'}
+        <label>
+          Each one is a
           <input
-            class="chip-input"
-            aria-label="Another name for {food.name}"
-            bind:value={newName}
-            use:focusOnShow
-            onkeydown={(event) => {
-              if (event.key === 'Enter') addName();
-              if (event.key === 'Escape') {
-                // Close just this box, not the whole sheet.
-                event.preventDefault();
-                event.stopPropagation();
-                addingName = false;
-              }
-            }}
-            onblur={addName}
+            value={food.count_word ?? ''}
+            placeholder="slice, piece…"
+            onchange={setCountWord}
+            onkeydown={boxKeys(() => {})}
           />
-        {:else}
-          <button type="button" class="add" onclick={() => (addingName = true)}>+ Add</button>
-        {/if}
-      </li>
-    </ul>
-    <p class="hint">Recipe imports match any of these names.</p>
-  </section>
-
-  <section aria-labelledby="{uid}-sold">
-    <h3 id="{uid}-sold">How it's sold</h3>
-    <ul class="sold">
-      {#each food.saleUnits as unit (unit.name)}
-        <li class:usual={unit.usual}>
-          <span>{describeSaleUnit(unit, food)}</span>
-          {#if unit.usual}<span class="tag">Usual</span>
-          {:else if unit.note}<span class="note">{unit.note}</span>{/if}
-        </li>
-      {/each}
-      <li class="add-row">
-        <button type="button" class="add" disabled title="Coming with the 0.2 API">
-          + Add a size
-        </button>
-      </li>
-    </ul>
-  </section>
-
-  <div class="fields">
-    <label>
-      Weight of 1 cup
-      <input type="text" bind:value={food.cupWeight} placeholder="e.g. 200 g" />
-    </label>
-    <label>
-      Running low at
-      <input type="text" bind:value={food.runningLow} placeholder="e.g. ½ packet" />
-    </label>
-    <label>
-      Lives in
-      <select bind:value={food.placeId}>
-        {#each kitchen.places as place (place.id)}
-          <option value={place.id}>{place.name}</option>
-        {/each}
-      </select>
-    </label>
-    <label>
-      Usual shop
-      <select bind:value={food.shopId}>
-        <option value={null}>Any shop</option>
-        {#each kitchen.shops as shop (shop.id)}
-          <option value={shop.id}>{shop.name}</option>
-        {/each}
-      </select>
-    </label>
-  </div>
-
-  <div class="switch-row">
-    <span class="switch-text">
-      <span id="{uid}-staple" class="switch-label">Staple</span>
-      <span id="{uid}-staple-hint" class="hint">Assume it's in stock; don't count it</span>
-    </span>
-    <Switch bind:checked={food.staple} labelledby="{uid}-staple" describedby="{uid}-staple-hint" />
-  </div>
-
-  <section aria-labelledby="{uid}-instead">
-    <h3 id="{uid}-instead">Can use instead</h3>
-    <ul class="chips">
-      {#each standIns as other (other.id)}
-        <li class="chip">
-          {other.name}<button
-            type="button"
-            class="remove"
-            aria-label="Remove {other.name.toLocaleLowerCase()}"
-            onclick={() => removeStandIn(other.id)}>✕</button
-          >
-        </li>
-      {/each}
-      <li>
-        {#if addingStandIn}
+        </label>
+        <label>
+          Weight of one
+          <input
+            value={food.item_weight ? `${food.item_weight.grams} g` : ''}
+            placeholder="e.g. 150 g"
+            onchange={setItemWeight}
+            onkeydown={boxKeys(() => {})}
+          />
+        </label>
+      {:else}
+        <label>
+          Weight of 1 cup
+          <input
+            value={food.cup_weight ? `${food.cup_weight.grams} g` : ''}
+            placeholder="e.g. 200 g"
+            onchange={setCupWeight}
+            onkeydown={boxKeys(() => {})}
+          />
+        </label>
+      {/if}
+      <label>
+        Running low at
+        <input
+          value={food.running_low_at?.display ?? ''}
+          placeholder="e.g. ½ packet"
+          aria-invalid={lowProblem ? true : undefined}
+          aria-describedby={lowProblem ? `${uid}-low` : undefined}
+          onchange={setRunningLow}
+          onkeydown={boxKeys(() => {})}
+        />
+      </label>
+      <label>
+        Lives in
+        <select value={food.place?.id ?? ''} onchange={setPlace}>
+          {#if !food.place}<option value="">Not set</option>{/if}
+          {#each placesAndShops.places as place (place.id)}
+            <option value={place.id}>{place.name}</option>
+          {/each}
+        </select>
+      </label>
+      {#if lowProblem}<p id="{uid}-low" class="problem wide" role="alert">{lowProblem}</p>{/if}
+      <div class="shop wide">
+        <label>
+          Usual shop
           <select
-            class="chip-input"
-            aria-label="Can use instead of {food.name}"
-            use:focusOnShow
-            onchange={addStandIn}
-            onblur={() => (addingStandIn = false)}
+            value={food.shop?.id ?? ''}
+            onchange={(event) => {
+              const id = Number(valueOf(event)) || null;
+              setShop(placesAndShops.shops.find((s) => s.id === id) ?? null);
+            }}
           >
-            <option value="">Pick one…</option>
-            {#each standInChoices as other (other.id)}
-              <option value={other.id}>{other.name}</option>
+            <option value="">Any shop</option>
+            {#each placesAndShops.shops as shop (shop.id)}
+              <option value={shop.id}>{shop.name}</option>
             {/each}
           </select>
+        </label>
+        {#if addingShop}
+          <input
+            class="chip-input"
+            aria-label="New shop's name"
+            use:focusOnShow
+            onchange={addShop}
+            onblur={() => (addingShop = false)}
+            onkeydown={boxKeys(() => (addingShop = false))}
+          />
         {:else}
-          <button type="button" class="add" onclick={() => (addingStandIn = true)}>+ Add</button>
+          <button type="button" class="add" onclick={() => (addingShop = true)}>+ Shop</button>
         {/if}
-      </li>
-    </ul>
-  </section>
+      </div>
+    </div>
 
-  <footer>
-    <button type="button" class="merge" disabled title="Coming with the 0.2 API">
-      Merge with another…
-    </button>
-    {#if variant === 'panel'}
+    <div class="switch-row">
+      <span class="switch-text">
+        <span id="{uid}-staple" class="switch-label">Staple</span>
+        <span id="{uid}-staple-hint" class="hint">Assume it's in stock; don't count it</span>
+      </span>
+      <Switch
+        checked={food.staple}
+        labelledby="{uid}-staple"
+        describedby="{uid}-staple-hint"
+        onchange={(on) =>
+          void model.setField(
+            { staple: on },
+            (f) => (f.staple = on),
+            on ? `${food.name} is a staple` : `${food.name} isn’t a staple`
+          )}
+      />
+    </div>
+
+    <section aria-labelledby="{uid}-instead">
+      <h3 id="{uid}-instead">Can use instead</h3>
+      <ul class="chips">
+        {#each food.stand_ins as other (other.id)}
+          <li class="chip">
+            {other.name}<button
+              type="button"
+              class="remove"
+              aria-label="Remove {lower(other.name)}"
+              onclick={() => void model.removeStandIn(other)}>✕</button
+            >
+          </li>
+        {/each}
+        <li class:wide-item={picking === 'stand-in'}>
+          {#if picking === 'stand-in'}
+            <FoodPicker
+              label="Can use instead of {lower(food.name)}"
+              exclude={excluded(food)}
+              onpick={pickStandIn}
+              oncancel={() => (picking = null)}
+            />
+          {:else}
+            <button type="button" class="add" onclick={() => (picking = 'stand-in')}>+ Add</button>
+          {/if}
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      {#if picking === 'merge'}
+        <FoodPicker
+          label="Merge {lower(food.name)} into"
+          exclude={[food.id]}
+          onpick={pickMerge}
+          oncancel={() => (picking = null)}
+        />
+      {:else}
+        <button type="button" class="merge" onclick={() => (picking = 'merge')}>
+          Merge with another…
+        </button>
+      {/if}
       <button
         type="button"
-        class="undo"
-        disabled={undoHistory.size === 0}
-        onclick={() => void undoHistory.undoLast()}>Undo last change</button
+        class="link muted"
+        disabled={!food.last_change?.can_undo}
+        title={food.last_change?.can_undo ? `Undo: ${food.last_change.summary}` : undefined}
+        onclick={() => void model.undoLast()}>Undo last change</button
       >
-    {:else}
-      <span class="hint">Saves as you go · Undo</span>
-    {/if}
-  </footer>
+      <button type="button" class="link muted remove-food" onclick={() => void model.remove()}
+        >Remove</button
+      >
+    </footer>
+  {/if}
 </div>
 
 <style>
@@ -238,12 +575,36 @@
   }
 
   h2 {
+    min-width: 0;
     font-size: 1.375rem;
     font-weight: var(--weight-extrabold);
     overflow-wrap: anywhere;
   }
 
+  .name {
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: text;
+  }
+
+  .rename {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-md);
+    background: var(--color-field);
+    color: var(--color-text);
+    font: var(--weight-extrabold) 1.375rem var(--font-ui);
+  }
+
   .done {
+    flex: none;
     min-height: var(--touch-target);
     padding: 0 var(--space-7);
     border: none;
@@ -256,6 +617,7 @@
   }
 
   .saves {
+    flex: none;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
@@ -281,6 +643,16 @@
     font-size: var(--text-sm);
   }
 
+  .problem {
+    color: var(--color-warning-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+
   ul {
     margin: 0;
     padding: 0;
@@ -292,6 +664,10 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3);
+  }
+
+  .wide-item {
+    flex-basis: 100%;
   }
 
   .chip {
@@ -310,6 +686,7 @@
   .remove {
     position: relative;
     display: flex;
+    flex: none;
     align-items: center;
     justify-content: center;
     width: 24px;
@@ -343,11 +720,28 @@
     cursor: pointer;
   }
 
-  .add:disabled,
-  .merge:disabled,
-  .undo:disabled {
+  .link {
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .link.muted {
+    color: var(--color-text-muted);
+  }
+
+  .link:disabled {
     cursor: not-allowed;
     opacity: 0.6;
+  }
+
+  .remove-food {
+    margin-left: auto;
   }
 
   .chip-input {
@@ -361,7 +755,67 @@
     font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
-  /* How it's sold: rows in the desktop panel, chips in the phone sheet. */
+  .quiet {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .small-main {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .maybe {
+    padding: var(--space-6);
+    border-radius: 14px;
+    background: var(--color-maybe-row);
+  }
+
+  .maybe h3 {
+    color: var(--color-maybe-text);
+  }
+
+  .maybe-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    font-size: var(--text-base);
+  }
+
+  .maybe-buttons {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  .merge-now {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-maybe-button);
+    color: var(--color-maybe-chip-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  /* How it's sold */
   .sold {
     padding: var(--space-1) var(--space-6);
     border: 1px solid var(--color-border);
@@ -370,10 +824,11 @@
 
   .sold li {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: var(--space-4);
-    min-height: 42px;
+    min-height: var(--touch-target);
     border-bottom: 1px solid var(--color-divider);
     font-size: var(--text-base);
   }
@@ -382,9 +837,17 @@
     border-bottom: none;
   }
 
-  .sold .add-row .add {
-    padding: 0;
-    border: none;
+  .size-name {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-2) 0;
+    font-weight: var(--weight-semibold);
+  }
+
+  .size-end {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
   }
 
   .tag {
@@ -398,45 +861,27 @@
     font-size: var(--text-sm);
   }
 
-  .sheet .sold {
+  .size-form {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: 0;
-    border: none;
+    align-items: flex-end;
+    gap: var(--space-4);
+    width: 100%;
+    padding: var(--space-4) 0;
   }
 
-  .sheet .sold li {
-    min-height: 32px;
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-chip);
-    font-size: var(--text-md);
+  .size-form label {
+    flex: 1 1 5rem;
+  }
+
+  .equals {
+    padding-bottom: 12px;
     font-weight: var(--weight-bold);
   }
 
-  .sheet .sold li.usual {
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
-  }
-
-  .sheet .sold li.usual .tag::before {
-    content: '· ';
-  }
-
-  .sheet .sold li .note {
-    display: none;
-  }
-
-  .sheet .sold li.add-row {
-    padding: 0;
-    background: transparent;
-  }
-
-  .sheet .sold .add-row .add {
-    padding: 0 var(--space-6);
-    border: 1px dashed var(--color-add-border);
+  .size-buttons {
+    display: flex;
+    gap: var(--space-3);
   }
 
   .fields {
@@ -467,6 +912,20 @@
     font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
+  label input[aria-invalid='true'] {
+    border-color: var(--color-warning-text);
+  }
+
+  .shop {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-4);
+  }
+
+  .shop label {
+    flex: 1;
+  }
+
   .switch-row {
     display: flex;
     justify-content: space-between;
@@ -489,7 +948,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-4) var(--space-6);
     padding-top: 14px;
     border-top: 1px solid var(--color-divider);
   }
@@ -501,17 +960,6 @@
     border-radius: var(--radius-full);
     background: var(--color-surface);
     color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .undo {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-3);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;

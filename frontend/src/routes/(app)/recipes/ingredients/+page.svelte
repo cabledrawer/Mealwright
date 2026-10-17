@@ -1,58 +1,98 @@
 <script lang="ts">
   // Ingredients (mockups Ingredients-Phone, Ingredients-Desktop): every food, searchable
   // by any name, with the editor. Desktop shows the editor beside the list; phones open
-  // it as a sheet. The recipe counts and "Not in any recipe" wait for recipes (0.4).
-  //
-  // SKELETON: placeholder foods until the 0.2 API is ready.
+  // it as a sheet. Recipe counts and "Not in any recipe" wait for recipes (0.4).
+  import { browser } from '$app/environment';
+  import { serverUndo } from '$lib/client/changes';
+  import { mergeFood } from '$lib/client/foods';
+  import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
   import Icon from '$lib/components/Icon.svelte';
   import IngredientEditor from '$lib/components/IngredientEditor.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { countedAs, listFoods, type Food, type FoodFilter } from '$lib/foods';
-  import { foodById, kitchen } from '$lib/foods.sample.svelte';
+  import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
+  import { IngredientsList } from '$lib/ingredients.svelte';
+  import { save } from '$lib/save';
 
-  let query = $state('');
-  let filter = $state<FoodFilter>('all');
-  let selectedId = $state<number | null>(kitchen.foods[0]?.id ?? null);
-
-  const shown = $derived(listFoods(kitchen.foods, query, filter));
-  const maybeCount = $derived(kitchen.foods.filter((f) => f.maybeSameAsId !== undefined).length);
-  const selected = $derived(foodById(selectedId));
+  const list = new IngredientsList();
+  let selectedId = $state<number | null>(null);
+  let panelName = $state('');
 
   const FILTERS: { value: FoodFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'staples', label: 'Staples' }
   ];
 
-  const placeName = (food: Food) =>
-    kitchen.places.find((p) => p.id === food.placeId)?.name ?? 'Not set';
+  const isDesktop = () => browser && matchMedia('(min-width: 768px)').matches;
+
+  // Search as you type (after a short pause), and fetch again whenever something changed.
+  $effect(() => {
+    void list.query;
+    void list.filter;
+    void kitchen.version;
+    const timer = setTimeout(() => void list.load(), list.loaded ? 200 : 0);
+    return () => clearTimeout(timer);
+  });
+
+  // Desktop starts with the first food open, as in the mockup.
+  $effect(() => {
+    if (selectedId === null && list.foods[0] && isDesktop()) selectedId = list.foods[0].id;
+  });
+
+  // Back to the tab after a while: fetch again (live updates come in 0.3).
+  function onVisible() {
+    if (document.visibilityState === 'visible') void list.load();
+  }
 
   /** The quiet line under a food's name. */
-  function note(food: Food, phone: boolean): string {
-    const other = foodById(food.maybeSameAsId);
-    if (other) return `Maybe the same as “${other.name}”`;
-    if (phone) return `${countedAs(food)} · ${placeName(food)}`;
-    if (food.otherNames.length) return `also: ${food.otherNames.join(', ')}`;
-    const standIn = food.standInIds.map((id) => foodById(id)?.name).find(Boolean);
-    if (standIn) return `${standIn.toLocaleLowerCase()} can stand in`;
-    const usual = food.saleUnits.find((u) => u.usual);
-    if (food.base === 'count' && usual) {
-      return `${usual.name} = ${usual.amount} ${food.countName ? food.countName + 's' : ''}`.trim();
-    }
+  function note(food: FoodRow, phone: boolean): string {
+    const maybe = food.maybe_same[0];
+    if (maybe) return `Maybe the same as “${maybe.name}”`;
+    if (phone) return [food.counted_as_display, food.place?.name].filter(Boolean).join(' · ');
+    if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;
+    if (food.other_names.length) return `also: ${food.other_names.join(', ')}`;
+    const standIn = food.stand_ins[0];
+    if (standIn) return `${standIn.name.toLocaleLowerCase()} can stand in`;
     return '';
   }
 
-  function open(food: Food) {
+  function open(food: FoodRow) {
     // Desktop edits beside the list; phones get the sheet.
-    if (matchMedia('(min-width: 768px)').matches) selectedId = food.id;
+    if (isDesktop()) selectedId = food.id;
     else ingredientEditor.open(food.id);
   }
+
+  /** "Merge" on a Maybe-the-same row: into the food it may be. Undo, not "Are you sure?". */
+  function merge(food: FoodRow) {
+    const into = food.maybe_same[0];
+    if (!into) return;
+    let undoer: (() => Promise<string | void>) | null = null;
+    const before = list.foods;
+    void save<FoodWrite>({
+      apply: () => (list.foods = list.foods.filter((f) => f.id !== food.id)),
+      rollback: () => (list.foods = before),
+      send: (key, answers) => mergeFood(food.id, into.id, key, answers),
+      saved: (result) => {
+        if (selectedId === food.id) selectedId = result.food.id;
+        kitchen.changed();
+      },
+      undo: {
+        label: `Merged ${food.name} into ${into.name}`,
+        labelFrom: (result) => result.change.summary,
+        run: (result) => (undoer ??= serverUndo(result.change.id))()
+      }
+    });
+  }
 </script>
+
+<svelte:document onvisibilitychange={onVisible} />
 
 <PageHeader
   title="Ingredients"
   parent={{ href: '/recipes', label: 'Recipes' }}
-  subtitle="{kitchen.foods.length} foods · shared by recipes, pantry and shopping"
+  subtitle={list.loaded
+    ? `${list.counts.all} ${list.counts.all === 1 ? 'food' : 'foods'} · shared by recipes, pantry and shopping`
+    : undefined}
 />
 
 <div class="layout">
@@ -64,7 +104,7 @@
           type="search"
           placeholder="Search by any name, e.g. arhar dal"
           aria-label="Search ingredients"
-          bind:value={query}
+          bind:value={list.query}
         />
       </label>
       <div class="filters" role="group" aria-label="Show">
@@ -72,17 +112,17 @@
           <button
             type="button"
             class="filter"
-            aria-pressed={filter === f.value}
-            onclick={() => (filter = f.value)}>{f.label}</button
+            aria-pressed={list.filter === f.value}
+            onclick={() => (list.filter = f.value)}>{f.label}</button
           >
         {/each}
-        {#if maybeCount}
+        {#if list.counts.maybe_same || list.filter === 'maybe_same'}
           <button
             type="button"
             class="filter maybe"
-            aria-pressed={filter === 'maybe'}
-            onclick={() => (filter = filter === 'maybe' ? 'all' : 'maybe')}
-            >Maybe the same · {maybeCount}</button
+            aria-pressed={list.filter === 'maybe_same'}
+            onclick={() => (list.filter = list.filter === 'maybe_same' ? 'all' : 'maybe_same')}
+            >Maybe the same · {list.counts.maybe_same}</button
           >
         {/if}
       </div>
@@ -92,35 +132,50 @@
       <div class="heads" aria-hidden="true">
         <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span></span>
       </div>
-      {#if shown.length}
+      {#if list.foods.length}
         <ul>
-          {#each shown as food (food.id)}
-            {@const maybe = food.maybeSameAsId !== undefined}
-            <li class:maybe class:open={food.id === selected?.id}>
+          {#each list.foods as food (food.id)}
+            {@const maybe = food.maybe_same.length > 0}
+            {@const desk = note(food, false)}
+            <li class:maybe class:open={food.id === selectedId}>
               <button
                 type="button"
                 class="row"
-                aria-current={food.id === selected?.id ? 'true' : undefined}
+                aria-current={food.id === selectedId ? 'true' : undefined}
                 onclick={() => open(food)}
               >
                 <span class="name">{food.name}</span>
                 <span class="note phone">{note(food, true)}</span>
-                {#if note(food, false)}<span class="note desk">{note(food, false)}</span>{/if}
+                {#if desk}<span class="note desk">{desk}</span>{/if}
               </button>
               <span class="col">
-                {#if food.staple}<span class="staple">Staple</span>{:else}{countedAs(food)}{/if}
+                {#if food.staple}<span class="staple">Staple</span
+                  >{:else}{food.counted_as_display}{/if}
               </span>
-              <span class="col">{placeName(food)}</span>
+              <span class="col">{food.place?.name ?? ''}</span>
               <span class="end">
                 {#if maybe}
-                  <button type="button" class="merge" onclick={() => open(food)}>Merge</button>
+                  <button type="button" class="merge" onclick={() => merge(food)}>Merge</button>
                 {/if}
               </span>
             </li>
           {/each}
         </ul>
+        {#if list.next}
+          <button type="button" class="more" onclick={() => void list.more()}>Show more</button>
+        {/if}
+      {:else if list.problem}
+        <p class="nothing" role="alert">{list.problem}</p>
+      {:else if !list.loaded}
+        <p class="nothing">Loading…</p>
+      {:else if list.query.trim()}
+        <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
+      {:else if list.filter !== 'all'}
+        <p class="nothing">Nothing here right now.</p>
       {:else}
-        <p class="nothing">No ingredient called “{query.trim()}” yet.</p>
+        <p class="nothing">
+          No ingredients yet. They're added when you put something in the pantry or import a recipe.
+        </p>
       {/if}
     </div>
 
@@ -130,10 +185,16 @@
     </p>
   </section>
 
-  {#if selected}
-    <aside class="panel" aria-label="Edit {selected.name.toLocaleLowerCase()}">
-      {#key selected.id}
-        <IngredientEditor food={selected} variant="panel" />
+  {#if selectedId !== null}
+    <aside class="panel" aria-label={panelName ? `Edit ${panelName.toLocaleLowerCase()}` : 'Edit'}>
+      {#key selectedId}
+        <IngredientEditor
+          foodId={selectedId}
+          variant="panel"
+          onname={(n) => (panelName = n)}
+          onclose={() => (selectedId = null)}
+          onopen={(id) => (selectedId = id)}
+        />
       {/key}
     </aside>
   {/if}
@@ -341,6 +402,18 @@
     color: var(--color-text-muted);
     font-size: var(--text-base);
     text-align: center;
+  }
+
+  .more {
+    width: 100%;
+    min-height: var(--touch-target);
+    border: none;
+    border-top: 1px solid var(--color-divider);
+    background: transparent;
+    color: var(--color-accent);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .tip {

@@ -7,6 +7,10 @@
   import TabBar from '$lib/components/TabBar.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import IngredientSheet from '$lib/components/IngredientSheet.svelte';
+  import AskOnce from '$lib/components/AskOnce.svelte';
+  import { lastOwnChange } from '$lib/client/changes';
+  import { settleHousehold } from '$lib/client/household';
+  import { session } from '$lib/session.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
@@ -27,7 +31,12 @@
         if (!(error instanceof ApiError)) throw error;
       });
     });
+    // Ctrl+Z after a reload: your latest change, from the server.
+    undoHistory.fallback = lastOwnChange;
+    // First run: tell the server the household's time zone and cup size (admins, once).
+    if (session.me) settleHousehold(session.me.role).catch(() => {});
     return () => {
+      undoHistory.fallback = null;
       setUnauthorizedHandler(null);
       theme.saveChangesWith(null);
       // Signed out: this person's changes can't be undone from here any more.
@@ -51,6 +60,7 @@
 
 <!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
 <IngredientSheet />
+<AskOnce />
 <Toast />
 
 <style>
