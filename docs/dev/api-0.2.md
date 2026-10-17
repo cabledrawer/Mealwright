@@ -497,7 +497,8 @@ Summaries: "Added 2 packets Toor dal → Cupboard", "Used 200 g Spinach", "Binne
 **`GET /api/v1/changes?limit=20&before=<id>&food_id=7&area=pantry&mine=false`**
 
 - `area=pantry` lists stock changes, and the Undos of stock changes, only (Pantry → Recent changes); omit it for everything (food edits, merges).
-- Each change carries `lines`: `[{ "food": {id, name}, "lot_id", "before": AmountOut, "after": AmountOut, "place_before", "place_after", "use_by_before", "use_by_after" }]` (empty for food changes).
+- Each change carries `totals`, for showing in Recent changes: one entry per ingredient and place, the packets the change touched added up and worded as sold: `[{ "food_id", "name", "place_before", "place_after", "before": AmountOut, "after": AmountOut }]`. "Added 2 packs Paneer" gives one entry, "Paneer: 0 g → 2 packs · 400 g" (`place_before` is null for packets the change added); a move gives "Cupboard → Fridge" with the same amount on both sides. Undos have them too. Ingredient changes have none.
+- Each change also carries `lines`, one per packet, for detail (and thinning): `[{ "food": {id, name}, "lot_id", "before": AmountOut, "after": AmountOut, "place_before", "place_after", "use_by_before", "use_by_after" }]` (empty for food changes).
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).
 
 ```json

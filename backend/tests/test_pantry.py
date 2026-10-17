@@ -497,3 +497,40 @@ def test_names_appear_exactly_as_typed(kitchen: TestClient) -> None:
     assert asked["ask"]["question"] == "About how much does 1 cup of MDH sambar masala weigh?"
     summaries = [c["summary"] for c in kitchen.get(f"{API}/changes").json()["changes"]]
     assert not any("mdh" in summary for summary in summaries)
+
+
+def _totals(kitchen: TestClient) -> list[dict[str, Any]]:
+    row = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"][0]
+    totals: list[dict[str, Any]] = row["totals"]
+    return totals
+
+
+def test_recent_changes_totals_two_packets(kitchen: TestClient) -> None:
+    paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
+    size(kitchen, paneer["id"], "pack", 200)
+    add(kitchen, paneer["id"], 2, "pack")
+    [total] = _totals(kitchen)
+    assert total["name"] == "Paneer"
+    assert total["place_before"] is None
+    assert total["place_after"]["name"] == "Fridge"
+    assert (total["before"]["display"], total["after"]["display"]) == ("0 g", "2 packs · 400 g")
+
+
+def test_recent_changes_totals_a_move(kitchen: TestClient) -> None:
+    spinach = food(kitchen, "Spinach")
+    lot = add(kitchen, spinach["id"], 200, "g")["groups"][0]["lots"][0]
+    kitchen.post(f"{API}/stock/{lot['id']}/move", json={"place_id": place(kitchen, "Fridge")})
+    [total] = _totals(kitchen)
+    assert (total["place_before"]["name"], total["place_after"]["name"]) == ("Cupboard", "Fridge")
+    assert total["before"]["display"] == total["after"]["display"] == "200 g"
+
+
+def test_recent_changes_totals_a_partial_undo(kitchen: TestClient, toor: dict[str, Any]) -> None:
+    added = add(kitchen, toor["id"], 2, "packet")
+    lot = added["groups"][0]["lots"][0]
+    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 100, "unit": "g"}})
+    undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
+    assert undo["result"] == "partly"
+    [total] = _totals(kitchen)
+    assert total["before"]["display"] == "1¼ packets · about 600 g"  # 100 g + 500 g
+    assert total["after"]["display"] == "0 g"

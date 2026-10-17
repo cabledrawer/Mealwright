@@ -54,13 +54,57 @@ class LineOut(BaseModel):
     use_by_after: date | None
 
 
+class TotalOut(BaseModel):
+    """One ingredient in one place: the packets this change touched, added up and worded
+    as sold ("Paneer: 0 g → 2 packs · 400 g")."""
+
+    food_id: int
+    name: str
+    place_before: Ref | None  # null for packets the change added
+    place_after: Ref | None
+    before: AmountOut
+    after: AmountOut
+
+
 class ChangeItem(ChangeOut):
-    lines: list[LineOut]
+    totals: list[TotalOut]  # for Recent changes: one entry per ingredient and place
+    lines: list[LineOut]  # each packet, for detail
 
 
 class ChangeList(BaseModel):
     changes: list[ChangeItem]
     next: str | None
+
+
+def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
+    sums: dict[tuple[int, int | None, int | None], list[int]] = {}
+    for line in kitchen.db.scalars(
+        select(ChangeLine).where(ChangeLine.change_id == change.id).order_by(ChangeLine.id)
+    ):
+        key = (line.food_id, line.place_before_id, line.place_after_id)
+        entry = sums.setdefault(key, [0, 0])
+        entry[0] += line.amount_before_milli
+        entry[1] += line.amount_after_milli
+
+    def place(place_id: int | None) -> Ref | None:
+        found = view.places.get(place_id) if place_id is not None else None
+        return Ref(id=found.id, name=found.name) if found is not None else None
+
+    result = []
+    for (food_id, before_id, after_id), (before, after) in sums.items():
+        food = view.food(food_id)
+        usual = view.usual(food_id)
+        result.append(
+            TotalOut(
+                food_id=food.id,
+                name=food.name,
+                place_before=place(before_id),
+                place_after=place(after_id),
+                before=amount_out(food, before, usual),
+                after=amount_out(food, after, usual),
+            )
+        )
+    return result
 
 
 def _lines(kitchen: Kitchen, view: Pantry, change: Change) -> list[LineOut]:
@@ -120,7 +164,11 @@ def list_changes(
     page = rows[:limit]
     view = Pantry(kitchen)
     items = [
-        ChangeItem(**change_out(kitchen, c).model_dump(), lines=_lines(kitchen, view, c))
+        ChangeItem(
+            **change_out(kitchen, c).model_dump(),
+            totals=_totals(kitchen, view, c),
+            lines=_lines(kitchen, view, c),
+        )
         for c in page
     ]
     return ChangeList(changes=items, next=str(page[-1].id) if len(rows) > limit and page else None)
