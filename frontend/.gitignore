@@ -1,2 +1,3 @@
 # Screenshots Vitest saves when a browser test fails
 __screenshots__/
+.vitest/

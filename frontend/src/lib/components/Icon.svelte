@@ -11,7 +11,10 @@
     | 'light'
     | 'dark'
     | 'expand'
-    | 'collapse';
+    | 'collapse'
+    | 'back'
+    | 'chevron-down'
+    | 'search';
 </script>
 
 <script lang="ts">
@@ -60,5 +63,12 @@
   {:else if name === 'collapse'}
     <path d="M15 6l-6 6 6 6" />
     <path d="M20 4v16" />
+  {:else if name === 'back'}
+    <path d="M15 6l-6 6 6 6" />
+  {:else if name === 'chevron-down'}
+    <path d="M6 9l6 6 6-6" />
+  {:else if name === 'search'}
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
   {/if}
 </svg>

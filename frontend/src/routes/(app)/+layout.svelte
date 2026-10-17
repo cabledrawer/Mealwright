@@ -6,6 +6,7 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import IngredientSheet from '$lib/components/IngredientSheet.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
@@ -48,6 +49,8 @@
   <div class="tabbar-slot"><TabBar /></div>
 </div>
 
+<!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
+<IngredientSheet />
 <Toast />
 
 <style>
