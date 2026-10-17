@@ -47,6 +47,14 @@
     menuFor = lot;
   }
 
+  /** What is typed in the "Used some" / "How many left?" box. */
+  let typed = $state('');
+  const typedNumber = $derived(Number(typed.trim().replace(',', '.')));
+  /** "Used" waits for an amount: any number for "How many left?" (0 is fine), above 0 otherwise. */
+  const canSave = $derived(
+    typed.trim() !== '' && (group.food.counted_as === 'count' ? typedNumber >= 0 : typedNumber > 0)
+  );
+
   /** "Used some" (weight, volume) or "How many left?" (count foods), for the whole food. */
   function useSome(event: SubmitEvent) {
     event.preventDefault();
@@ -57,6 +65,7 @@
     const n = Number(text);
     if (!text || !(n >= 0)) return;
     form.reset();
+    typed = '';
     if (group.food.counted_as === 'count') {
       void model.leftOf(group.food.id, name, { amount: n, unit: 'count' }, place.id);
     } else if (n > 0) {
@@ -109,6 +118,9 @@
               <span class="lot-date" class:soon={lot.use_soon}
                 >{useByWords(lot.use_by, lot.days_left)}</span
               >
+              <span class="lot-go" aria-hidden="true"
+                ><Icon name="chevron-down" size={16} stroke={2.4} /></span
+              >
             </button>
           </li>
         {/each}
@@ -118,15 +130,15 @@
         {#if group.food.counted_as === 'count'}
           <label class="small-field">
             How many left?
-            <input name="n" inputmode="numeric" placeholder="e.g. 3" />
+            <input name="n" inputmode="numeric" placeholder="e.g. 3" bind:value={typed} />
           </label>
-          <button type="submit" class="pill">Save</button>
+          <button type="submit" class="pill" disabled={!canSave}>Save</button>
         {:else}
           <label class="small-field">
             Used some ({baseUnit})
-            <input name="n" inputmode="decimal" placeholder="e.g. 200" />
+            <input name="n" inputmode="decimal" placeholder="e.g. 200" bind:value={typed} />
           </label>
-          <button type="submit" class="pill">Used</button>
+          <button type="submit" class="pill" disabled={!canSave}>Used</button>
         {/if}
       </form>
       <button type="button" class="link" onclick={() => ingredientEditor.open(group.food.id)}>
@@ -282,6 +294,18 @@
     background: var(--color-fill);
   }
 
+  .lot:active {
+    background: var(--color-fill-strong);
+  }
+
+  /* A small arrow at the end says "tap me": the packet's menu opens. */
+  .lot-go {
+    display: inline-flex;
+    margin-left: auto;
+    color: var(--color-text-muted);
+    transform: rotate(-90deg);
+  }
+
   .lot-amount {
     font-weight: var(--weight-semibold);
   }
@@ -311,6 +335,13 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .pill:disabled {
+    border-color: var(--color-border);
+    background: var(--color-fill);
+    color: var(--color-text-muted);
+    cursor: default;
   }
 
   .some {

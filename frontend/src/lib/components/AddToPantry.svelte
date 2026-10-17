@@ -1,7 +1,7 @@
 <script lang="ts">
   // "+ Add to pantry" (spec "Decided for 0.2"; no mockup yet): pick or type a food; how
   // much, as sold (1 packet, 2 packets…) or typed; where (filled in from the food's
-  // usual place); and an optional use-by (none · +3 days · +1 week · pick a date).
+  // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date).
   // A sheet from the bottom on phones, a dialog on desktop.
   import { addToPantry } from '$lib/addToPantry.svelte';
   import { newChangeId } from '$lib/changeId';
@@ -10,6 +10,7 @@
   import { addDays } from '$lib/dates';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { ApiError } from '$lib/api';
+  import { amountExample } from '$lib/amountExample';
   import FoodPicker from './FoodPicker.svelte';
 
   let { model, places, today }: { model: PantryModel; places: Place[]; today: string } = $props();
@@ -23,7 +24,7 @@
   let typedAmount = $state('');
   let typedUnit = $state('g');
   let placeId = $state<number | null>(null);
-  let when = $state<'none' | '3' | '7' | 'pick'>('none');
+  let when = $state<'none' | 'today' | '3' | '7' | 'pick'>('none');
   let picked = $state('');
   let problem = $state<string | null>(null);
 
@@ -109,6 +110,7 @@
   }
 
   function useBy(): string | null {
+    if (when === 'today') return today;
     if (when === '3') return addDays(today, 3);
     if (when === '7') return addDays(today, 7);
     if (when === 'pick') return picked || null;
@@ -226,7 +228,14 @@
               <div class="typed">
                 <label>
                   Amount
-                  <input inputmode="decimal" bind:value={typedAmount} placeholder="200" />
+                  <input
+                    inputmode="decimal"
+                    bind:value={typedAmount}
+                    placeholder={amountExample(
+                      typedUnit,
+                      food.sizes.some((size) => size.name === typedUnit)
+                    )}
+                  />
                 </label>
                 <label>
                   Unit
@@ -249,7 +258,7 @@
           <section aria-labelledby="{uid}-when">
             <h3 id="{uid}-when">Use by</h3>
             <div class="chips" role="radiogroup" aria-labelledby="{uid}-when">
-              {#each [{ v: 'none', l: 'No date' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }, { v: 'pick', l: 'Pick a date' }] as const as option (option.v)}
+              {#each [{ v: 'none', l: 'No date' }, { v: 'today', l: 'Today' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }, { v: 'pick', l: 'Pick a date' }] as const as option (option.v)}
                 <button
                   type="button"
                   role="radio"

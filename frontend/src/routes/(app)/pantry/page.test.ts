@@ -247,6 +247,52 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('+ Add to pantry: a "Today" use-by, and an example that suits the unit', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: '+ Add to pantry' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+    await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('toor');
+    await sheet.getByRole('button', { name: 'Toor dal' }).click();
+    await sheet.getByRole('radio', { name: 'Other amount' }).click();
+    const amount = sheet.getByRole('textbox', { name: 'Amount' });
+    const unit = sheet.getByRole('combobox', { name: 'Unit' });
+    await userEvent.selectOptions(unit, 'g');
+    await expect.element(amount).toHaveAttribute('placeholder', '200');
+    await userEvent.selectOptions(unit, 'kg');
+    await expect.element(amount).toHaveAttribute('placeholder', '1');
+    await userEvent.selectOptions(unit, 'packet');
+    await expect.element(amount).toHaveAttribute('placeholder', '1');
+    await userEvent.selectOptions(unit, 'g');
+    await amount.fill('300');
+    await sheet.getByRole('radio', { name: 'Today' }).click();
+    await userEvent.click(sheet.getByRole('button', { name: 'Add to pantry' }));
+    await vi.waitFor(() => expect(requests.find((r) => r.path === '/stock')).toBeDefined());
+    expect(requests.find((r) => r.path === '/stock')!.body).toMatchObject({
+      amount: { amount: 300, unit: 'g' },
+      use_by: '2026-10-17'
+    });
+  });
+
+  it('"Used" waits until an amount is typed, and the packet lines look tappable', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: /^Toor dal/ }).click();
+    const item = page.getByRole('listitem').filter({ hasText: 'Toor dal' });
+    const used = item.getByRole('button', { name: 'Used', exact: true }).last();
+    await expect.element(used).toBeDisabled();
+    await page.getByLabelText('Used some (g)').fill('0');
+    await expect.element(used).toBeDisabled();
+    await page.getByLabelText('Used some (g)').fill('200');
+    await expect.element(used).toBeEnabled();
+    // The packet lines open a menu, so they carry an arrow and are at least 44 px tall.
+    const packet = page
+      .getByRole('list', { name: 'Packets of Toor dal' })
+      .getByRole('button')
+      .first();
+    const box = packet.element().getBoundingClientRect();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(packet.element().querySelector('.lot-go svg')).not.toBeNull();
+  });
+
   it('"Used some" on a food takes from its packets, oldest first', async () => {
     await render(1300);
     await page.getByRole('button', { name: /^Toor dal/ }).click();
