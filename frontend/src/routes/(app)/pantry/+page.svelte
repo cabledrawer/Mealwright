@@ -102,7 +102,9 @@
   function lotWords(lot: UseSoonLot) {
     const date = dateWords(lot.use_by, lot.days_left);
     const what =
-      lot.of > 1 ? `${lot.position} of ${lot.of}` : (lot.stock.short ?? lot.stock.display);
+      lot.of > 1
+        ? `${lot.position}\u00a0of\u00a0${lot.of}`
+        : (lot.stock.short ?? lot.stock.display);
     return { what, date };
   }
 

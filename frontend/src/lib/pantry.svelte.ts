@@ -215,7 +215,7 @@ export class PantryModel {
   /** "Used some" on a food in a place. */
   usedSome(foodId: number, foodName: string, amount: AmountIn, placeId: number) {
     return this.#act({
-      label: `Used ${amount.amount} ${amount.unit === 'count' ? '' : `${amount.unit} `}${foodName}`,
+      label: `Used ${amount.amount}${amount.unit === 'count' ? '' : `\u00a0${amount.unit}`} ${foodName}`,
       send: (key, answers) => foodUsed(foodId, amount, placeId, key, answers)
     });
   }

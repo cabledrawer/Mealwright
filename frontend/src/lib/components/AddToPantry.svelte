@@ -104,7 +104,7 @@
     if (!usual || f.counted_as === 'count') return [];
     return [1, 2, 3].map((n) => ({
       value: `size:${usual.id}:${n}`,
-      label: `${n} ${n === 1 ? usual.name : usual.plural}`
+      label: `${n}\u00a0${n === 1 ? usual.name : usual.plural}`
     }));
   }
 
@@ -124,7 +124,7 @@
       const [, sizeId, n] = howMuch.split(':').map(Number) as [number, number, number];
       const size = food.sizes.find((s) => s.id === sizeId);
       amount = { amount: n, size_id: sizeId };
-      words = `${n} ${n === 1 ? size?.name : size?.plural}`;
+      words = `${n}\u00a0${n === 1 ? size?.name : size?.plural}`;
     } else {
       const n = Number(typedAmount.replace(',', '.'));
       if (!(n > 0)) {
@@ -136,7 +136,7 @@
           ? 'count'
           : typedUnit;
       amount = { amount: n, unit };
-      words = unit === 'count' ? String(n) : `${n} ${typedUnit}`;
+      words = unit === 'count' ? String(n) : `${n}\u00a0${typedUnit}`;
     }
     if (when === 'pick' && !picked) {
       problem = 'Pick a date, or choose “No date”.';
