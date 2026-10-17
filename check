@@ -12,7 +12,16 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGS="$ROOT/.check/logs"
 IMAGE="mealwright:check"
-rm -rf "$LOGS" && mkdir -p "$LOGS"
+
+# Scanner versions (cabledrawer 17 Oct; spec section 9). Pinned exactly; releases at least
+# two weeks old when chosen. uvx tools also ignore anything published after EXCLUDE_NEWER,
+# so their own dependencies are fixed too. Change these on purpose, in their own commit.
+EXCLUDE_NEWER="2026-10-01"
+PIP_AUDIT="pip-audit==2.10.1"
+BANDIT="bandit==1.9.4"
+OSV_SCANNER="ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa"   # v2.6.0
+TRIVY="aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"                     # 0.75.0
+rm -rf "$ROOT/.check" && mkdir -p "$LOGS"
 
 names=() results=() notes=() times=()
 
@@ -67,17 +76,41 @@ else
   skip "frontend" "no frontend yet"
 fi
 
-# --- Security scanners (waiting for cabledrawer's OK on how to run each one) ------
-not_set_up "pip-audit"   "waiting for cabledrawer's OK"
-not_set_up "osv-scanner" "waiting for cabledrawer's OK"
-not_set_up "code scan"   "Bandit or Semgrep: waiting for cabledrawer's OK"
+# --- Security scanners -------------------------------------------------------
+# These send package names and versions to vulnerability databases (pip-audit,
+# osv-scanner) or download one (Trivy). Nothing about the homelab is sent.
+pip_audit() {
+  (cd backend && uv export -q --frozen --all-groups --no-emit-project \
+     --format requirements-txt -o "$ROOT/.check/requirements.txt") &&
+  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$PIP_AUDIT" -r "$ROOT/.check/requirements.txt" \
+    --require-hashes --disable-pip --progress-spinner off
+}
+
+if need uv; then
+  step "pip-audit"               pip_audit
+  step "bandit"                  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$BANDIT" -q -r backend/src backend/scripts
+else
+  record "pip-audit, bandit" FAIL "uv is not installed" "-"
+fi
+if need docker; then
+  # The repo is mounted read-only.
+  step "osv-scanner"             docker run --rm -v "$ROOT:/src:ro" "$OSV_SCANNER" \
+                                   scan source --lockfile /src/backend/uv.lock
+else
+  record "osv-scanner" FAIL "docker is not installed" "-"
+fi
 
 # --- Docker image ------------------------------------------------------------
 if [[ -f "$ROOT/Dockerfile" ]]; then
   step "image: build"            docker build -t "$IMAGE" .
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
-  not_set_up "image: trivy" "waiting for cabledrawer's OK"
+  # Trivy reads an exported copy of the image and gets no access to Docker itself.
+  step "image: export"           docker save "$IMAGE" -o "$ROOT/.check/image.tar"
+  step "image: trivy"            docker run --rm -v "$ROOT/.check:/scan:ro" \
+                                   -v mealwright-trivy-cache:/root/.cache/trivy "$TRIVY" \
+                                   image --input /scan/image.tar --scanners vuln \
+                                   --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
 else
   skip "image" "no Dockerfile yet"
 fi
