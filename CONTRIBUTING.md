@@ -51,7 +51,7 @@ You are still responsible for the change: you must understand it, test it and be
 
 ## Dependencies
 
-Every dependency must have a licence that works with AGPL-3.0: MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0 or AGPL. OFL-1.1 is allowed for fonts only. GPL-2.0-only is not allowed. CI checks this automatically.
+Every dependency must have a licence that works with AGPL-3.0: MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0 or MPL-2.0. MPL-2.0 packages marked "Incompatible With Secondary Licenses" are not allowed, because MPL-2.0 only works with AGPL through that secondary-licence clause. OFL-1.1 is allowed for fonts only. GPL-2.0-only is not allowed. CI checks this automatically.
 
 Ask in an issue before adding a new dependency, and check that it doesn't phone home.
 
