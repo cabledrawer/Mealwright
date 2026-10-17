@@ -51,7 +51,9 @@ test('the Pantry shows what is where, and passes the accessibility checks', asyn
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pantry');
   if (isPhone(page)) {
     await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByRole('tab', { name: 'Use soon' })).toBeVisible();
+    // cabledrawer (17 Oct): All · Fridge · Freezer · Cupboard · More (Use soon is under More).
+    await expect(page.getByRole('tab', { name: 'Cupboard' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /More/ })).toBeVisible();
   } else {
     for (const place of ['Fridge', 'Freezer', 'Cupboard', 'Spice rack']) {
       await expect(page.getByRole('heading', { name: place, level: 2 })).toBeVisible();
@@ -66,7 +68,13 @@ test('the Pantry shows what is where, and passes the accessibility checks', asyn
 test('Used from Use soon takes it out, and Undo puts it back', async ({ page }) => {
   const food = await stocked(page, 'Spinach', 0);
   await page.goto('/pantry');
-  if (isPhone(page)) await page.getByRole('tab', { name: 'Use soon' }).click();
+  if (isPhone(page)) {
+    await page.getByRole('tab', { name: /More/ }).click();
+    await page
+      .getByRole('list', { name: 'More' })
+      .getByRole('button', { name: 'Use soon' })
+      .click();
+  }
   const row = page
     .getByRole('listitem')
     .filter({ hasText: food.name })

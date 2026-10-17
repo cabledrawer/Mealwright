@@ -120,29 +120,24 @@ describe('the Pantry page', () => {
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
 
-  it('phone: tabs All · places · Use soon, nothing scrolling sideways', async () => {
+  it('phone: tabs All · Fridge · Freezer · Cupboard · More, with Use soon under More', async () => {
     await render(390);
     const tabs = page.getByRole('tablist', { name: 'Where' });
     await expect
       .element(tabs.getByRole('tab', { name: 'All' }))
       .toHaveAttribute('aria-selected', 'true');
-    await expect.element(tabs.getByRole('tab', { name: 'Use soon' })).toBeVisible();
+    const names = (await tabs.getByRole('tab').all()).map((t) => t.element().textContent?.trim());
+    expect(names).toEqual(['All', 'Fridge', 'Freezer', 'Cupboard', 'More']);
     const box = (tabs.element() as HTMLElement).getBoundingClientRect();
     expect(box.right).toBeLessThanOrEqual(390);
-    // Places that don't fit are under More.
-    const all = ['Fridge', 'Freezer', 'Cupboard', 'Spice rack'];
-    const visible = all.filter(
-      (name) => tabs.getByRole('tab', { name, exact: true }).elements().length
-    );
-    if (visible.length < all.length) {
-      await tabs.getByRole('tab', { name: /More/ }).click();
-      const hidden = all.filter((n) => !visible.includes(n));
-      await page.getByRole('button', { name: hidden[0]! }).click();
-      await expect
-        .element(tabs.getByRole('tab', { name: new RegExp(hidden[0]!) }))
-        .toHaveAttribute('aria-selected', 'true');
-    }
-    await tabs.getByRole('tab', { name: 'Use soon' }).click();
+    // More holds Spice rack and Use soon.
+    await tabs.getByRole('tab', { name: /More/ }).click();
+    const more = page.getByRole('list', { name: 'More' });
+    await expect.element(more.getByRole('button', { name: 'Spice rack' })).toBeVisible();
+    await more.getByRole('button', { name: 'Use soon' }).click();
+    await expect
+      .element(tabs.getByRole('tab', { name: /Use soon/ }))
+      .toHaveAttribute('aria-selected', 'true');
     await expect.element(page.getByRole('button', { name: /Spinach · today/ })).toBeVisible();
   });
 
