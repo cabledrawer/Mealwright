@@ -4,6 +4,57 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-17
+
+Milestone 0.2 (Ingredients, pantry, history and undo): the shared ingredient list, a pantry that counts things the way they're sold, and Undo for every change. Not published; for testing on cabledrawer's homelab.
+
+### Added
+
+- **Ingredients** (Recipes › Ingredients): one list of everything you buy and cook with, shared by recipes, the pantry and (from 0.3) shopping. Search finds an ingredient by any of its names. Filters: All · Staples · Maybe the same.
+- **The ingredient editor**, the same one from anywhere: a side panel on desktop, a sheet on phone. Everything saves as you go:
+  - name and other names ("thuvaram paruppu", "arhar dal");
+  - how it's counted (by weight, by volume, one by one) and how it's sold ("Packet = 500 g", one marked Usual);
+  - weight of 1 cup or of one, running low at, where it lives, usual shop ("+ Shop" adds one), Staple;
+  - "Can use instead".
+- **Merge** two ingredients into one (their stock and sizes move across), **split** a name back out, and "**Not the same**" for a "Maybe the same" hint. The server decides which ingredient of a pair would be merged away.
+- **"Remove from Ingredients"**, only when nothing depends on the ingredient (today: nothing in the pantry). After the 7 days of Undo it's deleted for good, with its monthly history totals. An Undo that would put stock back into a removed ingredient brings it back and says so.
+- **Pantry:** places as tabs on phone (All · Fridge · Freezer · Cupboard · More, with Use soon under More) and as four columns beside a side panel on desktop.
+  - Amounts **as sold**: "1½ packets · about 750 g", "9 left · bought as a dozen".
+  - Each packet is kept with its own use-by date, the oldest is used first, and stock never goes below zero.
+  - Tap a packet for Used · Binned · To freezer · Move to… · Change use-by date…, and ¼ · ½ · ¾ · Full for an open pack.
+  - "Used some" and "How many left?" (type 0 when it's all gone) for a whole ingredient.
+  - **"+ Add to pantry"**: what, how much, where, use by.
+- **Use soon:** anything with a use-by of today, tomorrow or the day after (or already past), in the household's local time, with Used · Binned · To freezer.
+- **Staples:** assumed in stock and never counted; shown as chips.
+- **Recent changes** with Undo: what each change did, one line per ingredient ("Paneer: 0 g → 2 packs · 400 g").
+- **Undo for every ingredient and pantry change**, by anyone in the household, for 7 days ("Not the same" and adding a shop aren't undone): the Undo toast, and Ctrl+Z / Cmd+Z on desktop. Inside a text box, Ctrl+Z undoes your typing instead. If something has been used since, Undo puts back what it can and says so.
+- **Instant changes:** the screen updates straight away and saves in the background. If saving fails, it goes back and says "Couldn't save — try again".
+- **"Ask once":** when Mealwright needs a weight it doesn't know ("About how much does 1 cup of Toor dal weigh?"), it asks once and can remember the answer. Your answers always beat the built-in table.
+- **A built-in conversion table** of 221 common ingredients from USDA FoodData Central, SR Legacy (public domain, CC0 1.0). Credit: "Food conversion data: U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, SR Legacy, 2018. fdc.nal.usda.gov."
+- **Places** Fridge, Freezer, Cupboard and Spice rack, added to every household.
+- **History:** pantry changes older than 12 months are summarised as monthly totals by a background job (at start-up and every hour), so it also works on a server that's off at night.
+- **API** under `/api/v1` for ingredients, places, shops, the pantry, changes and Undo, with safe retries (`Idempotency-Key`). It's described in `docs/dev/api-0.2.md` and the OpenAPI document.
+
+### Changed
+
+- **"Ingredient", never "food", on screen** (cabledrawer's rule). A test fails if "food" appears in any on-screen text or server message.
+- **Names appear exactly as typed** everywhere, screen-reader labels included.
+- **The household's time zone and cup size** are taken once from an admin's browser (never from location) and never changed silently. No `TZ` setting is needed. "Weight of 1 cup" follows the household's cup: 240 ml for a US English browser, otherwise 250 ml.
+- **The nightly log tidy** from 0.1.1 now runs on the app's scheduler (APScheduler). It still keeps 14 days, and catches up if the server was asleep at midnight.
+- **Recipes** in the desktop sidebar is a tree: All recipes · Drafts · Ingredients. Drafts is empty until 0.5.
+
+### Privacy and security
+
+- No new outside connections. The conversion table is bundled; the app never fetches it.
+- Nothing about what people cook or buy is written to the log.
+- One household can never see or change another's ingredients, places, shops, pantry or changes (tested on every endpoint).
+
+### For developers
+
+- New dependencies: **APScheduler 3.11.3** and **tzlocal 5.4.4** (MIT, ship in the image). For tests only: **Hypothesis** (MPL-2.0) with sortedcontainers (Apache-2.0), and **@axe-core/playwright** with axe-core (MPL-2.0).
+- `./check` allows 0BSD, Unlicense, CC0-1.0 and Zlib for development-only packages (cabledrawer's standing rule), and `CHECK_IMAGE` lets two copies run at once.
+- Accessibility checks (axe in light and dark, 44 px targets, no sideways scroll) run in the browser tests, and there's a screenshot tool for mockup reviews (`e2e/review/`).
+
 ## [0.1.1] - 2026-10-17
 
 ### Fixed
@@ -51,6 +102,7 @@ Milestone 0.1, Foundation: an empty but real Mealwright you can install, sign in
 - **Works behind any reverse proxy.** Its forwarded headers are believed only from `MEALWRIGHT_TRUSTED_PROXIES` (off by default).
 - Requests from other sites are refused, and the session cookie can't be read by scripts and is stored only as a fingerprint.
 
-[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.1.1...main
+[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.2.0...main
+[0.2.0]: https://git.example.org/tess/mealwright/src/tag/v0.2.0
 [0.1.1]: https://git.example.org/tess/mealwright/src/tag/v0.1.1
 [0.1.0]: https://git.example.org/tess/mealwright/src/tag/v0.1.0
