@@ -25,7 +25,7 @@
 
 <dialog
   bind:this={dialog}
-  aria-label={name ? `Edit ${name.toLocaleLowerCase()}` : 'Edit ingredient'}
+  aria-label={name ? `Edit ${name}` : 'Edit ingredient'}
   oncancel={() => ingredientEditor.close()}
   onclick={closeOnBackdrop}
 >

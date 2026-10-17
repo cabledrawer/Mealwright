@@ -26,8 +26,8 @@ async function openEditor(page: Page, name: string) {
     .getByRole('button', { name: new RegExp(`^${name}`) })
     .click();
   return isPhone(page)
-    ? page.getByRole('dialog', { name: `Edit ${name.toLowerCase()}` })
-    : page.getByRole('complementary', { name: `Edit ${name.toLowerCase()}` });
+    ? page.getByRole('dialog', { name: `Edit ${name}` })
+    : page.getByRole('complementary', { name: `Edit ${name}` });
 }
 
 test.beforeEach(async ({ page }) => {

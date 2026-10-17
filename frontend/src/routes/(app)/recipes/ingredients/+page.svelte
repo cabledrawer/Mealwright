@@ -60,7 +60,7 @@
     if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;
     if (food.other_names.length) return `also: ${food.other_names.join(', ')}`;
     const standIn = food.stand_ins[0];
-    if (standIn) return `${standIn.name.toLocaleLowerCase()} can stand in`;
+    if (standIn) return `${standIn.name} can stand in`;
     return '';
   }
 
@@ -195,7 +195,7 @@
   </section>
 
   {#if selectedId !== null}
-    <aside class="panel" aria-label={panelName ? `Edit ${panelName.toLocaleLowerCase()}` : 'Edit'}>
+    <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
       {#key selectedId}
         <IngredientEditor
           foodId={selectedId}

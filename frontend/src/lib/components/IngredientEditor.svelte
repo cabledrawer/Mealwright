@@ -81,6 +81,7 @@
         : [food?.count_word_plural ?? 'items']
   );
 
+  /** For comparing names only; on screen names stay as typed. */
   const lower = (text: string) => text.toLocaleLowerCase();
   const valueOf = (event: Event) => (event.currentTarget as HTMLInputElement).value;
 
@@ -352,7 +353,7 @@
           {#if addingName}
             <input
               class="chip-input"
-              aria-label="Another name for {lower(food.name)}"
+              aria-label="Another name for {food.name}"
               use:focusOnShow
               onchange={addName}
               onblur={() => (addingName = false)}
@@ -565,7 +566,7 @@
             {other.name}<button
               type="button"
               class="remove"
-              aria-label="Remove {lower(other.name)}"
+              aria-label="Remove {other.name}"
               onclick={() => void model.removeStandIn(other)}>✕</button
             >
           </li>
@@ -573,7 +574,7 @@
         <li class:wide-item={picking === 'stand-in'}>
           {#if picking === 'stand-in'}
             <FoodPicker
-              label="Can use instead of {lower(food.name)}"
+              label="Can use instead of {food.name}"
               exclude={excluded(food)}
               onpick={pickStandIn}
               oncancel={() => (picking = null)}
@@ -588,7 +589,7 @@
     <footer>
       {#if picking === 'merge'}
         <FoodPicker
-          label="Merge {lower(food.name)} into"
+          label="Merge {food.name} into"
           exclude={[food.id]}
           onpick={pickMerge}
           oncancel={() => (picking = null)}

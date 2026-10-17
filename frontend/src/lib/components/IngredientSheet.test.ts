@@ -69,7 +69,7 @@ describe('the ingredient editor, opened from anywhere', () => {
   async function openToorDal() {
     ingredientEditor.open(7);
     flushSync();
-    const dialog = page.getByRole('dialog', { name: 'Edit toor dal' });
+    const dialog = page.getByRole('dialog', { name: 'Edit Toor dal' });
     await expect.element(dialog).toBeVisible();
     return dialog;
   }
