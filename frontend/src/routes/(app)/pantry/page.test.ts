@@ -60,6 +60,7 @@ describe('the Pantry page', () => {
         gone.add(sample.spinach.id);
         return written('Used 200 g spinach');
       },
+      [`POST /stock/${sample.paneer[0]!.id}/move`]: written('Moved Paneer → Freezer'),
       [`POST /stock/${sample.yoghurt.id}/left`]: written('Yoghurt: ½ tub → about ¼ tub'),
       'GET /foods/7': [200, toorDal()],
       'POST /foods/7/used': written('Used 200 g Toor dal'),
@@ -177,7 +178,9 @@ describe('the Pantry page', () => {
     // Not until it's tapped.
     expect(page.getByRole('radiogroup').elements()).toHaveLength(0);
     await page.getByRole('button', { name: /^Yoghurt/ }).click();
-    const picks = page.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
+    await page.getByRole('list', { name: 'Packets of Yoghurt' }).getByRole('button').click();
+    const menu = page.getByRole('dialog', { name: /Yoghurt/ });
+    const picks = menu.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
     await expect
       .element(picks.getByRole('radio', { name: '½ left' }))
       .toHaveAttribute('aria-checked', 'true');
@@ -295,5 +298,43 @@ describe('the Pantry page', () => {
     await expect
       .element(recent.getByRole('button', { name: 'Undo: Used 400 g Toor dal' }))
       .toBeVisible();
+  });
+
+  it('a packet’s menu: by keyboard, with Esc back to the packet, and Used', async () => {
+    await render(1300);
+    await page
+      .getByRole('region', { name: "What's in the pantry" })
+      .getByRole('button', { name: /^Paneer/ })
+      .click();
+    const packets = page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button');
+    await expect.element(packets.first()).toMatchTextContent(/1 pack · 200 g/);
+    await expect.element(page.getByText('Oldest gets used first.')).toBeVisible();
+    (packets.first().element() as HTMLElement).focus();
+    await userEvent.keyboard('{Enter}');
+    const menu = page.getByRole('dialog', { name: /Paneer/ });
+    for (const action of ['Used', 'Binned', 'To freezer', 'Move to…', 'Change use-by date…']) {
+      const button = menu.getByRole('button', { name: action });
+      await expect.element(button).toBeVisible();
+      expect(button.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    }
+    await expect.element(menu.getByRole('button', { name: 'Used' })).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    await expect.element(menu).not.toBeInTheDocument();
+    await expect.element(packets.first()).toHaveFocus();
+
+    await packets.first().click();
+    await page
+      .getByRole('dialog', { name: /Paneer/ })
+      .getByRole('button', { name: 'Move to…' })
+      .click();
+    await page
+      .getByRole('dialog', { name: /Paneer/ })
+      .getByRole('button', { name: 'Freezer' })
+      .click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.path === `/stock/${sample.paneer[0]!.id}/move`)?.body).toEqual({
+        place_id: 2
+      })
+    );
   });
 });

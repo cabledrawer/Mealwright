@@ -1,15 +1,15 @@
 <script lang="ts">
-  // One food in one place on the Pantry screen (mockups Phone-Pantry, Desktop-Pantry):
-  // "Paneer · 2 packs · 400 g", its soonest date, and, opened, each packet with its date
-  // and what you can do with it (Used, Binned, To freezer, Move, change the date). An
-  // open packet, tapped, shows the ¼ · ½ · ¾ · Full picks (spec, Part-used packets).
-  import { ApiError } from '$lib/api';
+  // One ingredient in one place on the Pantry screen (mockups Phone-Pantry,
+  // Desktop-Pantry): "Paneer · 2 packs · 400 g" and its soonest date. Opened, it lists
+  // each packet ("1 pack · 200 g · use by Mon"), oldest first; tapping a packet opens
+  // its menu (LotMenu: Used · Binned · To freezer · Move to… · Change use-by date…, and
+  // the ¼ · ½ · ¾ · Full picks for an open one).
   import type { Group, Lot, Place } from '$lib/client/types';
   import { dateWords, useByWords } from '$lib/dates';
-  import { PICKS, pickFor } from '$lib/picks';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
   import Icon from './Icon.svelte';
+  import LotMenu from './LotMenu.svelte';
 
   let {
     group,
@@ -25,9 +25,9 @@
 
   const uid = $props.id();
   let open = $state(false);
-  /** The pick just made, shown before the server answers. */
-  let picked = $state<Record<number, number>>({});
-  let typing = $state<number | null>(null);
+  /** The packet whose menu is open, and the row it was opened from. */
+  let menuFor = $state<Lot | null>(null);
+  let anchor = $state<HTMLElement | null>(null);
 
   const name = $derived(group.food.name);
   const single = $derived(group.lots.length === 1 ? group.lots[0] : undefined);
@@ -42,32 +42,9 @@
     group.food.counted_as === 'weight' ? 'g' : group.food.counted_as === 'volume' ? 'ml' : 'count'
   );
 
-  /** The pick that matches what's left (or the one just made). */
-  function currentPick(lot: Lot): number | undefined {
-    return lot.id in picked ? picked[lot.id] : pickFor(lot);
-  }
-
-  function pick(lot: Lot, fraction: number) {
-    picked = { ...picked, [lot.id]: fraction };
-    void model.setLeft(lot.id, name, { fraction }).then((outcome) => {
-      if (!outcome.ok) {
-        // A packet with no size can't take a fraction: offer to type the amount.
-        if (outcome.error instanceof ApiError && outcome.error.code === 'needs_amount') {
-          typing = lot.id;
-        }
-        const { [lot.id]: _dropped, ...rest } = picked;
-        void _dropped;
-        picked = rest;
-      }
-    });
-  }
-
-  function typeLeft(lot: Lot, event: Event) {
-    const text = (event.currentTarget as HTMLInputElement).value.trim().replace(',', '.');
-    typing = null;
-    const amount = Number(text);
-    if (!text || !(amount >= 0)) return;
-    void model.setLeft(lot.id, name, { amount: { amount, unit: baseUnit } });
+  function openMenu(lot: Lot, event: MouseEvent) {
+    anchor = event.currentTarget as HTMLElement;
+    menuFor = lot;
   }
 
   /** "Used some" (weight, volume) or "How many left?" (count foods), for the whole food. */
@@ -86,68 +63,9 @@
       void model.usedSome(group.food.id, name, { amount: n, unit: baseUnit }, place.id);
     }
   }
-
-  function move(lot: Lot, event: Event) {
-    const id = Number((event.currentTarget as HTMLSelectElement).value);
-    const to = places.find((p) => p.id === id);
-    if (to && to.id !== place.id) void model.move(lot.id, name, to);
-  }
-
-  function changeDate(lot: Lot, event: Event) {
-    const value = (event.currentTarget as HTMLInputElement).value || null;
-    if (value !== lot.use_by) void model.setUseBy(lot.id, name, value);
-  }
-
-  const capitalise = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
-
-  function focusOnShow(node: HTMLElement) {
-    node.focus();
-  }
 </script>
 
-{#snippet picks(lot: Lot)}
-  <div class="picks">
-    <span class="hint" id="{uid}-{lot.id}-q">How much is left? Best guess is fine.</span>
-    <div class="pick-row" role="radiogroup" aria-labelledby="{uid}-{lot.id}-q">
-      {#each PICKS as p (p.value)}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={currentPick(lot) === p.value}
-          aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
-          onclick={() => pick(lot, p.value)}>{p.label}</button
-        >
-      {/each}
-    </div>
-    <span class="hint">
-      {capitalise(lot.stock.display.split(' · ').at(-1) ?? '')} ·
-      {#if typing === lot.id}
-        <label class="type-left">
-          <span class="visually-hidden"
-            >What's left, in {baseUnit === 'count' ? 'items' : baseUnit}</span
-          >
-          <input
-            inputmode="decimal"
-            use:focusOnShow
-            onchange={(event) => typeLeft(lot, event)}
-            onblur={() => (typing = null)}
-            onkeydown={(event) => {
-              if (event.key === 'Enter') (event.currentTarget as HTMLInputElement).blur();
-              if (event.key === 'Escape') typing = null;
-            }}
-          />
-          {baseUnit === 'count' ? '' : baseUnit}
-        </label>
-      {:else}
-        <button type="button" class="link" onclick={() => (typing = lot.id)}
-          >type {baseUnit === 'g' ? 'grams' : baseUnit === 'ml' ? 'millilitres' : 'a number'} instead</button
-        >
-      {/if}
-    </span>
-  </div>
-{/snippet}
-
-<li class="group" class:has-picks={single?.open}>
+<li class="group">
   <button
     type="button"
     class="row"
@@ -178,44 +96,23 @@
 
   {#if open}
     <div class="more" id="{uid}-more">
-      {#each group.lots as lot (lot.id)}
-        <div class="lot">
-          <div class="lot-head">
-            <span class="lot-amount">{lot.stock.display}{lot.open ? ' · open' : ''}</span>
-            <span class="lot-date" class:soon={lot.use_soon}
-              >{useByWords(lot.use_by, lot.days_left)}</span
+      <ul class="lots" aria-label="Packets of {name}">
+        {#each group.lots as lot (lot.id)}
+          <li>
+            <button
+              type="button"
+              class="lot"
+              aria-haspopup="dialog"
+              onclick={(event) => openMenu(lot, event)}
             >
-          </div>
-          {#if lot.open}{@render picks(lot)}{/if}
-          <div class="actions">
-            <button type="button" class="pill" onclick={() => void model.used(lot.id, name)}
-              >Used</button
-            >
-            <button type="button" class="pill" onclick={() => void model.binned(lot.id, name)}
-              >Binned</button
-            >
-            {#if place.kind !== 'freezer'}
-              <button type="button" class="pill" onclick={() => void model.toFreezer(lot.id, name)}
-                >To freezer</button
+              <span class="lot-amount">{lot.stock.display}{lot.open ? ' · open' : ''}</span>
+              <span class="lot-date" class:soon={lot.use_soon}
+                >{useByWords(lot.use_by, lot.days_left)}</span
               >
-            {/if}
-            <label class="small-field">
-              Move to
-              <select value={place.id} onchange={(event) => move(lot, event)}>
-                {#each places as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
-              </select>
-            </label>
-            <label class="small-field">
-              Use by
-              <input
-                type="date"
-                value={lot.use_by ?? ''}
-                onchange={(event) => changeDate(lot, event)}
-              />
-            </label>
-          </div>
-        </div>
-      {/each}
+            </button>
+          </li>
+        {/each}
+      </ul>
       {#if group.lots.length > 1}<span class="hint">Oldest gets used first.</span>{/if}
       <form class="some" onsubmit={useSome}>
         {#if group.food.counted_as === 'count'}
@@ -237,6 +134,17 @@
       </button>
     </div>
   {/if}
+
+  <LotMenu
+    lot={menuFor}
+    {name}
+    {place}
+    {places}
+    countedAs={group.food.counted_as}
+    {anchor}
+    {model}
+    onclose={() => (menuFor = null)}
+  />
 </li>
 
 <style>
@@ -320,39 +228,6 @@
     transform: rotate(180deg);
   }
 
-  .picks {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    margin: 0 -14px;
-    padding: var(--space-5) 14px var(--space-6);
-    background: var(--color-ground);
-  }
-
-  .pick-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-3);
-  }
-
-  .pick-row button {
-    min-height: var(--touch-target);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .pick-row button[aria-checked='true'] {
-    border-color: var(--color-accent);
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
-    font-weight: var(--weight-extrabold);
-  }
-
   .hint {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
@@ -369,23 +244,6 @@
     cursor: pointer;
   }
 
-  .type-left {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .type-left input {
-    width: 6rem;
-    min-height: var(--touch-target);
-    padding: 0 var(--space-4);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-md);
-    background: var(--color-field);
-    color: var(--color-text);
-    font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
   .more {
     display: flex;
     flex-direction: column;
@@ -393,33 +251,44 @@
     padding: 0 0 var(--space-6) var(--space-6);
   }
 
-  .lot {
+  .lots {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding-top: var(--space-4);
-    border-top: 1px dashed var(--color-divider);
-  }
-
-  .lot:first-child {
-    border-top: none;
-  }
-
-  .lot .picks {
     margin: 0;
-    padding: var(--space-4);
-    border-radius: var(--radius-md);
+    padding: 0;
+    list-style: none;
   }
 
-  .lot-head {
+  /* "1 pack · 200 g · use by Mon": tap for what you can do with it. */
+  .lot {
     display: flex;
-    justify-content: space-between;
-    gap: var(--space-4);
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+    width: 100%;
+    min-height: var(--touch-target);
+    padding: var(--space-2) var(--space-3);
     font-size: var(--text-md);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .lot:hover {
+    background: var(--color-fill);
   }
 
   .lot-amount {
     font-weight: var(--weight-semibold);
+  }
+
+  .lot-date::before {
+    content: '· ';
+    color: var(--color-text-muted);
   }
 
   .lot-date {
@@ -430,13 +299,6 @@
   .lot-date.soon {
     color: var(--color-use-soon-text);
     font-weight: var(--weight-bold);
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--space-3);
   }
 
   .pill {
@@ -470,7 +332,6 @@
     font-weight: var(--weight-bold);
   }
 
-  .small-field select,
   .small-field input {
     min-height: var(--touch-target);
     padding: 0 var(--space-4);
@@ -490,7 +351,7 @@
       font-size: var(--text-base);
     }
     .amount,
-    .lot-head {
+    .lot {
       font-size: var(--text-sm);
     }
     .date {
@@ -510,12 +371,6 @@
     .click {
       display: inline;
     }
-    .picks {
-      margin: 0 -8px;
-      padding: var(--space-5) 8px;
-      border-radius: var(--radius-md);
-    }
-    .small-field select,
     .small-field input {
       font-size: var(--text-md);
     }
