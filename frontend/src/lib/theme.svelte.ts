@@ -2,10 +2,13 @@
 //
 // static/theme.js applies the saved choice before the page is drawn; this module
 // keeps it up to date while the app runs. Both use the same storage key and rules.
-// For now the choice is saved on this device. Once sign-in is in, it is also saved
-// to the person's account (PUT /api/v1/me/preferences), as the spec asks.
+// The choice is saved per person (spec: "Choice saved per user"): once signed in,
+// the account's choice wins, and changes go back to the account. This device keeps a
+// copy, so the right theme shows before the app has started.
 
-export type ThemeChoice = 'auto' | 'light' | 'dark';
+import type { ThemeChoice } from './api';
+
+export type { ThemeChoice };
 
 export const THEME_CHOICES: readonly ThemeChoice[] = ['auto', 'light', 'dark'];
 
@@ -62,6 +65,7 @@ class Theme {
   );
 
   #media: MediaQueryList | null = null;
+  #saveToAccount: ((choice: ThemeChoice) => void) | null = null;
 
   /** Start following the device setting. Returns a function that stops it. */
   start(): () => void {
@@ -77,10 +81,24 @@ class Theme {
     return () => this.#media?.removeEventListener('change', onChange);
   }
 
+  /** The person picked a theme. */
   set(choice: ThemeChoice): void {
     this.choice = choice;
     save(choice);
     this.#apply();
+    this.#saveToAccount?.(choice);
+  }
+
+  /** The account's choice, on signing in: it wins over this device's copy. */
+  adopt(choice: ThemeChoice): void {
+    this.choice = choice;
+    save(choice);
+    this.#apply();
+  }
+
+  /** While someone is signed in, changes are also saved to their account. */
+  saveChangesWith(saver: ((choice: ThemeChoice) => void) | null): void {
+    this.#saveToAccount = saver;
   }
 
   cycle(): void {
