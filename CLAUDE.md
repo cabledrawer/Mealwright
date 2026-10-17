@@ -42,6 +42,14 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 - Commits are small, and each builds and passes. **cabledrawer is the author and signs off every commit** (cabledrawer 17 Oct): the repo's git identity is set to him, so always commit with `git commit -s --trailer "Assisted-by: Claude Code"`. Never change the git identity and never add a `Signed-off-by` for Claude. Also note AI help in PR descriptions.
 - Versions: 0.N.0 per milestone while building (not published). From 1.0.0: MAJOR.MINOR.PATCH per spec section 8. Update `CHANGELOG.md` with each version.
 - Code home during 0.x is cabledrawer's private **Forgejo** at `https://<code server>/<owner>/mealwright` (homelab; the address is in `CLAUDE.local.md`, heading "The code server"). Use `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI, not `gh`. You push as the restricted `claude` account, which can push branches but not `main`.
-- Workflow: work on a branch per piece of work (e.g. `m0.1/app-shell`), push it, and open a pull request with `tea pr create`. Only cabledrawer can push to or merge into `main`, and only he can create `v*` tags.
+- Workflow: work on a branch per feature (e.g. `m0.1/app-shell`), push it, and open a pull request with `tea pr create`. Only cabledrawer can push to or merge into `main`, and only he can create `v*` tags. See "Pull requests" below.
 - **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. `./check` replaces it. CI starts at 1.0 on GitHub Actions. 0.x images go only to Forgejo's private registry, and cabledrawer pushes them himself (`docs/dev/test-on-homelab.md`). GitHub becomes the public home at 1.0.0.
 - Never publish images or releases yourself. Never push images to any registry, including Forgejo's private one, and never push to any public registry or repo. cabledrawer merges, tags releases and manages the servers.
+
+## Pull requests (cabledrawer 17 Oct)
+
+- **One PR per feature**, not per small piece. Small commits inside a PR are fine (each still builds and passes).
+- **Start every PR description with a plain-English section, "What cabledrawer needs to check".** List any new dependencies or licences, anything touching privacy or outbound connections, and any change from the plan or spec. If there's nothing, write "Nothing needs a decision."
+- **Paste the `./check` summary into every PR.**
+- **cabledrawer usually merges in batches.** Keep working on the next piece rather than waiting for a merge, unless you need a decision. Milestone boundaries still apply: stop at the end of each milestone for his OK.
+- **cabledrawer isn't a developer.** Explain things in plain English, and give copy-paste commands with what each one does.
