@@ -133,12 +133,12 @@ def test_history_still_reads(kitchen: TestClient) -> None:
     changes = kitchen.get(f"{API}/changes").json()["changes"]
     summaries = [c["summary"] for c in changes]
     assert "Removed Toor dal from Ingredients" in summaries
-    assert "Used 500 g Toor dal" in summaries
-    assert "Added 500 g Toor dal → Cupboard" in summaries
+    assert "Used 500\u00a0g Toor dal" in summaries
+    assert "Added 500\u00a0g Toor dal → Cupboard" in summaries
     toor_rows = [c for c in changes if "Toor dal" in c["summary"]]
     assert all(c["lines"] == [] and c["totals"] == [] for c in toor_rows)
     assert all(c["can_undo"] is False for c in toor_rows)
-    moong_used = next(c for c in changes if c["summary"] == "Used 300 g Moong dal")
+    moong_used = next(c for c in changes if c["summary"] == "Used 300\u00a0g Moong dal")
     assert moong_used["totals"][0]["name"] == "Moong dal"
     assert kitchen.get(f"{API}/changes", params={"food_id": moong["id"]}).json()["changes"]
 
@@ -229,7 +229,7 @@ def test_undo_puts_stock_back_into_a_removed_ingredient(kitchen: TestClient) -> 
     removed = remove(kitchen, ghee["id"])
     undo = kitchen.post(f"{API}/changes/{used['id']}/undo").json()
     assert undo["result"] == "done"
-    assert undo["message"] == "Ghee is back in Ingredients, with 100 g in the Cupboard."
+    assert undo["message"] == "Ghee is back in Ingredients, with 100\u00a0g in the Cupboard."
     assert undo["food"]["name"] == "Ghee"
     # Back in the list and in the pantry, and never purged.
     names = [f["name"] for f in kitchen.get(f"{API}/foods").json()["foods"]]

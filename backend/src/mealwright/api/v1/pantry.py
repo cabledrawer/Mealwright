@@ -10,6 +10,7 @@ from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
+from mealwright.amounts import NBSP
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
 from mealwright.auth import SameOrigin
@@ -365,14 +366,16 @@ def _short(food: Food, milli: int, size: FoodSize | None) -> str:
     """ "2 packets", "about ½ packet", "200 g", "5", "5 slices" for summaries. A count
     food's "5 left" is only for the pantry list: a summary says just "5"."""
     shown = amount_out(food, milli, size)
-    text = shown.short.removesuffix(" left")
+    text = shown.short.removesuffix(f"{NBSP}left")
     return f"about {text}" if shown.about else text
 
 
 def _what(food: Food, milli: int, size: FoodSize | None) -> str:
     """The amount and the ingredient, for summaries: "2 packets Toor dal", "200 g
     Spinach", "5 Onion", "5 slices of Bread"."""
-    joiner = " of " if food.counted_as == "count" and food.count_word else " "
+    joiner = " "
+    if food.counted_as == "count":
+        joiner = " of " if food.count_word else NBSP  # "5 slices of Bread", "5 Onion"
     return f"{_short(food, milli, size)}{joiner}{food.name}"
 
 

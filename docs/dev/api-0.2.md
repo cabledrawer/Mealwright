@@ -244,6 +244,8 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 **Decision: the server returns structured numbers and a ready `display` string.** Phone apps then get the same wording and rounding, and the rules live in one place (`mealwright/amounts.py`, unit-tested). Clients may mirror the rules for optimistic updates; the server's string replaces theirs when the response arrives. Display strings never contain UI hints ("tap for dates"): the client adds those from structured fields.
 
+**No-break spaces:** every server-made text (`display`, `short`, `totals`, summaries, messages) puts a no-break space (U+00A0) between a number and its unit or count word ("750 g", "1½ packets", "5 Onion", "1 cup"), so a narrow column never wraps "750 / g". The spaces around " · " stay normal, so text wraps there. (This file shows them as ordinary spaces.)
+
 ### 5.1 Rounding (spec, "Decided for 0.2")
 
 - **As sold** (in a size): nearest ¼, shown with ¼ ½ ¾ ("1½ packets", "¾ packet"). Singular up to and including 1, plural above. A non-zero amount that rounds to 0 shows "under ¼ packet".

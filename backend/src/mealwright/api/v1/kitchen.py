@@ -195,7 +195,7 @@ def list_conversions(kitchen: Here) -> list[RememberedOut]:
     for row, food in rows:
         if row.kind == "weight_per_ml":
             grams = amounts.exact_text(row.value_milli * cup, "weight")
-            display = f"1 cup = {grams}"
+            display = f"1{amounts.NBSP}cup = {grams}"
         else:
             display = f"1 = {amounts.exact_text(row.value_milli, 'weight')}"
         result.append(
@@ -224,7 +224,9 @@ def forget_conversion(conversion_id: int, kitchen: Here, response: Response) -> 
         if row is None or row.household_id != kitchen.household_id:
             raise not_found("That answer")
         food = find(kitchen, row.food_id)
-        what = "weight of 1 cup of" if row.kind == "weight_per_ml" else "weight of one"
+        what = (
+            f"weight of 1{amounts.NBSP}cup of" if row.kind == "weight_per_ml" else "weight of one"
+        )
         with FoodEdit(kitchen, [food.id]) as edit:
             kitchen.db.delete(row)
         change = edit.record("food_edited", f"Forgot your {what} {food.name}", food.id)

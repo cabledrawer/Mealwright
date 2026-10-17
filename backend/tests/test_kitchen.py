@@ -146,7 +146,7 @@ def test_remembered_answers(kitchen: TestClient) -> None:
     kitchen.patch(f"{API}/foods/{food['id']}", json={"cup_weight": 200})
     remembered = kitchen.get(f"{API}/conversions").json()
     assert [(r["food"]["name"], r["display"], r["answered_by"]) for r in remembered] == [
-        ("Toor dal", "1 cup = 200 g", "Tess")
+        ("Toor dal", "1\u00a0cup = 200\u00a0g", "Tess")
     ]
     forgotten = kitchen.delete(f"{API}/conversions/{remembered[0]['id']}").json()
     assert forgotten["change"]["can_undo"] is True

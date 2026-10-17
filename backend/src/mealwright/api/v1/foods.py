@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
 from mealwright import amounts
-from mealwright.amounts import MILLI, CountedAs, exact_text, from_milli
+from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import (
     AmountIn,
@@ -724,7 +724,7 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                     if "weight_per_ml" not in household_conversions(kitchen, food.id):
                         return None
                     set_conversion(kitchen, food, "weight_per_ml", None)
-                    summary = f"Forgot your weight of 1 cup of {name}"
+                    summary = f"Forgot your weight of 1{NBSP}cup of {name}"
                 else:
                     set_conversion(
                         kitchen,
@@ -733,7 +733,7 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                         grams_per_cup_to_mg_per_ml(body.cup_weight, cup),
                     )
                     grams = exact_text(amounts.to_milli(body.cup_weight), "weight")
-                    summary = f"Weight of 1 cup of {name} is now {grams}"
+                    summary = f"Weight of 1{NBSP}cup of {name} is now {grams}"
             else:  # item_weight
                 if body.item_weight is None:
                     if "item_weight" not in household_conversions(kitchen, food.id):

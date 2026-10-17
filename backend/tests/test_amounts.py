@@ -1,5 +1,6 @@
 """Unit maths: storing amounts, rounding and showing them the way they're sold."""
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -33,28 +34,28 @@ TUB = Size(9, "tub", "tubs", 500_000)
     ("milli", "counted_as", "size", "word", "expected"),
     [
         # The examples in docs/dev/api-0.2.md section 5.3 and the mockups.
-        (750_000, "weight", PACKET, None, "1½ packets · about 750 g"),
-        (1_000_000, "weight", PACKET, None, "2 packets · 1 kg"),
-        (400_000, "weight", PACK, None, "2 packs · 400 g"),
-        (1_500_000, "volume", BOTTLE, None, "1½ bottles · about 1.5 L"),
-        (9_000, "count", DOZEN, None, "9 left · bought as a dozen"),
-        (14_000, "count", LOAF, "slice", "14 slices · bought as a loaf"),
-        (6_000, "count", None, "piece", "6 pieces"),
-        (200_000, "weight", None, None, "200 g"),
-        (40_000, "weight", PACKET, None, "under ¼ packet · about 40 g"),
-        (250_000, "weight", TUB, None, "½ tub · about 250 g"),
-        (500_000, "weight", TUB, None, "1 tub · 500 g"),
-        (125_000, "weight", PACKET, None, "¼ packet · about 130 g"),
-        (1_000, "count", None, "slice", "1 slice"),
-        (500, "count", None, "slice", "½ slice"),
-        (1_500, "count", None, None, "1½ left"),
-        (0, "count", None, None, "0 left"),
-        (0, "weight", PACKET, None, "0 g"),
-        (200, "count", None, None, "under ½ left"),
-        (240, "count", None, "egg", "under ½ egg"),
-        (4, "weight", None, None, "under 0.1 g"),
-        (49, "volume", None, None, "under 0.1 ml"),
-        (50, "weight", None, None, "0.1 g"),
+        (750_000, "weight", PACKET, None, "1½\u00a0packets · about 750\u00a0g"),
+        (1_000_000, "weight", PACKET, None, "2\u00a0packets · 1\u00a0kg"),
+        (400_000, "weight", PACK, None, "2\u00a0packs · 400\u00a0g"),
+        (1_500_000, "volume", BOTTLE, None, "1½\u00a0bottles · about 1.5\u00a0L"),
+        (9_000, "count", DOZEN, None, "9\u00a0left · bought as a dozen"),
+        (14_000, "count", LOAF, "slice", "14\u00a0slices · bought as a loaf"),
+        (6_000, "count", None, "piece", "6\u00a0pieces"),
+        (200_000, "weight", None, None, "200\u00a0g"),
+        (40_000, "weight", PACKET, None, "under ¼\u00a0packet · about 40\u00a0g"),
+        (250_000, "weight", TUB, None, "½\u00a0tub · about 250\u00a0g"),
+        (500_000, "weight", TUB, None, "1\u00a0tub · 500\u00a0g"),
+        (125_000, "weight", PACKET, None, "¼\u00a0packet · about 130\u00a0g"),
+        (1_000, "count", None, "slice", "1\u00a0slice"),
+        (500, "count", None, "slice", "½\u00a0slice"),
+        (1_500, "count", None, None, "1½\u00a0left"),
+        (0, "count", None, None, "0\u00a0left"),
+        (0, "weight", PACKET, None, "0\u00a0g"),
+        (200, "count", None, None, "under ½\u00a0left"),
+        (240, "count", None, "egg", "under ½\u00a0egg"),
+        (4, "weight", None, None, "under 0.1\u00a0g"),
+        (49, "volume", None, None, "under 0.1\u00a0ml"),
+        (50, "weight", None, None, "0.1\u00a0g"),
     ],
 )
 def test_as_sold_display(
@@ -69,24 +70,24 @@ def test_as_sold_parts() -> None:
     shown = as_sold(750_000, "weight", PACKET)
     assert shown.count == Decimal("1.5")
     assert shown.about is True
-    assert shown.short == "1½ packets"
+    assert shown.short == "1½\u00a0packets"
     exact = as_sold(1_000_000, "weight", PACKET)
     assert exact.about is False
-    assert exact.short == "2 packets"
+    assert exact.short == "2\u00a0packets"
 
 
 @pytest.mark.parametrize(
     ("milli", "expected"),
     [
-        (200_000, "200 g"),
-        (7_500, "7.5 g"),
-        (7_000, "7 g"),
-        (1_000_000, "1 kg"),
-        (1_250_000, "1.25 kg"),
-        (1_234_400, "1.234 kg"),
-        (999_600, "1 kg"),
-        (12_499, "12 g"),
-        (12_500, "13 g"),
+        (200_000, "200\u00a0g"),
+        (7_500, "7.5\u00a0g"),
+        (7_000, "7\u00a0g"),
+        (1_000_000, "1\u00a0kg"),
+        (1_250_000, "1.25\u00a0kg"),
+        (1_234_400, "1.234\u00a0kg"),
+        (999_600, "1\u00a0kg"),
+        (12_499, "12\u00a0g"),
+        (12_500, "13\u00a0g"),
     ],
 )
 def test_exact_text(milli: int, expected: str) -> None:
@@ -96,13 +97,13 @@ def test_exact_text(milli: int, expected: str) -> None:
 @pytest.mark.parametrize(
     ("milli", "counted_as", "expected"),
     [
-        (750_000, "weight", "about 750 g"),
-        (1_490_000, "weight", "about 1.5 kg"),
-        (1_500_000, "volume", "about 1.5 L"),
-        (7_340, "weight", "about 7.3 g"),
-        (256, "weight", "about 0.26 g"),
-        (995_000, "weight", "about 1 kg"),
-        (45_000, "volume", "about 45 ml"),
+        (750_000, "weight", "about 750\u00a0g"),
+        (1_490_000, "weight", "about 1.5\u00a0kg"),
+        (1_500_000, "volume", "about 1.5\u00a0L"),
+        (7_340, "weight", "about 7.3\u00a0g"),
+        (256, "weight", "about 0.26\u00a0g"),
+        (995_000, "weight", "about 1\u00a0kg"),
+        (45_000, "volume", "about 45\u00a0ml"),
     ],
 )
 def test_about_text(milli: int, counted_as: str, expected: str) -> None:
@@ -113,9 +114,9 @@ def test_quarters_and_halves() -> None:
     assert [quarters_text(q) for q in range(9)] == [
         "0", "¼", "½", "¾", "1", "1¼", "1½", "1¾", "2",
     ]  # fmt: skip
-    assert count_text(1_249, None, None) == "1 left"  # 1.249 → nearest ½ is 1
-    assert count_text(1_250, None, None) == "1½ left"  # halfway rounds up
-    assert count_text(2_000, "onion", None) == "2 onions"
+    assert count_text(1_249, None, None) == "1\u00a0left"  # 1.249 → nearest ½ is 1
+    assert count_text(1_250, None, None) == "1½\u00a0left"  # halfway rounds up
+    assert count_text(2_000, "onion", None) == "2\u00a0onions"
 
 
 def test_plurals() -> None:
@@ -206,5 +207,33 @@ def test_some_never_shows_as_nothing(
     size = Size(1, "packet", "packets", size_milli) if size_milli else None
     shown = as_sold(milli, counted_as, size, word, None)  # type: ignore[arg-type]
     for text in (shown.short, *shown.display.split(" · ")):
-        assert not text.startswith("0 "), shown.display
-        assert "about 0 " not in text, shown.display
+        assert not text.startswith(("0 ", "0\u00a0")), shown.display
+        assert "about 0\u00a0" not in text, shown.display
+
+
+NUMBER_THEN_WORD = re.compile(r"[0-9½¼¾] [A-Za-z]")
+
+
+@given(
+    st.integers(min_value=0, max_value=10**12),
+    st.sampled_from(["weight", "volume", "count"]),
+    st.one_of(st.none(), sizes_milli),
+    st.sampled_from([None, "slice"]),
+)
+def test_numbers_never_wrap_away_from_their_units(
+    milli: int, counted_as: str, size_milli: int | None, word: str | None
+) -> None:
+    """A no-break space between a number and its unit ("750 g", "1½ packets"), so a
+    narrow column never shows "750 / g"; normal spaces around " · " so it wraps there."""
+    size = Size(1, "packet", "packets", size_milli) if size_milli else None
+    shown = as_sold(milli, counted_as, size, word, None)  # type: ignore[arg-type]
+    for text in (shown.display, shown.short):
+        assert not NUMBER_THEN_WORD.search(text), text
+    if " · " in shown.display or "\u00a0·" in shown.display:
+        assert "\u00a0·" not in shown.display and "·\u00a0" not in shown.display
+
+
+def test_no_break_space_examples() -> None:
+    assert as_sold(750_000, "weight", PACKET).display == "1½\u00a0packets · about 750\u00a0g"
+    assert as_sold(9_000, "count", DOZEN).display == "9\u00a0left · bought as a dozen"
+    assert exact_text(1_250_000, "volume") == "1.25\u00a0L"

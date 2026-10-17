@@ -207,7 +207,7 @@ def test_cup_weight_is_the_households_answer(kitchen: TestClient) -> None:
     food = add(kitchen, "Toor dal")
     body = patch(kitchen, food["id"], cup_weight=200)
     assert body["food"]["cup_weight"] == {"grams": 200.0, "from": "you", "cup_ml": 250}
-    assert body["change"]["summary"] == "Weight of 1 cup of Toor dal is now 200 g"
+    assert body["change"]["summary"] == "Weight of 1\u00a0cup of Toor dal is now 200\u00a0g"
     converted = kitchen.get(
         f"{API}/foods/{food['id']}/convert", params={"amount": 1, "unit": "cup"}
     ).json()
@@ -215,7 +215,7 @@ def test_cup_weight_is_the_households_answer(kitchen: TestClient) -> None:
         "amount": 200.0,
         "unit": "g",
         "from": "you",
-        "display": "200 g",
+        "display": "200\u00a0g",
         "ask": None,
     }
     body = patch(kitchen, food["id"], cup_weight=None)
@@ -235,8 +235,8 @@ def test_running_low_in_sizes(kitchen: TestClient) -> None:
     body = patch(kitchen, food["id"], running_low_at={"amount": 0.5, "unit": "packet"})
     low = body["food"]["running_low_at"]
     assert low["amount"] == 250.0
-    assert low["short"] == "½ packet"
-    assert body["change"]["summary"] == "Toor dal runs low at ½ packet"
+    assert low["short"] == "½\u00a0packet"
+    assert body["change"]["summary"] == "Toor dal runs low at ½\u00a0packet"
 
 
 def test_counted_as_change_converts_sizes(kitchen: TestClient) -> None:
@@ -246,7 +246,7 @@ def test_counted_as_change_converts_sizes(kitchen: TestClient) -> None:
     assert response.status_code == 409
     asked = response.json()
     assert asked["code"] == "ask_once"
-    assert asked["ask"]["question"] == "About how much does 1 cup of Toor dal weigh?"
+    assert asked["ask"]["question"] == "About how much does 1\u00a0cup of Toor dal weigh?"
     assert asked["ask"]["suggested"] == 200.0
 
     answer = {"kind": "weight_per_ml", "food_id": food["id"], "grams": 200, "remember": True}
@@ -267,7 +267,7 @@ def test_counting_by_number_asks_for_the_weight_of_one(kitchen: TestClient) -> N
     assert asked["suggested"] is None
     unchanged = kitchen.get(f"{API}/foods/{food['id']}").json()
     assert unchanged["counted_as"] == "weight"
-    assert unchanged["sizes"][0]["display"] == "Packet = 500 g"
+    assert unchanged["sizes"][0]["display"] == "Packet = 500\u00a0g"
 
     answer = {"kind": "item_weight", "food_id": food["id"], "grams": 50}
     body = patch(kitchen, food["id"], counted_as="count", answers=[answer])
@@ -304,7 +304,7 @@ def test_slices_in_a_loaf_asked_once(kitchen: TestClient) -> None:
     body = patch(
         kitchen, bread["id"], running_low_at={"amount": 1, "unit": "loaf", "answers": [answer]}
     )
-    assert body["food"]["sizes"][0]["display"] == "Loaf = 20 slices"
+    assert body["food"]["sizes"][0]["display"] == "Loaf = 20\u00a0slices"
     assert body["food"]["running_low_at"]["amount"] == 20.0
 
 
@@ -347,19 +347,19 @@ def test_sizes(kitchen: TestClient) -> None:
     packet = kitchen.post(
         f"{API}/foods/{food['id']}/sizes", json={"name": "Packet", "amount": 500}
     ).json()["food"]["sizes"][0]
-    assert packet["display"] == "Packet = 500 g"
+    assert packet["display"] == "Packet = 500\u00a0g"
     assert packet["usual"] is True
     body = kitchen.post(
         f"{API}/foods/{food['id']}/sizes",
         json={"name": "bag", "amount": {"amount": 1, "unit": "kg"}},
     ).json()
     bag = body["food"]["sizes"][1]
-    assert bag["display"] == "Bag = 1 kg" and bag["usual"] is False
-    assert body["food"]["counted_as_display"] == "Packets · 500 g"
+    assert bag["display"] == "Bag = 1\u00a0kg" and bag["usual"] is False
+    assert body["food"]["counted_as_display"] == "Packets · 500\u00a0g"
 
     body = kitchen.patch(f"{API}/foods/{food['id']}/sizes/{bag['id']}", json={"usual": True}).json()
     assert [s["usual"] for s in body["food"]["sizes"]] == [False, True]
-    assert body["food"]["counted_as_display"] == "Bags · 1 kg"
+    assert body["food"]["counted_as_display"] == "Bags · 1\u00a0kg"
 
     body = kitchen.delete(f"{API}/foods/{food['id']}/sizes/{bag['id']}").json()
     assert [(s["name"], s["usual"]) for s in body["food"]["sizes"]] == [("Packet", True)]
@@ -616,7 +616,7 @@ def test_answer_limits(kitchen: TestClient) -> None:
 def test_largest_amounts_are_fine(kitchen: TestClient) -> None:
     food = add(kitchen, "Flour sack")
     body = patch(kitchen, food["id"], running_low_at={"amount": 1_000, "unit": "kg"})
-    assert body["food"]["running_low_at"]["display"] == "1000 kg"
+    assert body["food"]["running_low_at"]["display"] == "1000\u00a0kg"
 
 
 def test_maybe_the_same_keeps_the_food_with_stock(kitchen: TestClient) -> None:

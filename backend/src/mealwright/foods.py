@@ -299,7 +299,7 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
     name = food.name  # always exactly as the household typed it
     row = table_row(food) or table().close(food.name)
     if kind == "weight_per_ml":
-        question = f"About how much does 1 cup of {name} weigh?"
+        question = f"About how much does 1{amounts.NBSP}cup of {name} weigh?"
         payload = Ask(
             food_id=food.id,
             food_name=food.name,
@@ -312,7 +312,7 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
         )
     elif kind == "item_weight":
         question = (
-            f"About how much does 1 {food.count_word} of {name} weigh?"
+            f"About how much does 1{amounts.NBSP}{food.count_word} of {name} weigh?"
             if food.count_word
             else f"{name}: about how much does one weigh?"
         )
@@ -454,7 +454,7 @@ def size_text(food: Food, size: FoodSize) -> str:
     """ "Packet = 500 g", "Loaf = 20 slices", "Dozen = 12"."""
     if food.counted_as == "count":
         count = amounts.count_text(size.amount_milli, food.count_word, food.count_word_plural)
-        count = count.removesuffix(" left")
+        count = count.removesuffix(f"{amounts.NBSP}left")
     else:
         count = exact_text(size.amount_milli, cast(CountedAs, food.counted_as))
     return f"{size.name[:1].upper()}{size.name[1:]} = {count}"

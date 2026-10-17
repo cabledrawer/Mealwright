@@ -163,7 +163,7 @@ def test_thinning_a_big_backlog_is_quick(kitchen: TestClient) -> None:
                     "login_name": "Tess",
                     "food_id": food_id,
                     "at": old + timedelta(minutes=n),
-                    "summary": "Used 1 g spinach",
+                    "summary": "Used 1\u00a0g spinach",
                 }
                 for n in range(count)
             ],

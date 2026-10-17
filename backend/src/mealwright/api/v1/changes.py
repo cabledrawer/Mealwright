@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright.amounts import count_text, exact_text
+from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
 from mealwright.api.v1.pantry import GroupOut, Pantry
@@ -186,7 +186,7 @@ class UndoOut(BaseModel):
 
 def _plain(food: Food, milli: int) -> str:
     if food.counted_as == "count":
-        return count_text(milli, None, None).removesuffix(" left")
+        return count_text(milli, None, None).removesuffix(f"{NBSP}left")
     return exact_text(milli, food.counted_as)  # type: ignore[arg-type]
 
 

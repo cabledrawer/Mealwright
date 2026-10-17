@@ -33,6 +33,10 @@ VOLUME_UNITS: dict[str, Decimal] = {
     "tbsp": Decimal(15),
 }
 CUP_SIZES = (240, 250)
+
+# Between a number and its unit or count word ("750 g", "1½ packets"), so narrow columns
+# never wrap "750 / g". The " · " between parts keeps normal spaces, to wrap there.
+NBSP = "\u00a0"
 DEFAULT_CUP_ML = 250
 
 
@@ -162,8 +166,8 @@ def significant(value: Decimal, figures: int = 2) -> Decimal:
 def _with_unit(value: Decimal, counted_as: CountedAs) -> str:
     small, big = ("g", "kg") if counted_as == "weight" else ("ml", "L")
     if value >= 1000:
-        return f"{_trim(value / 1000)} {big}"
-    return f"{_trim(value)} {small}"
+        return f"{_trim(value / 1000)}{NBSP}{big}"
+    return f"{_trim(value)}{NBSP}{small}"
 
 
 def exact_text(milli: int, counted_as: CountedAs) -> str:
@@ -186,11 +190,11 @@ def count_text(milli: int, word: str | None, word_plural: str | None) -> str:
     halves = round_half_up(Decimal(milli) / 500)
     number = quarters_text(halves * 2)
     if halves == 0 and milli > 0:  # never "0 left" when there's some
-        return f"under ½ {word}" if word else "under ½ left"
+        return f"under ½{NBSP}{word}" if word else f"under ½{NBSP}left"
     if word:
         many = halves not in (1, 2)  # "½ slice", "1 slice", "0 slices", "1½ slices"
-        return f"{number} {(word_plural or plural(word)) if many else word}"
-    return f"{number} left"
+        return f"{number}{NBSP}{(word_plural or plural(word)) if many else word}"
+    return f"{number}{NBSP}left"
 
 
 # --- As sold ------------------------------------------------------------------------------
@@ -247,7 +251,7 @@ def as_sold(
     if milli % size.amount_milli == 0:
         whole = milli // size.amount_milli
         name = size.name if whole == 1 else size.plural
-        short = f"{whole} {name}"
+        short = f"{whole}{NBSP}{name}"
         return AsSold(
             milli,
             counted_as,
@@ -260,9 +264,9 @@ def as_sold(
 
     quarters = round_half_up(Decimal(milli) * 4 / size.amount_milli)
     if quarters == 0:
-        short = f"under ¼ {size.name}"
+        short = f"under ¼{NBSP}{size.name}"
     else:
-        short = f"{quarters_text(quarters)} {size.name if quarters <= 4 else size.plural}"
+        short = f"{quarters_text(quarters)}{NBSP}{size.name if quarters <= 4 else size.plural}"
     return AsSold(
         milli,
         counted_as,
