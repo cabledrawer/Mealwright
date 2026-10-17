@@ -4,6 +4,46 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-18
+
+Fixes from cabledrawer's hand test of 0.2.0, plus a few small Pantry improvements from his friction log. Not published; for testing on cabledrawer's homelab.
+
+**Before you install it: back up your data.** This version changes the database (one small addition), and the old version can't read a database the new one has changed. On the server (from `docs/dev/test-on-homelab.md`, section 5):
+
+```bash
+cd ~/mealwright
+docker compose stop mealwright
+sudo tar -C ~/mealwright --exclude=data/logs -czf "backups/data-0.2.0-$(date +%Y%m%d-%H%M).tar.gz" data
+ls -lh backups/
+```
+
+- `cd` goes to the Mealwright folder.
+- `docker compose stop mealwright` stops the app, so the database file is copied in one piece.
+- The `tar` line makes a dated, compressed copy of the `data` folder in `backups/`, leaving out the log folder.
+- `ls -lh backups/` shows the new file; it should be there and not tiny.
+
+To go back, follow section 6 of the same file (restore that backup and set the image tag back to 0.2.0).
+
+### Fixed
+
+- **Pantry search finds other names.** Typing "thuvaram" in "Find in pantry" now finds Toor dal, the same way Recipes › Ingredients does (one shared piece of matching code). The count at the top of each place now matches what is shown.
+- **Recent changes "before → after" counts what was already there.** "Added 1 pack Paneer" with 200 g already in the Fridge now reads "1 pack · 200 g → 2 packs · 400 g", not "0 g → 1 pack · 200 g". The same for Used, and for the "Undid:" lines. Each new change saves the whole amounts it saw, so the line stays right after later changes. Undo itself is unchanged; tests now check it puts back exactly the right amounts. Changes recorded before 0.2.1 keep their old wording (the packets that change touched).
+- **"+ Staple" can make a new ingredient.** Type a name nobody has used and choose "+ New ingredient: …"; it is made with Staple on and no stock is recorded.
+- **A size needs a name with letters in it** ("packet", "tub", "dozen"). "1" is refused on screen and by the server, with "Give the size a name, like tub or packet." The Name box now hints "packet, tub, dozen…".
+- **A full, unopened pack has the ¼ · ½ · ¾ · Full choices** in its menu too (Full is ticked), not only once it is open.
+- **Undoing an older "Used" for a removed ingredient says so:** "Undone: Used about ½ tub Yogurt. Yogurt is back in Ingredients, with ½ tub in the Fridge."
+
+### Changed
+
+- **Add to pantry** has a "Today" use-by choice next to No date, +3 days, +1 week and Pick a date.
+- The grey example in the amount box suits the unit (200 for g, 1 for kg or a size, 250 for ml, 6 for items).
+- In an opened pantry row, "Used" (and "Save" for counted foods) stays greyed out until an amount is typed.
+- The pack lines in an opened pantry row ("1 pack · 200 g · use by today") show an arrow and a press colour, so it is clear they open the pack menu.
+
+### Database
+
+- One migration: two empty columns on `change_line` (`total_before_milli`, `total_after_milli`) hold the whole amounts a change saw. Nothing is rewritten. Checked by a test that builds a 0.2.0 database with real-looking data, upgrades it, and also goes back down and up again.
+
 ## [0.2.0] - 2026-10-17
 
 Milestone 0.2 (Ingredients, pantry, history and undo): the shared ingredient list, a pantry that counts things the way they're sold, and Undo for every change. Not published; for testing on cabledrawer's homelab.
