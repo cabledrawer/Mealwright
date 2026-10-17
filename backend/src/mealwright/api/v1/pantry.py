@@ -594,6 +594,17 @@ class FoodAmount(BaseModel):
     place_id: int | None = None
 
 
+class AmountOrNone(AmountIn):
+    """Like AmountIn, but 0 is allowed: "None left"."""
+
+    amount: Annotated[Decimal, Field(ge=0, le=1_000_000, max_digits=13, decimal_places=3)]
+
+
+class FoodLeft(BaseModel):
+    amount: AmountOrNone
+    place_id: int | None = None
+
+
 def _scope(kitchen: Kitchen, food: Food, place_id: int | None) -> tuple[list[StockLot], bool]:
     if place_id is not None:
         place = _place(kitchen, place_id)
@@ -610,6 +621,13 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
         food = find(kitchen, food_id)
         wanted = resolve(kitchen, food, body.amount).milli
         lots, freezer = _scope(kitchen, food, body.place_id)
+        kinds = {p.id: p.kind for p in places(kitchen.db, kitchen.household_id)}
+        if not any(freezer or kinds.get(lot.place_id) != "freezer" for lot in lots):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "nothing_left",
+                f"There's no {lower_first(food.name)} left.",
+            )
         edit = StockEdit(kitchen)
         short = take(kitchen, edit, lots, wanted, include_freezer=freezer)
         size = usual_size(kitchen, food.id)
@@ -620,9 +638,10 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
 
 
 @router.post("/foods/{food_id}/left")
-def food_left(food_id: int, body: FoodAmount, kitchen: Here, response: Response) -> StockWrite:
+def food_left(food_id: int, body: FoodLeft, kitchen: Here, response: Response) -> StockWrite:
     """ "3 left" on a group: takes from the packets that go off first, or tops up the
-    newest one if the number is higher."""
+    newest one if the number is higher. 0 is "None left": every packet is emptied
+    (outside the freezer, unless the freezer is named)."""
 
     def apply() -> tuple[Change, int]:
         food = find(kitchen, food_id)

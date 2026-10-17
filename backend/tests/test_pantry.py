@@ -419,3 +419,34 @@ def test_counting_differently_converts_stock(kitchen: TestClient, toor: dict[str
     assert changed["food"]["stock"]["amount"] == 625.0
     kitchen.post(f"{API}/changes/{changed['change']['id']}/undo")
     assert group(kitchen, "Toor dal")["stock"]["amount"] == 500.0
+
+
+def test_used_with_nothing_left_records_nothing(kitchen: TestClient) -> None:
+    ghee = food(kitchen, "Ghee")
+    add(kitchen, ghee["id"], 500, "g", place_id=place(kitchen, "Freezer"))
+    response = kitchen.post(
+        f"{API}/foods/{ghee['id']}/used", json={"amount": {"amount": 50, "unit": "g"}}
+    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "There's no ghee left.", "code": "nothing_left"}
+    kinds = [
+        c["kind"]
+        for c in kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
+    ]
+    assert kinds == ["added"]
+
+
+def test_none_left(kitchen: TestClient) -> None:
+    onion = food(kitchen, "Onion")
+    add(kitchen, onion["id"], 3, "count")
+    add(kitchen, onion["id"], 2, "count")
+    add(kitchen, onion["id"], 4, "count", place_id=place(kitchen, "Freezer"))
+    body = kitchen.post(
+        f"{API}/foods/{onion['id']}/left", json={"amount": {"amount": 0, "unit": "count"}}
+    ).json()
+    assert body["change"]["summary"] == "Onion: 5 left → 0 left"
+    assert body["groups"][0]["lots"] == []
+    assert group(kitchen, "Onion")["place"]["name"] == "Freezer"  # the freezer is left alone
+    undo = kitchen.post(f"{API}/changes/{body['change']['id']}/undo").json()
+    assert undo["result"] == "done"
+    assert kitchen.get(f"{API}/foods/{onion['id']}").json()["stock"]["amount"] == 9.0
