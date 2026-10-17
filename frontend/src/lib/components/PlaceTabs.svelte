@@ -174,8 +174,9 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-1);
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
-    padding: 0 var(--space-5);
+    padding: 0 var(--space-4);
     border: none;
     border-radius: var(--radius-full);
     background: transparent;
