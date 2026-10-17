@@ -7,7 +7,8 @@ Two parts:
 
 - `OutboundGate.request()` makes an HTTP(S) request for one kind of connection, only if
   that connection's switch is on. It sends no cookies, never follows redirects by itself
-  (callers check each hop, e.g. for SSRF in recipe import) and uses a generic user agent.
+  (callers check each hop, e.g. for SSRF in recipe import), and its user agent is just
+  "Mealwright", with no version or anything about the install (spec section 7).
 - `install_network_guard()` adds a Python audit hook that refuses every network
   connection, UDP send or DNS lookup made *outside* the gate, by our code or by any
   library. It's installed when the app starts and for the whole test suite.

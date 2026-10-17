@@ -394,6 +394,16 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 **Built in (enforces the ethos):**
 
 - **One outbound gate:** every outgoing connection passes through one place in the code, which checks the Privacy switches; anything not switched on is blocked. An automatic test fails if any other code makes a network call. Library telemetry is disabled.
+  - **Runtime guard (cabledrawer 17 Oct):** the running app also refuses, not just the tests: while Mealwright runs, any network connection, UDP send or DNS lookup made outside the gate is blocked, whether it comes from our code or a library (a Python audit hook in `mealwright.outbound`). Local sockets, IP literals and localhost lookups are allowed. Limit: it only sees networking done through Python's socket module, so a C library with its own networking isn't covered (relevant if the Postgres option arrives: its database address would need allowing).
+  - **User agent (cabledrawer 17 Oct):** every request through the gate says it comes from `Mealwright`, with no version number and nothing about the install. This is what "generic user-agent" means for the update check below. Revisit if recipe sites block it in 0.5.
+  - **Libraries that make their own connections (designed 17 Oct, before 0.8):** Apprise (notifications) and Authlib (single sign-on) open connections themselves, through `requests`, `httpx` or `smtplib`, rather than through the gate's own request function. They're let through like this:
+    1. Each library is imported in one integration module only (e.g. `mealwright/notify.py`, `mealwright/sso.py`), and the import-check test lists them next to the networking modules, so no other code can call them.
+    2. The integration module calls the library only inside a gate context, e.g. `with gate.library_call(household_id, Connection.NOTIFICATIONS, hosts=...)`. The gate checks the Privacy switch first. If it's off, or nothing is configured, the library isn't called at all.
+    3. The context lets through only DNS lookups and connections for the destinations the household configured: the hosts in its Apprise target URLs, or its identity provider's issuer and the endpoints its discovery document lists. Anything else the library tries (another host, its own update check or telemetry) is still refused.
+    4. The allowance lasts for that one call, in that thread only (it's carried by a context variable). Work a library hands to its own background threads doesn't inherit it and is refused, so integrations call libraries in a way that keeps the work in the calling thread. This needs checking for Apprise, which can send to several targets in parallel.
+    5. Integrations set the library's user agent to `Mealwright` where the library allows it, so no library or Python version is sent.
+    6. Each integration gets tests: with the switch off, nothing is sent; with it on, only the configured host is contacted, and a connection to any other host is refused.
+    7. To decide in 0.8: whether notification targets and the identity provider may be on private addresses (e.g. ntfy or Authentik on the LAN). Unlike recipe import, these are set up by an admin, so allowing private addresses seems reasonable.
 - **Strict browser rules (Content Security Policy):** pages may only load files from the household's own server, so no CDN or tracker can be added by accident.
 - **Logins:** Argon2 password hashing, slow-down after repeated wrong guesses, secure session cookies, no default admin password (the first person to set up creates the admin).
 - **Secrets encrypted on the server:** notification links (Apprise URLs carry tokens) and the SSO client secret.
@@ -421,7 +431,7 @@ No automatic crash reporting. Not in the Privacy list, because the server makes 
 **Updates (decided, cabledrawer 17 Oct)** — three levels, all built:
 
 1. **No connection, always on:** the app knows its own release date; after a while Settings → About shows "This version is 4 months old. New versions are listed at <link>." Opening the link is the user's own click.
-2. **"Check now" button, admins only:** one plain request to GitHub's public release list. Nothing about the user or install is sent (no install ID, no version in the request, a generic user-agent); the comparison happens on the server.
+2. **"Check now" button, admins only:** one plain request to GitHub's public release list. Nothing about the user or install is sent (no install ID, no version in the request; the user-agent is just `Mealwright`, with no version, as for every request through the gate); the comparison happens on the server.
 3. **Automatic daily check, off by default:** the same request once a day, listed in Settings → Privacy with its own switch. When an update exists, admins see a small "Update available" badge, optionally also sent through the household's own notifications.
 
 Also: the app reports its version number on the local network (in `/api/v1`), so Diun, Renovate etc. keep working with no extra connection. **Settings mockups need updating** (Privacy gets the update-check switch; About gets the version-age note and Check now) — all four versions.
