@@ -127,6 +127,10 @@ class SlowDown:
     def failed(self, keys: list[str], at: float | None = None) -> None:
         at = time.monotonic() if at is None else at
         with self._lock:
+            # Forget keys whose newest guess is old, so a name typed once (perhaps a
+            # password in the wrong box) isn't kept in memory past the window.
+            for stale in [k for k, t in self._failures.items() if at - t[-1] > self.WINDOW]:
+                del self._failures[stale]
             for key in keys:
                 self._recent(key, at)
                 self._failures[key].append(at)

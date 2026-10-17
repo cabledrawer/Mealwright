@@ -341,3 +341,10 @@ def test_looking_up_made_up_names_keeps_no_memory() -> None:
     slow.failed(["user:tess"], at=0.0)
     assert slow.wait_seconds(["user:tess"], at=15 * 60 + 1) == 0
     assert slow._failures == {}  # dropped once its guesses are old
+
+
+def test_a_name_typed_once_is_forgotten() -> None:
+    slow = SlowDown()
+    slow.failed(["user:my-password-in-the-wrong-box", "addr:1.2.3.4"], at=0.0)
+    slow.failed(["user:tess", "addr:5.6.7.8"], at=15 * 60 + 1)
+    assert set(slow._failures) == {"user:tess", "addr:5.6.7.8"}

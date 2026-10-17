@@ -45,19 +45,36 @@ class DailyLogFile(logging.FileHandler):
         os.chmod(self.baseFilename, 0o600)  # an older file may have wider permissions
         return open(descriptor, "a", encoding=self.encoding)
 
-    def rotate(self, day: str) -> None:
-        """Put the current file aside as mealwright.log.<day> and start a new one."""
+    def close(self) -> None:
         self.acquire()
         try:
+            self.closed_for_good = True
+            super().close()
+        finally:
+            self.release()
+
+    def rotate(self, day: str) -> None:
+        """Put the current file aside as mealwright.log.<day> and start a new one.
+
+        If putting it aside fails, logging carries on in the same file, and the error is
+        raised for the caller to log.
+        """
+        self.acquire()
+        try:
+            if getattr(self, "closed_for_good", False):
+                return  # shutting down
             if self.stream:
                 self.stream.close()
-            current = Path(self.baseFilename)
-            if current.exists() and current.stat().st_size:
-                target = self.folder / f"{FILE_NAME}.{day}"
-                if target.exists():  # put aside twice in one day: keep both
-                    target = self.folder / f"{FILE_NAME}.{day}.{time.time_ns()}"
-                current.rename(target)
-            self.stream = self._open()
+                self.stream = None  # emit() reopens it on the next line
+            try:
+                current = Path(self.baseFilename)
+                if current.exists() and current.stat().st_size:
+                    target = self.folder / f"{FILE_NAME}.{day}"
+                    if target.exists():  # put aside twice in one day: keep both
+                        target = self.folder / f"{FILE_NAME}.{day}.{time.time_ns()}"
+                    current.rename(target)
+            finally:
+                self.stream = self._open()
         finally:
             self.release()
 
@@ -77,17 +94,25 @@ def remove_old_logs(folder: Path, now: float | None = None) -> list[Path]:
     return removed
 
 
+def tidy_once(handler: DailyLogFile, day: str) -> None:
+    """Put the day's file aside and remove old ones. Never raises: a problem is logged."""
+    try:
+        handler.rotate(day)
+    except Exception:
+        logging.getLogger(__name__).exception("Couldn't start a new log file")
+    try:
+        remove_old_logs(handler.folder)
+    except Exception:
+        logging.getLogger(__name__).exception("Couldn't remove old log files")
+
+
 def _keep_tidy(handler: DailyLogFile) -> None:
-    """Background timer: just after each midnight (UTC), rotate and remove old files."""
+    """Background timer: just after each midnight (UTC), tidy the log folder."""
     while True:
         now = datetime.now(UTC)
         midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
         time.sleep((midnight - now).total_seconds())
-        try:
-            handler.rotate((midnight - timedelta(days=1)).date().isoformat())
-            remove_old_logs(handler.folder)
-        except OSError as error:
-            logging.getLogger(__name__).error("Couldn't tidy the log folder: %s", error)
+        tidy_once(handler, (midnight - timedelta(days=1)).date().isoformat())
 
 
 def set_up_logging(data_dir: Path) -> DailyLogFile | None:
@@ -104,6 +129,7 @@ def set_up_logging(data_dir: Path) -> DailyLogFile | None:
     folder = data_dir / "logs"
     try:
         folder.mkdir(mode=0o700, exist_ok=True)
+        folder.chmod(0o700)  # also tighten a folder made before 0.1.1
         remove_old_logs(folder)
         file = DailyLogFile(folder)
     except OSError as error:

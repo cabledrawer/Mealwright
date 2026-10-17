@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 from mealwright import logs
-from mealwright.logs import FILE_NAME, KEEP_DAYS, formatter, remove_old_logs, set_up_logging
+from mealwright.logs import (
+    FILE_NAME,
+    KEEP_DAYS,
+    formatter,
+    remove_old_logs,
+    set_up_logging,
+    tidy_once,
+)
 
 DAY = 24 * 3600
 
@@ -116,3 +123,47 @@ def test_data_folder_with_the_wrong_owner_still_logs_to_the_output(
         locked.chmod(0o700)
     handlers = logging.getLogger().handlers
     assert len(handlers) == 1 and not isinstance(handlers[0], logs.DailyLogFile)
+
+
+def test_a_failed_rotation_keeps_logging_in_the_same_file(
+    tmp_path: Path, clean_logging: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_up_logging(tmp_path)
+    handler = file_handler()
+    logging.getLogger("mealwright.test").warning("Before")
+
+    def refuse(self: Path, target: Path) -> Path:
+        raise PermissionError("disk says no")
+
+    monkeypatch.setattr(Path, "rename", refuse)
+    tidy_once(handler, "2026-10-17")  # must not raise
+    logging.getLogger("mealwright.test").warning("After")
+    handler.flush()
+    text = (tmp_path / "logs" / FILE_NAME).read_text()
+    assert "Before" in text and "After" in text
+    assert "Couldn't start a new log file" in text  # the problem is in the log too
+
+
+def test_tidy_once_removes_old_files(tmp_path: Path, clean_logging: None) -> None:
+    set_up_logging(tmp_path)
+    old = tmp_path / "logs" / f"{FILE_NAME}.2026-01-01"
+    old.write_text("old\n")
+    os.utime(old, (0, 0))
+    logging.getLogger("mealwright.test").warning("Today")
+    tidy_once(file_handler(), "2026-10-17")
+    assert not old.exists()
+    assert (tmp_path / "logs" / f"{FILE_NAME}.2026-10-17").exists()
+
+
+def test_rotate_after_close_does_nothing(tmp_path: Path, clean_logging: None) -> None:
+    set_up_logging(tmp_path)
+    handler = file_handler()
+    handler.close()
+    handler.rotate("2026-10-17")
+    assert handler.stream is None
+
+
+def test_an_old_logs_folder_is_tightened(tmp_path: Path, clean_logging: None) -> None:
+    (tmp_path / "logs").mkdir(mode=0o755)
+    set_up_logging(tmp_path)
+    assert stat.S_IMODE((tmp_path / "logs").stat().st_mode) == 0o700
