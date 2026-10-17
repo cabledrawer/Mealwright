@@ -1,6 +1,7 @@
 """The outbound gate and the network guard (spec section 7)."""
 
 import ast
+import logging
 import socket
 import socketserver
 import threading
@@ -10,6 +11,7 @@ from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import ClassVar
+from urllib.parse import urlsplit
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +22,7 @@ from mealwright.db import make_engine, make_sessionmaker
 from mealwright.main import create_app
 from mealwright.models import Household
 from mealwright.outbound import (
+    LABELS,
     USER_AGENT,
     Connection,
     OutboundBlocked,
@@ -125,6 +128,25 @@ def test_blocked_when_switched_off(gate: OutboundGate, server: str) -> None:
     with pytest.raises(OutboundBlocked):
         gate.request(1, Connection.RECIPE_IMPORT, f"{server}/hello")
     assert _Handler.hits == []  # nothing was sent at all
+
+
+def test_blocked_line_names_only_the_switch(
+    gate: OutboundGate, server: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A site name can show what someone was cooking, so it's never logged (cabledrawer 17 Oct)."""
+    url = f"{server}/recipes/grandmas-secret-sambar?from=search"
+    with caplog.at_level(logging.DEBUG), pytest.raises(OutboundBlocked) as blocked:
+        gate.request(1, Connection.RECIPE_IMPORT, url)
+    assert caplog.messages == ["Blocked outgoing connection: recipe import is switched off"]
+    host = urlsplit(server).hostname or ""
+    for secret in (url, host, "sambar", "recipes/"):
+        assert secret not in caplog.text
+        assert secret not in str(blocked.value)
+
+
+def test_every_switch_has_plain_words() -> None:
+    assert set(LABELS) == set(Connection)
+    assert all("_" not in label for label in LABELS.values())
 
 
 def test_switch_is_per_connection(

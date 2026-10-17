@@ -52,6 +52,18 @@ class Connection(StrEnum):
     SINGLE_SIGN_ON = "single_sign_on"  # the household's own identity provider (0.8)
 
 
+# Each switch in plain words, as Settings → Privacy will name it. Log lines about a
+# connection use these only, never the address: a site name can show what someone was
+# cooking, and logs never record what people cook, buy or type (cabledrawer 17 Oct).
+LABELS = {
+    Connection.RECIPE_IMPORT: "recipe import",
+    Connection.RECIPE_PHOTOS: "recipe photos",
+    Connection.UPDATE_CHECK: "the update check",
+    Connection.NOTIFICATIONS: "notifications",
+    Connection.SINGLE_SIGN_ON: "single sign-on",
+}
+
+
 class OutboundBlocked(PermissionError):
     """An outgoing connection was refused."""
 
@@ -143,9 +155,9 @@ class OutboundGate:
         max_bytes: int = MAX_RESPONSE_BYTES,
     ) -> OutboundResponse:
         if not self.is_allowed(household_id, connection):
-            # Log the kind of connection only, never the address (it can be content).
-            log.warning("Blocked outgoing connection: %s is switched off", connection.value)
-            raise OutboundBlocked(f"{connection.value} is switched off in Settings → Privacy")
+            # Log the switch only, never the address or site (see LABELS).
+            log.warning("Blocked outgoing connection: %s is switched off", LABELS[connection])
+            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings → Privacy")
         if urlsplit(url).scheme not in {"http", "https"}:
             raise OutboundBlocked("only http and https addresses are allowed")
 

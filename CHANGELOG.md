@@ -20,6 +20,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Privacy and security
 
+- **A blocked outside connection is logged in plain words and names only the switch** ("recipe import is switched off"), never the site or address, which could show what someone was cooking. A test checks it. (Asked by cabledrawer.)
 - **Database errors no longer show what people typed.** Such an error's text used to include the values in the query (for example a typed username), and it would reach the log as part of the error. The values are now hidden. (Found by the review of this patch.)
 - **Usernames that don't exist aren't written to the log.** Someone who types their password into the username box would otherwise have it logged. The log says "unknown user" instead. (Found by cabledrawer.)
 
