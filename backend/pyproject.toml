@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.0",
+    "argon2-cffi==25.1.0",
     "fastapi>=0.143.3",
     "pydantic-settings>=2.16.0",
     "sqlalchemy>=2.1.5",
@@ -27,6 +28,10 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+
+[tool.uv]
+# New dependencies: prefer releases at least two weeks old (as for the ./check scanners).
+exclude-newer-package = { pycparser = "2026-10-03T00:00:00Z" }
 
 [tool.ruff]
 line-length = 100
