@@ -213,7 +213,9 @@ export async function seed(request: APIRequestContext) {
       break;
     }
     if (s.left !== undefined) {
-      const lot = ((added.group as Json).lots as { id: number }[]).at(-1)!;
+      // The add answers `groups` (one per place touched); older drafts said `group`.
+      const group = (added.group ?? (added.groups as Json[])[0]) as Json;
+      const lot = (group.lots as { id: number }[]).at(-1)!;
       await api.post(`/stock/${lot.id}/left`, { fraction: s.left });
     }
     if (s.used) await api.post(`/foods/${id}/used`, { amount: s.used });
