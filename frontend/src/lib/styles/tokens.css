@@ -53,6 +53,18 @@
   --color-badge-warn: #b23a0e;
   --color-badge-text: #ffffff;
 
+  /* Forms (Sign in, Onboarding) */
+  --color-field: #ffffff;
+  /* Darker than the mockups' #d3d8d3, so the field's edge meets WCAG AA (3:1). */
+  --color-field-border: #848d87;
+  --color-label: #3f4843;
+  --color-note: #e4f1ea; /* reassuring note: "This login lives only on your server" */
+  --color-note-text: #1f5c42;
+  --color-warning: #fde9e1; /* something needs attention, calmly */
+  --color-warning-text: #9c320b;
+  --radius-field: 14px;
+  --radius-button: 16px;
+
   /* Switch */
   --color-switch-off: #d3d8d3;
   --color-switch-on: #2e7d5b;
@@ -148,6 +160,14 @@
   --color-badge-accent: #2e7d5b;
   --color-badge-warn: #c2481a;
   --color-badge-text: #ffffff;
+
+  --color-field: #1b221f;
+  --color-field-border: #66716b; /* mockups: #39433d; darkened for 3:1 */
+  --color-label: #c9d2cd;
+  --color-note: #1f3a2d;
+  --color-note-text: #8fe0b5;
+  --color-warning: #3e2119;
+  --color-warning-text: #ff9b76;
 
   --color-switch-off: #39433d;
   --color-switch-on: #6fcf9e;

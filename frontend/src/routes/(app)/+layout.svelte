@@ -1,17 +1,34 @@
 <script lang="ts">
-  import '@fontsource-variable/plus-jakarta-sans';
-  import '@fontsource-variable/newsreader';
-  import '$lib/styles/tokens.css';
-  import '$lib/styles/base.css';
-
+  // The app itself, for someone signed in. +layout.ts sends everyone else to sign in.
   import type { Snippet } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { ApiError, saveTheme, setUnauthorizedHandler } from '$lib/api';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
+  import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
 
   let { children }: { children: Snippet } = $props();
 
-  $effect(() => theme.start());
+  $effect(() => {
+    // A session that ends (expired, or signed out elsewhere) leads back to sign in,
+    // and then back here.
+    setUnauthorizedHandler(() => {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- signInPath is always /sign-in plus a checked page
+      void goto(signInPath(location.pathname + location.search), { invalidateAll: true });
+    });
+    // Theme changes follow the person to their other devices. Optimistic: the theme
+    // changes straight away, and an ended session is handled above.
+    theme.saveChangesWith((choice) => {
+      saveTheme(choice).catch((error: unknown) => {
+        if (!(error instanceof ApiError)) throw error;
+      });
+    });
+    return () => {
+      setUnauthorizedHandler(null);
+      theme.saveChangesWith(null);
+    };
+  });
 </script>
 
 <a class="skip" href="#main">Skip to content</a>

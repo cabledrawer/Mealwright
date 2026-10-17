@@ -3,7 +3,7 @@
   // On phones it stays put while the page scrolls under it (UX principle 14), and holds
   // the round button to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
-  import Icon from './Icon.svelte';
+  import { initial, session } from '$lib/session.svelte';
 
   let { title, overline }: { title: string; overline?: string } = $props();
 </script>
@@ -17,8 +17,13 @@
     {#if overline}<p class="overline">{overline}</p>{/if}
     <h1>{title}</h1>
   </div>
-  <a class="settings" href={resolve('/settings')} aria-label="Settings" title="Settings">
-    <Icon name="person" size={20} stroke={2.2} />
+  <a
+    class="settings"
+    href={resolve('/settings')}
+    aria-label="{session.me?.name ?? 'You'} · Settings"
+    title="Settings"
+  >
+    {initial(session.me?.name ?? '')}
   </a>
 </header>
 
@@ -61,6 +66,9 @@
     border-radius: var(--radius-full);
     background: var(--color-avatar);
     color: var(--color-avatar-text);
+    font-size: 1rem;
+    font-weight: var(--weight-bold);
+    text-decoration: none;
   }
 
   .settings:hover {

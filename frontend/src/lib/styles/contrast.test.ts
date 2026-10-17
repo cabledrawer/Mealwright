@@ -33,6 +33,15 @@ const PAIRS: Pair[] = [
   ['--color-use-soon-text', '--color-use-soon-chip', 4.5],
   ['--color-badge-text', '--color-badge-accent', 4.5],
   ['--color-badge-text', '--color-badge-warn', 4.5],
+  ['--color-text', '--color-field', 4.5],
+  ['--color-label', '--color-ground', 4.5],
+  ['--color-label', '--color-surface', 4.5],
+  ['--color-accent', '--color-field', 4.5], // "Show" in the password field
+  ['--color-note-text', '--color-note', 4.5],
+  ['--color-warning-text', '--color-warning', 4.5],
+  ['--color-field-border', '--color-field', 3], // a text box's edge (WCAG 1.4.11)
+  ['--color-field-border', '--color-ground', 3],
+  ['--color-field-border', '--color-surface', 3],
   ['--color-focus', '--color-ground', 3],
   ['--color-focus', '--color-chrome', 3]
 ];

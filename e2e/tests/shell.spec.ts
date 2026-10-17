@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test';
 
 // The app shell (0.1): the five pages and Settings, the bottom tabs on phones and the
 // collapsible sidebar on desktop, and the Auto · Light · Dark switch. Each test runs
-// twice, in the "phone" and "desktop" projects (see playwright.config.ts).
+// twice, in the "phone" and "desktop" projects (see playwright.config.ts), signed in
+// as the test admin.
 
 const PAGES = [
   { path: '/', title: 'Today', tab: 'Today' },
@@ -57,6 +58,10 @@ function mainNav(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
+  // Signed in as the test admin (global-setup.ts). The theme is saved to the account,
+  // so start every test from Auto.
+  const reset = await page.request.put('/api/v1/me/preferences', { data: { theme: 'auto' } });
+  expect(reset.ok()).toBe(true);
 });
 
 test('every page opens, with its title and the right tab marked', async ({ page, baseURL }) => {

@@ -5,6 +5,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { PAGES, isCurrent } from '$lib/nav';
+  import { initial, session } from '$lib/session.svelte';
   import { sidebar } from '$lib/sidebar.svelte';
   import Icon from './Icon.svelte';
   import Logo from './Logo.svelte';
@@ -51,11 +52,16 @@
       class="settings"
       href={resolve('/settings')}
       aria-current={settingsCurrent ? 'page' : undefined}
-      aria-label={sidebar.collapsed ? 'Settings' : undefined}
+      aria-label={`${session.me?.name ?? 'You'} · Settings`}
       title="Settings"
     >
-      <span class="avatar"><Icon name="person" size={18} stroke={2.2} /></span>
-      {#if !sidebar.collapsed}<span class="settings-label">Settings</span>{/if}
+      <span class="avatar" aria-hidden="true">{initial(session.me?.name ?? '')}</span>
+      {#if !sidebar.collapsed}
+        <span class="who">
+          <span class="name">{session.me?.name}</span>
+          <span class="settings-label">Settings</span>
+        </span>
+      {/if}
     </a>
   </div>
 </aside>
@@ -177,8 +183,29 @@
     width: 32px;
     height: 32px;
     border-radius: var(--radius-full);
+    flex: none;
     background: var(--color-avatar);
     color: var(--color-avatar-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-label {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
   }
 
   /* Collapsed: a 72 px strip of icons. */
