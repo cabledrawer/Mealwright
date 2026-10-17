@@ -187,15 +187,14 @@ services:
       MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
     volumes:
       - ./data:/data
-    networks:
-      - mealwright
     labels:
       # Never let Watchtower (or similar) update this container.
       - com.centurylinklabs.watchtower.enable=false
+    # No "networks:" here: Mealwright uses only this project's own network, which
+    # Docker names mealwright_default (after the folder), like Paperless's.
 
 networks:
-  mealwright:
-    name: mealwright
+  default:
     ipam:
       config:
         - subnet: 172.28.10.0/24   # a fixed range, named in MEALWRIGHT_TRUSTED_PROXIES
@@ -205,7 +204,8 @@ If `docker compose up` says the range is already in use, choose another free one
 
 Notes:
 
-- **Mealwright has its own network**, `mealwright`, so it can't reach your other apps and they can't reach it. Only Caddy joins it (next step).
+- **Mealwright has its own network**, `mealwright_default`, the same pattern as Paperless. It can't reach your other apps, and they can't reach it. Only Caddy joins it (next step).
+- **Mealwright must not join `apps_default`** or any other project's network. Don't add a `networks:` list to the service.
 - **No `ports:`.** It's only reachable through Caddy.
 - **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which Caddy provides. On a plain `http://` address, Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
 - **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
@@ -219,18 +219,43 @@ Notes:
 - The Caddy site `mealwright.example.org` → `mealwright:8080`, **tier D**: Mealwright's own login, no Authelia in front, and Caddy strips any `Remote-*` headers. Mealwright doesn't read those headers anyway; stripping them means no visitor can pretend to be signed in through them.
 - The wildcard DNS name and certificate already cover `mealwright.example.org`.
 
-**Still to check: Caddy joins Mealwright's network.** Caddy can only reach `mealwright:8080` if it's on the `mealwright` network. If Caddy's compose file doesn't have it yet, add:
+**To do: Caddy joins Mealwright's network.** Caddy is its own compose project and joins other projects' networks as external ones (today `proxy_default`, `apps_default` and `docs_default`). Mealwright's network gets added the same way. In **Caddy's** compose file, add two things, next to the matching `docs_default` lines:
+
+1. In the Caddy service's `networks:` list, add one line:
+
+   ```yaml
+         - mealwright_default
+   ```
+
+2. In the top-level `networks:` section at the bottom of the file, add:
+
+   ```yaml
+     mealwright_default:
+       external: true
+   ```
+
+When you're done, the relevant parts look like this (your file has more in it; leave the rest as it is):
 
 ```yaml
 services:
   caddy:
+    # …
     networks:
-      # …the networks it already has…
-      - mealwright
+      - default
+      - apps_default
+      - docs_default
+      - mealwright_default
+
 networks:
-  mealwright:
+  apps_default:
+    external: true
+  docs_default:
+    external: true
+  mealwright_default:
     external: true
 ```
+
+Don't bring Caddy up yet. Its compose file now refers to `mealwright_default`, which only exists once Mealwright has been started (section 4.5).
 
 **Editing the Caddyfile:** your Caddyfile is a **single-file bind mount**. Tools that save by replacing the file, like `sed -i` and many editors, leave the container still looking at the old file, so `caddy reload` won't see the change. After editing it that way, restart Caddy:
 
@@ -242,22 +267,38 @@ docker restart caddy
 
 ### 4.5 Start it, and create the admin straight away
 
-The `mealwright` network has to exist before Caddy can join it, so start Mealwright first:
+Order matters: **Mealwright first**, so its network exists, **then recreate Caddy**, so it joins that network.
 
-```bash
-cd ~/mealwright
-docker compose up -d
-docker compose logs -f        # watch it start; press Ctrl+C to stop watching
-```
+1. Start Mealwright. This also creates the network `mealwright_default`:
 
-If you just added the network to Caddy's compose file, apply it (`docker compose up -d` in Caddy's folder). Otherwise restart Caddy so it joins the network:
+   ```bash
+   cd ~/mealwright
+   docker compose up -d
+   docker compose logs -f        # watch it start; press Ctrl+C to stop watching
+   ```
 
-```bash
-docker restart caddy
-docker network inspect mealwright --format '{{range .Containers}}{{.Name}} {{end}}'
-```
+2. Recreate Caddy in its own folder, so it picks up the new network:
 
-The second command should list both `mealwright` and `caddy`.
+   ```bash
+   cd <Caddy's folder>
+   docker compose up -d
+   ```
+
+   **This briefly takes all your sites offline** (a few seconds), because Caddy is recreated, not just reloaded. Do it at a quiet moment.
+
+3. Check that both are on the network:
+
+   ```bash
+   docker network inspect mealwright_default --format '{{range .Containers}}{{.Name}} {{end}}'
+   ```
+
+   It should list both `mealwright` and `caddy`. Mealwright shouldn't appear on any other network:
+
+   ```bash
+   docker inspect mealwright --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}'
+   ```
+
+   This should print only `mealwright_default`.
 
 **Create the admin account straight away.** With tier D there's no Authelia in front, so until the admin account exists, the first person to open the address becomes the admin. That's how first-run setup works (spec section 7). Open `https://mealwright.example.org/`, create your account and sign in. Then check that setup is closed:
 

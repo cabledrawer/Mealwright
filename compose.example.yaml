@@ -19,14 +19,12 @@ services:
       # The folder must belong to UID 10001, the user Mealwright runs as:
       #   sudo mkdir -p ./data && sudo chown 10001:10001 ./data
       - ./data:/data
-    networks:
-      - mealwright
-    # No "ports:". Reach it through the reverse proxy, which joins this network and
-    # forwards to http://mealwright:8080.
+    # No "ports:" and no "networks:". Mealwright uses only this project's own network
+    # (Docker names it <folder>_default, e.g. mealwright_default). Your reverse proxy
+    # joins that network as an external one and forwards to http://mealwright:8080.
 
 networks:
-  mealwright:
-    name: mealwright
+  default:
     ipam:
       config:
         # A fixed range, so MEALWRIGHT_TRUSTED_PROXIES can name it. Pick any free one.
