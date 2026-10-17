@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+a{color:#2E7D5B}a:hover{color:#1F5C42}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #F5F6F4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17201C; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; box-sizing: border-box; gap: 24px">
+
+<div style="display: flex; align-items: center; gap: 12px">
+<img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" aria-hidden="true" style="width: 56px; height: 56px; display: block">
+<span style="font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Mealwright</span>
+</div>
+
+<div style="width: 100%; max-width: 440px; background: #FFFFFF; border-radius: 28px; padding: 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 0 #E3E6E2">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Welcome back</h1>
+<span style="font-size: 15px; color: #5B655F">Sign in to your household's kitchen</span>
+</div>
+
+<sc-if value="{{ withPasswords }}" hint-placeholder-val="{{ true }}">
+<form style="display: flex; flex-direction: column; gap: 12px; margin: 0">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #3F4843">Username
+<input type="text" value="tess" autocomplete="username" style="border: 1px solid #D3D8D3; border-radius: 14px; min-height: 48px; padding: 0 14px; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; background: #FFFFFF"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #3F4843">Password
+<span style="display: flex; align-items: center; border: 1px solid #D3D8D3; border-radius: 14px; background: #FFFFFF; padding: 0 6px 0 14px; min-height: 48px; box-sizing: border-box">
+<input type="password" value="kitchen-secret" autocomplete="current-password" style="flex: 1; min-width: 0; border: none; background: transparent; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; outline: none">
+<button type="button" style="border: none; background: transparent; color: #2E7D5B; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 38px; padding: 0 10px">Show</button>
+</span></label>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">Remember this computer</span><span style="font-size: 12px; color: #5B655F">Stay signed in for 30 days</span></span>
+<button type="button" role="switch" aria-checked="true" aria-label="Remember this computer" style="width: 46px; height: 28px; border: none; border-radius: 14px; background: #2E7D5B; position: relative; padding: 0; flex: 0 0 auto"><span style="position: absolute; top: 2px; left: 20px; width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25)"></span></button>
+</div>
+<a href="Desktop-Today.dc.html" style="background: #17201C; color: #FFFFFF; border-radius: 14px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Sign in</a>
+</form>
+
+<div style="display: flex; align-items: center; gap: 12px; color: #5B655F; font-size: 13px; font-weight: 600"><span style="flex: 1; height: 1px; background: #E3E6E2"></span>or<span style="flex: 1; height: 1px; background: #E3E6E2"></span></div>
+
+<a href="Desktop-Today.dc.html" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 14px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2"></path></svg>Sign in with Authentik</a>
+
+<span style="font-size: 13px; color: #5B655F; text-align: center">Forgot your password? Ask your household's admin to reset it.</span>
+</sc-if>
+<sc-if value="{{ ssoOnly }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<a href="Desktop-Today.dc.html" style="background: #17201C; color: #FFFFFF; border-radius: 14px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"></circle><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2"></path></svg>Sign in with Authentik</a>
+<span style="font-size: 13px; color: #5B655F; text-align: center; line-height: 1.5">This household signs in through Authentik only. Trouble signing in? Ask your household's admin.</span>
+</div>
+</sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+<span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #1F5C42; font-weight: 700"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>Your own server · nothing is sent anywhere else</span>
+<a href="Onboard-Desktop.dc.html" style="font-size: 13px; font-weight: 700; text-decoration: none">First time here? Set up Mealwright</a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"passwordLogins":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const on = this.props.passwordLogins ?? true;
+return { withPasswords: on, ssoOnly: !on };
+}
+}
+</script>
+</body>
+</html>

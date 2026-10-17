@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Pantry</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#2E7D5B}a:hover{color:#1F5C42}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #F5F6F4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17201C; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 24px; padding: 56px 20px 0; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; color: #5B655F; font-weight: 500">47 items · 6 tubs · 3 use soon</div>
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1>
+</div>
+<button aria-label="Add to pantry" style="width: 44px; height: 44px; border: none; border-radius: 22px; background: #17201C; color: #FFFFFF; font: 700 22px 'Plus Jakarta Sans', sans-serif">+</button>
+</div>
+
+<div role="tablist" aria-label="Where" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #E6E9E5; border-radius: 999px; padding: 3px">
+<button role="tab" aria-selected="false" style="border: none; background: transparent; border-radius: 999px; min-height: 36px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #5B655F">All</button>
+<button role="tab" aria-selected="true" style="border: none; background: #FFFFFF; border-radius: 999px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Fridge</button>
+<button role="tab" aria-selected="false" style="border: none; background: transparent; border-radius: 999px; min-height: 36px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #5B655F">Freezer</button>
+<button role="tab" aria-selected="false" style="border: none; background: transparent; border-radius: 999px; min-height: 36px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #5B655F">Cupboard</button>
+</div>
+
+<div style="background: #FDE9E1; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 15px; font-weight: 800; color: #7A2808">Use soon</span>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px"><span style="font-size: 15px; font-weight: 600">Spinach · today</span><span style="display: flex; gap: 6px"><button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; min-height: 34px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Used</button><button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; min-height: 34px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Binned</button></span></div>
+<a href="Recipes-Phone.dc.html" style="font-size: 13px; font-weight: 700; color: #7A2808; text-decoration: none">2 more · recipes that use them →</a>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 18px; padding: 2px 14px">
+<button onClick="{{ togglePaneer }}" aria-expanded="{{ paneerOpen }}" style="width: 100%; display: flex; align-items: center; gap: 8px; min-height: 52px; border: none; border-bottom: 1px solid #E8EBE7; background: transparent; padding: 0; text-align: left; font-family: inherit; color: inherit"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Paneer</span><span style="font-size: 13px; color: #5B655F">2 packs · 400 g · tap for dates</span></span><span style="background: #FDE9E1; color: #9C320B; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700">Mon</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B655F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ paneerOpen }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0 10px 12px; border-bottom: 1px solid #E8EBE7; font-size: 13px">
+<div style="display: flex; justify-content: space-between"><span style="font-weight: 600">1 pack · 200 g</span><span style="color: #9C320B; font-weight: 700">use by Mon</span></div>
+<div style="display: flex; justify-content: space-between"><span style="font-weight: 600">1 pack · 200 g</span><span style="color: #5B655F; font-weight: 600">use by Wed</span></div>
+<span style="font-size: 12px; color: #5B655F">Oldest gets used first.</span>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 12px; border-bottom: 1px solid #E8EBE7; background: #F5F6F4; margin: 0 -14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 15px; font-weight: 700">Yoghurt</span><span style="font-size: 13px; color: #5B655F">1 tub of 500 g · open</span></div>
+<span style="font-size: 12px; color: #5B655F">How much is left? Best guess is fine.</span>
+<div role="radiogroup" aria-label="Yoghurt left" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 36px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #17201C">¼</button>
+<button role="radio" aria-checked="true" style="border: 1px solid #2E7D5B; background: #E4F1EA; border-radius: 999px; min-height: 36px; font: 800 14px 'Plus Jakarta Sans', sans-serif; color: #1F5C42">½</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 36px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #17201C">¾</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 36px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #17201C">Full</button>
+</div>
+<span style="font-size: 12px; color: #5B655F">About 250 g · <button style="border: none; background: none; padding: 0; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B">type grams instead</button></span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Milk</span><span style="font-size: 13px; color: #5B655F">1½ bottles · about 1.5 L</span></span><span style="font-size: 12px; color: #5B655F; font-weight: 600">Thu</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Eggs</span><span style="font-size: 13px; color: #5B655F">9 left · bought as a dozen</span></span><span style="font-size: 12px; color: #5B655F; font-weight: 600">Sat</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Sambar &amp; rice</span><span style="font-size: 13px; color: #6E4A00; font-weight: 600">2 tubs · cooked Thu</span></span><span style="background: #FDF1D8; color: #6E4A00; border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 700">Tubs</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 52px"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Coriander</span><span style="font-size: 13px; color: #5B655F">1 bunch · added today</span></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: #5B655F; text-transform: uppercase; letter-spacing: 0.06em">Staples · tap when it runs out</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 7px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Salt</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 7px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Turmeric</button>
+<button style="border: none; background: #FDE9E1; border-radius: 999px; padding: 7px 12px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #9C320B">Oil · on list</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 7px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Curry leaves</button>
+</div>
+</div>
+
+</div>
+
+<nav aria-label="Main" style="height: 84px; background: #FFFFFF; border-top: 1px solid #E3E6E2; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Shop.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Phone-Pantry.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #2E7D5B; font-size: 11px; font-weight: 700">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600">
+<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = s.paneerOpen !== false;
+return { paneerOpen: open, togglePaneer: () => this.setState({ paneerOpen: !open }) };
+}
+}
+</script>
+</body>
+</html>

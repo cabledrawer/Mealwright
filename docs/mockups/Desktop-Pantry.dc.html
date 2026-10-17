@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Pantry</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+a{color:#2E7D5B}a:hover{color:#1F5C42}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #F5F6F4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17201C; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 232px; max-width: 100%; background: #FFFFFF; border-right: 1px solid #E3E6E2; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px"><img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" style="width: 32px; height: 32px; display: block; flex: none">Mealwright</div>
+<label style="display: flex; align-items: center; gap: 8px; background: #F1F3F0; border-radius: 12px; padding: 0 12px; min-height: 40px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B655F" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input type="search" placeholder="Search recipes, pantry…" aria-label="Search" style="border: none; background: transparent; font: 500 14px 'Plus Jakarta Sans', sans-serif; color: #17201C; flex: 1; min-width: 0; outline: none">
+</label>
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Desktop-Today.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #17201C; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Desktop-Plan.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #17201C; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Desktop-Shop.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #17201C; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg><span style="flex: 1">Shopping</span><span style="font-size: 12px; font-weight: 700; color: #5B655F">12</span></a>
+<a href="Desktop-Pantry.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #E4F1EA; color: #1F5C42; font-size: 15px; font-weight: 700; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg><span style="flex: 1">Pantry</span><span style="font-size: 12px; font-weight: 700; color: #9C320B">3</span></a>
+<a href="Desktop-Recipe.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #17201C; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg><span style="flex: 1">Recipes</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></a>
+<div role="group" aria-label="Recipes" style="display: flex; flex-direction: column; gap: 2px; margin: 2px 0 0 21px; padding-left: 10px; border-left: 2px solid #E3E6E2">
+<a href="Desktop-Recipe.dc.html" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; color: #3F4843; font-size: 14px; font-weight: 600; text-decoration: none"><span>All recipes</span><span style="font-size: 12px; font-weight: 700; color: #5B655F">48</span></a>
+<a href="Drafts-Desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; color: #3F4843; font-size: 14px; font-weight: 600; text-decoration: none"><span>Drafts</span><span style="font-size: 12px; font-weight: 700; color: #5B655F">3</span></a>
+<a href="Ingredients-Desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; color: #3F4843; font-size: 14px; font-weight: 600; text-decoration: none"><span>Ingredients</span><span style="font-size: 12px; font-weight: 700; color: #5B655F">142</span></a>
+</div>
+</nav>
+<div role="group" aria-label="Theme" style="margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; background: #F1F3F0; border-radius: 12px; padding: 3px">
+<button aria-pressed="true" title="Follow device" style="border: none; background: #FFFFFF; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #17201C"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"></path></svg>Auto</button>
+<button aria-pressed="false" title="Light" style="border: none; background: transparent; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 600 12px 'Plus Jakarta Sans', sans-serif; color: #5B655F"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>Light</button>
+<a href="Dark-Pantry.dc.html" title="Dark" style="border: none; background: transparent; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 600 12px 'Plus Jakarta Sans', sans-serif; color: #5B655F; text-decoration: none; cursor: pointer"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>Dark</a>
+</div>
+<a href="Settings-Desktop.dc.html" title="Settings" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #F5F6F4; text-decoration: none; color: inherit">
+<span style="width: 32px; height: 32px; border-radius: 16px; background: #DCEBE3; color: #1F5C42; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px">K</span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Tess</span><span style="font-size: 12px; color: #5B655F">Household · 2 people</span></span>
+</a>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 28px 36px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 24px; align-content: flex-start">
+
+<section style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; color: #5B655F; font-weight: 500">47 items · 6 tubs · 3 to use soon</div>
+<h1 style="margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1>
+</div>
+<button style="border: none; background: #17201C; color: #FFFFFF; border-radius: 999px; padding: 12px 18px; font: 700 14px 'Plus Jakarta Sans', sans-serif">+ Add to pantry</button>
+</div>
+
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<label style="display: flex; align-items: center; gap: 8px; background: #FFFFFF; border: 1px solid #D3D8D3; border-radius: 12px; padding: 0 12px; min-height: 40px; flex: 1 1 240px; max-width: 360px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B655F" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input type="search" placeholder="Find in pantry…" aria-label="Find in pantry" style="border: none; background: transparent; font: 500 14px 'Plus Jakarta Sans', sans-serif; color: #17201C; flex: 1; min-width: 0; outline: none">
+</label>
+<button aria-pressed="true" style="border: none; background: #17201C; color: #FFFFFF; border-radius: 999px; padding: 8px 14px; font: 700 13px 'Plus Jakarta Sans', sans-serif">All</button>
+<button aria-pressed="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 8px 14px; font: 600 13px 'Plus Jakarta Sans', sans-serif">Use soon · 3</button>
+<button aria-pressed="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 8px 14px; font: 600 13px 'Plus Jakarta Sans', sans-serif">Running low</button>
+<button aria-pressed="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 8px 14px; font: 600 13px 'Plus Jakarta Sans', sans-serif">Staples</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; align-items: start">
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px"><h2 style="margin: 0; font-size: 16px; font-weight: 800">Fridge</h2><span style="font-size: 12px; color: #5B655F; font-weight: 600">9 items</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Spinach</span><span style="font-size: 12px; color: #5B655F">200 g</span></span><span style="background: #FDE9E1; color: #9C320B; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700">Today</span></div>
+<button onClick="{{ togglePaneer }}" aria-expanded="{{ paneerOpen }}" style="width: 100%; display: flex; align-items: center; gap: 8px; min-height: 44px; border: none; border-top: 1px solid #E8EBE7; background: transparent; padding: 0; text-align: left; font-family: inherit; color: inherit; cursor: pointer"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Paneer</span><span style="font-size: 12px; color: #5B655F">2 packs · 400 g · click for dates</span></span><span style="background: #FDE9E1; color: #9C320B; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700">Mon</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B655F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ paneerOpen }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 3px; padding: 2px 0 8px 10px; font-size: 12px">
+<div style="display: flex; justify-content: space-between"><span style="font-weight: 600">1 pack · 200 g</span><span style="color: #9C320B; font-weight: 700">use by Mon</span></div>
+<div style="display: flex; justify-content: space-between"><span style="font-weight: 600">1 pack · 200 g</span><span style="color: #5B655F; font-weight: 600">use by Wed</span></div>
+<span style="color: #5B655F">Oldest gets used first.</span>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #E8EBE7; background: #F5F6F4; margin: 0 -8px; padding: 10px 8px; border-radius: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 14px; font-weight: 700">Yoghurt</span><span style="font-size: 12px; color: #5B655F">1 tub of 500 g · open</span></div>
+<span style="font-size: 12px; color: #5B655F">How much is left? Best guess is fine.</span>
+<div role="radiogroup" aria-label="Yoghurt left" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px">
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 30px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">¼</button>
+<button role="radio" aria-checked="true" style="border: 1px solid #2E7D5B; background: #E4F1EA; border-radius: 999px; min-height: 30px; font: 800 13px 'Plus Jakarta Sans', sans-serif; color: #1F5C42">½</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 30px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">¾</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; min-height: 30px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Full</button>
+</div>
+<span style="font-size: 12px; color: #5B655F">About 250 g · <button style="border: none; background: none; padding: 0; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B; cursor: pointer">type grams instead</button></span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Milk</span><span style="font-size: 12px; color: #5B655F">1½ bottles · about 1.5 L</span></span><span style="font-size: 11px; color: #5B655F; font-weight: 600">Thu</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Eggs</span><span style="font-size: 12px; color: #5B655F">9 left · bought as a dozen</span></span><span style="font-size: 11px; color: #5B655F; font-weight: 600">Sat</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Coriander</span><span style="font-size: 12px; color: #5B655F">1 bunch · added today</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Sambar &amp; rice</span><span style="font-size: 12px; color: #6E4A00; font-weight: 600">2 tubs · cooked Thu</span></span><span style="background: #FDF1D8; color: #6E4A00; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700">Tubs</span></div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px"><h2 style="margin: 0; font-size: 16px; font-weight: 800">Freezer</h2><span style="font-size: 12px; color: #5B655F; font-weight: 600">6 items</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Rajma</span><span style="font-size: 12px; color: #4A2F7A; font-weight: 600">2 tubs · frozen 3 Oct</span></span><span style="background: #EDE7F6; color: #4A2F7A; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700">Tubs</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Chana masala</span><span style="font-size: 12px; color: #4A2F7A; font-weight: 600">1 tub · frozen Fri</span></span><span style="background: #EDE7F6; color: #4A2F7A; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700">Tubs</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Drumsticks</span><span style="font-size: 12px; color: #5B655F">6 pieces</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Frozen peas</span><span style="font-size: 12px; color: #5B655F">450 g</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Grated coconut</span><span style="font-size: 12px; color: #5B655F">200 g</span></span></div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px"><h2 style="margin: 0; font-size: 16px; font-weight: 800">Cupboard</h2><span style="font-size: 12px; color: #5B655F; font-weight: 600">32 items</span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Toor dal</span><span style="font-size: 12px; color: #5B655F">1½ packets · about 750 g</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Basmati rice</span><span style="font-size: 12px; color: #9C320B; font-weight: 600">300 g · running low</span></span><button style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; padding: 4px 10px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #17201C">+ List</button></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Chickpeas (dried)</span><span style="font-size: 12px; color: #5B655F">2 packets · 1 kg · 2 dates</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Tamarind</span><span style="font-size: 12px; color: #5B655F">180 g</span></span></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 44px; border-top: 1px solid #E8EBE7"><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Murukku</span><span style="font-size: 12px; color: #5B655F">1 packet</span></span></div>
+<button style="border: none; background: transparent; color: #2E7D5B; font: 700 13px 'Plus Jakarta Sans', sans-serif; text-align: left; padding: 8px 0 0">Show all 32</button>
+</div>
+
+</div>
+</section>
+
+<aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 16px; font-weight: 800">Use soon</span><a href="Desktop-Recipe.dc.html" style="font-size: 13px; font-weight: 700; text-decoration: none">Recipes for these</a></div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px; border-top: 1px solid #E8EBE7"><span style="font-size: 14px; font-weight: 600">Spinach · 200 g</span><span style="display: flex; gap: 6px"><button style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; padding: 4px 10px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #17201C">Used</button><button style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; padding: 4px 10px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #17201C">Binned</button></span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px; border-top: 1px solid #E8EBE7"><span style="font-size: 14px; font-weight: 600">Paneer · 1 of 2 packs</span><span style="display: flex; gap: 6px"><button style="border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 999px; padding: 4px 10px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #17201C">To freezer</button></span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px; border-top: 1px solid #E8EBE7"><span style="font-size: 14px; font-weight: 600">Yoghurt · ½ tub</span><span style="font-size: 12px; color: #5B655F; font-weight: 600">Wed</span></div>
+</div>
+
+<div style="background: #F1F3F0; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 16px; font-weight: 800">Staples</span>
+<span style="font-size: 13px; color: #5B655F">Always assumed in stock. Tap one when it runs out.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Salt</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Turmeric</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Mustard seeds</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Sambar powder</button>
+<button style="border: none; background: #FDE9E1; border-radius: 999px; padding: 6px 12px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #9C320B">Sunflower oil · on list</button>
+<button style="border: none; background: #FFFFFF; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #17201C">Curry leaves</button>
+<button style="border: 1px dashed #B9C0BA; background: transparent; border-radius: 999px; padding: 6px 12px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #5B655F">+ Staple</button>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 16px; font-weight: 800">Recent changes</span>
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; min-height: 30px; align-items: center"><span><b>Cooked</b> Sambar · −200 g toor dal, −20 g tamarind</span><button style="border: none; background: transparent; color: #2E7D5B; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0">Undo</button></div>
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; min-height: 30px; align-items: center"><span><b>Shopped</b> Coriander → Fridge</span><button style="border: none; background: transparent; color: #2E7D5B; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0">Undo</button></div>
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; min-height: 30px; align-items: center"><span><b>Wren</b> moved Chana tub → Freezer</span><button style="border: none; background: transparent; color: #2E7D5B; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0">Undo</button></div>
+</div>
+
+</aside>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = s.paneerOpen !== false;
+return { paneerOpen: open, togglePaneer: () => this.setState({ paneerOpen: !open }) };
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 56px 20px 0; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; color: #A3AFA8; font-weight: 500">Sat 17 – Tue 20 October</div>
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Plan</h1>
+</div>
+<div role="group" aria-label="View" style="display: flex; background: #252E29; border-radius: 999px; padding: 3px">
+<button aria-pressed="true" style="border: none; background: #3A4640; border-radius: 999px; padding: 8px 14px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Week</button>
+<a href="Dark-Month-Phone.dc.html" style="border: none; background: transparent; border-radius: 999px; padding: 8px 14px; min-height: 36px; font: 600 13px 'Plus Jakarta Sans', sans-serif; color: #A3AFA8; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Month</a>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="background: #1B221F; border-radius: 18px; padding: 12px 14px; display: flex; gap: 12px; border: 2px solid #6FCF9E">
+<div style="width: 44px; display: flex; flex-direction: column; align-items: center"><span style="font-size: 12px; font-weight: 700; color: #6FCF9E">SAT</span><span style="font-size: 22px; font-weight: 800">17</span></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<div style="background: #3A2E14; color: #F3C766; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Sambar · tubs 2–3</span><span style="font-weight: 600">Lunch</span></div>
+<div style="background: #2E2640; color: #CDBDF0; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Chana masala · tub 4</span><span style="font-weight: 600">Dinner</span></div>
+</div>
+</div>
+<div style="background: #1B221F; border-radius: 18px; padding: 12px 14px; display: flex; gap: 12px">
+<div style="width: 44px; display: flex; flex-direction: column; align-items: center"><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">SUN</span><span style="font-size: 22px; font-weight: 800">18</span></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<div style="border: 1px solid #39433D; border-radius: 12px; padding: 7px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Dosa &amp; chutney</span><span style="font-weight: 600; color: #A3AFA8">Lunch</span></div>
+<div style="background: #2A7353; color: #FFFFFF; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Cook: Veg biryani · 4 tubs</span><span style="font-weight: 600; color: #D7F2E3">Dinner</span></div>
+</div>
+</div>
+<div style="background: #1B221F; border-radius: 18px; padding: 12px 14px; display: flex; gap: 12px">
+<div style="width: 44px; display: flex; flex-direction: column; align-items: center"><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">MON</span><span style="font-size: 22px; font-weight: 800">19</span></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<div style="background: #1C3528; color: #9FDDBB; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Biryani · tub 2</span><span style="font-weight: 600">Lunch</span></div>
+<button onClick="{{ openSheet }}" aria-label="Biryani tub 3, Monday dinner: options" style="border: none; background: #1C3528; color: #9FDDBB; border-radius: 12px; padding: 8px 10px; font: 700 14px 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: space-between; text-align: left; cursor: pointer; outline: {{ ring }}; outline-offset: 2px"><span>Biryani · tub 3</span><span style="font-weight: 600">Dinner</span></button>
+</div>
+</div>
+<div style="background: #1B221F; border-radius: 18px; padding: 12px 14px; display: flex; gap: 12px">
+<div style="width: 44px; display: flex; flex-direction: column; align-items: center"><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">TUE</span><span style="font-size: 22px; font-weight: 800">20</span></div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<div style="background: #1C3528; color: #9FDDBB; border-radius: 12px; padding: 8px 10px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between"><span>Biryani · tub 4</span><span style="font-weight: 600">Lunch</span></div>
+<a href="Dark-Recipes-Phone.dc.html" style="border: 1px dashed #4A554E; background: transparent; color: #A3AFA8; border-radius: 12px; padding: 8px 10px; font: 600 14px 'Plus Jakarta Sans', sans-serif; text-align: left; min-height: 36px; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">+ Add dinner</a>
+</div>
+</div>
+</div>
+</div>
+
+<nav aria-label="Main" style="height: 84px; background: #161C19; border-top: 1px solid #2A332E; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Dark-Phone-Today.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Dark-Phone-Plan.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #6FCF9E; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Dark-Phone-Shop.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Dark-Phone-Pantry.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Dark-Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+<sc-if value="{{ sheet }}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ closeSheet }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="Biryani, tub 3 of 4" style="background: #1B221F; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 14px">
+<div style="width: 40px; height: 5px; border-radius: 3px; background: #39433D; align-self: center"></div>
+<div style="display: flex; flex-direction: column; gap: 2px; align-items: center; text-align: center">
+<span style="font-size: 13px; color: #A3AFA8; font-weight: 600">Mon 19 · Dinner · cooked Sun</span>
+<span style="font-size: 20px; font-weight: 800">Biryani · tub 3 of 4</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: #A3AFA8">Whose tub?</span>
+<div style="display: flex; gap: 8px">
+<button aria-pressed="false" style="border: 1px solid #39433D; background: transparent; border-radius: 999px; padding: 8px 14px; min-height: 40px; font: 600 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Tess</button>
+<button aria-pressed="true" style="border: none; background: #E9EEEB; border-radius: 999px; padding: 8px 14px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #111614">Wren</button>
+<button aria-pressed="false" style="border: 1px solid #39433D; background: transparent; border-radius: 999px; padding: 8px 14px; min-height: 40px; font: 600 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Anyone</button>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<button style="border: none; background: #252E29; border-radius: 16px; padding: 14px 8px; min-height: 72px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; display: flex; flex-direction: column; align-items: center; gap: 6px"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Move to…</button>
+<button style="border: none; background: #252E29; border-radius: 16px; padding: 14px 8px; min-height: 72px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; display: flex; flex-direction: column; align-items: center; gap: 6px"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"></path></svg>Copy to…</button>
+<button style="border: none; background: #252E29; border-radius: 16px; padding: 14px 8px; min-height: 72px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; display: flex; flex-direction: column; align-items: center; gap: 6px"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v6M12 9c-4 0-7 2-7 5v5h14v-5c0-3-3-5-7-5z"></path></svg>To freezer</button>
+</div>
+<div style="display: flex; justify-content: center; align-items: center; padding-top: 2px; text-align: center"><span style="font-size: 13px; color: #A3AFA8">Per tub · 410 kcal · 12 g protein · 6 g fibre</span></div>
+<button style="border: none; background: transparent; color: #FF9B76; font: 700 15px 'Plus Jakarta Sans', sans-serif; min-height: 44px; text-align: left; padding: 0">Remove — back to tubs left</button>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = s.sheet !== undefined ? s.sheet : true;
+return {
+sheet: open,
+ring: open ? '3px solid #E9EEEB' : 'none',
+openSheet: () => this.setState({ sheet: true }),
+closeSheet: () => this.setState({ sheet: false })
+};
+}
+}
+</script>
+</body>
+</html>

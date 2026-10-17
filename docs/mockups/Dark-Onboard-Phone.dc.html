@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Setup: amounts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden">
+
+<sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
+<div style="padding: 56px 20px 8px; display: flex; align-items: center; min-height: 44px">
+<span aria-label="Step 1 of 4" style="display: flex; gap: 6px"><span style="width: 24px; height: 6px; border-radius: 3px; background: #6FCF9E"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #39433D"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #39433D"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #39433D"></span></span>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+<span style="display: flex; align-items: center; gap: 10px"><img src="/_blob/dde6845a2dea5c326ee27775613d1af6" alt="" aria-hidden="true" style="width: 40px; height: 40px; display: block"><span style="font-size: 19px; font-weight: 800">Mealwright</span></span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15">Welcome! First, your account</h1>
+<span style="font-size: 15px; color: #A3AFA8; line-height: 1.45">You're the first person here, so you'll be the admin. You can add the rest of the household next.</span>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #C9D2CD">Your name<input type="text" value="Tess" style="border: 1px solid #39433D; border-radius: 14px; min-height: 50px; padding: 0 14px; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; background: #1B221F"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #C9D2CD">Username<input type="text" value="tess" autocomplete="username" style="border: 1px solid #39433D; border-radius: 14px; min-height: 50px; padding: 0 14px; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; background: #1B221F"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #C9D2CD">Password<input type="password" value="kitchen-secret-2026" autocomplete="new-password" style="border: 1px solid #39433D; border-radius: 14px; min-height: 50px; padding: 0 14px; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; background: #1B221F"><span style="font-size: 12px; color: #A3AFA8; font-weight: 500">At least 10 characters · stored scrambled, never as plain text</span></label>
+<div style="background: #1F3A2D; color: #8FE0B5; border-radius: 16px; padding: 12px 14px; display: flex; gap: 10px; font-size: 13px; line-height: 1.45"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg><span>No default password and no account with us. This login lives only on your server. Single sign-on can be added later in Settings.</span></div>
+</div>
+<div style="padding: 12px 20px 28px; display: flex; background: #111614">
+<button onClick="{{ next }}" style="flex: 1; border: none; background: #E9EEEB; color: #111614; border-radius: 16px; min-height: 54px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Create account &amp; continue</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 20px 8px; display: flex; justify-content: space-between; align-items: center">
+<span aria-label="Step 2 of 4" style="display: flex; gap: 6px"><span style="width: 24px; height: 6px; border-radius: 3px; background: #6FCF9E"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #6FCF9E"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #39433D"></span><span style="width: 24px; height: 6px; border-radius: 3px; background: #39433D"></span></span>
+<a href="Dark-Phone-Today.dc.html" style="border: none; background: transparent; color: #A3AFA8; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 44px; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Skip</a>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15">How do you like amounts shown?</h1>
+<span style="font-size: 15px; color: #A3AFA8">Mealwright keeps the exact amount either way — this only changes what you see.</span>
+</div>
+
+<div role="radiogroup" aria-label="Amounts" style="display: flex; flex-direction: column; gap: 10px">
+<button role="radio" aria-checked="true" style="border: 2px solid #6FCF9E; background: #1B221F; border-radius: 20px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 6px; font-family: 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">
+<span style="display: flex; justify-content: space-between; align-items: center; width: 100%"><span style="font-size: 17px; font-weight: 800">Grams &amp; millilitres</span><span style="width: 22px; height: 22px; border-radius: 11px; background: #6FCF9E; color: #111614; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">✓</span></span>
+<span style="font-size: 14px; color: #A3AFA8">200 g toor dal · 15 ml oil · 2 onions</span>
+</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #39433D; background: #1B221F; border-radius: 20px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 6px; font-family: 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">
+<span style="font-size: 17px; font-weight: 800">Cups &amp; spoons</span>
+<span style="font-size: 14px; color: #A3AFA8">1 cup toor dal · 1 tbsp oil · 2 onions</span>
+</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #39433D; background: #1B221F; border-radius: 20px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 6px; font-family: 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">
+<span style="font-size: 17px; font-weight: 800">As the recipe wrote it</span>
+<span style="font-size: 14px; color: #A3AFA8">Whatever the website used — nothing converted on screen</span>
+</button>
+</div>
+
+<span style="font-size: 13px; color: #A3AFA8">You can change this any time in Settings, or flip a single recipe with "Show as".</span>
+</div>
+
+<div style="padding: 12px 20px 28px; display: flex; gap: 10px; background: #111614">
+<button onClick="{{ back }}" style="border: none; background: #252E29; color: #E9EEEB; border-radius: 16px; min-height: 54px; padding: 0 20px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Back</button>
+<a href="Dark-Phone-Today.dc.html" style="flex: 1; border: none; background: #E9EEEB; color: #111614; border-radius: 16px; min-height: 54px; font: 700 16px 'Plus Jakarta Sans', sans-serif; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Continue</a>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const step = s.step || 1;
+return { step1: step === 1, step2: step === 2, next: () => this.setState({ step: 2 }), back: () => this.setState({ step: 1 }) };
+}
+}
+</script>
+</body>
+</html>

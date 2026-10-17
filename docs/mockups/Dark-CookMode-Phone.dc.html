@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Cook mode</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="padding: 52px 16px 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<a href="Dark-Phone-Recipe.dc.html" aria-label="Exit cook mode" style="width: 44px; height: 44px; border-radius: 22px; background: #252E29; display: flex; align-items: center; justify-content: center; color: #E9EEEB"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 15px; font-weight: 800">Sambar</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">Step 2 of 4</span></span>
+<span title="Screen stays on" style="display: flex; align-items: center; gap: 4px; background: #1F3A2D; color: #8FE0B5; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2"></path></svg>Awake</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px"><span style="height: 5px; border-radius: 3px; background: #6FCF9E"></span><span style="height: 5px; border-radius: 3px; background: #6FCF9E"></span><span style="height: 5px; border-radius: 3px; background: #2A332E"></span><span style="height: 5px; border-radius: 3px; background: #2A332E"></span></div>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 22px 20px; display: flex; flex-direction: column; gap: 20px">
+<span style="font-size: 64px; font-weight: 800; color: #1F3A2D; line-height: 0.9; letter-spacing: -0.04em">2</span>
+<p style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 30px; font-weight: 500; line-height: 1.3; color: #F0F4F1">Soak the tamarind in warm water, then squeeze out the pulp.</p>
+<div style="display: flex; flex-direction: column; gap: 10px; background: #1B221F; border-radius: 18px; padding: 12px 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; font-weight: 700">Ingredients for each step</span>
+<span style="align-self: flex-start; background: #1C2D3D; color: #9CC3E6; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em">EXPERIMENTAL</span>
+</span>
+<button role="switch" aria-checked="{{ perStepAria }}" aria-label="Show ingredients for each step" onClick="{{ togglePerStep }}" style="width: 44px; height: 26px; border: none; border-radius: 13px; background: {{ switchBg }}; position: relative; padding: 0; flex: 0 0 auto; cursor: pointer"><span style="position: absolute; top: 2px; left: {{ knobLeft }}; width: 22px; height: 22px; border-radius: 11px; background: #FFFFFF"></span></button>
+</div>
+<sc-if value="{{ perStep }}" hint-placeholder-val="{{ true }}">
+<span style="display: flex; gap: 8px; flex-wrap: wrap"><span style="background: #252E29; border-radius: 999px; padding: 8px 14px; font-size: 16px; font-weight: 700">30 g tamarind</span><span style="background: #252E29; border-radius: 999px; padding: 8px 14px; font-size: 16px; font-weight: 700">300 ml warm water</span></span>
+<span style="font-size: 12px; color: #A3AFA8; line-height: 1.4">Guessed from the step — may be wrong. Fix it when you edit the recipe.</span>
+</sc-if>
+</div>
+<div style="background: #3A2E14; border-radius: 20px; padding: 16px; display: flex; justify-content: space-between; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 700; color: #E6C47A">Soak</span><span style="font-size: 34px; font-weight: 800; color: #F3D58C; letter-spacing: -0.02em">10:00</span></span>
+<button style="border: none; background: #E9EEEB; color: #111614; border-radius: 999px; padding: 12px 18px; min-height: 48px; font: 700 15px 'Plus Jakarta Sans', sans-serif">Start timer</button>
+</div>
+<button onClick="{{ openAll }}" style="border: 1px solid #39433D; background: #1B221F; color: #E9EEEB; border-radius: 16px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"></path><circle cx="4.5" cy="6" r="1"></circle><circle cx="4.5" cy="12" r="1"></circle><circle cx="4.5" cy="18" r="1"></circle></svg>Show ingredients</button>
+</div>
+
+<div style="padding: 12px 16px 28px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; border-top: 1px solid #2A332E">
+<button style="border: none; background: #252E29; color: #E9EEEB; border-radius: 18px; min-height: 64px; font: 700 17px 'Plus Jakarta Sans', sans-serif">← Back</button>
+<a href="Dark-Cooked-Phone.dc.html" style="border: none; background: #E9EEEB; color: #111614; border-radius: 18px; min-height: 64px; font: 700 17px 'Plus Jakarta Sans', sans-serif; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Next step →</a>
+</div>
+
+<sc-if value="{{ showAll }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; justify-content: flex-end">
+<div role="dialog" aria-label="All ingredients" style="background: #161C19; border-radius: 24px 24px 0 0; padding: 10px 20px 28px; display: flex; flex-direction: column">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: #39433D; align-self: center; margin-bottom: 10px"></span>
+<div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px"><span style="font-size: 18px; font-weight: 800">All ingredients · 6 tubs</span><button onClick="{{ closeAll }}" style="border: none; background: #252E29; border-radius: 999px; padding: 8px 16px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Done</button></div>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px; color: #7E8A83; text-decoration: line-through"><b>300 g</b>&nbsp;toor dal</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>30 g</b>&nbsp;tamarind</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>300 ml</b>&nbsp;warm water</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>3</b>&nbsp;onions</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>15</b>&nbsp;shallots</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>3</b>&nbsp;drumsticks</span>
+<span style="min-height: 46px; display: flex; align-items: center; border-top: 1px solid #26302B; font-size: 17px"><b>3 tbsp</b>&nbsp;sambar powder</span>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"perStep":{"editor":"boolean","default":true},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const on = s.perStep !== undefined ? s.perStep : (this.props.perStep ?? true);
+return {
+perStep: on,
+perStepAria: on ? 'true' : 'false',
+switchBg: on ? '#2E7D5B' : '#39433D',
+knobLeft: on ? '20px' : '2px',
+togglePerStep: () => this.setState({ perStep: !on }),
+showAll: !!s.showAll,
+openAll: () => this.setState({ showAll: true }),
+closeAll: () => this.setState({ showAll: false })
+};
+}
+}
+</script>
+</body>
+</html>

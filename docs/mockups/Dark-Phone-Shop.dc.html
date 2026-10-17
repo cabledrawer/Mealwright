@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Shopping list</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 80px; padding: 56px 20px 0; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-if value="{{ offline }}" hint-placeholder-val="{{ true }}"><div style="font-size: 14px; color: #A3AFA8; font-weight: 500">12 to buy · offline, saving on this phone</div></sc-if>
+<sc-if value="{{ online }}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px; color: #A3AFA8; font-weight: 500">12 to buy · synced with Wren</div></sc-if>
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Shopping</h1>
+<div style="position: relative; margin-top: 8px">
+<button onClick="{{ toggleLists }}" aria-haspopup="menu" aria-expanded="{{ listsOpen }}" style="display: inline-flex; align-items: center; gap: 8px; border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 12px 0 14px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">This week<span style="font-size: 12px; font-weight: 600; color: #A3AFA8">main list</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A3AFA8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+<sc-if value="{{ listsOpen }}" hint-placeholder-val="{{ false }}">
+<div role="menu" aria-label="Lists" style="position: absolute; top: 46px; left: 0; z-index: 10; width: 300px; background: #1B221F; border: 1px solid #2A332E; border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); padding: 6px; display: flex; flex-direction: column; gap: 2px">
+<button role="menuitemradio" aria-checked="true" onClick="{{ toggleLists }}" style="display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: none; background: #1F3A2D; border-radius: 12px; padding: 10px 12px; min-height: 52px; font-family: inherit; color: #E9EEEB"><span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 700">This week</span><span style="font-size: 12px; color: #A3AFA8">Main list · built from the plan · 12</span></span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6FCF9E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></button>
+<button role="menuitemradio" aria-checked="false" onClick="{{ toggleLists }}" style="display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: none; background: transparent; border-radius: 12px; padding: 10px 12px; min-height: 52px; font-family: inherit; color: #E9EEEB"><span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 700">Party on Saturday</span><span style="font-size: 12px; color: #A3AFA8">Extra list · 6 · ticked items still go to the pantry</span></span></button>
+<button role="menuitem" style="display: flex; align-items: center; width: 100%; text-align: left; border: none; border-top: 1px solid #26302B; background: transparent; padding: 12px; min-height: 46px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #6FCF9E">+ New list</button>
+</div>
+</sc-if>
+</div>
+</div>
+
+<div role="tablist" aria-label="Shops" style="display: flex; gap: 8px">
+<button role="tab" aria-selected="true" style="border: none; background: #E9EEEB; color: #111614; border-radius: 999px; padding: 9px 14px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Supermarket · 8</button>
+<button role="tab" aria-selected="false" style="border: 1px solid #39433D; background: #1B221F; color: #E9EEEB; border-radius: 999px; padding: 9px 14px; min-height: 40px; font: 600 14px 'Plus Jakarta Sans', sans-serif">Indian grocer · 4</button>
+</div>
+
+<div style="display: flex; gap: 8px">
+<label for="dp-add-item" style="position: absolute; left: -9999px">Add an item</label>
+<input id="dp-add-item" type="text" placeholder="Add an item…" style="flex: 1; min-height: 48px; border: 1px solid #39433D; border-radius: 14px; padding: 0 14px; font: 500 15px 'Plus Jakarta Sans', sans-serif; background: #1B221F; color: #E9EEEB; box-sizing: border-box">
+<button aria-label="Add item" style="width: 48px; height: 48px; border: none; border-radius: 14px; background: #2E7D5B; color: #FFFFFF; font: 700 22px 'Plus Jakarta Sans', sans-serif">+</button>
+</div>
+
+<sc-if value="{{ showCard }}" hint-placeholder-val="{{ false }}">
+<section aria-label="Both of you ticked toor dal" style="background: #1B221F; border: 1.5px solid #2F6A4C; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 12px; align-items: flex-start">
+<span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 18px; background: #1F3A2D; color: #8FE0B5; display: flex; align-items: center; justify-content: center; flex: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M15.5 14.2A5 5 0 0 1 21 19"></path></svg></span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 16px; font-weight: 800">Did you buy 2?</span>
+<span style="font-size: 14px; color: #A3AFA8; line-height: 1.45">You and Wren both ticked toor dal while offline, so 2 packets went into the pantry.</span>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<button onClick="{{ answer }}" style="border: none; background: #E9EEEB; color: #111614; border-radius: 14px; min-height: 44px; font: 700 15px 'Plus Jakarta Sans', sans-serif">Yes, 2</button>
+<button onClick="{{ answer }}" style="border: none; background: #252E29; color: #E9EEEB; border-radius: 14px; min-height: 44px; font: 700 15px 'Plus Jakarta Sans', sans-serif">Just 1</button>
+</div>
+</section>
+</sc-if>
+
+<div style="background: #3A2E14; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
+<div style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 800; color: #F3D58C">Check you have these</span><span style="font-size: 13px; color: #E6C47A">Staples this week's recipes use</span></div>
+<button aria-label="Dismiss staples check" style="width: 36px; height: 36px; border: none; border-radius: 18px; background: transparent; color: #F3D58C; display: flex; align-items: center; justify-content: center; padding: 0"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px"><span style="font-size: 15px; font-weight: 600">Turmeric</span><div style="display: flex; gap: 6px"><button style="border: 1px solid #6B5526; background: transparent; color: #F3D58C; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Got it</button><button style="border: none; background: #4F3F1C; color: #F3D58C; border-radius: 999px; padding: 6px 14px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">+ Add</button></div></div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px"><span style="font-size: 15px; font-weight: 600">Sunflower oil</span><div style="display: flex; gap: 6px"><button style="border: 1px solid #6B5526; background: transparent; color: #F3D58C; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Got it</button><button style="border: none; background: #4F3F1C; color: #F3D58C; border-radius: 999px; padding: 6px 14px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">+ Add</button></div></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 700; color: #A3AFA8; text-transform: uppercase; letter-spacing: 0.06em">Fruit &amp; veg</h2>
+<div style="background: #1B221F; border-radius: 18px; padding: 2px 14px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #26302B"><input type="checkbox" style="width: 22px; height: 22px; accent-color: #6FCF9E; margin: 0"><span style="flex: 1; font-size: 15px; font-weight: 600">Onions</span><span style="font-size: 14px; color: #A3AFA8">5</span></label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #26302B"><input type="checkbox" style="width: 22px; height: 22px; accent-color: #6FCF9E; margin: 0"><span style="flex: 1; font-size: 15px; font-weight: 600">Tomatoes</span><span style="font-size: 14px; color: #A3AFA8">6</span></label>
+<label style="display: flex; align-items: center; gap: 12px; min-height: 52px"><input type="checkbox" checked style="width: 22px; height: 22px; accent-color: #6FCF9E; margin: 0"><span style="flex: 1; font-size: 15px; font-weight: 600; color: #7E8A83; text-decoration: line-through">Coriander</span><span style="font-size: 14px; color: #7E8A83">1 bunch</span></label>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 13px; font-weight: 700; color: #A3AFA8; text-transform: uppercase; letter-spacing: 0.06em">Dairy</h2>
+<div style="background: #1B221F; border-radius: 18px; padding: 2px 14px">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 52px; border-bottom: 1px solid #26302B"><input type="checkbox" style="width: 22px; height: 22px; accent-color: #6FCF9E; margin: 0"><span style="flex: 1; font-size: 15px; font-weight: 600">Yoghurt</span><span style="font-size: 14px; color: #A3AFA8">500 g</span></label>
+<div style="display: flex; flex-direction: column; padding: 6px 0">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 44px">
+<input type="checkbox" checked aria-label="Paneer" style="width: 22px; height: 22px; accent-color: #6FCF9E; margin: 0">
+<span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600; color: #7E8A83; text-decoration: line-through">Paneer</span><span style="font-size: 12px; color: #A3AFA8">Planned 2 × 200 g</span></span>
+<button onClick="{{ togglePack }}" style="border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Different pack?</button>
+</div>
+<sc-if value="{{ packOpen }}" hint-placeholder-val="{{ true }}">
+<div style="margin: 6px 0 6px 34px; background: #252E29; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 14px; font-weight: 700">What did you buy?</span>
+<div role="radiogroup" aria-label="Pack bought" style="display: flex; flex-wrap: wrap; gap: 6px">
+<button role="radio" aria-checked="false" style="border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">2 × 200 g</button>
+<button role="radio" aria-checked="true" style="border: 1px solid #6FCF9E; background: #1F3A2D; border-radius: 999px; padding: 0 12px; min-height: 36px; font: 800 13px 'Plus Jakarta Sans', sans-serif; color: #8FE0B5">1 × 400 g</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">1 × 1 kg</button>
+<button role="radio" aria-checked="false" style="border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Other…</button>
+</div>
+<span style="font-size: 12px; color: #A3AFA8">Pantry gets 1 pack · 400 g.</span>
+<button onClick="{{ togglePack }}" style="align-self: flex-start; border: none; background: #E9EEEB; color: #111614; border-radius: 999px; padding: 0 18px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Done</button>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+
+</div>
+
+<sc-if value="{{ offline }}" hint-placeholder-val="{{ true }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 144px; background: #E9EEEB; color: #111614; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 10px">
+<span style="flex: 1; font-size: 14px; font-weight: 600">Coriander → Fridge</span>
+<button style="border: none; background: transparent; color: #1F5C42; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 36px; padding: 0 6px">Change</button>
+<button style="border: none; background: transparent; color: #111614; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 36px; padding: 0 6px">Undo</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ online }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 100px; background: #E9EEEB; color: #111614; border-radius: 16px; padding: 14px; display: flex; align-items: center; gap: 10px">
+<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F5C42" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+<span style="flex: 1; font-size: 14px; font-weight: 600">Back online — all saved</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ offline }}" hint-placeholder-val="{{ true }}">
+<div role="status" style="position: absolute; left: 0; right: 0; bottom: 84px; min-height: 48px; background: #1E2622; border-top: 1px solid #2A332E; padding: 0 12px 0 20px; box-sizing: border-box; display: flex; align-items: center; gap: 10px">
+<span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #7E8A83; flex: none"></span>
+<span style="flex: 1; font-size: 14px; font-weight: 600">Offline — 3 changes waiting</span>
+<button onClick="{{ reconnect }}" style="border: none; background: transparent; color: #6FCF9E; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 44px; padding: 0 8px">Try now</button>
+</div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: #161C19; border-top: 1px solid #2A332E; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Dark-Phone-Today.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Dark-Phone-Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Dark-Phone-Shop.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #6FCF9E; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Dark-Phone-Pantry.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Dark-Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"connection":{"editor":"enum","options":["Offline","Back online"],"default":"Offline"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const online = s.online !== undefined ? s.online : (this.props.connection === 'Back online');
+return {
+offline: !online,
+online: online,
+showCard: online && !s.answered,
+reconnect: () => this.setState({ online: true }),
+answer: () => this.setState({ answered: true }),
+listsOpen: !!s.lists,
+toggleLists: () => this.setState({ lists: !s.lists }),
+packOpen: s.pack !== false,
+togglePack: () => this.setState({ pack: s.pack === false })
+};
+}
+}
+</script>
+</body>
+</html>

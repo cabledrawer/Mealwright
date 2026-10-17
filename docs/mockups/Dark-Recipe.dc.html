@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Recipes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden;background:#111614}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-wrap: wrap">
+
+<aside style="flex: 1 1 232px; max-width: 100%; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px"><img src="/_blob/dde6845a2dea5c326ee27775613d1af6" alt="" style="width: 32px; height: 32px; display: block; flex: none">Mealwright</div>
+<label style="display: flex; align-items: center; gap: 8px; background: #252E29; border-radius: 12px; padding: 0 12px; min-height: 40px">
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A3AFA8" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input type="search" placeholder="Search recipes, pantry…" aria-label="Search" style="border: none; background: transparent; font: 500 14px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; flex: 1; min-width: 0; outline: none">
+</label>
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Dark-Today.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #E9EEEB; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Dark-Plan.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #E9EEEB; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Dark-Shop.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #E9EEEB; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg><span style="flex: 1">Shopping</span><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">12</span></a>
+<a href="Dark-Pantry.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #E9EEEB; font-size: 15px; font-weight: 600; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg><span style="flex: 1">Pantry</span><span style="font-size: 12px; font-weight: 700; color: #FF9B76">3</span></a>
+<a href="Dark-Recipe.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: #8FE0B5; font-size: 15px; font-weight: 700; text-decoration: none">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg><span style="flex: 1">Recipes</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></a>
+<div role="group" aria-label="Recipes" style="display: flex; flex-direction: column; gap: 2px; margin: 2px 0 0 21px; padding-left: 10px; border-left: 2px solid #2A332E">
+<a href="Dark-Recipe.dc.html" aria-current="page" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; background: #1F3A2D; color: #8FE0B5; font-size: 14px; font-weight: 700; text-decoration: none"><span>All recipes</span><span style="font-size: 12px; font-weight: 700">48</span></a>
+<a href="Dark-Drafts-Desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; color: #C9D2CD; font-size: 14px; font-weight: 600; text-decoration: none"><span>Drafts</span><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">3</span></a>
+<a href="Dark-Ingredients-Desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 10px; color: #C9D2CD; font-size: 14px; font-weight: 600; text-decoration: none"><span>Ingredients</span><span style="font-size: 12px; font-weight: 700; color: #A3AFA8">142</span></a>
+</div>
+</nav>
+<div role="group" aria-label="Theme" style="margin-top: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; background: #252E29; border-radius: 12px; padding: 3px">
+<a href="Desktop-Recipe.dc.html" title="Follow device" style="border: none; background: transparent; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 600 12px 'Plus Jakarta Sans', sans-serif; color: #A3AFA8; text-decoration: none; cursor: pointer"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"></path></svg>Auto</a>
+<a href="Desktop-Recipe.dc.html" title="Light" style="border: none; background: transparent; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 600 12px 'Plus Jakarta Sans', sans-serif; color: #A3AFA8; text-decoration: none; cursor: pointer"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>Light</a>
+<button aria-pressed="true" title="Dark" style="border: none; background: #3A4640; border-radius: 9px; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 5px; font: 700 12px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>Dark</button>
+</div>
+<a href="Dark-Settings-Desktop.dc.html" title="Settings" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #1B221F; text-decoration: none; color: inherit">
+<span style="width: 32px; height: 32px; border-radius: 16px; background: #1F3A2D; color: #8FE0B5; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px">K</span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Tess</span><span style="font-size: 12px; color: #A3AFA8">Household · 2 people</span></span>
+</a>
+</aside>
+
+<section aria-label="Recipe list" style="flex: 1 1 300px; min-width: 0; padding: 32px 16px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid #2A332E">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Recipes</h1>
+<a href="Dark-Import.dc.html" style="background: #E9EEEB; color: #111614; border-radius: 14px; min-height: 52px; padding: 0 18px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Import a recipe</a>
+<a href="Dark-Drafts-Desktop.dc.html" style="display: flex; justify-content: space-between; align-items: center; border: 1px solid #39433D; background: #1B221F; border-radius: 14px; padding: 12px 14px; text-decoration: none; color: #E9EEEB; font-size: 14px; font-weight: 700"><span>Drafts · 3 unfinished imports</span><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7E8A83" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></a>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button aria-pressed="true" style="border: none; background: #3A4640; color: #E9EEEB; border-radius: 999px; padding: 6px 12px; font: 700 12px 'Plus Jakarta Sans', sans-serif">All · 48</button>
+<button aria-pressed="false" style="border: 1px solid #39433D; background: transparent; color: #E9EEEB; border-radius: 999px; padding: 6px 12px; font: 600 12px 'Plus Jakarta Sans', sans-serif">Batch-friendly</button>
+<button aria-pressed="false" style="border: 1px solid #39433D; background: transparent; color: #E9EEEB; border-radius: 999px; padding: 6px 12px; font: 600 12px 'Plus Jakarta Sans', sans-serif">Can cook now</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<a href="Dark-Recipe.dc.html" aria-current="true" style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; background: #1B221F; text-decoration: none; color: #E9EEEB"><span style="width: 52px; height: 52px; border-radius: 12px; background: #3A2E14; flex: none"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">Sambar</span><span style="font-size: 12px; color: #A3AFA8">50 min · 320 kcal · all in stock but 1</span></span></a>
+<a href="Dark-Recipe.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-decoration: none; color: #E9EEEB"><span style="width: 52px; height: 52px; border-radius: 12px; background: #3A3328; flex: none"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">Palak paneer</span><span style="font-size: 12px; color: #FF9B76; font-weight: 600">Uses spinach (today)</span></span></a>
+<a href="Dark-Recipe.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-decoration: none; color: #E9EEEB"><span style="width: 52px; height: 52px; border-radius: 12px; background: #1C3528; flex: none"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">Veg biryani</span><span style="font-size: 12px; color: #A3AFA8">75 min · 410 kcal · planned Sun</span></span></a>
+<a href="Dark-Recipe.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-decoration: none; color: #E9EEEB"><span style="width: 52px; height: 52px; border-radius: 12px; background: #3A2F29; flex: none"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">Rajma</span><span style="font-size: 12px; color: #A3AFA8">60 min · nutrition unknown</span></span></a>
+<a href="Dark-Recipe.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 10px; border-radius: 14px; text-decoration: none; color: #E9EEEB"><span style="width: 52px; height: 52px; border-radius: 12px; background: #2E2640; flex: none"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 15px; font-weight: 700">Chana masala</span><span style="font-size: 12px; color: #A3AFA8">45 min · 380 kcal</span></span></a>
+</div>
+</section>
+
+<article style="flex: 999 1 520px; min-width: 0; background: #161C19; padding: 32px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 44px; font-weight: 600; letter-spacing: -0.01em; line-height: 1">Sambar</h2>
+<span style="font-size: 14px; color: #A3AFA8">Lentil &amp; vegetable stew · 50 min · imported from web</span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<label style="display: flex; align-items: center; gap: 8px; background: #252E29; border-radius: 999px; padding: 0 14px; min-height: 42px; font-size: 13px; font-weight: 700">Keep screen awake<input type="checkbox" role="switch" checked style="width: 18px; height: 18px; accent-color: #6FCF9E; margin: 0"></label>
+<a href="Dark-Plan.dc.html" style="background: transparent; border: 1px solid #39433D; color: #E9EEEB; border-radius: 999px; padding: 11px 16px; font-size: 14px; font-weight: 700; text-decoration: none">Plan it</a>
+<a href="Dark-CookOnce-Desktop.dc.html" style="border: none; background: #3A2E14; color: #F3D58C; border-radius: 999px; padding: 12px 16px; font: 700 14px 'Plus Jakarta Sans', sans-serif; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Cook once, eat for…</a>
+<a href="Dark-CookMode-Desktop.dc.html" style="border: none; background: #E9EEEB; color: #111614; border-radius: 999px; padding: 12px 18px; font: 700 14px 'Plus Jakarta Sans', sans-serif; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box">Start cooking</a>
+</div>
+</div>
+
+<div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: stretch">
+<div role="img" aria-label="Recipe photo placeholder" style="flex: 1 1 260px; min-height: 150px; border-radius: 20px; background: #34302A; display: flex; align-items: center; justify-content: center; color: #C9B994; font-size: 13px; font-weight: 600">[Recipe photo, saved locally]</div>
+<div style="flex: 2 1 360px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; background: #1B221F; border-radius: 20px; padding: 16px 10px; align-content: center">
+<div style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 24px; font-weight: 800">320</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">kcal</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 24px; font-weight: 800">16 g</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">protein</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 24px; font-weight: 800">48 g</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">carbs</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 24px; font-weight: 800">7 g</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">fat</span></div>
+<div style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 24px; font-weight: 800">11 g</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 600">fibre</span></div>
+<span style="grid-column: 1 / -1; text-align: center; font-size: 12px; color: #A3AFA8">Per serving, from the recipe</span>
+</div>
+</div>
+
+<div style="display: flex; gap: 40px; flex-wrap: wrap">
+
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h3 style="margin: 0; font-size: 18px; font-weight: 700">Ingredients</h3>
+<div role="group" aria-label="Servings" style="display: flex; align-items: center; gap: 4px; background: #252E29; border-radius: 999px; padding: 3px">
+<button aria-label="Fewer servings" style="width: 32px; height: 32px; border: none; border-radius: 16px; background: #3A4640; font: 700 16px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">−</button>
+<span style="font-size: 13px; font-weight: 700; padding: 0 6px">Serves 4</span>
+<button aria-label="More servings" style="width: 32px; height: 32px; border: none; border-radius: 16px; background: #3A4640; font: 700 16px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">+</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #26302B"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6FCF9E"></span><span style="flex: 1; font-size: 15px"><b>200 g</b> toor dal</span><span style="font-size: 12px; color: #6FCF9E; font-weight: 700">Cupboard</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #26302B"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6FCF9E"></span><span style="flex: 1; font-size: 15px"><b>20 g</b> tamarind</span><span style="font-size: 12px; color: #6FCF9E; font-weight: 700">Cupboard</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #26302B"><span style="width: 10px; height: 10px; border-radius: 5px; background: #F2B441"></span><span style="flex: 1; font-size: 15px"><b>10</b> shallots</span><span style="font-size: 12px; color: #F2B441; font-weight: 700">On list</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #26302B"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6FCF9E"></span><span style="flex: 1; font-size: 15px"><b>2</b> drumsticks</span><span style="font-size: 12px; color: #6FCF9E; font-weight: 700">Freezer</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 40px"><span style="width: 10px; height: 10px; border-radius: 5px; border: 2px solid #7E8A83; box-sizing: border-box"></span><span style="flex: 1; font-size: 15px"><b>2 tbsp</b> sambar powder</span><span style="font-size: 12px; color: #A3AFA8; font-weight: 700">Staple</span></div>
+</div>
+</div>
+
+<div style="flex: 2 1 360px; display: flex; flex-direction: column; gap: 10px">
+<h3 style="margin: 0; font-size: 18px; font-weight: 700">Method</h3>
+<ol style="margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 12px; font-family: 'Newsreader', Georgia, serif; font-size: 19px; line-height: 1.5; color: #DCE3DF">
+<li>Rinse the dal and pressure-cook with turmeric until soft.</li>
+<li>Soak the tamarind in warm water; squeeze out the pulp.</li>
+<li>Cook the shallots and drumsticks in the tamarind water with the sambar powder.</li>
+<li>Stir in the dal, simmer, then finish with a mustard-seed tempering.</li>
+</ol>
+</div>
+
+</div>
+</article>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

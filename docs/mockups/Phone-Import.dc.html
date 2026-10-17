@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Import review</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,600&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#2E7D5B}a:hover{color:#1F5C42}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #F5F6F4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17201C; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border-bottom: 1px solid #E3E6E2">
+<button onClick="{{ askLeave }}" style="border: none; background: transparent; padding: 0; color: #2E7D5B; font: 700 15px 'Plus Jakarta Sans', sans-serif; min-height: 44px; display: flex; align-items: center; cursor: pointer">Cancel</button>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 800">Check before saving</span><span style="font-size: 12px; color: #5B655F; font-weight: 600">Step 2 of 3</span></span>
+<span style="width: 52px"></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 16px; padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px">
+
+<div style="background: #FFFFFF; border-radius: 18px; padding: 10px; display: flex; gap: 12px; align-items: center">
+<span role="img" aria-label="Recipe photo placeholder" style="width: 72px; height: 72px; border-radius: 12px; background: #EFE6D4; flex: none"></span>
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-family: 'Newsreader', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.1">Sambar</span>
+<span style="font-size: 13px; color: #5B655F">Serves 4 · 50 min · <button style="border: none; background: transparent; color: #2E7D5B; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0">Edit</button></span>
+<span style="font-size: 12px; color: #1F5C42; font-weight: 700">Nutrition found · 320 kcal per serving</span>
+</span>
+</div>
+
+<div style="display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; font-weight: 700">
+<span style="background: #E4F1EA; color: #1F5C42; border-radius: 999px; padding: 5px 10px">4 matched</span>
+<span style="background: #FDF1D8; color: #6E4A00; border-radius: 999px; padding: 5px 10px">1 to confirm</span>
+<span style="background: #FDE9E1; color: #9C320B; border-radius: 999px; padding: 5px 10px">1 needs you</span>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 18px; padding: 2px 14px">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E8EBE7"><span style="font-size: 12px; color: #5B655F">1 cup toor dal</span><span style="display: flex; justify-content: space-between"><span style="font-size: 15px"><b>200 g</b> toor dal</span><span style="font-size: 12px; color: #1F5C42; font-weight: 700">✓ Cupboard</span></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid #E8EBE7"><span style="font-size: 12px; color: #5B655F">10 small shallots, peeled</span><span style="display: flex; justify-content: space-between"><span style="font-size: 15px"><b>10</b> shallots</span><span style="font-size: 12px; color: #6E4A00; font-weight: 700">→ list</span></span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; margin: 0 -14px; background: #FFFBF2; border-bottom: 1px solid #E8EBE7"><span style="font-size: 12px; color: #5B655F">2 drumsticks (moringa), cut</span><span style="font-size: 15px"><b>2</b> drumsticks (moringa)</span><span style="display: flex; gap: 6px"><button style="border: none; background: #FDF1D8; color: #4F3500; border-radius: 999px; padding: 6px 12px; min-height: 34px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Same as "Drumsticks"</button><button style="border: 1px solid #E9C98A; background: transparent; color: #4F3500; border-radius: 999px; padding: 6px 12px; min-height: 34px; font: 700 13px 'Plus Jakarta Sans', sans-serif">New food</button></span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; margin: 0 -14px; background: #FFF6F2; border-bottom: 1px solid #E8EBE7"><span style="font-size: 12px; color: #5B655F">a handful of curry leaves</span><span style="font-size: 15px; color: #9C320B; font-weight: 700">Couldn't read the amount</span><span style="display: flex; gap: 6px; align-items: center"><button style="border: none; background: #FDE9E1; color: #9C320B; border-radius: 999px; padding: 6px 12px; min-height: 34px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Treat as staple</button><input type="text" placeholder="or amount" aria-label="Amount of curry leaves" style="flex: 1; min-width: 0; border: 1px solid #D3D8D3; border-radius: 10px; min-height: 34px; padding: 0 10px; font: 600 13px 'Plus Jakarta Sans', sans-serif"></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0"><span style="font-size: 12px; color: #5B655F">salt to taste</span><span style="display: flex; justify-content: space-between"><span style="font-size: 15px">salt</span><span style="font-size: 12px; color: #1F5C42; font-weight: 700">✓ Staple</span></span></div>
+</div>
+
+<span style="font-size: 12px; color: #5B655F; text-align: center">+ 2 more matched · Method: 6 steps found</span>
+
+</div>
+
+<div style="padding: 12px 16px 28px; display: flex; gap: 10px; border-top: 1px solid #E3E6E2; background: #FFFFFF">
+<a href="Recipe.dc.html" style="flex: 1; border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 16px; min-height: 52px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save</a>
+<a href="Plan.dc.html" style="flex: 1.4; background: #17201C; color: #FFFFFF; border-radius: 16px; min-height: 52px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save &amp; plan it</a>
+</div>
+
+<sc-if value="{{ leave }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: rgba(23, 32, 28, 0.45); display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ stay }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="Save as a draft?" style="background: #FFFFFF; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: #D3D8D3; align-self: center"></span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">Save as a draft?</h2>
+<p style="margin: 0; font-size: 15px; color: #3F4843; line-height: 1.5">You haven't finished checking Sambar. A draft keeps your choices so far for 15 days, in Recipes → Drafts.</p>
+<a href="Drafts-Phone.dc.html" style="background: #17201C; color: #FFFFFF; border-radius: 16px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save draft</a>
+<button onClick="{{ stay }}" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 16px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif">Keep checking</button>
+<a href="Recipe.dc.html" style="color: #9C320B; min-height: 44px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Discard</a>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+return { leave: !!s.leave, askLeave: () => this.setState({ leave: true }), stay: () => this.setState({ leave: false }) };
+}
+}
+</script>
+</body>
+</html>
