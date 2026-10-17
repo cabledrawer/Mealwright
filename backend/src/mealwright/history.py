@@ -579,7 +579,7 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
     thinned = 0
     while True:
         chunk = db.execute(
-            select(Change.id, Change.at, Change.kind, Change.undo_data)
+            select(Change.id, Change.at, Change.kind, Change.undo_data, Change.undoes_change_id)
             .where(Change.household_id == household.id, Change.at < cutoff)
             .order_by(Change.id)
             .limit(THIN_CHUNK)
@@ -587,17 +587,34 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
         if not chunk:
             break
         ids = [row.id for row in chunk]
-        month_of = {row.id: as_utc(row.at).astimezone(local).strftime("%Y-%m") for row in chunk}
-        # An Undo is totalled under the kind of change it undid, as the opposite amount,
-        # and takes that change back out of the count: "added 150 g, 2 changes", not
-        # "added 650 g, 3 changes" plus a separate undo row.
-        kind_of = {
-            row.id: (row.undo_data or {}).get("undoes_kind", "undo")
-            if row.kind == "undo"
-            else row.kind
-            for row in chunk
+        # An Undo is totalled with the change it undid: the same kind and the same month
+        # (in the household's time zone), as the opposite amount. A full Undo also takes
+        # that change back out of the count; a partial one leaves it counted. So "added
+        # 500 g, then undone" leaves nothing, and there's never a separate undo row.
+        month_of: dict[int, str] = {}
+        kind_of: dict[int, str] = {}
+        step_of: dict[int, int] = {}
+        undone_ids = [item.undoes_change_id for item in chunk if item.undoes_change_id]
+        undone_at = {
+            change_id: as_utc(at)
+            for change_id, at in db.execute(
+                select(Change.id, Change.at).where(Change.id.in_(undone_ids))
+            )
         }
-        step_of = {row.id: -1 if row.kind == "undo" else 1 for row in chunk}
+        for item in chunk:
+            data = item.undo_data or {}
+            at = as_utc(item.at)
+            if item.kind == "undo":
+                if item.undoes_change_id in undone_at:  # the undone change is still here
+                    at = undone_at[item.undoes_change_id]
+                elif data.get("undoes_at"):  # already thinned: its time was kept
+                    at = as_utc(datetime.fromisoformat(data["undoes_at"]))
+                kind_of[item.id] = data.get("undoes_kind", "undo")
+                step_of[item.id] = -1 if data.get("result") == "done" else 0
+            else:
+                kind_of[item.id] = item.kind
+                step_of[item.id] = 1
+            month_of[item.id] = at.astimezone(local).strftime("%Y-%m")
 
         # Each change's total per food, added up by the database.
         totals: dict[tuple[str, int, str], list[int]] = {}
@@ -628,6 +645,8 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
             for (month, food_id, kind), (amount, changes) in totals.items():
                 row = existing.get((month, food_id, kind))
                 if row is None:
+                    if amount == 0 and changes <= 0:
+                        continue  # nothing to show (an undone move, say)
                     db.add(
                         ChangeMonth(
                             household_id=household.id,
@@ -641,6 +660,8 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
                 else:
                     row.amount_milli += amount
                     row.changes = max(0, row.changes + changes)
+                    if row.amount_milli == 0 and row.changes == 0:
+                        db.delete(row)  # all of it was undone
 
         # Newer changes that point at these (an Undo of an old change) let go first.
         db.execute(

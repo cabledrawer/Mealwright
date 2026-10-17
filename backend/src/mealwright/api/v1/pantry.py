@@ -14,7 +14,7 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, not_found
-from mealwright.foods import amount_out, change_out, find, lower_first, resolve, usual_size
+from mealwright.foods import amount_out, change_out, find, resolve, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
 from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot
@@ -419,7 +419,7 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
                 )
             )
         what = _short(food, resolved.milli, resolved.size or usual_size(kitchen, food.id))
-        summary = f"Added {what} {lower_first(food.name)} → {place.name}"
+        summary = f"Added {what} {food.name} → {place.name}"
         return edit.record("added", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)
@@ -485,7 +485,7 @@ def _use(
         kitchen, food.id
     )
     word = "Used" if kind == "used" else "Binned"
-    summary = f"{word} {_short(food, taken, size)} {lower_first(food.name)}"
+    summary = f"{word} {_short(food, taken, size)} {food.name}"
     return edit.record(kind, summary, food.id), wanted - taken
 
 
@@ -560,7 +560,7 @@ def move(lot_id: int, body: Move, kitchen: Here, response: Response) -> StockWri
         edit.touch(lot).place_id = place.id
         if place.kind != "freezer":
             lot.frozen_on = None
-        summary = f"Moved {lower_first(food.name)} → {place.name}"
+        summary = f"Moved {food.name} → {place.name}"
         return edit.record("moved", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)
@@ -626,12 +626,12 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
             raise Problem(
                 status.HTTP_409_CONFLICT,
                 "nothing_left",
-                f"There's no {lower_first(food.name)} left.",
+                f"There's no {food.name} left.",
             )
         edit = StockEdit(kitchen)
         short = take(kitchen, edit, lots, wanted, include_freezer=freezer)
         size = usual_size(kitchen, food.id)
-        summary = f"Used {_short(food, wanted - short, size)} {lower_first(food.name)}"
+        summary = f"Used {_short(food, wanted - short, size)} {food.name}"
         return edit.record("used", summary, food.id), short
 
     return stock_write(kitchen, response, apply)

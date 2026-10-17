@@ -53,7 +53,7 @@ from mealwright.models import (
     FoodStandIn,
     utcnow,
 )
-from mealwright.names import fold, singular
+from mealwright.names import fold
 
 # Words people type for units, beyond the units' own names.
 UNIT_WORDS = {
@@ -289,11 +289,6 @@ def add_size(
     return size
 
 
-def lower_first(name: str) -> str:
-    first = name.split(" ", 1)[0]
-    return name if first.isupper() and len(first) > 1 else name[:1].lower() + name[1:]
-
-
 def _float(value: Decimal | None) -> float | None:
     return float(value) if value is not None else None
 
@@ -301,7 +296,7 @@ def _float(value: Decimal | None) -> float | None:
 def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str = "") -> Problem:
     """The 409 that asks once (docs/dev/api-0.2.md section 4.4)."""
     cup = cup_ml(kitchen.household)
-    name = lower_first(food.name)
+    name = food.name  # always exactly as the household typed it
     row = table_row(food) or table().close(food.name)
     if kind == "weight_per_ml":
         question = f"About how much does 1 cup of {name} weigh?"
@@ -316,8 +311,11 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
             suggested=_float(suggestion("weight_per_ml", row, cup)),
         )
     elif kind == "item_weight":
-        one = food.count_word or " ".join(singular(word) for word in name.split())
-        question = f"About how much does 1 {one} weigh?"
+        question = (
+            f"About how much does 1 {food.count_word} of {name} weigh?"
+            if food.count_word
+            else f"{name}: about how much does one weigh?"
+        )
         payload = Ask(
             food_id=food.id,
             food_name=food.name,
@@ -335,7 +333,7 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
             )
             what = f"{things} " if things else ""
             one = f"{amounts.article(size_name)} {size_name}"
-            question = f"About how many {what}in {one}?"
+            question = f"About how many {what}in {one} of {name}?"
             unit = things or "count"
         else:
             question = f"About how much is in {amounts.article(size_name)} {size_name} of {name}?"

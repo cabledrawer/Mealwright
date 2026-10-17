@@ -246,7 +246,7 @@ def test_counted_as_change_converts_sizes(kitchen: TestClient) -> None:
     assert response.status_code == 409
     asked = response.json()
     assert asked["code"] == "ask_once"
-    assert asked["ask"]["question"] == "About how much does 1 cup of toor dal weigh?"
+    assert asked["ask"]["question"] == "About how much does 1 cup of Toor dal weigh?"
     assert asked["ask"]["suggested"] == 200.0
 
     answer = {"kind": "weight_per_ml", "food_id": food["id"], "grams": 200, "remember": True}
@@ -263,7 +263,7 @@ def test_counting_by_number_asks_for_the_weight_of_one(kitchen: TestClient) -> N
     assert response.status_code == 409
     asked = response.json()["ask"]
     assert asked["kind"] == "item_weight"
-    assert asked["question"] == "About how much does 1 toor dal weigh?"
+    assert asked["question"] == "Toor dal: about how much does one weigh?"
     assert asked["suggested"] is None
     unchanged = kitchen.get(f"{API}/foods/{food['id']}").json()
     assert unchanged["counted_as"] == "weight"
@@ -284,7 +284,7 @@ def test_convert_asks_once_when_unknown(kitchen: TestClient) -> None:
     ).json()
     assert converted["amount"] is None
     assert converted["ask"]["kind"] == "item_weight"
-    assert converted["ask"]["question"] == "About how much does 1 shallot weigh?"
+    assert converted["ask"]["question"] == "Shallot: about how much does one weigh?"
     assert converted["ask"]["suggested"] is None  # no table entry: nothing to guess from
 
 
@@ -297,7 +297,7 @@ def test_slices_in_a_loaf_asked_once(kitchen: TestClient) -> None:
     assert response.status_code == 409
     asked = response.json()["ask"]
     assert asked["kind"] == "size"
-    assert asked["question"] == "About how many slices in a loaf?"
+    assert asked["question"] == "About how many slices in a loaf of Bread?"
     assert asked["suggested"] == 20.0
 
     answer = {"kind": "size", "food_id": bread["id"], "name": "loaf", "amount": 20}

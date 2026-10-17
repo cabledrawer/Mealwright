@@ -61,7 +61,7 @@ def toor(kitchen: TestClient) -> dict[str, Any]:
 
 def test_two_packets_make_two_lots(kitchen: TestClient, toor: dict[str, Any]) -> None:
     body = add(kitchen, toor["id"], 2, "packets")
-    assert body["change"]["summary"] == "Added 2 packets toor dal → Cupboard"
+    assert body["change"]["summary"] == "Added 2 packets Toor dal → Cupboard"
     [made] = body["groups"]
     assert made["place"]["name"] == "Cupboard"  # no usual place: Cupboard
     assert made["stock"]["display"] == "2 packets · 1 kg"
@@ -143,14 +143,14 @@ def test_used_never_below_zero(kitchen: TestClient) -> None:
     assert body["groups"][0]["stock"]["amount"] == 0.0
     assert body["groups"][0]["lots"] == []
     assert body["short_by"]["amount"] == 100.0
-    assert body["change"]["summary"] == "Used 200 g spinach"
+    assert body["change"]["summary"] == "Used 200 g Spinach"
     assert kitchen.post(f"{API}/stock/{lot['id']}/used").status_code == 404  # empty now
 
 
 def test_used_all_and_binned(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lots = add(kitchen, toor["id"], 2, "packet")["groups"][0]["lots"]
     body = kitchen.post(f"{API}/stock/{lots[0]['id']}/used").json()
-    assert body["change"]["summary"] == "Used 1 packet toor dal"
+    assert body["change"]["summary"] == "Used 1 packet Toor dal"
     body = kitchen.post(f"{API}/stock/{lots[1]['id']}/binned").json()
     assert body["change"]["kind"] == "binned"
     assert body["groups"][0]["lots_count"] == 0
@@ -225,7 +225,7 @@ def test_move_and_use_by(kitchen: TestClient) -> None:
     body = kitchen.post(
         f"{API}/stock/{lot['id']}/move", json={"place_id": place(kitchen, "Fridge")}
     ).json()
-    assert body["change"]["summary"] == "Moved spinach → Fridge"
+    assert body["change"]["summary"] == "Moved Spinach → Fridge"
     body = kitchen.patch(f"{API}/stock/{lot['id']}", json={"use_by": "2030-03-04"}).json()
     assert body["change"]["summary"] == "Spinach: use by 4 Mar"
     assert body["groups"][0]["use_by"] == "2030-03-04"
@@ -325,7 +325,7 @@ def test_undo_used(kitchen: TestClient) -> None:
     assert body["result"] == "done"
     assert body["groups"][0]["stock"]["amount"] == 200.0
     undo_rows = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
-    assert undo_rows[0]["summary"] == "Undid: Used 200 g spinach"
+    assert undo_rows[0]["summary"] == "Undid: Used 200 g Spinach"
 
 
 def test_undo_reverses_just_that_change(kitchen: TestClient, toor: dict[str, Any]) -> None:
@@ -428,7 +428,7 @@ def test_used_with_nothing_left_records_nothing(kitchen: TestClient) -> None:
         f"{API}/foods/{ghee['id']}/used", json={"amount": {"amount": 50, "unit": "g"}}
     )
     assert response.status_code == 409
-    assert response.json() == {"detail": "There's no ghee left.", "code": "nothing_left"}
+    assert response.json() == {"detail": "There's no Ghee left.", "code": "nothing_left"}
     kinds = [
         c["kind"]
         for c in kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
@@ -477,3 +477,23 @@ def test_an_undo_of_a_move_has_lines(kitchen: TestClient) -> None:
     [line] = row["lines"]
     assert (line["place_before"]["name"], line["place_after"]["name"]) == ("Fridge", "Cupboard")
     assert line["before"]["amount"] == line["after"]["amount"] == 200.0
+
+
+def test_names_appear_exactly_as_typed(kitchen: TestClient) -> None:
+    masala = food(kitchen, "MDH sambar masala")
+    size(kitchen, masala["id"], "box", 100)
+    lot = add(kitchen, masala["id"], 1, "box")
+    assert lot["change"]["summary"] == "Added 1 box MDH sambar masala → Cupboard"
+    lot_id = lot["groups"][0]["lots"][0]["id"]
+    used = kitchen.post(f"{API}/stock/{lot_id}/used").json()
+    assert used["change"]["summary"] == "Used 1 box MDH sambar masala"
+    empty = kitchen.post(
+        f"{API}/foods/{masala['id']}/used", json={"amount": {"amount": 5, "unit": "g"}}
+    )
+    assert empty.json()["detail"] == "There's no MDH sambar masala left."
+    asked = kitchen.post(
+        f"{API}/stock", json={"food_id": masala["id"], "amount": {"amount": 1, "unit": "tbsp"}}
+    ).json()
+    assert asked["ask"]["question"] == "About how much does 1 cup of MDH sambar masala weigh?"
+    summaries = [c["summary"] for c in kitchen.get(f"{API}/changes").json()["changes"]]
+    assert not any("mdh" in summary for summary in summaries)

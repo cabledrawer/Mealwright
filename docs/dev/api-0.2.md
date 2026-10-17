@@ -150,14 +150,14 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 | `kind` | `added` · `used` · `binned` · `set_left` · `moved` · `to_freezer` · `use_by` · `food_created` · `food_edited` · `food_removed` · `merged` · `split` · `undo`. Later: `shopped` (0.3), `cooked` (0.7). |
 | `login_id`, `login_name` | Who. The name is copied so the history still reads right if the login is renamed or removed. |
 | `at` | when |
-| `summary` | Server-made plain sentence, e.g. "Used 200 g spinach" (section 5). |
+| `summary` | Server-made plain sentence, e.g. "Used 200 g Spinach" (section 5). Ingredient names always appear exactly as the household typed them ("MDH sambar masala"), in every summary and message. |
 | `undo_data` | JSON. For food changes: each part of the foods that changed (one field, one other name, one size, one stand-in link, one remembered answer) as `[before, after]`. Undo puts a part back only if it still has its `after` value. |
 | `undone_by_change_id` | FK change, null; set when undone |
 | `undoes_change_id` | FK change, null; on `undo` rows |
 
 **`change_line`**: one row per stock lot touched: `id`, `household_id`, `change_id`, `food_id`, `lot_id` (null after the lot is deleted), `amount_before_milli`, `amount_after_milli`, `place_before_id`, `place_after_id`, `use_by_before`, `use_by_after`.
 
-**`change_month`** (thinned history; an Undo's lines count under the kind of change it undid, as the opposite amount, and take that change out of the count, so "added 500 g, then undone" leaves nothing; there's no separate "undo" row): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
+**`change_month`** (thinned history; an Undo's lines count with the change it undid: under its kind and in its month (in the household's time zone, even when the Undo was the next day), as the opposite amount. A full Undo also takes that change out of the count; a partial one leaves it counted ("added 350 g, 1 change"). Rows that end up with nothing (an undone move) are dropped. So "added 500 g, then undone" leaves nothing, and there's no separate "undo" row): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
 
 **History job** (APScheduler, `mealwright/jobs.py`; it runs in the background straight after start-up, so a big backlog never holds start-up up, and then every hour at :30, with no lateness limit; it's cheap and safe to repeat, so a server that's off at night still gets it. It works in chunks of 1,000 changes, each its own short transaction, with the totals added up by the database): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
 
@@ -211,23 +211,23 @@ Any write that needs an unknown conversion fails, changes nothing, and answers:
 ```json
 HTTP 409
 {
-  "detail": "About how much does 1 cup of toor dal weigh?",
+  "detail": "About how much does 1 cup of Toor dal weigh?",
   "code": "ask_once",
   "ask": {
     "food_id": 7, "food_name": "Toor dal",
     "kind": "weight_per_ml",
-    "question": "About how much does 1 cup of toor dal weigh?",
+    "question": "About how much does 1 cup of Toor dal weigh?",
     "unit": "g", "per": "cup", "cup_ml": 250,
     "suggested": 200
   }
 }
 ```
 
-`kind: "item_weight"` asks "About how much does 1 onion weigh?" (`per: "item"`; suggested 110 g from the table). Suggestions: the bundled table's value for a close name if there is one, otherwise 0.8 g/ml × the cup (200 g for a 250 ml cup), rounded to 2 significant figures. An item weight has no suggestion unless the table knows a close food (`suggested: null`): any fixed number would be a guess.
+`kind: "item_weight"` asks "Onion: about how much does one weigh?" ("About how much does 1 slice of Bread weigh?" when the ingredient has a count word) (`per: "item"`; suggested 110 g from the table). Suggestions: the bundled table's value for a close name if there is one, otherwise 0.8 g/ml × the cup (200 g for a 250 ml cup), rounded to 2 significant figures. An item weight has no suggestion unless the table knows a close food (`suggested: null`): any fixed number would be a guess.
 
 The client shows the question with the "Remember for next time" switch (on by default) and **retries the same request with the same `Idempotency-Key`**, adding `"answers": [...]` to the `AmountIn`. With `remember: true` the server saves the answer in `food_conversion` (in the same transaction); with `false` it's used for that request only. For `weight_per_ml` and `item_weight`, `grams` is the weight of one household cup or one item. Merge (6.2) takes `answers` at the top level of its body.
 
-"Slices in a loaf" isn't a conversion: it's a size. Adding stock as "1 loaf" for bread with no loaf size is a 409 `ask_once` with `kind: "size"`, `question: "About how many slices in a loaf?"`, `suggested: 20`; the answer is `{ "kind": "size", "food_id": 9, "name": "loaf", "amount": 20 }`, which adds the size (always remembered).
+"Slices in a loaf" isn't a conversion: it's a size. Adding stock as "1 loaf" for bread with no loaf size is a 409 `ask_once` with `kind: "size"`, `question: "About how many slices in a loaf of Bread?"`, `suggested: 20`; the answer is `{ "kind": "size", "food_id": 9, "name": "loaf", "amount": 20 }`, which adds the size (always remembered).
 
 ### 4.5 Lookups
 
@@ -298,7 +298,7 @@ The client shows the question with the "Remember for next time" switch (on by de
   "id": 812, "kind": "used",
   "at": "2026-10-17T18:04:11Z",
   "who": { "login_id": 2, "name": "Wren" },
-  "summary": "Used 200 g spinach",
+  "summary": "Used 200 g Spinach",
   "can_undo": true, "undo_until": "2026-10-24T18:04:11Z",
   "undone": null
 }
@@ -487,10 +487,10 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 | `POST /api/v1/stock/{lot_id}/to-freezer` | `{}` or `{ "use_by": "2027-01-17" }` | Whole lot to the first freezer place; use-by today + 3 months unless given; `frozen_on` today. |
 | `POST /api/v1/stock/{lot_id}/move` | `{ "place_id": 2 }` | Whole lot. Moving into a freezer place this way doesn't change the use-by. |
 | `PATCH /api/v1/stock/{lot_id}` | `{ "use_by": "2026-10-22" }` (null clears) | Change the date. |
-| `POST /api/v1/foods/{id}/used` | `{ "amount": {"amount": 1.5, "unit": "count"}, "place_id": 1 }` | "How much did you use" on a group: takes from that food's lots, oldest/soonest first (3.5). `place_id` optional; without it freezer lots are skipped. Nothing to take from → `409 nothing_left` ("There's no ghee left."), and nothing is recorded. |
+| `POST /api/v1/foods/{id}/used` | `{ "amount": {"amount": 1.5, "unit": "count"}, "place_id": 1 }` | "How much did you use" on a group: takes from that food's lots, oldest/soonest first (3.5). `place_id` optional; without it freezer lots are skipped. Nothing to take from → `409 nothing_left` ("There's no Ghee left."), and nothing is recorded. |
 | `POST /api/v1/foods/{id}/left` | `{ "amount": {"amount": 3, "unit": "count"}, "place_id": 1 }` | "3 left" on a group: takes from the soonest lots first, or tops up the newest lot if the number is higher. `amount` may be 0 ("None left"): every lot in scope is emptied (freezer lots only when the freezer is named), with Undo. Already that much → `409 no_change`. |
 
-Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binned 1 pack paneer", "Toor dal: 1 packet → about ½ packet", "Moved chana masala → Freezer", "Paneer → Freezer, use by 17 Jan".
+Summaries: "Added 2 packets Toor dal → Cupboard", "Used 200 g Spinach", "Binned 1 pack Paneer", "Toor dal: 1 packet → about ½ packet", "Moved Chana masala → Freezer", "Paneer → Freezer, use by 17 Jan".
 
 ### 6.5 Recent changes and Undo
 
@@ -501,7 +501,7 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).
 
 ```json
-{ "changes": [ { "id": 812, "kind": "used", "summary": "Used 200 g spinach", "who": {"login_id": 2, "name": "Wren"},
+{ "changes": [ { "id": 812, "kind": "used", "summary": "Used 200 g Spinach", "who": {"login_id": 2, "name": "Wren"},
                  "at": "…", "can_undo": true, "undo_until": "…", "undone": null,
                  "lines": [ { "food": {"id": 22, "name": "Spinach"}, "lot_id": 499,
                               "before": {"display": "200 g", "…": "…"}, "after": {"display": "0 g", "…": "…"},
@@ -509,7 +509,7 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
   "next": null }
 ```
 
-`undo` changes are listed too ("Undid: Used 200 g spinach") but have `can_undo: false`: there's no redo in 0.2. An Undo of a stock change has its own `lines`: what it actually did to each lot (a partial undo shows only what it put back).
+`undo` changes are listed too ("Undid: Used 200 g Spinach") but have `can_undo: false`: there's no redo in 0.2. An Undo of a stock change has its own `lines`: what it actually did to each lot (a partial undo shows only what it put back).
 
 **`POST /api/v1/changes/{id}/undo`** (any household login, within the undo window; takes `Idempotency-Key`)
 

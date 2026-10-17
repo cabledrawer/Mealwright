@@ -22,6 +22,7 @@ from mealwright.history import (
     Tally,
     UndoResult,
     already_undone,
+    as_utc,
     commit,
     record,
     replayed,
@@ -218,7 +219,9 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             {
                 "result": result,
                 "message": _message(kitchen, result, short),
+                # Thinning totals the Undo with the change it undid: same kind, same month.
                 "undoes_kind": change.kind,
+                "undoes_at": as_utc(change.at).isoformat(),
             },
         )
         undo_change.undoes_change_id = change.id

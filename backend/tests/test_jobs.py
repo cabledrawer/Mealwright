@@ -265,3 +265,98 @@ def test_an_undo_nets_out_in_the_monthly_totals(kitchen: TestClient) -> None:
         }
     # Only 150 g really stayed, from 2 changes; the Undo has no row of its own.
     assert rows == {"added": (150_000, 2)}
+
+
+def _age(kitchen: TestClient, times: dict[int, datetime]) -> None:
+    """Move changes back in time, keeping each Undo's note of when its change was made."""
+    with db(kitchen) as session:
+        for change_id, at in times.items():
+            session.execute(update(Change).where(Change.id == change_id).values(at=at))
+        for change in session.scalars(select(Change).where(Change.kind == "undo")):
+            if change.undoes_change_id in times:
+                data = dict(change.undo_data or {})
+                data["undoes_at"] = times[change.undoes_change_id].isoformat()
+                change.undo_data = data
+        session.commit()
+
+
+def _months(kitchen: TestClient, food_id: int) -> dict[tuple[str, str], tuple[int, int]]:
+    with db(kitchen) as session:
+        thin(session, session.get(Household, 1), now=datetime(2026, 10, 17, tzinfo=UTC))
+        return {
+            (row.month, row.kind): (row.amount_milli, row.changes)
+            for row in session.scalars(select(ChangeMonth).where(ChangeMonth.food_id == food_id))
+        }
+
+
+def _add(kitchen: TestClient, food_id: int, grams: int) -> dict[str, Any]:
+    body = {"food_id": food_id, "amount": {"amount": grams, "unit": "g"}}
+    result: dict[str, Any] = kitchen.post(f"{API}/stock", json=body).json()
+    return result
+
+
+@pytest.mark.parametrize(
+    ("zone", "added_at", "month"),
+    [
+        (None, datetime(2024, 10, 31, 22, 0, tzinfo=UTC), "2024-10"),
+        ("Europe/London", datetime(2024, 10, 31, 23, 30, tzinfo=UTC), "2024-10"),  # GMT
+        ("Europe/London", datetime(2024, 8, 31, 23, 30, tzinfo=UTC), "2024-09"),  # BST
+        ("Asia/Kolkata", datetime(2024, 10, 31, 23, 30, tzinfo=UTC), "2024-11"),
+    ],
+)
+def test_an_undo_next_month_counts_in_the_changes_month(
+    kitchen: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    zone: str | None,
+    added_at: datetime,
+    month: str,
+) -> None:
+    from mealwright import history
+
+    monkeypatch.setattr(history, "THIN_CHUNK", 1)  # the change and its Undo in separate runs
+    if zone:
+        kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+    toor = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
+    big = _add(kitchen, toor["id"], 500)["change"]["id"]
+    small = _add(kitchen, toor["id"], 10)["change"]["id"]
+    undo = kitchen.post(f"{API}/changes/{big}/undo").json()["change"]["id"]
+    _age(
+        kitchen,
+        {
+            big: added_at,
+            small: added_at,
+            undo: added_at + timedelta(days=1, hours=8),  # the next morning, a new month
+        },
+    )
+    assert _months(kitchen, toor["id"]) == {(month, "added"): (10_000, 1)}
+
+
+def test_a_partial_undo_still_counts_the_change(kitchen: TestClient) -> None:
+    toor = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
+    added = _add(kitchen, toor["id"], 500)
+    lot = added["groups"][0]["lots"][0]["id"]
+    left = kitchen.post(
+        f"{API}/stock/{lot}/left", json={"amount": {"amount": 150, "unit": "g"}}
+    ).json()["change"]["id"]
+    undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
+    assert undo["result"] == "partly"
+    when = datetime(2025, 3, 10, 12, tzinfo=UTC)
+    _age(kitchen, {added["change"]["id"]: when, left: when, undo["change"]["id"]: when})
+    assert _months(kitchen, toor["id"]) == {
+        ("2025-03", "added"): (350_000, 1),  # 500 g added, 150 g taken back
+        ("2025-03", "set_left"): (-350_000, 1),
+    }
+
+
+def test_an_undone_move_leaves_no_row(kitchen: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from mealwright import history
+
+    monkeypatch.setattr(history, "THIN_CHUNK", 1)
+    spinach = kitchen.post(f"{API}/foods", json={"name": "Spinach"}).json()["food"]
+    added = _add(kitchen, spinach["id"], 200)
+    lot = added["groups"][0]["lots"][0]["id"]
+    moved = kitchen.post(f"{API}/stock/{lot}/move", json={"place_id": 1}).json()["change"]["id"]
+    undo = kitchen.post(f"{API}/changes/{moved}/undo").json()["change"]["id"]
+    when = datetime(2025, 3, 10, 12, tzinfo=UTC)
+    _age(kitchen, {added["change"]["id"]: when, moved: when, undo: when})
+    assert _months(kitchen, spinach["id"]) == {("2025-03", "added"): (200_000, 1)}
