@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     data_dir: Path = Path("/data")
     # Defaults to SQLite inside data_dir.
     database_url: str | None = None
+    # The built web app (SvelteKit static build). Missing folder = API only.
+    frontend_dir: Path = Path("/app/frontend")
     # Apply database migrations when the app starts.
     migrate_on_start: bool = True
     # Where the server listens. In the container, all interfaces: only the reverse

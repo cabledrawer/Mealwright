@@ -13,6 +13,7 @@ from mealwright.api.v1 import router as api_v1
 from mealwright.auth import SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
+from mealwright.frontend import inline_script_hashes, mount_frontend
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
 
@@ -60,8 +61,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.state.slow_down = SlowDown()
     app.include_router(api_v1)
-    # Strict browser rules on every response (spec section 7).
-    app.add_middleware(SecurityHeadersMiddleware)
+    mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
+    # Strict browser rules on every response (spec section 7). The web app's own inline
+    # start-up scripts are allowed by their exact fingerprint, nothing else.
+    app.add_middleware(
+        SecurityHeadersMiddleware, script_hashes=inline_script_hashes(settings.frontend_dir)
+    )
     # Outermost: the visitor's real address and scheme from the reverse proxy's
     # X-Forwarded-For/-Proto headers, believed only from MEALWRIGHT_TRUSTED_PROXIES (off
     # by default). The sign-in slow-down counts per address, so it needs the real one.
