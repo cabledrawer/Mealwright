@@ -4,7 +4,7 @@ Every table belongs to a household (`household_id`), so more than one household 
 install stays possible later. The household table's own `id` is that household_id.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -12,6 +12,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -307,3 +308,72 @@ class FoodMerge(Base):
     change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
     merged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     split_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- Stock ------------------------------------------------------------------------------------
+
+
+class StockLot(Base):
+    """One packet, one bag of spinach, one tray of eggs: each kept on its own, so the one
+    that goes off first is used first (spec section 6, "Stock")."""
+
+    __tablename__ = "stock_lot"
+    __table_args__ = (
+        CheckConstraint("amount_milli >= 0", name="never_below_zero"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"), index=True)
+    place_id: Mapped[int] = mapped_column(ForeignKey("place.id"))
+    amount_milli: Mapped[int] = mapped_column(BigInteger)
+    # What it was bought as, for display ("bought as a dozen"). Null: typed grams.
+    size_id: Mapped[int | None] = mapped_column(ForeignKey("food_size.id", ondelete="SET NULL"))
+    use_by: Mapped[date | None] = mapped_column(Date)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    frozen_on: Mapped[date | None] = mapped_column(Date)
+    # Set when it reaches zero. Empty lots stay (hidden) for the undo window, then go.
+    emptied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ChangeLine(Base):
+    """One stock lot touched by a change: before → after."""
+
+    __tablename__ = "change_line"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    change_id: Mapped[int] = mapped_column(ForeignKey("change.id", ondelete="CASCADE"), index=True)
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
+    lot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stock_lot.id", ondelete="SET NULL"), index=True
+    )
+    amount_before_milli: Mapped[int] = mapped_column(BigInteger)
+    amount_after_milli: Mapped[int] = mapped_column(BigInteger)
+    place_before_id: Mapped[int | None] = mapped_column(ForeignKey("place.id"))
+    place_after_id: Mapped[int | None] = mapped_column(ForeignKey("place.id"))
+    use_by_before: Mapped[date | None] = mapped_column(Date)
+    use_by_after: Mapped[date | None] = mapped_column(Date)
+
+
+class ChangeMonth(Base):
+    """Thinned history: a month's stock changes for one food, added up."""
+
+    __tablename__ = "change_month"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), primary_key=True
+    )
+    month: Mapped[str] = mapped_column(String(7), primary_key=True)  # "2025-10"
+    food_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # Sum of (after - before): bought is positive, used and binned negative.
+    amount_milli: Mapped[int] = mapped_column(BigInteger, default=0)
+    changes: Mapped[int] = mapped_column(Integer, default=0)
