@@ -153,7 +153,8 @@ const byName = (list: unknown) => new Map((list as { id: number; name: string }[
 
 export async function seed(request: APIRequestContext) {
   const api = new Api(request);
-  await api.patch('/household', { time_zone: 'Europe/London', cup_ml: 250 });
+  // Stored only while the household has none (captured once, never changed silently).
+  await api.post('/household/from-browser', { time_zone: 'Europe/London', cup_ml: 250 });
   const today = (await api.get('/household')).today as string;
   const placeId = byName((await api.get('/places')).items);
 
