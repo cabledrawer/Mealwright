@@ -13,6 +13,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGS="$ROOT/.check/logs"
 IMAGE="mealwright:check"
 
+# npm: no security-audit upload of the package list (osv-scanner covers it), no check
+# for newer npm versions, no funding messages. See docs/dev/dev-tools-privacy.md.
+export NPM_CONFIG_AUDIT=false NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false
+
 # Scanner versions (cabledrawer 17 Oct; spec section 9). Pinned exactly; releases at least
 # two weeks old when chosen. uvx tools also ignore anything published after EXCLUDE_NEWER,
 # so their own dependencies are fixed too. Change these on purpose, in their own commit.
