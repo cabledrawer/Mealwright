@@ -8,7 +8,16 @@ from fastapi import status
 from sqlalchemy import select
 
 from mealwright import amounts
-from mealwright.amounts import MILLI, CountedAs, Size, as_sold, exact_text, from_milli, to_milli
+from mealwright.amounts import (
+    MILLI,
+    CountedAs,
+    Size,
+    as_sold,
+    checked,
+    exact_text,
+    from_milli,
+    to_milli,
+)
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import (
     AmountIn,
@@ -244,7 +253,7 @@ def remember_answers(kitchen: Kitchen, answers: list[Answer]) -> None:
             if answer.name is None or answer.amount is None:  # pragma: no cover (validated)
                 continue
             if find_size(kitchen, food, answer.name) is None:
-                add_size(kitchen, food, answer.name, to_milli(answer.amount))
+                add_size(kitchen, food, answer.name, checked(to_milli(answer.amount)))
         elif answer.remember and answer.grams is not None:
             if answer.kind == "weight_per_ml":
                 value = grams_per_cup_to_mg_per_ml(answer.grams, cup_ml(kitchen.household))
@@ -360,7 +369,7 @@ def resolve(kitchen: Kitchen, food: Food, value: AmountIn) -> Resolved:
         if size is None or size.food_id != food.id:
             raise not_found("That size")
         remember_answers(kitchen, answers)
-        return Resolved(to_milli(value.amount * size.amount_milli / MILLI), size, answers)
+        return Resolved(checked(to_milli(value.amount * size.amount_milli / MILLI)), size, answers)
 
     word = (value.unit or "").strip()
     unit = UNIT_WORDS.get(word.lower())
@@ -385,7 +394,7 @@ def resolve(kitchen: Kitchen, food: Food, value: AmountIn) -> Resolved:
                 raise ask(kitchen, food, "size", word)
         else:
             remember_answers(kitchen, answers)
-        return Resolved(to_milli(value.amount * size.amount_milli / MILLI), size, answers)
+        return Resolved(checked(to_milli(value.amount * size.amount_milli / MILLI)), size, answers)
 
     try:
         milli = to_base_milli(

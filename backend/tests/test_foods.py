@@ -545,3 +545,51 @@ def test_failed_request_can_be_retried_with_the_same_key(kitchen: TestClient) ->
     )
     assert second.status_code == 200
     assert second.json()["food"]["running_low_at"]["amount"] == 180.0
+
+
+# --- Limits (nothing may overflow the stored numbers) ----------------------------------------
+
+
+def test_huge_size_with_a_conversion_is_refused_not_a_crash(kitchen: TestClient) -> None:
+    food = add(kitchen, "Milk drink", counted_as="volume")
+    url = f"{API}/foods/{food['id']}"
+    huge = kitchen.post(f"{url}/sizes", json={"name": "tank", "amount": "999999999999.999"})
+    assert huge.status_code == 422
+    kitchen.post(f"{url}/sizes", json={"name": "tank", "amount": 1_000_000})
+    patch(kitchen, food["id"], cup_weight=2_000)
+    response = kitchen.patch(url, json={"counted_as": "weight"})
+    # 1,000,000 ml at 8 g/ml would be 8,000,000 g: over the limit, so refused plainly.
+    assert response.status_code == 422
+    assert response.json()["code"] == "too_big"
+    assert kitchen.get(url).json()["counted_as"] == "volume"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        {"cup_weight": 2_001},
+        {"item_weight": 50_001},
+        {"running_low_at": {"amount": 1_000_001, "unit": "g"}},
+        {"running_low_at": {"amount": 1_001, "unit": "kg"}},
+    ],
+)
+def test_limits(kitchen: TestClient, field: dict[str, Any]) -> None:
+    food = add(kitchen, "Toor dal")
+    response = kitchen.patch(f"{API}/foods/{food['id']}", json=field)
+    assert response.status_code == 422
+
+
+def test_answer_limits(kitchen: TestClient) -> None:
+    food = add(kitchen, "Jaggery")
+    answer = {"kind": "weight_per_ml", "food_id": food["id"], "grams": 2_001}
+    response = kitchen.patch(
+        f"{API}/foods/{food['id']}",
+        json={"running_low_at": {"amount": 1, "unit": "cup", "answers": [answer]}},
+    )
+    assert response.status_code == 422
+
+
+def test_largest_amounts_are_fine(kitchen: TestClient) -> None:
+    food = add(kitchen, "Flour sack")
+    body = patch(kitchen, food["id"], running_low_at={"amount": 1_000, "unit": "kg"})
+    assert body["food"]["running_low_at"]["display"] == "1000 kg"

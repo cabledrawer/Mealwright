@@ -26,6 +26,16 @@ def not_found(what: str = "That") -> Problem:
 
 
 def install(app: FastAPI) -> None:
+    from mealwright.amounts import MAX_AMOUNT, TooBig
+
+    @app.exception_handler(TooBig)
+    async def _too_big(_request: Request, _error: TooBig) -> JSONResponse:
+        body = {
+            "detail": f"That's too much: at most {MAX_AMOUNT:,} g, ml or items.",
+            "code": "too_big",
+        }
+        return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
     @app.exception_handler(Problem)
     async def _problem(_request: Request, problem: Problem) -> JSONResponse:
         body = {"detail": problem.detail, "code": problem.code, **problem.extra}

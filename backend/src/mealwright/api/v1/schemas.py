@@ -8,7 +8,11 @@ from pydantic import BaseModel, Field, model_validator
 
 CountedAsName = Literal["weight", "volume", "count"]
 Number = Annotated[Decimal, Field(max_digits=15, decimal_places=3)]
-PositiveNumber = Annotated[Decimal, Field(gt=0, max_digits=15, decimal_places=3)]
+# Typed amounts: up to 1,000,000 of a unit (MAX_AMOUNT); the result is checked again in
+# base units. Cup weights up to 2 kg, item weights up to 50 kg.
+PositiveNumber = Annotated[Decimal, Field(gt=0, le=1_000_000, max_digits=13, decimal_places=3)]
+CupGrams = Annotated[Decimal, Field(gt=0, le=2_000, max_digits=8, decimal_places=3)]
+ItemGrams = Annotated[Decimal, Field(gt=0, le=50_000, max_digits=9, decimal_places=3)]
 
 
 class Ref(BaseModel):
@@ -87,6 +91,10 @@ class Answer(BaseModel):
                 raise ValueError("A size answer needs a name and an amount.")
         elif self.grams is None:
             raise ValueError("Please give the weight in grams.")
+        elif self.kind == "weight_per_ml" and self.grams > 2_000:
+            raise ValueError("A cup weighs at most 2,000 g.")
+        elif self.kind == "item_weight" and self.grams > 50_000:
+            raise ValueError("One item weighs at most 50 kg.")
         return self
 
 

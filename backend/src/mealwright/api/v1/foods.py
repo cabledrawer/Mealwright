@@ -18,6 +18,8 @@ from mealwright.api.v1.schemas import (
     Answer,
     ChangeOut,
     CountedAsName,
+    CupGrams,
+    ItemGrams,
     PositiveNumber,
     Ref,
     SizeOut,
@@ -510,8 +512,8 @@ class FoodPatch(BaseModel):
     place_id: int | None = None
     shop_id: int | None = None
     running_low_at: AmountIn | None = None
-    cup_weight: PositiveNumber | None = None  # grams in one household cup
-    item_weight: PositiveNumber | None = None  # grams in one item
+    cup_weight: CupGrams | None = None  # grams in one household cup
+    item_weight: ItemGrams | None = None  # grams in one item
     answers: list[Answer] = Field(default_factory=list, max_length=5)
 
 
@@ -765,7 +767,7 @@ def _size_amount(kitchen: Kitchen, food: Food, amount: Decimal | AmountIn) -> in
                 "Give the size in g, ml or a count.",
             )
         return resolve(kitchen, food, amount).milli
-    return amounts.to_milli(amount)
+    return amounts.checked(amounts.to_milli(amount))
 
 
 @router.post("/foods/{food_id}/sizes", status_code=status.HTTP_201_CREATED)
@@ -808,7 +810,7 @@ def edit_food_size(
                 size.name, size.plural = name, amounts.plural(name)
                 summary = f"{food.name}: renamed {old} to {name}"
             elif body.amount is not None:
-                milli = amounts.to_milli(body.amount)
+                milli = amounts.checked(amounts.to_milli(body.amount))
                 if milli == size.amount_milli:
                     return None
                 size.amount_milli = milli
@@ -1123,7 +1125,7 @@ def convert(
         if size is None:
             problem = ask(kitchen, food, "size", unit.strip())
             return Converted(amount=None, unit=base, ask=problem.extra["ask"])
-        milli = amounts.to_milli(amount * size.amount_milli / MILLI)
+        milli = amounts.checked(amounts.to_milli(amount * size.amount_milli / MILLI))
         source: Literal["you", "table", "fixed"] = "you"
     else:
         family = amounts.unit_family(code)

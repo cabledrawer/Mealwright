@@ -59,6 +59,22 @@ def unit_size(unit: str, cup_ml: int) -> Decimal:
     raise ValueError(unit)
 
 
+# The most any one amount can be: 1,000,000 g, ml or items (a tonne of flour). Anything
+# bigger is a typing slip, and keeps every stored number far inside a 64-bit integer.
+MAX_AMOUNT = 1_000_000
+MAX_MILLI = MAX_AMOUNT * MILLI
+
+
+class TooBig(ValueError):
+    """An amount over MAX_AMOUNT, typed or worked out by a conversion."""
+
+
+def checked(milli: int) -> int:
+    if milli > MAX_MILLI:
+        raise TooBig(milli)
+    return milli
+
+
 def to_milli(value: Decimal | float | int | str) -> int:
     """A number in base units → whole thousandths (rounded half up)."""
     return int((Decimal(str(value)) * MILLI).quantize(Decimal(1), rounding=ROUND_HALF_UP))

@@ -15,6 +15,7 @@ from typing import Literal
 from mealwright.amounts import (
     MILLI,
     CountedAs,
+    checked,
     significant,
     to_milli,
     unit_family,
@@ -114,7 +115,12 @@ class UnitAmount:
 
 def to_base_milli(value: UnitAmount, counted_as: CountedAs, known: Known, cup_ml: int) -> int:
     """`value` in the food's base unit, in thousandths. Raises AskOnce when a weight per ml
-    or an item weight is needed and not known."""
+    or an item weight is needed and not known, and TooBig when the result is over the
+    limit."""
+    return checked(_to_base_milli(value, counted_as, known, cup_ml))
+
+
+def _to_base_milli(value: UnitAmount, counted_as: CountedAs, known: Known, cup_ml: int) -> int:
     family = unit_family(value.unit)
     if family is None:
         raise ValueError(value.unit)
