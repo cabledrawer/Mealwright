@@ -11,6 +11,8 @@ Written 17 Oct 2026 from the finished planning spec (`docs/spec.md`). Owner: cab
 - If the spec and this plan disagree, the spec wins. If something isn't in either, ask cabledrawer rather than guess, and record his answer in `docs/spec.md`, credited to him.
 - 0.x versions are not published (no public image, no release). cabledrawer may build and run them on his own homelab.
 - **Code home during 0.x (cabledrawer 17 Oct): cabledrawer's own Forgejo** on his homelab, as a private repo. Repo: `https://git.example.org/tess/mealwright`. Use plain `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI for pull requests and issues (not `gh`). Claude Code pushes as the restricted `claude` account, with a token limited to repository and issue access; `main` and `v*` tags are protected. **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. Instead, run `./check` before every pull request and paste its summary into the PR description. 0.x images go only to Forgejo's private package registry, and cabledrawer pushes them himself. CI starts at 1.0 on GitHub Actions. GitHub becomes the public home at 1.0.0 (see 0.9 and 1.0).
+- **When to run `./check` (cabledrawer 17 Oct, from 0.3):** while working, run only the test file for the change plus lint and type checks for that side; run `./check --fast` after a chunk of work or a round of review fixes; run the full `./check` before opening each pull request, again on the final commit after the last fixes, for release pull requests, and whenever a dependency, lock file or the Dockerfile changes. The checker trusts a pasted summary whose commit matches the pull request's latest commit, and runs only the screenshot review and that feature's browser tests. See spec section 9.
+- **Models and effort (cabledrawer 17 Oct, from 0.3):** the lead runs on Opus at the usual effort. Helpers start fresh for each pull request and close when it merges. Use Opus at high effort for the hardest, riskiest work (in 0.3: the sync design, the server sync code, the device's offline queue, and the checker's reviews of those) and Sonnet for everything else. If usage gets tight, move the lead to Sonnet before taking Opus off the risky work. Helpers read only the spec sections their pull request needs, not the whole spec.
 
 ## Reference material in this repo
 
@@ -107,6 +109,21 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 **Done when:** automated tests simulate two devices offline (same item ticked twice, tick vs untick, delete vs edit, replayed queue, a 3-day-old queue) and the pantry ends up right every time; a manual test with two phones in aeroplane mode passes.
 
 **cabledrawer checks:** two phones, one shop, aeroplane mode.
+
+**How 0.3 is built (cabledrawer 17 Oct):** pull requests in this order; at most two helpers at once.
+
+| PR | What | Model |
+|---|---|---|
+| 0 | Housekeeping: `./check --fast`, CLAUDE.md tidy-up, a 0.3 version of `e2e/REVIEW.md` | Sonnet |
+| 1 | Sync design doc, `docs/dev/sync-protocol.md` (no code). **Stop for cabledrawer's OK.** | Opus, high |
+| 2 | Shopping lists: tables, migration, plain online API | Sonnet |
+| 3 | Server sync: action queue, ordering, repeated IDs, tick → pantry, "Did you buy 2?", the simulated two-device tests | Opus, high |
+| 4 | Shopping screen working online (runs alongside 3) | Sonnet |
+| 5 | Live updates (SSE), installable app and offline caching | Sonnet |
+| 6 | Device offline queue, replay, offline bar, sign-out wipe | Opus, high |
+| 7 | 0.3.0 release pull request | Sonnet |
+
+After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections their pull request needs. Most sync scenarios are fast backend tests; only two or three end-to-end offline tests run in the browser.
 
 **From here on (cabledrawer 17 Oct, spec section 8 "Lessons"):** cabledrawer's household uses Mealwright for real every week and keeps a friction log (anything annoying or confusing). Every milestone lead reads it when its milestone starts and raises anything that affects its screens. Run the non-technical prototype test before 0.4 starts if at all possible.
 
