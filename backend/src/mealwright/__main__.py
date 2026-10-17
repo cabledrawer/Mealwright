@@ -17,8 +17,9 @@ def main() -> None:
         create_app(settings),
         host=settings.host,
         port=settings.port,
-        proxy_headers=True,
-        forwarded_allow_ips=settings.trusted_proxies,
+        # Forwarded headers are handled inside the app (ProxyHeadersMiddleware in
+        # create_app), so they're tested; don't apply them twice.
+        proxy_headers=False,
         # No request log: addresses would show what people look at and search for.
         access_log=False,
     )

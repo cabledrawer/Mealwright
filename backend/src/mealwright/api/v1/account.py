@@ -20,6 +20,7 @@ from mealwright.auth import (
     client_address,
     end_session,
     hash_password,
+    needs_https,
     start_session,
 )
 from mealwright.models import Household, Login
@@ -60,6 +61,9 @@ def _normalise_username(value: str) -> str:
 
 class SetupState(BaseModel):
     needs_setup: bool
+    # True when the admin allowed sign-in over plain http:// for testing; the web app
+    # then shows a warning on plain http:// addresses.
+    plain_http_allowed: bool
 
 
 class SetupIn(BaseModel):
@@ -87,15 +91,19 @@ class SetupIn(BaseModel):
 
 
 @router.get("/setup")
-def setup_state(db: Db) -> SetupState:
+def setup_state(request: Request, db: Db) -> SetupState:
     """Whether Mealwright still needs its first (admin) account."""
-    return SetupState(needs_setup=db.scalar(select(func.count()).select_from(Login)) == 0)
+    return SetupState(
+        needs_setup=db.scalar(select(func.count()).select_from(Login)) == 0,
+        plain_http_allowed=request.app.state.settings.allow_plain_http,
+    )
 
 
 @router.post("/setup", status_code=status.HTTP_201_CREATED)
 def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     """Create the household and its admin, then sign in. Works only once: there is no
     default admin, so the first person to set up becomes the admin (spec section 7)."""
+    needs_https(request, request.app.state.settings)
     if db.scalar(select(func.count()).select_from(Login)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.")
     household = Household(id=1, name="Home")  # one household per install (spec section 3)
@@ -131,6 +139,7 @@ class SignIn(BaseModel):
 
 @router.post("/session")
 def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
+    needs_https(request, request.app.state.settings)
     slow: SlowDown = request.app.state.slow_down
     username = _normalise_username(body.username)
     address = client_address(request)

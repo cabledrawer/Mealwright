@@ -159,7 +159,7 @@ def start_session(
         token,
         max_age=int(REMEMBER_FOR.total_seconds()) if remember else None,
         httponly=True,
-        secure=settings.cookie_secure,
+        secure=not settings.allow_plain_http,
         samesite="lax",
         path="/",
     )
@@ -170,7 +170,7 @@ def end_session(db: DbSession, request: Request, response: Response, settings: S
     if token:
         db.execute(delete(Session).where(Session.token_hash == _token_hash(token)))
     response.delete_cookie(
-        COOKIE, httponly=True, secure=settings.cookie_secure, samesite="lax", path="/"
+        COOKIE, httponly=True, secure=not settings.allow_plain_http, samesite="lax", path="/"
     )
 
 
@@ -237,6 +237,29 @@ CurrentLogin = Annotated[SignedIn, Depends(current)]
 SameOrigin = Depends(same_origin)
 
 
+HTTPS_NEEDED = (
+    "Signing in needs a secure connection. Open Mealwright at its https:// address, "
+    "through your reverse proxy. To try it on plain http:// on a network you trust, "
+    "the admin can set MEALWRIGHT_ALLOW_PLAIN_HTTP=true."
+)
+_LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+
+
+def needs_https(request: Request, settings: Settings) -> None:
+    """Refuse to sign in when the browser is on a plain http:// address.
+
+    The session cookie is HTTPS-only, so the browser would quietly drop it and the
+    person would seem to sign in and then be signed straight out. The browser's own
+    Origin header says which address it's on, whatever proxy sits in between.
+    Browsers treat localhost as secure, so it's allowed there.
+    """
+    if settings.allow_plain_http:
+        return
+    origin = urlsplit(request.headers.get("origin", ""))
+    if origin.scheme == "http" and origin.hostname not in _LOOPBACK:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, HTTPS_NEEDED)
+
+
 def client_address(request: Request) -> str:
-    # Uvicorn has already applied X-Forwarded-For from trusted proxies only.
+    # ProxyHeadersMiddleware has already applied X-Forwarded-For, from trusted proxies only.
     return request.client.host if request.client else "unknown"

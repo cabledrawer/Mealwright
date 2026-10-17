@@ -35,7 +35,7 @@ def db(client: TestClient):  # type: ignore[no-untyped-def]
 
 
 def test_fresh_install_needs_setup(client: TestClient) -> None:
-    assert client.get("/api/v1/setup").json() == {"needs_setup": True}
+    assert client.get("/api/v1/setup").json()["needs_setup"] is True
     assert client.get("/api/v1/me").status_code == 401
 
 
@@ -49,7 +49,7 @@ def test_setup_creates_the_admin_and_signs_in(client: TestClient) -> None:
         "role": "admin",
         "theme": "auto",
     }
-    assert client.get("/api/v1/setup").json() == {"needs_setup": False}
+    assert client.get("/api/v1/setup").json()["needs_setup"] is False
     assert client.get("/api/v1/me").json()["username"] == "tess"
 
 
@@ -80,7 +80,7 @@ def test_setup_race_is_refused(client: TestClient) -> None:
 )
 def test_setup_checks_its_input(client: TestClient, change: dict[str, str]) -> None:
     assert client.post("/api/v1/setup", json=ADMIN | change).status_code == 422
-    assert client.get("/api/v1/setup").json() == {"needs_setup": True}
+    assert client.get("/api/v1/setup").json()["needs_setup"] is True
 
 
 def test_password_is_stored_scrambled(client: TestClient) -> None:

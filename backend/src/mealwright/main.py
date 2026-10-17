@@ -1,10 +1,12 @@
 """The FastAPI application."""
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from mealwright import __version__, migrate
 from mealwright.api.v1 import router as api_v1
@@ -13,6 +15,8 @@ from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
+
+log = logging.getLogger(__name__)
 
 # FastAPI's built-in OpenTelemetry support: switch every part of it off, and never
 # configure exporters from OTEL_* / FASTAPI_OTEL_* environment variables.
@@ -58,4 +62,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(api_v1)
     # Strict browser rules on every response (spec section 7).
     app.add_middleware(SecurityHeadersMiddleware)
+    # Outermost: the visitor's real address and scheme from the reverse proxy's
+    # X-Forwarded-For/-Proto headers, believed only from MEALWRIGHT_TRUSTED_PROXIES (off
+    # by default). The sign-in slow-down counts per address, so it needs the real one.
+    if settings.trusted_proxies.strip():
+        app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxies)
+    if settings.allow_plain_http:
+        log.warning(
+            "MEALWRIGHT_ALLOW_PLAIN_HTTP is on: sign-in works over plain http://, so "
+            "passwords and sign-in cookies can travel unencrypted. Use only for testing "
+            "on a network you trust."
+        )
     return app

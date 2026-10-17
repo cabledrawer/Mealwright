@@ -16,6 +16,10 @@ The built-in telemetry of the libraries Mealwright uses is switched off (FastAPI
 
 Outbound connections happen only when you switch them on in Settings → Privacy. Every one of them goes through a single gate in the code, which checks its switch first, and while Mealwright runs any other attempt to connect out, or even to look up an address, is refused. The full list of every possible outbound connection will be written here before 1.0.0.
 
+## HTTPS required
+
+Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy Manager…) that provides HTTPS. Browsers only allow signing in from other devices, installing the app, offline shopping and keep-screen-awake over HTTPS. On a plain `http://` address, Mealwright says so instead of failing. Install docs with proxy examples come before 1.0.
+
 ## Licence
 
 [AGPL-3.0](LICENSE).

@@ -19,11 +19,17 @@ class Settings(BaseSettings):
     # proxy can reach it. Tests use 127.0.0.1.
     host: str = "0.0.0.0"  # noqa: S104  # nosec B104
     port: int = 8080
-    # Session cookies are only sent over HTTPS. Turn off only for plain-HTTP testing.
-    cookie_secure: bool = True
-    # Addresses of reverse proxies whose X-Forwarded-For/-Proto headers are believed,
-    # comma-separated, or "*" when the app is only reachable through the proxy.
-    trusted_proxies: str = "127.0.0.1"
+    # Signing in needs HTTPS (spec section 7): the session cookie is HTTPS-only. Set this
+    # to allow sign-in over plain http:// for testing on a network you trust; the cookie
+    # and password then travel unencrypted, and a warning is logged at start-up.
+    allow_plain_http: bool = False
+    # The reverse proxy (Caddy, Traefik, nginx, Nginx Proxy Manager…) whose
+    # X-Forwarded-For/-Proto headers are believed: its addresses or networks,
+    # comma-separated (e.g. "172.28.10.0/24"). Empty (the default) believes nobody's.
+    # The visitor's address is then the last one the proxy added, which a visitor can't
+    # fake. "*" believes anyone and takes the first address: only safe when the proxy
+    # replaces any X-Forwarded-For a visitor sends (Caddy does; nginx by default doesn't).
+    trusted_proxies: str = ""
 
     @property
     def sqlalchemy_url(self) -> str:
