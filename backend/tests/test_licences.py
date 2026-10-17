@@ -91,3 +91,30 @@ def test_mpl_with_exhibit_b_is_rejected(lic: ModuleType, tmp_path: Path) -> None
 
 def test_installed_packages_pass(lic: ModuleType) -> None:
     assert lic.main() == 0
+
+
+@pytest.mark.parametrize(
+    ("name", "licence", "allowed"),
+    [
+        ("@fontsource/newsreader", "OFL-1.1", True),
+        ("@fontsource-variable/plus-jakarta-sans", "OFL-1.1", True),
+        ("some-icons", "OFL-1.1", False),  # OFL only for fonts
+        ("left-pad", {"type": "MIT"}, True),  # old-style licence object
+        ("mystery", None, False),
+        ("gpl2-thing", "GPL-2.0-only", False),
+    ],
+)
+def test_npm_packages(
+    lic: ModuleType, tmp_path: Path, name: str, licence: object, allowed: bool
+) -> None:
+    info = {"version": "1.0.0"} | ({"license": licence} if licence is not None else {})
+    assert lic.check_npm_package(name, info, tmp_path / "missing")[0] is allowed
+
+
+def test_npm_lockfile(lic: ModuleType, tmp_path: Path) -> None:
+    (tmp_path / "package-lock.json").write_text(
+        '{"packages": {"": {"name": "app"},'
+        ' "node_modules/a": {"version": "1.0.0", "license": "MIT"},'
+        ' "node_modules/b": {"version": "2.0.0", "license": "SSPL-1.0"}}}'
+    )
+    assert lic.main_npm(tmp_path) == 1
