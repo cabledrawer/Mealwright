@@ -8,6 +8,7 @@ from fastapi.telemetry import TelemetryConfig
 
 from mealwright import __version__, migrate
 from mealwright.api.v1 import router as api_v1
+from mealwright.auth import SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.outbound import OutboundGate, install_network_guard
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
+    app.state.slow_down = SlowDown()
     app.include_router(api_v1)
     # Strict browser rules on every response (spec section 7).
     app.add_middleware(SecurityHeadersMiddleware)

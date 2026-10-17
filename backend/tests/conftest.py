@@ -20,5 +20,6 @@ def settings(tmp_path: Path) -> Settings:
 
 @pytest.fixture
 def client(settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(settings)) as client:
+    # HTTPS, as behind Caddy, so the Secure session cookie is sent back.
+    with TestClient(create_app(settings), base_url="https://testserver") as client:
         yield client

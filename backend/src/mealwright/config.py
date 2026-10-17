@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     # proxy can reach it. Tests use 127.0.0.1.
     host: str = "0.0.0.0"  # noqa: S104  # nosec B104
     port: int = 8080
+    # Session cookies are only sent over HTTPS. Turn off only for plain-HTTP testing.
+    cookie_secure: bool = True
+    # Addresses of reverse proxies whose X-Forwarded-For/-Proto headers are believed,
+    # comma-separated, or "*" when the app is only reachable through the proxy.
+    trusted_proxies: str = "127.0.0.1"
 
     @property
     def sqlalchemy_url(self) -> str:

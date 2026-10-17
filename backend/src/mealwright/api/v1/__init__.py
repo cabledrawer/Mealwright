@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from mealwright.api.v1 import version
+from mealwright.api.v1 import account, version
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
+router.include_router(account.router)
