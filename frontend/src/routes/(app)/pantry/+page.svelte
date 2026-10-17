@@ -37,6 +37,8 @@
   let tab = $state('all');
   let query = $state('');
   let addingStaple = $state(false);
+  /** Phone: Recent changes beyond the last 3. */
+  let moreChanges = $state(false);
   /** Place columns showing every food, not just the first few (desktop). */
   let expanded = $state<Record<number, boolean>>({});
   const FIRST = 8;
@@ -269,10 +271,20 @@
       {@render staples(false)}
     {/if}
 
-    <details class="recent">
-      <summary>Recent changes</summary>
-      <RecentChanges changes={model.changes.slice(0, 3)} {model} />
-    </details>
+    <!-- The last 3, always; "Show more" for the rest. -->
+    <section class="recent" aria-labelledby="{uid}-precent">
+      <h2 id="{uid}-precent">Recent changes</h2>
+      <RecentChanges changes={moreChanges ? model.changes : model.changes.slice(0, 3)} {model} />
+      {#if model.changes.length > 3}
+        <button
+          type="button"
+          class="link"
+          aria-expanded={moreChanges}
+          onclick={() => (moreChanges = !moreChanges)}
+          >{moreChanges ? 'Show fewer' : 'Show more'}</button
+        >
+      {/if}
+    </section>
   </div>
 {:else}
   <div class="desk">
@@ -557,13 +569,12 @@
     background: var(--color-surface);
   }
 
-  .recent summary {
+  .recent h2 {
     display: flex;
     align-items: center;
     min-height: var(--touch-target);
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .problem,

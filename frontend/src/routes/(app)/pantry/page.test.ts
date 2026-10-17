@@ -262,4 +262,31 @@ describe('the Pantry page', () => {
       expect(toasts.current?.message).toBe('There’s no Toor dal in the Cupboard to use.')
     );
   });
+
+  it('phone: Recent changes shows the last 3, with Undo, and Show more', async () => {
+    routes({
+      'GET /changes?limit=8&area=pantry': [
+        200,
+        {
+          changes: [1, 2, 3, 4].map((n) => changeOf(40 + n, `Used ${n}00 g Toor dal`)),
+          next: null
+        }
+      ]
+    });
+    await render(390);
+    const recent = page.getByRole('region', { name: 'Recent changes' });
+    await expect
+      .element(recent.getByRole('button', { name: 'Undo: Used 100 g Toor dal' }))
+      .toBeVisible();
+    await expect
+      .element(recent.getByRole('button', { name: 'Undo: Used 300 g Toor dal' }))
+      .toBeVisible();
+    expect(
+      recent.getByRole('button', { name: 'Undo: Used 400 g Toor dal' }).elements()
+    ).toHaveLength(0);
+    await recent.getByRole('button', { name: 'Show more' }).click();
+    await expect
+      .element(recent.getByRole('button', { name: 'Undo: Used 400 g Toor dal' }))
+      .toBeVisible();
+  });
 });
