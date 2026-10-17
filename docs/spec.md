@@ -267,6 +267,17 @@ Plans after 1.0 are kept outside the repo.
 
 **What this adds to the data model:** list items with phone-made IDs, source (from plan / typed by hand), "hand-edited" flag, ticked by / when, put-away location, deleted marker, version number; a sync log of applied actions (action ID, user, device, type, server order, applied time) for repeat-detection and Undo; a "both ticked" question record until answered.
 
+**Decided for 0.3 (cabledrawer 17 Oct):**
+
+- **Same login on two phones:** if one login ticks the same item on two phones while offline, the app still asks "Did you buy 2?", worded "This was ticked on two phones".
+- **Sign-in runs out while offline** (not a sign-out): the waiting changes stay on the phone and are sent once the same login signs back in. If a different login signs in, the sign-out warning comes first.
+- **Ticking into the pantry:** the item goes to the food's usual place, or Cupboard if it has none, with no use-by unless one is chosen.
+- **Items that aren't food** (kitchen roll, soap): every list item is still a food. A non-food item becomes a food with the Staple switch on, so ticking it never adds pantry stock.
+- **Aisles:** each food has an optional Aisle (under "more" in the editor). Default aisles: Veg & fruit · Meat & fish · Dairy · Bakery · Dry goods · Tins & jars · Spices · Frozen · Drinks · Household · Other (cabledrawer added Meat & fish, Tins & jars and Drinks: Mealwright is for the public). Each shop orders the aisles by dragging (Shops & places, 0.8); until then shops use the default order.
+- **What the phone keeps offline:** in 0.3 the app itself and the shopping lists; recently viewed recipes from 0.4.
+- **App updates:** a new version installs quietly the next time the app is opened, never mid-shop, and waiting changes are always sent first. Docs note that offline needs HTTPS, and that iPhone Safari can clear a web page's offline data after 7 days without use (adding it to the Home Screen helps).
+- **No new libraries needed:** Server-Sent Events are built into FastAPI; SvelteKit's own service worker support is used. `idb` (ISC, very small) is allowed for the IndexedDB queue if it makes the offline code simpler or safer; name it in the PR. Well-tested code matters more than one package fewer.
+
 ### Foods and units (decided 17 Oct)
 
 **Shape:**
@@ -290,6 +301,15 @@ Plans after 1.0 are kept outside the repo.
 
 **Data model additions:** food "can use instead" links (food → stand-in food, one-way); food merge history (so a merge can be undone and old recipe links still resolve).
 
+**Decided for 0.2 (cabledrawer 17 Oct):**
+
+- **Conversion table source:** USDA FoodData Central, SR Legacy (April 2018, final release): public domain under CC0 1.0. USDA asks for credit, given in `docs/` and Settings → About. A hand-picked subset of about 200 common foods is bundled as a small CSV, rebuilt by a script in the repo from the USDA file. Foods it doesn't cover (many Indian ingredients) are asked once. No values are copied from sources with unclear licences. Rejected: Open Food Facts (ODbL), FAO density tables (licence unclear).
+- **Cup size:** each food's weight per millilitre is stored; "Weight of 1 cup" is shown in the household's cup size: 240 ml when the browser language is US English, otherwise 250 ml (changeable in Settings, 0.8). Tablespoon 15 ml, teaspoon 5 ml.
+- **Rounding:** amounts as sold to the nearest ¼ ("1½ packets"); count foods to the nearest ½; "about" figures to 2 significant figures ("about 750 g", "about 1.5 L"). A food sold in more than one size is shown in the one marked Usual.
+- **Merge:** the merged-away food's name becomes an other name of the food it's merged into; its stock, sizes and "Can use instead" links move across (count ↔ weight via the weight of one item, or asked once). Undo within 7 days restores everything exactly. After that, "split" turns one of the other names back into its own food; old links still resolve through the merge history.
+- **"Maybe the same":** simple offline matching (same name ignoring case, plurals and brackets, or a name matching another food's other names), each with a "Not the same" button. No fuzzy-matching library.
+- **Shops before Settings exists:** the editor's "Usual shop" has a "+ Shop" chip that adds a shop by name. The four default places are created automatically; renaming places comes in Settings (0.8).
+
 ### Stock (decided 17 Oct)
 
 **Measure stock the way it's sold (cabledrawer 17 Oct).** Each food has a pantry unit that matches how you buy it, and the app does the maths behind the scenes:
@@ -310,6 +330,16 @@ Plans after 1.0 are kept outside the repo.
 **Different pack size on the day (cabledrawer 17 Oct):** when ticking an item off, the user can change the pack size ("1 × 1 kg" instead of 2 × 500 g). No setup is needed, and the new size is added to the food's sale units.
 
 **Data model:** food sale units (name, amount in base unit — e.g. packet = 500 g, dozen = 12, loaf = 20 slices); stock lots keep the base amount plus the sale unit they were bought in, for display; tub amount stored in quarters (0.25 steps).
+
+**Decided for 0.2 (cabledrawer 17 Oct):**
+
+- **Use soon:** use-by today, tomorrow or the day after (2 days ahead). Not 3, because a fridge tub's default life is 3 days and would land on Use soon the day it's made. Becomes a household setting in 0.8.
+- **"Today" is the household's local time** (cabledrawer 17 Oct: "the household's local time, not UTC"; we're in the UK, GMT/BST). Use-by dates, Use soon and the daily jobs all follow the household's time zone, never UTC. How (proposed by Claude Code 17 Oct): the household stores its time zone, taken from the admin's browser or OS setting (never location), so no `TZ` setting is needed in `compose.yaml`; changeable in Settings (0.8).
+- **To freezer:** moves the packet to the Freezer with a new use-by 3 months away (the tub default); the date can be edited.
+- **Places on screen:** phone tabs show every place (Fridge, Freezer, Cupboard, Spice rack and any added); if they don't fit, the last tab becomes "More", so nothing scrolls sideways. Desktop shows all four default places as four columns at 1440 px if they fit beside the side panel, otherwise a tidy 2×2, whichever looks right in the screenshots.
+- **"+ Add to pantry" sheet (no mockup yet):** pick or type a food; amount as sold (1 packet, 2 packets…) or typed grams; place filled in from the food's usual place; optional use-by (none · +3 days · +1 week · pick a date). Screenshots go in the PR; cabledrawer adds it to the mockups canvas afterwards.
+- **Parts that depend on later milestones are hidden until they work:** "+ List" and "tap a staple when it runs out" (0.3, shopping list); tubs (0.6); "Used in N recipes", "Not in any recipe" and "Recipes for these" (0.4).
+- **Live updates:** in 0.2 the Pantry refreshes when you return to the tab; Server-Sent Events come in 0.3.
 
 ### Plan and batch cooks (decided 17 Oct)
 
@@ -334,6 +364,13 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 - **Who did it (cabledrawer 17 Oct):** each change records the login that made it ("Wren ticked toor dal"). On a shared login it shows the login's name ("Family"). By default nothing more is tracked, to keep things simple. A household can switch on an optional "Who's this?" picker for shared logins.
 
 **Data model:** change log entries (type, food/lot, amounts before → after, login, optional member, time, undo link); household settings for history length, undo window and the "Who's this?" picker; monthly summary rows for thinned history.
+
+**Decided for 0.2 (cabledrawer 17 Oct):**
+
+- **Undo reverses just that change**; later changes stay. If the packet has been used up since, Undo puts back what it can and says so. Stock never goes below zero.
+- **Anyone in the household** can undo anyone's change within the undo window (7 days).
+- **Ctrl+Z on desktop** undoes your own last change. When the cursor is in a text box, Ctrl+Z undoes the typing as normal, never a pantry change.
+- **Thinning history** runs as a daily job with APScheduler (approved 17 Oct, MIT), in the household's local time.
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
@@ -453,7 +490,7 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 
 **Before 1.0.0 goes out (cabledrawer 17 Oct):**
 
-- **Licences:** the automatic build checks every dependency against an allow list of AGPL-compatible licences (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL) and fails on anything else; watch especially for GPL-2.0-only. The bundled food-conversion table is checked by hand. **Fonts (cabledrawer 17 Oct):** OFL-1.1 is also allowed, for font packages only (the bundled Plus Jakarta Sans and Newsreader come from `@fontsource`, which is OFL-1.1); any other OFL-1.1 dependency still fails the check. **PSF-2.0 and MPL-2.0 (cabledrawer 17 Oct):** both are also allowed (e.g. `typing_extensions` is PSF-2.0; `certifi` and `pathspec` are MPL-2.0). MPL-2.0 is only compatible with AGPL through its secondary-licence clause, so an MPL-2.0 package marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B) must be rejected. **MIT-0 and BlueOak-1.0.0 (cabledrawer 17 Oct):** both are also allowed. MIT-0 is MIT without the attribution requirement (`cffi`, used by the Argon2 password library); BlueOak-1.0.0 is a permissive licence (`minimatch`, used by ESLint).
+- **Licences:** the automatic build checks every dependency against an allow list of AGPL-compatible licences (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL) and fails on anything else; watch especially for GPL-2.0-only. The bundled food-conversion table is checked by hand. **Fonts (cabledrawer 17 Oct):** OFL-1.1 is also allowed, for font packages only (the bundled Plus Jakarta Sans and Newsreader come from `@fontsource`, which is OFL-1.1); any other OFL-1.1 dependency still fails the check. **PSF-2.0 and MPL-2.0 (cabledrawer 17 Oct):** both are also allowed (e.g. `typing_extensions` is PSF-2.0; `certifi` and `pathspec` are MPL-2.0). MPL-2.0 is only compatible with AGPL through its secondary-licence clause, so an MPL-2.0 package marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B) must be rejected. **MIT-0 and BlueOak-1.0.0 (cabledrawer 17 Oct):** both are also allowed. MIT-0 is MIT without the attribution requirement (`cffi`, used by the Argon2 password library); BlueOak-1.0.0 is a permissive licence (`minimatch`, used by ESLint). **Development-only dependencies (cabledrawer 17 Oct, standing rule):** MIT, MIT-0, BSD-2-Clause, BSD-3-Clause, ISC, Apache-2.0, BlueOak-1.0.0, 0BSD, Unlicense, CC0-1.0, PSF-2.0 and Zlib are approved without asking for packages used only while developing and testing (never in the app image). The allow list marks 0BSD, Unlicense, CC0-1.0 and Zlib as dev-only. Anything that ships in the image, and anything copyleft, unknown or unusual, still needs cabledrawer's OK. **Approved for 0.2 (cabledrawer 17 Oct):** APScheduler with tzlocal (MIT, ships in the image); Hypothesis and @axe-core/playwright with axe-core (MPL-2.0, dev-only; checked 17 Oct: neither carries the "Incompatible With Secondary Licenses" notice).
 - **No unasked connections:** the automatic test from section 7, plus one manual run with every Privacy switch off while watching the network. The README Privacy section lists every possible outbound connection.
 - **Name:** search the UK, EU and US trademark registers for "Mealwright" in the software classes. Search only, no registration.
 - **Security:** automatic scanners in the build (known vulnerabilities in dependencies, code scanning, image scan) plus a self-check against a standard web-app security checklist. Just before release, ask the self-hosting community to review and try to break it.
