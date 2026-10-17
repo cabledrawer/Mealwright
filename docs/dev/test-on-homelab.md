@@ -180,9 +180,10 @@ services:
     container_name: mealwright
     restart: unless-stopped
     environment:
-      # Only Caddy can reach Mealwright on its network, so believe the visitor address
-      # Caddy passes on. The sign-in slow-down needs it to see who is guessing.
-      MEALWRIGHT_TRUSTED_PROXIES: "*"
+      # Believe the visitor address Caddy passes on, but only from Mealwright's own
+      # network (Caddy joins it below). The sign-in slow-down needs it to see who is
+      # guessing; a made-up address from a visitor is ignored.
+      MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
     volumes:
       - ./data:/data
     networks:
@@ -194,13 +195,18 @@ services:
 networks:
   mealwright:
     name: mealwright
+    ipam:
+      config:
+        - subnet: 172.28.10.0/24   # a fixed range, named in MEALWRIGHT_TRUSTED_PROXIES
 ```
+
+If `docker compose up` says the range is already in use, choose another free one, such as `172.30.43.0/24`, and change it in both places.
 
 Notes:
 
 - **Mealwright has its own network**, `mealwright`, so it can't reach your other apps and they can't reach it. Only Caddy joins it (next step).
 - **No `ports:`.** It's only reachable through Caddy.
-- **HTTPS is required.** Mealwright's sign-in cookie only travels over HTTPS, which Caddy provides. Opening it on a plain `http://` address won't keep you signed in.
+- **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which Caddy provides. On a plain `http://` address, Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
 - **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
 - **Data** lives in `/opt/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes `/opt/mealwright`.
 - If Diun watches this container, that's fine, because Diun only tells you about new images. Renovate, if you use it, must never auto-merge a Mealwright change.

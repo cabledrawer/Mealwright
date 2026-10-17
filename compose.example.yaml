@@ -1,5 +1,6 @@
 # Example Docker Compose file for Mealwright. Copy it to compose.yaml and adjust.
-# Mealwright is meant to sit behind a reverse proxy that handles HTTPS (e.g. Caddy).
+# Mealwright sits behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
+# Manager…), which provides HTTPS. Signing in needs HTTPS.
 
 services:
   mealwright:
@@ -8,9 +9,11 @@ services:
     container_name: mealwright
     restart: unless-stopped
     environment:
-      # Only the reverse proxy can reach Mealwright on this network, so believe its
-      # X-Forwarded-For header (needed for the sign-in slow-down to see real addresses).
-      MEALWRIGHT_TRUSTED_PROXIES: "*"
+      # Believe the visitor address (X-Forwarded-For) only from the reverse proxy, which
+      # joins the network below. The sign-in slow-down needs real addresses.
+      MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
+      # Only for trying it out over plain http:// on a network you trust:
+      # MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"
     volumes:
       # Everything Mealwright keeps. Back this folder up (and before every update).
       # The folder must belong to UID 10001, the user Mealwright runs as:
@@ -24,3 +27,7 @@ services:
 networks:
   mealwright:
     name: mealwright
+    ipam:
+      config:
+        # A fixed range, so MEALWRIGHT_TRUSTED_PROXIES can name it. Pick any free one.
+        - subnet: 172.28.10.0/24
