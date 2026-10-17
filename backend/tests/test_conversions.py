@@ -49,7 +49,8 @@ def test_table_matching() -> None:
 
 def test_suggestions() -> None:
     assert suggestion("weight_per_ml", None, 250) == Decimal(200)
-    assert suggestion("item_weight", None, 250) == Decimal(100)
+    assert suggestion("item_weight", None, 250) is None  # no guessing an item's weight
+    assert suggestion("item_weight", table().rows["onion"], 250) == Decimal(110)
     flour = table().rows["plain_flour"]
     assert suggestion("weight_per_ml", flour, 240) == Decimal(130)  # 126.8 g, 2 sig figs
 

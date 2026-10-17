@@ -27,7 +27,6 @@ ConversionKind = Literal["weight_per_ml", "item_weight"]
 
 # Suggestions when nothing better is known (docs/dev/api-0.2.md section 4.4).
 GENERIC_MG_PER_ML = 800
-GENERIC_ITEM_MG = 100_000
 
 
 @dataclass(frozen=True)
@@ -162,10 +161,15 @@ def convert_milli(
     return to_base_milli(UnitAmount(Decimal(milli) / MILLI, unit), target, known, cup_ml)
 
 
-def suggestion(kind: ConversionKind, row: TableRow | None, cup_ml: int) -> Decimal:
-    """The suggested answer in grams: per household cup, or per item."""
+def suggestion(kind: ConversionKind, row: TableRow | None, cup_ml: int) -> Decimal | None:
+    """The suggested answer in grams: per household cup, or per item.
+
+    A cup always gets one (the spec's "Suggested: 200 g": dry goods are about 0.8 g/ml).
+    One item doesn't unless the table knows a close food: items range from a garlic clove
+    to a cabbage, so any fixed number would be a guess."""
     if kind == "weight_per_ml":
         mg_per_ml = (row.mg_per_ml if row else None) or GENERIC_MG_PER_ML
         return significant(Decimal(mg_per_ml) * cup_ml / MILLI)
-    item_mg = (row.item_weight_mg if row else None) or GENERIC_ITEM_MG
-    return significant(Decimal(item_mg) / MILLI)
+    if row is None or row.item_weight_mg is None:
+        return None
+    return significant(Decimal(row.item_weight_mg) / MILLI)

@@ -294,6 +294,10 @@ def lower_first(name: str) -> str:
     return name if first.isupper() and len(first) > 1 else name[:1].lower() + name[1:]
 
 
+def _float(value: Decimal | None) -> float | None:
+    return float(value) if value is not None else None
+
+
 def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str = "") -> Problem:
     """The 409 that asks once (docs/dev/api-0.2.md section 4.4)."""
     cup = cup_ml(kitchen.household)
@@ -309,7 +313,7 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
             unit="g",
             per="cup",
             cup_ml=cup,
-            suggested=float(suggestion("weight_per_ml", row, cup)),
+            suggested=_float(suggestion("weight_per_ml", row, cup)),
         )
     elif kind == "item_weight":
         one = food.count_word or " ".join(singular(word) for word in name.split())
@@ -322,7 +326,7 @@ def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str
             unit="g",
             per="item",
             cup_ml=cup,
-            suggested=float(suggestion("item_weight", row, cup)),
+            suggested=_float(suggestion("item_weight", row, cup)),
         )
     else:
         if food.counted_as == "count":

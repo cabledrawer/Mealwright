@@ -223,7 +223,7 @@ HTTP 409
 }
 ```
 
-`kind: "item_weight"` asks "About how much does 1 onion weigh?" (`per: "item"`, suggested 100 g). Suggestions: the bundled table's value for a close name if there is one, otherwise 0.8 g/ml × the cup (200 g for a 250 ml cup) or 100 g per item, rounded to 2 significant figures.
+`kind: "item_weight"` asks "About how much does 1 onion weigh?" (`per: "item"`; suggested 110 g from the table). Suggestions: the bundled table's value for a close name if there is one, otherwise 0.8 g/ml × the cup (200 g for a 250 ml cup), rounded to 2 significant figures. An item weight has no suggestion unless the table knows a close food (`suggested: null`): any fixed number would be a guess.
 
 The client shows the question with the "Remember for next time" switch (on by default) and **retries the same request with the same `Idempotency-Key`**, adding `"answers": [...]` to the `AmountIn`. With `remember: true` the server saves the answer in `food_conversion` (in the same transaction); with `false` it's used for that request only. For `weight_per_ml` and `item_weight`, `grams` is the weight of one household cup or one item. Merge (6.2) takes `answers` at the top level of its body.
 

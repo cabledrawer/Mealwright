@@ -250,6 +250,24 @@ def test_counted_as_change_converts_sizes(kitchen: TestClient) -> None:
     assert body["food"]["cup_weight"]["from"] == "you"
 
 
+def test_counting_by_number_asks_for_the_weight_of_one(kitchen: TestClient) -> None:
+    food = add(kitchen, "Toor dal")
+    kitchen.post(f"{API}/foods/{food['id']}/sizes", json={"name": "packet", "amount": 500})
+    response = kitchen.patch(f"{API}/foods/{food['id']}", json={"counted_as": "count"})
+    assert response.status_code == 409
+    asked = response.json()["ask"]
+    assert asked["kind"] == "item_weight"
+    assert asked["question"] == "About how much does 1 toor dal weigh?"
+    assert asked["suggested"] is None
+    unchanged = kitchen.get(f"{API}/foods/{food['id']}").json()
+    assert unchanged["counted_as"] == "weight"
+    assert unchanged["sizes"][0]["display"] == "Packet = 500 g"
+
+    answer = {"kind": "item_weight", "food_id": food["id"], "grams": 50}
+    body = patch(kitchen, food["id"], counted_as="count", answers=[answer])
+    assert body["food"]["sizes"][0]["display"] == "Packet = 10"
+
+
 # --- Ask once --------------------------------------------------------------------------------
 
 
@@ -261,7 +279,7 @@ def test_convert_asks_once_when_unknown(kitchen: TestClient) -> None:
     assert converted["amount"] is None
     assert converted["ask"]["kind"] == "item_weight"
     assert converted["ask"]["question"] == "About how much does 1 shallot weigh?"
-    assert converted["ask"]["suggested"] == 100.0
+    assert converted["ask"]["suggested"] is None  # no table entry: nothing to guess from
 
 
 def test_slices_in_a_loaf_asked_once(kitchen: TestClient) -> None:
