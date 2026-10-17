@@ -5,6 +5,9 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import update
+
+from mealwright.models import ChangeLine
 
 API = "/api/v1"
 
@@ -519,6 +522,81 @@ def test_recent_changes_totals_two_packets(kitchen: TestClient) -> None:
         "0\u00a0g",
         "2\u00a0packs · 400\u00a0g",
     )
+
+
+def _paneer(kitchen: TestClient) -> dict[str, Any]:
+    paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
+    size(kitchen, paneer["id"], "pack", 200)
+    return paneer
+
+
+def _shown(kitchen: TestClient, row: int = 0) -> tuple[str, str]:
+    """The grey "before → after" line of one of the newest pantry changes."""
+    found = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"][row]
+    [total] = found["totals"]
+    return total["before"]["display"], total["after"]["display"]
+
+
+def test_totals_count_stock_that_was_already_there(kitchen: TestClient) -> None:
+    paneer = _paneer(kitchen)
+    add(kitchen, paneer["id"], 200, "g")
+    assert _shown(kitchen) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+    second = add(kitchen, paneer["id"], 1, "pack")
+    assert _shown(kitchen) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
+    lot = second["groups"][0]["lots"][-1]["id"]
+    kitchen.post(f"{API}/stock/{lot}/used")
+    assert _shown(kitchen) == ("2\u00a0packs · 400\u00a0g", "1\u00a0pack · 200\u00a0g")
+
+
+def test_totals_stay_right_after_later_changes(kitchen: TestClient) -> None:
+    paneer = _paneer(kitchen)
+    add(kitchen, paneer["id"], 1, "pack")
+    add(kitchen, paneer["id"], 1, "pack")
+    add(kitchen, paneer["id"], 1, "pack")
+    kitchen.post(f"{API}/foods/{paneer['id']}/used", json={"amount": {"amount": 100, "unit": "g"}})
+    # Newest first: used, then the three adds.
+    assert _shown(kitchen, 0) == ("3\u00a0packs · 600\u00a0g", "2½\u00a0packs · about 500\u00a0g")
+    assert _shown(kitchen, 1) == ("2\u00a0packs · 400\u00a0g", "3\u00a0packs · 600\u00a0g")
+    assert _shown(kitchen, 2) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
+    assert _shown(kitchen, 3) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+
+
+def test_undo_lines_show_the_whole_amount_and_restore_the_right_stock(
+    kitchen: TestClient,
+) -> None:
+    paneer = _paneer(kitchen)
+    add(kitchen, paneer["id"], 200, "g")
+    second = add(kitchen, paneer["id"], 1, "pack")
+    used = kitchen.post(f"{API}/stock/{second['groups'][0]['lots'][-1]['id']}/used").json()
+    assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 200.0
+    # Undo the use: back to 400 g, and the Undo's own line reads 200 g → 400 g.
+    kitchen.post(f"{API}/changes/{used['change']['id']}/undo")
+    assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 400.0
+    assert _shown(kitchen) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
+    # Undo the second add: only that packet goes, the first 200 g stays.
+    kitchen.post(f"{API}/changes/{second['change']['id']}/undo")
+    assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 200.0
+    assert _shown(kitchen) == ("2\u00a0packs · 400\u00a0g", "1\u00a0pack · 200\u00a0g")
+    lots = group(kitchen, "Paneer")["lots"]
+    assert len(lots) == 1
+
+
+def test_changes_from_before_0_2_1_keep_the_old_wording(kitchen: TestClient) -> None:
+    paneer = _paneer(kitchen)
+    add(kitchen, paneer["id"], 200, "g")
+    add(kitchen, paneer["id"], 1, "pack")
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(update(ChangeLine).values(total_before_milli=None, total_after_milli=None))
+        db.commit()
+    assert _shown(kitchen) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+
+
+def test_a_second_packet_of_toor_dal(kitchen: TestClient, toor: dict[str, Any]) -> None:
+    add(kitchen, toor["id"], 1, "packet")
+    add(kitchen, toor["id"], 1, "packet")
+    before, after = _shown(kitchen)
+    assert before == "1\u00a0packet · 500\u00a0g"
+    assert after == "2\u00a0packets · 1\u00a0kg"
 
 
 def test_recent_changes_totals_a_move(kitchen: TestClient) -> None:

@@ -363,6 +363,10 @@ class ChangeLine(Base):
     place_after_id: Mapped[int | None] = mapped_column(ForeignKey("place.id"))
     use_by_before: Mapped[date | None] = mapped_column(Date)
     use_by_after: Mapped[date | None] = mapped_column(Date)
+    # The ingredient's whole amount in this packet's place before and after the change,
+    # counting its other packets too. Null on lines recorded before 0.2.1.
+    total_before_milli: Mapped[int | None] = mapped_column(BigInteger)
+    total_after_milli: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class ChangeMonth(Base):

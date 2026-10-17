@@ -34,7 +34,7 @@ from mealwright.history import (
     undo_until,
 )
 from mealwright.models import Change, ChangeLine, Food, StockLot, utcnow
-from mealwright.stock import lots_of
+from mealwright.stock import lots_of, place_totals
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
 
@@ -56,8 +56,9 @@ class LineOut(BaseModel):
 
 
 class TotalOut(BaseModel):
-    """One ingredient in one place: the packets this change touched, added up and worded
-    as sold ("Paneer: 0 g → 2 packs · 400 g")."""
+    """One ingredient in one place: its whole amount there before and after the change,
+    other packets included, worded as sold ("Paneer: 1 pack · 200 g → 2 packs · 400 g").
+    Changes recorded before 0.2.1 only add up the packets they touched."""
 
     food_id: int
     name: str
@@ -78,7 +79,10 @@ class ChangeList(BaseModel):
 
 
 def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
+    # Per ingredient and place pair: the packets touched added up (the old way, and still
+    # how a move reads), and the whole-place amounts the change saved (0.2.1 onwards).
     sums: dict[tuple[int, int | None, int | None], list[int]] = {}
+    whole: dict[tuple[int, int | None, int | None], list[int] | None] = {}
     for line in kitchen.db.scalars(
         select(ChangeLine).where(ChangeLine.change_id == change.id).order_by(ChangeLine.id)
     ):
@@ -86,15 +90,27 @@ def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
         entry = sums.setdefault(key, [0, 0])
         entry[0] += line.amount_before_milli
         entry[1] += line.amount_after_milli
+        saved = line.total_before_milli is not None and line.total_after_milli is not None
+        stays = line.place_before_id is None or line.place_before_id == line.place_after_id
+        if key not in whole:
+            whole[key] = (
+                [line.total_before_milli or 0, line.total_after_milli or 0]
+                if saved and stays
+                else None
+            )
 
     def place(place_id: int | None) -> Ref | None:
         found = view.places.get(place_id) if place_id is not None else None
         return Ref(id=found.id, name=found.name) if found is not None else None
 
     result = []
-    for (food_id, before_id, after_id), (before, after) in sums.items():
+    for key, (before, after) in sums.items():
+        food_id, before_id, after_id = key
         food = view.food(food_id)
         usual = view.usual(food_id)
+        shown = whole[key]
+        if shown is not None:
+            before, after = shown
         result.append(
             TotalOut(
                 food_id=food.id,
@@ -283,10 +299,13 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
         data = change.undo_data or {}
         # Each lot as it was before the Undo, so the Undo gets its own lines.
         touched: dict[int, tuple[StockLot, int, int, date | None]] = {}
+        start: dict[int, dict[int, int]] = {}
         for line in kitchen.db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
             lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
             if lot is not None and lot.id not in touched:
                 touched[lot.id] = (lot, lot.amount_milli, lot.place_id, lot.use_by)
+                if lot.food_id not in start:
+                    start[lot.food_id] = place_totals(kitchen, lot.food_id)
         short = undo_lines(kitchen, change, tally)
         if data.get("foods"):
             undo_foods(kitchen, data["foods"], tally)
@@ -317,6 +336,7 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
         undo_change.undoes_change_id = change.id
         # What the Undo actually did to each lot (a partial undo: only what it put back),
         # for Recent changes and so the monthly totals net out.
+        end = {food: place_totals(kitchen, food) for food in start}
         for lot, amount, place_id, use_by in touched.values():
             if (lot.amount_milli, lot.place_id, lot.use_by) != (amount, place_id, use_by):
                 kitchen.db.add(
@@ -331,6 +351,8 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
                         place_after_id=lot.place_id,
                         use_by_before=use_by,
                         use_by_after=lot.use_by,
+                        total_before_milli=start[lot.food_id].get(place_id, 0),
+                        total_after_milli=end[lot.food_id].get(lot.place_id, 0),
                     )
                 )
         change.undone_by_change_id = undo_change.id

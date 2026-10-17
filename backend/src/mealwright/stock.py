@@ -90,6 +90,14 @@ def lots_of(
     return list(kitchen.db.scalars(query))
 
 
+def place_totals(kitchen: Kitchen, food_id: int) -> dict[int, int]:
+    """How much of one ingredient is in each place right now, all its packets added up."""
+    totals: dict[int, int] = {}
+    for lot in lots_of(kitchen, [food_id]):
+        totals[lot.place_id] = totals.get(lot.place_id, 0) + lot.amount_milli
+    return totals
+
+
 def place_kinds(kitchen: Kitchen) -> dict[int, str]:
     return {
         place.id: place.kind
@@ -156,14 +164,23 @@ class StockEdit:
         self.kitchen = kitchen
         self.lots: dict[int, StockLot] = {}
         self.before: dict[int, tuple[int, int | None, date | None]] = {}
+        # Each ingredient's amount per place before anything changed, for the whole-amount
+        # "before → after" in Recent changes.
+        self.start: dict[int, dict[int, int]] = {}
+
+    def _remember(self, food_id: int) -> None:
+        if food_id not in self.start:
+            self.start[food_id] = place_totals(self.kitchen, food_id)
 
     def touch(self, lot: StockLot) -> StockLot:
         if lot.id not in self.before:
+            self._remember(lot.food_id)
             self.before[lot.id] = (lot.amount_milli, lot.place_id, lot.use_by)
             self.lots[lot.id] = lot
         return lot
 
     def new(self, lot: StockLot) -> StockLot:
+        self._remember(lot.food_id)
         self.kitchen.db.add(lot)
         self.kitchen.db.flush()
         self.before[lot.id] = (0, None, None)
@@ -181,8 +198,11 @@ class StockEdit:
             else:
                 lot.emptied_at = None
         change = record(self.kitchen, kind, summary, food_id, undo_data)
+        end = {food: place_totals(self.kitchen, food) for food in self.start}
         for lot_id, (amount, place_id, use_by) in self.before.items():
             lot = self.lots[lot_id]
+            shown_before = place_id if place_id is not None else lot.place_id
+            start, finish = self.start[lot.food_id], end[lot.food_id]
             self.kitchen.db.add(
                 ChangeLine(
                     household_id=self.kitchen.household_id,
@@ -195,6 +215,8 @@ class StockEdit:
                     place_after_id=lot.place_id,
                     use_by_before=use_by,
                     use_by_after=lot.use_by,
+                    total_before_milli=start.get(shown_before, 0),
+                    total_after_milli=finish.get(lot.place_id, 0),
                 )
             )
         self.kitchen.db.flush()
