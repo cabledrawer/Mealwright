@@ -362,9 +362,18 @@ def _place(kitchen: Kitchen, place_id: int) -> Place:
 
 
 def _short(food: Food, milli: int, size: FoodSize | None) -> str:
-    """ "2 packets", "about ½ packet", "200 g" for summaries."""
+    """ "2 packets", "about ½ packet", "200 g", "5", "5 slices" for summaries. A count
+    food's "5 left" is only for the pantry list: a summary says just "5"."""
     shown = amount_out(food, milli, size)
-    return f"about {shown.short}" if shown.about else shown.short
+    text = shown.short.removesuffix(" left")
+    return f"about {text}" if shown.about else text
+
+
+def _what(food: Food, milli: int, size: FoodSize | None) -> str:
+    """The amount and the ingredient, for summaries: "2 packets Toor dal", "200 g
+    Spinach", "5 Onion", "5 slices of Bread"."""
+    joiner = " of " if food.counted_as == "count" and food.count_word else " "
+    return f"{_short(food, milli, size)}{joiner}{food.name}"
 
 
 def _date(day: date) -> str:
@@ -418,8 +427,8 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
                     use_by=body.use_by,
                 )
             )
-        what = _short(food, resolved.milli, resolved.size or usual_size(kitchen, food.id))
-        summary = f"Added {what} {food.name} → {place.name}"
+        what = _what(food, resolved.milli, resolved.size or usual_size(kitchen, food.id))
+        summary = f"Added {what} → {place.name}"
         return edit.record("added", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)
@@ -485,7 +494,7 @@ def _use(
         kitchen, food.id
     )
     word = "Used" if kind == "used" else "Binned"
-    summary = f"{word} {_short(food, taken, size)} {food.name}"
+    summary = f"{word} {_what(food, taken, size)}"
     return edit.record(kind, summary, food.id), wanted - taken
 
 
@@ -631,7 +640,7 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
         edit = StockEdit(kitchen)
         short = take(kitchen, edit, lots, wanted, include_freezer=freezer)
         size = usual_size(kitchen, food.id)
-        summary = f"Used {_short(food, wanted - short, size)} {food.name}"
+        summary = f"Used {_what(food, wanted - short, size)}"
         return edit.record("used", summary, food.id), short
 
     return stock_write(kitchen, response, apply)
