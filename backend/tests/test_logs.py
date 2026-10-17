@@ -193,3 +193,33 @@ def test_every_sign_in_line_uses_the_sign_in_logger() -> None:
     from mealwright.api.v1 import account
 
     assert account.log.name == "mealwright.sign_in"
+
+
+def test_start_up_puts_an_old_current_file_aside(tmp_path: Path, clean_logging: None) -> None:
+    """Asleep or stopped at midnight: the file from earlier days is set aside at start-up
+    under the day it was last written, so it's still deleted after 14 days."""
+    folder = tmp_path / "logs"
+    folder.mkdir()
+    current = folder / FILE_NAME
+    current.write_text("sign-in line from 3 days ago\n")
+    three_days_ago = time.time() - 3 * DAY
+    os.utime(current, (three_days_ago, three_days_ago))
+    day = time.strftime("%Y-%m-%d", time.gmtime(three_days_ago))
+
+    set_up_logging(tmp_path)
+    aside = folder / f"{FILE_NAME}.{day}"
+    assert aside.read_text() == "sign-in line from 3 days ago\n"
+    assert not current.exists() or "3 days ago" not in current.read_text()
+
+    # Once it's over 14 days old, it goes.
+    later = time.time() + (KEEP_DAYS - 3 + 1) * DAY
+    assert aside in remove_old_logs(folder, later)
+
+
+def test_start_up_keeps_todays_file(tmp_path: Path, clean_logging: None) -> None:
+    folder = tmp_path / "logs"
+    folder.mkdir()
+    (folder / FILE_NAME).write_text("today\n")
+    set_up_logging(tmp_path)
+    assert (folder / FILE_NAME).read_text().startswith("today\n")
+    assert list(folder.glob(f"{FILE_NAME}.*")) == []

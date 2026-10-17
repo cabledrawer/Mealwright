@@ -2,11 +2,16 @@
 
 Every job is added in `scheduler()`, in one place:
 
-- **History** (spec section 6, "History and undo"): each night at 03:30 in the
-  household's own time zone, changes older than the history length (12 months) become
-  monthly totals, and emptied packets go once they can no longer be undone.
+- **History** (spec section 6, "History and undo"): at start-up and then every hour,
+  changes older than the history length (12 months) become monthly totals, and emptied
+  packets go once they can no longer be undone. It's cheap and safe to repeat, so it
+  doesn't wait for a particular hour: a server that's off at night still gets it.
 - **Log tidy** (mealwright.logs): just after each midnight (UTC), the day's log file is
-  put aside and files older than 14 days are deleted.
+  put aside and files older than 14 days are deleted. If the server was asleep at
+  midnight, it runs when it wakes; at start-up, mealwright.logs puts aside a file from an
+  earlier day.
+
+Neither job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
 Nothing here makes a network connection.
 """
@@ -19,13 +24,10 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from mealwright.household import zone
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household
 
 log = logging.getLogger(__name__)
-
-HISTORY_HOUR = 3  # 03:30 local time, when nobody's cooking
 
 
 def tidy_logs(handler: DailyLogFile, now: datetime | None = None) -> None:
@@ -35,15 +37,12 @@ def tidy_logs(handler: DailyLogFile, now: datetime | None = None) -> None:
 
 
 def thin_history(factory: sessionmaker[Session], now: datetime | None = None) -> None:
-    """Runs every hour at :30; each household is thinned in its own 03:30. Thinning is
-    safe to repeat, so a missed night is simply caught up the next one."""
+    """Thin every household's history. Runs at start-up and every hour."""
     from mealwright.history import thin  # imported here: history needs the API package
 
     now = now or datetime.now(UTC)
     with factory() as db:
         for household in db.scalars(select(Household)):
-            if now.astimezone(zone(household)).hour != HISTORY_HOUR:
-                continue
             try:
                 thinned = thin(db, household, now)
                 if thinned:
@@ -59,7 +58,7 @@ def scheduler(
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
         timezone=UTC,
-        job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 3600},
+        job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": None},
     )
     jobs.add_job(
         thin_history,

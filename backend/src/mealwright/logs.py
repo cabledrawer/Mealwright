@@ -98,6 +98,26 @@ def remove_old_logs(folder: Path, now: float | None = None) -> list[Path]:
     return removed
 
 
+def set_aside_stale(folder: Path, now: float | None = None) -> Path | None:
+    """At start-up: if the current file was last written before today (UTC), put it aside
+    under the day it was last written. A server that was asleep or stopped at midnight
+    then still keeps the 14-day promise: the file gets its date and is deleted on time."""
+    current = folder / FILE_NAME
+    now = time.time() if now is None else now
+    try:
+        written = current.stat().st_mtime
+    except OSError:
+        return None
+    day = time.strftime("%Y-%m-%d", time.gmtime(written))
+    if day >= time.strftime("%Y-%m-%d", time.gmtime(now)):
+        return None
+    target = folder / f"{FILE_NAME}.{day}"
+    if target.exists():
+        target = folder / f"{FILE_NAME}.{day}.{time.time_ns()}"
+    current.rename(target)
+    return target
+
+
 def tidy_once(handler: DailyLogFile, day: str) -> None:
     """Put the day's file aside and remove old ones. Never raises: a problem is logged."""
     try:
@@ -131,6 +151,7 @@ def set_up_logging(data_dir: Path) -> DailyLogFile | None:
     try:
         folder.mkdir(mode=0o700, exist_ok=True)
         folder.chmod(0o700)  # also tighten a folder made before 0.1.1
+        set_aside_stale(folder)
         remove_old_logs(folder)
         file = DailyLogFile(folder)
     except OSError as error:

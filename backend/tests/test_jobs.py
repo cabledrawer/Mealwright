@@ -82,19 +82,37 @@ def test_empty_packets_go_after_the_undo_window(kitchen: TestClient) -> None:
         assert len(lines) == 4
 
 
-def test_history_job_runs_at_half_past_three_local(kitchen: TestClient) -> None:
-    kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Asia/Kolkata"})
+def test_history_job_thins_at_any_hour(kitchen: TestClient) -> None:
     make_history(kitchen)
     factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
     with db(kitchen) as session:
         session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))
         session.commit()
-    jobs.thin_history(factory, now=datetime(2026, 10, 17, 3, 30, tzinfo=UTC))  # 09:00 there
-    with db(kitchen) as session:
-        assert session.scalar(select(func.count()).select_from(Change)) == 4
-    jobs.thin_history(factory, now=datetime(2026, 10, 16, 22, 0, tzinfo=UTC))  # 03:30 there
+    jobs.thin_history(factory, now=datetime(2026, 10, 17, 14, 30, tzinfo=UTC))
     with db(kitchen) as session:
         assert session.scalar(select(func.count()).select_from(Change)) == 0
+
+
+def test_a_missed_night_is_caught_up_at_start_up(tmp_path: Path) -> None:
+    from mealwright.config import Settings
+    from mealwright.main import create_app
+
+    admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+    settings = Settings(data_dir=tmp_path / "data", run_jobs=False)
+    with TestClient(create_app(settings), base_url="https://testserver") as client:
+        client.post(f"{API}/setup", json=admin)
+        make_history(client)
+        with db(client) as session:
+            session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))
+            session.commit()
+    # The server was off; when it starts again, old history is thinned straight away.
+    settings = Settings(data_dir=tmp_path / "data", run_jobs=True)
+    with (
+        TestClient(create_app(settings), base_url="https://testserver") as client,
+        db(client) as session,
+    ):
+        assert session.scalar(select(func.count()).select_from(Change)) == 0
+        assert session.scalar(select(func.count()).select_from(ChangeMonth)) == 2
 
 
 def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:
@@ -106,6 +124,8 @@ def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:
         assert {job.id for job in background.get_jobs()} == {"history", "log-tidy"}
         background.start()
         assert background.running
+        # A late run still runs (asleep at midnight, busy on the hour).
+        assert all(job.misfire_grace_time is None for job in background.get_jobs())
         background.shutdown(wait=False)
         without_log = jobs.scheduler(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
         assert [job.id for job in without_log.get_jobs()] == ["history"]
