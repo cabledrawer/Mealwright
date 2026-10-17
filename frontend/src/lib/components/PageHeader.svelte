@@ -1,11 +1,26 @@
 <script lang="ts">
-  // The top of every page: an optional small line above (e.g. the date) and the title.
+  // The top of every page: an optional small line above (e.g. the date), the title and
+  // an optional line under it. A page inside another (Recipes › Ingredients) gets a
+  // back link on phones and a breadcrumb on desktop.
   // On phones it stays put while the page scrolls under it (UX principle 14), and holds
   // the round button to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
+  import type { Pathname } from '$app/types';
   import { initial, session } from '$lib/session.svelte';
+  import Icon from './Icon.svelte';
 
-  let { title, overline }: { title: string; overline?: string } = $props();
+  let {
+    title,
+    overline,
+    subtitle,
+    parent
+  }: {
+    title: string;
+    overline?: string;
+    subtitle?: string;
+    /** The page this one sits under. */
+    parent?: { href: Pathname; label: string };
+  } = $props();
 </script>
 
 <svelte:head>
@@ -14,8 +29,19 @@
 
 <header class="page-header">
   <div class="titles">
+    {#if parent}
+      <a class="back" href={resolve(parent.href)}>
+        <Icon name="back" size={18} stroke={2.4} />{parent.label}
+      </a>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href={resolve(parent.href)}>{parent.label}</a>
+        <span class="sep" aria-hidden="true">›</span>
+        <span aria-current="page">{title}</span>
+      </nav>
+    {/if}
     {#if overline}<p class="overline">{overline}</p>{/if}
     <h1>{title}</h1>
+    {#if subtitle}<p class="subtitle">{subtitle}</p>{/if}
   </div>
   <a
     class="settings"
@@ -40,6 +66,41 @@
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+  }
+
+  .back {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+    margin-left: calc(-1 * var(--space-2));
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .crumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+  }
+
+  .crumbs a {
+    text-decoration: none;
+  }
+
+  .crumbs .sep,
+  .crumbs [aria-current] {
+    color: var(--color-text-muted);
+  }
+
+  .subtitle {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
   }
 
   .overline {
@@ -76,6 +137,9 @@
   }
 
   @media (max-width: 767px) {
+    .crumbs {
+      display: none;
+    }
     .page-header {
       position: sticky;
       top: 0;
@@ -90,9 +154,17 @@
     h1 {
       font-size: var(--text-title-desktop);
     }
-    /* Desktop reaches Settings from the sidebar. */
-    .settings {
+    /* Desktop reaches Settings from the sidebar, and goes up with the breadcrumb. */
+    .settings,
+    .back {
       display: none;
+    }
+    .titles {
+      gap: var(--space-3);
+    }
+    .overline + h1,
+    h1 + .subtitle {
+      margin-top: calc(-1 * var(--space-2));
     }
   }
 </style>

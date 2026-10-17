@@ -1,10 +1,10 @@
 <script lang="ts">
-  // The desktop and tablet sidebar. Expanded: logo, the five pages, the theme switch
-  // and Settings. Collapsed: icons only, with tooltips, a single theme button, and a
+  // The desktop and tablet sidebar. Expanded: logo, the five pages (Recipes as a
+  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed: icons only, with tooltips, a single theme button, and a
   // button to expand it again. Not shown on phones (they get the bottom tabs).
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { PAGES, isCurrent } from '$lib/nav';
+  import { PAGES, RECIPES_PAGES, isCurrent, isCurrentRecipesPage } from '$lib/nav';
   import { initial, session } from '$lib/session.svelte';
   import { sidebar } from '$lib/sidebar.svelte';
   import Icon from './Icon.svelte';
@@ -34,15 +34,32 @@
 
   <nav aria-label="Main">
     {#each PAGES as item (item.href)}
+      {@const current = isCurrent(item, page.url.pathname)}
+      {@const tree = item.href === '/recipes' && !sidebar.collapsed}
+      <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
+           only that you're somewhere inside it. -->
       <a
         href={resolve(item.href)}
-        aria-current={isCurrent(item, page.url.pathname) ? 'page' : undefined}
+        class:section={tree && current}
+        aria-current={current && !tree ? 'page' : undefined}
         aria-label={sidebar.collapsed ? item.label : undefined}
         title={sidebar.collapsed ? item.label : undefined}
       >
         <Icon name={item.icon} size={sidebar.collapsed ? 22 : 20} />
-        {#if !sidebar.collapsed}<span>{item.label}</span>{/if}
+        {#if !sidebar.collapsed}<span class="label">{item.label}</span>{/if}
+        {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
       </a>
+      {#if tree}
+        <div class="tree" role="group" aria-label="Recipes">
+          {#each RECIPES_PAGES as sub (sub.href)}
+            <a
+              href={resolve(sub.href)}
+              aria-current={isCurrentRecipesPage(sub, page.url.pathname) ? 'page' : undefined}
+              >{sub.label}</a
+            >
+          {/each}
+        </div>
+      {/if}
     {/each}
   </nav>
 
@@ -147,6 +164,32 @@
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
     font-weight: var(--weight-bold);
+  }
+
+  .label {
+    flex: 1;
+  }
+
+  /* Recipes, while one of its pages is open. */
+  nav a.section {
+    color: var(--color-accent-on-soft);
+    font-weight: var(--weight-bold);
+  }
+
+  .tree {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: var(--space-1) 0 0 21px;
+    padding-left: var(--space-5);
+    border-left: 2px solid var(--color-border);
+  }
+
+  .tree a {
+    padding: 0 var(--space-5);
+    border-radius: 10px;
+    color: var(--color-text-soft);
+    font-size: var(--text-base);
   }
 
   .foot {

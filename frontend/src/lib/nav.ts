@@ -24,3 +24,28 @@ export function isCurrent(page: Page, pathname: string): boolean {
   if (page.href === '/') return pathname === '/';
   return pathname === page.href || pathname.startsWith(page.href + '/');
 }
+
+/** The pages under Recipes: a tree in the sidebar, buttons on the phone's Recipes page. */
+export interface RecipesPage {
+  href: '/recipes' | '/recipes/drafts' | '/recipes/ingredients';
+  label: string;
+}
+
+export const RECIPES_PAGES: readonly RecipesPage[] = [
+  { href: '/recipes', label: 'All recipes' },
+  { href: '/recipes/drafts', label: 'Drafts' },
+  { href: '/recipes/ingredients', label: 'Ingredients' }
+];
+
+/**
+ * Whether `sub` is the current page under Recipes. Anything under /recipes that isn't
+ * Drafts or Ingredients (a recipe's own page, later) belongs to All recipes.
+ */
+export function isCurrentRecipesPage(sub: RecipesPage, pathname: string): boolean {
+  const under = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  if (sub.href !== '/recipes') return under(sub.href);
+  return (
+    under('/recipes') &&
+    !RECIPES_PAGES.some((other) => other.href !== '/recipes' && under(other.href))
+  );
+}
