@@ -180,9 +180,7 @@
       {/if}
     {:else}
       <p class="empty">
-        {query.trim()
-          ? `Nothing called “${query.trim()}” here.`
-          : `Nothing in the ${place.name.toLocaleLowerCase()}.`}
+        {query.trim() ? `Nothing called “${query.trim()}” here.` : `Nothing in the ${place.name}.`}
       </p>
     {/if}
   </section>
