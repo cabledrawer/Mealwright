@@ -93,7 +93,9 @@ fi
 
 # --- Security scanners -------------------------------------------------------
 # These send package names and versions to vulnerability databases (pip-audit,
-# osv-scanner) or download one (Trivy). Nothing about the homelab is sent.
+# osv-scanner) or download one (Trivy). Nothing about the homelab is sent. Trivy's
+# own usage data and update check are switched off (--disable-telemetry,
+# --skip-version-check).
 pip_audit() {
   (cd backend && uv export -q --frozen --all-groups --no-emit-project \
      --format requirements-txt -o "$ROOT/.check/requirements.txt") &&
@@ -129,7 +131,8 @@ if [[ -f "$ROOT/Dockerfile" ]]; then
   step "image: trivy"            docker run --rm -v "$ROOT/.check:/scan:ro" \
                                    -v mealwright-trivy-cache:/root/.cache/trivy "$TRIVY" \
                                    image --input /scan/image.tar --scanners vuln \
-                                   --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress
+                                   --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+                                   --disable-telemetry --skip-version-check
 else
   skip "image" "no Dockerfile yet"
 fi
