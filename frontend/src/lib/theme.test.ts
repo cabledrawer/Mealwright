@@ -1,0 +1,122 @@
+import { flushSync, mount, unmount } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { page } from 'vitest/browser';
+import ThemeSwitch from './components/ThemeSwitch.svelte';
+import { THEME_STORAGE_KEY, nextTheme, theme } from './theme.svelte';
+
+const root = document.documentElement;
+
+// static/theme.js, fetched the way the browser loads it.
+const startupScript = await (await fetch('/theme.js')).text();
+
+/** Run static/theme.js as the browser would at start-up. */
+function runStartupScript() {
+  new Function(startupScript)();
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  root.removeAttribute('data-theme');
+  root.removeAttribute('data-theme-choice');
+});
+
+describe('nextTheme', () => {
+  it('steps Auto → Light → Dark → Auto', () => {
+    expect(nextTheme('auto')).toBe('light');
+    expect(nextTheme('light')).toBe('dark');
+    expect(nextTheme('dark')).toBe('auto');
+  });
+});
+
+describe('start-up script (static/theme.js)', () => {
+  const deviceDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  it('uses Auto when nothing is saved', () => {
+    runStartupScript();
+    expect(root.dataset.themeChoice).toBe('auto');
+    expect(root.dataset.theme).toBe(deviceDark ? 'dark' : 'light');
+  });
+
+  it('applies a saved choice', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+    runStartupScript();
+    expect(root.dataset.theme).toBe('dark');
+    localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    runStartupScript();
+    expect(root.dataset.theme).toBe('light');
+  });
+
+  it('ignores anything else saved', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'purple');
+    runStartupScript();
+    expect(root.dataset.themeChoice).toBe('auto');
+  });
+
+  it('agrees with the app about what was saved', () => {
+    theme.set('dark');
+    root.removeAttribute('data-theme');
+    runStartupScript();
+    expect(root.dataset.theme).toBe('dark');
+    theme.set('auto');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe('theme', () => {
+  it('saves the choice and applies it to the page', () => {
+    theme.set('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    expect(root.dataset.theme).toBe('dark');
+    expect(root.dataset.themeChoice).toBe('dark');
+    theme.set('light');
+    expect(root.dataset.theme).toBe('light');
+  });
+
+  it('cycles', () => {
+    theme.set('auto');
+    theme.cycle();
+    expect(theme.choice).toBe('light');
+    theme.cycle();
+    expect(theme.choice).toBe('dark');
+    theme.cycle();
+    expect(theme.choice).toBe('auto');
+  });
+});
+
+describe('ThemeSwitch', () => {
+  let component: ReturnType<typeof mount> | null = null;
+
+  afterEach(() => {
+    if (component) unmount(component);
+    component = null;
+  });
+
+  it('shows Auto · Light · Dark with the current one pressed', async () => {
+    theme.set('auto');
+    component = mount(ThemeSwitch, { target: document.body, props: { variant: 'pill' } });
+    flushSync();
+    const group = page.getByRole('group', { name: 'Theme' });
+    await expect
+      .element(group.getByRole('button', { name: 'Auto' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await group.getByRole('button', { name: 'Dark' }).click();
+    await expect
+      .element(group.getByRole('button', { name: 'Dark' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .element(group.getByRole('button', { name: 'Auto' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    expect(root.dataset.theme).toBe('dark');
+  });
+
+  it('as one button, steps through the three and says what is next', async () => {
+    theme.set('auto');
+    component = mount(ThemeSwitch, { target: document.body, props: { variant: 'cycle' } });
+    flushSync();
+    const button = page.getByRole('button', { name: /^Theme:/ });
+    await expect.element(button).toHaveAccessibleName('Theme: Auto. Switch to Light');
+    await button.click();
+    await expect.element(button).toHaveAccessibleName('Theme: Light. Switch to Dark');
+    expect(root.dataset.theme).toBe('light');
+  });
+});
