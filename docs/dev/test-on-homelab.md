@@ -28,9 +28,14 @@ In Forgejo, open your avatar menu → **Settings → Applications → Generate n
 
 Forgejo shows each token only once. Save both in your password manager.
 
-### 1.2 Make sure images aren't readable without a login
+### 1.2 Who can pull the images without a login
 
-Forgejo's packages follow your account's visibility. If your profile is **Public**, anyone on the LAN could pull Mealwright images without logging in. Check it under **Settings → Profile → Visibility**. **Limited** or **Private** both stop anonymous pulls. You'll test this in step 3.4.
+Forgejo's packages follow your account's visibility (**Settings → Profile → Visibility**):
+
+- **Public:** anyone who can reach the registry can pull Mealwright images without logging in.
+- **Limited** or **Private:** a login is needed to pull.
+
+**Your profile stays Public, and that's acceptable for this setup (cabledrawer 17 Oct).** The `/v2/` rule in step 1.3 only lets in devices on your LAN, and only your household uses the LAN. The images become public at 1.0 anyway. If either of those changes, for example guests on the LAN, switch to **Limited**.
 
 ### 1.3 Let the registry through Authelia, from the LAN only
 
@@ -128,17 +133,11 @@ grep -c example ~/.docker/config.json
 
 `docker logout` should say `Removing login credentials`. The `grep` must print `0`, which means the token is gone from this machine. If the file doesn't exist, that's fine too.
 
-### 3.4 Check the image is private
-
-Still logged out:
-
-```bash
-docker pull "git.example.org/tess/mealwright:$TAG"
-```
-
-This should fail with `unauthorized` or `denied`. If it succeeds, the image can be read without a login: change your profile visibility (step 1.2).
+### 3.4 Check it arrived
 
 The image now shows in Forgejo under your profile → **Packages**.
+
+Because your profile is Public (step 1.2), pulling it from the LAN works even while logged out. That's expected. From outside the LAN, the Authelia rule still blocks it.
 
 ---
 
