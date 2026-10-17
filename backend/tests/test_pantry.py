@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
-from mealwright.models import ChangeLine
+from mealwright.models import ChangeLine, Food, FoodName, Household, Place, StockLot
 
 API = "/api/v1"
 
@@ -694,3 +694,29 @@ def test_a_new_ingredient_can_be_made_a_staple_with_no_stock(kitchen: TestClient
     assert kitchen.get(f"{API}/foods/{pepper['id']}").json()["stock"]["amount"] == 0
     changes = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
     assert changes == []  # no stock was recorded
+
+
+def test_pantry_search_never_shows_another_households_foods(
+    kitchen: TestClient, toor: dict[str, Any]
+) -> None:
+    add(kitchen, toor["id"], 1, "packet")
+    kitchen.post(f"{API}/foods/{toor['id']}/other-names", json={"name": "thuvaram paruppu"})
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(Household(id=2, name="Next door"))
+        db.flush()
+        shelf = Place(household_id=2, name="Cupboard", kind="cupboard", position=0)
+        db.add_all([shelf, Food(id=900, household_id=2, name="Thuvaram dal", counted_as="weight")])
+        db.flush()
+        db.add(FoodName(household_id=2, food_id=900, name="thuvaram paruppu"))
+        db.add(StockLot(household_id=2, food_id=900, place_id=shelf.id, amount_milli=500_000))
+        db.commit()
+    everything = pantry(kitchen)
+    found = pantry(kitchen, q="thuvaram")
+    names = [g["food"]["name"] for p in found["places"] for g in p["groups"]]
+    assert names == ["Toor dal"]  # none of next door's foods
+    assert [p["items"] for p in found["places"]] == [
+        sum(1 for g in p["groups"] if "Toor" in g["food"]["name"]) for p in everything["places"]
+    ]
+    # Next door's food has no effect on this household's counts or places.
+    assert found["counts"] == everything["counts"]
+    assert [p["id"] for p in found["places"]] == [p["id"] for p in everything["places"]]
