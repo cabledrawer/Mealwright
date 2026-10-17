@@ -309,6 +309,7 @@ Plans after 1.0 are kept outside the repo.
 - **Merge:** the merged-away food's name becomes an other name of the food it's merged into; its stock, sizes and "Can use instead" links move across (count ↔ weight via the weight of one item, or asked once). Undo within 7 days restores everything exactly. After that, "split" turns one of the other names back into its own food; old links still resolve through the merge history.
 - **"Maybe the same":** simple offline matching (same name ignoring case, plurals and brackets, or a name matching another food's other names), each with a "Not the same" button. No fuzzy-matching library.
 - **Shops before Settings exists:** the editor's "Usual shop" has a "+ Shop" chip that adds a shop by name. The four default places are created automatically; renaming places comes in Settings (0.8).
+- **Removing a food** (proposed by Claude Code 17 Oct; cabledrawer to confirm in PR): the editor has a quiet "Remove" link. A food can be removed only when it has no stock (and, from 0.4, no recipe uses it); otherwise merge it instead. Removing can be undone like any change.
 
 ### Stock (decided 17 Oct)
 

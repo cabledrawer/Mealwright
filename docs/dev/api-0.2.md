@@ -38,6 +38,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 - Every request that changes something may carry an **`Idempotency-Key`** header: a UUID the client makes before it shows the change on screen. The web app always sends one.
 - The server stores the key on the change it records (unique per household, kept as long as the change). If the same key arrives again with the same method and path, nothing is applied twice: the server answers `200` with the original `change` and the **current** state of what it touched, plus the header `Idempotent-Replayed: true`. Same key, different method or path → `409 key_reused`.
 - A request that failed (4xx) stores nothing, so the client may retry with the same key (this is how "ask once" answers are sent, section 4.4).
+- From 0.3 the sync queue sends the same IDs in the request body instead; the server accepts either.
 - Writes are applied in the order the server receives them. No version numbers or conflict checks in 0.2: per-field saves make "last one wins" acceptable. The full offline queue (action IDs in the body, server counter, replay) is 0.3 and will reuse the same keys.
 - Every write that changes foods or stock answers with the **change** it recorded (section 6.1), so the client can show the Undo toast with `change.id` straight away.
 
@@ -98,7 +99,7 @@ Kept as columns on `household` (its `id` is the household_id), not a separate ta
 | `running_low_milli` | int, null | "Running low at", base amount. |
 | `table_key` | str(80), null | The bundled conversion table row this food matched when created (by name or other name). Re-matched when renamed. |
 | `merged_into_id` | FK food, null | Set when merged away. Such foods are hidden everywhere but kept so old links still resolve. |
-| `removed_at` | datetime, null | Soft delete (see QUESTION 1). |
+| `removed_at` | datetime, null | Soft delete (section 7, point 1). |
 
 **`food_name`** (other names): `id`, `household_id`, `food_id`, `name` str(100), `from_merge_id` FK food_merge null (set when the name came from a merge, so split can revive the old food). Unique (food, lower(name)).
 
@@ -260,7 +261,8 @@ The client shows the question with the "Remember for next time" switch (on by de
 | Drumsticks (count word piece), 6 | `6 pieces` |
 | Spinach, 200 g, no size | `200 g` |
 | Toor dal, 40 g, packet 500 g | `under ¼ packet · about 40 g` |
-| Yoghurt lot, 250 g of a 500 g tub | `½ tub · about 250 g` (see QUESTION 2) |
+| Yoghurt lot, 250 g of a 500 g tub | `½ tub · about 250 g` (the web app adds "· open") |
+| Yoghurt lot, 500 g of a 500 g tub | `1 tub · 500 g` |
 
 ### 5.4 Shape
 
@@ -396,7 +398,7 @@ Each PATCH records one `food_edited` change ("Changed weight of 1 cup to 200 g")
 
 **Maybe the same**
 - Matching (offline, no library): two foods match when their normalised names are equal, or one's normalised name equals one of the other's normalised other names. Normalising: lower case, remove accents, remove anything in brackets, collapse spaces, drop a final "es"/"s" from each word (so "Drumsticks (moringa)" ↔ "Drumsticks", "Tomatoes" ↔ "tomato").
-- `POST /api/v1/foods/{id}/not-the-same` `{ "food_id": 12 }` → `204`. The pair never shows again. Not logged (nothing to undo but the hint; QUESTION 4 covers it if the lead wants Undo here).
+- `POST /api/v1/foods/{id}/not-the-same` `{ "food_id": 12 }` → `204`. The pair never shows again. Not logged and not undoable (it only hides a hint).
 
 **Merge, undo merge, split**
 - `POST /api/v1/foods/{id}/merge` `{ "into_id": 12, "answers": [] }` → merges food `id` into food `into_id`:
@@ -407,7 +409,7 @@ Each PATCH records one `food_edited` change ("Changed weight of 1 cup to 200 g")
 - **Undo merge** is the normal Undo of that change (6.5), within the undo window: restores both foods exactly as they were (names, sizes, links, lots with their amounts as they are now, place and dates). If stock was used after the merge, the lots that moved come back with what's left in them, and the result is `partly`.
 - `POST /api/v1/foods/{id}/split` `{ "other_name_id": 41 }` → the other name becomes its own food again. If the name came from a merge, the old food is revived (same id, so old links point to it again) with its original settings but no stock (we can't know which stock was its). Otherwise a new food is made with the same settings as the one it's split from, minus sizes and stock. Answer: `201 { "food": {…the new or revived food…}, "change": { "kind": "split", … } }`.
 
-**Remove a food** (QUESTION 1): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable.
+**Remove a food** (section 7, point 1): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable.
 
 ### 6.3 Places, shops, household
 
@@ -494,7 +496,7 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
   "next": null }
 ```
 
-`undo` changes are listed too ("Undid: Used 200 g spinach") but have `can_undo: false`: there's no redo in 0.2 (QUESTION 3).
+`undo` changes are listed too ("Undid: Used 200 g spinach") but have `can_undo: false`: there's no redo in 0.2.
 
 **`POST /api/v1/changes/{id}/undo`** (any household login, within the undo window; takes `Idempotency-Key`)
 
@@ -522,12 +524,12 @@ Undo reverses **just that change**, line by line, and later changes stay:
 - `GET /api/v1/units` (4.1), `GET /api/v1/foods/{id}/convert`, `GET`/`DELETE /api/v1/conversions` (4.5).
 - No Server-Sent Events in 0.2: the web app re-fetches `/pantry` when the tab comes back into view.
 
-## 7. QUESTIONs for the lead
+## 7. Decisions on the open points (lead, 17 Oct)
 
-1. **Removing a food** isn't in the mockups or the spec. Proposed: `DELETE /foods/{id}` only when it has no stock (and no recipes, 0.4), soft and undoable. Does the editor get a "Remove" link (under "Merge with another…"), or do we leave delete out of 0.2 entirely?
-2. **Yoghurt in the mockup** reads "1 tub of 500 g · open" while milk reads "1½ bottles · about 1.5 L". Proposed: one rule for all ("½ tub · about 250 g"), with `open: true` letting the web app show the picker. OK, or should an open lot read "1 tub of 500 g · open"?
-3. **Undoing an Undo** (redo): not offered in 0.2. OK?
-4. **"Not the same"**: recorded silently with no Undo (it only hides a hint). OK?
-5. **Count foods with no count word** show "9 left" (from the eggs in the mockup), so onions read "5 left", not "5 onions". Making "5 onions" automatically needs plurals of food names, which is fragile. OK, or default the count word from the food's name?
-6. **`Idempotency-Key` as a header** for 0.2, with action IDs moving into the body for the 0.3 sync queue. OK, or should 0.2 already put the ID in the body?
-7. **Undo in the foods-and-units PR** (3.7): the change log and Undo endpoint land with foods, because food edits and merges are undoable; the stock PR then adds stock lines. Fine with the frontend's timeline?
+1. **Removing a food:** allowed only when it has no stock (and, from 0.4, no recipes); soft delete, undoable; a quiet "Remove" link in the editor. Proposed to cabledrawer in the PR and recorded in the spec as a proposal.
+2. **Open packs:** one display rule for every lot plus the `open` flag; the web app adds "· open" and the ¼ ½ ¾ Full picker. A whole number of sizes never says "about" ("1 tub · 500 g").
+3. **No redo** (undoing an Undo) in 0.2.
+4. **"Not the same"** is saved quietly with no Undo.
+5. **Count foods with no count word** read "5 left".
+6. **`Idempotency-Key` header** in 0.2. From 0.3 the sync queue sends action IDs in the request body; the server then accepts either (both share the same uniqueness per household).
+7. **Change log and Undo** land in the foods-and-units PR.
