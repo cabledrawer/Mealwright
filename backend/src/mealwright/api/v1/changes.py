@@ -86,7 +86,8 @@ class UndoOut(BaseModel):
 
 def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     original = kitchen.db.get(Change, undo.undoes_change_id or 0)
-    assert original is not None  # noqa: S101 (an undo always points at its change)
+    if original is None:  # pragma: no cover (an undo always points at its change)
+        raise not_found("That change")
     result: UndoResult = (undo.undo_data or {}).get("result", "done")
     food = None
     if original.food_id is not None:

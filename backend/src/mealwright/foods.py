@@ -241,7 +241,8 @@ def remember_answers(kitchen: Kitchen, answers: list[Answer]) -> None:
     for answer in answers:
         food = find(kitchen, answer.food_id)
         if answer.kind == "size":
-            assert answer.name is not None and answer.amount is not None  # noqa: S101 (validated)
+            if answer.name is None or answer.amount is None:  # pragma: no cover (validated)
+                continue
             if find_size(kitchen, food, answer.name) is None:
                 add_size(kitchen, food, answer.name, to_milli(answer.amount))
         elif answer.remember and answer.grams is not None:
@@ -380,7 +381,8 @@ def resolve(kitchen: Kitchen, food: Food, value: AmountIn) -> Resolved:
                 raise ask(kitchen, food, "size", word)
             remember_answers(kitchen, answers)
             size = find_size(kitchen, food, word)
-            assert size is not None  # noqa: S101 (just added)
+            if size is None:  # pragma: no cover (just added)
+                raise ask(kitchen, food, "size", word)
         else:
             remember_answers(kitchen, answers)
         return Resolved(to_milli(value.amount * size.amount_milli / MILLI), size, answers)

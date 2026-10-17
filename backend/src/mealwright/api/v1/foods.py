@@ -1064,8 +1064,10 @@ def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodW
             db.delete(row)
             db.flush()
             if earlier is not None:
-                new = db.get(Food, earlier.from_food_id)
-                assert new is not None  # noqa: S101 (found above)
+                revived = db.get(Food, earlier.from_food_id)
+                if revived is None:  # pragma: no cover (found above)
+                    raise not_found("That food")
+                new = revived
                 new.merged_into_id = None
                 new.removed_at = None
                 earlier.split_at = utcnow()

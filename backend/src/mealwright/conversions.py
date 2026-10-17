@@ -71,7 +71,8 @@ def table() -> Table:
     by_name: dict[str, str] = {}
     for record in csv.DictReader(lines):
         counted_as = record["counted_as"]
-        assert counted_as in ("weight", "volume", "count")  # noqa: S101 (our own file)
+        if counted_as not in ("weight", "volume", "count"):
+            raise ValueError(f"{record['key']}: counted_as {counted_as!r}")
         row = TableRow(
             key=record["key"],
             names=tuple(record["names"].split("|")),
