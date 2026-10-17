@@ -10,6 +10,7 @@ from mealwright import __version__, migrate
 from mealwright.api.v1 import router as api_v1
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
+from mealwright.outbound import OutboundGate, install_network_guard
 
 # FastAPI's built-in OpenTelemetry support: switch every part of it off, and never
 # configure exporters from OTEL_* / FASTAPI_OTEL_* environment variables.
@@ -24,6 +25,8 @@ TELEMETRY_OFF: TelemetryConfig = {
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    # From here on, only the outbound gate may connect to anything (spec section 7).
+    install_network_guard()
     engine = make_engine(settings.sqlalchemy_url)
 
     @asynccontextmanager
@@ -48,5 +51,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
+    app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.include_router(api_v1)
     return app
