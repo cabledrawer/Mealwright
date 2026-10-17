@@ -1,0 +1,158 @@
+/*
+ * Design tokens for Mealwright, taken from the mockups in docs/mockups/
+ * (Main, Desktop-Today, Desktop-Plan, Settings-* and their Dark-* versions).
+ *
+ * Light is the default. Dark applies when <html data-theme="dark">. static/theme.js
+ * sets that before the page is drawn, from the person's choice (Auto · Light · Dark);
+ * Auto follows the device. Dark is its own designed palette, not inverted colours.
+ *
+ * Name colours by what they're for, not what they look like, so dark can differ.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Grounds and surfaces */
+  --color-ground: #f5f6f4; /* page background */
+  --color-surface: #ffffff; /* cards */
+  --color-chrome: #ffffff; /* sidebar and bottom tabs */
+  --color-fill: #f1f3f0; /* search field, quiet buttons, theme picker track */
+  --color-fill-strong: #e6e9e5; /* segmented control track (Settings) */
+  --color-segment-active: #ffffff; /* the chosen segment */
+
+  /* Text */
+  --color-text: #17201c;
+  --color-text-muted: #5b655f; /* secondary text, inactive tabs */
+  --color-text-soft: #3f4843; /* icons in the collapsed sidebar, sub-items */
+
+  /* Lines */
+  --color-border: #e3e6e2; /* sidebar and tab bar edges */
+  --color-divider: #e8ebe7; /* between rows in a card */
+  --color-border-strong: #d3d8d3; /* outlined buttons */
+
+  /* Accent (green) */
+  --color-accent: #2e7d5b; /* links, current tab, switch on */
+  --color-accent-hover: #1f5c42;
+  --color-accent-soft: #e4f1ea; /* current page in the sidebar */
+  --color-accent-on-soft: #1f5c42;
+  --color-avatar: #dcebe3;
+  --color-avatar-text: #1f5c42;
+
+  /* Strong buttons (near-black on light, near-white on dark) */
+  --color-inverse: #17201c;
+  --color-inverse-text: #ffffff;
+
+  /* Meaning */
+  --color-tubs: #9a6500; /* "tubs left" number */
+  --color-tub-chip: #fdf1d8;
+  --color-tub-chip-text: #6e4a00;
+  --color-use-soon: #b23a0e; /* "use soon" number */
+  --color-use-soon-text: #9c320b; /* "use soon" count in the sidebar */
+  --color-use-soon-chip: #fde9e1;
+  --color-badge-accent: #2e7d5b; /* count badges in the collapsed sidebar */
+  --color-badge-warn: #b23a0e;
+  --color-badge-text: #ffffff;
+
+  /* Switch */
+  --color-switch-off: #d3d8d3;
+  --color-switch-on: #2e7d5b;
+  --color-switch-knob: #ffffff;
+  --shadow-switch-knob: 0 1px 3px rgba(0, 0, 0, 0.25);
+
+  --color-focus: #2e7d5b;
+
+  /* Type */
+  --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+  --font-reading: 'Newsreader Variable', Georgia, serif;
+  --text-xs: 0.6875rem; /* 11px: tab labels, badges */
+  --text-sm: 0.75rem; /* 12px: overlines, counts */
+  --text-md: 0.8125rem; /* 13px: secondary text */
+  --text-base: 0.875rem; /* 14px: buttons, body */
+  --text-lg: 0.9375rem; /* 15px: list items, sidebar */
+  --text-xl: 1.0625rem; /* 17px: section headings on phone */
+  --text-2xl: 1.125rem; /* 18px: section headings on desktop */
+  --text-3xl: 1.25rem; /* 20px: wordmark, card titles */
+  --text-title: 2rem; /* 32px: page title on phone */
+  --text-title-desktop: 2.125rem; /* 34px: page title on desktop */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+  --tracking-tight: -0.02em; /* titles and wordmark */
+  --tracking-overline: 0.06em; /* small capitals labels */
+
+  /* Space */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 16px;
+  --space-8: 20px;
+  --space-9: 24px;
+  --space-10: 32px;
+  --space-11: 40px;
+
+  /* Corners */
+  --radius-sm: 9px; /* inside the theme picker */
+  --radius-md: 12px; /* sidebar items, fields */
+  --radius-lg: 14px; /* buttons, collapsed sidebar items */
+  --radius-xl: 18px; /* small cards */
+  --radius-2xl: 20px; /* cards */
+  --radius-3xl: 24px; /* large cards */
+  --radius-full: 999px;
+
+  /* Sizes */
+  --touch-target: 44px;
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
+  --tabbar-height: 62px; /* plus the device's safe area at the bottom */
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-ground: #111614;
+  --color-surface: #1b221f;
+  --color-chrome: #161c19;
+  --color-fill: #252e29;
+  --color-fill-strong: #252e29;
+  --color-segment-active: #3a4640;
+
+  --color-text: #e9eeeb;
+  --color-text-muted: #a3afa8;
+  --color-text-soft: #c3ccc6;
+
+  --color-border: #2a332e;
+  --color-divider: #26302b;
+  --color-border-strong: #39433d;
+
+  --color-accent: #6fcf9e;
+  --color-accent-hover: #9fe3bf;
+  --color-accent-soft: #1f3a2d;
+  --color-accent-on-soft: #8fe0b5;
+  --color-avatar: #1f3a2d;
+  --color-avatar-text: #8fe0b5;
+
+  --color-inverse: #e9eeeb;
+  --color-inverse-text: #111614;
+
+  --color-tubs: #f2b441;
+  --color-tub-chip: #3a2e14;
+  --color-tub-chip-text: #f3c766;
+  --color-use-soon: #ff8a5e;
+  --color-use-soon-text: #ff9b76;
+  --color-use-soon-chip: #3e2119;
+  --color-badge-accent: #2e7d5b;
+  --color-badge-warn: #c2481a;
+  --color-badge-text: #ffffff;
+
+  --color-switch-off: #39433d;
+  --color-switch-on: #6fcf9e;
+  --color-switch-knob: #1b221f;
+  --shadow-switch-knob: 0 1px 3px rgba(0, 0, 0, 0.5);
+
+  --color-focus: #6fcf9e;
+}

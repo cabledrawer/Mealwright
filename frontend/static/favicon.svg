@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 104 104">
+  <defs><mask id="mw-fav-cut"><rect x="0" y="0" width="120" height="120" fill="#fff"/><path d="M39 92 V56 L60 76 L81 56 V92" fill="none" stroke="#000" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
+  <rect x="48" y="11" width="24" height="10" rx="3.5" fill="#E8A33D"/>
+  <rect x="12" y="18" width="96" height="11" rx="5.5" fill="#E8A33D"/>
+  <path d="M15 34 H105 V96 Q105 110 91 110 H29 Q15 110 15 96 Z" fill="#1F7A4D" mask="url(#mw-fav-cut)"/>
+</svg>

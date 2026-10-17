@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Mealwright">
+  <defs><mask id="mw-cut-dark"><rect width="120" height="120" fill="#fff"/><path d="M37 94 V52 L60 74 L83 52 V94" fill="none" stroke="#000" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></mask></defs>
+  <rect x="50" y="14" width="20" height="8" rx="3" fill="#E8A33D"/>
+  <rect x="14" y="20" width="92" height="8" rx="4" fill="#E8A33D"/>
+  <path d="M18 34 H102 V96 Q102 108 90 108 H30 Q18 108 18 96 Z" fill="#6BCB95" mask="url(#mw-cut-dark)"/>
+</svg>
