@@ -27,6 +27,9 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 409 | `name_taken` | food name already used (`food_id` says which) |
 | 409 | `ask_once` | the server needs a conversion it doesn't know (section 4.4; carries `ask`) |
 | 409 | `already_undone` | Undo pressed twice |
+| 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2) |
+| 422 | `one_field` | a food PATCH with more or less than one field |
+| 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
 | 409 | `key_reused` | an `Idempotency-Key` was reused for a different request |
 | 410 | `too_old` | Undo after the undo window |
 | 422 | — | validation; FastAPI's default list form, as in 0.1 (the web app's `detailOf` already reads it) |
@@ -101,7 +104,7 @@ Kept as columns on `household` (its `id` is the household_id), not a separate ta
 | `merged_into_id` | FK food, null | Set when merged away. Such foods are hidden everywhere but kept so old links still resolve. |
 | `removed_at` | datetime, null | Soft delete (section 7, point 1). |
 
-**`food_name`** (other names): `id`, `household_id`, `food_id`, `name` str(100), `from_merge_id` FK food_merge null (set when the name came from a merge, so split can revive the old food). Unique (food, lower(name)).
+**`food_name`** (other names): `id`, `household_id`, `food_id`, `name` str(100). Unique per food ignoring case (checked by the server). Split finds out whether a name came from a merge through `food_merge` (the merged-away food keeps its name).
 
 **`food_size`** (how it's sold): `id`, `household_id`, `food_id`, `name` str(40) ("packet", "dozen", "loaf", "bag"), `plural` str(40) (server-made: packet→packets, loaf→loaves, dozen→dozen, bunch→bunches; small irregulars list), `amount_milli` int > 0 (base amount: packet = 500 000 mg), `usual` bool (exactly one size is usual when a food has any; the first size added is usual), `added_when_shopping` bool (shows "added when shopping"; set from 0.3), `position`. Unique (food, lower(name), amount).
 
@@ -143,11 +146,11 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 |---|---|
 | `id`, `household_id` | |
 | `idempotency_key` | str(64), null; unique (household, key) |
-| `kind` | `added` · `used` · `binned` · `set_left` · `moved` · `to_freezer` · `use_by` · `food_created` · `food_edited` · `merged` · `split` · `undo`. Later: `shopped` (0.3), `cooked` (0.7). |
+| `kind` | `added` · `used` · `binned` · `set_left` · `moved` · `to_freezer` · `use_by` · `food_created` · `food_edited` · `food_removed` · `merged` · `split` · `undo`. Later: `shopped` (0.3), `cooked` (0.7). |
 | `login_id`, `login_name` | Who. The name is copied so the history still reads right if the login is renamed or removed. |
 | `at` | when |
 | `summary` | Server-made plain sentence, e.g. "Used 200 g spinach" (section 5). |
-| `undo_data` | JSON, for changes that aren't simple stock lines: a food edit's old values, or a merge snapshot (everything moved, so Undo restores it exactly). |
+| `undo_data` | JSON. For food changes: each part of the foods that changed (one field, one other name, one size, one stand-in link, one remembered answer) as `[before, after]`. Undo puts a part back only if it still has its `after` value. |
 | `undone_by_change_id` | FK change, null; set when undone |
 | `undoes_change_id` | FK change, null; on `undo` rows |
 
@@ -159,11 +162,18 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 
 ### 3.7 Migrations, in order
 
+Foods-and-units PR:
+
 1. Household settings columns.
 2. `place` (+ the four defaults for each existing household) and `shop`. Setup (`POST /api/v1/setup`) also creates the four places.
-3. `change`, `change_line`, `change_month`. (In the foods-and-units PR, because food edits and merges need Undo.)
-4. `food`, `food_name`, `food_size`, `food_stand_in`, `food_conversion`, `food_not_same`, `food_merge`.
-5. `stock_lot` (stock-history-undo PR; `change_line.lot_id` gets its foreign key here).
+3. `food`, `food_name`, `food_size`, `food_stand_in`, `food_conversion`, `food_not_same`.
+4. `change` and `food_merge` (the change log comes with foods, because food edits and merges can be undone).
+
+Stock-history-undo PR:
+
+5. `stock_lot`, `change_line`, `change_month`.
+
+Food, other-name and size ids are never reused (`sqlite_autoincrement`), so Undo can put a deleted row back under its old id.
 
 ## 4. Units, conversions and "ask once"
 
@@ -188,7 +198,7 @@ Same unit family → fixed maths. Volume ↔ weight → the food's weight per ml
 { "amount": 1.5, "unit": "packet" }
 { "amount": 250, "unit": "g" }
 { "amount": 1, "size_id": 12 }
-{ "amount": 1, "unit": "cup", "answers": [ { "kind": "weight_per_ml", "food_id": 7, "grams_per_cup": 200, "remember": true } ] }
+{ "amount": 1, "unit": "cup", "answers": [ { "kind": "weight_per_ml", "food_id": 7, "grams": 200, "remember": true } ] }
 ```
 
 `amount` > 0. `unit` or `size_id`, not both. `answers` carries ask-once replies (4.4).
@@ -214,7 +224,7 @@ HTTP 409
 
 `kind: "item_weight"` asks "About how much does 1 onion weigh?" (`per: "item"`, suggested 100 g). Suggestions: the bundled table's value for a close name if there is one, otherwise 0.8 g/ml × the cup (200 g for a 250 ml cup) or 100 g per item, rounded to 2 significant figures.
 
-The client shows the question with the "Remember for next time" switch (on by default) and **retries the same request with the same `Idempotency-Key`**, adding `"answers": [...]` to the `AmountIn`. With `remember: true` the server saves the answer in `food_conversion` (in the same transaction); with `false` it's used for that request only. Merge (5.6) takes `answers` at the top level of its body.
+The client shows the question with the "Remember for next time" switch (on by default) and **retries the same request with the same `Idempotency-Key`**, adding `"answers": [...]` to the `AmountIn`. With `remember: true` the server saves the answer in `food_conversion` (in the same transaction); with `false` it's used for that request only. For `weight_per_ml` and `item_weight`, `grams` is the weight of one household cup or one item. Merge (6.2) takes `answers` at the top level of its body.
 
 "Slices in a loaf" isn't a conversion: it's a size. Adding stock as "1 loaf" for bread with no loaf size is a 409 `ask_once` with `kind: "size"`, `question: "About how many slices in a loaf?"`, `suggested: 20`; the answer is `{ "kind": "size", "food_id": 9, "name": "loaf", "amount": 20 }`, which adds the size (always remembered).
 
@@ -223,7 +233,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 `GET /api/v1/foods/{id}/convert?amount=1&unit=cup`
 
 ```json
-{ "amount": 200, "unit": "g", "from": "you", "display": "200 g" }
+{ "amount": 200, "unit": "g", "from": "you", "display": "200 g", "ask": null }
 ```
 `from`: `you` (household answer) · `table` · `fixed` (same family). When unknown: `200` with `{ "amount": null, "ask": { …as above… } }` (a lookup isn't an error).
 
@@ -271,11 +281,12 @@ The client shows the question with the "Remember for next time" switch (on by de
   "amount": 750, "unit": "g",
   "as_sold": { "count": 1.5, "size": { "id": 12, "name": "packet", "plural": "packets", "amount": 500 } },
   "about": true,
+  "short": "1½ packets",
   "display": "1½ packets · about 750 g"
 }
 ```
 
-`as_sold` is null when no size applies. The same object (`AmountOut`) is used for running-low levels, change lines and conversions.
+`as_sold` is null when no size applies. `short` is just the first part, for inputs such as "Running low at ½ packet". The same object (`AmountOut`) is used for running-low levels, change lines and conversions.
 
 ## 6. Endpoints
 
@@ -330,7 +341,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 **`GET /api/v1/foods/{id}`** — the editor:
 
-```json
+```jsonc
 {
   "id": 7, "name": "Toor dal",
   "other_names": [ { "id": 21, "name": "thuvaram paruppu" }, { "id": 22, "name": "arhar dal" } ],
@@ -348,7 +359,7 @@ The client shows the question with the "Remember for next time" switch (on by de
   "stand_ins": [ { "id": 15, "name": "Moong dal", "both_ways": false } ],
   "stands_in_for": [],
   "maybe_same": [],
-  "stock": { "amount": 750, "display": "1½ packets · about 750 g", "…": "…" },
+  "stock": { "amount": 750, "display": "1½ packets · about 750 g", "…": "…" },   // null until the stock PR
   "last_change": { "id": 790, "summary": "Changed weight of 1 cup to 200 g", "can_undo": true }
 }
 ```
@@ -377,7 +388,7 @@ Only `name` is required. `counted_as` defaults from the bundled table match, els
 { "cup_weight": 200 }                 // grams per household cup; null forgets the household answer
 { "item_weight": 150 }                // grams per item; null forgets
 ```
-Each PATCH records one `food_edited` change ("Changed weight of 1 cup to 200 g"), undoable. Answer: `{ "food": {…}, "change": {…} }`.
+Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now 200 g"), undoable. Answer: `{ "food": {…}, "change": {…} }`. If the field already had that value, nothing is recorded and `change` is null. More or fewer than one field → `422 one_field`.
 
 - Changing `counted_as` when the food has stock or sizes converts them; if a conversion is missing → `409 ask_once` (send `answers` alongside the field).
 - Turning `staple` on keeps any stock lots but the pantry shows the food as a staple chip only; turning it off shows them again.
@@ -409,7 +420,7 @@ Each PATCH records one `food_edited` change ("Changed weight of 1 cup to 200 g")
 - **Undo merge** is the normal Undo of that change (6.5), within the undo window: restores both foods exactly as they were (names, sizes, links, lots with their amounts as they are now, place and dates). If stock was used after the merge, the lots that moved come back with what's left in them, and the result is `partly`.
 - `POST /api/v1/foods/{id}/split` `{ "other_name_id": 41 }` → the other name becomes its own food again. If the name came from a merge, the old food is revived (same id, so old links point to it again) with its original settings but no stock (we can't know which stock was its). Otherwise a new food is made with the same settings as the one it's split from, minus sizes and stock. Answer: `201 { "food": {…the new or revived food…}, "change": { "kind": "split", … } }`.
 
-**Remove a food** (section 7, point 1): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable.
+**Remove a food** (section 7, point 1): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable (`food_removed`). Answer: `{ "food": null, "change": {…} }`.
 
 ### 6.3 Places, shops, household
 
@@ -503,7 +514,7 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
 Undo reverses **just that change**, line by line, and later changes stay:
 - amounts: the opposite of that line's difference is applied to the lot as it is now, never below zero (an empty lot is brought back);
 - place and use-by: put back only if the lot still has the value the change gave it (someone changed it since → left alone);
-- food edits: the old value is put back if the field still has the value the change set;
+- food changes: each changed part (a field, an other name, a size, a stand-in link, a remembered answer) is put back if it still has the value the change gave it; a name that another food has taken since is not put back;
 - merge: the snapshot is restored (6.2).
 
 ```json

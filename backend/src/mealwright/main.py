@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, migrate
+from mealwright import __version__, errors, migrate
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import SlowDown
 from mealwright.config import Settings, get_settings
@@ -60,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.state.slow_down = SlowDown()
+    errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
     # Strict browser rules on every response (spec section 7). The web app's own inline

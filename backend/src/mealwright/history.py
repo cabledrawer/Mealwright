@@ -1,0 +1,462 @@
+"""The change log, retries and Undo (spec section 6, "History and undo").
+
+Every food or stock change a person makes is recorded as one `Change`: one row in Recent
+changes, one Undo button. Undo reverses just that change, and later changes stay.
+
+Food changes (names, sizes, settings, merges…) are undone with snapshots: before the
+change, the affected foods are snapshotted; after it, again. Only the parts that differ
+are kept. Undo puts each part back if it still looks the way the change left it; parts
+someone has changed since are left alone, and the result says so ("partly").
+"""
+
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any, Literal
+
+from fastapi import status
+from sqlalchemy import delete, or_, select
+from sqlalchemy.exc import IntegrityError
+
+from mealwright.api.v1.context import Kitchen
+from mealwright.errors import Problem
+from mealwright.household import undo_window
+from mealwright.models import (
+    Change,
+    Food,
+    FoodConversion,
+    FoodMerge,
+    FoodName,
+    FoodSize,
+    FoodStandIn,
+    utcnow,
+)
+from mealwright.names import fold
+
+UndoResult = Literal["done", "partly", "nothing"]
+
+
+def as_utc(moment: datetime) -> datetime:
+    """SQLite gives times back without their zone; they're always stored in UTC."""
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+# --- Retries --------------------------------------------------------------------------------
+
+
+def replayed(kitchen: Kitchen) -> Change | None:
+    """The change already recorded for this request's Idempotency-Key, if any."""
+    if kitchen.idempotency_key is None:
+        return None
+    change = kitchen.db.scalar(
+        select(Change).where(
+            Change.household_id == kitchen.household_id,
+            Change.idempotency_key == kitchen.idempotency_key,
+        )
+    )
+    if change is not None and change.request != kitchen.request:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "key_reused",
+            "That change ID was already used for something else.",
+        )
+    return change
+
+
+def commit(kitchen: Kitchen) -> Change | None:
+    """Commit. If another request with the same Idempotency-Key got there first, roll back
+    and return its change instead (the caller then answers as for a retry)."""
+    try:
+        kitchen.db.commit()
+    except IntegrityError:
+        kitchen.db.rollback()
+        found = replayed(kitchen)
+        if found is None:
+            raise
+        return found
+    return None
+
+
+# --- Recording ------------------------------------------------------------------------------
+
+
+def record(
+    kitchen: Kitchen,
+    kind: str,
+    summary: str,
+    food_id: int | None = None,
+    undo_data: dict[str, Any] | None = None,
+) -> Change:
+    change = Change(
+        household_id=kitchen.household_id,
+        idempotency_key=kitchen.idempotency_key,
+        request=kitchen.request[:200],
+        kind=kind,
+        login_id=kitchen.login.id,
+        login_name=kitchen.login.name,
+        food_id=food_id,
+        at=utcnow(),
+        summary=summary[:300],
+        undo_data=undo_data,
+    )
+    kitchen.db.add(change)
+    kitchen.db.flush()
+    return change
+
+
+def undo_until(kitchen: Kitchen, change: Change) -> datetime:
+    return as_utc(change.at) + undo_window(kitchen.household)
+
+
+def can_undo(kitchen: Kitchen, change: Change) -> bool:
+    return (
+        change.kind != "undo"
+        and change.undone_by_change_id is None
+        and utcnow() < undo_until(kitchen, change)
+    )
+
+
+# --- Food snapshots ---------------------------------------------------------------------------
+
+FIELDS = (
+    "name",
+    "counted_as",
+    "staple",
+    "count_word",
+    "count_word_plural",
+    "place_id",
+    "shop_id",
+    "running_low_milli",
+    "merged_into_id",
+)
+SIZE_FIELDS = (
+    "food_id",
+    "name",
+    "plural",
+    "amount_milli",
+    "usual",
+    "added_when_shopping",
+    "position",
+)
+
+Snapshot = dict[str, dict[str, Any]]
+
+
+def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
+    """Everything about these foods that a food change can touch, as plain JSON."""
+    ids = sorted(set(food_ids))
+    db = kitchen.db
+    snap: Snapshot = {"fields": {}, "names": {}, "sizes": {}, "stand_ins": {}, "conversions": {}}
+    for food in db.scalars(select(Food).where(Food.id.in_(ids))):
+        # One entry per field, so undoing one field never touches another.
+        snap["fields"][f"{food.id}:exists"] = True
+        snap["fields"][f"{food.id}:removed"] = food.removed_at is not None
+        for name in FIELDS:
+            snap["fields"][f"{food.id}:{name}"] = getattr(food, name)
+    for row in db.scalars(select(FoodName).where(FoodName.food_id.in_(ids))):
+        snap["names"][str(row.id)] = {"food_id": row.food_id, "name": row.name}
+    for size in db.scalars(select(FoodSize).where(FoodSize.food_id.in_(ids))):
+        snap["sizes"][str(size.id)] = {name: getattr(size, name) for name in SIZE_FIELDS}
+    for link in db.scalars(
+        select(FoodStandIn).where(
+            or_(FoodStandIn.food_id.in_(ids), FoodStandIn.stand_in_id.in_(ids))
+        )
+    ):
+        snap["stand_ins"][f"{link.food_id}:{link.stand_in_id}"] = True
+    for conversion in db.scalars(select(FoodConversion).where(FoodConversion.food_id.in_(ids))):
+        snap["conversions"][f"{conversion.food_id}:{conversion.kind}"] = {
+            "value_milli": conversion.value_milli,
+            "answered_by_name": conversion.answered_by_name,
+        }
+    return snap
+
+
+def diff(before: Snapshot, after: Snapshot) -> dict[str, dict[str, list[Any]]]:
+    """Just the parts that changed: {collection: {key: [before, after]}} (None = absent)."""
+    changed: dict[str, dict[str, list[Any]]] = {}
+    for collection in before.keys() | after.keys():
+        old, new = before.get(collection, {}), after.get(collection, {})
+        for key in old.keys() | new.keys():
+            if old.get(key) != new.get(key):
+                changed.setdefault(collection, {})[key] = [old.get(key), new.get(key)]
+    return changed
+
+
+def foods_in(changes: dict[str, dict[str, list[Any]]]) -> set[int]:
+    ids: set[int] = set()
+    for collection, entries in changes.items():
+        for key, (old, new) in entries.items():
+            if collection in ("fields", "stand_ins", "conversions"):
+                first, second = key.split(":")
+                ids.add(int(first))
+                if collection == "stand_ins":
+                    ids.add(int(second))
+            else:
+                for value in (old, new):
+                    if value:
+                        ids.add(int(value["food_id"]))
+    return ids
+
+
+class FoodEdit:
+    """Snapshot some foods, make a change, then record it with what changed:
+
+    with FoodEdit(kitchen, [food.id]) as edit:
+        food.staple = True
+    change = edit.record("food_edited", "Turmeric is now a staple", food.id)
+    """
+
+    def __init__(self, kitchen: Kitchen, food_ids: Iterable[int]) -> None:
+        self.kitchen = kitchen
+        self.food_ids = set(food_ids)
+        self.before: Snapshot = {}
+        self.extra: dict[str, Any] = {}
+
+    def __enter__(self) -> FoodEdit:
+        self.kitchen.db.flush()
+        self.before = snapshot(self.kitchen, self.food_ids)
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+    def also(self, food_id: int) -> None:
+        """A food that only exists once the change is made (a new or revived food)."""
+        self.food_ids.add(food_id)
+
+    def record(self, kind: str, summary: str, food_id: int | None) -> Change:
+        self.kitchen.db.flush()
+        after = snapshot(self.kitchen, self.food_ids)
+        data: dict[str, Any] = {"foods": diff(self.before, after), **self.extra}
+        return record(self.kitchen, kind, summary, food_id, data)
+
+
+# --- Undo ---------------------------------------------------------------------------------------
+
+
+@dataclass
+class Tally:
+    done: int = 0
+    skipped: int = 0
+
+    @property
+    def result(self) -> UndoResult:
+        if self.skipped == 0:
+            return "done"
+        return "partly" if self.done else "nothing"
+
+
+def _name_taken(kitchen: Kitchen, name: str, food_id: int) -> bool:
+    folded = fold(name)
+    for other in kitchen.db.scalars(
+        select(Food).where(
+            Food.household_id == kitchen.household_id,
+            Food.id != food_id,
+            Food.removed_at.is_(None),
+            Food.merged_into_id.is_(None),
+        )
+    ):
+        if fold(other.name) == folded:
+            return True
+    return False
+
+
+def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
+    food_id_text, name = key.split(":")
+    food = kitchen.db.get(Food, int(food_id_text))
+    if food is None:
+        return False
+    if name == "exists":  # the food didn't exist before the change: take it away again
+        food.removed_at = food.removed_at or utcnow()
+        return True
+    if name == "removed":
+        if not value and food.merged_into_id is None and _name_taken(kitchen, food.name, food.id):
+            return False
+        food.removed_at = (food.removed_at or utcnow()) if value else None
+        return True
+    shown = food.removed_at is None
+    renamed = name == "name" and shown and food.merged_into_id is None
+    if renamed and _name_taken(kitchen, value, food.id):
+        return False
+    revived = name == "merged_into_id" and value is None and shown
+    if revived and _name_taken(kitchen, food.name, food.id):
+        return False
+    setattr(food, name, value)
+    return True
+
+
+def _restore_name(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    db = kitchen.db
+    row = db.get(FoodName, int(key))
+    if value is None:
+        if row is not None:
+            db.delete(row)
+        return True
+    folded = fold(value["name"])
+    clash = any(
+        fold(other.name) == folded and other.id != int(key)
+        for other in db.scalars(select(FoodName).where(FoodName.food_id == value["food_id"]))
+    )
+    if clash:
+        return False
+    if row is None:
+        db.add(
+            FoodName(
+                id=int(key),
+                household_id=kitchen.household_id,
+                food_id=value["food_id"],
+                name=value["name"],
+            )
+        )
+    else:
+        row.food_id, row.name = value["food_id"], value["name"]
+    return True
+
+
+def _restore_size(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    db = kitchen.db
+    size = db.get(FoodSize, int(key))
+    if value is None:
+        if size is not None:
+            db.delete(size)
+        return True
+    if size is None:
+        size = FoodSize(id=int(key), household_id=kitchen.household_id)
+        db.add(size)
+    for name in SIZE_FIELDS:
+        setattr(size, name, value[name])
+    return True
+
+
+def _restore_stand_in(kitchen: Kitchen, key: str, present: bool | None) -> bool:
+    food_id, stand_in_id = (int(part) for part in key.split(":"))
+    db = kitchen.db
+    link = db.get(FoodStandIn, (food_id, stand_in_id))
+    if not present:
+        if link is not None:
+            db.delete(link)
+        return True
+    if link is None:
+        db.add(
+            FoodStandIn(household_id=kitchen.household_id, food_id=food_id, stand_in_id=stand_in_id)
+        )
+    return True
+
+
+def _restore_conversion(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    food_id_text, kind = key.split(":")
+    db = kitchen.db
+    row = db.scalar(
+        select(FoodConversion).where(
+            FoodConversion.food_id == int(food_id_text), FoodConversion.kind == kind
+        )
+    )
+    if value is None:
+        if row is not None:
+            db.delete(row)
+        return True
+    if row is None:
+        row = FoodConversion(
+            household_id=kitchen.household_id, food_id=int(food_id_text), kind=kind
+        )
+        db.add(row)
+    row.value_milli = value["value_milli"]
+    row.answered_by_name = value["answered_by_name"]
+    return True
+
+
+_RESTORE: dict[str, Callable[[Kitchen, str, Any], bool]] = {
+    "names": _restore_name,
+    "sizes": _restore_size,
+    "stand_ins": _restore_stand_in,
+    "conversions": _restore_conversion,
+}
+
+
+def fix_usual_sizes(kitchen: Kitchen, food_ids: Iterable[int]) -> None:
+    """Exactly one Usual size for each food that has sizes."""
+    db = kitchen.db
+    db.flush()
+    for food_id in set(food_ids):
+        sizes = list(
+            db.scalars(
+                select(FoodSize)
+                .where(FoodSize.food_id == food_id)
+                .order_by(FoodSize.position, FoodSize.id)
+            )
+        )
+        usual = [size for size in sizes if size.usual]
+        if sizes and len(usual) != 1:
+            keep = usual[0] if usual else sizes[0]
+            for size in sizes:
+                size.usual = size is keep
+
+
+def undo_foods(
+    kitchen: Kitchen, changes: dict[str, dict[str, list[Any]]], tally: Tally
+) -> set[int]:
+    """Put back each changed part that still looks the way the change left it."""
+    ids = foods_in(changes)
+    current = snapshot(kitchen, ids)
+    fields = changes.get("fields", {})
+    # Foods the change created: taking them away again is all there is to do.
+    created = {
+        key.split(":")[0]
+        for key, (old, _new) in fields.items()
+        if key.endswith(":exists") and old is None
+    }
+    # Foods first (a restored name or size may belong to a food that comes back).
+    for collection in ("fields", "names", "sizes", "stand_ins", "conversions"):
+        for key, (old, new) in sorted(changes.get(collection, {}).items()):
+            if (
+                collection == "fields"
+                and key.split(":")[0] in created
+                and not key.endswith(":exists")
+            ):
+                continue
+            now = current.get(collection, {}).get(key)
+            if now == old:
+                continue  # already back the way it was
+            if now != new:
+                tally.skipped += 1
+                continue
+            if collection == "fields":
+                ok = _restore_field(kitchen, key, old)
+            else:
+                ok = _RESTORE[collection](kitchen, key, old)
+            if ok:
+                tally.done += 1
+            else:
+                tally.skipped += 1
+            kitchen.db.flush()
+    fix_usual_sizes(kitchen, ids)
+    return ids
+
+
+def undo_merge_record(kitchen: Kitchen, data: dict[str, Any]) -> None:
+    """A merge's history row goes when the merge is undone; a split's mark is cleared."""
+    if "merge_id" in data:
+        kitchen.db.execute(delete(FoodMerge).where(FoodMerge.id == data["merge_id"]))
+    if "split_merge_id" in data:
+        merge = kitchen.db.get(FoodMerge, data["split_merge_id"])
+        if merge is not None:
+            merge.split_at = None
+
+
+UNDO_MESSAGES: dict[UndoResult, str] = {
+    "done": "Undone.",
+    "partly": "Put back what could be: some of it has changed again since.",
+    "nothing": "Nothing to put back: it has all changed again since.",
+}
+
+
+def too_old() -> Problem:
+    return Problem(
+        status.HTTP_410_GONE,
+        "too_old",
+        "That's too long ago to undo.",
+    )
+
+
+def already_undone() -> Problem:
+    return Problem(status.HTTP_409_CONFLICT, "already_undone", "That's already been undone.")

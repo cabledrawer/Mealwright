@@ -5,8 +5,19 @@ install stays possible later. The household table's own `id` is that household_i
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from mealwright.db import Base
@@ -22,6 +33,14 @@ class Household(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Household settings (docs/dev/api-0.2.md section 3.1). Changeable in Settings (0.8).
+    # IANA time zone from the admin's browser, never location. Null: not known yet (UTC).
+    time_zone: Mapped[str | None] = mapped_column(String(64))
+    # 240 or 250 ml. Null: not chosen yet, 250 is used.
+    cup_ml: Mapped[int | None] = mapped_column(Integer)
+    undo_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    history_months: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
+    use_soon_days: Mapped[int] = mapped_column(Integer, default=2, server_default="2")
 
 
 class OutboundSwitch(Base):
@@ -80,3 +99,211 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+# --- Places and shops ------------------------------------------------------------------------
+
+
+class Place(Base):
+    """Where food lives at home. `kind` drives the rules (freezer last, To freezer), so
+    renaming a place never breaks them."""
+
+    __tablename__ = "place"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(40))
+    kind: Mapped[str] = mapped_column(String(10))  # fridge, freezer, cupboard
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+DEFAULT_PLACES = (
+    ("Fridge", "fridge"),
+    ("Freezer", "freezer"),
+    ("Cupboard", "cupboard"),
+    ("Spice rack", "cupboard"),
+)
+
+
+class Shop(Base):
+    __tablename__ = "shop"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(60))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    # The shop's aisle order (0.3). Null: the default order.
+    aisle_order: Mapped[list[str] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# --- Foods -------------------------------------------------------------------------------------
+# Ids are never reused (sqlite_autoincrement), so Undo can put a deleted row back with its
+# old id without clashing with a newer one.
+
+
+class Food(Base):
+    """One thing you buy and cook with. Amounts are in thousandths of the base unit (g, ml
+    or items); see mealwright.amounts."""
+
+    __tablename__ = "food"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    counted_as: Mapped[str] = mapped_column(String(10))  # weight, volume, count
+    staple: Mapped[bool] = mapped_column(Boolean, default=False)
+    count_word: Mapped[str | None] = mapped_column(String(30))
+    count_word_plural: Mapped[str | None] = mapped_column(String(30))
+    place_id: Mapped[int | None] = mapped_column(ForeignKey("place.id", ondelete="SET NULL"))
+    shop_id: Mapped[int | None] = mapped_column(ForeignKey("shop.id", ondelete="SET NULL"))
+    running_low_milli: Mapped[int | None] = mapped_column(BigInteger)
+    # The bundled conversion table row this food's names match, if any.
+    table_key: Mapped[str | None] = mapped_column(String(80))
+    # Set when merged into another food: hidden, but kept so old links still resolve.
+    merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("food.id"))
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FoodName(Base):
+    """Another name for a food (thuvaram paruppu, arhar dal → toor dal)."""
+
+    __tablename__ = "food_name"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+
+
+class FoodSize(Base):
+    """A way a food is sold: packet = 500 g, dozen = 12, loaf = 20 slices."""
+
+    __tablename__ = "food_size"
+    __table_args__ = (
+        CheckConstraint("amount_milli > 0", name="amount_positive"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(40))
+    plural: Mapped[str] = mapped_column(String(40))
+    amount_milli: Mapped[int] = mapped_column(BigInteger)
+    usual: Mapped[bool] = mapped_column(Boolean, default=False)
+    added_when_shopping: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class FoodStandIn(Base):
+    """ "Can use instead": `stand_in_id` can stand in for `food_id`. One way."""
+
+    __tablename__ = "food_stand_in"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+    stand_in_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class FoodConversion(Base):
+    """The household's own "ask once" answer for a food. Always wins over the bundled
+    table; app updates never touch it."""
+
+    __tablename__ = "food_conversion"
+    __table_args__ = (
+        UniqueConstraint("food_id", "kind"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # weight_per_ml, item_weight
+    # mg per ml, or mg per item.
+    value_milli: Mapped[int] = mapped_column(BigInteger)
+    answered_by_name: Mapped[str] = mapped_column(String(100))
+    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FoodNotSame(Base):
+    """ "Not the same": a pair of foods never shown as "Maybe the same" again."""
+
+    __tablename__ = "food_not_same"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    food_a_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+    food_b_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+# --- History ------------------------------------------------------------------------------------
+
+
+class Change(Base):
+    """One thing someone did: one row in Recent changes, one Undo button."""
+
+    __tablename__ = "change"
+    __table_args__ = (UniqueConstraint("household_id", "idempotency_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    # The client-made ID (Idempotency-Key), so a retried request isn't applied twice.
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
+    request: Mapped[str] = mapped_column(String(200), default="")  # "POST /api/v1/foods"
+    kind: Mapped[str] = mapped_column(String(20))
+    login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
+    login_name: Mapped[str] = mapped_column(String(100))
+    food_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food.id", ondelete="SET NULL"), index=True
+    )
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    summary: Mapped[str] = mapped_column(String(300))
+    undo_data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    undone_by_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"))
+    undoes_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"))
+
+
+class FoodMerge(Base):
+    """Merge history: old links to `from_food_id` resolve to the food it went into."""
+
+    __tablename__ = "food_merge"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    from_food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
+    into_food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
+    change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
+    merged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    split_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -23,6 +23,7 @@ from mealwright.auth import (
     needs_https,
     start_session,
 )
+from mealwright.household import add_default_places
 from mealwright.models import Household, Login
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
@@ -119,6 +120,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     try:
         db.add(household)
         db.flush()
+        add_default_places(db, household.id)
         db.add(login)
         db.flush()
     except IntegrityError:

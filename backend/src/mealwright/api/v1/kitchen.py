@@ -1,0 +1,230 @@
+"""Places, shops, units and the household's settings (docs/dev/api-0.2.md 4.1, 4.5, 6.3)."""
+
+from datetime import date, datetime
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Response, status
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import func, select
+
+from mealwright import amounts
+from mealwright.api.v1.context import Here
+from mealwright.api.v1.schemas import ChangeOut, Ref
+from mealwright.auth import SameOrigin
+from mealwright.errors import not_found
+from mealwright.foods import change_out, find
+from mealwright.history import FoodEdit, commit, replayed
+from mealwright.household import cup_ml, places, today, valid_time_zone
+from mealwright.models import Food, FoodConversion, Shop
+from mealwright.names import clean, fold
+
+router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
+
+
+# --- Places and shops -----------------------------------------------------------------------
+
+
+class PlaceOut(BaseModel):
+    id: int
+    name: str
+    kind: Literal["fridge", "freezer", "cupboard"]
+
+
+@router.get("/places")
+def list_places(kitchen: Here) -> list[PlaceOut]:
+    """Where food lives at home, in order. Renaming and adding come in Settings (0.8)."""
+    return [
+        PlaceOut(id=p.id, name=p.name, kind=p.kind)  # type: ignore[arg-type]
+        for p in places(kitchen.db, kitchen.household_id)
+    ]
+
+
+@router.get("/shops")
+def list_shops(kitchen: Here) -> list[Ref]:
+    rows = kitchen.db.scalars(
+        select(Shop)
+        .where(Shop.household_id == kitchen.household_id)
+        .order_by(Shop.position, Shop.id)
+    )
+    return [Ref(id=s.id, name=s.name) for s in rows]
+
+
+class NewShop(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=60)]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean(value)
+        if not value:
+            raise ValueError("Please type the shop's name.")
+        return value
+
+
+@router.post("/shops", status_code=status.HTTP_201_CREATED)
+def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
+    """ "+ Shop": add a shop by name. A name that's already there gives that shop (200)."""
+    existing = list(
+        kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
+    )
+    for shop in existing:
+        if fold(shop.name) == fold(body.name):
+            response.status_code = status.HTTP_200_OK
+            return Ref(id=shop.id, name=shop.name)
+    shop = Shop(
+        household_id=kitchen.household_id,
+        name=body.name,
+        position=max((s.position for s in existing), default=-1) + 1,
+    )
+    kitchen.db.add(shop)
+    kitchen.db.commit()
+    return Ref(id=shop.id, name=shop.name)
+
+
+# --- Household --------------------------------------------------------------------------------
+
+
+class HouseholdOut(BaseModel):
+    name: str
+    time_zone: str | None
+    cup_ml: int | None
+    cup_ml_used: int
+    undo_days: int
+    history_months: int
+    use_soon_days: int
+    today: date
+
+
+class HouseholdPatch(BaseModel):
+    time_zone: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    cup_ml: Literal[240, 250] | None = None
+
+    @field_validator("time_zone")
+    @classmethod
+    def _zone(cls, value: str | None) -> str | None:
+        if value is not None and not valid_time_zone(value):
+            raise ValueError("That isn't a time zone Mealwright knows.")
+        return value
+
+
+def _household(kitchen: Here) -> HouseholdOut:
+    household = kitchen.household
+    return HouseholdOut(
+        name=household.name,
+        time_zone=household.time_zone,
+        cup_ml=household.cup_ml,
+        cup_ml_used=cup_ml(household),
+        undo_days=household.undo_days,
+        history_months=household.history_months,
+        use_soon_days=household.use_soon_days,
+        today=today(household),
+    )
+
+
+@router.get("/household")
+def get_household(kitchen: Here) -> HouseholdOut:
+    return _household(kitchen)
+
+
+@router.patch("/household")
+def edit_household(body: HouseholdPatch, kitchen: Here) -> HouseholdOut:
+    """Admins only. On first run the web app sends the admin's browser time zone and cup
+    size, once (never location)."""
+    kitchen.admin_only()
+    if body.time_zone is not None:
+        kitchen.household.time_zone = body.time_zone
+    if body.cup_ml is not None:
+        kitchen.household.cup_ml = body.cup_ml
+    kitchen.db.commit()
+    return _household(kitchen)
+
+
+# --- Units and remembered conversions -----------------------------------------------------------
+
+
+class UnitOut(BaseModel):
+    unit: str
+    kind: Literal["weight", "volume", "count"]
+    amount: float  # in g, ml or items
+
+
+@router.get("/units")
+def list_units(kitchen: Here) -> list[UnitOut]:
+    """The units Mealwright understands, with the household's own cup size."""
+    cup = cup_ml(kitchen.household)
+    found = [
+        UnitOut(unit=u, kind="weight", amount=float(v)) for u, v in amounts.WEIGHT_UNITS.items()
+    ]
+    found += [
+        UnitOut(unit=u, kind="volume", amount=float(v)) for u, v in amounts.VOLUME_UNITS.items()
+    ]
+    found.append(UnitOut(unit="cup", kind="volume", amount=float(cup)))
+    found.append(UnitOut(unit="count", kind="count", amount=1.0))
+    return found
+
+
+class RememberedOut(BaseModel):
+    id: int
+    food: Ref
+    kind: Literal["weight_per_ml", "item_weight"]
+    display: str  # "1 cup = 200 g"
+    answered_by: str
+    answered_at: datetime
+
+
+@router.get("/conversions")
+def list_conversions(kitchen: Here) -> list[RememberedOut]:
+    """The household's remembered "ask once" answers (Settings → Amounts, 0.8)."""
+    cup = cup_ml(kitchen.household)
+    rows = kitchen.db.execute(
+        select(FoodConversion, Food)
+        .join(Food, Food.id == FoodConversion.food_id)
+        .where(
+            FoodConversion.household_id == kitchen.household_id,
+            Food.removed_at.is_(None),
+            Food.merged_into_id.is_(None),
+        )
+        .order_by(func.lower(Food.name), FoodConversion.kind)
+    ).all()
+    result = []
+    for row, food in rows:
+        if row.kind == "weight_per_ml":
+            grams = amounts.exact_text(row.value_milli * cup, "weight")
+            display = f"1 cup = {grams}"
+        else:
+            display = f"1 = {amounts.exact_text(row.value_milli, 'weight')}"
+        result.append(
+            RememberedOut(
+                id=row.id,
+                food=Ref(id=food.id, name=food.name),
+                kind=row.kind,  # type: ignore[arg-type]
+                display=display,
+                answered_by=row.answered_by_name,
+                answered_at=row.answered_at,
+            )
+        )
+    return result
+
+
+class Forgotten(BaseModel):
+    change: ChangeOut | None
+
+
+@router.delete("/conversions/{conversion_id}")
+def forget_conversion(conversion_id: int, kitchen: Here, response: Response) -> Forgotten:
+    """Forget a remembered answer: the table is used again, or the question asked again."""
+    earlier = replayed(kitchen)
+    if earlier is None:
+        row = kitchen.db.get(FoodConversion, conversion_id)
+        if row is None or row.household_id != kitchen.household_id:
+            raise not_found("That answer")
+        food = find(kitchen, row.food_id)
+        what = "weight of 1 cup of" if row.kind == "weight_per_ml" else "weight of one"
+        with FoodEdit(kitchen, [food.id]) as edit:
+            kitchen.db.delete(row)
+        change = edit.record("food_edited", f"Forgot your {what} {food.name}", food.id)
+        earlier = commit(kitchen)
+        if earlier is None:
+            return Forgotten(change=change_out(kitchen, change))
+    response.headers["Idempotent-Replayed"] = "true"
+    return Forgotten(change=change_out(kitchen, earlier))
