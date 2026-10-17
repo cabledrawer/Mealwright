@@ -11,6 +11,7 @@ from mealwright.api.v1 import router as api_v1
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.outbound import OutboundGate, install_network_guard
+from mealwright.security import SecurityHeadersMiddleware
 
 # FastAPI's built-in OpenTelemetry support: switch every part of it off, and never
 # configure exporters from OTEL_* / FASTAPI_OTEL_* environment variables.
@@ -53,4 +54,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(engine)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.include_router(api_v1)
+    # Strict browser rules on every response (spec section 7).
+    app.add_middleware(SecurityHeadersMiddleware)
     return app
