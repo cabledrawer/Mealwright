@@ -6,6 +6,7 @@ from sqlalchemy import Connection
 from mealwright import models  # noqa: F401  (registers the tables)
 from mealwright.config import get_settings
 from mealwright.db import Base, make_engine
+from mealwright.migrate import foreign_keys_off
 
 config = context.config
 target_metadata = Base.metadata
@@ -25,8 +26,9 @@ def run_migrations_online() -> None:
         return
     url = config.get_main_option("sqlalchemy.url") or get_settings().sqlalchemy_url
     engine = make_engine(url)
-    with engine.connect() as connection:
+    with engine.connect() as connection, foreign_keys_off(connection):
         _configure(connection)
+        connection.commit()
     engine.dispose()
 
 
