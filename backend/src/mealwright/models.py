@@ -41,3 +41,42 @@ class OutboundSwitch(Base):
     changed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
+
+
+class Login(Base):
+    """Someone who can sign in. Separate from member profiles (0.8), which can exist
+    without a login (spec section 3)."""
+
+    __tablename__ = "login"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    # Stored lowercase; unique across the install.
+    username: Mapped[str] = mapped_column(String(50), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
+    # Argon2 hash. Empty for logins that only use single sign-on (0.8).
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(10))  # "admin" or "member"
+    theme: Mapped[str] = mapped_column(String(10), default="auto")  # auto, light, dark
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Session(Base):
+    """A signed-in device. The cookie holds a random token; only its SHA-256 is stored,
+    so a copy of the database can't be used to sign in."""
+
+    __tablename__ = "session"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    remember: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
