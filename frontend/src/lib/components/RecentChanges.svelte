@@ -2,36 +2,14 @@
   // Pantry → Recent changes (spec, History and undo): the household's latest stock
   // changes, each with Undo while it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
-  import type { Change, ChangeLine } from '$lib/client/types';
+  import { changeLines } from '$lib/changeLines';
+  import type { Change } from '$lib/client/types';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { session } from '$lib/session.svelte';
 
   let { changes, model }: { changes: Change[]; model: PantryModel } = $props();
 
   const SHOWN = 3;
-
-  /** "Spinach: 200 g → 0 g · Fridge → Freezer", in plain words. */
-  function lineWords(line: ChangeLine): string {
-    const parts: string[] = [];
-    if (line.before.display !== line.after.display) {
-      parts.push(`${line.before.display} → ${line.after.display}`);
-    }
-    if (line.place_before && line.place_after && line.place_before.id !== line.place_after.id) {
-      parts.push(`${line.place_before.name} → ${line.place_after.name}`);
-    }
-    if ((line.use_by_before ?? null) !== (line.use_by_after ?? null)) {
-      parts.push(line.use_by_after ? `use by ${dayMonth(line.use_by_after)}` : 'no use-by date');
-    }
-    return `${line.food.name}: ${parts.join(' · ') || 'no change'}`;
-  }
-
-  function dayMonth(iso: string): string {
-    return new Intl.DateTimeFormat('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: 'UTC'
-    }).format(new Date(`${iso}T12:00:00Z`));
-  }
 
   function split(summary: string): [string, string] {
     const space = summary.indexOf(' ');
@@ -52,12 +30,13 @@
             {/if}</span
           >
           {#if change.lines?.length}
+            {@const words = changeLines(change.lines)}
             <span class="lines">
-              {#each change.lines.slice(0, SHOWN) as line, i (i)}
-                <span>{lineWords(line)}</span>
+              {#each words.slice(0, SHOWN) as text, i (i)}
+                <span>{text}</span>
               {/each}
-              {#if change.lines.length > SHOWN}
-                <span>and {change.lines.length - SHOWN} more</span>
+              {#if words.length > SHOWN}
+                <span>and {words.length - SHOWN} more</span>
               {/if}
             </span>
           {/if}
