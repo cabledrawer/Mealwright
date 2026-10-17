@@ -1,0 +1,654 @@
+# Shopping lists and offline sync (0.3)
+
+Written 17 Oct 2026 as the contract for milestone 0.3's building pull requests (PRs 2 to 6). It says what the server stores, what a phone sends, what the server does with it, and how we test that the pantry always ends up right. **The spec (`docs/spec.md`) wins wherever this file disagrees with it.** Once built, the generated OpenAPI (`/api/v1/openapi.json`) is the exact reference for field names and shapes; this file is the plan they follow. It builds on `docs/dev/api-0.2.md` (conventions, errors, the change log and Undo), which still applies unless this file says otherwise.
+
+Spec line numbers below (`L271`) are from `docs/spec.md` on `main` at `1c4c341`. cabledrawer's 17 Oct answers were added to the spec in this pull request, and are cited as `new L292` and so on (their line numbers on this branch).
+
+## 0. In plain English
+
+- Every change to a shopping list (tick, untick, add, change an amount, delete, choose where it goes, "Different pack?") is a small **action** with its own random ID, made on the phone.
+- The phone keeps a **queue** of actions. Online, it sends them straight away. Offline, they wait on the phone (as long as it takes) and go when it's back.
+- The server works through actions **in the order it receives them**, numbering each one with a **counter**. Phone clocks never decide anything.
+- If an action arrives twice (same ID), the second is ignored and the phone gets the same answer as the first time. That's what makes "send it again if unsure" safe.
+- Only the server changes the pantry. A tick puts the shopping into the pantry; untick or Undo takes it back out (never below zero).
+- Nothing is ever refused with a pop-up because someone else changed the list. Clashes follow the rules in section 6 and, where it matters, leave a **quiet note** with Undo.
+- The online web app and the offline phone use **the same path**: online is just a queue that empties at once. So what we test offline is what everyone uses every day.
+
+## 1. Scope
+
+**In 0.3:** shopping lists (one main list per household plus extra lists), list items, the sync protocol in `/api/v1`, the pantry side of ticking, quiet notes and the "Did you buy 2?" card, live updates (Server-Sent Events), the installable app with its offline queue in IndexedDB, connection status, and the sign-out wipe.
+
+**Not in 0.3:** building the list from the plan and the staples check card (0.6, though the data model is ready: `source = plan`, keyed by ingredient and shop), the card on Today (0.6), per-shop aisle order by dragging (0.8), recently viewed recipes offline (0.4), the "Who's this?" picker (0.8). The Pantry, Ingredients and Undo from Recent changes stay online-only, as in 0.2.
+
+**Who builds what** (the lead may move pieces between PRs; the contract stays the same):
+
+| PR | Branch | Builds |
+|---|---|---|
+| 2 | `m0.3/lists` | Section 3 (all tables and columns, one migration per step), the Aisle field on ingredients, `GET /api/v1/shopping/changes`, `POST /api/v1/shopping/actions` with the envelope, counter, repeats, refusals (sections 4 and 5), and the list-only actions: `create_list`, `rename_list`, `remove_list`, `add` (with new ingredients and the "both added" merge), `set_amount`, `delete`, `dismiss_note`, and `undo` of those. A main list for every household. `can_remove` checks lists. Isolation tests. |
+| 3 | `m0.3/server-sync` | `tick`, `untick`, `put_away`, `different_pack`, `clear_ticked`, `answer_double_tick`, `undo` of those, the pantry side (section 7), the double-tick question, the remaining notes, Pantry Undo of a `shopped` change unticking the item, the history job's tidy-up of sync tables, and the backend two-device tests and property test (section 14). |
+| 4 | `m0.3/shopping-screen` | The Shopping screen (section 13), writing only through one client function `sendAction(action)` that PR 6 turns into the queue; the "New ingredient" button on Ingredients; the "How do you count it?" question. |
+| 5 | `m0.3/live-and-installable` | `GET /api/v1/events` (section 10), live refresh of Shopping and Pantry, the installable app (manifest, service worker for the app shell), the app-update rule (11.6), the connection bar and toast (11.4, with the waiting count filled in by PR 6). |
+| 6 | `m0.3/offline-queue` | Section 11 (IndexedDB with `idb`, the offline copy, the queue, optimistic display, sending and retries, sign-in running out), section 12 (sign-out warning and wipe), and the browser end-to-end tests E1 to E3. |
+
+## 2. Words used in this file
+
+- **Action:** one thing a person did to a list, with a phone-made ID. Section 4.
+- **Counter (`seq`):** the household's server-side number. Each recorded action takes the next one. It is the only order that counts.
+- **Cursor:** the counter value a device's copy is up to. "Changes since 1040" means everything that changed after action 1040.
+- **`seen`:** the device's cursor at the moment the action was made. It tells the server what that person could see, so it can tell a clash ("Wren hadn't seen Tess's change") from an ordinary later change.
+- **Purchase:** one standing tick. Each purchase has its own pantry stock. Two ticks on one item = two purchases.
+- **Standing tick:** a tick that hasn't been reversed (by untick, "Just 1" or Undo).
+- **Tombstone:** a deleted item's hidden row. It stays so an old queue can't bring the item back.
+- **Note:** a quiet line on Shopping ("Wren added milk too") with Undo and a ×. Section 8.
+- **Card:** the "Did you buy 2?" question. Section 8.
+- **Device ID:** a random ID the app makes for itself after sign-in. Section 11.8.
+
+## 3. Data model (PR 2)
+
+Every table has `household_id` (FK household, cascade on delete) and is reached only through the signed-in login's household. Every change is an Alembic migration. Amounts are stored as integer **milli base units** (`amount_milli`: mg, µl or 1/1000 item), like `stock_lot`. In JSON they are plain base-unit numbers, at most 3 decimal places (api-0.2 section 1). Times are UTC; `made_at` from a phone is stored but never used to order anything.
+
+IDs: lists, items and actions use **phone-made UUIDs** (lowercase, with dashes, 36 characters) so a phone can create and refer to them offline. Notes and questions are made by the server and use integer IDs, like the rest of the database.
+
+### 3.1 `shopping_list`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | str(36), PK | UUID. Phone-made for extra lists; server-made for the main list. |
+| `household_id` | | |
+| `name` | str(60) | Not unique (two phones may both make "Party" offline; both are kept). |
+| `main` | bool | Exactly one main list per household (partial unique index on `household_id` where `main`). Made with the household, and by the migration for existing households, named "This week". |
+| `position` | int | Main list first, then extra lists in the order they were made. |
+| `created_at`, `created_by_name` | | |
+| `removed_at` | datetime, null | Removed extra list. A removed list is **hidden, not frozen**: queued actions still apply inside it (section 6, row L-7), so Undo brings it back complete. Never set on the main list. |
+| `removed_action_id` | str(64), null | The `remove_list` action, for Undo and notes. |
+| `version` | BigInteger | Counter value of the last change to this row. |
+
+### 3.2 `list_item`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | str(36), PK | Phone-made UUID (spec L280 "phone-made IDs"). |
+| `household_id`, `list_id` | | `list_id` FK shopping_list. |
+| `food_id` | FK food | Every item is an ingredient (spec L287). Non-food items are staples. |
+| `shop_id` | FK shop, null, SET NULL | Copied from the ingredient's usual shop when added, unless the action says otherwise. Null = "Any shop" (new L298). When an ingredient's usual shop changes, its unticked, live items whose `shop_id` was the old usual shop (or null) move to the new one. |
+| `amount_milli` | BigInteger, null | The amount to buy, in base units. Null = no amount (open question 1). |
+| `size_id` | FK food_size, null, SET NULL | The size the amount was given in, for display ("2 packets"). |
+| `source` | str(10) | `typed` (every action-made item) or `plan` (0.6). |
+| `hand_edited` | bool | Set by `set_amount`, and by an `add` merge that keeps the typed amount. Plan updates (0.6) never touch an item with this on (spec L273). |
+| `put_away_place_id` | FK place, null, SET NULL | The place chosen for this item. Used by the next tick; changed by `put_away`. |
+| `ticked_at`, `ticked_by_login_id`, `ticked_by_name`, `ticked_device_id` | null | A copy of the **first standing tick** (spec L280 "ticked by / when"), kept in step with `list_tick` by the server. All null when nothing is standing. |
+| `added_at`, `added_by_login_id`, `added_by_name` | | |
+| `deleted_at`, `deleted_by_name`, `deleted_action_id` | null | The tombstone (spec L274). `deleted_action_id` is the `delete` or `clear_ticked` action. |
+| `merged_into_id` | str(36), null | Set when an `add` was merged into another line (new L294). The row stays hidden; any later action naming it is applied to the line it joined. |
+| `version` | BigInteger | Counter value of the last change to this row or its ticks (spec L280 "version number"). |
+
+Indexes: (`household_id`, `version`); (`list_id`); (`household_id`, `list_id`, `food_id`, `shop_id`) for the merge rule.
+
+### 3.3 `list_tick` (one row per purchase)
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | str(64), PK with `household_id` | The `tick` action's ID. |
+| `household_id`, `item_id` | | |
+| `login_id`, `login_name`, `device_id` | | Who ticked, on which device. |
+| `ticked_at` | datetime | Server time it was applied. |
+| `place_id` | FK place | Where the stock went (and where `put_away` moved it). |
+| `bought_milli`, `bought_size_id` | | What this purchase put in: the item's amount at the tick, or what "Different pack?" said. Null = nothing (staple or no amount). |
+| `change_id` | FK change, null, SET NULL | The purchase's `shopped` change. Null for staples and items with no amount. |
+| `reversed_at`, `reversed_by_action_id` | null | Set by untick, "Just 1" or Undo. Cleared when an Undo puts the purchase back. |
+
+### 3.4 `sync_action` (the sync log, spec L280)
+
+| Column | Type | Notes |
+|---|---|---|
+| `household_id`, `id` | PK (both) | `id` is the action ID: 1 to 64 letters, digits, `.`, `-`, `_`, `:` (the 0.2 `Idempotency-Key` rule). The web app always uses UUIDs. |
+| `seq` | BigInteger | The counter. Unique (`household_id`, `seq`). |
+| `kind` | str(30) | Section 4.2, or a server-made kind (5.8). |
+| `login_id`, `login_name` | | Who. |
+| `device_id` | str(36), null | Null for server-made actions. |
+| `list_id`, `item_id` | null | What it acted on (after following `merged_into_id`). Index (`household_id`, `item_id`, `seq`). |
+| `seen` | BigInteger, null | The device's cursor when it was made. Null → treated as "saw everything" (no clash notes). |
+| `made_at` | datetime, null | Phone clock. Shown nowhere except the Undo window (section 9). |
+| `applied_at` | datetime | Server time. |
+| `payload`, `payload_hash` | JSON, str(64) | The action as received (minus the envelope) and its SHA-256 over sorted-key JSON, to spot an ID reused for something else. |
+| `status`, `reason` | str(10), str(30) null | `applied` · `merged` · `ignored` (section 5.4). |
+| `result` | JSON | The exact per-action result returned, so a repeat gets the same answer. |
+| `change_id` | FK change, null, SET NULL | The pantry change it made, if any. |
+| `undone_by_action_id` | str(64), null | Set when an `undo` reversed it. |
+
+### 3.5 `list_note` (quiet notes)
+
+`id` int, `household_id`, `list_id`, `item_id` (null for a list-wide note), `food_id` (null for a list-wide note), `for_login_id` (FK login, cascade: who sees it), `kind` (section 8 table), `text` str(300) (server-made, final wording), `undo_action_id` str(64) null (what the note's Undo reverses), `created_at`, `gone_at` (dismissed, used, or no longer true), `version`.
+
+### 3.6 `double_tick` (the "both ticked" question, spec L280)
+
+`id` int, `household_id`, `list_id`, `item_id`, `tick_ids` JSON (the standing ticks, in server order; 2 or more), `login_ids` JSON (who sees the card: the logins that ticked), `same_login` bool, `created_at`, `answer` null · `two` · `one` · `none` (`none` = closed because a purchase was reversed some other way), `answered_at`, `answered_by_name`, `answer_action_id`, `version`. At most one open question per item; a third tick joins the open one.
+
+### 3.7 New columns on existing tables
+
+- `household.list_seq` BigInteger, default 0: the counter. `household.list_purged_seq` BigInteger, default 0: the highest `version` whose rows the tidy-up has deleted (5.5).
+- `food.aisle` str(20), null: one of `veg_fruit` · `meat_fish` · `dairy` · `bakery` · `dry_goods` · `tins_jars` · `spices` · `frozen` · `drinks` · `household` · `other`, shown as Veg & fruit · Meat & fish · Dairy · Bakery · Dry goods · Tins & jars · Spices · Frozen · Drinks · Household · Other (spec L288). Null shows under Other. In the ingredient editor under "more". `shop.aisle_order` (already there) holds these keys; null = this default order.
+- `food.version` BigInteger, default 0: set to the next counter value whenever something a list shows changes (name, other names, counted as, staple, aisle, usual shop, usual place, sizes, created, merged, removed), so devices pick it up in "changes since".
+- `change.kind` gains `shopped` (already reserved in api-0.2 section 3.6).
+
+### 3.8 The device ID
+
+No table. The app makes a random UUID after sign-in (11.8) and sends it with every batch. The server stores it only on `sync_action.device_id`, `list_tick.device_id` and `list_item.ticked_device_id`, to tell "two phones" from "one phone sent it twice". Nothing else about the device is stored.
+
+### 3.9 Keeping and tidying (history job, PR 3)
+
+- Notes: deleted 7 days (the undo window) after they're made.
+- Closed questions: deleted after the undo window.
+- Tombstoned and merged-away items, and removed lists, with their ticks: deleted after `history_months` (12). `household.list_purged_seq` is raised to the highest `version` deleted.
+- `sync_action`: after `history_months`, `payload` and `result` are emptied, but the row (`id`, `seq`, `kind`, `status`) is **kept for good**, so a repeat is always caught however old the queue. It's a few thousand short rows a year.
+- When `shopped` changes are thinned into monthly totals, `list_tick.change_id` becomes null; a later untick still unticks but has no stock to take back.
+
+## 4. Actions
+
+### 4.1 The envelope
+
+A phone sends actions in a **batch**:
+
+```json
+POST /api/v1/shopping/actions
+{
+  "protocol": 1,
+  "device_id": "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d42",
+  "login_id": 2,
+  "since": 1040,
+  "actions": [
+    { "id": "5d0e…", "kind": "tick", "made_at": "2026-10-17T10:02:11Z", "seen": 1040,
+      "item_id": "6f1c…" },
+    { "id": "8a77…", "kind": "put_away", "made_at": "2026-10-17T10:02:15Z", "seen": 1040,
+      "item_id": "6f1c…", "place_id": 2, "tick_ids": ["5d0e…"] }
+  ]
+}
+```
+
+- `protocol`: always 1 in `/api/v1`. The server accepts protocol 1 for the life of `/api/v1`, so a queue made by an older app version is always understood.
+- `login_id`: the login that queued these actions. It must be the signed-in login, or nothing is applied (`409 other_login`, section 5.6).
+- `since`: the device's cursor. The answer includes everything that changed after it (5.5).
+- Every action has `id`, `kind`, `made_at` and `seen`, plus the fields for its kind. At most 100 actions per batch.
+
+### 4.2 The action kinds
+
+All are **queueable offline**. Payload fields are required unless marked optional.
+
+| `kind` | Payload | What the server does (details: sections 6 and 7) |
+|---|---|---|
+| `create_list` | `list_id` (new UUID), `name` | Makes an extra list. |
+| `rename_list` | `list_id`, `name` | Renames any list, main included (new L300). Last received wins, no note. |
+| `remove_list` | `list_id` | Hides an extra list. The main list → refused `main_list` (new L300). |
+| `add` | `list_id`, `item_id` (new UUID), `food_id` **or** `new_food` `{name, counted_as, staple}`, `amount` (optional), `size_id` (optional), `shop_id` (optional) | Adds an item, or joins an existing line (rule L-12). `amount` omitted or null = blank (rule L-14). `shop_id` omitted = the ingredient's usual shop; `null` = Any shop. |
+| `set_amount` | `item_id`, `amount`, `size_id` (optional) | Changes the amount to buy; sets `hand_edited`. On a ticked item it changes only the list, never the pantry (that's "Different pack?"). |
+| `delete` | `item_id` | Tombstones the item. |
+| `tick` | `item_id` | A purchase: stock into the pantry (section 7). |
+| `untick` | `item_id`, `tick_ids` | Reverses the listed purchases that are still standing (rule L-2). |
+| `put_away` | `item_id`, `place_id`, `tick_ids`, `use_by` (optional) | Records the place on the item and moves the listed purchases' stock there (7.3). On an unticked item it just records the place for the next tick. |
+| `different_pack` | `item_id`, `tick_id`, `count` (whole number 1 to 99), `pack` (base amount of one pack), `size_id` (optional) | "What did you buy?": changes that purchase to `count` × `pack` (7.4). |
+| `clear_ticked` | `list_id`, `item_ids` | Tombstones the listed items that still have a standing tick, as one action with one Undo (new L297). |
+| `answer_double_tick` | `question_id`, `answer` (`two` · `one`) | Settles the card (new L296). |
+| `dismiss_note` | `note_id` | Hides a note (×). |
+| `undo` | `undoes` (an action ID) | Reverses that action (section 9). |
+
+Refusals and "ignored" outcomes are per action (5.4); nothing in this table ever causes a pop-up.
+
+### 4.3 Amounts in actions need no conversions
+
+A phone offline can't ask the server an "ask once" question, so **actions only carry amounts that need no conversion**: base-unit numbers (`amount`, `pack`) with an optional `size_id` of that ingredient. The phone converts kg → g and L → ml itself and offers only the ingredient's own sizes and its own base unit (g/kg, ml/L or items). "Other…" in "Different pack?" works the same way. So a sync action never gets `409 ask_once`. Amounts over 1,000,000 base units → refused `too_big` (api-0.2 rule).
+
+### 4.4 New ingredients in `add`
+
+- `new_food` makes the ingredient on the server, unless one with that name already exists (ignoring case and accents, among ingredients that aren't merged away or removed; or matching one of its other names): then the item uses that one, and `counted_as`/`staple` from the action are ignored. So two phones typing "Tahini" offline get one ingredient (test SY-39).
+- `counted_as` and `staple` come from the "How do you count it?" answer (new L299, open question 2).
+- The ingredient is recorded as a `food_created` change. The action's first change carries the action ID as its `idempotency_key` (keeping api-0.2's promise that the two share one uniqueness); any further changes made by the same action carry none.
+
+### 4.5 What stays online-only
+
+Everything that isn't a list action, as in 0.2: the Pantry screen, the ingredient editor (including "New ingredient"), Undo from Pantry → Recent changes, Settings. Offline, those show "You're offline. This needs a connection." The Shopping screen works fully offline.
+
+## 5. The server
+
+### 5.1 Endpoints (all under `/api/v1`, public, in OpenAPI)
+
+| Request | What |
+|---|---|
+| `POST /api/v1/shopping/actions` | Apply a batch (4.1). Answers `200` with a result per action and the changes since `since`. |
+| `GET /api/v1/shopping/changes?since=N` | Everything that changed after counter N (5.5). `since=0` = a full copy. |
+| `GET /api/v1/events` | Server-Sent Events (section 10). |
+
+**One write path.** All list writes, online or offline, go through `POST /shopping/actions`. There are no separate per-item REST writes in 0.3 (no `POST /lists/{id}/items`): one path means online and offline behave the same and are tested once. Read views for other apps (such as Home Assistant) can be added later on top of the same rows.
+
+### 5.2 Order and the counter
+
+- A batch is one database transaction. Its **first write** takes the household's counter lock: `UPDATE household SET list_seq = list_seq + 1 … RETURNING list_seq` (SQLite: the write lock is held until commit; Postgres later: the row lock). So batches for one household run one at a time and numbers are committed in order. A reader never sees number N+1 without N.
+- Actions are applied in array order. Each **recorded** action (applied, merged or ignored) takes the next number; refused ones take none. Every row the action changes gets `version = seq`.
+- Each action runs in its own savepoint, so one refused action never undoes the others in the batch.
+- Server-made changes that devices must see (5.8) take numbers the same way.
+- `made_at` is never used for order. A queue from three days ago is applied now, in the order it arrives, after whatever already happened.
+
+### 5.3 Repeats (same action ID)
+
+Before applying an action the server looks for its ID in `sync_action` (and in `change.idempotency_key`, which 0.2 requests use):
+
+- Found in `sync_action` with the same `kind` and `payload_hash` → **nothing is applied again**. The result is the stored one, with its original `seq`, plus `"repeat": true`.
+- Found with a different kind or payload, or found only as a 0.2 `Idempotency-Key` → refused `key_reused` ("That change ID was already used for something else.").
+- Two copies of one batch arriving at once: the second waits for the counter lock, then finds every ID and answers with repeats.
+
+### 5.4 Per-action results
+
+```json
+{ "id": "5d0e…", "seq": 1041, "status": "applied", "reason": null, "repeat": false,
+  "item_id": "6f1c…", "change": { "id": 812, "kind": "shopped", "summary": "Bought 1 bunch Coriander → Fridge", "…": "…" },
+  "message": null }
+```
+
+| `status` | Meaning | Device does |
+|---|---|---|
+| `applied` | Done. `change` is the pantry change, if any (api-0.2 section 6.1). | Drops it from the queue. |
+| `merged` | An `add` joined an existing line; `item_id` is that line. | Drops it; points its own item ID at `item_id`. |
+| `ignored` | Recorded, but a rule meant it changed nothing. `reason` says which: `deleted` · `not_ticked` · `already_ticked` · `answered` · `nothing_to_undo` · `already_undone` · `cannot_undo` · `too_old` · `no_change`. | Drops it. The changes in the same answer show the true state; a note explains if one is due. `too_old`, `already_undone`: toast with `message`. |
+| `refused` | Not valid; **not recorded**, so sending it again gives the same answer. `reason`: `bad_action` (missing or wrong fields), `not_found` (a list, item, ingredient, place, shop, size, note or question that isn't in this household), `id_taken` (a "new" list or item ID already in use), `key_reused`, `main_list`, `too_big`. `message` is a plain sentence. | Drops it and shows "1 change couldn't be saved" with `message`. These mean a bug, so they should never happen in use. |
+
+`message` carries the partial-Undo sentence where there is one ("Took back 150 g of the 500 g: the rest has been used since.").
+
+### 5.5 Catching up (`changes since N`)
+
+```json
+GET /api/v1/shopping/changes?since=1040
+{
+  "cursor": 1052, "reset": false,
+  "lists":  [ { "id": "…", "name": "This week", "main": true, "position": 0, "removed": false, "version": 1044 } ],
+  "items":  [ { "id": "6f1c…", "list_id": "…", "food_id": 22, "shop_id": 1,
+                "amount": 1, "size_id": null, "display": "1 bunch", "source": "typed", "hand_edited": false,
+                "put_away_place_id": null,
+                "ticks": [ { "id": "5d0e…", "by": { "login_id": 2, "name": "Wren" }, "at": "…",
+                             "place_id": 1, "bought": { "amount": 1, "display": "1 bunch" }, "standing": true } ],
+                "added_by": { "login_id": 1, "name": "Tess" },
+                "deleted": false, "merged_into_id": null, "version": 1041 },
+              { "id": "9e02…", "list_id": "…", "deleted": true, "version": 1046 } ],
+  "notes":     [ { "id": 31, "list_id": "…", "item_id": "…", "food_id": 7, "text": "Wren added milk too", "undo": "8a77…", "gone": false, "version": 1050 } ],
+  "questions": [ { "id": 5, "list_id": "…", "item_id": "…", "title": "Did you buy 2?",
+                   "text": "You and Wren both ticked toor dal while offline, so 2 packets went into the pantry.",
+                   "yes": "Yes, 2", "no": "Just 1", "open": true, "version": 1049 } ],
+  "foods":  [ { "id": 7, "name": "Toor dal", "other_names": ["arhar dal"], "counted_as": "weight", "staple": false,
+                "aisle": "dry_goods", "shop_id": 1, "place_id": 3, "count_word": null, "count_word_plural": null,
+                "sizes": [ { "id": 12, "name": "packet", "plural": "packets", "amount": 500, "usual": true } ],
+                "removed": false, "merged_into_id": null, "version": 1038 } ],
+  "shops":  [ { "id": 1, "name": "Supermarket", "position": 0, "aisle_order": null } ],
+  "places": [ { "id": 1, "name": "Fridge", "kind": "fridge", "position": 0 } ],
+  "people": [ { "login_id": 1, "name": "Tess" }, { "login_id": 2, "name": "Wren" } ],
+  "aisles": [ { "key": "veg_fruit", "name": "Veg & fruit" } ]
+}
+```
+
+- Rows with `version > since`: lists, items (tombstones as just `id`, `list_id`, `deleted`, `version`), foods, and the notes and questions **for the signed-in login** (a gone note or closed question comes once with `gone: true` / `open: false`). Shops, places, people and aisles are small and always sent in full.
+- `cursor` is `household.list_seq`, read in the same read transaction as the rows.
+- `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`.
+- `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy.
+- `foods` are the ingredients the device needs for the list **and the add box** (search offline by any name): every ingredient that isn't merged away or removed. A household's few hundred names are small.
+
+### 5.6 Sign-in, household and request errors
+
+- Needs a signed-in session cookie and passes the same-origin check, as every write in 0.1/0.2. (API tokens arrive in 0.8 and will use the same endpoint.)
+- Everything is scoped to the login's household. Any ID from another household is refused `not_found` per action; changes and events never include another household.
+- Request-level errors (nothing is applied, the queue stays on the device):
+
+| Status | `code` | When |
+|---|---|---|
+| 401 | — | Not signed in, or the session ran out. |
+| 403 | — | Failed the same-origin check. |
+| 409 | `other_login` | `login_id` in the batch isn't the signed-in login ("These changes were made by another login."). |
+| 413 | `too_many` | More than 100 actions. |
+| 422 | `bad_protocol` | `protocol` isn't 1. |
+| 422 | — | The envelope itself is malformed (FastAPI's list form). A malformed **action** inside a good envelope is a per-action `refused`. |
+
+### 5.7 How it sits beside the rest of the API
+
+- 0.2's `Idempotency-Key` header still works on pantry and ingredient writes. Action IDs and those keys share one uniqueness per household (5.3).
+- The change log, Recent changes and Undo from Pantry (api-0.2 section 6.5) see `shopped` changes like any other.
+
+### 5.8 Server-made list changes
+
+Some changes reach lists from outside a batch. Each takes a counter number and is recorded in `sync_action` with a server-made UUID and `device_id` null, so devices see it through "changes since" and events:
+
+- **Undo of a `shopped` change from Pantry → Recent changes:** reverses that purchase on the list too (`kind` `untick_by_undo`). The list and pantry never disagree.
+- **Ingredient edits** that lists show bump `food.version` (3.7); a usual-shop change also moves items (3.2, `kind` `follow_shop`).
+- **Merging ingredients** moves the merged-away ingredient's list items to the kept one (the merge's undo snapshot includes them; Undo moves them back). Two lines that become the same ingredient stay two lines.
+- **Removing an ingredient** is blocked while it is on a list that isn't removed, or was removed less than the undo window ago. Tombstones don't block. When the ingredient is finally deleted, its tombstoned items go too.
+
+## 6. The rules
+
+Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 Oct answers, with what the server does and the tests that prove it. Test IDs are in section 14. "Other device" means a different `device_id`, even for the same login.
+
+| # | Rule (spec wording, shortened) | What the server does | Spec | Tests |
+|---|---|---|---|---|
+| L-1 | Phone keeps a queue of actions, each with its own phone-made ID; server works through it in the order received (a server counter, not device clocks); an action sent twice is ignored; tick-off is idempotent. | Sections 4 and 5: one counter per household, numbers in commit order, repeats answered from `sync_action`. | L267, L252 | SY-17, SY-18, SY-19, SY-20, SY-43 |
+| L-2 | **A tick sticks.** An untick counts only if it comes after the tick. | `untick` names the ticks the person saw (`tick_ids`). Only those still standing are reversed; any tick it didn't name stays. An untick naming nothing standing → `ignored not_ticked`. | L271 | SY-04, SY-05, SY-27 |
+| L-3 | **Both ticked offline** = two purchases, both into the pantry, then "Did you buy 2?" (Yes, 2 · Just 1) as a card, not a pop-up; "Just 1" removes the extra, with Undo. | A `tick` from another device on an item with a standing tick is a **second purchase** (its own stock and `shopped` change) and opens a `double_tick` question, if the purchases put stock in (not for staples or no amount). "Just 1" reverses every purchase after the first in server order; its Undo puts them back and reopens the card. A tick from the **same** device on an item it already ticked, with no untick between → `ignored already_ticked`. | L272 | SY-01, SY-03, SY-23, SY-24, SY-28 |
+| L-4 | **Same login on two phones:** still asks, worded "This was ticked on two phones". | Same as L-3 (devices differ); `same_login` picks the wording (section 8). | L284 | SY-02 |
+| L-5 | **A hand edit beats the app's own sums.** Plan-made items are keyed by ingredient + shop. | `set_amount` sets `hand_edited`. Every action-made item has `source = typed`. 0.6's plan update changes only `source = plan` items with `hand_edited` off, matched by (list, ingredient, shop), and never brings back a tombstoned plan item. | L273 | SY-44 |
+| L-6 | **Deleted stays deleted.** Deletes leave a tombstone so an old offline phone can't bring an item back. | List-side actions on a tombstoned item (`set_amount`, `delete`, `put_away`'s list part) → `ignored deleted`. Only an explicit `undo` of the delete brings it back. Pantry-side actions still count (L-9, L-10). | L274 | SY-06, SY-07, SY-45 |
+| L-7 | Extra lists work the same way (offline, sharing, put-away); ticked items on any list still go into the pantry. Extra lists can be renamed and removed (Undo); the main list can be renamed, never removed. | All rules apply on every list. A removed list is hidden, not frozen: queued actions still apply inside it, ticks still put stock in, and the person whose queue hit it gets a list-wide note; Undo of the removal brings it back with everything. `remove_list` on the main list → refused `main_list`. | L442, L94, new L300 | SY-32, SY-33 |
+| L-8 | **Put away offline** is queued with the tick. | `put_away` is its own queued action, sent in queue order right after the tick. | L275 | SY-14 |
+| L-9 | **Tick against a delete** (answer 2): the tick still counts as bought, pantry gets the stock, the item stays off the list; quiet note "Wren had removed this. Your tick still went into the pantry" + Undo. | Either order: the purchase happens, the item stays tombstoned, and the ticker gets note N1 (Undo reverses their tick). In tick-then-delete order the note is due when the delete's `seen` is before the tick (the deleter hadn't seen it). | new L292 | SY-08, SY-09 |
+| L-10 | **Untick after a tick** (answer 3) takes the stock back out the way Undo does; if some was used since, only what's left, never below zero. | Reverses the purchase with api-0.2's Undo of its pantry changes (7.5). Also on a tombstoned item: stock comes out, the item stays off, note N5. | new L293, L385 | SY-26, SY-38 |
+| L-11 | **No conflict pop-ups.** Other clashes show as a quiet note with Undo. | No action is ever refused because of what someone else did. Clashes give the notes in section 8. | L276 | SY-06 to SY-13 |
+| L-12 | **Both add the same ingredient** offline (same list, same shop, both unticked) (answer 4): one line, keeping the bigger amount; quiet note "Wren added milk too" + Undo. | An `add` whose (list, ingredient, shop) matches a live line with no standing tick → `merged` into the oldest such line, which keeps the bigger amount (no amount counts as smallest; the kept amount's `size_id` comes with it). If the add came from another device that hadn't seen that line (`seen` before the line's add), both adders get note N2. A different shop or list → a separate line. A line that's already ticked → a separate line. | new L294 | SY-10, SY-11, SY-39, SY-47 |
+| L-13 | **Both change the same amount** offline (answer 5): the change the server receives last wins; quiet note. | `set_amount` always applies. If an amount change from another device landed after this one's `seen`, the person it overwrote gets note N3 (Undo puts their amount back). | new L295 | SY-12 |
+| L-14 | **Typing something that isn't an ingredient** makes a new one ("How do you count it?"); blank amount = one of its usual size, or 1 if counted in items (answer 11). | `new_food` (4.4). Blank: the usual size × 1 (`size_id` set); count ingredients: 1; otherwise no amount (open question 1). | new L299 | SY-39, SY-40 |
+| L-15 | **Ticking into the pantry:** the ingredient's usual place, or Cupboard; no use-by unless chosen. Ticking an item moves it into the pantry; the user can say where. | Section 7.1. | L286, L195 | SY-46 |
+| L-16 | **Items that aren't food** are ingredients with Staple on: ticking never adds stock. | Staple: the tick is recorded on the list, no stock, no `shopped` change, no card. | L287 | SY-28 |
+| L-17 | **Different pack on the day:** change the pack when ticking; the pantry gets what was bought; the new size is added to the ingredient's sizes. | `different_pack` (7.4); a new size is marked `added_when_shopping`. | L345, L95 | SY-15, SY-16 |
+| L-18 | **"Did you buy 2?"** shows to both people; the first answer settles it and the card disappears for the other (answer 6). On Shopping only until 0.6 (answer 7). | The card goes to the logins that ticked. The first `answer_double_tick` applies; later ones → `ignored answered`. The question goes out as closed, so the card disappears. Reversing a purchase another way closes it as `none`. | new L296 | SY-25, SY-27, E1 |
+| L-19 | **Ticked items** fold into "In the trolley · N" at the end of each shop; "Clear ticked" removes them, with Undo (answer 8). | `clear_ticked` tombstones the listed items that still have a standing tick (an item unticked meanwhile stays). A later tick on a cleared item still counts (as L-9; the card, if any, explains it, so no N1 note). The fold itself is the screen's job (section 13). | new L297 | SY-29, SY-30, SY-31 |
+| L-20 | **No usual shop** → "Any shop", shown last (answer 9). | `shop_id` null. | new L298 | FE-1 |
+| L-21 | **Aisles:** optional per ingredient, default names and order; headings use the spec's names (answer 10). | `food.aisle` (3.7). | L288, new L288 | FE-1 |
+| L-22 | **How long offline:** plan for about 3 days; older queues still applied, never thrown away. | No age limit on actions. Undo's 7-day window counts from when the person pressed Undo (section 9), so a queued Undo still works. | L277 | SY-21, SY-22 |
+| L-23 | **Sign-in runs out while offline:** the queue stays and is sent once the same login signs back in; a different login gets the sign-out warning first. | `401` keeps the queue; `409 other_login` refuses another login's batch. Device side in 11.5. | L285 | SY-34, SY-35, FE-3 |
+| L-24 | **What the phone keeps offline** in 0.3: the app and the shopping lists. | 11.1 (the lists, plus the ingredient names for the add box). | L289 | E2 |
+| L-25 | **App updates:** install quietly next time the app opens, never mid-shop; waiting changes sent first. | 11.6. | L290 | FE-4 |
+| L-26 | **Connection status:** see UX principle 16. | 11.4. | L278, L71 | E2 |
+| L-27 | **Signing out** wipes the device's offline copy with a warning first if changes haven't been sent (answer 14 wording). | Section 12. | L468, L93, new L302 | E3 |
+| L-28 | **Undo reverses just that change**; never below zero; anyone in the household can undo within 7 days. | Section 9. | L385, L386 | SY-23, SY-26, SY-31 |
+| L-29 | **Main list subtitle** (answer 13). | Screen (section 13), from `people`. | new L301 | FE-2 |
+| L-30 | **Who did it:** each change records the login. | `shopped` and `undo` changes carry the action's login; summaries say who in Recent changes. | L379 | SY-01 |
+| L-31 | Every table has `household_id`. | Section 3; isolation tests. | CLAUDE.md | SY-41 |
+| L-32 | **Put away on two phones** with different places (not in the spec). | Proposed: like answer 5, the last received wins and the overwritten person gets note N6 (open question 3). | — | SY-13 |
+
+## 7. The pantry side of a tick (PR 3)
+
+### 7.1 A tick
+
+- **Place:** the item's `put_away_place_id` if one was chosen, else the ingredient's usual place, else the first `cupboard` place ("Cupboard"), using `stock.default_place` (spec L286).
+- **Amount:** the item's amount at the moment of the tick, stored on the purchase (`bought_milli`, `bought_size_id`). Lots are made as 0.2's add does (api-0.2 section 3.5): "2 packets" makes two one-packet lots, "1½ packets" a full and a half lot, "1 dozen" eggs one lot of 12, a typed amount one lot with no size. Reuse `stock.py`'s add, don't copy it.
+- **Use-by:** none (spec L286). 0.3 offers no use-by when shopping; `put_away`'s optional `use_by` is there so a later screen can add it without changing the protocol. Ticking into a freezer place sets no `frozen_on`.
+- **Staples** (L287) and **items with no amount**: no stock and no change. The tick is still recorded on the list.
+- **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
+- **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
+
+### 7.2 What a purchase's stock is
+
+A purchase's stock is the lots its own pantry changes made (the `change_line`s of its `shopped` change and of any `different_pack` changes for it), wherever they are now and however much is left.
+
+### 7.3 `put_away` after the tick
+
+- Records `put_away_place_id` on the item, then, for each purchase in `tick_ids` that's still standing, moves that purchase's lots that are not empty and still in the purchase's place to the new place, as one `moved` change ("Moved Coriander → Freezer"), with its own Undo. `list_tick.place_id` is updated.
+- History therefore shows "Bought 1 bunch Coriander → Fridge" then "Moved Coriander → Freezer". Each line reverses cleanly with 0.2's Undo; we don't rewrite the first change.
+- On a tombstoned item the stock still moves (it's about where the shopping went); only the list part is ignored.
+
+### 7.4 `different_pack`
+
+The person says purchase `tick_id` was really `count` × `pack`:
+
+1. **Size:** if the ingredient has a size of exactly `pack` (or `size_id` names one), use it. Otherwise add one, named like the usual size ("packet"), or "pack" if there is none, with `added_when_shopping` on (api-0.2 section 3.3). The new size is not made usual.
+2. **Stock:** `used_since` = what the purchase put in minus what's left in its lots now. Empty the purchase's lots, make `count` lots of `pack` in the purchase's place, then take `used_since` from them (oldest first), never below zero. So a 400 g purchase with 100 g used, changed to 1 kg, leaves 900 g.
+3. **Records:** one `shopped` change, summary "Paneer: bought 1 pack · 400 g instead of 2 packs · 400 g" (as-sold wording for both), with its own Undo. The purchase's `bought_milli`/`bought_size_id` are updated. The item's own amount ("Planned 2 × 200 g") stays.
+4. On a tombstoned item it still applies.
+
+### 7.5 Taking a purchase back (untick, "Just 1", Undo of a tick)
+
+- **Reversing a purchase** = api-0.2's Undo of each of its amount changes that isn't undone yet (its `different_pack` changes newest first, then its `shopped` change). Each puts back what it can, never below zero, and says so ("Took back 300 g of the 500 g: the rest has been used since."). Moves are left alone; they don't change amounts. Summaries: "Unticked: Bought 2 packets Toor dal → Cupboard", "Just 1: took back 1 packet Toor dal".
+- The purchase gets `reversed_at`. The item's `ticked_*` copy follows the first purchase still standing, or clears. A reversed purchase closes an open question as `none` unless that's how "Just 1" settled it.
+- **Putting a purchase back** (Undo of an untick or of "Just 1") makes a **new** `shopped` change for the same amount and place, clears `reversed_at`, and points `change_id` at the new change. (0.2 has no redo, so we don't undo the undo.) Undo of "Just 1" also reopens the card.
+- **Undo from Pantry → Recent changes** of a `shopped` change reverses that purchase on the list too (5.8).
+
+## 8. Notes and the card
+
+Notes are server-made, final wording, addressed to one login (`for_login_id`), shown on Shopping under the item, or where the item was if it's off the list, or at the top of the list for list-wide notes. Each has Undo and ×. A note goes away when dismissed, when its Undo is used, when what it describes is undone some other way, or after 7 days.
+
+`{who}` is the other person's login name ("Wren"). For the same login on another phone it is "Your other phone". Ingredient names appear exactly as the household typed them.
+
+| Note | When | Text | Undo reverses |
+|---|---|---|---|
+| N1 | Tick against a delete (L-9) | "{who} had removed this. Your tick still went into the pantry." (new L292) | The ticker's tick (stock out). |
+| N2 | Both added (L-12), to both adders | "{who} added {name} too" (new L294) | The later add (the line goes back to the earlier amount; the later add is gone). |
+| N3 | Amount overwritten (L-13), to the overwritten person | "{who} changed {name} to {amount}" | The winning change (your amount back, if it's still theirs). |
+| N4 | Edit against a delete, either order (L-6), to the editor | "{who} had removed {name}, so your change wasn't kept." | The delete (the item comes back as it is now). |
+| N5 | Untick on a tombstoned item (L-10) | "{who} had removed this, so it isn't back on the list. Your untick took it out of the pantry." | The untick (stock back in). |
+| N6 | Put away overwritten (L-32) | "{who} put {name} in the {place}" | The winning put-away (stock moved back). |
+| N7 | Queued actions hit a removed list (L-7), one per login | "{who} had removed {list}. Your changes are kept with it." plus, if it had ticks, " Your ticks still went into the pantry." | The removal (the list comes back). |
+
+**The card** (L272, L284, new L296), from the mockup (`Shop.dc.html`):
+
+- Title "Did you buy 2?"; text "You and Wren both ticked toor dal while offline, so 2 packets went into the pantry."; buttons **Yes, 2** · **Just 1**.
+- Same login: "This was ticked on two phones, so 2 packets went into the pantry."
+- Three or more ticks: "Did you buy 3?", "You, Wren and Arlo all ticked …", **Yes, 3** · **Just 1**.
+- Shown to the logins that ticked, on Shopping only until 0.6 (answer 7). The first answer closes it for everyone.
+- After "Just 1": toast "Took back 1 packet Toor dal" (or the partial sentence) with Undo. After "Yes, 2": toast "Kept 2 packets" with Undo (brings the card back).
+
+## 9. Undo
+
+- Every list action except `undo`, `dismiss_note` and `refused` ones can be undone with `undo {undoes: <action ID>}` by anyone in the household (L386). The Undo toast on the phone uses the action ID, so it works offline, even before the original has been sent. Both go in the queue, in order.
+- What each Undo does: `create_list` → removes the list; `rename_list` → the old name (if it's still this one); `remove_list` → back; `add` → the item is tombstoned (or, if `merged`, the line goes back to its earlier amount); `set_amount` → the earlier amount, if the item still has this action's amount; `delete`, `clear_ticked` → the items it removed come back; `tick` → reverses that purchase (7.5); `untick`, "Just 1" → puts the purchases back (7.5); `put_away` → stock moved back (0.2 move Undo rules) and the item's earlier place; `different_pack` → 0.2 Undo of its change; `answer_double_tick` "two" → the card comes back.
+- **Window:** 7 days (the household's undo window), counted from when the person pressed Undo (`made_at`, kept between the undone action's `applied_at` and now, so a wrong phone clock can't stretch it) back to the undone action's `applied_at`. An Undo queued in time is never lost because the phone was offline. Too late → `ignored too_old`, toast "Too late to undo: changes can be undone for 7 days."
+- Undo of an Undo → `ignored cannot_undo` (no redo, as 0.2). Already undone → `ignored already_undone`. Undo of an ignored action → `ignored nothing_to_undo`.
+
+## 10. Live updates (PR 5)
+
+`GET /api/v1/events`, `text/event-stream`, same-origin cookie, from our own server only (no third-party push service). Built with FastAPI/Starlette's `StreamingResponse`: no new dependency.
+
+```
+retry: 5000
+
+event: hello
+data: {"cursor": 1052}
+
+event: shopping
+data: {"cursor": 1053}
+
+event: pantry
+data: {"change_id": 815}
+
+: keep-alive
+```
+
+- `hello` on connect; `shopping` after any commit that raised the household's counter ("lists changed up to N"); `pantry` after any stock change (so an open Pantry screen re-fetches). Nothing else: no list contents, no names. A device that gets `shopping` with a cursor above its own calls `GET /shopping/changes?since=…`.
+- Only to sessions of the same household. Sent after commit, never before.
+- A comment line every 25 seconds keeps proxies from closing it; the session is re-checked each time, and the stream ends with `event: signed_out` when it runs out.
+- Headers `Cache-Control: no-cache` and `X-Accel-Buffering: no` (so nginx-style proxies don't hold events back). The reverse-proxy docs get a line about it.
+- One in-process broadcaster: the container runs one server process. (Several processes, or Postgres, would need Postgres `LISTEN/NOTIFY`; noted for later.)
+- If the stream drops, the browser reconnects by itself; the app also re-fetches changes when it comes back to the foreground.
+
+## 11. The device (PR 6)
+
+### 11.1 What the phone stores
+
+One IndexedDB database `mealwright` through `idb` (ISC, approved 17 Oct; pin an exact version released at least two weeks earlier, and name it in the PR):
+
+- `meta`: `device_id`, `login_id`, `login_name`, `username`, `household_id`, `cursor`, `protocol`.
+- `copy`: the offline copy from "changes since" (lists, items, notes, questions, foods, shops, places, people, aisles), one store per kind, keyed by ID.
+- `queue`: auto-numbered entries `{ action, login_id, queued_at, tries }`, oldest first.
+
+The service worker (SvelteKit's own) caches only the app shell. List data lives in IndexedDB, never in the HTTP cache.
+
+### 11.2 Optimistic display
+
+- The screen shows **the copy with the queue applied on top**, using one small pure function (`applyLocal(copy, actions)`). A new action is added to the queue and shown at once (UX principle 8, L63).
+- `applyLocal` does the list part only: tick marks the item ticked by me, add inserts (or joins a matching unticked line), and so on. It never works out pantry stock (only the server changes the pantry, L267). Display text for items the phone made itself uses a simple local format ("2 packets", "400 g") until the server's `display` arrives.
+- After every answer from the server: update the copy from `changes`, drop the answered actions, map merged item IDs, and show `applyLocal(copy, what's left in the queue)` again.
+
+### 11.3 Sending
+
+- **One batch in flight at a time**, the oldest up to 100 queued actions of the signed-in login, in queue order. Never reordered, never merged, never dropped except by its result or by "Sign out and lose them".
+- Send straight after a new action (gathering anything made within 250 ms), and on: the browser's `online` event, the app opening or coming to the foreground, the event stream reconnecting, "Try now", and the retry timer.
+- **No answer, a network error, a timeout (15 s), or 5xx** (including a proxy's 502 to 504): send **the same batch** again after 2, 4, 8, 16, 30, then every 60 seconds, each ±20%. Repeats make this safe (5.3). Back to normal after any success.
+- `401`: stop sending and keep the queue (11.5). `409 other_login`: don't send (11.5). `413`: halve the batch and carry on. `422`: a bug; keep the queue, stop, show "Couldn't send your changes" with Try now.
+
+### 11.4 "N changes waiting" and connection status (UX principle 16, L71)
+
+- **N** = the number of queue entries for the signed-in login, including the batch in flight. One tap is one action, so ticking an item and choosing Freezer is 2.
+- **Offline** = the last request failed with a network error or timeout, or the browser says it's offline. A blip under 3 seconds shows nothing.
+- Offline: phone "Offline — 3 changes waiting" with Try now, above the bottom tabs; desktop "Offline · 3 changes waiting. They'll save when you're back." with Try now at the foot of the sidebar, a small dot when collapsed (mockups). With nothing waiting it says just "Offline".
+- Shopping's subtitle while offline: "12 to buy · offline, saving on this phone" (desktop "… on this computer"), from the mockups.
+- Back online and the queue empty: a short toast "Back online — all saved". Nothing extra while all is well.
+
+### 11.5 Sign-in runs out while offline (L285)
+
+- A `401` keeps the queue. When online the app asks the person to sign in again: "Please sign in again. Your 3 changes are kept on this phone."
+- The **same login** signs back in → the queue is sent at once.
+- A **different login**: the queue is never sent under another login (the server refuses it anyway with `409 other_login`). The warning comes first (open question 4 has the proposed wording).
+
+### 11.6 App updates (L290)
+
+- A new service worker installs in the background and waits; the app never reloads itself while open, so never mid-shop.
+- On the next cold start, if a new version is waiting: send the queue first; only once it's empty, switch to the new version (before the list is shown). If the queue can't be sent (offline), keep the current version and try again next time.
+- Queue entries keep `protocol: 1`, so a newer app sends an older queue as it is. The IndexedDB upgrade code must keep `queue` intact across versions (tested).
+- Docs: offline needs HTTPS (L461); iPhone Safari can clear offline data after 7 days without use, and adding to the Home Screen helps (L290).
+
+### 11.7 How long offline (L277)
+
+The copy and queue have no expiry on the phone. The app asks the browser for persistent storage (`navigator.storage.persist()`) once it is installed, where that doesn't show a prompt. The server applies queues of any age (L-22).
+
+### 11.8 The device ID
+
+`crypto.randomUUID()` the first time the app runs after a sign-in, kept in `meta`, wiped at sign-out (a new one after the next sign-in). It's random, not worked out from the device, and is sent only to our own server.
+
+## 12. Signing out (spec L468, L93, new L302)
+
+**The warning.** If the queue isn't empty when someone taps Sign out, the app first tries to send it (up to 5 seconds). If anything is still waiting:
+
+> **3 changes haven't been sent yet. If you sign out now, they're lost.**
+> Try sending now · Stay signed in · Sign out and lose them
+
+- **Try sending now:** sends. If everything goes, it carries on signing out as asked. If not, the warning stays, with "Still can't reach your server."
+- **Stay signed in:** closes the warning.
+- **Sign out and lose them:** wipes and signs out.
+
+This is the one justified "Are you sure?" (UX principle 6): unsent changes can't be undone. If everything is sent, Sign out just signs out.
+
+**What's wiped**, on this browser only, before the server sign-out:
+
+- The whole IndexedDB database `mealwright`: queue, offline copy, ingredient names, cursor, device ID, `meta`.
+- Every Cache Storage cache except the app shell (code only; nothing about the household). From 0.4 this includes cached recipes and photos.
+- `sessionStorage`, and every `localStorage` key except per-device display preferences that say nothing about the household (such as the sidebar being collapsed).
+
+Then `POST` sign-out (0.1) ends the session on the server. **Offline:** the wipe happens at once, the sign-in page shows, and a "sign-out pending" flag (kept outside the wiped database) makes the app end the server session first thing when it's back, before anything else can use the old cookie.
+
+**A shared phone:** each person signs in with their own login; signing out wipes the first person's copy (after the warning), so the next person starts clean. A tablet shared under one household login ("Family") isn't signed out between people; everyone's changes go under that login (the "Who's this?" picker is 0.8). A session that runs out is not a sign-out: nothing is wiped (11.5).
+
+## 13. Screen details that touch the protocol (PR 4)
+
+- **Order:** shops in their `position` order, each with its aisles in the shop's `aisle_order` (or the default order, L288), items by name within an aisle, ingredients with no aisle under Other. Then **Any shop** last (new L298).
+- **In the trolley · N:** at the end of each shop, ticked items fold into one row that opens to show them, each with "Different pack?" and the place; **Clear ticked** there sends `clear_ticked` with the items shown (new L297).
+- **Aisle headings** use the spec's names (new L288), not the mockups' older "Fruit & veg" and "Rice & grains".
+- **Subtitle** of the main list (new L301): "12 to buy · synced with Wren". Three people: "synced with Wren and Arlo"; four or more: "synced with Wren and 2 others". Only logins count; profile-only members don't. One login in the household: "12 to buy · saved". Extra lists keep the mockup's line ("Extra list · 6 · ticked items still go to the pantry").
+- **Put away:** phone toast "Coriander → Fridge · Change · Undo"; desktop "Put away" panel ("Ticked items go straight into the pantry.", Where: Fridge · Freezer · Cupboard, "Undo last tick"), from the mockups.
+- **Different pack?** sheet: "What did you buy?" with 2 × 200 g · 1 × 400 g · 1 × 1 kg · Other… and "Pantry gets 1 pack · 400 g.", Done.
+- **Lists:** the list picker (This week · extra lists · + New list), with Rename and Remove (extra lists only) in each list's menu; Remove has Undo.
+- **New ingredient** (new L299; spec L323): typing a name that isn't an ingredient offers "+ New ingredient: "tahini"", then "How do you count it?" (open question 2), then adds the item.
+- Every on-screen sentence says "ingredient", never "food" (api-0.2 section 1.1; `test_wording.py`).
+
+## 14. Two-device tests
+
+**Setup S0** (built by a test helper, used by every case unless it says otherwise): one household; logins **Tess** (device A) and **Wren** (device B); shop Supermarket; places Fridge, Freezer, Cupboard, Spice rack. Ingredients: Toor dal (weight, packet 500 g usual, lives in Cupboard, shop Supermarket), Paneer (weight, pack 200 g usual, Fridge, Supermarket), Milk (volume, no size, Fridge, Supermarket), Coriander (count, count word bunch, Fridge, Supermarket), Onions (count, no usual place, Supermarket), Salt (staple, Supermarket). Main list "This week": toor dal 1 packet, paneer 2 × 200 g, milk 2 L, coriander 1 bunch, onions 5, salt. None ticked; none of them in the pantry. Both devices synced at cursor C0.
+
+"Offline" means the device queues its actions; "reconnect" means it sends its whole queue as one batch (unless the case says otherwise). "A→B" = A's batch reaches the server first. Every case with an order is run **in both orders** where it says "both", and asserts list, pantry (lots, places, amounts), change log, notes and cards for **both** logins.
+
+Runs as: **BE** = fast backend test (pytest, `backend/tests/test_sync_*.py`, test names start with the ID, e.g. `test_sy01_same_item_ticked_on_both`); **E2E** = browser end-to-end (Playwright); **FE** = frontend unit test (Vitest).
+
+| ID | Start | A does | B does | Reconnect | Expected list | Expected pantry | Notes / card | Runs as |
+|---|---|---|---|---|---|---|---|---|
+| SY-01 | S0 | offline: tick toor dal | offline: tick toor dal | both orders | toor dal ticked, two ticks (Tess, Wren) | Toor dal 2 packets (2 lots) in Cupboard; two `shopped` changes, one by each | Card "Did you buy 2?" for both: Tess's says "You and Wren both ticked…", Wren's "You and Tess…". No notes. | BE |
+| SY-02 | S0, but B is a second phone signed in as Tess | offline: tick toor dal | offline: tick toor dal | both orders | ticked, two ticks | 2 packets | Card for Tess: "This was ticked on two phones, so 2 packets went into the pantry." | BE |
+| SY-03 | S0 | offline: tick toor dal twice (two action IDs, no untick) | — | A | ticked once | 1 packet | Second → `ignored already_ticked`. No card. | BE |
+| SY-04 | S0 + coriander ticked by A (tick t0), synced | offline: untick (t0), then tick again (t1) | offline: untick (t0) | both orders | coriander ticked (t1, Tess) | Coriander 1 bunch (not 0, not 2) | B's untick → `ignored not_ticked` (A→B) or applied before A's (B→A); same end either way. No notes. | BE |
+| SY-05 | S0 + coriander ticked t0, synced | offline: untick (t0) | offline: untick (t0) | both orders | coriander unticked | Coriander 0 (taken back once, never negative); one `undo` change | Second untick → `ignored not_ticked`. | BE |
+| SY-06 | S0 | offline: delete milk | offline: set milk 4 L | A→B | milk gone | no change | Wren: N4 "Tess had removed milk, so your change wasn't kept." Undo → milk back at 2 L. | BE |
+| SY-07 | S0 | offline: delete milk | offline: set milk 4 L | B→A | milk gone | no change | Wren: N4, same text. Undo → milk back at 4 L. | BE |
+| SY-08 | S0 | offline: tick paneer | offline: delete paneer | A→B | paneer off the list | Paneer 2 packs · 400 g in Fridge | cabledrawer: N1 "Wren had removed this. Your tick still went into the pantry." Undo → paneer back out of the pantry (0). | BE |
+| SY-09 | S0 | offline: tick paneer | offline: delete paneer | B→A | paneer off | 2 packs · 400 g in Fridge | cabledrawer: N1, same. | BE |
+| SY-10 | S0 | offline: add Eggs 6 (Supermarket) | offline: add Eggs 12 (Supermarket) | both orders | one Eggs line, 12 | no change | Both get N2 ("Wren added Eggs too" / "Tess added Eggs too"). The later add is `merged`. Undo of N2 → A→B: line back to 6; B→A: stays 12; either way one line. | BE |
+| SY-11 | S0 + extra list "Party" | offline: add Eggs 6 to This week | offline: add Eggs 6 to Party; and add Eggs to This week with shop Any shop | both orders | three Eggs lines (This week/Supermarket, Party, This week/Any shop) | no change | No notes. | BE |
+| SY-12 | S0 | offline: set milk 3 L | offline: set milk 4 L | both orders | A→B: milk 4 L; B→A: 3 L; `hand_edited` on | no change | The overwritten person gets N3 ("Wren changed milk to 4 L" / "Tess changed milk to 3 L"); Undo puts their amount back. | BE |
+| SY-13 | S0 + coriander ticked t0 (into Fridge), synced | offline: put away → Cupboard | offline: put away → Freezer | both orders | ticked; place = last received | Coriander 1 bunch in the last received place; two `moved` changes | The overwritten person gets N6; Undo moves it back to their choice. (Open question 3.) | BE |
+| SY-14 | S0 | offline: tick coriander, then put away → Freezer | — | A | coriander ticked, place Freezer | Coriander 1 bunch in Freezer, no use-by; changes "Bought 1 bunch Coriander → Fridge", "Moved Coriander → Freezer" | — | BE |
+| SY-15 | S0 | offline: tick paneer, then Different pack → 1 × 400 g | — | A | paneer ticked; planned 2 × 200 g, bought 1 × 400 g | Paneer one lot 400 g in Fridge; Paneer gets size "pack 400 g", `added_when_shopping` | — | BE |
+| SY-16 | S0 | online: tick paneer (2 × 200 g) | online: Pantry, used 100 g Paneer | — then A: Different pack → 1 × 1 kg | paneer ticked, bought 1 × 1 kg | Paneer 900 g | — | BE |
+| SY-17 | S0 | offline: tick toor dal, tick paneer, set milk 3 L, add Eggs 6, delete onions | — | A sends; the answer is lost; A sends the identical batch again | as after the first send | as after the first send (toor dal 1 packet, paneer 400 g) | Second answer: every result `repeat: true`, same `seq`s; counter unchanged. | BE |
+| SY-18 | as SY-17 | the first 3 actions sent as one batch, answer lost; then all 5 sent as one batch | — | A | all 5 applied once | toor dal 1 packet, paneer 400 g | Results 1–3 `repeat: true`, 4–5 applied. | BE |
+| SY-19 | S0 | online: tick toor dal; the answer is lost; sent again | — | A | ticked once | 1 packet | `repeat: true`. | BE |
+| SY-20 | S0 | sends action X (tick toor dal); then another action with X's ID but `delete milk`; then a 0.2 `POST /stock` with `Idempotency-Key` Y and a sync action with ID Y | — | A | toor dal ticked; milk still there | 1 packet + the 0.2 add | Second X → `refused key_reused`; Y action → `refused key_reused`. | BE |
+| SY-21 | S0 | Saturday, online: tick toor dal; delete milk; clear ticked | Friday (`made_at` 3 days earlier), offline: tick toor dal; add Eggs 6; set milk 3 L | A, then B on Monday | toor dal off (cleared); Eggs 6 on; milk gone | Toor dal 2 packets | Card "Did you buy 2?" for both (no N1, the card explains it); Wren: N4 for milk. | BE |
+| SY-22 | S0 | online, 2 weeks ago: delete coriander | 3 weeks ago, offline: tick paneer, Undo it 10 s later; tick coriander | B now | paneer unticked; coriander off | Paneer 0 (bought then taken back: the queued Undo still counts); Coriander 1 bunch | Wren: N1 for coriander. | BE |
+| SY-22b | S0 | — | online: tick toor dal; 2 days later, offline: Undo it; reconnect 10 days after the tick | B | toor dal unticked | 0 | The Undo counts (pressed within 7 days). The same Undo pressed on day 9 → `ignored too_old`, toast. | BE |
+| SY-23 | after SY-01 (A→B) | online: Just 1 | — | — | toor dal ticked by Tess only | 1 packet (Wren's purchase taken back) | Card gone for both; toast "Took back 1 packet Toor dal". A's Undo → 2 packets, card back for both. | BE |
+| SY-24 | after SY-01 (A→B), then Wren uses 800 g in Pantry (Tess's lot empty, Wren's lot 200 g) | online: Just 1 | — | — | ticked by Tess | 0 | "Took back 200 g of the 500 g: the rest has been used since." | BE |
+| SY-25 | after SY-01 (A→B) | offline: Yes, 2 | offline: Just 1 | both orders | ticked | A→B: 2 packets; B→A: 1 packet | First answer settles it; the other → `ignored answered`. Card gone for both. | BE |
+| SY-26 | S0 | online: tick toor dal (500 g) | online: Pantry, used 200 g Toor dal | — then A: untick | toor dal back on the list, unticked | 0 (took back 300 g) | "Took back 300 g of the 500 g: the rest has been used since." | BE |
+| SY-27 | after SY-01 (A→B, both synced) | — | online: untick naming both ticks | — | unticked | 0 | Card closed (`none`) for both. Variant: A, not yet synced, unticks naming only its own tick → only Tess's purchase out, item stays ticked by Wren, 1 packet, card closed. | BE |
+| SY-28 | S0 | offline: tick salt | offline: tick salt | both orders | salt ticked | nothing; no `shopped` change | No card. | BE |
+| SY-29 | S0 + toor dal ticked by A, synced | online: Clear ticked [toor dal] | offline: tick onions | A, then B | toor dal off; onions ticked (in the trolley) | Toor dal 1 packet; Onions 5 | — | BE |
+| SY-30 | S0, B offline from the start | online: tick toor dal; Clear ticked [toor dal] | offline: tick toor dal | B | toor dal off | Toor dal 2 packets | Card for both; no N1. | BE |
+| SY-31 | S0 + toor dal and paneer ticked, synced | online: Clear ticked [toor dal, paneer]; then Undo | — | — | both back, ticked | unchanged throughout (1 packet, 400 g) | — | BE |
+| SY-32 | S0 + extra list "Party on Saturday": crisps 2 bags, lemonade 2 bottles; synced | online: remove Party | offline: tick crisps; add Candles (new ingredient, staple); set lemonade 3 bottles | A, then B | Party hidden | Crisps 2 bags | Wren: N7 "Tess had removed Party on Saturday. Your changes are kept with it. Your ticks still went into the pantry." Undo → Party back with crisps ticked, Candles, lemonade 3. | BE |
+| SY-33 | S0 | `remove_list` on This week; then `rename_list` to "Our week" | — | A | renamed, still there | — | Remove → `refused main_list`. | BE |
+| SY-34 | S0 | — | offline: 3 actions; meanwhile B's session runs out | B sends → 401; signs in again as Wren; sends | all 3 applied | as the actions say | Nothing applied before the new sign-in. | BE |
+| SY-35 | S0 | — | Wren's 3 queued actions sent under Tess's session | B | unchanged | unchanged | `409 other_login`, nothing applied. | BE + FE-3 |
+| SY-36 | S0 | online: tick toor dal | online: Pantry → Recent changes → Undo "Bought 1 packet Toor dal → Cupboard" | — | toor dal unticked; A sees it via changes and an event | 0 | — | BE |
+| SY-37 | S0 | online: tick toor dal; Undo from the toast | — | — | unticked | 0 | — | BE |
+| SY-38 | S0 + toor dal ticked by A, synced | online: Clear ticked [toor dal] | offline: untick toor dal | A, then B | toor dal stays off | 0 | Wren: N5. Undo → 1 packet again. | BE |
+| SY-39 | S0 | offline: add "Tahini", new ingredient (weight), blank | offline: add "tahini", new ingredient (count), blank | both orders | one ingredient (the first one's name and counting); one line | — | N2 for both. | BE |
+| SY-40 | S0 | add Toor dal blank; add Onions blank; add a new weight ingredient with no size, blank | — | — | toor dal 1 packet (`size_id` packet); onions 1; the new one with no amount | ticking the new one adds nothing (open question 1) | — | BE |
+| SY-41 | S0 + a second household | actions naming the other household's list, item, ingredient, place, shop, size, note, question; an `add` reusing one of its item IDs | — | A | unchanged | unchanged | `refused not_found` / `id_taken`; changes and events show nothing of the other household. | BE |
+| SY-42 | S0, 20 actions applied | — | device at cursor N | — | `changes?since=N` returns exactly the rows with `version > N` (tombstones included); `since=0` and `since` below `list_purged_seq` → `reset: true` with no tombstones | — | — | BE |
+| SY-43 | S0 | two batches sent at the same moment (threads) | | | numbers strictly increasing, no gaps; a reader polling meanwhile never skips a number | — | — | BE |
+| SY-44 | S0 | `add` | `set_amount` on it | | `source` typed; `hand_edited` on after set_amount | — | — | BE |
+| SY-45 | S0 | offline: delete milk | offline: delete milk | both orders | milk gone | — | Second → `ignored deleted`; its Undo → `ignored nothing_to_undo`; the first's Undo brings milk back. | BE |
+| SY-46 | S0 | tick onions (no usual place); tick toor dal (Cupboard); put away coriander → Freezer, then tick it | — | | all ticked | Onions 5 in Cupboard; Toor dal 1 lot in Cupboard; Coriander in Freezer; no use-by on any | — | BE |
+| SY-47 | after SY-10 (A→B) | — | ticks Eggs using her own (merged) item ID | B | the kept line is ticked | Eggs 12 | — | BE |
+| P-1 | S0 | random queues for two devices (Hypothesis): any mix of the actions above, random reconnect order, batch splits, lost answers and resends | | | | | After everything: each ingredient's stock = its standing purchases' stock minus uses, never below zero; resending any prefix changes nothing; every action has exactly one `sync_action` row; a tombstoned item is back only through an Undo. | BE |
+| E1 | S0, two browser contexts (cabledrawer, Wren) | offline (Playwright `setOffline`): tick toor dal | offline: tick toor dal | A, then B | ticked | Pantry screen: Toor dal 2 packets | "Did you buy 2?" on both screens; Wren taps Just 1 → the card disappears from cabledrawer's screen within 5 s (event stream); Pantry 1 packet. | E2E |
+| E2 | S0, one context | offline: tick 2 items, add 1 | — | reload the page while offline, then go online | the 3 changes survive the reload; then on the server | — | Bar "Offline — 3 changes waiting"; after reconnect, toast "Back online — all saved". | E2E |
+| E3 | S0, one context | offline: tick 1 item; Sign out | — | — | — | — | The warning with Try sending now · Stay signed in · Sign out and lose them. Stay signed in keeps the change. Sign out and lose them → IndexedDB database gone, sign-in page; going online ends the server session. | E2E |
+| FE-1 | | | | | Grouping: shops in order, aisles in the spec's order and names, no aisle → Other, Any shop last, trolley row per shop | | | FE |
+| FE-2 | | | | | Subtitle for 1, 2, 3 and 4 logins; offline wording | | | FE |
+| FE-3 | | | | | A different login signs in on a phone holding Wren's queue → the warning, never a send | | | FE |
+| FE-4 | | | | | Update gate: a waiting version switches only on a cold start with an empty queue; the IndexedDB upgrade keeps the queue | | | FE |
+
+## 15. The manual two-phone test (for the 0.3 release)
+
+For cabledrawer, with two phones. About 20 minutes, plus a night. Your server is only reachable on home Wi-Fi, so do the "shop" part anywhere, but **reconnect at home**.
+
+**Before you start**
+
+1. On both phones, open Mealwright in the browser, sign in (one as cabledrawer, one as Wren), and add it to the Home Screen. Open it from the Home Screen icon from now on.
+2. On one phone, make a list for a single shop (say Supermarket) with: Toor dal 1 packet, Coriander 1 bunch, Milk 2 L, Onions 5.
+3. Tick **Coriander** on phone A now, while online. Wait until both phones show it ticked.
+4. Open **Pantry** and write down how much Toor dal and Coriander you have.
+
+**In the "shop" (both phones offline)**
+
+5. On both phones, turn on **aeroplane mode** and make sure Wi-Fi is off too. Each phone should show "Offline".
+6. **Same item on both:** tick **Toor dal** on phone A and on phone B.
+7. **A tick against an untick:** on phone B, untick **Coriander**. On phone A, untick **Coriander** and then tick it again.
+8. **A delete against an edit:** on phone A, delete **Milk**. On phone B, change Milk to 4 L.
+9. Each phone should now say "Offline — N changes waiting" (A: 4, B: 3).
+10. You can close the app, or restart the phones: the changes stay.
+
+**Back home**
+
+11. Phone A: turn aeroplane mode off and join home Wi-Fi. Open the app. You should see "Back online — all saved".
+12. **Leave phone B offline until tomorrow.** Then turn its aeroplane mode off at home and open the app. "Back online — all saved".
+
+**What you should see on both phones**
+
+- Toor dal ticked once on the list, and a card **"Did you buy 2?"**. In Pantry: 2 packets more than you wrote down.
+- Tap **Just 1** on one phone. The card disappears from the other phone within a few seconds. Pantry: 1 packet more than before.
+- **Coriander** ticked, and in Pantry exactly 1 bunch more than before you started step 3 (not 0, not 2).
+- **Milk** gone from the list. Phone B shows a quiet note "Tess had removed Milk, so your change wasn't kept." with Undo. Nothing changed in the pantry for milk.
+- Pantry → Recent changes lists the ticks with who did them.
+
+**Bonus (one minute):** on phone B, go offline, tick something, then Settings → Sign out. You should get "1 change hasn't been sent yet…" with Try sending now · Stay signed in · Sign out and lose them. Tap **Stay signed in**, go back online, and the change saves.
+
+If anything looks different, take a screenshot, note the step number, and put it in the friction log.
+
+## 16. Open questions
+
+Things the spec and cabledrawer's answers don't settle. Each has a recommendation; nothing here is guessed silently.
+
+1. **An item with no amount.** A blank amount for an ingredient weighed or measured with no usual size (new L299 covers only "usual size" and "counted in items"). *Recommend:* the item shows with no amount; ticking it puts nothing into the pantry, and the ticked row offers "How much? (to the pantry)" (the Different pack? sheet) for one more tap if they want it counted. No prompt.
+2. **"How do you count it?" isn't in 0.2.** 0.2 makes a new ingredient from its name only and guesses weight unless the bundled table knows better. *Recommend:* PR 4 adds the question when a typed name is brand new: By weight · By volume · One by one · Don't count it (staple, for kitchen roll and soap), with the bundled table's guess picked first when online.
+3. **Put away on two phones with different places** (SY-13). *Recommend:* treat it like answer 5: the one the server receives last wins, with a quiet note "Wren put coriander in the Freezer" and Undo.
+4. **A different login on a phone holding someone else's changes.** Answer 14's buttons don't fit (the new person can't send Wren's changes). *Recommend:* the sign-in page says "Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." If someone else signs in anyway: "Wren's 3 changes haven't been sent yet. If you carry on, they're lost." → Sign in as Wren instead · Carry on and lose them.
+5. **Every ingredient starts with no aisle**, so a new household's list is one long "Other". *Recommend:* PR 2 gives the ~200 ingredients in the bundled table a starting aisle from the USDA food group they already come from (same public-domain file, no new source), and leaves the rest as Other until someone sets it.
