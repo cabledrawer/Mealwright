@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import status
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
@@ -563,63 +563,90 @@ def month_cutoff(household: Household, now: datetime) -> datetime:
     return now.replace(year=year, month=month + 1, day=day)
 
 
+THIN_CHUNK = 1_000  # changes per transaction, so writers are never kept waiting long
+
+
 def thin(db: DbSession, household: Household, now: datetime | None = None) -> int:
     """Turn changes older than the history length into monthly totals, and drop empty lots
     once they can no longer be undone. Returns how many changes were thinned. Safe to run
-    more than once."""
+    more than once, and to stop half way: it works in chunks of THIN_CHUNK changes, each
+    its own short transaction, with a handful of queries per chunk."""
     from mealwright.household import zone
 
     now = now or utcnow()
     cutoff = month_cutoff(household, now)
     local = zone(household)
-    old = list(
-        db.scalars(select(Change).where(Change.household_id == household.id, Change.at < cutoff))
-    )
-    old_ids = {change.id for change in old}
-    for change in old:
-        month = as_utc(change.at).astimezone(local).strftime("%Y-%m")
-        per_food: dict[int, int] = {}
-        for line in db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
-            per_food[line.food_id] = per_food.get(line.food_id, 0) + (
-                line.amount_after_milli - line.amount_before_milli
+    thinned = 0
+    while True:
+        chunk = db.execute(
+            select(Change.id, Change.at, Change.kind)
+            .where(Change.household_id == household.id, Change.at < cutoff)
+            .order_by(Change.id)
+            .limit(THIN_CHUNK)
+        ).all()
+        if not chunk:
+            break
+        ids = [row.id for row in chunk]
+        month_of = {row.id: as_utc(row.at).astimezone(local).strftime("%Y-%m") for row in chunk}
+        kind_of = {row.id: row.kind for row in chunk}
+
+        # Each change's total per food, added up by the database.
+        totals: dict[tuple[str, int, str], list[int]] = {}
+        for change_id, food_id, amount in db.execute(
+            select(
+                ChangeLine.change_id,
+                ChangeLine.food_id,
+                func.sum(ChangeLine.amount_after_milli - ChangeLine.amount_before_milli),
             )
-        for food_id, amount in per_food.items():
-            total = db.get(ChangeMonth, (household.id, month, food_id, change.kind))
-            if total is None:
-                total = ChangeMonth(
-                    household_id=household.id,
-                    month=month,
-                    food_id=food_id,
-                    kind=change.kind,
-                    amount_milli=0,
-                    changes=0,
-                )
-                db.add(total)
-            total.amount_milli += amount
-            total.changes += 1
-        db.flush()
-    if old_ids:
-        # Newer changes that point at these (an Undo of an old change) let go first.
-        for change in db.scalars(
-            select(Change).where(
-                Change.household_id == household.id,
-                or_(
-                    Change.undone_by_change_id.in_(old_ids),
-                    Change.undoes_change_id.in_(old_ids),
-                ),
-            )
+            .where(ChangeLine.change_id.in_(ids))
+            .group_by(ChangeLine.change_id, ChangeLine.food_id)
         ):
-            if change.undone_by_change_id in old_ids:
-                change.undone_by_change_id = None
-            if change.undoes_change_id in old_ids:
-                change.undoes_change_id = None
-        db.flush()
-        for change in old:
-            change.undone_by_change_id = None
-            change.undoes_change_id = None
-        db.flush()
-        db.execute(delete(ChangeLine).where(ChangeLine.change_id.in_(old_ids)))
-        db.execute(delete(Change).where(Change.id.in_(old_ids)))
+            key = (month_of[change_id], food_id, kind_of[change_id])
+            entry = totals.setdefault(key, [0, 0])
+            entry[0] += int(amount or 0)
+            entry[1] += 1
+
+        if totals:
+            existing = {
+                (row.month, row.food_id, row.kind): row
+                for row in db.scalars(
+                    select(ChangeMonth).where(
+                        ChangeMonth.household_id == household.id,
+                        ChangeMonth.month.in_({key[0] for key in totals}),
+                    )
+                )
+            }
+            for (month, food_id, kind), (amount, changes) in totals.items():
+                row = existing.get((month, food_id, kind))
+                if row is None:
+                    db.add(
+                        ChangeMonth(
+                            household_id=household.id,
+                            month=month,
+                            food_id=food_id,
+                            kind=kind,
+                            amount_milli=amount,
+                            changes=changes,
+                        )
+                    )
+                else:
+                    row.amount_milli += amount
+                    row.changes += changes
+
+        # Newer changes that point at these (an Undo of an old change) let go first.
+        db.execute(
+            update(Change)
+            .where(Change.undone_by_change_id.in_(ids))
+            .values(undone_by_change_id=None)
+        )
+        db.execute(
+            update(Change).where(Change.undoes_change_id.in_(ids)).values(undoes_change_id=None)
+        )
+        db.execute(delete(ChangeLine).where(ChangeLine.change_id.in_(ids)))
+        db.execute(delete(Change).where(Change.id.in_(ids)))
+        db.commit()
+        thinned += len(ids)
+
     gone_before = now - undo_window(household)
     db.execute(
         delete(StockLot).where(
@@ -629,4 +656,4 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
         )
     )
     db.commit()
-    return len(old_ids)
+    return thinned

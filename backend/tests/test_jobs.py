@@ -1,11 +1,14 @@
 """The nightly jobs: thinning history to monthly totals, and tidying the log folder."""
 
+import threading
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select, update
+from sqlalchemy import func, insert, select, update
 
 from mealwright import jobs
 from mealwright.history import thin
@@ -105,14 +108,105 @@ def test_a_missed_night_is_caught_up_at_start_up(tmp_path: Path) -> None:
         with db(client) as session:
             session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))
             session.commit()
-    # The server was off; when it starts again, old history is thinned straight away.
+    # The server was off; when it starts again, old history is thinned straight away,
+    # in the background.
     settings = Settings(data_dir=tmp_path / "data", run_jobs=True)
-    with (
-        TestClient(create_app(settings), base_url="https://testserver") as client,
-        db(client) as session,
-    ):
-        assert session.scalar(select(func.count()).select_from(Change)) == 0
-        assert session.scalar(select(func.count()).select_from(ChangeMonth)) == 2
+    with TestClient(create_app(settings), base_url="https://testserver") as client:
+        deadline = time.monotonic() + 10
+        while True:
+            with db(client) as session:
+                left = session.scalar(select(func.count()).select_from(Change))
+                months = session.scalar(select(func.count()).select_from(ChangeMonth))
+            if left == 0 or time.monotonic() > deadline:
+                break
+            time.sleep(0.05)
+    assert (left, months) == (0, 2)
+
+
+def test_start_up_does_not_wait_for_thinning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mealwright.config import Settings
+    from mealwright.main import create_app
+
+    started = threading.Event()
+
+    def slow_thinning(_factory: object, now: object = None) -> None:
+        started.set()
+        time.sleep(3)
+
+    monkeypatch.setattr(jobs, "thin_history", slow_thinning)
+    settings = Settings(data_dir=tmp_path / "data", run_jobs=True)
+    begin = time.monotonic()
+    with TestClient(create_app(settings), base_url="https://testserver") as client:
+        assert client.get(f"{API}/version").status_code == 200
+        ready = time.monotonic() - begin
+        assert started.wait(5)  # it does run, straight away, in the background
+    assert ready < 2
+
+
+def test_thinning_a_big_backlog_is_quick(kitchen: TestClient) -> None:
+    """20,000 old changes (a busy household's year or two): seconds, not minutes."""
+    food_id, lot_id = make_history(kitchen)
+    old = datetime(2024, 6, 1, 12, tzinfo=UTC)
+    count = 20_000
+    with db(kitchen) as session:
+        first = (session.scalar(select(func.max(Change.id))) or 0) + 1
+        session.execute(
+            insert(Change),
+            [
+                {
+                    "id": first + n,
+                    "household_id": 1,
+                    "request": "POST /api/v1/stock",
+                    "kind": "used" if n % 2 else "added",
+                    "login_name": "Tess",
+                    "food_id": food_id,
+                    "at": old + timedelta(minutes=n),
+                    "summary": "Used 1 g spinach",
+                }
+                for n in range(count)
+            ],
+        )
+        session.execute(
+            insert(ChangeLine),
+            [
+                {
+                    "household_id": 1,
+                    "change_id": first + n,
+                    "food_id": food_id,
+                    "lot_id": lot_id,
+                    "amount_before_milli": 1_000,
+                    "amount_after_milli": 0 if n % 2 else 2_000,
+                }
+                for n in range(count)
+            ],
+        )
+        session.commit()
+        household = session.get(Household, 1)
+        begin = time.monotonic()
+        assert thin(session, household, now=datetime(2026, 10, 17, tzinfo=UTC)) == count
+        took = time.monotonic() - begin
+        assert took < 5, f"thinning took {took:.1f} s"
+        totals = session.execute(
+            select(func.sum(ChangeMonth.amount_milli), func.sum(ChangeMonth.changes))
+        ).one()
+    assert tuple(totals) == (0, count)  # as much added as used, every change counted once
+
+
+def test_a_broken_database_is_logged_not_raised(caplog: pytest.LogCaptureFixture) -> None:
+    class Broken:
+        def __enter__(self) -> Broken:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def scalars(self, _query: object) -> None:
+            raise RuntimeError("database is locked")
+
+    jobs.thin_history(lambda: Broken())  # type: ignore[arg-type,return-value]
+    assert "Couldn't thin the history" in caplog.text
 
 
 def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:

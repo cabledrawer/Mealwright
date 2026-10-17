@@ -44,7 +44,6 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
             migrate.upgrade(engine)
         background = None
         if settings.run_jobs:
-            jobs.thin_history(app.state.sessionmaker)  # catch up anything missed while off
             background = jobs.scheduler(app.state.sessionmaker, log_file)
             background.start()
         yield

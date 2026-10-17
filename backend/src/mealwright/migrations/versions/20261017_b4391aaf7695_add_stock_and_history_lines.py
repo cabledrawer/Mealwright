@@ -128,8 +128,24 @@ def upgrade() -> None:
         )
         batch_op.create_index(batch_op.f("ix_change_line_lot_id"), ["lot_id"], unique=False)
 
+    # Links between changes are checked whenever old history is thinned: index them.
+    with op.batch_alter_table("change", schema=None) as batch_op:
+        batch_op.create_index(
+            batch_op.f("ix_change_undone_by_change_id"), ["undone_by_change_id"], unique=False
+        )
+        batch_op.create_index(
+            batch_op.f("ix_change_undoes_change_id"), ["undoes_change_id"], unique=False
+        )
+    with op.batch_alter_table("food_merge", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_food_merge_change_id"), ["change_id"], unique=False)
+
 
 def downgrade() -> None:
+    with op.batch_alter_table("food_merge", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_food_merge_change_id"))
+    with op.batch_alter_table("change", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_change_undoes_change_id"))
+        batch_op.drop_index(batch_op.f("ix_change_undone_by_change_id"))
     with op.batch_alter_table("change_line", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_change_line_lot_id"))
         batch_op.drop_index(batch_op.f("ix_change_line_household_id"))

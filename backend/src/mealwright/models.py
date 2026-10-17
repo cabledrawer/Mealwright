@@ -290,8 +290,10 @@ class Change(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     summary: Mapped[str] = mapped_column(String(300))
     undo_data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    undone_by_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"))
-    undoes_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"))
+    # Indexed: deleting old changes checks these links, and without an index every
+    # deleted row would scan the whole table.
+    undone_by_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"), index=True)
+    undoes_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"), index=True)
 
 
 class FoodMerge(Base):
@@ -305,7 +307,9 @@ class FoodMerge(Base):
     )
     from_food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
     into_food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
-    change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
+    change_id: Mapped[int | None] = mapped_column(
+        ForeignKey("change.id", ondelete="SET NULL"), index=True
+    )
     merged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     split_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

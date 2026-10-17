@@ -2,7 +2,7 @@
 
 Every job is added in `scheduler()`, in one place:
 
-- **History** (spec section 6, "History and undo"): at start-up and then every hour,
+- **History** (spec section 6, "History and undo"): just after start-up and then every hour,
   changes older than the history length (12 months) become monthly totals, and emptied
   packets go once they can no longer be undone. It's cheap and safe to repeat, so it
   doesn't wait for a particular hour: a server that's off at night still gets it.
@@ -37,19 +37,25 @@ def tidy_logs(handler: DailyLogFile, now: datetime | None = None) -> None:
 
 
 def thin_history(factory: sessionmaker[Session], now: datetime | None = None) -> None:
-    """Thin every household's history. Runs at start-up and every hour."""
+    """Thin every household's history. Runs straight after start-up (in the background,
+    so a big backlog never holds start-up up) and then every hour. Never raises."""
     from mealwright.history import thin  # imported here: history needs the API package
 
     now = now or datetime.now(UTC)
     with factory() as db:
-        for household in db.scalars(select(Household)):
+        try:
+            households = list(db.scalars(select(Household)))
+        except Exception:
+            log.exception("Couldn't thin the history (will try again within the hour)")
+            return
+        for household in households:
             try:
                 thinned = thin(db, household, now)
                 if thinned:
                     log.info("Thinned %d old changes into monthly totals", thinned)
             except Exception:
                 db.rollback()
-                log.exception("Couldn't thin the history")
+                log.exception("Couldn't thin the history (will try again within the hour)")
 
 
 def scheduler(
@@ -64,6 +70,7 @@ def scheduler(
         thin_history,
         CronTrigger(minute=30, timezone=UTC),
         args=[factory],
+        next_run_time=datetime.now(UTC),  # catch up straight away, off the start-up path
         id="history",
         name="Thin old history",
     )

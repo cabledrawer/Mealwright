@@ -159,7 +159,7 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 
 **`change_month`** (thinned history): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
 
-**History job** (APScheduler, `mealwright/jobs.py`; it runs at start-up and every hour at :30, with no lateness limit, because it's cheap and safe to repeat, so a server that's off at night still gets it): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
+**History job** (APScheduler, `mealwright/jobs.py`; it runs in the background straight after start-up, so a big backlog never holds start-up up, and then every hour at :30, with no lateness limit; it's cheap and safe to repeat, so a server that's off at night still gets it. It works in chunks of 1,000 changes, each its own short transaction, with the totals added up by the database): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
 
 ### 3.7 Migrations, in order
 
