@@ -4,11 +4,22 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.telemetry import TelemetryConfig
 
 from mealwright import __version__, migrate
 from mealwright.api.v1 import router as api_v1
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
+
+# FastAPI's built-in OpenTelemetry support: switch every part of it off, and never
+# configure exporters from OTEL_* / FASTAPI_OTEL_* environment variables.
+TELEMETRY_OFF: TelemetryConfig = {
+    "tracing": False,
+    "metrics": False,
+    "logs": False,
+    "operation_spans": False,
+    "auto_configure": False,
+}
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -32,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Bundled API docs can come later; the OpenAPI document is always available.
         docs_url=None,
         redoc_url=None,
+        telemetry=TELEMETRY_OFF,
     )
     app.state.settings = settings
     app.state.engine = engine
