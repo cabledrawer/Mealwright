@@ -17,6 +17,8 @@
 //                   `prepare(page, shot)` (run on every shot after the page opens, e.g.
 //                   to open the edit sheet the phone mockup shows)
 //   --out DIR       default review-shots/<screen or path> (git-ignored)
+//   --locale TAG    the browser's language, default en-GB (cabledrawer is in the UK; en-US
+//                   would give the household a 240 ml cup)
 //
 // For each size and theme it writes app-*.png, mockup-*.png and compare-*.png (the two
 // side by side on phone, one above the other on desktop).
@@ -171,12 +173,14 @@ async function captureApp(
   storageState: Awaited<ReturnType<APIRequestContext['storageState']>>,
   prep: Prepare,
   out: string,
+  locale: string,
 ) {
   const context = await browser.newContext({
     baseURL,
     viewport: SIZES[shot.size],
     colorScheme: shot.theme,
     storageState,
+    locale,
     ...(shot.size === 'phone' ? { isMobile: true, hasTouch: true, deviceScaleFactor: 1 } : {}),
   });
   const page = await context.newPage();
@@ -247,6 +251,7 @@ async function main() {
       path: { type: 'string' },
       serve: { type: 'boolean', default: false },
       'base-url': { type: 'string' },
+      locale: { type: 'string', default: 'en-GB' },
       prepare: { type: 'string' },
       out: { type: 'string' },
     },
@@ -284,7 +289,7 @@ async function main() {
       await api.dispose();
       for (const shot of SHOTS) {
         console.log(`App ${label(shot)}: ${values.path}`);
-        await captureApp(browser, baseURL, values.path, shot, state, prep, join(out, `app-${label(shot)}.png`));
+        await captureApp(browser, baseURL, values.path, shot, state, prep, join(out, `app-${label(shot)}.png`), values.locale);
       }
     }
 
