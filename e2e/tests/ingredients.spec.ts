@@ -45,7 +45,9 @@ test('Ingredients opens from Recipes and passes the accessibility checks', async
       .click();
   await expect(page).toHaveURL('/recipes/ingredients');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients');
-  await expect(page.getByText(/ingredients? · shared by (your )?recipes, pantry and shopping/)).toBeVisible();
+  await expect(
+    page.getByText(/ingredients? · shared by (your )?recipes, pantry and shopping/),
+  ).toBeVisible();
   await checkPage(page);
 });
 
@@ -126,8 +128,15 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
   await page.goto('/recipes/ingredients');
   const list = page.getByRole('region', { name: 'All ingredients' });
   await list.getByRole('button').first().waitFor();
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+  // Scroll to the bottom (again, if the list is still growing).
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        return window.scrollY;
+      }),
+    )
+    .toBeGreaterThan(200);
   const theme = page
     .getByRole('complementary', { name: 'Sidebar' })
     .getByRole('group', { name: 'Theme' });
