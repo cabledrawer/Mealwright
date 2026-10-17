@@ -70,7 +70,7 @@ All tables have `household_id` (FK to `household.id`, `ON DELETE CASCADE`, index
 
 | Column | Type | Default | Notes |
 |---|---|---|---|
-| `time_zone` | str(64), null | null | IANA name (`Europe/London`). Null until the admin's browser sends it; until then the server uses UTC. Validated with `zoneinfo` (the image has the zone data; no new dependency). |
+| `time_zone` | str(64), null | null | IANA name (`Europe/London`). Null until the admin's browser sends it (stored once, never changed silently); until then the server uses UTC. Validated with `zoneinfo` (the image has the zone data; no new dependency). |
 | `cup_ml` | int, null | null | 240 or 250. Null = not chosen yet → 250 is used. |
 | `undo_days` | int | 7 | undo window |
 | `history_months` | int | 12 | full history kept, then thinned |
@@ -428,8 +428,8 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 - `GET /api/v1/shops` → `[{ "id": 1, "name": "Tesco" }, …]`.
 - `POST /api/v1/shops` `{ "name": "Lidl" }` → `201` with the new shop, or `200` with the existing one if the name is already used (ignoring case), so "+ Shop" never makes duplicates. Not logged as a change.
 - `GET /api/v1/household` → `{ "name": "Home", "time_zone": null, "cup_ml": null, "cup_ml_used": 250, "undo_days": 7, "history_months": 12, "use_soon_days": 2, "today": "2026-10-17" }`.
-- `PATCH /api/v1/household` (admins only, else `403 admins_only`) `{ "time_zone": "Europe/London", "cup_ml": 250 }`. Unknown zone or cup not 240/250 → `422`. The other settings are read-only until Settings (0.8).
-- **First run:** after sign-in, if `time_zone` is null and the login is an admin, the web app sends `{ "time_zone": <Intl.DateTimeFormat().resolvedOptions().timeZone>, "cup_ml": <240 if navigator.language is en-US, else 250> }`, once. Members never send it. Never location.
+- `POST /api/v1/household/from-browser` (admins only, else `403 admins_only`) `{ "time_zone": "Europe/London", "cup_ml": 250 }`. Each value is stored **only while the household has none** (cabledrawer 17 Oct, spec section 6): once set it is never changed silently, so an admin opening the app from abroad changes nothing. Always answers `200` with the settings as stored (the household shape above). Unknown zone (checked with `zoneinfo`) or cup not 240/250 → `422`. Changing them on purpose comes with Settings (0.8), on a separate endpoint the web app never calls automatically.
+- **After sign-in:** if `time_zone` or `cup_ml` is null and the login is an admin, the web app sends `{ "time_zone": <Intl.DateTimeFormat().resolvedOptions().timeZone>, "cup_ml": <240 if navigator.language is en-US, else 250> }`. Existing 0.1 installs fill it in on the first admin visit after updating. Members never send it. Never location.
 
 ### 6.4 Stock (the Pantry screen)
 

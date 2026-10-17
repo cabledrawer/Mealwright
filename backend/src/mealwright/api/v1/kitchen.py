@@ -95,7 +95,9 @@ class HouseholdOut(BaseModel):
     today: date
 
 
-class HouseholdPatch(BaseModel):
+class FromBrowser(BaseModel):
+    """What the admin's browser says, sent once after sign-in (never location)."""
+
     time_zone: Annotated[str, Field(min_length=1, max_length=64)] | None = None
     cup_ml: Literal[240, 250] | None = None
 
@@ -126,15 +128,18 @@ def get_household(kitchen: Here) -> HouseholdOut:
     return _household(kitchen)
 
 
-@router.patch("/household")
-def edit_household(body: HouseholdPatch, kitchen: Here) -> HouseholdOut:
-    """Admins only. On first run the web app sends the admin's browser time zone and cup
-    size, once (never location)."""
+@router.post("/household/from-browser")
+def fill_in_from_browser(body: FromBrowser, kitchen: Here) -> HouseholdOut:
+    """Admins only. The web app calls this after sign-in with the browser's time zone and
+    cup size. Each is stored only while the household has none: once set, it's never
+    changed silently (an admin opening the app from abroad changes nothing). Changing them
+    on purpose comes with Settings (0.8). Answers with the settings as stored."""
     kitchen.admin_only()
-    if body.time_zone is not None:
-        kitchen.household.time_zone = body.time_zone
-    if body.cup_ml is not None:
-        kitchen.household.cup_ml = body.cup_ml
+    household = kitchen.household
+    if household.time_zone is None and body.time_zone is not None:
+        household.time_zone = body.time_zone
+    if household.cup_ml is None and body.cup_ml is not None:
+        household.cup_ml = body.cup_ml
     kitchen.db.commit()
     return _household(kitchen)
 
