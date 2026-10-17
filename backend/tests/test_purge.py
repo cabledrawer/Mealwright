@@ -3,6 +3,7 @@
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, update
 
@@ -61,9 +62,10 @@ def removed_days_ago(kitchen: TestClient, food_id: int, days: float) -> None:
         session.commit()
 
 
-def purge(kitchen: TestClient, household_id: int = 1) -> int:
+def purge(kitchen: TestClient, household_id: int = 1, now_days_later: float = 0) -> int:
     with db(kitchen) as session:
-        purged: int = purge_removed(session, session.get(Household, household_id))
+        now = utcnow() + timedelta(days=now_days_later)
+        purged: int = purge_removed(session, session.get(Household, household_id), now)
         return purged
 
 
@@ -217,3 +219,59 @@ def test_the_job_runs_for_every_household(kitchen: TestClient) -> None:
     removed_days_ago(kitchen, toor["id"], 8)
     jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
     assert not exists(kitchen, toor["id"])
+
+
+def test_undo_puts_stock_back_into_a_removed_ingredient(kitchen: TestClient) -> None:
+    ghee = food(kitchen, "Ghee")
+    body = {"food_id": ghee["id"], "amount": {"amount": 100, "unit": "g"}}
+    lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
+    used = kitchen.post(f"{API}/stock/{lot['id']}/used").json()["change"]
+    removed = remove(kitchen, ghee["id"])
+    undo = kitchen.post(f"{API}/changes/{used['id']}/undo").json()
+    assert undo["result"] == "done"
+    assert undo["message"] == "Ghee is back in Ingredients, with 100 g in the Cupboard."
+    assert undo["food"]["name"] == "Ghee"
+    # Back in the list and in the pantry, and never purged.
+    names = [f["name"] for f in kitchen.get(f"{API}/foods").json()["foods"]]
+    assert names == ["Ghee"]
+    pantry = kitchen.get(f"{API}/pantry").json()
+    cupboard = next(p for p in pantry["places"] if p["name"] == "Cupboard")
+    assert cupboard["groups"][0]["stock"]["amount"] == 100.0
+    assert purge(kitchen, now_days_later=8) == 0
+    assert exists(kitchen, ghee["id"])
+    # The Undo remembers what it brought back.
+    with db(kitchen) as session:
+        change = session.get(Change, undo["change"]["id"])
+        assert change.undo_data["brought_back"] == [ghee["id"]]
+    assert removed["kind"] == "food_removed"
+
+
+def test_purge_never_deletes_stock(kitchen: TestClient, caplog: Any) -> None:
+    ghee = food(kitchen, "Ghee")
+    remove(kitchen, ghee["id"])
+    with db(kitchen) as session:  # stock that somehow ended up in a removed ingredient
+        session.add(StockLot(household_id=1, food_id=ghee["id"], place_id=3, amount_milli=100_000))
+        session.commit()
+    removed_days_ago(kitchen, ghee["id"], 8)
+    assert purge(kitchen) == 0
+    assert exists(kitchen, ghee["id"])
+    assert kitchen.get(f"{API}/foods/{ghee['id']}").json()["stock"]["amount"] == 100.0
+    assert "Brought back 1 removed ingredient(s)" in caplog.text
+    assert "Ghee" not in caplog.text  # no names in the log
+
+
+@pytest.mark.parametrize("how", ["binned", "none left"])
+def test_other_undos_bring_it_back_too(kitchen: TestClient, how: str) -> None:
+    ghee = food(kitchen, "Ghee")
+    body = {"food_id": ghee["id"], "amount": {"amount": 100, "unit": "g"}}
+    lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
+    if how == "binned":
+        change = kitchen.post(f"{API}/stock/{lot['id']}/binned").json()["change"]
+    else:
+        change = kitchen.post(
+            f"{API}/foods/{ghee['id']}/left", json={"amount": {"amount": 0, "unit": "g"}}
+        ).json()["change"]
+    remove(kitchen, ghee["id"])
+    undo = kitchen.post(f"{API}/changes/{change['id']}/undo").json()
+    assert undo["message"].startswith("Ghee is back in Ingredients")
+    assert kitchen.get(f"{API}/foods/{ghee['id']}").json()["stock"]["amount"] == 100.0

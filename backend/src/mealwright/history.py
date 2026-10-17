@@ -9,6 +9,7 @@ are kept. Undo puts each part back if it still looks the way the change left it;
 someone has changed since are left alone, and the result says so ("partly").
 """
 
+import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -722,6 +723,25 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     )
     if not removed:
         return 0
+    # Safety net: never delete stock. A removed ingredient that holds some again (an Undo
+    # that put stock back should already have brought it back) is brought back instead.
+    stocked = set(
+        db.scalars(
+            select(StockLot.food_id).where(
+                StockLot.food_id.in_(list(removed)), StockLot.amount_milli > 0
+            )
+        )
+    )
+    if stocked:
+        db.execute(update(Food).where(Food.id.in_(list(stocked))).values(removed_at=None))
+        db.commit()
+        logging.getLogger(__name__).warning(
+            "Brought back %d removed ingredient(s) that still had stock, instead of deleting them",
+            len(stocked),
+        )
+        removed -= stocked
+        if not removed:
+            return 0
     gone = set(removed)
     frontier = set(removed)
     while frontier:

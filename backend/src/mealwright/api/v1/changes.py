@@ -34,6 +34,7 @@ from mealwright.history import (
     undo_until,
 )
 from mealwright.models import Change, ChangeLine, Food, StockLot, utcnow
+from mealwright.stock import lots_of
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
 
@@ -200,6 +201,41 @@ def _message(kitchen: Kitchen, result: UndoResult, short: list[Shortfall]) -> st
     return UNDO_MESSAGES[result]
 
 
+def _bring_back(
+    kitchen: Kitchen, lots: list[StockLot], data: dict[str, object]
+) -> tuple[str, list[int]]:
+    """An Undo that puts stock back into an ingredient that has since been removed brings
+    the ingredient back (otherwise the stock would be hidden, then deleted with it).
+    Returns what to tell the person, and which ingredients came back."""
+    moved = data.get("lot_amounts")
+    if isinstance(moved, dict):
+        lots = lots + [
+            lot for key in moved if (lot := kitchen.db.get(StockLot, int(key))) is not None
+        ]
+    view = Pantry(kitchen)
+    revived: list[Food] = []
+    for lot in lots:
+        if lot.amount_milli <= 0:
+            continue
+        food = kitchen.db.get(Food, lot.food_id)
+        if food is not None and food.removed_at is not None and food not in revived:
+            food.removed_at = None
+            revived.append(food)
+    kitchen.db.flush()
+    sentences = []
+    for food in revived:
+        stock = lots_of(kitchen, [food.id])
+        total = sum(lot.amount_milli for lot in stock)
+        places = sorted(
+            {view.places[lot.place_id].name for lot in stock if lot.place_id in view.places}
+        )
+        where = places[0] if len(places) == 1 else "the pantry"
+        amount = amount_out(food, total, view.usual(food.id)).short
+        the = "the " if len(places) == 1 else ""
+        sentences.append(f"{food.name} is back in Ingredients, with {amount} in {the}{where}.")
+    return " ".join(sentences), [food.id for food in revived]
+
+
 def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     original = kitchen.db.get(Change, undo.undoes_change_id or 0)
     if original is None:  # pragma: no cover (an undo always points at its change)
@@ -259,6 +295,10 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
         if tally.done:
             undo_merge_record(kitchen, data)
         result = tally.result
+        back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
+        message = _message(kitchen, result, short)
+        if back:
+            message = back if result == "done" else f"{back} {message}"
         undo_change = record(
             kitchen,
             "undo",
@@ -266,7 +306,9 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             change.food_id,
             {
                 "result": result,
-                "message": _message(kitchen, result, short),
+                "message": message,
+                # Ingredients this Undo brought back from Ingredients' removed list.
+                "brought_back": revived,
                 # Thinning totals the Undo with the change it undid: same kind, same month.
                 "undoes_kind": change.kind,
                 "undoes_at": as_utc(change.at).isoformat(),
