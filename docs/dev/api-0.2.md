@@ -159,7 +159,7 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 
 **`change_month`** (thinned history): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
 
-**Daily job** (APScheduler, `mealwright/jobs.py`; it runs every hour at :30 and thins each household when it's 03:30 there, so a household's time zone change is picked up and a missed night is caught up the next): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
+**History job** (APScheduler, `mealwright/jobs.py`; it runs at start-up and every hour at :30, with no lateness limit, because it's cheap and safe to repeat, so a server that's off at night still gets it): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
 
 ### 3.7 Migrations, in order
 
@@ -317,7 +317,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 ```json
 {
   "total": 142,
-  "counts": { "all": 142, "staples": 31, "maybe_same": 2 },
+  "counts": { "all": 142, "staples": 31, "maybe_same": 2, "maybe_same_pairs": 1 },
   "foods": [
     {
       "id": 7, "name": "Toor dal",
@@ -332,13 +332,13 @@ The client shows the question with the "Remember for next time" switch (on by de
     { "id": 8, "name": "Onion", "counted_as": "count", "counted_as_display": "Count",
       "stand_ins": [{ "id": 31, "name": "Red onion" }], "…": "…" },
     { "id": 40, "name": "Drumsticks (moringa)", "counted_as_display": "Count",
-      "maybe_same": [{ "id": 12, "name": "Drumsticks" }], "…": "…" }
+      "maybe_same": [{ "id": 12, "name": "Drumsticks", "merge_into": 12, "merge_this": true }], "…": "…" }
   ],
   "next": null
 }
 ```
 
-`counted_as_display`: "Staple" when staple, else the usual size ("Packets · 500 g"), else the count word plural ("Slices"), else "Count" / "Weight" / "Volume". `counts.maybe_same` counts foods with at least one match. Recipe counts are left out until 0.4.
+`counted_as_display`: "Staple" when staple, else the usual size ("Packets · 500 g"), else the count word plural ("Slices"), else "Count" / "Weight" / "Volume". `counts.maybe_same` counts foods with at least one match; `counts.maybe_same_pairs` counts pairs (what the chip shows). Each `maybe_same` entry says which way a merge would go, so every app does the same: `merge_into` is the food that stays, and `merge_this` is true when the food whose list it is would be merged away. The rule: a food without stock goes before one with stock; otherwise the longer name goes ("Drumsticks (moringa)" into "Drumsticks"), and on a tie the newer food goes. The same entries appear in the editor's `maybe_same`. Recipe counts are left out until 0.4.
 
 **`GET /api/v1/foods/{id}`** — the editor:
 
@@ -476,7 +476,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
               "position": 1, "of": 2 } ] }
 ```
 
-**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 in_use` (removing a food that still has stock).
+**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock).
 
 | Request | Body | Notes |
 |---|---|---|
@@ -487,8 +487,8 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 | `POST /api/v1/stock/{lot_id}/to-freezer` | `{}` or `{ "use_by": "2027-01-17" }` | Whole lot to the first freezer place; use-by today + 3 months unless given; `frozen_on` today. |
 | `POST /api/v1/stock/{lot_id}/move` | `{ "place_id": 2 }` | Whole lot. Moving into a freezer place this way doesn't change the use-by. |
 | `PATCH /api/v1/stock/{lot_id}` | `{ "use_by": "2026-10-22" }` (null clears) | Change the date. |
-| `POST /api/v1/foods/{id}/used` | `{ "amount": {"amount": 1.5, "unit": "count"}, "place_id": 1 }` | "How much did you use" on a group: takes from that food's lots, oldest/soonest first (3.5). `place_id` optional; without it freezer lots are skipped. |
-| `POST /api/v1/foods/{id}/left` | `{ "amount": {"amount": 3, "unit": "count"}, "place_id": 1 }` | "3 left" on a group: takes from the soonest lots first, or tops up the newest lot if the number is higher. |
+| `POST /api/v1/foods/{id}/used` | `{ "amount": {"amount": 1.5, "unit": "count"}, "place_id": 1 }` | "How much did you use" on a group: takes from that food's lots, oldest/soonest first (3.5). `place_id` optional; without it freezer lots are skipped. Nothing to take from → `409 nothing_left` ("There's no ghee left."), and nothing is recorded. |
+| `POST /api/v1/foods/{id}/left` | `{ "amount": {"amount": 3, "unit": "count"}, "place_id": 1 }` | "3 left" on a group: takes from the soonest lots first, or tops up the newest lot if the number is higher. `amount` may be 0 ("None left"): every lot in scope is emptied (freezer lots only when the freezer is named), with Undo. Already that much → `409 no_change`. |
 
 Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binned 1 pack paneer", "Toor dal: 1 packet → about ½ packet", "Moved chana masala → Freezer", "Paneer → Freezer, use by 17 Jan".
 

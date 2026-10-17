@@ -124,13 +124,19 @@ def test_maybe_the_same(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/foods/{toor['id']}/other-names", json={"name": "Tuvar dal"})
 
     listed = kitchen.get(f"{API}/foods", params={"filter": "maybe_same"}).json()
-    assert listed["counts"]["maybe_same"] == 4
+    assert listed["counts"]["maybe_same"] == 4  # foods
+    assert listed["counts"]["maybe_same_pairs"] == 2
     same = {f["name"]: [m["name"] for m in f["maybe_same"]] for f in listed["foods"]}
     assert same["Drumsticks (moringa)"] == ["Drumstick"]
     assert same["Tuvar dal"] == ["Toor dal"]
+    # The same length: the newer food (Tuvar dal) would be merged away.
     assert kitchen.get(f"{API}/foods/{toor['id']}").json()["maybe_same"] == [
-        {"id": tuvar["id"], "name": "Tuvar dal"}
+        {"id": tuvar["id"], "name": "Tuvar dal", "merge_into": toor["id"], "merge_this": False}
     ]
+    # The longer name goes.
+    moringa_entry = next(f for f in listed["foods"] if f["id"] == moringa["id"])["maybe_same"]
+    assert moringa_entry[0]["merge_into"] == drumsticks["id"]
+    assert moringa_entry[0]["merge_this"] is True
 
     assert (
         kitchen.post(
@@ -611,3 +617,13 @@ def test_largest_amounts_are_fine(kitchen: TestClient) -> None:
     food = add(kitchen, "Flour sack")
     body = patch(kitchen, food["id"], running_low_at={"amount": 1_000, "unit": "kg"})
     assert body["food"]["running_low_at"]["display"] == "1000 kg"
+
+
+def test_maybe_the_same_keeps_the_food_with_stock(kitchen: TestClient) -> None:
+    short = add(kitchen, "Drumstick")
+    longer = add(kitchen, "Drumsticks (moringa)")
+    body = {"food_id": longer["id"], "amount": {"amount": 3, "unit": "count"}}
+    assert kitchen.post(f"{API}/stock", json=body).status_code == 201
+    entry = kitchen.get(f"{API}/foods/{short['id']}").json()["maybe_same"][0]
+    assert entry["merge_into"] == longer["id"]  # it has stock, so it stays
+    assert entry["merge_this"] is True

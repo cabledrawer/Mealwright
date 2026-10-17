@@ -110,6 +110,15 @@ class LastChange(BaseModel):
     can_undo: bool
 
 
+class MaybeSame(BaseModel):
+    """Another food that may be the same as this one, and which way a merge would go."""
+
+    id: int
+    name: str
+    merge_into: int  # the food that stays
+    merge_this: bool  # true: this food (the one whose list this is) would be merged away
+
+
 class FoodOut(BaseModel):
     id: int
     name: str
@@ -127,7 +136,7 @@ class FoodOut(BaseModel):
     running_low_at: AmountOut | None
     stand_ins: list[StandIn]
     stands_in_for: list[StandIn]
-    maybe_same: list[Ref]
+    maybe_same: list[MaybeSame]
     stock: AmountOut  # how much there is, in every place
     last_change: LastChange | None
     merged_from: Ref | None = None
@@ -148,13 +157,14 @@ class FoodListItem(BaseModel):
     counted_as_display: str
     place: Ref | None
     stand_ins: list[Ref]
-    maybe_same: list[Ref]
+    maybe_same: list[MaybeSame]
 
 
 class FoodCounts(BaseModel):
     all: int
     staples: int
-    maybe_same: int
+    maybe_same: int  # foods with at least one match
+    maybe_same_pairs: int  # pairs: what the "Maybe the same" chip counts
 
 
 class FoodList(BaseModel):
@@ -197,6 +207,43 @@ def maybe_same(
         if keep:
             result[food_id] = keep
     return result
+
+
+def merge_direction(a: Food, b: Food, stocked: set[int]) -> tuple[Food, Food]:
+    """(the food that goes, the food that stays) when merging a "Maybe the same" pair.
+
+    A food without stock goes before one with stock; otherwise the longer name goes
+    ("Drumsticks (moringa)" into "Drumsticks"), and on a tie the newer food goes."""
+    a_stock, b_stock = a.id in stocked, b.id in stocked
+    if a_stock != b_stock:
+        return (b, a) if a_stock else (a, b)
+    if len(a.name) != len(b.name):
+        return (a, b) if len(a.name) > len(b.name) else (b, a)
+    return (a, b) if a.id > b.id else (b, a)
+
+
+def stocked_ids(kitchen: Kitchen) -> set[int]:
+    return {lot.food_id for lot in lots_of(kitchen)}
+
+
+def same_out(
+    food: Food, others: set[int], by_id: dict[int, Food], stocked: set[int]
+) -> list[MaybeSame]:
+    result = []
+    for other_id in others:
+        other = by_id.get(other_id)
+        if other is None:
+            continue
+        _gone, stays = merge_direction(food, other, stocked)
+        result.append(
+            MaybeSame(
+                id=other.id,
+                name=other.name,
+                merge_into=stays.id,
+                merge_this=stays.id != food.id,
+            )
+        )
+    return sorted(result, key=lambda m: fold(m.name))
 
 
 def _names_by_food(kitchen: Kitchen) -> dict[int, list[str]]:
@@ -306,9 +353,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         ),
         stand_ins=refs(stand_ins),
         stands_in_for=refs(stands_in_for),
-        maybe_same=sorted(
-            (Ref(id=i, name=by_id[i].name) for i in same if i in by_id), key=lambda r: fold(r.name)
-        ),
+        maybe_same=same_out(food, same, by_id, stocked_ids(kitchen)),
         stock=_stock(kitchen, food, usual),
         last_change=(
             LastChange(id=last.id, summary=last.summary, can_undo=can_undo(kitchen, last))
@@ -396,7 +441,15 @@ def list_foods(
         p.id: p
         for p in kitchen.db.scalars(select(Place).where(Place.household_id == kitchen.household_id))
     }
-    counts = FoodCounts(all=len(foods), staples=sum(f.staple for f in foods), maybe_same=len(same))
+    stocked = stocked_ids(kitchen)
+    counts = FoodCounts(
+        all=len(foods),
+        staples=sum(f.staple for f in foods),
+        maybe_same=len(same),
+        maybe_same_pairs=len(
+            {(min(a, b), max(a, b)) for a, others in same.items() for b in others}
+        ),
+    )
 
     needle = fold(q.strip())
     scored: list[tuple[int, str, Food, str | None]] = []
@@ -445,10 +498,7 @@ def list_foods(
                     (Ref(id=i, name=by_id[i].name) for i in links.get(food.id, []) if i in by_id),
                     key=lambda r: fold(r.name),
                 ),
-                maybe_same=sorted(
-                    (Ref(id=i, name=by_id[i].name) for i in same.get(food.id, set()) if i in by_id),
-                    key=lambda r: fold(r.name),
-                ),
+                maybe_same=same_out(food, same.get(food.id, set()), by_id, stocked),
             )
         )
     more = start + limit < len(scored)
