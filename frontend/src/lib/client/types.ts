@@ -195,6 +195,7 @@ export interface Lot {
 /** One food in one place. */
 export interface Group {
   food: { id: number; name: string; counted_as: CountedAs };
+  place: Place;
   stock: AmountOut;
   lots_count: number;
   dates_count: number;

@@ -24,6 +24,7 @@ import type {
   AmountIn,
   Answer,
   Change,
+  Group,
   Pantry,
   PantryFilter,
   Place,
@@ -50,6 +51,27 @@ export function withoutLot(pantry: Pantry, lotId: number): void {
       place.groups = groups;
       place.items = groups.length;
     }
+  }
+}
+
+/**
+ * Put the server's answer on screen: each group it sends replaces that food's group in
+ * that place; an emptied one (nothing left, no packets) is taken away.
+ */
+export function withGroups(pantry: Pantry, groups: Group[]): void {
+  for (const group of groups) {
+    const place = pantry.places.find((p) => p.id === group.place.id);
+    if (!place) continue;
+    const others = place.groups.filter((g) => g.food.id !== group.food.id);
+    const empty = group.stock.amount === 0 && group.lots.length === 0;
+    if (empty) {
+      place.groups = others;
+    } else {
+      const at = place.groups.findIndex((g) => g.food.id === group.food.id);
+      if (at === -1) place.groups = [...others, group];
+      else place.groups = place.groups.map((g) => (g.food.id === group.food.id ? group : g));
+    }
+    place.items = place.groups.length;
   }
 }
 
@@ -109,10 +131,17 @@ export class PantryModel {
         this.useSoon = before.useSoon;
       },
       send: options.send,
-      saved: () => kitchen.changed(),
+      saved: (value) => {
+        if (this.pantry && value.groups?.length) withGroups(this.pantry, value.groups);
+        kitchen.changed();
+      },
       undo: {
         label: options.label,
-        labelFrom: (value) => value.change?.summary,
+        labelFrom: (value) => {
+          if (!value.change) return undefined;
+          const short = value.short_by ? ` · ${value.short_by.display} more than there was` : '';
+          return value.change.summary + short;
+        },
         skip: (value) => value.change === null,
         run: (value) => {
           const change = value.change;

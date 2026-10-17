@@ -3,6 +3,7 @@
   // "Paneer · 2 packs · 400 g", its soonest date, and, opened, each packet with its date
   // and what you can do with it (Used, Binned, To freezer, Move, change the date). An
   // open packet gets the ¼ · ½ · ¾ · Full picks straight away (spec, Part-used packets).
+  import { ApiError } from '$lib/api';
   import type { Group, Lot, Place } from '$lib/client/types';
   import { dateWords, useByWords } from '$lib/dates';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
@@ -59,6 +60,10 @@
     picked = { ...picked, [lot.id]: fraction };
     void model.setLeft(lot.id, name, { fraction }).then((outcome) => {
       if (!outcome.ok) {
+        // A packet with no size can't take a fraction: offer to type the amount.
+        if (outcome.error instanceof ApiError && outcome.error.code === 'needs_amount') {
+          typing = lot.id;
+        }
         const { [lot.id]: _dropped, ...rest } = picked;
         void _dropped;
         picked = rest;

@@ -1,0 +1,114 @@
+import { test, expect, type Page } from '@playwright/test';
+import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+
+// The Pantry (0.2), against the real server, on phone and desktop. Each test makes its
+// own foods with unique names, so tests don't trip over each other.
+
+const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+
+async function api(page: Page, method: 'POST' | 'PATCH', path: string, data: object) {
+  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
+  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
+  return response.json();
+}
+
+/** A food sold in packets, with stock in the fridge. */
+async function stocked(page: Page, name: string, useByDays: number | null = 1) {
+  const unique = `${name} ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
+  const places = (await (await page.request.get('/api/v1/places')).json()) as {
+    id: number;
+    name: string;
+  }[];
+  const fridge = places.find((p) => p.name === 'Fridge')!.id;
+  const { food } = await api(page, 'POST', '/foods', { name: unique, place_id: fridge });
+  await api(page, 'POST', `/foods/${food.id}/sizes`, { name: 'pack', amount: 200 });
+  const { today } = await (await page.request.get('/api/v1/household')).json();
+  const useBy = new Date(`${today}T12:00:00Z`);
+  useBy.setUTCDate(useBy.getUTCDate() + (useByDays ?? 0));
+  const added = await api(page, 'POST', '/stock', {
+    food_id: food.id,
+    amount: { amount: 1, unit: 'pack' },
+    ...(useByDays === null ? {} : { use_by: useBy.toISOString().slice(0, 10) }),
+  });
+  return { id: food.id as number, name: unique, lot: added.groups[0].lots[0].id as number };
+}
+
+const lotsOf = async (page: Page, foodId: number) => {
+  const pantry = await (await page.request.get('/api/v1/pantry')).json();
+  return pantry.places
+    .flatMap((p: { groups: { food: { id: number }; lots: unknown[] }[] }) => p.groups)
+    .filter((g: { food: { id: number } }) => g.food.id === foodId)
+    .flatMap((g: { lots: unknown[] }) => g.lots).length as number;
+};
+
+test.beforeEach(async ({ page }) => {
+  await setAccountTheme(page, 'auto');
+});
+
+test('the Pantry shows what is where, and passes the accessibility checks', async ({ page }) => {
+  const food = await stocked(page, 'Paneer');
+  await page.goto('/pantry');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pantry');
+  if (isPhone(page)) {
+    await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Use soon' })).toBeVisible();
+  } else {
+    for (const place of ['Fridge', 'Freezer', 'Cupboard', 'Spice rack']) {
+      await expect(page.getByRole('heading', { name: place, level: 2 })).toBeVisible();
+    }
+  }
+  await expect(
+    page.getByRole('button', { name: new RegExp(`^${food.name}`) }).first(),
+  ).toBeVisible();
+  await checkPage(page);
+});
+
+test('Used from Use soon takes it out, and Undo puts it back', async ({ page }) => {
+  const food = await stocked(page, 'Spinach', 0);
+  await page.goto('/pantry');
+  if (isPhone(page)) await page.getByRole('tab', { name: 'Use soon' }).click();
+  const row = page
+    .getByRole('listitem')
+    .filter({ hasText: food.name })
+    .filter({
+      has: page.getByRole('button', { name: 'Binned' }),
+    });
+  await row.first().getByRole('button', { name: 'Used' }).click();
+  await expect.poll(() => lotsOf(page, food.id)).toBe(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(() => lotsOf(page, food.id)).toBe(1);
+});
+
+test('Add to pantry adds what was chosen, where it lives', async ({ page }) => {
+  const food = await stocked(page, 'Yoghurt', null);
+  await page.goto('/pantry');
+  await page
+    .getByRole('button', { name: /Add to pantry/ })
+    .first()
+    .click();
+  const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+  await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill(food.name);
+  await sheet.getByRole('button', { name: new RegExp(`^${food.name}`) }).click();
+  await sheet.getByRole('radio', { name: '2 packs' }).click();
+  await sheet.getByRole('radio', { name: '+1 week' }).click();
+  await expect(sheet.getByLabel(/^Where/)).toHaveValue(/\d+/);
+  await sheet.getByRole('button', { name: 'Add to pantry' }).click();
+  await expect.poll(() => lotsOf(page, food.id)).toBe(3);
+  await expect(page.getByRole('status').getByText(/Added 2 packs/)).toBeVisible();
+});
+
+test('Ctrl+Z undoes a pantry change on desktop', async ({ page }) => {
+  test.skip(isPhone(page), 'Ctrl+Z is a desktop keyboard shortcut');
+  const food = await stocked(page, 'Coriander', 0);
+  await page.goto('/pantry');
+  const side = page.getByRole('complementary', { name: /Use soon/ });
+  await side
+    .getByRole('listitem')
+    .filter({ hasText: food.name })
+    .getByRole('button', { name: 'Binned' })
+    .click();
+  await expect.poll(() => lotsOf(page, food.id)).toBe(0);
+  await page.locator('h1').click();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => lotsOf(page, food.id)).toBe(1);
+});

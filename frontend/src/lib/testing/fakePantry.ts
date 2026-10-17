@@ -34,6 +34,7 @@ export function group(
   const dated = lots.filter((l) => l.use_by).sort((a, b) => a.days_left! - b.days_left!);
   return {
     food: { id, name, counted_as: 'weight' },
+    place: { id: 1, name: 'Fridge', kind: 'fridge' },
     stock: { amount: 0, display },
     lots_count: lots.length,
     dates_count: new Set(lots.map((l) => l.use_by)).size,
@@ -98,6 +99,10 @@ export function samplePantry() {
       { id: 61, name: 'Turmeric' }
     ]
   };
+  // Each group knows its place, as the server says.
+  for (const place of pantry.places) {
+    for (const g of place.groups) g.place = { id: place.id, name: place.name, kind: place.kind };
+  }
   const fridge = { id: 1, name: 'Fridge', kind: 'fridge' as const };
   const useSoon: UseSoonLot[] = [
     {
