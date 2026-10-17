@@ -15,7 +15,10 @@ type Json = Record<string, unknown>;
 type Amount = { amount: number; unit?: string; size_id?: number };
 
 class Api {
-  constructor(private api: APIRequestContext) {}
+  private api: APIRequestContext;
+  constructor(api: APIRequestContext) {
+    this.api = api;
+  }
 
   /** The JSON answer, with `_status` added; a list comes back as `{ items, _status }`. */
   async call(method: 'GET' | 'POST' | 'PATCH', path: string, data?: Json, ok: number[] = []): Promise<Json> {
@@ -195,12 +198,20 @@ export async function seed(request: APIRequestContext) {
 
   for (const s of STOCK) {
     const id = foods.get(s.food)!;
-    const added = await api.post('/stock', {
-      food_id: id,
-      amount: s.amount,
-      ...(s.place ? { place_id: placeId.get(s.place) } : {}),
-      ...(s.use_by == null ? {} : { use_by: addDays(today, s.use_by) }),
-    });
+    const added = await api.post(
+      '/stock',
+      {
+        food_id: id,
+        amount: s.amount,
+        ...(s.place ? { place_id: placeId.get(s.place) } : {}),
+        ...(s.use_by == null ? {} : { use_by: addDays(today, s.use_by) }),
+      },
+      [404, 405],
+    );
+    if (added._status === 404 || added._status === 405) {
+      console.log('  (seed: this server has no stock yet; foods only)');
+      break;
+    }
     if (s.left !== undefined) {
       const lot = ((added.group as Json).lots as { id: number }[]).at(-1)!;
       await api.post(`/stock/${lot.id}/left`, { fraction: s.left });
