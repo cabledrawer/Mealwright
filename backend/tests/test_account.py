@@ -1,6 +1,7 @@
 """First-run setup, signing in and out, sessions and the slow-down (spec section 7)."""
 
 import hashlib
+import logging
 from datetime import UTC, timedelta
 
 import pytest
@@ -219,6 +220,7 @@ def test_slow_down_timing() -> None:
         assert slow.wait_seconds(keys, at=float(i)) == 0
         slow.failed(keys, at=float(i))
     assert slow.wait_seconds(keys, at=4.0) == 30  # after the 5th wrong guess
+    assert slow.wait_seconds(keys, at=4.9995) == 30  # 29.0005 s left still says 30
     assert slow.wait_seconds(keys, at=34.0) == 0
     slow.failed(keys, at=34.0)
     assert slow.wait_seconds(keys, at=34.0) == 60  # doubles
@@ -265,3 +267,66 @@ def test_theme_preference(client: TestClient) -> None:
 
 def test_preferences_need_sign_in(client: TestClient) -> None:
     assert client.put("/api/v1/me/preferences", json={"theme": "dark"}).status_code == 401
+
+
+def test_the_message_matches_the_real_lock(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clock = [1000.0]
+    monkeypatch.setattr("mealwright.auth.time.monotonic", lambda: clock[0])
+    set_up(client)
+    for _ in range(5):
+        assert sign_in(client, "wrong-password") == 401
+    blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
+    assert blocked.json()["detail"] == "Too many tries. Please wait 30 seconds."
+    assert blocked.headers["retry-after"] == "30"
+    clock[0] += 29.5
+    assert sign_in(client, "wrong-password") == 429  # still locked half a second before
+    clock[0] += 0.5
+    assert sign_in(client, "wrong-password") == 401  # checked normally at 30 s
+    # The 6th wrong guess doubles the wait, and the message says so.
+    blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
+    assert blocked.json()["detail"] == "Too many tries. Please wait 1 minute."
+    clock[0] += 59.5
+    assert sign_in(client) == 429
+    clock[0] += 0.5
+    assert sign_in(client) == 200
+
+
+def test_slow_down_is_logged(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+    set_up(client)
+    with caplog.at_level(logging.WARNING, logger="mealwright"):
+        for _ in range(5):
+            sign_in(client, "wrong-password")
+        assert sign_in(client) == 429
+    assert caplog.text.count("Sign-in failed for tess from testclient") == 5
+    assert "Sign-in slowed down for tess from testclient (wait 30 s)" in caplog.text
+
+
+def test_unknown_usernames_are_not_logged(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    set_up(client)
+    typed = "my-secret-password-in-the-wrong-box"
+    with caplog.at_level(logging.INFO, logger="mealwright"):
+        for _ in range(6):  # wrong guesses, then the slow-down
+            client.post("/api/v1/session", json={"username": typed, "password": "x"})
+    assert typed not in caplog.text
+    assert "Sign-in failed for unknown user from testclient" in caplog.text
+    assert "Sign-in failed for tess" not in caplog.text
+    assert "Sign-in slowed down for unknown user from testclient" in caplog.text
+    # A real account's name is logged (this address is slowed down by now).
+    with caplog.at_level(logging.INFO, logger="mealwright"):
+        sign_in(client, "wrong-password")
+    assert "Sign-in slowed down for tess from testclient" in caplog.text
+
+
+def test_every_sign_in_is_logged(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="mealwright"):
+        set_up(client)  # setup signs the admin in too
+        client.delete("/api/v1/session")
+        for remember in (False, True, False):
+            assert sign_in(client, remember=remember) == 200
+            client.delete("/api/v1/session")
+    signed_in = [r for r in caplog.records if r.getMessage().startswith("Signed in: tess")]
+    assert len(signed_in) == 4

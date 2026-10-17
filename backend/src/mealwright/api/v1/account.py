@@ -125,6 +125,8 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     start_session(db, response, request.app.state.settings, login, remember=False)
     db.commit()
     log.info("Set up: admin account %s created", login.username)
+    # Setup signs the admin in, so it gets its own "Signed in" line like every sign-in.
+    log.info("Signed in: %s from %s", login.username, client_address(request))
     return _me(login)
 
 
@@ -156,16 +158,20 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     address = client_address(request)
     keys = [f"user:{username}", f"addr:{address}"]
     wait = slow.wait_seconds(keys)
+    login = db.scalar(select(Login).where(Login.username == username))
+    # Only a real account's name is logged: a password typed into the username box
+    # must never end up in the log.
+    who = login.username if login else "unknown user"
     if wait:
+        log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             f"Too many tries. Please wait {how_long(wait)}.",
             headers={"Retry-After": str(wait)},
         )
-    login = db.scalar(select(Login).where(Login.username == username))
     if not check_password(login, body.password) or login is None:
         slow.failed(keys)
-        log.warning("Sign-in failed for %r from %s", username, address)
+        log.warning("Sign-in failed for %s from %s", who, address)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
     slow.succeeded(keys[0])
     start_session(db, response, request.app.state.settings, login, remember=body.remember)

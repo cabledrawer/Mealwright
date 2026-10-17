@@ -9,6 +9,17 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Fixed
 
 - **Sign-in shows the real wait** after too many wrong passwords: "30 seconds" at first, then 1 minute, 2 minutes and so on, up to 15 minutes. It used to say "1 minute" when the wait was 30 seconds. (Found by cabledrawer while testing 0.1.0.)
+- **Every sign-in is logged**, including the one at first setup, which signs the admin in. A test checks there is exactly one "Signed in" line per sign-in. (Found by cabledrawer.)
+
+### Changed
+
+- **Log lines carry the time** (UTC, e.g. `2026-10-17T18:21:50Z`).
+- **The app keeps its own log for 14 days**, in `/data/logs/mealwright.log`, starting a new file each midnight (UTC). This is how the spec's "logs kept 14 days" is kept, and later "Report a problem" will read recent errors from it. `compose.example.yaml` also limits Docker's own copy of the log to 3 files of 10 MB. (Asked by cabledrawer.)
+- **A refused "too many tries" attempt is logged** ("Sign-in slowed down for tess from 192.168.1.20 (wait 30 s)"). (Asked by cabledrawer.)
+
+### Privacy and security
+
+- **Usernames that don't exist aren't written to the log.** Someone who types their password into the username box would otherwise have it logged. The log says "unknown user" instead. (Found by cabledrawer.)
 
 ## [0.1.0] - 2026-10-17
 

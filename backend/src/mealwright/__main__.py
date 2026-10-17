@@ -1,18 +1,17 @@
 """Run the server: python -m mealwright"""
 
-import logging
-
 import uvicorn
 
 from mealwright.config import get_settings
+from mealwright.logs import set_up_logging
 from mealwright.main import create_app
 
 
 def main() -> None:
-    # Our own log lines (errors and sign-ins only; spec section 7) go to the container log.
-    logging.basicConfig(format="%(levelname)s:     %(name)s: %(message)s")
-    logging.getLogger("mealwright").setLevel(logging.INFO)
     settings = get_settings()
+    # Our own log lines (errors and sign-ins only; spec section 7): the container output
+    # and a 14-day log file in the data folder (mealwright.logs).
+    set_up_logging(settings.data_dir)
     uvicorn.run(
         create_app(settings),
         host=settings.host,
@@ -22,6 +21,8 @@ def main() -> None:
         proxy_headers=False,
         # No request log: addresses would show what people look at and search for.
         access_log=False,
+        # Logging is set up above; uvicorn's errors reach the same output and file.
+        log_config=None,
     )
 
 

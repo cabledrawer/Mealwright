@@ -11,6 +11,7 @@
 
 import hashlib
 import logging
+import math
 import secrets
 import threading
 import time
@@ -115,7 +116,7 @@ class SlowDown:
                 if extra >= 0:
                     wait = min(self.FIRST_WAIT * 2**extra, self.MAX_WAIT)
                     longest = max(longest, times[-1] + wait - at)
-        return max(0, int(longest + 0.999))
+        return max(0, math.ceil(longest))
 
     def failed(self, keys: list[str], at: float | None = None) -> None:
         at = time.monotonic() if at is None else at

@@ -420,7 +420,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 
 **API tokens (cabledrawer 17 Oct):** each token is read-only or full access, with an optional expiry date (e.g. a read-only Home Assistant token can see the list but not delete recipes).
 
-**Logs (cabledrawer 17 Oct):** errors and sign-ins only, never what people cook, buy or type. Kept for 14 days, stored locally, never sent anywhere.
+**Logs (cabledrawer 17 Oct):** errors and sign-ins only, never what people cook, buy or type. Kept for 14 days, stored locally, never sent anywhere. **How (0.1.1, cabledrawer asked Claude Code to choose, 17 Oct):** the app keeps its own log file in the data folder (`/data/logs/mealwright.log`), a new file each midnight UTC, the last 14 days kept; "Report a problem" reads recent errors from it. Every line carries a UTC time. The example compose file caps Docker's own copy of the output (3 × 10 MB). **Sign-in log lines (cabledrawer 17 Oct):** every sign-in writes "Signed in"; a refused attempt during the slow-down is logged with the wait; a username is logged only if it's a real account, otherwise "unknown user", so a password typed into the username box never reaches the log.
 
 **Bug reports (cabledrawer 17 Oct):** Settings → About has a "Report a problem" button. The server never sends anything; the person does, after seeing exactly what's in it.
 
