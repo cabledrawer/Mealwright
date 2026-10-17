@@ -37,11 +37,11 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 
 - API-first: the web app uses only the public, versioned `/api/v1` (OpenAPI). No private endpoints. The offline sync protocol is part of the API.
 - Every table has `household_id`. Every schema change is an Alembic migration.
-- Tests for every feature; CI must stay green (lint, types, tests, outbound-gate test, licence allow list, scanners).
+- Tests for every feature. Run `./check` before every PR (lint, types, tests, outbound-gate test, licence allow list, scanners, image checks) and paste its summary into the PR description. It must pass.
 - Dependencies must be AGPL-compatible (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0, MPL-2.0), plus OFL-1.1 for fonts only (cabledrawer 17 Oct). Reject MPL-2.0 packages marked "Incompatible With Secondary Licenses". No GPL-2.0-only. Ask before adding a new dependency.
 - Commits are small, and each builds and passes. **cabledrawer is the author and signs off every commit** (cabledrawer 17 Oct): the repo's git identity is set to him, so always commit with `git commit -s --trailer "Assisted-by: Claude Code"`. Never change the git identity and never add a `Signed-off-by` for Claude. Also note AI help in PR descriptions.
 - Versions: 0.N.0 per milestone while building (not published). From 1.0.0: MAJOR.MINOR.PATCH per spec section 8. Update `CHANGELOG.md` with each version.
 - Code home during 0.x is cabledrawer's private **Forgejo** at `https://<code server>/<owner>/mealwright` (homelab; the address is in `CLAUDE.local.md`, heading "The code server"). Use `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI, not `gh`. You push as the restricted `claude` account, which can push branches but not `main`.
 - Workflow: work on a branch per piece of work (e.g. `m0.1/app-shell`), push it, and open a pull request with `tea pr create`. Only cabledrawer can push to or merge into `main`, and only he can create `v*` tags.
-- CI is Forgejo Actions (`.forgejo/workflows/`), using open tools only. 0.x images go only to Forgejo's private registry. GitHub becomes the public home at 1.0.0.
-- Never publish images or releases yourself, and never push to any public registry or repo. cabledrawer merges, tags releases and manages the servers.
+- **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. `./check` replaces it. CI starts at 1.0 on GitHub Actions. 0.x images go only to Forgejo's private registry, and cabledrawer pushes them himself (`docs/dev/test-on-homelab.md`). GitHub becomes the public home at 1.0.0.
+- Never publish images or releases yourself. Never push images to any registry, including Forgejo's private one, and never push to any public registry or repo. cabledrawer merges, tags releases and manages the servers.
