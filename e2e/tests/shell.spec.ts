@@ -10,7 +10,8 @@ const PAGES = [
   { path: '/plan', title: 'Plan', tab: 'Plan' },
   { path: '/shopping', title: 'Shopping', tab: 'Shop' },
   { path: '/pantry', title: 'Pantry', tab: 'Pantry' },
-  { path: '/recipes', title: 'Recipes', tab: 'Recipes' },
+  // On desktop the sidebar shows Recipes as a tree, and marks All recipes.
+  { path: '/recipes', title: 'Recipes', tab: 'Recipes', sidebar: 'All recipes' },
 ];
 
 const GROUND = { light: 'rgb(245, 246, 244)', dark: 'rgb(17, 22, 20)' };
@@ -66,13 +67,13 @@ test.beforeEach(async ({ page }) => {
 
 test('every page opens, with its title and the right tab marked', async ({ page, baseURL }) => {
   const watcher = await watch(page, baseURL!);
-  for (const { path, title } of PAGES) {
+  for (const { path, title, sidebar } of PAGES) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
     await expect(page).toHaveTitle(`${title} · Mealwright`);
     await expect(mainNav(page).locator('[aria-current="page"]')).toHaveCount(1);
     await expect(mainNav(page).locator('[aria-current="page"]')).toContainText(
-      isPhone(page) ? PAGES.find((p) => p.path === path)!.tab : title,
+      isPhone(page) ? PAGES.find((p) => p.path === path)!.tab : (sidebar ?? title),
     );
   }
   expect(await watcher.violations()).toEqual([]);

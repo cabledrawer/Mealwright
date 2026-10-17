@@ -59,7 +59,10 @@
     top: var(--space-4);
     left: var(--space-4);
     z-index: 100;
-    padding: var(--space-4) var(--space-6);
+    display: flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
     border-radius: var(--radius-md);
     background: var(--color-inverse);
     color: var(--color-inverse-text);
