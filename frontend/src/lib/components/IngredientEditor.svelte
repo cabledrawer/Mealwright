@@ -57,6 +57,7 @@
   });
 
   let renaming = $state(false);
+  let splitting = $state<Ref | null>(null);
   let addingName = $state(false);
   let addingSize = $state(false);
   let addingShop = $state(false);
@@ -313,7 +314,14 @@
       <ul class="chips">
         {#each food.other_names as name (name.id)}
           <li class="chip">
-            {name.name}<button
+            <button
+              type="button"
+              class="chip-name"
+              aria-expanded={splitting?.id === name.id}
+              aria-controls="{uid}-split"
+              onclick={() => (splitting = splitting?.id === name.id ? null : name)}
+              >{name.name}</button
+            ><button
               type="button"
               class="remove"
               aria-label="Remove {name.name}"
@@ -336,7 +344,26 @@
           {/if}
         </li>
       </ul>
-      <p class="hint">Recipe imports match any of these names.</p>
+      {#if splitting}
+        {@const name = splitting}
+        <div class="split" id="{uid}-split">
+          <span>“{name.name}”</span>
+          <button
+            type="button"
+            class="quiet"
+            onclick={() => {
+              const target = name;
+              splitting = null;
+              void model.split(target);
+            }}>Make its own ingredient</button
+          >
+          <button type="button" class="link muted" onclick={() => (splitting = null)}>Cancel</button
+          >
+        </div>
+      {/if}
+      <p class="hint">
+        Recipe imports match any of these names. Tap one to make it its own ingredient.
+      </p>
     </section>
 
     <section aria-labelledby="{uid}-sold">
@@ -690,6 +717,25 @@
     background: var(--color-chip);
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
+  }
+
+  .chip-name {
+    min-height: var(--touch-target);
+    margin: -6px 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .split {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
   }
 
   /* The ✕: small to look at, 44 px to tap. */

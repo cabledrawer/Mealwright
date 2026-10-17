@@ -17,7 +17,8 @@ import {
   removeFood,
   removeOtherName,
   removeSize,
-  removeStandIn
+  removeStandIn,
+  splitFood
 } from './client/foods';
 import type { Answer, Change as ServerChange, Food, FoodPatch, Ref, Size } from './client/types';
 import { kitchen } from './freshness.svelte';
@@ -72,6 +73,8 @@ export class FoodModel {
     send: (key: string, answers: Answer[]) => Promise<T>;
     undo?: boolean;
     saved?: (value: T) => void;
+    /** The answer is about another food (split): stay on this one and fetch it again. */
+    keepFood?: boolean;
   }) {
     let putBack = () => {};
     let undoer: (() => Promise<string | void>) | null = null;
@@ -82,7 +85,8 @@ export class FoodModel {
       rollback: () => putBack(),
       send: options.send,
       saved: (value) => {
-        if (value.food) {
+        if (options.keepFood) void this.load();
+        else if (value.food) {
           this.food = value.food;
           this.id = value.food.id;
         }
@@ -144,6 +148,16 @@ export class FoodModel {
       label: `Removed “${name.name}”`,
       edit: (food) => void (food.other_names = food.other_names.filter((n) => n.id !== name.id)),
       send: (key) => removeOtherName(this.id, name.id, key)
+    });
+  }
+
+  /** "Make its own ingredient": an other name becomes a food of its own again. */
+  split(name: Ref) {
+    return this.#write({
+      label: `Made ${name.name} its own ingredient`,
+      edit: (food) => void (food.other_names = food.other_names.filter((n) => n.id !== name.id)),
+      send: (key) => splitFood(this.id, name.id, key),
+      keepFood: true
     });
   }
 

@@ -92,3 +92,27 @@ test('the editor passes the accessibility checks', async ({ page }) => {
   await expect(editor.getByRole('switch', { name: 'Staple' })).toBeVisible();
   await checkPage(page);
 });
+
+test('an other name can become its own ingredient, and Undo joins it back', async ({ page }) => {
+  const food = await makeFood(page, 'Drumsticks');
+  const other = `moringa ${food.id}`;
+  const added = await page.request.post(`/api/v1/foods/${food.id}/other-names`, {
+    data: { name: other },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(added.status()).toBe(201);
+  const editor = await openEditor(page, food.name);
+  await editor.getByRole('button', { name: other, exact: true }).click();
+  await editor.getByRole('button', { name: 'Make its own ingredient' }).click();
+
+  const named = async () =>
+    (
+      (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(other)}`)).json()) as {
+        foods: { name: string }[];
+      }
+    ).foods.map((f) => f.name);
+  await expect.poll(named).toContain(other);
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(named).not.toContain(other);
+});

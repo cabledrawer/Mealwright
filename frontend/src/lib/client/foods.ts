@@ -114,6 +114,10 @@ export const mergeFood = (
 ) =>
   api<FoodWrite>('POST', `/foods/${id}/merge`, { into_id: intoId, answers }, key(idempotencyKey));
 
+/** Turn one of a food's other names back into its own food (revived, if it came from a merge). */
+export const splitFood = (id: number, otherNameId: number, idempotencyKey: string) =>
+  api<FoodWrite>('POST', `/foods/${id}/split`, { other_name_id: otherNameId }, key(idempotencyKey));
+
 export const getPlaces = () => api<Place[]>('GET', '/places');
 
 export const getShops = () => api<Shop[]>('GET', '/shops');

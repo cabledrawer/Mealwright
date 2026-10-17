@@ -33,6 +33,17 @@ describe('the ingredient editor, opened from anywhere', () => {
         food = { ...food, other_names: [...food.other_names, { id: 50, name }] };
         return [201, { food, change: changeOf(901, `Added ${name}`) }];
       },
+      'POST /foods/7/split': (request) => {
+        const id = (request.body as { other_name_id: number }).other_name_id;
+        food = { ...food, other_names: food.other_names.filter((n) => n.id !== id) };
+        return [
+          201,
+          {
+            food: toorDal({ id: 60, name: 'arhar dal', other_names: [] }),
+            change: changeOf(903, 'Made arhar dal its own food again')
+          }
+        ];
+      },
       'POST /changes/900/undo': [
         200,
         { result: 'done', message: 'Undone.', change: changeOf(902, 'Undid'), food: null }
@@ -147,5 +158,25 @@ describe('the ingredient editor, opened from anywhere', () => {
         button.textContent ?? ''
       ).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  it('"Make its own ingredient" splits an other name off, with Undo, and stays on this food', async () => {
+    const dialog = await openToorDal();
+    await dialog.getByRole('button', { name: 'arhar dal', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Make its own ingredient' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.path === '/foods/7/split')?.body).toEqual({ other_name_id: 22 })
+    );
+    expect(requests.find((r) => r.path === '/foods/7/split')!.headers['idempotency-key']).toMatch(
+      UUID
+    );
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Made arhar dal its own food again')
+    );
+    expect(toasts.current?.action?.label).toBe('Undo');
+    await expect.element(dialog.getByRole('heading', { name: 'Toor dal' })).toBeVisible();
+    expect(dialog.getByRole('button', { name: 'arhar dal', exact: true }).elements()).toHaveLength(
+      0
+    );
   });
 });
