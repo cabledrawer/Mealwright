@@ -13,6 +13,8 @@ There's no CI runner during 0.x (cabledrawer 17 Oct), so images are built on you
 
 Throughout, replace anything in `<angle brackets>` with your own value. Each command goes in a terminal on the machine named in that section.
 
+**Already done on the home server (cabledrawer 17 Oct):** the Caddy site (tier D), DNS and the certificate, and the folder `~/mealwright/data`. Those steps are marked **Done** below.
+
 ---
 
 ## 1. One-time setup
@@ -155,22 +157,21 @@ docker logout git.example.org
 
 ### 4.2 Folders
 
-```bash
-sudo mkdir -p /opt/mealwright/data /opt/mealwright/backups
-cd /opt/mealwright
-```
+**Done (cabledrawer 17 Oct):** Mealwright lives in `~/mealwright`, with its data in `~/mealwright/data`.
 
-Mealwright runs inside the container as its own user, number 10001, so give that user the data folder:
+Mealwright runs inside the container as its own user, **number 10001**, so give that user the data folder, and make a folder for backups:
 
 ```bash
-sudo chown 10001:10001 /opt/mealwright/data
+cd ~/mealwright
+sudo chown 10001:10001 data
+mkdir -p backups
 ```
 
 (To double-check the number: `docker run --rm --entrypoint id git.example.org/tess/mealwright:<TAG>` prints `uid=10001(mealwright) …`.)
 
 ### 4.3 Compose file
 
-Create `/opt/mealwright/compose.yaml`:
+Create `~/mealwright/compose.yaml`:
 
 ```yaml
 services:
@@ -208,53 +209,65 @@ Notes:
 - **No `ports:`.** It's only reachable through Caddy.
 - **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which Caddy provides. On a plain `http://` address, Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
 - **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
-- **Data** lives in `/opt/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes `/opt/mealwright`.
+- **Data** lives in `~/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes it.
 - If Diun watches this container, that's fine, because Diun only tells you about new images. Renovate, if you use it, must never auto-merge a Mealwright change.
 
-### 4.4 Caddy and Authelia
+### 4.4 Caddy, DNS and the certificate
 
-Do this the same way as your other apps.
+**Done (cabledrawer 17 Oct):**
 
-1. Let Caddy reach Mealwright. In Caddy's compose file, add the network:
+- The Caddy site `mealwright.example.org` → `mealwright:8080`, **tier D**: Mealwright's own login, no Authelia in front, and Caddy strips any `Remote-*` headers. Mealwright doesn't read those headers anyway; stripping them means no visitor can pretend to be signed in through them.
+- The wildcard DNS name and certificate already cover `mealwright.example.org`.
 
-   ```yaml
-   services:
-     caddy:
-       networks:
-         # …the networks it already has…
-         - mealwright
-   networks:
-     mealwright:
-       external: true
-   ```
+**Still to check: Caddy joins Mealwright's network.** Caddy can only reach `mealwright:8080` if it's on the `mealwright` network. If Caddy's compose file doesn't have it yet, add:
 
-2. Add a site to the Caddyfile. Copy the Authelia part from one of your existing apps, so it matches exactly. The shape is:
+```yaml
+services:
+  caddy:
+    networks:
+      # …the networks it already has…
+      - mealwright
+networks:
+  mealwright:
+    external: true
+```
 
-   ```
-   mealwright.example.org {
-       # the same Authelia forward_auth lines (or import) as your other apps
-       reverse_proxy mealwright:8080
-   }
-   ```
+**Editing the Caddyfile:** your Caddyfile is a **single-file bind mount**. Tools that save by replacing the file, like `sed -i` and many editors, leave the container still looking at the old file, so `caddy reload` won't see the change. After editing it that way, restart Caddy:
 
-3. Add `mealwright.example.org` to your local DNS the same way as your other apps.
-4. In Authelia's `access_control`, give `mealwright.example.org` the same policy as your other apps (for example `two_factor`).
+```bash
+docker restart caddy
+```
 
-Mealwright also has its own login. For now you'll sign in twice: Authelia, then Mealwright. That's expected.
+(Docker attaches a single-file mount to the file itself, and a replaced file is a new file. A restart attaches the new one.)
 
-### 4.5 Start it
+### 4.5 Start it, and create the admin straight away
 
 The `mealwright` network has to exist before Caddy can join it, so start Mealwright first:
 
 ```bash
-cd /opt/mealwright
+cd ~/mealwright
 docker compose up -d
 docker compose logs -f        # watch it start; press Ctrl+C to stop watching
 ```
 
-Then restart Caddy, so it joins the network and loads the new site.
+If you just added the network to Caddy's compose file, apply it (`docker compose up -d` in Caddy's folder). Otherwise restart Caddy so it joins the network:
 
-**Check it's running.** `docker ps` should show `mealwright` as `(healthy)` within about 30 seconds. Then open `https://mealwright.example.org/api/v1/version` in your browser. After the Authelia login, it shows the version, for example `{"version":"0.1.0"}`. Then open `https://mealwright.example.org/`, create the admin account, and sign in.
+```bash
+docker restart caddy
+docker network inspect mealwright --format '{{range .Containers}}{{.Name}} {{end}}'
+```
+
+The second command should list both `mealwright` and `caddy`.
+
+**Create the admin account straight away.** With tier D there's no Authelia in front, so until the admin account exists, the first person to open the address becomes the admin. That's how first-run setup works (spec section 7). Open `https://mealwright.example.org/`, create your account and sign in. Then check that setup is closed:
+
+```bash
+curl -s https://mealwright.example.org/api/v1/setup
+```
+
+It must say `"needs_setup":false`.
+
+**Check it's running.** `docker ps` should show `mealwright` as `(healthy)` within about 30 seconds, and `https://mealwright.example.org/api/v1/version` shows the version, for example `{"version":"0.1.0"}`.
 
 ---
 
@@ -266,11 +279,11 @@ Every start-up applies database changes (migrations) for the new version. The ol
 2. On the home server, **stop Mealwright and back up the data**. Stopping it first makes sure the database is copied in a consistent state.
 
    ```bash
-   cd /opt/mealwright
+   cd ~/mealwright
    OLD=$(grep -oE 'tess/mealwright:[^ ]+' compose.yaml | cut -d: -f2)
    echo "Current version: $OLD"
    docker compose stop mealwright
-   sudo tar -C /opt/mealwright -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
+   sudo tar -C ~/mealwright -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
    ls -lh backups/       # the new backup should be there, and not tiny
    ```
 
@@ -285,7 +298,7 @@ Every start-up applies database changes (migrations) for the new version. The ol
 
 6. Check `https://mealwright.example.org/api/v1/version` shows the new version.
 
-Keep at least the last three backups. Delete older ones from `/opt/mealwright/backups` when you're happy.
+Keep at least the last three backups. Delete older ones from `~/mealwright/backups` when you're happy.
 
 ---
 
@@ -294,7 +307,7 @@ Keep at least the last three backups. Delete older ones from `/opt/mealwright/ba
 Use this if the new version doesn't start or doesn't work. **Anything you changed in Mealwright after updating will be lost**, because you go back to the backup taken just before the update.
 
 ```bash
-cd /opt/mealwright
+cd ~/mealwright
 docker compose stop mealwright
 
 # Keep the newer data aside rather than deleting it, in case it's needed.
@@ -302,7 +315,7 @@ sudo mv data "data-broken-$(date +%Y%m%d-%H%M)"
 
 # Restore the backup from just before the update (pick the right file).
 ls -lh backups/
-sudo tar -C /opt/mealwright -xzf backups/data-<OLD>-<date>.tar.gz
+sudo tar -C ~/mealwright -xzf backups/data-<OLD>-<date>.tar.gz
 ```
 
 Then edit `compose.yaml` and set the `image:` tag back to the **old** version, the one in the backup's file name. Start it:
