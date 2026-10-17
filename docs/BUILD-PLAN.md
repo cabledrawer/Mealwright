@@ -108,6 +108,8 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 
 **cabledrawer checks:** two phones, one shop, aeroplane mode.
 
+**From here on (cabledrawer 17 Oct, spec section 8 "Lessons"):** cabledrawer's household uses Mealwright for real every week and keeps a friction log (anything annoying or confusing). Every milestone lead reads it when its milestone starts and raises anything that affects its screens. Run the non-technical prototype test before 0.4 starts if at all possible.
+
 ---
 
 ## 0.4.0 Recipes
@@ -210,16 +212,19 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 - Install docs, HTTPS (cabledrawer 17 Oct): say plainly that HTTPS is required for sign-in on other devices, the installable app, offline shopping and keep-screen-awake, and why. Give short, tested reverse-proxy examples for Caddy, Traefik, nginx and Nginx Proxy Manager, each showing HTTPS, the forwarded headers and the matching `MEALWRIGHT_TRUSTED_PROXIES` value.
 - Prepare the move to GitHub (ready but unused): GitHub Actions workflows in `.github/workflows/` that run the same checks as `./check` (CI starts here, at 1.0: cabledrawer 17 Oct); add arm64 to image builds; a release workflow that, on a `v1.*` tag on GitHub, builds multi-arch and pushes to GHCR and Docker Hub with tags 1.2.3 / 1.2 / 1 / latest, and creates the GitHub release from `CHANGELOG.md`. Write `docs/dev/move-to-github.md` for cabledrawer: create the GitHub repo, set a push mirror in Forgejo, add secrets, turn on private vulnerability reporting, issue form and Discussions.
 - Pre-release checklist from spec section 8: licence allow list green and the food table checked by hand; a manual network-watch run with every Privacy switch off; trademark search (UK, EU, US) recorded by cabledrawer; scanners clean; web-app security checklist gone through.
+- **The 1.0 promise (spec section 8):** document and version the export format in `docs/`; add upgrade tests: a saved database from each earlier 0.x tag upgrades cleanly to the latest, with the 0.9 database kept as a fixture for later tests.
+- **Plan for stepping away:** `docs/dev/architecture.md` (how the pieces fit together, in plain words) and `docs/dev/build-and-release.md` (how to build, test, tag and publish), so someone else could carry on or fork cleanly.
+- **README "Not planned" section:** built from spec section 1 non-goals, the ethos hard rules, "Not in v1" and spec section 8.
 
 **Done when:** every "v1.0 must have" item in spec section 2 is built and ticked off in a checklist in `docs/`; the pre-release checklist is complete.
 
-**cabledrawer checks:** asks the self-hosting community for a review and fixes what comes back (as 0.9.x patches).
+**cabledrawer checks:** asks the self-hosting community for a review, runs a private trial with two or three invited self-hosters for about a month (how they get the build is decided then; no public image or release), and fixes what comes back (as 0.9.x patches).
 
 ---
 
 ## 1.0.0 First public release
 
-cabledrawer decides when. He makes the GitHub repo public (Forgejo push-mirrors to it, so Forgejo can stay his working copy), then tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action.
+cabledrawer decides when. He makes the GitHub repo public (Forgejo push-mirrors to it, so Forgejo can stay his working copy), then tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
 
 ## After 1.0.0
 

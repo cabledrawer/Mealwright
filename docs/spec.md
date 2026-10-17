@@ -481,7 +481,7 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 **Decided (cabledrawer 17 Oct):**
 
 - **Contributor policy: DCO.** Contributors add a one-line "Signed-off-by" to each commit, confirming the work is theirs to give under AGPL-3.0. No CLA, so Mealwright stays AGPL-only.
-- **No public test version.** The first public release is 1.0.0, and only when every "v1.0 must have" feature is built. No alpha or beta channel.
+- **No public test version.** The first public release is 1.0.0, and only when every "v1.0 must have" feature is built. No alpha or beta channel. (A small private trial with a few invited testers at 0.9 is allowed; see "Lessons from other self-hosted apps" below.)
 - **Version numbers: plain MAJOR.MINOR.PATCH.**
   - 1.0.0 → 2.0.0: major new functionality.
   - 1.0.0 → 1.1.0: smaller feature upgrades.
@@ -503,6 +503,15 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 - **Contributions:** cabledrawer reviews and merges everything. Anything bigger than a small fix starts as an issue first. `CONTRIBUTING.md` covers the DCO sign-off, the ethos rules (no telemetry; no new outbound connection unless behind a Privacy switch) and the UX rule "phone breaks ties".
 - **AI help must be disclosed (cabledrawer 17 Oct):** contributors say in the pull request when code was written with AI help (alongside the project's own AI disclosure).
 - **Expectations (cabledrawer 17 Oct):** the README says Mealwright is a spare-time project and replies may take a week or so.
+
+**Lessons from other self-hosted apps (cabledrawer 17 Oct).** Taken from how Mealie, Immich, Paperless-ngx, Tandoor, KitchenOwl and Actual Budget grew up. All six adopted by cabledrawer.
+
+- **The 1.0 promise.** 1.0.0 is a promise about what won't break during 1.x: the public API (`/api/v1`, including the offline sync protocol), the export format, settings and environment variables, and the data itself. Every 1.x version upgrades in place with no manual steps; anything that can't goes to 2.0 (see version numbers above). The export format is versioned and documented in `docs/`, so people can always get all their data out and back in. Tests: from 0.9, a saved database from each earlier 0.x tag must upgrade cleanly to the latest version; from 1.0, every release is also tested upgrading from a 1.0.0 database. (Why: Mealie's v1 couldn't upgrade in place and carried only recipes, categories and tags across.)
+- **A "Not planned" list** in the README and here: things Mealwright won't do, so repeat requests get a link instead of a debate. It starts from the non-goals (section 1), the ethos hard rules and "Not in v1" (section 2), and grows as requests come in. (Why: Actual Budget does this publicly; saying no is the main way a spare-time project stays maintainable.)
+- **Real use from 0.3.** From 0.3 (shopping list) cabledrawer's household uses Mealwright for real every week and keeps a short running note of anything annoying or confusing (the friction log). Each milestone lead reads it when its milestone starts. The non-technical prototype test is run before 0.4 starts if at all possible, so its findings shape the recipe, plan and cooking screens. (Why: Tandoor's biggest complaint is a dense, hard-to-learn UI, and Mealwright has as many features.)
+- **A small private trial at 0.9.** Two or three invited self-hosters install a 0.9 build on their own servers and use it for about a month, alongside the community review. It stays private: no public image or release, so "no public test version" still stands. How they get the build is decided at 0.9.
+- **Plan for stepping away.** `docs/dev/` gets an architecture overview (how the pieces fit together) and a "how to build and release" guide, so someone else could carry on or fork cleanly. Written in 0.9 and kept up to date after. (Why: Paperless-ng stalled when its only maintainer went quiet, and contributors had to fork it as Paperless-ngx.)
+- **Release slowly after 1.0.** New features are bundled into minor releases about once a month at most; security fixes go out as patch releases whenever they're needed. (Why: Immich released about every five days, but it has a full team.)
 
 ## 9. Roadmap and build versions (settled 17 Oct)
 
