@@ -104,11 +104,11 @@ describe('save', () => {
     const state = { place: 'Cupboard' };
     await save(
       placeChange(state, 'Fridge', () =>
-        Promise.reject(new ApiError(422, 'There is already a food called Toor dal.'))
+        Promise.reject(new ApiError(422, 'There’s already an ingredient called Toor dal.'))
       )
     );
     expect(state.place).toBe('Cupboard');
-    expect(toasts.current?.message).toBe('There is already a food called Toor dal.');
+    expect(toasts.current?.message).toBe('There’s already an ingredient called Toor dal.');
     expect(toasts.current?.action).toBeUndefined();
   });
 

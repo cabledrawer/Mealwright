@@ -105,7 +105,7 @@ describe('api for changes (0.2)', () => {
 
   it('keeps the error code and the whole answer', async () => {
     const answer = {
-      detail: 'There’s already a food called Toor dal.',
+      detail: 'There’s already an ingredient called Toor dal.',
       code: 'name_taken',
       food_id: 7
     };
