@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
+from mealwright.api.v1.account import how_long
 from mealwright.auth import COOKIE, IDLE_TIMEOUT, SlowDown, now
 from mealwright.models import Login, Session
 
@@ -192,7 +193,23 @@ def test_slow_down_after_five_wrong_guesses(client: TestClient) -> None:
     # Even the right password has to wait.
     assert blocked.status_code == 429
     assert int(blocked.headers["retry-after"]) > 0
-    assert "Too many tries" in blocked.json()["detail"]
+    assert blocked.json()["detail"] == "Too many tries. Please wait 30 seconds."
+
+
+@pytest.mark.parametrize(
+    ("seconds", "words"),
+    [
+        (1, "1 second"),
+        (30, "30 seconds"),
+        (59, "59 seconds"),
+        (60, "1 minute"),
+        (61, "2 minutes"),  # never shorter than the real wait
+        (120, "2 minutes"),
+        (15 * 60, "15 minutes"),
+    ],
+)
+def test_wait_in_plain_words(seconds: int, words: str) -> None:
+    assert how_long(seconds) == words
 
 
 def test_slow_down_timing() -> None:

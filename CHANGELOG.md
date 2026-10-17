@@ -4,6 +4,12 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-17
+
+### Fixed
+
+- **Sign-in shows the real wait** after too many wrong passwords: "30 seconds" at first, then 1 minute, 2 minutes and so on, up to 15 minutes. It used to say "1 minute" when the wait was 30 seconds. (Found by cabledrawer while testing 0.1.0.)
+
 ## [0.1.0] - 2026-10-17
 
 Milestone 0.1, Foundation: an empty but real Mealwright you can install, sign in to and click around, with the safety rails built in. Not published; for testing on cabledrawer's homelab.
@@ -31,5 +37,6 @@ Milestone 0.1, Foundation: an empty but real Mealwright you can install, sign in
 - **Works behind any reverse proxy.** Its forwarded headers are believed only from `MEALWRIGHT_TRUSTED_PROXIES` (off by default).
 - Requests from other sites are refused, and the session cookie can't be read by scripts and is stored only as a fingerprint.
 
-[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.1.0...main
+[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.1.1...main
+[0.1.1]: https://git.example.org/tess/mealwright/src/tag/v0.1.1
 [0.1.0]: https://git.example.org/tess/mealwright/src/tag/v0.1.0

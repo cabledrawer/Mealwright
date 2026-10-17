@@ -137,6 +137,17 @@ class SignIn(BaseModel):
     remember: bool = False
 
 
+def how_long(seconds: int) -> str:
+    """The wait in plain words, never shorter than the real one.
+
+    Under a minute it's shown in seconds; from a minute on, in whole minutes, rounded up.
+    """
+    if seconds < 60:
+        return f"{seconds} second{'s' if seconds != 1 else ''}"
+    minutes = -(-seconds // 60)
+    return f"{minutes} minute{'s' if minutes != 1 else ''}"
+
+
 @router.post("/session")
 def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     needs_https(request, request.app.state.settings)
@@ -146,10 +157,9 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     keys = [f"user:{username}", f"addr:{address}"]
     wait = slow.wait_seconds(keys)
     if wait:
-        minutes = max(1, round(wait / 60))
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Too many tries. Please wait {minutes} minute{'s' if minutes > 1 else ''}.",
+            f"Too many tries. Please wait {how_long(wait)}.",
             headers={"Retry-After": str(wait)},
         )
     login = db.scalar(select(Login).where(Login.username == username))
