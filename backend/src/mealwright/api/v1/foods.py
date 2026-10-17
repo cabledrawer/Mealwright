@@ -71,9 +71,11 @@ from mealwright.models import (
     FoodStandIn,
     Place,
     Shop,
+    StockLot,
     utcnow,
 )
 from mealwright.names import clean, fold, normalise
+from mealwright.stock import has_stock, lots_of
 
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
 
@@ -126,7 +128,7 @@ class FoodOut(BaseModel):
     stand_ins: list[StandIn]
     stands_in_for: list[StandIn]
     maybe_same: list[Ref]
-    stock: AmountOut | None  # filled in once stock arrives (0.2, stock PR)
+    stock: AmountOut  # how much there is, in every place
     last_change: LastChange | None
     merged_from: Ref | None = None
 
@@ -244,6 +246,12 @@ def _conversion(kitchen: Kitchen, food: Food) -> tuple[Conversion | None, Conver
     )
 
 
+def _stock(kitchen: Kitchen, food: Food, usual: FoodSize | None) -> AmountOut:
+    """How much there is, in every place."""
+    total = sum(lot.amount_milli for lot in lots_of(kitchen, [food.id]))
+    return amount_out(food, total, usual)
+
+
 def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> FoodOut:
     db = kitchen.db
     food_sizes = sizes(kitchen, food.id)
@@ -301,7 +309,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         maybe_same=sorted(
             (Ref(id=i, name=by_id[i].name) for i in same if i in by_id), key=lambda r: fold(r.name)
         ),
-        stock=None,
+        stock=_stock(kitchen, food, usual),
         last_change=(
             LastChange(id=last.id, summary=last.summary, can_undo=can_undo(kitchen, last))
             if last is not None and can_undo(kitchen, last)
@@ -531,8 +539,16 @@ FIELD_NAMES = (
 COUNTED_WORDS = {"weight": "by weight", "volume": "by volume", "count": "by number"}
 
 
-def _change_counted_as(kitchen: Kitchen, food: Food, target: str, answers: list[Answer]) -> None:
-    """Convert the food's sizes and running-low level to the new base unit."""
+def _food_lots(kitchen: Kitchen, food_id: int) -> list[StockLot]:
+    """All of a food's lots, empty ones (still undoable) too."""
+    return list(kitchen.db.scalars(select(StockLot).where(StockLot.food_id == food_id)))
+
+
+def _change_counted_as(
+    kitchen: Kitchen, food: Food, target: str, answers: list[Answer]
+) -> dict[str, list[object]]:
+    """Convert the food's sizes, running-low level and stock to the new base unit.
+    Returns the stock lots' [before, after, old way of counting] for Undo."""
     source = cast(CountedAs, food.counted_as)
     goal = cast(CountedAs, target)
     knowledge = known(kitchen, food, answers)
@@ -547,6 +563,10 @@ def _change_counted_as(kitchen: Kitchen, food: Food, target: str, answers: list[
             if food.running_low_milli is not None
             else None
         )
+        lots = [
+            (lot, convert_milli(lot.amount_milli, source, goal, knowledge, cup))
+            for lot in _food_lots(kitchen, food.id)
+        ]
     except AskOnce as needed:
         raise ask(kitchen, food, needed.kind) from None
     remember_answers(kitchen, answers)
@@ -554,6 +574,11 @@ def _change_counted_as(kitchen: Kitchen, food: Food, target: str, answers: list[
         size.amount_milli = max(milli, 1)
     food.running_low_milli = low
     food.counted_as = target
+    moved: dict[str, list[object]] = {}
+    for lot, milli in lots:
+        moved[str(lot.id)] = [lot.amount_milli, milli, source]
+        lot.amount_milli = milli
+    return moved
 
 
 @router.patch("/foods/{food_id}")
@@ -592,7 +617,9 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                     raise Problem(422, "counted_as_needed", "Choose how it's counted.")
                 if body.counted_as == food.counted_as:
                     return None
-                _change_counted_as(kitchen, food, body.counted_as, body.answers)
+                edit.extra["lot_amounts"] = _change_counted_as(
+                    kitchen, food, body.counted_as, body.answers
+                )
                 summary = f"{name} is now counted {COUNTED_WORDS[body.counted_as]}"
             elif field_name == "staple":
                 if body.staple is None or body.staple == food.staple:
@@ -681,6 +708,12 @@ def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
 
     def apply() -> Change:
         food = find(kitchen, food_id)
+        if has_stock(kitchen, food.id):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "in_use",
+                f"{food.name} is still in the pantry. Use it up, or merge it with another food.",
+            )
         with FoodEdit(kitchen, [food.id]) as edit:
             food.removed_at = utcnow()
         return edit.record("food_removed", f"Removed {food.name}", food.id)
@@ -932,8 +965,11 @@ class Merge(BaseModel):
     answers: list[Answer] = Field(default_factory=list, max_length=5)
 
 
-def merge_foods(kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer]) -> None:
-    """Move everything from `gone` into `into` (spec section 6, "Decided for 0.2")."""
+def merge_foods(
+    kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer]
+) -> dict[str, list[object]]:
+    """Move everything from `gone` into `into` (spec section 6, "Decided for 0.2"),
+    stock included. Returns the stock lots' [before, after, old way of counting] for Undo."""
     db = kitchen.db
     cup = cup_ml(kitchen.household)
     into_known, gone_known = known(kitchen, into, answers), known(kitchen, gone, answers)
@@ -945,6 +981,10 @@ def merge_foods(kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer])
         moved_sizes = [
             (size, convert_milli(size.amount_milli, source, target, knowledge, cup))
             for size in sizes(kitchen, gone.id)
+        ]
+        moved_lots = [
+            (lot, convert_milli(lot.amount_milli, source, target, knowledge, cup))
+            for lot in _food_lots(kitchen, gone.id)
         ]
     except AskOnce as needed:
         raise ask(kitchen, into, needed.kind) from None
@@ -962,11 +1002,13 @@ def merge_foods(kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer])
         db.add(FoodName(household_id=kitchen.household_id, food_id=into.id, name=gone.name))
 
     # Sizes move across (the same size twice becomes one).
-    existing = {(fold(s.name), s.amount_milli) for s in sizes(kitchen, into.id)}
+    existing = {(fold(s.name), s.amount_milli): s.id for s in sizes(kitchen, into.id)}
     position = max((s.position for s in sizes(kitchen, into.id)), default=-1)
+    same_size: dict[int, int] = {}
     for size, milli in moved_sizes:
-        if (fold(size.name), milli) in existing:
-            db.delete(size)
+        twin = existing.get((fold(size.name), milli))
+        if twin is not None:
+            same_size[size.id] = twin
             continue
         position += 1
         size.food_id, size.amount_milli, size.usual, size.position = (
@@ -975,7 +1017,20 @@ def merge_foods(kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer])
             False,
             position,
         )
-        existing.add((fold(size.name), milli))
+        existing[(fold(size.name), milli)] = size.id
+
+    # Stock moves across too, converted if the foods are counted differently.
+    moved: dict[str, list[object]] = {}
+    for lot, milli in moved_lots:
+        moved[str(lot.id)] = [lot.amount_milli, milli, gone.counted_as]
+        lot.food_id, lot.amount_milli = into.id, milli
+        if lot.size_id in same_size:
+            lot.size_id = same_size[lot.size_id]
+    db.flush()
+    for size_id in same_size:
+        twin_size = db.get(FoodSize, size_id)
+        if twin_size is not None:
+            db.delete(twin_size)
 
     # "Can use instead" links follow the food.
     for link in list(
@@ -1007,6 +1062,7 @@ def merge_foods(kitchen: Kitchen, gone: Food, into: Food, answers: list[Answer])
     db.flush()
     fix_usual_sizes(kitchen, [into.id])
     refresh_table_key(kitchen, into)
+    return moved
 
 
 @router.post("/foods/{food_id}/merge")
@@ -1019,7 +1075,7 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
         if gone.id == into.id:
             raise Problem(422, "same_food", "That's the same food.")
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
-            merge_foods(kitchen, gone, into, body.answers)
+            edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
             record = FoodMerge(
                 household_id=kitchen.household_id, from_food_id=gone.id, into_food_id=into.id
             )

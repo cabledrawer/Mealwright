@@ -159,7 +159,7 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 
 **`change_month`** (thinned history): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
 
-**Daily job** (APScheduler, 03:30 household time): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
+**Daily job** (APScheduler, `mealwright/jobs.py`; it runs every hour at :30 and thins each household when it's 03:30 there, so a household's time zone change is picked up and a missed night is caught up the next): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
 
 ### 3.7 Migrations, in order
 
@@ -476,7 +476,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
               "position": 1, "of": 2 } ] }
 ```
 
-**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "group": {…the food's group in the affected place(s), as above…}, "short_by": null }` (`groups` when a lot moved between places; a group that's now empty comes back with `stock.amount: 0` so the client can remove it).
+**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 in_use` (removing a food that still has stock).
 
 | Request | Body | Notes |
 |---|---|---|
@@ -496,7 +496,8 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
 
 **`GET /api/v1/changes?limit=20&before=<id>&food_id=7&area=pantry&mine=false`**
 
-- `area=pantry` lists stock changes only (Pantry → Recent changes); omit it for everything (food edits, merges).
+- `area=pantry` lists stock changes, and the Undos of stock changes, only (Pantry → Recent changes); omit it for everything (food edits, merges).
+- Each change carries `lines`: `[{ "food": {id, name}, "lot_id", "before": AmountOut, "after": AmountOut, "place_before", "place_after", "use_by_before", "use_by_after" }]` (empty for food changes).
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).
 
 ```json
@@ -521,7 +522,7 @@ Undo reverses **just that change**, line by line, and later changes stay:
 ```json
 {
   "result": "partly",
-  "message": "Put back 150 g of the 500 g — the rest has been used since.",
+  "message": "Took back 150 g of the 500 g: the rest has been used since.",
   "change": { "id": 830, "kind": "undo", "summary": "Undid: Added 1 packet toor dal", "can_undo": false, "…": "…" },
   "undone": { "id": 812, "undone": { "at": "…", "who": {…} }, "…": "…" },
   "groups": [ … ],

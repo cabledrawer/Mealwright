@@ -17,6 +17,7 @@ from typing import Any, Literal
 from fastapi import status
 from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
@@ -562,7 +563,7 @@ def month_cutoff(household: Household, now: datetime) -> datetime:
     return now.replace(year=year, month=month + 1, day=day)
 
 
-def thin(db: Any, household: Household, now: datetime | None = None) -> int:
+def thin(db: DbSession, household: Household, now: datetime | None = None) -> int:
     """Turn changes older than the history length into monthly totals, and drop empty lots
     once they can no longer be undone. Returns how many changes were thinned. Safe to run
     more than once."""
