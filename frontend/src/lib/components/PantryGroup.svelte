@@ -6,6 +6,7 @@
   import { ApiError } from '$lib/api';
   import type { Group, Lot, Place } from '$lib/client/types';
   import { dateWords, useByWords } from '$lib/dates';
+  import { PICKS, pickFor } from '$lib/picks';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
   import Icon from './Icon.svelte';
@@ -28,13 +29,6 @@
   let picked = $state<Record<number, number>>({});
   let typing = $state<number | null>(null);
 
-  const PICKS: { value: number; label: string }[] = [
-    { value: 0.25, label: '¼' },
-    { value: 0.5, label: '½' },
-    { value: 0.75, label: '¾' },
-    { value: 1, label: 'Full' }
-  ];
-
   const name = $derived(group.food.name);
   const single = $derived(group.lots.length === 1 ? group.lots[0] : undefined);
   const date = $derived(dateWords(group.use_by, group.days_left));
@@ -48,12 +42,9 @@
     group.food.counted_as === 'weight' ? 'g' : group.food.counted_as === 'volume' ? 'ml' : 'count'
   );
 
-  /** The pick nearest to what's left of a packet (to the nearest ¼). */
+  /** The pick that matches what's left (or the one just made). */
   function currentPick(lot: Lot): number | undefined {
-    if (lot.id in picked) return picked[lot.id];
-    const count = lot.stock.as_sold?.count;
-    if (count === undefined) return undefined;
-    return Math.min(1, Math.max(0.25, Math.round(count * 4) / 4));
+    return lot.id in picked ? picked[lot.id] : pickFor(lot);
   }
 
   function pick(lot: Lot, fraction: number) {
