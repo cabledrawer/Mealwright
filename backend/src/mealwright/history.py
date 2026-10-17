@@ -23,12 +23,16 @@ from mealwright.errors import Problem
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
+    ChangeLine,
+    ChangeMonth,
     Food,
     FoodConversion,
     FoodMerge,
     FoodName,
     FoodSize,
     FoodStandIn,
+    Household,
+    StockLot,
     utcnow,
 )
 from mealwright.names import fold
@@ -146,7 +150,14 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
     """Everything about these foods that a food change can touch, as plain JSON."""
     ids = sorted(set(food_ids))
     db = kitchen.db
-    snap: Snapshot = {"fields": {}, "names": {}, "sizes": {}, "stand_ins": {}, "conversions": {}}
+    snap: Snapshot = {
+        "fields": {},
+        "names": {},
+        "sizes": {},
+        "stand_ins": {},
+        "conversions": {},
+        "lots": {},
+    }
     for food in db.scalars(select(Food).where(Food.id.in_(ids))):
         # One entry per field, so undoing one field never touches another.
         snap["fields"][f"{food.id}:exists"] = True
@@ -168,6 +179,9 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
             "value_milli": conversion.value_milli,
             "answered_by_name": conversion.answered_by_name,
         }
+    # Which food each lot belongs to (a merge moves them); amounts are stock changes.
+    for lot in db.scalars(select(StockLot).where(StockLot.food_id.in_(ids))):
+        snap["lots"][str(lot.id)] = {"food_id": lot.food_id, "size_id": lot.size_id}
     return snap
 
 
@@ -365,11 +379,20 @@ def _restore_conversion(kitchen: Kitchen, key: str, value: dict[str, Any] | None
     return True
 
 
+def _restore_lot(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    lot = kitchen.db.get(StockLot, int(key))
+    if lot is None or value is None:
+        return value is None
+    lot.food_id, lot.size_id = value["food_id"], value["size_id"]
+    return True
+
+
 _RESTORE: dict[str, Callable[[Kitchen, str, Any], bool]] = {
     "names": _restore_name,
     "sizes": _restore_size,
     "stand_ins": _restore_stand_in,
     "conversions": _restore_conversion,
+    "lots": _restore_lot,
 }
 
 
@@ -406,7 +429,7 @@ def undo_foods(
         if key.endswith(":exists") and old is None
     }
     # Foods first (a restored name or size may belong to a food that comes back).
-    for collection in ("fields", "names", "sizes", "stand_ins", "conversions"):
+    for collection in ("fields", "names", "sizes", "stand_ins", "conversions", "lots"):
         for key, (old, new) in sorted(changes.get(collection, {}).items()):
             if (
                 collection == "fields"
@@ -431,6 +454,72 @@ def undo_foods(
             kitchen.db.flush()
     fix_usual_sizes(kitchen, ids)
     return ids
+
+
+def undo_lot_amounts(kitchen: Kitchen, amounts: dict[str, list[Any]]) -> None:
+    """Lots whose amounts were converted (a merge, or a food counted a new way) are
+    converted back, in proportion, once their food is counted the old way again. Whatever
+    was used since stays used."""
+    for key, (before, after, counted_as) in amounts.items():
+        lot = kitchen.db.get(StockLot, int(key))
+        food = kitchen.db.get(Food, lot.food_id) if lot is not None else None
+        if lot is None or food is None or food.counted_as != counted_as:
+            continue
+        if after and before != after:
+            lot.amount_milli = max(0, round(lot.amount_milli * before / after))
+
+
+@dataclass
+class Shortfall:
+    food_id: int
+    wanted: int
+    applied: int
+
+
+def undo_lines(kitchen: Kitchen, change: Change, tally: Tally) -> list[Shortfall]:
+    """Reverse each stock line: the opposite of its amount difference (never below zero),
+    and its place and use-by if nobody has changed them since."""
+    short: list[Shortfall] = []
+    now = utcnow()
+    for line in kitchen.db.scalars(
+        select(ChangeLine).where(ChangeLine.change_id == change.id).order_by(ChangeLine.id)
+    ):
+        lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
+        if lot is None:
+            tally.skipped += 1
+            continue
+        new_lot = line.place_before_id is None
+        difference = line.amount_before_milli - line.amount_after_milli
+        if difference:
+            target = lot.amount_milli + difference
+            if target < 0:
+                if lot.amount_milli:
+                    tally.done += 1
+                tally.skipped += 1
+                short.append(Shortfall(lot.food_id, -difference, lot.amount_milli))
+                lot.amount_milli = 0
+            else:
+                lot.amount_milli = target
+                tally.done += 1
+        if not new_lot and line.place_before_id != line.place_after_id:
+            if lot.place_id == line.place_after_id:
+                lot.place_id = line.place_before_id  # type: ignore[assignment]
+                if change.kind == "to_freezer":
+                    lot.frozen_on = None
+                tally.done += 1
+            else:
+                tally.skipped += 1
+        if not new_lot and line.use_by_before != line.use_by_after:
+            if lot.use_by == line.use_by_after:
+                lot.use_by = line.use_by_before
+                tally.done += 1
+            else:
+                tally.skipped += 1
+        if lot.amount_milli > 0:
+            lot.emptied_at = None
+        else:
+            lot.emptied_at = lot.emptied_at or now
+    return short
 
 
 def undo_merge_record(kitchen: Kitchen, data: dict[str, Any]) -> None:
@@ -460,3 +549,83 @@ def too_old() -> Problem:
 
 def already_undone() -> Problem:
     return Problem(status.HTTP_409_CONFLICT, "already_undone", "That's already been undone.")
+
+
+# --- Thinning (a daily job) -------------------------------------------------------------------
+
+
+def month_cutoff(household: Household, now: datetime) -> datetime:
+    """Changes before this moment are thinned: `history_months` ago (12 by default)."""
+    months = household.history_months
+    year, month = divmod(now.year * 12 + now.month - 1 - months, 12)
+    day = min(now.day, 28)
+    return now.replace(year=year, month=month + 1, day=day)
+
+
+def thin(db: Any, household: Household, now: datetime | None = None) -> int:
+    """Turn changes older than the history length into monthly totals, and drop empty lots
+    once they can no longer be undone. Returns how many changes were thinned. Safe to run
+    more than once."""
+    from mealwright.household import zone
+
+    now = now or utcnow()
+    cutoff = month_cutoff(household, now)
+    local = zone(household)
+    old = list(
+        db.scalars(select(Change).where(Change.household_id == household.id, Change.at < cutoff))
+    )
+    old_ids = {change.id for change in old}
+    for change in old:
+        month = as_utc(change.at).astimezone(local).strftime("%Y-%m")
+        per_food: dict[int, int] = {}
+        for line in db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
+            per_food[line.food_id] = per_food.get(line.food_id, 0) + (
+                line.amount_after_milli - line.amount_before_milli
+            )
+        for food_id, amount in per_food.items():
+            total = db.get(ChangeMonth, (household.id, month, food_id, change.kind))
+            if total is None:
+                total = ChangeMonth(
+                    household_id=household.id,
+                    month=month,
+                    food_id=food_id,
+                    kind=change.kind,
+                    amount_milli=0,
+                    changes=0,
+                )
+                db.add(total)
+            total.amount_milli += amount
+            total.changes += 1
+        db.flush()
+    if old_ids:
+        # Newer changes that point at these (an Undo of an old change) let go first.
+        for change in db.scalars(
+            select(Change).where(
+                Change.household_id == household.id,
+                or_(
+                    Change.undone_by_change_id.in_(old_ids),
+                    Change.undoes_change_id.in_(old_ids),
+                ),
+            )
+        ):
+            if change.undone_by_change_id in old_ids:
+                change.undone_by_change_id = None
+            if change.undoes_change_id in old_ids:
+                change.undoes_change_id = None
+        db.flush()
+        for change in old:
+            change.undone_by_change_id = None
+            change.undoes_change_id = None
+        db.flush()
+        db.execute(delete(ChangeLine).where(ChangeLine.change_id.in_(old_ids)))
+        db.execute(delete(Change).where(Change.id.in_(old_ids)))
+    gone_before = now - undo_window(household)
+    db.execute(
+        delete(StockLot).where(
+            StockLot.household_id == household.id,
+            StockLot.amount_milli == 0,
+            StockLot.emptied_at < gone_before,
+        )
+    )
+    db.commit()
+    return len(old_ids)
