@@ -12,6 +12,8 @@ Early development. Versions 0.x are not published: there is no public image or r
 
 Mealwright collects nothing. No telemetry, analytics or crash reporting, not even opt-in. It never asks for your location. It has no account with the developer and never phones home.
 
+The built-in telemetry of the libraries Mealwright uses is switched off (FastAPI's OpenTelemetry support included), and the tests check that no telemetry exporter is installed, in the code and in the Docker image.
+
 Outbound connections happen only when you switch them on in Settings → Privacy. The full list of every possible outbound connection will be written here before 1.0.0.
 
 ## Licence
