@@ -162,7 +162,7 @@ export class PantryModel {
 
   used(lotId: number, foodName: string) {
     return this.#act({
-      label: `Used ${foodName.toLocaleLowerCase()}`,
+      label: `Used ${foodName}`,
       edit: this.#gone(lotId),
       send: (key) => usedLot(lotId, key)
     });
@@ -170,7 +170,7 @@ export class PantryModel {
 
   binned(lotId: number, foodName: string) {
     return this.#act({
-      label: `Binned ${foodName.toLocaleLowerCase()}`,
+      label: `Binned ${foodName}`,
       edit: this.#gone(lotId),
       send: (key) => binnedLot(lotId, key)
     });
@@ -186,7 +186,7 @@ export class PantryModel {
 
   move(lotId: number, foodName: string, place: Place) {
     return this.#act({
-      label: `Moved ${foodName.toLocaleLowerCase()} → ${place.name}`,
+      label: `Moved ${foodName} → ${place.name}`,
       edit: (pantry) => withoutLot(pantry, lotId),
       send: (key) => moveLot(lotId, place.id, key)
     });
@@ -215,7 +215,7 @@ export class PantryModel {
   /** "Used some" on a food in a place. */
   usedSome(foodId: number, foodName: string, amount: AmountIn, placeId: number) {
     return this.#act({
-      label: `Used ${amount.amount} ${amount.unit === 'count' ? '' : `${amount.unit} `}${foodName.toLocaleLowerCase()}`,
+      label: `Used ${amount.amount} ${amount.unit === 'count' ? '' : `${amount.unit} `}${foodName}`,
       send: (key, answers) => foodUsed(foodId, amount, placeId, key, answers)
     });
   }

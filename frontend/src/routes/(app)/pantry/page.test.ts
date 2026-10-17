@@ -33,7 +33,7 @@ describe('the Pantry page', () => {
         200,
         {
           changes: [
-            changeOf(31, 'Used 200 g toor dal'),
+            changeOf(31, 'Used 200 g Toor dal'),
             {
               ...changeOf(30, 'Undid: Binned 1 pack paneer'),
               can_undo: false,
@@ -62,11 +62,11 @@ describe('the Pantry page', () => {
       },
       [`POST /stock/${sample.yoghurt.id}/left`]: written('Yoghurt: ½ tub → about ¼ tub'),
       'GET /foods/7': [200, toorDal()],
-      'POST /foods/7/used': written('Used 200 g toor dal'),
+      'POST /foods/7/used': written('Used 200 g Toor dal'),
       'GET /places': [200, PLACES],
       'POST /stock': [
         201,
-        { change: changeOf(701, 'Added 2 packets toor dal → Cupboard'), groups: [], short_by: null }
+        { change: changeOf(701, 'Added 2 packets Toor dal → Cupboard'), groups: [], short_by: null }
       ],
       'GET /foods?q=toor&limit=8': [
         200,
@@ -112,7 +112,7 @@ describe('the Pantry page', () => {
     await expect.element(page.getByText('6 items · 2 use soon')).toBeVisible();
     await expect.element(page.getByText(/300 g · running low/)).toBeVisible();
     await expect
-      .element(page.getByRole('button', { name: 'Undo: Used 200 g toor dal' }))
+      .element(page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }))
       .toBeVisible();
     // Not until later milestones.
     expect(page.getByText(/\+ List|Recipes for these/).elements()).toHaveLength(0);
@@ -191,7 +191,7 @@ describe('the Pantry page', () => {
 
   it('Undo in Recent changes undoes that change', async () => {
     await render(1300);
-    await page.getByRole('button', { name: 'Undo: Used 200 g toor dal' }).click();
+    await page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }).click();
     await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/31/undo')).toBe(true));
     // An Undo row has no Undo of its own, and shows what it did, before → after.
     expect(
@@ -220,7 +220,7 @@ describe('the Pantry page', () => {
       use_by: '2026-10-20'
     });
     await vi.waitFor(() =>
-      expect(toasts.current?.message).toBe('Added 2 packets toor dal → Cupboard')
+      expect(toasts.current?.message).toBe('Added 2 packets Toor dal → Cupboard')
     );
   });
 
@@ -246,7 +246,7 @@ describe('the Pantry page', () => {
     routes({
       'POST /foods/7/used': [
         409,
-        { detail: 'There’s no toor dal in the cupboard to use.', code: 'nothing_left' }
+        { detail: 'There’s no Toor dal in the Cupboard to use.', code: 'nothing_left' }
       ]
     });
     await render(1300);
@@ -259,7 +259,7 @@ describe('the Pantry page', () => {
       .last()
       .click();
     await vi.waitFor(() =>
-      expect(toasts.current?.message).toBe('There’s no toor dal in the cupboard to use.')
+      expect(toasts.current?.message).toBe('There’s no Toor dal in the Cupboard to use.')
     );
   });
 });

@@ -147,7 +147,7 @@
       ...(placeId ? { place_id: placeId } : {}),
       ...(useBy() ? { use_by: useBy() } : {})
     };
-    const label = `Added ${words} ${food.name.toLocaleLowerCase()}${place ? ` → ${place.name}` : ''}`;
+    const label = `Added ${words} ${food.name}${place ? ` → ${place.name}` : ''}`;
     addToPantry.close();
     // Optimistic: the sheet closes and the toast (with Undo) shows at once; the pantry
     // fills in when the server answers.

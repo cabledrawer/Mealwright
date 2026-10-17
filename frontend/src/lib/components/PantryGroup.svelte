@@ -242,7 +242,7 @@
         {/if}
       </form>
       <button type="button" class="link" onclick={() => ingredientEditor.open(group.food.id)}>
-        Edit {name.toLocaleLowerCase()}
+        Edit {name}
       </button>
     </div>
   {/if}
