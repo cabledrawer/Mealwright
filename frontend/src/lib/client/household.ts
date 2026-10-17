@@ -5,9 +5,6 @@ import type { Household } from './types';
 
 export const getHousehold = () => api<Household>('GET', '/household');
 
-export const patchHousehold = (patch: { time_zone?: string; cup_ml?: 240 | 250 }) =>
-  api<Household>('PATCH', '/household', patch);
-
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml
  * everywhere else.
@@ -16,23 +13,37 @@ export function defaultCupMl(language: string): 240 | 250 {
   return language.toLowerCase() === 'en-us' ? 240 : 250;
 }
 
+const SENT_KEY = 'mealwright.household-from-browser';
+
 /**
- * First run: an admin's browser tells the server the household's time zone and cup
- * size, once (contract 6.3). The time zone is the device's setting, never its
- * location. Members never send it. Returns whether anything was sent.
+ * First run: an admin's browser offers the server the household's time zone and cup
+ * size (POST /household/from-browser). The server keeps each only while it has none,
+ * so this never changes a setting already made. Once per sign-in (remembered for this
+ * tab's session), never for members. The time zone is the device's setting, never its
+ * location. Returns whether it was sent.
  */
 export async function settleHousehold(
-  role: 'admin' | 'member',
+  me: { id: number; role: 'admin' | 'member' },
   device: { timeZone: string | undefined; language: string } = {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     language: navigator.language
   }
 ): Promise<boolean> {
-  if (role !== 'admin' || !device.timeZone) return false;
-  const household = await getHousehold();
-  if (household.time_zone !== null) return false;
-  const patch: { time_zone: string; cup_ml?: 240 | 250 } = { time_zone: device.timeZone };
-  if (household.cup_ml === null) patch.cup_ml = defaultCupMl(device.language);
-  await patchHousehold(patch);
+  if (me.role !== 'admin' || !device.timeZone) return false;
+  const key = `${SENT_KEY}.${me.id}`;
+  try {
+    if (sessionStorage.getItem(key)) return false;
+  } catch {
+    // Storage blocked: send it; the server ignores values it already has.
+  }
+  await api<Household>('POST', '/household/from-browser', {
+    time_zone: device.timeZone,
+    cup_ml: defaultCupMl(device.language)
+  });
+  try {
+    sessionStorage.setItem(key, 'sent');
+  } catch {
+    // Fine: it's harmless to send again.
+  }
   return true;
 }

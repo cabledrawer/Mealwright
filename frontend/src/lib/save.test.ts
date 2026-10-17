@@ -220,7 +220,7 @@ describe('ask once', () => {
     expect(calls).toHaveLength(2);
     expect(calls[1]!.id).toBe(calls[0]!.id);
     expect(calls[1]!.answers).toEqual([
-      { kind: 'weight_per_ml', food_id: 7, grams_per_cup: 180, remember: true }
+      { kind: 'weight_per_ml', food_id: 7, grams: 180, remember: true }
     ]);
   });
 
@@ -246,6 +246,32 @@ describe('ask once', () => {
   });
 });
 
+describe('Undo and a question', () => {
+  afterEach(() => askOnce.dismiss());
+
+  it('no Undo button while the question is open; it comes back once saved', async () => {
+    const ask = {
+      food_id: 7,
+      food_name: 'Toor dal',
+      kind: 'item_weight' as const,
+      question: 'About how much does 1 toor dal weigh?',
+      suggested: 100
+    };
+    const change = placeChange({ place: 'Cupboard' }, 'Fridge', async (_id, answers) => {
+      if (!answers.length) throw new ApiError(409, ask.question, 'ask_once', { ask });
+      return 'Toor dal is now counted by number';
+    });
+    change.undo = { label: 'Changed', labelFrom: (v) => v, run: () => {} };
+    const done = save(change);
+    await vi.waitFor(() => expect(askOnce.current).not.toBeNull());
+    expect(toasts.current).toBeNull();
+    askOnce.answer(100, true);
+    await done;
+    expect(toasts.current?.message).toBe('Toor dal is now counted by number');
+    expect(toasts.current?.action?.label).toBe('Undo');
+  });
+});
+
 describe("the server's own words", () => {
   it('replace the toast once the server answers', async () => {
     const change = placeChange(
@@ -266,6 +292,16 @@ describe("the server's own words", () => {
     change.refused = refused;
     await save(change);
     expect(refused).toHaveBeenCalledOnce();
+    expect(toasts.current).toBeNull();
+  });
+});
+
+describe('nothing changed', () => {
+  it('no Undo when the server says nothing changed', async () => {
+    const change = placeChange({ place: 'Cupboard' }, 'Cupboard', async () => 'same');
+    change.undo = { label: 'Moved', skip: () => true, run: () => {} };
+    await save(change);
+    expect(undoHistory.size).toBe(0);
     expect(toasts.current).toBeNull();
   });
 });

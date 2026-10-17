@@ -12,11 +12,8 @@ interface Pending {
 
 /** The answer the server expects for a question. */
 export function answerFor(ask: Ask, value: number, remember: boolean): Answer {
-  if (ask.kind === 'weight_per_ml') {
-    return { kind: 'weight_per_ml', food_id: ask.food_id, grams_per_cup: value, remember };
-  }
-  if (ask.kind === 'item_weight') {
-    return { kind: 'item_weight', food_id: ask.food_id, grams: value, remember };
+  if (ask.kind === 'weight_per_ml' || ask.kind === 'item_weight') {
+    return { kind: ask.kind, food_id: ask.food_id, grams: value, remember };
   }
   return { kind: 'size', food_id: ask.food_id, name: ask.name ?? ask.per ?? '', amount: value };
 }

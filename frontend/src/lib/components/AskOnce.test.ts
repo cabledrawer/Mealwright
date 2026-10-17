@@ -46,7 +46,7 @@ describe('the "ask once" question', () => {
     expect(await answer).toEqual({
       kind: 'weight_per_ml',
       food_id: 7,
-      grams_per_cup: 180,
+      grams: 180,
       remember: true
     });
   });

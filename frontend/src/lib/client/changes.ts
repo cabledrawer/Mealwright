@@ -38,7 +38,7 @@ export function serverUndo(
   const idempotencyKey = newChangeId();
   return async () => {
     const result = await undoChange(changeId, idempotencyKey);
-    kitchen.changed();
+    kitchen.changed({ elsewhere: true });
     after?.(result);
     return result.result === 'done' ? undefined : result.message;
   };

@@ -34,7 +34,7 @@
     // Ctrl+Z after a reload: your latest change, from the server.
     undoHistory.fallback = lastOwnChange;
     // First run: tell the server the household's time zone and cup size (admins, once).
-    if (session.me) settleHousehold(session.me.role).catch(() => {});
+    if (session.me) settleHousehold(session.me).catch(() => {});
     return () => {
       undoHistory.fallback = null;
       setUnauthorizedHandler(null);

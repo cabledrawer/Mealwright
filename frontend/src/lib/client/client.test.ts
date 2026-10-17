@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kitchen } from '$lib/freshness.svelte';
 import { lastOwnChange, serverUndo } from './changes';
 import { listFoods, patchFood } from './foods';
@@ -52,7 +52,7 @@ describe('foods', () => {
     const answer = {
       kind: 'weight_per_ml' as const,
       food_id: 7,
-      grams_per_cup: 200,
+      grams: 200,
       remember: true
     };
     const calls = fakeServer([200, {}], [200, {}]);
@@ -111,30 +111,27 @@ describe('undo on the server', () => {
 });
 
 describe('first run: time zone and cup size', () => {
-  const household = { time_zone: null, cup_ml: null };
   const device = { timeZone: 'Europe/London', language: 'en-GB' };
+  const admin = { id: 1, role: 'admin' as const };
 
-  it('an admin sends the device time zone and cup size, once', async () => {
-    const calls = fakeServer([200, household], [200, {}]);
-    expect(await settleHousehold('admin', device)).toBe(true);
-    expect(calls[1]).toMatchObject({
-      url: '/api/v1/household',
-      method: 'PATCH',
+  beforeEach(() => sessionStorage.clear());
+
+  it('an admin offers the device time zone and cup size, once per sign-in', async () => {
+    const calls = fakeServer([200, {}]);
+    expect(await settleHousehold(admin, device)).toBe(true);
+    expect(calls[0]).toMatchObject({
+      url: '/api/v1/household/from-browser',
+      method: 'POST',
       body: { time_zone: 'Europe/London', cup_ml: 250 }
     });
-  });
-
-  it('nothing is sent once the time zone is known, or by a member', async () => {
-    const calls = fakeServer([200, { time_zone: 'Europe/London', cup_ml: 250 }]);
-    expect(await settleHousehold('admin', device)).toBe(false);
-    expect(await settleHousehold('member', device)).toBe(false);
+    expect(await settleHousehold(admin, device)).toBe(false);
     expect(calls).toHaveLength(1);
   });
 
-  it('keeps a cup size already chosen', async () => {
-    const calls = fakeServer([200, { time_zone: null, cup_ml: 240 }], [200, {}]);
-    await settleHousehold('admin', device);
-    expect(calls[1]!.body).toEqual({ time_zone: 'Europe/London' });
+  it('a member never sends it', async () => {
+    const calls = fakeServer();
+    expect(await settleHousehold({ id: 2, role: 'member' }, device)).toBe(false);
+    expect(calls).toHaveLength(0);
   });
 
   it('US English gets a 240 ml cup; everyone else 250 ml', () => {

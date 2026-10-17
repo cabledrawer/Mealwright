@@ -124,4 +124,22 @@ describe('Toast', () => {
     expect(box.width).toBeGreaterThanOrEqual(44);
     expect(box.height).toBeGreaterThanOrEqual(44);
   });
+
+  it('can still be used while a modal sheet is open, and comes back after', async () => {
+    render();
+    const dialog = document.createElement('dialog');
+    dialog.innerHTML = '<p>Sheet</p>';
+    document.body.append(dialog);
+    dialog.showModal();
+    const run = vi.fn();
+    toasts.show('Toor dal is a staple', { action: { label: 'Undo', run } });
+    flushSync();
+    const region = document.querySelector('[role="status"]')!;
+    expect(dialog.contains(region)).toBe(true);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(run).toHaveBeenCalledOnce();
+    dialog.close();
+    await vi.waitFor(() => expect(dialog.contains(region)).toBe(false));
+    dialog.remove();
+  });
 });

@@ -3,10 +3,41 @@
   // on phones; bottom right on desktop. The live region is always on the page, so
   // screen readers hear each new message. Its button can be reached with the keyboard
   // (and Ctrl+Z works too), and it stays while focused or hovered.
+  //
+  // While a modal dialog is open (the ingredient sheet), everything outside it can't be
+  // clicked, so the toast moves into that dialog and back out when it closes.
   import { toasts } from '$lib/toast.svelte';
+
+  let home: HTMLElement;
+  let region: HTMLElement;
+
+  /** Put the toast where it can be used: inside the topmost open modal dialog, or home. */
+  function place() {
+    const dialogs = [...document.querySelectorAll('dialog')].filter((d) => d.matches(':modal'));
+    const host = dialogs.at(-1) ?? home;
+    if (region.parentElement !== host) host.append(region);
+  }
+
+  $effect(() => {
+    void toasts.current;
+    place();
+  });
+
+  $effect(() => {
+    // "close" doesn't bubble, so listen while it's on its way down.
+    const onClose = () => queueMicrotask(place);
+    document.addEventListener('close', onClose, true);
+    return () => {
+      document.removeEventListener('close', onClose, true);
+      // Back home, so it's removed with the rest of the component.
+      // eslint-disable-next-line svelte/no-dom-manipulating -- deliberate: undoes place()
+      if (region.parentElement !== home) home.after(region);
+    };
+  });
 </script>
 
-<div class="region" role="status" aria-live="polite" aria-atomic="true">
+<div class="home" bind:this={home}></div>
+<div class="region" bind:this={region} role="status" aria-live="polite" aria-atomic="true">
   {#if toasts.current}
     {@const toast = toasts.current}
     {#key toast.id}
@@ -31,6 +62,10 @@
 </div>
 
 <style>
+  .home {
+    display: contents;
+  }
+
   .region {
     position: fixed;
     z-index: 50;

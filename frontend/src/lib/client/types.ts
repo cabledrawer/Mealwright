@@ -44,12 +44,13 @@ export interface AmountOut {
   } | null;
   about?: boolean;
   display: string;
+  /** Just the first part ("½ packet"), for boxes such as "Running low at". */
+  short?: string;
 }
 
 /** An answer to an "ask once" question (contract 4.4). */
 export type Answer =
-  | { kind: 'weight_per_ml'; food_id: number; grams_per_cup: number; remember: boolean }
-  | { kind: 'item_weight'; food_id: number; grams: number; remember: boolean }
+  | { kind: 'weight_per_ml' | 'item_weight'; food_id: number; grams: number; remember: boolean }
   | { kind: 'size'; food_id: number; name: string; amount: number };
 
 /** An amount someone typed or picked (contract 4.3). */
@@ -128,10 +129,10 @@ export interface Food extends Ref {
   merged_from?: Ref;
 }
 
-/** The answer to every food write. */
+/** The answer to every food write. `change` is null when nothing changed. */
 export interface FoodWrite {
   food: Food;
-  change: Change;
+  change: Change | null;
 }
 
 /** One field at a time: saves as you go (contract 6.2, PATCH /foods/{id}). */

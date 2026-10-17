@@ -24,7 +24,7 @@ import { kitchen } from './freshness.svelte';
 import { save } from './save';
 import { toasts } from './toast.svelte';
 
-type Write = { change: ServerChange; food?: Food };
+type Write = { change: ServerChange | null; food?: Food };
 
 export class FoodModel {
   id: number;
@@ -94,10 +94,12 @@ export class FoodModel {
           ? undefined
           : {
               label: options.label,
-              labelFrom: (value) => value.change.summary,
+              labelFrom: (value) => value.change?.summary,
+              skip: (value) => value.change === null,
               run: (value) => {
-                if (!value.change.can_undo) return false;
-                undoer ??= serverUndo(value.change.id, () => void this.load());
+                const change = value.change;
+                if (!change?.can_undo) return false;
+                undoer ??= serverUndo(change.id, () => void this.load());
                 return undoer();
               }
             },

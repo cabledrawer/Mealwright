@@ -74,12 +74,13 @@
       send: (key, answers) => mergeFood(food.id, into.id, key, answers),
       saved: (result) => {
         if (selectedId === food.id) selectedId = result.food.id;
-        kitchen.changed();
+        kitchen.changed({ elsewhere: true });
       },
       undo: {
         label: `Merged ${food.name} into ${into.name}`,
-        labelFrom: (result) => result.change.summary,
-        run: (result) => (undoer ??= serverUndo(result.change.id))()
+        labelFrom: (result) => result.change?.summary,
+        skip: (result) => result.change === null,
+        run: (result) => (result.change ? (undoer ??= serverUndo(result.change.id))() : false)
       }
     });
   }

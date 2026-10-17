@@ -8,6 +8,7 @@
   import { parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
   import { FoodModel } from '$lib/foodEditor.svelte';
+  import { kitchen } from '$lib/freshness.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
   import { toasts } from '$lib/toast.svelte';
   import FoodPicker from './FoodPicker.svelte';
@@ -41,6 +42,15 @@
   });
 
   const food = $derived(model.food);
+
+  // Changed elsewhere (an Undo, a merge from the list): show the server's version.
+  let seen = kitchen.elsewhere;
+  $effect(() => {
+    if (kitchen.elsewhere !== seen) {
+      seen = kitchen.elsewhere;
+      void model.load();
+    }
+  });
 
   $effect(() => {
     onname?.(food?.name ?? '');
@@ -140,7 +150,7 @@
     lowProblem = null;
     void model.setField(
       { running_low_at: amount },
-      (f) => (f.running_low_at = { amount: amount.amount, display: text }),
+      (f) => (f.running_low_at = { amount: amount.amount, display: text, short: text }),
       `Running low at ${text}`
     );
   }
@@ -434,7 +444,7 @@
       <label>
         Running low at
         <input
-          value={food.running_low_at?.display ?? ''}
+          value={food.running_low_at?.short ?? food.running_low_at?.display ?? ''}
           placeholder="e.g. ½ packet"
           aria-invalid={lowProblem ? true : undefined}
           aria-describedby={lowProblem ? `${uid}-low` : undefined}

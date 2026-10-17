@@ -60,6 +60,8 @@ export interface Change<T> {
     /** The server's own words once it answers ("Changed weight of 1 cup to 200 g"). */
     labelFrom?: (saved: T) => string | undefined;
     run: (saved: T) => Promise<string | void | false> | string | void | false;
+    /** True when the server says nothing actually changed: then there's nothing to undo. */
+    skip?: (saved: T) => boolean;
   };
   /** Deal with a refusal yourself (return true), e.g. "name taken → open that food". */
   refused?: (error: ApiError) => boolean;
@@ -101,7 +103,9 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
   }
 
   change.apply();
-  const toastId = entry ? undoHistory.record(entry) : undefined;
+  let toastId = entry ? undoHistory.record(entry) : undefined;
+  /** The toast was put away while a question was asked; show it again once saved. */
+  let toastHidden = false;
   outcome = attempt();
   return outcome;
 
@@ -111,15 +115,30 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
       try {
         const value = await sender({ changeId, send: change.send, answers });
         change.saved?.(value);
+        if (entry && change.undo?.skip?.(value)) {
+          undoHistory.forget(entry);
+          if (toastId !== undefined) toasts.dismiss(toastId);
+          return { ok: true, value };
+        }
         const label = change.undo?.labelFrom?.(value);
-        if (entry && label) {
-          entry.label = label;
-          if (toastId !== undefined) toasts.update(toastId, label);
+        if (entry && label) entry.label = label;
+        if (entry && toastHidden) {
+          const shown = entry;
+          toastId = toasts.show(shown.label, {
+            action: { label: 'Undo', run: () => void undoHistory.undo(shown) }
+          });
+        } else if (entry && label && toastId !== undefined) {
+          toasts.update(toastId, label);
         }
         return { ok: true, value };
       } catch (error) {
         const ask = askOf(error);
         if (ask && answers.length < MAX_QUESTIONS) {
+          // No Undo button while the question is open: nothing has been saved yet.
+          if (toastId !== undefined) {
+            toasts.dismiss(toastId);
+            toastHidden = true;
+          }
           const answer = await askOnce.ask(ask);
           if (answer) {
             answers.push(answer);
@@ -127,7 +146,6 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
           }
           change.rollback();
           if (entry) undoHistory.forget(entry);
-          if (toastId !== undefined) toasts.dismiss(toastId);
           return { ok: false, error, cancelled: true };
         }
         change.rollback();
