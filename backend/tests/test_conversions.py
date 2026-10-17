@@ -6,6 +6,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from mealwright.amounts import MAX_MILLI, TooBig
 from mealwright.conversions import (
     AskOnce,
     Known,
@@ -80,7 +81,7 @@ def test_count_and_weight() -> None:
 
 
 @given(
-    st.integers(min_value=1, max_value=10**9),
+    st.integers(min_value=1, max_value=MAX_MILLI // 2),
     st.integers(min_value=100, max_value=3_000),
     st.integers(min_value=1_000, max_value=2_000_000),
 )
@@ -88,8 +89,17 @@ def test_conversions_round_trip(milli: int, mg_per_ml: int, item_mg: int) -> Non
     """weight → volume → weight and weight → count → weight come back within rounding."""
     known = Known(mg_per_ml, item_mg)
     for other in ("volume", "count"):
-        there = convert_milli(milli, "weight", other, known, 250)  # type: ignore[arg-type]
+        try:
+            there = convert_milli(milli, "weight", other, known, 250)  # type: ignore[arg-type]
+        except TooBig:
+            continue  # over the limit: refused, never stored
+        assert there <= MAX_MILLI
         back = convert_milli(there, other, "weight", known, 250)  # type: ignore[arg-type]
         factor = mg_per_ml if other == "volume" else item_mg
         # One thousandth of the other unit, in grams-thousandths, plus rounding.
         assert abs(back - milli) <= factor / 1000 + 1
+
+
+def test_conversion_over_the_limit_is_refused() -> None:
+    with pytest.raises(TooBig):
+        to_base_milli(UnitAmount(Decimal(1_000_000), "kg"), "count", ONION, 250)
