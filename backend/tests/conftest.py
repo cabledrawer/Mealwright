@@ -15,7 +15,8 @@ install_network_guard()
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path / "data")
+    # The nightly jobs are tested on their own (test_jobs.py).
+    return Settings(data_dir=tmp_path / "data", run_jobs=False)
 
 
 @pytest.fixture

@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     # fake. "*" believes anyone and takes the first address: only safe when the proxy
     # replaces any X-Forwarded-For a visitor sends (Caddy does; nginx by default doesn't).
     trusted_proxies: str = ""
+    # Run the nightly jobs (history thinning, log tidy). Off only in tests.
+    run_jobs: bool = True
 
     @property
     def sqlalchemy_url(self) -> str:

@@ -6,18 +6,16 @@ name an account or an address: in practice start-up messages, warnings and error
 Docker keeps its copy by size, not age, so on a quiet server it could keep sign-in lines
 for months (cabledrawer 17 Oct). Each day just after midnight (UTC) the file is put aside as
 `mealwright.log.YYYY-MM-DD` and a new one started, and files last written more than 14
-days ago are deleted. This runs on a timer, not when a line is written, so on a quiet
-server sign-in lines still go after 14 days. The file can be read by Mealwright's own
-user only. "Report a problem" (0.8) will read recent errors from it. Nothing here is
-ever sent anywhere.
+days ago are deleted. This runs as a scheduled job (mealwright.jobs), not when a line is
+written, so on a quiet server sign-in lines still go after 14 days. The file can be read
+by Mealwright's own user only. "Report a problem" (0.8) will read recent errors from it.
+Nothing here is ever sent anywhere.
 """
 
 import logging
 import os
 import sys
-import threading
 import time
-from datetime import UTC, datetime, timedelta
 from io import TextIOWrapper
 from pathlib import Path
 
@@ -112,15 +110,6 @@ def tidy_once(handler: DailyLogFile, day: str) -> None:
         logging.getLogger(__name__).exception("Couldn't remove old log files")
 
 
-def _keep_tidy(handler: DailyLogFile) -> None:
-    """Background timer: just after each midnight (UTC), tidy the log folder."""
-    while True:
-        now = datetime.now(UTC)
-        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=1, microsecond=0)
-        time.sleep((midnight - now).total_seconds())
-        tidy_once(handler, (midnight - timedelta(days=1)).date().isoformat())
-
-
 def not_sign_in(record: logging.LogRecord) -> bool:
     """Filter for the container output: leaves out sign-in lines."""
     return not (record.name == SIGN_IN_LOGGER or record.name.startswith(SIGN_IN_LOGGER + "."))
@@ -151,5 +140,5 @@ def set_up_logging(data_dir: Path) -> DailyLogFile | None:
         return None
     file.setFormatter(formatter())
     root.addHandler(file)
-    threading.Thread(target=_keep_tidy, args=(file,), name="log-tidy", daemon=True).start()
+    # Tidied each night by the app's scheduler (mealwright.jobs).
     return file

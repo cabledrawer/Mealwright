@@ -21,9 +21,8 @@ DAY = 24 * 3600
 
 
 @pytest.fixture
-def clean_logging(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Put every logger set_up_logging touches back as it was, and skip the timer."""
-    monkeypatch.setattr(logs, "_keep_tidy", lambda handler: None)
+def clean_logging() -> Iterator[None]:
+    """Put every logger set_up_logging touches back as it was."""
     root = logging.getLogger()
     saved = list(root.handlers)
     levels = {name: logging.getLogger(name).level for name in ("", "mealwright", "uvicorn.error")}

@@ -8,12 +8,13 @@ from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, errors, migrate
+from mealwright import __version__, errors, jobs, migrate
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.frontend import inline_script_hashes, mount_frontend
+from mealwright.logs import DailyLogFile
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
 
@@ -30,7 +31,7 @@ TELEMETRY_OFF: TelemetryConfig = {
 }
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, log_file: DailyLogFile | None = None) -> FastAPI:
     settings = settings or get_settings()
     # From here on, only the outbound gate may connect to anything (spec section 7).
     install_network_guard()
@@ -41,7 +42,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
             migrate.upgrade(engine)
+        background = None
+        if settings.run_jobs:
+            background = jobs.scheduler(app.state.sessionmaker, log_file)
+            background.start()
         yield
+        if background is not None:
+            background.shutdown(wait=False)
         engine.dispose()
 
     app = FastAPI(

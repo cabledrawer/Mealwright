@@ -11,9 +11,9 @@ def main() -> None:
     settings = get_settings()
     # Our own log lines (errors and sign-ins only; spec section 7): the container output
     # and a 14-day log file in the data folder (mealwright.logs).
-    set_up_logging(settings.data_dir)
+    log_file = set_up_logging(settings.data_dir)
     uvicorn.run(
-        create_app(settings),
+        create_app(settings, log_file),
         host=settings.host,
         port=settings.port,
         # Forwarded headers are handled inside the app (ProxyHeadersMiddleware in

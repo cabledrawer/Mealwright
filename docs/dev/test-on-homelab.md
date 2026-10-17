@@ -244,6 +244,7 @@ Notes:
 - **Mealwright must not join `apps_default`** or any other project's network. Don't add a `networks:` list to the service.
 - **No `ports:`.** It's only reachable through Caddy.
 - **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which Caddy provides. On a plain `http://` address, Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
+- **No time zone setting needed** (no `TZ` in `compose.yaml`). From 0.2, Mealwright takes the household's time zone from your browser the first time you, the admin, open it, and keeps it: "today", use-by dates, Use soon and the nightly jobs follow it. Opening it from abroad later changes nothing; changing it on purpose comes with Settings in 0.8. Until that first visit, dates follow UTC.
 - **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
 - **Data** lives in `~/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes it.
 - If Diun watches this container, that's fine, because Diun only tells you about new images. Renovate, if you use it, must never auto-merge a Mealwright change.
