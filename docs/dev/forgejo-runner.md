@@ -1,11 +1,11 @@
 # Setting up the Forgejo runner
 
-Written 17 Oct 2026 for milestone 0.1, revised the same day after cabledrawer's review. cabledrawer does this setup; Claude Code doesn't touch the servers.
+Written 17 Oct 2026 for milestone 0.1, revised the same day after cabledrawer's review and his answers about the NAS. cabledrawer does this setup; Claude Code doesn't touch the servers.
 
 CI for Mealwright runs on Forgejo Actions (Forgejo 16.0.6 on the home server) with one `forgejo-runner`. This guide covers:
 
 1. where the runner should run: the NAS or the home server
-2. setting it up on the NAS (recommended)
+2. setting it up on the NAS (in a VM, or as plain containers)
 3. how the NAS reaches Forgejo, and the Authelia rules
 4. the private image registry, and why it needs a stored token
 5. never auto-updating Mealwright images on the homelab
@@ -19,38 +19,96 @@ Version numbers and config keys change between runner releases. Wherever this gu
 
 CI jobs run whatever workflow code is on the branch being tested, including branches pushed by the `claude` account. Building Docker images needs a Docker daemon. The usual way to give jobs one, without handing over the host's own Docker socket, is a **Docker-in-Docker (`dind`) container, which must run `privileged`**. A hostile or buggy job that reaches `dind` can break out onto whatever machine `dind` runs on. Where the runner lives decides what such a breakout could reach.
 
-| | **NAS, inside a small VM** (recommended) | **NAS, as containers** | **home server, as containers** |
+The NAS (cabledrawer 17 Oct): a plain Linux server with Docker (no NAS OS), amd64, with a few GB of RAM free, VM support (KVM). It doesn't hold the home server's backups: the backup tool sends those to offsite storage. But **the home server mounts the NAS's `/mnt/pool` over NFS at `/mnt/share`**, so whoever controls the NAS controls files the home server reads.
+
+| | **NAS, in a KVM VM** (recommended) | **NAS, as containers** | **home server, as containers** |
 |---|---|---|---|
-| A breakout from `dind` reaches | the VM only | the NAS host and everything stored on it | the other apps, Forgejo, Authelia |
-| Reaching Forgejo | over the LAN through Caddy (HTTPS), Authelia bypassed for the NAS's address only | same | directly on a Docker network at `http://forgejo:3000` |
-| Authelia rules needed | NAS address only, for the runner's and jobs' paths | same | `/v2/` only |
+| A breakout from `dind` reaches | the VM only. Getting further needs a separate VM escape, which is much rarer. The VM is just another device on the LAN. | the NAS host as root: **a VPN client (with its credentials), download clients, a media server**, all of `/mnt/pool`, and through NFS, **files the home server reads at `/mnt/share`** | the other apps, Forgejo, Authelia, and the backup tool with its credentials |
+| Reaching Forgejo | over the LAN through Caddy (HTTPS), Authelia bypassed for the VM's address only | same, for `192.168.1.50` only | directly on a Docker network at `http://forgejo:3000` |
+| Authelia rules needed | runner address only, for the runner's and jobs' paths, plus `/v2/` for the LAN | same | `/v2/` only, for the LAN and `ci` subnets |
 | `ROOT_URL` problems (checkout, registry login) | none, since everything uses the normal URL | none | needs workarounds (see Appendix A) |
-| Effect on other services | uses NAS CPU and RAM; doesn't compete with the home server | same | competes with the other apps for CPU |
-| Setup effort | most: create a VM first | least | medium |
+| Effect on other services | 4 GB RAM and 2 of the processor's cores while jobs run; doesn't compete with the home server | shares the NAS with the media server and the downloaders | competes with the other apps for CPU |
+| Setup effort | most: one KVM VM with libvirt (section 2.0). **No Proxmox needed.** | least | medium |
 
-**Recommendation: a small VM on the NAS** (2 vCPU, 4 GB RAM, about 40 GB disk, Debian with Docker). A VM is a real security boundary between CI jobs and anything you care about. Running as containers directly on the NAS is better than the home server only if the NAS doesn't hold anything more sensitive. A NAS often holds backups of the other apps, and if so a breakout there is as bad as one on the home server.
+### Requirement whichever you choose: the NFS mount stays `nosuid,nodev`
 
-**cabledrawer to confirm before choosing:**
+The home server mounts the NAS's `/mnt/pool` at `/mnt/share` with **`nosuid,nodev`** (done 17 Oct). **This is a requirement and must stay.** It stops a compromised NAS from planting setuid programs or device files that would give root on the home server.
 
-- the NAS model and OS, and whether it can run VMs (most NAS systems can: Synology Virtual Machine Manager, TrueNAS, Unraid, or Proxmox)
-- its CPU architecture. 0.x images are amd64 only, so an ARM NAS would have to build under emulation, which is slow.
-- what it stores (are home server backups on it?)
-- free RAM for a 4 GB VM
+It doesn't stop planted *content*. Anything on the home server that reads or runs files from `/mnt/share` (scripts, configs, a document inbox, a photo library) must treat them as untrusted. Add `noexec` too, if nothing there needs to be run.
 
-The rest of this guide assumes the VM. The steps are the same for plain containers on the NAS, using the NAS's own Docker.
+### Recommendation
+
+**Still a VM on the NAS, even without Proxmox.** Plain containers on the NAS would let a CI breakout reach your VPN credentials and the downloaders. Through the NFS mount, it could also reach files the home server reads, so the home server isn't really isolated either. A VM keeps all of that out of reach. On Ubuntu it's just KVM and libvirt, which are already in the archive: one `virt-install` command, about half an hour, and 4 GB of the 13 GB free. Using `macvtap` networking (section 2.0) also means the VM can't talk to the NAS host itself.
+
+**Plain containers for 0.x are a reasonable choice if you prefer them.** Only you and `claude` can push branches, and the repo is private. In that case:
+
+- `nosuid,nodev` stays on the NFS mount (above).
+- Job containers are never privileged and never mount host paths (section 2.3).
+- Revisit before anyone else's code can run in CI (at 1.0, on GitHub).
+
+cabledrawer decides. Section 2.0 is only needed for the VM. Everything after it is the same for both: `<runner-ip>` is the VM's address, or `192.168.1.50` for plain containers.
 
 ## 2. Runner on the NAS
 
+### 2.0 The VM (skip this for plain containers)
+
+On the NAS:
+
+```bash
+sudo apt install --no-install-recommends qemu-system-x86 qemu-utils libvirt-daemon-system virtinst
+sudo mkdir -p /var/lib/libvirt/images/ci && cd /var/lib/libvirt/images/ci
+# Check the exact file name at https://cloud-images.ubuntu.com/releases/26.04/release/
+sudo wget https://cloud-images.ubuntu.com/releases/26.04/release/ubuntu-26.04-server-cloudimg-amd64.img
+sudo qemu-img create -f qcow2 -F qcow2 -b ubuntu-26.04-server-cloudimg-amd64.img ci-runner.qcow2 40G
+```
+
+Keep the VM's disk on the NAS's system disk, not under `/mnt/pool`. Then write `user-data.yaml`:
+
+```yaml
+#cloud-config
+hostname: ci-runner
+users:
+  - name: tess
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA…   # your public key
+package_update: true
+packages: [docker.io, docker-compose-v2]
+runcmd:
+  - [systemctl, enable, --now, docker]
+```
+
+Create the VM and start it on boot. Replace `<nas-lan-interface>` with the NAS's LAN interface name, as shown by `ip -br link`:
+
+```bash
+sudo virt-install --name ci-runner --memory 4096 --vcpus 2 \
+  --disk /var/lib/libvirt/images/ci/ci-runner.qcow2 --import \
+  --osinfo detect=on,require=off \
+  --network type=direct,source=<nas-lan-interface>,source_mode=bridge,model=virtio \
+  --cloud-init user-data=user-data.yaml \
+  --graphics none --noautoconsole
+sudo virsh autostart ci-runner
+```
+
+Notes:
+
+- `type=direct` (macvtap) puts the VM straight on the LAN with its own address. A side effect is that **the VM and the NAS host can't reach each other over the network**, which is what we want here. To manage the VM, SSH to it from another machine on the LAN, or use `sudo virsh console ci-runner` on the NAS.
+- Give the VM a DHCP reservation on your router. That address is `<runner-ip>` from here on.
+- Don't add the VM's address to the NFS exports.
+- From here on, run everything **inside the VM**.
+
 ### 2.1 Compose file
 
-In the VM (or on the NAS), put this in `/opt/forgejo-runner/compose.yaml`:
+In the VM (or on the NAS, for plain containers), put this in `/opt/forgejo-runner/compose.yaml`:
 
 ```yaml
 services:
   docker-in-docker:
     image: docker:<version>-dind          # pin a current version
     hostname: docker-in-docker
-    privileged: true                      # contained by the VM
+    privileged: true                      # see section 1 for what this exposes
     restart: unless-stopped
     command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
     volumes:
@@ -85,11 +143,11 @@ Notes:
 - Port 2375 is plain HTTP with no TLS, so **never publish it** (no `ports:`).
 - Create the data folder owned by UID 1000 before starting: `mkdir data && sudo chown 1000:1000 data`.
 - Jobs reach the outside world through the VM's NAT, so Caddy and Authelia see every request from CI as coming from the VM's LAN address.
-- **Give the VM a fixed LAN address** (a DHCP reservation). This guide calls it `<runner-ip>`. If you run containers directly on the NAS instead, `<runner-ip>` is `192.168.1.50`.
+- `<runner-ip>` is the VM's reserved address, or `192.168.1.50` for plain containers on the NAS.
 
 ### 2.2 Name resolution and TLS
 
-From inside the VM, check both of these before registering:
+From the VM (or the NAS, for plain containers), check both of these before registering:
 
 ```bash
 getent hosts git.example.org         # should be the home server's LAN address
@@ -230,6 +288,8 @@ Wait until the first CI run on a pull request is green. Then:
 ## Quick check after setup
 
 - [ ] The runner shows as idle in the repo's runner list.
+- [ ] On the home server, `findmnt /mnt/share` shows `nosuid` and `nodev`.
+- [ ] VM only: from the VM, the NAS host (`192.168.1.50`) can't be reached, and the VM's address isn't in the NFS exports.
 - [ ] There's no Docker socket in the runner or in jobs: `docker compose exec runner ls /var/run/docker.sock` fails.
 - [ ] A test pull request runs CI and checks out the code.
 - [ ] From the runner: `curl -i https://git.example.org/v2/` gives `401` from Forgejo. From a phone on mobile data, it redirects to Authelia.
