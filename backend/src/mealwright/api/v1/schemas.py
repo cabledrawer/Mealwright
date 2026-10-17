@@ -4,7 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from mealwright.names import size_name
 
 CountedAsName = Literal["weight", "volume", "count"]
 Number = Annotated[Decimal, Field(max_digits=15, decimal_places=3)]
@@ -83,6 +85,11 @@ class Answer(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=40)] | None = None
     amount: PositiveNumber | None = None
     remember: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def _size_name(cls, value: str | None) -> str | None:
+        return size_name(value) if value is not None else None
 
     @model_validator(mode="after")
     def _complete(self) -> Answer:

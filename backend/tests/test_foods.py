@@ -627,3 +627,33 @@ def test_maybe_the_same_keeps_the_food_with_stock(kitchen: TestClient) -> None:
     entry = kitchen.get(f"{API}/foods/{short['id']}").json()["maybe_same"][0]
     assert entry["merge_into"] == longer["id"]  # it has stock, so it stays
     assert entry["merge_this"] is True
+
+
+@pytest.mark.parametrize("name", ["1", "  12 ", "½", "1/2", "-", "500 500"])
+def test_a_size_name_must_have_letters(kitchen: TestClient, name: str) -> None:
+    toor = add(kitchen, "Toor dal")
+    response = kitchen.post(f"{API}/foods/{toor['id']}/sizes", json={"name": name, "amount": 500})
+    assert response.status_code == 422
+    assert "Give the size a name, like tub or packet." in response.text
+    # Renaming a size to a number is refused too, and nothing was added.
+    kitchen.post(f"{API}/foods/{toor['id']}/sizes", json={"name": "packet", "amount": 500})
+    size_id = kitchen.get(f"{API}/foods/{toor['id']}").json()["sizes"][0]["id"]
+    renamed = kitchen.patch(f"{API}/foods/{toor['id']}/sizes/{size_id}", json={"name": name})
+    assert renamed.status_code == 422
+    assert [s["name"] for s in kitchen.get(f"{API}/foods/{toor['id']}").json()["sizes"]] == [
+        "packet"
+    ]
+
+
+def test_a_size_answer_needs_a_real_name_too(kitchen: TestClient) -> None:
+    bread = add(kitchen, "Bread", counted_as="count")
+    answer = {"kind": "size", "food_id": bread["id"], "name": "20", "amount": 20}
+    response = kitchen.post(
+        f"{API}/stock",
+        json={
+            "food_id": bread["id"],
+            "amount": {"amount": 1, "unit": "loaf", "answers": [answer]},
+        },
+    )
+    assert response.status_code == 422
+    assert "Give the size a name" in response.text

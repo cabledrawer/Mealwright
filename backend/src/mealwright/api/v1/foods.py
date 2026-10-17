@@ -74,7 +74,7 @@ from mealwright.models import (
     StockLot,
     utcnow,
 )
-from mealwright.names import clean, fold, normalise, search_match
+from mealwright.names import clean, fold, normalise, search_match, size_name
 from mealwright.stock import has_stock, lots_of
 
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
@@ -828,13 +828,18 @@ class NewSize(BaseModel):
     # In base units (500 for 500 g), or typed with a unit ({"amount": 1, "unit": "kg"}).
     amount: PositiveNumber | AmountIn
 
-    _clean = field_validator("name")(_name)
+    _clean = field_validator("name")(size_name)
 
 
 class SizePatch(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=40)] | None = None
     amount: PositiveNumber | None = None
     usual: Literal[True] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _letters(cls, value: str | None) -> str | None:
+        return size_name(value) if value is not None else None
 
 
 def _size_amount(kitchen: Kitchen, food: Food, amount: Decimal | AmountIn) -> int:

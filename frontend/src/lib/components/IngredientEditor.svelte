@@ -219,6 +219,10 @@
       sizeProblem = 'Give the size a name and an amount, like packet = 500 g.';
       return;
     }
+    if (!/\p{L}/u.test(name)) {
+      sizeProblem = 'Give the size a name, like tub or packet.';
+      return;
+    }
     sizeProblem = null;
     addingSize = false;
     void model.addSize(name, amount, unit);
@@ -419,7 +423,7 @@
             <form class="size-form" onsubmit={addSize}>
               <label>
                 Name
-                <input name="name" placeholder="packet" use:focusOnShow />
+                <input name="name" placeholder="packet, tub, dozen…" use:focusOnShow />
               </label>
               <span class="equals" aria-hidden="true">=</span>
               <label>

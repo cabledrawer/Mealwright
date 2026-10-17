@@ -64,3 +64,12 @@ def normalise(name: str) -> str:
 def clean(name: str) -> str:
     """Tidy a name someone typed: trim and collapse spaces."""
     return " ".join(name.split())
+
+
+def size_name(value: str) -> str:
+    """A name for a way a food is sold ("packet", "tub", "dozen"): tidied, and with letters
+    in it, so "1" can't become "1 1" in the pantry."""
+    value = clean(value)
+    if not any(c.isalpha() for c in value):
+        raise ValueError("Give the size a name, like tub or packet.")
+    return value

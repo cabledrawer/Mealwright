@@ -207,4 +207,18 @@ describe('the ingredient editor, opened from anywhere', () => {
     toasts.act();
     await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/904/undo')).toBe(true));
   });
+
+  it('won’t add a size whose name is only a number', async () => {
+    const dialog = await openToorDal();
+    await dialog.getByRole('button', { name: '+ Add a size' }).click();
+    const name = dialog.getByRole('textbox', { name: 'Name' });
+    await expect.element(name).toHaveAttribute('placeholder', 'packet, tub, dozen…');
+    await name.fill('1');
+    await dialog.getByRole('textbox', { name: 'Amount' }).fill('200');
+    await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect
+      .element(dialog.getByRole('alert'))
+      .toHaveTextContent('Give the size a name, like tub or packet.');
+    expect(requests.some((r) => r.url.includes('/sizes'))).toBe(false);
+  });
 });
