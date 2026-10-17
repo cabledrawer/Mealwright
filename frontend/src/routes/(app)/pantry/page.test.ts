@@ -37,14 +37,14 @@ describe('the Pantry page', () => {
             {
               ...changeOf(30, 'Undid: Binned 1 pack paneer'),
               can_undo: false,
-              lines: [
+              totals: [
                 {
-                  food: { id: 21, name: 'Paneer' },
-                  lot_id: 9,
-                  before: { amount: 0, display: '0 g' },
-                  after: { amount: 200, display: '1 pack · 200 g' },
+                  food_id: 21,
+                  name: 'Paneer',
                   place_before: { id: 1, name: 'Fridge' },
-                  place_after: { id: 1, name: 'Fridge' }
+                  place_after: { id: 1, name: 'Fridge' },
+                  before: { amount: 0, display: '0 g' },
+                  after: { amount: 200, display: '1 pack · 200 g' }
                 }
               ]
             }

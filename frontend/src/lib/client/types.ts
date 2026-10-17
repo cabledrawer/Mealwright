@@ -32,6 +32,8 @@ export interface Change {
   undone: { at: string; who: Who } | null;
   /** Stock changes (and their Undos): each packet touched, before → after. */
   lines?: ChangeLine[];
+  /** The same, added up per ingredient and place and worded as sold, for showing. */
+  totals?: ChangeTotal[];
 }
 
 export type CountedAs = 'weight' | 'volume' | 'count';
@@ -240,6 +242,17 @@ export interface StockWrite {
   groups: Group[];
   /** Asked to use more than there was: how much was missing. */
   short_by: AmountOut | null;
+}
+
+/** One ingredient in one place: what a change did to it ("Paneer: 0 g → 2 packs · 400 g"). */
+export interface ChangeTotal {
+  food_id: number;
+  name: string;
+  /** null for packets the change added. */
+  place_before: Ref | null;
+  place_after: Ref | null;
+  before: AmountOut;
+  after: AmountOut;
 }
 
 export interface ChangeLine {

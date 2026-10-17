@@ -1,8 +1,9 @@
 <script lang="ts">
   // Pantry → Recent changes (spec, History and undo): the household's latest stock
-  // changes, each with Undo while it's within the undo window. Anyone can undo anyone's
+  // changes, each with what it did per ingredient (the server's totals) and Undo while
+  // it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
-  import { changeLines } from '$lib/changeLines';
+  import { totalWords } from '$lib/changeTotals';
   import type { Change } from '$lib/client/types';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { session } from '$lib/session.svelte';
@@ -29,8 +30,8 @@
               <span class="who">· {change.who.name}</span>
             {/if}</span
           >
-          {#if change.lines?.length}
-            {@const words = changeLines(change.lines)}
+          {#if change.totals?.length}
+            {@const words = change.totals.map(totalWords)}
             <span class="lines">
               {#each words.slice(0, SHOWN) as text, i (i)}
                 <span>{text}</span>
