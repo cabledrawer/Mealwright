@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     database_url: str | None = None
     # Apply database migrations when the app starts.
     migrate_on_start: bool = True
+    # Where the server listens. In the container, all interfaces: only the reverse
+    # proxy can reach it. Tests use 127.0.0.1.
+    host: str = "0.0.0.0"  # noqa: S104  # nosec B104
+    port: int = 8080
 
     @property
     def sqlalchemy_url(self) -> str:
