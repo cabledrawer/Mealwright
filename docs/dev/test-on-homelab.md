@@ -187,13 +187,16 @@ services:
       MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
     volumes:
       - ./data:/data
-    # Mealwright keeps its own log in data/logs for 14 days. This caps Docker's copy of
-    # the same lines, which would otherwise grow forever: at most 3 files of 10 MB.
+    # Mealwright keeps its own log in data/logs and deletes it after 14 days. Docker
+    # keeps a copy of the same lines, which can only be limited by size, not by age:
+    # here 2 files of 1 MB (thousands of lines). On a quiet server that copy can hold
+    # lines older than 14 days until it fills; "docker compose up -d" after an update
+    # starts it afresh.
     logging:
       driver: json-file
       options:
-        max-size: "10m"
-        max-file: "3"
+        max-size: "1m"
+        max-file: "2"
     labels:
       # Never let Watchtower (or similar) update this container.
       - com.centurylinklabs.watchtower.enable=false
@@ -207,7 +210,7 @@ networks:
         - subnet: 172.28.10.0/24   # a fixed range, named in MEALWRIGHT_TRUSTED_PROXIES
 ```
 
-**Logs (from 0.1.1):** Mealwright writes its own log to `data/logs/mealwright.log`, with a time on every line, and keeps the last 14 days (spec section 7). It holds errors and sign-ins only. The `logging:` lines above stop Docker's own copy of the same lines from growing forever. If you already run 0.1.0, add those lines to your `compose.yaml` and run `docker compose up -d` again. To read the log: `docker logs mealwright`, or open the file in the data folder.
+**Logs (from 0.1.1):** Mealwright writes its own log to `data/logs/mealwright.log`, with a time on every line. Each night it starts a new file and deletes files older than 14 days (spec section 7). It holds errors and sign-ins only, and only Mealwright's own user can read it (use `sudo` to look). Docker keeps a copy of the same lines; the `logging:` lines above limit that copy to 2 MB, but Docker can only limit by size, so on a quiet server it may hold lines older than 14 days. If you already run 0.1.0, add those lines to your `compose.yaml` and run `docker compose up -d` again. To read the log: `docker logs mealwright`, or open the file in the data folder.
 
 If `docker compose up` says the range is already in use, choose another free one, such as `172.30.43.0/24`, and change it in both places.
 

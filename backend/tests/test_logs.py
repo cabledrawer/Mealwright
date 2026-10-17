@@ -1,49 +1,118 @@
 import logging
+import os
+import stat
+import time
 from collections.abc import Iterator
-from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import pytest
 
-from mealwright.logs import KEEP_DAYS, formatter, set_up_logging
+from mealwright import logs
+from mealwright.logs import FILE_NAME, KEEP_DAYS, formatter, remove_old_logs, set_up_logging
+
+DAY = 24 * 3600
 
 
 @pytest.fixture
-def clean_root() -> Iterator[None]:
+def clean_logging(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Put every logger set_up_logging touches back as it was, and skip the timer."""
+    monkeypatch.setattr(logs, "_keep_tidy", lambda handler: None)
     root = logging.getLogger()
-    saved, level = list(root.handlers), root.level
+    saved = list(root.handlers)
+    levels = {name: logging.getLogger(name).level for name in ("", "mealwright", "uvicorn.error")}
     yield
     for handler in list(root.handlers):
         root.removeHandler(handler)
-        handler.close()
+        if handler not in saved:
+            handler.close()
     for handler in saved:
         root.addHandler(handler)
-    root.setLevel(level)
+    for name, level in levels.items():
+        logging.getLogger(name).setLevel(level)
+
+
+def file_handler() -> logs.DailyLogFile:
+    found = [h for h in logging.getLogger().handlers if isinstance(h, logs.DailyLogFile)]
+    assert len(found) == 1
+    return found[0]
 
 
 def test_log_lines_carry_a_utc_timestamp() -> None:
     record = logging.LogRecord("mealwright", logging.WARNING, "", 0, "Hello", None, None)
     record.created = 0.0
-    line = formatter().format(record)
-    assert line == "1970-01-01T00:00:00Z WARNING mealwright: Hello"
+    assert formatter().format(record) == "1970-01-01T00:00:00Z WARNING mealwright: Hello"
 
 
-def test_log_file_kept_14_days(tmp_path: Path, clean_root: None) -> None:
+def test_log_file_is_written_and_private(tmp_path: Path, clean_logging: None) -> None:
     set_up_logging(tmp_path)
-    files = [h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)]
-    assert len(files) == 1
-    assert KEEP_DAYS == 14
-    assert files[0].backupCount == 14 and files[0].when == "MIDNIGHT" and files[0].utc
     logging.getLogger("mealwright.test").warning("Something went wrong")
-    files[0].flush()
-    text = (tmp_path / "logs" / "mealwright.log").read_text()
-    assert text.endswith("WARNING mealwright.test: Something went wrong\n")
-    assert text[:4].isdigit() and "Z WARNING" in text
+    file_handler().flush()
+    path = tmp_path / "logs" / FILE_NAME
+    assert path.read_text().endswith("Z WARNING mealwright.test: Something went wrong\n")
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600  # holds addresses: owner only
 
 
-def test_unwritable_data_folder_still_logs_to_the_output(tmp_path: Path, clean_root: None) -> None:
-    blocked = tmp_path / "file-not-folder"
-    blocked.write_text("")
-    set_up_logging(blocked)  # can't make blocked/logs
+def test_rotation_puts_the_day_aside(tmp_path: Path, clean_logging: None) -> None:
+    set_up_logging(tmp_path)
+    handler = file_handler()
+    logging.getLogger("mealwright.test").warning("Day one")
+    handler.rotate("2026-10-17")
+    logging.getLogger("mealwright.test").warning("Day two")
+    handler.flush()
+    folder = tmp_path / "logs"
+    assert "Day one" in (folder / f"{FILE_NAME}.2026-10-17").read_text()
+    assert "Day one" not in (folder / FILE_NAME).read_text()
+    assert "Day two" in (folder / FILE_NAME).read_text()
+    assert stat.S_IMODE((folder / FILE_NAME).stat().st_mode) == 0o600
+
+
+def test_rotating_twice_in_a_day_keeps_both(tmp_path: Path, clean_logging: None) -> None:
+    set_up_logging(tmp_path)
+    handler = file_handler()
+    for text in ("First", "Second"):
+        logging.getLogger("mealwright.test").warning(text)
+        handler.rotate("2026-10-17")
+    kept = sorted((tmp_path / "logs").glob(f"{FILE_NAME}.2026-10-17*"))
+    assert len(kept) == 2
+    words = {word for path in kept for word in path.read_text().split()}
+    assert {"First", "Second"} <= words
+
+
+def test_files_older_than_14_days_go_even_on_a_quiet_server(tmp_path: Path) -> None:
+    now = time.time()
+    ages = {f"{FILE_NAME}.old": KEEP_DAYS + 1, f"{FILE_NAME}.recent": KEEP_DAYS - 1}
+    ages[FILE_NAME] = KEEP_DAYS + 3  # the current file, untouched for weeks
+    for name, days in ages.items():
+        path = tmp_path / name
+        path.write_text("Signed in: tess from 192.168.1.20\n")
+        os.utime(path, (now - days * DAY, now - days * DAY))
+    (tmp_path / "unrelated.txt").write_text("")
+    os.utime(tmp_path / "unrelated.txt", (0, 0))
+    removed = remove_old_logs(tmp_path, now)
+    assert sorted(p.name for p in removed) == [FILE_NAME, f"{FILE_NAME}.old"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == [f"{FILE_NAME}.recent", "unrelated.txt"]
+
+
+def test_old_files_are_removed_at_start_up(tmp_path: Path, clean_logging: None) -> None:
+    folder = tmp_path / "logs"
+    folder.mkdir()
+    old = folder / f"{FILE_NAME}.2026-01-01"
+    old.write_text("old\n")
+    os.utime(old, (0, 0))
+    set_up_logging(tmp_path)
+    assert not old.exists()
+
+
+def test_data_folder_with_the_wrong_owner_still_logs_to_the_output(
+    tmp_path: Path, clean_logging: None
+) -> None:
+    locked = tmp_path / "data"
+    locked.mkdir(mode=0o500)  # like a /data that belongs to another user
+    try:
+        if os.access(locked, os.W_OK):
+            pytest.skip("running as root: permissions don't apply")
+        assert set_up_logging(locked) is None
+    finally:
+        locked.chmod(0o700)
     handlers = logging.getLogger().handlers
-    assert len(handlers) == 1 and not isinstance(handlers[0], TimedRotatingFileHandler)
+    assert len(handlers) == 1 and not isinstance(handlers[0], logs.DailyLogFile)

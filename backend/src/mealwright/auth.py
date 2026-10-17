@@ -100,9 +100,15 @@ class SlowDown:
         self._lock = threading.Lock()
 
     def _recent(self, key: str, at: float) -> deque[float]:
-        times = self._failures[key]
+        # Looking up a key never stores it, and keys with no recent guesses are dropped,
+        # so made-up usernames and addresses can't fill the memory.
+        times = self._failures.get(key)
+        if times is None:
+            return deque()
         while times and at - times[0] > self.WINDOW:
             times.popleft()
+        if not times:
+            del self._failures[key]
         return times
 
     def wait_seconds(self, keys: list[str], at: float | None = None) -> int:
@@ -122,7 +128,8 @@ class SlowDown:
         at = time.monotonic() if at is None else at
         with self._lock:
             for key in keys:
-                self._recent(key, at).append(at)
+                self._recent(key, at)
+                self._failures[key].append(at)
 
     def succeeded(self, key: str) -> None:
         with self._lock:

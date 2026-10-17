@@ -298,9 +298,14 @@ def test_slow_down_is_logged(client: TestClient, caplog: pytest.LogCaptureFixtur
     with caplog.at_level(logging.WARNING, logger="mealwright"):
         for _ in range(5):
             sign_in(client, "wrong-password")
-        assert sign_in(client) == 429
+        # Refused tries cost the guesser nothing, so they must not each write a line:
+        # that would let anyone fill the disk.
+        for _ in range(200):
+            assert sign_in(client) == 429
     assert caplog.text.count("Sign-in failed for tess from testclient") == 5
+    assert caplog.text.count("Sign-in slowed down") == 1
     assert "Sign-in slowed down for tess from testclient (wait 30 s)" in caplog.text
+    assert len(caplog.records) == 6
 
 
 def test_unknown_usernames_are_not_logged(
@@ -309,16 +314,12 @@ def test_unknown_usernames_are_not_logged(
     set_up(client)
     typed = "my-secret-password-in-the-wrong-box"
     with caplog.at_level(logging.INFO, logger="mealwright"):
-        for _ in range(6):  # wrong guesses, then the slow-down
+        for _ in range(6):  # 5 wrong guesses start the slow-down; the 6th is refused
             client.post("/api/v1/session", json={"username": typed, "password": "x"})
     assert typed not in caplog.text
     assert "Sign-in failed for unknown user from testclient" in caplog.text
     assert "Sign-in failed for tess" not in caplog.text
     assert "Sign-in slowed down for unknown user from testclient" in caplog.text
-    # A real account's name is logged (this address is slowed down by now).
-    with caplog.at_level(logging.INFO, logger="mealwright"):
-        sign_in(client, "wrong-password")
-    assert "Sign-in slowed down for tess from testclient" in caplog.text
 
 
 def test_every_sign_in_is_logged(client: TestClient, caplog: pytest.LogCaptureFixture) -> None:
@@ -330,3 +331,13 @@ def test_every_sign_in_is_logged(client: TestClient, caplog: pytest.LogCaptureFi
             client.delete("/api/v1/session")
     signed_in = [r for r in caplog.records if r.getMessage().startswith("Signed in: tess")]
     assert len(signed_in) == 4
+
+
+def test_looking_up_made_up_names_keeps_no_memory() -> None:
+    slow = SlowDown()
+    for i in range(1000):
+        assert slow.wait_seconds([f"user:made-up-{i}", f"addr:10.0.{i // 256}.{i % 256}"]) == 0
+    assert slow._failures == {}
+    slow.failed(["user:tess"], at=0.0)
+    assert slow.wait_seconds(["user:tess"], at=15 * 60 + 1) == 0
+    assert slow._failures == {}  # dropped once its guesses are old

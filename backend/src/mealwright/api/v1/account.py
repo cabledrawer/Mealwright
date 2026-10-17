@@ -163,7 +163,8 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     # must never end up in the log.
     who = login.username if login else "unknown user"
     if wait:
-        log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
+        # Not logged: refused tries cost nothing, so logging each one would let anyone
+        # fill the disk. The slow-down is logged once, when it starts or doubles (below).
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             f"Too many tries. Please wait {how_long(wait)}.",
@@ -172,6 +173,8 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     if not check_password(login, body.password) or login is None:
         slow.failed(keys)
         log.warning("Sign-in failed for %s from %s", who, address)
+        if wait := slow.wait_seconds(keys):
+            log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
     slow.succeeded(keys[0])
     start_session(db, response, request.app.state.settings, login, remember=body.remember)

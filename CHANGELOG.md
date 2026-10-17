@@ -14,8 +14,9 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Changed
 
 - **Log lines carry the time** (UTC, e.g. `2026-10-17T18:21:50Z`).
-- **The app keeps its own log for 14 days**, in `/data/logs/mealwright.log`, starting a new file each midnight (UTC). This is how the spec's "logs kept 14 days" is kept, and later "Report a problem" will read recent errors from it. `compose.example.yaml` also limits Docker's own copy of the log to 3 files of 10 MB. (Asked by cabledrawer.)
-- **A refused "too many tries" attempt is logged** ("Sign-in slowed down for tess from 192.168.1.20 (wait 30 s)"). (Asked by cabledrawer.)
+- **The app keeps its own log for 14 days**, in `/data/logs/mealwright.log`, readable by Mealwright's own user only. Just after each midnight (UTC) it starts a new file and deletes files last written more than 14 days ago, even on a quiet server. Later, "Report a problem" will read recent errors from it. `compose.example.yaml` also limits Docker's own copy of the log to 2 files of 1 MB; Docker can only limit by size, not age. (Asked by cabledrawer.)
+- **The sign-in slow-down is logged** when it starts or doubles ("Sign-in slowed down for tess from 192.168.1.20 (wait 30 s)"). Each refused try isn't logged, so nobody can fill the disk by hammering the sign-in page. (Asked by cabledrawer.)
+- The sign-in slow-down no longer keeps memory for usernames and addresses that were only looked up.
 
 ### Privacy and security
 
