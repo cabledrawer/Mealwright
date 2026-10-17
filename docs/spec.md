@@ -441,7 +441,7 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 
 **Before 1.0.0 goes out (cabledrawer 17 Oct):**
 
-- **Licences:** the automatic build checks every dependency against an allow list of AGPL-compatible licences (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL) and fails on anything else; watch especially for GPL-2.0-only. The bundled food-conversion table is checked by hand.
+- **Licences:** the automatic build checks every dependency against an allow list of AGPL-compatible licences (MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL) and fails on anything else; watch especially for GPL-2.0-only. The bundled food-conversion table is checked by hand. **Fonts (cabledrawer 17 Oct):** OFL-1.1 is also allowed, for font packages only (the bundled Plus Jakarta Sans and Newsreader come from `@fontsource`, which is OFL-1.1); any other OFL-1.1 dependency still fails the check.
 - **No unasked connections:** the automatic test from section 7, plus one manual run with every Privacy switch off while watching the network. The README Privacy section lists every possible outbound connection.
 - **Name:** search the UK, EU and US trademark registers for "Mealwright" in the software classes. Search only, no registration.
 - **Security:** automatic scanners in the build (known vulnerabilities in dependencies, code scanning, image scan) plus a self-check against a standard web-app security checklist. Just before release, ask the self-hosting community to review and try to break it.
