@@ -143,7 +143,7 @@
       <p class="hint">{useByWords(lot.use_by, lot.days_left)}</p>
 
       {#if step === 'actions'}
-        {#if lot.open}
+        {#if lot.open || pickFor(lot) !== undefined}
           <div class="picks">
             <span class="hint" id="{uid}-q">How much is left? Best guess is fine.</span>
             <div class="pick-row" role="radiogroup" aria-labelledby="{uid}-q">

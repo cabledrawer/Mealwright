@@ -49,7 +49,18 @@ export function group(
 
 export function samplePantry() {
   const spinach = lot('200 g', '2026-10-17', 0);
-  const paneer = [lot('1 pack · 200 g', '2026-10-19', 2), lot('1 pack · 200 g', '2026-10-21', 4)];
+  const packSize = { id: 8, name: 'pack', plural: 'packs', amount: 200 };
+  const paneer = [
+    lot('1 pack · 200 g', '2026-10-19', 2, {
+      stock: {
+        amount: 200,
+        display: '1 pack · 200 g',
+        short: '1 pack',
+        as_sold: { count: 1, size: packSize }
+      }
+    }),
+    lot('1 pack · 200 g', '2026-10-21', 4)
+  ];
   const yoghurt = lot('½ tub · about 250 g', '2026-10-21', 4, {
     open: true,
     stock: {

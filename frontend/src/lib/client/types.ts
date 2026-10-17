@@ -194,7 +194,7 @@ export interface Lot {
   added_on: string;
   frozen_on: string | null;
   size_id: number | null;
-  /** Holds less than its size: show "· open" and the ¼ ½ ¾ Full picks. */
+  /** Holds less than its size: show "· open". (Every packet of a known size has the ¼ ½ ¾ Full picks.) */
   open: boolean;
 }
 

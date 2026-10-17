@@ -1,4 +1,4 @@
-// The ¼ · ½ · ¾ · Full picks for an open packet (spec, Part-used packets): which one
+// The ¼ · ½ · ¾ · Full picks for any packet whose size is known, open or not (spec, Part-used packets; cabledrawer's 0.2 hand test: a full pack gets them too): which one
 // matches what's left now. It's the packet's amount ÷ its size's amount, to the
 // nearest ¼: eggs "9 left · bought as a dozen" are ¾, bread 14 of 20 slices is ¾,
 // yoghurt 250 g of a 500 g tub is ½. (Not as_sold.count: for count foods that's

@@ -190,6 +190,24 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('a full, unopened pack has the picks too, with Full chosen', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: /^Paneer 2 packs/ }).click();
+    await page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button').first().click();
+    const menu = page.getByRole('dialog', { name: /Paneer/ });
+    const picks = menu.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
+    await expect
+      .element(picks.getByRole('radio', { name: 'Full' }))
+      .toHaveAttribute('aria-checked', 'true');
+    await expect.element(picks.getByRole('radio', { name: '½ left' })).toBeVisible();
+    await picks.getByRole('radio', { name: '½ left' }).click();
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.path.startsWith('/stock/') && r.path.endsWith('/left'))).toBe(
+        true
+      )
+    );
+  });
+
   it('Undo in Recent changes undoes that change', async () => {
     await render(1300);
     await page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }).click();
