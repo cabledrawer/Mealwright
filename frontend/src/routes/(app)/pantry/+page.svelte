@@ -674,7 +674,7 @@
     align-items: start;
   }
 
-  @container (min-width: 1040px) {
+  @container (min-width: 760px) {
     .columns {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }

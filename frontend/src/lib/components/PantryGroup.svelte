@@ -2,7 +2,7 @@
   // One food in one place on the Pantry screen (mockups Phone-Pantry, Desktop-Pantry):
   // "Paneer · 2 packs · 400 g", its soonest date, and, opened, each packet with its date
   // and what you can do with it (Used, Binned, To freezer, Move, change the date). An
-  // open packet gets the ¼ · ½ · ¾ · Full picks straight away (spec, Part-used packets).
+  // open packet, tapped, shows the ¼ · ½ · ¾ · Full picks (spec, Part-used packets).
   import { ApiError } from '$lib/api';
   import type { Group, Lot, Place } from '$lib/client/types';
   import { dateWords, useByWords } from '$lib/dates';
@@ -163,18 +163,18 @@
           <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
         {/if}
       </span>
+      <!-- Desktop columns are narrow: the date goes under the amount there. -->
+      {#if date}
+        <span class="date under" class:soon={group.use_soon}>{date}</span>
+      {/if}
     </span>
     {#if date}
-      <span class="date" class:soon={group.use_soon}>{date}</span>
+      <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
     {/if}
     <span class="chevron" class:flipped={open}
       ><Icon name="chevron-down" size={16} stroke={2.4} /></span
     >
   </button>
-
-  {#if single?.open && !open}
-    {@render picks(single)}
-  {/if}
 
   {#if open}
     <div class="more" id="{uid}-more">
@@ -274,6 +274,7 @@
   .name {
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
+    overflow-wrap: anywhere;
   }
 
   .amount {
@@ -303,6 +304,10 @@
     background: var(--color-use-soon-chip);
     color: var(--color-use-soon-text);
     font-weight: var(--weight-bold);
+  }
+
+  .date.under {
+    display: none;
   }
 
   .chevron {
@@ -493,6 +498,14 @@
     }
     .tap {
       display: none;
+    }
+    .date.side {
+      display: none;
+    }
+    .date.under {
+      display: inline-block;
+      align-self: flex-start;
+      margin-top: var(--space-1);
     }
     .click {
       display: inline;

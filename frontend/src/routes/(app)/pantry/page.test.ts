@@ -172,8 +172,11 @@ describe('the Pantry page', () => {
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).toBeVisible();
   });
 
-  it('an open pack has the ¼ · ½ · ¾ · Full picks', async () => {
+  it('an open pack, tapped, has the ¼ · ½ · ¾ · Full picks', async () => {
     await render(1300);
+    // Not until it's tapped.
+    expect(page.getByRole('radiogroup').elements()).toHaveLength(0);
+    await page.getByRole('button', { name: /^Yoghurt/ }).click();
     const picks = page.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
     await expect
       .element(picks.getByRole('radio', { name: '½ left' }))
