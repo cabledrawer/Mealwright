@@ -102,7 +102,7 @@ test('Add to pantry adds what was chosen, where it lives', async ({ page }) => {
   await expect(sheet.getByLabel(/^Where/)).toHaveValue(/\d+/);
   await sheet.getByRole('button', { name: 'Add to pantry' }).click();
   await expect.poll(() => lotsOf(page, food.id)).toBe(3);
-  await expect(page.getByRole('status').getByText(/Added 2 packs/)).toBeVisible();
+  await expect(page.getByRole('status').getByText(/Added 2\s+packs/)).toBeVisible();
 });
 
 test('Ctrl+Z undoes a pantry change on desktop', async ({ page }) => {
