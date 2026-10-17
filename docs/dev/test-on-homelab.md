@@ -224,7 +224,15 @@ networks:
   ```
 
   (In `less`: `G` jumps to the end, `q` quits.)
-- **Backups:** the log folder is inside `data`, so a backup of the whole folder would keep sign-in lines for as long as the backup is kept, beyond 14 days. Leave `data/logs` out of your backups; the update backup in section 5 already does. The log isn't needed to restore Mealwright.
+- **Backups:** the log folder is inside `data`, so a backup of the whole folder would keep sign-in lines for as long as the backup is kept, beyond 14 days. Leave `data/logs` out of your backups; the update backup in section 5 already does. The log isn't needed to restore Mealwright. For your own monthly backup:
+  - with `tar`, this makes one compressed file of the data folder, leaving out the logs:
+
+    ```bash
+    sudo tar -C ~/mealwright --exclude=data/logs -czf "mealwright-data-$(date +%Y%m%d).tar.gz" data
+    ```
+
+  - with `rsync`, add `--exclude=logs/` when copying the `data` folder (it skips the `logs` folder inside it), for example `sudo rsync -a --exclude=logs/ ~/mealwright/data/ <backup place>/mealwright-data/`.
+  - with another backup tool, add `~/mealwright/data/logs` to its list of folders to skip.
 - **Docker's copy:** the `logging:` lines above cap what Docker keeps for this container at 2 files of 1 MB. They **override the server's default** (on the home server, 3 × 10 MB for every container) for Mealwright only. Docker can only limit by size, not age, which is why sign-in lines aren't sent there at all.
 - **Already running 0.1.0?** Add the `logging:` lines to your `compose.yaml` and run `docker compose up -d` again.
 

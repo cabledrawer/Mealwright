@@ -22,9 +22,11 @@ class Base(DeclarativeBase):
 
 def make_engine(url: str) -> Engine:
     if not url.startswith("sqlite"):
-        return create_engine(url)
+        return create_engine(url, hide_parameters=True)
 
-    engine = create_engine(url, connect_args={"check_same_thread": False})
+    # hide_parameters: a database error's text leaves out the values (a typed username,
+    # food names…), so a traceback in the log never carries what people typed.
+    engine = create_engine(url, connect_args={"check_same_thread": False}, hide_parameters=True)
 
     @event.listens_for(engine, "connect")
     def _sqlite_pragmas(dbapi_connection: Any, _record: Any) -> None:
