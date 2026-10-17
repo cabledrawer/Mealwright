@@ -41,6 +41,9 @@ class _Meta(dict[str, Any]):
         ("OFL-1.1", False),
         ("(MIT OR Apache-2.0) AND PSF-2.0", True),
         ("GPL-3.0-or-later WITH GCC-exception-3.1", True),
+        ("MIT-0", True),
+        ("BlueOak-1.0.0", True),
+        ("SSPL-1.0", False),
         ("LicenseRef-Proprietary", False),
     ],
 )

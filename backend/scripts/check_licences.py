@@ -1,6 +1,7 @@
 """Check every installed Python package against the licence allow list (spec section 8).
 
-Allowed (cabledrawer 17 Oct): MIT, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0, MPL-2.0.
+Allowed (cabledrawer 17 Oct): MIT, MIT-0, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0,
+MPL-2.0, BlueOak-1.0.0.
 GPL-2.0-only is never allowed. OFL-1.1 is allowed for fonts only, so never for a Python
 package. MPL-2.0 packages marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B)
 must be rejected: MPL-2.0 only works with AGPL through that secondary-licence clause.
@@ -39,6 +40,8 @@ ALLOWED = {
     "AGPL-3.0-or-later",
     "PSF-2.0",
     "MPL-2.0",
+    "MIT-0",  # cabledrawer 17 Oct (cffi)
+    "BlueOak-1.0.0",  # cabledrawer 17 Oct (minimatch, used by ESLint)
 }
 
 # Trove classifiers that name exactly one allowed licence. The generic
