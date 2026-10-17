@@ -62,7 +62,7 @@ def test_name_must_be_new(kitchen: TestClient) -> None:
     response = kitchen.post(f"{API}/foods", json={"name": "TOOR DAL"})
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "There's already a food called Toor dal.",
+        "detail": "There's already an ingredient called Toor dal.",
         "code": "name_taken",
         "food_id": first["id"],
     }
@@ -481,7 +481,7 @@ def test_split_revives_a_merged_food(kitchen: TestClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["food"]["id"] == moringa["id"]  # same id, so old links point to it again
-    assert body["change"]["summary"] == "Made Moringa its own food again"
+    assert body["change"]["summary"] == "Made Moringa its own ingredient again"
     assert kitchen.get(f"{API}/foods/{drumsticks['id']}").json()["other_names"] == []
 
     # Undoing the split merges them back.
@@ -518,7 +518,7 @@ def test_remove_and_undo(kitchen: TestClient) -> None:
     food = add(kitchen, "Typo fod")
     body = kitchen.delete(f"{API}/foods/{food['id']}").json()
     assert body["food"] is None
-    assert body["change"]["summary"] == "Removed Typo fod"
+    assert body["change"]["summary"] == "Removed Typo fod from Ingredients"
     assert kitchen.get(f"{API}/foods/{food['id']}").status_code == 404
     kitchen.post(f"{API}/changes/{body['change']['id']}/undo")
     assert kitchen.get(f"{API}/foods/{food['id']}").json()["name"] == "Typo fod"

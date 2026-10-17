@@ -126,7 +126,7 @@ def find(kitchen: Kitchen, food_id: int, follow_merges: bool = True) -> Food:
         seen.add(food.id)
         food = kitchen.db.get(Food, food.merged_into_id)
     if food is None or food.household_id != kitchen.household_id or not visible(food):
-        raise not_found("That food")
+        raise not_found("That ingredient")
     return food
 
 
@@ -178,7 +178,7 @@ def name_taken(name: str, food: Food) -> Problem:
     return Problem(
         status.HTTP_409_CONFLICT,
         "name_taken",
-        f"There's already a food called {food.name}.",
+        f"There's already an ingredient called {food.name}.",
         food_id=food.id,
     )
 

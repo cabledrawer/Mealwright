@@ -1,6 +1,6 @@
 """Errors the web app can react to: a plain-English `detail` plus a machine-readable `code`.
 
-    {"detail": "There's already a food called Toor dal.", "code": "name_taken", "food_id": 7}
+    {"detail": "There's already an ingredient called Toor dal.", "code": "name_taken", "food_id": 7}
 
 See docs/dev/api-0.2.md section 1.1. Plain HTTPException (just `detail`) is still fine
 where the client only shows the message.

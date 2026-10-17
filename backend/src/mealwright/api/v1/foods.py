@@ -752,21 +752,28 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
     return result
 
 
+def cannot_remove(kitchen: Kitchen, food: Food) -> str | None:
+    """Why this ingredient can't be removed, or None if nothing depends on it. The one
+    place to add what comes later: shopping lists (0.3) and recipes (0.4)."""
+    if has_stock(kitchen, food.id):
+        return (
+            f"{food.name} is still in the pantry. Use it up, or merge it with another ingredient."
+        )
+    return None
+
+
 @router.delete("/foods/{food_id}")
 def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
     """Remove a food that nothing uses (proposed, see spec section 6). Can be undone."""
 
     def apply() -> Change:
         food = find(kitchen, food_id)
-        if has_stock(kitchen, food.id):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "in_use",
-                f"{food.name} is still in the pantry. Use it up, or merge it with another food.",
-            )
+        reason = cannot_remove(kitchen, food)
+        if reason is not None:
+            raise Problem(status.HTTP_409_CONFLICT, "in_use", reason)
         with FoodEdit(kitchen, [food.id]) as edit:
             food.removed_at = utcnow()
-        return edit.record("food_removed", f"Removed {food.name}", food.id)
+        return edit.record("food_removed", f"Removed {food.name} from Ingredients", food.id)
 
     return write(kitchen, response, apply)
 
@@ -944,7 +951,7 @@ def add_stand_in(food_id: int, body: NewStandIn, kitchen: Here, response: Respon
         food = find(kitchen, food_id)
         other = find(kitchen, body.food_id)
         if other.id == food.id:
-            raise Problem(422, "same_food", "A food can't stand in for itself.")
+            raise Problem(422, "same_food", "An ingredient can't stand in for itself.")
         pairs = [(food.id, other.id)] + ([(other.id, food.id)] if body.both_ways else [])
         missing = [p for p in pairs if kitchen.db.get(FoodStandIn, p) is None]
         if not missing:
@@ -977,7 +984,7 @@ def remove_stand_in(food_id: int, stand_in_id: int, kitchen: Here, response: Res
         other = kitchen.db.get(Food, stand_in_id)
         with FoodEdit(kitchen, [food.id, stand_in_id]) as edit:
             kitchen.db.delete(link)
-        other_name = other.name if other else "That food"
+        other_name = other.name if other else "That ingredient"
         return edit.record(
             "food_edited", f"{other_name} is no longer used instead of {food.name}", food.id
         )
@@ -998,7 +1005,7 @@ def not_the_same(food_id: int, body: NotSame, kitchen: Here) -> None:
     food = find(kitchen, food_id)
     other = find(kitchen, body.food_id)
     if food.id == other.id:
-        raise Problem(422, "same_food", "That's the same food.")
+        raise Problem(422, "same_food", "That's the same ingredient.")
     pair = (min(food.id, other.id), max(food.id, other.id))
     if kitchen.db.get(FoodNotSame, pair) is None:
         kitchen.db.add(
@@ -1123,7 +1130,7 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
         gone = find(kitchen, food_id)
         into = find(kitchen, body.into_id)
         if gone.id == into.id:
-            raise Problem(422, "same_food", "That's the same food.")
+            raise Problem(422, "same_food", "That's the same ingredient.")
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
             edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
             record = FoodMerge(
@@ -1174,7 +1181,7 @@ def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodW
             if earlier is not None:
                 revived = db.get(Food, earlier.from_food_id)
                 if revived is None:  # pragma: no cover (found above)
-                    raise not_found("That food")
+                    raise not_found("That ingredient")
                 new = revived
                 new.merged_into_id = None
                 new.removed_at = None
@@ -1196,7 +1203,7 @@ def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodW
                 edit.also(new.id)
             refresh_table_key(kitchen, new)
             refresh_table_key(kitchen, food)
-        return edit.record("split", f"Made {name} its own food again", new.id)
+        return edit.record("split", f"Made {name} its own ingredient again", new.id)
 
     return write(kitchen, response, apply)
 

@@ -16,7 +16,7 @@ Written 17 Oct 2026 as the contract between the backend and the web app for mile
 Same shape as 0.1, plus a machine-readable `code` where the client must react:
 
 ```json
-{ "detail": "There's already a food called Toor dal.", "code": "name_taken", "food_id": 7 }
+{ "detail": "There's already an ingredient called Toor dal.", "code": "name_taken", "food_id": 7 }
 ```
 
 | Status | `code` | When |
@@ -35,7 +35,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 410 | `too_old` | Undo after the undo window |
 | 422 | — | validation; FastAPI's default list form, as in 0.1 (the web app's `detailOf` already reads it) |
 
-`detail` is always a plain-English sentence the web app can show as is.
+`detail` is always a plain-English sentence the web app can show as is. On screen it's always "ingredient", never "food" (cabledrawer 17 Oct): every `detail`, change summary, undo message, ask-once question and display text says "ingredient". "Food" stays the word in field names, codes and paths (`food_id`, `/foods`). A test scans the code for sentences that say "food".
 
 ### 1.2 Optimistic changes and retries
 
@@ -421,7 +421,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 - **Undo merge** is the normal Undo of that change (6.5), within the undo window: restores both foods exactly as they were (names, sizes, links, lots with their amounts as they are now, place and dates). If stock was used after the merge, the lots that moved come back with what's left in them, and the result is `partly`.
 - `POST /api/v1/foods/{id}/split` `{ "other_name_id": 41 }` → the other name becomes its own food again. If the name came from a merge, the old food is revived (same id, so old links point to it again) with its original settings but no stock (we can't know which stock was its). Otherwise a new food is made with the same settings as the one it's split from, minus sizes and stock. Answer: `201 { "food": {…the new or revived food…}, "change": { "kind": "split", … } }`.
 
-**Remove a food** (section 7, point 1): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable (`food_removed`). Answer: `{ "food": null, "change": {…} }`.
+**Remove a food** (section 7, point 1; the summary reads "Removed Toor dal from Ingredients"; what blocks a removal is checked in one place, `cannot_remove`, where shopping lists (0.3) and recipes (0.4) will be added): `DELETE /api/v1/foods/{id}` only when it has no stock (and, from 0.4, no recipe uses it); otherwise `409 in_use`. Soft delete, undoable (`food_removed`). Answer: `{ "food": null, "change": {…} }`.
 
 ### 6.3 Places, shops, household
 

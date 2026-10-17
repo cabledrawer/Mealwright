@@ -133,7 +133,7 @@ class Pantry:
         if food_id not in self._foods:
             found = self.kitchen.db.get(Food, food_id)
             if found is None:  # pragma: no cover (foods are never deleted)
-                raise not_found("That food")
+                raise not_found("That ingredient")
             self._foods[food_id] = found
         return self._foods[food_id]
 
