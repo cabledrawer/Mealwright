@@ -5,7 +5,7 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 ## Read first
 
 - `docs/BUILD-PLAN.md`: what to build, in which order. Work one milestone at a time and stop for cabledrawer's OK at the end of each.
-- `docs/spec.md`: the source of truth for every product decision. If code and spec disagree, the spec wins. If neither covers something, ask cabledrawer, then record his answer in the spec, credited to him.
+- `docs/spec.md`: the source of truth for every product decision. Don't read it all: read the sections the current milestone in BUILD-PLAN names (find them with `grep -n '^#' docs/spec.md`). If code and spec disagree, the spec wins. If neither covers something, ask cabledrawer, then record his answer in the spec, credited to him.
 - `docs/mockups/`: the intended look, exported from the design canvas. Read the markup for exact colours, sizes, wording and layout. Visual reference only, not code to copy.
 
 ## The ethos (never break these)
@@ -17,15 +17,9 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 - Recipe images are downloaded and stored locally, never hotlinked.
 - Nothing about the install is ever sent anywhere.
 
-## UX rules (from spec "UX — CORE")
+## UX rules
 
-- Phone and desktop both first-class; **phone breaks ties**. Bottom tabs on phone, collapsible sidebar on desktop.
-- Plain words ("cupboard", "use soon", "tubs left"), never database words.
-- Undo, not "Are you sure?". Optimistic updates. One switch component for every on/off.
-- Auto · Light · Dark switch always in plain sight. A designed dark theme, not inverted.
-- Vertical scrolling only; no chunky scrollbars.
-- Show connection status (offline bar with waiting changes; "Back online — all saved").
-- WCAG AA in both themes; touch targets ≥ 44 px.
+The UX rules for the screens live in `frontend/CLAUDE.md` (loaded when you work in `frontend/`). They still apply to every screen.
 
 ## Stack
 
@@ -53,3 +47,7 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 - **Paste the `./check` summary into every PR.**
 - **cabledrawer usually merges in batches.** Keep working on the next piece rather than waiting for a merge, unless you need a decision. Milestone boundaries still apply: stop at the end of each milestone for his OK.
 - **cabledrawer isn't a developer.** Explain things in plain English, and give copy-paste commands with what each one does.
+
+# Compact instructions
+
+When compacting, keep: the current PR (branch, number, last commit), open review findings, and cabledrawer's decisions. Drop file dumps and old tool output.
