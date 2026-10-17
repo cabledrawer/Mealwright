@@ -132,6 +132,23 @@ Screens
       changes save as you go.
 - [ ] Search by any name (other names too), filters All · Staples · Maybe the same.
 
+## Where 0.2 differs from the mockups (lead's rulings, 17 Oct; the spec wins)
+
+- Phone Pantry: tabs All · every place (Spice rack included; "More" when they don't
+  fit) · Use soon; staples chips; a "Recent changes" section at the bottom, last 3 with
+  Undo. No Running low / Staples chips on phone: running-low foods carry a "running
+  low" label.
+- Desktop Pantry: four place columns at 1440 px beside the side panel, else 2×2; all
+  four places in the screenshots.
+- Phone ingredient sheet: also has Running low at and Usual shop (with "+ Shop"), and
+  Lives in lists every place.
+- Phone header avatar stays as in 0.1.
+- Hidden in 0.2: + List, Tubs, Recipes for these, "recipes that use them", Not in any
+  recipe, the RECIPES column, USED IN.
+- New colour tokens (`#7A2808`, `#FFFBF2`/`#4F3500`, `#2A2414`/`#F3D58C`) must meet AA in
+  both themes.
+- Seed data for the screenshots: `--prepare review/seed-pantry.ts`.
+
 ## Mockup notes (what builders tend to miss)
 
 Colours come from `docs/mockups/*.dc.html`; most are already tokens in
