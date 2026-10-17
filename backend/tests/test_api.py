@@ -21,3 +21,14 @@ def test_no_cdn_docs_pages(client: TestClient) -> None:
     # FastAPI's default docs pages pull scripts from a CDN.
     assert client.get("/docs").status_code == 404
     assert client.get("/redoc").status_code == 404
+
+
+def test_every_place_the_version_shows_agrees_with_pyproject(client: TestClient) -> None:
+    import tomllib
+    from pathlib import Path
+
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    wanted = tomllib.loads(pyproject.read_text())["project"]["version"]
+    assert __version__ == wanted
+    assert client.get("/api/v1/version").json() == {"version": wanted}
+    assert client.get("/api/v1/openapi.json").json()["info"]["version"] == wanted
