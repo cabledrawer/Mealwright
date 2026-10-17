@@ -16,7 +16,10 @@ read, never unpacked or run):
 
     python -I scripts/build_conversions.py /path/to/FoodData_Central_sr_legacy_food_csv_2018-04.zip
 
-It writes src/mealwright/data/food-conversions.csv.
+It writes src/mealwright/data/food-conversions.csv, including each food's starting aisle:
+the USDA food category of the chosen food, mapped to one of Mealwright's aisles by
+CATEGORY_AISLE below, unless AISLE_OVERRIDES names the ingredient (for the few where the
+USDA category isn't where a shop keeps it: dried beans vs tinned, sugar vs honey).
 """
 
 import csv
@@ -41,6 +44,99 @@ VOLUME_ML = {
     "teaspoon": US_FL_OZ_ML / 6,
     "fl oz": US_FL_OZ_ML,
 }
+
+
+# Mealwright's aisles (spec section 6, "Offline shopping-list sync"). The same keys as
+# mealwright.aisles.AISLES; a test checks they match.
+AISLE_KEYS = (
+    "veg_fruit", "meat_fish", "dairy", "bakery", "dry_goods", "tins_jars",
+    "spices", "frozen", "drinks", "household", "other",
+)  # fmt: skip
+
+# Every USDA SR Legacy food category -> an aisle. A category missing from this map stops the
+# build, so nothing is silently left as Other.
+CATEGORY_AISLE = {
+    "Dairy and Egg Products": "dairy",
+    "Spices and Herbs": "spices",
+    "Baby Foods": "other",
+    "Fats and Oils": "tins_jars",
+    "Poultry Products": "meat_fish",
+    "Soups, Sauces, and Gravies": "tins_jars",
+    "Sausages and Luncheon Meats": "meat_fish",
+    "Breakfast Cereals": "dry_goods",
+    "Fruits and Fruit Juices": "veg_fruit",
+    "Pork Products": "meat_fish",
+    "Vegetables and Vegetable Products": "veg_fruit",
+    "Nut and Seed Products": "dry_goods",
+    "Beef Products": "meat_fish",
+    "Beverages": "drinks",
+    "Finfish and Shellfish Products": "meat_fish",
+    "Legumes and Legume Products": "dry_goods",
+    "Lamb, Veal, and Game Products": "meat_fish",
+    "Baked Products": "bakery",
+    "Sweets": "dry_goods",
+    "Cereal Grains and Pasta": "dry_goods",
+    "Fast Foods": "other",
+    "Meals, Entrees, and Side Dishes": "other",
+    "Snacks": "other",
+    "American Indian/Alaska Native Foods": "other",
+    "Restaurant Foods": "other",
+}
+
+# Where the USDA category isn't where a shop keeps it. Keyed by the Choice key.
+AISLE_OVERRIDES = {
+    # Baking supplies sit under "Baked Products", "Spices and Herbs" or "Sweets"
+    "baking_powder": "dry_goods", "bicarbonate_of_soda": "dry_goods",
+    "cream_of_tartar": "dry_goods", "dried_yeast": "dry_goods",
+    "vanilla_extract": "dry_goods", "breadcrumbs": "dry_goods",
+    # Jars and bottles
+    "honey": "tins_jars", "maple_syrup": "tins_jars", "corn_syrup": "tins_jars",
+    "molasses": "tins_jars", "jam": "tins_jars", "peanut_butter": "tins_jars",
+    "soy_sauce": "tins_jars", "tamari": "tins_jars", "ketchup": "tins_jars",
+    "mayonnaise": "tins_jars", "vinegar": "tins_jars", "cider_vinegar": "tins_jars",
+    "red_wine_vinegar": "tins_jars", "balsamic_vinegar": "tins_jars",
+    "lemon_juice": "tins_jars", "lime_juice": "tins_jars", "coconut_milk": "tins_jars",
+    # Tinned and cooked (the USDA file lists them with the dried or fresh food)
+    "tinned_chickpeas": "tins_jars", "tinned_tomatoes": "tins_jars",
+    "tomato_puree": "tins_jars", "passata": "tins_jars",
+    "cooked_rice": "dry_goods", "cooked_lentils": "tins_jars",
+    # Frozen
+    "frozen_spinach": "frozen", "frozen_peas": "frozen",
+    # Dried or powdered things filed under fresh or dairy
+    "raisins": "dry_goods", "sultanas": "dry_goods", "tamarind": "dry_goods",
+    "sweetened_coconut": "dry_goods", "skimmed_milk_powder": "dry_goods",
+    "whole_milk_powder": "dry_goods", "ghee": "tins_jars",
+    # Chilled, and in the fruit and veg section
+    "tofu": "veg_fruit",
+    # Drinks section
+    "instant_coffee": "drinks", "water": "drinks",
+    # Cocoa and chocolate are baking
+    "cocoa": "dry_goods", "chocolate_chips": "dry_goods",
+}  # fmt: skip
+
+
+def aisle_for(key: str, category: str) -> str:
+    """The starting aisle for a bundled food: its override, else its USDA category's aisle."""
+    if key in AISLE_OVERRIDES:
+        return AISLE_OVERRIDES[key]
+    try:
+        return CATEGORY_AISLE[category]
+    except KeyError:
+        raise SystemExit(
+            f"{key}: USDA category {category!r} has no aisle in CATEGORY_AISLE"
+        ) from None
+
+
+def check_aisle_tables() -> None:
+    for aisle in [*CATEGORY_AISLE.values(), *AISLE_OVERRIDES.values()]:
+        if aisle not in AISLE_KEYS:
+            raise SystemExit(f"Not an aisle: {aisle!r}")
+
+
+def check_overrides_known(choices: list[Choice]) -> None:
+    unknown = set(AISLE_OVERRIDES) - {choice.key for choice in choices}
+    if unknown:
+        raise SystemExit(f"AISLE_OVERRIDES names foods that aren't in CHOICES: {sorted(unknown)}")
 
 
 class Choice(NamedTuple):
@@ -314,18 +410,26 @@ def read_csv(archive: zipfile.ZipFile, name: str) -> list[dict[str, str]]:
         return list(csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8")))
 
 
-def build(zip_path: Path) -> list[dict[str, str]]:
+def build(zip_path: Path, choices: list[Choice] | None = None) -> list[dict[str, str]]:
     with zipfile.ZipFile(zip_path) as archive:
         foods = {row["fdc_id"]: row for row in read_csv(archive, "food.csv")}
+        categories: dict[str, str] = {}
+        for row in read_csv(archive, "food_category.csv"):
+            categories[row["id"]] = row["description"]
+            categories.setdefault(row.get("code", ""), row["description"])
         portions: dict[tuple[str, str], float] = {}
         for row in read_csv(archive, "food_portion.csv"):
             spec = f"{float(row['amount']):g}|{row['modifier']}"
             portions[(row["fdc_id"], spec)] = float(row["gram_weight"])
 
+    check_aisle_tables()
+    if choices is CHOICES:
+        check_overrides_known(choices)
     seen_keys: set[str] = set()
     seen_names: dict[str, str] = {}
     rows = []
-    for choice in CHOICES:
+    choices = CHOICES if choices is None else choices
+    for choice in choices:
         if choice.key in seen_keys:
             raise SystemExit(f"Key used twice: {choice.key}")
         seen_keys.add(choice.key)
@@ -338,6 +442,10 @@ def build(zip_path: Path) -> list[dict[str, str]]:
         food = foods.get(choice.fdc_id)
         if food is None or food["data_type"] != "sr_legacy_food":
             raise SystemExit(f"{choice.key}: no SR Legacy food {choice.fdc_id}")
+
+        category = categories.get(food.get("food_category_id", ""))
+        if category is None:
+            raise SystemExit(f"{choice.key}: USDA food {choice.fdc_id} has no known category")
 
         mg_per_ml = item_mg = ""
         if choice.volume:
@@ -360,6 +468,8 @@ def build(zip_path: Path) -> list[dict[str, str]]:
                 "usda_description": food["description"],
                 "volume_portion": choice.volume or "",
                 "item_portion": choice.item or "",
+                "aisle": aisle_for(choice.key, category),
+                "usda_category": category,
             }
         )
     return rows

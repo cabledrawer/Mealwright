@@ -15,9 +15,12 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +45,10 @@ class Household(Base):
     undo_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     history_months: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
     use_soon_days: Mapped[int] = mapped_column(Integer, default=2, server_default="2")
+    # The shopping-list counter (docs/dev/sync-protocol.md 3.7): the number of the last
+    # recorded list change, and the highest version whose rows the tidy-up has deleted.
+    list_seq: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    list_purged_seq: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
 
 
 class OutboundSwitch(Base):
@@ -173,6 +180,10 @@ class Food(Base):
     merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("food.id"))
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Which aisle it's in (mealwright.aisles keys). Null shows under Other.
+    aisle: Mapped[str | None] = mapped_column(String(20))
+    # The shopping-list counter value of the last change a list shows (sync protocol 3.7).
+    version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
 
 
 class FoodName(Base):
@@ -272,7 +283,17 @@ class Change(Base):
     """One thing someone did: one row in Recent changes, one Undo button."""
 
     __tablename__ = "change"
-    __table_args__ = (UniqueConstraint("household_id", "idempotency_key"),)
+    __table_args__ = (
+        UniqueConstraint("household_id", "idempotency_key"),
+        # No ON DELETE action (sync protocol 3.7): the tidy-up empties tick_id first.
+        ForeignKeyConstraint(
+            ["household_id", "tick_id"],
+            ["list_tick.household_id", "list_tick.id"],
+            use_alter=True,
+            name="fk_change_household_id_list_tick",
+        ),
+        Index("ix_change_household_id_tick_id", "household_id", "tick_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(
@@ -294,6 +315,8 @@ class Change(Base):
     # deleted row would scan the whole table.
     undone_by_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"), index=True)
     undoes_change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id"), index=True)
+    # The purchase (list_tick.id) this change was made for (sync protocol 3.7).
+    tick_id: Mapped[str | None] = mapped_column(String(64))
 
 
 class FoodMerge(Base):
@@ -385,3 +408,189 @@ class ChangeMonth(Base):
     # Sum of (after - before): bought is positive, used and binned negative.
     amount_milli: Mapped[int] = mapped_column(BigInteger, default=0)
     changes: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# --- Shopping lists (docs/dev/sync-protocol.md section 3) ----------------------------------------
+# Lists, items and actions use phone-made UUIDs, so a phone can make and name them offline.
+# Amounts are milli base units, like stock_lot.
+
+
+class ShoppingList(Base):
+    __tablename__ = "shopping_list"
+    __table_args__ = (
+        # Exactly one main list per household.
+        Index(
+            "uq_shopping_list_one_main",
+            "household_id",
+            unique=True,
+            sqlite_where=text("main"),
+            postgresql_where=text("main"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(60))  # not unique
+    main: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_by_name: Mapped[str] = mapped_column(String(100), default="")
+    # A removed list is hidden, not frozen. Never set on the main list.
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    removed_action_id: Mapped[str | None] = mapped_column(String(64))
+    version: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class ListItem(Base):
+    __tablename__ = "list_item"
+    __table_args__ = (
+        Index("ix_list_item_household_id_version", "household_id", "version"),
+        Index(
+            "ix_list_item_household_id_list_id_food_id_shop_id",
+            "household_id",
+            "list_id",
+            "food_id",
+            "shop_id",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    list_id: Mapped[str] = mapped_column(
+        ForeignKey("shopping_list.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id"), index=True)
+    # Null: "Any shop".
+    shop_id: Mapped[int | None] = mapped_column(ForeignKey("shop.id", ondelete="SET NULL"))
+    amount_milli: Mapped[int | None] = mapped_column(BigInteger)
+    size_id: Mapped[int | None] = mapped_column(ForeignKey("food_size.id", ondelete="SET NULL"))
+    source: Mapped[str] = mapped_column(String(10), default="typed")  # typed, plan
+    hand_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    put_away_place_id: Mapped[int | None] = mapped_column(
+        ForeignKey("place.id", ondelete="SET NULL")
+    )
+    # A copy of the first standing tick, kept in step with list_tick by the server.
+    ticked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ticked_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    ticked_by_name: Mapped[str | None] = mapped_column(String(100))
+    ticked_device_id: Mapped[str | None] = mapped_column(String(36))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    added_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    added_by_name: Mapped[str] = mapped_column(String(100), default="")
+    # The tombstone: a deleted item stays so an old queue can't bring it back.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_by_name: Mapped[str | None] = mapped_column(String(100))
+    deleted_action_id: Mapped[str | None] = mapped_column(String(64))
+    merged_into_id: Mapped[str | None] = mapped_column(String(36))
+    version: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class ListTick(Base):
+    """One purchase: one standing tick with its own pantry stock."""
+
+    __tablename__ = "list_tick"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # the tick action's ID
+    item_id: Mapped[str] = mapped_column(ForeignKey("list_item.id", ondelete="CASCADE"), index=True)
+    login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
+    login_name: Mapped[str] = mapped_column(String(100))
+    device_id: Mapped[str | None] = mapped_column(String(36))
+    ticked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    place_id: Mapped[int | None] = mapped_column(ForeignKey("place.id", ondelete="SET NULL"))
+    bought_milli: Mapped[int | None] = mapped_column(BigInteger)
+    bought_size_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food_size.id", ondelete="SET NULL")
+    )
+    change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reversed_by_action_id: Mapped[str | None] = mapped_column(String(64))
+
+
+class SyncAction(Base):
+    """The sync log: every recorded list action (repeat-detection, order, Undo)."""
+
+    __tablename__ = "sync_action"
+    __table_args__ = (
+        UniqueConstraint("household_id", "seq"),
+        Index("ix_sync_action_household_id_item_id_seq", "household_id", "item_id", "seq"),
+    )
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    seq: Mapped[int] = mapped_column(BigInteger)
+    kind: Mapped[str] = mapped_column(String(30))
+    login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
+    login_name: Mapped[str] = mapped_column(String(100))
+    device_id: Mapped[str | None] = mapped_column(String(36))
+    list_id: Mapped[str | None] = mapped_column(String(36))
+    item_id: Mapped[str | None] = mapped_column(String(36))
+    seen: Mapped[int | None] = mapped_column(BigInteger)
+    made_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(10))  # applied, merged, ignored
+    reason: Mapped[str | None] = mapped_column(String(30))
+    result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
+    undone_by_action_id: Mapped[str | None] = mapped_column(String(64))
+
+
+class ListNote(Base):
+    """A quiet note on Shopping ("Wren added milk too") with Undo and a dismiss button."""
+
+    __tablename__ = "list_note"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    list_id: Mapped[str] = mapped_column(
+        ForeignKey("shopping_list.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[str | None] = mapped_column(ForeignKey("list_item.id", ondelete="CASCADE"))
+    food_id: Mapped[int | None] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
+    for_login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(10))  # N1 to N7
+    text: Mapped[str] = mapped_column(String(300))
+    undo_action_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    gone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+class DoubleTick(Base):
+    """The "Did you buy 2?" question, until it's answered."""
+
+    __tablename__ = "double_tick"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    list_id: Mapped[str] = mapped_column(
+        ForeignKey("shopping_list.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[str] = mapped_column(ForeignKey("list_item.id", ondelete="CASCADE"))
+    tick_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    login_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    same_login: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    answer: Mapped[str | None] = mapped_column(String(10))  # two, one, none
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    answered_by_name: Mapped[str | None] = mapped_column(String(100))
+    answer_action_id: Mapped[str | None] = mapped_column(String(64))
+    version: Mapped[int] = mapped_column(BigInteger, default=0)

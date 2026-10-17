@@ -2,225 +2,225 @@
 # Source: U.S. Department of Agriculture, Agricultural Research Service. FoodData Central,
 # SR Legacy, April 2018 (FoodData_Central_sr_legacy_food_csv_2018-04). Public domain (CC0 1.0).
 # Cups are US cups (236.6 ml), as in the USDA household measures.
-key,names,counted_as,mg_per_ml,item_weight_mg,fdc_id,usda_description,volume_portion,item_portion
-plain_flour,plain flour|all-purpose flour|flour|maida,weight,528,,168894,"Wheat flour, white, all-purpose, enriched, bleached",1|cup,
-self_raising_flour,self-raising flour|self-rising flour,weight,528,,168895,"Wheat flour, white, all-purpose, self-rising, enriched",1|cup,
-bread_flour,strong white flour|bread flour|strong flour,weight,579,,168896,"Wheat flour, white, bread, enriched",1|cup,
-wholemeal_flour,wholemeal flour|whole wheat flour|wholewheat flour|atta|chapati flour,weight,507,,168893,"Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",1|cup,
-cornflour,cornflour|cornstarch|corn starch,weight,541,,169698,Cornstarch,1|cup,
-semolina,semolina|sooji|suji|rava,weight,706,,169715,"Semolina, enriched",1|cup,
-rice_flour,rice flour,weight,668,,169714,"Rice flour, white, unenriched",1|cup,
-gram_flour,gram flour|besan|chickpea flour,weight,389,,174288,Chickpea flour (besan),1|cup,
-cornmeal,cornmeal|polenta|maize meal,weight,664,,168867,"Cornmeal, degermed, enriched, yellow",1|cup,
-sugar,sugar|granulated sugar|white sugar,weight,845,,169655,"Sugars, granulated",1|cup,
-brown_sugar,brown sugar|soft brown sugar|light brown sugar|dark brown sugar,weight,930,,168833,"Sugars, brown",1|cup packed,
-icing_sugar,icing sugar|powdered sugar|confectioners sugar,weight,507,,169656,"Sugars, powdered",1|cup unsifted,
-raw_sugar,demerara sugar|turbinado sugar|raw sugar,weight,854,,170674,"Sugar, turbinado",1|cup,
-honey,honey,weight,1433,,169640,Honey,1|cup,
-maple_syrup,maple syrup,volume,1331,,169661,"Syrups, maple",1|cup,
-corn_syrup,corn syrup|light corn syrup,volume,1441,,168837,"Syrups, corn, light",1|cup,
-molasses,molasses,weight,1424,,168820,Molasses,1|cup,
-cocoa,cocoa powder|cocoa,weight,364,,169593,"Cocoa, dry powder, unsweetened",1|cup,
-baking_powder,baking powder,weight,933,,172804,"Leavening agents, baking powder, double-acting, straight phosphate",1|tsp,
-bicarbonate_of_soda,bicarbonate of soda|baking soda|bicarb,weight,933,,175040,"Leavening agents, baking soda",1|tsp,
-cream_of_tartar,cream of tartar,weight,609,,175041,"Leavening agents, cream of tartar",1|tsp,
-dried_yeast,dried yeast|active dry yeast|dry yeast,weight,812,,175043,"Leavening agents, yeast, baker's, active dry",1|tbsp,
-chocolate_chips,chocolate chips|plain chocolate chips|semisweet chocolate chips,weight,710,,167976,"Candies, semisweet chocolate",1|cup chips (6 oz package),
-breadcrumbs,breadcrumbs|dried breadcrumbs|dry breadcrumbs,weight,456,,174928,"Bread, crumbs, dry, grated, plain",1|cup,
-vanilla_extract,vanilla extract|vanilla essence,volume,879,,173471,Vanilla extract,1|tbsp,
-skimmed_milk_powder,skimmed milk powder|dried skimmed milk|nonfat dry milk,weight,507,,170877,"Milk, dry, nonfat, regular, without added vitamin A and vitamin D",1|cup,
-whole_milk_powder,whole milk powder|milk powder|dried milk,weight,541,,173454,"Milk, dry, whole, without added vitamin D",1|cup,
-sweetened_coconut,sweetened desiccated coconut|sweetened shredded coconut,weight,393,,168586,"Nuts, coconut meat, dried (desiccated), sweetened, shredded","1|cup, shredded",
-fresh_coconut,fresh coconut|grated coconut|coconut,weight,338,,170169,"Nuts, coconut meat, raw","1|cup, shredded",
-long_grain_rice,rice|white rice|long grain rice|basmati rice|basmati,weight,782,,168877,"Rice, white, long-grain, regular, raw, enriched",1|cup,
-medium_grain_rice,medium grain rice|arborio rice|risotto rice,weight,824,,168879,"Rice, white, medium-grain, raw, enriched",1|cup,
-short_grain_rice,short grain rice|pudding rice|sushi rice,weight,845,,168881,"Rice, white, short-grain, enriched, uncooked",1|cup,
-brown_rice,brown rice|long grain brown rice,weight,782,,169703,"Rice, brown, long-grain, raw (Includes foods for USDA's Food Distribution Program)",1|cup,
-glutinous_rice,glutinous rice|sticky rice,weight,782,,168883,"Rice, white, glutinous, unenriched, uncooked",1|cup,
-parboiled_rice,parboiled rice|easy cook rice,weight,782,,169707,"Rice, white, long-grain, parboiled, enriched, dry",1|cup,
-cooked_rice,cooked rice|boiled rice,weight,668,,168878,"Rice, white, long-grain, regular, enriched, cooked",1|cup,
-oats,oats|rolled oats|porridge oats|oatmeal,weight,342,,173904,"Cereals, oats, regular and quick, not fortified, dry",1|cup,
-quinoa,quinoa,weight,719,,168874,"Quinoa, uncooked",1|cup,
-couscous,couscous,weight,731,,169699,"Couscous, dry",1|cup,
-bulgur,bulgur wheat|bulgur|bulgar wheat,weight,592,,170688,"Bulgur, dry",1|cup,
-pearl_barley,pearl barley|barley,weight,845,,170284,"Barley, pearled, raw",1|cup,
-millet,millet,weight,845,,169702,"Millet, raw",1|cup,
-buckwheat,buckwheat|buckwheat groats|kasha,weight,693,,170685,"Buckwheat groats, roasted, dry",1|cup,
-spaghetti,spaghetti,weight,385,,169736,"Pasta, dry, enriched",1|cup spaghetti,
-penne,penne,weight,402,,169736,"Pasta, dry, enriched",1|cup penne,
-macaroni,macaroni|elbow macaroni,weight,516,,169736,"Pasta, dry, enriched",1|cup elbows,
-farfalle,farfalle|pasta bows,weight,342,,169736,"Pasta, dry, enriched",1|cup farfalle,
-fusilli,fusilli|rotini|pasta twists,weight,406,,169736,"Pasta, dry, enriched",1|cup rotini,
-pasta_shells,pasta shells|conchiglie,weight,271,,169736,"Pasta, dry, enriched",1|cup shells,
-red_lentils,red lentils|split red lentils|masoor dal,weight,812,,174284,"Lentils, pink or red, raw",1|cup,
-lentils,lentils|green lentils|brown lentils,weight,812,,172420,"Lentils, raw",1|cup,
-cooked_lentils,cooked lentils,weight,837,,172421,"Lentils, mature seeds, cooked, boiled, without salt",1|cup,
-chickpeas,chickpeas|dried chickpeas|garbanzo beans|kabuli chana,weight,845,,173756,"Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",1|cup,
-tinned_chickpeas,tinned chickpeas|canned chickpeas,weight,642,,173801,"Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained, rinsed in tap water","1|cup drained, rinsed",
-kidney_beans,kidney beans|red kidney beans|rajma,weight,778,,173744,"Beans, kidney, red, mature seeds, raw",1|cup,
-black_beans,black beans|black turtle beans,weight,820,,173734,"Beans, black, mature seeds, raw",1|cup,
-pinto_beans,pinto beans,weight,816,,175199,"Beans, pinto, mature seeds, raw (Includes foods for USDA's Food Distribution Program)",1|cup,
-haricot_beans,haricot beans|navy beans,weight,879,,173745,"Beans, navy, mature seeds, raw",1|cup,
-white_beans,white beans,weight,854,,175202,"Beans, white, mature seeds, raw",1|cup,
-adzuki_beans,adzuki beans|aduki beans,weight,833,,173727,"Beans, adzuki, mature seeds, raw",1|cup,
-mung_beans,mung beans|whole moong|green gram,weight,875,,174256,"Mung beans, mature seeds, raw",1|cup,
-urad_beans,urad beans|whole urad|black gram,weight,875,,174259,"Mungo beans, mature seeds, raw",1|cup,
-split_peas,split peas|green split peas,weight,828,,172428,"Peas, green, split, mature seeds, raw",1|cup,
-soya_beans,soya beans|soybeans|soy beans,weight,786,,174270,"Soybeans, mature seeds, raw",1|cup,
-pigeon_peas,pigeon peas|dried pigeon peas|red gram,weight,866,,172436,"Pigeon peas (red gram), mature seeds, raw",1|cup,
-peanuts,peanuts|groundnuts|raw peanuts,weight,617,,172430,"Peanuts, all types, raw",1|cup,
-almonds,almonds|whole almonds,weight,604,,170567,"Nuts, almonds","1|cup, whole",
-ground_almonds,ground almonds|almond flour|almond meal,weight,402,,170567,"Nuts, almonds","1|cup, ground",
-flaked_almonds,flaked almonds|sliced almonds,weight,389,,170567,"Nuts, almonds","1|cup, sliced",
-cashews,cashews|cashew nuts,weight,579,,170571,"Nuts, cashew nuts, dry roasted, without salt added","1|cup, halves and whole",
-walnuts,walnuts|walnut halves,weight,423,,170187,"Nuts, walnuts, english",1|cup shelled (50 halves),
-chopped_walnuts,chopped walnuts,weight,495,,170187,"Nuts, walnuts, english","1|cup, chopped",
-pistachios,pistachios|pistachio nuts,weight,520,,170184,"Nuts, pistachio nuts, raw",1|cup,
-sesame_seeds,sesame seeds|til,weight,609,,170150,"Seeds, sesame seeds, whole, dried",1|cup,
-sunflower_seeds,sunflower seeds,weight,592,,170562,"Seeds, sunflower seed kernels, dried",1|cup,
-pumpkin_seeds,pumpkin seeds|pepitas,weight,545,,170556,"Seeds, pumpkin and squash seed kernels, dried",1|cup,
-flaxseed,flaxseed|linseed|flax seeds,weight,710,,169414,"Seeds, flaxseed","1|cup, whole",
-peanut_butter,peanut butter|smooth peanut butter,weight,1091,,174266,"Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",1|cup,
-raisins,raisins,weight,613,,168165,"Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)",1|cup (not packed),
-sultanas,sultanas|golden raisins,weight,613,,168164,"Raisins, golden, seedless",1|cup (not packed),
-tamarind,tamarind|tamarind pulp,weight,507,,167763,"Tamarinds, raw","1|cup, pulp",
-milk,milk|whole milk|full fat milk,volume,1031,,171265,"Milk, whole, 3.25% milkfat, with added vitamin D",1|cup,
-semi_skimmed_milk,semi skimmed milk|reduced fat milk|2% milk,volume,1031,,171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",1|cup,
-skimmed_milk,skimmed milk|skim milk|fat free milk,volume,1036,,171269,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",1|cup,
-one_percent_milk,1% milk,volume,1031,,170872,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",1|cup,
-double_cream,double cream|heavy cream|heavy whipping cream,volume,1006,,170859,"Cream, fluid, heavy whipping","1|cup, fluid (yields 2 cups whipped)",
-whipping_cream,whipping cream|light whipping cream,volume,1010,,170858,"Cream, fluid, light whipping","1|cup, fluid (yields 2 cups whipped)",
-single_cream,single cream|light cream|table cream,volume,1014,,170857,"Cream, fluid, light (coffee cream or table cream)",1|cup,
-half_and_half,half and half,volume,1023,,171255,"Cream, fluid, half and half",1|cup,
-sour_cream,soured cream|sour cream,weight,972,,171257,"Cream, sour, cultured",1|cup,
-yoghurt,yoghurt|yogurt|plain yoghurt|natural yoghurt|whole milk yoghurt|curd|dahi,weight,1036,,171284,"Yogurt, plain, whole milk",1|cup (8 fl oz),
-low_fat_yoghurt,low fat yoghurt|low fat yogurt,weight,1036,,170886,"Yogurt, plain, low fat",1|cup (8 fl oz),
-butter,butter|salted butter,weight,959,,173410,"Butter, salted",1|cup,
-unsalted_butter,unsalted butter,weight,959,,173430,"Butter, without salt",1|cup,
-ghee,ghee|clarified butter|butter oil,weight,866,,173412,"Butter oil, anhydrous",1|cup,
-cream_cheese,cream cheese|soft cheese,weight,981,,173418,"Cheese, cream",1|cup,
-cheddar,cheddar|cheddar cheese|grated cheddar,weight,478,,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)","1|cup, shredded",
-mozzarella,mozzarella|grated mozzarella,weight,473,,170845,"Cheese, mozzarella, whole milk","1|cup, shredded",
-parmesan,parmesan|grated parmesan|parmesan cheese,weight,423,,171247,"Cheese, parmesan, grated",1|cup,
-feta,feta|feta cheese,weight,634,,173420,"Cheese, feta","1|cup, crumbled",
-ricotta,ricotta,weight,1040,,170851,"Cheese, ricotta, whole milk",1|cup,
-cottage_cheese,cottage cheese,weight,951,,172179,"Cheese, cottage, creamed, large or small curd","1|cup, small curd (not packed)",
-eggs,egg|eggs,count,1027,50000,171287,"Egg, whole, raw, fresh",1|cup (4.86 large eggs),1|large
-olive_oil,olive oil|extra virgin olive oil,volume,913,,171413,"Oil, olive, salad or cooking",1|cup,
-sunflower_oil,sunflower oil,volume,921,,172338,"Oil, sunflower, high oleic (70% and over)",1|cup,
-vegetable_oil,vegetable oil|soybean oil|cooking oil,volume,921,,172370,"Oil, vegetable, soybean, refined",1|cup,
-rapeseed_oil,rapeseed oil|canola oil,volume,921,,172336,"Oil, canola",1|cup,
-coconut_oil,coconut oil,weight,921,,171412,"Oil, coconut",1|cup,
-sesame_oil,sesame oil|gingelly oil,volume,921,,171016,"Oil, sesame, salad or cooking",1|cup,
-groundnut_oil,groundnut oil|peanut oil,volume,913,,171410,"Oil, peanut, salad or cooking",1|cup,
-coconut_milk,coconut milk|tinned coconut milk,volume,955,,170173,"Nuts, coconut milk, canned (liquid expressed from grated meat and water)",1|cup,
-vinegar,vinegar|white vinegar|distilled vinegar|spirit vinegar,volume,1006,,172237,"Vinegar, distilled",1|cup,
-cider_vinegar,cider vinegar|apple cider vinegar,volume,1010,,173469,"Vinegar, cider",1|cup,
-red_wine_vinegar,red wine vinegar,volume,1010,,172240,"Vinegar, red wine",1|cup,
-balsamic_vinegar,balsamic vinegar|balsamic,volume,1078,,172241,"Vinegar, balsamic",1|cup,
-soy_sauce,soy sauce|shoyu,volume,1078,,174277,Soy sauce made from soy and wheat (shoyu),1|cup,
-tamari,tamari,volume,1217,,174278,Soy sauce made from soy (tamari),1|tbsp,
-tomato_puree,tomato puree|tomato paste,weight,1107,,170459,"Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)",1|cup,
-passata,passata|tomato sauce,volume,1036,,170054,"Tomato products, canned, sauce",1|cup,
-tinned_tomatoes,tinned tomatoes|canned tomatoes|chopped tomatoes,weight,1014,,170051,"Tomatoes, red, ripe, canned, packed in tomato juice",1|cup,
-ketchup,ketchup|tomato ketchup|catsup,weight,1014,,168556,Catsup,1|cup,
-mayonnaise,mayonnaise|mayo,weight,930,,171009,"Salad dressing, mayonnaise, regular",1|cup,
-jam,jam|preserves,weight,1353,,169641,Jams and preserves,1|tbsp,
-lemon_juice,lemon juice,volume,1031,,167747,"Lemon juice, raw",1|cup,
-lime_juice,lime juice,volume,1023,,168156,"Lime juice, raw",1|cup,
-water,water,volume,1002,,174158,"Water, bottled, generic",1|cup,
-salt,salt|table salt,weight,1234,,173468,"Salt, table",1|cup,
-black_pepper,black pepper|ground black pepper|pepper,weight,467,,170931,"Spices, pepper, black","1|tbsp, ground",
-black_peppercorns,black peppercorns|peppercorns|whole black pepper,weight,588,,170931,"Spices, pepper, black","1|tsp, whole",
-white_pepper,white pepper|ground white pepper,weight,480,,170933,"Spices, pepper, white","1|tbsp, ground",
-cayenne,cayenne pepper|cayenne,weight,358,,170932,"Spices, pepper, red or cayenne",1|tbsp,
-chili_powder,chili powder|chili powder blend,weight,541,,171319,"Spices, chili powder",1|tbsp,
-cinnamon,cinnamon|ground cinnamon,weight,527,,171320,"Spices, cinnamon, ground",1|tbsp,
-ground_cloves,ground cloves,weight,440,,171321,"Spices, cloves, ground",1|tbsp,
-cumin_seeds,cumin seeds|cumin|jeera|whole cumin,weight,406,,170923,"Spices, cumin seed","1|tbsp, whole",
-coriander_seeds,coriander seeds|whole coriander,weight,338,,170922,"Spices, coriander seed",1|tbsp,
-turmeric,turmeric|ground turmeric|haldi,weight,636,,172231,"Spices, turmeric, ground",1|tbsp,
-curry_powder,curry powder,weight,426,,170924,"Spices, curry powder",1|tbsp,
-ground_ginger,ground ginger|ginger powder|dried ginger,weight,352,,170926,"Spices, ginger, ground",1|tbsp,
-garlic_powder,garlic powder,weight,656,,171325,"Spices, garlic powder",1|tbsp,
-onion_powder,onion powder,weight,467,,171327,"Spices, onion powder",1|tbsp,
-paprika,paprika|smoked paprika|sweet paprika,weight,460,,171329,"Spices, paprika",1|tbsp,
-nutmeg,nutmeg|ground nutmeg,weight,473,,171326,"Spices, nutmeg, ground",1|tbsp,
-ground_cardamom,ground cardamom|cardamom powder,weight,392,,170919,"Spices, cardamom","1|tbsp, ground",
-fennel_seeds,fennel seeds|fennel seed|saunf,weight,392,,171323,"Spices, fennel seed","1|tbsp, whole",
-fenugreek_seeds,fenugreek seeds|methi seeds,weight,751,,171324,"Spices, fenugreek seed",1|tbsp,
-mustard_powder,mustard powder|ground mustard,weight,426,,170929,"Spices, mustard seed, ground",1|tbsp,
-poppy_seeds,poppy seeds|khus khus,weight,595,,171330,"Spices, poppy seed",1|tbsp,
-caraway_seeds,caraway seeds,weight,453,,170918,"Spices, caraway seed",1|tbsp,
-celery_seeds,celery seeds|celery seed,weight,440,,170920,"Spices, celery seed",1|tbsp,
-allspice,allspice|ground allspice,weight,406,,171315,"Spices, allspice, ground",1|tbsp,
-anise_seeds,aniseed|anise seeds,weight,453,,171316,"Spices, anise seed","1|tbsp, whole",
-dried_oregano,dried oregano|oregano,weight,203,,171328,"Spices, oregano, dried","1|tsp, leaves",
-dried_thyme,dried thyme|thyme,weight,183,,170938,"Spices, thyme, dried","1|tbsp, leaves",
-dried_basil,dried basil,weight,142,,171317,"Spices, basil, dried","1|tbsp, leaves",
-dried_rosemary,dried rosemary|rosemary,weight,223,,171333,"Spices, rosemary, dried",1|tbsp,
-dried_parsley,dried parsley,weight,108,,170930,"Spices, parsley, dried",1|tbsp,
-dried_dill,dried dill|dill weed,weight,210,,171322,"Spices, dill weed, dried",1|tbsp,
-dried_sage,dried sage|ground sage|sage,weight,135,,170935,"Spices, sage, ground",1|tbsp,
-dried_coriander_leaf,dried coriander leaf|dried cilantro,weight,122,,170921,"Spices, coriander leaf, dried",1|tbsp,
-dried_tarragon,dried tarragon|tarragon,weight,122,,170937,"Spices, tarragon, dried","1|tbsp, leaves",
-saffron,saffron,weight,142,,170934,"Spices, saffron",1|tbsp,
-instant_coffee,instant coffee|instant coffee powder,weight,203,,171893,"Beverages, coffee, instant, regular, powder",1|tsp,
-onion,onion|brown onion|yellow onion|white onion,count,676,110000,170000,"Onions, raw","1|cup, chopped","1|medium (2-1/2"" dia)"
-spring_onion,spring onion|scallion|green onion,count,423,15000,170005,"Onions, spring or scallions (includes tops and bulb), raw","1|cup, chopped","1|medium (4-1/8"" long)"
-garlic,garlic|garlic clove|clove of garlic,count,575,3000,169230,"Garlic, raw",1|cup,1|clove
-ginger,ginger|fresh ginger|ginger root,weight,406,,169231,"Ginger root, raw",1|tsp,
-tomato,tomato|tomatoes|fresh tomato,count,761,123000,170457,"Tomatoes, red, ripe, raw, year round average","1|cup, chopped or sliced","1|medium whole (2-3/5"" dia)"
-cherry_tomatoes,cherry tomatoes,weight,630,,170457,"Tomatoes, red, ripe, raw, year round average",1|cup cherry tomatoes,
-potato,potato|white potato,count,634,213000,170028,"Potatoes, white, flesh and skin, raw","0.5|cup, diced","1|medium (2+-1/4"" to 3-1/4"" dia.)"
-sweet_potato,sweet potato,count,562,130000,168482,"Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)","1|cup, cubes","1|sweetpotato, 5"" long"
-carrot,carrot,count,541,61000,170393,"Carrots, raw",1|cup chopped,1|medium
-celery,celery|celery stick,count,427,40000,169988,"Celery, raw",1|cup chopped,"1|stalk, medium (7-1/2"" - 8"" long)"
-red_pepper,red pepper|red bell pepper|bell pepper|capsicum|red capsicum,count,630,119000,170108,"Peppers, sweet, red, raw","1|cup, chopped","1|medium (approx 2-3/4"" long, 2-1/2 dia.)"
-green_pepper,green pepper|green bell pepper|green capsicum,count,630,119000,170427,"Peppers, sweet, green, raw","1|cup, chopped","1|medium (approx 2-3/4"" long, 2-1/2"" dia)"
-green_chilli,green chilli|green chili|hari mirch,count,634,45000,170497,"Peppers, hot chili, green, raw","0.5|cup, chopped or diced",1|pepper
-red_chilli,red chilli|fresh red chilli|red chili,count,634,45000,170106,"Peppers, hot chili, red, raw","0.5|cup, chopped or diced",1|pepper
-jalapeno,jalapeno|jalapeno pepper,weight,380,,168576,"Peppers, jalapeno, raw","1|cup, sliced",
-aubergine,aubergine|eggplant|brinjal,count,347,548000,169228,"Eggplant, raw","1|cup, cubes","1|eggplant, unpeeled (approx 1-1/4 lb)"
-courgette,courgette|zucchini,count,524,196000,169291,"Squash, summer, zucchini, includes skin, raw","1|cup, chopped",1|medium
-cucumber,cucumber,count,503,201000,169225,"Cucumber, peeled, raw","1|cup, sliced",1|medium
-mushrooms,mushrooms|button mushrooms|white mushrooms,weight,296,18000,169251,"Mushrooms, white, raw","1|cup, pieces or slices",1|medium
-cauliflower,cauliflower,count,452,588000,169986,"Cauliflower, raw","1|cup chopped (1/2"" pieces)","1|head medium (5-6"" dia.)"
-broccoli,broccoli,weight,385,,170379,"Broccoli, raw",1|cup chopped,
-cabbage,cabbage|white cabbage|green cabbage,weight,376,,169975,"Cabbage, raw","1|cup, chopped",
-red_cabbage,red cabbage,weight,376,,169977,"Cabbage, red, raw","1|cup, chopped",
-spinach,spinach|fresh spinach|baby spinach|palak,weight,127,,168462,"Spinach, raw",1|cup,
-frozen_spinach,frozen spinach,weight,659,,169287,"Spinach, frozen, chopped or leaf, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,
-frozen_peas,frozen peas|peas|garden peas|green peas,weight,566,,170016,"Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,
-sweetcorn,sweetcorn|sweet corn|frozen sweetcorn|corn kernels,weight,575,,168398,"Corn, sweet, yellow, frozen, kernels cut off cob, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,
-green_beans,green beans|french beans,weight,423,,169961,"Beans, snap, green, raw","1|cup 1/2"" pieces",
-okra,okra|bhindi|ladies fingers,weight,423,,169260,"Okra, raw",1|cup,
-beetroot,beetroot|beet,count,575,82000,169145,"Beets, raw",1|cup,"1|beet (2"" dia)"
-radish,radish,count,490,4500,169276,"Radishes, raw",1|cup slices,"1|medium (3/4"" to 1"" dia)"
-mooli,mooli|daikon|white radish,weight,490,,168451,"Radishes, oriental, raw",1|cup slices,
-leek,leek,count,376,89000,169246,"Leeks, (bulb and lower leaf-portion), raw",1|cup,1|leek
-romaine_lettuce,romaine lettuce|cos lettuce|romaine,count,199,626000,169247,"Lettuce, cos or romaine, raw",1|cup shredded,1|head
-iceberg_lettuce,iceberg lettuce|iceberg,count,304,539000,169248,"Lettuce, iceberg (includes crisphead types), raw",1|cup shredded,"1|head, medium (6"" dia)"
-coriander,coriander|fresh coriander|coriander leaves|cilantro|dhania,weight,68,,169997,"Coriander (cilantro) leaves, raw",0.25|cup,
-parsley,parsley|fresh parsley|flat leaf parsley,weight,254,,170416,"Parsley, fresh",1|cup chopped,
-basil,basil|fresh basil,weight,101,,172232,"Basil, fresh","0.25|cup leaves, whole",
-mint,mint|fresh mint|spearmint,weight,385,,173475,"Spearmint, fresh",2|tbsp,
-drumsticks,drumsticks|drumstick|moringa|moringa pods,count,423,,170483,"Drumstick pods, raw",1|cup slices,
-tofu,tofu|firm tofu,weight,1065,,172475,"Tofu, raw, firm, prepared with calcium sulfate",0.5|cup,
-apple,apple,count,461,182000,171688,"Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",1|cup slices,"1|medium (3"" dia)"
-banana,banana,count,951,118000,173944,"Bananas, raw","1|cup, mashed","1|medium (7"" to 7-7/8"" long)"
-lemon,lemon,count,896,58000,167746,"Lemons, raw, without peel","1|cup, sections","1|fruit (2-1/8"" dia)"
-lime,lime,count,,67000,168155,"Limes, raw",,"1|fruit (2"" dia)"
-orange,orange,count,761,131000,169097,"Oranges, raw, all commercial varieties","1|cup, sections","1|fruit (2-5/8"" dia)"
-mango,mango,count,697,336000,169910,"Mangos, raw",1|cup pieces,1|fruit without refuse
-avocado,avocado|hass avocado,count,972,136000,171706,"Avocados, raw, California","1|cup, pureed","1|fruit, without skin and seed"
-pear,pear,count,592,178000,169118,"Pears, raw","1|cup, slices",1|medium
-peach,peach,count,651,150000,169928,"Peaches, yellow, raw",1|cup slices,"1|medium (2-2/3"" dia)"
-plum,plum,count,697,66000,169949,"Plums, raw","1|cup, sliced","1|fruit (2-1/8"" dia)"
-kiwi,kiwi|kiwi fruit|kiwifruit,count,761,69000,168153,"Kiwifruit, green, raw","1|cup, sliced","1|fruit (2"" dia)"
-grapes,grapes,weight,638,,174683,"Grapes, red or green (European type, such as Thompson seedless), raw",1|cup,
-strawberries,strawberries|strawberry,weight,609,12000,167762,"Strawberries, raw","1|cup, whole","1|medium (1-1/4"" dia)"
-blueberries,blueberries,weight,626,,171711,"Blueberries, raw",1|cup,
-raspberries,raspberries,weight,520,,167755,"Raspberries, raw",1|cup,
-pineapple,pineapple,count,697,905000,169124,"Pineapple, raw, all varieties","1|cup, chunks",1|fruit
-pomegranate_seeds,pomegranate seeds|pomegranate arils,weight,735,,169134,"Pomegranates, raw",0.5|cup arils (seed/juice sacs),
+key,names,counted_as,mg_per_ml,item_weight_mg,fdc_id,usda_description,volume_portion,item_portion,aisle,usda_category
+plain_flour,plain flour|all-purpose flour|flour|maida,weight,528,,168894,"Wheat flour, white, all-purpose, enriched, bleached",1|cup,,dry_goods,Cereal Grains and Pasta
+self_raising_flour,self-raising flour|self-rising flour,weight,528,,168895,"Wheat flour, white, all-purpose, self-rising, enriched",1|cup,,dry_goods,Cereal Grains and Pasta
+bread_flour,strong white flour|bread flour|strong flour,weight,579,,168896,"Wheat flour, white, bread, enriched",1|cup,,dry_goods,Cereal Grains and Pasta
+wholemeal_flour,wholemeal flour|whole wheat flour|wholewheat flour|atta|chapati flour,weight,507,,168893,"Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",1|cup,,dry_goods,Cereal Grains and Pasta
+cornflour,cornflour|cornstarch|corn starch,weight,541,,169698,Cornstarch,1|cup,,dry_goods,Cereal Grains and Pasta
+semolina,semolina|sooji|suji|rava,weight,706,,169715,"Semolina, enriched",1|cup,,dry_goods,Cereal Grains and Pasta
+rice_flour,rice flour,weight,668,,169714,"Rice flour, white, unenriched",1|cup,,dry_goods,Cereal Grains and Pasta
+gram_flour,gram flour|besan|chickpea flour,weight,389,,174288,Chickpea flour (besan),1|cup,,dry_goods,Legumes and Legume Products
+cornmeal,cornmeal|polenta|maize meal,weight,664,,168867,"Cornmeal, degermed, enriched, yellow",1|cup,,dry_goods,Cereal Grains and Pasta
+sugar,sugar|granulated sugar|white sugar,weight,845,,169655,"Sugars, granulated",1|cup,,dry_goods,Sweets
+brown_sugar,brown sugar|soft brown sugar|light brown sugar|dark brown sugar,weight,930,,168833,"Sugars, brown",1|cup packed,,dry_goods,Sweets
+icing_sugar,icing sugar|powdered sugar|confectioners sugar,weight,507,,169656,"Sugars, powdered",1|cup unsifted,,dry_goods,Sweets
+raw_sugar,demerara sugar|turbinado sugar|raw sugar,weight,854,,170674,"Sugar, turbinado",1|cup,,dry_goods,Sweets
+honey,honey,weight,1433,,169640,Honey,1|cup,,tins_jars,Sweets
+maple_syrup,maple syrup,volume,1331,,169661,"Syrups, maple",1|cup,,tins_jars,Sweets
+corn_syrup,corn syrup|light corn syrup,volume,1441,,168837,"Syrups, corn, light",1|cup,,tins_jars,Sweets
+molasses,molasses,weight,1424,,168820,Molasses,1|cup,,tins_jars,Sweets
+cocoa,cocoa powder|cocoa,weight,364,,169593,"Cocoa, dry powder, unsweetened",1|cup,,dry_goods,Sweets
+baking_powder,baking powder,weight,933,,172804,"Leavening agents, baking powder, double-acting, straight phosphate",1|tsp,,dry_goods,Baked Products
+bicarbonate_of_soda,bicarbonate of soda|baking soda|bicarb,weight,933,,175040,"Leavening agents, baking soda",1|tsp,,dry_goods,Baked Products
+cream_of_tartar,cream of tartar,weight,609,,175041,"Leavening agents, cream of tartar",1|tsp,,dry_goods,Baked Products
+dried_yeast,dried yeast|active dry yeast|dry yeast,weight,812,,175043,"Leavening agents, yeast, baker's, active dry",1|tbsp,,dry_goods,Baked Products
+chocolate_chips,chocolate chips|plain chocolate chips|semisweet chocolate chips,weight,710,,167976,"Candies, semisweet chocolate",1|cup chips (6 oz package),,dry_goods,Sweets
+breadcrumbs,breadcrumbs|dried breadcrumbs|dry breadcrumbs,weight,456,,174928,"Bread, crumbs, dry, grated, plain",1|cup,,dry_goods,Baked Products
+vanilla_extract,vanilla extract|vanilla essence,volume,879,,173471,Vanilla extract,1|tbsp,,dry_goods,Spices and Herbs
+skimmed_milk_powder,skimmed milk powder|dried skimmed milk|nonfat dry milk,weight,507,,170877,"Milk, dry, nonfat, regular, without added vitamin A and vitamin D",1|cup,,dry_goods,Dairy and Egg Products
+whole_milk_powder,whole milk powder|milk powder|dried milk,weight,541,,173454,"Milk, dry, whole, without added vitamin D",1|cup,,dry_goods,Dairy and Egg Products
+sweetened_coconut,sweetened desiccated coconut|sweetened shredded coconut,weight,393,,168586,"Nuts, coconut meat, dried (desiccated), sweetened, shredded","1|cup, shredded",,dry_goods,Nut and Seed Products
+fresh_coconut,fresh coconut|grated coconut|coconut,weight,338,,170169,"Nuts, coconut meat, raw","1|cup, shredded",,dry_goods,Nut and Seed Products
+long_grain_rice,rice|white rice|long grain rice|basmati rice|basmati,weight,782,,168877,"Rice, white, long-grain, regular, raw, enriched",1|cup,,dry_goods,Cereal Grains and Pasta
+medium_grain_rice,medium grain rice|arborio rice|risotto rice,weight,824,,168879,"Rice, white, medium-grain, raw, enriched",1|cup,,dry_goods,Cereal Grains and Pasta
+short_grain_rice,short grain rice|pudding rice|sushi rice,weight,845,,168881,"Rice, white, short-grain, enriched, uncooked",1|cup,,dry_goods,Cereal Grains and Pasta
+brown_rice,brown rice|long grain brown rice,weight,782,,169703,"Rice, brown, long-grain, raw (Includes foods for USDA's Food Distribution Program)",1|cup,,dry_goods,Cereal Grains and Pasta
+glutinous_rice,glutinous rice|sticky rice,weight,782,,168883,"Rice, white, glutinous, unenriched, uncooked",1|cup,,dry_goods,Cereal Grains and Pasta
+parboiled_rice,parboiled rice|easy cook rice,weight,782,,169707,"Rice, white, long-grain, parboiled, enriched, dry",1|cup,,dry_goods,Cereal Grains and Pasta
+cooked_rice,cooked rice|boiled rice,weight,668,,168878,"Rice, white, long-grain, regular, enriched, cooked",1|cup,,dry_goods,Cereal Grains and Pasta
+oats,oats|rolled oats|porridge oats|oatmeal,weight,342,,173904,"Cereals, oats, regular and quick, not fortified, dry",1|cup,,dry_goods,Breakfast Cereals
+quinoa,quinoa,weight,719,,168874,"Quinoa, uncooked",1|cup,,dry_goods,Cereal Grains and Pasta
+couscous,couscous,weight,731,,169699,"Couscous, dry",1|cup,,dry_goods,Cereal Grains and Pasta
+bulgur,bulgur wheat|bulgur|bulgar wheat,weight,592,,170688,"Bulgur, dry",1|cup,,dry_goods,Cereal Grains and Pasta
+pearl_barley,pearl barley|barley,weight,845,,170284,"Barley, pearled, raw",1|cup,,dry_goods,Cereal Grains and Pasta
+millet,millet,weight,845,,169702,"Millet, raw",1|cup,,dry_goods,Cereal Grains and Pasta
+buckwheat,buckwheat|buckwheat groats|kasha,weight,693,,170685,"Buckwheat groats, roasted, dry",1|cup,,dry_goods,Cereal Grains and Pasta
+spaghetti,spaghetti,weight,385,,169736,"Pasta, dry, enriched",1|cup spaghetti,,dry_goods,Cereal Grains and Pasta
+penne,penne,weight,402,,169736,"Pasta, dry, enriched",1|cup penne,,dry_goods,Cereal Grains and Pasta
+macaroni,macaroni|elbow macaroni,weight,516,,169736,"Pasta, dry, enriched",1|cup elbows,,dry_goods,Cereal Grains and Pasta
+farfalle,farfalle|pasta bows,weight,342,,169736,"Pasta, dry, enriched",1|cup farfalle,,dry_goods,Cereal Grains and Pasta
+fusilli,fusilli|rotini|pasta twists,weight,406,,169736,"Pasta, dry, enriched",1|cup rotini,,dry_goods,Cereal Grains and Pasta
+pasta_shells,pasta shells|conchiglie,weight,271,,169736,"Pasta, dry, enriched",1|cup shells,,dry_goods,Cereal Grains and Pasta
+red_lentils,red lentils|split red lentils|masoor dal,weight,812,,174284,"Lentils, pink or red, raw",1|cup,,dry_goods,Legumes and Legume Products
+lentils,lentils|green lentils|brown lentils,weight,812,,172420,"Lentils, raw",1|cup,,dry_goods,Legumes and Legume Products
+cooked_lentils,cooked lentils,weight,837,,172421,"Lentils, mature seeds, cooked, boiled, without salt",1|cup,,tins_jars,Legumes and Legume Products
+chickpeas,chickpeas|dried chickpeas|garbanzo beans|kabuli chana,weight,845,,173756,"Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+tinned_chickpeas,tinned chickpeas|canned chickpeas,weight,642,,173801,"Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained, rinsed in tap water","1|cup drained, rinsed",,tins_jars,Legumes and Legume Products
+kidney_beans,kidney beans|red kidney beans|rajma,weight,778,,173744,"Beans, kidney, red, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+black_beans,black beans|black turtle beans,weight,820,,173734,"Beans, black, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+pinto_beans,pinto beans,weight,816,,175199,"Beans, pinto, mature seeds, raw (Includes foods for USDA's Food Distribution Program)",1|cup,,dry_goods,Legumes and Legume Products
+haricot_beans,haricot beans|navy beans,weight,879,,173745,"Beans, navy, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+white_beans,white beans,weight,854,,175202,"Beans, white, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+adzuki_beans,adzuki beans|aduki beans,weight,833,,173727,"Beans, adzuki, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+mung_beans,mung beans|whole moong|green gram,weight,875,,174256,"Mung beans, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+urad_beans,urad beans|whole urad|black gram,weight,875,,174259,"Mungo beans, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+split_peas,split peas|green split peas,weight,828,,172428,"Peas, green, split, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+soya_beans,soya beans|soybeans|soy beans,weight,786,,174270,"Soybeans, mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+pigeon_peas,pigeon peas|dried pigeon peas|red gram,weight,866,,172436,"Pigeon peas (red gram), mature seeds, raw",1|cup,,dry_goods,Legumes and Legume Products
+peanuts,peanuts|groundnuts|raw peanuts,weight,617,,172430,"Peanuts, all types, raw",1|cup,,dry_goods,Legumes and Legume Products
+almonds,almonds|whole almonds,weight,604,,170567,"Nuts, almonds","1|cup, whole",,dry_goods,Nut and Seed Products
+ground_almonds,ground almonds|almond flour|almond meal,weight,402,,170567,"Nuts, almonds","1|cup, ground",,dry_goods,Nut and Seed Products
+flaked_almonds,flaked almonds|sliced almonds,weight,389,,170567,"Nuts, almonds","1|cup, sliced",,dry_goods,Nut and Seed Products
+cashews,cashews|cashew nuts,weight,579,,170571,"Nuts, cashew nuts, dry roasted, without salt added","1|cup, halves and whole",,dry_goods,Nut and Seed Products
+walnuts,walnuts|walnut halves,weight,423,,170187,"Nuts, walnuts, english",1|cup shelled (50 halves),,dry_goods,Nut and Seed Products
+chopped_walnuts,chopped walnuts,weight,495,,170187,"Nuts, walnuts, english","1|cup, chopped",,dry_goods,Nut and Seed Products
+pistachios,pistachios|pistachio nuts,weight,520,,170184,"Nuts, pistachio nuts, raw",1|cup,,dry_goods,Nut and Seed Products
+sesame_seeds,sesame seeds|til,weight,609,,170150,"Seeds, sesame seeds, whole, dried",1|cup,,dry_goods,Nut and Seed Products
+sunflower_seeds,sunflower seeds,weight,592,,170562,"Seeds, sunflower seed kernels, dried",1|cup,,dry_goods,Nut and Seed Products
+pumpkin_seeds,pumpkin seeds|pepitas,weight,545,,170556,"Seeds, pumpkin and squash seed kernels, dried",1|cup,,dry_goods,Nut and Seed Products
+flaxseed,flaxseed|linseed|flax seeds,weight,710,,169414,"Seeds, flaxseed","1|cup, whole",,dry_goods,Nut and Seed Products
+peanut_butter,peanut butter|smooth peanut butter,weight,1091,,174266,"Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",1|cup,,tins_jars,Legumes and Legume Products
+raisins,raisins,weight,613,,168165,"Raisins, dark, seedless (Includes foods for USDA's Food Distribution Program)",1|cup (not packed),,dry_goods,Fruits and Fruit Juices
+sultanas,sultanas|golden raisins,weight,613,,168164,"Raisins, golden, seedless",1|cup (not packed),,dry_goods,Fruits and Fruit Juices
+tamarind,tamarind|tamarind pulp,weight,507,,167763,"Tamarinds, raw","1|cup, pulp",,dry_goods,Fruits and Fruit Juices
+milk,milk|whole milk|full fat milk,volume,1031,,171265,"Milk, whole, 3.25% milkfat, with added vitamin D",1|cup,,dairy,Dairy and Egg Products
+semi_skimmed_milk,semi skimmed milk|reduced fat milk|2% milk,volume,1031,,171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",1|cup,,dairy,Dairy and Egg Products
+skimmed_milk,skimmed milk|skim milk|fat free milk,volume,1036,,171269,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",1|cup,,dairy,Dairy and Egg Products
+one_percent_milk,1% milk,volume,1031,,170872,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",1|cup,,dairy,Dairy and Egg Products
+double_cream,double cream|heavy cream|heavy whipping cream,volume,1006,,170859,"Cream, fluid, heavy whipping","1|cup, fluid (yields 2 cups whipped)",,dairy,Dairy and Egg Products
+whipping_cream,whipping cream|light whipping cream,volume,1010,,170858,"Cream, fluid, light whipping","1|cup, fluid (yields 2 cups whipped)",,dairy,Dairy and Egg Products
+single_cream,single cream|light cream|table cream,volume,1014,,170857,"Cream, fluid, light (coffee cream or table cream)",1|cup,,dairy,Dairy and Egg Products
+half_and_half,half and half,volume,1023,,171255,"Cream, fluid, half and half",1|cup,,dairy,Dairy and Egg Products
+sour_cream,soured cream|sour cream,weight,972,,171257,"Cream, sour, cultured",1|cup,,dairy,Dairy and Egg Products
+yoghurt,yoghurt|yogurt|plain yoghurt|natural yoghurt|whole milk yoghurt|curd|dahi,weight,1036,,171284,"Yogurt, plain, whole milk",1|cup (8 fl oz),,dairy,Dairy and Egg Products
+low_fat_yoghurt,low fat yoghurt|low fat yogurt,weight,1036,,170886,"Yogurt, plain, low fat",1|cup (8 fl oz),,dairy,Dairy and Egg Products
+butter,butter|salted butter,weight,959,,173410,"Butter, salted",1|cup,,dairy,Dairy and Egg Products
+unsalted_butter,unsalted butter,weight,959,,173430,"Butter, without salt",1|cup,,dairy,Dairy and Egg Products
+ghee,ghee|clarified butter|butter oil,weight,866,,173412,"Butter oil, anhydrous",1|cup,,tins_jars,Dairy and Egg Products
+cream_cheese,cream cheese|soft cheese,weight,981,,173418,"Cheese, cream",1|cup,,dairy,Dairy and Egg Products
+cheddar,cheddar|cheddar cheese|grated cheddar,weight,478,,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)","1|cup, shredded",,dairy,Dairy and Egg Products
+mozzarella,mozzarella|grated mozzarella,weight,473,,170845,"Cheese, mozzarella, whole milk","1|cup, shredded",,dairy,Dairy and Egg Products
+parmesan,parmesan|grated parmesan|parmesan cheese,weight,423,,171247,"Cheese, parmesan, grated",1|cup,,dairy,Dairy and Egg Products
+feta,feta|feta cheese,weight,634,,173420,"Cheese, feta","1|cup, crumbled",,dairy,Dairy and Egg Products
+ricotta,ricotta,weight,1040,,170851,"Cheese, ricotta, whole milk",1|cup,,dairy,Dairy and Egg Products
+cottage_cheese,cottage cheese,weight,951,,172179,"Cheese, cottage, creamed, large or small curd","1|cup, small curd (not packed)",,dairy,Dairy and Egg Products
+eggs,egg|eggs,count,1027,50000,171287,"Egg, whole, raw, fresh",1|cup (4.86 large eggs),1|large,dairy,Dairy and Egg Products
+olive_oil,olive oil|extra virgin olive oil,volume,913,,171413,"Oil, olive, salad or cooking",1|cup,,tins_jars,Fats and Oils
+sunflower_oil,sunflower oil,volume,921,,172338,"Oil, sunflower, high oleic (70% and over)",1|cup,,tins_jars,Fats and Oils
+vegetable_oil,vegetable oil|soybean oil|cooking oil,volume,921,,172370,"Oil, vegetable, soybean, refined",1|cup,,tins_jars,Fats and Oils
+rapeseed_oil,rapeseed oil|canola oil,volume,921,,172336,"Oil, canola",1|cup,,tins_jars,Fats and Oils
+coconut_oil,coconut oil,weight,921,,171412,"Oil, coconut",1|cup,,tins_jars,Fats and Oils
+sesame_oil,sesame oil|gingelly oil,volume,921,,171016,"Oil, sesame, salad or cooking",1|cup,,tins_jars,Fats and Oils
+groundnut_oil,groundnut oil|peanut oil,volume,913,,171410,"Oil, peanut, salad or cooking",1|cup,,tins_jars,Fats and Oils
+coconut_milk,coconut milk|tinned coconut milk,volume,955,,170173,"Nuts, coconut milk, canned (liquid expressed from grated meat and water)",1|cup,,tins_jars,Nut and Seed Products
+vinegar,vinegar|white vinegar|distilled vinegar|spirit vinegar,volume,1006,,172237,"Vinegar, distilled",1|cup,,tins_jars,Spices and Herbs
+cider_vinegar,cider vinegar|apple cider vinegar,volume,1010,,173469,"Vinegar, cider",1|cup,,tins_jars,Spices and Herbs
+red_wine_vinegar,red wine vinegar,volume,1010,,172240,"Vinegar, red wine",1|cup,,tins_jars,Spices and Herbs
+balsamic_vinegar,balsamic vinegar|balsamic,volume,1078,,172241,"Vinegar, balsamic",1|cup,,tins_jars,Spices and Herbs
+soy_sauce,soy sauce|shoyu,volume,1078,,174277,Soy sauce made from soy and wheat (shoyu),1|cup,,tins_jars,Legumes and Legume Products
+tamari,tamari,volume,1217,,174278,Soy sauce made from soy (tamari),1|tbsp,,tins_jars,Legumes and Legume Products
+tomato_puree,tomato puree|tomato paste,weight,1107,,170459,"Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)",1|cup,,tins_jars,Vegetables and Vegetable Products
+passata,passata|tomato sauce,volume,1036,,170054,"Tomato products, canned, sauce",1|cup,,tins_jars,Vegetables and Vegetable Products
+tinned_tomatoes,tinned tomatoes|canned tomatoes|chopped tomatoes,weight,1014,,170051,"Tomatoes, red, ripe, canned, packed in tomato juice",1|cup,,tins_jars,Vegetables and Vegetable Products
+ketchup,ketchup|tomato ketchup|catsup,weight,1014,,168556,Catsup,1|cup,,tins_jars,Vegetables and Vegetable Products
+mayonnaise,mayonnaise|mayo,weight,930,,171009,"Salad dressing, mayonnaise, regular",1|cup,,tins_jars,Fats and Oils
+jam,jam|preserves,weight,1353,,169641,Jams and preserves,1|tbsp,,tins_jars,Sweets
+lemon_juice,lemon juice,volume,1031,,167747,"Lemon juice, raw",1|cup,,tins_jars,Fruits and Fruit Juices
+lime_juice,lime juice,volume,1023,,168156,"Lime juice, raw",1|cup,,tins_jars,Fruits and Fruit Juices
+water,water,volume,1002,,174158,"Water, bottled, generic",1|cup,,drinks,Beverages
+salt,salt|table salt,weight,1234,,173468,"Salt, table",1|cup,,spices,Spices and Herbs
+black_pepper,black pepper|ground black pepper|pepper,weight,467,,170931,"Spices, pepper, black","1|tbsp, ground",,spices,Spices and Herbs
+black_peppercorns,black peppercorns|peppercorns|whole black pepper,weight,588,,170931,"Spices, pepper, black","1|tsp, whole",,spices,Spices and Herbs
+white_pepper,white pepper|ground white pepper,weight,480,,170933,"Spices, pepper, white","1|tbsp, ground",,spices,Spices and Herbs
+cayenne,cayenne pepper|cayenne,weight,358,,170932,"Spices, pepper, red or cayenne",1|tbsp,,spices,Spices and Herbs
+chili_powder,chili powder|chili powder blend,weight,541,,171319,"Spices, chili powder",1|tbsp,,spices,Spices and Herbs
+cinnamon,cinnamon|ground cinnamon,weight,527,,171320,"Spices, cinnamon, ground",1|tbsp,,spices,Spices and Herbs
+ground_cloves,ground cloves,weight,440,,171321,"Spices, cloves, ground",1|tbsp,,spices,Spices and Herbs
+cumin_seeds,cumin seeds|cumin|jeera|whole cumin,weight,406,,170923,"Spices, cumin seed","1|tbsp, whole",,spices,Spices and Herbs
+coriander_seeds,coriander seeds|whole coriander,weight,338,,170922,"Spices, coriander seed",1|tbsp,,spices,Spices and Herbs
+turmeric,turmeric|ground turmeric|haldi,weight,636,,172231,"Spices, turmeric, ground",1|tbsp,,spices,Spices and Herbs
+curry_powder,curry powder,weight,426,,170924,"Spices, curry powder",1|tbsp,,spices,Spices and Herbs
+ground_ginger,ground ginger|ginger powder|dried ginger,weight,352,,170926,"Spices, ginger, ground",1|tbsp,,spices,Spices and Herbs
+garlic_powder,garlic powder,weight,656,,171325,"Spices, garlic powder",1|tbsp,,spices,Spices and Herbs
+onion_powder,onion powder,weight,467,,171327,"Spices, onion powder",1|tbsp,,spices,Spices and Herbs
+paprika,paprika|smoked paprika|sweet paprika,weight,460,,171329,"Spices, paprika",1|tbsp,,spices,Spices and Herbs
+nutmeg,nutmeg|ground nutmeg,weight,473,,171326,"Spices, nutmeg, ground",1|tbsp,,spices,Spices and Herbs
+ground_cardamom,ground cardamom|cardamom powder,weight,392,,170919,"Spices, cardamom","1|tbsp, ground",,spices,Spices and Herbs
+fennel_seeds,fennel seeds|fennel seed|saunf,weight,392,,171323,"Spices, fennel seed","1|tbsp, whole",,spices,Spices and Herbs
+fenugreek_seeds,fenugreek seeds|methi seeds,weight,751,,171324,"Spices, fenugreek seed",1|tbsp,,spices,Spices and Herbs
+mustard_powder,mustard powder|ground mustard,weight,426,,170929,"Spices, mustard seed, ground",1|tbsp,,spices,Spices and Herbs
+poppy_seeds,poppy seeds|khus khus,weight,595,,171330,"Spices, poppy seed",1|tbsp,,spices,Spices and Herbs
+caraway_seeds,caraway seeds,weight,453,,170918,"Spices, caraway seed",1|tbsp,,spices,Spices and Herbs
+celery_seeds,celery seeds|celery seed,weight,440,,170920,"Spices, celery seed",1|tbsp,,spices,Spices and Herbs
+allspice,allspice|ground allspice,weight,406,,171315,"Spices, allspice, ground",1|tbsp,,spices,Spices and Herbs
+anise_seeds,aniseed|anise seeds,weight,453,,171316,"Spices, anise seed","1|tbsp, whole",,spices,Spices and Herbs
+dried_oregano,dried oregano|oregano,weight,203,,171328,"Spices, oregano, dried","1|tsp, leaves",,spices,Spices and Herbs
+dried_thyme,dried thyme|thyme,weight,183,,170938,"Spices, thyme, dried","1|tbsp, leaves",,spices,Spices and Herbs
+dried_basil,dried basil,weight,142,,171317,"Spices, basil, dried","1|tbsp, leaves",,spices,Spices and Herbs
+dried_rosemary,dried rosemary|rosemary,weight,223,,171333,"Spices, rosemary, dried",1|tbsp,,spices,Spices and Herbs
+dried_parsley,dried parsley,weight,108,,170930,"Spices, parsley, dried",1|tbsp,,spices,Spices and Herbs
+dried_dill,dried dill|dill weed,weight,210,,171322,"Spices, dill weed, dried",1|tbsp,,spices,Spices and Herbs
+dried_sage,dried sage|ground sage|sage,weight,135,,170935,"Spices, sage, ground",1|tbsp,,spices,Spices and Herbs
+dried_coriander_leaf,dried coriander leaf|dried cilantro,weight,122,,170921,"Spices, coriander leaf, dried",1|tbsp,,spices,Spices and Herbs
+dried_tarragon,dried tarragon|tarragon,weight,122,,170937,"Spices, tarragon, dried","1|tbsp, leaves",,spices,Spices and Herbs
+saffron,saffron,weight,142,,170934,"Spices, saffron",1|tbsp,,spices,Spices and Herbs
+instant_coffee,instant coffee|instant coffee powder,weight,203,,171893,"Beverages, coffee, instant, regular, powder",1|tsp,,drinks,Beverages
+onion,onion|brown onion|yellow onion|white onion,count,676,110000,170000,"Onions, raw","1|cup, chopped","1|medium (2-1/2"" dia)",veg_fruit,Vegetables and Vegetable Products
+spring_onion,spring onion|scallion|green onion,count,423,15000,170005,"Onions, spring or scallions (includes tops and bulb), raw","1|cup, chopped","1|medium (4-1/8"" long)",veg_fruit,Vegetables and Vegetable Products
+garlic,garlic|garlic clove|clove of garlic,count,575,3000,169230,"Garlic, raw",1|cup,1|clove,veg_fruit,Vegetables and Vegetable Products
+ginger,ginger|fresh ginger|ginger root,weight,406,,169231,"Ginger root, raw",1|tsp,,veg_fruit,Vegetables and Vegetable Products
+tomato,tomato|tomatoes|fresh tomato,count,761,123000,170457,"Tomatoes, red, ripe, raw, year round average","1|cup, chopped or sliced","1|medium whole (2-3/5"" dia)",veg_fruit,Vegetables and Vegetable Products
+cherry_tomatoes,cherry tomatoes,weight,630,,170457,"Tomatoes, red, ripe, raw, year round average",1|cup cherry tomatoes,,veg_fruit,Vegetables and Vegetable Products
+potato,potato|white potato,count,634,213000,170028,"Potatoes, white, flesh and skin, raw","0.5|cup, diced","1|medium (2+-1/4"" to 3-1/4"" dia.)",veg_fruit,Vegetables and Vegetable Products
+sweet_potato,sweet potato,count,562,130000,168482,"Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)","1|cup, cubes","1|sweetpotato, 5"" long",veg_fruit,Vegetables and Vegetable Products
+carrot,carrot,count,541,61000,170393,"Carrots, raw",1|cup chopped,1|medium,veg_fruit,Vegetables and Vegetable Products
+celery,celery|celery stick,count,427,40000,169988,"Celery, raw",1|cup chopped,"1|stalk, medium (7-1/2"" - 8"" long)",veg_fruit,Vegetables and Vegetable Products
+red_pepper,red pepper|red bell pepper|bell pepper|capsicum|red capsicum,count,630,119000,170108,"Peppers, sweet, red, raw","1|cup, chopped","1|medium (approx 2-3/4"" long, 2-1/2 dia.)",veg_fruit,Vegetables and Vegetable Products
+green_pepper,green pepper|green bell pepper|green capsicum,count,630,119000,170427,"Peppers, sweet, green, raw","1|cup, chopped","1|medium (approx 2-3/4"" long, 2-1/2"" dia)",veg_fruit,Vegetables and Vegetable Products
+green_chilli,green chilli|green chili|hari mirch,count,634,45000,170497,"Peppers, hot chili, green, raw","0.5|cup, chopped or diced",1|pepper,veg_fruit,Vegetables and Vegetable Products
+red_chilli,red chilli|fresh red chilli|red chili,count,634,45000,170106,"Peppers, hot chili, red, raw","0.5|cup, chopped or diced",1|pepper,veg_fruit,Vegetables and Vegetable Products
+jalapeno,jalapeno|jalapeno pepper,weight,380,,168576,"Peppers, jalapeno, raw","1|cup, sliced",,veg_fruit,Vegetables and Vegetable Products
+aubergine,aubergine|eggplant|brinjal,count,347,548000,169228,"Eggplant, raw","1|cup, cubes","1|eggplant, unpeeled (approx 1-1/4 lb)",veg_fruit,Vegetables and Vegetable Products
+courgette,courgette|zucchini,count,524,196000,169291,"Squash, summer, zucchini, includes skin, raw","1|cup, chopped",1|medium,veg_fruit,Vegetables and Vegetable Products
+cucumber,cucumber,count,503,201000,169225,"Cucumber, peeled, raw","1|cup, sliced",1|medium,veg_fruit,Vegetables and Vegetable Products
+mushrooms,mushrooms|button mushrooms|white mushrooms,weight,296,18000,169251,"Mushrooms, white, raw","1|cup, pieces or slices",1|medium,veg_fruit,Vegetables and Vegetable Products
+cauliflower,cauliflower,count,452,588000,169986,"Cauliflower, raw","1|cup chopped (1/2"" pieces)","1|head medium (5-6"" dia.)",veg_fruit,Vegetables and Vegetable Products
+broccoli,broccoli,weight,385,,170379,"Broccoli, raw",1|cup chopped,,veg_fruit,Vegetables and Vegetable Products
+cabbage,cabbage|white cabbage|green cabbage,weight,376,,169975,"Cabbage, raw","1|cup, chopped",,veg_fruit,Vegetables and Vegetable Products
+red_cabbage,red cabbage,weight,376,,169977,"Cabbage, red, raw","1|cup, chopped",,veg_fruit,Vegetables and Vegetable Products
+spinach,spinach|fresh spinach|baby spinach|palak,weight,127,,168462,"Spinach, raw",1|cup,,veg_fruit,Vegetables and Vegetable Products
+frozen_spinach,frozen spinach,weight,659,,169287,"Spinach, frozen, chopped or leaf, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,,frozen,Vegetables and Vegetable Products
+frozen_peas,frozen peas|peas|garden peas|green peas,weight,566,,170016,"Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,,frozen,Vegetables and Vegetable Products
+sweetcorn,sweetcorn|sweet corn|frozen sweetcorn|corn kernels,weight,575,,168398,"Corn, sweet, yellow, frozen, kernels cut off cob, unprepared (Includes foods for USDA's Food Distribution Program)",1|cup,,veg_fruit,Vegetables and Vegetable Products
+green_beans,green beans|french beans,weight,423,,169961,"Beans, snap, green, raw","1|cup 1/2"" pieces",,veg_fruit,Vegetables and Vegetable Products
+okra,okra|bhindi|ladies fingers,weight,423,,169260,"Okra, raw",1|cup,,veg_fruit,Vegetables and Vegetable Products
+beetroot,beetroot|beet,count,575,82000,169145,"Beets, raw",1|cup,"1|beet (2"" dia)",veg_fruit,Vegetables and Vegetable Products
+radish,radish,count,490,4500,169276,"Radishes, raw",1|cup slices,"1|medium (3/4"" to 1"" dia)",veg_fruit,Vegetables and Vegetable Products
+mooli,mooli|daikon|white radish,weight,490,,168451,"Radishes, oriental, raw",1|cup slices,,veg_fruit,Vegetables and Vegetable Products
+leek,leek,count,376,89000,169246,"Leeks, (bulb and lower leaf-portion), raw",1|cup,1|leek,veg_fruit,Vegetables and Vegetable Products
+romaine_lettuce,romaine lettuce|cos lettuce|romaine,count,199,626000,169247,"Lettuce, cos or romaine, raw",1|cup shredded,1|head,veg_fruit,Vegetables and Vegetable Products
+iceberg_lettuce,iceberg lettuce|iceberg,count,304,539000,169248,"Lettuce, iceberg (includes crisphead types), raw",1|cup shredded,"1|head, medium (6"" dia)",veg_fruit,Vegetables and Vegetable Products
+coriander,coriander|fresh coriander|coriander leaves|cilantro|dhania,weight,68,,169997,"Coriander (cilantro) leaves, raw",0.25|cup,,veg_fruit,Vegetables and Vegetable Products
+parsley,parsley|fresh parsley|flat leaf parsley,weight,254,,170416,"Parsley, fresh",1|cup chopped,,veg_fruit,Vegetables and Vegetable Products
+basil,basil|fresh basil,weight,101,,172232,"Basil, fresh","0.25|cup leaves, whole",,spices,Spices and Herbs
+mint,mint|fresh mint|spearmint,weight,385,,173475,"Spearmint, fresh",2|tbsp,,spices,Spices and Herbs
+drumsticks,drumsticks|drumstick|moringa|moringa pods,count,423,,170483,"Drumstick pods, raw",1|cup slices,,veg_fruit,Vegetables and Vegetable Products
+tofu,tofu|firm tofu,weight,1065,,172475,"Tofu, raw, firm, prepared with calcium sulfate",0.5|cup,,veg_fruit,Legumes and Legume Products
+apple,apple,count,461,182000,171688,"Apples, raw, with skin (Includes foods for USDA's Food Distribution Program)",1|cup slices,"1|medium (3"" dia)",veg_fruit,Fruits and Fruit Juices
+banana,banana,count,951,118000,173944,"Bananas, raw","1|cup, mashed","1|medium (7"" to 7-7/8"" long)",veg_fruit,Fruits and Fruit Juices
+lemon,lemon,count,896,58000,167746,"Lemons, raw, without peel","1|cup, sections","1|fruit (2-1/8"" dia)",veg_fruit,Fruits and Fruit Juices
+lime,lime,count,,67000,168155,"Limes, raw",,"1|fruit (2"" dia)",veg_fruit,Fruits and Fruit Juices
+orange,orange,count,761,131000,169097,"Oranges, raw, all commercial varieties","1|cup, sections","1|fruit (2-5/8"" dia)",veg_fruit,Fruits and Fruit Juices
+mango,mango,count,697,336000,169910,"Mangos, raw",1|cup pieces,1|fruit without refuse,veg_fruit,Fruits and Fruit Juices
+avocado,avocado|hass avocado,count,972,136000,171706,"Avocados, raw, California","1|cup, pureed","1|fruit, without skin and seed",veg_fruit,Fruits and Fruit Juices
+pear,pear,count,592,178000,169118,"Pears, raw","1|cup, slices",1|medium,veg_fruit,Fruits and Fruit Juices
+peach,peach,count,651,150000,169928,"Peaches, yellow, raw",1|cup slices,"1|medium (2-2/3"" dia)",veg_fruit,Fruits and Fruit Juices
+plum,plum,count,697,66000,169949,"Plums, raw","1|cup, sliced","1|fruit (2-1/8"" dia)",veg_fruit,Fruits and Fruit Juices
+kiwi,kiwi|kiwi fruit|kiwifruit,count,761,69000,168153,"Kiwifruit, green, raw","1|cup, sliced","1|fruit (2"" dia)",veg_fruit,Fruits and Fruit Juices
+grapes,grapes,weight,638,,174683,"Grapes, red or green (European type, such as Thompson seedless), raw",1|cup,,veg_fruit,Fruits and Fruit Juices
+strawberries,strawberries|strawberry,weight,609,12000,167762,"Strawberries, raw","1|cup, whole","1|medium (1-1/4"" dia)",veg_fruit,Fruits and Fruit Juices
+blueberries,blueberries,weight,626,,171711,"Blueberries, raw",1|cup,,veg_fruit,Fruits and Fruit Juices
+raspberries,raspberries,weight,520,,167755,"Raspberries, raw",1|cup,,veg_fruit,Fruits and Fruit Juices
+pineapple,pineapple,count,697,905000,169124,"Pineapple, raw, all varieties","1|cup, chunks",1|fruit,veg_fruit,Fruits and Fruit Juices
+pomegranate_seeds,pomegranate seeds|pomegranate arils,weight,735,,169134,"Pomegranates, raw",0.5|cup arils (seed/juice sacs),,veg_fruit,Fruits and Fruit Juices

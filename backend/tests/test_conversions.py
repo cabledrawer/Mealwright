@@ -104,3 +104,72 @@ def test_conversions_round_trip(milli: int, mg_per_ml: int, item_mg: int) -> Non
 def test_conversion_over_the_limit_is_refused() -> None:
     with pytest.raises(TooBig):
         to_base_milli(UnitAmount(Decimal(1_000_000), "kg"), "count", ONION, 250)
+
+
+# --- Starting aisles (scripts/build_conversions.py) --------------------------------------------
+
+
+def _build_script():  # type: ignore[no-untyped-def]
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "scripts" / "build_conversions.py"
+    spec = importlib.util.spec_from_file_location("build_conversions", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_aisle_keys_match_the_app() -> None:
+    from mealwright.aisles import AISLE_KEYS
+
+    assert _build_script().AISLE_KEYS == AISLE_KEYS
+
+
+def test_every_category_and_override_is_a_real_aisle() -> None:
+    script = _build_script()
+    script.check_aisle_tables()  # exits if not
+    script.check_overrides_known(script.CHOICES)
+
+
+def test_aisle_for_prefers_the_override() -> None:
+    script = _build_script()
+    assert script.aisle_for("cumin_seeds", "Spices and Herbs") == "spices"
+    assert script.aisle_for("honey", "Sweets") == "tins_jars"
+    assert script.aisle_for("frozen_peas", "Vegetables and Vegetable Products") == "frozen"
+    with pytest.raises(SystemExit):
+        script.aisle_for("cumin_seeds", "Something New")
+
+
+def test_build_writes_the_aisle_from_a_usda_style_sample(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import zipfile
+
+    script = _build_script()
+    folder = script.FOLDER
+    choices = [c for c in script.CHOICES if c.key in ("plain_flour", "honey", "eggs")]
+    foods = ["fdc_id,data_type,description,food_category_id"]
+    portions = ["fdc_id,amount,modifier,gram_weight"]
+    categories = [
+        "id,code,description",
+        "18,1800,Baked Products",
+        "19,1900,Sweets",
+        "1,0100,Dairy and Egg Products",
+    ]
+    cat = {"plain_flour": "18", "honey": "19", "eggs": "1"}
+    for choice in choices:
+        foods.append(f"{choice.fdc_id},sr_legacy_food,Made up {choice.key},{cat[choice.key]}")
+        for spec in (choice.volume, choice.item):
+            if spec:
+                amount, modifier = spec.split("|", 1)
+                portions.append(f'{choice.fdc_id},{amount},"{modifier}",100')
+    archive = tmp_path / "sample.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr(folder + "food.csv", "\n".join(foods))
+        handle.writestr(folder + "food_portion.csv", "\n".join(portions))
+        handle.writestr(folder + "food_category.csv", "\n".join(categories))
+    rows = {row["key"]: row for row in script.build(archive, choices)}
+    assert rows["plain_flour"]["aisle"] == "bakery"  # from its category
+    assert rows["honey"]["aisle"] == "tins_jars"  # override beats "Sweets"
+    assert rows["eggs"]["aisle"] == "dairy"
+    assert rows["eggs"]["usda_category"] == "Dairy and Egg Products"

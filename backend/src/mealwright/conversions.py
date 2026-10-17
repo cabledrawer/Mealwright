@@ -12,6 +12,7 @@ from functools import cache
 from importlib.resources import files
 from typing import Literal
 
+from mealwright.aisles import AISLE_KEYS
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -36,6 +37,7 @@ class TableRow:
     counted_as: CountedAs
     mg_per_ml: int | None
     item_weight_mg: int | None
+    aisle: str | None = None  # the starting aisle (mealwright.aisles), if the table has one
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,10 @@ def table() -> Table:
             counted_as=counted_as,  # type: ignore[arg-type]
             mg_per_ml=int(record["mg_per_ml"]) if record["mg_per_ml"] else None,
             item_weight_mg=int(record["item_weight_mg"]) if record["item_weight_mg"] else None,
+            aisle=record.get("aisle") or None,
         )
+        if row.aisle is not None and row.aisle not in AISLE_KEYS:
+            raise ValueError(f"{record['key']}: aisle {row.aisle!r}")
         rows[row.key] = row
         for name in row.names:
             other = by_name.setdefault(normalise(name), row.key)
