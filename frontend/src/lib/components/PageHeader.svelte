@@ -6,6 +6,7 @@
   // the round button to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
   import type { Pathname } from '$app/types';
+  import type { Snippet } from 'svelte';
   import { initial, session } from '$lib/session.svelte';
   import Icon from './Icon.svelte';
 
@@ -13,13 +14,16 @@
     title,
     overline,
     subtitle,
-    parent
+    parent,
+    actions
   }: {
     title: string;
     overline?: string;
     subtitle?: string;
     /** The page this one sits under. */
     parent?: { href: Pathname; label: string };
+    /** The page's main button(s), beside the title ("+ Add to pantry"). */
+    actions?: Snippet;
   } = $props();
 </script>
 
@@ -43,6 +47,7 @@
     <h1>{title}</h1>
     {#if subtitle}<p class="subtitle">{subtitle}</p>{/if}
   </div>
+  {#if actions}<div class="actions">{@render actions()}</div>{/if}
   <a
     class="settings"
     href={resolve('/settings')}
@@ -66,6 +71,14 @@
     flex-direction: column;
     gap: var(--space-1);
     min-width: 0;
+  }
+
+  .actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-4);
+    margin-left: auto;
   }
 
   .back {

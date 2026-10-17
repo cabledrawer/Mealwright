@@ -8,13 +8,18 @@
     label,
     exclude = [],
     onpick,
-    oncancel
+    oncancel,
+    oncreate,
+    placeholder = 'Type a name'
   }: {
     /** What the box is for, read out by screen readers: "Can use instead of toor dal". */
     label: string;
     exclude?: number[];
     onpick: (food: Ref) => void;
-    oncancel: () => void;
+    oncancel?: () => void;
+    /** Offer "New ingredient: …" when nothing has exactly that name. */
+    oncreate?: (name: string) => void;
+    placeholder?: string;
   } = $props();
 
   const uid = $props.id();
@@ -23,6 +28,10 @@
   let asked = 0;
 
   const shown = $derived(found.filter((f) => !exclude.includes(f.id)).slice(0, 6));
+  const typed = $derived(query.trim());
+  const exact = $derived(
+    found.some((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase())
+  );
 
   $effect(() => {
     const q = query.trim();
@@ -53,7 +62,7 @@
     type="search"
     aria-label={label}
     aria-controls="{uid}-list"
-    placeholder="Type a name"
+    {placeholder}
     autocomplete="off"
     bind:value={query}
     use:focusOnShow
@@ -61,7 +70,7 @@
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        oncancel();
+        oncancel?.();
       }
       if (event.key === 'Enter' && shown[0]) onpick(shown[0]);
     }}
@@ -77,8 +86,17 @@
         </button>
       </li>
     {/each}
+    {#if oncreate && typed && !exact}
+      <li>
+        <button type="button" class="new" onclick={() => oncreate?.(typed)}>
+          + New ingredient: “{typed}”
+        </button>
+      </li>
+    {/if}
   </ul>
-  <button type="button" class="cancel" onclick={oncancel}>Cancel</button>
+  {#if oncancel}
+    <button type="button" class="cancel" onclick={oncancel}>Cancel</button>
+  {/if}
 </div>
 
 <style>
@@ -132,6 +150,12 @@
   .cancel {
     background: transparent;
     color: var(--color-text-muted);
+  }
+
+  ul .new {
+    border: 1px dashed var(--color-add-border);
+    background: transparent;
+    color: var(--color-accent);
   }
 
   .also {

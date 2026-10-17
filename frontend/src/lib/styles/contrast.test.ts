@@ -53,7 +53,15 @@ const PAIRS: Pair[] = [
   ['--color-text', '--color-maybe-row', 4.5],
   ['--color-text-muted', '--color-maybe-row', 4.5],
   ['--color-accent-on-soft', '--color-accent-soft', 4.5], // the open food's row
-  ['--color-text-soft', '--color-accent-soft', 4.5]
+  ['--color-text-soft', '--color-accent-soft', 4.5],
+  ['--color-use-soon-heading', '--color-use-soon-chip', 4.5],
+  ['--color-text', '--color-use-soon-chip', 4.5],
+  ['--color-text', '--color-staple-chip', 4.5],
+  ['--color-text-muted', '--color-staples-panel', 4.5],
+  ['--color-text-muted', '--color-segment-track', 4.5],
+  ['--color-text', '--color-segment-active', 4.5],
+  ['--color-use-soon-text', '--color-surface', 4.5], // "running low", date chips
+  ['--color-accent-on-soft', '--color-accent-soft', 4.5] // the chosen ¼ ½ ¾ Full
 ];
 
 function rgb(value: string): [number, number, number] {

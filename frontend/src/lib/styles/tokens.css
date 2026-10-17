@@ -94,6 +94,12 @@
   --color-maybe-button: #fdf1d8;
   --color-maybe-text: #6e4a00;
 
+  /* Pantry */
+  --color-use-soon-heading: #7a2808; /* "Use soon" on its salmon card (use-soon-chip) */
+  --color-staples-panel: #f1f3f0; /* the Staples panel on desktop */
+  --color-staple-chip: #ffffff;
+  --color-segment-track: #e6e9e5; /* place tabs on phone */
+
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
   --font-reading: 'Newsreader Variable', Georgia, serif;
@@ -212,4 +218,9 @@
   --color-maybe-chip-border: #6b5526;
   --color-maybe-button: #4f3f1c;
   --color-maybe-text: #f3c766;
+
+  --color-use-soon-heading: #ffb89c;
+  --color-staples-panel: #1b221f;
+  --color-staple-chip: #252e29;
+  --color-segment-track: #252e29;
 }
