@@ -6,8 +6,26 @@
 #
 # Each step's full output goes to .check/logs/<step>.log. The script fails if any
 # step fails or isn't set up yet, and ends with a pass/fail summary.
+#
+#   ./check --fast
+#
+# A quick run for use while working, after a chunk of work or a round of review fixes
+# (cabledrawer 17 Oct, spec section 9). It keeps lint, types, the backend tests, the
+# frontend unit tests, the outbound-gate / no-telemetry test and the licence allow
+# list. It skips the slow steps: fresh installs (it only installs if a folder is
+# missing), the Docker image build and image checks, the vulnerability scanners
+# (pip-audit, Bandit, osv-scanner, Trivy) and the browser (Playwright) tests.
+# Its summary says FAST RUN at the top and bottom and is NOT valid for a pull
+# request. Only a full ./check is.
 
 set -uo pipefail
+
+FAST=0
+case "${1:-}" in
+  "") ;;
+  --fast) FAST=1 ;;
+  *) echo "Usage: ./check [--fast]" >&2; exit 2 ;;
+esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGS="$ROOT/.check/logs"
@@ -53,12 +71,20 @@ need() { command -v "$1" >/dev/null 2>&1; }
 
 backend() { (cd backend && "$@"); }
 
+if ((FAST)); then
+  echo "*** FAST RUN: not valid for a pull request. Only a full ./check is. ***"
+  echo
+fi
 echo "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
 echo
 
 # --- Backend -----------------------------------------------------------------
 if need uv; then
-  step "backend: sync"           backend uv sync --frozen
+  if ((FAST)) && [[ -d "$ROOT/backend/.venv" ]]; then
+    skip "backend: sync" "fast run"
+  else
+    step "backend: sync"         backend uv sync --frozen
+  fi
   step "backend: ruff format"    backend uv run --frozen ruff format --check .
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
@@ -71,9 +97,16 @@ fi
 
 # --- Frontend ----------------------------------------------------------------
 if [[ -f "$ROOT/frontend/package.json" ]]; then
-  step "frontend: install"       sh -c 'cd frontend && npm ci --no-audit --no-fund'
+  if ((FAST)) && [[ -d "$ROOT/frontend/node_modules" ]]; then
+    skip "frontend: install" "fast run"
+  else
+    step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
+  fi
   step "frontend: lint"          sh -c 'cd frontend && npm run lint'
   step "frontend: svelte-check"  sh -c 'cd frontend && npm run check'
+  # The unit tests run in headless Chromium, so install it first (a quick no-op once
+  # it is there). `npm test` itself no longer installs it.
+  step "frontend: browser"       sh -c 'cd frontend && npx playwright install chromium-headless-shell'
   step "frontend: tests"         sh -c 'cd frontend && npm test'
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
@@ -82,7 +115,9 @@ fi
 
 # --- Browser tests (Playwright, headless Chromium) ------------------------------
 # They start the real app on 127.0.0.1 with an empty data folder.
-if [[ -f "$ROOT/e2e/package.json" ]]; then
+if ((FAST)); then
+  skip "browser tests" "fast run"
+elif [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell'
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
@@ -103,13 +138,17 @@ pip_audit() {
     --require-hashes --disable-pip --progress-spinner off
 }
 
-if need uv; then
+if ((FAST)); then
+  skip "scanners" "fast run"
+elif need uv; then
   step "pip-audit"               pip_audit
   step "bandit"                  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$BANDIT" -q -r backend/src backend/scripts
 else
   record "pip-audit, bandit" FAIL "uv is not installed" "-"
 fi
-if need docker; then
+if ((FAST)); then
+  :
+elif need docker; then
   # Every lock file in the repo; the repo is mounted read-only.
   lockfiles=(--lockfile /src/backend/uv.lock)
   for lock in e2e/package-lock.json frontend/package-lock.json; do
@@ -122,7 +161,9 @@ else
 fi
 
 # --- Docker image ------------------------------------------------------------
-if [[ -f "$ROOT/Dockerfile" ]]; then
+if ((FAST)); then
+  skip "image" "fast run"
+elif [[ -f "$ROOT/Dockerfile" ]]; then
   step "image: build"            docker build -t "$IMAGE" .
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
@@ -149,7 +190,13 @@ for r in "${results[@]}"; do
 done
 
 echo
-echo "## ./check summary"
+if ((FAST)); then
+  echo "## ./check summary (FAST RUN: not valid for a pull request)"
+  echo
+  echo "**This was a FAST run (\`./check --fast\`). It skipped installs, browser tests, scanners and the image. Only a full \`./check\` counts for a pull request.**"
+else
+  echo "## ./check summary"
+fi
 echo
 echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
 echo
@@ -160,8 +207,13 @@ for i in "${!names[@]}"; do
 done
 echo
 if ((fail == 0 && missing == 0)); then
-  echo "**RESULT: PASS** ($pass passed, $skipped skipped as not applicable yet)"
+  if ((FAST)); then
+    echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
+  else
+    echo "**RESULT: PASS** ($pass passed, $skipped skipped as not applicable yet)"
+  fi
   exit 0
 fi
 echo "**RESULT: FAIL** ($fail failed, $missing not set up, $pass passed, $skipped skipped)"
+if ((FAST)); then echo "FAST RUN: not valid for a pull request."; fi
 exit 1
