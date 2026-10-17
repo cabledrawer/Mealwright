@@ -43,6 +43,11 @@ class Toaster {
     return id;
   }
 
+  /** Change the words of a toast that's still showing (e.g. to the server's own summary). */
+  update(id: number, message: string): void {
+    if (this.current?.id === id) this.current = { ...this.current, message };
+  }
+
   /** Close the toast (only if it's still the one with this id, when given). */
   dismiss(id?: number): void {
     if (id !== undefined && this.current?.id !== id) return;

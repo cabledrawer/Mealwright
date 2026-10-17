@@ -45,9 +45,10 @@ describe('api', () => {
   });
 
   it('turns refusals into ApiError with the reason', async () => {
-    const { fetch } = fakeFetch(429, { detail: 'Too many tries. Please wait 1 minute.' });
+    const body = { detail: 'Too many tries. Please wait 1 minute.' };
+    const { fetch } = fakeFetch(429, body);
     await expect(api('POST', '/session', {}, { fetch, signingIn: true })).rejects.toEqual(
-      new ApiError(429, 'Too many tries. Please wait 1 minute.')
+      new ApiError(429, 'Too many tries. Please wait 1 minute.', null, body)
     );
   });
 
@@ -83,5 +84,39 @@ describe('getMe', () => {
   it('is the person when signed in', async () => {
     const me = { id: 1, name: 'Tess', username: 'tess', role: 'admin', theme: 'dark' };
     expect(await getMe(fakeFetch(200, me).fetch)).toEqual(me);
+  });
+});
+
+describe('api for changes (0.2)', () => {
+  it('sends the change ID as the Idempotency-Key header', async () => {
+    const { fetch, calls } = fakeFetch(200, {});
+    await api('PATCH', '/foods/7', { staple: true }, { fetch, idempotencyKey: 'abc-123' });
+    const headers = calls[0]!.init!.headers as Record<string, string>;
+    expect(headers['idempotency-key']).toBe('abc-123');
+    expect(headers['content-type']).toBe('application/json');
+    expect(calls[0]!.init!.method).toBe('PATCH');
+  });
+
+  it('sends no headers at all for a plain read', async () => {
+    const { fetch, calls } = fakeFetch(200, {});
+    await api('GET', '/foods', undefined, { fetch });
+    expect(calls[0]!.init!.headers).toBeUndefined();
+  });
+
+  it('keeps the error code and the whole answer', async () => {
+    const answer = {
+      detail: 'There’s already a food called Toor dal.',
+      code: 'name_taken',
+      food_id: 7
+    };
+    const { fetch } = fakeFetch(409, answer);
+    const error = await api('POST', '/foods', { name: 'Toor dal' }, { fetch }).catch(
+      (e: unknown) => e
+    );
+    expect(error).toBeInstanceOf(ApiError);
+    if (!(error instanceof ApiError)) return;
+    expect(error.code).toBe('name_taken');
+    expect(error.body).toEqual(answer);
+    expect(error.detail).toBe(answer.detail);
   });
 });

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api';
 import { COULDNT_SAVE, save, useSender, worthRetrying, type Change } from './save';
+import { askOnce } from './askOnce.svelte';
+import type { Ask } from './client/types';
 import { toasts } from './toast.svelte';
 import { UNDONE, undoHistory } from './undo.svelte';
 
@@ -176,11 +178,94 @@ describe('the sender (where the 0.3 offline queue plugs in)', () => {
     const seen: string[] = [];
     useSender(async (change) => {
       seen.push(change.changeId);
-      return change.send(change.changeId);
+      return change.send(change.changeId, change.answers);
     });
     const result = await save(placeChange({ place: 'Cupboard' }, 'Fridge', async () => 'ok'));
     expect(result).toEqual({ ok: true, value: 'ok' });
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatch(UUID);
+  });
+});
+
+describe('ask once', () => {
+  const ask: Ask = {
+    food_id: 7,
+    food_name: 'Toor dal',
+    kind: 'weight_per_ml',
+    question: 'About how much does 1 cup of toor dal weigh?',
+    unit: 'g',
+    per: 'cup',
+    cup_ml: 250,
+    suggested: 200
+  };
+  const askError = () =>
+    new ApiError(409, ask.question, 'ask_once', { detail: ask.question, code: 'ask_once', ask });
+
+  afterEach(() => askOnce.dismiss());
+
+  it('asks, then sends the same change again, with the same ID and the answer', async () => {
+    const calls: { id: string; answers: unknown[] }[] = [];
+    const state = { place: 'Cupboard' };
+    const done = save(
+      placeChange(state, 'Fridge', async (id, answers) => {
+        calls.push({ id, answers: [...answers] });
+        if (!answers.length) throw askError();
+        return 'ok';
+      })
+    );
+    await vi.waitFor(() => expect(askOnce.current?.ask.question).toBe(ask.question));
+    expect(state.place).toBe('Fridge'); // still shown while the question is open
+    askOnce.answer(180, true);
+    expect(await done).toEqual({ ok: true, value: 'ok' });
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.id).toBe(calls[0]!.id);
+    expect(calls[1]!.answers).toEqual([
+      { kind: 'weight_per_ml', food_id: 7, grams_per_cup: 180, remember: true }
+    ]);
+  });
+
+  it('puts things back quietly when the person chooses not to answer', async () => {
+    const state = { place: 'Cupboard' };
+    const done = save(
+      placeChange(
+        state,
+        'Fridge',
+        async () => {
+          throw askError();
+        },
+        true
+      )
+    );
+    await vi.waitFor(() => expect(askOnce.current).not.toBeNull());
+    askOnce.dismiss();
+    const result = await done;
+    expect(result).toMatchObject({ ok: false, cancelled: true });
+    expect(state.place).toBe('Cupboard');
+    expect(undoHistory.size).toBe(0);
+    expect(toasts.current).toBeNull();
+  });
+});
+
+describe("the server's own words", () => {
+  it('replace the toast once the server answers', async () => {
+    const change = placeChange(
+      { place: 'Cupboard' },
+      'Fridge',
+      async () => 'Moved toor dal → Fridge'
+    );
+    change.undo = { label: 'Moved', labelFrom: (summary) => summary, run: () => {} };
+    await save(change);
+    expect(toasts.current?.message).toBe('Moved toor dal → Fridge');
+  });
+
+  it('a refusal can be handled by the caller instead of a toast', async () => {
+    const change = placeChange({ place: 'Cupboard' }, 'Fridge', () =>
+      Promise.reject(new ApiError(409, 'Taken', 'name_taken', { food_id: 3 }))
+    );
+    const refused = vi.fn(() => true);
+    change.refused = refused;
+    await save(change);
+    expect(refused).toHaveBeenCalledOnce();
+    expect(toasts.current).toBeNull();
   });
 });

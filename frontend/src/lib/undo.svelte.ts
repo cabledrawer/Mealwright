@@ -3,6 +3,7 @@
 // back the most recent. (The household's shared history, with Undo for 7 days on
 // anyone's change, is the Recent changes list, which comes from the server.)
 
+import { worthRetrying, ApiError } from './api';
 import { toasts } from './toast.svelte';
 
 export interface UndoEntry {
@@ -27,14 +28,24 @@ class UndoHistory {
 
   #entries: UndoEntry[] = [];
 
-  /** Remember a change, and (unless `toast` is false) show it with an Undo button. */
-  record(entry: UndoEntry, options: { toast?: boolean } = {}): void {
+  /**
+   * When this device's list is empty (e.g. after a reload), where Ctrl+Z finds your last
+   * change instead: the server's list of your own changes.
+   */
+  fallback: (() => Promise<UndoEntry | null>) | null = null;
+
+  /**
+   * Remember a change, and (unless `toast` is false) show it with an Undo button.
+   * Returns the toast's id, so its words can be updated.
+   */
+  record(entry: UndoEntry, options: { toast?: boolean } = {}): number | undefined {
     this.#entries.push(entry);
     if (this.#entries.length > KEEP) this.#entries.shift();
     this.size = this.#entries.length;
-    if (options.toast !== false) {
-      toasts.show(entry.label, { action: { label: 'Undo', run: () => void this.undo(entry) } });
-    }
+    if (options.toast === false) return undefined;
+    return toasts.show(entry.label, {
+      action: { label: 'Undo', run: () => void this.undo(entry) }
+    });
   }
 
   /** Drop a change from the list (it didn't save, so there's nothing to undo). */
@@ -47,7 +58,19 @@ class UndoHistory {
 
   /** Undo the most recent change. False when there's nothing to undo. */
   async undoLast(): Promise<boolean> {
-    const entry = this.#entries.at(-1);
+    let entry = this.#entries.at(-1);
+    if (!entry && this.fallback) {
+      try {
+        entry = (await this.fallback()) ?? undefined;
+      } catch {
+        toasts.show(COULDNT_UNDO, { tone: 'problem' });
+        return false;
+      }
+      if (entry) {
+        this.#entries.push(entry);
+        this.size = this.#entries.length;
+      }
+    }
     if (!entry) return false;
     await this.undo(entry);
     return true;
@@ -60,7 +83,14 @@ class UndoHistory {
     try {
       const message = await entry.undo();
       if (message !== false) toasts.show(message || UNDONE);
-    } catch {
+    } catch (error) {
+      // "Already undone", "Too old to undo": the server's own words; nothing to retry.
+      if (!worthRetrying(error)) {
+        if (!(error instanceof ApiError && error.status === 401)) {
+          toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+        }
+        return;
+      }
       this.#entries.push(entry);
       this.size = this.#entries.length;
       toasts.show(COULDNT_UNDO, {
@@ -119,7 +149,7 @@ export function isUndoKey(event: KeyboardEvent): boolean {
 export function handleUndoKey(event: KeyboardEvent): void {
   if (event.defaultPrevented || event.repeat || !isUndoKey(event)) return;
   if (isTextEntry(event.target)) return;
-  if (undoHistory.size === 0) return;
+  if (undoHistory.size === 0 && !undoHistory.fallback) return;
   event.preventDefault();
   void undoHistory.undoLast();
 }

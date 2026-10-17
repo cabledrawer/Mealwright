@@ -21,11 +21,30 @@ export interface SetupState {
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    readonly detail: string
+    readonly detail: string,
+    /** What the app must react to: "ask_once", "name_taken", "already_undone"… */
+    readonly code: string | null = null,
+    /** The whole answer, for extra fields (`ask`, `food_id`). */
+    readonly body: unknown = null
   ) {
     super(detail);
     this.name = 'ApiError';
   }
+}
+
+/** The machine-readable `code` of an error answer, if it has one. */
+export function codeOf(body: unknown): string | null {
+  if (body && typeof body === 'object' && 'code' in body) {
+    const code = (body as { code: unknown }).code;
+    if (typeof code === 'string' && code) return code;
+  }
+  return null;
+}
+
+/** Whether trying the same request again might work (no connection, or a server hiccup). */
+export function worthRetrying(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
 }
 
 type Fetch = typeof fetch;
@@ -53,19 +72,34 @@ export function detailOf(body: unknown): string {
   return FALLBACK;
 }
 
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface ApiOptions {
+  fetch?: Fetch;
+  signingIn?: boolean;
+  /**
+   * The change's client-made ID (save.ts). Sent as the Idempotency-Key header, so the
+   * server never applies the same change twice.
+   */
+  idempotencyKey?: string;
+}
+
 export async function api<T>(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: Method,
   path: string,
   body?: unknown,
-  options: { fetch?: Fetch; signingIn?: boolean } = {}
+  options: ApiOptions = {}
 ): Promise<T> {
   const doFetch = options.fetch ?? fetch;
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  if (options.idempotencyKey) headers['idempotency-key'] = options.idempotencyKey;
   let response: Response;
   try {
     response = await doFetch(`/api/v1${path}`, {
       method,
       credentials: 'same-origin',
-      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body === undefined ? undefined : JSON.stringify(body)
     });
   } catch {
@@ -75,7 +109,7 @@ export async function api<T>(
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     if (response.status === 401 && !options.signingIn) onUnauthorized?.();
-    throw new ApiError(response.status, detailOf(data));
+    throw new ApiError(response.status, detailOf(data), codeOf(data), data);
   }
   return data as T;
 }

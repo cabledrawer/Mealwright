@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from './api';
 import { toasts } from './toast.svelte';
 import {
   COULDNT_UNDO,
@@ -11,6 +12,7 @@ import {
 
 beforeEach(() => {
   undoHistory.clear();
+  undoHistory.fallback = null;
   toasts.dismiss();
 });
 
@@ -172,5 +174,35 @@ describe('Ctrl+Z / Cmd+Z', () => {
     press(document.body, { key: 'z', ctrlKey: true, repeat: true });
     await tick();
     expect(undo).not.toHaveBeenCalled();
+  });
+});
+
+describe('undo answers from the server', () => {
+  it('"already undone" or "too old" shows the reason, with nothing to retry', async () => {
+    undoHistory.record({
+      label: 'A',
+      undo: () => {
+        throw new ApiError(410, 'That was more than 7 days ago, so it can’t be undone.', 'too_old');
+      }
+    });
+    await undoHistory.undoLast();
+    expect(toasts.current?.message).toBe('That was more than 7 days ago, so it can’t be undone.');
+    expect(toasts.current?.action).toBeUndefined();
+    expect(undoHistory.size).toBe(0);
+  });
+});
+
+describe('Ctrl+Z after a reload', () => {
+  it('asks the server for your last change when this device has none', async () => {
+    const undo = vi.fn();
+    undoHistory.fallback = async () => ({ label: 'Used 200 g spinach', undo });
+    const event = press(document.body, { key: 'z', ctrlKey: true });
+    expect(event.defaultPrevented).toBe(true);
+    await vi.waitFor(() => expect(undo).toHaveBeenCalledOnce());
+  });
+
+  it('does nothing when the server has nothing either', async () => {
+    undoHistory.fallback = async () => null;
+    expect(await undoHistory.undoLast()).toBe(false);
   });
 });
