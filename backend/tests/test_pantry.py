@@ -450,3 +450,30 @@ def test_none_left(kitchen: TestClient) -> None:
     undo = kitchen.post(f"{API}/changes/{body['change']['id']}/undo").json()
     assert undo["result"] == "done"
     assert kitchen.get(f"{API}/foods/{onion['id']}").json()["stock"]["amount"] == 9.0
+
+
+def test_an_undo_has_lines_of_what_it_put_back(kitchen: TestClient, toor: dict[str, Any]) -> None:
+    added = add(kitchen, toor["id"], 1, "packet")
+    lot = added["groups"][0]["lots"][0]
+    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 150, "unit": "g"}})
+    undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
+    assert undo["result"] == "partly"
+    rows = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
+    assert rows[0]["kind"] == "undo"
+    [line] = rows[0]["lines"]
+    # Only what it actually took back: 150 g → 0, not 500 g.
+    assert (line["before"]["amount"], line["after"]["amount"]) == (150.0, 0.0)
+    assert line["lot_id"] == lot["id"]
+
+
+def test_an_undo_of_a_move_has_lines(kitchen: TestClient) -> None:
+    spinach = food(kitchen, "Spinach")
+    lot = add(kitchen, spinach["id"], 200, "g")["groups"][0]["lots"][0]
+    moved = kitchen.post(
+        f"{API}/stock/{lot['id']}/move", json={"place_id": place(kitchen, "Fridge")}
+    ).json()
+    kitchen.post(f"{API}/changes/{moved['change']['id']}/undo")
+    row = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"][0]
+    [line] = row["lines"]
+    assert (line["place_before"]["name"], line["place_after"]["name"]) == ("Fridge", "Cupboard")
+    assert line["before"]["amount"] == line["after"]["amount"] == 200.0

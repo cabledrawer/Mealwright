@@ -196,6 +196,12 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise too_old()
         tally = Tally()
         data = change.undo_data or {}
+        # Each lot as it was before the Undo, so the Undo gets its own lines.
+        touched: dict[int, tuple[StockLot, int, int, date | None]] = {}
+        for line in kitchen.db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
+            lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
+            if lot is not None and lot.id not in touched:
+                touched[lot.id] = (lot, lot.amount_milli, lot.place_id, lot.use_by)
         short = undo_lines(kitchen, change, tally)
         if data.get("foods"):
             undo_foods(kitchen, data["foods"], tally)
@@ -209,9 +215,31 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             "undo",
             f"Undid: {change.summary}",
             change.food_id,
-            {"result": result, "message": _message(kitchen, result, short)},
+            {
+                "result": result,
+                "message": _message(kitchen, result, short),
+                "undoes_kind": change.kind,
+            },
         )
         undo_change.undoes_change_id = change.id
+        # What the Undo actually did to each lot (a partial undo: only what it put back),
+        # for Recent changes and so the monthly totals net out.
+        for lot, amount, place_id, use_by in touched.values():
+            if (lot.amount_milli, lot.place_id, lot.use_by) != (amount, place_id, use_by):
+                kitchen.db.add(
+                    ChangeLine(
+                        household_id=kitchen.household_id,
+                        change_id=undo_change.id,
+                        food_id=lot.food_id,
+                        lot_id=lot.id,
+                        amount_before_milli=amount,
+                        amount_after_milli=lot.amount_milli,
+                        place_before_id=place_id,
+                        place_after_id=lot.place_id,
+                        use_by_before=use_by,
+                        use_by_after=lot.use_by,
+                    )
+                )
         change.undone_by_change_id = undo_change.id
         earlier = commit(kitchen)
         if earlier is None:

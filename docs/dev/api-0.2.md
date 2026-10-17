@@ -157,7 +157,7 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 
 **`change_line`**: one row per stock lot touched: `id`, `household_id`, `change_id`, `food_id`, `lot_id` (null after the lot is deleted), `amount_before_milli`, `amount_after_milli`, `place_before_id`, `place_after_id`, `use_by_before`, `use_by_after`.
 
-**`change_month`** (thinned history): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
+**`change_month`** (thinned history; an Undo's lines count under the kind of change it undid, as the opposite amount, and take that change out of the count, so "added 500 g, then undone" leaves nothing; there's no separate "undo" row): `household_id`, `month` ("2025-10"), `food_id`, `kind`, `amount_milli` (sum of before → after differences), `changes` (count). PK (household, month, food, kind).
 
 **History job** (APScheduler, `mealwright/jobs.py`; it runs in the background straight after start-up, so a big backlog never holds start-up up, and then every hour at :30, with no lateness limit; it's cheap and safe to repeat, so a server that's off at night still gets it. It works in chunks of 1,000 changes, each its own short transaction, with the totals added up by the database): sum changes older than `history_months` into `change_month`, then delete them (and their lines); delete empty lots older than the undo window. `idempotency_key`s go with their change.
 
@@ -509,7 +509,7 @@ Summaries: "Added 2 packets toor dal → Cupboard", "Used 200 g spinach", "Binne
   "next": null }
 ```
 
-`undo` changes are listed too ("Undid: Used 200 g spinach") but have `can_undo: false`: there's no redo in 0.2.
+`undo` changes are listed too ("Undid: Used 200 g spinach") but have `can_undo: false`: there's no redo in 0.2. An Undo of a stock change has its own `lines`: what it actually did to each lot (a partial undo shows only what it put back).
 
 **`POST /api/v1/changes/{id}/undo`** (any household login, within the undo window; takes `Idempotency-Key`)
 

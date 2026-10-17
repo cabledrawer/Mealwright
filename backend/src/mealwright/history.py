@@ -579,7 +579,7 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
     thinned = 0
     while True:
         chunk = db.execute(
-            select(Change.id, Change.at, Change.kind)
+            select(Change.id, Change.at, Change.kind, Change.undo_data)
             .where(Change.household_id == household.id, Change.at < cutoff)
             .order_by(Change.id)
             .limit(THIN_CHUNK)
@@ -588,7 +588,16 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
             break
         ids = [row.id for row in chunk]
         month_of = {row.id: as_utc(row.at).astimezone(local).strftime("%Y-%m") for row in chunk}
-        kind_of = {row.id: row.kind for row in chunk}
+        # An Undo is totalled under the kind of change it undid, as the opposite amount,
+        # and takes that change back out of the count: "added 150 g, 2 changes", not
+        # "added 650 g, 3 changes" plus a separate undo row.
+        kind_of = {
+            row.id: (row.undo_data or {}).get("undoes_kind", "undo")
+            if row.kind == "undo"
+            else row.kind
+            for row in chunk
+        }
+        step_of = {row.id: -1 if row.kind == "undo" else 1 for row in chunk}
 
         # Each change's total per food, added up by the database.
         totals: dict[tuple[str, int, str], list[int]] = {}
@@ -604,7 +613,7 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
             key = (month_of[change_id], food_id, kind_of[change_id])
             entry = totals.setdefault(key, [0, 0])
             entry[0] += int(amount or 0)
-            entry[1] += 1
+            entry[1] += step_of[change_id]
 
         if totals:
             existing = {
@@ -626,12 +635,12 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
                             food_id=food_id,
                             kind=kind,
                             amount_milli=amount,
-                            changes=changes,
+                            changes=max(0, changes),
                         )
                     )
                 else:
                     row.amount_milli += amount
-                    row.changes += changes
+                    row.changes = max(0, row.changes + changes)
 
         # Newer changes that point at these (an Undo of an old change) let go first.
         db.execute(

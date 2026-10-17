@@ -246,3 +246,22 @@ def test_app_starts_and_stops_the_scheduler(tmp_path: Path) -> None:
     app = create_app(Settings(data_dir=tmp_path / "data", run_jobs=True))
     with TestClient(app, base_url="https://testserver") as client:
         assert client.get(f"{API}/version").status_code == 200
+
+
+def test_an_undo_nets_out_in_the_monthly_totals(kitchen: TestClient) -> None:
+    toor = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
+    added = []
+    for grams in (500, 100, 50):
+        body = {"food_id": toor["id"], "amount": {"amount": grams, "unit": "g"}}
+        added.append(kitchen.post(f"{API}/stock", json=body).json()["change"]["id"])
+    kitchen.post(f"{API}/changes/{added[0]}/undo")
+    with db(kitchen) as session:
+        session.execute(update(Change).values(at=datetime(2025, 3, 10, 12, tzinfo=UTC)))
+        session.commit()
+        thin(session, session.get(Household, 1), now=datetime(2026, 10, 17, tzinfo=UTC))
+        rows = {
+            row.kind: (row.amount_milli, row.changes)
+            for row in session.scalars(select(ChangeMonth).where(ChangeMonth.food_id == toor["id"]))
+        }
+    # Only 150 g really stayed, from 2 changes; the Undo has no row of its own.
+    assert rows == {"added": (150_000, 2)}
