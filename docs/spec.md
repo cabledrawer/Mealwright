@@ -279,7 +279,7 @@ Plans after 1.0 are kept outside the repo.
 - **No new libraries needed:** Server-Sent Events are built into FastAPI; SvelteKit's own service worker support is used. `idb` (ISC, very small) is approved for the IndexedDB queue (cabledrawer 17 Oct); the pull request that builds the queue pins an exact version released at least two weeks earlier. Well-tested code matters more than one package fewer.
 - **A tick against a delete** (both offline): the tick still counts as bought, so the pantry gets the stock, and the item stays off the list. The person who ticked sees a quiet note, "Wren had removed this. Your tick still went into the pantry", with Undo.
 - **Unticking after a tick** takes the stock back out the way Undo does: if some has been used since, only what's left comes out, never below zero.
-- **Both add the same ingredient** offline (same list, same shop, neither ticked): it stays one line, keeping the bigger amount, with a quiet note ("Wren added milk too") and Undo.
+- **Both add the same ingredient** offline (same list, same shop, neither ticked): it stays one line, keeping the bigger amount, with a quiet note ("Wren added milk too") and Undo. The "same list, same shop, neither ticked" wording is confirmed (cabledrawer 18 Oct).
 - **Both change the same item's amount** offline: the change the server receives last wins, with a quiet note.
 - **"Did you buy 2?"** shows to both people who ticked. The first answer settles it and the card disappears for the other person. Until 0.6 the card shows on Shopping only; Today gets it with 0.6.
 - **Ticked items** fold into an "In the trolley · N" row at the end of each shop. "Clear ticked" removes them, with Undo.
@@ -288,6 +288,16 @@ Plans after 1.0 are kept outside the repo.
 - **Extra lists** can be renamed and removed, with Undo. The main list can be renamed but never removed.
 - **Main list subtitle:** "12 to buy · synced with Wren", or "12 to buy · saved" in a one-person household.
 - **Signing out with unsent changes:** "3 changes haven't been sent yet. If you sign out now, they're lost." Buttons: Try sending now · Stay signed in · Sign out and lose them. This is the one justified exception to "Undo, not Are you sure?" (UX principle 6): changes that were never sent can't be undone.
+- **An item with no amount** (weighed or measured, with no usual size): ticking it puts nothing into the pantry, and the ticked row offers "How much?" for one more tap if you want it counted. No prompt (cabledrawer 18 Oct).
+- **"How do you count it?"** is asked once, when a typed name is a brand-new ingredient: By weight · By volume · One by one · Don't count it (a staple, for kitchen roll and soap). When online, the bundled table's guess is picked first (cabledrawer 18 Oct).
+- **Put away on two phones** with different places: the one the server receives last wins, with a quiet note ("Wren put coriander in the Freezer") and Undo (cabledrawer 18 Oct).
+- **A different login on a phone holding someone's unsent changes:** the sign-in page says "Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." If someone else signs in anyway: "Wren's 3 changes haven't been sent yet. If you carry on, they're lost." Buttons: Sign in as Wren instead · Carry on and lose them. Carrying on wipes the phone's offline copy, as signing out does (cabledrawer 18 Oct).
+- **Starting aisles:** ingredients from the bundled table get a starting aisle from their USDA food category, with each category mapped to one of the default aisle names above; the rest start as Other. The aisle stays editable in the ingredient editor (cabledrawer 18 Oct).
+- **A removed list is hidden, not frozen:** changes queued for it on a phone that was offline still apply inside it, and ticks still go into the pantry. That person gets a quiet note ("Tess had removed Party on Saturday. Your changes are kept with it. Your ticks still went into the pantry.") with Undo, which brings the list back (cabledrawer 18 Oct).
+- **Changing an ingredient's usual shop** moves its unticked items from the old usual shop (or Any shop) to the new one; items someone put under a particular shop on purpose stay (cabledrawer 18 Oct).
+- **Adding something that's already on the list:** online, the add box says "Milk is already on the list · 2 L" and changes that line. When the person could already see the line, or it was added on the same phone, the amounts add up (2 L + 1 L = 3 L), with no note. "Keep the bigger amount" is only for two people adding the same thing without seeing each other's line (cabledrawer 18 Oct).
+- **A note or card for an item that's no longer on the list** shows in a faint row where the item was, in its shop ("Paneer · removed by Wren"), until the note is dismissed or the card answered (cabledrawer 18 Oct).
+- **A tick arriving after "Did you buy 2?" was answered** opens a fresh card covering every purchase still counted ("Did you buy 3?" after Yes, 2; "Did you buy 2?" again after Just 1) (cabledrawer 18 Oct).
 
 ### Foods and units (decided 17 Oct)
 
