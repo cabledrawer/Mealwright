@@ -1,7 +1,10 @@
 """Mealwright's own log: errors and sign-ins only (spec section 7).
 
-Log lines go to the container output and to a log file in the data folder,
-`/data/logs/mealwright.log`. Each day just after midnight (UTC) the file is put aside as
+Every line goes to a log file in the data folder, `/data/logs/mealwright.log`. The
+container output (what `docker logs` shows) gets everything except sign-in lines, which
+name an account or an address: in practice start-up messages, warnings and errors.
+Docker keeps its copy by size, not age, so on a quiet server it could keep sign-in lines
+for months (cabledrawer 17 Oct). Each day just after midnight (UTC) the file is put aside as
 `mealwright.log.YYYY-MM-DD` and a new one started, and files last written more than 14
 days ago are deleted. This runs on a timer, not when a line is written, so on a quiet
 server sign-in lines still go after 14 days. The file can be read by Mealwright's own
@@ -19,6 +22,9 @@ from io import TextIOWrapper
 from pathlib import Path
 
 KEEP_DAYS = 14
+
+# Lines that name an account or an address: log file only, never the container output.
+SIGN_IN_LOGGER = "mealwright.sign_in"
 FILE_NAME = "mealwright.log"
 
 # 2026-10-17T18:21:50Z WARNING mealwright.api.v1.account: Sign-in failed for unknown user …
@@ -115,6 +121,11 @@ def _keep_tidy(handler: DailyLogFile) -> None:
         tidy_once(handler, (midnight - timedelta(days=1)).date().isoformat())
 
 
+def not_sign_in(record: logging.LogRecord) -> bool:
+    """Filter for the container output: leaves out sign-in lines."""
+    return not (record.name == SIGN_IN_LOGGER or record.name.startswith(SIGN_IN_LOGGER + "."))
+
+
 def set_up_logging(data_dir: Path) -> DailyLogFile | None:
     """Send our log lines (and the web server's errors) to the output and the log file."""
     root = logging.getLogger()
@@ -122,6 +133,7 @@ def set_up_logging(data_dir: Path) -> DailyLogFile | None:
         root.removeHandler(handler)
     output = logging.StreamHandler(sys.stderr)
     output.setFormatter(formatter())
+    output.addFilter(not_sign_in)
     root.addHandler(output)
     root.setLevel(logging.WARNING)
     logging.getLogger("mealwright").setLevel(logging.INFO)
@@ -133,8 +145,8 @@ def set_up_logging(data_dir: Path) -> DailyLogFile | None:
         remove_old_logs(folder)
         file = DailyLogFile(folder)
     except OSError as error:
-        logging.getLogger(__name__).warning(
-            "Can't write the log file in %s (%s); logging to the output only", folder, error
+        logging.getLogger(__name__).error(
+            "Can't write the log file in %s (%s): sign-in lines aren't being kept", folder, error
         )
         return None
     file.setFormatter(formatter())

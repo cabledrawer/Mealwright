@@ -187,11 +187,10 @@ services:
       MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
     volumes:
       - ./data:/data
-    # Mealwright keeps its own log in data/logs and deletes it after 14 days. Docker
-    # keeps a copy of the same lines, which can only be limited by size, not by age:
-    # here 2 files of 1 MB (thousands of lines). On a quiet server that copy can hold
-    # lines older than 14 days until it fills; "docker compose up -d" after an update
-    # starts it afresh.
+    # Mealwright keeps its own log in data/logs and deletes it after 14 days; sign-in
+    # lines (names, addresses) go only there. Docker's copy holds start-up messages,
+    # warnings and errors. Docker can only limit it by size, not age: here 2 files of
+    # 1 MB, overriding the server's default for this container.
     logging:
       driver: json-file
       options:
@@ -210,7 +209,24 @@ networks:
         - subnet: 172.28.10.0/24   # a fixed range, named in MEALWRIGHT_TRUSTED_PROXIES
 ```
 
-**Logs (from 0.1.1):** Mealwright writes its own log to `data/logs/mealwright.log`, with a time on every line. Each night it starts a new file and deletes files older than 14 days (spec section 7). It holds errors and sign-ins only, and only Mealwright's own user can read it (use `sudo` to look). Docker keeps a copy of the same lines; the `logging:` lines above limit that copy to 2 MB, but Docker can only limit by size, so on a quiet server it may hold lines older than 14 days. If you already run 0.1.0, add those lines to your `compose.yaml` and run `docker compose up -d` again. To read the log: `docker logs mealwright`, or open the file in the data folder.
+**Logs (from 0.1.1):**
+
+- **Where:** Mealwright writes its own log to `~/mealwright/data/logs/mealwright.log` (inside the data folder, `/data/logs` in the container). Each night just after midnight (UTC) it starts a new file, `mealwright.log.YYYY-MM-DD`, and deletes files last written more than 14 days ago (spec section 7). Every line has a time (UTC).
+- **What:** errors and sign-ins only. Sign-in lines (anything with a username or an address) go **only** to this file, never to `docker logs`. `docker logs mealwright` shows start-up messages, warnings and errors only.
+- **Reading it:** only Mealwright's own user (10001) can read the file, so use `sudo`:
+
+  ```bash
+  sudo ls -l ~/mealwright/data/logs/
+  ```
+
+  ```bash
+  sudo less ~/mealwright/data/logs/mealwright.log
+  ```
+
+  (In `less`: `G` jumps to the end, `q` quits.)
+- **Backups:** the log folder is inside `data`, so a backup of the whole folder would keep sign-in lines for as long as the backup is kept, beyond 14 days. Leave `data/logs` out of your backups; the update backup in section 5 already does. The log isn't needed to restore Mealwright.
+- **Docker's copy:** the `logging:` lines above cap what Docker keeps for this container at 2 files of 1 MB. They **override the server's default** (on the home server, 3 × 10 MB for every container) for Mealwright only. Docker can only limit by size, not age, which is why sign-in lines aren't sent there at all.
+- **Already running 0.1.0?** Add the `logging:` lines to your `compose.yaml` and run `docker compose up -d` again.
 
 If `docker compose up` says the range is already in use, choose another free one, such as `172.30.43.0/24`, and change it in both places.
 
@@ -336,7 +352,7 @@ Every start-up applies database changes (migrations) for the new version. The ol
    OLD=$(grep -oE 'tess/mealwright:[^ ]+' compose.yaml | cut -d: -f2)
    echo "Current version: $OLD"
    docker compose stop mealwright
-   sudo tar -C ~/mealwright -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
+   sudo tar -C ~/mealwright --exclude=data/logs -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
    ls -lh backups/       # the new backup should be there, and not tiny
    ```
 

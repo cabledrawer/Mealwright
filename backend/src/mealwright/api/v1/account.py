@@ -25,7 +25,9 @@ from mealwright.auth import (
 )
 from mealwright.models import Household, Login
 
-log = logging.getLogger(__name__)
+# Every line here names an account or an address, so it goes to Mealwright's own 14-day
+# log file only, never to the container output (mealwright.logs, cabledrawer 17 Oct).
+log = logging.getLogger("mealwright.sign_in")
 
 router = APIRouter(tags=["account"], dependencies=[SameOrigin])
 

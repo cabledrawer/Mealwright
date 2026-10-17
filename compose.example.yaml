@@ -19,11 +19,10 @@ services:
       # The folder must belong to UID 10001, the user Mealwright runs as:
       #   sudo mkdir -p ./data && sudo chown 10001:10001 ./data
       - ./data:/data
-    # Mealwright keeps its own log in data/logs and deletes it after 14 days. Docker
-    # keeps a copy of the same lines, which can only be limited by size, not by age:
-    # here 2 files of 1 MB (thousands of lines). On a quiet server that copy can hold
-    # lines older than 14 days until it fills; "docker compose up -d" after an update
-    # starts it afresh.
+    # Mealwright keeps its own log in data/logs and deletes it after 14 days; sign-in
+    # lines (names, addresses) go only there. Docker's copy holds start-up messages,
+    # warnings and errors. Docker can only limit it by size, not age: here 2 files of
+    # 1 MB, overriding the server's default for this container.
     logging:
       driver: json-file
       options:

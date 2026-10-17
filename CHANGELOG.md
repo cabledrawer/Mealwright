@@ -14,7 +14,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Changed
 
 - **Log lines carry the time** (UTC, e.g. `2026-10-17T18:21:50Z`).
-- **The app keeps its own log for 14 days**, in `/data/logs/mealwright.log`, readable by Mealwright's own user only. Just after each midnight (UTC) it starts a new file and deletes files last written more than 14 days ago, even on a quiet server. Later, "Report a problem" will read recent errors from it. `compose.example.yaml` also limits Docker's own copy of the log to 2 files of 1 MB; Docker can only limit by size, not age. (Asked by cabledrawer.)
+- **The app keeps its own log for 14 days**, in `/data/logs/mealwright.log`, readable by Mealwright's own user only. Just after each midnight (UTC) it starts a new file and deletes files last written more than 14 days ago, even on a quiet server. Later, "Report a problem" will read recent errors from it. **Sign-in lines go only to this file, never to the container output** (`docker logs`), because Docker can only limit its copy by size, so on a quiet server it would keep them for months. The container output now holds start-up messages, warnings and errors. `compose.example.yaml` also limits Docker's copy to 2 files of 1 MB as a safety net. Leave `data/logs` out of backups (the update backup in the homelab guide already does). (Asked by cabledrawer.)
 - **The sign-in slow-down is logged** when it starts or doubles ("Sign-in slowed down for tess from 192.168.1.20 (wait 30 s)"). Each refused try isn't logged, so nobody can fill the disk by hammering the sign-in page. (Asked by cabledrawer.)
 - The sign-in slow-down no longer keeps memory for usernames and addresses that were only looked up.
 

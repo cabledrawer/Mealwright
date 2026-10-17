@@ -167,3 +167,30 @@ def test_an_old_logs_folder_is_tightened(tmp_path: Path, clean_logging: None) ->
     (tmp_path / "logs").mkdir(mode=0o755)
     set_up_logging(tmp_path)
     assert stat.S_IMODE((tmp_path / "logs").stat().st_mode) == 0o700
+
+
+def test_sign_in_lines_stay_out_of_the_container_output(
+    tmp_path: Path, clean_logging: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    set_up_logging(tmp_path)
+    logging.getLogger("mealwright.sign_in").info("Signed in: tess from 192.168.1.20")
+    logging.getLogger("mealwright.sign_in").warning("Sign-in failed for unknown user from x")
+    logging.getLogger("uvicorn.error").info("Application startup complete.")
+    logging.getLogger("mealwright.main").warning("MEALWRIGHT_ALLOW_PLAIN_HTTP is on")
+    logging.getLogger("mealwright.sign_in_other").error("Something broke")  # not sign-in
+    file_handler().flush()
+    output = capsys.readouterr().err
+    assert "tess" not in output and "192.168.1.20" not in output
+    assert "Sign-in failed" not in output
+    assert "Application startup complete." in output
+    assert "MEALWRIGHT_ALLOW_PLAIN_HTTP is on" in output
+    assert "Something broke" in output
+    text = (tmp_path / "logs" / FILE_NAME).read_text()
+    assert "Signed in: tess from 192.168.1.20" in text
+    assert "Application startup complete." in text
+
+
+def test_every_sign_in_line_uses_the_sign_in_logger() -> None:
+    from mealwright.api.v1 import account
+
+    assert account.log.name == "mealwright.sign_in"
