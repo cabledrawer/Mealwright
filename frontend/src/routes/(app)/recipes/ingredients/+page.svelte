@@ -262,6 +262,7 @@
   }
 
   .filter {
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: 1px solid var(--color-border-strong);
