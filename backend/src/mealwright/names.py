@@ -17,6 +17,26 @@ def fold(text: str) -> str:
     return "".join(c for c in decomposed if not unicodedata.combining(c)).strip()
 
 
+def search_match(name: str, others: list[str], needle: str) -> tuple[int, str | None] | None:
+    """Does a typed search find this food? `needle` is already folded. Returns how well
+    (0 name starts with it, 1 name contains it, 2 an other name starts with it, 3 an other
+    name contains it; lower is better) and which other name matched, or None for no match.
+    Used by Ingredients and by Pantry, so both find the same things."""
+    folded = fold(name)
+    if folded.startswith(needle):
+        return 0, None
+    if needle in folded:
+        return 1, None
+    best: tuple[int, str | None] | None = None
+    for other in others:
+        other_folded = fold(other)
+        if needle in other_folded:
+            rank = 2 if other_folded.startswith(needle) else 3
+            if best is None or rank < best[0]:
+                best = (rank, other)
+    return best
+
+
 def singular(word: str) -> str:
     if len(word) <= 3 or word.endswith("ss"):
         return word

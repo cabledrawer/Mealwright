@@ -81,6 +81,8 @@ export class PantryModel {
   useSoon = $state<UseSoonLot[]>([]);
   changes = $state<Change[]>([]);
   filter = $state<PantryFilter>('all');
+  /** What is typed in "Find in pantry". */
+  query = $state('');
   problem = $state<string | null>(null);
 
   #asked = 0;
@@ -89,7 +91,7 @@ export class PantryModel {
     const asked = ++this.#asked;
     try {
       const [pantry, useSoon, changes] = await Promise.all([
-        getPantry(this.filter),
+        getPantry(this.filter, this.query),
         getUseSoon(),
         listChanges({ area: 'pantry', limit: RECENT })
       ]);

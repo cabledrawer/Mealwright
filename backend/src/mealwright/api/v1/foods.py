@@ -74,7 +74,7 @@ from mealwright.models import (
     StockLot,
     utcnow,
 )
-from mealwright.names import clean, fold, normalise
+from mealwright.names import clean, fold, normalise, search_match
 from mealwright.stock import has_stock, lots_of
 
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
@@ -246,7 +246,7 @@ def same_out(
     return sorted(result, key=lambda m: fold(m.name))
 
 
-def _names_by_food(kitchen: Kitchen) -> dict[int, list[str]]:
+def names_by_food(kitchen: Kitchen) -> dict[int, list[str]]:
     names: dict[int, list[str]] = defaultdict(list)
     for row in kitchen.db.scalars(
         select(FoodName).where(FoodName.household_id == kitchen.household_id).order_by(FoodName.id)
@@ -318,7 +318,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         )
 
     foods = all_foods(kitchen)
-    same = maybe_same(kitchen, foods, _names_by_food(kitchen)).get(food.id, set())
+    same = maybe_same(kitchen, foods, names_by_food(kitchen)).get(food.id, set())
     by_id = {f.id: f for f in foods}
     cup_weight, item_weight = _conversion(kitchen, food)
     last = db.scalar(
@@ -421,7 +421,7 @@ def list_foods(
     """Every food, searchable by any of its names. Filters: All · Staples · Maybe the same
     ("Not in any recipe" arrives with recipes in 0.4)."""
     foods = all_foods(kitchen)
-    names = _names_by_food(kitchen)
+    names = names_by_food(kitchen)
     same = maybe_same(kitchen, foods, names)
     usual: dict[int, FoodSize] = {}
     for size in kitchen.db.scalars(
@@ -459,23 +459,12 @@ def list_foods(
         if filter == "maybe_same" and food.id not in same:
             continue
         matched: str | None = None
-        rank = 2
+        rank = 4
         if needle:
-            folded = fold(food.name)
-            if folded.startswith(needle):
-                rank = 0
-            elif needle in folded:
-                rank = 1
-            else:
-                rank = 3
-                for other in names.get(food.id, []):
-                    other_folded = fold(other)
-                    if needle in other_folded:
-                        option = 0 if other_folded.startswith(needle) else 1
-                        if option < rank:
-                            rank, matched = option, other
-                if rank == 3:
-                    continue
+            found = search_match(food.name, names.get(food.id, []), needle)
+            if found is None:
+                continue
+            rank, matched = found
         scored.append((rank, fold(food.name), food, matched))
     scored.sort(key=lambda item: (item[0], item[1]))
 

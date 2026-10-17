@@ -10,11 +10,17 @@ describe('stock', () => {
   it('reads the pantry, with a filter when one is chosen', async () => {
     const requests = fakeApi({
       'GET /pantry': [200, {}],
-      'GET /pantry?filter=use_soon': [200, {}]
+      'GET /pantry?filter=use_soon': [200, {}],
+      'GET /pantry?q=thuvaram': [200, {}]
     });
     await getPantry();
     await getPantry('use_soon');
-    expect(requests.map((r) => r.url)).toEqual(['/pantry', '/pantry?filter=use_soon']);
+    await getPantry('all', ' thuvaram ');
+    expect(requests.map((r) => r.url)).toEqual([
+      '/pantry',
+      '/pantry?filter=use_soon',
+      '/pantry?q=thuvaram'
+    ]);
   });
 
   it('adds stock with its change ID, and ask-once answers inside the amount', async () => {

@@ -6,12 +6,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
 from mealwright.amounts import NBSP
 from mealwright.api.v1.context import Here, Kitchen
+from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, not_found
@@ -19,6 +20,7 @@ from mealwright.foods import amount_out, change_out, find, resolve, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
 from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot
+from mealwright.names import fold, search_match
 from mealwright.stock import (
     FREEZER_MONTHS,
     StockEdit,
@@ -230,21 +232,29 @@ def _sort_key(group: GroupOut) -> tuple[bool, date, str]:
 def pantry(
     kitchen: Here,
     filter: Literal["all", "use_soon", "running_low", "staples"] = "all",
+    q: Annotated[str, Query(max_length=100)] = "",
 ) -> PantryOut:
     """The whole Pantry screen in one call: places (tabs on phone, columns on desktop), each
-    food's packets grouped with their dates, and the staples."""
+    food's packets grouped with their dates, and the staples. `q` searches by any name the
+    way Ingredients does (other names too); each place's `items` then counts what is shown."""
     view = Pantry(kitchen)
+    needle = fold(q.strip())
+    names = names_by_food(kitchen) if needle else {}
     by_group: dict[tuple[int, int], list[StockLot]] = defaultdict(list)
     for lot in lots_of(kitchen):
         by_group[(lot.food_id, lot.place_id)].append(lot)
     groups: dict[int, list[GroupOut]] = defaultdict(list)
     all_groups = []
+    found: list[GroupOut] = []  # the ones a search finds (all of them without a search)
     for (food_id, place_id), lots in by_group.items():
         food = view.food(food_id)
         if food.staple or food.removed_at is not None or food.merged_into_id is not None:
             continue
         group = view.group(food_id, place_id, lots)
         all_groups.append(group)
+        if needle and search_match(food.name, names.get(food.id, []), needle) is None:
+            continue
+        found.append(group)
         if filter == "use_soon" and not any(lot.use_soon for lot in group.lots):
             continue
         if filter in ("running_low", "staples") and not (
@@ -275,7 +285,7 @@ def pantry(
                 id=place.id,
                 name=place.name,
                 kind=place.kind,  # type: ignore[arg-type]
-                items=sum(1 for g in all_groups if g.place.id == place.id),
+                items=sum(1 for g in found if g.place.id == place.id),
                 groups=sorted(groups.get(place.id, []), key=_sort_key),
             )
             for place in view.places.values()

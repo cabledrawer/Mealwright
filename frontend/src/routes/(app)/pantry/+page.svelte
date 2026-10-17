@@ -35,7 +35,6 @@
   });
 
   let tab = $state('all');
-  let query = $state('');
   let addingStaple = $state(false);
   /** Phone: Recent changes beyond the last 3. */
   let moreChanges = $state(false);
@@ -49,6 +48,19 @@
     void kitchen.version;
     void model.filter;
     void model.load();
+  });
+
+  // Typing in "Find in pantry": ask again shortly after the last key. The server matches
+  // every name an ingredient has, the same way Ingredients does.
+  let firstSearch = true;
+  $effect(() => {
+    void model.query;
+    if (firstSearch) {
+      firstSearch = false;
+      return;
+    }
+    const timer = setTimeout(() => void model.load(), 200);
+    return () => clearTimeout(timer);
   });
 
   function onVisible() {
@@ -80,14 +92,6 @@
   const phonePlaces = $derived(
     tab === 'all' ? places : places.filter((p) => `place-${p.id}` === tab)
   );
-
-  /** Desktop search: by food name, on what's already here. */
-  function matching(place: PantryPlace) {
-    const q = query.trim().toLocaleLowerCase();
-    return q
-      ? place.groups.filter((g) => g.food.name.toLocaleLowerCase().includes(q))
-      : place.groups;
-  }
 
   const FILTERS: { value: PantryFilter; label: () => string }[] = [
     { value: 'all', label: () => 'All' },
@@ -164,7 +168,7 @@
 {/snippet}
 
 {#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null)}
-  {@const groups = matching(place)}
+  {@const groups = place.groups}
   {@const visible = limit && !expanded[place.id] ? groups.slice(0, limit) : groups}
   <section class="place" aria-labelledby="{uid}-place-{place.id}">
     <div class="place-head" class:visually-hidden={!heading}>
@@ -187,7 +191,9 @@
       {/if}
     {:else}
       <p class="empty">
-        {query.trim() ? `Nothing called “${query.trim()}” here.` : `Nothing in the ${place.name}.`}
+        {model.query.trim()
+          ? `Nothing called “${model.query.trim()}” here.`
+          : `Nothing in the ${place.name}.`}
       </p>
     {/if}
   </section>
@@ -301,7 +307,7 @@
             type="search"
             placeholder="Find in pantry…"
             aria-label="Find in pantry"
-            bind:value={query}
+            bind:value={model.query}
           />
         </label>
         <div class="filters" role="group" aria-label="Show">
@@ -315,7 +321,7 @@
           {/each}
         </div>
       </div>
-      {#if pantry.counts.items === 0 && model.filter === 'all'}
+      {#if pantry.counts.items === 0 && model.filter === 'all' && !model.query.trim()}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what's in your fridge and cupboards, and Mealwright keeps count.</p>

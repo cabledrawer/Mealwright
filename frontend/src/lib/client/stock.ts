@@ -10,8 +10,13 @@ function withAnswers(amount: AmountIn, answers: Answer[]): AmountIn {
   return answers.length ? { ...amount, answers } : amount;
 }
 
-export function getPantry(filter: PantryFilter = 'all'): Promise<Pantry> {
-  return api<Pantry>('GET', filter === 'all' ? '/pantry' : `/pantry?filter=${filter}`);
+/** The pantry. `search` looks at every name an ingredient has (the server does the matching). */
+export function getPantry(filter: PantryFilter = 'all', search = ''): Promise<Pantry> {
+  const params = new URLSearchParams();
+  if (filter !== 'all') params.set('filter', filter);
+  if (search.trim()) params.set('q', search.trim());
+  const query = params.toString();
+  return api<Pantry>('GET', query ? `/pantry?${query}` : '/pantry');
 }
 
 export const getUseSoon = () => api<{ lots: UseSoonLot[] }>('GET', '/pantry/use-soon');

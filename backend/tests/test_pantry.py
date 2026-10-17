@@ -655,3 +655,31 @@ def test_summaries_for_counted_ingredients(kitchen: TestClient) -> None:
         f"{API}/foods/{bread['id']}/left", json={"amount": {"amount": 2, "unit": "count"}}
     ).json()
     assert left["change"]["summary"] == "Bread: 4\u00a0slices → 2\u00a0slices"
+
+
+def test_pantry_search_finds_other_names(kitchen: TestClient, toor: dict[str, Any]) -> None:
+    kitchen.post(f"{API}/foods/{toor['id']}/other-names", json={"name": "thuvaram paruppu"})
+    add(kitchen, toor["id"], 1, "packet")
+    onion = food(kitchen, "Onion")
+    add(kitchen, onion["id"], 3, "count")
+    found = pantry(kitchen, q="thuvaram")
+    cupboard = next(p for p in found["places"] if p["name"] == "Cupboard")
+    assert [g["food"]["name"] for g in cupboard["groups"]] == ["Toor dal"]
+    # The header count is what is shown, and the same for any capital letters.
+    assert cupboard["items"] == 1
+    shouting = pantry(kitchen, q="THUVARAM")["places"]
+    assert [p["items"] for p in shouting] == [p["items"] for p in found["places"]]
+    # Ingredients finds the same food with the same words.
+    listed = kitchen.get(f"{API}/foods", params={"q": "thuvaram"}).json()["foods"]
+    assert [f["name"] for f in listed] == ["Toor dal"]
+
+
+def test_pantry_search_with_nothing_found_counts_nothing(
+    kitchen: TestClient, toor: dict[str, Any]
+) -> None:
+    add(kitchen, toor["id"], 1, "packet")
+    found = pantry(kitchen, q="zzz")
+    assert [p["items"] for p in found["places"]] == [0, 0, 0, 0]
+    assert all(p["groups"] == [] for p in found["places"])
+    assert found["counts"]["items"] == 1  # the pantry itself still has one thing
+    assert sum(p["items"] for p in pantry(kitchen)["places"]) == 1
