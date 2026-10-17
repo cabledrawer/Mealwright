@@ -16,7 +16,7 @@ Every change is checked against these rules:
 
 - **No data collection.** No telemetry, analytics, usage stats or crash reporting, not even opt-in. Logs stay on the server.
 - **No location access, ever.** Units and country come from the browser or OS language, or the user's own choice.
-- **No new outbound connection unless it sits behind a Privacy switch.** Every outgoing request goes through the outbound gate module, which blocks it unless its switch is on. Never call `httpx`, `requests`, `urllib` or sockets directly. The test suite fails if you do.
+- **No new outbound connection unless it sits behind a Privacy switch.** Every outgoing request goes through the outbound gate (`mealwright.outbound`), which blocks it unless its switch is on. While the app runs, any other connection or DNS lookup is refused. Never call `httpx`, `requests`, `urllib` or sockets directly. The test suite fails if you do.
 - **No third-party assets at runtime.** Fonts, icons and scripts are bundled. No CDNs. The Content Security Policy stays strict.
 - **Recipe images are stored locally**, never hotlinked.
 

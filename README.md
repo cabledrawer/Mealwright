@@ -14,7 +14,7 @@ Mealwright collects nothing. No telemetry, analytics or crash reporting, not eve
 
 The built-in telemetry of the libraries Mealwright uses is switched off (FastAPI's OpenTelemetry support included), and the tests check that no telemetry exporter is installed, in the code and in the Docker image.
 
-Outbound connections happen only when you switch them on in Settings → Privacy. The full list of every possible outbound connection will be written here before 1.0.0.
+Outbound connections happen only when you switch them on in Settings → Privacy. Every one of them goes through a single gate in the code, which checks its switch first, and while Mealwright runs any other attempt to connect out, or even to look up an address, is refused. The full list of every possible outbound connection will be written here before 1.0.0.
 
 ## Licence
 
