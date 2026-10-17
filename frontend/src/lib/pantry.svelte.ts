@@ -9,6 +9,8 @@ import { patchFood } from './client/foods';
 import {
   addStock,
   binnedLot,
+  foodLeft,
+  foodUsed,
   getPantry,
   getUseSoon,
   moveLot,
@@ -178,6 +180,30 @@ export class PantryModel {
             for (const lot of group.lots) if (lot.id === lotId) lot.use_by = useBy;
       },
       send: (key) => setUseBy(lotId, useBy, key)
+    });
+  }
+
+  /** "Used some" on a food in a place. */
+  usedSome(foodId: number, foodName: string, amount: AmountIn, placeId: number) {
+    return this.#act({
+      label: `Used ${amount.amount} ${amount.unit === 'count' ? '' : `${amount.unit} `}${foodName.toLocaleLowerCase()}`,
+      send: (key, answers) => foodUsed(foodId, amount, placeId, key, answers)
+    });
+  }
+
+  /** "How many left?" on a food in a place (0 = none left). */
+  leftOf(foodId: number, foodName: string, amount: AmountIn, placeId: number) {
+    return this.#act({
+      label: `${foodName}: ${amount.amount} left`,
+      edit:
+        amount.amount === 0
+          ? (pantry) => {
+              for (const place of pantry.places)
+                if (place.id === placeId)
+                  place.groups = place.groups.filter((g) => g.food.id !== foodId);
+            }
+          : undefined,
+      send: (key, answers) => foodLeft(foodId, amount, placeId, key, answers)
     });
   }
 

@@ -49,6 +49,7 @@ describe('the Pantry page', () => {
       },
       [`POST /stock/${sample.yoghurt.id}/left`]: written('Yoghurt: ½ tub → about ¼ tub'),
       'GET /foods/7': [200, toorDal()],
+      'POST /foods/7/used': written('Used 200 g toor dal'),
       'GET /places': [200, PLACES],
       'POST /stock': [
         201,
@@ -205,6 +206,45 @@ describe('the Pantry page', () => {
     });
     await vi.waitFor(() =>
       expect(toasts.current?.message).toBe('Added 2 packets toor dal → Cupboard')
+    );
+  });
+
+  it('"Used some" on a food takes from its packets, oldest first', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: /^Toor dal/ }).click();
+    await page.getByLabelText('Used some (g)').fill('200');
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Toor dal' })
+      .getByRole('button', { name: 'Used', exact: true })
+      .last()
+      .click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.path === '/foods/7/used')?.body).toEqual({
+        amount: { amount: 200, unit: 'g' },
+        place_id: 3
+      })
+    );
+  });
+
+  it("shows the server's sentence when there's nothing left to use", async () => {
+    routes({
+      'POST /foods/7/used': [
+        409,
+        { detail: 'There’s no toor dal in the cupboard to use.', code: 'nothing_left' }
+      ]
+    });
+    await render(1300);
+    await page.getByRole('button', { name: /^Toor dal/ }).click();
+    await page.getByLabelText('Used some (g)').fill('200');
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: 'Toor dal' })
+      .getByRole('button', { name: 'Used', exact: true })
+      .last()
+      .click();
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('There’s no toor dal in the cupboard to use.')
     );
   });
 });

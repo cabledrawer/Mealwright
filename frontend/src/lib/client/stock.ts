@@ -67,3 +67,33 @@ export const moveLot = (lotId: number, placeId: number, idempotencyKey: string) 
 
 export const setUseBy = (lotId: number, useBy: string | null, idempotencyKey: string) =>
   api<StockWrite>('PATCH', `/stock/${lotId}`, { use_by: useBy }, key(idempotencyKey));
+
+/** "How much did you use?" on a food in a place: the oldest / soonest packets go first. */
+export const foodUsed = (
+  foodId: number,
+  amount: AmountIn,
+  placeId: number,
+  idempotencyKey: string,
+  answers: Answer[] = []
+) =>
+  api<StockWrite>(
+    'POST',
+    `/foods/${foodId}/used`,
+    { amount: withAnswers(amount, answers), place_id: placeId },
+    key(idempotencyKey)
+  );
+
+/** "3 left" on a food in a place (0 = none left). */
+export const foodLeft = (
+  foodId: number,
+  amount: AmountIn,
+  placeId: number,
+  idempotencyKey: string,
+  answers: Answer[] = []
+) =>
+  api<StockWrite>(
+    'POST',
+    `/foods/${foodId}/left`,
+    { amount: withAnswers(amount, answers), place_id: placeId },
+    key(idempotencyKey)
+  );

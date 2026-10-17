@@ -74,6 +74,23 @@
     void model.setLeft(lot.id, name, { amount: { amount, unit: baseUnit } });
   }
 
+  /** "Used some" (weight, volume) or "How many left?" (count foods), for the whole food. */
+  function useSome(event: SubmitEvent) {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    const text = String(new FormData(form).get('n') ?? '')
+      .trim()
+      .replace(',', '.');
+    const n = Number(text);
+    if (!text || !(n >= 0)) return;
+    form.reset();
+    if (group.food.counted_as === 'count') {
+      void model.leftOf(group.food.id, name, { amount: n, unit: 'count' }, place.id);
+    } else if (n > 0) {
+      void model.usedSome(group.food.id, name, { amount: n, unit: baseUnit }, place.id);
+    }
+  }
+
   function move(lot: Lot, event: Event) {
     const id = Number((event.currentTarget as HTMLSelectElement).value);
     const to = places.find((p) => p.id === id);
@@ -204,6 +221,21 @@
         </div>
       {/each}
       {#if group.lots.length > 1}<span class="hint">Oldest gets used first.</span>{/if}
+      <form class="some" onsubmit={useSome}>
+        {#if group.food.counted_as === 'count'}
+          <label class="small-field">
+            How many left?
+            <input name="n" inputmode="numeric" placeholder="e.g. 3" />
+          </label>
+          <button type="submit" class="pill">Save</button>
+        {:else}
+          <label class="small-field">
+            Used some ({baseUnit})
+            <input name="n" inputmode="decimal" placeholder="e.g. 200" />
+          </label>
+          <button type="submit" class="pill">Used</button>
+        {/if}
+      </form>
       <button type="button" class="link" onclick={() => ingredientEditor.open(group.food.id)}>
         Edit {name.toLocaleLowerCase()}
       </button>
@@ -416,6 +448,16 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .some {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3);
+  }
+
+  .some input {
+    width: 7rem;
   }
 
   .small-field {
