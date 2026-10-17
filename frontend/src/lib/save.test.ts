@@ -1,0 +1,186 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from './api';
+import { COULDNT_SAVE, save, useSender, worthRetrying, type Change } from './save';
+import { toasts } from './toast.svelte';
+import { UNDONE, undoHistory } from './undo.svelte';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+beforeEach(() => {
+  undoHistory.clear();
+  toasts.dismiss();
+});
+
+afterEach(() => useSender(null));
+
+/** A pretend "where does toor dal live" setting, saved through save(). */
+function placeChange(
+  state: { place: string },
+  to: string,
+  send: Change<string>['send'],
+  withUndo = false
+): Change<string> {
+  const before = state.place;
+  return {
+    apply: () => (state.place = to),
+    rollback: () => (state.place = before),
+    send,
+    undo: withUndo
+      ? { label: `Toor dal lives in ${to}`, run: () => void (state.place = before) }
+      : undefined
+  };
+}
+
+/** A promise you settle yourself, to look at the screen while a save is on its way. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe('save', () => {
+  it('shows the change at once, before the server answers', async () => {
+    const state = { place: 'Cupboard' };
+    const reply = deferred<string>();
+    const done = save(placeChange(state, 'Fridge', () => reply.promise));
+    expect(state.place).toBe('Fridge');
+    reply.resolve('ok');
+    expect(await done).toEqual({ ok: true, value: 'ok' });
+    expect(state.place).toBe('Fridge');
+  });
+
+  it('sends a fresh change ID (a UUID) with every change', async () => {
+    const ids: string[] = [];
+    const send = async (id: string) => {
+      ids.push(id);
+      return 'ok';
+    };
+    await save(placeChange({ place: 'Cupboard' }, 'Fridge', send));
+    await save(placeChange({ place: 'Cupboard' }, 'Freezer', send));
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toMatch(UUID);
+    expect(ids[1]).toMatch(UUID);
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it('rolls back and says so calmly when it can’t save', async () => {
+    const state = { place: 'Cupboard' };
+    const result = await save(
+      placeChange(state, 'Fridge', () => Promise.reject(new ApiError(0, 'offline')))
+    );
+    expect(result.ok).toBe(false);
+    expect(state.place).toBe('Cupboard');
+    expect(toasts.current?.message).toBe(COULDNT_SAVE);
+    expect(toasts.current?.tone).toBe('problem');
+    expect(toasts.current?.action?.label).toBe('Try again');
+  });
+
+  it('Try again sends the same change ID, so the server can ignore a double', async () => {
+    const state = { place: 'Cupboard' };
+    const ids: string[] = [];
+    let fail = true;
+    const send = async (id: string) => {
+      ids.push(id);
+      if (fail) throw new ApiError(503, 'busy');
+      return 'ok';
+    };
+    await save(placeChange(state, 'Fridge', send));
+    expect(state.place).toBe('Cupboard');
+    fail = false;
+    toasts.act();
+    expect(state.place).toBe('Fridge'); // shown again at once
+    await vi.waitFor(() => expect(ids).toHaveLength(2));
+    expect(ids[1]).toBe(ids[0]);
+    expect(state.place).toBe('Fridge');
+  });
+
+  it("shows the server's reason, without Try again, when it says no", async () => {
+    const state = { place: 'Cupboard' };
+    await save(
+      placeChange(state, 'Fridge', () =>
+        Promise.reject(new ApiError(422, 'There is already a food called Toor dal.'))
+      )
+    );
+    expect(state.place).toBe('Cupboard');
+    expect(toasts.current?.message).toBe('There is already a food called Toor dal.');
+    expect(toasts.current?.action).toBeUndefined();
+  });
+
+  it('stays quiet when the session has ended (sign in takes over)', async () => {
+    await save(
+      placeChange({ place: 'Cupboard' }, 'Fridge', () =>
+        Promise.reject(new ApiError(401, 'Please sign in.'))
+      )
+    );
+    expect(toasts.current).toBeNull();
+  });
+
+  it('knows which problems are worth trying again', () => {
+    expect(worthRetrying(new ApiError(0, ''))).toBe(true);
+    expect(worthRetrying(new ApiError(500, ''))).toBe(true);
+    expect(worthRetrying(new ApiError(429, ''))).toBe(true);
+    expect(worthRetrying(new TypeError('Failed to fetch'))).toBe(true);
+    expect(worthRetrying(new ApiError(404, ''))).toBe(false);
+    expect(worthRetrying(new ApiError(422, ''))).toBe(false);
+  });
+});
+
+describe('save with Undo', () => {
+  it('shows the change with Undo straight away, and Undo takes it back', async () => {
+    const state = { place: 'Cupboard' };
+    await save(placeChange(state, 'Fridge', async () => 'ok', true));
+    expect(toasts.current?.message).toBe('Toor dal lives in Fridge');
+    toasts.act();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe(UNDONE));
+    expect(state.place).toBe('Cupboard');
+  });
+
+  it('Undo pressed before the server answers waits for it, then undoes', async () => {
+    const state = { place: 'Cupboard' };
+    const reply = deferred<string>();
+    const undoRan = vi.fn();
+    const change = placeChange(state, 'Fridge', () => reply.promise);
+    change.undo = { label: 'Moved', run: undoRan };
+    void save(change);
+    const undone = undoHistory.undoLast();
+    expect(undoRan).not.toHaveBeenCalled();
+    reply.resolve('saved-id');
+    await undone;
+    expect(undoRan).toHaveBeenCalledWith('saved-id');
+  });
+
+  it('a change that failed to save leaves nothing to undo', async () => {
+    await save(
+      placeChange({ place: 'Cupboard' }, 'Fridge', () => Promise.reject(new ApiError(0, '')), true)
+    );
+    expect(undoHistory.size).toBe(0);
+  });
+
+  it('Undo pressed before a save that then fails says nothing more', async () => {
+    const reply = deferred<string>();
+    const change = placeChange({ place: 'Cupboard' }, 'Fridge', () => reply.promise, true);
+    void save(change);
+    const undone = undoHistory.undoLast();
+    reply.reject(new ApiError(0, ''));
+    await undone;
+    expect(toasts.current?.message).toBe(COULDNT_SAVE);
+  });
+});
+
+describe('the sender (where the 0.3 offline queue plugs in)', () => {
+  it('every change goes out through it, with its ID', async () => {
+    const seen: string[] = [];
+    useSender(async (change) => {
+      seen.push(change.changeId);
+      return change.send(change.changeId);
+    });
+    const result = await save(placeChange({ place: 'Cupboard' }, 'Fridge', async () => 'ok'));
+    expect(result).toEqual({ ok: true, value: 'ok' });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatch(UUID);
+  });
+});
