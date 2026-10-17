@@ -69,11 +69,9 @@ describe('the Ingredients page', () => {
     vi.unstubAllGlobals();
   });
 
-  it('lists every food from the server, with its counts', async () => {
+  it('lists every ingredient from the server, with its counts', async () => {
     await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
-    await expect
-      .element(page.getByText('2 foods · shared by recipes, pantry and shopping'))
-      .toBeVisible();
+    await expect.element(page.getByText(/^2 ingredients · shared by/)).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Maybe the same · 1' })).toBeVisible();
   });
 

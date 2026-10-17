@@ -100,7 +100,7 @@
   title="Ingredients"
   parent={{ href: '/recipes', label: 'Recipes' }}
   subtitle={list.loaded
-    ? `${list.counts.all} ${list.counts.all === 1 ? 'food' : 'foods'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
+    ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
 />
 

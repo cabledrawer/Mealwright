@@ -7,6 +7,7 @@
   // Waiting for later milestones (spec "Decided for 0.2"): "Used in N recipes" (0.4).
   import { parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
+  import { canRemove } from '$lib/canRemove';
   import { FoodModel } from '$lib/foodEditor.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
@@ -604,10 +605,14 @@
         title={food.last_change?.can_undo ? `Undo: ${food.last_change.summary}` : undefined}
         onclick={() => void model.undoLast()}>Undo last change</button
       >
-      <button type="button" class="link muted remove-food" onclick={() => void model.remove()}
-        >Remove</button
-      >
     </footer>
+
+    {#if canRemove(food)}
+      <!-- Only when nothing depends on it (canRemove). Undo works for 7 days. -->
+      <button type="button" class="remove-ingredient" onclick={() => void model.remove()}
+        >Remove from Ingredients</button
+      >
+    {/if}
   {/if}
 </div>
 
@@ -831,8 +836,17 @@
     opacity: 0.6;
   }
 
-  .remove-food {
-    margin-left: auto;
+  .remove-ingredient {
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    padding: 0 14px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .chip-input {

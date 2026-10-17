@@ -45,7 +45,7 @@ test('Ingredients opens from Recipes and passes the accessibility checks', async
       .click();
   await expect(page).toHaveURL('/recipes/ingredients');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients');
-  await expect(page.getByText(/foods? · shared by (your )?recipes, pantry and shopping/)).toBeVisible();
+  await expect(page.getByText(/ingredients? · shared by (your )?recipes, pantry and shopping/)).toBeVisible();
   await checkPage(page);
 });
 

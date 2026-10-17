@@ -44,6 +44,11 @@ describe('the ingredient editor, opened from anywhere', () => {
           }
         ];
       },
+      'DELETE /foods/7': [200, { change: changeOf(904, 'Removed Toor dal from Ingredients') }],
+      'POST /changes/904/undo': [
+        200,
+        { result: 'done', message: '', change: changeOf(905, 'Undid'), food: null }
+      ],
       'POST /changes/900/undo': [
         200,
         { result: 'done', message: 'Undone.', change: changeOf(902, 'Undid'), food: null }
@@ -178,5 +183,28 @@ describe('the ingredient editor, opened from anywhere', () => {
     expect(dialog.getByRole('button', { name: 'arhar dal', exact: true }).elements()).toHaveLength(
       0
     );
+  });
+
+  it('"Remove from Ingredients" shows only when none is in the pantry', async () => {
+    food = toorDal({ stock: { amount: 750, display: '1½ packets · about 750 g' } });
+    const dialog = await openToorDal();
+    await expect.element(dialog.getByText('Packet = 500 g')).toBeVisible();
+    expect(dialog.getByRole('button', { name: 'Remove from Ingredients' }).elements()).toHaveLength(
+      0
+    );
+  });
+
+  it('"Remove from Ingredients" removes it, with Undo', async () => {
+    const dialog = await openToorDal();
+    await dialog.getByRole('button', { name: 'Remove from Ingredients' }).click();
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.method === 'DELETE' && r.path === '/foods/7')).toBe(true)
+    );
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+    );
+    expect(ingredientEditor.foodId).toBeNull(); // the editor closes
+    toasts.act();
+    await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/904/undo')).toBe(true));
   });
 });

@@ -299,6 +299,8 @@ Plans after 1.0 are kept outside the repo.
 
 **Ingredients screen (cabledrawer 17 Oct):** not its own top-level section. It sits under Recipes — the sidebar shows a tree: Recipes → All recipes · Drafts · Ingredients; on phone the All recipes screen has Drafts and Ingredients buttons at the top. The screen lists every food (search by any name; filters All · Staples · Not in any recipe · Maybe the same) with an editor: name, other names, how it's sold (sale units), weight of a cup, running-low level, usual place and shop, staple switch, "Can use instead", the recipes that use it, Merge with another, Undo. Changes save as you go. **Tap any ingredient anywhere** (a recipe's ingredient list, a pantry item, a shopping-list item, Import review) to open the same editor.
 
+**Removing an ingredient (cabledrawer 17 Oct):** the Ingredients editor has a **"Remove from Ingredients"** button, which deletes that food's record entirely. It appears only when nothing depends on the food: none in the pantry, not on any shopping list and (from 0.4) not used in any recipe. Like every change it can be undone for 7 days. **Words (cabledrawer 17 Oct):** on screen it's always "ingredient", because the screen is called Ingredients; "food" is the internal word in the data model and code and is never shown. Inside a recipe (0.4) the action is "Take out of this recipe", never "Remove", so the two can't be confused.
+
 **Data model additions:** food "can use instead" links (food → stand-in food, one-way); food merge history (so a merge can be undone and old recipe links still resolve).
 
 **Decided for 0.2 (cabledrawer 17 Oct):**
@@ -309,7 +311,7 @@ Plans after 1.0 are kept outside the repo.
 - **Merge:** the merged-away food's name becomes an other name of the food it's merged into; its stock, sizes and "Can use instead" links move across (count ↔ weight via the weight of one item, or asked once). Undo within 7 days restores everything exactly. After that, "split" turns one of the other names back into its own food; old links still resolve through the merge history.
 - **"Maybe the same":** simple offline matching (same name ignoring case, plurals and brackets, or a name matching another food's other names), each with a "Not the same" button. No fuzzy-matching library.
 - **Shops before Settings exists:** the editor's "Usual shop" has a "+ Shop" chip that adds a shop by name. The four default places are created automatically; renaming places comes in Settings (0.8).
-- **Removing a food** (proposed by Claude Code 17 Oct; cabledrawer to confirm in PR): the editor has a quiet "Remove" link. A food can be removed only when it has no stock (and, from 0.4, no recipe uses it); otherwise merge it instead. Removing can be undone like any change.
+- **Removing an ingredient:** decided by cabledrawer 17 Oct; see "Removing an ingredient" above.
 
 ### Stock (decided 17 Oct)
 
