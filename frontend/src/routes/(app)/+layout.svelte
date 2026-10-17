@@ -5,8 +5,10 @@
   import { ApiError, saveTheme, setUnauthorizedHandler } from '$lib/api';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
+  import Toast from '$lib/components/Toast.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
+  import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -27,9 +29,14 @@
     return () => {
       setUnauthorizedHandler(null);
       theme.saveChangesWith(null);
+      // Signed out: this person's changes can't be undone from here any more.
+      undoHistory.clear();
     };
   });
 </script>
+
+<!-- Ctrl+Z / Cmd+Z undoes your own last change (not while typing in a text box). -->
+<svelte:window onkeydown={handleUndoKey} />
 
 <a class="skip" href="#main">Skip to content</a>
 
@@ -40,6 +47,8 @@
   </main>
   <div class="tabbar-slot"><TabBar /></div>
 </div>
+
+<Toast />
 
 <style>
   .skip {

@@ -73,6 +73,27 @@
 
   --color-focus: #2e7d5b;
 
+  /* Toast (dark on light, light on dark, like the strong buttons) */
+  --color-toast-action: #cfe6da; /* "Try again" */
+  --color-toast-hover: rgba(255, 255, 255, 0.12);
+  --shadow-toast: 0 6px 24px rgba(23, 32, 28, 0.18);
+
+  /* Sheets and panels */
+  --color-overlay: rgba(23, 32, 28, 0.45); /* behind a sheet on phone */
+  --color-chip: #f1f3f0; /* other names, "can use instead" */
+  --color-chip-remove: #ffffff; /* the ✕ inside a chip */
+  --color-add-border: #b9c0ba; /* dashed "+ Add" chips (their text is the accent) */
+  --radius-sheet: 28px;
+  --radius-panel: 22px;
+
+  /* "Maybe the same" (two foods that might be one) */
+  --color-maybe-row: #fffbf2;
+  --color-maybe-chip: #fdf1d8;
+  --color-maybe-chip-text: #4f3500;
+  --color-maybe-chip-border: #e9c98a;
+  --color-maybe-button: #fdf1d8;
+  --color-maybe-text: #6e4a00;
+
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
   --font-reading: 'Newsreader Variable', Georgia, serif;
@@ -175,4 +196,20 @@
   --shadow-switch-knob: 0 1px 3px rgba(0, 0, 0, 0.5);
 
   --color-focus: #6fcf9e;
+
+  --color-toast-action: #1f5c42;
+  --color-toast-hover: rgba(17, 22, 20, 0.08);
+  --shadow-toast: 0 6px 24px rgba(0, 0, 0, 0.45);
+
+  --color-overlay: rgba(0, 0, 0, 0.55);
+  --color-chip: #252e29;
+  --color-chip-remove: #3a4640;
+  --color-add-border: #4a554e;
+
+  --color-maybe-row: #2a2414;
+  --color-maybe-chip: #3a2e14;
+  --color-maybe-chip-text: #f3d58c;
+  --color-maybe-chip-border: #6b5526;
+  --color-maybe-button: #4f3f1c;
+  --color-maybe-text: #f3c766;
 }

@@ -43,7 +43,17 @@ const PAIRS: Pair[] = [
   ['--color-field-border', '--color-ground', 3],
   ['--color-field-border', '--color-surface', 3],
   ['--color-focus', '--color-ground', 3],
-  ['--color-focus', '--color-chrome', 3]
+  ['--color-focus', '--color-chrome', 3],
+  ['--color-toast-action', '--color-inverse', 4.5], // "Try again" in the toast
+  ['--color-text', '--color-chip', 4.5],
+  ['--color-accent', '--color-surface', 4.5], // "+ Add" chips
+  ['--color-maybe-chip-text', '--color-maybe-chip', 4.5],
+  ['--color-maybe-chip-text', '--color-maybe-button', 4.5],
+  ['--color-maybe-text', '--color-maybe-row', 4.5],
+  ['--color-text', '--color-maybe-row', 4.5],
+  ['--color-text-muted', '--color-maybe-row', 4.5],
+  ['--color-accent-on-soft', '--color-accent-soft', 4.5], // the open food's row
+  ['--color-text-soft', '--color-accent-soft', 4.5]
 ];
 
 function rgb(value: string): [number, number, number] {
