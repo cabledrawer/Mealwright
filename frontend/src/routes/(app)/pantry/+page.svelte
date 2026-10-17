@@ -112,6 +112,11 @@
     return { what, date };
   }
 
+  function newStaple(name: string) {
+    addingStaple = false;
+    void model.newStaple(name);
+  }
+
   function pickStaple(food: Ref) {
     addingStaple = false;
     void model.makeStaple(food);
@@ -219,6 +224,7 @@
                 label="Make an ingredient a staple"
                 exclude={(pantry?.staples ?? []).map((s) => s.id)}
                 onpick={pickStaple}
+                oncreate={newStaple}
                 oncancel={() => (addingStaple = false)}
               />
             {:else}

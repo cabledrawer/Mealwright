@@ -6,7 +6,7 @@
 import { ApiError } from './api';
 import { listChanges, serverUndo, undoToast } from './client/changes';
 import type { UndoResult } from './client/types';
-import { patchFood } from './client/foods';
+import { createFood, patchFood } from './client/foods';
 import {
   addStock,
   binnedLot,
@@ -254,6 +254,44 @@ export class PantryModel {
       saved: () => kitchen.changed(),
       undo: {
         label: `${food.name} is a staple`,
+        labelFrom: (value) => value.change?.summary,
+        skip: (value) => value.change === null,
+        run: (value) =>
+          value.change?.can_undo ? (undoer ??= serverUndo(value.change.id))() : false
+      }
+    });
+  }
+
+  /**
+   * "+ Staple" with a name nobody has used yet: makes the ingredient with Staple on and
+   * puts no stock in the pantry. If there already is one by that name, it just becomes a
+   * staple.
+   */
+  newStaple(name: string) {
+    let undoer: (() => Promise<string | void>) | null = null;
+    const before = this.pantry?.staples ?? [];
+    return save({
+      apply: () => {
+        if (this.pantry) this.pantry.staples = [...before, { id: -1, name }];
+      },
+      rollback: () => {
+        if (this.pantry) this.pantry.staples = before;
+      },
+      send: async (key) => {
+        try {
+          return await createFood({ name, staple: true }, key);
+        } catch (error) {
+          const id =
+            error instanceof ApiError && error.code === 'name_taken'
+              ? (error.body as { food_id?: number } | null)?.food_id
+              : undefined;
+          if (!id) throw error;
+          return patchFood(id, { staple: true }, key);
+        }
+      },
+      saved: () => kitchen.changed(),
+      undo: {
+        label: `${name} is a staple`,
         labelFrom: (value) => value.change?.summary,
         skip: (value) => value.change === null,
         run: (value) =>

@@ -683,3 +683,14 @@ def test_pantry_search_with_nothing_found_counts_nothing(
     assert all(p["groups"] == [] for p in found["places"])
     assert found["counts"]["items"] == 1  # the pantry itself still has one thing
     assert sum(p["items"] for p in pantry(kitchen)["places"]) == 1
+
+
+def test_a_new_ingredient_can_be_made_a_staple_with_no_stock(kitchen: TestClient) -> None:
+    pepper = food(kitchen, "Pepper", staple=True)
+    assert pepper["staple"] is True
+    body = pantry(kitchen)
+    assert [s["name"] for s in body["staples"]] == ["Pepper"]
+    assert all(p["groups"] == [] for p in body["places"])
+    assert kitchen.get(f"{API}/foods/{pepper['id']}").json()["stock"]["amount"] == 0
+    changes = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
+    assert changes == []  # no stock was recorded
