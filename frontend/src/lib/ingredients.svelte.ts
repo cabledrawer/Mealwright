@@ -11,7 +11,7 @@ export class IngredientsList {
   query = $state('');
   filter = $state<FoodFilter>('all');
   foods = $state<FoodRow[]>([]);
-  counts = $state<FoodList['counts']>({ all: 0, staples: 0, maybe_same: 0 });
+  counts = $state<FoodList['counts']>({ all: 0, staples: 0, maybe_same: 0, maybe_same_pairs: 0 });
   next = $state<string | null>(null);
   /** False until the first answer, so the page can show "Loading…" instead of "No foods". */
   loaded = $state(false);

@@ -8,7 +8,6 @@
   import { parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
   import { FoodModel } from '$lib/foodEditor.svelte';
-  import { goesInto } from '$lib/maybeSame';
   import { kitchen } from '$lib/freshness.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
   import { toasts } from '$lib/toast.svelte';
@@ -304,7 +303,7 @@
           <div class="maybe-row">
             <span>Is it the same as <b>{other.name}</b>?</span>
             <span class="maybe-buttons">
-              {#if goesInto(food, other)}
+              {#if other.merge_this}
                 <button
                   type="button"
                   class="merge-now"

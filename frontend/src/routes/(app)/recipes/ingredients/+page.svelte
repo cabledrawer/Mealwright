@@ -125,13 +125,13 @@
             onclick={() => (list.filter = f.value)}>{f.label}</button
           >
         {/each}
-        {#if list.counts.maybe_same || list.filter === 'maybe_same'}
+        {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
           <button
             type="button"
             class="filter maybe"
             aria-pressed={list.filter === 'maybe_same'}
             onclick={() => (list.filter = list.filter === 'maybe_same' ? 'all' : 'maybe_same')}
-            >Maybe the same · {list.counts.maybe_same}</button
+            >Maybe the same · {list.counts.maybe_same_pairs}</button
           >
         {/if}
       </div>

@@ -75,6 +75,14 @@ export interface Ask {
   suggested: number | null;
 }
 
+/** A food that might be the same as this one, and which way a merge would go. */
+export interface MaybeSame extends Ref {
+  /** The food that stays. */
+  merge_into: number;
+  /** True when the food whose list this is would be merged away. */
+  merge_this: boolean;
+}
+
 /** A row of the Ingredients list. */
 export interface FoodRow extends Ref {
   other_names: string[];
@@ -85,14 +93,14 @@ export interface FoodRow extends Ref {
   counted_as_display: string;
   place: Ref | null;
   stand_ins: Ref[];
-  maybe_same: Ref[];
+  maybe_same: MaybeSame[];
 }
 
 export type FoodFilter = 'all' | 'staples' | 'maybe_same';
 
 export interface FoodList {
   total: number;
-  counts: Record<FoodFilter, number>;
+  counts: Record<FoodFilter, number> & { maybe_same_pairs: number };
   foods: FoodRow[];
   next: string | null;
 }
@@ -123,7 +131,7 @@ export interface Food extends Ref {
   running_low_at: AmountOut | null;
   stand_ins: (Ref & { both_ways: boolean })[];
   stands_in_for: Ref[];
-  maybe_same: Ref[];
+  maybe_same: MaybeSame[];
   stock: AmountOut | null;
   last_change: { id: number; summary: string; can_undo: boolean } | null;
   /** Set when an old (merged-away) id was asked for. */

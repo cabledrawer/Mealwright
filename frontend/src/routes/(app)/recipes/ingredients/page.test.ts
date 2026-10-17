@@ -22,7 +22,7 @@ const sticks = toorDal({
   name: 'Drumsticks (moringa)',
   other_names: [],
   counted_as: 'count',
-  maybe_same: [{ id: 12, name: 'Drumsticks' }]
+  maybe_same: [{ id: 12, name: 'Drumsticks', merge_into: 12, merge_this: true }]
 });
 
 describe('the Ingredients page', () => {
@@ -40,7 +40,12 @@ describe('the Ingredients page', () => {
         );
         return [
           200,
-          { total: 2, counts: { all: 2, staples: 0, maybe_same: 1 }, foods, next: null }
+          {
+            total: 2,
+            counts: { all: 2, staples: 0, maybe_same: 2, maybe_same_pairs: 1 },
+            foods,
+            next: null
+          }
         ];
       },
       'GET /foods/7': [200, dal],
