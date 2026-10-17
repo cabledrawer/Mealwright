@@ -2,11 +2,36 @@
   // Pantry → Recent changes (spec, History and undo): the household's latest stock
   // changes, each with Undo while it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
-  import type { Change } from '$lib/client/types';
+  import type { Change, ChangeLine } from '$lib/client/types';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { session } from '$lib/session.svelte';
 
   let { changes, model }: { changes: Change[]; model: PantryModel } = $props();
+
+  const SHOWN = 3;
+
+  /** "Spinach: 200 g → 0 g · Fridge → Freezer", in plain words. */
+  function lineWords(line: ChangeLine): string {
+    const parts: string[] = [];
+    if (line.before.display !== line.after.display) {
+      parts.push(`${line.before.display} → ${line.after.display}`);
+    }
+    if (line.place_before && line.place_after && line.place_before.id !== line.place_after.id) {
+      parts.push(`${line.place_before.name} → ${line.place_after.name}`);
+    }
+    if ((line.use_by_before ?? null) !== (line.use_by_after ?? null)) {
+      parts.push(line.use_by_after ? `use by ${dayMonth(line.use_by_after)}` : 'no use-by date');
+    }
+    return `${line.food.name}: ${parts.join(' · ') || 'no change'}`;
+  }
+
+  function dayMonth(iso: string): string {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC'
+    }).format(new Date(`${iso}T12:00:00Z`));
+  }
 
   function split(summary: string): [string, string] {
     const space = summary.indexOf(' ');
@@ -20,9 +45,21 @@
       {@const [verb, rest] = split(change.summary)}
       <li>
         <span class="what">
-          <b>{verb}</b>{rest}
-          {#if change.who.login_id !== session.me?.id}
-            <span class="who">· {change.who.name}</span>
+          <span
+            ><b>{verb}</b>{rest}
+            {#if change.who.login_id !== session.me?.id}
+              <span class="who">· {change.who.name}</span>
+            {/if}</span
+          >
+          {#if change.lines?.length}
+            <span class="lines">
+              {#each change.lines.slice(0, SHOWN) as line, i (i)}
+                <span>{lineWords(line)}</span>
+              {/each}
+              {#if change.lines.length > SHOWN}
+                <span>and {change.lines.length - SHOWN} more</span>
+              {/if}
+            </span>
           {/if}
         </span>
         {#if change.can_undo && !change.undone}
@@ -56,6 +93,20 @@
     gap: var(--space-4);
     min-height: var(--touch-target);
     font-size: var(--text-md);
+  }
+
+  .what {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    padding: var(--space-2) 0;
+  }
+
+  .lines {
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .who {

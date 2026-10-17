@@ -34,7 +34,20 @@ describe('the Pantry page', () => {
         {
           changes: [
             changeOf(31, 'Used 200 g toor dal'),
-            { ...changeOf(30, 'Binned 1 pack paneer'), can_undo: false }
+            {
+              ...changeOf(30, 'Undid: Binned 1 pack paneer'),
+              can_undo: false,
+              lines: [
+                {
+                  food: { id: 21, name: 'Paneer' },
+                  lot_id: 9,
+                  before: { amount: 0, display: '0 g' },
+                  after: { amount: 200, display: '1 pack · 200 g' },
+                  place_before: { id: 1, name: 'Fridge' },
+                  place_after: { id: 1, name: 'Fridge' }
+                }
+              ]
+            }
           ],
           next: null
         }
@@ -180,9 +193,11 @@ describe('the Pantry page', () => {
     await render(1300);
     await page.getByRole('button', { name: 'Undo: Used 200 g toor dal' }).click();
     await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/31/undo')).toBe(true));
+    // An Undo row has no Undo of its own, and shows what it did, before → after.
     expect(
-      page.getByRole('button', { name: 'Undo: Binned 1 pack paneer' }).elements()
+      page.getByRole('button', { name: 'Undo: Undid: Binned 1 pack paneer' }).elements()
     ).toHaveLength(0);
+    await expect.element(page.getByText('Paneer: 0 g → 1 pack · 200 g')).toBeVisible();
   });
 
   it('+ Add to pantry: food, 2 packets, +3 days, where it lives', async () => {

@@ -30,6 +30,8 @@ export interface Change {
   can_undo: boolean;
   undo_until: string | null;
   undone: { at: string; who: Who } | null;
+  /** Stock changes (and their Undos): each packet touched, before → after. */
+  lines?: ChangeLine[];
 }
 
 export type CountedAs = 'weight' | 'volume' | 'count';
@@ -247,4 +249,6 @@ export interface ChangeLine {
   after: AmountOut;
   place_before: Ref | null;
   place_after: Ref | null;
+  use_by_before?: string | null;
+  use_by_after?: string | null;
 }
