@@ -71,9 +71,20 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   step "frontend: lint"          sh -c 'cd frontend && npm run lint'
   step "frontend: svelte-check"  sh -c 'cd frontend && npm run check'
   step "frontend: tests"         sh -c 'cd frontend && npm test'
-  not_set_up "frontend: licences" "to be written with the frontend"
+  step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
   skip "frontend" "no frontend yet"
+fi
+
+# --- Browser tests (Playwright, headless Chromium) ------------------------------
+# They start the real app on 127.0.0.1 with an empty data folder.
+if [[ -f "$ROOT/e2e/package.json" ]]; then
+  step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell'
+  step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm ../e2e
+  step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
+  step "browser: tests"          sh -c 'cd e2e && npx playwright test'
+else
+  skip "browser tests" "none yet"
 fi
 
 # --- Security scanners -------------------------------------------------------
@@ -93,9 +104,13 @@ else
   record "pip-audit, bandit" FAIL "uv is not installed" "-"
 fi
 if need docker; then
-  # The repo is mounted read-only.
+  # Every lock file in the repo; the repo is mounted read-only.
+  lockfiles=(--lockfile /src/backend/uv.lock)
+  for lock in e2e/package-lock.json frontend/package-lock.json; do
+    [[ -f "$ROOT/$lock" ]] && lockfiles+=(--lockfile "/src/$lock")
+  done
   step "osv-scanner"             docker run --rm -v "$ROOT:/src:ro" "$OSV_SCANNER" \
-                                   scan source --lockfile /src/backend/uv.lock
+                                   scan source "${lockfiles[@]}"
 else
   record "osv-scanner" FAIL "docker is not installed" "-"
 fi
