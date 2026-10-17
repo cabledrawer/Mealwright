@@ -160,13 +160,13 @@ sudo mkdir -p /opt/mealwright/data /opt/mealwright/backups
 cd /opt/mealwright
 ```
 
-Find out which user the app runs as inside the container, and give it the data folder:
+Mealwright runs inside the container as its own user, number 10001, so give that user the data folder:
 
 ```bash
-docker run --rm --entrypoint id git.example.org/tess/mealwright:<TAG>
-# prints something like: uid=10001(mealwright) gid=10001(mealwright)
-sudo chown <uid>:<gid> /opt/mealwright/data
+sudo chown 10001:10001 /opt/mealwright/data
 ```
+
+(To double-check the number: `docker run --rm --entrypoint id git.example.org/tess/mealwright:<TAG>` prints `uid=10001(mealwright) …`.)
 
 ### 4.3 Compose file
 
@@ -179,6 +179,10 @@ services:
     image: git.example.org/tess/mealwright:<TAG>
     container_name: mealwright
     restart: unless-stopped
+    environment:
+      # Only Caddy can reach Mealwright on its network, so believe the visitor address
+      # Caddy passes on. The sign-in slow-down needs it to see who is guessing.
+      MEALWRIGHT_TRUSTED_PROXIES: "*"
     volumes:
       - ./data:/data
     networks:
@@ -196,6 +200,8 @@ Notes:
 
 - **Mealwright has its own network**, `mealwright`, so it can't reach your other apps and they can't reach it. Only Caddy joins it (next step).
 - **No `ports:`.** It's only reachable through Caddy.
+- **HTTPS is required.** Mealwright's sign-in cookie only travels over HTTPS, which Caddy provides. Opening it on a plain `http://` address won't keep you signed in.
+- **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
 - **Data** lives in `/opt/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes `/opt/mealwright`.
 - If Diun watches this container, that's fine, because Diun only tells you about new images. Renovate, if you use it, must never auto-merge a Mealwright change.
 
@@ -242,7 +248,7 @@ docker compose logs -f        # watch it start; press Ctrl+C to stop watching
 
 Then restart Caddy, so it joins the network and loads the new site.
 
-**Check it's running.** Open `https://mealwright.example.org/api/v1/version` in your browser. After the Authelia login, it shows the version, for example `{"version":"0.1.0"}`. Then open `https://mealwright.example.org/`, create the admin account, and sign in.
+**Check it's running.** `docker ps` should show `mealwright` as `(healthy)` within about 30 seconds. Then open `https://mealwright.example.org/api/v1/version` in your browser. After the Authelia login, it shows the version, for example `{"version":"0.1.0"}`. Then open `https://mealwright.example.org/`, create the admin account, and sign in.
 
 ---
 
