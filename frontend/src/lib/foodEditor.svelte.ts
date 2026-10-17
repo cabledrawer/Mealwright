@@ -209,6 +209,16 @@ export class FoodModel {
     });
   }
 
+  /** Merge another food into this one (the editor stays on this food). */
+  absorb(other: Ref) {
+    const name = this.food?.name ?? '';
+    return this.#write({
+      label: `Merged ${other.name} into ${name}`,
+      edit: (food) => void (food.maybe_same = food.maybe_same.filter((m) => m.id !== other.id)),
+      send: (key, answers) => mergeFood(other.id, this.id, key, answers)
+    });
+  }
+
   /** "Not the same": hides the hint for good. Quiet, with no Undo (contract 7.4). */
   async notTheSame(other: Ref): Promise<void> {
     const putBack = this.#change(

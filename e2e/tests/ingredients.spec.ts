@@ -45,7 +45,7 @@ test('Ingredients opens from Recipes and passes the accessibility checks', async
       .click();
   await expect(page).toHaveURL('/recipes/ingredients');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients');
-  await expect(page.getByText(/foods? · shared by recipes, pantry and shopping/)).toBeVisible();
+  await expect(page.getByText(/foods? · shared by (your )?recipes, pantry and shopping/)).toBeVisible();
   await checkPage(page);
 });
 
@@ -115,4 +115,22 @@ test('an other name can become its own ingredient, and Undo joins it back', asyn
 
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(named).not.toContain(other);
+});
+
+test('on a long page the sidebar, with its theme switch, and the editor stay in view', async ({
+  page,
+}) => {
+  test.skip(isPhone(page), 'desktop layout');
+  for (let i = 0; i < 14; i++) await makeFood(page, `Long list ${i}`);
+  await page.setViewportSize({ width: 1280, height: 520 });
+  await page.goto('/recipes/ingredients');
+  const list = page.getByRole('region', { name: 'All ingredients' });
+  await list.getByRole('button').first().waitFor();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+  const theme = page
+    .getByRole('complementary', { name: 'Sidebar' })
+    .getByRole('group', { name: 'Theme' });
+  await expect(theme).toBeInViewport();
+  await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeInViewport();
 });

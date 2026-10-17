@@ -12,6 +12,7 @@
   import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { IngredientsList } from '$lib/ingredients.svelte';
+  import { mergeTarget } from '$lib/maybeSame';
   import { save } from '$lib/save';
 
   const list = new IngredientsList();
@@ -24,6 +25,13 @@
   ];
 
   const isDesktop = () => browser && matchMedia('(min-width: 768px)').matches;
+  let desktop = $state(isDesktop());
+  $effect(() => {
+    const media = matchMedia('(min-width: 768px)');
+    const onChange = () => (desktop = media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  });
 
   // Search as you type (after a short pause), and fetch again whenever something changed.
   $effect(() => {
@@ -46,7 +54,7 @@
 
   /** The quiet line under a food's name. */
   function note(food: FoodRow, phone: boolean): string {
-    const maybe = food.maybe_same[0];
+    const maybe = mergeTarget(food);
     if (maybe) return `Maybe the same as “${maybe.name}”`;
     if (phone) return [food.counted_as_display, food.place?.name].filter(Boolean).join(' · ');
     if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;
@@ -64,7 +72,7 @@
 
   /** "Merge" on a Maybe-the-same row: into the food it may be. Undo, not "Are you sure?". */
   function merge(food: FoodRow) {
-    const into = food.maybe_same[0];
+    const into = mergeTarget(food);
     if (!into) return;
     let undoer: (() => Promise<string | void>) | null = null;
     const before = list.foods;
@@ -92,7 +100,7 @@
   title="Ingredients"
   parent={{ href: '/recipes', label: 'Recipes' }}
   subtitle={list.loaded
-    ? `${list.counts.all} ${list.counts.all === 1 ? 'food' : 'foods'} · shared by recipes, pantry and shopping`
+    ? `${list.counts.all} ${list.counts.all === 1 ? 'food' : 'foods'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
 />
 
@@ -136,7 +144,7 @@
       {#if list.foods.length}
         <ul>
           {#each list.foods as food (food.id)}
-            {@const maybe = food.maybe_same.length > 0}
+            {@const maybe = !!mergeTarget(food)}
             {@const desk = note(food, false)}
             <li class:maybe class:open={food.id === selectedId}>
               <button
@@ -499,10 +507,18 @@
       text-align: left;
     }
 
+    /* The editor stays in view while the list scrolls. */
     .panel {
+      position: sticky;
+      top: var(--space-7);
+      align-self: flex-start;
       display: block;
       flex: 1 1 340px;
       min-width: 0;
+      max-height: calc(100dvh - 2 * var(--space-7));
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-width: thin;
       padding: var(--space-8) 22px;
       border-radius: var(--radius-panel);
       background: var(--color-surface);

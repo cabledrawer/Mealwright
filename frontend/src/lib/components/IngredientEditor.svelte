@@ -8,10 +8,12 @@
   import { parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
   import { FoodModel } from '$lib/foodEditor.svelte';
+  import { goesInto } from '$lib/maybeSame';
   import { kitchen } from '$lib/freshness.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
   import { toasts } from '$lib/toast.svelte';
   import FoodPicker from './FoodPicker.svelte';
+  import Icon from './Icon.svelte';
   import Switch from './Switch.svelte';
 
   let {
@@ -277,11 +279,16 @@
           onkeydown={boxKeys(() => (renaming = false))}
         />
       {:else}
-        <h2>
-          <button type="button" class="name" title="Rename" onclick={() => (renaming = true)}
-            >{food.name}</button
+        <span class="title">
+          <h2>{food.name}</h2>
+          <button
+            type="button"
+            class="pencil"
+            aria-label="Rename"
+            title="Rename"
+            onclick={() => (renaming = true)}><Icon name="pencil" size={16} stroke={2.2} /></button
           >
-        </h2>
+        </span>
       {/if}
       {#if variant === 'sheet'}
         <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
@@ -297,9 +304,21 @@
           <div class="maybe-row">
             <span>Is it the same as <b>{other.name}</b>?</span>
             <span class="maybe-buttons">
-              <button type="button" class="merge-now" onclick={() => void model.mergeInto(other)}
-                >Merge</button
-              >
+              {#if goesInto(food, other)}
+                <button
+                  type="button"
+                  class="merge-now"
+                  aria-label="Merge into {other.name}"
+                  onclick={() => void model.mergeInto(other)}>Merge</button
+                >
+              {:else}
+                <button
+                  type="button"
+                  class="merge-now"
+                  aria-label="Merge {other.name} into this"
+                  onclick={() => void model.absorb(other)}>Merge</button
+                >
+              {/if}
               <button type="button" class="quiet" onclick={() => void model.notTheSame(other)}
                 >Not the same</button
               >
@@ -451,7 +470,7 @@
         <label>
           Weight of one
           <input
-            value={food.item_weight ? `${food.item_weight.grams} g` : ''}
+            value={food.item_weight ? `${Math.round(food.item_weight.grams)} g` : ''}
             placeholder="e.g. 150 g"
             onchange={setItemWeight}
             onkeydown={boxKeys(() => {})}
@@ -461,7 +480,7 @@
         <label>
           Weight of 1 cup
           <input
-            value={food.cup_weight ? `${food.cup_weight.grams} g` : ''}
+            value={food.cup_weight ? `${Math.round(food.cup_weight.grams)} g` : ''}
             placeholder="e.g. 200 g"
             onchange={setCupWeight}
             onkeydown={boxKeys(() => {})}
@@ -618,14 +637,31 @@
     overflow-wrap: anywhere;
   }
 
-  .name {
-    min-height: var(--touch-target);
+  .title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .pencil {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-target);
+    height: var(--touch-target);
     padding: 0;
     border: none;
+    border-radius: var(--radius-full);
     background: transparent;
-    font: inherit;
-    text-align: left;
-    cursor: text;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+
+  .pencil:hover {
+    background: var(--color-fill);
+    color: var(--color-text);
   }
 
   .rename {

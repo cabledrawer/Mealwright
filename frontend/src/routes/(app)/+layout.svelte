@@ -109,6 +109,13 @@
       display: flex;
       align-items: flex-start;
     }
+    /* The sidebar (and its theme switch) stays put while the page scrolls. */
+    .sidebar-slot {
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100dvh;
+    }
     .tabbar-slot {
       display: none;
     }
