@@ -236,13 +236,13 @@
             {/if}
           </section>
 
-          <label class="where">
-            Where
-            <select bind:value={placeId}>
+          <section>
+            <h3 id="{uid}-where">Where</h3>
+            <select class="where" aria-labelledby="{uid}-where" bind:value={placeId}>
               {#each places as place (place.id)}<option value={place.id}>{place.name}</option
                 >{/each}
             </select>
-          </label>
+          </section>
 
           <section aria-labelledby="{uid}-when">
             <h3 id="{uid}-when">Use by</h3>
@@ -376,7 +376,8 @@
   }
 
   label input,
-  label select {
+  label select,
+  select.where {
     width: 100%;
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
