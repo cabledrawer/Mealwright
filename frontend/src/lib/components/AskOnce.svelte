@@ -17,7 +17,9 @@
 
   $effect(() => {
     if (ask) {
-      value = String(ask.suggested);
+      // The suggestion only fills the box; it's sent only if the person presses Save.
+      // No good guess: the box starts empty, and Save waits for a number.
+      value = ask.suggested === null ? '' : String(ask.suggested);
       remember = true;
       if (!dialog.open) dialog.showModal();
     } else if (dialog.open) {

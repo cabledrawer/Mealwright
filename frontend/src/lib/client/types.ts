@@ -71,7 +71,8 @@ export interface Ask {
   per?: 'cup' | 'item' | string;
   cup_ml?: number;
   name?: string;
-  suggested: number;
+  /** A starting figure from the built-in table, or null when there's no good guess. */
+  suggested: number | null;
 }
 
 /** A row of the Ingredients list. */

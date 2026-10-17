@@ -63,4 +63,36 @@ describe('the "ask once" question', () => {
     await userEvent.keyboard('{Escape}');
     expect(await answer).toBeNull();
   });
+
+  it('sends nothing until the person presses Save', async () => {
+    let settled = false;
+    const answer = askOnce.ask(ask).then((a) => {
+      settled = true;
+      return a;
+    });
+    flushSync();
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
+    await page.getByRole('button', { name: 'Save' }).click();
+    expect((await answer)?.kind).toBe('weight_per_ml');
+  });
+
+  it('with no good guess, the box starts empty and Save waits for a number', async () => {
+    const answer = askOnce.ask({
+      ...ask,
+      kind: 'item_weight',
+      question: 'About how much does 1 toor dal weigh?',
+      per: 'item',
+      suggested: null
+    });
+    flushSync();
+    const box = page.getByRole('textbox', { name: /^Your answer/ });
+    await expect.element(box).toHaveValue('');
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await box.fill('150');
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Save' }).click();
+    expect(await answer).toEqual({ kind: 'item_weight', food_id: 7, grams: 150, remember: true });
+  });
 });
