@@ -1,408 +1,216 @@
-# Testing Mealwright on the homelab
+# Trying a Mealwright 0.x build on your own server
 
-Written 17 Oct 2026 for cabledrawer. Step-by-step instructions for trying a Mealwright 0.x build on the home server:
+Step-by-step instructions for running a Mealwright 0.x build on a home server. In this file, replace anything in `<angle brackets>` with your own value:
 
-1. One-time setup: tokens and the Authelia rule for the registry
-2. Build the image in WSL
-3. Push it to Forgejo's registry (only you do this)
-4. Run it on the home server
-5. Update to a new version
-6. Roll back to the previous version
+| Placeholder | Means |
+|---|---|
+| `<version>` | The exact version, for example `0.3.0` (never `latest`) |
+| `<server>` | The address of the machine that runs Mealwright |
+| `<user>` | Your login on that machine |
+| `<folder>` | The folder on the server that holds Mealwright's `compose.yaml`, `data` and `backups` |
+| `<proxy folder>` | The folder of your reverse proxy's own compose project |
+| `<subnet>` | A free private range for Mealwright's own Docker network |
 
-There's no CI runner during 0.x (cabledrawer 17 Oct), so images are built on your WSL machine and pushed by you. **Claude Code never pushes images.**
+There is no CI runner during 0.x (cabledrawer 17 Oct). Images are built on your own computer, copied to the server as a file, and loaded there. **Images are never pushed to any registry: not a public one, not a private one (cabledrawer 18 Oct).** A registry is not used in 0.x. **Claude Code never builds, copies or pushes images for you.**
 
-Throughout, replace anything in `<angle brackets>` with your own value. Each command goes in a terminal on the machine named in that section.
-
-**Already done on the home server (cabledrawer 17 Oct):** the Caddy site (tier D), DNS and the certificate, and the folder `~/mealwright/data`. Those steps are marked **Done** below.
-
----
-
-## 1. One-time setup
-
-### 1.1 Two Forgejo tokens
-
-In Forgejo, open your avatar menu → **Settings → Applications → Generate new token**. Create two:
-
-| Token name | Scope | Used where |
-|---|---|---|
-| `mealwright-push` | **package: Read and write** (nothing else) | in WSL, for a minute at a time, when you push |
-| `mealwright-pull` | **package: Read** (nothing else) | on the home server, when you pull |
-
-Forgejo shows each token only once. Save both in your password manager.
-
-### 1.2 Who can pull the images without a login
-
-Forgejo's packages follow your account's visibility (**Settings → Profile → Visibility**):
-
-- **Public:** anyone who can reach the registry can pull Mealwright images without logging in.
-- **Limited** or **Private:** a login is needed to pull.
-
-**Your profile stays Public, and that's acceptable for this setup (cabledrawer 17 Oct).** The `/v2/` rule in step 1.3 only lets in devices on your LAN, and only your household uses the LAN. The images become public at 1.0 anyway. If either of those changes, for example guests on the LAN, switch to **Limited**.
-
-### 1.3 Let the registry through Authelia, from the LAN only
-
-Docker can't log in through Authelia's login page. So the registry's address, `/v2/`, has to skip Authelia, **but only for devices on your LAN**. Forgejo still asks for a token on every request.
-
-On the home server, add this to Authelia's `configuration.yml` under `access_control: rules:`. Put it **above** any other rule for `git.example.org`, because Authelia uses the first rule that matches:
-
-```yaml
-    - domain: git.example.org
-      resources:
-        - '^/v2/'
-      networks:
-        - 192.168.1.0/24      # your LAN only
-      policy: bypass
-```
-
-Restart Authelia, using the same command you normally use for it, for example `docker compose restart authelia` in its folder.
-
-**Check it worked.** From WSL:
-
-```bash
-curl -i https://git.example.org/v2/
-```
-
-- Good: the first line says `401`, and there's a line starting `www-authenticate: Bearer realm="https://git.example.org/v2/token"`. That's Forgejo asking for a token.
-- Not working yet: `302` with a `location:` pointing at `auth.example.org`. Authelia is still in the way.
-
-**Check it stays closed from outside.** On your phone, switch Wi-Fi off and open `https://git.example.org/v2/` in the browser. It must show the Authelia login page. If it doesn't, Caddy is probably passing Docker's internal address instead of the phone's real one. Stop and ask Claude Code before going further.
+Each command goes in a terminal on the machine named in that section.
 
 ---
 
-## 2. Build the image in WSL
+## 1. Build the image (on your computer, in WSL)
 
-In a WSL terminal:
-
-```bash
-cd ~/mealwright
-git switch main
-git pull
-./check
-```
-
-The last line of `./check` must say **RESULT: PASS**. If it says FAIL, don't build. Tell Claude Code which steps failed.
-
-Choose the image tag. Always use an exact version, never `latest`:
-
-- **For a release** (after you've tagged it, e.g. `v0.1.0`): the tag is just the version.
-
-  ```bash
-  git switch --detach v0.1.0
-  TAG=0.1.0
-  ```
-
-- **For a test build between releases:** the version plus the commit, so you always know exactly what's running.
-
-  ```bash
-  TAG="$(grep -m1 '^version' backend/pyproject.toml | cut -d'"' -f2)-$(git rev-parse --short HEAD)"
-  echo "$TAG"     # e.g. 0.1.0.dev0-57c7393
-  ```
-
-Build it:
+Use a released tag, so you always know exactly what you are running.
 
 ```bash
-docker build -t "git.example.org/tess/mealwright:$TAG" .
+cd <your copy of the Mealwright repository>
+git fetch --tags
+git archive v<version> | docker build -t mealwright:<version> -
 ```
 
-It ends with a line like `naming to git.example.org/tess/mealwright:0.1.0 done`. If you switched to a release tag, go back afterwards with `git switch main`.
+`git archive` builds from exactly what is in the tag, nothing else from your working folder. The build ends with a line like `naming to docker.io/library/mealwright:<version> done`.
+
+## 2. Save it to a file
+
+```bash
+docker save mealwright:<version> | gzip > mealwright-<version>.tar.gz
+ls -lh mealwright-<version>.tar.gz     # should be tens of megabytes, not tiny
+```
+
+## 3. Copy it to the server
+
+```bash
+scp mealwright-<version>.tar.gz <user>@<server>:<folder>/
+```
 
 ---
 
-## 3. Push it to Forgejo (only you)
+## 4. On the server
 
-Do this when Claude Code isn't in the middle of a task. While you're logged in, your push token sits in Docker's settings on this machine, so log out straight after pushing.
+Every start-up applies database changes (migrations) for the new version. An older version can't read a database a newer version has changed. **So back up the data folder before every update. Going back needs that backup.**
 
-### 3.1 Log in
+### 4.1 Stop Mealwright and back up the data
 
-```bash
-docker login git.example.org -u tess
-```
-
-When it asks for a password, paste the **`mealwright-push`** token. Don't put the token on the command line itself, or it ends up in your shell history. It should say `Login Succeeded`.
-
-### 3.2 Push
+Stopping it first makes sure the database is copied in a consistent state. The backup leaves out the logs, because they hold sign-in lines and are not needed to restore Mealwright.
 
 ```bash
-docker push "git.example.org/tess/mealwright:$TAG"
+cd <folder>
+OLD=$(grep -oE 'image: *mealwright:[^ ]+' compose.yaml | cut -d: -f3)
+echo "Current version: $OLD"
+docker compose stop mealwright
+sudo tar -C <folder> --exclude=data/logs -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
+sudo chmod 600 backups/data-*.tar.gz
+ls -lh backups/       # the new backup should be there, and not tiny
 ```
 
-### 3.3 Log out straight away
+(Skip the stop and the backup only on the very first install, when there is no data yet.) Keep at least the last three backups.
+
+### 4.2 Load the image
 
 ```bash
-docker logout git.example.org
-grep -c example ~/.docker/config.json
+cd <folder>
+docker load < mealwright-<version>.tar.gz
 ```
 
-`docker logout` should say `Removing login credentials`. The `grep` must print `0`, which means the token is gone from this machine. If the file doesn't exist, that's fine too.
-
-### 3.4 Check it arrived
-
-The image now shows in Forgejo under your profile → **Packages**.
-
-Because your profile is Public (step 1.2), pulling it from the LAN works even while logged out. That's expected. From outside the LAN, the Authelia rule still blocks it.
-
----
-
-## 4. Run it on the home server
-
-### 4.1 Pull the image
-
-On the home server:
-
-```bash
-docker login git.example.org -u tess        # paste the mealwright-pull token
-docker pull git.example.org/tess/mealwright:<TAG>
-docker logout git.example.org
-```
-
-### 4.2 Folders
-
-**Done (cabledrawer 17 Oct):** Mealwright lives in `~/mealwright`, with its data in `~/mealwright/data`.
-
-Mealwright runs inside the container as its own user, **number 10001**, so give that user the data folder, and make a folder for backups:
-
-```bash
-cd ~/mealwright
-sudo chown 10001:10001 data
-mkdir -p backups
-```
-
-(To double-check the number: `docker run --rm --entrypoint id git.example.org/tess/mealwright:<TAG>` prints `uid=10001(mealwright) …`.)
+It says `Loaded image: mealwright:<version>`.
 
 ### 4.3 Compose file
 
-Create `~/mealwright/compose.yaml`:
+First time only: create `<folder>/compose.yaml`. Mealwright runs inside the container as its own user, number 10001, so give that user the data folder:
+
+```bash
+mkdir -p <folder>/data <folder>/backups
+sudo chown 10001:10001 <folder>/data
+```
 
 ```yaml
 services:
   mealwright:
-    # Exact version, never "latest". Change it by hand to update (section 5).
-    image: git.example.org/tess/mealwright:<TAG>
+    # Exact version, never "latest". Change it by hand to update.
+    image: mealwright:<version>
+    # The image was loaded from a file. Never try to pull it from anywhere.
+    pull_policy: never
     container_name: mealwright
     restart: unless-stopped
     environment:
-      # Believe the visitor address Caddy passes on, but only from Mealwright's own
-      # network (Caddy joins it below). The sign-in slow-down needs it to see who is
-      # guessing; a made-up address from a visitor is ignored.
-      MEALWRIGHT_TRUSTED_PROXIES: "172.28.10.0/24"
+      # Believe the visitor address your reverse proxy passes on, but only from
+      # Mealwright's own network. The sign-in slow-down needs it to see who is guessing.
+      MEALWRIGHT_TRUSTED_PROXIES: "<subnet>"
     volumes:
       - ./data:/data
-    # Mealwright keeps its own log in data/logs and deletes it after 14 days; sign-in
-    # lines (names, addresses) go only there. Docker's copy holds start-up messages,
-    # warnings and errors. Docker can only limit it by size, not age: here 2 files of
-    # 1 MB, overriding the server's default for this container.
+    # Mealwright keeps its own log in data/logs and deletes it after 14 days. Docker's
+    # copy holds start-up messages, warnings and errors only, capped at 2 files of 1 MB.
     logging:
       driver: json-file
       options:
         max-size: "1m"
         max-file: "2"
     labels:
-      # Never let Watchtower (or similar) update this container.
+      # Never let an auto-updater touch this container.
       - com.centurylinklabs.watchtower.enable=false
-    # No "networks:" here: Mealwright uses only this project's own network, which
-    # Docker names mealwright_default (after the folder), like Paperless's.
 
 networks:
   default:
     ipam:
       config:
-        - subnet: 172.28.10.0/24   # a fixed range, named in MEALWRIGHT_TRUSTED_PROXIES
+        - subnet: <subnet>   # a fixed private range, named in MEALWRIGHT_TRUSTED_PROXIES
 ```
 
-**Logs (from 0.1.1):**
-
-- **Where:** Mealwright writes its own log to `~/mealwright/data/logs/mealwright.log` (inside the data folder, `/data/logs` in the container). Each night just after midnight (UTC) it starts a new file, `mealwright.log.YYYY-MM-DD`, and deletes files last written more than 14 days ago (spec section 7). Every line has a time (UTC).
-- **What:** errors and sign-ins only. Sign-in lines (anything with a username or an address) go **only** to this file, never to `docker logs`. `docker logs mealwright` shows start-up messages, warnings and errors only.
-- **Reading it:** only Mealwright's own user (10001) can read the file, so use `sudo`:
-
-  ```bash
-  sudo ls -l ~/mealwright/data/logs/
-  ```
-
-  ```bash
-  sudo less ~/mealwright/data/logs/mealwright.log
-  ```
-
-  (In `less`: `G` jumps to the end, `q` quits.)
-- **Backups:** the log folder is inside `data`, so a backup of the whole folder would keep sign-in lines for as long as the backup is kept, beyond 14 days. Leave `data/logs` out of your backups; the update backup in section 5 already does. The log isn't needed to restore Mealwright. For your own monthly backup:
-  - with `tar`, this makes one compressed file of the data folder, leaving out the logs:
-
-    ```bash
-    sudo tar -C ~/mealwright --exclude=data/logs -czf "mealwright-data-$(date +%Y%m%d).tar.gz" data
-    ```
-
-  - with `rsync`, add `--exclude=logs/` when copying the `data` folder (it skips the `logs` folder inside it), for example `sudo rsync -a --exclude=logs/ ~/mealwright/data/ <backup place>/mealwright-data/`.
-  - with another backup tool, add `~/mealwright/data/logs` to its list of folders to skip.
-- **Docker's copy:** the `logging:` lines above cap what Docker keeps for this container at 2 files of 1 MB. They **override the server's default** (on the home server, 3 × 10 MB for every container) for Mealwright only. Docker can only limit by size, not age, which is why sign-in lines aren't sent there at all.
-- **Already running 0.1.0?** Add the `logging:` lines to your `compose.yaml` and run `docker compose up -d` again.
-
-If `docker compose up` says the range is already in use, choose another free one, such as `172.30.43.0/24`, and change it in both places.
+To update: edit the `image:` line to the new exact version (keep `pull_policy: never`).
 
 Notes:
 
-- **Mealwright has its own network**, `mealwright_default`, the same pattern as Paperless. It can't reach your other apps, and they can't reach it. Only Caddy joins it (next step).
-- **Mealwright must not join `apps_default`** or any other project's network. Don't add a `networks:` list to the service.
-- **No `ports:`.** It's only reachable through Caddy.
-- **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which Caddy provides. On a plain `http://` address, Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
-- **No time zone setting needed** (no `TZ` in `compose.yaml`). From 0.2, Mealwright takes the household's time zone from your browser the first time you, the admin, open it, and keeps it: "today", use-by dates, Use soon and the nightly jobs follow it. Opening it from abroad later changes nothing; changing it on purpose comes with Settings in 0.8. Until that first visit, dates follow UTC.
-- **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it's ready.
-- **Data** lives in `~/mealwright/data`. That folder is everything Mealwright knows, so make sure your backup tool includes it.
-- If Diun watches this container, that's fine, because Diun only tells you about new images. Renovate, if you use it, must never auto-merge a Mealwright change.
+- **Mealwright has its own Docker network** (named after the folder, `…_default`). It can't reach your other apps, and they can't reach it. Only your reverse proxy joins it (4.5). Don't add a `networks:` list to the service.
+- **No `ports:`.** It is only reachable through the reverse proxy.
+- **HTTPS is required.** Signing in, installing the app on your phone, offline shopping and keep-screen-awake all need HTTPS, which the reverse proxy provides. On a plain `http://` address Mealwright says so instead of signing you in. (For a quick test on your own network only, `MEALWRIGHT_ALLOW_PLAIN_HTTP: "true"` allows plain HTTP; Mealwright then logs a warning.)
+- **No time zone setting needed.** Mealwright takes the household's time zone from the admin's browser the first time the admin opens it, and keeps it. Until that first visit, dates follow UTC.
+- **Health check:** the image checks itself every 30 seconds. `docker ps` shows `(healthy)` once it is ready.
+- **Data** lives in `<folder>/data`. That folder is everything Mealwright knows, so make sure your backup tool includes it, but leave out `data/logs`.
+- If something watches for new images, that is fine as long as it only tells you. Never let it update or auto-merge Mealwright.
 
-### 4.4 Caddy, DNS and the certificate
+### 4.4 Logs
 
-**Done (cabledrawer 17 Oct):**
+- **Where:** Mealwright writes its own log to `<folder>/data/logs/mealwright.log`. Each night just after midnight (UTC) it starts a new file and deletes files last written more than 14 days ago (spec section 7). Every line has a time (UTC).
+- **What:** errors and sign-ins only. Sign-in lines (anything with a username or an address) go only to this file, never to `docker logs`.
+- **Reading it:** only Mealwright's own user can read the file, so use `sudo`:
 
-- The Caddy site `mealwright.example.org` → `mealwright:8080`, **tier D**: Mealwright's own login, no Authelia in front, and Caddy strips any `Remote-*` headers. Mealwright doesn't read those headers anyway; stripping them means no visitor can pretend to be signed in through them.
-- The wildcard DNS name and certificate already cover `mealwright.example.org`.
+  ```bash
+  sudo less <folder>/data/logs/mealwright.log
+  ```
 
-**To do: Caddy joins Mealwright's network.** Caddy is its own compose project and joins other projects' networks as external ones (today `proxy_default`, `apps_default` and `docs_default`). Mealwright's network gets added the same way. In **Caddy's** compose file, add two things, next to the matching `docs_default` lines:
+  (In `less`: `G` jumps to the end, `q` quits.)
+- **Backups:** leave `data/logs` out of any backup, as the commands above do. With `rsync`, add `--exclude=logs/` when copying the `data` folder.
 
-1. In the Caddy service's `networks:` list, add one line:
+### 4.5 Reverse proxy
 
-   ```yaml
-         - mealwright_default
-   ```
+Mealwright needs a site in your reverse proxy that passes to `mealwright:8080`, with Mealwright's own login and any `Remote-*` headers removed (Mealwright doesn't read those headers; removing them means no visitor can pretend to be signed in through them).
 
-2. In the top-level `networks:` section at the bottom of the file, add:
-
-   ```yaml
-     mealwright_default:
-       external: true
-   ```
-
-When you're done, the relevant parts look like this (your file has more in it; leave the rest as it is):
+The proxy has to join Mealwright's Docker network. In the **proxy's** compose file, add the network to the proxy service's `networks:` list and as an external network at the bottom, next to the ones it already joins:
 
 ```yaml
 services:
-  caddy:
-    # …
+  <proxy service>:
     networks:
       - default
-      - apps_default
-      - docs_default
       - mealwright_default
 
 networks:
-  apps_default:
-    external: true
-  docs_default:
-    external: true
   mealwright_default:
     external: true
 ```
 
-Don't bring Caddy up yet. Its compose file now refers to `mealwright_default`, which only exists once Mealwright has been started (section 4.5).
+(`docker network ls` shows the network's real name once Mealwright has started; it is named after `<folder>`.)
 
-**Editing the Caddyfile:** your Caddyfile is a **single-file bind mount**. Tools that save by replacing the file, like `sed -i` and many editors, leave the container still looking at the old file, so `caddy reload` won't see the change. After editing it that way, restart Caddy:
+Order matters: **start Mealwright first** (4.6), so its network exists, **then recreate the proxy** in `<proxy folder>`:
 
 ```bash
-docker restart caddy
+cd <proxy folder>
+docker compose up -d
 ```
 
-(Docker attaches a single-file mount to the file itself, and a replaced file is a new file. A restart attaches the new one.)
+This briefly takes everything behind the proxy offline (a few seconds). Do it at a quiet moment. If your proxy's configuration file is a single-file bind mount, an editor that saves by replacing the file leaves the container looking at the old one; restart the proxy container after editing.
 
-### 4.5 Start it, and create the admin straight away
-
-Order matters: **Mealwright first**, so its network exists, **then recreate Caddy**, so it joins that network.
-
-1. Start Mealwright. This also creates the network `mealwright_default`:
-
-   ```bash
-   cd ~/mealwright
-   docker compose up -d
-   docker compose logs -f        # watch it start; press Ctrl+C to stop watching
-   ```
-
-2. Recreate Caddy in its own folder, so it picks up the new network:
-
-   ```bash
-   cd <Caddy's folder>
-   docker compose up -d
-   ```
-
-   **This briefly takes all your sites offline** (a few seconds), because Caddy is recreated, not just reloaded. Do it at a quiet moment.
-
-3. Check that both are on the network:
-
-   ```bash
-   docker network inspect mealwright_default --format '{{range .Containers}}{{.Name}} {{end}}'
-   ```
-
-   It should list both `mealwright` and `caddy`. Mealwright shouldn't appear on any other network:
-
-   ```bash
-   docker inspect mealwright --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}'
-   ```
-
-   This should print only `mealwright_default`.
-
-**Create the admin account straight away.** With tier D there's no Authelia in front, so until the admin account exists, the first person to open the address becomes the admin. That's how first-run setup works (spec section 7). Open `https://mealwright.example.org/`, create your account and sign in. Then check that setup is closed:
+### 4.6 Start it
 
 ```bash
-curl -s https://mealwright.example.org/api/v1/setup
+cd <folder>
+docker compose up -d
+docker compose logs -f        # watch it start; press Ctrl+C to stop watching
+docker ps                     # mealwright should say (healthy) within about 30 seconds
+```
+
+Then check the version at `https://<your Mealwright address>/api/v1/version`: it must show `<version>`.
+
+**First install: create the admin account straight away.** Until the admin account exists, the first person to open the address becomes the admin (spec section 7). Open the address, create your account, then check that setup is closed:
+
+```bash
+curl -s https://<your Mealwright address>/api/v1/setup
 ```
 
 It must say `"needs_setup":false`.
 
-**Check it's running.** `docker ps` should show `mealwright` as `(healthy)` within about 30 seconds, and `https://mealwright.example.org/api/v1/version` shows the version, for example `{"version":"0.1.0"}`.
-
 ---
 
-## 5. Update to a new version
+## 5. Going back to the previous version
 
-Every start-up applies database changes (migrations) for the new version. The old version can't read a database that a newer version has changed. **So back up the data folder before every update. Going back needs that backup.**
-
-1. Build and push the new image in WSL (sections 2 and 3). Note the new tag.
-2. On the home server, **stop Mealwright and back up the data**. Stopping it first makes sure the database is copied in a consistent state.
-
-   ```bash
-   cd ~/mealwright
-   OLD=$(grep -oE 'tess/mealwright:[^ ]+' compose.yaml | cut -d: -f2)
-   echo "Current version: $OLD"
-   docker compose stop mealwright
-   sudo tar -C ~/mealwright --exclude=data/logs -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
-   ls -lh backups/       # the new backup should be there, and not tiny
-   ```
-
-3. Pull the new image (as in step 4.1, with the new tag).
-4. Edit `compose.yaml`: change the tag in the `image:` line to the new one.
-5. Start it, and watch the log for errors:
-
-   ```bash
-   docker compose up -d
-   docker compose logs -f
-   ```
-
-6. Check `https://mealwright.example.org/api/v1/version` shows the new version.
-
-Keep at least the last three backups. Delete older ones from `~/mealwright/backups` when you're happy.
-
----
-
-## 6. Roll back to the previous version
-
-Use this if the new version doesn't start or doesn't work. **Anything you changed in Mealwright after updating will be lost**, because you go back to the backup taken just before the update.
+Use this if the new version doesn't start or doesn't work. **Anything you changed in Mealwright after updating is lost**, because you go back to the backup taken just before the update. The old image with the new data won't start, or may damage the data, so always go back with both together.
 
 ```bash
-cd ~/mealwright
+cd <folder>
 docker compose stop mealwright
 
-# Keep the newer data aside rather than deleting it, in case it's needed.
+# Keep the newer data aside rather than deleting it, in case it is needed.
 sudo mv data "data-broken-$(date +%Y%m%d-%H%M)"
 
 # Restore the backup from just before the update (pick the right file).
 ls -lh backups/
-sudo tar -C ~/mealwright -xzf backups/data-<OLD>-<date>.tar.gz
+sudo tar -C <folder> -xzf backups/data-<old version>-<date>.tar.gz
 ```
 
-Then edit `compose.yaml` and set the `image:` tag back to the **old** version, the one in the backup's file name. Start it:
+Then put the old tag back: edit `compose.yaml` and set the `image:` line to the **old** version, the one in the backup's file name. The old image is still on the server from when you loaded it (`docker images mealwright` lists them); if you removed it, load its `.tar.gz` again (4.2). Start it:
 
 ```bash
 docker compose up -d
 docker compose logs -f
 ```
 
-Check `/api/v1/version` shows the old version. Tell Claude Code what went wrong with the new one, and include the end of `docker compose logs` from the failed start if you still have it. Once it's sorted, you can delete the `data-broken-…` folder.
-
-**Always roll back the image and the data together.** The old image with the new data won't start, or may damage the data.
+Check `/api/v1/version` shows the old version. Tell Claude Code what went wrong with the new one, and include the end of `docker compose logs` from the failed start if you still have it. Once it is sorted, you can delete the `data-broken-…` folder.
