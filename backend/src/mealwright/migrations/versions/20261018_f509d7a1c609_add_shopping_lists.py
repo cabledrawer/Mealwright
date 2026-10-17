@@ -6,9 +6,11 @@ Create Date: 2026-10-18 00:28:29.910335
 
 """
 
+import csv
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from importlib.resources import files
 
 import sqlalchemy as sa
 from alembic import op
@@ -357,6 +359,20 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("aisle", sa.String(length=20), nullable=True))
         batch_op.add_column(
             sa.Column("version", sa.BigInteger(), server_default="0", nullable=False)
+        )
+
+    # Starting aisles for ingredients that already exist: only where the ingredient is
+    # already linked to a row of the bundled table (0.2 stored that link in food.table_key
+    # by exact name). No guessing; everything else stays empty and shows under Other.
+    source = files("mealwright") / "data" / "food-conversions.csv"
+    with source.open(encoding="utf-8") as handle:
+        rows = csv.DictReader(line for line in handle if not line.startswith("#"))
+        aisles = {row["key"]: row["aisle"] for row in rows if row.get("aisle")}
+    connection = op.get_bind()
+    for key, aisle in aisles.items():
+        connection.execute(
+            sa.text("UPDATE food SET aisle = :aisle WHERE table_key = :key AND aisle IS NULL"),
+            {"aisle": aisle, "key": key},
         )
 
     with op.batch_alter_table("household", schema=None) as batch_op:

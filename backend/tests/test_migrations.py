@@ -407,3 +407,36 @@ def test_two_main_lists_in_one_household_are_refused(tmp_path: Path) -> None:
             "INSERT INTO shopping_list (id, household_id, name, main, position, created_at,"
             " created_by_name, version) VALUES ('a', 1, 'Second', 1, 1, '2026-10-18', '', 0)"
         )
+
+
+def test_existing_ingredients_get_a_starting_aisle_only_when_linked_to_the_table(
+    tmp_path: Path,
+) -> None:
+    engine = make_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    migrate.upgrade(engine, "b4391aaf7695")
+    with engine.begin() as connection:
+        for h in (1, 2):
+            connection.execute(
+                text(
+                    "INSERT INTO household (id, name, created_at) VALUES (:h, 'Home', '2026-10-01')"
+                ),
+                {"h": h},
+            )
+        foods = (
+            (1, 1, "Cumin seeds", "cumin_seeds"),  # linked to the table
+            (2, 1, "Toor dal", None),  # not in the table
+            (3, 1, "Cumin", None),  # similar name, but no link: no guessing
+            (4, 2, "Salt", None),  # the other household, unlinked
+        )
+        for food_id, h, name, key in foods:
+            connection.execute(
+                text(
+                    "INSERT INTO food (id, household_id, name, counted_as, staple, table_key,"
+                    " created_at) VALUES (:id, :h, :name, 'weight', 0, :key, '2026-10-02')"
+                ),
+                {"id": food_id, "h": h, "name": name, "key": key},
+            )
+    migrate.upgrade(engine)
+    with engine.connect() as connection:
+        aisles = dict(connection.exec_driver_sql("SELECT name, aisle FROM food").all())
+    assert aisles == {"Cumin seeds": "spices", "Toor dal": None, "Cumin": None, "Salt": None}
