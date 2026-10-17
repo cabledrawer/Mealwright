@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
@@ -316,3 +317,93 @@ def test_0_2_1_migration_goes_back_and_forward(tmp_path: Path) -> None:
     migrate.upgrade(engine)
     with engine.connect() as db:
         assert db.execute(text("SELECT count(*) FROM change_line")).scalar_one() == 6
+def _make_0_2_database(path: Path) -> Engine:
+    """A 0.2 database: two households, foods, a place, a lot, and a change (as at b4391aaf7695)."""
+    engine = make_engine(f"sqlite:///{path}")
+    migrate.upgrade(engine, "b4391aaf7695")
+    with engine.begin() as connection:
+        for h in (1, 2):
+            for sql in (
+                "INSERT INTO household (id, name, created_at) VALUES (:h, 'Home', '2026-10-01')",
+                "INSERT INTO login (id, household_id, username, name, password_hash, role,"
+                " theme, created_at) VALUES (:h, :h, 'user' || :h, 'User', 'x', 'admin', 'auto',"
+                " '2026-10-01')",
+                "INSERT INTO place (id, household_id, name, kind, position, created_at)"
+                " VALUES (:h, :h, 'Fridge', 'fridge', 0, '2026-10-01')",
+                "INSERT INTO food (id, household_id, name, counted_as, staple, created_at)"
+                " VALUES (:h, :h, 'Toor dal', 'weight', 0, '2026-10-02')",
+                "INSERT INTO stock_lot (id, household_id, food_id, place_id, amount_milli,"
+                " added_at) VALUES (:h, :h, :h, :h, 500000, '2026-10-03')",
+                "INSERT INTO change (id, household_id, request, kind, login_id, login_name,"
+                " food_id, at, summary) VALUES (:h, :h, 'POST /api/v1/stock', 'added', :h,"
+                " 'User', :h, '2026-10-03', 'Added 500 g Toor dal')",
+            ):
+                connection.execute(text(sql), {"h": h})
+    return engine
+
+
+def test_shopping_lists_migration_keeps_data_and_gives_each_household_a_main_list(
+    tmp_path: Path,
+) -> None:
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine)
+    with engine.connect() as connection:
+        lists = connection.exec_driver_sql(
+            "SELECT household_id, name, main, position, removed_at FROM shopping_list"
+            " ORDER BY household_id"
+        ).all()
+        assert [tuple(row) for row in lists] == [
+            (1, "This week", 1, 0, None),
+            (2, "This week", 1, 0, None),
+        ]
+        ids = connection.exec_driver_sql("SELECT id FROM shopping_list").scalars().all()
+        assert len(set(ids)) == 2 and all(len(i) == 36 for i in ids)
+        # Everything that was there still is, with the new columns at their defaults.
+        assert connection.exec_driver_sql("SELECT count(*) FROM stock_lot").scalar_one() == 2
+        assert connection.exec_driver_sql(
+            "SELECT summary FROM change WHERE id = 1"
+        ).scalar_one() == ("Added 500 g Toor dal")
+        food = connection.exec_driver_sql(
+            "SELECT name, aisle, version FROM food WHERE id = 1"
+        ).one()
+        assert tuple(food) == ("Toor dal", None, 0)
+        household = connection.exec_driver_sql(
+            "SELECT list_seq, list_purged_seq FROM household WHERE id = 2"
+        ).one()
+        assert tuple(household) == (0, 0)
+        assert (
+            connection.exec_driver_sql("SELECT tick_id FROM change WHERE id = 1").scalar_one()
+            is None
+        )
+        for table in ("list_item", "list_tick", "sync_action", "list_note", "double_tick"):
+            count = connection.exec_driver_sql(f"SELECT count(*) FROM {table}").scalar_one()  # noqa: S608
+            assert count == 0, table
+        assert connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_shopping_lists_migration_downgrades_and_upgrades_again(tmp_path: Path) -> None:
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine)
+    migrate.downgrade(engine, "b4391aaf7695")
+    with engine.connect() as connection:
+        tables = set(inspect(connection).get_table_names())
+        assert not tables & {"shopping_list", "list_item", "list_tick", "sync_action"}
+        columns = {c["name"] for c in inspect(connection).get_columns("food")}
+        assert "aisle" not in columns and "version" not in columns
+        assert connection.exec_driver_sql("SELECT count(*) FROM stock_lot").scalar_one() == 2
+        assert connection.exec_driver_sql("SELECT count(*) FROM change").scalar_one() == 2
+    migrate.upgrade(engine)
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM shopping_list").scalar_one() == 2
+
+
+def test_two_main_lists_in_one_household_are_refused(tmp_path: Path) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine)
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO shopping_list (id, household_id, name, main, position, created_at,"
+            " created_by_name, version) VALUES ('a', 1, 'Second', 1, 1, '2026-10-18', '', 0)"
+        )

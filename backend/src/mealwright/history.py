@@ -35,7 +35,10 @@ from mealwright.models import (
     FoodSize,
     FoodStandIn,
     Household,
+    ListItem,
+    ListTick,
     StockLot,
+    SyncAction,
     utcnow,
 )
 from mealwright.names import fold
@@ -67,6 +70,16 @@ def replayed(kitchen: Kitchen) -> Change | None:
             "key_reused",
             "That change ID was already used for something else.",
         )
+    if change is None:
+        # Action IDs and Idempotency-Keys share one uniqueness (sync protocol 5.7): a key
+        # that is already a shopping action's ID was used for something else.
+        action = kitchen.db.get(SyncAction, (kitchen.household_id, kitchen.idempotency_key))
+        if action is not None:
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "key_reused",
+                "That change ID was already used for something else.",
+            )
     return change
 
 
@@ -133,6 +146,7 @@ FIELDS = (
     "count_word_plural",
     "place_id",
     "shop_id",
+    "aisle",
     "running_low_milli",
     "merged_into_id",
 )
@@ -778,6 +792,15 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
             or_(FoodMerge.from_food_id.in_(ids), FoodMerge.into_food_id.in_(ids))
         )
     )
+    # Shopping lists: items for these ingredients (tombstones; removal is blocked while an
+    # ingredient is on a live list) go with their purchases. A purchase's changes lose the
+    # link first (sync protocol 3.7, 3.9).
+    # PR 3: raise household.list_purged_seq here, so phones that are behind get a fresh copy.
+    item_ids = select(ListItem.id).where(ListItem.food_id.in_(ids))
+    tick_ids = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
+    db.execute(update(Change).where(Change.tick_id.in_(tick_ids)).values(tick_id=None))
+    db.execute(delete(ListTick).where(ListTick.item_id.in_(item_ids)))
+    db.execute(delete(ListItem).where(ListItem.food_id.in_(ids)))
     db.execute(update(Food).where(Food.id.in_(ids)).values(merged_into_id=None))
     db.execute(delete(Food).where(Food.id.in_(ids)))
     db.commit()

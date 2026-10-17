@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
 from mealwright import amounts
+from mealwright.aisles import AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import (
@@ -75,11 +76,25 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import clean, fold, normalise, search_match, size_name
+from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
 
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
 
 Name = Annotated[str, Field(min_length=1, max_length=100)]
+AisleName = Literal[
+    "veg_fruit",
+    "meat_fish",
+    "dairy",
+    "bakery",
+    "dry_goods",
+    "tins_jars",
+    "spices",
+    "frozen",
+    "drinks",
+    "household",
+    "other",
+]
 
 
 def _name(value: str) -> str:
@@ -130,6 +145,8 @@ class FoodOut(BaseModel):
     counted_as_display: str
     place: Ref | None
     shop: Ref | None
+    aisle: AisleName  # a food with no aisle of its own shows under "other"
+    aisle_name: str  # "Veg & fruit"
     sizes: list[SizeOut]
     cup_weight: Conversion | None
     item_weight: Conversion | None
@@ -343,6 +360,8 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         counted_as_display=counted_as_text(food, usual),
         place=_place_ref(kitchen, food.place_id),
         shop=_shop_ref(kitchen, food.shop_id),
+        aisle=cast(AisleName, food.aisle or DEFAULT_AISLE),
+        aisle_name=AISLE_LABELS[food.aisle or DEFAULT_AISLE],
         sizes=[size_out(food, s) for s in food_sizes],
         cup_weight=cup_weight,
         item_weight=item_weight,
@@ -514,6 +533,7 @@ class NewFood(BaseModel):
     staple: bool = False
     place_id: int | None = None
     shop_id: int | None = None
+    aisle: AisleName | None = None  # default: the bundled table's, else other
 
     _clean = field_validator("name")(_name)
 
@@ -539,6 +559,7 @@ def create_food(body: NewFood, kitchen: Here, response: Response) -> FoodWrite:
                 staple=body.staple,
                 place_id=body.place_id,
                 shop_id=body.shop_id,
+                aisle=body.aisle or (row.aisle if row and row.aisle else DEFAULT_AISLE),
                 table_key=row.key if row else None,
             )
             kitchen.db.add(food)
@@ -558,6 +579,7 @@ class FoodPatch(BaseModel):
     count_word: Annotated[str, Field(max_length=30)] | None = None
     place_id: int | None = None
     shop_id: int | None = None
+    aisle: AisleName | None = None
     running_low_at: AmountIn | None = None
     cup_weight: CupGrams | None = None  # grams in one household cup
     item_weight: ItemGrams | None = None  # grams in one item
@@ -571,6 +593,7 @@ FIELD_NAMES = (
     "count_word",
     "place_id",
     "shop_id",
+    "aisle",
     "running_low_at",
     "cup_weight",
     "item_weight",
@@ -694,6 +717,13 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                     if shop
                     else f"{name} has no usual shop"
                 )
+            elif field_name == "aisle":
+                if body.aisle is None:
+                    raise Problem(422, "aisle_needed", "Choose an aisle.")
+                if body.aisle == (food.aisle or DEFAULT_AISLE):
+                    return None
+                food.aisle = body.aisle
+                summary = f"{name} is now in {AISLE_LABELS[body.aisle]}"
             elif field_name == "running_low_at":
                 if body.running_low_at is None:
                     if food.running_low_milli is None:
@@ -743,10 +773,15 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
 
 def cannot_remove(kitchen: Kitchen, food: Food) -> str | None:
     """Why this ingredient can't be removed, or None if nothing depends on it. The one
-    place to add what comes later: shopping lists (0.3) and recipes (0.4)."""
+    place to add what comes later: recipes (0.4)."""
     if has_stock(kitchen, food.id):
         return (
             f"{food.name} is still in the pantry. Use it up, or merge it with another ingredient."
+        )
+    if removed_recently(kitchen, food.id):
+        return (
+            f"{food.name} is on a shopping list. Take it off the list first, "
+            "or merge it with another ingredient."
         )
     return None
 

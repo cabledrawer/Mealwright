@@ -54,7 +54,7 @@ def ok(response: Any, status: int = 200) -> Any:
 
 
 @pytest.fixture
-def mine(kitchen: TestClient) -> dict[str, int]:
+def mine(kitchen: TestClient) -> dict[str, Any]:
     """Household 1's data, and the ids to attack it with."""
     toor = ok(kitchen.post(f"{API}/foods", json={"name": "Toor dal"}), 201)["food"]
     moong = ok(kitchen.post(f"{API}/foods", json={"name": "Moong dal"}), 201)["food"]
@@ -83,7 +83,19 @@ def mine(kitchen: TestClient) -> dict[str, int]:
         201,
     )
     conversions = ok(kitchen.get(f"{API}/conversions"))
+    lists = ok(kitchen.get(f"{API}/shopping/lists"))["lists"]
+    extra = ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Party"}), 201)
+    item = ok(
+        kitchen.post(
+            f"{API}/shopping/lists/{lists[0]['id']}/items",
+            json={"food_id": toor["id"], "amount": {"amount": 1, "unit": "packet"}},
+        ),
+        201,
+    )
     return {
+        "list_id": lists[0]["id"],
+        "extra_list_id": extra["shopping_list"]["id"],
+        "item_id": item["item"]["id"],
         "food_id": toor["id"],
         "other_food_id": moong["id"],
         "name_id": named["food"]["other_names"][0]["id"],
@@ -137,24 +149,34 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/stock/{lot_id}/to-freezer"): {},
     ("POST", "/api/v1/changes/{change_id}/undo"): None,
     ("DELETE", "/api/v1/conversions/{conversion_id}"): None,
+    ("GET", "/api/v1/shopping/lists/{list_id}"): None,
+    ("PATCH", "/api/v1/shopping/lists/{list_id}"): {"name": "Mine now"},
+    ("DELETE", "/api/v1/shopping/lists/{extra_list_id}"): None,
+    ("POST", "/api/v1/shopping/lists/{list_id}/items"): {"food_id": 0},
+    ("POST", "/api/v1/shopping/lists/{list_id}/clear-ticked"): {},
+    ("PATCH", "/api/v1/shopping/items/{item_id}"): {"amount": {"amount": 3, "unit": "g"}},
+    ("DELETE", "/api/v1/shopping/items/{item_id}"): None,
 }
 
 
 def endpoints_with_ids(client: TestClient) -> set[tuple[str, str]]:
     paths = client.app.openapi()["paths"]  # type: ignore[attr-defined]
-    return {
+    found = {
         (method.upper(), path)
         for path, methods in paths.items()
         if "{" in path
         for method in methods
     }
+    # DELETE of a list is tried on an extra list (the main list can't be removed).
+    return found
 
 
 def test_every_endpoint_with_an_id_has_a_case(kitchen: TestClient) -> None:
-    assert endpoints_with_ids(kitchen) == set(PATH_CASES)
+    wanted = {(method, path.replace("{extra_list_id}", "{list_id}")) for method, path in PATH_CASES}
+    assert endpoints_with_ids(kitchen) == wanted
 
 
-def fill(path: str, ids: dict[str, int]) -> str:
+def fill(path: str, ids: dict[str, Any]) -> str:
     return path.format(**ids)
 
 
@@ -166,7 +188,7 @@ def request(client: TestClient, method: str, url: str, body: Any) -> Any:
 
 
 def test_household_ids_in_the_path_are_404(
-    kitchen: TestClient, neighbour: TestClient, mine: dict[str, int]
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     before = snapshot(kitchen)
     # Household 2 has its own ingredient, so body ids can point at something real there.
@@ -181,7 +203,7 @@ def test_household_ids_in_the_path_are_404(
 
 
 def test_household_ids_in_the_body_are_404(
-    kitchen: TestClient, neighbour: TestClient, mine: dict[str, int]
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     before = snapshot(kitchen)
     ghee = ok(neighbour.post(f"{API}/foods", json={"name": "Ghee"}), 201)["food"]
@@ -213,7 +235,36 @@ def test_household_ids_in_the_body_are_404(
             f"{API}/stock",
             {"food_id": ghee["id"], "amount": {"amount": 1, "size_id": mine["size_id"]}},
         ),
+        # An "ask once" size answer about household 1's ingredient (kind=size).
+        (
+            "POST",
+            f"{API}/stock",
+            {
+                "food_id": ghee["id"],
+                "amount": {
+                    "amount": 1,
+                    "unit": "loaf",
+                    "answers": [
+                        {"kind": "size", "food_id": mine["food_id"], "name": "loaf", "amount": 20}
+                    ],
+                },
+            },
+        ),
         ("POST", f"{API}/foods", {"name": "Butter", "place_id": mine["place_id"]}),
+        ("POST", f"{API}/foods", {"name": "Butter", "aisle": "dairy", "shop_id": mine["shop_id"]}),
+        ("POST", f"{API}/shopping/lists/{{own_list}}/items", {"food_id": mine["food_id"]}),
+        (
+            "POST",
+            f"{API}/shopping/lists/{{own_list}}/items",
+            {"food_id": ghee["id"], "shop_id": mine["shop_id"]},
+        ),
+        (
+            "POST",
+            f"{API}/shopping/lists/{{own_list}}/items",
+            {"food_id": ghee["id"], "amount": {"amount": 1, "size_id": mine["size_id"]}},
+        ),
+        ("POST", f"{API}/shopping/lists/{mine['list_id']}/items", {"food_id": ghee["id"]}),
+        ("POST", f"{API}/shopping/lists", {"id": mine["extra_list_id"], "name": "Copy"}),
         ("POST", f"{API}/foods", {"name": "Butter", "shop_id": mine["shop_id"]}),
         ("PATCH", own, {"place_id": mine["place_id"]}),
         ("PATCH", own, {"shop_id": mine["shop_id"]}),
@@ -251,15 +302,22 @@ def test_household_ids_in_the_body_are_404(
             },
         ),
     ]
+    own_list = ok(neighbour.get(f"{API}/shopping/lists"))["lists"][0]["id"]
     for method, url, body in attempts:
+        url = url.replace("{own_list}", own_list)
         response = neighbour.request(method, url, json=body)
+        if url.endswith("/shopping/lists") and body and "id" in body:
+            # Reusing another household's list ID is refused, and says nothing about it.
+            assert response.status_code == 409, response.text
+            assert response.json()["code"] == "id_taken"
+            continue
         assert response.status_code == 404, (method, url, body, response.text)
         assert response.json().get("code") == "not_found", (method, url, response.text)
     assert snapshot(kitchen) == before
 
 
 def test_lists_and_search_show_nothing_of_the_other_household(
-    kitchen: TestClient, neighbour: TestClient, mine: dict[str, int]
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     for query in (
         {},
@@ -282,6 +340,17 @@ def test_lists_and_search_show_nothing_of_the_other_household(
     assert ok(neighbour.get(f"{API}/changes"))["changes"] == []
     assert ok(neighbour.get(f"{API}/changes", params={"food_id": mine["food_id"]}))["changes"] == []
     assert ok(neighbour.get(f"{API}/conversions")) == []
+    # Cursors: the next page after or before household 1's own ids is still empty.
+    assert ok(neighbour.get(f"{API}/foods", params={"after": "0"}))["foods"] == []
+    assert ok(neighbour.get(f"{API}/foods", params={"after": "1"}))["foods"] == []
+    newest = ok(kitchen.get(f"{API}/changes", params={"limit": 1}))["changes"][0]["id"]
+    assert ok(neighbour.get(f"{API}/changes", params={"before": newest + 1}))["changes"] == []
+    # Shopping lists: only their own main list, with nothing on it.
+    theirs = ok(neighbour.get(f"{API}/shopping/lists"))["lists"]
+    assert [(x["name"], x["main"], x["to_buy"]) for x in theirs] == [("This week", True, 0)]
+    assert theirs[0]["id"] != mine["list_id"]
+    view = ok(neighbour.get(f"{API}/shopping/lists/{theirs[0]['id']}"))
+    assert view["shops"] == []
     assert ok(neighbour.get(f"{API}/household"))["name"] == "Next door"
     # The same names are free next door.
     ok(neighbour.post(f"{API}/foods", json={"name": "Toor dal"}), 201)
@@ -307,7 +376,7 @@ def test_the_same_change_id_in_both_households(kitchen: TestClient, neighbour: T
 
 
 def test_the_other_household_cannot_undo(
-    kitchen: TestClient, neighbour: TestClient, mine: dict[str, int]
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     before = snapshot(kitchen)
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]

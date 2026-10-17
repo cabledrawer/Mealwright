@@ -25,6 +25,7 @@ from mealwright.auth import (
 )
 from mealwright.household import add_default_places
 from mealwright.models import Household, Login
+from mealwright.shopping import ensure_main_list
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
 # log file only, never to the container output (mealwright.logs, cabledrawer 17 Oct).
@@ -121,6 +122,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
         db.add(household)
         db.flush()
         add_default_places(db, household.id)
+        ensure_main_list(db, household.id, body.name)
         db.add(login)
         db.flush()
     except IntegrityError:

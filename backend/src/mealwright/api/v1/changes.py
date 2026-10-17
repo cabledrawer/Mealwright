@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
+from mealwright import shopping
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -304,6 +305,8 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise too_old()
         tally = Tally()
         data = change.undo_data or {}
+        batch = shopping.Batch(kitchen) if data.get("shopping") else None
+        seq = shopping.undo_shopping(kitchen, change, tally, batch) if batch else 0
         # Each lot as it was before the Undo, so the Undo gets its own lines.
         touched: dict[int, tuple[StockLot, int, int, date | None]] = {}
         start: dict[int, dict[int, int]] = {}
@@ -341,6 +344,8 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             },
         )
         undo_change.undoes_change_id = change.id
+        if batch:
+            shopping.log_undo(batch, seq, change, undo_change)
         # What the Undo actually did to each lot (a partial undo: only what it put back),
         # for Recent changes and so the monthly totals net out.
         end = {food: place_totals(kitchen, food) for food in start}
