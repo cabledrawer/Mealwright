@@ -140,14 +140,16 @@ def test_dev_only_never_relaxes_the_rest(lic: ModuleType, tmp_path: Path) -> Non
         assert lic.check_npm_package("tool", info, tmp_path, dev=True)[0] is False
 
 
-def test_runtime_packages_follow_the_lock(lic: ModuleType) -> None:
-    lock = """
+LOCK = """
 version = 1
 [[package]]
 name = "mealwright"
 dependencies = [{ name = "fastapi" }, { name = "uvicorn", extra = ["standard"] }]
+[package.optional-dependencies]
+extra-feature = [{ name = "pillow" }]
 [package.dev-dependencies]
-dev = [{ name = "pytest" }]
+dev = [{ name = "pytest" }, { name = "fastapi" }]
+docs = [{ name = "sphinx" }]
 
 [[package]]
 name = "fastapi"
@@ -159,13 +161,48 @@ name = "uvicorn"
 standard = [{ name = "uvloop" }]
 
 [[package]]
+name = "uvloop"
+version = "1"
+[[package]]
+name = "uvloop"
+version = "2"
+dependencies = [{ name = "only-in-v2" }]
+
+[[package]]
 name = "pytest"
-dependencies = [{ name = "pluggy" }]
+dependencies = [{ name = "pluggy" }, { name = "a", extra = ["x"] }]
+
+[[package]]
+name = "a"
+[package.optional-dependencies]
+x = [{ name = "b", extra = ["y"] }]
+[[package]]
+name = "b"
+[package.optional-dependencies]
+y = [{ name = "a", extra = ["x"] }]
 """
-    assert lic.runtime_packages(lock) == {"fastapi", "typing-extensions", "uvicorn", "uvloop"}
+
+
+def test_dependency_sets_follow_the_lock(lic: ModuleType) -> None:
+    runtime, dev_only = lic.dependency_sets(LOCK)
+    assert runtime == {
+        "fastapi",
+        "typing-extensions",
+        "uvicorn",
+        "uvloop",
+        "only-in-v2",  # every version's dependencies count
+        "pillow",  # the project's own extras ship
+    }
+    assert dev_only == {"pytest", "pluggy", "a", "b"}  # extras loop ends; sphinx not dev
+
+
+def test_missing_project_entry_fails(lic: ModuleType) -> None:
+    with pytest.raises(SystemExit, match="no entry"):
+        lic.dependency_sets(LOCK.replace('name = "mealwright"', 'name = "renamed"'))
 
 
 def test_real_lock_marks_dev_tools_as_dev(lic: ModuleType) -> None:
-    runtime = lic.runtime_packages(lic.LOCK_FILE.read_text())
+    runtime, dev_only = lic.dependency_sets(lic.LOCK_FILE.read_text())
     assert {"fastapi", "sqlalchemy", "argon2-cffi"} <= runtime
-    assert not {"pytest", "mypy", "ruff"} & runtime
+    assert {"pytest", "mypy", "ruff"} <= dev_only
+    assert not runtime & dev_only

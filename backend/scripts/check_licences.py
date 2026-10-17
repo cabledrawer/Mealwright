@@ -3,10 +3,11 @@
 Allowed (cabledrawer 17 Oct): MIT, MIT-0, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0,
 MPL-2.0, BlueOak-1.0.0.
 Also allowed for development-only packages, never for anything in the app image (cabledrawer
-17 Oct): 0BSD, Unlicense, CC0-1.0 and Zlib. Development-only means: Python packages needed
-only by the dev group in uv.lock, and every package of an npm project given with
---npm-dev (the browser tests in e2e/). The web app's own npm packages always count as
-shipped, even devDependencies, because the build bundles parts of some of them (Svelte).
+17 Oct): 0BSD, Unlicense, CC0-1.0 and Zlib. Development-only means: Python packages
+needed only by the dev group in uv.lock (anything else counts as shipped), and every
+package of an npm project given with --npm-dev (the browser tests in e2e/). The web app's
+own npm packages always count as shipped, even devDependencies, because the build bundles
+parts of some of them (Svelte).
 GPL-2.0-only is never allowed. OFL-1.1 is allowed for fonts only, so never for a Python
 package. MPL-2.0 packages marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B)
 must be rejected: MPL-2.0 only works with AGPL through that secondary-licence clause.
@@ -30,6 +31,7 @@ import sys
 import tomllib
 from importlib.metadata import Distribution, distributions
 from pathlib import Path
+from typing import Any
 
 ALLOWED = {
     "MIT",
@@ -202,31 +204,56 @@ def normalise(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def runtime_packages(lock_text: str) -> set[str]:
-    """Names of the packages the app needs to run, read from uv.lock.
+def _walk(packages: dict[str, list[dict[str, Any]]], start: list[dict[str, Any]]) -> set[str]:
+    """Every package reachable from the given dependency entries, with their extras.
 
-    Walks the project's own dependencies (with their extras), not its dev group. Markers
-    are ignored, so a package needed on any platform counts: that only makes the check
-    stricter.
+    Each (package, extra) is expanded once, so loops between extras can't hang the check.
+    When the lock holds more than one version of a package (uv can resolve per platform),
+    the dependencies of every version are followed.
     """
-    lock = tomllib.loads(lock_text)
-    packages = {p["name"]: p for p in lock.get("package", [])}
-    needed: set[str] = set()
-    todo = [
-        dep for name in SELF if name in packages for dep in packages[name].get("dependencies", [])
-    ]
+    found: set[str] = set()
+    done: set[tuple[str, str | None]] = set()
+    todo = list(start)
     while todo:
         dep = todo.pop()
-        name = dep["name"]
-        package = packages.get(name, {})
-        extras = dep.get("extra", [])
-        if name in needed and not extras:
-            continue
-        needed.add(normalise(name))
-        todo.extend(package.get("dependencies", []))
-        for extra in extras:
-            todo.extend(package.get("optional-dependencies", {}).get(extra, []))
-    return needed
+        name = normalise(dep["name"])
+        found.add(name)
+        for extra in [None, *dep.get("extra", [])]:
+            if (name, extra) in done:
+                continue
+            done.add((name, extra))
+            for version in packages.get(name, []):
+                if extra is None:
+                    todo.extend(version.get("dependencies", []))
+                else:
+                    todo.extend(version.get("optional-dependencies", {}).get(extra, []))
+    return found
+
+
+def dependency_sets(lock_text: str) -> tuple[set[str], set[str]]:
+    """(runtime, dev only): package names read from uv.lock.
+
+    Runtime is everything reachable from the project's own dependencies and its extras.
+    Dev only is what the dev group reaches and the runtime doesn't. A package in neither
+    (another dependency group, say) is treated as shipped. Markers are ignored, so a
+    package needed on any platform counts: that only makes the check stricter.
+    """
+    lock = tomllib.loads(lock_text)
+    packages: dict[str, list[dict[str, Any]]] = {}
+    for package in lock.get("package", []):
+        packages.setdefault(normalise(package["name"]), []).append(package)
+    own = [version for name in SELF for version in packages.get(name, [])]
+    if not own:
+        raise SystemExit(f"uv.lock has no entry for {sorted(SELF)}; can't tell what ships")
+    runtime_start = [dep for v in own for dep in v.get("dependencies", [])]
+    runtime_start += [
+        dep for v in own for deps in v.get("optional-dependencies", {}).values() for dep in deps
+    ]
+    dev_start = [dep for v in own for dep in v.get("dev-dependencies", {}).get("dev", [])]
+    runtime = _walk(packages, runtime_start)
+    if not runtime:
+        raise SystemExit("uv.lock lists no runtime dependencies; can't tell what ships")
+    return runtime, _walk(packages, dev_start) - runtime
 
 
 def _has_exhibit_b_files(folder: Path) -> bool:
@@ -288,7 +315,7 @@ def main_npm(project: Path, dev: bool = False) -> int:
 def main() -> int:
     if len(sys.argv) == 3 and sys.argv[1] in {"--npm", "--npm-dev"}:
         return main_npm(Path(sys.argv[2]), dev=sys.argv[1] == "--npm-dev")
-    runtime = runtime_packages(LOCK_FILE.read_text())
+    _, dev_only = dependency_sets(LOCK_FILE.read_text())
     failures = 0
     seen: set[str] = set()
     for dist in sorted(distributions(), key=lambda d: (d.metadata["Name"] or "").lower()):
@@ -296,7 +323,7 @@ def main() -> int:
         if name in SELF or name in seen:
             continue
         seen.add(name)
-        ok, detail = check(dist, dev=normalise(name) not in runtime)
+        ok, detail = check(dist, dev=normalise(name) in dev_only)
         failures += not ok
         print(f"{'ok  ' if ok else 'FAIL'}  {name} {dist.version}: {detail}")
     print(f"\n{len(seen)} packages, {failures} not allowed")
