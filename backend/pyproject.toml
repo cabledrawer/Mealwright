@@ -21,6 +21,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    # Needed by FastAPI's TestClient. Stay on httpx until Starlette requires httpx2 (cabledrawer 17 Oct).
     "httpx>=0.28.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
