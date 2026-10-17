@@ -108,7 +108,17 @@ def test_household_today_follows_its_time_zone(kitchen: TestClient) -> None:
     assert kitchen.get(f"{API}/household").json()["today"] == expected
 
 
-@pytest.mark.parametrize("body", [{"time_zone": "Mars/Olympus"}, {"cup_ml": 200}])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"time_zone": "Mars/Olympus"},
+        {"time_zone": "localtime"},
+        {"time_zone": "Factory"},
+        {"time_zone": "posixrules"},
+        {"time_zone": "GB"},
+        {"cup_ml": 200},
+    ],
+)
 def test_browser_values_are_checked(kitchen: TestClient, body: dict[str, object]) -> None:
     assert kitchen.post(f"{API}/household/from-browser", json=body).status_code == 422
     assert kitchen.get(f"{API}/household").json()["time_zone"] is None
@@ -149,3 +159,9 @@ def test_another_households_ids_are_404(kitchen: TestClient) -> None:
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalar(select(Place).where(Place.id == 1)) is not None
     assert kitchen.patch(f"{API}/foods/1", json={"place_id": 999}).status_code == 404
+
+
+@pytest.mark.parametrize("zone", ["UTC", "Europe/London", "America/Argentina/Buenos_Aires"])
+def test_real_time_zones_are_accepted(kitchen: TestClient, zone: str) -> None:
+    response = kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+    assert response.json()["time_zone"] == zone

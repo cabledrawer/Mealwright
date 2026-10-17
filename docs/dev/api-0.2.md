@@ -28,6 +28,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 409 | `ask_once` | the server needs a conversion it doesn't know (section 4.4; carries `ask`) |
 | 409 | `already_undone` | Undo pressed twice |
 | 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2) |
+| 422 | `too_big` | an amount over 1,000,000 g, ml or items (typed, or worked out by a conversion); cup weights are at most 2 kg and item weights at most 50 kg |
 | 422 | `one_field` | a food PATCH with more or less than one field |
 | 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
 | 409 | `key_reused` | an `Idempotency-Key` was reused for a different request |
@@ -428,7 +429,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 - `GET /api/v1/shops` → `[{ "id": 1, "name": "Tesco" }, …]`.
 - `POST /api/v1/shops` `{ "name": "Lidl" }` → `201` with the new shop, or `200` with the existing one if the name is already used (ignoring case), so "+ Shop" never makes duplicates. Not logged as a change.
 - `GET /api/v1/household` → `{ "name": "Home", "time_zone": null, "cup_ml": null, "cup_ml_used": 250, "undo_days": 7, "history_months": 12, "use_soon_days": 2, "today": "2026-10-17" }`.
-- `POST /api/v1/household/from-browser` (admins only, else `403 admins_only`) `{ "time_zone": "Europe/London", "cup_ml": 250 }`. Each value is stored **only while the household has none** (cabledrawer 17 Oct, spec section 6): once set it is never changed silently, so an admin opening the app from abroad changes nothing. Always answers `200` with the settings as stored (the household shape above). Unknown zone (checked with `zoneinfo`) or cup not 240/250 → `422`. Changing them on purpose comes with Settings (0.8), on a separate endpoint the web app never calls automatically.
+- `POST /api/v1/household/from-browser` (admins only, else `403 admins_only`) `{ "time_zone": "Europe/London", "cup_ml": 250 }`. Each value is stored **only while the household has none** (cabledrawer 17 Oct, spec section 6): once set it is never changed silently, so an admin opening the app from abroad changes nothing. Always answers `200` with the settings as stored (the household shape above). A zone that isn't `UTC` or an Area/City name from `zoneinfo` (so not `localtime`, `Factory` or `posixrules`) or cup not 240/250 → `422`. Changing them on purpose comes with Settings (0.8), on a separate endpoint the web app never calls automatically.
 - **After sign-in:** if `time_zone` or `cup_ml` is null and the login is an admin, the web app sends `{ "time_zone": <Intl.DateTimeFormat().resolvedOptions().timeZone>, "cup_ml": <240 if navigator.language is en-US, else 250> }`. Existing 0.1 installs fill it in on the first admin visit after updating. Members never send it. Never location.
 
 ### 6.4 Stock (the Pantry screen)

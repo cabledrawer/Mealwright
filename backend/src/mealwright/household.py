@@ -12,8 +12,15 @@ from mealwright.models import DEFAULT_PLACES, Household, Place, utcnow
 UTC_ZONE = ZoneInfo("UTC")
 
 
+_NOT_A_PLACE = {"localtime", "Factory", "posixrules"}
+
+
 def valid_time_zone(name: str) -> bool:
-    if name not in available_timezones():
+    """UTC or an Area/City name from the time-zone database ("Europe/London"). Not
+    "localtime" (that's the server's own zone), "Factory" or "posixrules"."""
+    if name in _NOT_A_PLACE or name not in available_timezones():
+        return False
+    if name != "UTC" and "/" not in name:
         return False
     try:
         ZoneInfo(name)
