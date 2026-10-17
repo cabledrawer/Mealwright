@@ -24,6 +24,7 @@ build-backend = "uv_build"
 dev = [
     # Needed by FastAPI's TestClient. Stay on httpx until Starlette requires httpx2 (cabledrawer 17 Oct).
     "httpx>=0.28.1",
+    "hypothesis>=6.168.3",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "ruff>=0.17.1",
@@ -31,7 +32,7 @@ dev = [
 
 [tool.uv]
 # New dependencies: prefer releases at least two weeks old (as for the ./check scanners).
-exclude-newer-package = { pycparser = "2026-10-03T00:00:00Z" }
+exclude-newer-package = { pycparser = "2026-10-03T00:00:00Z", hypothesis = "2026-10-03T00:00:00Z", sortedcontainers = "2026-10-03T00:00:00Z" }
 
 [tool.ruff]
 line-length = 100

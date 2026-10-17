@@ -1,0 +1,188 @@
+"""Unit maths: storing amounts, rounding and showing them the way they're sold."""
+
+from decimal import Decimal
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from mealwright.amounts import (
+    MILLI,
+    Size,
+    about_text,
+    as_sold,
+    count_text,
+    exact_text,
+    from_milli,
+    plural,
+    quarters_text,
+    significant,
+    to_milli,
+)
+from mealwright.names import normalise
+
+PACKET = Size(12, "packet", "packets", 500_000)
+PACK = Size(30, "pack", "packs", 200_000)
+BOTTLE = Size(5, "bottle", "bottles", 1_000_000)
+DOZEN = Size(7, "dozen", "dozen", 12_000)
+LOAF = Size(8, "loaf", "loaves", 20_000)
+TUB = Size(9, "tub", "tubs", 500_000)
+
+
+@pytest.mark.parametrize(
+    ("milli", "counted_as", "size", "word", "expected"),
+    [
+        # The examples in docs/dev/api-0.2.md section 5.3 and the mockups.
+        (750_000, "weight", PACKET, None, "1½ packets · about 750 g"),
+        (1_000_000, "weight", PACKET, None, "2 packets · 1 kg"),
+        (400_000, "weight", PACK, None, "2 packs · 400 g"),
+        (1_500_000, "volume", BOTTLE, None, "1½ bottles · about 1.5 L"),
+        (9_000, "count", DOZEN, None, "9 left · bought as a dozen"),
+        (14_000, "count", LOAF, "slice", "14 slices · bought as a loaf"),
+        (6_000, "count", None, "piece", "6 pieces"),
+        (200_000, "weight", None, None, "200 g"),
+        (40_000, "weight", PACKET, None, "under ¼ packet · about 40 g"),
+        (250_000, "weight", TUB, None, "½ tub · about 250 g"),
+        (500_000, "weight", TUB, None, "1 tub · 500 g"),
+        (125_000, "weight", PACKET, None, "¼ packet · about 130 g"),
+        (1_000, "count", None, "slice", "1 slice"),
+        (500, "count", None, "slice", "½ slice"),
+        (1_500, "count", None, None, "1½ left"),
+        (0, "count", None, None, "0 left"),
+        (0, "weight", PACKET, None, "0 g"),
+    ],
+)
+def test_as_sold_display(
+    milli: int, counted_as: str, size: Size | None, word: str | None, expected: str
+) -> None:
+    word_plural = plural(word) if word else None
+    shown = as_sold(milli, counted_as, size, word, word_plural)  # type: ignore[arg-type]
+    assert shown.display == expected
+
+
+def test_as_sold_parts() -> None:
+    shown = as_sold(750_000, "weight", PACKET)
+    assert shown.count == Decimal("1.5")
+    assert shown.about is True
+    assert shown.short == "1½ packets"
+    exact = as_sold(1_000_000, "weight", PACKET)
+    assert exact.about is False
+    assert exact.short == "2 packets"
+
+
+@pytest.mark.parametrize(
+    ("milli", "expected"),
+    [
+        (200_000, "200 g"),
+        (7_500, "7.5 g"),
+        (7_000, "7 g"),
+        (1_000_000, "1 kg"),
+        (1_250_000, "1.25 kg"),
+        (1_234_400, "1.234 kg"),
+        (999_600, "1 kg"),
+        (12_499, "12 g"),
+        (12_500, "13 g"),
+    ],
+)
+def test_exact_text(milli: int, expected: str) -> None:
+    assert exact_text(milli, "weight") == expected
+
+
+@pytest.mark.parametrize(
+    ("milli", "counted_as", "expected"),
+    [
+        (750_000, "weight", "about 750 g"),
+        (1_490_000, "weight", "about 1.5 kg"),
+        (1_500_000, "volume", "about 1.5 L"),
+        (7_340, "weight", "about 7.3 g"),
+        (256, "weight", "about 0.26 g"),
+        (995_000, "weight", "about 1 kg"),
+        (45_000, "volume", "about 45 ml"),
+    ],
+)
+def test_about_text(milli: int, counted_as: str, expected: str) -> None:
+    assert about_text(milli, counted_as) == expected  # type: ignore[arg-type]
+
+
+def test_quarters_and_halves() -> None:
+    assert [quarters_text(q) for q in range(9)] == [
+        "0", "¼", "½", "¾", "1", "1¼", "1½", "1¾", "2",
+    ]  # fmt: skip
+    assert count_text(1_249, None, None) == "1 left"  # 1.249 → nearest ½ is 1
+    assert count_text(1_250, None, None) == "1½ left"  # halfway rounds up
+    assert count_text(2_000, "onion", None) == "2 onions"
+
+
+def test_plurals() -> None:
+    assert plural("packet") == "packets"
+    assert plural("loaf") == "loaves"
+    assert plural("dozen") == "dozen"
+    assert plural("bunch") == "bunches"
+    assert plural("berry") == "berries"
+    assert plural("tray") == "trays"
+    assert plural("big bag") == "big bags"
+
+
+def test_significant_figures() -> None:
+    assert significant(Decimal(1490)) == Decimal(1500)
+    assert significant(Decimal("7.34")) == Decimal("7.3")
+    assert significant(Decimal(0)) == 0
+
+
+@pytest.mark.parametrize(
+    ("name", "key"),
+    [
+        ("Drumsticks (moringa)", "drumstick"),
+        ("Tomatoes", "tomato"),
+        ("Self-raising flour", "self raising flour"),
+        ("Confectioners' sugar", "confectioner sugar"),
+        ("Jalapeño", "jalapeno"),
+        ("Strawberries", "strawberry"),
+        ("Dates", "date"),
+        ("  Toor   Dal ", "toor dal"),
+        ("Glass", "glass"),
+    ],
+)
+def test_normalise(name: str, key: str) -> None:
+    assert normalise(name) == key
+
+
+# --- Properties (Hypothesis) ------------------------------------------------------------------
+
+amounts_milli = st.integers(min_value=0, max_value=10**12)
+sizes_milli = st.integers(min_value=1, max_value=10**9)
+
+
+@given(st.decimals(min_value=0, max_value=10**9, places=3, allow_nan=False))
+def test_milli_round_trip(value: Decimal) -> None:
+    assert Decimal(str(from_milli(to_milli(value)))) == value
+
+
+@given(amounts_milli, sizes_milli)
+def test_as_sold_is_within_an_eighth(milli: int, size_milli: int) -> None:
+    """Rounded to the nearest ¼: never more than ⅛ of a size away from the truth."""
+    shown = as_sold(milli, "weight", Size(1, "packet", "packets", size_milli))
+    if shown.count is None:  # nothing left
+        assert milli == 0
+        return
+    truth = Decimal(milli) / size_milli
+    assert abs(shown.count - truth) <= Decimal("0.125")
+    assert (shown.count * 4) % 1 == 0
+    assert shown.about == (milli % size_milli != 0)
+
+
+@given(st.integers(min_value=0, max_value=10**9))
+def test_counts_round_to_halves(milli: int) -> None:
+    shown = as_sold(milli, "count")
+    assert shown.count is not None
+    assert (shown.count * 2) % 1 == 0
+    assert abs(shown.count - Decimal(milli) / MILLI) <= Decimal("0.25")
+
+
+@given(st.integers(min_value=1, max_value=10**12))
+def test_about_is_two_significant_figures(milli: int) -> None:
+    value = Decimal(milli) / MILLI
+    rounded = significant(value)
+    assert abs(rounded - value) <= abs(value) * Decimal("0.05")
+    digits = rounded.normalize().as_tuple().digits
+    assert len(digits) <= 2 or all(d == 0 for d in digits[2:])
