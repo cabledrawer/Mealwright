@@ -1,0 +1,13 @@
+# Only the backend and the web app go into the build.
+*
+!backend/
+!frontend/
+backend/.venv
+backend/.mypy_cache
+backend/.pytest_cache
+backend/.ruff_cache
+backend/tests
+**/__pycache__
+**/node_modules
+frontend/build
+frontend/.svelte-kit

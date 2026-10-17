@@ -1,0 +1,26 @@
+# Example Docker Compose file for Mealwright. Copy it to compose.yaml and adjust.
+# Mealwright is meant to sit behind a reverse proxy that handles HTTPS (e.g. Caddy).
+
+services:
+  mealwright:
+    # Always an exact version, never "latest". Update by changing it by hand.
+    image: <registry>/mealwright:<version>
+    container_name: mealwright
+    restart: unless-stopped
+    environment:
+      # Only the reverse proxy can reach Mealwright on this network, so believe its
+      # X-Forwarded-For header (needed for the sign-in slow-down to see real addresses).
+      MEALWRIGHT_TRUSTED_PROXIES: "*"
+    volumes:
+      # Everything Mealwright keeps. Back this folder up (and before every update).
+      # The folder must belong to UID 10001, the user Mealwright runs as:
+      #   sudo mkdir -p ./data && sudo chown 10001:10001 ./data
+      - ./data:/data
+    networks:
+      - mealwright
+    # No "ports:". Reach it through the reverse proxy, which joins this network and
+    # forwards to http://mealwright:8080.
+
+networks:
+  mealwright:
+    name: mealwright
