@@ -32,6 +32,8 @@
       reset();
       dialog.showModal();
       if (addToPantry.foodId !== null) void choose({ id: addToPantry.foodId, name: '' });
+      // Start in the "What" box, not on Cancel.
+      else dialog.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
     } else if (!addToPantry.open && dialog.open) {
       dialog.close();
     }

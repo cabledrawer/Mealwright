@@ -207,6 +207,10 @@ describe('the Pantry page', () => {
     await render(1300);
     await page.getByRole('button', { name: '+ Add to pantry' }).click();
     const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+    // It starts in the "What" box.
+    await expect
+      .element(sheet.getByRole('searchbox', { name: 'Find an ingredient' }))
+      .toHaveFocus();
     await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('toor');
     await sheet.getByRole('button', { name: 'Toor dal' }).click();
     await sheet.getByRole('radio', { name: '2 packets' }).click();
