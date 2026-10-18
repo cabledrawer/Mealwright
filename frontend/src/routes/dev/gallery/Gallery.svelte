@@ -136,7 +136,7 @@
   // --- Toasts and the dialogs that open from a button ------------------------------------------
   function toastUndo() {
     toasts.show('Used 200 g spinach', {
-      action: { label: 'Undo', run: () => toasts.show('Undone: used 200 g spinach') }
+      action: { label: 'Undo', run: () => toasts.show('Undone: Used 200 g spinach') }
     });
   }
   function toastTwo() {
@@ -402,7 +402,7 @@
   <section id="changes">
     <h2>Recent changes</h2>
     <div class="stack">
-      <RecentChanges {changes} onundo={() => toasts.show('Undone: used 200 g spinach')} />
+      <RecentChanges {changes} onundo={() => toasts.show('Undone: Used 200 g spinach')} />
       <RecentChanges changes={[]} onundo={() => {}} />
     </div>
   </section>
