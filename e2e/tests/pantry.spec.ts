@@ -256,6 +256,11 @@ const amountLeft = async (page: Page, foodId: number) => {
 
 async function openRow(page: Page, name: string) {
   await page.goto('/pantry');
+  // On desktop a place shows only its first few rows ("Show all 23"), and earlier tests
+  // fill the Fridge, so find the row by name first.
+  if (!isPhone(page)) {
+    await page.getByRole('searchbox', { name: 'Find in pantry' }).fill(name);
+  }
   await page
     .getByRole('button', { name: new RegExp(`^${name}`) })
     .first()
