@@ -4,7 +4,7 @@
 // while it can't be sent, and goes only if the server refuses it (UX principle 8). Undo is
 // in the toast (principle 6).
 
-import { ApiError } from '$lib/api';
+import { ApiError, cantReach } from '$lib/api';
 import { kitchen } from '$lib/freshness.svelte';
 import { network } from '$lib/network.svelte';
 import { newChangeId } from '$lib/changeId';
@@ -30,6 +30,10 @@ export interface Ticked {
   name: string;
 }
 
+/** Opened offline on a phone that has never had the list (spec section 6, cabledrawer 18 Oct). */
+export const NOT_ON_THIS_PHONE =
+  "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected.";
+
 export class ShoppingModel {
   /** Ingredients picked in the add box that the copy doesn't have yet. */
   #foods = $state.raw<ShopFood[]>([]);
@@ -47,6 +51,8 @@ export class ShoppingModel {
   loaded = $state(false);
   problem = $state<string | null>(null);
   listId = $state<string | null>(null);
+  /** "phone" with the bottom tabs, "computer" with the sidebar (the offline subtitle). */
+  device = $state<'phone' | 'computer'>('phone');
   lastTicked = $state<Ticked | null>(null);
 
   // --- Reading -----------------------------------------------------------------------------------
@@ -68,7 +74,8 @@ export class ShoppingModel {
           this.counts.toBuy,
           this.copy.people,
           session.me?.id ?? null,
-          network.offline
+          network.offline,
+          this.device
         )
       : ''
   );
@@ -105,9 +112,12 @@ export class ShoppingModel {
       this.problem = null;
     } catch (error) {
       // Offline: the copy on this phone (if there is one) shows, with the queue on top.
-      if (!shoppingSync.copy && !this.loaded) {
-        this.problem =
-          error instanceof ApiError ? error.detail : 'Couldn’t load your shopping list.';
+      if (!shoppingSync.copy) {
+        this.problem = cantReach(error)
+          ? NOT_ON_THIS_PHONE
+          : error instanceof ApiError
+            ? error.detail
+            : 'Couldn’t load your shopping list.';
       }
     }
     this.loaded = true;

@@ -100,6 +100,30 @@ describe('FE-4 (part 1): a newer version opens an older version’s database', (
   });
 });
 
+describe('FE-4 (part 2): an update never takes over mid-shop', () => {
+  // The app's own code: no new version is ever forced on an open window (sync-protocol 11.6).
+  // Sending the old queue before Shopping shows is tested in routes/(app)/shopping.
+  const sources = import.meta.glob(['/src/**/*.svelte', '/src/**/*.ts', '/static/**/*.js'], {
+    query: '?raw',
+    import: 'default',
+    eager: true
+  }) as Record<string, string>;
+  const code = (text: string) =>
+    text
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+
+  it('nothing calls skipWaiting() or clients.claim()', () => {
+    const app = Object.entries(sources).filter(([path]) => !path.endsWith('.test.ts'));
+    expect(app.some(([path]) => path === '/src/service-worker.ts')).toBe(true);
+    const callers = app
+      .filter(([, text]) => /\bskipWaiting\s*\(|\bclaim\s*\(/.test(code(text)))
+      .map(([path]) => path);
+    expect(callers).toEqual([]);
+  });
+});
+
 describe('FE-6: idb is pinned', () => {
   it('to an exact version, with no ^ or ~', () => {
     const version = (pkg.dependencies as Record<string, string>).idb;

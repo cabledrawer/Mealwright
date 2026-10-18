@@ -9,13 +9,10 @@
 //
 // Only our own server is ever asked (the check is GET /api/v1/version, same origin).
 //
-// FOR PR 6 (offline queue): `waiting` is the number of queued changes for the signed-in
-// login. Nothing sets it above 0 in PR 5. When it is above 0 the bar says "Offline — N
-// changes waiting" (phone) or "N changes waiting. They'll save when you're back." (desktop),
-// and the "Back online" toast must grow "— all saved" once the queue has emptied (spec
-// section 6, "Offline wording grows with PR 6"). PR 6 must also keep the queue when the
-// session ends and show the sync-protocol 11.5 message ("Please sign in again. Your N
-// changes are kept on this phone.") instead of simply going to the sign-in page.
+// `waiting` is the number of queued changes for the signed-in login (the offline queue,
+// lib/shopping/sync.svelte.ts). The bar says "Offline — N changes waiting" (phone) or "N
+// changes waiting. They'll save when you're back." (desktop). Once the connection is back
+// AND nothing is waiting any more, a short toast says "Back online — all saved" (11.4).
 
 import { toasts } from './toast.svelte';
 
@@ -26,8 +23,8 @@ export const CHECK_EVERY_MS = 5000;
 /** How long a check may take before it counts as failed. */
 export const CHECK_TIMEOUT_MS = 8000;
 
-/** The toast when the connection comes back. PR 6 adds " — all saved" once that is true. */
-export const BACK_ONLINE = 'Back online';
+/** The toast when the connection is back and every waiting change has been sent. */
+export const BACK_ONLINE = 'Back online — all saved';
 
 const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
 
@@ -47,8 +44,17 @@ export function offlineText(
 class Network {
   /** The bar is showing. */
   offline = $state(false);
-  /** Changes waiting to be sent. PR 6 fills this in; always 0 in PR 5. */
-  waiting = $state(0);
+  #waiting = $state(0);
+
+  /** Changes waiting to be sent (the signed-in login's queue). */
+  get waiting(): number {
+    return this.#waiting;
+  }
+
+  set waiting(count: number) {
+    this.#waiting = count;
+    this.#sayBackOnline();
+  }
   /** A "Try now" check is running. */
   trying = $state(false);
 
@@ -57,17 +63,26 @@ class Network {
   #checkTimer: ReturnType<typeof setInterval> | null = null;
   #wasShown = false;
   #reconnect: (() => void) | null = null;
+  /** The bar was shown and the connection is back: say so once nothing is waiting. */
+  #backOnline = false;
 
   /** A request to our server got an answer (any answer, even "no"): we are connected. */
   succeeded(): void {
     if (this.#failingSince === null && !this.offline) return;
     this.#failingSince = null;
     this.#clearTimers();
+    this.offline = false;
     if (this.#wasShown) {
       this.#wasShown = false;
-      toasts.show(BACK_ONLINE);
+      this.#backOnline = true;
+      this.#sayBackOnline();
     }
-    this.offline = false;
+  }
+
+  #sayBackOnline(): void {
+    if (!this.#backOnline || this.offline || this.#waiting > 0) return;
+    this.#backOnline = false;
+    toasts.show(BACK_ONLINE);
   }
 
   /** A request to our server failed with a network error or timeout. */
@@ -138,8 +153,9 @@ class Network {
     this.#clearTimers();
     this.#failingSince = null;
     this.#wasShown = false;
+    this.#backOnline = false;
     this.offline = false;
-    this.waiting = 0;
+    this.#waiting = 0;
     this.trying = false;
   }
 }

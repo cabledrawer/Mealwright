@@ -123,12 +123,22 @@ describe('subtitle', () => {
       '12 to buy · synced with Wren and 2 others'
     );
   });
-  it('says offline while offline (PR 5: just that; PR 6 adds "saving on this phone")', () => {
-    expect(subtitle(main, 12, [me, wren], 1, true)).toBe('12 to buy · offline');
-    expect(subtitle(main, 12, null, 1, true)).toBe('12 to buy · offline');
+  it('FE-2: says offline, saving on this phone (or computer) while offline', () => {
+    expect(subtitle(main, 12, [me, wren], 1, true)).toBe(
+      '12 to buy · offline, saving on this phone'
+    );
+    expect(subtitle(main, 12, null, 1, true, 'phone')).toBe(
+      '12 to buy · offline, saving on this phone'
+    );
+    expect(subtitle(main, 12, [me, wren], 1, true, 'computer')).toBe(
+      '12 to buy · offline, saving on this computer'
+    );
   });
   it('keeps an extra list short while offline (cabledrawer 18 Oct)', () => {
     expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, true)).toBe(
+      'Extra list · 5 · offline'
+    );
+    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, true, 'computer')).toBe(
       'Extra list · 5 · offline'
     );
     expect(subtitle({ ...main, main: false }, 5, [me, wren], 1)).toBe(

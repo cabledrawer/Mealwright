@@ -51,6 +51,11 @@ export function worthRetrying(error: unknown): boolean {
 
 const PROXY_GAP = new Set([502, 503, 504]);
 
+/** The server couldn't be reached: no connection, or the reverse proxy couldn't reach it. */
+export function cantReach(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 0 || PROXY_GAP.has(error.status));
+}
+
 type Fetch = typeof fetch;
 
 let onUnauthorized: (() => void) | null = null;

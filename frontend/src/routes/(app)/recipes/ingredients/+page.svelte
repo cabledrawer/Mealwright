@@ -7,12 +7,14 @@
   import { mergeFood } from '$lib/client/foods';
   import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
   import Icon from '$lib/components/Icon.svelte';
+  import OfflineNote from '$lib/components/OfflineNote.svelte';
   import IngredientEditor from '$lib/components/IngredientEditor.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { IngredientsList } from '$lib/ingredients.svelte';
   import { mergeTarget } from '$lib/maybeSame';
+  import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
   import { save } from '$lib/save';
 
@@ -41,6 +43,17 @@
     void kitchen.version;
     const timer = setTimeout(() => void list.load(), list.loaded ? 200 : 0);
     return () => clearTimeout(timer);
+  });
+
+  // Ingredients needs the server (spec section 6, "Opening the app offline"): offline it
+  // shows a note pointing to Shopping, and fetches again once the connection is back.
+  let wasOffline = false;
+  $effect(() => {
+    if (network.offline) wasOffline = true;
+    else if (wasOffline) {
+      wasOffline = false;
+      void list.load();
+    }
   });
 
   // Desktop starts with the first food open, as in the mockup.
@@ -115,114 +128,121 @@
     : undefined}
 >
   {#snippet actions()}
-    <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+    {#if !network.offline}
+      <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+    {/if}
   {/snippet}
 </PageHeader>
 
-<div class="layout">
-  <section class="list-side" aria-label="All ingredients">
-    <div class="tools">
-      <label class="search">
-        <Icon name="search" size={18} stroke={2.2} />
-        <input
-          type="search"
-          placeholder="Search by any name, e.g. arhar dal"
-          aria-label="Search ingredients"
-          bind:value={list.query}
-        />
-      </label>
-      <div class="filters" role="group" aria-label="Show">
-        {#each FILTERS as f (f.value)}
-          <button
-            type="button"
-            class="filter"
-            aria-pressed={list.filter === f.value}
-            onclick={() => (list.filter = f.value)}>{f.label}</button
-          >
-        {/each}
-        {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
-          <button
-            type="button"
-            class="filter maybe"
-            aria-pressed={list.filter === 'maybe_same'}
-            onclick={() => (list.filter = list.filter === 'maybe_same' ? 'all' : 'maybe_same')}
-            >Maybe the same · {list.counts.maybe_same_pairs}</button
-          >
-        {/if}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="heads" aria-hidden="true">
-        <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span></span>
-      </div>
-      {#if list.foods.length}
-        <ul>
-          {#each list.foods as food (food.id)}
-            {@const maybe = !!mergeTarget(food)}
-            {@const desk = note(food, false)}
-            <li class:maybe class:open={food.id === selectedId}>
-              <button
-                type="button"
-                class="row"
-                aria-current={food.id === selectedId ? 'true' : undefined}
-                onclick={() => open(food)}
-              >
-                <span class="name">{food.name}</span>
-                <span class="note phone">{note(food, true)}</span>
-                {#if desk}<span class="note desk">{desk}</span>{/if}
-              </button>
-              <span class="col">
-                {#if food.staple}<span class="staple">Staple</span
-                  >{:else}{food.counted_as_display}{/if}
-              </span>
-              <span class="col">{food.place?.name ?? ''}</span>
-              <span class="end">
-                {#if maybe}
-                  <button type="button" class="merge" onclick={() => merge(food)}>Merge</button>
-                {/if}
-              </span>
-            </li>
+{#if network.offline}
+  <OfflineNote screen="Ingredients" />
+{:else}
+  <div class="layout">
+    <section class="list-side" aria-label="All ingredients">
+      <div class="tools">
+        <label class="search">
+          <Icon name="search" size={18} stroke={2.2} />
+          <input
+            type="search"
+            placeholder="Search by any name, e.g. arhar dal"
+            aria-label="Search ingredients"
+            bind:value={list.query}
+          />
+        </label>
+        <div class="filters" role="group" aria-label="Show">
+          {#each FILTERS as f (f.value)}
+            <button
+              type="button"
+              class="filter"
+              aria-pressed={list.filter === f.value}
+              onclick={() => (list.filter = f.value)}>{f.label}</button
+            >
           {/each}
-        </ul>
-        {#if list.next}
-          <button type="button" class="more" onclick={() => void list.more()}>Show more</button>
+          {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
+            <button
+              type="button"
+              class="filter maybe"
+              aria-pressed={list.filter === 'maybe_same'}
+              onclick={() => (list.filter = list.filter === 'maybe_same' ? 'all' : 'maybe_same')}
+              >Maybe the same · {list.counts.maybe_same_pairs}</button
+            >
+          {/if}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="heads" aria-hidden="true">
+          <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span></span>
+        </div>
+        {#if list.foods.length}
+          <ul>
+            {#each list.foods as food (food.id)}
+              {@const maybe = !!mergeTarget(food)}
+              {@const desk = note(food, false)}
+              <li class:maybe class:open={food.id === selectedId}>
+                <button
+                  type="button"
+                  class="row"
+                  aria-current={food.id === selectedId ? 'true' : undefined}
+                  onclick={() => open(food)}
+                >
+                  <span class="name">{food.name}</span>
+                  <span class="note phone">{note(food, true)}</span>
+                  {#if desk}<span class="note desk">{desk}</span>{/if}
+                </button>
+                <span class="col">
+                  {#if food.staple}<span class="staple">Staple</span
+                    >{:else}{food.counted_as_display}{/if}
+                </span>
+                <span class="col">{food.place?.name ?? ''}</span>
+                <span class="end">
+                  {#if maybe}
+                    <button type="button" class="merge" onclick={() => merge(food)}>Merge</button>
+                  {/if}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          {#if list.next}
+            <button type="button" class="more" onclick={() => void list.more()}>Show more</button>
+          {/if}
+        {:else if list.problem}
+          <p class="nothing" role="alert">{list.problem}</p>
+        {:else if !list.loaded}
+          <p class="nothing">Loading…</p>
+        {:else if list.query.trim()}
+          <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
+        {:else if list.filter !== 'all'}
+          <p class="nothing">Nothing here right now.</p>
+        {:else}
+          <p class="nothing">
+            No ingredients yet. They're added when you put something in the pantry or import a
+            recipe.
+          </p>
         {/if}
-      {:else if list.problem}
-        <p class="nothing" role="alert">{list.problem}</p>
-      {:else if !list.loaded}
-        <p class="nothing">Loading…</p>
-      {:else if list.query.trim()}
-        <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
-      {:else if list.filter !== 'all'}
-        <p class="nothing">Nothing here right now.</p>
-      {:else}
-        <p class="nothing">
-          No ingredients yet. They're added when you put something in the pantry or import a recipe.
-        </p>
-      {/if}
-    </div>
+      </div>
 
-    <p class="tip">
-      You can also tap any ingredient in a recipe, the pantry or the shopping list to open this same
-      editor.
-    </p>
-  </section>
+      <p class="tip">
+        You can also tap any ingredient in a recipe, the pantry or the shopping list to open this
+        same editor.
+      </p>
+    </section>
 
-  {#if selectedId !== null}
-    <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
-      {#key selectedId}
-        <IngredientEditor
-          foodId={selectedId}
-          variant="panel"
-          onname={(n) => (panelName = n)}
-          onclose={() => (selectedId = null)}
-          onopen={(id) => (selectedId = id)}
-        />
-      {/key}
-    </aside>
-  {/if}
-</div>
+    {#if selectedId !== null}
+      <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
+        {#key selectedId}
+          <IngredientEditor
+            foodId={selectedId}
+            variant="panel"
+            onname={(n) => (panelName = n)}
+            onclose={() => (selectedId = null)}
+            onopen={(id) => (selectedId = id)}
+          />
+        {/key}
+      </aside>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .new {

@@ -2,8 +2,10 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, signOut } from '$lib/api';
+  import OfflineNote from '$lib/components/OfflineNote.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
+  import { network } from '$lib/network.svelte';
   import { session } from '$lib/session.svelte';
 
   let busy = $state(false);
@@ -30,15 +32,21 @@
 <PageHeader title="Settings" />
 
 <div class="sections">
-  <section class="section" aria-labelledby="appearance">
-    <h2 id="appearance">Appearance</h2>
-    <div class="card">
-      <div class="row">
-        <span class="label">Theme</span>
-        <ThemeSwitch variant="pill" />
+  <!-- Settings needs the server (spec section 6, "Opening the app offline"). Signing out
+       still works offline (docs/dev/sync-protocol.md section 12), so that part stays. -->
+  {#if network.offline}
+    <OfflineNote screen="Settings" />
+  {:else}
+    <section class="section" aria-labelledby="appearance">
+      <h2 id="appearance">Appearance</h2>
+      <div class="card">
+        <div class="row">
+          <span class="label">Theme</span>
+          <ThemeSwitch variant="pill" />
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  {/if}
 
   <section class="section" aria-labelledby="sign-in">
     <h2 id="sign-in">Sign-in</h2>

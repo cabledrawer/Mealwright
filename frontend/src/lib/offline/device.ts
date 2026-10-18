@@ -88,3 +88,25 @@ export async function startDevice(me: SignedIn): Promise<void> {
     // No IndexedDB here: the app still works while connected.
   }
 }
+
+/**
+ * Who was last signed in on this device, for opening the app while the server can't be
+ * reached (11.4). Null when nobody has signed in here since the phone database was made.
+ */
+export async function lastSignedIn(): Promise<SignedIn | null> {
+  try {
+    const [id, name, username, role] = await Promise.all([
+      getMeta('login_id'),
+      getMeta('login_name'),
+      getMeta('username'),
+      getMeta('role')
+    ]);
+    if (typeof id !== 'number' || typeof name !== 'string' || typeof username !== 'string') {
+      return null;
+    }
+    await loadDeviceId();
+    return { id, name, username, role: typeof role === 'string' ? role : 'member' };
+  } catch {
+    return null;
+  }
+}

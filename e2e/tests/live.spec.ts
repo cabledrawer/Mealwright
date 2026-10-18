@@ -110,7 +110,7 @@ test('the stream is open and answers hello, and the app uses only that', async (
 });
 
 test.describe('the connection bar', () => {
-  test('appears after 3 seconds offline, with Try now, and "Back online" when it returns', async ({
+  test('appears after 3 seconds offline, with Try now, and "Back online — all saved" when it returns', async ({
     page,
     context,
   }) => {
@@ -119,12 +119,12 @@ test.describe('the connection bar', () => {
     await context.setOffline(true);
     await expect(bar(page)).toBeVisible({ timeout: 10_000 });
     await expect(bar(page)).toContainText('Offline');
-    await expect(bar(page)).not.toContainText('waiting'); // nothing waits until PR 6
+    await expect(bar(page)).not.toContainText('waiting'); // no changes made
     await expect(bar(page).getByRole('button', { name: 'Try now' })).toBeVisible();
 
     await context.setOffline(false);
     await expect(bar(page)).toBeHidden({ timeout: 10_000 });
-    const toast = page.getByRole('status').filter({ hasText: 'Back online' });
+    const toast = page.getByRole('status').filter({ hasText: 'Back online — all saved' });
     await expect(toast).toBeVisible();
   });
 
@@ -143,7 +143,10 @@ test.describe('the connection bar', () => {
     await open(page, '/shopping');
     await expect(page.getByText(/^\d+ to buy · (synced with .+|saved)$/)).toBeVisible();
     await context.setOffline(true);
-    await expect(page.getByText(/^\d+ to buy · offline$/)).toBeVisible({ timeout: 10_000 });
+    const device = isPhone(page) ? 'phone' : 'computer';
+    await expect(
+      page.getByText(new RegExp(`^\\d+ to buy · offline, saving on this ${device}$`)),
+    ).toBeVisible({ timeout: 10_000 });
     await context.setOffline(false);
     await expect(page.getByText(/^\d+ to buy · (synced with .+|saved)$/)).toBeVisible({
       timeout: 10_000,
@@ -162,6 +165,10 @@ test.describe('the connection bar', () => {
     // The app comes back to the foreground, fetches, and finds it can't reach the server.
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await expect(bar(page)).toBeVisible({ timeout: 15_000 });
+    // Pantry needs the server: it says so, and points to Shopping.
+    await expect(
+      page.getByText('Pantry needs your Mealwright server — your shopping list works offline.'),
+    ).toBeVisible();
     const tryNow = bar(page).getByRole('button', { name: 'Try now' });
     await tryNow.click();
     await expect(bar(page)).toBeVisible(); // still can't reach it

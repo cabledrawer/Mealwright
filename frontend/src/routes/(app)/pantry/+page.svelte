@@ -13,6 +13,7 @@
   import AddToPantry from '$lib/components/AddToPantry.svelte';
   import FoodPicker from '$lib/components/FoodPicker.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import OfflineNote from '$lib/components/OfflineNote.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
@@ -20,6 +21,7 @@
   import { compactDateWords, dateWords } from '$lib/dates';
   import { kitchen } from '$lib/freshness.svelte';
   import { live } from '$lib/live.svelte';
+  import { network } from '$lib/network.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
   import { searchResults } from '$lib/pantrySearch';
@@ -62,6 +64,17 @@
       return;
     }
     void model.load();
+  });
+
+  // Pantry needs the server (spec section 6, "Opening the app offline"): offline it shows a
+  // note pointing to Shopping, and fetches again once the connection is back.
+  let wasOffline = false;
+  $effect(() => {
+    if (network.offline) wasOffline = true;
+    else if (wasOffline) {
+      wasOffline = false;
+      void model.load();
+    }
   });
 
   // Typing in "Find in pantry": ask again shortly after the last key. The server matches
@@ -278,7 +291,9 @@
   </section>
 {/snippet}
 
-{#if model.problem && !pantry}
+{#if network.offline}
+  <OfflineNote screen="Pantry" />
+{:else if model.problem && !pantry}
   <p class="problem" role="alert">
     {model.problem}
     <button type="button" class="link" onclick={() => void model.load()}>Try again</button>

@@ -145,17 +145,19 @@ export function subtitle(
   toBuy: number,
   people: Person[] | null,
   meId: number | null,
-  offline = false
+  offline = false,
+  /** Where the changes are kept: "phone" with the bottom tabs, "computer" with the sidebar. */
+  device: 'phone' | 'computer' = 'phone'
 ): string {
-  // Offline, extra lists stay this short, even after PR 6 (cabledrawer 18 Oct, spec section 6).
+  // Offline, extra lists stay this short (cabledrawer 18 Oct, spec section 6).
   if (!list.main) {
     return offline
       ? `Extra list · ${toBuy} · offline`
       : `Extra list · ${toBuy} · ticked items still go to the pantry`;
   }
   const count = `${toBuy} to buy`;
-  // PR 6 grows this to "· offline, saving on this phone" (spec section 6).
-  if (offline) return `${count} · offline`;
+  // Changes made offline are kept in the phone's queue (sync-protocol 11.4).
+  if (offline) return `${count} · offline, saving on this ${device}`;
   if (!people) return count;
   const who = syncedWith(people, meId);
   return who ? `${count} · synced with ${who}` : `${count} · saved`;

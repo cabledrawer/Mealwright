@@ -24,14 +24,44 @@ describe('the offline bar', () => {
     expect(toasts.current).toBeNull();
   });
 
-  it('shows after 3 seconds of failing, then "Back online" when it works again', () => {
+  it('shows after 3 seconds of failing, then "Back online — all saved" when it works again', () => {
     network.failed();
     vi.advanceTimersByTime(OFFLINE_AFTER_MS);
     expect(network.offline).toBe(true);
     network.succeeded();
     expect(network.offline).toBe(false);
     expect(toasts.current?.message).toBe(BACK_ONLINE);
-    expect(BACK_ONLINE).toBe('Back online'); // PR 6 adds " — all saved" when it is true
+    expect(BACK_ONLINE).toBe('Back online — all saved');
+  });
+
+  it('says "all saved" only once the waiting changes have gone', () => {
+    network.waiting = 3;
+    network.failed();
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    network.succeeded();
+    expect(network.offline).toBe(false);
+    expect(toasts.current).toBeNull();
+    network.waiting = 1;
+    expect(toasts.current).toBeNull();
+    network.waiting = 0;
+    expect(toasts.current?.message).toBe(BACK_ONLINE);
+    // Once only.
+    toasts.dismiss();
+    network.waiting = 2;
+    network.waiting = 0;
+    expect(toasts.current).toBeNull();
+  });
+
+  it('no toast if the connection goes again before the changes are sent', () => {
+    network.waiting = 2;
+    network.failed();
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    network.succeeded();
+    network.failed();
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    network.waiting = 0;
+    expect(network.offline).toBe(true);
+    expect(toasts.current).toBeNull();
   });
 
   it('counts a run of failures as one', () => {
@@ -67,9 +97,5 @@ describe('the words in the bar', () => {
     expect(offlineText('desktop', 1).detail).toBe(
       "1 change waiting. They'll save when you're back."
     );
-  });
-
-  it('nothing in PR 5 sets the waiting count above 0', () => {
-    expect(network.waiting).toBe(0);
   });
 });

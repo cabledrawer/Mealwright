@@ -29,9 +29,14 @@
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);
   });
+  // The bottom tabs show below 768 px, the sidebar from there up: "saving on this phone"
+  // or "… on this computer" while offline.
+  $effect(() => {
+    model.device = desktop ? 'computer' : 'phone';
+  });
 
   // Fetch again after a change elsewhere (an ingredient edit, a merge). The live stream (below)
-  // covers other phones; the offline copy arrives in PR 6.
+  // covers other phones.
   $effect(() => {
     void kitchen.version;
     // Only kitchen.version is watched: load() reads and replaces the copy, which would
@@ -101,7 +106,7 @@
 
 <PageHeader title="Shopping" overline={model.subtitle || undefined} />
 
-{#if model.problem && !model.loaded}
+{#if model.problem && !model.list}
   <p class="problem" role="alert">{model.problem}</p>
 {:else if !model.loaded || !model.list}
   <p class="loading">Loading…</p>

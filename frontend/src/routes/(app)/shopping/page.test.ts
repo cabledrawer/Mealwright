@@ -5,6 +5,9 @@ import NewIngredient from '$lib/components/NewIngredient.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import { ME, fakeShopping, sampleCopy, tick } from '$lib/testing/fakeShopping';
 import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { loadDeviceId } from '$lib/offline/device';
+import { addToQueue, saveCopy } from '$lib/offline/store';
+import { applyChanges } from '$lib/shopping/load';
 import { session } from '$lib/session.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
 import type { ShoppingCopy } from '$lib/shopping/types';
@@ -19,14 +22,18 @@ describe('the Shopping page', () => {
   let copy: ShoppingCopy;
   let server: ReturnType<typeof fakeShopping>;
 
-  async function render(width: number, extra: Parameters<typeof fakeShopping>[1] = {}) {
-    server = fakeShopping(copy, extra);
-    await page.viewport(width, 1000);
+  function mountShopping() {
     for (const component of [Shopping, Toast, NewIngredient]) {
       const target = document.body.appendChild(document.createElement('div'));
       mounted.push(mount(component, { target }));
     }
     flushSync();
+  }
+
+  async function render(width: number, extra: Parameters<typeof fakeShopping>[1] = {}) {
+    server = fakeShopping(copy, extra);
+    await page.viewport(width, 1000);
+    mountShopping();
     await expect.element(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
   }
@@ -155,6 +162,46 @@ describe('the Shopping page', () => {
       .toBeVisible();
     await expect.element(page.getByRole('button', { name: 'In the trolley · 2' })).toBeVisible();
     await expect.element(page.getByRole('checkbox', { name: 'Tick Onions' })).not.toBeChecked();
+  });
+
+  it('FE-4 (part 2): sends what an earlier version left waiting, as protocol 1, before showing the list', async () => {
+    const device = await loadDeviceId();
+    const waiting = { id: 'w1', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick' as const };
+    await addToQueue({ ...waiting, item_id: 'i-onions' }, ME.id, device);
+    await render(1300);
+    const asked = server.requests.map((r) => `${r.method} ${r.path}`);
+    const sent = asked.indexOf('POST /shopping/actions');
+    expect(sent).toBeGreaterThanOrEqual(0);
+    expect(sent).toBeLessThan(asked.indexOf('GET /shopping/changes'));
+    expect(server.requests[sent]!.body).toMatchObject({
+      protocol: 1,
+      device_id: device,
+      login_id: ME.id,
+      actions: [{ id: 'w1', kind: 'tick', item_id: 'i-onions' }]
+    });
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+  });
+
+  it('opened offline with the list on this phone: shows it, waiting changes on top', async () => {
+    await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
+    const device = await loadDeviceId();
+    const waiting = { id: 'w1', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick' as const };
+    await addToQueue({ ...waiting, item_id: 'i-onions' }, ME.id, device);
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    mountShopping();
+    await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+    expect(page.getByRole('alert').elements()).toEqual([]);
+  });
+
+  it('opened offline on a phone that has never had the list: says so', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    mountShopping();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
+      );
   });
 
   it('phone: Change in the toast lets you pick another place', async () => {
