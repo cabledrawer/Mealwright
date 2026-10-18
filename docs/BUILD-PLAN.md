@@ -14,6 +14,8 @@ Written 17 Oct 2026 from the finished planning spec (`docs/spec.md`). Owner: cab
 - **When to run `./check` (cabledrawer 17 Oct, from 0.3):** while working, run only the test file for the change plus lint and type checks for that side; run `./check --fast` after a chunk of work or a round of review fixes; run the full `./check` before opening each pull request, again on the final commit after the last fixes, for release pull requests, and whenever a dependency, lock file or the Dockerfile changes. The checker trusts a pasted summary whose commit matches the pull request's latest commit, and runs only the screenshot review and that feature's browser tests. See spec section 9.
 - **Models and effort (cabledrawer 17 Oct, from 0.3):** the lead runs on Opus at the usual effort. Helpers start fresh for each pull request and close when it merges. Use Opus at high effort for the hardest, riskiest work (in 0.3: the sync design, the server sync code, the device's offline queue, and the checker's reviews of those) and Sonnet for everything else. If usage gets tight, move the lead to Sonnet before taking Opus off the risky work. Helpers read only the spec sections their pull request needs, not the whole spec.
 - **Working lessons (cabledrawer 18 Oct, from 0.3):** see spec section 9, "Working lessons from 0.3": summaries for long design docs; decisions copied into `progress.md` and checked by the checker; all product questions before the first code pull request; side-by-side pull requests only when they don't overlap; mockups changed only before a screen is built.
+- **Keeping the UI good (cabledrawer 18 Oct, from 0.4):** follow spec "UX — CORE → Keeping the UI good". At the start of each milestone, sort the friction log (fix now, later, Not planned). Use the wording in `docs/dev/words.md`. Build every state of a screen, not just the full one. Add new components to `/dev/gallery`. End each milestone with a paper-cuts pull request before the release pull request.
+- **Faster working (cabledrawer 18 Oct, from 0.4):** see spec section 9, "Faster working": side by side only when pull requests touch separate parts; first ready merges first; up to three helpers with at most two builders; light and full review levels (the pull request says which); every full `./check` goes through the shared lock.
 
 ## Reference material in this repo
 
@@ -145,12 +147,15 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Build:**
 
+- First pull request (before any recipe screen), spec "Keeping the UI good": `docs/dev/words.md` (cabledrawer approves it); the `/dev/gallery` page with the existing components, kept out of the image; a "stress" shot in the review screenshot script; the browser code size limit in `./check`; saved screenshots for Pantry and Shopping; the reduced-motion rule; keyboard-only tests for the built desktop screens. No new libraries; if one seems needed, stop and ask.
 - Data: recipe (title, servings, steps, photos, tags, nutrition per serving, source URL / import date / source note, version number), ingredients pointing to a food **or another recipe**, original wording kept, a homemade link (a recipe made ahead gets its own pantry food). Guard against loops.
 - Manual create and edit, photos (resized, stored on the volume), tags, search, scaling servings, nutrition fields (unknown shows as unknown, never zero).
 - Screens: All recipes on phone (`Recipes-Phone`: search, Import button placeholder, filters, Drafts and Ingredients buttons), Recipe page (`Recipe`), desktop three-pane Recipes (`Desktop-Recipe`) with the sidebar tree (All recipes · Drafts · Ingredients). "From: <site>" credit. Keep-screen-awake switch (Wake Lock).
 - Tapping any ingredient opens the ingredient editor from 0.2.
 
 **Done when:** a recipe with a recipe inside it can be created, scaled and searched; the loop guard is tested; the screens match the mockups.
+
+- The recipe screens pass the states check (empty, loading, failed, offline, one, many, long names, 200% text), use the word list, and their components are in the gallery; the milestone ends with a paper-cuts pull request.
 
 ---
 

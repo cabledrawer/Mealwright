@@ -41,6 +41,13 @@ showing) get their own `checkPage` call in the feature's tests.
 
 ## Checklist
 
+**Keeping the UI good (from 0.4)**
+- [ ] On-screen text matches `docs/dev/words.md`.
+- [ ] Every state of a new screen is covered (spec "Keeping the UI good", item 2), including the stress shot.
+- [ ] Any new component or kind of component is in `/dev/gallery`.
+- [ ] Saved screenshots changed only where the pull request says it meant to.
+- [ ] Reduced motion respected; keyboard-only path works with a visible focus ring.
+
 **Spec**
 - [ ] Matches `docs/spec.md` and the spec sections the PR's milestone names (for sync
       PRs, section 6 "Offline shopping-list sync" and `docs/dev/sync-protocol.md`),
