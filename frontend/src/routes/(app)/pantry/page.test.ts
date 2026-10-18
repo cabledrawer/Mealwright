@@ -406,6 +406,15 @@ describe('the Pantry page', () => {
     await expect.element(page.getByText('Paneer: 0 g → 1 pack · 200 g')).toBeVisible();
   });
 
+  it('phone: the round + button opens the Add to pantry sheet when online', async () => {
+    await render(390);
+    await page.getByRole('button', { name: 'Add to pantry', exact: true }).click();
+    await expect.element(page.getByRole('dialog', { name: 'Add to pantry' })).toBeVisible();
+    expect(addToPantry.open).toBe(true);
+    // Online, nothing says it needs the server.
+    expect(toasts.current).toBeNull();
+  });
+
   it('+ Add to pantry: food, 2 packets, +3 days, where it lives', async () => {
     await render(1300);
     await page.getByRole('button', { name: '+ Add to pantry' }).click();

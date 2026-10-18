@@ -1,8 +1,10 @@
 import { flushSync, mount, unmount, type Component } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { addToPantry } from '$lib/addToPantry.svelte';
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
+import { toasts } from '$lib/toast.svelte';
 import { ME } from '$lib/testing/fakeShopping';
 import Ingredients from './recipes/ingredients/+page.svelte';
 import Pantry from './pantry/+page.svelte';
@@ -75,15 +77,31 @@ describe('the online-only screens, offline', () => {
     await switcher.getByRole('button', { name: 'Auto' }).click();
   });
 
-  it('Pantry offers no “+ Add to pantry” offline (it needs the server)', async () => {
-    for (const width of [390, 1280]) {
+  // cabledrawer 18 Oct: keep the button visible; a tap explains instead of opening the sheet.
+  const NEEDS_SERVER =
+    "Adding to the pantry needs your Mealwright server. Try again when you're back online.";
+
+  for (const [layout, width, name] of [
+    ['phone', 390, 'Add to pantry'],
+    ['desktop', 1280, '+ Add to pantry']
+  ] as const) {
+    it(`${layout}: “${name}” stays offline; a tap says it needs the server and opens no sheet`, async () => {
       await page.viewport(width, 800);
+      toasts.dismiss();
+      addToPantry.close();
       show(Pantry);
       await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
-      expect(page.getByRole('button', { name: /Add to pantry/ }).elements()).toEqual([]);
-      for (const component of mounted.splice(0)) unmount(component);
-    }
-  });
+      const button = page.getByRole('button', { name, exact: true });
+      await expect.element(button).toBeVisible();
+      await expect.element(button).toBeEnabled();
+      await button.click();
+      expect(toasts.current?.message).toBe(NEEDS_SERVER);
+      expect(addToPantry.open).toBe(false);
+      expect(page.getByRole('dialog', { name: 'Add to pantry' }).elements()).toEqual([]);
+      addToPantry.close();
+      toasts.dismiss();
+    });
+  }
 
   it('Pantry fetches again once the connection is back', async () => {
     show(Pantry);

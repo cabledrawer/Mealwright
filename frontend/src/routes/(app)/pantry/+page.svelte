@@ -25,6 +25,7 @@
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
   import { searchResults } from '$lib/pantrySearch';
+  import { toasts } from '$lib/toast.svelte';
 
   const model = new PantryModel();
   const uid = $props.id();
@@ -142,6 +143,17 @@
     return { what, date, compactDate: compactDateWords(lot.use_by, lot.days_left) };
   }
 
+  /** "+ Add to pantry": the sheet online; offline, a toast says why it can't open (cabledrawer 18 Oct). */
+  function addClicked() {
+    if (network.offline) {
+      toasts.show(
+        "Adding to the pantry needs your Mealwright server. Try again when you're back online."
+      );
+      return;
+    }
+    addToPantry.show();
+  }
+
   function newStaple(name: string) {
     addingStaple = false;
     void model.newStaple(name);
@@ -157,20 +169,13 @@
 
 <PageHeader title="Pantry" overline={summary}>
   {#snippet actions()}
-    <!-- Adding needs the server: offline the note below says why, and the button goes. -->
-    {#if !network.offline}
-      {#if phone}
-        <button
-          type="button"
-          class="add-round"
-          aria-label="Add to pantry"
-          onclick={() => addToPantry.show()}>+</button
-        >
-      {:else}
-        <button type="button" class="add-pill" onclick={() => addToPantry.show()}
-          >+ Add to pantry</button
-        >
-      {/if}
+    <!-- Adding needs the server: offline the button stays, and a tap says why (cabledrawer 18 Oct). -->
+    {#if phone}
+      <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
+        >+</button
+      >
+    {:else}
+      <button type="button" class="add-pill" onclick={addClicked}>+ Add to pantry</button>
     {/if}
   {/snippet}
 </PageHeader>
