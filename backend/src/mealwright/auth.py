@@ -3,7 +3,8 @@
 - Passwords are hashed with Argon2 (argon2-cffi's defaults, RFC 9106).
 - A session is a random token in an HttpOnly cookie; only its SHA-256 is stored.
   "Remember this device" keeps it for 30 days; otherwise it ends after 12 hours
-  without use, and the browser forgets it when closed.
+  without use, and the browser forgets it when closed. Either way a sign-in lasts at
+  most 30 days in total (cabledrawer 19 Oct).
 - Repeated wrong guesses for a username, or from one address, slow sign-in down.
 - Requests that change something must come from Mealwright's own pages (Origin check);
   together with SameSite=Lax cookies this stops other sites acting as you.
@@ -36,6 +37,9 @@ log = logging.getLogger(__name__)
 COOKIE = "mealwright_session"
 REMEMBER_FOR = timedelta(days=30)
 IDLE_TIMEOUT = timedelta(hours=12)
+# The longest any sign-in lasts, however often it's used: the same as "Remember this
+# device" (cabledrawer 19 Oct, security audit ASVS 3.3.2).
+LONGEST_SIGN_IN = REMEMBER_FOR
 SEEN_EVERY = timedelta(minutes=1)  # don't write last_seen_at on every request
 
 MIN_PASSWORD = 10
@@ -206,7 +210,8 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
     if at - _as_utc(session.last_seen_at) >= SEEN_EVERY:
         session.last_seen_at = at
         if not session.remember:
-            session.expires_at = at + IDLE_TIMEOUT
+            ends_by = _as_utc(session.created_at) + LONGEST_SIGN_IN
+            session.expires_at = min(at + IDLE_TIMEOUT, ends_by)
         db.commit()
     login = db.get(Login, session.login_id)
     if login is None:

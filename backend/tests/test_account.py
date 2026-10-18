@@ -2,14 +2,15 @@
 
 import hashlib
 import logging
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
+from mealwright import auth
 from mealwright.api.v1.account import how_long
-from mealwright.auth import COOKIE, IDLE_TIMEOUT, SlowDown, now
+from mealwright.auth import COOKIE, IDLE_TIMEOUT, LONGEST_SIGN_IN, SlowDown, now
 from mealwright.models import Login, Session
 
 ADMIN = {"name": "Tess", "username": "tess", "password": "kitchen-secret-2026"}
@@ -172,6 +173,64 @@ def test_using_a_session_keeps_it_alive(client: TestClient) -> None:
     assert expires is not None
     # Using it pushed the end back to 12 hours from now.
     assert expires.replace(tzinfo=UTC) > now() + IDLE_TIMEOUT - timedelta(minutes=1)
+
+
+class Clock:
+    """Time travel for sign-ins: `auth.now()` answers whatever `at` is set to."""
+
+    def __init__(self) -> None:
+        self.at = now()
+
+    def __call__(self) -> datetime:
+        return self.at
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    clock = Clock()
+    monkeypatch.setattr(auth, "now", clock)
+    return clock
+
+
+def test_unused_for_12_hours_ends_the_sign_in(client: TestClient, clock: Clock) -> None:
+    set_up(client)  # without "Remember this device"
+    clock.at += IDLE_TIMEOUT - timedelta(minutes=1)
+    assert client.get("/api/v1/me").status_code == 200
+    clock.at += IDLE_TIMEOUT
+    assert client.get("/api/v1/me").status_code == 401
+
+
+def test_a_sign_in_used_every_day_still_ends_at_30_days(client: TestClient, clock: Clock) -> None:
+    # cabledrawer 19 Oct: 30 days at most in total, as with "Remember this device".
+    assert LONGEST_SIGN_IN.days == 30
+    set_up(client)  # without "Remember this device"
+    started = clock.at
+    # Used every 10 hours, so the 12 hours without use never run out.
+    while clock.at + timedelta(hours=10) < started + LONGEST_SIGN_IN:
+        clock.at += timedelta(hours=10)
+        assert client.get("/api/v1/me").status_code == 200, clock.at - started
+        with db(client) as session:
+            expires = session.scalar(select(Session.expires_at))
+        assert expires is not None
+        assert expires.replace(tzinfo=UTC) <= started + LONGEST_SIGN_IN
+    clock.at = started + LONGEST_SIGN_IN - timedelta(minutes=1)
+    assert client.get("/api/v1/me").status_code == 200
+    clock.at = started + LONGEST_SIGN_IN
+    assert client.get("/api/v1/me").status_code == 401
+    assert client.get("/api/v1/events").status_code == 401  # nor the live updates
+    with db(client) as session:
+        assert session.scalars(select(Session)).all() == []
+
+
+def test_remember_this_device_also_ends_at_30_days(client: TestClient, clock: Clock) -> None:
+    set_up(client)
+    client.delete("/api/v1/session")
+    started = clock.at
+    assert sign_in(client, remember=True) == 200
+    clock.at = started + timedelta(days=29)
+    assert client.get("/api/v1/me").status_code == 200
+    clock.at = started + LONGEST_SIGN_IN
+    assert client.get("/api/v1/me").status_code == 401
 
 
 def test_signing_out_deletes_the_session(client: TestClient) -> None:
