@@ -750,6 +750,35 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       expect(await phoneThere()).toBe(false);
     });
 
+    it('while Sign in tries the wipe again, it shows it’s working and can’t be pressed twice', async () => {
+      await wrensPhone(1);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      mend();
+      show();
+      await fillIn('wren');
+      // Another tab holds the queue lock, so the wipe waits (as a slow delete would).
+      let release = () => {};
+      const held = new Promise<void>((done) => (release = done));
+      let locked = () => {};
+      const lockTaken = new Promise<void>((done) => (locked = done));
+      void navigator.locks.request(`${phoneDatabaseName()}.queue`, () => {
+        locked();
+        return held;
+      });
+      await lockTaken;
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      const working = page.getByRole('button', { name: 'Signing in…' });
+      await expect.element(working).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
+      // Enter in the form while it's working does nothing more.
+      await userEvent.type(page.getByLabelText('Password'), '{Enter}');
+      release();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalledTimes(1));
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+      expect(await phoneThere()).toBe(false);
+    });
+
     it('a different login’s wipe failing after its sign-in: signed out again, and it says so', async () => {
       await wrensPhone(0);
       const mend = failPhoneDelete();

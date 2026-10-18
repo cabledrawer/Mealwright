@@ -139,11 +139,20 @@
 
   /** Sign in, as pressed. Every press shows (and reads out) what happened. */
   async function go() {
+    if (busy) return;
     problem = '';
     losing = false;
     anyway = false;
-    // Nobody signs in until an unfinished wipe has deleted the phone database.
-    if (wipeState.failed && !(await wipeAgain())) return;
+    // Nobody signs in until an unfinished wipe has deleted the phone database. That can take
+    // a while (up to DELETE_FOR_MS): Sign in shows it's working, and can't be pressed again.
+    if (wipeState.failed) {
+      busy = true;
+      try {
+        if (!(await wipeAgain())) return;
+      } finally {
+        busy = false;
+      }
+    }
     // Read again: another tab may have queued changes since this page opened.
     held = await heldChanges();
     if (held === UNREADABLE) {
