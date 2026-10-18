@@ -242,9 +242,15 @@ class FoodEdit:
         self.food_ids = set(food_ids)
         self.before: Snapshot = {}
         self.extra: dict[str, Any] = {}
+        self.batch: Any = None
 
     def __enter__(self) -> FoodEdit:
+        # The household's lock and counter come first (sync protocol 5.2), so what the
+        # change touches gets the next number (3.7). Imported here: shopping needs history.
+        from mealwright.shopping import Batch
+
         self.kitchen.db.flush()
+        self.batch = Batch(self.kitchen)
         self.before = snapshot(self.kitchen, self.food_ids)
         return self
 
@@ -258,7 +264,12 @@ class FoodEdit:
     def record(self, kind: str, summary: str, food_id: int | None) -> Change:
         self.kitchen.db.flush()
         after = snapshot(self.kitchen, self.food_ids)
-        data: dict[str, Any] = {"foods": diff(self.before, after), **self.extra}
+        changes = diff(self.before, after)
+        data: dict[str, Any] = {"foods": changes, **self.extra}
+        from mealwright.shopping import bump_foods
+
+        bump_foods(self.kitchen, foods_in(changes), self.batch)
+        self.batch.finish()
         return record(self.kitchen, kind, summary, food_id, data)
 
 
@@ -756,6 +767,26 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         removed -= stocked
         if not removed:
             return 0
+    # Likewise never delete a live list item: an ingredient that is somehow on a list is
+    # brought back instead (a merge repoints items, so this shouldn't happen).
+    from mealwright.shopping import on_a_list
+
+    listed = {
+        food_id
+        for food_id in removed
+        if on_a_list(db, household.id, food_id, now - undo_window(household))
+    }
+    if listed:
+        db.execute(update(Food).where(Food.id.in_(list(listed))).values(removed_at=None))
+        db.commit()
+        logging.getLogger(__name__).warning(
+            "Brought back %d removed ingredient(s) that were still on a list, "
+            "instead of deleting them",
+            len(listed),
+        )
+        removed -= listed
+        if not removed:
+            return 0
     gone = set(removed)
     frontier = set(removed)
     while frontier:
@@ -792,8 +823,11 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
             or_(FoodMerge.from_food_id.in_(ids), FoodMerge.into_food_id.in_(ids))
         )
     )
-    # Shopping lists: items for these ingredients (tombstones; removal is blocked while an
-    # ingredient is on a live list) go with their purchases. A purchase's changes lose the
+    # Shopping lists: items for these ingredients go with their purchases. They are
+    # tombstones, or on a list removed longer ago than the undo window: removal is blocked
+    # while an ingredient is on a live list (a merge moves its items to the kept
+    # ingredient), and the safety net above brings back any that somehow still is. A
+    # purchase's changes lose the
     # link first (sync protocol 3.7, 3.9).
     # PR 3: raise household.list_purged_seq here, so phones that are behind get a fresh copy.
     item_ids = select(ListItem.id).where(ListItem.food_id.in_(ids))

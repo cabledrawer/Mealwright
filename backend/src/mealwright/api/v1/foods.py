@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
-from mealwright import amounts
+from mealwright import amounts, shopping
 from mealwright.aisles import AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
@@ -1162,6 +1162,10 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
             raise Problem(422, "same_food", "That's the same ingredient.")
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
             edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
+            ops = shopping.move_items(kitchen, gone.id, into.id, edit.batch)
+            if ops:
+                edit.extra["shopping"] = ops
+            edit.extra["action"] = edit.batch.action
             record = FoodMerge(
                 household_id=kitchen.household_id, from_food_id=gone.id, into_food_id=into.id
             )
@@ -1170,6 +1174,14 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
             edit.extra["merge_id"] = record.id
         change = edit.record("merged", f"Merged {gone.name} into {into.name}", into.id)
         record.change_id = change.id
+        shopping.log_action(
+            edit.batch,
+            edit.batch.taken[-1],
+            edit.batch.action,
+            "merge_foods",
+            {"food_id": gone.id, "into_id": into.id},
+            change=change,
+        )
         return change
 
     return write(kitchen, response, apply)

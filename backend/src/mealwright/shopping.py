@@ -16,6 +16,7 @@ import json
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from fastapi import status
@@ -25,7 +26,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.amounts import MILLI, checked
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
-from mealwright.foods import usual_size
+from mealwright.foods import find, usual_size
 from mealwright.history import Tally, record
 from mealwright.household import undo_window
 from mealwright.models import (
@@ -346,16 +347,36 @@ def remove_list(kitchen: Kitchen, shopping_list: ShoppingList) -> Change:
     )
 
 
-def removed_recently(kitchen: Kitchen, food_id: int) -> bool:
-    """Is this ingredient on a list that is not removed, or removed within the undo window?
-    (Undo of the removal would bring it back.) Tombstones don't count."""
-    cutoff = utcnow() - undo_window(kitchen.household)
-    rows = kitchen.db.execute(
+def merged_in(db: DbSession, household_id: int, food_id: int) -> set[int]:
+    """This ingredient and every ingredient merged into it, however far back the chain goes.
+    A merge repoints list items (sync protocol 5.8), so none should be left on a merged-away
+    ingredient; following the chain is the safety net."""
+    found = {food_id}
+    frontier = {food_id}
+    while frontier:
+        frontier = (
+            set(
+                db.scalars(
+                    select(Food.id).where(
+                        Food.household_id == household_id, Food.merged_into_id.in_(frontier)
+                    )
+                )
+            )
+            - found
+        )
+        found |= frontier
+    return found
+
+
+def on_a_list(db: DbSession, household_id: int, food_id: int, cutoff: datetime) -> bool:
+    """Is this ingredient (or one merged into it) on a list that is not removed, or removed
+    after `cutoff`? Tombstones don't count."""
+    rows = db.execute(
         select(ShoppingList.removed_at)
         .join(ListItem, ListItem.list_id == ShoppingList.id)
         .where(
-            ListItem.household_id == kitchen.household_id,
-            ListItem.food_id == food_id,
+            ListItem.household_id == household_id,
+            ListItem.food_id.in_(merged_in(db, household_id, food_id)),
             ListItem.deleted_at.is_(None),
             ListItem.merged_into_id.is_(None),
         )
@@ -367,6 +388,61 @@ def removed_recently(kitchen: Kitchen, food_id: int) -> bool:
         if moment > cutoff:
             return True
     return False
+
+
+def removed_recently(kitchen: Kitchen, food_id: int) -> bool:
+    """Is this ingredient on a list that is not removed, or removed within the undo window?
+    (Undo of the removal would bring it back.) Tombstones don't count."""
+    cutoff = utcnow() - undo_window(kitchen.household)
+    return on_a_list(kitchen.db, kitchen.household_id, food_id, cutoff)
+
+
+def move_items(
+    kitchen: Kitchen, from_food_id: int, to_food_id: int, batch: Batch
+) -> list[dict[str, Any]]:
+    """A merge: every list item of the merged-away ingredient goes to the kept one (sync
+    protocol 5.8), tombstones too. Two lines that become the same ingredient stay two
+    lines. Returns the Undo steps."""
+    seq = batch.taken[-1] if batch.taken else batch.take()
+    ops: list[dict[str, Any]] = []
+    for item in kitchen.db.scalars(
+        select(ListItem).where(
+            ListItem.household_id == kitchen.household_id, ListItem.food_id == from_food_id
+        )
+    ):
+        item.food_id = to_food_id
+        item.version = seq
+        ops.append({"op": "item_food", "item_id": item.id, "old": from_food_id, "new": to_food_id})
+    kitchen.db.flush()
+    return ops
+
+
+def food_is_shown(kitchen: Kitchen, food_id: int) -> bool:
+    """Is this ingredient in Ingredients (or merged into one that is)? Items on one that
+    isn't aren't shown on lists."""
+    try:
+        find(kitchen, food_id)
+    except Problem:
+        return False
+    return True
+
+
+def bump_foods(kitchen: Kitchen, food_ids: Iterable[int], batch: Batch | None = None) -> None:
+    """Stamp ingredients with the next counter number (sync protocol 3.7), so devices pick
+    up what changed. With no `batch`, this takes the lock and the number itself."""
+    ids = sorted(set(food_ids))
+    if not ids:
+        return
+    own = batch is None
+    batch = batch or Batch(kitchen)
+    seq = batch.taken[-1] if batch.taken else batch.take()
+    kitchen.db.execute(
+        update(Food)
+        .where(Food.household_id == kitchen.household_id, Food.id.in_(ids))
+        .values(version=seq)
+    )
+    if own:
+        batch.finish()
 
 
 # --- Items ---------------------------------------------------------------------------------------
@@ -504,7 +580,14 @@ def add_item(
         "add",
         "item_added",
         f"Added {food.name} to {shopping_list.name}",
-        [{"op": "item_made", "item_id": item.id}],
+        [
+            {
+                "op": "item_made",
+                "item_id": item.id,
+                "state": _amount_state(item),
+                "shop_id": item.shop_id,
+            }
+        ],
         payload,
         food_id=food.id,
         list_id=shopping_list.id,
@@ -666,9 +749,17 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
             if item is None or item.household_id != kitchen.household_id:
                 tally.skipped += 1
                 continue
-            if item.deleted_at is None:
+            if item.deleted_at is not None:
+                tally.done += 1  # already off the list
+            elif (
+                item.ticked_at is None
+                and _amount_state(item) == op.get("state")
+                and (item.shop_id == op.get("shop_id"))
+            ):
                 _tombstone(kitchen, item, seq, undo_action)
-            tally.done += 1
+                tally.done += 1
+            else:  # ticked, or someone changed it since: leave it
+                tally.skipped += 1
         elif kind == "item_amount":
             item = db.get(ListItem, op["item_id"])
             if item is None or item.household_id != kitchen.household_id or item.deleted_at:
@@ -682,6 +773,18 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
                 tally.done += 1
             else:
                 tally.skipped += 1
+        elif kind == "item_food":  # a merge moved the item to the kept ingredient
+            item = db.get(ListItem, op["item_id"])
+            if item is None or item.household_id != kitchen.household_id:
+                tally.skipped += 1
+            elif item.food_id == op["new"]:
+                item.food_id = op["old"]
+                item.version = seq
+                tally.done += 1
+            elif item.food_id == op["old"]:
+                tally.done += 1
+            else:
+                tally.skipped += 1
         elif kind == "item_deleted":
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)
@@ -689,6 +792,9 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
                     tally.skipped += 1
                     continue
                 if item.deleted_at is not None:
+                    if not food_is_shown(kitchen, item.food_id):
+                        tally.skipped += 1  # its ingredient was removed since: stay off
+                        continue
                     item.deleted_at = None
                     item.deleted_by_name = None
                     item.deleted_action_id = None

@@ -116,7 +116,12 @@ def _counts(kitchen: Kitchen) -> dict[str, tuple[int, int]]:
         )
     )
     counts: dict[str, list[int]] = {}
+    shown: dict[int, bool] = {}
     for item in rows:
+        if item.food_id not in shown:  # only what the list would show
+            shown[item.food_id] = _visible_food(kitchen, item.food_id) is not None
+        if not shown[item.food_id]:
+            continue
         entry = counts.setdefault(item.list_id, [0, 0])
         entry[1 if item.ticked_at is not None else 0] += 1
     return {key: (a, b) for key, (a, b) in counts.items()}

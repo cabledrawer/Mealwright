@@ -318,7 +318,14 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
                     start[lot.food_id] = place_totals(kitchen, lot.food_id)
         short = undo_lines(kitchen, change, tally)
         if data.get("foods"):
-            undo_foods(kitchen, data["foods"], tally)
+            done_before = tally.done
+            # The lock first (5.2); only a food-only Undo needs its own.
+            lock = batch or shopping.Batch(kitchen)
+            touched_foods = undo_foods(kitchen, data["foods"], tally)
+            if tally.done > done_before:
+                shopping.bump_foods(kitchen, touched_foods, lock)
+            if lock is not batch:
+                lock.finish()
         if data.get("lot_amounts"):
             undo_lot_amounts(kitchen, data["lot_amounts"])
         if tally.done:

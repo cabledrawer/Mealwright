@@ -722,3 +722,129 @@ def test_the_list_shows_the_new_aisle(kitchen: TestClient) -> None:
 def test_openapi_lists_the_shopping_endpoints(kitchen: TestClient) -> None:
     paths = kitchen.get(f"{API}/openapi.json").json()["paths"]
     assert {"/api/v1/shopping/lists", "/api/v1/shopping/lists/{list_id}/items"} <= set(paths)
+
+
+# --- Merging, versions and Undo edge cases ------------------------------------------------------
+
+
+def food_version(kitchen: TestClient, food_id: int) -> int:
+    with db(kitchen) as session:
+        return int(session.get(Food, food_id).version)
+
+
+def test_merging_moves_the_list_items_and_keeps_the_kept_one_on_its_list(
+    kitchen: TestClient,
+) -> None:  # sync protocol 5.8
+    main = main_id(kitchen)
+    arhar, toor = food(kitchen, "Arhar dal"), food(kitchen, "Toor dal")
+    on_a = add(kitchen, main, arhar["id"])["item"]
+    on_b = add(kitchen, main, toor["id"])["item"]
+    start = counter(kitchen)
+    merged = ok(kitchen.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    with db(kitchen) as session:
+        moved = session.get(ListItem, on_a["id"])
+        assert moved.food_id == toor["id"] and moved.version > start
+        assert session.get(ListItem, on_b["id"]).food_id == toor["id"]  # still two lines
+    blocked = kitchen.delete(f"{API}/foods/{toor['id']}")
+    assert blocked.status_code == 409 and "shopping list" in blocked.json()["detail"]
+    assert ok(kitchen.get(f"{API}/shopping/lists/{main}"))["shopping_list"]["to_buy"] == 2
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    with db(kitchen) as session:
+        assert session.get(ListItem, on_a["id"]).food_id == arhar["id"]
+        assert session.get(ListItem, on_b["id"]).food_id == toor["id"]
+
+
+def test_the_safety_nets_follow_merge_chains(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    arhar, toor = food(kitchen, "Arhar dal"), food(kitchen, "Toor dal")
+    add(kitchen, main, arhar["id"])
+    ok(kitchen.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    with db(kitchen) as session:  # a stray item left on the merged-away ingredient
+        session.execute(update(ListItem).values(food_id=arhar["id"]))
+        session.commit()
+    assert kitchen.delete(f"{API}/foods/{toor['id']}").status_code == 409
+    with db(kitchen) as session:  # removed anyway: the tidy-up must not delete a live item
+        session.execute(
+            update(Food)
+            .where(Food.id == toor["id"])
+            .values(removed_at=utcnow() - timedelta(days=9))
+        )
+        session.commit()
+    jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    with db(kitchen) as session:
+        assert session.scalar(select(func.count()).select_from(ListItem)) == 1
+        assert session.get(Food, toor["id"]).removed_at is None
+
+
+def test_ingredient_edits_bump_the_food_version(kitchen: TestClient) -> None:  # sync protocol 3.7
+    milk = food(kitchen, "Milk")
+    other = food(kitchen, "Oat milk")
+    path = f"{API}/foods/{milk['id']}"
+    seen = food_version(kitchen, milk["id"])
+    for body in ({"name": "Whole milk"}, {"aisle": "frozen"}, {"staple": True}):
+        before = counter(kitchen)
+        ok(kitchen.patch(path, json=body))
+        assert food_version(kitchen, milk["id"]) == before + 1 > seen
+        seen = before + 1
+    before = counter(kitchen)
+    merged = ok(kitchen.post(f"{API}/foods/{other['id']}/merge", json={"into_id": milk["id"]}))
+    assert food_version(kitchen, milk["id"]) == before + 1
+    assert food_version(kitchen, other["id"]) == before + 1
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert food_version(kitchen, other["id"]) > before + 1
+    removed = counter(kitchen)
+    ok(kitchen.delete(f"{API}/foods/{other['id']}"))
+    assert food_version(kitchen, other["id"]) == removed + 1
+
+
+def test_an_edit_that_changes_nothing_takes_no_number(kitchen: TestClient) -> None:
+    milk = food(kitchen, "Milk")
+    before = counter(kitchen)
+    ok(kitchen.patch(f"{API}/foods/{milk['id']}", json={"name": "Milk"}))
+    assert counter(kitchen) == before
+
+
+def test_undo_of_a_delete_stays_off_when_the_ingredient_was_removed(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    milk = food(kitchen, "Milk")
+    item = add(kitchen, main, milk["id"])["item"]
+    deleted = ok(kitchen.delete(f"{API}/shopping/items/{item['id']}"))
+    ok(kitchen.delete(f"{API}/foods/{milk['id']}"))
+    undone = ok(kitchen.post(f"{API}/changes/{deleted['change']['id']}/undo"))
+    assert undone["result"] == "nothing"
+    lists = ok(kitchen.get(f"{API}/shopping/lists"))["lists"]
+    assert lists[0]["to_buy"] == 0
+    with db(kitchen) as session:
+        assert session.get(ListItem, item["id"]).deleted_at is not None
+
+
+def test_counts_only_count_what_the_list_shows(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    milk = food(kitchen, "Milk")
+    add(kitchen, main, milk["id"])
+    with db(kitchen) as session:  # a live item on a removed ingredient
+        session.execute(update(Food).values(removed_at=utcnow()))
+        session.commit()
+    assert ok(kitchen.get(f"{API}/shopping/lists"))["lists"][0]["to_buy"] == 0
+
+
+def test_undo_an_add_leaves_an_item_that_has_changed_since(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    milk = food(kitchen, "Milk")
+    added = add(kitchen, main, milk["id"], amount={"amount": 1, "unit": "l"})
+    ok(
+        kitchen.patch(
+            f"{API}/shopping/items/{added['item']['id']}",
+            json={"amount": {"amount": 3, "unit": "l"}},
+        )
+    )
+    undone = ok(kitchen.post(f"{API}/changes/{added['change']['id']}/undo"))
+    assert undone["result"] == "nothing"
+    with db(kitchen) as session:
+        assert session.get(ListItem, added["item"]["id"]).deleted_at is None
+    ticked = add(kitchen, main, food(kitchen, "Eggs")["id"])
+    tick(kitchen, ticked["item"]["id"])
+    undone = ok(kitchen.post(f"{API}/changes/{ticked['change']['id']}/undo"))
+    assert undone["result"] == "nothing"
+    with db(kitchen) as session:
+        assert session.get(ListItem, ticked["item"]["id"]).deleted_at is None
