@@ -8,6 +8,7 @@
 import { readSignedIn, type SignedIn } from './device';
 import { phoneExists, readPhone, UNREADABLE, type QueueEntry, type Unreadable } from './phone';
 import { signOutPending } from './signOutPending';
+import { wipePending } from './wipePending.svelte';
 
 export { UNREADABLE, type Unreadable } from './phone';
 
@@ -29,8 +30,9 @@ const readQueueHere = () => readPhone((db) => db.getAll('queue') as Promise<Queu
  * when the phone database couldn't be read: not the same as none.
  */
 export async function heldChanges(): Promise<Held | null | Unreadable> {
-  // Signed out (perhaps offline): this browser has been wiped.
-  if (signOutPending()) return null;
+  // Signed out (perhaps offline): this browser has been wiped. Or its wipe hasn't finished
+  // (wipePending): nothing of the old login's is shown, and nobody can sign in meanwhile.
+  if (signOutPending() || wipePending()) return null;
   try {
     if (!(await phoneExists())) return null;
     const who = await readSignedIn();
@@ -85,6 +87,13 @@ export const signedOutBecauseText = (name: string, n: number, device: Device = '
  */
 export const cantCheckText = (device: Device = 'phone') =>
   `This ${device} couldn't check for changes waiting to be sent. Nothing has been deleted.`;
+
+/**
+ * A wipe couldn't delete the phone database: until it has, nobody can sign in here, so no
+ * one sees or uses the old login's data (section 12).
+ */
+export const wipeFailedText = (device: Device = 'phone') =>
+  `This ${device} couldn't delete its offline copy of the household. Nobody can sign in on it until that's done.`;
 
 /** The server answered, but didn't end the session (section 12). */
 export const unfinishedText = (device: Device = 'phone') =>

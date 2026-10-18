@@ -11,7 +11,7 @@ import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { ME } from '$lib/testing/fakeShopping';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
 import { UNREADABLE } from './held';
 import { addToQueue, dropFromQueue, readQueue } from './store';
 import { phoneDatabaseName, setMeta } from './phone';
@@ -25,6 +25,7 @@ import {
 } from './signOutPending';
 import { signOutState } from './unfinished.svelte';
 import { wipeDevice } from './wipe';
+import { wipePending } from './wipePending.svelte';
 
 const exists = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
@@ -218,6 +219,20 @@ describe('signing out here', () => {
     expect(await exists()).toBe(false);
     expect(signOutPending()).toBe(true);
     expect(session.me).toBeNull();
+  });
+});
+
+describe('signing out when the phone database can’t be deleted (cabledrawer 18 Oct)', () => {
+  it('still ends the server session, and leaves the wipe pending, so nobody signs in on it', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    const requests = fakeApi({ 'DELETE /session': [204, null] });
+    const mend = failPhoneDelete();
+    expect(await signOutHere()).toBe('signed-out');
+    mend();
+    expect(said(requests)).toEqual(['DELETE /session']);
+    expect(session.me).toBeNull();
+    expect(wipePending()).toBe(true);
+    expect(await exists()).toBe(true);
   });
 });
 

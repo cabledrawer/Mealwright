@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { deviceId, loadDeviceId, OLD_DEVICE_KEY, startDevice } from './device';
+import { deviceId, lastSignedIn, loadDeviceId, OLD_DEVICE_KEY, startDevice } from './device';
 import { heldChanges, UNREADABLE, type Held } from './held';
-import { getMeta, phoneDatabaseName, setMeta } from './phone';
+import { getMeta, openPhone, phoneDatabaseName, setMeta } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
 import { addToQueue, dropFromQueue, readQueue } from './store';
 import { KEPT_ON_WIPE, wipeDevice, wipeIfAnotherLogin } from './wipe';
+import { WIPE_PENDING_KEY, wipePending, wipeState } from './wipePending.svelte';
 
 const SHELL_CACHE = `${CACHE_PREFIX}test-wipe`;
 const OTHER_CACHE = 'mealwright-recipes-test-wipe';
@@ -40,7 +41,9 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     localStorage.setItem(OLD_DEVICE_KEY, before);
     sessionStorage.setItem('anything', 'x');
 
-    await wipeDevice();
+    expect(await wipeDevice()).toBe(true);
+    // Finished: nothing pending.
+    expect(wipePending()).toBe(false);
 
     const databases = (await indexedDB.databases()).map((d) => d.name);
     expect(databases).not.toContain(phoneDatabaseName());
@@ -48,11 +51,13 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     expect(await caches.has(OTHER_CACHE)).toBe(false);
     expect(sessionStorage.length).toBe(0);
     const kept = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
-    expect(kept.sort()).toEqual([...KEPT_ON_WIPE].sort());
+    // All kept, but "wipe pending": set as the wipe started, and cleared once it finished.
+    expect(kept.sort()).toEqual(KEPT_ON_WIPE.filter((k) => k !== WIPE_PENDING_KEY).sort());
     expect([...KEPT_ON_WIPE].sort()).toEqual([
       'mealwright.sidebar',
       'mealwright.sign-out-pending',
-      'mealwright.theme'
+      'mealwright.theme',
+      'mealwright.wipe-pending'
     ]);
     // The old place of the device ID is empty too (cabledrawer 18 Oct).
     expect(localStorage.getItem(OLD_DEVICE_KEY)).toBeNull();
@@ -199,5 +204,56 @@ describe('adding to the queue and wiping take turns (Web Locks)', () => {
     const shown = (await heldChanges()) as Held;
     expect(await wipeIfAnotherLogin(ARLO, shown)).toBe('wiped');
     expect(await databaseThere()).toBe(false);
+  });
+});
+
+describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', () => {
+  it('everything else goes, and the old login’s data is never opened, shown or used', async () => {
+    await setMeta(WREN);
+    await addToQueue(tick('r1'), 2, DEVICE);
+    const mend = failPhoneDelete();
+    expect(await wipeDevice()).toBe(false);
+    expect(wipePending()).toBe(true);
+    expect(localStorage.getItem(WIPE_PENDING_KEY)).toBe('1');
+    expect(await databaseThere()).toBe(true);
+    // Nothing of Wren's is found, and the database isn't opened again.
+    expect(await heldChanges()).toBeNull();
+    expect(await lastSignedIn()).toBeNull();
+    await expect(openPhone()).rejects.toThrow();
+    // Not even after a reload (only the flag in localStorage is left then).
+    wipeState.failed = false;
+    expect(wipePending()).toBe(true);
+    await expect(openPhone()).rejects.toThrow();
+    // Starting the app as Arlo writes nothing.
+    await startDevice({ ...ARLO });
+    mend();
+    wipeState.failed = false;
+    localStorage.removeItem(WIPE_PENDING_KEY);
+    expect(await getMeta('login_id')).toBe(2);
+  });
+
+  it('whoever signs in next, the wipe is tried again first: still failing, nobody gets in', async () => {
+    await setMeta(WREN);
+    const mend = failPhoneDelete();
+    await wipeDevice();
+    // Even Wren herself (the wipe was chosen already).
+    expect(await wipeIfAnotherLogin({ id: 2 })).toBe('wipe-failed');
+    expect(await wipeIfAnotherLogin(ARLO)).toBe('wipe-failed');
+    mend();
+    expect(await wipeIfAnotherLogin(ARLO)).toBe('wiped');
+    expect(await databaseThere()).toBe(false);
+    expect(wipePending()).toBe(false);
+    expect(localStorage.getItem(WIPE_PENDING_KEY)).toBeNull();
+    // Then as usual.
+    await startDevice({ ...ARLO });
+    expect(await getMeta('login_id')).toBe(3);
+  });
+
+  it('a different login’s own wipe failing says so', async () => {
+    await setMeta(WREN);
+    const mend = failPhoneDelete();
+    expect(await wipeIfAnotherLogin(ARLO)).toBe('wipe-failed');
+    expect(wipePending()).toBe(true);
+    mend();
   });
 });

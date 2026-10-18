@@ -11,7 +11,9 @@ import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
 import { fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
+import { wipeDevice } from '$lib/offline/wipe';
+import { wipePending } from '$lib/offline/wipePending.svelte';
 import { load as signInLoad } from '../(auth)/+layout';
 import { load } from './+layout';
 
@@ -219,6 +221,45 @@ describe('opening the app (11.4)', () => {
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('a wipe that couldn’t delete the phone database: tried again, and still failing, nobody gets in', async () => {
+    await wrensPhone(1);
+    const mend = failPhoneDelete();
+    await wipeDevice();
+    const requests = fakeApi({ ...signedInAs(2, 'Wren'), 'DELETE /session': [204, null] });
+    try {
+      await expect(open()).rejects.toMatchObject({
+        status: 307,
+        location: '/sign-in?next=%2Fshopping'
+      });
+    } finally {
+      mend();
+    }
+    // Signed out again, and not "turned away" (the sign-in page says the wipe failed).
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /setup',
+      'GET /me',
+      'DELETE /session'
+    ]);
+    expect(session.me).toBeNull();
+    expect(takeTurnedAway()).toBe('');
+    expect(wipePending()).toBe(true);
+
+    // Offline, nobody is "last signed in" either.
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(open()).rejects.toMatchObject({ status: 307 });
+    expect(session.me).toBeNull();
+    vi.unstubAllGlobals();
+
+    // Mended: the next start finishes the wipe, and Wren starts clean.
+    fakeApi(signedInAs(2, 'Wren'));
+    await open();
+    expect(session.me).toMatchObject({ id: 2 });
+    expect(wipePending()).toBe(false);
+    expect(await readQueue()).toEqual([]);
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('device_id')).not.toBe(DEVICE);
   });
 
   it('the server won’t end Arlo’s session (DELETE fails, GET /me works): one trip to the sign-in page, no bouncing back', async () => {

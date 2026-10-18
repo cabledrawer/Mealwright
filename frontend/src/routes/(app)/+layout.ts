@@ -48,11 +48,12 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // can't be read: whose changes are waiting isn't known, so nothing is wiped or written and
   // the sign-in page says it couldn't check. If the server won't end that session, the
   // sign-in page says so and stays (it doesn't send this login back here, to be turned away
-  // again and again); still nothing is wiped.
+  // again and again); still nothing is wiped. And if a wipe couldn't delete the phone
+  // database, nobody is let in until it has been: the sign-in page says so, with Try again.
   const held = await wipeIfAnotherLogin(me);
   if (held !== 'kept' && held !== 'wiped') {
     await endSession();
-    turnAway(me.username);
+    if (held !== 'wipe-failed') turnAway(me.username);
     redirect(307, signInPath(heading));
   }
   session.me = me;

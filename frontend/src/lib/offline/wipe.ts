@@ -22,33 +22,58 @@ import { tellOtherTabs } from './otherTabs';
 import { deletePhone, withQueueLock } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
+import { markWipePending, WIPE_PENDING_KEY, wipeFinished, wipePending } from './wipePending.svelte';
 
 /**
  * localStorage keys a wipe keeps: display preferences of this device, and the "sign-out
- * pending" flag, which must outlast the wipe (signOutPending.ts). None says anything about
- * the household.
+ * pending" and "wipe pending" flags, which must outlast the wipe (signOutPending.ts,
+ * wipePending.svelte.ts). None says anything about the household.
  */
 export const KEPT_ON_WIPE: readonly string[] = [
   'mealwright.theme',
   'mealwright.sidebar',
-  SIGN_OUT_PENDING_KEY
+  SIGN_OUT_PENDING_KEY,
+  WIPE_PENDING_KEY
 ];
 
 /**
- * Wipe everything this browser keeps about the household, taking turns with adding to the
- * queue (withQueueLock).
+ * How long deleting the phone database may take. It waits while another tab keeps it open
+ * (they're told to close it, otherTabs.ts); a tab that never does mustn't hold this up for
+ * ever. Past this, the wipe counts as failed, and "Try again" deletes it again.
  */
-export function wipeDevice(): Promise<void> {
+export const DELETE_FOR_MS = 10_000;
+
+/**
+ * Wipe everything this browser keeps about the household, taking turns with adding to the
+ * queue (withQueueLock). False when the phone database couldn't be deleted (see wipeNow).
+ */
+export function wipeDevice(): Promise<boolean> {
   return withQueueLock(wipeNow);
 }
 
-/** The wipe itself. The caller holds the queue lock (withQueueLock). */
-export async function wipeNow(): Promise<void> {
+/**
+ * The wipe itself. The caller holds the queue lock (withQueueLock).
+ *
+ * False when the phone database couldn't be deleted. Everything else is still wiped, and
+ * the "wipe pending" flag, set before anything was deleted, stays: until a later wipe has
+ * deleted it, the old login's data is never opened, shown or used, and nobody can sign in
+ * here (wipePending.svelte.ts; the sign-in page says so, with "Try again").
+ */
+export async function wipeNow(): Promise<boolean> {
+  markWipePending();
   // Every other tab of the app drops what it shows and goes to sign in (otherTabs.ts).
   tellOtherTabs();
   shoppingSync.forget();
   forgetDeviceId();
-  await deletePhone().catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deleted = await Promise.race([
+    deletePhone().then(
+      () => true,
+      () => false
+    ),
+    new Promise<boolean>((done) => (timer = setTimeout(() => done(false), DELETE_FOR_MS)))
+  ]);
+  clearTimeout(timer);
   try {
     for (const key of await caches.keys()) {
       if (!key.startsWith(CACHE_PREFIX)) await caches.delete(key);
@@ -71,6 +96,8 @@ export async function wipeNow(): Promise<void> {
   } catch {
     // Storage blocked: nothing kept there.
   }
+  wipeFinished(deleted);
+  return deleted;
 }
 
 /**
@@ -86,12 +113,16 @@ export async function wipeNow(): Promise<void> {
  * as many (another tab may have sent one and queued a new one).
  *
  * UNREADABLE when the phone database couldn't be read: then nothing is wiped and nothing is
- * written, as whether anyone's changes are waiting isn't known.
+ * written, as whether anyone's changes are waiting isn't known. 'wipe-failed' when the wipe
+ * couldn't delete the phone database: then nobody may be let in (wipePending.svelte.ts).
  */
 export async function wipeIfAnotherLogin(
   me: { id: number },
   losing: Held | null = null
-): Promise<'kept' | 'wiped' | Unreadable | Held> {
+): Promise<'kept' | 'wiped' | 'wipe-failed' | Unreadable | Held> {
+  // An earlier wipe couldn't delete the phone database: it was chosen already, so it's
+  // finished first, whoever signs in. 'wipe-failed' while it still can't be.
+  if (wipePending()) return (await wipeDevice()) ? 'wiped' : 'wipe-failed';
   const stored = await storedLoginId();
   if (stored === UNREADABLE) return UNREADABLE;
   if (stored === null || stored === me.id) return 'kept';
@@ -104,7 +135,6 @@ export async function wipeIfAnotherLogin(
       const shown = new Set(losing?.who.id === held.who.id ? losing.ids : []);
       if (!held.ids.every((id) => shown.has(id))) return held;
     }
-    await wipeNow();
-    return 'wiped' as const;
+    return (await wipeNow()) ? ('wiped' as const) : ('wipe-failed' as const);
   });
 }

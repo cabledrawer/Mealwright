@@ -6,7 +6,9 @@
   // wiped as at signing out, and the next start makes a new device ID. A wrong password
   // wipes nothing. A phone database that can't be read wipes nothing either, and lets nobody
   // in over it: the page says it couldn't check. When the server wouldn't end a session the
-  // app was signing out, the page says so, with "Try again" (it stays here meanwhile).
+  // app was signing out, the page says so, with "Try again" (it stays here meanwhile). And
+  // when a wipe couldn't delete the phone database, nobody can sign in until it has: the
+  // page says so, with "Try again", and Sign in tries the wipe again first.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -26,12 +28,14 @@
     unfinishedText,
     UNREADABLE,
     waitingForText,
+    wipeFailedText,
     type Held,
     type Unreadable
   } from '$lib/offline/held';
   import { endSession } from '$lib/offline/signOut';
   import { signOutState } from '$lib/offline/unfinished.svelte';
-  import { wipeIfAnotherLogin } from '$lib/offline/wipe';
+  import { wipeDevice, wipeIfAnotherLogin } from '$lib/offline/wipe';
+  import { wipePending, wipeState } from '$lib/offline/wipePending.svelte';
   import { connection, safeNext, session } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import type { PageProps } from './$types';
@@ -61,6 +65,25 @@
   $effect(() => {
     void heldChanges().then((found) => (held = found));
   });
+
+  // A wipe (in this tab, another, or before a reload) that couldn't delete the phone database.
+  if (wipePending()) wipeState.failed = true;
+  /** Tries that found the wipe still unfinished: the line is read out again each time. */
+  let wipeTries = $state(0);
+  let wiping = $state(false);
+
+  /** Wipe again. True once the phone database is gone. */
+  async function wipeAgain(): Promise<boolean> {
+    wiping = true;
+    try {
+      const done = await wipeDevice();
+      if (done) held = null;
+      else wipeTries++;
+      return done;
+    } finally {
+      wiping = false;
+    }
+  }
 
   const someoneElse = $derived(
     !!waiting && username.trim() !== '' && !sameUsername(username, waiting.who)
@@ -96,6 +119,8 @@
     event.preventDefault();
     problem = '';
     losing = false;
+    // Nobody signs in until an unfinished wipe has deleted the phone database.
+    if (wipeState.failed && !(await wipeAgain())) return;
     // Read again: another tab may have queued changes since this page opened.
     held = await heldChanges();
     // Couldn't check: nothing is sent, and the page keeps saying so.
@@ -142,6 +167,15 @@
       // over waiting changes the warning hasn't shown (read again just now, as another tab
       // may have queued some since).
       const result = await wipeIfAnotherLogin(me, losing ? waiting : null);
+      if (result === 'wipe-failed') {
+        // Nobody is let in until the phone database is deleted: end this session again.
+        await endSession();
+        losing = false;
+        warning = false;
+        held = null;
+        wipeTries++;
+        return;
+      }
       if (result !== 'kept' && result !== 'wiped') {
         // Another login after all, or the phone couldn't check: end that session again before
         // anything is sent, and warn.
@@ -185,6 +219,18 @@
     <p role="alert">{unfinishedText(device)}</p>
     <button type="button" class="again" disabled={ending} onclick={() => void endAgain()}>
       {ending ? 'Trying…' : 'Try again'}
+    </button>
+  </div>
+{/if}
+
+{#if wipeState.failed}
+  <div class="unfinished">
+    {#key wipeTries}
+      <!-- On opening the page a status; after a press that didn't help, an alert. -->
+      <p role={wipeTries > 0 ? 'alert' : 'status'}>{wipeFailedText(device)}</p>
+    {/key}
+    <button type="button" class="again" disabled={wiping} onclick={() => void wipeAgain()}>
+      {wiping ? 'Trying…' : 'Try again'}
     </button>
   </div>
 {/if}

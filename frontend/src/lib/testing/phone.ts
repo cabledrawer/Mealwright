@@ -4,12 +4,15 @@
 import { vi } from 'vitest';
 import { forgetDeviceId } from '$lib/offline/device';
 import { closePhone, deletePhone, usePhoneDatabase } from '$lib/offline/phone';
+import { WIPE_PENDING_KEY, wipeState } from '$lib/offline/wipePending.svelte';
 import { shoppingSync, TIMING } from '$lib/shopping/sync.svelte';
 
 export function freshPhone(): void {
   shoppingSync.forget();
   shoppingSync.timing = { ...TIMING, gatherMs: 0 };
   forgetDeviceId();
+  wipeState.failed = false;
+  localStorage.removeItem(WIPE_PENDING_KEY);
   usePhoneDatabase(`test-${crypto.randomUUID()}`);
 }
 
@@ -30,4 +33,15 @@ export function breakPhone(): () => void {
     throw new DOMException('The phone database is broken (a test).', 'UnknownError');
   });
   return () => open.mockRestore();
+}
+
+/**
+ * Make deleting the phone database fail, as it can in a broken IndexedDB: every wipe from
+ * now on fails to delete it. Returns a function that mends it.
+ */
+export function failPhoneDelete(): () => void {
+  const remove = vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
+    throw new DOMException('The phone database can’t be deleted (a test).', 'UnknownError');
+  });
+  return () => remove.mockRestore();
 }

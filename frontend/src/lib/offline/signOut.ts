@@ -77,6 +77,8 @@ export async function signOutHere(
     // Nobody signed in from here on: the list stops reading or writing the phone database,
     // so nothing makes it again after the wipe.
     session.me = null;
+    // If the phone database couldn't be deleted, the session is still ended: the sign-in
+    // page then says so, and lets nobody in until it has been (wipePending.svelte.ts).
     await wipeNow();
     return null;
   });

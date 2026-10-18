@@ -13,6 +13,7 @@
 
 import { deleteDB, openDB, type IDBPDatabase } from 'idb';
 import type { Action } from '$lib/shopping/actions';
+import { wipePending } from './wipePending.svelte';
 
 export const DB_NAME = 'mealwright';
 /** Raise this (and only add stores) when the stores change. */
@@ -128,9 +129,13 @@ export function openPhoneAt(version: number): Promise<IDBPDatabase> {
   });
 }
 
-/** The open database, opened once. */
+/**
+ * The open database, opened once. Never while a wipe hasn't finished deleting it
+ * (wipePending): the old login's data is never seen or used again.
+ */
 export function openPhone(): Promise<IDBPDatabase> {
   if (sealed) return Promise.reject(new Error('This browser was wiped in another tab.'));
+  if (wipePending()) return Promise.reject(new Error('This browser is still being wiped.'));
   if (!opening) {
     opening = openPhoneAt(DB_VERSION);
     opening.catch(() => (opening = null));
@@ -167,6 +172,7 @@ export type Unreadable = typeof UNREADABLE;
  * writes through it. Rejects when the database can't be read.
  */
 export async function readPhone<T>(read: (db: IDBPDatabase) => Promise<T>): Promise<T> {
+  if (wipePending()) throw new Error('This browser is still being wiped.');
   if (!sealed) return read(await openPhone());
   const db = await openPhoneAt(DB_VERSION);
   try {

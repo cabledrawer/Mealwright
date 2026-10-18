@@ -7,7 +7,9 @@ import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, dropFromQueue, readQueue } from '$lib/offline/store';
 import { signOutState } from '$lib/offline/unfinished.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
+import { wipeDevice } from '$lib/offline/wipe';
+import { wipePending } from '$lib/offline/wipePending.svelte';
 import SignIn from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -17,6 +19,8 @@ vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => ({ page: { url: new URL('http://mealwright.test/sign-in') } }));
 
 const DEVICE = '11111111-2222-4333-8444-555555555555';
+const phoneThere = async () =>
+  (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
 const WREN = { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' };
 const ARLO = { id: 3, name: 'Arlo', username: 'arlo', role: 'member', theme: 'auto' };
 const tick = (id: string) => ({
@@ -546,6 +550,77 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent("Couldn't finish signing out on this computer.");
+    });
+  });
+
+  describe('a wipe that couldn’t delete the phone database (cabledrawer 18 Oct)', () => {
+    const WIPE_FAILED =
+      "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done.";
+
+    it('says so on opening; Try again that fails says so again; once deleted, it goes', async () => {
+      await wrensPhone(2);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      show();
+      // On opening the page: a status, not an alert (read out without interrupting).
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
+      // Nothing of Wren's is shown.
+      expect(page.getByText(/Wren/).elements()).toEqual([]);
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
+      mend();
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByText(WIPE_FAILED)).not.toBeInTheDocument();
+      expect(wipePending()).toBe(false);
+      expect(await phoneThere()).toBe(false);
+      expect(requests).toEqual([]);
+    });
+
+    it('Sign in tries the wipe again first: still failing, it says so and sends nothing', async () => {
+      await wrensPhone(1);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      show();
+      await fillIn('wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
+      expect(requests).toEqual([]);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      mend();
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+      expect(await phoneThere()).toBe(false);
+    });
+
+    it('a different login’s wipe failing after its sign-in: signed out again, and it says so', async () => {
+      await wrensPhone(0);
+      const mend = failPhoneDelete();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
+      mend();
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'POST /session',
+        'DELETE /session'
+      ]);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(wipePending()).toBe(true);
+    });
+
+    it('on a computer it says “this computer”', async () => {
+      await page.viewport(1280, 800);
+      const mend = failPhoneDelete();
+      await wrensPhone(0);
+      await wipeDevice();
+      mend();
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done."
+        );
     });
   });
 });
