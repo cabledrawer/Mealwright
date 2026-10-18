@@ -16,6 +16,15 @@
 //   --prepare FILE  a module with optional `seed(api)` (run once, signed in) and
 //                   `prepare(page, shot)` (run on every shot after the page opens, e.g.
 //                   to open the edit sheet the phone mockup shows)
+//   --stress        after the normal shots, add a lot of test data (the --prepare module's
+//                   `stress(api)`: 200+ items, very long names, e.g. long Tamil other names)
+//                   and take one extra "stress" shot per size and theme, with the text at
+//                   200%: stress-<size>-<theme>.png (spec "Keeping the UI good", item 2)
+//   --gallery       the component gallery (development only: it is not in the built
+//                   app): starts the Vite dev server instead of serve.mjs, on port
+//                   E2E_DEV_PORT (default 5173), and takes full-page shots of /dev/gallery
+//                   in the four size and theme combinations. Needs no --path or sign-in:
+//                     node review/screens.ts --gallery
 //   --out DIR       default review-shots/<screen or path> (git-ignored)
 //   --locale TAG    the browser's language, default en-GB (cabledrawer is in the UK; en-US
 //                   would give the household a 240 ml cup)
@@ -53,6 +62,8 @@ export const SIZES: Record<Size, { width: number; height: number }> = {
 const SHOTS: Shot[] = (['phone', 'desktop'] as const).flatMap((size) =>
   (['light', 'dark'] as const).map((theme) => ({ size, theme })),
 );
+/** Tallest full-page shot (Chromium's own limit is 16384 px). */
+const MAX_SHOT_HEIGHT = 12000;
 const label = ({ size, theme }: Shot) => `${size}-${theme}`;
 
 type Board = { title: string; w: number; h: number };
@@ -162,6 +173,8 @@ async function signIn(baseURL: string): Promise<APIRequestContext> {
 
 type Prepare = {
   seed?: (api: APIRequestContext) => Promise<void>;
+  /** For --stress: add 200+ items and very long names on top of what seed() made. */
+  stress?: (api: APIRequestContext) => Promise<void>;
   prepare?: (page: Page, shot: Shot) => Promise<void>;
 };
 
@@ -174,9 +187,13 @@ async function captureApp(
   prep: Prepare,
   out: string,
   locale: string,
+  how: { stress?: boolean; fullPage?: boolean } = {},
 ) {
   const context = await browser.newContext({
     baseURL,
+    // The stress shot adds a style rule (text at 200%) from outside; the app's own CSP would
+    // refuse it. This is the review script only: the app is unchanged.
+    bypassCSP: how.stress === true,
     viewport: SIZES[shot.size],
     colorScheme: shot.theme,
     storageState,
@@ -195,9 +212,17 @@ async function captureApp(
   await page.goto(path);
   await page.locator(`html[data-theme="${shot.theme}"]`).waitFor();
   await page.evaluate(() => document.fonts.ready);
+  if (how.stress) await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
   await prep.prepare?.(page, shot);
   await page.waitForLoadState('networkidle');
-  await page.screenshot({ path: out });
+  if (how.stress || how.fullPage) {
+    // The whole page, but at most 12000 px tall (Chromium's limit is 16384, and 200 rows are tall).
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    const { width } = SIZES[shot.size];
+    await page.screenshot({ path: out, fullPage: true, clip: { x: 0, y: 0, width, height: Math.min(height, MAX_SHOT_HEIGHT) } });
+  } else {
+    await page.screenshot({ path: out });
+  }
   const sideways = await page.evaluate(() => {
     const root = document.scrollingElement ?? document.documentElement;
     return root.scrollWidth > root.clientWidth ? `${root.scrollWidth} > ${root.clientWidth}` : '';
@@ -243,6 +268,40 @@ async function startApp(port: number): Promise<ChildProcess> {
   throw new Error('the app did not start within 3 minutes');
 }
 
+/** The component gallery, from the Vite dev server (it is not in the built app). */
+async function galleryShots(outDir: string | undefined, locale: string) {
+  const port = Number(process.env.E2E_DEV_PORT ?? 5173);
+  const baseURL = `http://127.0.0.1:${port}`;
+  const out = resolve(outDir ?? join(E2E, 'review-shots', 'gallery'));
+  mkdirSync(out, { recursive: true });
+  console.log(`Starting the Vite dev server (port ${port})…`);
+  const server = spawn('npx', ['vite', 'dev', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
+    cwd: join(REPO, 'frontend'),
+    stdio: ['ignore', 'ignore', 'inherit'],
+    detached: true,
+  });
+  const browser = await chromium.launch();
+  try {
+    let up = false;
+    for (let i = 0; i < 300 && !up; i++) {
+      if (server.exitCode !== null) throw new Error('the Vite dev server stopped (is the port taken?)');
+      up = await fetch(`${baseURL}/dev/gallery`).then((r) => r.ok, () => false);
+      if (!up) await new Promise((r) => setTimeout(r, 100));
+    }
+    if (!up) throw new Error('the dev server did not start within 30 seconds');
+    for (const shot of SHOTS) {
+      console.log(`Gallery ${label(shot)}`);
+      await captureApp(browser, baseURL, '/dev/gallery', shot, { cookies: [], origins: [] }, {}, join(out, `app-${label(shot)}.png`), locale, {
+        fullPage: true,
+      });
+    }
+    console.log(`Done: ${out}`);
+  } finally {
+    await browser.close();
+    if (server.pid) process.kill(-server.pid, 'SIGTERM');
+  }
+}
+
 async function main() {
   const { values } = parseArgs({
     options: {
@@ -253,9 +312,15 @@ async function main() {
       'base-url': { type: 'string' },
       locale: { type: 'string', default: 'en-GB' },
       prepare: { type: 'string' },
+      stress: { type: 'boolean', default: false },
+      gallery: { type: 'boolean', default: false },
       out: { type: 'string' },
     },
   });
+  if (values.gallery) {
+    await galleryShots(values.out, values.locale);
+    return;
+  }
   if (!values.screen && !values.mockup.length && !values.path) {
     console.error('Give --screen, --mockup or --path. See the top of review/screens.ts.');
     process.exit(2);
@@ -286,11 +351,21 @@ async function main() {
       // The theme comes from the device setting; put the account on Auto.
       await api.put('/api/v1/me/preferences', { data: { theme: 'auto' } });
       const state = await api.storageState();
-      await api.dispose();
       for (const shot of SHOTS) {
         console.log(`App ${label(shot)}: ${values.path}`);
         await captureApp(browser, baseURL, values.path, shot, state, prep, join(out, `app-${label(shot)}.png`), values.locale);
       }
+      if (values.stress) {
+        if (prep.stress) await prep.stress(api);
+        else console.warn('  (--stress: the --prepare module has no stress(api); only the text size changes)');
+        for (const shot of SHOTS) {
+          console.log(`Stress ${label(shot)}: ${values.path}`);
+          await captureApp(browser, baseURL, values.path, shot, state, prep, join(out, `stress-${label(shot)}.png`), values.locale, {
+            stress: true,
+          });
+        }
+      }
+      await api.dispose();
     }
 
     for (const shot of SHOTS) {

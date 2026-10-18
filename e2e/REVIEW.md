@@ -32,6 +32,11 @@ E2E_APP_PORT=18300 npx playwright test tests/<feature>.spec.ts
 E2E_APP_PORT=18300 node review/screens.ts --screen Shopping --path /shopping --serve
 node review/screens.ts --screen Shopping               # mockups only
 # --prepare file.ts: seed(api) adds test data; prepare(page, shot) clicks things open
+# --stress: after the normal shots, adds 200+ items and very long names (the --prepare
+#   module's stress(api)) and takes stress-<size>-<theme>.png with the text at 200%
+E2E_APP_PORT=18300 node review/screens.ts --path /shopping --serve --prepare review/seed-shots.ts --stress
+# The component gallery (development only, not in the built app): starts the Vite dev server
+node review/screens.ts --gallery
 ```
 
 `tests/a11y.ts` has `checkPage(page)`: axe with the WCAG 2.0/2.1/2.2 A and AA rules in

@@ -188,7 +188,7 @@
   // --- Offline bars -------------------------------------------------------------------------
   const wasOffline = network.offline;
   const wasWaiting = network.waiting;
-  let pretendOffline = $state(false);
+  let pretendOffline = $state(true);
   $effect(() => {
     network.offline = pretendOffline;
     network.waiting = pretendOffline ? 3 : wasWaiting;

@@ -11,10 +11,10 @@ import { randomUUID } from 'node:crypto';
 import type { APIRequestContext, Page } from '@playwright/test';
 import type { Shot } from './screens.ts';
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 type Amount = { amount: number; unit?: string; size_id?: number };
 
-class Api {
+export class Api {
   private api: APIRequestContext;
   constructor(api: APIRequestContext) {
     this.api = api;
