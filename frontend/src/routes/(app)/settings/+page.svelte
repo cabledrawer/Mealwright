@@ -142,16 +142,10 @@
       <div class="warning">
         <p role="alert">{cantCheckText(device)}</p>
         <Button disabled={busy} onclick={() => void leave()}>Try again</Button>
-        <div class="choices">
-          <button type="button" class="stay" disabled={busy} onclick={stay}>Stay signed in</button>
-          <button
-            type="button"
-            class="lose"
-            disabled={busy}
-            onclick={() => void signOutNow('anyway')}
-            >Sign out anyway — anything waiting on this {device} may be lost</button
-          >
-        </div>
+        <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+        <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow('anyway')}
+          >Sign out anyway — anything waiting on this {device} may be lost</button
+        >
       </div>
     {:else if left > 0}
       <div class="warning">
@@ -161,12 +155,10 @@
         <Button disabled={busy} onclick={() => void sendNow()}
           >{busy ? 'Sending…' : 'Try sending now'}</Button
         >
-        <div class="choices">
-          <button type="button" class="stay" disabled={busy} onclick={stay}>Stay signed in</button>
-          <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
-            >Sign out and lose {left === 1 ? 'it' : 'them'}</button
-          >
-        </div>
+        <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+        <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
+          >Sign out and lose {left === 1 ? 'it' : 'them'}</button
+        >
       </div>
     {/if}
   </section>
@@ -250,31 +242,16 @@
     line-height: 1.45;
   }
 
-  .choices {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
-  .stay,
   .lose {
     min-height: var(--touch-target);
     padding: 0 var(--space-3);
     border: none;
     background: none;
+    color: var(--color-warning-text);
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .stay {
-    color: var(--color-text);
-  }
-
-  .lose {
-    color: var(--color-warning-text);
     text-decoration: underline;
+    cursor: pointer;
   }
 
   .label {

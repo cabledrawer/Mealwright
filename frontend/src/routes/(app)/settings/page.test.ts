@@ -109,6 +109,21 @@ describe('signing out', () => {
     expect(await readQueue()).toHaveLength(3);
   });
 
+  it('Stay signed in is a real button, as Try again is, on the quiet fill (cabledrawer 18 Oct)', async () => {
+    await show(3);
+    await button('Sign out').click();
+    await expect.element(button('Stay signed in')).toBeVisible();
+    const stay = button('Stay signed in').element() as HTMLButtonElement;
+    const main = button('Try sending now').element() as HTMLButtonElement;
+    expect(stay.tagName).toBe('BUTTON');
+    expect(stay.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(stay.getBoundingClientRect().width).toBe(main.getBoundingClientRect().width);
+    const look = getComputedStyle(stay);
+    expect(look.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(look.backgroundColor).not.toBe(getComputedStyle(main).backgroundColor);
+    expect(look.textDecorationLine).toBe('none');
+  });
+
   it('Stay signed in keeps the changes', async () => {
     await show(3);
     await button('Sign out').click();
