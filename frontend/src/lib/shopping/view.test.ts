@@ -127,6 +127,14 @@ describe('subtitle', () => {
     expect(subtitle(main, 12, [me, wren], 1, true)).toBe('12 to buy · offline');
     expect(subtitle(main, 12, null, 1, true)).toBe('12 to buy · offline');
   });
+  it('keeps an extra list short while offline (cabledrawer 18 Oct)', () => {
+    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, true)).toBe(
+      'Extra list · 5 · offline'
+    );
+    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1)).toBe(
+      'Extra list · 5 · ticked items still go to the pantry'
+    );
+  });
   it('says saved for one login', () => {
     expect(subtitle(main, 12, [me], 1)).toBe('12 to buy · saved');
   });

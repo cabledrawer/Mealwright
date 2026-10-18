@@ -147,7 +147,12 @@ export function subtitle(
   meId: number | null,
   offline = false
 ): string {
-  if (!list.main) return `Extra list · ${toBuy} · ticked items still go to the pantry`;
+  // Offline, extra lists stay this short, even after PR 6 (cabledrawer 18 Oct, spec section 6).
+  if (!list.main) {
+    return offline
+      ? `Extra list · ${toBuy} · offline`
+      : `Extra list · ${toBuy} · ticked items still go to the pantry`;
+  }
   const count = `${toBuy} to buy`;
   // PR 6 grows this to "· offline, saving on this phone" (spec section 6).
   if (offline) return `${count} · offline`;
