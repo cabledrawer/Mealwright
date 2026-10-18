@@ -23,18 +23,26 @@
     onneedsamount?: () => void;
   } = $props();
 
-  /** What was just tapped, shown at once; cleared when the saved amount changes. */
+  /** What was just tapped, shown at once. Cleared when the saved amount changes (unless
+   *  another tap is still saving, so a quick second tap doesn't flick back), or when the
+   *  last tap's save fails. */
   let picked = $state<number | null>(null);
+  let taps = 0;
+  let saving = 0;
   $effect(() => {
     void lot.stock.amount;
-    picked = null;
+    if (saving === 0) picked = null;
   });
 
   const current = $derived(picked ?? pickFor(lot));
 
   function pick(fraction: number) {
     picked = fraction;
+    const tap = ++taps;
+    saving += 1;
     void model.setLeft(lot.id, name, { fraction }).then((outcome) => {
+      saving -= 1;
+      if (!outcome.ok && tap === taps) picked = null;
       if (
         !outcome.ok &&
         outcome.error instanceof ApiError &&
@@ -46,23 +54,36 @@
   }
 </script>
 
-<div class="pick-row" role="radiogroup" aria-labelledby={labelledby}>
-  {#each PICKS as p (p.value)}
-    <button
-      type="button"
-      role="radio"
-      aria-checked={current === p.value}
-      aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
-      onclick={() => pick(p.value)}>{p.label}</button
-    >
-  {/each}
+<div class="fit">
+  <div class="pick-row" role="radiogroup" aria-labelledby={labelledby}>
+    {#each PICKS as p (p.value)}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={current === p.value}
+        aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
+        onclick={() => pick(p.value)}>{p.label}</button
+      >
+    {/each}
+  </div>
 </div>
 
 <style>
+  .fit {
+    container-type: inline-size;
+  }
+
   .pick-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-3);
+  }
+
+  /* Too narrow for four 44 px marks in a row (a desktop Pantry column): two rows of two. */
+  @container (max-width: 211px) {
+    .pick-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   button {
@@ -73,6 +94,7 @@
     color: var(--color-text);
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
+    white-space: nowrap;
     cursor: pointer;
   }
 

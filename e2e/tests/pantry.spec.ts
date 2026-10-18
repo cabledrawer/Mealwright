@@ -289,6 +289,27 @@ test('an opened single-packet row shows the marks; ½ sets the amount and Undo r
   await expect(marks.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true');
 });
 
+test('on desktop the marks in the opened row fit their column and pass the accessibility checks', async ({
+  page,
+}) => {
+  test.skip(isPhone(page), 'the desktop layout');
+  const food = await stocked(page, 'Yoghurt', 5);
+  await openRow(page, food.name);
+  const marks = page.getByRole('radiogroup', { name: /How much is left/ });
+  await expect(marks).toBeVisible();
+  for (const radio of await marks.getByRole('radio').all()) {
+    const size = await radio.evaluate((el) => ({
+      width: el.getBoundingClientRect().width,
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(size.width).toBeGreaterThanOrEqual(44);
+    expect(size.scrollWidth).toBeLessThanOrEqual(size.clientWidth);
+  }
+  await page.screenshot({ path: 'review-shots/pack-marks/desktop-row.png' });
+  await checkPage(page);
+});
+
 test('a row with several packets shows no marks in the row', async ({ page }) => {
   const food = await stocked(page, 'Rice', 5);
   await api(page, 'POST', '/stock', {

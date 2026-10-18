@@ -25,16 +25,18 @@ const lot = {
   }
 } as unknown as Lot;
 
-function render(calls: unknown[][] = [], outcome: unknown = { ok: true }) {
+function render(calls: unknown[][] = [], outcome: unknown = { ok: true }, width?: number) {
   const model = {
     setLeft: (...args: unknown[]) => {
       calls.push(args);
       return Promise.resolve(outcome);
     }
   } as unknown as PantryModel;
-  document.body.innerHTML = '<span id="q">How much is left?</span>';
+  document.body.innerHTML = '<span id="q">How much is left?</span><div id="box"></div>';
+  const box = document.getElementById('box')!;
+  if (width) box.style.width = `${width}px`;
   component = mount(PackPicks, {
-    target: document.body,
+    target: box,
     props: { lot, name: 'Paneer', model, labelledby: 'q' }
   });
   flushSync();
@@ -68,5 +70,37 @@ describe('PackPicks', () => {
     for (const radio of page.getByRole('radio').elements()) {
       expect(radio.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  it('a save that fails leaves the saved amount ticked, not the tapped one', async () => {
+    render([], { ok: false, error: new Error('offline') });
+    await page.getByRole('radio', { name: '¼ left' }).click();
+    await expect
+      .element(page.getByRole('radio', { name: '½ left' }))
+      .toHaveAttribute('aria-checked', 'true');
+    await expect
+      .element(page.getByRole('radio', { name: '¼ left' }))
+      .toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('in a narrow column (desktop Pantry) the marks go two by two, each 44 px wide with its text inside', async () => {
+    render([], { ok: true }, 170);
+    const radios = page.getByRole('radio').elements();
+    expect(radios[2].getBoundingClientRect().top).toBeGreaterThan(
+      radios[0].getBoundingClientRect().bottom - 1
+    );
+    for (const radio of radios) {
+      expect(radio.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+      expect(radio.scrollWidth).toBeLessThanOrEqual(radio.clientWidth);
+    }
+  });
+
+  it('with room, the four marks sit in one row', async () => {
+    render([], { ok: true }, 360);
+    const tops = page
+      .getByRole('radio')
+      .elements()
+      .map((r) => r.getBoundingClientRect().top);
+    expect(new Set(tops).size).toBe(1);
   });
 });
