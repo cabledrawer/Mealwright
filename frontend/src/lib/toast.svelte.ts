@@ -13,6 +13,8 @@ export interface Toast {
   id: number;
   message: string;
   action?: ToastAction;
+  /** A second button before the main one ("Change", beside "Undo"). */
+  extra?: ToastAction;
   /** "problem" for something that didn't work (still calm, never alarming). */
   tone: 'calm' | 'problem';
 }
@@ -34,10 +36,21 @@ class Toaster {
   /** Show a message. Returns its id, for dismiss(). */
   show(
     message: string,
-    options: { action?: ToastAction; tone?: Toast['tone']; duration?: number } = {}
+    options: {
+      action?: ToastAction;
+      extra?: ToastAction;
+      tone?: Toast['tone'];
+      duration?: number;
+    } = {}
   ): number {
     const id = this.#nextId++;
-    this.current = { id, message, action: options.action, tone: options.tone ?? 'calm' };
+    this.current = {
+      id,
+      message,
+      action: options.action,
+      extra: options.extra,
+      tone: options.tone ?? 'calm'
+    };
     this.#paused = false;
     this.#start(options.duration ?? TOAST_MS);
     return id;
@@ -61,6 +74,13 @@ class Toaster {
     const action = this.current?.action;
     this.dismiss();
     action?.run();
+  }
+
+  /** The person pressed the toast's extra button. */
+  actExtra(): void {
+    const extra = this.current?.extra;
+    this.dismiss();
+    extra?.run();
   }
 
   /** Hold the toast while someone is looking at or about to use it. */

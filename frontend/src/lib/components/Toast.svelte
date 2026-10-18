@@ -51,6 +51,11 @@
         onfocusout={() => toasts.resume()}
       >
         <p class="message">{toast.message}</p>
+        {#if toast.extra}
+          <button type="button" class="action extra" onclick={() => toasts.actExtra()}>
+            {toast.extra.label}
+          </button>
+        {/if}
         {#if toast.action}
           <button type="button" class="action" onclick={() => toasts.act()}>
             {toast.action.label}
@@ -107,6 +112,10 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .extra {
+    color: var(--color-toast-action);
   }
 
   .problem .action {
