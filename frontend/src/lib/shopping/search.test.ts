@@ -27,6 +27,15 @@ describe('searching the copy (the add box offline)', () => {
     expect(found.map((f) => [f.name, f.matched_name])).toEqual([['Toor dal', 'thuvaram paruppu']]);
   });
 
+  it('leaves out removed and merged ingredients, as the server does', () => {
+    const c = copy();
+    c.foods.push(
+      food(10, 'Arhar dal (old)', 'dry_goods', { removed: true }),
+      food(11, 'Arhar', 'dry_goods', { merged_into_id: 9 })
+    );
+    expect(searchCopy(c, 'arhar').map((f) => f.name)).toEqual(['Pigeon peas', 'Toor dal']);
+  });
+
   it('ignores case and accents', () => {
     expect(fold('  Jalapeño ')).toBe('jalapeno');
     expect(names('JALAPENO')).toEqual(['Jalapeño']);

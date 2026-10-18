@@ -85,6 +85,10 @@ export interface ShopFood {
   count_word_plural?: string | null;
   /** Unknown (not sent by the online views): ask the server when needed. */
   sizes: FoodSize[] | null;
+  /** Removed, or merged into another ingredient: kept so old lines still show a name, but
+   * never offered in the add box (as the server's search). Sent by "changes since". */
+  removed?: boolean;
+  merged_into_id?: number | null;
 }
 
 export interface ShopRow {

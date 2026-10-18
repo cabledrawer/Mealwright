@@ -2,7 +2,7 @@
 // any of their names (sync-protocol 11.1: the copy keeps every ingredient for the add box).
 // The same matching and order as the server's search (backend names.py, search_match):
 // the name starts with it, the name contains it, another name starts with it, another name
-// contains it; then by name.
+// contains it; then by name. Like the server, it leaves out removed and merged ingredients.
 
 import type { FoodRow } from '$lib/client/types';
 import type { ShoppingCopy } from './types';
@@ -33,8 +33,9 @@ export function searchCopy(copy: ShoppingCopy, text: string, limit = 8): FoodRow
   const places = new Map(copy.places.map((p) => [p.id, { id: p.id, name: p.name }]));
   return (
     copy.foods
-      // Made on this phone and not sent yet: no ID the server knows.
-      .filter((food) => food.id > 0)
+      // Made on this phone and not sent yet: no ID the server knows. Removed or merged
+      // into another: the server's search doesn't offer them either.
+      .filter((food) => food.id > 0 && !food.removed && !food.merged_into_id)
       .flatMap((food) => {
         const found = match(food.name, food.other_names, needle);
         return found ? [{ food, rank: found[0], matched: found[1] }] : [];
