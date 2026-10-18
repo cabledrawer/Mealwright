@@ -515,6 +515,22 @@ def list_foods(
     )
 
 
+class Guess(BaseModel):
+    counted_as: CountedAsName
+    from_table: bool  # true when the bundled table knew the name
+
+
+@router.get("/foods/guess")
+def guess_counted_as(
+    name: Annotated[str, Query(min_length=1, max_length=120)], kitchen: Here
+) -> Guess:
+    """How a brand-new ingredient would be counted, for "How do you count it?": the bundled
+    table's answer if it knows the name, else by weight. Nothing is looked up online."""
+    row = table().match(name)
+    counted: CountedAs = row.counted_as if row else "weight"
+    return Guess(counted_as=counted, from_table=row is not None)
+
+
 @router.get("/foods/{food_id}")
 def get_food(food_id: int, kitchen: Here) -> FoodOut:
     """The ingredient editor. A merged-away id gives the food it was merged into."""

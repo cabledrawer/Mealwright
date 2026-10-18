@@ -657,3 +657,14 @@ def test_a_size_answer_needs_a_real_name_too(kitchen: TestClient) -> None:
     )
     assert response.status_code == 422
     assert "Give the size a name" in response.text
+
+
+def test_guess_how_a_new_ingredient_is_counted(kitchen: TestClient) -> None:
+    known = kitchen.get(f"{API}/foods/guess", params={"name": "Onion"}).json()
+    assert known["from_table"] is True
+    unknown = kitchen.get(f"{API}/foods/guess", params={"name": "Zzyzx blorp"}).json()
+    assert unknown == {"counted_as": "weight", "from_table": False}
+
+
+def test_guess_needs_sign_in(client: TestClient) -> None:
+    assert client.get(f"{API}/foods/guess", params={"name": "Onion"}).status_code == 401
