@@ -152,13 +152,21 @@ test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
   });
   expect(edited.ok()).toBe(true);
   await page.goto('/recipes/ingredients');
-  // A side panel on desktop; a "Recent changes" button and sheet on the phone.
+  // Desktop: a one-line "Recent changes · N" bar above the editor opens the list in the side
+  // column. Phone: a "Recent changes" button opens a sheet.
   if (isPhone(page)) await page.getByRole('button', { name: 'Recent changes' }).click();
+  else {
+    const bar = page.getByRole('button', { name: /^Recent changes · \d+$/ });
+    await expect(bar).toHaveAttribute('aria-expanded', 'false');
+    await checkPage(page); // closed: the editor and the bar
+    await bar.click();
+  }
   const recent = isPhone(page)
     ? page.getByRole('dialog', { name: 'Recent changes' })
     : page.getByRole('region', { name: 'Recent changes' });
   await expect(recent.getByText(`${food.name} is now a staple`)).toBeVisible();
   await expect(recent.getByText(`Added ${food.name}`, { exact: false })).toBeVisible();
+  if (!isPhone(page)) await checkPage(page); // open, before any toast is on screen
   await recent.getByRole('button', { name: `Undo: ${food.name} is now a staple` }).click();
   await expect(page.getByRole('status').filter({ hasText: `Undone: ${food.name} is now a staple` })).toBeVisible();
   const now = await (await page.request.get(`/api/v1/foods/${food.id}`)).json();
@@ -168,5 +176,10 @@ test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
   await expect(
     recent.getByRole('button', { name: `Undo: ${food.name} is now a staple` }),
   ).toHaveCount(0);
-  if (!isPhone(page)) await checkPage(page);
+  if (!isPhone(page)) {
+    // Close brings the editor back, and focus returns to the bar.
+    await recent.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Recent changes · \d+$/ })).toBeFocused();
+  }
 });

@@ -415,7 +415,7 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 - **Anyone in the household** can undo anyone's change within the undo window (7 days).
 - **Ctrl+Z on desktop** undoes your own last change. When the cursor is in a text box, Ctrl+Z undoes the typing as normal, never a pantry change.
 - **Thinning history** runs as a daily job with APScheduler (approved 17 Oct, MIT), in the household's local time.
-- **Recent changes on Ingredients (cabledrawer 18 Oct, 0.3):** Ingredients gets its own Recent changes, a side panel on desktop and a "Recent changes" button on the phone, listing ingredient changes: new ingredients (including "+ Staple"), Staple on/off, removals, merges and edits, each with Undo for 7 days. Pantry's Recent changes stays stock-only.
+- **Recent changes on Ingredients (cabledrawer 18 Oct, 0.3):** Ingredients gets its own Recent changes, a side panel on desktop and a "Recent changes" button on the phone, listing ingredient changes: new ingredients (including "+ Staple"), Staple on/off, removals, merges, edits and "made its own ingredient again" (cabledrawer 18 Oct), each with Undo for 7 days. Pantry's Recent changes stays stock-only. On desktop a one-line "Recent changes · N" bar above the editor opens the list in the side column; closing it brings the editor back (cabledrawer 18 Oct). Not live in 0.3: the list updates when you come back to the page; live ingredient updates are for a later milestone (cabledrawer 18 Oct).
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 

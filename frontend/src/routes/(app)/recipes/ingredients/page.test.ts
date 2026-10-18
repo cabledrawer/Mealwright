@@ -177,9 +177,45 @@ describe('the Ingredients page', () => {
     );
   });
 
-  it('desktop: Recent changes sits beside the list, with Undo for what can be undone', async () => {
+  /** Desktop: the one-line bar above the editor, and what it opens. */
+  const bar = () => page.getByRole('button', { name: /^Recent changes · \d+$/ });
+  async function openList() {
     await page.viewport(1300, 900);
+    await bar().click();
+    return page.getByRole('region', { name: 'Recent changes' });
+  }
+
+  it('desktop: a “Recent changes · N” bar above the editor opens the list, and Close brings the editor back', async () => {
+    await page.viewport(1300, 900);
+    // Closed: the bar shows how many there are; the first ingredient's editor is open.
+    await expect.element(bar()).toHaveTextContent('Recent changes · 3');
+    await expect.element(bar()).toHaveAttribute('aria-expanded', 'false');
+    await expect.element(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    // Open: the side column shows the list instead of the editor; focus goes to Close.
+    await bar().click();
     const recent = page.getByRole('region', { name: 'Recent changes' });
+    await expect.element(recent).toBeVisible();
+    expect(page.getByRole('complementary', { name: /^Edit/ }).elements()).toHaveLength(0);
+    await expect.element(recent.getByRole('button', { name: 'Close' })).toHaveFocus();
+    // Close: the editor is back, and focus returns to the bar.
+    await recent.getByRole('button', { name: 'Close' }).click();
+    await expect.element(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    await expect.element(bar()).toHaveFocus();
+  });
+
+  it('desktop: opening an ingredient from the table while the list is open shows its editor', async () => {
+    const recent = await openList();
+    await expect.element(recent).toBeVisible();
+    await page.getByRole('button', { name: /^Drumsticks \(moringa\)/ }).click();
+    await expect.element(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    await expect.element(bar()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('desktop: Recent changes sits beside the list, with Undo for what can be undone', async () => {
+    const recent = await openList();
     await expect.element(recent.getByRole('listitem').first()).toBeVisible();
     expect(recent.getByRole('listitem').elements()).toHaveLength(3);
     // "Toor dal is now a staple" starts with the ingredient, so nothing in it is bold; the
@@ -187,8 +223,10 @@ describe('the Ingredients page', () => {
     expect(recent.getByRole('listitem').first().element().querySelector('b')).toBeNull();
     await expect.element(recent.getByText('Merged', { exact: true })).toBeVisible();
     await expect.element(recent.getByText('· Wren')).toBeVisible();
-    // No button on desktop; the panel is always there.
-    expect(page.getByRole('button', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    // The phone's button isn't here: desktop has the bar.
+    expect(
+      page.getByRole('button', { name: 'Recent changes', exact: true }).elements()
+    ).toHaveLength(0);
     // Undone already, so no Undo; the others have one.
     expect(recent.getByRole('button', { name: 'Undo: Added Tahini' }).elements()).toHaveLength(0);
     await recent.getByRole('button', { name: 'Undo: Toor dal is now a staple' }).click();
@@ -216,7 +254,7 @@ describe('the Ingredients page', () => {
       ]
     });
     kitchen.changed();
-    const recent = page.getByRole('region', { name: 'Recent changes' });
+    const recent = await openList();
     await expect.element(recent.getByText('Added', { exact: true })).toBeVisible();
     const [staple, created] = recent.getByRole('listitem').elements();
     // The ingredient is called "Added sugar": nothing of it is bold…
@@ -238,7 +276,7 @@ describe('the Ingredients page', () => {
       ]
     });
     kitchen.changed();
-    const recent = page.getByRole('region', { name: 'Recent changes' });
+    const recent = await openList();
     await recent.getByRole('button', { name: 'Undo: Toor dal is now a staple' }).click();
     await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
     await expect

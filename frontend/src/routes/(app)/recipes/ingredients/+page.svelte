@@ -4,6 +4,7 @@
   // it as a sheet. Recipe counts and "Not in any recipe" wait for recipes (0.4).
   import { browser } from '$app/environment';
   import { page } from '$app/state';
+  import { tick } from 'svelte';
   import { serverUndo } from '$lib/client/changes';
   import { mergeFood } from '$lib/client/foods';
   import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
@@ -26,6 +27,10 @@
   const recent = new IngredientChanges();
   const uid = $props.id();
   let recentSheet: HTMLDialogElement;
+  /** Desktop: the side column shows the Recent changes list instead of the editor. */
+  let showRecent = $state(false);
+  let recentBar = $state<HTMLButtonElement>();
+  let recentClose = $state<HTMLButtonElement>();
   let selectedId = $state<number | null>(null);
   let panelName = $state('');
 
@@ -105,10 +110,24 @@
     return '';
   }
 
+  async function openRecent() {
+    showRecent = true;
+    await tick();
+    recentClose?.focus();
+  }
+
+  async function closeRecent() {
+    showRecent = false;
+    await tick();
+    recentBar?.focus();
+  }
+
   function open(food: FoodRow) {
     // Desktop edits beside the list; phones get the sheet.
-    if (isDesktop()) selectedId = food.id;
-    else ingredientEditor.open(food.id);
+    if (isDesktop()) {
+      selectedId = food.id;
+      showRecent = false; // opening an ingredient shows its editor again
+    } else ingredientEditor.open(food.id);
   }
 
   /** "New ingredient": ask how it's counted, then open it so the rest can be filled in. */
@@ -279,23 +298,47 @@
 
     {#if desktop}
       <div class="side">
-        {#if selectedId !== null}
-          <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
-            {#key selectedId}
-              <IngredientEditor
-                foodId={selectedId}
-                variant="panel"
-                onname={(n) => (panelName = n)}
-                onclose={() => (selectedId = null)}
-                onopen={(id) => (selectedId = id)}
-              />
-            {/key}
-          </aside>
+        {#if showRecent}
+          <section class="panel recent" aria-labelledby="{uid}-recent">
+            <div class="recent-head">
+              <h2 id="{uid}-recent">Recent changes</h2>
+              <button
+                type="button"
+                class="close"
+                bind:this={recentClose}
+                onclick={() => void closeRecent()}>Close</button
+              >
+            </div>
+            {@render changesList()}
+          </section>
+        {:else}
+          <button
+            type="button"
+            class="recent-bar"
+            bind:this={recentBar}
+            aria-expanded="false"
+            aria-controls="{uid}-recent"
+            onclick={() => void openRecent()}
+            >Recent changes · {recent.changes.length}<Icon
+              name="chevron-down"
+              size={16}
+              stroke={2.4}
+            /></button
+          >
+          {#if selectedId !== null}
+            <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
+              {#key selectedId}
+                <IngredientEditor
+                  foodId={selectedId}
+                  variant="panel"
+                  onname={(n) => (panelName = n)}
+                  onclose={() => (selectedId = null)}
+                  onopen={(id) => (selectedId = id)}
+                />
+              {/key}
+            </aside>
+          {/if}
         {/if}
-        <section class="panel recent" aria-labelledby="{uid}-recent">
-          <h2 id="{uid}-recent">Recent changes</h2>
-          {@render changesList()}
-        </section>
       </div>
     {/if}
   </div>
@@ -605,6 +648,27 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .recent-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--touch-target);
+    padding: 0 22px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .sheet-head h2,
