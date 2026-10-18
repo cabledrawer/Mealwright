@@ -399,6 +399,40 @@
     font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
+  /*
+   * The date field must never be wider than the sheet (seen on an iPhone in dark theme).
+   * iOS Safari (WebKit) gives <input type="date"> a width of its own, from the date text
+   * inside it, and ignores width: 100% unless the native look is switched off. So:
+   *  - appearance: none (with the -webkit- spelling) lets width and min-width apply;
+   *  - min-width: 0 and max-width: 100% stop it from growing past its box, and the label
+   *    around it may shrink (a flex item's minimum width is otherwise its content);
+   *  - the two ::-webkit-… rules drop WebKit's own padding and minimum width inside the
+   *    field, which are what made it wider than the sheet.
+   * The field is also only as wide as a date needs, not the whole row.
+   */
+  label.date {
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  label.date input {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: min(100%, 14rem);
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  label.date input::-webkit-date-and-time-value {
+    min-width: 0;
+    text-align: left;
+  }
+
+  label.date input::-webkit-datetime-edit {
+    padding: 0;
+  }
+
   .hint {
     color: var(--color-text-muted);
     font-size: var(--text-md);

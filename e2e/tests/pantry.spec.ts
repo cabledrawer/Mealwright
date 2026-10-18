@@ -262,3 +262,49 @@ test("Add to pantry has a Today use-by", async ({ page }) => {
     })
     .toEqual([today]);
 });
+
+for (const theme of ["light", "dark"] as const) {
+  test(`the Add to pantry date field fits a 320 px phone, ${theme} theme`, async ({
+    page,
+  }) => {
+    test.skip(!isPhone(page), "the bottom sheet is the phone layout");
+    await page.emulateMedia({ colorScheme: theme }); // the account is on Auto
+    await page.setViewportSize({ width: 320, height: 700 });
+    const food = await stocked(page, "Lentils", null);
+    await page.goto("/pantry");
+    await page
+      .getByRole("button", { name: /Add to pantry/ })
+      .first()
+      .click();
+    const sheet = page.getByRole("dialog", { name: "Add to pantry" });
+    await sheet
+      .getByRole("searchbox", { name: "Find an ingredient" })
+      .fill(food.name);
+    await sheet
+      .getByRole("button", { name: new RegExp(`^${food.name}`) })
+      .click();
+    await sheet.getByRole("radio", { name: "Pick a date" }).click();
+    const date = sheet.getByLabel("Date", { exact: true });
+    await expect(date).toBeVisible();
+    const fits = await sheet.evaluate((dialog) => {
+      const field = dialog
+        .querySelector('input[type="date"]')!
+        .getBoundingClientRect();
+      const box = dialog.getBoundingClientRect();
+      return {
+        scrollWidth: dialog.scrollWidth,
+        clientWidth: dialog.clientWidth,
+        fieldRight: field.right,
+        boxRight: box.right,
+        fieldLeft: field.left,
+        boxLeft: box.left,
+      };
+    });
+    expect(fits.scrollWidth).toBeLessThanOrEqual(fits.clientWidth);
+    expect(fits.fieldRight).toBeLessThanOrEqual(fits.boxRight);
+    expect(fits.fieldLeft).toBeGreaterThanOrEqual(fits.boxLeft);
+    await page.screenshot({
+      path: `review-shots/fix-0.2.1/add-sheet-320-${theme}.png`,
+    });
+  });
+}
