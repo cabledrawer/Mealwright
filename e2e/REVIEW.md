@@ -137,7 +137,7 @@ may overrule:
 - Aisle headings use the spec's names (Veg & fruit, Dry goods…), not the mockup's.
 - Checkboxes have a 44 px tap area around the 22 px box; buttons are 44 px tall, not 36 px.
 - Taking an item off the list is "Remove from list" inside the amount editor (tap the amount).
-- "How do you count it?" and the "Put away" toast's Change button have no mockup yet.
+- "How do you count it?" has no mockup yet (the put-away toast's Change button is in the phone mockup).
 
 Hidden in 0.3: list generation from the
 plan, the staples check card, tubs, "Recipes for these".

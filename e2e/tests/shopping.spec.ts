@@ -100,7 +100,7 @@ test("the list picker makes, renames and removes an extra list, with Undo", asyn
   const list = `Party ${tag()}`;
   await page.goto("/shopping");
   await page.getByRole("button", { name: /^This week/ }).click();
-  await page.getByRole("menuitem", { name: "+ New list" }).click();
+  await page.getByRole("button", { name: "+ New list" }).click();
   await page.getByRole("textbox", { name: "New list name" }).fill(list);
   await page.getByRole("button", { name: "Make list" }).click();
   await expect(
@@ -131,7 +131,9 @@ test("the list picker makes, renames and removes an extra list, with Undo", asyn
   await toast.getByRole("button", { name: "Undo" }).click();
   await page.getByRole("button", { name: /^This week/ }).click();
   await expect(
-    page.getByRole("menuitemradio", { name: new RegExp(renamed) }),
+    page
+      .getByRole("group", { name: "Lists" })
+      .getByRole("button", { name: new RegExp(`^${renamed} Extra list`) }),
   ).toBeVisible();
 });
 
@@ -163,7 +165,10 @@ test("a typed name that is not an ingredient asks How do you count it?, with pac
   await expect(
     dialog.getByRole("radio", { name: /By weight/ }),
   ).toHaveAttribute("aria-checked", "true");
-  await checkPage(page);
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
 
   await dialog.getByRole("button", { name: "+ Add a size" }).click();
   await dialog.getByRole("textbox", { name: "Name" }).fill("jar");
@@ -173,11 +178,15 @@ test("a typed name that is not an ingredient asks How do you count it?, with pac
   await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
-  const food = await (
-    await page.request.get(`/api/v1/foods/${(await foodNamed(page, name)).id}`)
-  ).json();
-  expect(food.counted_as).toBe("weight");
-  expect(food.sizes.map((s: { name: string }) => s.name)).toEqual(["jar"]);
+  const id = (await foodNamed(page, name)).id;
+  const read = async () =>
+    (await (await page.request.get(`/api/v1/foods/${id}`)).json()) as {
+      counted_as: string;
+      sizes: { name: string }[];
+    };
+  expect((await read()).counted_as).toBe("weight");
+  // The sizes are a separate online step after the item is added.
+  await expect.poll(async () => (await read()).sizes.map((s) => s.name)).toEqual(["jar"]);
 });
 
 test("adding something already on the list says so instead of adding it twice", async ({
@@ -243,4 +252,48 @@ test("phone: + Staple adds a brand-new staple and puts nothing in the pantry", a
     .flatMap((p: { groups: { food: { name: string } }[] }) => p.groups)
     .map((g: { food: { name: string } }) => g.food.name);
   expect(stocked).not.toContain(name);
+});
+
+test("the list picker open and the amount editor open pass the accessibility checks in both themes", async ({
+  page,
+}) => {
+  const name = `Lentils ${tag()}`;
+  await onList(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("button", { name: /^This week/ }).click();
+  await expect(page.getByRole("group", { name: "Lists" })).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  // Escape closes it and puts focus back on the picker button.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("group", { name: "Lists" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^This week/ })).toBeFocused();
+
+  await page.getByRole("button", { name: new RegExp(`^${name}: `) }).click();
+  await expect(
+    page.getByRole("textbox", { name: new RegExp(`How much ${name}`) }),
+  ).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+});
+
+test("removing a line from the list keeps keyboard focus in the list", async ({
+  page,
+}) => {
+  const first = `Aaa ${tag()}`;
+  const second = `Bbb ${tag()}`;
+  await onList(page, first);
+  await onList(page, second);
+  await page.goto("/shopping");
+  await page.getByRole("button", { name: new RegExp(`^${first}: `) }).click();
+  await page.getByRole("button", { name: "Remove from list" }).click();
+  await expect(
+    page.getByRole("button", { name: first, exact: true }),
+  ).toHaveCount(0);
+  const active = await page.evaluate(() => document.activeElement?.tagName);
+  expect(active).not.toBe("BODY");
 });
