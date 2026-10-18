@@ -69,12 +69,20 @@ svg {
   outline-offset: 2px;
 }
 
+/* Calm motion (spec "Keeping the UI good", item 7): when the device asks for less motion,
+   every transition and animation ends at once and plays once (the 0.01 ms rather than 0
+   keeps "transitionend" and "animationend" firing), and scrolling jumps instead of gliding.
+   e2e/tests/calm.spec.ts checks this. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }
 

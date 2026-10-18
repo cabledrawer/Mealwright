@@ -37,6 +37,8 @@ export default defineConfig({
     { name: 'sign-in', testMatch: 'sign-in.spec.ts', use: desktop },
     // The component gallery is development-only: the built app has none of it (0.4).
     { name: 'gallery', testMatch: 'gallery.spec.ts', use: desktop },
+    // Reduced motion and keyboard-only use (0.4).
+    { name: 'calm', testMatch: 'calm.spec.ts', use: desktop },
     { name: 'phone', testMatch: 'shell.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop', testMatch: 'shell.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Ingredients, Pantry and Undo (0.2).
