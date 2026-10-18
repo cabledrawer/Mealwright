@@ -278,8 +278,20 @@ describe('the Shopping page', () => {
     );
   });
 
+  it('opened offline on a computer that has never had the list: says “this computer”', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await page.viewport(1280, 1000);
+    mountShopping();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        "Your shopping list isn't on this computer yet. It'll be here after you've opened it once while connected."
+      );
+  });
+
   it('opened offline on a phone that has never had the list: says so', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await page.viewport(390, 1000);
     mountShopping();
     await expect
       .element(page.getByRole('alert'))

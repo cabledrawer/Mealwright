@@ -39,9 +39,12 @@ interface Shown {
   toastId: number | undefined;
 }
 
-/** Opened offline on a phone that has never had the list (spec section 6, cabledrawer 18 Oct). */
-export const NOT_ON_THIS_PHONE =
-  "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected.";
+/**
+ * Opened offline on a device that has never had the list (spec section 6, cabledrawer 18 Oct):
+ * "this phone" with the bottom tabs, "this computer" with the sidebar (by layout).
+ */
+export const notHereText = (device: 'phone' | 'computer') =>
+  `Your shopping list isn't on this ${device} yet. It'll be here after you've opened it once while connected.`;
 
 export class ShoppingModel {
   /** Ingredients picked in the add box that the copy doesn't have yet. */
@@ -58,7 +61,13 @@ export class ShoppingModel {
     })
   );
   loaded = $state(false);
-  problem = $state<string | null>(null);
+  #problem = $state<string | null>(null);
+  /** Offline, and this device has never had the list. */
+  #notHere = $state(false);
+  /** Why the list can't show, worded for this layout. */
+  get problem(): string | null {
+    return this.#notHere ? notHereText(this.device) : this.#problem;
+  }
   listId = $state<string | null>(null);
   /** "phone" with the bottom tabs, "computer" with the sidebar (the offline subtitle). */
   device = $state<'phone' | 'computer'>('phone');
@@ -119,15 +128,14 @@ export class ShoppingModel {
       // The first time: send what's waiting on this phone before showing the list (11.6).
       if (!this.loaded) await shoppingSync.start();
       await shoppingSync.refresh(full);
-      this.problem = null;
+      this.#problem = null;
+      this.#notHere = false;
     } catch (error) {
       // Offline: the copy on this phone (if there is one) shows, with the queue on top.
       if (!shoppingSync.copy) {
-        this.problem = cantReach(error)
-          ? NOT_ON_THIS_PHONE
-          : error instanceof ApiError
-            ? error.detail
-            : 'Couldn’t load your shopping list.';
+        this.#notHere = cantReach(error);
+        this.#problem =
+          error instanceof ApiError ? error.detail : 'Couldn’t load your shopping list.';
       }
     }
     this.loaded = true;

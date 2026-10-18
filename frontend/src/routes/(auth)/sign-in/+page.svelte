@@ -52,7 +52,11 @@
     !!held && username.trim() !== '' && !sameUsername(username, held.who)
   );
   const heldText = $derived(
-    !held ? '' : someoneElse ? waitingForText(held.who.name, held.count) : keptText(held.count)
+    !held
+      ? ''
+      : someoneElse
+        ? waitingForText(held.who.name, held.count, device)
+        : keptText(held.count, device)
   );
 
   // Typing another username takes the warning away until Sign in is pressed again.

@@ -27,13 +27,16 @@ export async function heldChanges(): Promise<Held | null> {
 
 const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
 
-/** The sign-in ran out; the same person is signing back in. */
-export const keptText = (n: number) =>
-  `Please sign in again. Your ${changes(n)} ${n === 1 ? 'is' : 'are'} kept on this phone.`;
+/** "phone" with the bottom tabs, "computer" with the sidebar (by layout, as everywhere). */
+export type Device = 'phone' | 'computer';
 
-/** Someone else is about to sign in on a phone holding `name`'s changes. */
-export const waitingForText = (name: string, n: number) =>
-  `${name}'s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this phone. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
+/** The sign-in ran out; the same person is signing back in. */
+export const keptText = (n: number, device: Device = 'phone') =>
+  `Please sign in again. Your ${changes(n)} ${n === 1 ? 'is' : 'are'} kept on this ${device}.`;
+
+/** Someone else is about to sign in on a device holding `name`'s changes. */
+export const waitingForText = (name: string, n: number, device: Device = 'phone') =>
+  `${name}'s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this ${device}. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
 
 /** The warning before a different login carries on. */
 export const loseOthersText = (name: string, n: number) =>

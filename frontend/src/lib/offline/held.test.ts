@@ -55,6 +55,13 @@ describe('changes held on this phone', () => {
     expect(waitingForText('Wren', 1)).toBe(
       "Wren's 1 change is waiting on this phone. Sign in as Wren to send it."
     );
+    // With the sidebar, it's this computer (by layout).
+    expect(keptText(2, 'computer')).toBe(
+      'Please sign in again. Your 2 changes are kept on this computer.'
+    );
+    expect(waitingForText('Wren', 1, 'computer')).toBe(
+      "Wren's 1 change is waiting on this computer. Sign in as Wren to send it."
+    );
     expect(loseOthersText('Wren', 3)).toBe(
       "Wren's 3 changes haven't been sent yet. If you carry on, they're lost."
     );

@@ -67,10 +67,12 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await userEvent.fill(page.getByLabelText('Password'), 'a long password');
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     freshPhone();
     navigation.goto.mockClear();
     serve();
+    // The bottom tabs' layout: "this phone".
+    await page.viewport(390, 800);
   });
 
   afterEach(async () => {
@@ -155,6 +157,21 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
     const databases = (await indexedDB.databases()).map((d) => d.name);
     expect(databases).not.toContain(phoneDatabaseName());
+  });
+
+  it('on the sidebar layout it says “this computer”', async () => {
+    await wrensPhone(2);
+    await page.viewport(1280, 800);
+    show();
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent('Please sign in again. Your 2 changes are kept on this computer.');
+    await fillIn('arlo');
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent(
+        "Wren's 2 changes are waiting on this computer. Sign in as Wren to send them."
+      );
   });
 
   it('“Sign in as Wren instead” keeps everything and puts Wren’s username in', async () => {

@@ -568,7 +568,7 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 
 ### 11.5 Sign-in runs out while offline (L285)
 
-- A `401` keeps the queue. When online the app asks the person to sign in again: "Please sign in again. Your 3 changes are kept on this phone."
+- A `401` keeps the queue. When online the app asks the person to sign in again: "Please sign in again. Your 3 changes are kept on this phone." ("this computer" on the sidebar layout, as every "this phone" in these messages is worded by layout.)
 - The **same login** signs back in → the queue is sent at once.
 - The same login signing back in keeps the device ID (a session running out isn't a sign-out), so the queued actions still count as this phone's (SY-62).
 - A **different login**: the queue is never sent under another login (the server refuses it anyway with `409 other_login`). The warning comes first, worded as decision 4 in section 16 (new L306). If they carry on, the **whole offline copy** is wiped, not just the queue, exactly as at sign-out (section 12), and a new device ID is made (FE-3). The wipe happens only once the new login's sign-in has succeeded: a wrong password wipes nothing.
