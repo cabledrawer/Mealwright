@@ -2,12 +2,13 @@ import { test, expect, type Page } from '@playwright/test';
 import { isPhone } from './a11y.ts';
 import { ADMIN } from './servers.ts';
 
-// The offline queue end to end (0.3, PR 6): sync protocol section 14, E2 and E3, against the
-// real server and service worker, on phone and desktop. Each test signs in a session of its
-// own (no saved session), because E3 signs out and that must not end anyone else's.
+// The offline queue end to end (0.3, PR 6): sync protocol section 14, E1, E2 and E3, against
+// the real server and service worker, on phone and desktop. Each test signs in a session of
+// its own (no saved session), because E3 signs out and that must not end anyone else's.
 //
-// E1 (two logins, Tess and Wren) needs a second login, which 0.3 has no way to make
-// yet; it's left for when there is one.
+// E1 here is the same-login version (cabledrawer 18 Oct): two devices, both signed in as
+// Tess. The two-person E1 (Tess and Wren) stays for 0.8, when a second login can be
+// made in the app.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
@@ -230,4 +231,77 @@ test('other tabs: signing out in one tab clears every other tab and takes it to 
   expect(await phoneDatabase(other)).toBe(false);
   expect(await phoneDatabase(page)).toBe(false);
   await other.close();
+});
+
+/** Toor dal by weight with a 500 g packet, 1 packet on the main list. Its ID. */
+async function toorDal(page: Page, name: string): Promise<number> {
+  const { food } = await call(page, 'POST', '/foods', { name, counted_as: 'weight' });
+  await call(page, 'POST', `/foods/${food.id}/sizes`, { name: 'packet', amount: 500 });
+  await call(page, 'POST', `/shopping/lists/${await mainList(page)}/items`, {
+    food_id: food.id,
+    amount: { amount: 1, unit: 'packet' },
+  });
+  return food.id;
+}
+
+/** The ingredient's stock in the pantry, one entry per place: [grams, as shown]. */
+async function pantryStock(page: Page, foodId: number): Promise<[number, string][]> {
+  const pantry = await (await page.request.get('/api/v1/pantry')).json();
+  const out: [number, string][] = [];
+  for (const p of pantry.places)
+    for (const g of p.groups)
+      if (g.food.id === foodId) out.push([g.stock.amount, g.stock.short.replace(/\s+/g, ' ')]);
+  return out;
+}
+
+// E1 for 0.3 (cabledrawer 18 Oct): two devices, both signed in as Tess. Both offline, both
+// tick toor dal; back online, both ask "Did you buy 2?"; Just 1 on one clears the other.
+// Nothing seeded: the ingredient is made through the API, the ticks through the app. The
+// two-person E1 (Tess and Wren) waits for 0.8, when a second login can be made in the app.
+test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?"; Just 1 clears both', async ({
+  page,
+  context,
+  browser,
+}) => {
+  const name = `Toor dal ${tag()}`;
+  await signIn(page);
+  const foodId = await toorDal(page, name);
+  const otherContext = await browser.newContext();
+  const other = await otherContext.newPage();
+  try {
+    await signIn(other);
+    await start(page);
+    await start(other);
+
+    await context.setOffline(true);
+    await otherContext.setOffline(true);
+    await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
+    await other.getByRole('checkbox', { name: `Tick ${name}` }).click();
+    await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+    await expect(bar(other)).toContainText(waitingText(other, 1), { timeout: 10_000 });
+
+    // Back online one after the other: the second tick finds the line already ticked.
+    await context.setOffline(false);
+    await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+    await otherContext.setOffline(false);
+    await expect(bar(other)).toBeHidden({ timeout: 15_000 });
+
+    // Both ticks were Tess's, so the card doesn't name anyone.
+    const card = (p: Page) => p.getByRole('region', { name: 'Did you buy 2?' });
+    const text = 'This was ticked on two phones, so 2 packets went into the pantry.';
+    for (const p of [page, other]) {
+      await expect(card(p)).toBeVisible({ timeout: 15_000 });
+      await expect(card(p)).toContainText(text);
+      await expect(card(p).getByRole('button', { name: 'Yes, 2' })).toBeVisible();
+    }
+    await expect.poll(() => pantryStock(page, foodId)).toEqual([[1000, '2 packets']]);
+
+    // Just 1 on one device: the other's card goes within 5 seconds, and the pantry has 1.
+    await other.getByRole('region', { name: 'Did you buy 2?' }).getByRole('button', { name: 'Just 1' }).click();
+    await expect(card(other)).toHaveCount(0);
+    await expect(card(page)).toHaveCount(0, { timeout: 5_000 });
+    await expect.poll(() => pantryStock(page, foodId)).toEqual([[500, '1 packet']]);
+  } finally {
+    await otherContext.close();
+  }
 });
