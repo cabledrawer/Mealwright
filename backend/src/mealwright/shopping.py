@@ -383,6 +383,8 @@ def note(
 ) -> ListNote | None:
     if for_login_id is None:
         return None
+    if undo is not None and _is_undo(act, undo):
+        undo = None  # an Undo can't be undone (no redo, 9): the note has only its close button
     row = ListNote(
         household_id=act.kitchen.household_id,
         list_id=list_id,
@@ -398,6 +400,16 @@ def note(
     act.kitchen.db.add(row)
     act.kitchen.db.flush()
     return row
+
+
+UNDO_KINDS = ("undo", "untick_by_undo", "place_by_undo")
+
+
+def _is_undo(act: Act, action_id: str) -> bool:
+    if action_id == act.id:
+        return act.kind in UNDO_KINDS
+    row = action_row(act.kitchen, action_id)
+    return row is not None and row.kind in UNDO_KINDS
 
 
 def notes_gone(kitchen: Kitchen, undone_action: str | None, seq: int) -> None:
@@ -1368,8 +1380,10 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
                 tick.bought_milli, tick.bought_size_id = op["old"]
                 _touch_item(kitchen, tick.item_id, seq)
                 tally.done += 1
-            else:
-                tally.skipped += 1
+            else:  # already as it was (the put-back restored it, 7.5): nothing skipped
+                at_old = [tick.bought_milli, tick.bought_size_id] == op["old"]
+                tally.done += at_old
+                tally.skipped += not at_old
         elif kind == "item_deleted":
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)

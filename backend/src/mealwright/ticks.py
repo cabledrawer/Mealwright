@@ -12,7 +12,8 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from typing import Any, NamedTuple
 
-from sqlalchemy import select
+from sqlalchemy import Select, and_, select
+from sqlalchemy.orm import aliased
 
 from mealwright import shopping
 from mealwright.amounts import TooBig, checked
@@ -55,6 +56,15 @@ def get_tick(kitchen: Kitchen, tick_id: str | None) -> ListTick | None:
     return kitchen.db.get(ListTick, (kitchen.household_id, tick_id))
 
 
+def server_order(query: Select[ListTick]) -> Select[ListTick]:
+    """Purchases in server order (L-3): by the counter number their tick took. The tick
+    being applied has no sync_action row yet, so it comes last."""
+    row = aliased(SyncAction)
+    return query.outerjoin(
+        row, and_(row.household_id == ListTick.household_id, row.id == ListTick.id)
+    ).order_by(row.seq.is_(None), row.seq, ListTick.ticked_at, ListTick.id)
+
+
 def ticks_of(kitchen: Kitchen, item_id: str, standing: bool = True) -> list[ListTick]:
     """An item's purchases in server order (the standing ones, unless asked)."""
     query = select(ListTick).where(
@@ -62,7 +72,7 @@ def ticks_of(kitchen: Kitchen, item_id: str, standing: bool = True) -> list[List
     )
     if standing:
         query = query.where(ListTick.reversed_at.is_(None))
-    return list(kitchen.db.scalars(query.order_by(ListTick.ticked_at, ListTick.id)))
+    return list(kitchen.db.scalars(server_order(query)))
 
 
 def _named(kitchen: Kitchen, item: ListItem, tick_ids: Iterable[str]) -> list[ListTick]:
@@ -342,6 +352,15 @@ def partial(done: Iterable[Change]) -> str | None:
     return None
 
 
+def took_out(kitchen: Kitchen, done: Iterable[Change]) -> int:
+    """How much a reversal's `undo` changes took out of the pantry, in base units."""
+    ids = [change.id for change in done]
+    if not ids:
+        return 0
+    lines = kitchen.db.scalars(select(ChangeLine).where(ChangeLine.change_id.in_(ids)))
+    return sum(max(0, line.amount_before_milli - line.amount_after_milli) for line in lines)
+
+
 def put_back(act: Act, reversal: SyncAction) -> list[ListTick]:
     """Undo of an untick or "Just 1": put back exactly what the reversal took out, lot by
     lot (7.5). Returns the purchases put back."""
@@ -354,12 +373,12 @@ def put_back(act: Act, reversal: SyncAction) -> list[ListTick]:
             undos[change.tick_id].append(change)
     back = list(
         db.scalars(
-            select(ListTick)
-            .where(
-                ListTick.household_id == kitchen.household_id,
-                ListTick.reversed_by_action_id == reversal.id,
+            server_order(
+                select(ListTick).where(
+                    ListTick.household_id == kitchen.household_id,
+                    ListTick.reversed_by_action_id == reversal.id,
+                )
             )
-            .order_by(ListTick.ticked_at, ListTick.id)
         )
     )
     for tick in back:
@@ -429,7 +448,7 @@ def untick(act: Act) -> None:
     act.message = partial(done)
     _removed_list(act, item)
     remover = _remover(act, item)
-    if remover is not None and done:
+    if remover is not None and took_out(kitchen, done):  # N5: only if stock came out (8)
         me = kitchen.login.id
         shopping.note(
             act,
@@ -732,18 +751,50 @@ def undo(act: Act, target: SyncAction) -> None:
     shopping.notes_gone(kitchen, target.id, act.seq)
 
 
+def later_repacks(kitchen: Kitchen, change: Change) -> list[Change]:
+    """A purchase's `repacked` changes after this one that still stand, newest first.
+    They are undone first: undoing an older repack on its own would fill its old lots
+    again on top of the newer ones (7.4)."""
+    if change.kind != "repacked" or not change.tick_id:
+        return []
+    return list(
+        kitchen.db.scalars(
+            select(Change)
+            .where(
+                Change.household_id == kitchen.household_id,
+                Change.tick_id == change.tick_id,
+                Change.kind == "repacked",
+                Change.id > change.id,
+                Change.undone_by_change_id.is_(None),
+            )
+            .order_by(Change.id.desc())
+        )
+    )
+
+
 def _undo_changes(act: Act, target: SyncAction) -> bool:
     from mealwright.api.v1.changes import undo_change
 
     kitchen = act.kitchen
     ids = sorted((target.result or {}).get("changes", []), reverse=True)
-    changes = [
+    own = [
         change
         for change_id in ids
         if (change := kitchen.db.get(Change, change_id)) is not None
         and change.kind != "undo"
         and change.undone_by_change_id is None
     ]
+    changes: list[Change] = []
+    for change in own:
+        for newer in [*later_repacks(kitchen, change), change]:
+            if newer not in changes:
+                changes.append(newer)
+    for newer in changes:
+        if newer in own:
+            continue
+        undone = shopping.action_row(kitchen, (newer.undo_data or {}).get("action"))
+        if undone is not None and undone.undone_by_action_id is None:
+            undone.undone_by_action_id = act.id
     done = [undo_change(kitchen, change, act.batch, act.id) for change in changes]
     if done:
         act.main_change = done[-1]
@@ -795,10 +846,18 @@ def pantry_undo(kitchen: Kitchen, change: Change, batch: Batch) -> Change:
         and tick.reversed_at is None
     ):
         return _untick_by_undo(kitchen, change, tick, batch)
+    later = later_repacks(kitchen, change)
+    first = [undo_change(kitchen, newer, batch, batch.action) for newer in later]
     done = undo_change(kitchen, change, batch, batch.action)
     if batch.taken or tick is not None:
         kind = "place_by_undo" if change.kind == "moved" and tick is not None else "undo"
-        shopping.log_undo(batch, change, done, kind)
+        row = shopping.log_undo(batch, change, done, kind)
+        if later:  # one Undo, as from a list (7.4): the later repacks are undone with it
+            row.result = {"changes": [undo.id for undo in [*first, done]]}
+            for newer in later:
+                undone = shopping.action_row(kitchen, (newer.undo_data or {}).get("action"))
+                if undone is not None and undone.undone_by_action_id is None:
+                    undone.undone_by_action_id = row.id
     return done
 
 

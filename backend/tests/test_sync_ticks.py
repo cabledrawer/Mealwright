@@ -27,7 +27,7 @@ from sync_kit import (
     tick,
 )
 
-from mealwright.models import Food, Place, StockLot, SyncAction, utcnow
+from mealwright.models import Change, Food, ListTick, Place, StockLot, SyncAction, utcnow
 
 BOTH = pytest.mark.parametrize("a_first", [True, False], ids=["A-B", "B-A"])
 
@@ -697,6 +697,34 @@ def test_sy38_untick_after_clear_ticked(kitchen: TestClient) -> None:
     assert s.item(kitchen, "Toor dal", s.c0)["deleted"] is True
 
 
+def test_sy38_no_n5_when_it_had_all_been_used(kitchen: TestClient) -> None:
+    """N5 says "Your untick took it out of the pantry": only when it did (8)."""
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Toor dal")
+    s.c0 = int(changes(kitchen)["cursor"])
+    one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
+    used = {"amount": {"amount": 500, "unit": "g"}}
+    ok(kitchen.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    off = one(s.wren, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
+    assert off["status"] == "applied"
+    assert s.ticks("Toor dal") == []
+    assert changes(s.wren)["notes"] == []
+
+
+def test_just_1_keeps_the_first_purchase_in_server_order(kitchen: TestClient) -> None:
+    """L-3: server order is the counter's, not the server clock's."""
+    s = s0(kitchen)
+    first = tick(kitchen, s, "Toor dal")
+    tick(s.wren, s, "Toor dal", PHONE_R)
+    with db(kitchen) as session:  # the clock stepped back between the two
+        row = session.get(ListTick, (1, first["id"]))
+        row.ticked_at = utcnow() + timedelta(hours=1)
+        session.commit()
+    (card,) = s.questions(kitchen)
+    one(kitchen, "answer_double_tick", question_id=card["id"], answer="one")
+    assert [t.login_name for t in s.ticks("Toor dal")] == ["Tess"]
+
+
 # --- Where a purchase goes (7.1, 7.3) ------------------------------------------------------------
 
 
@@ -746,6 +774,49 @@ def test_sy49_pantry_undo_of_a_different_pack(kitchen: TestClient) -> None:
     row = s.item(kitchen, "Paneer")
     assert row["ticks"][0]["standing"] is True
     assert row["ticks"][0]["bought"]["amount"] == 400
+
+
+def _repacked_twice(kitchen: TestClient) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Paneer")
+    item = s.items["Paneer"]
+    first = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=400)
+    one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=4, pack=200)
+    assert s.total("Paneer") == 800
+    return s, t, first
+
+
+def test_undo_of_an_older_different_pack_undoes_the_later_ones_too(kitchen: TestClient) -> None:
+    s, _, first = _repacked_twice(kitchen)
+    done = _undo(kitchen, first["id"])
+    assert done["status"] == "applied"
+    assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
+    assert s.item(kitchen, "Paneer")["ticks"][0]["bought"]["amount"] == 400
+
+
+def test_pantry_undo_of_an_older_different_pack_undoes_the_later_ones_too(
+    kitchen: TestClient,
+) -> None:
+    s, _, first = _repacked_twice(kitchen)
+    _pantry_undo(kitchen, first["change"]["id"])
+    assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
+    assert s.item(kitchen, "Paneer")["ticks"][0]["bought"]["amount"] == 400
+    assert [c.kind for c in s.changes_of("Paneer")].count("repacked") == 2
+
+
+def test_an_undo_with_the_purchase_already_as_it_was_skips_nothing(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Paneer")
+    item = s.items["Paneer"]
+    repack = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=400)
+    with db(kitchen) as session:  # as a put-back leaves it (7.5)
+        row = session.get(ListTick, (1, t["id"]))
+        old = (session.get(Change, repack["change"]["id"]).undo_data or {})["shopping"][0]["old"]
+        row.bought_milli, row.bought_size_id = old
+        session.commit()
+    done = _pantry_undo(kitchen, repack["change"]["id"])
+    assert done["result"] == "done", done
+    assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
 
 
 def test_sy50_pantry_undo_of_the_purchase_after_a_different_pack(kitchen: TestClient) -> None:

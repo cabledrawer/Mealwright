@@ -264,9 +264,11 @@ def _removed_by(kitchen: Kitchen, item: ListItem, device_id: str | None) -> str 
 
 def _ticks(kitchen: Kitchen, item: ListItem, food: Food | None) -> list[TickRow]:
     rows = kitchen.db.scalars(
-        select(ListTick)
-        .where(ListTick.household_id == kitchen.household_id, ListTick.item_id == item.id)
-        .order_by(ListTick.ticked_at, ListTick.id)
+        ticks.server_order(
+            select(ListTick).where(
+                ListTick.household_id == kitchen.household_id, ListTick.item_id == item.id
+            )
+        )
     )
     out = []
     for tick in rows:

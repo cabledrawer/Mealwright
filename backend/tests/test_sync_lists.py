@@ -695,3 +695,76 @@ def test_sy41_another_households_ids(kitchen: TestClient) -> None:
         assert row.get("shop_id") != s.shops["Supermarket"]
         assert row.get("size_id") != s.sizes["Toor dal"]
         assert row.get("put_away_place_id") != s.places["Freezer"]
+
+
+def test_a_note_never_offers_to_undo_an_undo(kitchen: TestClient) -> None:
+    """N4 after the item went by an Undo of its `add`: Undo of an Undo is `cannot_undo`
+    (9), so the note has no Undo, only its close button."""
+    s = s0(kitchen)
+    item = new_id()
+    added = one(kitchen, "add", list_id=s.main, item_id=item, food_id=s.foods["Eggs"], amount=6)
+    seen = counter(kitchen)
+    one(kitchen, "undo", seen, undoes=added["id"])
+    late = one(s.wren, "set_amount", seen, PHONE_R, item_id=item, amount=12)
+    assert (late["status"], late["reason"]) == ("ignored", "deleted")
+    (note,) = changes(s.wren)["notes"]
+    assert note["text"] == "Tess had removed Eggs, so your change wasn't kept."
+    assert note["undo"] is None
+
+
+# --- Undo of server-made rows from a list (9) ----------------------------------------------------
+
+
+def _last_row(kitchen: TestClient, kind: str) -> str:
+    with db(kitchen) as session:
+        return str(
+            session.scalars(
+                select(SyncAction.id).where(SyncAction.kind == kind).order_by(SyncAction.seq.desc())
+            ).first()
+        )
+
+
+def test_an_ingredient_edit_can_be_undone_from_a_list(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    with db(kitchen) as session:
+        before = session.get(Food, s.foods["Onions"]).aisle
+    assert before != "dry_goods"
+    ok(kitchen.patch(f"{API}/foods/{s.foods['Onions']}", json={"aisle": "dry_goods"}))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "food_edit"))
+    assert done["status"] == "applied", done
+    with db(kitchen) as session:
+        assert session.get(Food, s.foods["Onions"]).aisle == before
+
+
+def test_a_followed_shop_can_be_undone_from_a_list(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    grocer = s.shops["Indian grocer"]
+    ok(kitchen.patch(f"{API}/foods/{s.foods['Toor dal']}", json={"shop_id": grocer}))
+    assert _lines(kitchen, s, "Toor dal")[0]["shop_id"] == grocer
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "follow_shop"))
+    assert done["status"] == "applied", done
+    assert _lines(kitchen, s, "Toor dal")[0]["shop_id"] == s.shops["Supermarket"]
+
+
+def test_a_merge_can_be_undone_from_a_list(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    arhar = food(kitchen, "Arhar dal", counted_as="weight")["id"]
+    ok(kitchen.post(f"{API}/foods/{arhar}/merge", json={"into_id": s.foods["Toor dal"]}))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "merge_foods"))
+    assert done["status"] == "applied", done
+    with db(kitchen) as session:
+        assert session.get(Food, arhar).merged_into_id is None
+
+
+@pytest.mark.parametrize("kind", ["untick_by_undo", "place_by_undo"])
+def test_a_server_made_undo_cant_be_undone(kitchen: TestClient, kind: str) -> None:
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Coriander")
+    undone = t["change"]["id"]
+    if kind == "place_by_undo":
+        item, freezer = s.items["Coriander"], s.places["Freezer"]
+        put = one(kitchen, "put_away", s.c0, item_id=item, place_id=freezer, tick_ids=[t["id"]])
+        undone = put["change"]["id"]
+    ok(kitchen.post(f"{API}/changes/{undone}/undo"))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, kind))
+    assert done["status"] == "ignored" and done["reason"] == "cannot_undo"

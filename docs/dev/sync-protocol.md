@@ -236,6 +236,7 @@ Everything that isn't a list action, as in 0.2: the Pantry screen, the ingredien
 - Every writer that numbers list changes (this endpoint, the server-made changes in 5.8, the tidy-up in 3.9) uses one helper, `lock_household`, that takes the lock first in the same way.
 - The answer's `changes` (5.5) are read inside the same transaction, after the last action, so they match the numbers just given out.
 - `made_at` is never used for order. A queue from three days ago is applied now, in the order it arrives, after whatever already happened.
+- **Server order** of an item's purchases ("Just 1" keeps the first, the card lists them) is the order of the `seq` of the actions that made them (PR 3).
 
 ### 5.3 Repeats (same action ID)
 
@@ -429,6 +430,7 @@ The person says purchase `tick_id` was really `count` × `pack`:
 2. **Stock:** `used_since` = what the purchase put in minus what's left in its lots now. Empty the purchase's lots, make `count` lots of `pack` in the purchase's place, then take `used_since` from them (oldest first), never below zero. So a 400 g purchase with 100 g used, changed to 1 kg, leaves 900 g.
 3. **Records:** one `repacked` change (with `tick_id`), summary "Paneer: bought 1 pack · 400 g instead of 2 packs · 400 g" (as-sold wording for both), with its own Undo. The purchase's `bought_milli`/`bought_size_id` are updated. The item's own amount ("Planned 2 × 200 g") stays.
 4. On a tombstoned item it still applies.
+5. **Undo of an older `different_pack`** (from a list, or its `repacked` change from Pantry → Recent changes) first undoes that purchase's later `repacked` changes that still stand, newest first, as part of the same Undo. Undoing the older one alone would fill its old lots again on top of the newer ones (PR 3, found in review). The later `different_pack` actions count as undone.
 
 ### 7.5 Taking a purchase back (untick, "Just 1", Undo of a tick)
 
@@ -442,6 +444,8 @@ The person says purchase `tick_id` was really `count` × `pack`:
 Notes are server-made, final wording, addressed to one login (`for_login_id`), shown on Shopping under the item, or where the item was if it's off the list (cabledrawer 18 Oct, decision 10), or at the top of the list for list-wide notes. Each has Undo and ×. A note goes away when dismissed, when its Undo is used, when what it describes is undone some other way, or after 7 days.
 
 `{who}` is the other person's login name ("Wren"). For the same login on another phone it is "Your other phone". Ingredient names appear exactly as the household typed them.
+
+A note whose Undo would name an Undo (`undo`, `untick_by_undo`, `place_by_undo`) has no Undo, only ×: an Undo can't be undone (9) (PR 3).
 
 | Note | When | Text | Undo reverses |
 |---|---|---|---|
@@ -464,7 +468,8 @@ Notes are server-made, final wording, addressed to one login (`for_login_id`), s
 ## 9. Undo
 
 - Every list action except `undo`, `dismiss_note` and `refused` ones can be undone with `undo {undoes: <action ID>}` by anyone in the household (L386). The Undo toast on the phone uses the action ID, so it works offline, even before the original has been sent. Both go in the queue, in order.
-- What each Undo does: `create_list` → removes the list; `rename_list` → the old name (if it's still this one); `remove_list` → back; `add` → the item is tombstoned (or, if `merged`, the line goes back to its earlier amount); `set_amount` → the earlier amount, if the item still has this action's amount; `delete`, `clear_ticked` → the items it removed come back; `tick` → reverses that purchase (7.5); `untick`, "Just 1" → puts the purchases back (7.5); `put_away` → stock moved back (0.2 move Undo rules) and the item's earlier place; `different_pack` → 0.2 Undo of its `repacked` change, and the purchase's `bought` goes back; `answer_double_tick` "two" → the card comes back.
+- What each Undo does: `create_list` → removes the list; `rename_list` → the old name (if it's still this one); `remove_list` → back; `add` → the item is tombstoned (or, if `merged`, the line goes back to its earlier amount); `set_amount` → the earlier amount, if the item still has this action's amount; `delete`, `clear_ticked` → the items it removed come back; `tick` → reverses that purchase (7.5); `untick`, "Just 1" → puts the purchases back (7.5); `put_away` → stock moved back (0.2 move Undo rules) and the item's earlier place; `different_pack` → 0.2 Undo of its `repacked` change (after any later ones of that purchase, 7.4), and the purchase's `bought` goes back; `answer_double_tick` "two" → the card comes back.
+- The server-made rows in 5.8 that Recent changes can undo can be undone the same way (PR 3): `food_edit`, `follow_shop` and `merge_foods` → 0.2's Undo of their change. `untick_by_undo`, `place_by_undo` and `purge` can't (`ignored cannot_undo`), like `undo`.
 - **Window:** 7 days (the household's undo window), from the undone action's `applied_at` to when the person pressed Undo. Phone clocks can be wrong, so the server corrects the phone's time: each batch carries `sent_at` (the phone's clock when it sent, 4.1), and the time Undo was pressed is taken as `made_at + (server time − sent_at)`. That cancels a phone clock that's simply fast or slow, by any amount. The result is then kept between the undone action's `applied_at` and now. An Undo queued in time is never lost because the phone was offline (SY-22, SY-22b, SY-63). It still trusts the phone not to have its clock changed between pressing Undo and sending; this is a convenience window, not a security rule, so that's accepted. Too late → `ignored too_old`, toast "Too late to undo: changes can be undone for 7 days."
 - (PR 3) Undo of "Just 1" while a newer card is open for the same item: the purchases put back join that card instead of reopening the old one. Undo of "Yes, 2" when fewer than 2 of its purchases still stand → `ignored nothing_to_undo` (there's no question to ask again).
 - Undo of an Undo → `ignored cannot_undo` (no redo, as 0.2). Already undone → `ignored already_undone`. Undo of an ignored action → `ignored nothing_to_undo`.
