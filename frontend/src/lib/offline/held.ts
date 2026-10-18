@@ -71,6 +71,15 @@ export const waitingForText = (name: string, n: number, device: Device = 'phone'
   `${name}'s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this ${device}. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
 
 /**
+ * Right after the app signed someone out over `name`'s changes, in place of the line above
+ * (cabledrawer 18 Oct).
+ */
+export const signedOutBecauseText = (name: string, n: number, device: Device = 'phone') =>
+  n === 1
+    ? `You were signed out because ${name}'s change is waiting on this ${device}. Sign in as ${name} to send it.`
+    : `You were signed out because ${name}'s ${n} changes are waiting on this ${device}. Sign in as ${name} to send them.`;
+
+/**
  * The phone database couldn't be read, so whether anyone's changes are waiting isn't known:
  * nothing is wiped, and nobody new is let in over it.
  */

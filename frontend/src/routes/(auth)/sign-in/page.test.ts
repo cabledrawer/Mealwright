@@ -221,7 +221,9 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect.element(page.getByLabelText('Username')).toHaveValue('arlo');
     await expect
       .element(page.getByRole('status'))
-      .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+      .toHaveTextContent(
+        "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+      );
     await userEvent.fill(page.getByLabelText('Password'), 'a long password');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
@@ -239,6 +241,101 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(fresh).not.toBe(DEVICE);
     expect(await getMeta('login_id')).toBe(3);
     expect(await readQueue()).toEqual([]);
+  });
+
+  describe('why Arlo was signed out (cabledrawer 18 Oct)', () => {
+    it('many changes: says why, in place of the usual line', async () => {
+      await wrensPhone(3);
+      turnAway('arlo');
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "You were signed out because Wren's 3 changes are waiting on this phone. Sign in as Wren to send them."
+        );
+      expect(page.getByRole('status').elements()).toHaveLength(1);
+      // The warning and its buttons are as they were.
+      await userEvent.fill(page.getByLabelText('Password'), 'a long password');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent(
+          "Wren's 3 changes haven't been sent yet. If you carry on, they're lost."
+        );
+      await expect
+        .element(page.getByRole('button', { name: 'Sign in as Wren instead' }))
+        .toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Carry on and lose them' }))
+        .toBeVisible();
+    });
+
+    it('on a computer it says “this computer”', async () => {
+      await wrensPhone(2);
+      await page.viewport(1280, 800);
+      turnAway('arlo');
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "You were signed out because Wren's 2 changes are waiting on this computer. Sign in as Wren to send them."
+        );
+    });
+
+    it('opened as usual (nobody turned away): the usual line, not why', async () => {
+      await wrensPhone(1);
+      show();
+      await fillIn('arlo');
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+    });
+
+    it('only right after: a page opened again says it the usual way', async () => {
+      await wrensPhone(1);
+      turnAway('arlo');
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+        );
+      for (const component of mounted.splice(0)) unmount(component);
+      document.body.innerHTML = '';
+      show();
+      await fillIn('arlo');
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+    });
+
+    it('another username typed in: the usual line', async () => {
+      await wrensPhone(1);
+      turnAway('arlo');
+      show();
+      await userEvent.fill(page.getByLabelText('Username'), 'meena');
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+    });
+
+    it('while the server hasn’t ended his session, it doesn’t say he was signed out', async () => {
+      await wrensPhone(1);
+      fakeApi({ 'DELETE /session': [500, { detail: 'Something broke.' }] });
+      signOutState.unfinished = true;
+      turnAway('arlo');
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+      fakeApi({ 'DELETE /session': [204, null] });
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+        );
+    });
   });
 
   it('changes queued in another tab after this page opened are read again: warned, never wiped', async () => {

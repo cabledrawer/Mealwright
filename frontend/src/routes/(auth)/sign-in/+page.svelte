@@ -21,6 +21,7 @@
     keptText,
     loseOthersText,
     sameUsername,
+    signedOutBecauseText,
     takeTurnedAway,
     unfinishedText,
     UNREADABLE,
@@ -38,7 +39,8 @@
   let { data }: PageProps = $props();
 
   // Filled in when the app has just turned this login away over someone's waiting changes.
-  let username = $state(takeTurnedAway());
+  const turnedAway = takeTurnedAway();
+  let username = $state(turnedAway);
   let password = $state('');
   let remember = $state(true);
   let busy = $state(false);
@@ -63,12 +65,24 @@
   const someoneElse = $derived(
     !!waiting && username.trim() !== '' && !sameUsername(username, waiting.who)
   );
+  /**
+   * Just turned away, still as that username, and the server did end the session: the line
+   * says why ("You were signed out because Wren's change is waiting…").
+   */
+  const signedOut = $derived(
+    someoneElse &&
+      turnedAway !== '' &&
+      username.trim().toLowerCase() === turnedAway.trim().toLowerCase() &&
+      !signOutState.unfinished
+  );
   const heldText = $derived(
     !waiting
       ? ''
-      : someoneElse
-        ? waitingForText(waiting.who.name, waiting.count, device)
-        : keptText(waiting.count, device)
+      : signedOut
+        ? signedOutBecauseText(waiting.who.name, waiting.count, device)
+        : someoneElse
+          ? waitingForText(waiting.who.name, waiting.count, device)
+          : keptText(waiting.count, device)
   );
 
   // Typing another username takes the warning away until Sign in is pressed again.
