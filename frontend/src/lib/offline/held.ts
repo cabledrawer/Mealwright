@@ -95,6 +95,9 @@ export const cantCheckText = (device: Device = 'phone') =>
 export const wipeFailedText = (device: Device = 'phone') =>
   `This ${device} couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.`;
 
+/** A small line under the message above: when Try again keeps failing (cabledrawer 18 Oct). */
+export const stillStuckText = "Still stuck? Clear this site's data in your browser's settings.";
+
 /** The server answered, but didn't end the session (section 12). */
 export const unfinishedText = (device: Device = 'phone') =>
   `Couldn't finish signing out on this ${device}.`;

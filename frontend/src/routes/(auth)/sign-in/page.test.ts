@@ -752,6 +752,36 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
     });
 
+    it('a small “Still stuck?” line sits under the message, only while the message shows (cabledrawer 18 Oct)', async () => {
+      const STUCK = "Still stuck? Clear this site's data in your browser's settings.";
+      await wrensPhone(1);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      show();
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
+      await expect.element(page.getByText(STUCK)).toBeVisible();
+      // Right under the message, and small.
+      const message = page.getByText(WIPE_FAILED).element();
+      const line = page.getByText(STUCK).element();
+      expect(message.nextElementSibling).toBe(line);
+      expect(parseFloat(getComputedStyle(line).fontSize)).toBeLessThan(
+        parseFloat(getComputedStyle(message).fontSize)
+      );
+      // Not read out as a new alert, and not on the other screens.
+      expect(line.getAttribute('role')).toBeNull();
+      mend();
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByText(WIPE_FAILED)).not.toBeInTheDocument();
+      await expect.element(page.getByText(STUCK)).not.toBeInTheDocument();
+    });
+
+    it('no “Still stuck?” line on the other messages', async () => {
+      signOutState.unfinished = true;
+      show();
+      await expect.element(page.getByText(/Couldn't finish signing out/)).toBeVisible();
+      expect(page.getByText(/Still stuck/).elements()).toEqual([]);
+    });
+
     /** The whole sign-in form: username, password, the Remember switch and Sign in. */
     const form = () => [
       page.getByLabelText('Username'),
@@ -867,17 +897,19 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
         );
     });
   });
-  describe('every Try again is the same button, saying “Trying…” while it tries (cabledrawer 18 Oct)', () => {
+  describe('every Try again is the same button, saying “Trying…” while it tries (cabledrawer 18 Oct); only “couldn’t finish signing out” is grey', () => {
     const isShared = (name: string) => {
       const el = page.getByRole('button', { name, exact: true }).element();
       return el.classList.contains('primary') && !el.classList.contains('quiet');
     };
 
-    it('couldn’t finish signing out', async () => {
+    it('couldn’t finish signing out: the same button, but in the grey (quiet) look (cabledrawer 18 Oct)', async () => {
       signOutState.unfinished = true;
       show();
       await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
-      expect(isShared('Try again')).toBe(true);
+      expect(isShared('Try again')).toBe(false);
+      const grey = page.getByRole('button', { name: 'Try again', exact: true }).element();
+      expect(grey.classList.contains('primary') && grey.classList.contains('quiet')).toBe(true);
       let answer: (reply: Response) => void = () => {};
       vi.stubGlobal('fetch', () => new Promise<Response>((done) => (answer = done)));
       await page.getByRole('button', { name: 'Try again' }).click();

@@ -33,6 +33,7 @@
     unfinishedText,
     UNREADABLE,
     waitingForText,
+    stillStuckText,
     wipeFailedText,
     type Held,
     type Unreadable
@@ -314,7 +315,8 @@
       <!-- On opening the page a status; after a press the server refused, an alert. -->
       <p role={endTries > 0 ? 'alert' : 'status'}>{unfinishedText(device)}</p>
     {/key}
-    <Button disabled={ending} onclick={() => void endAgain()}>
+    <!-- The grey (quiet) look on this screen only; every other Try again is the main button. -->
+    <Button quiet disabled={ending} onclick={() => void endAgain()}>
       {ending ? 'Trying…' : 'Try again'}
     </Button>
   </div>
@@ -326,6 +328,7 @@
       <!-- On opening the page a status; after a press that didn't help, an alert. -->
       <p role={wipeTries > 0 ? 'alert' : 'status'}>{wipeFailedText(device)}</p>
     {/key}
+    <p class="still-stuck">{stillStuckText}</p>
     <Button disabled={wiping} onclick={() => void wipeAgain()}>
       {wiping ? 'Trying…' : 'Try again'}
     </Button>
@@ -474,6 +477,15 @@
 
   .unfinished p {
     align-self: stretch;
+  }
+
+  /* Small, quiet text under the message: no warning box of its own. */
+  .unfinished p.still-stuck {
+    padding: 0 14px;
+    background: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
   }
 
   .held {
