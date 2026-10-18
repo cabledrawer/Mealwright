@@ -226,3 +226,32 @@ def test_sy59_answer_after_the_card_and_an_ingredient_went(kitchen: TestClient) 
     assert s.foods["Eggs"] not in {row["id"] for row in copy["foods"]}
     assert s.total("Toor dal") == 500
     assert [t.login_name for t in s.ticks("Toor dal")] == ["Tess"]
+
+
+def test_an_add_that_joined_a_tidied_line_is_gone(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    hers = new_id()
+    added = one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=s.foods["Milk"])
+    assert added["status"] == "merged" and added["item_id"] == s.items["Milk"]
+    one(kitchen, "delete", s.c0, item_id=s.items["Milk"])
+    with db(kitchen) as session:
+        session.execute(
+            update(ListItem).where(ListItem.id == s.items["Milk"]).values(deleted_at=_ago(400))
+        )
+        session.commit()
+    _tidy(kitchen)
+    with db(kitchen) as session:  # no foreign key: it points at nothing now
+        assert session.get(ListItem, hers).merged_into_id == s.items["Milk"]
+        assert session.get(ListItem, s.items["Milk"]) is None
+    seen = counter(kitchen)
+    answer = send(
+        s.wren,
+        action("set_amount", seen, item_id=hers, amount=3000),
+        action("delete", seen, item_id=hers),
+        action("undo", seen, undoes=added["id"]),
+        device=PHONE_R,
+    )
+    results = [(r["status"], r["reason"]) for r in answer["results"]]
+    assert results == [("ignored", "gone"), ("ignored", "gone"), ("applied", None)]
+    assert answer["results"][2]["message"] == "Nothing to put back: it has all changed again since."
+    assert changes(s.wren)["reset"] is True
