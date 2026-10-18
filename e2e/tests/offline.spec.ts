@@ -254,6 +254,34 @@ async function pantryStock(page: Page, foodId: number): Promise<[number, string]
   return out;
 }
 
+/** Answer "Yes, 2" to any "Did you buy 2?" other tests left open, as another device of this login. */
+async function settleCards(page: Page) {
+  const me = await (await page.request.get('/api/v1/me')).json();
+  const copy = await (await page.request.get('/api/v1/shopping/changes?since=0')).json();
+  for (const q of copy.questions.filter((x: { open: boolean }) => x.open)) {
+    const answered = await page.request.post('/api/v1/shopping/actions', {
+      data: {
+        protocol: 1,
+        device_id: crypto.randomUUID(),
+        login_id: me.id,
+        since: 0,
+        sent_at: new Date().toISOString(),
+        actions: [
+          {
+            id: crypto.randomUUID(),
+            made_at: new Date().toISOString(),
+            seen: 0,
+            kind: 'answer_double_tick',
+            question_id: q.id,
+            answer: 'two',
+          },
+        ],
+      },
+    });
+    expect(answered.ok(), await answered.text()).toBe(true);
+  }
+}
+
 // E1 for 0.3 (cabledrawer 18 Oct): two devices, both signed in as Tess. Both offline, both
 // tick toor dal; back online, both ask "Did you buy 2?"; Just 1 on one clears the other.
 // Nothing seeded: the ingredient is made through the API, the ticks through the app. The
@@ -265,6 +293,7 @@ test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?";
 }) => {
   const name = `Toor dal ${tag()}`;
   await signIn(page);
+  await settleCards(page); // so the only card is this test's
   const foodId = await toorDal(page, name);
   const otherContext = await browser.newContext();
   const other = await otherContext.newPage();
