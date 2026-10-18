@@ -158,17 +158,19 @@
 <PageHeader title="Pantry" overline={summary}>
   {#snippet actions()}
     <!-- Adding needs the server: offline the note below says why, and the button goes. -->
-    {#if network.offline}{:else if phone}
-      <button
-        type="button"
-        class="add-round"
-        aria-label="Add to pantry"
-        onclick={() => addToPantry.show()}>+</button
-      >
-    {:else}
-      <button type="button" class="add-pill" onclick={() => addToPantry.show()}
-        >+ Add to pantry</button
-      >
+    {#if !network.offline}
+      {#if phone}
+        <button
+          type="button"
+          class="add-round"
+          aria-label="Add to pantry"
+          onclick={() => addToPantry.show()}>+</button
+        >
+      {:else}
+        <button type="button" class="add-pill" onclick={() => addToPantry.show()}
+          >+ Add to pantry</button
+        >
+      {/if}
     {/if}
   {/snippet}
 </PageHeader>
