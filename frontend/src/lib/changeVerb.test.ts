@@ -14,6 +14,16 @@ describe('startsWithVerb', () => {
     expect(startsWithVerb(edit('Renamed Rice to Basmati rice'))).toBe(true);
   });
 
+  it('is true for adding and removing another name', () => {
+    expect(startsWithVerb(edit('Added other name Chickpeas to Chana'))).toBe(true);
+    expect(startsWithVerb(edit('Removed other name Chickpeas from Chana'))).toBe(true);
+  });
+
+  it('is true for forgetting a weight', () => {
+    expect(startsWithVerb(edit('Forgot your weight of 1\u00a0cup of Rice'))).toBe(true);
+    expect(startsWithVerb(edit('Forgot your weight of one Onion'))).toBe(true);
+  });
+
   it('is false for edits that start with the ingredient', () => {
     expect(startsWithVerb(edit('Toor dal is now a staple'))).toBe(false);
     expect(startsWithVerb(edit('Toor dal runs low at ½ packet'))).toBe(false);
@@ -27,6 +37,9 @@ describe('startsWithVerb', () => {
     expect(startsWithVerb(edit('Renamed rice is now counted by weight'))).toBe(false);
     expect(startsWithVerb(edit('Renamed rice is now in Dry goods'))).toBe(false);
     expect(startsWithVerb(edit('Renamed rice runs low at 200 g'))).toBe(false);
+    expect(startsWithVerb(edit('Added other name is now a staple'))).toBe(false);
+    expect(startsWithVerb(edit('Removed other name now lives in Fridge'))).toBe(false);
+    expect(startsWithVerb(edit('Forgot your weight of one rice has no usual shop'))).toBe(false);
     // And a real rename of such an ingredient still starts with its verb.
     expect(startsWithVerb(edit('Renamed Added sugar to Sugar'))).toBe(true);
   });

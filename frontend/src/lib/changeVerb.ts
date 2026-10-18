@@ -10,15 +10,24 @@ const VERB_KINDS = new Set(['food_created', 'food_removed', 'merged', 'split', '
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */
 const EDIT_TAIL =
-  / (is (now|no longer) a staple|is now counted .+|is now in .+|no longer has a running-low level|runs low at .+|is usually bought by the .+)$/;
+  / (is (now|no longer) a staple|is now counted .+|is now in .+|now lives in .+|has no usual (place|shop)|no longer has a running-low level|runs low at .+|is usually bought by the .+)$/;
+
+/** The edits worded verb first: "Renamed {name} to {new}", "Added other name {other} to {name}", ... */
+const VERB_FIRST_EDIT = [
+  /^Renamed .+ to .+$/,
+  /^Added other name .+ to .+$/,
+  /^Removed other name .+ from .+$/,
+  /^Forgot your weight of (1\u00a0cup of|one) .+$/
+];
 
 /** Does the first word of this change's summary name what was done? */
 export function startsWithVerb(change: Pick<Change, 'kind' | 'summary'>): boolean {
   if (VERB_KINDS.has(change.kind)) return true;
-  // "Renamed Rice to Basmati rice": the one edit worded verb first, "Renamed {name} to {new}".
+  // The edits worded verb first. An edit of an ingredient that happens to be called "Renamed
+  // rice" starts with its name instead, which the ending gives away.
   return (
     change.kind === 'food_edited' &&
-    /^Renamed .+ to .+$/.test(change.summary) &&
-    !EDIT_TAIL.test(change.summary)
+    !EDIT_TAIL.test(change.summary) &&
+    VERB_FIRST_EDIT.some((re) => re.test(change.summary))
   );
 }
