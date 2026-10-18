@@ -10,8 +10,9 @@
   // on this phone may be lost" (cabledrawer 18 Oct). When the server wouldn't end a session the
   // app was signing out, the page says so, with "Try again" (it stays here meanwhile). And
   // when a wipe couldn't delete the phone database, nobody can sign in until it has: the
-  // page says so, with "Try again", and Sign in tries the wipe again first. A wipe another
-  // tab is still running isn't a failure: nothing is said about it unless it fails.
+  // page says so, with "Try again", and the whole sign-in form is disabled until Try again
+  // has deleted it (cabledrawer 18 Oct). A wipe another tab is still running isn't a failure:
+  // nothing is said about it unless it fails.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -85,7 +86,10 @@
   let wipeTries = $state(0);
   let wiping = $state(false);
 
-  /** Wipe again. True once the phone database is gone. */
+  /** The wipe failed: the sign-in form is disabled, and only Try again works. */
+  const locked = $derived(wipeState.failed);
+
+  /** Wipe again (Try again). True once the phone database is gone. */
   async function wipeAgain(): Promise<boolean> {
     wiping = true;
     try {
@@ -143,16 +147,9 @@
     problem = '';
     losing = false;
     anyway = false;
-    // Nobody signs in until an unfinished wipe has deleted the phone database. That can take
-    // a while (up to DELETE_FOR_MS): Sign in shows it's working, and can't be pressed again.
-    if (wipeState.failed) {
-      busy = true;
-      try {
-        if (!(await wipeAgain())) return;
-      } finally {
-        busy = false;
-      }
-    }
+    // Nobody signs in until an unfinished wipe has deleted the phone database: the form is
+    // disabled meanwhile, and only Try again works (wipeAgain).
+    if (wipeState.failed) return;
     // Read again: another tab may have queued changes since this page opened.
     held = await heldChanges();
     if (held === UNREADABLE) {
@@ -231,6 +228,8 @@
   }
 
   async function signInNow() {
+    // Not while the wipe hasn't finished (another tab's may have failed since a warning came up).
+    if (wipeState.failed) return;
     busy = true;
     try {
       const me = await signIn(username, password, remember);
@@ -317,26 +316,39 @@
 {/if}
 
 {#if secure !== 'plain-refused'}
-  <form onsubmit={submit} novalidate>
-    <TextField id="username" label="Username" bind:value={username} autocomplete="username" />
+  <form onsubmit={submit} novalidate class:locked>
+    <TextField
+      id="username"
+      label="Username"
+      bind:value={username}
+      autocomplete="username"
+      disabled={locked}
+    />
     <TextField
       id="password"
       label="Password"
       type="password"
       bind:value={password}
       autocomplete="current-password"
+      disabled={locked}
     />
     <div class="remember">
       <span class="remember-text">
         <span id="remember-label" class="remember-label">Remember this {device}</span>
         <span id="remember-hint" class="remember-hint">Stay signed in for 30 days</span>
       </span>
-      <Switch bind:checked={remember} labelledby="remember-label" describedby="remember-hint" />
+      <Switch
+        bind:checked={remember}
+        labelledby="remember-label"
+        describedby="remember-hint"
+        disabled={locked}
+      />
     </div>
     {#if problem}
       <p class="problem" role="alert">{problem}</p>
     {/if}
-    {#if warning && waiting}
+    <!-- While the wipe hasn't finished, no warning's choices either: only Try again works. -->
+    {#if warning && waiting && !locked}
       <div class="warning">
         <p role="alert">{loseOthersText(waiting.who.name, waiting.count)}</p>
         <Button disabled={busy} onclick={() => void asThem()}
@@ -346,7 +358,7 @@
           Carry on and lose {waiting.count === 1 ? 'it' : 'them'}
         </button>
       </div>
-    {:else if cantWarning && unreadable}
+    {:else if cantWarning && unreadable && !locked}
       <div class="warning">
         <p role="alert">{cantCheckText(device)}</p>
         <Button disabled={busy || trying} onclick={() => void tryAgain()}>
@@ -357,7 +369,7 @@
         </button>
       </div>
     {:else}
-      <Button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
+      <Button type="submit" disabled={busy || locked}>{busy ? 'Signing in…' : 'Sign in'}</Button>
     {/if}
   </form>
 
@@ -388,6 +400,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
+  }
+
+  /* Disabled while the wipe hasn't finished: dimmed, so it plainly can't be used. */
+  form.locked {
+    opacity: 0.55;
   }
 
   .remember {

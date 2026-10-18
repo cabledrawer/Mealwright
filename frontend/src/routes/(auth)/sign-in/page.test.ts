@@ -752,30 +752,52 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
     });
 
-    it('Sign in tries the wipe again first: still failing, it says so and sends nothing', async () => {
+    /** The whole sign-in form: username, password, the Remember switch and Sign in. */
+    const form = () => [
+      page.getByLabelText('Username'),
+      page.getByLabelText('Password'),
+      page.getByRole('switch'),
+      page.getByRole('button', { name: 'Sign in' })
+    ];
+
+    it('the whole sign-in form is disabled while it shows: only Try again works, and once it has deleted it the form comes back (cabledrawer 18 Oct)', async () => {
       await wrensPhone(1);
       const mend = failPhoneDelete();
       await wipeDevice();
       show();
-      await fillIn('wren');
-      await page.getByRole('button', { name: 'Sign in' }).click();
-      await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
+      for (const control of form()) await expect.element(control).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+      // Even sent some other way (Enter, or a script), the form sends nothing.
+      document.querySelector('form')!.requestSubmit();
+      flushSync();
+      // (Checked again below, after two presses of Try again have had time to send anything.)
       expect(requests).toEqual([]);
       expect(navigation.goto).not.toHaveBeenCalled();
+      // Try again that still fails: said again, and the form stays disabled.
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
+      for (const control of form()) await expect.element(control).toBeDisabled();
+      // Try again that deletes it: the message goes and the form comes back.
       mend();
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByText(WIPE_FAILED)).not.toBeInTheDocument();
+      for (const control of form()) await expect.element(control).toBeEnabled();
+      expect(await phoneThere()).toBe(false);
+      expect(requests).toEqual([]);
+      // And signing in then works.
+      await fillIn('wren');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
-      expect(await phoneThere()).toBe(false);
     });
 
-    it('while Sign in tries the wipe again, it shows it’s working and can’t be pressed twice', async () => {
+    it('while Try again is deleting, it shows it’s working and the form stays disabled', async () => {
       await wrensPhone(1);
       const mend = failPhoneDelete();
       await wipeDevice();
       mend();
       show();
-      await fillIn('wren');
       // Another tab holds the queue lock, so the wipe waits (as a slow delete would).
       let release = () => {};
       const held = new Promise<void>((done) => (release = done));
@@ -786,16 +808,33 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
         return held;
       });
       await lockTaken;
-      await page.getByRole('button', { name: 'Sign in' }).click();
-      const working = page.getByRole('button', { name: 'Signing in…' });
-      await expect.element(working).toBeDisabled();
+      await page.getByRole('button', { name: 'Try again' }).click();
       await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
-      // Enter in the form while it's working does nothing more.
-      await userEvent.type(page.getByLabelText('Password'), '{Enter}');
+      for (const control of form()) await expect.element(control).toBeDisabled();
+      document.querySelector('form')!.requestSubmit();
       release();
-      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalledTimes(1));
-      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
-      expect(await phoneThere()).toBe(false);
+      await expect.element(page.getByText(WIPE_FAILED)).not.toBeInTheDocument();
+      for (const control of form()) await expect.element(control).toBeEnabled();
+      expect(requests).toEqual([]);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      await vi.waitFor(async () => expect(await phoneThere()).toBe(false));
+    });
+
+    it('a wipe failing in another tab while a warning shows takes the warning’s choices away too', async () => {
+      await wrensPhone(3);
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect
+        .element(page.getByRole('button', { name: 'Carry on and lose them' }))
+        .toBeVisible();
+      localStorage.setItem(WIPE_PENDING_KEY, 'failed');
+      dispatchEvent(new StorageEvent('storage', { key: WIPE_PENDING_KEY, newValue: 'failed' }));
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
+      expect(page.getByRole('button', { name: 'Carry on and lose them' }).elements()).toEqual([]);
+      expect(page.getByRole('button', { name: /^Sign in as/ }).elements()).toEqual([]);
+      for (const control of form()) await expect.element(control).toBeDisabled();
+      expect(requests).toEqual([]);
     });
 
     it('a different login’s wipe failing after its sign-in: signed out again, and it says so', async () => {

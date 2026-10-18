@@ -130,6 +130,33 @@ test.describe('signing in', () => {
     await expect(page).toHaveURL('/');
   });
 
+  test('a wipe that couldn’t delete the offline copy: the form is disabled until Try again has (cabledrawer 18 Oct)', async ({
+    page,
+  }) => {
+    // A wipe before this reload couldn't delete the phone database: its flag says so (sync
+    // protocol section 12). Nothing else is needed: Try again then deletes what's there.
+    await page.goto('/sign-in');
+    await page.evaluate(() => localStorage.setItem('mealwright.wipe-pending', 'failed'));
+    await page.reload();
+    await expect(page.getByRole('status')).toHaveText(
+      "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.",
+    );
+    const form = [
+      page.getByLabel('Username'),
+      page.getByLabel('Password', { exact: true }),
+      page.getByRole('switch', { name: 'Remember this computer' }),
+      page.getByRole('button', { name: 'Sign in' }),
+    ];
+    for (const control of form) await expect(control).toBeDisabled();
+    // Only Try again works. Once it has deleted it, the message goes and the form comes back.
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByText(/couldn't delete/)).toHaveCount(0);
+    for (const control of form) await expect(control).toBeEnabled();
+    expect(await page.evaluate(() => localStorage.getItem('mealwright.wipe-pending'))).toBeNull();
+    await signIn(page);
+    await expect(heading(page)).toHaveText('Today');
+  });
+
   test('on a phone, it says "Remember this phone"', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/sign-in');
