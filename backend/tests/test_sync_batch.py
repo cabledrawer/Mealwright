@@ -3,11 +3,12 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sync_kit import (
     API,
     PHONE_A,
     PHONE_B,
+    PHONE_R,
     action,
     changes,
     counter,
@@ -23,7 +24,7 @@ from sync_kit import (
     send,
 )
 
-from mealwright.models import SyncAction
+from mealwright.models import Food, ListItem, ShoppingList, SyncAction
 
 
 def _rows(kitchen: TestClient) -> int:
@@ -331,7 +332,7 @@ def test_removed_by_names_the_person_or_your_other_phone(kitchen: TestClient) ->
         action("add", list_id=main, item_id=by_other_phone, food_id=milk["id"]),
     )
     since = counter(kitchen)
-    send(wren, action("delete", item_id=by_wren), device="wren-phone")
+    send(wren, action("delete", item_id=by_wren), device=PHONE_R)
     send(kitchen, action("delete", item_id=by_other_phone), device=PHONE_B)
 
     def removed_by(answer: Any) -> dict[str, Any]:
@@ -377,3 +378,147 @@ def test_openapi_lists_the_sync_endpoints_and_every_kind(kitchen: TestClient) ->
         "dismiss_note",
         "undo",
     }
+
+
+# The schema names 0.2's endpoints had on main before PR 3 (generated clients use them).
+NAMES_0_2 = (
+    "AddStock",
+    "AisleGroup",
+    "AmountIn",
+    "AmountOrNone",
+    "AmountOut",
+    "Answer",
+    "AsSoldOut",
+    "ChangeItem",
+    "ChangeList",
+    "ChangeOut",
+    "ClearTicked",
+    "ClearWrite",
+    "Conversion",
+    "Converted",
+    "FoodAmount",
+    "FoodBrief",
+    "FoodCounts",
+    "FoodLeft",
+    "FoodList",
+    "FoodListItem",
+    "FoodOut",
+    "FoodPatch",
+    "FoodWrite",
+    "Forgotten",
+    "FromBrowser",
+    "GroupOut",
+    "HTTPValidationError",
+    "HouseholdOut",
+    "ItemAmount",
+    "ItemOut",
+    "ItemWrite",
+    "LastChange",
+    "LineOut",
+    "ListOut",
+    "ListView",
+    "ListWrite",
+    "ListsOut",
+    "LotOut",
+    "LotPatch",
+    "MaybeSame",
+    "Me",
+    "Merge",
+    "Move",
+    "NewFood",
+    "NewItem",
+    "NewList",
+    "NewName",
+    "NewShop",
+    "NewSize",
+    "NewStandIn",
+    "NotSame",
+    "PantryCounts",
+    "PantryOut",
+    "PlaceRef",
+    "Preferences",
+    "Ref",
+    "RememberedOut",
+    "RenameList",
+    "SetLeft",
+    "SetupIn",
+    "SetupState",
+    "ShopGroup",
+    "SignIn",
+    "SizeBrief",
+    "SizeOut",
+    "SizePatch",
+    "Split",
+    "StandIn",
+    "StockWrite",
+    "ToFreezer",
+    "TotalOut",
+    "UndoOut",
+    "Undone",
+    "UnitOut",
+    "UseSoonLot",
+    "UseSoonOut",
+    "UsedSome",
+    "ValidationError",
+    "VersionOut",
+    "Who",
+)
+
+
+def test_openapi_keeps_the_0_2_schema_names(kitchen: TestClient) -> None:
+    spec = ok(kitchen.get(f"{API}/openapi.json"))
+    schemas = spec["components"]["schemas"]
+    assert [name for name in NAMES_0_2 if name not in schemas] == []
+    new = [name for name in schemas if "__" in name and "PlaceOut" not in name]  # 0.2's own
+    assert new == []
+
+
+def test_openapi_lists_the_whole_batch_refusals(kitchen: TestClient) -> None:
+    spec = ok(kitchen.get(f"{API}/openapi.json"))
+    answers = spec["paths"]["/api/v1/shopping/actions"]["post"]["responses"]
+    assert {"200", "409", "413", "422"} <= set(answers)
+    assert "other_login" in answers["409"]["description"]
+    assert "too_many" in answers["413"]["description"]
+
+
+def test_a_device_id_is_a_uuid(kitchen: TestClient) -> None:
+    """3.8: the device ID is a random UUID, in the batch and when catching up."""
+    send(kitchen, device="x" * 64, status=422)
+    send(kitchen, device=PHONE_A.upper(), status=422)
+    ok(kitchen.get(f"{API}/shopping/changes?since=0&device_id={'x' * 36}"), 422)
+    send(kitchen, device=PHONE_A)
+
+
+def test_a_full_copy_has_every_row_even_version_0(kitchen: TestClient) -> None:
+    """5.5: `since=0` is a full copy. The main list made at sign-up, and rows from before
+    the counter existed (an upgraded install), have version 0 and are still in it."""
+    main = main_id(kitchen)
+    fresh = changes(kitchen)
+    assert fresh["reset"] is True
+    assert [row["id"] for row in fresh["lists"]] == [main]
+    old = food(kitchen, "Old dal")
+    item = new_id()
+    send(kitchen, action("add", list_id=main, item_id=item, food_id=old["id"], amount=500))
+    with db(kitchen) as session:  # as the 0.3 migration leaves an upgraded install
+        session.execute(update(Food).values(version=0))
+        session.execute(update(ListItem).values(version=0))
+        session.execute(update(ShoppingList).values(version=0))
+        session.commit()
+    full = changes(kitchen)
+    assert [row["id"] for row in full["lists"]] == [main]
+    assert [row["id"] for row in full["items"]] == [item]
+    assert old["id"] in {row["id"] for row in full["foods"]}
+    assert changes(kitchen, counter(kitchen))["items"] == []  # caught up: nothing new
+
+
+def test_a_phone_ahead_of_the_server_gets_a_full_copy(kitchen: TestClient) -> None:
+    """5.5 (pending cabledrawer): after a restore from a backup the server's counter can be
+    behind a phone's cursor; the phone's copy can't be trusted, so it is replaced."""
+    main = main_id(kitchen)
+    food(kitchen, "Rice")  # takes a number
+    now = counter(kitchen)
+    assert changes(kitchen, now)["reset"] is False
+    ahead = changes(kitchen, now + 50)
+    assert ahead["reset"] is True and ahead["cursor"] == now
+    assert [row["id"] for row in ahead["lists"]] == [main]
+    assert send(kitchen, since=now + 1)["changes"]["reset"] is True

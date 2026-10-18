@@ -76,7 +76,7 @@ class CreateList(ActionBase):
     _clean = field_validator("name")(_name)
 
 
-class RenameList(ActionBase):
+class RenameListAction(ActionBase):
     kind: Literal["rename_list"]
     list_id: RowId
     name: ListName
@@ -89,7 +89,7 @@ class RemoveList(ActionBase):
     list_id: RowId
 
 
-class NewFood(BaseModel):
+class NewFoodAction(BaseModel):
     """A new ingredient typed in the add box ("How do you count it?")."""
 
     model_config = ConfigDict(extra="forbid")
@@ -109,7 +109,7 @@ class Add(ActionBase):
     list_id: RowId
     item_id: NewId
     food_id: int | None = None
-    new_food: NewFood | None = None
+    new_food: NewFoodAction | None = None
     amount: Amount | None = None
     size_id: int | None = None
     shop_id: int | None = None
@@ -161,7 +161,7 @@ class DifferentPack(ActionBase):
     size_id: int | None = None
 
 
-class ClearTicked(ActionBase):
+class ClearTickedAction(ActionBase):
     kind: Literal["clear_ticked"]
     list_id: RowId
     item_ids: list[RowId] = Field(max_length=500)
@@ -185,7 +185,7 @@ class UndoAction(ActionBase):
 
 Action = Annotated[
     CreateList
-    | RenameList
+    | RenameListAction
     | RemoveList
     | Add
     | SetAmount
@@ -194,7 +194,7 @@ Action = Annotated[
     | Untick
     | PutAway
     | DifferentPack
-    | ClearTicked
+    | ClearTickedAction
     | AnswerDoubleTick
     | DismissNote
     | UndoAction,

@@ -173,7 +173,7 @@ POST /api/v1/shopping/actions
 - `protocol`: always 1 in `/api/v1`. The server accepts protocol 1 for the life of `/api/v1`, so a queue made by an older app version is always understood.
 - `login_id`: the login that queued these actions. It must be the signed-in login, or nothing is applied (`409 other_login`, section 5.6).
 - `since`: the device's cursor. The answer includes everything that changed after it (5.5).
-- `device_id`: the default for the batch. An action may carry its own `device_id` (the app always sends the one stored with the queue entry, 11.1), and the server uses that one.
+- `device_id`: a lower-case UUID (3.8), checked in the batch, on each action and on `GET …/changes`; anything else is a 422. It is the default for the batch. An action may carry its own `device_id` (the app always sends the one stored with the queue entry, 11.1), and the server uses that one.
 - `sent_at`: the device's clock when it sent the batch. Used only to correct `made_at` for Undo's 7-day window (section 9).
 - Every action has `id`, `kind`, `made_at` and `seen`, plus the fields for its kind. At most 100 actions per batch.
 
@@ -302,7 +302,8 @@ GET /api/v1/shopping/changes?since=1040
 - `removed_by` on a tombstone (PR 3, for cabledrawer's 18 Oct decision 10, "Paneer · removed by Wren"): the login name of whoever removed the item, or "Your other phone" when it was your own login on another device. To tell your devices apart, send `device_id` with the request (`GET …/changes?since=N&device_id=…`; the batch answer uses the batch's `device_id`). Without it, or for a removal made through a one-at-a-time request (no device ID), it is the login's name.
 - Notes and questions **for the signed-in login** are always sent **in full**: every note that isn't gone and every open question, whatever `since` is. The device replaces its notes and questions with them each time. So a note or card deleted while a phone was offline (3.9) disappears at its next sync, and a dead "Did you buy 2?" can't linger (SY-59). They're a handful of rows. A question closed after `since` is also sent once, with `open: false`, so a device that keeps its copy can drop the card straight away.
 - `cursor` is `household.list_seq`. The cursor and the rows come from one snapshot: on SQLite a read transaction is one (WAL mode); on Postgres later the request runs at `REPEATABLE READ`.
-- `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`. The tombstone tidy-up and ingredients deleted for good both raise it (3.9).
+- `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`. The tombstone tidy-up and ingredients deleted for good both raise it (3.9). A full copy has every live row whatever its `version`, including version 0 (the main list made at sign-up, and rows from before the counter existed on an upgraded install).
+- (PR 3, pending cabledrawer) Also `reset: true` when `since` is **above** the counter: the server was restored from a backup or its database swapped, so the phone's copy can't be trusted. Without this the phone would keep a stale copy and skip every change up to its old cursor.
 - `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy. On a list (items and `bought`) a count ingredient with a size reads in that size when the amount is a whole number of them ("2 boxes" for 12 eggs bought by the box of 6), and the pantry's "left" ("12 left") never shows (PR 3, SY-65).
 - `foods` are the ingredients the device needs for the list **and the add box** (search offline by any name): every ingredient that isn't merged away or removed. A household's few hundred names are small.
 
@@ -320,6 +321,8 @@ GET /api/v1/shopping/changes?since=1040
 | 413 | `too_many` | More than 100 actions. |
 | 422 | `bad_protocol` | `protocol` isn't 1. |
 | 422 | — | The envelope itself is malformed (FastAPI's list form). A malformed **action** inside a good envelope is a per-action `refused`. |
+
+The 409 and 413 answers are in OpenAPI as `Refusal` (`detail`, `code`), the shape every 0.2 error has.
 
 ### 5.7 How it sits beside the rest of the API
 

@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, status
 from pydantic import BaseModel, Field, SkipValidation
-from sqlalchemy import select
+from sqlalchemy import false, select, true
 
 from mealwright import sync, ticks
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, AISLES, DEFAULT_AISLE
@@ -40,7 +40,15 @@ from mealwright.shopping import OTHER_PHONE
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
 
-DeviceId = Annotated[str, Field(min_length=1, max_length=64)]
+# The device ID is a random UUID (3.8), checked as the actions' own `device_id` is.
+DeviceId = Annotated[str, Field(pattern=sync.UUID_PATTERN)]
+
+
+class Refusal(BaseModel):
+    """A whole batch turned away (5.6): nothing in it was applied."""
+
+    detail: str  # a plain sentence
+    code: str
 
 
 # --- The batch (4.1, 5.4) ------------------------------------------------------------------------
@@ -355,8 +363,15 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
     hid = kitchen.household_id
     me = kitchen.login.id
     household = kitchen.household
-    reset = since == 0 or since < household.list_purged_seq
-    after = 0 if reset else since
+    # A full copy when asked for, when the phone is behind a tidy-up (3.9), or when it is
+    # ahead of the server (a restore from a backup, 5.5): its copy can't be trusted.
+    reset = since == 0 or since < household.list_purged_seq or since > household.list_seq
+    after = since
+
+    def newer(version: Any) -> Any:
+        """Rows changed after `since`; on a full copy every row, version 0 too (rows made
+        before the counter existed, like the main list)."""
+        return true() if reset else version > after
 
     lists = [
         ListRow(
@@ -369,7 +384,7 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
         )
         for row in db.scalars(
             select(ShoppingList)
-            .where(ShoppingList.household_id == hid, ShoppingList.version > after)
+            .where(ShoppingList.household_id == hid, newer(ShoppingList.version))
             .order_by(ShoppingList.position, ShoppingList.created_at, ShoppingList.id)
         )
     ]
@@ -378,7 +393,7 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
     items: list[ItemRow | Tombstone] = []
     for item in db.scalars(
         select(ListItem)
-        .where(ListItem.household_id == hid, ListItem.version > after)
+        .where(ListItem.household_id == hid, newer(ListItem.version))
         .order_by(ListItem.version, ListItem.id)
     ):
         if item.deleted_at is None:
@@ -422,7 +437,7 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
     for question in db.scalars(
         select(DoubleTick)
         .where(DoubleTick.household_id == hid)
-        .where((DoubleTick.answer.is_(None)) | (DoubleTick.version > after))
+        .where(DoubleTick.answer.is_(None) | (false() if reset else DoubleTick.version > after))
         .order_by(DoubleTick.id)
     ):
         if me not in (question.login_ids or []):
@@ -442,7 +457,7 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
             )
         )
 
-    food_rows = select(Food).where(Food.household_id == hid, Food.version > after)
+    food_rows = select(Food).where(Food.household_id == hid, newer(Food.version))
     if reset:
         food_rows = food_rows.where(Food.removed_at.is_(None), Food.merged_into_id.is_(None))
     food_out = [_food(kitchen, food) for food in db.scalars(food_rows.order_by(Food.id))]
@@ -493,7 +508,16 @@ def _result(kitchen: Kitchen, raw: dict[str, Any]) -> ResultOut:
     )
 
 
-@router.post("/shopping/actions")
+@router.post(
+    "/shopping/actions",
+    responses={
+        409: {"model": Refusal, "description": "`other_login`: queued by another login (5.6)."},
+        413: {
+            "model": Refusal,
+            "description": f"`too_many`: more than {sync.MAX_ACTIONS} actions in one batch.",
+        },
+    },
+)
 def apply_actions(body: Envelope, kitchen: Here) -> BatchOut:
     """Apply a batch of queued list actions, in order (sync protocol 4.1 and 5)."""
     if body.protocol != 1:
@@ -523,7 +547,7 @@ def apply_actions(body: Envelope, kitchen: Here) -> BatchOut:
 def get_changes(
     kitchen: Here,
     since: Annotated[int, Query(ge=0)] = 0,
-    device_id: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
+    device_id: Annotated[str | None, Query(pattern=sync.UUID_PATTERN)] = None,
 ) -> ChangesOut:
     """Everything that changed after counter `since`; `since=0` is a full copy (5.5).
     `device_id` (optional) lets a removal from your own other phone say so."""
