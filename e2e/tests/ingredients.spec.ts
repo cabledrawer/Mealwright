@@ -143,3 +143,30 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
   await expect(theme).toBeInViewport();
   await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeInViewport();
 });
+
+test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
+  const food = await makeFood(page, 'Moringa');
+  const edited = await page.request.patch(`/api/v1/foods/${food.id}`, {
+    data: { staple: true },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(edited.ok()).toBe(true);
+  await page.goto('/recipes/ingredients');
+  // A side panel on desktop; a "Recent changes" button and sheet on the phone.
+  if (isPhone(page)) await page.getByRole('button', { name: 'Recent changes' }).click();
+  const recent = isPhone(page)
+    ? page.getByRole('dialog', { name: 'Recent changes' })
+    : page.getByRole('region', { name: 'Recent changes' });
+  await expect(recent.getByText(`${food.name} is now a staple`)).toBeVisible();
+  await expect(recent.getByText(`Added ${food.name}`, { exact: false })).toBeVisible();
+  await recent.getByRole('button', { name: `Undo: ${food.name} is now a staple` }).click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: ${food.name} is now a staple` })).toBeVisible();
+  const now = await (await page.request.get(`/api/v1/foods/${food.id}`)).json();
+  expect(now.staple).toBe(false);
+  // The list shows the Undo itself, and the Undone change loses its Undo button.
+  await expect(recent.getByText(`Undid: ${food.name} is now a staple`)).toBeVisible();
+  await expect(
+    recent.getByRole('button', { name: `Undo: ${food.name} is now a staple` }),
+  ).toHaveCount(0);
+  if (!isPhone(page)) await checkPage(page);
+});
