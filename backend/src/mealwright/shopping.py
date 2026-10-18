@@ -57,6 +57,7 @@ LIST_KINDS = (
     "item_added",
     "item_amount",
     "item_deleted",
+    "item_place",
 )
 
 LOCKED = "mealwright.household_locked"
@@ -1387,7 +1388,7 @@ def _touch_item(kitchen: Kitchen, item_id: str, seq: int) -> None:
         item.version = seq
 
 
-def log_undo(batch: Batch, original: Change, undo_change: Change, kind: str = "undo") -> None:
+def log_undo(batch: Batch, original: Change, undo_change: Change, kind: str = "undo") -> SyncAction:
     """The sync-log row for an Undo from Pantry → Recent changes, and the mark on the
     action it undid (sync protocol 5.8)."""
     kitchen = batch.kitchen
@@ -1398,3 +1399,4 @@ def log_undo(batch: Batch, original: Change, undo_change: Change, kind: str = "u
         if undone is not None:
             undone.undone_by_action_id = row.id
             row.list_id, row.item_id = undone.list_id, undone.item_id
+    return row

@@ -1,31 +1,824 @@
-"""Ticking: the pantry side of a tick (docs/dev/sync-protocol.md sections 7, 8 and 5.8)."""
+"""Ticking: the pantry side of a tick, and the actions about purchases (docs/dev/
+sync-protocol.md sections 7, 8 and 5.8).
 
-from collections.abc import Callable
-from typing import NamedTuple
+A tick is a *purchase* (`list_tick`): its own lots, its own `shopped` change. A purchase's
+stock is the lots named by the lines of its own changes (`change.tick_id`, 7.2). Taking a
+purchase back (untick, "Just 1", Undo of a tick) is 0.2's Undo of each of its amount
+changes; putting it back puts back exactly what that took out, lot by lot (7.5).
+"""
+
+import uuid
+from collections import defaultdict
+from collections.abc import Callable, Iterable
+from typing import Any, NamedTuple
+
+from sqlalchemy import select
 
 from mealwright import shopping
+from mealwright.amounts import TooBig, checked
 from mealwright.api.v1.context import Kitchen
-from mealwright.foods import amount_out
-from mealwright.models import Change, DoubleTick, Food, FoodSize, ListItem, ListTick, SyncAction
-from mealwright.shopping import Act, Batch
+from mealwright.foods import add_size, amount_out, sizes, usual_size
+from mealwright.models import (
+    Change,
+    ChangeLine,
+    DoubleTick,
+    Food,
+    FoodSize,
+    ListItem,
+    ListTick,
+    Place,
+    StockLot,
+    SyncAction,
+    utcnow,
+)
+from mealwright.shopping import Act, Batch, Refused, who
+from mealwright.stock import (
+    StockEdit,
+    default_place,
+    lot_amounts,
+    put_in,
+    short_text,
+    take,
+    what_text,
+)
 
 TICK_KINDS = ("tick", "untick", "put_away", "different_pack", "answer_double_tick")
+AMOUNT_KINDS = ("shopped", "repacked")  # a purchase's changes that change amounts (7.5)
 
-HANDLERS: dict[str, Callable[[Act], None]] = {}
+
+# --- Reading -------------------------------------------------------------------------------------
 
 
-def undo(act: Act, target: SyncAction) -> None:  # pragma: no cover (next commit)
-    act.ignore("nothing_to_undo")
+def get_tick(kitchen: Kitchen, tick_id: str | None) -> ListTick | None:
+    if not tick_id:
+        return None
+    return kitchen.db.get(ListTick, (kitchen.household_id, tick_id))
+
+
+def ticks_of(kitchen: Kitchen, item_id: str, standing: bool = True) -> list[ListTick]:
+    """An item's purchases in server order (the standing ones, unless asked)."""
+    query = select(ListTick).where(
+        ListTick.household_id == kitchen.household_id, ListTick.item_id == item_id
+    )
+    if standing:
+        query = query.where(ListTick.reversed_at.is_(None))
+    return list(kitchen.db.scalars(query.order_by(ListTick.ticked_at, ListTick.id)))
+
+
+def _named(kitchen: Kitchen, item: ListItem, tick_ids: Iterable[str]) -> list[ListTick]:
+    """The purchases an action names that belong to this item and still stand."""
+    found: list[ListTick] = []
+    for tick_id in dict.fromkeys(tick_ids):
+        tick = get_tick(kitchen, tick_id)
+        if tick is not None and tick.item_id == item.id and tick.reversed_at is None:
+            found.append(tick)
+    return found
+
+
+def live_food(kitchen: Kitchen, food_id: int) -> Food | None:
+    """The ingredient, following merges to the end of the chain (5.9)."""
+    seen: set[int] = set()
+    food = kitchen.db.get(Food, food_id)
+    while food is not None and food.merged_into_id and food.id not in seen:
+        seen.add(food.id)
+        food = kitchen.db.get(Food, food.merged_into_id)
+    if food is None or food.household_id != kitchen.household_id:
+        return None
+    return food
+
+
+def get_place(kitchen: Kitchen, place_id: int | None) -> Place | None:
+    if place_id is None:
+        return None
+    place = kitchen.db.get(Place, place_id)
+    if place is None or place.household_id != kitchen.household_id:
+        return None
+    return place
+
+
+def purchase_lots(kitchen: Kitchen, tick: ListTick) -> list[StockLot]:
+    """The purchase's stock (7.2): the lots its own changes name, wherever they are now."""
+    lot_ids = kitchen.db.scalars(
+        select(ChangeLine.lot_id)
+        .join(Change, Change.id == ChangeLine.change_id)
+        .where(
+            Change.household_id == kitchen.household_id,
+            Change.tick_id == tick.id,
+            ChangeLine.lot_id.is_not(None),
+        )
+        .distinct()
+    )
+    ids = sorted({lot_id for lot_id in lot_ids if lot_id is not None})
+    lots = [kitchen.db.get(StockLot, lot_id) for lot_id in ids]
+    return [lot for lot in lots if lot is not None]
+
+
+def _size(kitchen: Kitchen, size_id: int | None) -> FoodSize | None:
+    return kitchen.db.get(FoodSize, size_id) if size_id else None
+
+
+def sync_copy(kitchen: Kitchen, item: ListItem, seq: int) -> None:
+    """The item's `ticked_*` copy follows its first purchase still standing, or clears."""
+    first = next(iter(ticks_of(kitchen, item.id)), None)
+    item.ticked_at = first.ticked_at if first else None
+    item.ticked_by_login_id = first.login_id if first else None
+    item.ticked_by_name = first.login_name if first else None
+    item.ticked_device_id = first.device_id if first else None
+    item.version = seq
+
+
+def _start(act: Act) -> tuple[ListItem, Food] | None:
+    """The item an action names (following merges) and its ingredient, else `ignored gone`."""
+    kitchen = act.kitchen
+    item = shopping.get_item(kitchen, act.payload["item_id"])
+    if item is None:
+        act.ignore("gone")
+        return None
+    act.item_id, act.list_id = item.id, item.list_id
+    food = live_food(kitchen, item.food_id)
+    if food is None:
+        act.ignore("gone")
+        return None
+    act.food_id = food.id
+    return item, food
+
+
+def _removed_list(act: Act, item: ListItem, ticked: bool = False) -> None:
+    shopping_list = shopping.get_list(act.kitchen, item.list_id)
+    if shopping_list is not None:
+        shopping.in_removed_list(act, shopping_list, ticked=ticked)
+
+
+def _remover(act: Act, item: ListItem) -> SyncAction | None:
+    """The action that took a tombstoned item off, if this device hadn't seen it."""
+    if item.deleted_at is None:
+        return None
+    row = shopping.action_row(act.kitchen, item.deleted_action_id)
+    if row is None or not shopping.unseen(act, row) or row.device_id == act.device_id:
+        return None
+    return row
+
+
+# --- tick (7.1) ----------------------------------------------------------------------------------
+
+
+def tick(act: Act) -> None:
+    """A purchase: stock into the pantry (7.1); a second purchase opens the card (L-3)."""
+    kitchen = act.kitchen
+    found = _start(act)
+    if found is None:
+        return
+    item, food = found
+    standing = ticks_of(kitchen, item.id)
+    if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
+        act.ignore("already_ticked")
+        return
+    if food.removed_at is not None:  # on a tombstone only: removing is blocked otherwise
+        shopping._bring_back(act, food)
+    place = get_place(kitchen, item.put_away_place_id)
+    if place is None:
+        item.put_away_place_id = None  # a chosen place that's gone (5.9, SY-55)
+        place = default_place(kitchen, food)
+    size = shopping.get_size(kitchen, food, item.size_id)
+    milli = None if food.staple else item.amount_milli
+    row = ListTick(
+        household_id=kitchen.household_id,
+        id=act.id,
+        item_id=item.id,
+        login_id=kitchen.login.id,
+        login_name=kitchen.login.name,
+        device_id=act.device_id,
+        ticked_at=utcnow(),
+        place_id=place.id,
+        bought_milli=milli or None,
+        bought_size_id=size.id if size and milli else None,
+    )
+    kitchen.db.add(row)
+    kitchen.db.flush()
+    if row.bought_milli:
+        edit = StockEdit(kitchen)
+        put_in(kitchen, edit, food, place, lot_amounts(row.bought_milli, size), size)
+        shown = size or usual_size(kitchen, food.id)
+        summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
+        change = edit.record("shopped", summary, food.id, {"action": act.id})
+        change.tick_id = row.id
+        row.change_id = change.id
+        act.change = change
+    sync_copy(kitchen, item, act.seq)
+    _removed_list(act, item, ticked=bool(row.bought_milli))
+    if not row.bought_milli:
+        return
+    _ask(act, item, row)
+    remover = _remover(act, item)
+    if remover is not None and remover.kind == "delete":
+        # N1 (L-9). A cleared item gets none: the card, if any, explains it (L-19).
+        me = kitchen.login.id
+        shopping.note(
+            act,
+            "N1",
+            me,
+            f"{who(remover.login_id, remover.login_name, me)} had removed this."
+            " Your tick still went into the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
+
+
+def _ask(act: Act, item: ListItem, new: ListTick) -> None:
+    """Open "Did you buy 2?", or add this purchase to the open one (3.6)."""
+    kitchen = act.kitchen
+    others = [t for t in ticks_of(kitchen, item.id) if t.bought_milli and t.id != new.id]
+    if not others:
+        return
+    question = open_question(kitchen, item.id)
+    if question is None:
+        question = DoubleTick(
+            household_id=kitchen.household_id,
+            list_id=item.list_id,
+            item_id=item.id,
+            tick_ids=[t.id for t in others],
+            created_at=utcnow(),
+        )
+        kitchen.db.add(question)
+    question.tick_ids = [*question.tick_ids, new.id]
+    _who_sees(kitchen, question)
+    question.version = act.seq
+    kitchen.db.flush()
+
+
+def _who_sees(kitchen: Kitchen, question: DoubleTick) -> None:
+    logins: list[int] = []
+    for tick_id in question.tick_ids:
+        tick = get_tick(kitchen, tick_id)
+        if tick is not None and tick.login_id is not None and tick.login_id not in logins:
+            logins.append(tick.login_id)
+    question.login_ids = logins
+    question.same_login = len(logins) <= 1
+
+
+def open_question(kitchen: Kitchen, item_id: str) -> DoubleTick | None:
+    return kitchen.db.scalar(
+        select(DoubleTick)
+        .where(
+            DoubleTick.household_id == kitchen.household_id,
+            DoubleTick.item_id == item_id,
+            DoubleTick.answer.is_(None),
+        )
+        .order_by(DoubleTick.id)
+        .limit(1)
+    )
+
+
+# --- Taking a purchase back, and putting it back (7.5) -------------------------------------------
+
+
+def amount_changes(kitchen: Kitchen, tick_id: str) -> list[Change]:
+    """The purchase's amount changes not yet undone, newest first."""
+    return list(
+        kitchen.db.scalars(
+            select(Change)
+            .where(
+                Change.household_id == kitchen.household_id,
+                Change.tick_id == tick_id,
+                Change.kind.in_(AMOUNT_KINDS),
+                Change.undone_by_change_id.is_(None),
+            )
+            .order_by(Change.id.desc())
+        )
+    )
+
+
+def reverse(act: Act, tick: ListTick, summary: Callable[[Change], str]) -> list[Change]:
+    """Take a purchase back: 0.2's Undo of each of its amount changes, newest first. Returns
+    the `undo` changes."""
+    from mealwright.api.v1.changes import undo_change
+
+    kitchen = act.kitchen
+    bought = [tick.bought_milli, tick.bought_size_id]
+    done = [
+        undo_change(
+            kitchen,
+            change,
+            act.batch,
+            act.id,
+            summary=summary(change),
+            tick_id=tick.id,
+            extra={"action": act.id, "bought": bought},
+        )
+        for change in amount_changes(kitchen, tick.id)
+    ]
+    tick.reversed_at = utcnow()
+    tick.reversed_by_action_id = act.id
+    shopping.notes_gone(kitchen, tick.id, act.seq)
+    close_questions(act, tick)
+    return done
+
+
+def close_questions(act: Act, tick: ListTick) -> None:
+    """A purchase reversed some other way closes its open question as `none` (7.5)."""
+    question = open_question(act.kitchen, tick.item_id)
+    if question is not None and tick.id in question.tick_ids:
+        _settle(act, question, "none")
+
+
+def _settle(act: Act, question: DoubleTick, answer: str | None) -> None:
+    question.answer = answer
+    question.answered_at = utcnow() if answer else None
+    question.answered_by_name = act.kitchen.login.name if answer else None
+    question.answer_action_id = act.id if answer else None
+    question.version = act.seq
+
+
+def partial(done: Iterable[Change]) -> str | None:
+    """The sentence for a take-back that couldn't take everything (0.2's partial Undo)."""
+    for undo in done:
+        data = undo.undo_data or {}
+        if data.get("result") != "done":
+            return str(data.get("message") or "") or None
+    return None
+
+
+def put_back(act: Act, reversal: SyncAction) -> list[ListTick]:
+    """Undo of an untick or "Just 1": put back exactly what the reversal took out, lot by
+    lot (7.5). Returns the purchases put back."""
+    kitchen = act.kitchen
+    db = kitchen.db
+    undos: dict[str, list[Change]] = defaultdict(list)
+    for change_id in (reversal.result or {}).get("changes", []):
+        change = db.get(Change, change_id)
+        if change is not None and change.kind == "undo" and change.tick_id:
+            undos[change.tick_id].append(change)
+    back = list(
+        db.scalars(
+            select(ListTick)
+            .where(
+                ListTick.household_id == kitchen.household_id,
+                ListTick.reversed_by_action_id == reversal.id,
+            )
+            .order_by(ListTick.ticked_at, ListTick.id)
+        )
+    )
+    for tick in back:
+        _put_back_one(act, tick, undos.get(tick.id, []))
+    return back
+
+
+def _put_back_one(act: Act, tick: ListTick, undos: list[Change]) -> None:
+    kitchen = act.kitchen
+    db = kitchen.db
+    took: dict[int | None, int] = defaultdict(int)  # lot → how much the reversal took out
+    for undo in undos:
+        for line in db.scalars(select(ChangeLine).where(ChangeLine.change_id == undo.id)):
+            took[line.lot_id] += line.amount_before_milli - line.amount_after_milli
+    if undos:
+        bought = (undos[0].undo_data or {}).get("bought")
+        if isinstance(bought, list) and len(bought) == 2:
+            tick.bought_milli, tick.bought_size_id = bought
+    tick.reversed_at = None
+    tick.reversed_by_action_id = None
+    item = db.get(ListItem, tick.item_id)
+    food = live_food(kitchen, item.food_id) if item is not None else None
+    total = sum(amount for amount in took.values() if amount > 0)
+    if food is None or total <= 0:
+        return
+    size = _size(kitchen, tick.bought_size_id)
+    place = get_place(kitchen, tick.place_id) or default_place(kitchen, food)
+    edit = StockEdit(kitchen)
+    for lot_id, amount in took.items():
+        if amount <= 0:
+            continue
+        lot = db.get(StockLot, lot_id) if lot_id is not None else None
+        if lot is None or lot.household_id != kitchen.household_id:
+            put_in(kitchen, edit, food, place, [amount], size)
+        else:
+            edit.touch(lot).amount_milli += amount
+    shown = size or usual_size(kitchen, food.id)
+    if shown is not None and total % shown.amount_milli:
+        shown = None  # part of a packet: "300 g Toor dal", as the untick said (SY-26u)
+    summary = f"Ticked again: {what_text(food, total, shown)} → {place.name}"
+    change = edit.record("shopped", summary, food.id, {"action": act.id})
+    change.tick_id = tick.id
+    tick.change_id = change.id
+    act.change = act.change or change
+
+
+# --- untick --------------------------------------------------------------------------------------
+
+
+def untick(act: Act) -> None:
+    """Reverse the named purchases that still stand (L-2, L-10)."""
+    kitchen = act.kitchen
+    found = _start(act)
+    if found is None:
+        return
+    item, food = found
+    named = _named(kitchen, item, act.payload["tick_ids"])
+    if not named:
+        act.ignore("not_ticked")
+        return
+    done: list[Change] = []
+    for tick in named:
+        done += reverse(act, tick, lambda change: f"Unticked: {change.summary}")
+    sync_copy(kitchen, item, act.seq)
+    if done:
+        act.change = done[0]
+    act.message = partial(done)
+    _removed_list(act, item)
+    remover = _remover(act, item)
+    if remover is not None and done:
+        me = kitchen.login.id
+        shopping.note(
+            act,
+            "N5",
+            me,
+            f"{who(remover.login_id, remover.login_name, me)} had removed this, so it isn't"
+            " back on the list. Your untick took it out of the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
+
+
+# --- put_away (7.3) ------------------------------------------------------------------------------
+
+
+def put_away(act: Act) -> None:
+    """Record the chosen place, and move the named purchases' stock there."""
+    kitchen = act.kitchen
+    found = _start(act)
+    if found is None:
+        return
+    item, food = found
+    payload = act.payload
+    place = get_place(kitchen, payload["place_id"])
+    chosen = place.id if place is not None else None  # a place that's gone (SY-55)
+    if place is None:
+        place = default_place(kitchen, food)
+    use_by = payload.get("use_by")
+    tombstoned = item.deleted_at is not None
+    place_op: list[dict[str, Any]] = []
+    if not tombstoned and item.put_away_place_id != chosen:
+        place_op = [
+            {"op": "item_place", "item_id": item.id, "old": item.put_away_place_id, "new": chosen}
+        ]
+        item.put_away_place_id = chosen
+        item.version = act.seq
+    list_ops: list[dict[str, Any]] = []
+    moved = False
+    for tick in _named(kitchen, item, payload.get("tick_ids", [])):
+        lots = [
+            lot
+            for lot in purchase_lots(kitchen, tick)
+            if lot.amount_milli > 0 and lot.place_id == tick.place_id
+        ]
+        if tick.place_id == place.id and (use_by is None or not lots):
+            continue
+        ops = [{"op": "tick_place", "tick_id": tick.id, "old": tick.place_id, "new": place.id}]
+        tick.place_id = place.id
+        item.version = act.seq
+        if not lots:
+            list_ops += ops
+            continue
+        edit = StockEdit(kitchen)
+        for lot in lots:
+            edit.touch(lot).place_id = place.id
+            if use_by is not None:
+                lot.use_by = use_by
+        ops += place_op
+        place_op = []
+        change = edit.record(
+            "moved",
+            f"Moved {food.name} → {place.name}",
+            food.id,
+            {"shopping": ops, "action": act.id},
+        )
+        change.tick_id = tick.id
+        act.change = act.change or change
+        if act.main_change is None:
+            act.main_change = change
+        moved = True
+    list_ops = place_op + list_ops
+    if list_ops:
+        act.done("item_place", f"Put away {food.name} → {place.name}", list_ops, food.id)
+    if not moved and not list_ops:
+        act.ignore("deleted" if tombstoned else "no_change")
+        return
+    _removed_list(act, item)
+    _overwritten(act, item, food, place)
+
+
+def _overwritten(act: Act, item: ListItem, food: Food, place: Place) -> None:
+    """N6: a put-away from another device that this one hadn't seen is overwritten (L-32)."""
+    if act.plain or act.seen is None:
+        return
+    kitchen = act.kitchen
+    earlier = kitchen.db.scalar(
+        select(SyncAction)
+        .where(
+            SyncAction.household_id == kitchen.household_id,
+            SyncAction.item_id == item.id,
+            SyncAction.kind == "put_away",
+            SyncAction.status == "applied",
+            SyncAction.undone_by_action_id.is_(None),
+        )
+        .order_by(SyncAction.seq.desc())
+        .limit(1)
+    )
+    if (
+        earlier is None
+        or not shopping.unseen(act, earlier)
+        or earlier.device_id == act.device_id
+        or (earlier.payload or {}).get("place_id") == act.payload["place_id"]
+    ):
+        return
+    me, my_name = kitchen.login.id, kitchen.login.name
+    shopping.note(
+        act,
+        "N6",
+        earlier.login_id,
+        f"{who(me, my_name, earlier.login_id)} put {food.name} in the {place.name}",
+        list_id=item.list_id,
+        item_id=item.id,
+        food_id=food.id,
+        undo=act.id,
+    )
+
+
+# --- different_pack (7.4) ------------------------------------------------------------------------
+
+
+def _pack_size(act: Act, food: Food, pack: int) -> FoodSize:
+    kitchen = act.kitchen
+    named = shopping.get_size(kitchen, food, act.payload.get("size_id"))
+    if named is not None and named.amount_milli == pack:
+        return named
+    same = next((s for s in sizes(kitchen, food.id) if s.amount_milli == pack), None)
+    if same is not None:
+        return same
+    usual = usual_size(kitchen, food.id)
+    size = add_size(kitchen, food, usual.name if usual else "pack", pack, when_shopping=True)
+    size.usual = False  # never made usual (7.4)
+    shopping.bump_foods(kitchen, [food.id], act.batch)
+    return size
+
+
+def different_pack(act: Act) -> None:
+    """ "What did you buy?": the purchase was really `count` packs of `pack`."""
+    kitchen = act.kitchen
+    found = _start(act)
+    if found is None:
+        return
+    item, food = found
+    tick = get_tick(kitchen, act.payload["tick_id"])
+    if tick is None or tick.item_id != item.id:
+        act.ignore("gone")
+        return
+    if tick.reversed_at is not None:
+        act.ignore("not_ticked")
+        return
+    if food.staple:
+        act.ignore("no_change")
+        return
+    pack = shopping.milli_of(act.payload["pack"]) or 0
+    count = int(act.payload["count"])
+    try:
+        total = checked(pack * count)
+    except TooBig as err:
+        raise Refused("too_big", "That amount is too big.") from err
+    size = _pack_size(act, food, pack)
+    if [tick.bought_milli, tick.bought_size_id] == [total, size.id]:
+        act.ignore("no_change")
+        return
+    lots = purchase_lots(kitchen, tick)
+    left = sum(lot.amount_milli for lot in lots)
+    used_since = max((tick.bought_milli or 0) - left, 0)
+    edit = StockEdit(kitchen)
+    for lot in lots:
+        if lot.amount_milli > 0:
+            edit.touch(lot).amount_milli = 0
+    place = get_place(kitchen, tick.place_id) or default_place(kitchen, food)
+    new_lots = put_in(kitchen, edit, food, place, [pack] * count, size)
+    take(kitchen, edit, new_lots, used_since, include_freezer=True)
+    old_size = _size(kitchen, tick.bought_size_id) or usual_size(kitchen, food.id)
+    old = amount_out(food, tick.bought_milli or 0, old_size).display
+    new = amount_out(food, total, size).display
+    ops = [
+        {
+            "op": "tick_bought",
+            "tick_id": tick.id,
+            "old": [tick.bought_milli, tick.bought_size_id],
+            "new": [total, size.id],
+        }
+    ]
+    change = edit.record(
+        "repacked",
+        f"{food.name}: bought {new} instead of {old}",
+        food.id,
+        {"shopping": ops, "action": act.id},
+    )
+    change.tick_id = tick.id
+    tick.bought_milli, tick.bought_size_id = total, size.id
+    item.version = act.seq
+    act.change = change
+    _removed_list(act, item)
+
+
+# --- answer_double_tick (section 8) --------------------------------------------------------------
+
+
+def _just_one(what: str) -> Callable[[Change], str]:
+    def summary(change: Change) -> str:
+        if change.kind == "shopped":
+            return f"Just 1: took back {what}"
+        return f"Just 1: {change.summary}"
+
+    return summary
+
+
+def answer_double_tick(act: Act) -> None:
+    """Settle the card: "Yes, 2" keeps every purchase; "Just 1" takes back all but the
+    first, in server order (L-3)."""
+    kitchen = act.kitchen
+    question = kitchen.db.get(DoubleTick, act.payload["question_id"])
+    if question is None or question.household_id != kitchen.household_id:
+        act.ignore("gone")
+        return
+    act.item_id, act.list_id = question.item_id, question.list_id
+    if question.answer is not None:
+        act.ignore("answered")
+        return
+    item = kitchen.db.get(ListItem, question.item_id)
+    food = live_food(kitchen, item.food_id) if item is not None else None
+    if item is None or food is None:  # pragma: no cover (the question goes with its item)
+        act.ignore("gone")
+        return
+    act.food_id = food.id
+    answer = act.payload["answer"]
+    _settle(act, question, answer)
+    standing = [
+        tick
+        for tick_id in question.tick_ids
+        if (tick := get_tick(kitchen, tick_id)) is not None and tick.reversed_at is None
+    ]
+    size = next((_size(kitchen, t.bought_size_id) for t in standing if t.bought_size_id), None)
+    size = size or usual_size(kitchen, food.id)
+    if answer == "two":
+        total = sum(t.bought_milli or 0 for t in standing)
+        act.message = f"Kept {short_text(food, total, size)}"
+        return
+    extra = standing[1:]
+    done: list[Change] = []
+    for tick in extra:
+        done += reverse(act, tick, _just_one(what_text(food, tick.bought_milli or 0, size)))
+    sync_copy(kitchen, item, act.seq)
+    if done:
+        act.change = done[0]
+    took = sum(t.bought_milli or 0 for t in extra)
+    act.message = partial(done) or f"Took back {what_text(food, took, size)}"
+
+
+HANDLERS: dict[str, Callable[[Act], None]] = {
+    "tick": tick,
+    "untick": untick,
+    "put_away": put_away,
+    "different_pack": different_pack,
+    "answer_double_tick": answer_double_tick,
+}
+
+
+# --- Undo (section 9) ----------------------------------------------------------------------------
+
+
+def undo(act: Act, target: SyncAction) -> None:
+    """`undo` of a tick-family action (the checks every Undo shares are already done)."""
+    kitchen = act.kitchen
+    kind = target.kind
+    payload = target.payload or {}
+    if kind == "tick":
+        tick = get_tick(kitchen, target.id)
+        if tick is None:
+            act.ignore("nothing_to_undo")
+            return
+        if tick.reversed_at is not None:
+            act.ignore("already_undone")
+            return
+        done = reverse(act, tick, lambda change: f"Undid: {change.summary}")
+        item = kitchen.db.get(ListItem, tick.item_id)
+        if item is not None:
+            sync_copy(kitchen, item, act.seq)
+        act.change = done[0] if done else None
+        act.message = partial(done)
+    elif kind == "untick" or (kind == "answer_double_tick" and payload.get("answer") == "one"):
+        back = put_back(act, target)
+        for tick in back:
+            item = kitchen.db.get(ListItem, tick.item_id)
+            if item is not None:
+                sync_copy(kitchen, item, act.seq)
+        if kind == "answer_double_tick":
+            _reopen(act, target, back)
+    elif kind == "answer_double_tick":
+        if not _reopen(act, target, []):
+            act.ignore("nothing_to_undo")
+            return
+    elif not _undo_changes(act, target):  # put_away, different_pack: 0.2's Undo of each
+        act.ignore("already_undone")
+        return
+    target.undone_by_action_id = act.id
+    shopping.notes_gone(kitchen, target.id, act.seq)
+
+
+def _undo_changes(act: Act, target: SyncAction) -> bool:
+    from mealwright.api.v1.changes import undo_change
+
+    kitchen = act.kitchen
+    ids = sorted((target.result or {}).get("changes", []), reverse=True)
+    changes = [
+        change
+        for change_id in ids
+        if (change := kitchen.db.get(Change, change_id)) is not None
+        and change.kind != "undo"
+        and change.undone_by_change_id is None
+    ]
+    done = [undo_change(kitchen, change, act.batch, act.id) for change in changes]
+    if done:
+        act.main_change = done[-1]
+        act.message = partial(done)
+    return bool(done)
+
+
+def _reopen(act: Act, answered: SyncAction, back: list[ListTick]) -> bool:
+    """Undo of an answer brings the card back (section 8)."""
+    kitchen = act.kitchen
+    question = kitchen.db.scalar(
+        select(DoubleTick).where(
+            DoubleTick.household_id == kitchen.household_id,
+            DoubleTick.answer_action_id == answered.id,
+        )
+    )
+    if question is None:
+        return False
+    already = open_question(kitchen, question.item_id)
+    if already is not None:  # a newer card is open: the purchases join it
+        added = [t.id for t in back if t.id not in already.tick_ids]
+        already.tick_ids = [*already.tick_ids, *added]
+        _who_sees(kitchen, already)
+        already.version = act.seq
+        return bool(back)
+    standing = [
+        tick_id
+        for tick_id in question.tick_ids
+        if (tick := get_tick(kitchen, tick_id)) is not None and tick.reversed_at is None
+    ]
+    if len(standing) < 2:
+        return bool(back)
+    _settle(act, question, None)
+    return True
+
+
+# --- Undo from Pantry → Recent changes (5.8) -----------------------------------------------------
 
 
 def pantry_undo(kitchen: Kitchen, change: Change, batch: Batch) -> Change:
     """Undo from Pantry → Recent changes (api-0.2 6.5), keeping lists in step (5.8)."""
     from mealwright.api.v1.changes import undo_change
 
+    tick = get_tick(kitchen, change.tick_id)
+    if (
+        tick is not None
+        and change.kind == "shopped"
+        and tick.change_id == change.id
+        and tick.reversed_at is None
+    ):
+        return _untick_by_undo(kitchen, change, tick, batch)
     done = undo_change(kitchen, change, batch, batch.action)
-    if batch.taken:
-        shopping.log_undo(batch, change, done)
+    if batch.taken or tick is not None:
+        kind = "place_by_undo" if change.kind == "moved" and tick is not None else "undo"
+        shopping.log_undo(batch, change, done, kind)
     return done
+
+
+def _untick_by_undo(kitchen: Kitchen, change: Change, tick: ListTick, batch: Batch) -> Change:
+    """Undo of a purchase's own `shopped` change takes the whole purchase back and unticks
+    it (SY-50)."""
+    action = batch.action
+    if shopping.action_row(kitchen, action) is not None:
+        action = str(uuid.uuid4())
+    act = Act(batch=batch, id=action, kind="untick_by_undo", payload={}, plain=True)
+    act.seq = batch.number()
+    done = reverse(act, tick, lambda each: f"Undid: {each.summary}")
+    item = kitchen.db.get(ListItem, tick.item_id)
+    if item is not None:
+        sync_copy(kitchen, item, act.seq)
+    own = next(undo for undo in done if undo.undoes_change_id == change.id)
+    row = shopping.log_undo(batch, change, own, "untick_by_undo")
+    row.result = {"changes": [undo.id for undo in done]}
+    tick.reversed_by_action_id = row.id
+    if item is not None:
+        row.list_id, row.item_id = item.list_id, item.id
+    return own
 
 
 # --- The card (section 8) ------------------------------------------------------------------------
@@ -47,11 +840,8 @@ def _names(names: list[str]) -> str:
 def card_words(kitchen: Kitchen, question: DoubleTick, for_login_id: int) -> CardWords:
     """ "Did you buy 2?" for the login it's shown to (section 8, mockup Shop.dc.html)."""
     db = kitchen.db
-    hid = kitchen.household_id
     purchases = [
-        tick
-        for tick_id in question.tick_ids
-        if (tick := db.get(ListTick, (hid, tick_id))) is not None
+        tick for tick_id in question.tick_ids if (tick := get_tick(kitchen, tick_id)) is not None
     ]
     standing = [tick for tick in purchases if tick.reversed_at is None]
     shown = standing if len(standing) >= 2 else purchases

@@ -14,9 +14,11 @@ from datetime import date, datetime
 
 from sqlalchemy import select
 
+from mealwright.amounts import NBSP
 from mealwright.api.v1.context import Kitchen
+from mealwright.foods import amount_out
 from mealwright.history import as_utc, record
-from mealwright.models import Change, ChangeLine, Food, Place, StockLot, utcnow
+from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot, utcnow
 
 FREEZER_MONTHS = 3  # "To freezer": new use-by 3 months away (spec section 6)
 
@@ -148,7 +150,36 @@ def default_place(kitchen: Kitchen, food: Food) -> Place:
     return place
 
 
+# --- Wording for summaries --------------------------------------------------------------------
+
+
+def short_text(food: Food, milli: int, size: FoodSize | None) -> str:
+    """ "2 packets", "about ½ packet", "200 g", "5", "5 slices" for summaries. A count
+    food's "5 left" is only for the pantry list: a summary says just "5"."""
+    shown = amount_out(food, milli, size)
+    text = shown.short.removesuffix(f"{NBSP}left")
+    return f"about {text}" if shown.about else text
+
+
+def what_text(food: Food, milli: int, size: FoodSize | None) -> str:
+    """The amount and the ingredient, for summaries: "2 packets Toor dal", "200 g
+    Spinach", "5 Onion", "5 slices of Bread"."""
+    joiner = " "
+    if food.counted_as == "count":
+        joiner = " of " if food.count_word else NBSP  # "5 slices of Bread", "5 Onion"
+    return f"{short_text(food, milli, size)}{joiner}{food.name}"
+
+
 # --- Writing ----------------------------------------------------------------------------------
+
+
+def lot_amounts(milli: int, size: FoodSize | None) -> list[int]:
+    """How an amount is split into lots (api-0.2 section 3.5): one per whole packet, plus a
+    part packet; with no size, one lot."""
+    if size is None or size.amount_milli <= 0:
+        return [milli]
+    whole, rest = divmod(milli, size.amount_milli)
+    return [size.amount_milli] * whole + ([rest] if rest > 0 else [])
 
 
 class StockEdit:
@@ -221,6 +252,31 @@ class StockEdit:
             )
         self.kitchen.db.flush()
         return change
+
+
+def put_in(
+    kitchen: Kitchen,
+    edit: StockEdit,
+    food: Food,
+    place: Place,
+    amounts: list[int],
+    size: FoodSize | None,
+    use_by: date | None = None,
+) -> list[StockLot]:
+    """New lots of these amounts in `place`, recorded in `edit`."""
+    return [
+        edit.new(
+            StockLot(
+                household_id=kitchen.household_id,
+                food_id=food.id,
+                place_id=place.id,
+                amount_milli=milli,
+                size_id=size.id if size else None,
+                use_by=use_by,
+            )
+        )
+        for milli in amounts
+    ]
 
 
 def take(

@@ -10,7 +10,6 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
-from mealwright.amounts import NBSP
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
@@ -29,7 +28,10 @@ from mealwright.stock import (
     first_place,
     lots_of,
     ordered,
+    put_in,
+    short_text,
     take,
+    what_text,
 )
 
 router = APIRouter(tags=["pantry"], dependencies=[SameOrigin])
@@ -372,23 +374,6 @@ def _place(kitchen: Kitchen, place_id: int) -> Place:
     return place
 
 
-def _short(food: Food, milli: int, size: FoodSize | None) -> str:
-    """ "2 packets", "about ½ packet", "200 g", "5", "5 slices" for summaries. A count
-    food's "5 left" is only for the pantry list: a summary says just "5"."""
-    shown = amount_out(food, milli, size)
-    text = shown.short.removesuffix(f"{NBSP}left")
-    return f"about {text}" if shown.about else text
-
-
-def _what(food: Food, milli: int, size: FoodSize | None) -> str:
-    """The amount and the ingredient, for summaries: "2 packets Toor dal", "200 g
-    Spinach", "5 Onion", "5 slices of Bread"."""
-    joiner = " "
-    if food.counted_as == "count":
-        joiner = " of " if food.count_word else NBSP  # "5 slices of Bread", "5 Onion"
-    return f"{_short(food, milli, size)}{joiner}{food.name}"
-
-
 def _date(day: date) -> str:
     return f"{day.day} {day.strftime('%b')}"
 
@@ -429,18 +414,8 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
                 amounts.append(round(rest * resolved.size.amount_milli))
         else:
             amounts = [resolved.milli]
-        for milli in amounts:
-            edit.new(
-                StockLot(
-                    household_id=kitchen.household_id,
-                    food_id=food.id,
-                    place_id=place.id,
-                    amount_milli=milli,
-                    size_id=resolved.size.id if resolved.size else None,
-                    use_by=body.use_by,
-                )
-            )
-        what = _what(food, resolved.milli, resolved.size or usual_size(kitchen, food.id))
+        put_in(kitchen, edit, food, place, amounts, resolved.size, body.use_by)
+        what = what_text(food, resolved.milli, resolved.size or usual_size(kitchen, food.id))
         summary = f"Added {what} → {place.name}"
         return edit.record("added", summary, food.id), 0
 
@@ -484,7 +459,7 @@ def set_left(lot_id: int, body: SetLeft, kitchen: Here, response: Response) -> S
         edit = StockEdit(kitchen)
         before = lot.amount_milli
         edit.touch(lot).amount_milli = milli
-        summary = f"{food.name}: {_short(food, before, size)} → {_short(food, milli, size)}"
+        summary = f"{food.name}: {short_text(food, before, size)} → {short_text(food, milli, size)}"
         return edit.record("set_left", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)
@@ -507,7 +482,7 @@ def _use(
         kitchen, food.id
     )
     word = "Used" if kind == "used" else "Binned"
-    summary = f"{word} {_what(food, taken, size)}"
+    summary = f"{word} {what_text(food, taken, size)}"
     return edit.record(kind, summary, food.id), wanted - taken
 
 
@@ -653,7 +628,7 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
         edit = StockEdit(kitchen)
         short = take(kitchen, edit, lots, wanted, include_freezer=freezer)
         size = usual_size(kitchen, food.id)
-        summary = f"Used {_what(food, wanted - short, size)}"
+        summary = f"Used {what_text(food, wanted - short, size)}"
         return edit.record("used", summary, food.id), short
 
     return stock_write(kitchen, response, apply)
@@ -699,7 +674,7 @@ def food_left(food_id: int, body: FoodLeft, kitchen: Here, response: Response) -
                 status.HTTP_409_CONFLICT, "no_change", "That's how much there is already."
             )
         size = usual_size(kitchen, food.id)
-        summary = f"{food.name}: {_short(food, total, size)} → {_short(food, target, size)}"
+        summary = f"{food.name}: {short_text(food, total, size)} → {short_text(food, target, size)}"
         return edit.record("set_left", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)

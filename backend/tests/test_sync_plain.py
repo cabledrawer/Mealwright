@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import API, action, changes, counter, db, food, main_id, new_id, ok, send
 
-from mealwright.models import ListItem, ListTick, SyncAction, utcnow
+from mealwright.models import SyncAction
 
 LIST_KEYS = {"id", "name", "main", "to_buy", "ticked"}
 ITEM_KEYS = {
@@ -190,12 +190,7 @@ def test_sy61_clear_ticked(kitchen: TestClient) -> None:
     milk = food(kitchen, "Milk", counted_as="volume")
     item = new_id()
     send(kitchen, action("add", list_id=main, item_id=item, food_id=milk["id"], amount=1000))
-    with db(kitchen) as session:  # ticked (the tick action comes in the next commit)
-        row = session.get(ListItem, item)
-        row.ticked_at = utcnow()
-        row.ticked_by_name = "Tess"
-        session.add(ListTick(household_id=1, id=new_id(), item_id=item, login_name="Tess"))
-        session.commit()
+    send(kitchen, action("tick", item_id=item))
 
     def shape(answer: Any) -> None:
         assert set(answer) == {"cleared", "change"} and answer["cleared"] == [item]
