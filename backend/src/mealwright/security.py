@@ -4,7 +4,8 @@ The Content Security Policy lets pages load files only from the household's own
 server, so no CDN, tracker or injected script can be added, even by accident.
 The other headers stop the app being framed by other sites, stop browsers guessing
 file types, send no referrer to other sites (e.g. when following a recipe's source
-link), and switch off browser features the app never uses, such as location.
+link), and switch off browser features the app never uses, such as location. In https
+mode (the default) browsers are also told to use only https here from now on (HSTS).
 """
 
 from collections.abc import Iterable
@@ -58,7 +59,18 @@ PERMISSIONS_POLICY = ", ".join(
 )
 
 
-def security_headers(script_hashes: Iterable[str] = ()) -> list[tuple[bytes, bytes]]:
+# "Use only https for this address from now on", for a year (cabledrawer 19 Oct). No
+# includeSubDomains and no preload, so it can't affect the household's other sites on
+# the same domain. Never sent in plain-http mode (MEALWRIGHT_ALLOW_PLAIN_HTTP): a browser
+# that picked it up there (say through an https address in front) would then refuse the
+# http:// address the admin chose. Browsers ignore it on a plain http:// response
+# (RFC 6797 section 8.1), so in https mode it takes effect through the proxy's https.
+HSTS = "max-age=31536000"
+
+
+def security_headers(
+    script_hashes: Iterable[str] = (), https: bool = True
+) -> list[tuple[bytes, bytes]]:
     headers = {
         "content-security-policy": content_security_policy(script_hashes),
         "permissions-policy": PERMISSIONS_POLICY,
@@ -68,6 +80,8 @@ def security_headers(script_hashes: Iterable[str] = ()) -> list[tuple[bytes, byt
         "cross-origin-opener-policy": "same-origin",
         "cross-origin-resource-policy": "same-origin",
     }
+    if https:
+        headers["strict-transport-security"] = HSTS
     return [(name.encode(), value.encode()) for name, value in headers.items()]
 
 
@@ -77,10 +91,11 @@ class SecurityHeadersMiddleware:
     A plain ASGI middleware, so streamed responses (live updates in 0.3) aren't buffered.
     """
 
-    def __init__(self, app: ASGIApp, script_hashes: Iterable[str] = ()) -> None:
+    def __init__(self, app: ASGIApp, script_hashes: Iterable[str] = (), https: bool = True) -> None:
         self.app = app
-        self.headers = security_headers(script_hashes)
-        self.names = {name for name, _ in self.headers}
+        self.headers = security_headers(script_hashes, https)
+        # Also drops any HSTS header from further in, so plain-http mode never sends one.
+        self.names = {name for name, _ in self.headers} | {b"strict-transport-security"}
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":

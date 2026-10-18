@@ -1,11 +1,15 @@
 """Browser security rules (spec section 7)."""
 
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.types import Receive, Scope, Send
 
-from mealwright.security import content_security_policy
+from mealwright.config import Settings
+from mealwright.main import create_app
+from mealwright.security import SecurityHeadersMiddleware, content_security_policy
 
 
 def _policy(header: str) -> dict[str, list[str]]:
@@ -70,3 +74,47 @@ def test_every_api_response_is_no_store(client: TestClient, path: str) -> None:
 
 def test_no_store_is_only_for_the_api(client: TestClient) -> None:
     assert client.get("/apix").headers.get("cache-control") != "no-store"
+
+
+# --- HSTS (cabledrawer 19 Oct) ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/nope", "/no-such-page"])
+def test_https_mode_tells_browsers_to_use_only_https(client: TestClient, path: str) -> None:
+    response = client.get(path)
+    # One year; nothing that reaches the household's other sites, never the preload list.
+    assert response.headers.get_list("strict-transport-security") == ["max-age=31536000"]
+
+
+def test_hsts_is_on_a_signed_in_answer_too(client: TestClient) -> None:
+    admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+    response = client.post("/api/v1/setup", json=admin)
+    assert response.status_code == 201
+    assert response.headers["strict-transport-security"] == "max-age=31536000"
+    assert client.get("/api/v1/me").headers["strict-transport-security"] == "max-age=31536000"
+
+
+def test_plain_http_mode_never_sends_hsts(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path / "data", run_jobs=False, allow_plain_http=True)
+    with TestClient(create_app(settings), base_url="http://192.168.1.20:8080") as lan:
+        for path in ("/api/v1/version", "/api/v1/nope", "/no-such-page"):
+            response = lan.get(path)
+            assert "strict-transport-security" not in response.headers
+            assert "content-security-policy" in response.headers  # the rest still sent
+
+
+def test_plain_http_mode_drops_an_hsts_header_from_further_in() -> None:
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"strict-transport-security", b"max-age=63072000; preload")],
+            }
+        )
+        await send({"type": "http.response.body", "body": b""})
+
+    plain = TestClient(SecurityHeadersMiddleware(app, https=False))
+    assert "strict-transport-security" not in plain.get("/").headers
+    secure = TestClient(SecurityHeadersMiddleware(app, https=True))
+    assert secure.get("/").headers.get_list("strict-transport-security") == ["max-age=31536000"]

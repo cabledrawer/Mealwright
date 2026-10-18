@@ -78,9 +78,12 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     # No body bigger than the biggest real one, checked before anything reads it.
     app.add_middleware(BodyLimitMiddleware)
     # Strict browser rules on every response (spec section 7). The web app's own inline
-    # start-up scripts are allowed by their exact fingerprint, nothing else.
+    # start-up scripts are allowed by their exact fingerprint, nothing else. HSTS only in
+    # https mode (cabledrawer 19 Oct).
     app.add_middleware(
-        SecurityHeadersMiddleware, script_hashes=inline_script_hashes(settings.frontend_dir)
+        SecurityHeadersMiddleware,
+        script_hashes=inline_script_hashes(settings.frontend_dir),
+        https=not settings.allow_plain_http,
     )
     # Outermost: the visitor's real address and scheme from the reverse proxy's
     # X-Forwarded-For/-Proto headers, believed only from MEALWRIGHT_TRUSTED_PROXIES (off
