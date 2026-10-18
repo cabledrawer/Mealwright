@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deviceId } from '$lib/offline/device';
+import { deviceId, startDevice } from '$lib/offline/device';
 import { heldChanges, takeTurnedAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, loadCopy, readQueue, saveCopy } from '$lib/offline/store';
@@ -260,6 +260,24 @@ describe('opening the app (11.4)', () => {
     expect(await readQueue()).toEqual([]);
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).not.toBe(DEVICE);
+  });
+
+  it('a phone database that can’t be read, and the login it was written for: carries on, wiping and writing nothing (cabledrawer 18 Oct)', async () => {
+    await wrensPhone(1);
+    await startDevice({ id: 2, name: 'Wren', username: 'wren', role: 'member' });
+    const requests = fakeApi(signedInAs(2, 'Wren'));
+    const mend = breakPhone();
+    try {
+      await open();
+    } finally {
+      mend();
+    }
+    expect(session.me).toMatchObject({ id: 2 });
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /setup', 'GET /me']);
+    expect(takeTurnedAway()).toBe('');
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(1);
   });
 
   it('the server won’t end Arlo’s session (DELETE fails, GET /me works): one trip to the sign-in page, no bouncing back', async () => {

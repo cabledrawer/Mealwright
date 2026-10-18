@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { deviceId, lastSignedIn, loadDeviceId, OLD_DEVICE_KEY, startDevice } from './device';
+import {
+  deviceId,
+  lastSignedIn,
+  loadDeviceId,
+  LOGIN_KEY,
+  OLD_DEVICE_KEY,
+  rememberedLogin,
+  startDevice
+} from './device';
 import { heldChanges, UNREADABLE, type Held } from './held';
 import { getMeta, openPhone, phoneDatabaseName, setMeta } from './phone';
 import { CACHE_PREFIX } from './rules';
@@ -39,6 +47,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     localStorage.setItem(SIGN_OUT_PENDING_KEY, '1');
     localStorage.setItem('mealwright.household-from-browser', 'sent');
     localStorage.setItem(OLD_DEVICE_KEY, before);
+    localStorage.setItem(LOGIN_KEY, JSON.stringify({ id: 2, username: 'wren' }));
     sessionStorage.setItem('anything', 'x');
 
     expect(await wipeDevice()).toBe(true);
@@ -59,8 +68,9 @@ describe('wiping this browser (sync-protocol section 12)', () => {
       'mealwright.theme',
       'mealwright.wipe-pending'
     ]);
-    // The old place of the device ID is empty too (cabledrawer 18 Oct).
+    // The old place of the device ID is empty too (cabledrawer 18 Oct), and whose it was.
     expect(localStorage.getItem(OLD_DEVICE_KEY)).toBeNull();
+    expect(rememberedLogin()).toBeNull();
     expect(shoppingSync.queue).toEqual([]);
     expect(shoppingSync.copy).toBeNull();
     // The next sign-in makes a new device ID.
@@ -97,6 +107,44 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('the login it was last written for carries on: kept, and nothing written (cabledrawer 18 Oct)', async () => {
+    await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
+    expect(rememberedLogin()).toEqual({ id: 2, username: 'wren' });
+    await setMeta({ device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const mend = breakPhone();
+    expect(await wipeIfAnotherLogin({ id: 2 })).toBe('kept');
+    await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
+    // Anyone else still can't.
+    expect(await wipeIfAnotherLogin(ARLO)).toBe(UNREADABLE);
+    mend();
+    expect(await databaseThere()).toBe(true);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('“Carry on anyway” wipes it (cabledrawer 18 Oct)', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const mend = breakPhone();
+    try {
+      expect(await wipeIfAnotherLogin(ARLO, 'anyway')).toBe('wiped');
+    } finally {
+      mend();
+    }
+    expect(await databaseThere()).toBe(false);
+  });
+
+  it('“Carry on anyway” once it can be read again: the usual warning, with Wren’s changes', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const held = await wipeIfAnotherLogin(ARLO, 'anyway');
+    expect(held).toMatchObject({ who: { id: 2 }, count: 1, ids: ['a'] });
+    expect(await databaseThere()).toBe(true);
+    // And for the login it belongs to, kept.
+    expect(await wipeIfAnotherLogin({ id: 2 }, 'anyway')).toBe('kept');
   });
 
   it('starting the app writes nothing over `meta` it couldn’t read', async () => {

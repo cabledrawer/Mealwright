@@ -111,7 +111,7 @@ export const loseOnSignOutText = (n: number) =>
 export const STILL_CANT_REACH = "Still can't reach your server.";
 
 /** The same username as `who`, as the server compares them (trimmed, any case). */
-export function sameUsername(typed: string, who: SignedIn): boolean {
+export function sameUsername(typed: string, who: Pick<SignedIn, 'username'>): boolean {
   return typed.trim().toLowerCase() === who.username.trim().toLowerCase();
 }
 

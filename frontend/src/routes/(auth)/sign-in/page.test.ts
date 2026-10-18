@@ -19,6 +19,8 @@ vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => ({ page: { url: new URL('http://mealwright.test/sign-in') } }));
 
 const DEVICE = '11111111-2222-4333-8444-555555555555';
+const CANT_TEXT =
+  "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.";
 const phoneThere = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
 const WREN = { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' };
@@ -330,8 +332,10 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       turnAway('arlo');
       show();
       await expect
-        .element(page.getByRole('status'))
-        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+        .element(
+          page.getByText("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.")
+        )
+        .toHaveAttribute('role', 'status');
       fakeApi({ 'DELETE /session': [204, null] });
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect
@@ -430,50 +434,159 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(page.getByRole('status').elements()).toEqual([]);
   });
 
-  it('a phone database that can’t be read: says so, sends nothing, and wipes nothing', async () => {
-    await wrensPhone(2);
-    const mend = breakPhone();
-    show();
-    await expect
-      .element(page.getByRole('status'))
-      .toHaveTextContent(
-        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
-      );
-    await fillIn('arlo');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
-    // It looked again on Sign in, still couldn't, and so let nobody in over it.
-    expect(requests).toEqual([]);
-    expect(navigation.goto).not.toHaveBeenCalled();
-    await expect
-      .element(page.getByRole('status'))
-      .toHaveTextContent(
-        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
-      );
-    mend();
-    expect(await readQueue()).toHaveLength(2);
-    expect(await getMeta('login_id')).toBe(2);
-    expect(await getMeta('device_id')).toBe(DEVICE);
+  describe('a phone database that can’t be read (cabledrawer 18 Oct)', () => {
+    const CANT_CHECK = CANT_TEXT;
+    const ANYWAY = 'Carry on anyway, anything waiting on this phone may be lost';
 
-    // Readable again: Sign in looks again, and Arlo gets the usual warning.
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect
-      .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
-    expect(requests).toEqual([]);
-  });
+    it('another login: says so on Sign in, with Try again and Carry on anyway; sends and wipes nothing', async () => {
+      await wrensPhone(2);
+      const mend = breakPhone();
+      show();
+      await expect.element(page.getByRole('status')).toHaveTextContent(CANT_CHECK);
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      // A press always says what happened: the warning, read out.
+      await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_CHECK);
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: ANYWAY })).toBeVisible();
+      // The line it replaces isn't there twice.
+      expect(page.getByText(CANT_CHECK).elements()).toHaveLength(1);
+      expect(requests).toEqual([]);
+      expect(navigation.goto).not.toHaveBeenCalled();
 
-  it('on a computer it says “this computer” couldn’t check', async () => {
-    await wrensPhone(1);
-    await page.viewport(1280, 800);
-    const mend = breakPhone();
-    show();
-    await expect
-      .element(page.getByRole('status'))
-      .toHaveTextContent(
-        "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
-      );
-    mend();
+      // Try again, still unreadable: the warning again, read out again.
+      const before = page.getByRole('alert').element();
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await vi.waitFor(() => expect(page.getByRole('alert').element()).not.toBe(before));
+      await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_CHECK);
+      expect(requests).toEqual([]);
+      mend();
+      expect(await readQueue()).toHaveLength(2);
+      expect(await getMeta('login_id')).toBe(2);
+      expect(await getMeta('device_id')).toBe(DEVICE);
+
+      // Readable again: Try again looks again, and Arlo gets the usual warning.
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent(
+          "Wren's 2 changes haven't been sent yet. If you carry on, they're lost."
+        );
+      expect(requests).toEqual([]);
+    });
+
+    it('the same login carries on: signs in, keeping and writing nothing new', async () => {
+      await wrensPhone(2);
+      await startDevice(WREN);
+      const mend = breakPhone();
+      show();
+      await fillIn('Wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+      mend();
+      expect(await readQueue()).toHaveLength(2);
+      expect(await getMeta('login_id')).toBe(2);
+      expect(await getMeta('device_id')).toBe(DEVICE);
+    });
+
+    it('Carry on anyway: signs in, then wipes this phone, as at signing out', async () => {
+      await wrensPhone(2);
+      const mend = breakPhone();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('button', { name: ANYWAY }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      mend();
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+      expect(await phoneThere()).toBe(false);
+    });
+
+    it('Carry on anyway with a wrong password wipes nothing', async () => {
+      await wrensPhone(1);
+      requests = fakeApi({
+        'POST /session': [401, { detail: 'That username and password don’t match.' }]
+      });
+      const mend = breakPhone();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('button', { name: ANYWAY }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('That username and password don’t match.');
+      mend();
+      expect(await readQueue()).toHaveLength(1);
+      expect(await getMeta('login_id')).toBe(2);
+    });
+
+    it('Carry on anyway, but readable by then and Wren’s changes there: the usual warning, nothing wiped', async () => {
+      await wrensPhone(2);
+      const mend = breakPhone();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.element(page.getByRole('button', { name: ANYWAY })).toBeVisible();
+      mend();
+      await page.getByRole('button', { name: ANYWAY }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent(
+          "Wren's 2 changes haven't been sent yet. If you carry on, they're lost."
+        );
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'POST /session',
+        'DELETE /session'
+      ]);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(await readQueue()).toHaveLength(2);
+    });
+
+    it('Carry on anyway, and the phone database then can’t be deleted: signed out again, and it says so', async () => {
+      await wrensPhone(1);
+      const mendRead = breakPhone();
+      const mendDelete = failPhoneDelete();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('button', { name: ANYWAY }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent(
+          "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done."
+        );
+      mendRead();
+      mendDelete();
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'POST /session',
+        'DELETE /session'
+      ]);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(wipePending()).toBe(true);
+    });
+
+    it('on a computer it says “this computer”', async () => {
+      await wrensPhone(1);
+      await page.viewport(1280, 800);
+      const mend = breakPhone();
+      show();
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent(
+          "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
+        );
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect
+        .element(
+          page.getByRole('button', {
+            name: 'Carry on anyway, anything waiting on this computer may be lost'
+          })
+        )
+        .toBeVisible();
+      mend();
+    });
   });
 
   describe('couldn’t finish signing out (the server answered, but kept the session)', () => {
@@ -493,11 +606,12 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       signOutState.unfinished = true;
       turnAway('arlo');
       show();
-      await expect.element(page.getByRole('alert')).toHaveTextContent(UNFINISHED);
+      // On opening the page: a status (an alert there on load may not be read out).
+      await expect.element(page.getByText(UNFINISHED)).toHaveAttribute('role', 'status');
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
-      // Still refused: the same one line, not another.
-      expect(page.getByRole('alert').elements()).toHaveLength(1);
+      // Still refused: the same one line, not another, read out this time.
+      expect(page.getByText(UNFINISHED).elements()).toHaveLength(1);
       await expect.element(page.getByRole('alert')).toHaveTextContent(UNFINISHED);
       refuse = false;
       await page.getByRole('button', { name: 'Try again' }).click();
@@ -548,7 +662,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       signOutState.unfinished = true;
       show();
       await expect
-        .element(page.getByRole('alert'))
+        .element(page.getByRole('status'))
         .toHaveTextContent("Couldn't finish signing out on this computer.");
     });
   });

@@ -16,7 +16,7 @@
 // after its session ran out keeps the copy, the waiting changes and the device ID (11.5).
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { forgetDeviceId, storedLoginId } from './device';
+import { forgetDeviceId, rememberedLogin, storedLoginId } from './device';
 import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';
 import { tellOtherTabs } from './otherTabs';
 import { deletePhone, withQueueLock } from './phone';
@@ -113,26 +113,39 @@ export async function wipeNow(): Promise<boolean> {
  * as many (another tab may have sent one and queued a new one).
  *
  * UNREADABLE when the phone database couldn't be read: then nothing is wiped and nothing is
- * written, as whether anyone's changes are waiting isn't known. 'wipe-failed' when the wipe
+ * written, as whether anyone's changes are waiting isn't known. Except: the login it was last
+ * written for (rememberedLogin) carries on ('kept', nothing written), and `losing` 'anyway'
+ * (the warning's "Carry on anyway, anything waiting on this phone may be lost") wipes. 'wipe-failed' when the wipe
  * couldn't delete the phone database: then nobody may be let in (wipePending.svelte.ts).
  */
 export async function wipeIfAnotherLogin(
   me: { id: number },
-  losing: Held | null = null
+  losing: Held | 'anyway' | null = null
 ): Promise<'kept' | 'wiped' | 'wipe-failed' | Unreadable | Held> {
   // An earlier wipe couldn't delete the phone database: it was chosen already, so it's
   // finished first, whoever signs in. 'wipe-failed' while it still can't be.
   if (wipePending()) return (await wipeDevice()) ? 'wiped' : 'wipe-failed';
   const stored = await storedLoginId();
-  if (stored === UNREADABLE) return UNREADABLE;
-  if (stored === null || stored === me.id) return 'kept';
+  if (stored === UNREADABLE) {
+    // The same login carries on: it never wipes anything, so nothing is at risk (cabledrawer
+    // 18 Oct). Nothing is written either (startDevice).
+    if (rememberedLogin()?.id === me.id) return 'kept';
+    // Anyone else only through the warning's "Carry on anyway" ('anyway').
+    if (losing !== 'anyway') return UNREADABLE;
+  } else if (stored === null || stored === me.id) return 'kept';
   // The read and the wipe hold the queue lock together: a change another tab adds meanwhile
   // waits, and lands after the wipe, never unseen in between.
   return withQueueLock(async () => {
+    const now = await storedLoginId();
+    if (now !== UNREADABLE && (now === null || now === me.id)) return 'kept' as const;
     const held = await heldChanges();
-    if (held === UNREADABLE) return UNREADABLE;
-    if (held && held.who.id !== me.id) {
-      const shown = new Set(losing?.who.id === held.who.id ? losing.ids : []);
+    // "Carry on anyway" covers only a phone database that still can't be read. Readable
+    // again, it's the usual warning, with whose changes and how many.
+    if (held === UNREADABLE && losing !== 'anyway') return UNREADABLE;
+    if (held && held !== UNREADABLE && held.who.id !== me.id) {
+      const shown = new Set(
+        losing && losing !== 'anyway' && losing.who.id === held.who.id ? losing.ids : []
+      );
       if (!held.ids.every((id) => shown.has(id))) return held;
     }
     return (await wipeNow()) ? ('wiped' as const) : ('wipe-failed' as const);

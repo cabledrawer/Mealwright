@@ -4,8 +4,10 @@
   // else is warned first, and never sends them. A different login always starts clean
   // (cabledrawer 18 Oct): once its sign-in has succeeded, and only then, the phone's copy is
   // wiped as at signing out, and the next start makes a new device ID. A wrong password
-  // wipes nothing. A phone database that can't be read wipes nothing either, and lets nobody
-  // in over it: the page says it couldn't check. When the server wouldn't end a session the
+  // wipes nothing. A phone database that can't be read wipes nothing either: the login it was
+  // last written for carries on (it never wipes anything, so nothing is at risk); anyone else
+  // is warned that it couldn't check, with "Try again" and "Carry on anyway, anything waiting
+  // on this phone may be lost" (cabledrawer 18 Oct). When the server wouldn't end a session the
   // app was signing out, the page says so, with "Try again" (it stays here meanwhile). And
   // when a wipe couldn't delete the phone database, nobody can sign in until it has: the
   // page says so, with "Try again", and Sign in tries the wipe again first.
@@ -17,6 +19,7 @@
   import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import TextField from '$lib/components/TextField.svelte';
+  import { rememberedLogin } from '$lib/offline/device';
   import {
     cantCheckText,
     heldChanges,
@@ -61,6 +64,10 @@
   let warning = $state(false);
   /** "Carry on and lose them" was chosen for this username. */
   let losing = false;
+  /** The phone couldn't check, and Sign in was pressed: the warning with its two choices. */
+  let cantWarning = $state(false);
+  /** "Carry on anyway, anything waiting on this phone may be lost" was chosen. */
+  let anyway = false;
 
   $effect(() => {
     void heldChanges().then((found) => (held = found));
@@ -111,24 +118,55 @@
   // Typing another username takes the warning away until Sign in is pressed again.
   $effect(() => {
     void username;
-    untrack(() => (warning = false));
+    untrack(() => {
+      warning = false;
+      cantWarning = false;
+    });
     losing = false;
+    anyway = false;
   });
 
-  async function submit(event: SubmitEvent) {
+  function submit(event: SubmitEvent) {
     event.preventDefault();
+    void go();
+  }
+
+  /** Sign in, as pressed. Every press shows (and reads out) what happened. */
+  async function go() {
     problem = '';
     losing = false;
+    anyway = false;
     // Nobody signs in until an unfinished wipe has deleted the phone database.
     if (wipeState.failed && !(await wipeAgain())) return;
     // Read again: another tab may have queued changes since this page opened.
     held = await heldChanges();
-    // Couldn't check: nothing is sent, and the page keeps saying so.
-    if (held === UNREADABLE) return;
+    if (held === UNREADABLE) {
+      // Couldn't check. The login the phone database is for carries on: it never wipes
+      // anything. Anyone else is warned first, and nothing is sent yet.
+      const known = rememberedLogin();
+      if (known && sameUsername(username, known)) await signInNow();
+      else await warnCantCheck();
+      return;
+    }
+    cantWarning = false;
     if (someoneElse) {
       warning = true;
       return;
     }
+    await signInNow();
+  }
+
+  /** Show the couldn't-check warning, put back as new so it's read out again. */
+  async function warnCantCheck() {
+    cantWarning = false;
+    await tick();
+    cantWarning = true;
+  }
+
+  /** Nothing is wiped yet: only once this sign-in has succeeded (signInNow). */
+  async function carryOnAnyway() {
+    anyway = true;
+    cantWarning = false;
     await signInNow();
   }
 
@@ -150,13 +188,20 @@
 
   /** "Couldn't finish signing out": ask the server again. */
   let ending = $state(false);
+  /** Asks the page made that the server refused: the line is read out again each time. */
+  let endTries = $state(0);
   async function endAgain() {
     ending = true;
     try {
-      await endSession();
+      await endHere();
     } finally {
       ending = false;
     }
+  }
+
+  /** End the session; when the server won't, say so again. */
+  async function endHere() {
+    if (!(await endSession())) endTries++;
   }
 
   async function signInNow() {
@@ -166,11 +211,12 @@
       // Another login than the one this phone holds starts clean, as at sign-out, but never
       // over waiting changes the warning hasn't shown (read again just now, as another tab
       // may have queued some since).
-      const result = await wipeIfAnotherLogin(me, losing ? waiting : null);
+      const result = await wipeIfAnotherLogin(me, anyway ? 'anyway' : losing ? waiting : null);
+      losing = false;
+      anyway = false;
       if (result === 'wipe-failed') {
         // Nobody is let in until the phone database is deleted: end this session again.
-        await endSession();
-        losing = false;
+        await endHere();
         warning = false;
         held = null;
         wipeTries++;
@@ -179,10 +225,10 @@
       if (result !== 'kept' && result !== 'wiped') {
         // Another login after all, or the phone couldn't check: end that session again before
         // anything is sent, and warn.
-        await endSession();
+        await endHere();
         held = result;
-        losing = false;
         warning = result !== UNREADABLE;
+        if (result === UNREADABLE) await warnCantCheck();
         return;
       }
       if (result === 'wiped') held = null;
@@ -216,7 +262,10 @@
 
 {#if signOutState.unfinished}
   <div class="unfinished">
-    <p role="alert">{unfinishedText(device)}</p>
+    {#key endTries}
+      <!-- On opening the page a status; after a press the server refused, an alert. -->
+      <p role={endTries > 0 ? 'alert' : 'status'}>{unfinishedText(device)}</p>
+    {/key}
     <button type="button" class="again" disabled={ending} onclick={() => void endAgain()}>
       {ending ? 'Trying…' : 'Try again'}
     </button>
@@ -235,7 +284,7 @@
   </div>
 {/if}
 
-{#if unreadable}
+{#if unreadable && !cantWarning}
   <p class="cant-check" role="status">{cantCheckText(device)}</p>
 {:else if waiting}
   <p class="held" role="status">{heldText}</p>
@@ -269,6 +318,14 @@
         >
         <button type="button" class="lose" disabled={busy} onclick={() => void carryOn()}>
           Carry on and lose {waiting.count === 1 ? 'it' : 'them'}
+        </button>
+      </div>
+    {:else if cantWarning && unreadable}
+      <div class="warning">
+        <p role="alert">{cantCheckText(device)}</p>
+        <Button disabled={busy} onclick={() => void go()}>Try again</Button>
+        <button type="button" class="lose" disabled={busy} onclick={() => void carryOnAnyway()}>
+          Carry on anyway, anything waiting on this {device} may be lost
         </button>
       </div>
     {:else}

@@ -83,6 +83,40 @@ export interface SignedIn {
 }
 
 /**
+ * Whose the phone database is, kept OUTSIDE it as well (localStorage): when it can't be read,
+ * the same login can still carry on, since it never wipes anything (cabledrawer 18 Oct, sync
+ * protocol 11.5). Only the login's number and username, and only on this device; a wipe
+ * removes it with everything else.
+ */
+export const LOGIN_KEY = 'mealwright.login';
+
+export interface Remembered {
+  id: number;
+  username: string;
+}
+
+/** The login the phone database was last written for, or null when none is known. */
+export function rememberedLogin(): Remembered | null {
+  try {
+    const found: unknown = JSON.parse(localStorage.getItem(LOGIN_KEY) ?? 'null');
+    if (typeof found !== 'object' || found === null) return null;
+    const { id, username } = found as Record<string, unknown>;
+    return typeof id === 'number' && typeof username === 'string' ? { id, username } : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(me: Remembered | null): void {
+  try {
+    if (me) localStorage.setItem(LOGIN_KEY, JSON.stringify({ id: me.id, username: me.username }));
+    else localStorage.removeItem(LOGIN_KEY);
+  } catch {
+    // Storage blocked: not known, so an unreadable phone database warns as for anyone.
+  }
+}
+
+/**
  * On starting the app signed in: load the device ID and note who is signed in.
  *
  * Never over another login's device (11.8): the callers wipe that first, or turn this login
@@ -95,6 +129,8 @@ export async function startDevice(me: SignedIn): Promise<void> {
   const stored = await storedLoginId();
   if (stored === UNREADABLE || (stored !== null && stored !== me.id)) return;
   await loadDeviceId();
+  // Forgotten while `meta` is written, so the two never name different logins.
+  remember(null);
   try {
     await setMeta({
       login_id: me.id,
@@ -103,6 +139,7 @@ export async function startDevice(me: SignedIn): Promise<void> {
       role: me.role,
       protocol: 1
     });
+    remember(me);
   } catch {
     // No IndexedDB here: the app still works while connected.
   }
