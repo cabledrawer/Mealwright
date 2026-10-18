@@ -8,8 +8,7 @@ import {
 } from "./a11y.ts";
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
-// desktop. Ticking, put away, "Different pack?" and "Did you buy 2?" need the server's
-// action endpoint (PR 3); their browser tests join this file when that is merged.
+// desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
 
 const key = () => ({ "idempotency-key": crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, "")}${Date.now()}`;
@@ -186,7 +185,9 @@ test("a typed name that is not an ingredient asks How do you count it?, with pac
     };
   expect((await read()).counted_as).toBe("weight");
   // The sizes are a separate online step after the item is added.
-  await expect.poll(async () => (await read()).sizes.map((s) => s.name)).toEqual(["jar"]);
+  await expect
+    .poll(async () => (await read()).sizes.map((s) => s.name))
+    .toEqual(["jar"]);
 });
 
 test("adding something already on the list says so instead of adding it twice", async ({
@@ -296,4 +297,265 @@ test("removing a line from the list keeps keyboard focus in the list", async ({
   ).toHaveCount(0);
   const active = await page.evaluate(() => document.activeElement?.tagName);
   expect(active).not.toBe("BODY");
+});
+
+// --- Ticking, put away, Different pack?, "Did you buy 2?", notes (PR 3's actions) ------------------
+
+async function place(page: Page, name: string): Promise<number> {
+  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+    id: number;
+    name: string;
+  }[];
+  return places.find((p) => p.name === name)!.id;
+}
+
+/** An ingredient by weight, usual place Fridge, with a 200 g pack, 2 packs on the list. */
+async function packs(page: Page, name: string) {
+  const { food } = await call(page, "POST", "/foods", {
+    name,
+    counted_as: "weight",
+    place_id: await place(page, "Fridge"),
+  });
+  await call(page, "POST", `/foods/${food.id}/sizes`, {
+    name: "pack",
+    amount: 200,
+  });
+  const item = crypto.randomUUID();
+  await act(page, {
+    kind: "add",
+    list_id: await mainList(page),
+    item_id: item,
+    food_id: food.id,
+    amount: 400,
+  });
+  return { foodId: food.id as number, item };
+}
+
+let myLogin = 0;
+/** Send an action as another device of the same login (the way a second phone would). */
+async function act(
+  page: Page,
+  fields: Record<string, unknown>,
+  device = "11111111-2222-4333-8444-555555555555",
+) {
+  if (!myLogin)
+    myLogin = (await (await page.request.get("/api/v1/me")).json()).id;
+  const response = await page.request.post("/api/v1/shopping/actions", {
+    data: {
+      protocol: 1,
+      device_id: device,
+      login_id: myLogin,
+      since: 0,
+      sent_at: new Date().toISOString(),
+      actions: [
+        {
+          id: crypto.randomUUID(),
+          made_at: new Date().toISOString(),
+          seen: 0,
+          ...fields,
+        },
+      ],
+    },
+  });
+  expect(response.ok(), await response.text()).toBe(true);
+  return (await response.json()).results[0];
+}
+
+/** Answer every open "Did you buy 2?" left by other tests, so a test sees only its own card. */
+async function settleCards(page: Page) {
+  const copy = await (
+    await page.request.get("/api/v1/shopping/changes?since=0")
+  ).json();
+  for (const q of copy.questions.filter((x: { open: boolean }) => x.open)) {
+    await act(page, {
+      kind: "answer_double_tick",
+      question_id: q.id,
+      answer: "two",
+    });
+  }
+}
+
+/** Where a food is in the pantry: place name → grams. */
+async function stockOf(
+  page: Page,
+  foodId: number,
+): Promise<Record<string, number>> {
+  const pantry = await (await page.request.get("/api/v1/pantry")).json();
+  const out: Record<string, number> = {};
+  for (const p of pantry.places)
+    for (const g of p.groups)
+      if (g.food.id === foodId) out[p.name] = g.stock.amount;
+  return out;
+}
+
+test("ticking puts the item into the pantry, and Undo takes it out", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone toast");
+  const name = `Tick ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  const toast = page
+    .getByRole("status")
+    .filter({ hasText: `${name} → Fridge` });
+  await expect(toast).toBeVisible();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({});
+  await expect(
+    page.getByRole("checkbox", { name: `Tick ${name}` }),
+  ).not.toBeChecked();
+});
+
+test("the toast's Change moves it to another place", async ({ page }) => {
+  test.skip(!isPhone(page), "the phone toast");
+  const name = `Change ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page
+    .getByRole("status")
+    .getByRole("button", { name: "Change" })
+    .click();
+  await page.getByRole("radio", { name: "Freezer" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Freezer: 400 });
+});
+
+test("desktop: the Put away panel moves the last ticked item, and Undo last tick", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the desktop panel");
+  const name = `Panel ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Where" }).selectOption("Freezer");
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Freezer: 400 });
+  await page.getByRole("button", { name: "Undo last tick" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({});
+});
+
+test("unticking takes it back out of the pantry", async ({ page }) => {
+  const name = `Untick ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await page.getByRole("checkbox", { name: `Untick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({});
+});
+
+test("Different pack? changes what the pantry got, and Undo puts it back", async ({
+  page,
+}) => {
+  const name = `Pack ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await row.getByRole("button", { name: "Different pack?" }).click();
+  await row.getByRole("radio", { name: "Other…" }).click();
+  await row.getByRole("textbox", { name: "Size of one" }).fill("1");
+  await row.getByRole("combobox", { name: "Unit" }).selectOption("kg");
+  await expect(row.getByText("Pantry gets 1 pack · 1 kg.")).toBeVisible();
+  await row.getByRole("button", { name: "Done" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 1000 });
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+});
+
+test("Clear ticked takes the ticked items off the list, and Undo brings them back", async ({
+  page,
+}) => {
+  const name = `Clear ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await page.getByRole("button", { name: "Clear ticked" }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("two phones tick the same item: the card asks Did you buy 2?, and Yes keeps both", async ({
+  page,
+}) => {
+  const name = `Twice ${tag()}`;
+  await settleCards(page);
+  const { foodId, item } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  // The other phone ticks it too (it hadn't seen the first tick).
+  await act(
+    page,
+    { kind: "tick", item_id: item },
+    "99999999-8888-4777-8666-555555555555",
+  );
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 800 });
+  await page.reload();
+  const card = page.getByRole("region", { name: "Did you buy 2?" }).first();
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("ticked on two phones");
+  await card.getByRole("button", { name: "Yes, 2" }).click();
+  await expect(card).toHaveCount(0);
+  expect(await stockOf(page, foodId)).toEqual({ Fridge: 800 });
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click(); // brings the card back
+  await expect(card).toBeVisible();
+});
+
+test("two phones tick the same item: Just 1 takes the extra back out", async ({
+  page,
+}) => {
+  const name = `Once ${tag()}`;
+  await settleCards(page);
+  const { foodId, item } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await act(
+    page,
+    { kind: "tick", item_id: item },
+    "99999999-8888-4777-8666-555555555555",
+  );
+  await page.reload();
+  await page
+    .getByRole("region", { name: "Did you buy 2?" })
+    .getByRole("button", { name: "Just 1" })
+    .click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+});
+
+test("a quiet note can be dismissed", async ({ page }) => {
+  const name = `Note ${tag()}`;
+  const { foodId, item } = await packs(page, name);
+  // The other phone adds the same ingredient without having seen the line: note N2.
+  await act(
+    page,
+    {
+      kind: "add",
+      list_id: await mainList(page),
+      item_id: crypto.randomUUID(),
+      food_id: foodId,
+      amount: 200,
+    },
+    "99999999-8888-4777-8666-555555555555",
+  );
+  await page.goto("/shopping");
+  const note = page.getByText(new RegExp(`added ${name} too`));
+  await expect(note).toBeVisible();
+  await page
+    .getByRole("button", { name: /^Dismiss: .*added .* too/ })
+    .first()
+    .click();
+  await expect(note).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText(new RegExp(`added ${name} too`))).toHaveCount(0);
+  void item;
 });

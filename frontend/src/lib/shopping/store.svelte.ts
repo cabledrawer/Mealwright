@@ -3,11 +3,11 @@
 // the server can't take it (save.ts: UX principle 8), with Undo in the toast (principle 6).
 
 import { ApiError } from '$lib/api';
+import { kitchen } from '$lib/freshness.svelte';
 import { newChangeId } from '$lib/changeId';
 import { getFood, listFoods } from '$lib/client/foods';
 import type { FoodRow } from '$lib/client/types';
-import { kitchen } from '$lib/freshness.svelte';
-import { addChosenSizes, type Chosen } from '$lib/newIngredient.svelte';
+import type { Chosen } from '$lib/newIngredient.svelte';
 import { save } from '$lib/save';
 import { session } from '$lib/session.svelte';
 import { toasts } from '$lib/toast.svelte';
@@ -19,21 +19,9 @@ import {
   type ActionFields,
   type ActionResult
 } from './actions';
-import { loadCopy } from './load';
+import { applyChanges, EMPTY_COPY, loadChanges } from './load';
 import type { ListItem, ShopFood, ShoppingCopy, Tick } from './types';
 import { groupByShop, listCounts, standingTicks, subtitle } from './view';
-
-const EMPTY: ShoppingCopy = {
-  cursor: 0,
-  lists: [],
-  items: [],
-  notes: [],
-  questions: [],
-  foods: [],
-  shops: [],
-  places: [],
-  people: null
-};
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
 export interface Ticked {
@@ -44,18 +32,14 @@ export interface Ticked {
 }
 
 export class ShoppingModel {
-  copy = $state<ShoppingCopy>(EMPTY);
+  copy = $state<ShoppingCopy>(EMPTY_COPY);
   loaded = $state(false);
   problem = $state<string | null>(null);
   listId = $state<string | null>(null);
   lastTicked = $state<Ticked | null>(null);
 
   constructor() {
-    setSendContext({
-      food: (id) => this.copy.foods.find((f) => f.id === id),
-      foodOfItem: (id) => this.copy.items.find((i) => i.id === id)?.food_id ?? 0,
-      cursor: () => this.copy.cursor
-    });
+    setSendContext({ cursor: () => this.copy.cursor });
   }
 
   // --- Reading -----------------------------------------------------------------------------------
@@ -99,9 +83,11 @@ export class ShoppingModel {
     return this.copy.foods.find((f) => f.id === id);
   }
 
-  async load(): Promise<void> {
+  /** Fetch what changed (or, with `full`, a whole new copy) and merge it in. */
+  async load(full = false): Promise<void> {
     try {
-      this.copy = await loadCopy(this.listId);
+      const have = this.loaded && !full ? this.copy : null;
+      this.copy = applyChanges(have, await loadChanges(have));
       this.problem = null;
       if (!this.list) this.listId = null;
     } catch (error) {
@@ -115,7 +101,18 @@ export class ShoppingModel {
 
   select(listId: string): void {
     this.listId = listId;
-    void this.load();
+  }
+
+  /** After an action: use the changes that came back with it, or a full copy if it was ignored. */
+  #sync(result: ActionResult): void {
+    if (result.status === 'ignored') {
+      if (result.message) toasts.show(result.message);
+      void this.load(true);
+    } else if (result.changes) {
+      this.copy = applyChanges(this.copy, result.changes);
+    } else {
+      void this.load();
+    }
   }
 
   /** An ingredient's sizes, asking the server if the copy doesn't have them yet. */
@@ -160,8 +157,8 @@ export class ShoppingModel {
         },
         send: () => sendAction(makeAction(fields, id)),
         saved: (result) => {
+          this.#sync(result);
           options.saved?.(result, id);
-          void this.load();
         },
         undo:
           options.label && !options.quiet
@@ -179,7 +176,8 @@ export class ShoppingModel {
 
   async undo(actionId: string): Promise<string | void> {
     const result = await sendAction(makeAction({ kind: 'undo', undoes: actionId }));
-    await this.load();
+    if (result.changes && result.status !== 'ignored') this.#sync(result);
+    else await this.load(true);
     return result.message ?? undefined;
   }
 
@@ -191,6 +189,7 @@ export class ShoppingModel {
       { kind: 'add', list_id: list.id, item_id: itemId, food_id: food.id },
       {
         label: `${food.name} added`,
+        saved: (result) => this.#dropIfMerged(result, itemId),
         edit: (copy) => {
           if (!copy.foods.some((f) => f.id === food.id)) {
             copy.foods.push({
@@ -225,10 +224,26 @@ export class ShoppingModel {
         kind: 'add',
         list_id: list.id,
         item_id: itemId,
-        new_food: { name: chosen.name, counted_as: chosen.counted_as, staple: chosen.staple }
+        new_food: {
+          name: chosen.name,
+          counted_as: chosen.counted_as,
+          staple: chosen.staple,
+          ...(chosen.sizes.length
+            ? {
+                sizes: chosen.sizes.map((z) => ({
+                  name: z.name,
+                  amount: z.amount * (z.unit === 'kg' || z.unit === 'l' ? 1000 : 1)
+                }))
+              }
+            : {})
+        }
       },
       {
         label: `${chosen.name} added`,
+        saved: (result) => {
+          this.#dropIfMerged(result, itemId);
+          kitchen.changed();
+        },
         edit: (copy) => {
           copy.foods.push({
             id: -1,
@@ -245,11 +260,14 @@ export class ShoppingModel {
         }
       }
     );
-    if (outcome.ok && outcome.value.food_id && chosen.sizes.length) {
-      await addChosenSizes(outcome.value.food_id, chosen.sizes);
-      kitchen.changed();
-    }
     return outcome;
+  }
+
+  /** The add joined a line that was there: the phone's own provisional line goes. */
+  #dropIfMerged(result: ActionResult, itemId: string): void {
+    if (result.status === 'merged' && result.item_id !== itemId) {
+      this.copy.items = this.copy.items.filter((i) => i.id !== itemId);
+    }
   }
 
   /** A live, unticked line for this ingredient already on the open list, if any. */
@@ -292,7 +310,6 @@ export class ShoppingModel {
 
   /** Once the tick is saved: say where it went, with Change and Undo (phone toast). */
   async #afterTick(item: ListItem, actionId: string): Promise<void> {
-    await this.load();
     const row = this.item(item.id);
     const name = this.food(item.food_id)?.name ?? 'Item';
     const tick = row?.ticks.find((t) => t.id === actionId) ?? row?.ticks.find((t) => t.standing);

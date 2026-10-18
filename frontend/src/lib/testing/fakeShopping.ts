@@ -1,7 +1,7 @@
 // For tests only: a small pretend shopping server, shaped like PR 3's "changes since" answer
 // (sync-protocol 5.5), which keeps the actions it is sent.
 
-import { changeOf, fakeApi, PLACES, type FakeRequest } from './fakeApi';
+import { fakeApi, PLACES, type FakeRequest } from './fakeApi';
 import type { ListItem, ShopFood, ShoppingCopy, Tick } from '$lib/shopping/types';
 
 export const ME = {
@@ -108,46 +108,115 @@ export function sampleCopy(): ShoppingCopy {
       item('p-1', 7, { list_id: 'party' })
     ],
     notes: [],
-    questions: []
+    questions: [],
+    removed: {}
   };
 }
 
-/** Start the pretend server. `copy` is kept up to date by the actions it is sent. */
+/** Start the pretend server: the real contract (sync-protocol 4.1 and 5.5). `copy` is kept
+ * up to date by the actions it is sent. A copy's `deleted` items answer as tombstones. */
 export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeApi>[0] = {}) {
   const actions: Record<string, unknown>[] = [];
+  const done = new Map<string, Record<string, unknown>>();
+  const gone = (id: string, by = 'Wren') => {
+    const row = copy.items.find((i) => i.id === id);
+    if (!row) return;
+    row.deleted = true;
+    copy.removed[id] = { food_id: row.food_id, shop_id: row.shop_id, removed_by: by };
+  };
+  const answer = (since: number) => {
+    const live = copy.items.filter((i) => !i.deleted);
+    const tombs = Object.entries(copy.removed).map(([id, r]) => ({
+      id,
+      list_id: 'main',
+      deleted: true as const,
+      version: 1,
+      ...r
+    }));
+    return structuredClone({
+      ...copy,
+      reset: since === 0,
+      items: since === 0 ? live : [...live, ...tombs]
+    });
+  };
+  const apply = (action: Record<string, unknown>) => {
+    const item = copy.items.find((i) => i.id === action.item_id);
+    switch (action.kind) {
+      case 'tick':
+        item?.ticks.push(tick(String(action.id), { place_id: 1 }));
+        break;
+      case 'untick':
+        item?.ticks.forEach((t) => (t.standing = false));
+        break;
+      case 'create_list':
+        copy.lists.push({
+          id: String(action.list_id),
+          name: String(action.name),
+          main: false,
+          position: copy.lists.length,
+          removed: false
+        });
+        break;
+      case 'rename_list':
+        copy.lists.forEach((l) => l.id === action.list_id && (l.name = String(action.name)));
+        break;
+      case 'remove_list':
+        copy.lists.forEach((l) => l.id === action.list_id && (l.removed = true));
+        break;
+      case 'delete':
+        gone(String(action.item_id), 'Tess');
+        break;
+      case 'clear_ticked':
+        for (const id of action.item_ids as string[]) gone(id, 'Tess');
+        break;
+      case 'add': {
+        const fresh = action.new_food as { name: string; counted_as: 'weight' } | undefined;
+        const foodId = fresh ? 90 : Number(action.food_id);
+        if (fresh) copy.foods.push(food(90, fresh.name, 'other'));
+        copy.items.push(item_(String(action.item_id), String(action.list_id), foodId));
+        break;
+      }
+      case 'undo': {
+        const before = done.get(String(action.undoes));
+        if (before?.kind === 'remove_list') {
+          copy.lists.forEach((l) => l.id === before.list_id && (l.removed = false));
+        }
+        break;
+      }
+    }
+  };
   const requests = fakeApi({
-    'GET /shopping/changes': () => [200, { ...structuredClone(copy), reset: true }],
+    'GET /shopping/changes': (request: FakeRequest) => {
+      const since = Number(new URLSearchParams(request.url.split('?')[1]).get('since'));
+      return [200, answer(since)];
+    },
     'POST /shopping/actions': (request: FakeRequest) => {
-      const batch = request.body as { actions: Record<string, unknown>[] };
+      const batch = request.body as { since: number; actions: Record<string, unknown>[] };
       const results = batch.actions.map((action) => {
         actions.push(action);
-        if (action.kind === 'tick') {
-          const row = copy.items.find((i) => i.id === action.item_id);
-          row?.ticks.push(tick(String(action.id), { place_id: 1 }));
-        }
-        if (action.kind === 'untick') {
-          const row = copy.items.find((i) => i.id === action.item_id);
-          row?.ticks.forEach((t) => (t.standing = false));
-        }
+        apply(action);
+        done.set(String(action.id), action);
         copy.cursor++;
-        return { id: action.id, status: 'applied', reason: null, message: null, change: null };
+        return {
+          id: action.id,
+          seq: copy.cursor,
+          status: 'applied',
+          reason: null,
+          repeat: false,
+          message: null,
+          change: null,
+          item_id: action.item_id ?? null,
+          food_id: action.new_food ? 90 : (action.food_id ?? null)
+        };
       });
-      return [200, { results, ...structuredClone(copy) }];
+      return [200, { results, changes: answer(batch.since) }];
     },
-    'POST /shopping/lists': (request) => {
-      const body = request.body as { id: string; name: string };
-      copy.lists.push({ id: body.id, name: body.name, main: false, position: 2, removed: false });
-      return [201, { shopping_list: { id: body.id }, change: changeOf(801, `Made ${body.name}`) }];
-    },
-    'DELETE /shopping/lists/party': () => {
-      copy.lists.find((l) => l.id === 'party')!.removed = true;
-      return [200, { shopping_list: null, change: changeOf(802, 'Removed Party on Saturday') }];
-    },
-    'POST /shopping/lists/main/clear-ticked': () => [
-      200,
-      { cleared: [], change: changeOf(803, 'Cleared') }
-    ],
     ...extra
   });
   return { requests, actions };
 }
+
+const item_ = (id: string, list_id: string, food_id: number): ListItem => ({
+  ...item(id, food_id, { list_id, amount: null, display: null }),
+  added_by: tess
+});

@@ -4,10 +4,8 @@ import { page, userEvent } from 'vitest/browser';
 import NewIngredient from '$lib/components/NewIngredient.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import { ME, fakeShopping, sampleCopy, tick } from '$lib/testing/fakeShopping';
-import { changeOf } from '$lib/testing/fakeApi';
 import { session } from '$lib/session.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
-import { forgetServerKind } from '$lib/shopping/load';
 import type { ShoppingCopy } from '$lib/shopping/types';
 import { toasts } from '$lib/toast.svelte';
 import { undoHistory } from '$lib/undo.svelte';
@@ -34,7 +32,6 @@ describe('the Shopping page', () => {
 
   beforeEach(() => {
     copy = sampleCopy();
-    forgetServerKind();
     session.me = { ...ME };
     undoHistory.clear();
     toasts.dismiss();
@@ -86,8 +83,10 @@ describe('the Shopping page', () => {
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await page.getByRole('button', { name: 'Clear ticked' }).click();
-    const call = server.requests.find((r) => r.path === '/shopping/lists/main/clear-ticked')!;
-    expect((call.body as { item_ids: string[] }).item_ids.sort()).toEqual([
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'clear_ticked', list_id: 'main' })
+    );
+    expect((server.actions.at(-1)!.item_ids as string[]).sort()).toEqual([
       'i-coriander',
       'i-paneer'
     ]);
@@ -113,7 +112,7 @@ describe('the Shopping page', () => {
     await render(390);
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
     await page.getByRole('button', { name: 'Change' }).click();
-    await page.getByRole('button', { name: 'In the trolley · 3' }).click();
+    // Change opens the trolley by itself.
     await page.getByRole('radio', { name: 'Freezer' }).click();
     await vi.waitFor(() =>
       expect(server.actions.at(-1)).toMatchObject({ kind: 'put_away', place_id: 2 })
@@ -243,21 +242,14 @@ describe('the Shopping page', () => {
       await page.getByRole('textbox', { name: 'New list name' }).fill('Camping');
       await page.getByRole('button', { name: 'Make list' }).click();
       await vi.waitFor(() => {
-        const call = server.requests.find(
-          (r) => r.method === 'POST' && r.path === '/shopping/lists'
-        )!;
-        expect(call.body).toMatchObject({ name: 'Camping' });
-        expect((call.body as { id: string }).id).toMatch(/^[0-9a-f-]{36}$/);
+        const call = server.actions.find((x) => x.kind === 'create_list')!;
+        expect(call).toMatchObject({ name: 'Camping' });
+        expect(call.list_id).toMatch(/^[0-9a-f-]{36}$/);
       });
     });
 
     it('Rename works on any list; Remove only on extra lists, with Undo', async () => {
-      await render(390, {
-        'PATCH /shopping/lists/main': [
-          200,
-          { shopping_list: { id: 'main' }, change: changeOf(810, 'Renamed') }
-        ]
-      });
+      await render(390);
       await page.getByRole('button', { name: 'This week main list' }).click();
       await page.getByRole('button', { name: 'This week options' }).click();
       await expect.element(page.getByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
@@ -266,9 +258,11 @@ describe('the Shopping page', () => {
       await box.fill('Weekly shop');
       await page.getByRole('button', { name: 'Save' }).click();
       await vi.waitFor(() =>
-        expect(
-          server.requests.some((r) => r.method === 'PATCH' && r.path === '/shopping/lists/main')
-        ).toBe(true)
+        expect(server.actions.at(-1)).toMatchObject({
+          kind: 'rename_list',
+          list_id: 'main',
+          name: 'Weekly shop'
+        })
       );
     });
 
@@ -278,14 +272,17 @@ describe('the Shopping page', () => {
       await page.getByRole('button', { name: 'Party on Saturday options' }).click();
       await page.getByRole('button', { name: 'Remove' }).click();
       await vi.waitFor(() =>
-        expect(
-          server.requests.some((r) => r.method === 'DELETE' && r.path === '/shopping/lists/party')
-        ).toBe(true)
+        expect(server.actions.at(-1)).toMatchObject({ kind: 'remove_list', list_id: 'party' })
       );
       await expect
         .element(page.getByRole('status').getByText('Removed Party on Saturday'))
         .toBeVisible();
-      await expect.element(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await vi.waitFor(() => expect(server.actions.at(-1)).toMatchObject({ kind: 'undo' }));
+      await page.getByRole('button', { name: /^This week/ }).click();
+      await expect
+        .element(page.getByRole('button', { name: /^Party on Saturday Extra list/ }))
+        .toBeVisible();
     });
   });
 
@@ -300,20 +297,14 @@ describe('the Shopping page', () => {
             counts: {},
             next: null
           }
-        ],
-        'POST /shopping/lists/main/items': [
-          201,
-          { item: { id: 'x' }, merged: false, change: changeOf(820, 'Added') }
         ]
       });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('tahini');
       await page.getByRole('button', { name: 'Tahini', exact: true }).click();
       await vi.waitFor(() => {
-        const call = server.requests.find(
-          (r) => r.method === 'POST' && r.path === '/shopping/lists/main/items'
-        )!;
-        expect(call.body).toMatchObject({ food_id: 7 });
-        expect((call.body as { id: string }).id).toMatch(/^[0-9a-f-]{36}$/);
+        const call = server.actions.find((x) => x.kind === 'add')!;
+        expect(call).toMatchObject({ list_id: 'main', food_id: 7 });
+        expect(call.item_id).toMatch(/^[0-9a-f-]{36}$/);
       });
     });
 
@@ -335,25 +326,13 @@ describe('the Shopping page', () => {
         .getByRole('button', { name: 'Yoghurt' })
         .click();
       await expect.element(page.getByText('Yoghurt is already on the list · 500 g')).toBeVisible();
-      expect(server.requests.some((r) => r.path === '/shopping/lists/main/items')).toBe(false);
+      expect(server.actions.some((x) => x.kind === 'add')).toBe(false);
     });
 
     it('a new name offers + New ingredient, then How do you count it? with the guess first, and packet sizes', async () => {
       await render(390, {
         'GET /foods?q=flaxseed&limit=8': [200, { foods: [], total: 0, counts: {}, next: null }],
-        'GET /foods/guess?name=flaxseed': [200, { counted_as: 'volume', from_table: true }],
-        'POST /foods': [
-          201,
-          {
-            food: { id: 90, name: 'flaxseed', counted_as: 'volume', staple: false },
-            change: changeOf(830, 'Added flaxseed')
-          }
-        ],
-        'POST /foods/90/sizes': [201, { food: { id: 90 }, change: changeOf(831, 'Added a size') }],
-        'POST /shopping/lists/main/items': [
-          201,
-          { item: { id: 'x' }, merged: false, change: changeOf(832, 'Added') }
-        ]
+        'GET /foods/guess?name=flaxseed': [200, { counted_as: 'volume', from_table: true }]
       });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('flaxseed');
       await page.getByRole('button', { name: '+ New ingredient: “flaxseed”' }).click();
@@ -385,30 +364,25 @@ describe('the Shopping page', () => {
       await expect.element(page.getByText('bottle = 250 ml')).toBeVisible();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await vi.waitFor(() => {
-        const made = server.requests.find((r) => r.method === 'POST' && r.path === '/foods')!;
-        expect(made.body).toEqual({ name: 'flaxseed', staple: false, counted_as: 'volume' });
-        const size = server.requests.find((r) => r.path === '/foods/90/sizes')!;
-        expect(size.body).toEqual({ name: 'bottle', amount: { amount: 250, unit: 'ml' } });
-        const added = server.requests.find((r) => r.path === '/shopping/lists/main/items')!;
-        expect(added.body).toMatchObject({ food_id: 90 });
+        const added = server.actions.find((x) => x.kind === 'add')!;
+        expect(added.new_food).toEqual({
+          name: 'flaxseed',
+          counted_as: 'volume',
+          staple: false,
+          sizes: [{ name: 'bottle', amount: 250 }]
+        });
+        expect(added.food_id).toBeUndefined();
       });
+      // One request: no separate ingredient or size calls.
+      expect(
+        server.requests.some((r) => r.method === 'POST' && r.path !== '/shopping/actions')
+      ).toBe(false);
     });
 
     it('Don’t count it makes a staple with no sizes', async () => {
       await render(390, {
         'GET /foods?q=salt&limit=8': [200, { foods: [], total: 0, counts: {}, next: null }],
-        'GET /foods/guess?name=salt': [200, { counted_as: 'weight', from_table: true }],
-        'POST /foods': [
-          201,
-          {
-            food: { id: 91, name: 'salt', counted_as: 'weight', staple: true },
-            change: changeOf(840, 'Added')
-          }
-        ],
-        'POST /shopping/lists/main/items': [
-          201,
-          { item: { id: 'x' }, merged: false, change: changeOf(841, 'Added') }
-        ]
+        'GET /foods/guess?name=salt': [200, { counted_as: 'weight', from_table: true }]
       });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('salt');
       await page.getByRole('button', { name: '+ New ingredient: “salt”' }).click();
@@ -418,8 +392,8 @@ describe('the Shopping page', () => {
         .not.toBeInTheDocument();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await vi.waitFor(() => {
-        const made = server.requests.find((r) => r.method === 'POST' && r.path === '/foods')!;
-        expect(made.body).toEqual({ name: 'salt', staple: true, counted_as: 'weight' });
+        const added = server.actions.find((x) => x.kind === 'add')!;
+        expect(added.new_food).toEqual({ name: 'salt', counted_as: 'weight', staple: true });
       });
     });
   });
@@ -519,50 +493,51 @@ describe('the Shopping page', () => {
       .toHaveAttribute('aria-checked', 'true');
   });
 
-  it('works against a server with only the one-at-a-time requests (no changes feed yet)', async () => {
-    const view = {
-      shopping_list: { id: 'main', name: 'This week', main: true, to_buy: 1, ticked: 0 },
-      shops: [
-        {
-          shop: { id: 1, name: 'Supermarket' },
-          name: 'Supermarket',
-          aisles: [
-            {
-              aisle: 'veg_fruit',
-              name: 'Veg & fruit',
-              items: [
-                {
-                  id: 'i1',
-                  list_id: 'main',
-                  food: { id: 1, name: 'Onions' },
-                  amount: { amount: 5, unit: 'count', short: '5', display: '5', as_sold: null },
-                  shop: { id: 1, name: 'Supermarket' },
-                  aisle: 'veg_fruit',
-                  ticked_at: null,
-                  ticked_by: null,
-                  put_away_place: null,
-                  hand_edited: false,
-                  source: 'typed',
-                  added_by: 'Tess'
-                }
-              ]
-            }
-          ],
-          in_trolley: []
-        }
-      ]
-    };
-    await render(390, {
-      'GET /shopping/changes': [404, { detail: 'Not found' }],
-      'GET /shopping/lists': [
-        200,
-        { lists: [{ id: 'main', name: 'This week', main: true, to_buy: 1, ticked: 0 }] }
-      ],
-      'GET /shopping/lists/main': [200, view],
-      'GET /shops': [200, [{ id: 1, name: 'Supermarket' }]],
-      'GET /places': [200, [{ id: 1, name: 'Fridge', kind: 'fridge' }]]
+  it('a removed item shows “Paneer · removed by Wren” once the server sends the tombstone', async () => {
+    copy.items.find((i) => i.id === 'i-yoghurt')!.deleted = true;
+    copy.removed['i-yoghurt'] = { food_id: 3, shop_id: 1, removed_by: 'Wren' };
+    copy.notes.push({
+      id: 41,
+      list_id: 'main',
+      item_id: 'i-yoghurt',
+      food_id: 3,
+      text: 'Wren had removed this. Your tick still went into the pantry.',
+      undo: 'abc',
+      gone: false
     });
-    await expect.element(page.getByText('Onions')).toBeVisible();
-    await expect.element(page.getByText('1 to buy', { exact: true })).toBeVisible();
+    await render(1300);
+    // The first copy has no tombstones: the note's own words.
+    await expect.element(page.getByText(/^Yoghurt · Wren had removed this/)).toBeVisible();
+    // Any later answer carries the tombstone.
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await expect.element(page.getByText('Yoghurt · removed by Wren')).toBeVisible();
+  });
+
+  it('shows the quiet notes N8 and N9 under their item', async () => {
+    for (const [id, text] of [
+      [50, 'Toor dal is counted differently now, so nothing went into the pantry.'],
+      [51, 'Toor dal was already in Ingredients, counted another way, so check the amount.']
+    ] as const) {
+      copy.notes.push({
+        id,
+        list_id: 'main',
+        item_id: 'i-dal',
+        food_id: 5,
+        text,
+        undo: 'x',
+        gone: false
+      });
+    }
+    await render(1300);
+    await expect.element(page.getByText(/counted differently now/)).toBeVisible();
+    await expect.element(page.getByText(/counted another way, so check the amount/)).toBeVisible();
+  });
+
+  it('shows the server’s wording of an amount, such as 2 boxes', async () => {
+    copy.items.find((i) => i.id === 'i-onions')!.display = '2 boxes';
+    await render(1300);
+    await expect
+      .element(page.getByRole('button', { name: 'Onions: 2 boxes. Change' }))
+      .toBeVisible();
   });
 });

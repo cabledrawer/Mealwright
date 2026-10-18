@@ -21,7 +21,8 @@ export interface AisleGroup {
 /** A note for an item that is no longer on the list: a faint row where it was (spec L311). */
 export interface Ghost {
   note: Note;
-  name: string;
+  /** "Paneer · removed by Wren" when the server told us who; else the note's own words. */
+  text: string;
 }
 
 export interface ShopGroup {
@@ -65,9 +66,15 @@ export function ghostsOf(
   const out: { ghost: Ghost; shopId: number | null }[] = [];
   for (const note of copy.notes) {
     if (note.gone || note.list_id !== listId || !note.item_id || live.has(note.item_id)) continue;
-    const food = copy.foods.find((f) => f.id === note.food_id);
-    const shopId = food?.shop_id != null && known.has(food.shop_id) ? food.shop_id : null;
-    out.push({ ghost: { note, name: food?.name ?? 'Item' }, shopId });
+    const gone = copy.removed[note.item_id];
+    const food = copy.foods.find((f) => f.id === (gone?.food_id ?? note.food_id));
+    const wanted = gone ? gone.shop_id : (food?.shop_id ?? null);
+    const shopId = wanted !== null && known.has(wanted) ? wanted : null;
+    const name = food?.name ?? 'Item';
+    const text = gone?.removed_by
+      ? `${name} · removed by ${gone.removed_by}`
+      : `${name} · ${note.text}`;
+    out.push({ ghost: { note, text }, shopId });
   }
   return out;
 }
@@ -119,11 +126,6 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
 /** How many on a list still need buying, and how many are in the trolley. */
 export function listCounts(copy: ShoppingCopy, list: ListRow): { toBuy: number; ticked: number } {
   const views = liveItems(copy, list.id);
-  const hasItems = copy.items.some((i) => i.list_id === list.id);
-  if (!hasItems && copy.counts?.[list.id]) {
-    const c = copy.counts[list.id]!;
-    return { toBuy: c.to_buy, ticked: c.ticked };
-  }
   const ticked = views.filter((v) => v.ticks.length).length;
   return { toBuy: views.length - ticked, ticked };
 }

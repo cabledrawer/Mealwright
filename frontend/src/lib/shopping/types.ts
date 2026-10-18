@@ -112,6 +112,38 @@ export interface ShoppingCopy {
   places: PlaceRow[];
   /** Logins in the household. null when this server can't say yet. */
   people: Person[] | null;
-  /** To-buy and ticked counts for lists whose items aren't in the copy. */
-  counts?: Record<string, { to_buy: number; ticked: number }>;
+  /** Items taken off the list, from tombstones the server sent: where they were and who. */
+  removed: Record<string, Removed>;
+}
+
+export interface Removed {
+  food_id: number;
+  shop_id: number | null;
+  /** "Wren", or "Your other phone" (sync-protocol 5.5). */
+  removed_by: string | null;
+}
+
+/** An item the server says is gone: `deleted: true` plus where it was. */
+export interface Tombstone {
+  id: string;
+  list_id: string;
+  deleted: true;
+  version: number;
+  food_id: number;
+  shop_id: number | null;
+  removed_by: string | null;
+}
+
+/** GET /shopping/changes, and the `changes` of a batch answer (sync-protocol 5.5). */
+export interface ChangesAnswer {
+  cursor: number;
+  reset: boolean;
+  lists: (ListRow & { version?: number })[];
+  items: (ListItem | Tombstone)[];
+  notes: Note[];
+  questions: Question[];
+  foods: (ShopFood & { removed?: boolean; merged_into_id?: number | null })[];
+  shops: ShopRow[];
+  places: PlaceRow[];
+  people: Person[];
 }

@@ -68,7 +68,8 @@ const copy: ShoppingCopy = {
   notes: [],
   questions: [],
   places: [],
-  people: null
+  people: null,
+  removed: {}
 };
 
 describe('groupByShop', () => {

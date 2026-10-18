@@ -4,6 +4,7 @@
   // pantry (phone: a toast with Change and Undo; desktop: the Put away panel). Every change
   // goes through sendAction (lib/shopping/actions.ts). Docs: docs/dev/sync-protocol.md section 13.
   // Hidden until 0.6: the list built from the plan, and the staples check card.
+  import { untrack } from 'svelte';
   import { browser } from '$app/environment';
   import AddBox from '$lib/components/shopping/AddBox.svelte';
   import DoubleTickCard from '$lib/components/shopping/DoubleTickCard.svelte';
@@ -42,6 +43,17 @@
   let tab = $state<string>('all');
   let open = $state<Record<string, boolean>>({});
   let highlight = $state<string | null>(null);
+
+  // The toast's Change (or a place button) names an item in a trolley: open that fold.
+  $effect(() => {
+    const id = model.placing;
+    if (!id) return;
+    const group = model.groups.find((g) => g.trolley.some((v) => v.item.id === id));
+    if (group) {
+      const folded = `${uid}-${key(group.shopId)}`;
+      untrack(() => (open = { ...open, [folded]: true }));
+    }
+  });
 
   const key = (shopId: number | null) => (shopId === null ? 'any' : String(shopId));
   const tabs = $derived(
@@ -155,7 +167,7 @@
           </div>
           {#each group.ghosts as ghost (ghost.note.id)}
             <p class="ghost">
-              <span>{ghost.name} · {ghost.note.text}</span>
+              <span>{ghost.text}</span>
               {#if ghost.note.undo}
                 <button type="button" onclick={() => void model.undo(ghost.note.undo!)}>Undo</button
                 >

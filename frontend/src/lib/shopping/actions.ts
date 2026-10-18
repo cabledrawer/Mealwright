@@ -1,18 +1,13 @@
 // Every Shopping write goes through ONE function, sendAction(action). An action is shaped as
 // in docs/dev/sync-protocol.md section 4.2. In PR 6 sendAction becomes the offline queue;
-// until then it sends each action at once.
-//
-// The server side: PR 2's one-at-a-time list requests exist now. Anything they don't cover
-// (tick, untick, put_away, different_pack, answer_double_tick, dismiss_note, and Undo by
-// action ID) is sent to POST /shopping/actions as a batch of one (section 4.1), which PR 3
-// builds. Until PR 3 is merged those fail with a plain "couldn't save".
+// until then it sends each action at once, as a batch of one (section 4.1) to
+// POST /shopping/actions, and hands the changes in the answer to the screen.
 
 import { api, ApiError } from '$lib/api';
-import { createFood } from '$lib/client/foods';
 import { newChangeId } from '$lib/changeId';
-import type { AmountIn, Change } from '$lib/client/types';
+import type { Change } from '$lib/client/types';
 import { session } from '$lib/session.svelte';
-import type { ShopFood } from './types';
+import type { ChangesAnswer } from './types';
 
 export interface ActionBase {
   /** Phone-made ID. Sent again, it is never applied twice. */
@@ -32,8 +27,13 @@ export type ActionFields =
       item_id: string;
       /** An existing ingredient, or: */
       food_id?: number;
-      /** a brand-new one from the add box (sync-protocol 4.4). Packet sizes are not part of it. */
-      new_food?: { name: string; counted_as: 'weight' | 'volume' | 'count'; staple: boolean };
+      /** a brand-new one from the add box, with the packet sizes chosen (sync-protocol 4.4). */
+      new_food?: {
+        name: string;
+        counted_as: 'weight' | 'volume' | 'count';
+        staple: boolean;
+        sizes?: { name: string; amount: number }[];
+      };
       amount?: number | null;
       size_id?: number | null;
       shop_id?: number | null;
@@ -68,21 +68,16 @@ export interface ActionResult {
   /** The ingredient an add with `new_food` used or made. */
   food_id?: number | null;
   change?: Change | null;
+  /** The changes since the batch's `since`, read after the action (5.5). */
+  changes?: ChangesAnswer;
 }
 
-/** What the screen lets sendAction look up. */
+/** What the screen lets sendAction know: the counter number its copy is at. */
 export interface SendContext {
-  food(id: number): ShopFood | undefined;
-  /** The ingredient an item is for (0 if unknown). */
-  foodOfItem(itemId: string): number;
   cursor(): number;
 }
 
-let context: SendContext = {
-  food: () => undefined,
-  foodOfItem: () => 0,
-  cursor: () => 0
-};
+let context: SendContext = { cursor: () => 0 };
 
 export function setSendContext(next: SendContext): void {
   context = next;
@@ -106,7 +101,7 @@ const DEVICE_KEY = 'mealwright.device-id';
 export function deviceId(): string {
   try {
     const stored = localStorage.getItem(DEVICE_KEY);
-    if (stored) return stored;
+    if (stored && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(stored)) return stored;
     const made = newChangeId();
     localStorage.setItem(DEVICE_KEY, made);
     return made;
@@ -118,162 +113,13 @@ let memoryDevice: string | null = null;
 
 // --- Sending -------------------------------------------------------------------------------------
 
-/** The server change that an action made, for Undo through PR 2's requests. */
-const changeOf = new Map<string, number>();
-
-/** The base-unit name the one-at-a-time requests expect. */
-function baseUnit(food: ShopFood | undefined): string {
-  return food?.counted_as === 'volume' ? 'ml' : food?.counted_as === 'count' ? 'count' : 'g';
-}
-
-/** An action's base-unit amount in the shape PR 2's requests take. */
-export function wireAmount(
-  foodId: number,
-  amount: number,
-  sizeId: number | null | undefined
-): AmountIn {
-  const food = context.food(foodId);
-  const size = sizeId ? food?.sizes?.find((s) => s.id === sizeId) : undefined;
-  if (size && size.amount > 0) return { amount: amount / size.amount, size_id: size.id };
-  return { amount, unit: baseUnit(food) };
-}
-
-interface ItemWrite {
-  item: { id: string } | null;
-  merged: boolean;
-  change: Change | null;
-}
-
-/**
- * `add` with `new_food` for a server that only has the one-at-a-time requests: make the
- * ingredient (or use the one with that name, 4.4), then the item is added. PR 3's
- * POST /shopping/actions does both itself.
- */
-async function foodForNew(action: Action & { kind: 'add' }): Promise<number> {
-  const fresh = action.new_food;
-  if (!fresh) throw new ApiError(422, 'Pick an ingredient to add.');
-  try {
-    const made = await createFood(
-      { name: fresh.name, staple: fresh.staple, counted_as: fresh.counted_as },
-      newChangeId()
-    );
-    return made.food.id;
-  } catch (error) {
-    const existing =
-      error instanceof ApiError && error.code === 'name_taken'
-        ? (error.body as { food_id?: number } | null)?.food_id
-        : undefined;
-    if (!existing) throw error;
-    return existing;
-  }
-}
-
-function remember(id: string, change: Change | null | undefined): void {
-  if (change) changeOf.set(id, change.id);
+interface BatchAnswer {
+  results?: (ActionResult & { id: string })[];
+  changes?: ChangesAnswer;
 }
 
 /** Send one action. Resolves with what the server said; throws ApiError if it can't be sent. */
 export async function sendAction(action: Action): Promise<ActionResult> {
-  const key = { idempotencyKey: action.id };
-  switch (action.kind) {
-    case 'create_list': {
-      const r = await api<{ change: Change | null }>(
-        'POST',
-        '/shopping/lists',
-        { id: action.list_id, name: action.name },
-        key
-      );
-      remember(action.id, r.change);
-      return { status: 'applied', change: r.change };
-    }
-    case 'rename_list': {
-      const r = await api<{ change: Change | null }>(
-        'PATCH',
-        `/shopping/lists/${action.list_id}`,
-        { name: action.name },
-        key
-      );
-      remember(action.id, r.change);
-      return { status: r.change ? 'applied' : 'ignored', reason: 'no_change', change: r.change };
-    }
-    case 'remove_list': {
-      const r = await api<{ change: Change | null }>(
-        'DELETE',
-        `/shopping/lists/${action.list_id}`,
-        undefined,
-        key
-      );
-      remember(action.id, r.change);
-      return { status: 'applied', change: r.change };
-    }
-    case 'add': {
-      const foodId = action.food_id ?? (await foodForNew(action));
-      const body: Record<string, unknown> = { id: action.item_id, food_id: foodId };
-      if (action.amount) body.amount = wireAmount(foodId, action.amount, action.size_id);
-      if (action.shop_id !== undefined) body.shop_id = action.shop_id;
-      const r = await api<ItemWrite>('POST', `/shopping/lists/${action.list_id}/items`, body, key);
-      remember(action.id, r.change);
-      return {
-        status: r.merged ? 'merged' : 'applied',
-        item_id: r.item?.id ?? action.item_id,
-        food_id: foodId,
-        change: r.change
-      };
-    }
-    case 'set_amount': {
-      const foodId = context.foodOfItem(action.item_id);
-      const r = await api<ItemWrite>(
-        'PATCH',
-        `/shopping/items/${action.item_id}`,
-        { amount: wireAmount(foodId, action.amount, action.size_id) },
-        key
-      );
-      remember(action.id, r.change);
-      return { status: 'applied', change: r.change };
-    }
-    case 'delete': {
-      const r = await api<ItemWrite>('DELETE', `/shopping/items/${action.item_id}`, undefined, key);
-      remember(action.id, r.change);
-      return { status: r.change ? 'applied' : 'ignored', reason: 'deleted', change: r.change };
-    }
-    case 'clear_ticked': {
-      const r = await api<{ change: Change | null }>(
-        'POST',
-        `/shopping/lists/${action.list_id}/clear-ticked`,
-        { item_ids: action.item_ids },
-        key
-      );
-      remember(action.id, r.change);
-      return { status: r.change ? 'applied' : 'ignored', change: r.change };
-    }
-    case 'undo': {
-      const changeId = changeOf.get(action.undoes);
-      if (changeId !== undefined) {
-        const r = await api<{ result: string; message: string; change: Change }>(
-          'POST',
-          `/changes/${changeId}/undo`,
-          undefined,
-          key
-        );
-        return {
-          status: 'applied',
-          message: r.result === 'done' ? null : r.message,
-          change: r.change
-        };
-      }
-      return sendBatch(action);
-    }
-    default:
-      return sendBatch(action);
-  }
-}
-
-interface BatchAnswer {
-  results?: (ActionResult & { id: string })[];
-}
-
-/** POST /shopping/actions with one action (sync-protocol 4.1). Built by PR 3. */
-async function sendBatch(action: Action): Promise<ActionResult> {
   const answer = await api<BatchAnswer>('POST', '/shopping/actions', {
     protocol: 1,
     device_id: deviceId(),
@@ -291,6 +137,5 @@ async function sendBatch(action: Action): Promise<ActionResult> {
       result.reason ?? null
     );
   }
-  // Not remembered: Undo of an action sent in a batch is `undo {undoes}` (sync-protocol 9).
-  return result;
+  return { ...result, changes: answer.changes };
 }
