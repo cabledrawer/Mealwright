@@ -74,8 +74,8 @@ showing) get their own `checkPage` call in the feature's tests.
       at least two weeks old, cabledrawer asked first.
 
 **UX**
-- [ ] Plain words: "cupboard", "use soon", "packets", "waiting changes"; never "items",
-      "units", "lots", "entities", "quantity", "SKU", "location", "sync", "queue", "conflict". Wording matches the mockup unless the
+- [ ] Plain words: "cupboard", "use soon", "packets", "waiting changes"; never "units", "lots", "entities", "quantity", "SKU", "location", "sync", "queue", "conflict". "Item(s)" is fine for
+      shopping-list lines only (cabledrawer 19 Oct); the Pantry count says "ingredients". Wording matches the mockup unless the
       spec says otherwise.
 - [ ] Undo, not "Are you sure?": no confirm dialogs. Every change shows an Undo toast;
       Ctrl+Z on desktop undoes your own last change.

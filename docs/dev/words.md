@@ -1,6 +1,6 @@
 # The word list: how Mealwright talks
 
-**Draft, waiting for cabledrawer (not yet approved).** Written by Claude Code overnight on 18 Oct from the spec and the screens as they are built (0.3). Nothing in here is a new decision: every line says where it comes from. Where the built screens disagree with each other or with the spec, the disagreement is under "Differences found (for cabledrawer)" at the end and nothing was chosen. cabledrawer approves the first version and any change to it (spec: UX — CORE → Keeping the UI good, item 1).
+**Approved by cabledrawer on 19 Oct.** Written by Claude Code on 18 Oct from the spec and the screens as they are built (0.3). Every line says where it comes from. Where the built screens disagreed with each other or with the spec, cabledrawer ruled on all twelve on 19 Oct; the rulings are in section 11. cabledrawer approves any change to this list (spec: UX — CORE → Keeping the UI good, item 1). **Not all rulings are in the screens yet:** the built screen text was left as it is in this pull request. Rulings 1 to 4 ("item", the sign-in switch, curly apostrophes, error endings) are fixed on the screens in the 0.4 paper-cuts pull request, so until then a few built screens still differ from this list.
 
 **Who uses this:** builders write on-screen text from it; the checker checks every pull request's on-screen text against it (`e2e/REVIEW.md`, "Keeping the UI good"). A test already scans the web app for the word "food" (`frontend/src/lib/plainWords.test.ts`).
 
@@ -22,7 +22,7 @@
 | **staple** ("Always assumed in stock") | default item, pantry staple flag | spec Pantry; `IngredientEditor.svelte` |
 | **other names** | aliases, synonyms | spec (other names), `IngredientEditor.svelte` "Other names" |
 | **usual shop**, **usual size**, **usual place** | default shop, default size | `IngredientEditor.svelte` |
-| **Recent changes**, **Undo** | history, log, audit trail | spec "Recent changes" and "History and undo". (Settings → Your data has a "change log"; see section 11.) |
+| **Recent changes**, **Undo** | history, log, audit trail | spec "Recent changes" and "History and undo". (Settings → Your data says "Recent changes" too, not "change log": section 11, ruling 7.) |
 | **waiting changes** ("3 changes waiting") | queue, pending sync, unsynced | spec principle 16; `review` |
 | **Offline**, **Back online** | disconnected, sync failed | spec principle 16 |
 | **sign in**, **sign out** (verbs); **Sign-in** (the Settings section) | log in, log out, login (verb) | spec "Sign in", "Sign-out warning" |
@@ -34,7 +34,7 @@
 | **Remove from Ingredients** (deletes an ingredient) · **Take out of this recipe** (inside a recipe, from 0.4) · **Remove from list** (Shopping) | delete (for these buttons); "Remove" alone inside a recipe | spec "Removing an ingredient → Words" (cabledrawer 17 Oct); "Remove from list" (cabledrawer 18 Oct) |
 | **Merge** (two ingredients that are the same) | combine, dedupe | `IngredientEditor.svelte` |
 
-**Words the checker rejects on screen** (`review`, Plain words): "items", "units", "lots", "entities", "quantity", "SKU", "location", "sync", "queue", "conflict". Principle 7 adds "food items", "labels", "groups". See section 11: the screens use "item(s)" in a few places, so that word needs your ruling.
+**Words the checker rejects on screen** (`review`, Plain words): "units", "lots", "entities", "quantity", "SKU", "location", "sync", "queue", "conflict". Principle 7 adds "food items", "labels", "groups". "Item(s)" is **allowed, for shopping-list lines only** (cabledrawer 19 Oct, section 11, ruling 1); the Pantry count says "ingredients".
 
 **Never "Are you sure?"** There are no confirm dialogs: actions happen at once and offer Undo (spec principle 6). The one justified exception is signing out with unsent changes (spec "Signing out with unsent changes").
 
@@ -71,7 +71,7 @@ Rules (all from what is built; the spec only fixes a few of them):
 4. **Retry is "Try again"** after a failure; **"Try now"** only in the offline bar (checks the connection); **"Try sending now"** only in the sign-out warning (sends the waiting changes). They mean different things, so they stay different. (spec "Signing out with unsent changes"; `ConnectionStatus.svelte`)
 5. **Undo is always called "Undo"**, in the toast, in Recent changes, and in "Undo last change" / "Undo last tick". Never "Revert" or "Restore".
 6. **The warning that loses data names what it loses:** "Sign out and lose them", "Carry on and lose them". Never "Sign out" alone in that warning. (spec "Signing out with unsent changes"; "A different login on a phone…")
-7. **Switches, not checkboxes**, for every on/off, labelled in words that say the on state ("Stay signed in for 30 days", "Remember for next time", "Staple") (spec principle 15).
+7. **Switches, not checkboxes**, for every on/off, labelled in words that say the on state ("Remember this phone", "Remember for next time", "Staple") (spec principle 15).
 8. **Choices with several options use buttons that say what they do**, in the order the spec gives: "Try sending now · Stay signed in · Sign out and lose them".
 9. **Screen-reader names say what happens** ("Add Oil to the shopping list", "Tick Basmati rice", "Undo: Used 200 g spinach") and the visible name is part of them (WCAG "label in name").
 
@@ -96,7 +96,7 @@ Patterns in use:
 - **Asking for the right thing in a field:** say what to type, with an example: "Please enter your name." · "Please choose a username." · "Use at least 10 characters." · "Use up to 50 lowercase letters, numbers, dots, dashes or underscores." · "Give the size a name, like tub or packet." · "Try something like ½ packet or 250 g." · "Use g, kg or one of its sizes, like packet." (`setup/+page.svelte`, `IngredientEditor.svelte`, `amountEdit.ts`)
 - **Never a raw status code or a stack trace**; logs stay on the server and never hold what people cook, buy or type (spec section 7, Logs).
 
-(See section 11 for three different endings the built messages use today.)
+(Section 11, ruling 4: two short sentences, no dash, no "Please". The built messages above still use the old shapes until the 0.4 paper-cuts pull request.)
 
 ## 8. Offline and connection wording
 
@@ -114,7 +114,7 @@ All from spec principle 16 and "Offline shopping-list sync" (cabledrawer 17 to 1
 
 From spec "Sign in", "Sign-out warning", "Offline shopping-list sync" (cabledrawer 17 and 18 Oct); built in `sign-in/+page.svelte`, `setup/+page.svelte`, `settings/+page.svelte`, `offline/held.ts`.
 
-- Sign in page: "Welcome back", "Sign in to your household's kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Stay signed in for 30 days" (see section 11), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household's admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
+- Sign in page: "Welcome back", "Sign in to your household's kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Remember this phone" / "Remember this computer", with "for 30 days" in small text (section 11, ruling 2; the built page still says "Stay signed in for 30 days" until the 0.4 paper-cuts pull request), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household's admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
 - First run: "Welcome! First, your account", "You're the first person here, so you'll be the admin…", button **Create account**; "No default password and no account with us. This login lives only on your server."
 - Password turned off by the admin: only the single-sign-on button and "Trouble signing in? Ask your household's admin."
 - **Plain http:// connection:** "This connection isn't secure" with "Signing in needs a secure connection. Open Mealwright at its https:// address, through your reverse proxy." (refused) or the warning "This connection isn't secure. Passwords travel unencrypted. Use only for testing on a network you trust." (allowed) (spec section 7).
@@ -132,23 +132,24 @@ From spec "Sign in", "Sign-out warning", "Offline shopping-list sync" (cabledraw
 - **Keyboard:** names for keys are written as people say them: "Ctrl+Z" (Cmd+Z on a Mac), "Escape closes".
 - **Same wording on both**, unless the space is very tight: shorter forms are for the phone only and are listed here ("Shop" under the tab, "Offline — 3 changes waiting" on the phone bar versus two lines on desktop).
 
-## 11. Differences found (for cabledrawer)
+## 11. Decisions on the differences (cabledrawer 19 Oct)
 
-Nothing was chosen. Each line says what disagrees and where, so you can rule on it once and the list is then fixed.
+cabledrawer accepted all twelve recommendations on 19 Oct. **Built screen text is not changed in this pull request:** rulings 1 to 4 are fixed on the screens in the 0.4 paper-cuts pull request; the rest already match what is built.
 
-1. **"item(s)".** `e2e/REVIEW.md` lists "items" as a word the checker rejects. The spec itself uses it ("Tick an item = 1 tap", "Add an item…" on Shopping) and the screens say "17 items · 3 use soon" (Pantry), "Add an item…" / "Add item" (Shopping), "Cleared 2 ticked items", "Ticked items go straight into the pantry." and "ticked items still go to the pantry". Rule needed: is "item" fine for things on a shopping list (and the Pantry count), or should these become "ingredient(s)"? (Proposed for your OK: keep "item" for shopping-list lines only; say "ingredients" for the Pantry count; delete "items" from the checker's rejected list and write "items" as "allowed on the shopping list".)
-2. **The sign-in switch.** Spec "Sign in (drawn 17 Oct)": a "Remember this phone/computer" switch (30 days). The built page says "Stay signed in for 30 days". And "Stay signed in" is also the name of the sign-out warning's button, which means "cancel signing out". Two meanings for one phrase.
-3. **Apostrophes.** The app uses both the curly ’ ("Couldn’t…", "Don’t count it", "How it’s counted", "isn’t a staple") and the straight ' ("Can't reach your Mealwright server", "This connection isn't secure", "You're offline.", "Your shopping list isn't on this phone yet", the sign-in and sign-out messages in `offline/held.ts`). The spec text is written with straight ones. Needs one choice (curly is the proper typographic one).
-4. **Three endings for errors.** "Couldn’t save — try again" (dash, no full stop: `foodEditor.svelte.ts`, `client/changes.ts`, `IngredientEditor.svelte`) · "Couldn’t add it — try again." (dash and full stop: `NewIngredient.svelte`) · "Couldn’t load the pantry. Please try again." (full stops, "Please": `pantry.svelte.ts`, `ingredients.svelte.ts`) · "Couldn’t add that ingredient." (no way forward: `AddToPantry.svelte`). Section 7 says "what happened, then what to do"; these need one shape.
-5. **"on the list" and "on the shopping list".** Shopping says "Milk is already on the list · 2 L"; Pantry says "Oil is already on the shopping list." Both are in the spec, one for each screen. Listed so it is a choice rather than an accident.
-6. **Shopping subtitle online.** The spec words only the offline and held states ("12 to buy · offline, saving on this phone", "— all saved"). Built online: "10 to buy · saved", and "N to buy · synced with Wren" when someone else is on the list. The online sentence is not in the spec.
-7. **"Change log" versus "Recent changes".** Spec "Settings" has "Your data → … change log" and everywhere else "Recent changes". Settings isn't built yet beyond Appearance and Sign-in.
-8. **"Try now / Try sending now / Try again".** Three retry buttons (section 5, rule 4). They mean different things and each is in the spec or built that way. Listed in case you would rather have one word.
-9. **"Shop" and "Shopping".** The phone tab says "Shop" and the page says "Shopping" (spec "Layout decisions"; `nav.ts`). Fine in the mockups; listed for completeness.
-10. **Empty-state sentences.** Today and Plan say "This is where you'll see/plan…"; Pantry says "Add what's in your fridge and cupboards, and Mealwright keeps count."; Ingredients says "No ingredients yet. They're added when you put something in the pantry or import a recipe."; Recipes says "Your recipes will be here." Tone varies from "This is where…" to a plain instruction. The spec has no rule for empty states yet.
-11. **Capital after "Undone:".** "Undone: Used 200 g spinach" keeps the capital of the original sentence (built). A lower case ("Undone: used 200 g spinach") would read more like one sentence. Built wording was kept here.
+1. **"item(s)".** "Item" is only for lines on a shopping list ("Add an item…", "Cleared 2 ticked items", "ticked items still go to the pantry"). The Pantry count says "ingredients" ("17 ingredients · 3 use soon"). "Items" is removed from the checker's rejected list in `e2e/REVIEW.md` and noted there as allowed on the shopping list.
+2. **The sign-in switch.** It reads "Remember this phone" or "Remember this computer", with "for 30 days" in small text. "Stay signed in" is only the name of the sign-out warning's button.
+3. **Apostrophes.** Curly (’) everywhere on screen ("Couldn’t", "Can’t reach your Mealwright server", "You’re offline.").
+4. **Errors** are two short sentences: what happened, then what to do. "Couldn’t save. Try again." No dash, no "Please".
+5. **"on the list" and "on the shopping list".** Keep both: "on the list" on Shopping, "on the shopping list" everywhere else.
+6. **Shopping subtitle online.** Keep the built wording: "10 to buy · saved", and "N to buy · synced with Wren" when someone else is on the list.
+7. **"Recent changes"** everywhere, including Settings → Your data (not "change log").
+8. **Three retry buttons stay:** "Try now" (reconnect), "Try sending now" (send waiting changes), "Try again" (repeat what failed).
+9. **"Shop" on the phone tab, "Shopping" as the page name.**
+10. **Empty states** have a short title for what is missing, one sentence on how things get there, and the button if there is one: "No recipes yet" · "+ New recipe".
+11. **Keep the capital after "Undone:"** ("Undone: Used 200 g spinach").
+12. **"Welcome!"** stays as the one exclamation mark on screen.
 
-12. **An exclamation mark.** The first-run heading is "Welcome! First, your account" (from the drawn mockup); nothing else on screen uses one, and the error rule in section 7 says calm. Left as built.
+---
 
 ## 12. Not covered yet (for later versions of this list)
 
