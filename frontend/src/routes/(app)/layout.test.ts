@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deviceId } from '$lib/offline/device';
-import { getMeta, phoneDatabaseName, phoneExists, setMeta } from '$lib/offline/phone';
+import { heldChanges, takeTurnedAway } from '$lib/offline/held';
+import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, loadCopy, readQueue, saveCopy } from '$lib/offline/store';
 import { markSignOutPending, SIGN_OUT_PENDING_KEY } from '$lib/offline/signOutPending';
 import { network } from '$lib/network.svelte';
@@ -140,11 +141,54 @@ describe('opening the app (11.4)', () => {
     shoppingSync.forget();
   });
 
-  it('a different login (signed in in another tab) never wipes or sends changes still waiting', async () => {
+  it('another login’s waiting changes: the app signs this login out again and sends it to the warning, touching nothing', async () => {
     await wrensPhone(1);
-    fakeApi(signedInAs(3, 'Arlo'));
-    await open();
-    expect(await phoneExists()).toBe(true);
+    const requests = fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+    await expect(open()).rejects.toMatchObject({
+      status: 307,
+      location: '/sign-in?next=%2Fshopping'
+    });
+    // Wren's phone exactly as it was: her `meta`, her device ID, her copy and her change.
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('login_name')).toBe('Wren');
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(1);
+    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 1 });
+    // Arlo's session is ended, nothing is sent, and the sign-in page will name him.
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /setup',
+      'GET /me',
+      'DELETE /session'
+    ]);
+    expect(session.me).toBeNull();
+    expect(takeTurnedAway()).toBe('arlo');
+  });
+
+  it('then Wren signs back in: her waiting change is sent, from her device', async () => {
+    await wrensPhone(1);
+    let me: [number, unknown] = [
+      200,
+      { id: 3, name: 'Arlo', username: 'arlo', role: 'member', theme: 'auto' }
+    ];
+    const { requests } = fakeShopping(sampleCopy(), {
+      'GET /setup': [200, { needs_setup: false }],
+      'GET /me': () => me,
+      'DELETE /session': [204, null]
+    });
+    await expect(open()).rejects.toMatchObject({ status: 307 });
+    takeTurnedAway();
+    expect(requests.filter((r) => r.path === '/shopping/actions')).toEqual([]);
+
+    me = [200, { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' }];
+    await open();
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+    await shoppingSync.start();
+    await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
+    const sent = requests.filter((r) => r.path === '/shopping/actions');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.body).toMatchObject({ login_id: 2, device_id: DEVICE });
+    expect(await readQueue()).toHaveLength(0);
+    shoppingSync.forget();
   });
 });

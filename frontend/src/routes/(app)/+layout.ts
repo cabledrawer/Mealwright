@@ -6,9 +6,9 @@
 // device, so the shopping list works offline (docs/dev/sync-protocol.md section 11.4). With
 // nobody to open as (never signed in here, or signed out), it shows the sign-in page.
 import { redirect } from '@sveltejs/kit';
-import { cantReach, getMe, getSetup, type Me } from '$lib/api';
+import { cantReach, getMe, getSetup, signOut, type Me } from '$lib/api';
 import { lastSignedIn, startDevice } from '$lib/offline/device';
-import { heldChanges } from '$lib/offline/held';
+import { turnAway } from '$lib/offline/held';
 import { wipeIfAnotherLogin } from '$lib/offline/wipe';
 import { SETUP, session, signInPath } from '$lib/session.svelte';
 import { theme } from '$lib/theme.svelte';
@@ -39,10 +39,17 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   }
   if (!me) redirect(307, signInPath(heading));
   // Signed in as a different login from the one this device holds (perhaps in another tab):
-  // start clean, as at sign-out (cabledrawer 18 Oct). Not over someone's waiting changes: only
-  // the sign-in page can warn about those first, and they're never sent under another login.
-  const held = await heldChanges();
-  if (!held || held.who.id === me.id) await wipeIfAnotherLogin(me);
+  // start clean, as at sign-out (cabledrawer 18 Oct). Not over someone's waiting changes: those
+  // are never sent under another login, never written over, and lost only through the
+  // sign-in page's warning (11.5, section 16 decision 4). So this login is signed out again
+  // before anything here is touched (the device's `meta`, copy and sender stay as they are),
+  // and goes to that warning, with its username filled in.
+  const held = await wipeIfAnotherLogin(me);
+  if (typeof held === 'object') {
+    await signOut().catch(() => undefined);
+    turnAway(me.username);
+    redirect(307, signInPath(heading));
+  }
   session.me = me;
   await startDevice(me);
   // The account's theme wins over this device's copy.

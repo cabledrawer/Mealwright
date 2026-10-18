@@ -17,6 +17,7 @@
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, storedLoginId } from './device';
+import { heldChanges, type Held } from './held';
 import { tellOtherTabs } from './otherTabs';
 import { deletePhone } from './phone';
 import { CACHE_PREFIX } from './rules';
@@ -67,14 +68,25 @@ export async function wipeDevice(): Promise<void> {
 /**
  * A sign-in has succeeded as `me`. If this device holds another login's copy, wipe it first,
  * exactly as at sign-out, so `me` starts clean with a new device ID (made on the next start).
- * The same login coming back keeps everything. True when it wiped.
+ * The same login coming back keeps everything ('kept').
  *
- * When the other login has changes waiting, the sign-in page has already warned and the
- * person chose "Carry on and lose them" (section 16, decision 4).
+ * Never over another login's waiting changes without the warning (section 16, decision 4):
+ * they're read again from the phone database just now, since another tab may have queued
+ * some since, and when there are any they come back instead and nothing is wiped. Only
+ * `losing`, what the warning showed and "Carry on and lose them" chose to lose, lets the wipe
+ * go ahead, and only while it still covers them all.
  */
-export async function wipeIfAnotherLogin(me: { id: number }): Promise<boolean> {
+export async function wipeIfAnotherLogin(
+  me: { id: number },
+  losing: Held | null = null
+): Promise<'kept' | 'wiped' | Held> {
   const stored = await storedLoginId();
-  if (stored === null || stored === me.id) return false;
+  if (stored === null || stored === me.id) return 'kept';
+  const held = await heldChanges();
+  if (held && held.who.id !== me.id) {
+    const chosen = losing && losing.who.id === held.who.id && held.count <= losing.count;
+    if (!chosen) return held;
+  }
   await wipeDevice();
-  return true;
+  return 'wiped';
 }

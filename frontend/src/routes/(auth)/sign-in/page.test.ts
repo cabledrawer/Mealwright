@@ -1,6 +1,8 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
+import { startDevice } from '$lib/offline/device';
+import { turnAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, readQueue } from '$lib/offline/store';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
@@ -207,6 +209,80 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     ]);
     expect(navigation.goto).not.toHaveBeenCalled();
     expect(await readQueue()).toHaveLength(2);
+  });
+
+  it('after the app turned Arlo away over Wren’s change: his username is in, he’s warned, and carrying on wipes, with a new device ID', async () => {
+    await wrensPhone(1);
+    turnAway('arlo');
+    show();
+    await expect.element(page.getByLabelText('Username')).toHaveValue('arlo');
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+    await userEvent.fill(page.getByLabelText('Password'), 'a long password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+    expect(requests).toEqual([]);
+    await page.getByRole('button', { name: 'Carry on and lose it' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    const databases = (await indexedDB.databases()).map((d) => d.name);
+    expect(databases).not.toContain(phoneDatabaseName());
+    // The app then starts as Arlo, with a device ID of his own.
+    await startDevice(ARLO);
+    const fresh = await getMeta('device_id');
+    expect(fresh).toMatch(/^[0-9a-f-]{36}$/);
+    expect(fresh).not.toBe(DEVICE);
+    expect(await getMeta('login_id')).toBe(3);
+    expect(await readQueue()).toEqual([]);
+  });
+
+  it('changes queued in another tab after this page opened are read again: warned, never wiped', async () => {
+    await wrensPhone(0);
+    show();
+    await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    expect(page.getByRole('status').elements()).toEqual([]);
+    // Meanwhile, in another tab, Wren queues 2 changes and her sign-in runs out.
+    await addToQueue(tick('t1'), 2, DEVICE);
+    await addToQueue(tick('t2'), 2, DEVICE);
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+    expect(requests).toEqual([]);
+    expect(await readQueue()).toHaveLength(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+  });
+
+  it('carrying on loses only what the warning showed: one more queued since, and it warns again', async () => {
+    await wrensPhone(1);
+    show();
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+    // Another tab queues one more before Carry on is pressed.
+    await addToQueue(tick('t2'), 2, DEVICE);
+    await page.getByRole('button', { name: 'Carry on and lose it' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'POST /session',
+      'DELETE /session'
+    ]);
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect(await readQueue()).toHaveLength(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+
+    // Carrying on now loses both, and only then.
+    await page.getByRole('button', { name: 'Carry on and lose them' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    const databases = (await indexedDB.databases()).map((d) => d.name);
+    expect(databases).not.toContain(phoneDatabaseName());
   });
 
   it('says nothing when nothing is waiting', async () => {

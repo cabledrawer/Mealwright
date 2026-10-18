@@ -53,3 +53,21 @@ export const STILL_CANT_REACH = "Still can't reach your server.";
 export function sameUsername(typed: string, who: SignedIn): boolean {
   return typed.trim().toLowerCase() === who.username.trim().toLowerCase();
 }
+
+/**
+ * The username the app just turned away because another login's changes are waiting here
+ * (the (app) layout): the sign-in page fills it in once, so the warning names the right
+ * person. Kept in memory only, never stored.
+ */
+let turnedAway = '';
+
+export function turnAway(username: string): void {
+  turnedAway = username;
+}
+
+/** The username turned away, once ('' when none). */
+export function takeTurnedAway(): string {
+  const username = turnedAway;
+  turnedAway = '';
+  return username;
+}

@@ -18,6 +18,7 @@
     keptText,
     loseOthersText,
     sameUsername,
+    takeTurnedAway,
     waitingForText,
     type Held
   } from '$lib/offline/held';
@@ -28,7 +29,8 @@
 
   let { data }: PageProps = $props();
 
-  let username = $state('');
+  // Filled in when the app has just turned this login away over someone's waiting changes.
+  let username = $state(takeTurnedAway());
   let password = $state('');
   let remember = $state(true);
   let busy = $state(false);
@@ -70,6 +72,8 @@
     event.preventDefault();
     problem = '';
     losing = false;
+    // Read again: another tab may have queued changes since this page opened.
+    held = await heldChanges();
     if (someoneElse) {
       warning = true;
       return;
@@ -97,14 +101,19 @@
     busy = true;
     try {
       const me = await signIn(username, password, remember);
-      if (held && me.id !== held.who.id && !losing) {
-        // Another login after all: end that session again before anything is sent.
+      // Another login than the one this phone holds starts clean, as at sign-out, but never
+      // over waiting changes the warning hasn't shown (read again just now, as another tab
+      // may have queued some since).
+      const result = await wipeIfAnotherLogin(me, losing ? held : null);
+      if (typeof result === 'object') {
+        // Another login after all: end that session again before anything is sent, and warn.
         await signOut().catch(() => undefined);
+        held = result;
+        losing = false;
         warning = true;
         return;
       }
-      // Signed in. Another login than the one this phone holds starts clean, as at sign-out.
-      if (await wipeIfAnotherLogin(me)) held = null;
+      if (result === 'wiped') held = null;
       session.me = me;
       theme.adopt(me.theme);
       const next = safeNext(page.url.searchParams.get('next'));

@@ -572,6 +572,8 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 - The **same login** signs back in → the queue is sent at once.
 - The same login signing back in keeps the device ID (a session running out isn't a sign-out), so the queued actions still count as this phone's (SY-62).
 - A **different login**: the queue is never sent under another login (the server refuses it anyway with `409 other_login`). The warning comes first, worded as decision 4 in section 16 (new L306). If they carry on, the **whole offline copy** is wiped, not just the queue, exactly as at sign-out (section 12), and a new device ID is made (FE-3). The wipe happens only once the new login's sign-in has succeeded: a wrong password wipes nothing.
+- The waiting changes are read again just before the warning is decided and just before the wipe, since another tab may have queued some since the sign-in page opened. Carrying on loses only what the warning showed: if more are waiting by then, it warns again.
+- A different login can't get past the warning another way. If the app opens already signed in as another login (say, signed in in another tab) while this device holds someone's waiting changes, it doesn't touch them: `meta`, the device ID, the copy and the queue stay exactly as they are, and nothing is sent. That login is signed out again (`DELETE /api/v1/session`) and goes to the sign-in page with its username filled in, which shows the warning.
 
 ### 11.6 App updates (L290)
 
