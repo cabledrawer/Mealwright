@@ -90,7 +90,9 @@ async def stream(
                 "`pantry {change_id}` after a stock change, a `: keep-alive` comment every "
                 "25 seconds, and `signed_out` (then the stream closes) when the sign-in "
                 "runs out. Numbers only, never names. Only this household's events. The "
-                "stream is not activity: it never extends the sign-in."
+                "stream is not activity: it never extends the sign-in. One sign-in may "
+                "hold 10 streams open; opening another closes its oldest (browsers "
+                "reconnect by themselves)."
             ),
             "content": {"text/event-stream": {"schema": {"type": "string"}, "example": EXAMPLE}},
         },
@@ -105,17 +107,19 @@ async def get_events(request: Request) -> StreamingResponse:
 
     broadcaster: Broadcaster = app.state.events
 
-    def household() -> int | None:
+    def signed_in() -> tuple[int, int] | None:
         with factory() as db:
             found = peek_session(db, token)
-            return None if found is None else found.login.household_id
+            return None if found is None else (found.login.household_id, found.session.id)
 
-    household_id = await run_in_threadpool(household)
-    if household_id is None:
+    who = await run_in_threadpool(signed_in)
+    if who is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
+    household_id, session_id = who
     # Subscribe first, then read the counter: a change in between is announced again
-    # with a cursor at least as high, never missed.
-    subscription = broadcaster.subscribe(household_id)
+    # with a cursor at least as high, never missed. Past the limit for one sign-in, this
+    # closes that sign-in's oldest stream.
+    subscription = broadcaster.subscribe(household_id, session_id)
     try:
         cursor = await run_in_threadpool(_counter, factory, household_id)
     except BaseException:

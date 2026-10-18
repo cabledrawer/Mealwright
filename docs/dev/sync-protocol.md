@@ -530,6 +530,7 @@ data: {"change_id": 815}
 - Headers `Cache-Control: no-store` (as on all of `/api`, section 12) and `X-Accel-Buffering: no` (so nginx-style proxies don't hold events back). The reverse-proxy docs get a line about it.
 - One in-process broadcaster: the container runs one server process. (Several processes, or Postgres, would need Postgres `LISTEN/NOTIFY`; noted for later.)
 - If the stream drops, the browser reconnects by itself; the app also re-fetches changes when it comes back to the foreground.
+- **At most 10 streams per sign-in** (security audit, 0.4). Opening an eleventh closes that sign-in's oldest stream with no event, so its browser reconnects by itself; the newest always wins, so a phone that left dead connections behind is never locked out. Other sign-ins are not touched.
 
 ## 11. The device (PR 6)
 

@@ -8,6 +8,9 @@
   that hears `shopping` asks `GET /shopping/changes` for the details, as any request.
 - One broadcaster per server process (the container runs one). Writes may happen on a
   threadpool thread, so events are handed to each stream's own event loop thread-safely.
+- One sign-in may hold at most `MAX_STREAMS_PER_SESSION` streams open (security audit,
+  0.4). Opening one more closes that sign-in's oldest stream: its browser reconnects by
+  itself, and a phone that left dead connections behind is never locked out.
 """
 
 import asyncio
@@ -26,6 +29,8 @@ log = logging.getLogger(__name__)
 PENDING = "mealwright.pending_events"
 SHOPPING = "shopping"
 PANTRY = "pantry"
+# Open tabs and devices share a sign-in only within one browser; ten is plenty.
+MAX_STREAMS_PER_SESSION = 10
 
 
 @dataclass(frozen=True)
@@ -35,10 +40,14 @@ class Event:
 
 
 class Subscription:
-    """One open stream. Events arrive in `queue`; a `None` means the server is stopping."""
+    """One open stream. Events arrive in `queue`; a `None` means "end this stream" (the
+    server is stopping, or the same sign-in opened too many)."""
 
-    def __init__(self, household_id: int, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(
+        self, household_id: int, loop: asyncio.AbstractEventLoop, session_id: int | None = None
+    ) -> None:
         self.household_id = household_id
+        self.session_id = session_id
         self.loop = loop
         self.queue: asyncio.Queue[Event | None] = asyncio.Queue()
 
@@ -50,20 +59,26 @@ class Subscription:
 class Broadcaster:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._subscriptions: set[Subscription] = set()
+        # Oldest first (a dict keeps the order things were added in).
+        self._subscriptions: dict[Subscription, None] = {}
         self._closed = False
 
-    def subscribe(self, household_id: int) -> Subscription:
-        subscription = Subscription(household_id, asyncio.get_running_loop())
+    def subscribe(self, household_id: int, session_id: int | None = None) -> Subscription:
+        subscription = Subscription(household_id, asyncio.get_running_loop(), session_id)
         with self._lock:
-            self._subscriptions.add(subscription)
+            if session_id is not None:
+                same = [s for s in self._subscriptions if s.session_id == session_id]
+                for oldest in same[: max(len(same) - MAX_STREAMS_PER_SESSION + 1, 0)]:
+                    del self._subscriptions[oldest]
+                    oldest.put(None)
+            self._subscriptions[subscription] = None
             if self._closed:
                 subscription.put(None)
         return subscription
 
     def unsubscribe(self, subscription: Subscription) -> None:
         with self._lock:
-            self._subscriptions.discard(subscription)
+            self._subscriptions.pop(subscription, None)
 
     def publish(self, household_id: int, item: Event) -> None:
         """To this household's streams only."""
