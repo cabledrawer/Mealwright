@@ -53,7 +53,7 @@ Read section 0 for the whole idea, then only the sections your pull request need
 | 3 | `m0.3/server-sync` | From PR 2 (cabledrawer 18 Oct): `GET /shopping/changes`, `POST /shopping/actions` with the envelope, counter, repeats and refusals (sections 4 and 5), `dismiss_note`, `add` with `new_food`; routing PR 2's one-at-a-time list requests through the same action handling (5.1); `sync_action` rows for the other server-made changes in 5.8 (ingredient edits; merges already write one from PR 2) and `follow_shop`. Then `tick`, `untick`, `put_away`, `different_pack`, `clear_ticked`, `answer_double_tick`, `undo` of those, the pantry side (section 7), the double-tick question, the remaining notes, `change.tick_id` and the `repacked` change kind, Pantry Undo of a purchase's changes keeping the list in step (5.8), what happens when something was removed while a phone was offline (5.9), the history job's tidy-up of sync tables, and the backend two-device tests and property test (section 14). |
 | 4 | `m0.3/shopping-screen` | The Shopping screen (section 13), writing only through one client function `sendAction(action)` that PR 6 turns into the queue; the "New ingredient" button on Ingredients; the "How do you count it?" question. |
 | 5 | `m0.3/live-and-installable` | `GET /api/v1/events` (section 10), live refresh of Shopping and Pantry, the installable app (manifest, service worker for the app shell), the app-update rule (11.6), the connection bar and toast (11.4, with the waiting count filled in by PR 6). |
-| 6 | `m0.3/offline-queue` | Section 11 (IndexedDB with `idb`, the offline copy, the queue, optimistic display, sending and retries, sign-in running out), section 12 (sign-out warning and wipe), and the browser end-to-end tests E1 to E3. |
+| 6 | `m0.3/offline-queue` | Section 11 (IndexedDB with `idb`, the offline copy, the queue, optimistic display, sending and retries, sign-in running out), section 12 (sign-out warning and wipe), and the browser end-to-end tests E1s (E1 with both devices signed in as Tess; the two-person E1 waits for 0.8, cabledrawer 18 Oct), E2 and E3. |
 
 ## 2. Words used in this file
 
@@ -405,7 +405,7 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 | L-15 | **Ticking into the pantry:** the ingredient's usual place, or Cupboard; no use-by unless chosen. Ticking an item moves it into the pantry; the user can say where. | Section 7.1. | L286, L195 | SY-46 |
 | L-16 | **Items that aren't food** are ingredients with Staple on: ticking never adds stock. | Staple: the tick is recorded on the list, no stock, no `shopped` change, no card. | L287 | SY-28 |
 | L-17 | **Different pack on the day:** change the pack when ticking; the pantry gets what was bought; the new size is added to the ingredient's sizes. | `different_pack` (7.4); a new size is marked `added_when_shopping`. | L345, L95 | SY-15, SY-16 |
-| L-18 | **"Did you buy 2?"** shows to both people; the first answer settles it and the card disappears for the other (answer 6). On Shopping only until 0.6 (answer 7). | The card goes to the logins that ticked. The first `answer_double_tick` applies; later ones → `ignored answered`. The question goes out as closed, so the card disappears. Reversing a purchase another way closes it as `none`. | new L296 | SY-25, SY-27, E1 |
+| L-18 | **"Did you buy 2?"** shows to both people; the first answer settles it and the card disappears for the other (answer 6). On Shopping only until 0.6 (answer 7). | The card goes to the logins that ticked. The first `answer_double_tick` applies; later ones → `ignored answered`. The question goes out as closed, so the card disappears. Reversing a purchase another way closes it as `none`. | new L296 | SY-25, SY-27, E1, E1s |
 | L-19 | **Ticked items** fold into "In the trolley · N" at the end of each shop; "Clear ticked" removes them, with Undo (answer 8). | `clear_ticked` tombstones the listed items that still have a standing tick (an item unticked meanwhile stays). A later tick on a cleared item still counts (as L-9; the card, if any, explains it, so no N1 note). The fold itself is the screen's job (section 13). | new L297 | SY-29, SY-30, SY-31 |
 | L-20 | **No usual shop** → "Any shop", shown last (answer 9). | `shop_id` null. | new L298 | FE-1 |
 | L-21 | **Aisles:** optional per ingredient, default names and order; headings use the spec's names (answer 10). | `food.aisle` (3.7). | L288, new L288 | FE-1 |
@@ -708,7 +708,8 @@ Runs as: **BE** = fast backend test (pytest, `backend/tests/test_sync_*.py`, tes
 | SY-65 | S0 | offline: add Eggs 6, then add Eggs 6 again (two actions, same phone) | — | A | one Eggs line, 12 (base amounts added, the line's size kept: 2 boxes) | — | Second `merged`; no note. A's screen showed 12 before sending (`applyLocal`). Variant: toor dal 1 packet + toor dal 250 g → 750 g, shown "1½ packets". | BE + FE |
 | SY-66 | S0 + a removed ingredient "Ghee" (in its undo window) | online: make a new ingredient named "Ghee" | offline (before): add Ghee 1 jar via the removed one | A, then B | one Ghee line, on the new Ghee | — | The old Ghee stays removed. Variant without the new one: old Ghee brought back; Wren's Undo of the add removes it again. | BE |
 | P-1 | S0 | random queues for two devices (Hypothesis): any mix of the actions above, random reconnect order, batch splits, lost answers and resends. (PR 3) Three phones, Tess on two (the same login on two devices) and Wren on one, with uses from the pantry in between the syncs. | | | | | After everything: each ingredient's stock = its standing purchases' stock minus uses, never below zero; resending any prefix changes nothing; every action has exactly one `sync_action` row; a tombstoned item is back only through an Undo. (PR 3) Checked after every sync and every use, per purchase: no lot below zero; every lot with stock belongs to exactly one purchase; a purchase taken back has nothing left in its lots, one still standing has at most what it bought (exactly that if nothing was used from its lots); a take-back only takes from its own purchase's lots, never more than is left in them; a put-back (Undo of an untick or of "Just 1") gives back exactly what its take-back took out, lot by lot. | BE |
-| E1 | S0, two browser contexts (cabledrawer, Wren) | offline (Playwright `setOffline`): tick toor dal | offline: tick toor dal | A, then B | ticked | Pantry screen: Toor dal 2 packets | "Did you buy 2?" on both screens; Wren taps Just 1 → the card disappears from cabledrawer's screen within 5 s (event stream); Pantry 1 packet. | E2E |
+| E1 | S0, two browser contexts (Tess, Wren) | offline (Playwright `setOffline`): tick toor dal | offline: tick toor dal | A, then B | ticked | Pantry screen: Toor dal 2 packets | "Did you buy 2?" on both screens; Wren taps Just 1 → the card disappears from Tess's screen within 5 s (event stream); Pantry 1 packet. **Stays for 0.8** (cabledrawer 18 Oct): Wren's login is made in the app, as a real second login, with nothing seeded. E1s below is the 0.3 version. | E2E (0.8) |
+| E1s | Two browser contexts, both signed in as Tess (two devices). Nothing seeded: Toor dal (weight, packet 500 g) made through the API, 1 packet on the main list | offline: tick toor dal | offline: tick toor dal | A, then B | ticked | 2 packets, then 1 packet (checked through `GET /api/v1/pantry`) | "Did you buy 2?" on both screens, with "This was ticked on two phones, so 2 packets went into the pantry." (the same login on both, so no names); Just 1 on B → the card disappears from A's screen within 5 s (event stream). The 0.3 version of E1 (cabledrawer 18 Oct). Phone and desktop. | E2E |
 | E2 | S0, one context | offline: tick 2 items, add 1 | — | reload the page while offline, then go online | the 3 changes survive the reload; then on the server | — | Bar "Offline — 3 changes waiting"; after reconnect, toast "Back online — all saved". | E2E |
 | E3 | S0, one context | offline: tick 1 item; Sign out | — | — | — | — | The warning with Try sending now · Stay signed in · Sign out and lose them. Stay signed in keeps the change. Sign out and lose them → IndexedDB database gone, sign-in page; going online ends the server session. | E2E |
 | FE-1 | | | | | Grouping: shops in order, aisles in the spec's order and names, no aisle → Other, Any shop last, trolley row per shop | | | FE |
@@ -722,9 +723,11 @@ Runs as: **BE** = fast backend test (pytest, `backend/tests/test_sync_*.py`, tes
 
 For cabledrawer, with two phones. About 20 minutes, plus a night. Your server is only reachable on home Wi-Fi, so do the "shop" part anywhere, but **reconnect at home**.
 
+**Both phones sign in as Tess** (cabledrawer 18 Oct): "I can't make a Wren login until 0.8, so for 0.3.0 both phones sign in as Tess." The two-person version of this test (one phone as Tess, one as Wren) comes back in 0.8. Because both ticks are by the same person, the cards and notes say "phones" or "Your other phone" where they would otherwise name Wren.
+
 **Before you start**
 
-1. On both phones, open Mealwright in the browser, sign in (one as cabledrawer, one as Wren), and add it to the Home Screen. Open it from the Home Screen icon from now on.
+1. On both phones, open Mealwright in the browser, sign in as **Tess** on each, and add it to the Home Screen. Open it from the Home Screen icon from now on. Call them phone A and phone B.
 2. On one phone, make a list for a single shop (say Supermarket) with: Toor dal 1 packet, Coriander 1 bunch, Milk 2 L, Onions 5.
 3. Tick **Coriander** on phone A now, while online. Wait until both phones show it ticked.
 4. Open **Pantry** and write down how much Toor dal and Coriander you have.
@@ -745,13 +748,13 @@ For cabledrawer, with two phones. About 20 minutes, plus a night. Your server is
 
 **What you should see on both phones**
 
-- Toor dal ticked once on the list, and a card **"Did you buy 2?"**. In Pantry: 2 packets more than you wrote down in step 4.
+- Toor dal ticked once on the list, and a card **"Did you buy 2?"** above the list. Because both ticks were yours, the card doesn't name anyone. It says: "This was ticked on two phones, so 2 packets went into the pantry.", with the buttons **Yes, 2** and **Just 1** (cabledrawer 18 Oct). In Pantry: 2 packets more than you wrote down in step 4.
 - Tap **Just 1** on one phone. The card disappears from the other phone within a few seconds. Pantry: 1 packet more than you wrote down in step 4.
 - **Coriander** ticked, and in Pantry the same as you wrote down in step 4 (not 1 bunch less, not 1 more).
-- **Milk** gone from the list. Phone B shows a quiet note "Tess had removed Milk, so your change wasn't kept." with Undo. Nothing changed in the pantry for milk.
-- Pantry → Recent changes lists the ticks with who did them.
+- **Milk** gone from the list. Phone B shows a quiet note "Your other phone had removed Milk, so your change wasn't kept." with Undo. Nothing changed in the pantry for milk.
+- Pantry → Recent changes lists the ticks, each one by cabledrawer.
 
-**Bonus (one minute):** on phone B, go offline, tick something, then Settings → Sign out. You should get "1 change hasn't been sent yet…" with Try sending now · Stay signed in · Sign out and lose them. Tap **Stay signed in**, go back online, and the change saves.
+**Bonus (one minute):** on phone B, go offline, tick something, then Settings → Sign out. You should get "1 change hasn't been sent yet. If you sign out now, it's lost." with Try sending now · Stay signed in · Sign out and lose it. Tap **Stay signed in**, go back online, and the change saves.
 
 If anything looks different, take a screenshot, note the step number, and send it to the lead as a bug note. The friction log is for things that are annoying or slow.
 
