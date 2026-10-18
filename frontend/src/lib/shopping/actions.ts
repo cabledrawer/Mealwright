@@ -5,6 +5,7 @@
 
 import { api, ApiError } from '$lib/api';
 import { newChangeId } from '$lib/changeId';
+import { deviceId } from '$lib/offline/device';
 import type { Change } from '$lib/client/types';
 import { session } from '$lib/session.svelte';
 import type { ChangesAnswer } from './types';
@@ -95,21 +96,8 @@ export function makeAction<F extends ActionFields>(fields: F, id: string = newCh
 
 // --- This device ---------------------------------------------------------------------------------
 
-const DEVICE_KEY = 'mealwright.device-id';
-
-/** A random ID kept on this device (sync-protocol 3.8). */
-export function deviceId(): string {
-  try {
-    const stored = localStorage.getItem(DEVICE_KEY);
-    if (stored && /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(stored)) return stored;
-    const made = newChangeId();
-    localStorage.setItem(DEVICE_KEY, made);
-    return made;
-  } catch {
-    return (memoryDevice ??= newChangeId());
-  }
-}
-let memoryDevice: string | null = null;
+/** A random ID kept on this device (sync-protocol 11.8), in the phone database. */
+export { deviceId };
 
 // --- Sending -------------------------------------------------------------------------------------
 

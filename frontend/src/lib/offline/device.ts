@@ -1,0 +1,90 @@
+// This device's ID (docs/dev/sync-protocol.md section 11.8): random, made the first time the
+// app runs after a sign-in, kept in the phone database's `meta`, and sent only to our own
+// server, on every batch of changes.
+//
+// Before 0.3 it was kept in localStorage. The first time this version runs it moves into
+// `meta` with the same value (so the server still sees the same device), and the old
+// localStorage key is cleared (cabledrawer 18 Oct).
+
+import { newChangeId } from '$lib/changeId';
+import { getMeta, setMeta } from './phone';
+
+/** Where 0.2 kept the device ID. Empty from 0.3 on. */
+export const OLD_DEVICE_KEY = 'mealwright.device-id';
+
+const UUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+
+let current: string | null = null;
+
+function oldId(): string | null {
+  try {
+    return localStorage.getItem(OLD_DEVICE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearOld(): void {
+  try {
+    localStorage.removeItem(OLD_DEVICE_KEY);
+  } catch {
+    // Nothing kept there to clear.
+  }
+}
+
+/**
+ * Read the device ID from `meta`, making it (or moving 0.2's into it) when there is none.
+ * The app runs this before it sends anything.
+ */
+export async function loadDeviceId(): Promise<string> {
+  let id: string | undefined;
+  try {
+    id = await getMeta('device_id');
+    if (!isId(id)) {
+      const old = oldId();
+      id = isId(old) ? old : isId(current) ? current : newChangeId();
+      await setMeta({ device_id: id });
+    }
+    clearOld();
+  } catch {
+    // No IndexedDB here (a locked-down private window): keep it for this visit only.
+    id = current ?? newChangeId();
+  }
+  current = id;
+  return id;
+}
+
+/** The device ID, once loadDeviceId() has run (a new one for this visit before that). */
+export function deviceId(): string {
+  return (current ??= newChangeId());
+}
+
+/** Forget the device ID (the database it lived in has been wiped). */
+export function forgetDeviceId(): void {
+  current = null;
+}
+
+/** Who is signed in on this device, kept so the app can open offline as them (11.1). */
+export interface SignedIn {
+  id: number;
+  name: string;
+  username: string;
+  role: string;
+}
+
+/** On starting the app signed in: load the device ID and note who is signed in. */
+export async function startDevice(me: SignedIn): Promise<void> {
+  await loadDeviceId();
+  try {
+    await setMeta({
+      login_id: me.id,
+      login_name: me.name,
+      username: me.username,
+      role: me.role,
+      protocol: 1
+    });
+  } catch {
+    // No IndexedDB here: the app still works while connected.
+  }
+}
