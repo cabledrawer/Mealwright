@@ -33,6 +33,8 @@ def build(tmp_path: Path) -> Path:
     (folder / "sign-in.html").write_text("<!doctype html><p>sign in</p>")
     (folder / "_app/immutable/entry/start.def456.js").write_text("console.log('hi')")
     (folder / "favicon.svg").write_text("<svg/>")
+    (folder / "service-worker.js").write_text("self.addEventListener('fetch', () => {})")
+    (folder / "manifest.webmanifest").write_text('{"name": "Mealwright"}')
     (tmp_path / "secret.txt").write_text("not for the web")
     return folder
 
@@ -100,3 +102,27 @@ def test_without_a_build_the_api_still_works(settings: Settings) -> None:
     with TestClient(create_app(settings), base_url="https://testserver") as client:
         assert client.get("/api/v1/version").status_code == 200
         assert client.get("/").status_code == 404
+
+
+def test_service_worker_is_always_checked_again(web: TestClient) -> None:
+    response = web.get("/service-worker.js")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+    assert "javascript" in response.headers["content-type"]
+
+
+def test_manifest_has_its_own_type_and_is_checked_again(web: TestClient) -> None:
+    response = web.get("/manifest.webmanifest")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/manifest+json")
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_the_policy_still_allows_the_worker_and_manifest_from_our_own_server_only(
+    web: TestClient,
+) -> None:
+    policy = web.get("/").headers["content-security-policy"]
+    assert "worker-src 'self';" in policy
+    assert "manifest-src 'self';" in policy
+    assert "connect-src 'self';" in policy
+    assert "default-src 'self';" in policy

@@ -3,6 +3,8 @@
 - Known files are served as they are; `/plan` also finds `plan.html` or `plan/index.html`.
 - Any other address (not under /api) gets index.html, so the app's own router takes
   over (single-page app).
+- service-worker.js, the manifest and pages are always checked again ("no-cache"), so a new
+  version of the app is found promptly (the worker itself never installs one mid-use).
 - Files under /_app/immutable/ have content hashes in their names, so browsers may keep
   them for a year. Pages are always checked again.
 - At start-up, every inline <script> in the built pages is fingerprinted (SHA-256), and
@@ -18,6 +20,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 IMMUTABLE = "_app/immutable/"
+# Not every Python knows this one; the installable app's manifest needs it.
+MEDIA_TYPES = {".webmanifest": "application/manifest+json"}
 FALLBACK = "index.html"
 
 
@@ -82,4 +86,8 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
                 raise HTTPException(404, "Not found")
         immutable = path.startswith(IMMUTABLE)
         cache = "public, max-age=31536000, immutable" if immutable else "no-cache"
-        return FileResponse(found, headers={"Cache-Control": cache})
+        return FileResponse(
+            found,
+            headers={"Cache-Control": cache},
+            media_type=MEDIA_TYPES.get(found.suffix),
+        )
