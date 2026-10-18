@@ -16,6 +16,7 @@ from sync_kit import (
     S0,
     action,
     changes,
+    counter,
     db,
     food,
     item_row,
@@ -208,6 +209,32 @@ def test_an_undo_of_a_tick_keeps_the_brought_back_ingredient_while_stock_is_left
     ok(kitchen.post(f"{API}/stock", json=more), 201)
     assert _undo(kitchen, done["id"])["status"] == "applied"
     assert _live(s, "Paneer") == [s.foods["Paneer"]] and s.total("Paneer") == 250
+
+
+def test_an_undo_of_a_tick_keeps_the_brought_back_ingredient_while_it_is_on_a_list(
+    kitchen: TestClient,
+) -> None:
+    """0.2's rule (`cannot_remove`): an ingredient on a list can't be removed. Wren put
+    Paneer on the list again after the tick brought it back, so the Undo takes the tick
+    back but Paneer stays in Ingredients, and her line stays."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    done = tick(kitchen, s, "Paneer")
+    again = one(
+        s.wren,
+        "add",
+        counter(s.wren),
+        PHONE_R,
+        list_id=s.main,
+        item_id=new_id(),
+        food_id=s.foods["Paneer"],
+        amount=200,
+    )
+    assert again["status"] == "applied" and again["item_id"] != s.items["Paneer"]
+    assert _undo(kitchen, done["id"])["status"] == "applied"
+    assert s.ticks("Paneer") == [] and s.total("Paneer") == 0
+    assert _live(s, "Paneer") == [s.foods["Paneer"]]
+    assert item_row(changes(kitchen), again["item_id"])["deleted"] is False
 
 
 def test_a_tick_goes_to_the_ingredient_that_has_the_name_now(kitchen: TestClient) -> None:

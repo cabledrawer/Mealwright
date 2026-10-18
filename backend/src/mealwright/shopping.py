@@ -45,6 +45,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import clean, fold
+from mealwright.stock import has_stock
 
 MAIN_LIST_NAME = "This week"
 OTHER_PHONE = "Your other phone"  # {who} for the same login on another phone (section 8)
@@ -594,6 +595,13 @@ def removed_recently(kitchen: Kitchen, food_id: int) -> bool:
     return on_a_list(kitchen.db, kitchen.household_id, food_id, cutoff)
 
 
+def still_needed(kitchen: Kitchen, food_id: int) -> bool:
+    """0.2's rule for removing an ingredient (`cannot_remove` in api/v1/foods.py): not while
+    it has stock, nor while it is on a list (merges followed). An Undo that would remove a
+    brought-back ingredient again (5.9, 7.1) leaves it in Ingredients while this holds."""
+    return has_stock(kitchen, food_id) or removed_recently(kitchen, food_id)
+
+
 def move_items(
     kitchen: Kitchen, from_food_id: int, to_food_id: int, batch: Batch
 ) -> list[dict[str, Any]]:
@@ -904,10 +912,8 @@ def add_item(act: Act) -> None:
     act.list_id = shopping_list.id
     item_id = new_id(kitchen, payload.get("item_id"), ListItem)
     foods: dict[str, Any] = {}
-    recount = typed = False
     if payload.get("new_food") is not None:
         food, foods, recount = _new_food(act, payload["new_food"])
-        typed = recount and payload.get("amount") is not None
     else:
         found, foods, recount = _food_for(act, payload["food_id"])
         if found is None:
@@ -916,6 +922,7 @@ def add_item(act: Act) -> None:
             return
         food = found
     act.food_id = food.id
+    typed = recount and payload.get("amount") is not None  # the adder gets N9
     if "shop_id" in payload:
         wanted_shop = payload["shop_id"]
         shop = get_shop(kitchen, wanted_shop) if wanted_shop is not None else None
@@ -966,7 +973,7 @@ def add_item(act: Act) -> None:
 
 
 def _counted_another_way(act: Act, food: Food, line: ListItem) -> None:
-    """N9: the adder's amount was for another way of counting (4.4, pending cabledrawer)."""
+    """N9: the adder's amount was for another way of counting (4.4, 7.1, pending cabledrawer)."""
     note(
         act,
         "N9",

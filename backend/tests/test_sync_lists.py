@@ -531,11 +531,44 @@ def test_sy66_variant_add_via_a_removed_ingredient(kitchen: TestClient) -> None:
         assert session.get(Food, old).removed_at is not None
 
 
+def test_an_undo_of_an_add_keeps_the_brought_back_ingredient_while_it_is_on_a_list(
+    kitchen: TestClient,
+) -> None:
+    """5.9 with 0.2's rule (`cannot_remove`): an ingredient on a list can't be removed.
+    Tess put the brought-back Ghee on the list for the Indian grocer too, so the Undo of
+    Wren's add takes her line off but leaves Ghee in Ingredients."""
+    s = s0(kitchen)
+    old = food(kitchen, "Ghee", counted_as="weight")["id"]
+    ok(kitchen.delete(f"{API}/foods/{old}"))
+    added = one(
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
+    )
+    other = one(
+        kitchen,
+        "add",
+        counter(kitchen),
+        PHONE_A,
+        list_id=s.main,
+        item_id=new_id(),
+        food_id=old,
+        amount=200,
+        shop_id=s.shops["Indian grocer"],
+    )
+    assert other["status"] == "applied" and other["item_id"] != added["item_id"]
+    before = counter(kitchen)
+    assert _undo(s.wren, added["id"], PHONE_R)["status"] == "applied"
+    assert item_row(changes(kitchen, before), added["item_id"])["deleted"] is True
+    assert item_row(changes(kitchen), other["item_id"])["deleted"] is False
+    with db(kitchen) as session:
+        assert session.get(Food, old).removed_at is None
+
+
 def test_an_add_via_a_removed_ingredient_never_carries_its_amount_to_one_counted_differently(
     kitchen: TestClient,
 ) -> None:
     """7.1 (pending cabledrawer): 500 g of the old Ghee means nothing for a Ghee counted in
-    items, so the line gets a blank add's amount: 1 (it has no usual size)."""
+    items, so the line gets a blank add's amount: 1 (it has no usual size), and the adder
+    gets note N9."""
     s = s0(kitchen)
     old = food(kitchen, "Ghee", counted_as="weight")["id"]
     ok(kitchen.delete(f"{API}/foods/{old}"))
@@ -545,6 +578,13 @@ def test_an_add_via_a_removed_ingredient_never_carries_its_amount_to_one_counted
     assert added["status"] == "applied" and added["food_id"] == new
     row = item_row(changes(kitchen), item)
     assert (row["food_id"], row["amount"], row["size_id"]) == (new, 1, None)
+    # The adder is told, as for a typed new ingredient (N9).
+    (note,) = changes(s.wren)["notes"]
+    assert note["text"] == (
+        "Ghee was already in Ingredients, counted another way, so check the amount."
+    )
+    assert (note["undo"], note["item_id"]) == (added["id"], item)
+    assert changes(kitchen)["notes"] == []
 
 
 # --- Sign-in runs out while offline (11.5) -------------------------------------------------------

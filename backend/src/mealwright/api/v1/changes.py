@@ -1,7 +1,7 @@
 """Recent changes and Undo (docs/dev/api-0.2.md 6.5; spec section 6, "History and undo")."""
 
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel
@@ -25,6 +25,7 @@ from mealwright.history import (
     already_undone,
     as_utc,
     commit,
+    foods_in,
     record,
     replayed,
     too_old,
@@ -296,6 +297,14 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     )
 
 
+def _still_needed(kitchen: Kitchen, change: Change, foods: dict[str, Any]) -> bool:
+    """An `add` that brought its ingredient back (5.9): its Undo removes it again, but not
+    while it has stock or is on a list (0.2's rule): then it stays."""
+    return change.kind == "item_added" and any(
+        shopping.still_needed(kitchen, food_id) for food_id in foods_in(foods)
+    )
+
+
 def undo_change(
     kitchen: Kitchen,
     change: Change,
@@ -322,7 +331,7 @@ def undo_change(
             if lot.food_id not in start:
                 start[lot.food_id] = place_totals(kitchen, lot.food_id)
     short = undo_lines(kitchen, change, tally)
-    if data.get("foods"):
+    if data.get("foods") and not _still_needed(kitchen, change, data["foods"]):
         done_before = tally.done
         touched_foods = undo_foods(kitchen, data["foods"], tally)
         if tally.done > done_before:

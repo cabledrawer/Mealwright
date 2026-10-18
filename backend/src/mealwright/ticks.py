@@ -798,7 +798,7 @@ def undo(act: Act, target: SyncAction) -> None:
 
 def _remove_again(act: Act, tick: ListTick) -> None:
     """A tick that brought its ingredient back (7.1): its Undo removes the ingredient again,
-    as an Undo of an `add` does (5.9), once none of its stock is left."""
+    as an Undo of an `add` does (5.9), unless it has stock or is on a list (0.2's rule)."""
     from mealwright.history import Tally, undo_foods
 
     kitchen = act.kitchen
@@ -812,17 +812,8 @@ def _remove_again(act: Act, tick: ListTick) -> None:
         revived = (change.undo_data or {}).get("revived")
         if not revived or change.food_id is None:
             continue
-        left = kitchen.db.scalar(
-            select(StockLot.id)
-            .where(
-                StockLot.household_id == kitchen.household_id,
-                StockLot.food_id == change.food_id,
-                StockLot.amount_milli > 0,
-            )
-            .limit(1)
-        )
-        if left is not None:
-            continue  # removing it would hide that stock
+        if shopping.still_needed(kitchen, change.food_id):
+            continue  # it has stock or is on a list: removing it would hide that
         tally = Tally()
         touched = undo_foods(kitchen, revived, tally)
         if tally.done:
