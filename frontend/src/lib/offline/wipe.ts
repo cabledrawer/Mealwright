@@ -74,7 +74,8 @@ export async function wipeDevice(): Promise<void> {
  * they're read again from the phone database just now, since another tab may have queued
  * some since, and when there are any they come back instead and nothing is wiped. Only
  * `losing`, what the warning showed and "Carry on and lose them" chose to lose, lets the wipe
- * go ahead, and only while it still covers them all.
+ * go ahead, and only while the queue holds no change outside it: the same changes, not just
+ * as many (another tab may have sent one and queued a new one).
  *
  * UNREADABLE when the phone database couldn't be read: then nothing is wiped and nothing is
  * written, as whether anyone's changes are waiting isn't known.
@@ -89,8 +90,8 @@ export async function wipeIfAnotherLogin(
   const held = await heldChanges();
   if (held === UNREADABLE) return UNREADABLE;
   if (held && held.who.id !== me.id) {
-    const chosen = losing && losing.who.id === held.who.id && held.count <= losing.count;
-    if (!chosen) return held;
+    const shown = new Set(losing?.who.id === held.who.id ? losing.ids : []);
+    if (!held.ids.every((id) => shown.has(id))) return held;
   }
   await wipeDevice();
   return 'wiped';

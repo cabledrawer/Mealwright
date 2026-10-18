@@ -4,7 +4,7 @@ import { page, userEvent } from 'vitest/browser';
 import { startDevice } from '$lib/offline/device';
 import { turnAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
-import { addToQueue, readQueue } from '$lib/offline/store';
+import { addToQueue, dropFromQueue, readQueue } from '$lib/offline/store';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import SignIn from './+page.svelte';
@@ -281,6 +281,41 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
 
     // Carrying on now loses both, and only then.
     await page.getByRole('button', { name: 'Carry on and lose them' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    const databases = (await indexedDB.databases()).map((d) => d.name);
+    expect(databases).not.toContain(phoneDatabaseName());
+  });
+
+  it('two tabs: another tab sends the change the warning showed and queues a new one; carrying on warns again, never wipes', async () => {
+    await wrensPhone(1);
+    show();
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+    // In Wren's other tab: her change goes, and she makes a new one. Still 1 waiting.
+    const [shown] = await readQueue();
+    await dropFromQueue([shown!.seq!]);
+    await addToQueue(tick('new'), 2, DEVICE);
+
+    await page.getByRole('button', { name: 'Carry on and lose it' }).click();
+    // The new change was never shown: warned again, and nothing wiped.
+    await vi.waitFor(() =>
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'POST /session',
+        'DELETE /session'
+      ])
+    );
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect((await readQueue()).map((e) => e.action.id)).toEqual(['new']);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+
+    // Carrying on after this warning loses the new one, and only then.
+    await page.getByRole('button', { name: 'Carry on and lose it' }).click();
     await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
     const databases = (await indexedDB.databases()).map((d) => d.name);
     expect(databases).not.toContain(phoneDatabaseName());

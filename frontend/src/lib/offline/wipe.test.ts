@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { deviceId, loadDeviceId, OLD_DEVICE_KEY, startDevice } from './device';
-import { UNREADABLE } from './held';
+import { heldChanges, UNREADABLE, type Held } from './held';
 import { getMeta, phoneDatabaseName, setMeta } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
-import { addToQueue, readQueue } from './store';
+import { addToQueue, dropFromQueue, readQueue } from './store';
 import { KEPT_ON_WIPE, wipeDevice, wipeIfAnotherLogin } from './wipe';
 
 const SHELL_CACHE = `${CACHE_PREFIX}test-wipe`;
@@ -116,5 +116,49 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
     await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(deviceId()).toBe(DEVICE);
+  });
+});
+
+describe('“Carry on and lose them” loses only the changes the warning showed', () => {
+  it('another tab sends one and queues a different one: as many, but not the same, so it warns again', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    const first = await addToQueue(tick('a'), 2, DEVICE);
+    await addToQueue(tick('b'), 2, DEVICE);
+    // The warning shows Wren's 2 changes: a and b.
+    const shown = (await heldChanges()) as Held;
+    expect(shown).toMatchObject({ count: 2, ids: ['a', 'b'] });
+
+    // Meanwhile, in another tab, Wren's change a is sent and she makes a new one, c.
+    await dropFromQueue([first.seq!]);
+    await addToQueue(tick('c'), 2, DEVICE);
+
+    // Still 2 waiting, but c was never shown: nothing is wiped, and it warns again with c.
+    const again = await wipeIfAnotherLogin(ARLO, shown);
+    expect(again).toMatchObject({ who: { id: 2 }, count: 2, ids: ['b', 'c'] });
+    expect(await databaseThere()).toBe(true);
+    expect((await readQueue()).map((e) => e.action.id)).toEqual(['b', 'c']);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+
+    // Carrying on after that warning loses b and c, and only then.
+    expect(await wipeIfAnotherLogin(ARLO, again as Held)).toBe('wiped');
+    expect(await databaseThere()).toBe(false);
+  });
+
+  it('fewer than shown (some were sent since): goes ahead', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    const first = await addToQueue(tick('a'), 2, DEVICE);
+    await addToQueue(tick('b'), 2, DEVICE);
+    const shown = (await heldChanges()) as Held;
+    await dropFromQueue([first.seq!]);
+    expect(await wipeIfAnotherLogin(ARLO, shown)).toBe('wiped');
+    expect(await databaseThere()).toBe(false);
+  });
+
+  it('a warning about someone else’s changes covers none of Wren’s', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const someoneElse = { who: { ...ARLO, id: 5, name: 'Sam' }, count: 1, ids: ['a'] };
+    expect(await wipeIfAnotherLogin(ARLO, someoneElse)).toMatchObject({ who: { id: 2 } });
+    expect(await databaseThere()).toBe(true);
   });
 });
