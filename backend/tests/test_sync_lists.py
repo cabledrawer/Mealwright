@@ -206,6 +206,86 @@ def test_sy39_two_new_ingredients_with_one_name(kitchen: TestClient, a_first: bo
     assert len(changes(kitchen)["notes"]) == 1 and len(changes(s.wren)["notes"]) == 1
 
 
+@BOTH
+def test_sy39_variant_one_name_counted_two_ways(kitchen: TestClient, a_first: bool) -> None:
+    """4.4 (pending cabledrawer): the second adder's amount was for another way of counting, so
+    it isn't kept. Its add counts as a blank one, and the adder gets note N9."""
+    s = s0(kitchen)
+    results: dict[str, Any] = {}
+
+    def a() -> None:
+        results["a"] = one(
+            kitchen,
+            "add",
+            s.c0,
+            list_id=s.main,
+            item_id=new_id(),
+            new_food={"name": "Tahini", "counted_as": "weight"},
+            amount=500,
+        )
+
+    def b() -> None:
+        results["b"] = one(
+            s.wren,
+            "add",
+            s.c0,
+            PHONE_R,
+            list_id=s.main,
+            item_id=new_id(),
+            new_food={"name": "tahini", "counted_as": "count"},
+            amount=2,
+        )
+
+    _in_order(a_first, a, b)
+    with db(kitchen) as session:
+        (made,) = session.scalars(select(Food).where(Food.name.ilike("tahini"))).all()
+        name = made.name
+    (line,) = [
+        row
+        for row in changes(kitchen)["items"]
+        if row["food_id"] == made.id and not row["merged_into_id"]
+    ]
+    # The first adder's amount stands: 500 g by weight, or 2 in items.
+    assert line["amount"] == (500 if a_first else 2)
+    late, first = (s.wren, kitchen) if a_first else (kitchen, s.wren)
+    texts = [note["text"] for note in changes(late)["notes"]]
+    n9 = f"{name} was already in Ingredients, counted another way, so check the amount."
+    assert n9 in texts
+    assert all("counted another way" not in note["text"] for note in changes(first)["notes"])
+    (note,) = [note for note in changes(late)["notes"] if note["text"] == n9]
+    assert note["undo"] == results["b" if a_first else "a"]["id"]
+    assert note["item_id"] == line["id"]
+
+
+def test_a_new_ingredient_counted_another_way_gets_a_blank_amount(kitchen: TestClient) -> None:
+    """4.4 (pending cabledrawer): 500 g means nothing for a Tahini counted in items: 1."""
+    s = s0(kitchen)
+    there = food(kitchen, "Tahini", counted_as="count")["id"]
+    item = new_id()
+    added = one(
+        s.wren,
+        "add",
+        s.c0,
+        PHONE_R,
+        list_id=s.main,
+        item_id=item,
+        new_food={"name": "tahini", "counted_as": "weight"},
+        amount=500,
+    )
+    assert added["status"] == "applied" and added["food_id"] == there
+    row = item_row(changes(kitchen), item)
+    assert (row["amount"], row["size_id"]) == (1, None)
+    (note,) = changes(s.wren)["notes"]
+    assert (
+        note["text"]
+        == "Tahini was already in Ingredients, counted another way, so check the amount."
+    )
+    before = counter(kitchen)
+    assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
+    assert item_row(changes(kitchen, before), item)["deleted"] is True
+    assert changes(s.wren)["notes"] == []
+
+
 def test_sy64_an_add_to_a_line_you_could_see(kitchen: TestClient) -> None:
     s = s0(kitchen)
     added = one(

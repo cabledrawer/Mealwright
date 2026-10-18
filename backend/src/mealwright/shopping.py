@@ -804,14 +804,21 @@ def _bring_back(act: Act, food: Food) -> dict[str, Any]:
     return diff(before, snapshot(kitchen, [food.id]))
 
 
-def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any]]:
+def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any], bool]:
     """`new_food` (sync protocol 4.4): the ingredient of that name if there is one, an
-    ingredient of that name removed while offline brought back, else a new one."""
+    ingredient of that name removed while offline brought back, else a new one. The last
+    part is True when the one it gives is counted another way than the phone said, so the
+    action's amount means nothing for it (4.4, pending cabledrawer)."""
     kitchen = act.kitchen
     name = clean(wanted["name"])
+    counted_as = wanted.get("counted_as")
+
+    def other_way(food: Food) -> bool:
+        return counted_as is not None and food.counted_as != counted_as
+
     found = _named(kitchen, name)
     if found is not None:
-        return found, {}
+        return found, {}, other_way(found)
     folded = fold(name)
     for removed in kitchen.db.scalars(
         select(Food)
@@ -823,7 +830,7 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any]]:
         .order_by(Food.removed_at.desc())
     ):
         if fold(removed.name) == folded:
-            return removed, _bring_back(act, removed)
+            return removed, _bring_back(act, removed), other_way(removed)
     # Imported here: FoodEdit needs this module.
     from mealwright.history import FoodEdit
 
@@ -841,7 +848,7 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any]]:
         kitchen.db.flush()
         edit.also(food.id)
     edit.record("food_created", f"Added {food.name}", food.id)
-    return food, {}
+    return food, {}, False
 
 
 def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any], bool]:
@@ -897,9 +904,10 @@ def add_item(act: Act) -> None:
     act.list_id = shopping_list.id
     item_id = new_id(kitchen, payload.get("item_id"), ListItem)
     foods: dict[str, Any] = {}
-    recount = False
+    recount = typed = False
     if payload.get("new_food") is not None:
-        food, foods = _new_food(act, payload["new_food"])
+        food, foods, recount = _new_food(act, payload["new_food"])
+        typed = recount and payload.get("amount") is not None
     else:
         found, foods, recount = _food_for(act, payload["food_id"])
         if found is None:
@@ -914,7 +922,7 @@ def add_item(act: Act) -> None:
         shop_id = shop.id if shop else (food.shop_id if wanted_shop is not None else None)
     else:
         shop_id = food.shop_id
-    # Counted another way now (7.1, pending cabledrawer): never the old amount, a blank add's.
+    # Counted another way (7.1, 4.4, pending cabledrawer): never the phone's amount, a blank add's.
     amount_milli = None if recount else milli_of(payload.get("amount"))
     size = None if recount else get_size(kitchen, food, payload.get("size_id"))
     if amount_milli is None:
@@ -925,6 +933,8 @@ def add_item(act: Act) -> None:
     line = matching_line(kitchen, shopping_list.id, food.id, shop_id)
     if line is not None:
         _join(act, shopping_list, line, food, amount_milli, size, item_id, extra)
+        if typed:
+            _counted_another_way(act, food, line)
         return
     item = ListItem(
         id=item_id,
@@ -950,6 +960,22 @@ def add_item(act: Act) -> None:
         [{"op": "item_made", "item_id": item.id, "state": _amount_state(item), "shop_id": shop_id}],
         food.id,
         **extra,
+    )
+    if typed:
+        _counted_another_way(act, food, item)
+
+
+def _counted_another_way(act: Act, food: Food, line: ListItem) -> None:
+    """N9: the adder's amount was for another way of counting (4.4, pending cabledrawer)."""
+    note(
+        act,
+        "N9",
+        act.kitchen.login.id,
+        f"{food.name} was already in Ingredients, counted another way, so check the amount.",
+        list_id=line.list_id,
+        item_id=line.id,
+        food_id=food.id,
+        undo=act.id,
     )
 
 

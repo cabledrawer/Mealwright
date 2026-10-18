@@ -206,7 +206,7 @@ A phone offline can't ask the server an "ask once" question, so **actions only c
 
 ### 4.4 New ingredients in `add`
 
-- `new_food` makes the ingredient on the server, unless one with that name already exists (ignoring case and accents, among ingredients that aren't merged away or removed; or matching one of its other names): then the item uses that one, and `counted_as`/`staple` from the action are ignored. A removed ingredient still within its undo window with that name is brought back instead of making a second one (5.9). So two phones typing "Tahini" offline get one ingredient (test SY-39).
+- `new_food` makes the ingredient on the server, unless one with that name already exists (ignoring case and accents, among ingredients that aren't merged away or removed; or matching one of its other names): then the item uses that one, and `counted_as`/`staple` from the action are ignored. (PR 3, pending cabledrawer, with the 7.1 item "Counted another way") If that one is counted another way than the action's `counted_as`, the action's amount was for the other way of counting, so it isn't kept: the add gets a blank add's amount (the usual size, or 1, or none), and, if the action had an amount, the adder gets the quiet note N9 (8). A removed ingredient still within its undo window with that name is brought back instead of making a second one (5.9). So two phones typing "Tahini" offline get one ingredient (test SY-39).
 - `counted_as` and `staple` come from the "How do you count it?" answer (new L299, cabledrawer 18 Oct, decision 2).
 - The ingredient is recorded as a `food_created` change. The action's first change carries the action ID as its `idempotency_key` (keeping api-0.2's promise that the two share one uniqueness); any further changes made by the same action carry none.
 
@@ -410,7 +410,7 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
 - (PR 3) The summary's amount uses 0.2's pantry wording, so a count word reads "Bought 1 bunch of Coriander → Fridge".
 - (PR 3, pending cabledrawer) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back. An Undo of the tick takes the stock out and removes the brought-back ingredient again, as an Undo of an `add` does (5.9), unless it has other stock by then (removing it would hide that stock). An untick, or an Undo from Pantry → Recent changes, leaves it in Ingredients.
-- (PR 3, pending cabledrawer) **Counted another way:** if the live ingredient with that name is counted another way than the removed one (the old Paneer by weight, the new one in items), the old amount is never carried across: it would file 400 g as 400 items. A tick records the purchase with no stock and no change, and the ticker gets a quiet note N8 (8) whose Undo takes the tick back. An `add` through the removed ingredient gets a blank add's amount for the live one (its usual size, or 1). (A `new_food` that matches an existing ingredient still takes the action's amount, as 4.4 says; not changed in PR 3.)
+- (PR 3, pending cabledrawer) **Counted another way:** if the live ingredient with that name is counted another way than the removed one (the old Paneer by weight, the new one in items), the old amount is never carried across: it would file 400 g as 400 items. A tick records the purchase with no stock and no change, and the ticker gets a quiet note N8 (8) whose Undo takes the tick back. An `add` through the removed ingredient gets a blank add's amount for the live one (its usual size, or 1). A `new_food` that matches an ingredient counted another way than the action says is handled the same way, with note N9 (4.4).
 
 ### 7.2 What a purchase's stock is
 
@@ -459,6 +459,7 @@ A note whose Undo would name an Undo (`undo`, `untick_by_undo`, `place_by_undo`)
 | N6 | Put away overwritten (L-32) | "{who} put {name} in the {place}" | The winning put-away (stock moved back). |
 | N7 | Queued actions hit a removed list (L-7), one per login | "{who} had removed {list}. Your changes are kept with it." plus, if it had ticks, " Your ticks still went into the pantry." | The removal (the list comes back). |
 | N8 | A tick whose ingredient was removed, and the live ingredient with its name is counted another way (7.1, PR 3, pending cabledrawer), to the ticker | "{name} is counted differently now, so nothing went into the pantry." | The tick (the purchase is taken back). |
+| N9 | An `add` with `new_food` and an amount, where the ingredient with that name is counted another way than the action says (4.4, PR 3, pending cabledrawer), to the adder | "{name} was already in Ingredients, counted another way, so check the amount." | The add. |
 
 **The card** (L272, L284, new L296), from the mockup (`Shop.dc.html`):
 
