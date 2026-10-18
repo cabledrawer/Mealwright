@@ -266,6 +266,7 @@ Plans after 1.0 are kept outside the repo.
 - **No conflict pop-ups.** Other clashes show as a quiet note ("Wren ticked this too") with Undo.
 - **How long offline (cabledrawer 17 Oct):** plan for a weekend away (about 3 days). The phone keeps the shopping list, recently viewed recipes and the queue for that long; older queues are still applied, never thrown away.
 - **Connection status:** see UX principle 16.
+- **Offline wording grows with PR 6 (cabledrawer 18 Oct):** until the offline queue arrives (0.3 PR 6), changes made offline aren't kept on the phone, so the wording says only what is true. Shopping's subtitle while offline says "12 to buy · offline", and the toast on reconnecting says "Back online". PR 6 adds ", saving on this phone" ("… on this computer" on desktop) and "— all saved" once they are true.
 
 **What this adds to the data model:** list items with phone-made IDs, source (from plan / typed by hand), "hand-edited" flag, ticked by / when, put-away location, deleted marker, version number; a sync log of applied actions (action ID, user, device, type, server order, applied time) for repeat-detection and Undo; a "both ticked" question record until answered.
 
