@@ -30,7 +30,7 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
 from mealwright.history import as_utc
 from mealwright.household import undo_window
-from mealwright.models import Change, SyncAction, utcnow
+from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
 from mealwright.names import clean
 from mealwright.shopping import Act, Batch, Refused
 
@@ -405,6 +405,9 @@ def undo(act: Act) -> None:
     if pressed_at(act, target.applied_at) >= as_utc(target.applied_at) + window:
         act.ignore("too_old", TOO_OLD)
         return
+    if _tidied(kitchen, target):
+        act.ignore("gone")  # its list or item was tidied away for good (5.9)
+        return
     from mealwright import ticks
 
     if target.kind in ticks.TICK_KINDS:
@@ -424,6 +427,20 @@ def undo(act: Act) -> None:
     data = done.undo_data or {}
     if data.get("result") != "done":
         act.message = data.get("message")
+
+
+def _tidied(kitchen: Kitchen, target: SyncAction) -> bool:
+    """Is the list or item the action named gone for good (tidied away, 3.9)?"""
+    hid = kitchen.household_id
+    if target.list_id is not None:
+        found = kitchen.db.get(ShoppingList, target.list_id)
+        if found is None or found.household_id != hid:
+            return True
+    if target.item_id is not None:
+        item = kitchen.db.get(ListItem, target.item_id)
+        if item is None or item.household_id != hid:
+            return True
+    return False
 
 
 HANDLERS: dict[str, Callable[[Act], None]] = {

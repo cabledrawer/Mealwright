@@ -352,7 +352,7 @@ While a phone holds actions, someone online can merge or remove an ingredient, o
 | A place that's gone (`put_away`, or a tick using the item's chosen place) | The ingredient's usual place, else the first Cupboard place, as for a tick with no choice (7.1). The item's chosen place is cleared, which raises the item's `version` so phones see it. | SY-55 |
 | A size that's gone (`add`, `set_amount`, `different_pack`) | The amount is kept (actions carry base amounts, 4.3) and shown in the usual size or base unit, as 0.2 does for lots. `different_pack` makes the size again if it needs one (7.4). | SY-56 |
 | A shop that's gone (`add`) | The ingredient's usual shop, else Any shop. (Items already in that shop went to Any shop when it went: `SET NULL`.) | SY-57 |
-| A list or item tidied away for good (after 12 months) | `ignored gone`. | SY-58 |
+| A list or item tidied away for good (after 12 months) | `ignored gone`. So is an Undo of an action whose list or item has been tidied away (PR 3). | SY-58 |
 | A note that's gone (`dismiss_note`) | `ignored gone`, quietly. | SY-58 |
 | A question that's closed or gone (`answer_double_tick`) | `ignored answered` if it's closed but still kept, `ignored gone` if it was tidied away. Nothing changes in the pantry. | SY-58, SY-59 |
 

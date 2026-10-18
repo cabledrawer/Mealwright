@@ -252,6 +252,6 @@ def test_an_add_that_joined_a_tidied_line_is_gone(kitchen: TestClient) -> None:
         device=PHONE_R,
     )
     results = [(r["status"], r["reason"]) for r in answer["results"]]
-    assert results == [("ignored", "gone"), ("ignored", "gone"), ("applied", None)]
-    assert answer["results"][2]["message"] == "Nothing to put back: it has all changed again since."
+    # Its Undo too: the line it joined is gone for good (5.9).
+    assert results == [("ignored", "gone"), ("ignored", "gone"), ("ignored", "gone")]
     assert changes(s.wren)["reset"] is True
