@@ -94,8 +94,11 @@ describe('the online-only screens, offline', () => {
       const button = page.getByRole('button', { name, exact: true });
       await expect.element(button).toBeVisible();
       await expect.element(button).toBeEnabled();
+      const askedBefore = asked.length;
       await button.click();
       expect(toasts.current?.message).toBe(NEEDS_SERVER);
+      // Nothing was sent: the tap only explains.
+      expect(asked.slice(askedBefore)).toEqual([]);
       expect(addToPantry.open).toBe(false);
       expect(page.getByRole('dialog', { name: 'Add to pantry' }).elements()).toEqual([]);
       addToPantry.close();
