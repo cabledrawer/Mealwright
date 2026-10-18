@@ -9,6 +9,8 @@ losing the answer and sending again, while the pantry is used in between. Whatev
   at most what it bought, and exactly that if nothing has been used from its lots;
 - taking a purchase back (untick, "Just 1", Undo) only ever takes from that purchase's own
   lots, and never more than is left in them;
+- putting a purchase back (Undo of an untick or of "Just 1") gives back exactly what
+  taking it back took out, lot by lot, no more;
 - sending any part of a queue again changes nothing;
 - every action has exactly one sync_action row;
 - a removed item is back on the list only through an Undo."""
@@ -263,6 +265,28 @@ def _purchases_hold(s: S0) -> None:
             for line in lines[change.id]:
                 assert line.lot_id is None or line.lot_id in own[str(change.tick_id)], line.id
                 assert line.amount_before_milli >= line.amount_after_milli >= 0, line.id
+        actions = {row.id: row for row in session.scalars(select(SyncAction))}
+        for change in made:  # a put-back gives back exactly what its reversal took (7.5)
+            data = change.undo_data or {}
+            if change.kind != "shopped" or data.get("action") == change.tick_id:
+                continue  # the purchase's own `shopped` change, from the tick
+            undo = actions[str(data["action"])]
+            reversal = (undo.payload or {}).get("undoes")
+            took: dict[int | None, int] = defaultdict(int)
+            for other in made:
+                if (
+                    other.kind == "undo"
+                    and other.tick_id == change.tick_id
+                    and (other.undo_data or {}).get("action") == reversal
+                ):
+                    for line in lines[other.id]:
+                        took[line.lot_id] += line.amount_before_milli - line.amount_after_milli
+            back: dict[int | None, int] = defaultdict(int)
+            for line in lines[change.id]:
+                back[line.lot_id] += line.amount_after_milli - line.amount_before_milli
+            took_out = {lot_id: amount for lot_id, amount in took.items() if amount > 0}
+            put_back = {lot_id: amount for lot_id, amount in back.items() if amount}
+            assert put_back == took_out, ("put back", change.id, put_back, took_out)
         used = {
             line.lot_id
             for change in every.values()
