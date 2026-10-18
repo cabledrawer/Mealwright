@@ -42,6 +42,11 @@ UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 NewId = Annotated[str, Field(pattern=UUID_PATTERN)]  # a new phone-made list or item ID
 ActionId = Annotated[str, Field(pattern=r"^[A-Za-z0-9._:-]{1,64}$")]
 RowId = Annotated[str, Field(min_length=1, max_length=64)]
+# A database ID or a cursor. At most the biggest whole number a phone's JavaScript holds
+# exactly, which also keeps it inside what SQLite stores (a bigger one used to fail the
+# whole batch with a server error, not just refuse that action; security audit, 0.4).
+MAX_NUMBER = 2**53 - 1
+RowNumber = Annotated[int, Field(ge=0, le=MAX_NUMBER)]
 # A base amount (g, ml or items), up to 3 decimal places. Over 1,000,000 → refused too_big.
 Amount = Annotated[Decimal, Field(gt=0, decimal_places=3, max_digits=20)]
 ListName = Annotated[str, Field(min_length=1, max_length=60)]
@@ -64,7 +69,7 @@ class ActionBase(BaseModel):
 
     id: ActionId
     made_at: datetime
-    seen: int = Field(ge=0)  # the device's cursor when the action was made
+    seen: RowNumber  # the device's cursor when the action was made
     device_id: NewId | None = None  # default: the batch's
 
 
@@ -122,11 +127,11 @@ class Add(ActionBase):
     kind: Literal["add"]
     list_id: RowId
     item_id: NewId
-    food_id: int | None = None
+    food_id: RowNumber | None = None
     new_food: NewFoodAction | None = None
     amount: Amount | None = None
-    size_id: int | None = None
-    shop_id: int | None = None
+    size_id: RowNumber | None = None
+    shop_id: RowNumber | None = None
 
     @model_validator(mode="after")
     def _one_food(self) -> Add:
@@ -139,7 +144,7 @@ class SetAmount(ActionBase):
     kind: Literal["set_amount"]
     item_id: RowId
     amount: Amount
-    size_id: int | None = None
+    size_id: RowNumber | None = None
 
 
 class Delete(ActionBase):
@@ -161,7 +166,7 @@ class Untick(ActionBase):
 class PutAway(ActionBase):
     kind: Literal["put_away"]
     item_id: RowId
-    place_id: int
+    place_id: RowNumber
     tick_ids: list[ActionId] = Field(max_length=100)
     use_by: date | None = None
 
@@ -172,7 +177,7 @@ class DifferentPack(ActionBase):
     tick_id: ActionId
     count: int = Field(ge=1, le=99)
     pack: Amount
-    size_id: int | None = None
+    size_id: RowNumber | None = None
 
 
 class ClearTickedAction(ActionBase):
@@ -183,13 +188,13 @@ class ClearTickedAction(ActionBase):
 
 class AnswerDoubleTick(ActionBase):
     kind: Literal["answer_double_tick"]
-    question_id: int
+    question_id: RowNumber
     answer: Literal["two", "one"]
 
 
 class DismissNote(ActionBase):
     kind: Literal["dismiss_note"]
-    note_id: int
+    note_id: RowNumber
 
 
 class UndoAction(ActionBase):

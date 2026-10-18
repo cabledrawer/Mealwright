@@ -41,6 +41,12 @@ def install(app: FastAPI) -> None:
         }
         return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
+    @app.exception_handler(OverflowError)
+    async def _number_too_big(_request: Request, _error: OverflowError) -> JSONResponse:
+        # An ID or cursor bigger than the database can hold (2^63 - 1): nothing has it.
+        body = {"detail": "That number is too big.", "code": "bad_number"}
+        return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
     @app.exception_handler(Problem)
     async def _problem(_request: Request, problem: Problem) -> JSONResponse:
         body = {"detail": problem.detail, "code": problem.code, **problem.extra}
