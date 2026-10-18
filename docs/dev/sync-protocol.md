@@ -4,6 +4,31 @@ Written 17 Oct 2026 as the contract for milestone 0.3's building pull requests (
 
 Spec line numbers below (`L271`) are from `docs/spec.md` on `main` at `1c4c341`. cabledrawer's 17 Oct and 18 Oct answers were added to the spec in this pull request, and are cited as `new L292` and so on (their line numbers on this branch). Section 16 lists the 18 Oct decisions.
 
+## Map of this file (read this first)
+
+Read section 0 for the whole idea, then only the sections your pull request needs. Find a section's line with `grep -n '^##' docs/dev/sync-protocol.md`. Don't read the whole file.
+
+| § | What it covers | Mainly for |
+|---|---|---|
+| 0 | The whole design in plain English | everyone |
+| 1 | What's in 0.3 and what isn't; which pull request builds what | the lead |
+| 2 | Words used: action, counter (`seq`), cursor, `seen`, purchase, standing tick, tombstone, note, card, device ID | everyone, when a word is unclear |
+| 3 | Data model: lists, items, purchases (`list_tick`), the sync log (`sync_action`), notes, the "both ticked" question, new columns, device ID, tidying old rows | server, migrations |
+| 4 | Actions: the envelope, each action kind, amounts, new ingredients in `add`, what stays online-only | server, phone queue |
+| 5 | The server: endpoints (incl. the one-at-a-time list requests, 5.1), order and the counter, repeats, per-action results, catching up ("changes since"), errors, server-made changes, changes made while a phone was offline | server |
+| 6 | The rules for clashes (L-1 …), each with its test | server, checker |
+| 7 | The pantry side of a tick: tick, a purchase's stock, put away, "Different pack?", taking a purchase back | server pantry |
+| 8 | Quiet notes (N1 …) and the "Did you buy 2?" card | server, Shopping screen |
+| 9 | Undo | server, screens |
+| 10 | Live updates (PR 5) | PR 5 |
+| 11 | The phone: what it stores, optimistic display, sending, "N changes waiting", sign-in running out, app updates, how long offline, device ID (PR 6) | PR 5, PR 6 |
+| 12 | Signing out: warning and wipe | PR 6 |
+| 13 | Screen details that touch the protocol | PR 4 |
+| 14 | Two-device tests (SY-01 …) | checker, every sync pull request |
+| 15 | The manual two-phone test for the 0.3 release | release, cabledrawer |
+| 16 | Decisions cabledrawer made on 18 Oct | everyone |
+
+
 ## 0. In plain English
 
 - Every change to a shopping list (tick, untick, add, change an amount, delete, choose where it goes, "Different pack?") is a small **action** with its own random ID, made on the phone.
@@ -206,7 +231,7 @@ A phone offline can't ask the server an "ask once" question, so **actions only c
 
 ### 4.4 New ingredients in `add`
 
-- `new_food` makes the ingredient on the server, unless one with that name already exists (ignoring case and accents, among ingredients that aren't merged away or removed; or matching one of its other names): then the item uses that one, and `counted_as`/`staple` from the action are ignored. (PR 3, pending cabledrawer, with the 7.1 item "Counted another way") If that one is counted another way than the action's `counted_as`, the action's amount was for the other way of counting, so it isn't kept: the add gets a blank add's amount (the usual size, or 1, or none), and, if the action had an amount, the adder gets the quiet note N9 (8). A removed ingredient still within its undo window with that name is brought back instead of making a second one (5.9). So two phones typing "Tahini" offline get one ingredient (test SY-39).
+- `new_food` makes the ingredient on the server, unless one with that name already exists (ignoring case and accents, among ingredients that aren't merged away or removed; or matching one of its other names): then the item uses that one, and `counted_as`/`staple` from the action are ignored. (PR 3, cabledrawer 18 Oct, with the 7.1 item "Counted another way") If that one is counted another way than the action's `counted_as`, the action's amount was for the other way of counting, so it isn't kept: the add gets a blank add's amount (the usual size, or 1, or none), and, if the action had an amount, the adder gets the quiet note N9 (8). A removed ingredient still within its undo window with that name is brought back instead of making a second one (5.9). So two phones typing "Tahini" offline get one ingredient (test SY-39).
 - `counted_as` and `staple` come from the "How do you count it?" answer (new L299, cabledrawer 18 Oct, decision 2).
 - `new_food` may also carry `sizes`: a list (at most 10) of `{name, amount}`, the packet sizes chosen in the same question ("packet = 500 g"; `amount` in base units, so the phone converts kg and L itself, 4.3). They are made with the ingredient, the first one usual, and are part of its `food_created` change, so its Undo takes them too. A name needs letters in it, as in the editor's "Add a size" (`1` is refused `bad_action`). If the name is taken by an existing ingredient, or one removed is brought back, `sizes` is ignored. (cabledrawer 18 Oct, decision 8; it works offline.)
 - The ingredient is recorded as a `food_created` change. The action's first change carries the action ID as its `idempotency_key` (keeping api-0.2's promise that the two share one uniqueness); any further changes made by the same action carry none.
@@ -305,7 +330,7 @@ GET /api/v1/shopping/changes?since=1040
 - Notes and questions **for the signed-in login** are always sent **in full**: every note that isn't gone and every open question, whatever `since` is. The device replaces its notes and questions with them each time. So a note or card deleted while a phone was offline (3.9) disappears at its next sync, and a dead "Did you buy 2?" can't linger (SY-59). They're a handful of rows. A question closed after `since` is also sent once, with `open: false`, so a device that keeps its copy can drop the card straight away.
 - `cursor` is `household.list_seq`. The cursor and the rows come from one snapshot: on SQLite a read transaction is one (WAL mode); on Postgres later the request runs at `REPEATABLE READ`.
 - `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`. The tombstone tidy-up and ingredients deleted for good both raise it (3.9). A full copy has every live row whatever its `version`, including version 0 (the main list made at sign-up, and rows from before the counter existed on an upgraded install).
-- (PR 3, pending cabledrawer) Also `reset: true` when `since` is **above** the counter: the server was restored from a backup or its database swapped, so the phone's copy can't be trusted. Without this the phone would keep a stale copy and skip every change up to its old cursor.
+- (PR 3, cabledrawer 18 Oct) Also `reset: true` when `since` is **above** the counter: the server was restored from a backup or its database swapped, so the phone's copy can't be trusted. Without this the phone would keep a stale copy and skip every change up to its old cursor.
 - `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy. On a list (items and `bought`) a count ingredient with a size reads in that size when the amount is a whole number of them ("2 boxes" for 12 eggs bought by the box of 6), and the pantry's "left" ("12 left") never shows (PR 3, SY-65).
 - `foods` are the ingredients the device needs for the list **and the add box** (search offline by any name): every ingredient that isn't merged away or removed. A household's few hundred names are small.
 
@@ -398,6 +423,7 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 | L-33 | **Only the server changes pantry stock.** | No action carries pantry amounts except `different_pack` (what was bought). An unknown kind, or a field a kind doesn't take → refused `bad_action`. The device's `applyLocal` has no pantry and the offline copy holds none (11.2). | L267 | SY-60, FE-5, P-1 |
 | L-34 | **The protocol is part of the public API** (`/api/v1`, OpenAPI); the web app uses no private endpoints. | The three endpoints, every action kind's payload and every result are in `/api/v1/openapi.json` with their schemas. Every list write, including the one-at-a-time list requests kept from PR 2, goes through the action handling (5.1, cabledrawer 18 Oct). | L267, L258 | SY-61 |
 | L-35 | **`idb`** (ISC) is approved for the queue; the PR that adds it pins an exact version released at least two weeks earlier. | PR 6 adds `idb` at an exact version (no `^` or `~`), names it and its release date in the PR, and `./check`'s licence step passes. | new L291 | FE-6 |
+| FE-7 | | | | | **PR 6.** Two devices: A holds 2 waiting changes and sees a `reset: true` answer (the server was restored, so A's cursor is ahead of it): A's `copy` is replaced, its `queue` is kept and sent in order afterwards; the final list and pantry match what the changes mean on the new copy. | | | FE |
 
 ## 7. The pantry side of a tick (PR 3)
 
@@ -410,8 +436,8 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
 - (PR 3) The summary's amount uses 0.2's pantry wording, so a count word reads "Bought 1 bunch of Coriander → Fridge".
-- (PR 3, pending cabledrawer) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back. An Undo of the tick takes the stock out and removes the brought-back ingredient again, as an Undo of an `add` does (5.9), unless it has other stock or is on a list by then (0.2's rule for removing an ingredient, `cannot_remove`, merges followed). Then the ingredient stays, and the Undo still takes the tick back. As for the add, a rename after the bring-back doesn't stop it being removed again. An untick, or an Undo from Pantry → Recent changes, leaves it in Ingredients.
-- (PR 3, pending cabledrawer) **Counted another way:** if the live ingredient with that name is counted another way than the removed one (the old Paneer by weight, the new one in items), the old amount is never carried across: it would file 400 g as 400 items. A tick records the purchase with no stock and no change, and the ticker gets a quiet note N8 (8) whose Undo takes the tick back. An `add` through the removed ingredient gets a blank add's amount for the live one (its usual size, or 1), and, if it had an amount, the adder gets note N9, as for a typed new ingredient. A `new_food` that matches an ingredient counted another way than the action says is handled the same way, with note N9 (4.4).
+- (PR 3, cabledrawer 18 Oct) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back. An Undo of the tick takes the stock out and removes the brought-back ingredient again, as an Undo of an `add` does (5.9), unless it has other stock or is on a list by then (0.2's rule for removing an ingredient, `cannot_remove`, merges followed). Then the ingredient stays, and the Undo still takes the tick back. As for the add, a rename after the bring-back doesn't stop it being removed again. An untick, or an Undo from Pantry → Recent changes, leaves it in Ingredients.
+- (PR 3, cabledrawer 18 Oct) **Counted another way:** if the live ingredient with that name is counted another way than the removed one (the old Paneer by weight, the new one in items), the old amount is never carried across: it would file 400 g as 400 items. A tick records the purchase with no stock and no change, and the ticker gets a quiet note N8 (8) whose Undo takes the tick back. An `add` through the removed ingredient gets a blank add's amount for the live one (its usual size, or 1), and, if it had an amount, the adder gets note N9, as for a typed new ingredient. A `new_food` that matches an ingredient counted another way than the action says is handled the same way, with note N9 (4.4).
 
 ### 7.2 What a purchase's stock is
 
@@ -459,8 +485,8 @@ A note whose Undo would name an Undo (`undo`, `untick_by_undo`, `place_by_undo`)
 | N5 | Untick on a tombstoned item (L-10), only when the untick took stock out (PR 3) | "{who} had removed this, so it isn't back on the list. Your untick took it out of the pantry." | The untick (stock back in). |
 | N6 | Put away overwritten (L-32) | "{who} put {name} in the {place}" | The winning put-away (stock moved back). |
 | N7 | Queued actions hit a removed list (L-7), one per login | "{who} had removed {list}. Your changes are kept with it." plus, if it had ticks, " Your ticks still went into the pantry." | The removal (the list comes back). |
-| N8 | A tick whose ingredient was removed, and the live ingredient with its name is counted another way (7.1, PR 3, pending cabledrawer), to the ticker | "{name} is counted differently now, so nothing went into the pantry." | The tick (the purchase is taken back). |
-| N9 | An `add` with an amount whose ingredient is counted another way than the action meant: a `new_food` whose name is taken by one counted another way (4.4), or an `add` through a removed ingredient whose name is a live one's counted another way (7.1) (PR 3, pending cabledrawer), to the adder | "{name} was already in Ingredients, counted another way, so check the amount." | The add. |
+| N8 | A tick whose ingredient was removed, and the live ingredient with its name is counted another way (7.1, PR 3, cabledrawer 18 Oct), to the ticker | "{name} is counted differently now, so nothing went into the pantry." | The tick (the purchase is taken back). |
+| N9 | An `add` with an amount whose ingredient is counted another way than the action meant: a `new_food` whose name is taken by one counted another way (4.4), or an `add` through a removed ingredient whose name is a live one's counted another way (7.1) (PR 3, cabledrawer 18 Oct), to the adder | "{name} was already in Ingredients, counted another way, so check the amount." | The add. |
 
 **The card** (L272, L284, new L296), from the mockup (`Shop.dc.html`):
 
@@ -514,6 +540,8 @@ One IndexedDB database `mealwright` through `idb` (ISC, approved 17 Oct; pin an 
 - `meta`: `device_id`, `login_id`, `login_name`, `username`, `household_id`, `cursor`, `protocol`.
 - `copy`: the offline copy from "changes since" (lists, items, notes, questions, foods, shops, places, people, aisles), one store per kind, keyed by ID.
 - `queue`: auto-numbered entries `{ action, login_id, device_id, queued_at, tries }`, oldest first. `action` already carries its own `device_id`, so it's sent as made even if the device ID changes later.
+
+**On a reset (cabledrawer 18 Oct):** when the server answers `reset: true` (a first copy, a tidy-up, or a phone ahead of a restored server), the phone throws away only its **copy** of the list data (`copy` and `cursor`). The `queue` is **kept**: changes still waiting are sent after the fresh copy arrives, in order, and the screen shows them on top of the new copy. Nothing the person did offline is lost.
 
 The service worker (SvelteKit's own) caches only the app shell. List data lives in IndexedDB, never in the HTTP cache.
 
