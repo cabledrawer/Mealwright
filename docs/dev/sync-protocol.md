@@ -346,6 +346,7 @@ GET /api/v1/shopping/changes?since=1040
 | 403 | — | Failed the same-origin check. |
 | 409 | `other_login` | `login_id` in the batch isn't the signed-in login ("These changes were made by another login."). |
 | 413 | `too_many` | More than 100 actions. |
+| 413 | `body_too_big` | The body is over 4 MiB (0.4; a full batch is under 3.5 MB). Halving the batch helps here too. |
 | 422 | `bad_protocol` | `protocol` isn't 1. |
 | 422 | — | The envelope itself is malformed (FastAPI's list form). A malformed **action** inside a good envelope is a per-action `refused`. |
 

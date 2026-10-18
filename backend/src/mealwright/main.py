@@ -15,6 +15,7 @@ from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.events import Broadcaster
 from mealwright.frontend import inline_script_hashes, mount_frontend
+from mealwright.limits import BodyLimitMiddleware
 from mealwright.logs import DailyLogFile
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
@@ -74,6 +75,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
+    # No body bigger than the biggest real one, checked before anything reads it.
+    app.add_middleware(BodyLimitMiddleware)
     # Strict browser rules on every response (spec section 7). The web app's own inline
     # start-up scripts are allowed by their exact fingerprint, nothing else.
     app.add_middleware(

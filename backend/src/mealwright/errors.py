@@ -27,6 +27,11 @@ def not_found(what: str = "That") -> Problem:
 
 def install(app: FastAPI) -> None:
     from mealwright.amounts import MAX_AMOUNT, TooBig
+    from mealwright.limits import BodyTooBig, too_big_response
+
+    @app.exception_handler(BodyTooBig)
+    async def _body_too_big(_request: Request, _error: BodyTooBig) -> JSONResponse:
+        return too_big_response()
 
     @app.exception_handler(TooBig)
     async def _too_big(_request: Request, _error: TooBig) -> JSONResponse:
