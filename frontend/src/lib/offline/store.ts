@@ -122,6 +122,8 @@ export async function readQueue(): Promise<QueueEntry[]> {
 
 /** Take answered changes out of the queue. */
 export async function dropFromQueue(seqs: number[]): Promise<void> {
+  // Changes kept in memory only (numbers below zero) were never stored here.
+  seqs = seqs.filter((seq) => seq > 0);
   if (!seqs.length) return;
   const tx = (await openPhone()).transaction('queue', 'readwrite');
   for (const seq of seqs) void tx.store.delete(seq);
@@ -130,6 +132,9 @@ export async function dropFromQueue(seqs: number[]): Promise<void> {
 
 /** Note another try for these changes. */
 export async function countTries(entries: QueueEntry[]): Promise<void> {
+  // Changes kept in memory only (numbers below zero) aren't stored here, so aren't written.
+  entries = entries.filter((e) => (e.seq ?? 0) > 0);
+  if (!entries.length) return;
   const tx = (await openPhone()).transaction('queue', 'readwrite');
   for (const entry of entries) void tx.store.put(entry);
   await tx.done;

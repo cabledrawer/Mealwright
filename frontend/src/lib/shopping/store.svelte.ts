@@ -14,7 +14,7 @@ import type { Chosen } from '$lib/newIngredient.svelte';
 import { COULDNT_SAVE, type Outcome } from '$lib/save';
 import { session } from '$lib/session.svelte';
 import { toasts } from '$lib/toast.svelte';
-import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
+import { COULDNT_UNDO, undoHistory, undoneWords, type UndoEntry } from '$lib/undo.svelte';
 import { makeAction, type ActionFields, type ActionResult } from './actions';
 import { applyLocal } from './applyLocal';
 import { EMPTY_COPY } from './load';
@@ -29,6 +29,14 @@ export interface Ticked {
   tickId: string;
   actionId: string;
   name: string;
+  /** Its Undo, as the toast offers it. */
+  entry: UndoEntry;
+}
+
+/** A toast shown for a change, with its Undo. */
+interface Shown {
+  entry: UndoEntry;
+  toastId: number | undefined;
 }
 
 /** Opened offline on a phone that has never had the list (spec section 6, cabledrawer 18 Oct). */
@@ -54,7 +62,8 @@ export class ShoppingModel {
   listId = $state<string | null>(null);
   /** "phone" with the bottom tabs, "computer" with the sidebar (the offline subtitle). */
   device = $state<'phone' | 'computer'>('phone');
-  lastTicked = $state<Ticked | null>(null);
+  // Raw: its `entry` must stay the very object the Undo list holds.
+  lastTicked = $state.raw<Ticked | null>(null);
 
   // --- Reading -----------------------------------------------------------------------------------
 
@@ -159,26 +168,30 @@ export class ShoppingModel {
 
   /**
    * Make one change: into the queue (so it shows at once, through applyLocal), then to the
-   * server. Offers Undo at once (unless quiet). Resolves when the server has answered; only a
-   * refusal is a failure, and then the change is gone from the screen as it leaves the queue.
+   * server. Offers Undo at once (unless quiet: then `queued` may show its own toast, as soon
+   * as the change is in the queue). Resolves when the server has answered; only a refusal is
+   * a failure, and then the change is gone from the screen as it leaves the queue.
    */
   async #act(
     fields: ActionFields,
     options: {
       label?: string;
-      /** No Undo toast (the caller shows its own). */
+      /** No Undo toast here (the caller shows its own, from `queued`). */
       quiet?: boolean;
+      /** In the queue (on the screen), not answered yet. May give back the toast it showed. */
+      queued?: (actionId: string) => Shown | void;
       saved?: (result: ActionResult, actionId: string) => void;
     } = {}
   ): Promise<Outcome<ActionResult>> {
     const id = newChangeId();
-    const entry: UndoEntry | undefined =
-      options.label && !options.quiet
-        ? { label: options.label, undo: () => this.undo(id) }
-        : undefined;
-    const toastId = entry ? undoHistory.record(entry) : undefined;
+    let entry: UndoEntry | undefined =
+      options.label && !options.quiet ? this.#undoEntry(id, options.label) : undefined;
+    let toastId = entry ? undoHistory.record(entry) : undefined;
     try {
-      const result = await sendAction(makeAction(fields, id));
+      const result = await sendAction(makeAction(fields, id), () => {
+        const shown = options.queued?.(id);
+        if (shown) ({ entry, toastId } = shown);
+      });
       this.#sync(result);
       options.saved?.(result, id);
       if (entry && result.status === 'ignored') {
@@ -192,17 +205,54 @@ export class ShoppingModel {
       return { ok: true, value: result };
     } catch (error) {
       if (entry) undoHistory.forget(entry);
+      if (toastId !== undefined) toasts.dismiss(toastId);
       // The server said no, with its reason in plain English.
       toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
       return { ok: false, error };
     }
   }
 
-  async undo(actionId: string): Promise<string | void> {
-    const result = await sendAction(makeAction({ kind: 'undo', undoes: actionId }));
-    if (result.changes && result.status !== 'ignored') this.#sync(result);
-    else await this.load(true);
-    return result.message ?? undefined;
+  /** An entry for the Undo list: Undo of the change with this action ID. */
+  #undoEntry(actionId: string, label: string): UndoEntry {
+    const entry: UndoEntry = { label, undo: () => this.undo(actionId, entry.label) };
+    return entry;
+  }
+
+  /**
+   * Undo a change: an `undo` action, queued after it (sync-protocol section 9), so it works
+   * offline too. "Undone: …" shows as soon as it's in the queue, like any change; when the
+   * server answers in its own words (too old, nothing left to undo, part of it used), the
+   * toast says those instead, and a refusal says why. Returns false: the toast is shown here.
+   */
+  async undo(actionId: string, label = ''): Promise<false> {
+    let toastId: number | undefined;
+    let inQueue!: () => void;
+    const queued = new Promise<void>((resolve) => (inQueue = resolve));
+    const answered = sendAction(makeAction({ kind: 'undo', undoes: actionId }), () => {
+      toastId = toasts.show(undoneWords(label));
+      inQueue();
+    });
+    answered.then(
+      (result) => {
+        if (result.changes && result.status !== 'ignored') this.#sync(result);
+        else void this.load(true);
+        if (result.message) this.#say(toastId, result.message);
+      },
+      (error: unknown) => {
+        // Not queued at all (nobody signed in) is the Undo list's to say; a refusal is ours.
+        if (toastId === undefined) return;
+        toasts.dismiss(toastId);
+        toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+      }
+    );
+    await Promise.race([queued, answered]);
+    return false;
+  }
+
+  /** The server's own words: in the toast still showing, or a new one. */
+  #say(toastId: number | undefined, message: string): void {
+    if (toastId !== undefined && toasts.current?.id === toastId) toasts.update(toastId, message);
+    else toasts.show(message);
   }
 
   add(food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>): Promise<unknown> {
@@ -282,41 +332,71 @@ export class ShoppingModel {
     );
   }
 
+  /**
+   * Tick an item. As soon as the tick is in the queue (offline too): the toast says where it
+   * goes, with Change and Undo, and the desktop Put away panel shows it (UX principle 8).
+   * When the server has answered, the toast says where it really went.
+   */
   tick(item: ListItem) {
-    const food = this.food(item.food_id);
+    let shown: Shown | undefined;
     return this.#act(
       { kind: 'tick', item_id: item.id },
       {
         quiet: true,
-        saved: (_result, actionId) => {
+        queued: (actionId) => {
+          shown = this.#tickToast(item, actionId);
           this.lastTicked = {
             itemId: item.id,
             tickId: actionId,
             actionId,
-            name: food?.name ?? 'Ingredient'
+            name: this.food(item.food_id)?.name ?? 'Ingredient',
+            entry: shown.entry
           };
-          void this.#afterTick(item, actionId);
+          return shown;
+        },
+        saved: (result, actionId) => {
+          if (!shown || result.status === 'ignored' || result.message) return;
+          const label = this.#tickLabel(item, actionId);
+          if (label === shown.entry.label) return;
+          shown.entry.label = label;
+          if (shown.toastId !== undefined) toasts.update(shown.toastId, label);
         }
       }
     );
   }
 
-  /** Once the tick is saved: say where it went, with Change and Undo (phone toast). */
-  async #afterTick(item: ListItem, actionId: string): Promise<void> {
-    const row = this.item(item.id);
+  /** Where a ticked item goes: its tick's place, the place chosen for it, or its usual one. */
+  placeOf(item: ListItem, tickId?: string): number | null {
+    const tick = item.ticks.find((t) => t.id === tickId) ?? item.ticks.find((t) => t.standing);
+    return tick?.place_id ?? item.put_away_place_id ?? this.food(item.food_id)?.place_id ?? null;
+  }
+
+  /** "Coriander → Fridge", or "Onions ticked" when the place isn't known yet. */
+  #tickLabel(item: ListItem, actionId: string): string {
+    const row = this.item(item.id) ?? item;
     const name = this.food(item.food_id)?.name ?? 'Ingredient';
-    const tick = row?.ticks.find((t) => t.id === actionId) ?? row?.ticks.find((t) => t.standing);
-    const place = this.placeName(tick?.place_id ?? row?.put_away_place_id ?? null);
-    const entry = {
-      label: place ? `${name} → ${place}` : `${name} ticked`,
-      undo: () => this.undo(actionId)
-    };
+    const place = this.placeName(this.placeOf(row, actionId));
+    return place ? `${name} → ${place}` : `${name} ticked`;
+  }
+
+  /** The tick's toast: where it goes, with Change and Undo (phone; desktop has the panel too). */
+  #tickToast(item: ListItem, actionId: string): Shown {
+    const entry = this.#undoEntry(actionId, this.#tickLabel(item, actionId));
     undoHistory.record(entry, { toast: false });
-    toasts.show(entry.label, {
-      extra: place ? { label: 'Change', run: () => (this.placing = item.id) } : undefined,
+    const toastId = toasts.show(entry.label, {
+      // Change even before the place is known: the server always puts it somewhere (7.1).
+      extra: { label: 'Change', run: () => (this.placing = item.id) },
       action: { label: 'Undo', run: () => void undoHistory.undo(entry) },
       duration: 8000
     });
+    return { entry, toastId };
+  }
+
+  /** The Put away panel's "Undo last tick": the same Undo as the toast's. */
+  undoLastTick(): Promise<void> {
+    const last = this.lastTicked;
+    this.lastTicked = null;
+    return last ? undoHistory.undo(last.entry) : Promise.resolve();
   }
 
   /** The item whose place is being chosen (the toast's Change, or the place button). */

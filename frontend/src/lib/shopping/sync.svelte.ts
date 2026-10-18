@@ -115,6 +115,8 @@ export class ShoppingSync {
    * nothing is written back into a wiped phone (sign-out, section 12). With nobody signed
    * in, nothing here opens the phone database either, so a wipe stays wiped. */
   #generation = 0;
+  /** The last number given to a change queued in memory only (no IndexedDB): -1, -2, … */
+  #memorySeq = 0;
 
   constructor(timing: SyncTiming = TIMING) {
     this.timing = timing;
@@ -166,9 +168,11 @@ export class ShoppingSync {
 
   /**
    * Put a change in the queue (stored on the phone before anything else), and send it soon.
-   * Resolves with the server's answer to it; rejects only if the server refuses it.
+   * `queued` runs as soon as it is in the queue (and so on the screen), before any answer:
+   * the screens offer Undo then (UX principle 8). Resolves with the server's answer to it;
+   * rejects only if the server refuses it.
    */
-  async enqueue(action: Action): Promise<ActionResult> {
+  async enqueue(action: Action, queued?: () => void): Promise<ActionResult> {
     if (!session.me) throw new ApiError(401, NOBODY_SIGNED_IN);
     await this.open();
     const plain = $state.snapshot(action) as Action;
@@ -180,10 +184,10 @@ export class ShoppingSync {
     try {
       entry = await addToQueue(plain, me, deviceId());
     } catch {
-      // No IndexedDB: queue it in memory for this visit.
-      const last = this.queue.at(-1)?.seq ?? 0;
+      // No IndexedDB: queue it in memory for this visit. Its number is below zero, so it can
+      // never be the same as one IndexedDB gives (those start at 1).
       entry = {
-        seq: last + 1,
+        seq: --this.#memorySeq,
         action: plain,
         login_id: me,
         device_id: deviceId(),
@@ -192,6 +196,7 @@ export class ShoppingSync {
       };
     }
     this.#setQueue([...this.queue, entry]);
+    queued?.();
     this.#gather();
     return answered;
   }
@@ -428,6 +433,6 @@ export class ShoppingSync {
 export const shoppingSync = new ShoppingSync();
 
 /** Every Shopping write: into the queue, then to the server (sync-protocol 11.3). */
-export function sendAction(action: Action): Promise<ActionResult> {
-  return shoppingSync.enqueue(action);
+export function sendAction(action: Action, queued?: () => void): Promise<ActionResult> {
+  return shoppingSync.enqueue(action, queued);
 }

@@ -119,6 +119,9 @@ describe('the Shopping page', () => {
     await expect.element(toast).toBeVisible();
     await expect.element(toast.getByRole('button', { name: 'Change' })).toBeVisible();
     await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Undone: Onions → Fridge' }))
+      .toBeVisible();
     await vi.waitFor(() => expect(server.actions.map((a) => a.kind)).toEqual(['tick', 'undo']));
     expect(server.actions[1]!.undoes).toBe(server.actions[0]!.id);
   });
@@ -137,6 +140,73 @@ describe('the Shopping page', () => {
     // Not sent, so not gone: still ticked, and no "Couldn't save".
     await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
     expect(toasts.current?.tone).not.toBe('problem');
+  });
+
+  async function openOffline(width: number, change: (copy: ShoppingCopy) => void = () => {}) {
+    const here = sampleCopy();
+    change(here);
+    await saveCopy(null, applyChanges(null, { ...here, people: [], reset: true }));
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await page.viewport(width, 1000);
+    mountShopping();
+    await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+  }
+
+  it('offline: a tick shows its toast with Change and Undo at once, and Undo is queued after it', async () => {
+    await openOffline(390);
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    // Onions has no usual place, so where it goes isn't known until the server says.
+    const toast = page.getByRole('status').filter({ hasText: 'Onions ticked' });
+    await expect.element(toast).toBeVisible();
+    await expect.element(toast.getByRole('button', { name: 'Change' })).toBeVisible();
+    await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Undone: Onions ticked' }))
+      .toBeVisible();
+    const queue = (await readQueue()).map((e) => e.action);
+    expect(queue.map((a) => a.kind)).toEqual(['tick', 'undo']);
+    expect(queue[1]).toMatchObject({ undoes: queue[0]!.id });
+    // Taken back on the screen too.
+    await expect.element(page.getByRole('checkbox', { name: 'Tick Onions' })).not.toBeChecked();
+  });
+
+  it('offline, desktop: the Put away panel shows the tick at once, at its usual place, and Undo last tick works', async () => {
+    // Yoghurt lives in the Fridge.
+    await openOffline(1300, (here) => (here.foods[2]!.place_id = 1));
+    await page.getByRole('checkbox', { name: 'Tick Yoghurt' }).click();
+    const where = page.getByRole('combobox', { name: 'Where' });
+    await expect.element(where).toBeVisible();
+    await expect.element(where).toHaveValue('1');
+    await page.getByRole('button', { name: 'Undo last tick' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Undone: Yoghurt → Fridge' }))
+      .toBeVisible();
+    expect((await readQueue()).map((e) => e.action.kind)).toEqual(['tick', 'undo']);
+  });
+
+  it('Undo: when the server answers in its own words, the toast says those', async () => {
+    await render(390, {
+      'POST /shopping/actions': (request) => {
+        const batch = request.body as { actions: { id: string; kind: string }[] };
+        return [
+          200,
+          {
+            results: batch.actions.map((a) => ({
+              id: a.id,
+              status: a.kind === 'undo' ? 'ignored' : 'applied',
+              reason: a.kind === 'undo' ? 'too_old' : null,
+              message: a.kind === 'undo' ? 'That’s too old to undo now.' : null
+            })),
+            changes: { ...structuredClone(copy), reset: false }
+          }
+        ];
+      }
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'That’s too old to undo now.' }))
+      .toBeVisible();
   });
 
   it('11.2: only a refusal takes a change off the screen, saying why', async () => {

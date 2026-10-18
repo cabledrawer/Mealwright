@@ -10,15 +10,12 @@
   const last = $derived(model.lastTicked);
   const item = $derived(last ? model.item(last.itemId) : undefined);
   const standing = $derived(item?.ticks.some((t) => t.standing) ?? false);
-  const placeId = $derived(
-    item?.ticks.find((t) => t.standing)?.place_id ?? item?.put_away_place_id ?? null
-  );
+  // Offline the tick has no place yet: where it will go (its usual place) shows meanwhile.
+  const placeId = $derived(item ? model.placeOf(item, last?.tickId) : null);
 
-  async function undo() {
-    const entry = model.lastTicked;
-    if (!entry) return;
-    model.lastTicked = null;
-    await model.undo(entry.actionId);
+  /** The same Undo as the toast's, so "Undone: …" shows here too. */
+  function undo() {
+    return model.undoLastTick();
   }
 </script>
 

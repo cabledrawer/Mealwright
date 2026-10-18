@@ -119,6 +119,35 @@ test('E2: changes made offline survive a reload, then reach the server', async (
   expect(line(added)?.ticked_at).toBeNull();
 });
 
+test('offline: a tick offers Undo at once; Undo is queued after it, and the server ends up unticked', async ({
+  page,
+  context,
+}) => {
+  const name = `Fenugreek ${tag()}`;
+  await signIn(page);
+  await ingredient(page, name);
+  await start(page);
+
+  await context.setOffline(true);
+  await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
+  // No usual place yet, so the toast says it's ticked; Change and Undo are there at once.
+  const toast = page.getByRole('status').filter({ hasText: `${name} ticked` });
+  await expect(toast).toBeVisible();
+  await expect(toast.getByRole('button', { name: 'Change' })).toBeVisible();
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name} ticked` })).toBeVisible();
+  await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).not.toBeChecked();
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
+    timeout: 15_000,
+  });
+  const line = (await serverItems(page)).find((i) => i.food.name === name);
+  expect(line).toBeDefined();
+  expect(line?.ticked_at).toBeNull();
+});
+
 test('E3: signing out offline warns first, then wipes, and the session ends once back', async ({
   page,
   context,
