@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, addedWords, dateWords, useByWords } from './dates';
+import { addDays, addedWords, compactDateWords, dateWords, useByWords } from './dates';
 
 describe('use-by dates in plain words', () => {
   // 17 Oct 2026 is a Saturday.
@@ -11,6 +11,16 @@ describe('use-by dates in plain words', () => {
     expect(dateWords('2026-11-12', 26)).toBe('12 Nov');
     expect(dateWords('2026-10-15', -2)).toBe('Date passed');
     expect(dateWords(null, null)).toBe('');
+  });
+
+  it('the phone Use soon card keeps the capital on day names', () => {
+    expect(compactDateWords('2026-10-19', 2)).toBe('Mon'); // not "mon"
+    expect(compactDateWords('2026-11-12', 26)).toBe('12 Nov');
+    // Today and tomorrow are lowercase, as in "use by today".
+    expect(compactDateWords('2026-10-17', 0)).toBe('today');
+    expect(compactDateWords('2026-10-18', 1)).toBe('tomorrow');
+    expect(useByWords('2026-10-17', 0)).toBe('use by today');
+    expect(compactDateWords(null, null)).toBe('');
   });
 
   it('makes "use by …" phrases', () => {

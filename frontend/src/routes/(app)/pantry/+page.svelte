@@ -17,7 +17,7 @@
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
-  import { dateWords } from '$lib/dates';
+  import { compactDateWords, dateWords } from '$lib/dates';
   import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
@@ -109,7 +109,7 @@
       lot.of > 1
         ? `${lot.position}\u00a0of\u00a0${lot.of}`
         : (lot.stock.short ?? lot.stock.display);
-    return { what, date };
+    return { what, date, compactDate: compactDateWords(lot.use_by, lot.days_left) };
   }
 
   function newStaple(name: string) {
@@ -148,7 +148,7 @@
       {@const words = lotWords(lot)}
       <li>
         <button type="button" class="soon-name" onclick={() => ingredientEditor.open(lot.food.id)}
-          >{lot.food.name} · {compact ? words.date.toLocaleLowerCase() : words.what}</button
+          >{lot.food.name} · {compact ? words.compactDate : words.what}</button
         >
         <span class="soon-actions">
           <button type="button" class="pill" onclick={() => void model.used(lot.id, lot.food.name)}

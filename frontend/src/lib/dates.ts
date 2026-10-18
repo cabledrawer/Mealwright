@@ -30,6 +30,13 @@ export function dateWords(iso: string | null, daysLeft: number | null): string {
   return dayMonth.format(noonUtc(iso));
 }
 
+/** The short date in the phone Use soon card ("Tue", "12 Nov", "today", "tomorrow"): only
+ * today and tomorrow are lowercase, as in useByWords, so day names keep their capital. */
+export function compactDateWords(iso: string | null, daysLeft: number | null): string {
+  const words = dateWords(iso, daysLeft);
+  return words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words;
+}
+
 /** "use by Mon", "use by today", "use-by date passed". */
 export function useByWords(iso: string | null, daysLeft: number | null): string {
   const words = dateWords(iso, daysLeft);
