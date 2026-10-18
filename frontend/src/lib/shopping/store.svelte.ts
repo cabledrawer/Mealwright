@@ -211,9 +211,9 @@ export class ShoppingModel {
   }
 
   /**
-   * A typed name that isn't an ingredient yet: one `add` with `new_food` (sync-protocol
-   * 4.4). Packet sizes picked in "How do you count it?" are added afterwards, online, as a
-   * separate step: they are not part of the action.
+   * A typed name that isn't an ingredient yet: one `add` with `new_food` (sync-protocol 4.4).
+   * The packet sizes picked in "How do you count it?" go inside it (`new_food.sizes`), so it
+   * works offline too.
    */
   async addNew(chosen: Chosen) {
     const list = this.list;
@@ -300,7 +300,7 @@ export class ShoppingModel {
             itemId: item.id,
             tickId: actionId,
             actionId,
-            name: food?.name ?? 'Item'
+            name: food?.name ?? 'Ingredient'
           };
           void this.#afterTick(item, actionId);
         }
@@ -311,7 +311,7 @@ export class ShoppingModel {
   /** Once the tick is saved: say where it went, with Change and Undo (phone toast). */
   async #afterTick(item: ListItem, actionId: string): Promise<void> {
     const row = this.item(item.id);
-    const name = this.food(item.food_id)?.name ?? 'Item';
+    const name = this.food(item.food_id)?.name ?? 'Ingredient';
     const tick = row?.ticks.find((t) => t.id === actionId) ?? row?.ticks.find((t) => t.standing);
     const place = this.placeName(tick?.place_id ?? row?.put_away_place_id ?? null);
     const entry = {
@@ -335,7 +335,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'untick', item_id: item.id, tick_ids: ids },
       {
-        label: `${this.food(item.food_id)?.name ?? 'Item'} unticked`,
+        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} unticked`,
         edit: (copy) => {
           const row = copy.items.find((i) => i.id === item.id);
           row?.ticks.forEach((t) => (t.standing = false));
@@ -351,7 +351,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'put_away', item_id: item.id, place_id: placeId, tick_ids: ids },
       {
-        label: `${this.food(item.food_id)?.name ?? 'Item'} → ${place}`,
+        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} → ${place}`,
         edit: (copy) => {
           const row = copy.items.find((i) => i.id === item.id);
           if (!row) return;
@@ -372,19 +372,19 @@ export class ShoppingModel {
         pack,
         size_id: sizeId ?? null
       },
-      { label: `${this.food(item.food_id)?.name ?? 'Item'}: pack changed` }
+      { label: `${this.food(item.food_id)?.name ?? 'Ingredient'}: pack changed` }
     );
   }
 
   setAmount(item: ListItem, amount: number, sizeId?: number | null) {
     return this.#act(
       { kind: 'set_amount', item_id: item.id, amount, size_id: sizeId ?? null },
-      { label: `${this.food(item.food_id)?.name ?? 'Item'} amount changed` }
+      { label: `${this.food(item.food_id)?.name ?? 'Ingredient'} amount changed` }
     );
   }
 
   remove(item: ListItem) {
-    const name = this.food(item.food_id)?.name ?? 'Item';
+    const name = this.food(item.food_id)?.name ?? 'Ingredient';
     return this.#act(
       { kind: 'delete', item_id: item.id },
       {

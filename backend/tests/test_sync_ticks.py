@@ -186,7 +186,7 @@ def _live(s: S0, name: str) -> list[int]:
 
 
 def test_a_tick_brings_back_the_removed_ingredient(kitchen: TestClient) -> None:
-    """7.1 (pending cabledrawer): the purchase needs an ingredient to go into the pantry."""
+    """7.1 (cabledrawer 18 Oct): the purchase needs an ingredient to go into the pantry."""
     s = s0(kitchen)
     _removed_with_its_line(s, "Paneer")
     done = tick(kitchen, s, "Paneer")
@@ -274,7 +274,7 @@ def test_an_undo_of_an_untick_puts_back_into_the_ingredient_that_has_the_name_no
 def test_a_tick_into_an_ingredient_counted_differently_puts_nothing_in(
     kitchen: TestClient,
 ) -> None:
-    """7.1 (pending cabledrawer): 400 g of the old Paneer means nothing for a Paneer counted in
+    """7.1 (cabledrawer 18 Oct): 400 g of the old Paneer means nothing for a Paneer counted in
     items. The purchase is recorded with no stock, and the ticker gets a quiet note whose
     Undo takes the tick back."""
     s = s0(kitchen)
@@ -920,7 +920,7 @@ BACK = (
 def test_an_undo_of_a_different_pack_after_a_use_says_so_for_a_pack_change(
     kitchen: TestClient,
 ) -> None:
-    """7.4 item 6 (pending cabledrawer): nothing was "taken back", so it doesn't say that."""
+    """7.4 item 6 (cabledrawer 18 Oct): nothing was "taken back", so it doesn't say that."""
     first = _repacked_with_use_between(kitchen)
     done = _undo(kitchen, first["id"])
     assert done["status"] == "applied" and done["message"] == BACK

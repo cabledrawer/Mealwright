@@ -187,11 +187,11 @@ def tick(act: Act) -> None:
     revived: dict[str, Any] = {}
     if food.removed_at is not None and not food.staple and item.amount_milli:
         # On a tombstone only (removing is blocked otherwise), and only when stock goes in:
-        # the purchase needs an ingredient in the pantry (7.1, pending cabledrawer).
+        # the purchase needs an ingredient in the pantry (7.1, cabledrawer 18 Oct).
         food, revived = shopping.revive(act, food)
         act.food_id = food.id  # the ingredient the stock goes to (5.4)
     # The live ingredient with that name now is counted another way: the item's amount
-    # means nothing for it, so nothing goes in (7.1, pending cabledrawer).
+    # means nothing for it, so nothing goes in (7.1, cabledrawer 18 Oct).
     recount = food.counted_as != listed.counted_as
     place = get_place(kitchen, item.put_away_place_id)
     if place is None:
@@ -374,7 +374,7 @@ def partial(done: Iterable[Change]) -> str | None:
 
 def repack_back(kitchen: Kitchen, change: Change, done: list[Change]) -> str | None:
     """The sentence for an Undo of a pack change that couldn't put things exactly back,
-    because some was used since (7.4 item 6, pending cabledrawer). None if it could."""
+    because some was used since (7.4 item 6, cabledrawer 18 Oct). None if it could."""
     if change.kind != "repacked" or partial(done) is None:
         return None
     ops = (change.undo_data or {}).get("shopping") or []

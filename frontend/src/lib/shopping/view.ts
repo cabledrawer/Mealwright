@@ -70,7 +70,7 @@ export function ghostsOf(
     const food = copy.foods.find((f) => f.id === (gone?.food_id ?? note.food_id));
     const wanted = gone ? gone.shop_id : (food?.shop_id ?? null);
     const shopId = wanted !== null && known.has(wanted) ? wanted : null;
-    const name = food?.name ?? 'Item';
+    const name = food?.name ?? 'That ingredient';
     const text = gone?.removed_by
       ? `${name} · removed by ${gone.removed_by}`
       : `${name} · ${note.text}`;

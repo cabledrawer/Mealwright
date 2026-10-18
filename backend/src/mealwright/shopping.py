@@ -816,7 +816,7 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any], b
     """`new_food` (sync protocol 4.4): the ingredient of that name if there is one, an
     ingredient of that name removed while offline brought back, else a new one. The last
     part is True when the one it gives is counted another way than the phone said, so the
-    action's amount means nothing for it (4.4, pending cabledrawer)."""
+    action's amount means nothing for it (4.4, cabledrawer 18 Oct)."""
     kitchen = act.kitchen
     name = clean(wanted["name"])
     counted_as = wanted.get("counted_as")
@@ -938,7 +938,7 @@ def add_item(act: Act) -> None:
         shop_id = shop.id if shop else (food.shop_id if wanted_shop is not None else None)
     else:
         shop_id = food.shop_id
-    # Counted another way (7.1, 4.4, pending cabledrawer): never the phone's amount, a blank add's.
+    # Counted another way (7.1, 4.4, cabledrawer 18 Oct): never the phone's amount, a blank add's.
     amount_milli = None if recount else milli_of(payload.get("amount"))
     size = None if recount else get_size(kitchen, food, payload.get("size_id"))
     if amount_milli is None:
@@ -982,7 +982,7 @@ def add_item(act: Act) -> None:
 
 
 def _counted_another_way(act: Act, food: Food, line: ListItem) -> None:
-    """N9: the adder's amount was for another way of counting (4.4, 7.1, pending cabledrawer)."""
+    """N9: the adder's amount was for another way of counting (4.4, 7.1, cabledrawer 18 Oct)."""
     note(
         act,
         "N9",

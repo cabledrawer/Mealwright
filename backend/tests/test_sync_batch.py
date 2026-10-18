@@ -24,7 +24,7 @@ from sync_kit import (
     send,
 )
 
-from mealwright.models import Change, Food, ListItem, ShoppingList, SyncAction
+from mealwright.models import Change, Food, FoodSize, ListItem, ShoppingList, SyncAction
 
 
 def _rows(kitchen: TestClient) -> int:
@@ -512,7 +512,7 @@ def test_a_full_copy_has_every_row_even_version_0(kitchen: TestClient) -> None:
 
 
 def test_a_phone_ahead_of_the_server_gets_a_full_copy(kitchen: TestClient) -> None:
-    """5.5 (pending cabledrawer): after a restore from a backup the server's counter can be
+    """5.5 (cabledrawer 18 Oct): after a restore from a backup the server's counter can be
     behind a phone's cursor; the phone's copy can't be trusted, so it is replaced."""
     main = main_id(kitchen)
     food(kitchen, "Rice")  # takes a number
@@ -559,6 +559,13 @@ def test_new_food_carries_its_packet_sizes(kitchen: TestClient) -> None:
             select(Change).where(Change.kind == "food_created", Change.food_id == tahini["id"])
         ).one()
         assert len(((created.undo_data or {}).get("foods") or {}).get("sizes", {})) == 2
+        created_id = created.id
+    # Undo of that change takes the ingredient and its sizes away again.
+    undone = ok(kitchen.post(f"{API}/changes/{created_id}/undo"))
+    assert undone["result"] == "done"
+    with db(kitchen) as session:
+        assert session.scalar(select(func.count()).select_from(FoodSize)) == 0
+        assert session.get(Food, tahini["id"]).removed_at is not None  # type: ignore[union-attr]
 
 
 def test_a_size_name_needs_letters(kitchen: TestClient) -> None:

@@ -559,3 +559,148 @@ test("a quiet note can be dismissed", async ({ page }) => {
   await expect(page.getByText(new RegExp(`added ${name} too`))).toHaveCount(0);
   void item;
 });
+
+// --- Review round 2 -----------------------------------------------------------------------------
+
+test("opening Shopping asks for the list once and then goes quiet", async ({
+  page,
+}) => {
+  let asked = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/shopping/changes")) asked++;
+  });
+  await page.goto("/shopping");
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(1500);
+  expect(asked).toBe(1);
+});
+
+test("ticked states pass the accessibility checks in both themes", async ({
+  page,
+}) => {
+  await settleCards(page);
+  const name = `Looks ${tag()}`;
+  const { foodId, item } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  // The put-away toast (phone) or the Put away panel (desktop) is showing.
+  if (isPhone(page)) {
+    await expect(
+      page.getByRole("status").filter({ hasText: `${name} → Fridge` }),
+    ).toBeVisible();
+  } else {
+    await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  }
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  // The trolley open, with its ticked row.
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(
+    row.getByRole("button", { name: "Different pack?" }),
+  ).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  // The Different pack? sheet.
+  await row.getByRole("button", { name: "Different pack?" }).click();
+  await expect(row.getByText("What did you buy?")).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  // The "Did you buy 2?" card.
+  await act(
+    page,
+    { kind: "tick", item_id: item },
+    "99999999-8888-4777-8666-555555555555",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Did you buy 2?" }).first(),
+  ).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+});
+
+test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone layout");
+  const name = `A rather long ingredient name ${tag()}`;
+  await packs(page, name);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/shopping");
+    if (width === 320)
+      await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+    await page.getByRole("button", { name: /^In the trolley/ }).click();
+    const label = page.getByRole("button", { name, exact: true });
+    await expect(label).toBeVisible();
+    const clipped = await label.evaluate(
+      (el) => el.scrollWidth > el.clientWidth + 1,
+    );
+    expect(clipped).toBe(false);
+    const box = await label.boundingBox();
+    const pill = await page
+      .getByRole("button", { name: "Different pack?" })
+      .first()
+      .boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(pill!.y + 1); // the buttons sit under the name
+  }
+});
+
+test("Undo of Just 1 brings the card and the second purchase back", async ({
+  page,
+}) => {
+  await settleCards(page);
+  const name = `JustOne ${tag()}`;
+  const { foodId, item } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await act(
+    page,
+    { kind: "tick", item_id: item },
+    "99999999-8888-4777-8666-555555555555",
+  );
+  await page.reload();
+  await page
+    .getByRole("region", { name: "Did you buy 2?" })
+    .first()
+    .getByRole("button", { name: "Just 1" })
+    .click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 800 });
+  await expect(
+    page.getByRole("region", { name: "Did you buy 2?" }).first(),
+  ).toBeVisible();
+});
+
+test("phone: Undo of a put-away (the toast after Change) moves it back", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone toast");
+  const name = `Moved ${tag()}`;
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page
+    .getByRole("status")
+    .getByRole("button", { name: "Change" })
+    .click();
+  await page.getByRole("radio", { name: "Freezer" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Freezer: 400 });
+  await page
+    .getByRole("status")
+    .filter({ hasText: `${name} → Freezer` })
+    .getByRole("button", { name: "Undo" })
+    .click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+});

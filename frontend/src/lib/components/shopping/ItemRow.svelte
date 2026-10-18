@@ -105,21 +105,23 @@
       {#if planned}<span class="sub">{planned}</span>{/if}
     </span>
     {#if trolley}
-      <button
-        type="button"
-        class="pill"
-        aria-expanded={placing}
-        onclick={() => (model.placing = placing ? null : item.id)}
-        >{place ? `→ ${place}` : 'Put away'}</button
-      >
-      <button
-        type="button"
-        class="pill"
-        bind:this={packButton}
-        aria-expanded={packOpen}
-        onclick={() => (packOpen = !packOpen)}
-        >{item.amount ? 'Different pack?' : 'How much?'}</button
-      >
+      <span class="pills">
+        <button
+          type="button"
+          class="pill"
+          aria-expanded={placing}
+          onclick={() => (model.placing = placing ? null : item.id)}
+          >{place ? `→ ${place}` : 'Put away'}</button
+        >
+        <button
+          type="button"
+          class="pill"
+          bind:this={packButton}
+          aria-expanded={packOpen}
+          onclick={() => (packOpen = !packOpen)}
+          >{item.amount ? 'Different pack?' : 'How much?'}</button
+        >
+      </span>
     {:else}
       <button
         type="button"
@@ -220,9 +222,25 @@
 
   .line {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-6);
+    gap: 0 var(--space-6);
     min-height: 52px;
+  }
+
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+  }
+
+  /* On a phone the buttons go on their own line under the name, so the name stays whole. */
+  @media (max-width: 767px) {
+    .pills {
+      flex-basis: 100%;
+      padding-left: 38px;
+    }
   }
 
   /* A 44 px tap area around a 22 px box, as in the mockup's row. */
@@ -270,7 +288,7 @@
 
   .what {
     display: flex;
-    flex: 1;
+    flex: 1 1 8rem;
     flex-direction: column;
     min-width: 0;
   }

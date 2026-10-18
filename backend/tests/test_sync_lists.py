@@ -208,7 +208,7 @@ def test_sy39_two_new_ingredients_with_one_name(kitchen: TestClient, a_first: bo
 
 @BOTH
 def test_sy39_variant_one_name_counted_two_ways(kitchen: TestClient, a_first: bool) -> None:
-    """4.4 (pending cabledrawer): the second adder's amount was for another way of counting, so
+    """4.4 (cabledrawer 18 Oct): the second adder's amount was for another way of counting, so
     it isn't kept. Its add counts as a blank one, and the adder gets note N9."""
     s = s0(kitchen)
     results: dict[str, Any] = {}
@@ -258,7 +258,7 @@ def test_sy39_variant_one_name_counted_two_ways(kitchen: TestClient, a_first: bo
 
 
 def test_a_new_ingredient_counted_another_way_gets_a_blank_amount(kitchen: TestClient) -> None:
-    """4.4 (pending cabledrawer): 500 g means nothing for a Tahini counted in items: 1."""
+    """4.4 (cabledrawer 18 Oct): 500 g means nothing for a Tahini counted in items: 1."""
     s = s0(kitchen)
     there = food(kitchen, "Tahini", counted_as="count")["id"]
     item = new_id()
@@ -566,7 +566,7 @@ def test_an_undo_of_an_add_keeps_the_brought_back_ingredient_while_it_is_on_a_li
 def test_an_add_via_a_removed_ingredient_never_carries_its_amount_to_one_counted_differently(
     kitchen: TestClient,
 ) -> None:
-    """7.1 (pending cabledrawer): 500 g of the old Ghee means nothing for a Ghee counted in
+    """7.1 (cabledrawer 18 Oct): 500 g of the old Ghee means nothing for a Ghee counted in
     items, so the line gets a blank add's amount: 1 (it has no usual size), and the adder
     gets note N9."""
     s = s0(kitchen)

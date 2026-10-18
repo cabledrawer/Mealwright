@@ -33,7 +33,9 @@
   // the offline copy arrive in 0.3's next pull requests.
   $effect(() => {
     void kitchen.version;
-    void model.load();
+    // Only kitchen.version is watched: load() reads and replaces the copy, which would
+    // otherwise run this again for ever.
+    untrack(() => void model.load());
   });
 
   function onVisible() {
