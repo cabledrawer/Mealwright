@@ -16,7 +16,7 @@ import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
 import { addToQueue, dropFromQueue, readQueue } from './store';
 import { KEPT_ON_WIPE, wipeDevice, wipeIfAnotherLogin } from './wipe';
-import { WIPE_PENDING_KEY, wipePending, wipeState } from './wipePending.svelte';
+import { WIPE_PENDING_KEY, wipeFailed, wipePending, wipeState } from './wipePending.svelte';
 
 const SHELL_CACHE = `${CACHE_PREFIX}test-wipe`;
 const OTHER_CACHE = 'mealwright-recipes-test-wipe';
@@ -262,7 +262,8 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
     const mend = failPhoneDelete();
     expect(await wipeDevice()).toBe(false);
     expect(wipePending()).toBe(true);
-    expect(localStorage.getItem(WIPE_PENDING_KEY)).toBe('1');
+    expect(wipeFailed()).toBe(true);
+    expect(localStorage.getItem(WIPE_PENDING_KEY)).toBe('failed');
     expect(await databaseThere()).toBe(true);
     // Nothing of Wren's is found, and the database isn't opened again.
     expect(await heldChanges()).toBeNull();
@@ -271,6 +272,7 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
     // Not even after a reload (only the flag in localStorage is left then).
     wipeState.failed = false;
     expect(wipePending()).toBe(true);
+    expect(wipeFailed()).toBe(true);
     await expect(openPhone()).rejects.toThrow();
     // Starting the app as Arlo writes nothing.
     await startDevice({ ...ARLO });
@@ -295,6 +297,22 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
     // Then as usual.
     await startDevice({ ...ARLO });
     expect(await getMeta('login_id')).toBe(3);
+  });
+
+  it('while a wipe is still deleting, it is pending but not failed', async () => {
+    await setMeta(WREN);
+    const seen: [boolean, boolean][] = [];
+    const real = indexedDB.deleteDatabase.bind(indexedDB);
+    vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation((name) => {
+      // What another tab sees while this one is deleting.
+      wipeState.failed = false;
+      seen.push([wipePending(), wipeFailed()]);
+      return real(name);
+    });
+    expect(await wipeDevice()).toBe(true);
+    expect(seen).toEqual([[true, false]]);
+    expect(localStorage.getItem(WIPE_PENDING_KEY)).toBeNull();
+    expect(wipePending()).toBe(false);
   });
 
   it('a different login’s own wipe failing says so', async () => {

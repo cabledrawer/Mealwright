@@ -9,7 +9,7 @@ import { signOutState } from '$lib/offline/unfinished.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
 import { wipeDevice } from '$lib/offline/wipe';
-import { wipePending } from '$lib/offline/wipePending.svelte';
+import { WIPE_PENDING_KEY, wipePending, wipeState } from '$lib/offline/wipePending.svelte';
 import SignIn from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -688,6 +688,49 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       expect(wipePending()).toBe(false);
       expect(await phoneThere()).toBe(false);
       expect(requests).toEqual([]);
+    });
+
+    it('a wipe another tab is still running says nothing; once it fails there, it says so', async () => {
+      await wrensPhone(2);
+      // Another tab has started wiping (sync protocol 12) and is still deleting.
+      localStorage.setItem(WIPE_PENDING_KEY, '1');
+      show();
+      await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+      expect(page.getByText(/couldn't delete/).elements()).toEqual([]);
+      expect(page.getByRole('button', { name: 'Try again' }).elements()).toEqual([]);
+      // Nothing of Wren's is shown meanwhile either.
+      expect(page.getByText(/Wren/).elements()).toEqual([]);
+      // Its delete then fails: that tab's flag says so, and this one hears it.
+      localStorage.setItem(WIPE_PENDING_KEY, 'failed');
+      dispatchEvent(new StorageEvent('storage', { key: WIPE_PENDING_KEY, newValue: 'failed' }));
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
+      // And a Try again in that tab that works takes it away here too.
+      localStorage.removeItem(WIPE_PENDING_KEY);
+      dispatchEvent(new StorageEvent('storage', { key: WIPE_PENDING_KEY, newValue: null }));
+      await expect.element(page.getByText(WIPE_FAILED)).not.toBeInTheDocument();
+      expect(requests).toEqual([]);
+    });
+
+    it('a wipe left unfinished by a closed tab: Sign in finishes it before letting anyone in', async () => {
+      await wrensPhone(2);
+      localStorage.setItem(WIPE_PENDING_KEY, '1');
+      show();
+      await fillIn('wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(await phoneThere()).toBe(false);
+      expect(wipePending()).toBe(false);
+    });
+
+    it('a delete that failed in another tab or before a reload says so', async () => {
+      await wrensPhone(1);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      mend();
+      // This tab didn't run that wipe: only the flag in localStorage knows.
+      wipeState.failed = false;
+      show();
+      await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
     });
 
     it('Sign in tries the wipe again first: still failing, it says so and sends nothing', async () => {

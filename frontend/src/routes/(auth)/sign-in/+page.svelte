@@ -10,7 +10,8 @@
   // on this phone may be lost" (cabledrawer 18 Oct). When the server wouldn't end a session the
   // app was signing out, the page says so, with "Try again" (it stays here meanwhile). And
   // when a wipe couldn't delete the phone database, nobody can sign in until it has: the
-  // page says so, with "Try again", and Sign in tries the wipe again first.
+  // page says so, with "Try again", and Sign in tries the wipe again first. A wipe another
+  // tab is still running isn't a failure: nothing is said about it unless it fails.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -38,7 +39,7 @@
   import { endSession } from '$lib/offline/signOut';
   import { signOutState } from '$lib/offline/unfinished.svelte';
   import { wipeDevice, wipeIfAnotherLogin } from '$lib/offline/wipe';
-  import { wipePending, wipeState } from '$lib/offline/wipePending.svelte';
+  import { heardWipe, wipeFailed, wipeState } from '$lib/offline/wipePending.svelte';
   import { connection, safeNext, session } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import type { PageProps } from './$types';
@@ -74,7 +75,12 @@
   });
 
   // A wipe (in this tab, another, or before a reload) that couldn't delete the phone database.
-  if (wipePending()) wipeState.failed = true;
+  // Not one another tab is still running: that says so only if it fails (heardWipe).
+  if (wipeFailed()) wipeState.failed = true;
+  $effect(() => {
+    addEventListener('storage', heardWipe);
+    return () => removeEventListener('storage', heardWipe);
+  });
   /** Tries that found the wipe still unfinished: the line is read out again each time. */
   let wipeTries = $state(0);
   let wiping = $state(false);
