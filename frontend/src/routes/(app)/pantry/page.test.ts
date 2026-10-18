@@ -267,6 +267,8 @@ describe('the Pantry page', () => {
         expect(page.getByRole('searchbox').elements()).toHaveLength(1);
         expect(page.getByRole('searchbox', { name: 'Find in pantry' }).elements()).toHaveLength(0);
         expect(field.right).toBeLessThanOrEqual(390);
+        // A touch target of at least 44 px.
+        expect(field.height).toBeGreaterThanOrEqual(44);
       });
 
       it('typing shows the one list, with each place and "also called"', async () => {

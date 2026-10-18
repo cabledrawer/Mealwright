@@ -693,7 +693,7 @@
   .search input {
     flex: 1;
     min-width: 0;
-    min-height: 42px;
+    min-height: var(--touch-target);
     border: none;
     background: transparent;
     color: var(--color-text);
