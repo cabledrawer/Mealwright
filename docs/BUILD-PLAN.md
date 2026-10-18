@@ -140,6 +140,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 - **PR 0a, security audit (Opus high; cabledrawer 18 Oct):** as spec section 8 "Security along the way". Side by side with PR 0b.
 - **PR 0b, Keeping the UI good set-up** (as in `ui-quality-decision.md`).
+- PR 0a also adds HSTS (https mode only) and the 30-day longest sign-in (cabledrawer 19 Oct, spec section 7).
 - From 0.4: the checker adds a security section for PRs touching sign-in, permissions, households, sync, imports, uploads or the outbound gate; every release PR includes a short security pass.
 
 **Build:**
@@ -218,6 +219,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Full Onboarding (`Onboard-*`): admin account, then Amounts, Household and Shops; Skip always available after the admin step.
 - Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
 - Secrets (the SSO client secret) encrypted at rest.
+- Passwords and the sign-in cookie (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): new passwords need at least 12 characters (existing ones keep working); new passwords are checked against a bundled, offline list of leaked passwords under a licence on the allow list (never an online lookup; cabledrawer approves the list and its licence first); the sign-in cookie gets the `__Host-` name, which signs everyone out once (say so in the release notes) and can't work in plain-http mode (decide with cabledrawer what that mode does).
 - **Not in 0.8 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
 - Backups: daily, keep 7, into the data volume (adjustable). Export everything (optional password encryption).
 - Logs: errors and sign-ins only, 14 days, never content.
@@ -237,6 +239,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Accessibility pass to WCAG AA: contrast in both themes, keyboard, screen reader labels, large text.
 - Performance pass: fast on a Raspberry Pi 4 class device and an older phone.
 - Docs: install (Docker / compose, both image names), upgrade, backups, SSO setup, reverse proxy, the API, and the **README Privacy section** listing every possible outbound connection. README notes that Mealwright is a spare-time project with replies taking about a week, plus the AI disclosure.
+- Database file readable only by Mealwright (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): `mealwright.db` becomes readable only by the `mealwright` user, together with the backup docs, once it's clear how backup tools read `/data`.
 - Install docs, HTTPS (cabledrawer 17 Oct): say plainly that HTTPS is required for sign-in on other devices, the installable app, offline shopping and keep-screen-awake, and why. Give short, tested reverse-proxy examples for Caddy, Traefik, nginx and Nginx Proxy Manager, each showing HTTPS, the forwarded headers and the matching `MEALWRIGHT_TRUSTED_PROXIES` value.
 - Prepare the move to GitHub (ready but unused): GitHub Actions workflows in `.github/workflows/` that run the same checks as `./check` (CI starts here, at 1.0: cabledrawer 17 Oct); add arm64 to image builds; a release workflow that, on a `v1.*` tag on GitHub, builds multi-arch and pushes to GHCR and Docker Hub with tags 1.2.3 / 1.2 / 1 / latest, and creates the GitHub release from `CHANGELOG.md`. Write `docs/dev/move-to-github.md` for cabledrawer: create the GitHub repo, set a push mirror in Forgejo, add secrets, turn on private vulnerability reporting, issue form and Discussions.
 - Pre-release checklist from spec section 8: licence allow list green and the food table checked by hand; a manual network-watch run with every Privacy switch off; trademark search (UK, EU, US) recorded by cabledrawer; scanners clean; web-app security checklist gone through.
