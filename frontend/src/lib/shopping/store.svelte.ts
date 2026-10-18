@@ -18,6 +18,7 @@ import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
 import { makeAction, type ActionFields, type ActionResult } from './actions';
 import { applyLocal } from './applyLocal';
 import { EMPTY_COPY } from './load';
+import { searchCopy } from './search';
 import { sendAction, shoppingSync } from './sync.svelte';
 import type { FoodSize, ListItem, ShopFood, Tick } from './types';
 import { groupByShop, listCounts, standingTicks, subtitle } from './view';
@@ -447,7 +448,14 @@ export class ShoppingModel {
 
   // --- Searching ---------------------------------------------------------------------------------
 
+  /** The add box's matches: from the server, or from the phone's copy while offline (11.1). */
   async search(text: string): Promise<FoodRow[]> {
-    return (await listFoods({ q: text, limit: 8 })).foods;
+    if (network.offline) return searchCopy(this.copy, text);
+    try {
+      return (await listFoods({ q: text, limit: 8 })).foods;
+    } catch (error) {
+      if (cantReach(error)) return searchCopy(this.copy, text);
+      throw error;
+    }
   }
 }

@@ -6,7 +6,7 @@ import Toast from '$lib/components/Toast.svelte';
 import { ME, fakeShopping, sampleCopy, tick } from '$lib/testing/fakeShopping';
 import { dropPhone, freshPhone } from '$lib/testing/phone';
 import { loadDeviceId } from '$lib/offline/device';
-import { addToQueue, saveCopy } from '$lib/offline/store';
+import { addToQueue, readQueue, saveCopy } from '$lib/offline/store';
 import { applyChanges } from '$lib/shopping/load';
 import { session } from '$lib/session.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
@@ -192,6 +192,20 @@ describe('the Shopping page', () => {
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
     expect(page.getByRole('alert').elements()).toEqual([]);
+  });
+
+  it('offline, the add box finds ingredients on this phone and adds one (11.1)', async () => {
+    await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    mountShopping();
+    await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Add an item' }).fill('tah');
+    const matches = page.getByRole('list', { name: 'Matching ingredients' });
+    await matches.getByRole('button', { name: 'Tahini' }).click();
+    await expect.element(page.getByRole('button', { name: 'Tahini', exact: true })).toBeVisible();
+    await vi.waitFor(async () =>
+      expect((await readQueue()).map((e) => e.action)).toMatchObject([{ kind: 'add', food_id: 7 }])
+    );
   });
 
   it('opened offline on a phone that has never had the list: says so', async () => {
