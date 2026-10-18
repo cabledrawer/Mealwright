@@ -5,11 +5,12 @@
   // (cabledrawer 18 Oct): once its sign-in has succeeded, and only then, the phone's copy is
   // wiped as at signing out, and the next start makes a new device ID. A wrong password
   // wipes nothing. A phone database that can't be read wipes nothing either, and lets nobody
-  // in over it: the page says it couldn't check.
+  // in over it: the page says it couldn't check. When the server wouldn't end a session the
+  // app was signing out, the page says so, with "Try again" (it stays here meanwhile).
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ApiError, signIn, signOut } from '$lib/api';
+  import { ApiError, signIn } from '$lib/api';
   import Button from '$lib/components/Button.svelte';
   import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
   import Switch from '$lib/components/Switch.svelte';
@@ -21,11 +22,14 @@
     loseOthersText,
     sameUsername,
     takeTurnedAway,
+    unfinishedText,
     UNREADABLE,
     waitingForText,
     type Held,
     type Unreadable
   } from '$lib/offline/held';
+  import { endSession } from '$lib/offline/signOut';
+  import { signOutState } from '$lib/offline/unfinished.svelte';
   import { wipeIfAnotherLogin } from '$lib/offline/wipe';
   import { connection, safeNext, session } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
@@ -105,6 +109,17 @@
     await signInNow();
   }
 
+  /** "Couldn't finish signing out": ask the server again. */
+  let ending = $state(false);
+  async function endAgain() {
+    ending = true;
+    try {
+      await endSession();
+    } finally {
+      ending = false;
+    }
+  }
+
   async function signInNow() {
     busy = true;
     try {
@@ -116,13 +131,15 @@
       if (result !== 'kept' && result !== 'wiped') {
         // Another login after all, or the phone couldn't check: end that session again before
         // anything is sent, and warn.
-        await signOut().catch(() => undefined);
+        await endSession();
         held = result;
         losing = false;
         warning = result !== UNREADABLE;
         return;
       }
       if (result === 'wiped') held = null;
+      // Signed in afresh: any session that couldn't be ended isn't this browser's any more.
+      signOutState.unfinished = false;
       session.me = me;
       theme.adopt(me.theme);
       const next = safeNext(page.url.searchParams.get('next'));
@@ -148,6 +165,15 @@
 </div>
 
 <ConnectionNotice kind={secure} />
+
+{#if signOutState.unfinished}
+  <div class="unfinished">
+    <p role="alert">{unfinishedText(device)}</p>
+    <button type="button" class="again" disabled={ending} onclick={() => void endAgain()}>
+      {ending ? 'Trying…' : 'Try again'}
+    </button>
+  </div>
+{/if}
 
 {#if unreadable}
   <p class="cant-check" role="status">{cantCheckText(device)}</p>
@@ -244,13 +270,37 @@
   }
 
   .problem,
-  .cant-check {
+  .cant-check,
+  .unfinished p {
     padding: var(--space-5) 14px;
     border-radius: var(--radius-field);
     background: var(--color-warning);
     color: var(--color-warning-text);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
+  }
+
+  .unfinished {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .unfinished p {
+    align-self: stretch;
+  }
+
+  .again {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-3);
+    border: none;
+    background: none;
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .held {

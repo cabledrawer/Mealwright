@@ -77,6 +77,10 @@ export const waitingForText = (name: string, n: number, device: Device = 'phone'
 export const cantCheckText = (device: Device = 'phone') =>
   `This ${device} couldn't check for changes waiting to be sent. Nothing has been deleted.`;
 
+/** The server answered, but didn't end the session (section 12). */
+export const unfinishedText = (device: Device = 'phone') =>
+  `Couldn't finish signing out on this ${device}.`;
+
 /** The warning before a different login carries on. */
 export const loseOthersText = (name: string, n: number) =>
   `${name}'s ${changes(n)} ${n === 1 ? "hasn't" : "haven't"} been sent yet. If you carry on, ${n === 1 ? "it's" : "they're"} lost.`;

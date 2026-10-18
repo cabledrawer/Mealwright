@@ -4,6 +4,7 @@ import { heldChanges, takeTurnedAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, loadCopy, readQueue, saveCopy } from '$lib/offline/store';
 import { markSignOutPending, SIGN_OUT_PENDING_KEY } from '$lib/offline/signOutPending';
+import { signOutState } from '$lib/offline/unfinished.svelte';
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
 import { makeAction } from '$lib/shopping/actions';
@@ -11,6 +12,7 @@ import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
 import { fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
 import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { load as signInLoad } from '../(auth)/+layout';
 import { load } from './+layout';
 
 type LoadEvent = Parameters<typeof load>[0];
@@ -46,6 +48,7 @@ describe('opening the app (11.4)', () => {
     freshPhone();
     session.me = null;
     network.reset();
+    signOutState.unfinished = false;
   });
 
   afterEach(async () => {
@@ -216,5 +219,48 @@ describe('opening the app (11.4)', () => {
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('the server won’t end Arlo’s session (DELETE fails, GET /me works): one trip to the sign-in page, no bouncing back', async () => {
+    await wrensPhone(1);
+    const requests = fakeApi({
+      ...signedInAs(3, 'Arlo'),
+      'DELETE /session': [500, { detail: 'Something broke.' }]
+    });
+    await expect(open()).rejects.toMatchObject({
+      status: 307,
+      location: '/sign-in?next=%2Fshopping'
+    });
+    expect(signOutState.unfinished).toBe(true);
+    // The sign-in page then stays: it doesn't send Arlo's cookie back into the app.
+    const signInPage = () =>
+      signInLoad({
+        fetch: (...args: Parameters<typeof fetch>) => fetch(...args),
+        url: new URL('http://mealwright.test/sign-in?next=%2Fshopping')
+      } as unknown as Parameters<typeof signInLoad>[0]);
+    await expect(signInPage()).resolves.toMatchObject({ setup: { needs_setup: false } });
+    await expect(signInPage()).resolves.toMatchObject({ setup: { needs_setup: false } });
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /setup',
+      'GET /me',
+      'DELETE /session',
+      'GET /setup',
+      'GET /setup'
+    ]);
+    // Nothing wiped: Wren's phone exactly as it was.
+    expect(session.me).toBeNull();
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(1);
+    expect(takeTurnedAway()).toBe('arlo');
+  });
+
+  it('a session already gone (401) counts as signed out: the sign-in page works as usual', async () => {
+    await wrensPhone(1);
+    fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [401, { detail: 'Not signed in.' }] });
+    await expect(open()).rejects.toMatchObject({ status: 307 });
+    expect(signOutState.unfinished).toBe(false);
+    takeTurnedAway();
   });
 });

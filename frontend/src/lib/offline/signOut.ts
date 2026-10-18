@@ -5,11 +5,13 @@
 // sign-out. Offline, the wipe happens at once and a "sign-out pending" flag makes the app end
 // the server session first thing when it's back (signOutPending.ts).
 
+import { ApiError, signOut } from '$lib/api';
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { storedWaiting, UNREADABLE, type Unreadable } from './held';
-import { endPendingSignOut, markSignOutPending } from './signOutPending';
+import { endPendingSignOut, markSignOutPending, signOutPending } from './signOutPending';
+import { signOutState } from './unfinished.svelte';
 import { wipeDevice } from './wipe';
 
 /** How long Sign out (and "Try sending now") tries to send what's waiting. */
@@ -53,4 +55,25 @@ export async function signOutHere(): Promise<void> {
   session.me = null;
   await wipeDevice();
   if (!network.offline) await endPendingSignOut();
+}
+
+/**
+ * End this browser's session on the server, without wiping anything (the app turning a login
+ * away over someone's waiting changes, 11.5). True once it's ended, or there was none. False
+ * when it couldn't be: then the sign-in page says "Couldn't finish signing out" and doesn't
+ * send this browser back into the app, which would only sign it out again.
+ */
+export async function endSession(): Promise<boolean> {
+  if (signOutPending()) return endPendingSignOut();
+  try {
+    await signOut();
+  } catch (error) {
+    // 401: there was no session left to end.
+    if (!(error instanceof ApiError && error.status === 401)) {
+      signOutState.unfinished = true;
+      return false;
+    }
+  }
+  signOutState.unfinished = false;
+  return true;
 }

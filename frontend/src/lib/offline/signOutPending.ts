@@ -8,6 +8,8 @@
 // database, and the flag has to outlast it (cabledrawer 18 Oct). It says nothing about the
 // household: only "1".
 
+import { signOutState } from './unfinished.svelte';
+
 export const SIGN_OUT_PENDING_KEY = 'mealwright.sign-out-pending';
 
 /** How long the server sign-out may take before it counts as "can't reach". */
@@ -55,8 +57,12 @@ export function endPendingSignOut(doFetch: typeof fetch = fetch): Promise<boolea
       // 204: ended. 401: there was no session left to end.
       if (response.ok || response.status === 401) {
         clearSignOutPending();
+        signOutState.unfinished = false;
         return true;
       }
+      // The server answered but didn't end it (502, 503 and 504 are the reverse proxy saying
+      // it can't reach the server: that's only "offline").
+      if (![502, 503, 504].includes(response.status)) signOutState.unfinished = true;
       return false;
     } catch {
       return false;

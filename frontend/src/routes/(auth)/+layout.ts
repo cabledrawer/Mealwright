@@ -3,8 +3,11 @@
 //
 // When the server can't be reached (just signed out offline, docs/dev/sync-protocol.md
 // section 12), the sign-in page still shows: signing in then says it can't reach the server.
+// So does it when signing out couldn't be finished: the old session would only send this
+// browser back into the app, to be signed out again, round and round.
 import { redirect } from '@sveltejs/kit';
 import { cantReach, getMe, getSetup, type SetupState } from '$lib/api';
+import { signOutState } from '$lib/offline/unfinished.svelte';
 import { SETUP, SIGN_IN, safeNext, session } from '$lib/session.svelte';
 import type { LayoutLoad } from './$types';
 
@@ -21,7 +24,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
   const onSetup = url.pathname === SETUP;
   if (setup.needs_setup && !onSetup) redirect(307, SETUP);
   if (!setup.needs_setup && onSetup) redirect(307, SIGN_IN);
-  if (!setup.needs_setup && (await getMe(fetch))) {
+  if (!setup.needs_setup && !signOutState.unfinished && (await getMe(fetch))) {
     redirect(307, safeNext(url.searchParams.get('next')));
   }
   return { setup };

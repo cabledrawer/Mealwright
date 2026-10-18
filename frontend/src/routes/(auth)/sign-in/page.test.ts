@@ -5,6 +5,7 @@ import { startDevice } from '$lib/offline/device';
 import { turnAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, dropFromQueue, readQueue } from '$lib/offline/store';
+import { signOutState } from '$lib/offline/unfinished.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import SignIn from './+page.svelte';
@@ -72,6 +73,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
   beforeEach(async () => {
     freshPhone();
     navigation.goto.mockClear();
+    signOutState.unfinished = false;
     serve();
     // The bottom tabs' layout: "this phone".
     await page.viewport(390, 800);
@@ -371,5 +373,82 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
         "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
       );
     mend();
+  });
+
+  describe('couldn’t finish signing out (the server answered, but kept the session)', () => {
+    const UNFINISHED = "Couldn't finish signing out on this phone.";
+    let refuse = true;
+
+    beforeEach(() => {
+      refuse = true;
+      requests = fakeApi({
+        'POST /session': [200, ARLO],
+        'DELETE /session': () => (refuse ? [500, { detail: 'Something broke.' }] : [204, null])
+      });
+    });
+
+    it('says so once, “Try again” asks again, and it goes once the session has ended', async () => {
+      await wrensPhone(1);
+      signOutState.unfinished = true;
+      turnAway('arlo');
+      show();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(UNFINISHED);
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+      // Still refused: the same one line, not another.
+      expect(page.getByRole('alert').elements()).toHaveLength(1);
+      await expect.element(page.getByRole('alert')).toHaveTextContent(UNFINISHED);
+      refuse = false;
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+      expect(page.getByRole('alert').elements()).toEqual([]);
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'DELETE /session',
+        'DELETE /session'
+      ]);
+      // Nothing wiped meanwhile, and nothing else sent.
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(await readQueue()).toHaveLength(1);
+      expect(await getMeta('device_id')).toBe(DEVICE);
+    });
+
+    it('another login after all, and the server won’t end it: says so beside the warning, and wipes nothing', async () => {
+      await wrensPhone(2);
+      show();
+      await fillIn('wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.element(page.getByText(UNFINISHED)).toBeVisible();
+      await expect
+        .element(
+          page.getByText("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.")
+        )
+        .toBeVisible();
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+        'POST /session',
+        'DELETE /session'
+      ]);
+      expect(signOutState.unfinished).toBe(true);
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(await readQueue()).toHaveLength(2);
+      expect(await getMeta('login_id')).toBe(2);
+    });
+
+    it('a sign-in that goes through clears it', async () => {
+      signOutState.unfinished = true;
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(signOutState.unfinished).toBe(false);
+    });
+
+    it('on a computer it says “this computer”', async () => {
+      await page.viewport(1280, 800);
+      signOutState.unfinished = true;
+      show();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent("Couldn't finish signing out on this computer.");
+    });
   });
 });

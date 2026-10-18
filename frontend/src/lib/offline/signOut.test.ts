@@ -15,13 +15,15 @@ import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import { UNREADABLE } from './held';
 import { addToQueue } from './store';
 import { phoneDatabaseName, setMeta } from './phone';
-import { signOutHere, trySending } from './signOut';
+import { endSession, signOutHere, trySending } from './signOut';
 import {
+  endPendingSignOut,
   endPendingSignOutWhenOnline,
   markSignOutPending,
   SIGN_OUT_PENDING_KEY,
   signOutPending
 } from './signOutPending';
+import { signOutState } from './unfinished.svelte';
 import { wipeDevice } from './wipe';
 
 const exists = async () =>
@@ -43,6 +45,7 @@ beforeEach(() => {
   session.me = { ...ME };
   network.reset();
   localStorage.removeItem(SIGN_OUT_PENDING_KEY);
+  signOutState.unfinished = false;
 });
 
 afterEach(async () => {
@@ -93,6 +96,27 @@ describe('the "sign-out pending" flag', () => {
     expect(signOutPending()).toBe(false);
   });
 
+  it('a server that answers but won’t end it: “couldn’t finish signing out”, until it does', async () => {
+    markSignOutPending();
+    let answer: [number, unknown] = [500, { detail: 'Something broke.' }];
+    fakeApi({ 'DELETE /session': () => answer });
+    expect(await endPendingSignOut()).toBe(false);
+    expect(signOutState.unfinished).toBe(true);
+    expect(signOutPending()).toBe(true);
+    answer = [204, null];
+    expect(await endPendingSignOut()).toBe(true);
+    expect(signOutState.unfinished).toBe(false);
+    expect(signOutPending()).toBe(false);
+  });
+
+  it('the reverse proxy saying it can’t reach the server (503) is only offline', async () => {
+    markSignOutPending();
+    fakeApi({ 'DELETE /session': [503, null] });
+    expect(await endPendingSignOut()).toBe(false);
+    expect(signOutState.unfinished).toBe(false);
+    expect(signOutPending()).toBe(true);
+  });
+
   it('the connection check ends the session before asking the server anything else', async () => {
     markSignOutPending();
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval', 'Date'] });
@@ -121,6 +145,42 @@ describe('the "sign-out pending" flag', () => {
       stop();
     }
     expect(said(requests)).toEqual(['DELETE /session']);
+  });
+});
+
+describe('ending the session without wiping (the app turning a login away)', () => {
+  it('ended: true, and nothing is wiped', async () => {
+    await setMeta({ login_id: 2, login_name: 'Wren', username: 'wren' });
+    const requests = fakeApi({ 'DELETE /session': [204, null] });
+    expect(await endSession()).toBe(true);
+    expect(said(requests)).toEqual(['DELETE /session']);
+    expect(signOutState.unfinished).toBe(false);
+    expect(await exists()).toBe(true);
+  });
+
+  it('a session already gone (401) counts as ended', async () => {
+    fakeApi({ 'DELETE /session': [401, { detail: 'Not signed in.' }] });
+    expect(await endSession()).toBe(true);
+    expect(signOutState.unfinished).toBe(false);
+  });
+
+  it('refused or out of reach: false, “couldn’t finish signing out”, and nothing is wiped', async () => {
+    await setMeta({ login_id: 2, login_name: 'Wren', username: 'wren' });
+    fakeApi({ 'DELETE /session': [500, { detail: 'Something broke.' }] });
+    expect(await endSession()).toBe(false);
+    expect(signOutState.unfinished).toBe(true);
+    unreachable();
+    expect(await endSession()).toBe(false);
+    expect(signOutState.unfinished).toBe(true);
+    expect(await exists()).toBe(true);
+  });
+
+  it('a sign-out already pending is the one ended, with one DELETE', async () => {
+    markSignOutPending();
+    const requests = fakeApi({ 'DELETE /session': [204, null] });
+    expect(await endSession()).toBe(true);
+    expect(said(requests)).toEqual(['DELETE /session']);
+    expect(signOutPending()).toBe(false);
   });
 });
 

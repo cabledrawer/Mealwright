@@ -6,9 +6,10 @@
 // device, so the shopping list works offline (docs/dev/sync-protocol.md section 11.4). With
 // nobody to open as (never signed in here, or signed out), it shows the sign-in page.
 import { redirect } from '@sveltejs/kit';
-import { cantReach, getMe, getSetup, signOut, type Me } from '$lib/api';
+import { cantReach, getMe, getSetup, type Me } from '$lib/api';
 import { lastSignedIn, startDevice } from '$lib/offline/device';
 import { turnAway } from '$lib/offline/held';
+import { endSession } from '$lib/offline/signOut';
 import { wipeIfAnotherLogin } from '$lib/offline/wipe';
 import { SETUP, session, signInPath } from '$lib/session.svelte';
 import { theme } from '$lib/theme.svelte';
@@ -45,10 +46,12 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // before anything here is touched (the device's `meta`, copy and sender stay as they are),
   // and goes to that warning, with its username filled in. The same when the phone database
   // can't be read: whose changes are waiting isn't known, so nothing is wiped or written and
-  // the sign-in page says it couldn't check.
+  // the sign-in page says it couldn't check. If the server won't end that session, the
+  // sign-in page says so and stays (it doesn't send this login back here, to be turned away
+  // again and again); still nothing is wiped.
   const held = await wipeIfAnotherLogin(me);
   if (held !== 'kept' && held !== 'wiped') {
-    await signOut().catch(() => undefined);
+    await endSession();
     turnAway(me.username);
     redirect(307, signInPath(heading));
   }
