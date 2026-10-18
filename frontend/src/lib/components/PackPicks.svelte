@@ -6,6 +6,7 @@
   import type { Lot } from '$lib/client/types';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { PICKS, pickFor } from '$lib/picks';
+  import { radioKeys } from '$lib/radioKeys';
 
   let {
     lot,
@@ -55,7 +56,12 @@
 </script>
 
 <div class="fit">
-  <div class="pick-row" role="radiogroup" aria-labelledby={labelledby}>
+  <div
+    class="pick-row"
+    role="radiogroup"
+    aria-labelledby={labelledby}
+    use:radioKeys={{ select: false }}
+  >
     {#each PICKS as p (p.value)}
       <button
         type="button"

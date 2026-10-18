@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import '$lib/styles/tokens.css';
 import type { Lot } from '$lib/client/types';
 import type { PantryModel } from '$lib/pantry.svelte';
@@ -102,5 +102,36 @@ describe('PackPicks', () => {
       .elements()
       .map((r) => r.getBoundingClientRect().top);
     expect(new Set(tops).size).toBe(1);
+  });
+
+  describe('arrow keys', () => {
+    const focused = () =>
+      (document.activeElement as HTMLElement | null)?.getAttribute('aria-label');
+
+    it('only the chosen mark is in the Tab order', async () => {
+      render();
+      const radios = page.getByRole('radio').elements() as HTMLElement[];
+      expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1]);
+    });
+
+    it('the arrows move focus round the marks without saving; Space chooses', async () => {
+      const calls: unknown[][] = [];
+      render(calls);
+      (page.getByRole('radio', { name: '½ left' }).element() as HTMLElement).focus();
+      await userEvent.keyboard('{ArrowRight}');
+      expect(focused()).toBe('¾ left');
+      await userEvent.keyboard('{ArrowRight}');
+      expect(focused()).toBe('Full');
+      await userEvent.keyboard('{ArrowRight}');
+      expect(focused()).toBe('¼ left');
+      await userEvent.keyboard('{ArrowLeft}');
+      expect(focused()).toBe('Full');
+      await userEvent.keyboard('{Home}');
+      expect(focused()).toBe('¼ left');
+      expect(calls).toEqual([]);
+      await userEvent.keyboard('{ArrowDown}');
+      await userEvent.keyboard(' ');
+      expect(calls).toEqual([[7, 'Paneer', { fraction: 0.5 }]]);
+    });
   });
 });

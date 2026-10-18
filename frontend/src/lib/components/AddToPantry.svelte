@@ -3,6 +3,7 @@
   // much, as sold (1 packet, 2 packets…) or typed; where (filled in from the food's
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date).
   // A sheet from the bottom on phones, a dialog on desktop.
+  import { radioKeys } from '$lib/radioKeys';
   import { addToPantry } from '$lib/addToPantry.svelte';
   import { newChangeId } from '$lib/changeId';
   import { createFood, getFood } from '$lib/client/foods';
@@ -206,7 +207,7 @@
         {:else}
           <section aria-labelledby="{uid}-much">
             <h3 id="{uid}-much">How much</h3>
-            <div class="chips" role="radiogroup" aria-labelledby="{uid}-much">
+            <div class="chips" role="radiogroup" aria-labelledby="{uid}-much" use:radioKeys>
               {#each amountChoices(food) as choice (choice.value)}
                 <button
                   type="button"
@@ -257,7 +258,7 @@
 
           <section aria-labelledby="{uid}-when">
             <h3 id="{uid}-when">Use by</h3>
-            <div class="chips" role="radiogroup" aria-labelledby="{uid}-when">
+            <div class="chips" role="radiogroup" aria-labelledby="{uid}-when" use:radioKeys>
               {#each [{ v: 'none', l: 'No date' }, { v: 'today', l: 'Today' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }, { v: 'pick', l: 'Pick a date' }] as const as option (option.v)}
                 <button
                   type="button"
