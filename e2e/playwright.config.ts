@@ -28,6 +28,8 @@ const desktop = {
 
 export default defineConfig({
   testDir: './tests',
+  // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
+  expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0 } },
   workers: 1,
   retries: 0,
   forbidOnly: true,
@@ -54,6 +56,10 @@ export default defineConfig({
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
     { name: 'desktop 0.3 offline', testMatch: 'offline.spec.ts', use: desktop },
+    // Saved screenshots of Pantry and Shopping, phone-light and desktop-dark (0.4). The browser's
+    // own device pixels are 1:1, so the images stay a sensible size.
+    { name: 'screens phone-light', testMatch: 'screens.spec.ts', use: { ...phone, deviceScaleFactor: 1, colorScheme: 'light' as const } },
+    { name: 'screens desktop-dark', testMatch: 'screens.spec.ts', use: { ...desktop, viewport: { width: 1440, height: 900 }, colorScheme: 'dark' as const } },
     // Speed on a simulated slow phone (0.4).
     { name: 'slow phone', testMatch: 'slow-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
