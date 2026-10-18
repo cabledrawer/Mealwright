@@ -162,3 +162,42 @@ describe('“Carry on and lose them” loses only the changes the warning showed
     expect(await databaseThere()).toBe(true);
   });
 });
+
+describe('adding to the queue and wiping take turns (Web Locks)', () => {
+  it('a change added between the wipe’s read and its delete waits, and lands after the wipe, never lost', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const shown = (await heldChanges()) as Held;
+    // Another tab adds Wren's change "late" just as the wipe is about to delete.
+    let late: Promise<unknown> | null = null;
+    vi.spyOn(shoppingSync, 'forget').mockImplementationOnce(() => {
+      late = addToQueue(tick('late'), 2, DEVICE);
+    });
+    expect(await wipeIfAnotherLogin(ARLO, shown)).toBe('wiped');
+    expect(late).not.toBeNull();
+    await late;
+    // It waited for the wipe, so it's in the new database, not deleted unseen.
+    expect((await readQueue()).map((e) => e.action.id)).toEqual(['late']);
+  });
+
+  it('a change added just before the wipe’s read is seen, and warned about', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const shown = (await heldChanges()) as Held;
+    const adding = addToQueue(tick('b'), 2, DEVICE);
+    expect(await wipeIfAnotherLogin(ARLO, shown)).toMatchObject({ count: 2, ids: ['a', 'b'] });
+    await adding;
+    expect(await databaseThere()).toBe(true);
+    expect(await readQueue()).toHaveLength(2);
+  });
+
+  it('a browser without Web Locks wipes as before', async () => {
+    vi.spyOn(navigator, 'locks', 'get').mockReturnValue(undefined as never);
+    await setMeta({ ...WREN, device_id: DEVICE });
+    const entry = await addToQueue(tick('a'), 2, DEVICE);
+    expect(entry.seq).toBeGreaterThan(0);
+    const shown = (await heldChanges()) as Held;
+    expect(await wipeIfAnotherLogin(ARLO, shown)).toBe('wiped');
+    expect(await databaseThere()).toBe(false);
+  });
+});

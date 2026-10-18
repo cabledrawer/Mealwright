@@ -11,6 +11,7 @@ import {
   COPY_STORES,
   copyStore,
   openPhone,
+  withQueueLock,
   type CopyStore,
   type QueueEntry
 } from './phone';
@@ -111,7 +112,8 @@ export async function addToQueue(
     queued_at: nowIso(),
     tries: 0
   };
-  const seq = (await (await openPhone()).add('queue', entry)) as number;
+  // Takes turns with a wipe (withQueueLock): never added between its read and its delete.
+  const seq = (await withQueueLock(async () => (await openPhone()).add('queue', entry))) as number;
   return { ...entry, seq };
 }
 

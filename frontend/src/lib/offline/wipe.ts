@@ -19,7 +19,7 @@ import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, storedLoginId } from './device';
 import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';
 import { tellOtherTabs } from './otherTabs';
-import { deletePhone } from './phone';
+import { deletePhone, withQueueLock } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
 
@@ -34,8 +34,16 @@ export const KEPT_ON_WIPE: readonly string[] = [
   SIGN_OUT_PENDING_KEY
 ];
 
-/** Wipe everything this browser keeps about the household. */
-export async function wipeDevice(): Promise<void> {
+/**
+ * Wipe everything this browser keeps about the household, taking turns with adding to the
+ * queue (withQueueLock).
+ */
+export function wipeDevice(): Promise<void> {
+  return withQueueLock(wipeNow);
+}
+
+/** The wipe itself. The caller holds the queue lock. */
+async function wipeNow(): Promise<void> {
   // Every other tab of the app drops what it shows and goes to sign in (otherTabs.ts).
   tellOtherTabs();
   shoppingSync.forget();
@@ -87,12 +95,16 @@ export async function wipeIfAnotherLogin(
   const stored = await storedLoginId();
   if (stored === UNREADABLE) return UNREADABLE;
   if (stored === null || stored === me.id) return 'kept';
-  const held = await heldChanges();
-  if (held === UNREADABLE) return UNREADABLE;
-  if (held && held.who.id !== me.id) {
-    const shown = new Set(losing?.who.id === held.who.id ? losing.ids : []);
-    if (!held.ids.every((id) => shown.has(id))) return held;
-  }
-  await wipeDevice();
-  return 'wiped';
+  // The read and the wipe hold the queue lock together: a change another tab adds meanwhile
+  // waits, and lands after the wipe, never unseen in between.
+  return withQueueLock(async () => {
+    const held = await heldChanges();
+    if (held === UNREADABLE) return UNREADABLE;
+    if (held && held.who.id !== me.id) {
+      const shown = new Set(losing?.who.id === held.who.id ? losing.ids : []);
+      if (!held.ids.every((id) => shown.has(id))) return held;
+    }
+    await wipeNow();
+    return 'wiped' as const;
+  });
 }

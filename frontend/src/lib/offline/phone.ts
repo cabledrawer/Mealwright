@@ -183,6 +183,19 @@ export function closePhone(): void {
   void was?.then((db) => db.close()).catch(() => undefined);
 }
 
+/**
+ * Adding to the queue and wiping take turns, in every tab of the app, through the browser's
+ * Web Locks (sync protocol 12): a wipe reads the queue again and deletes the database while
+ * holding the lock, so a change another tab adds lands either before the read (and so is
+ * seen, and warned about) or after the wipe, never in between. Where the browser has no Web
+ * Locks (older Safari), `work` just runs, as before.
+ */
+export function withQueueLock<T>(work: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  if (!locks || typeof locks.request !== 'function') return work();
+  return locks.request(`${name}.queue`, work);
+}
+
 /** Delete the whole database (signing out, section 12). */
 export async function deletePhone(): Promise<void> {
   const was = opening;
