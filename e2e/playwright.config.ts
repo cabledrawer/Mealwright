@@ -56,10 +56,10 @@ export default defineConfig({
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
     { name: 'desktop 0.3 offline', testMatch: 'offline.spec.ts', use: desktop },
-    // Saved screenshots of Pantry and Shopping, phone-light and desktop-dark (0.4). The browser's
-    // own device pixels are 1:1, so the images stay a sensible size.
-    { name: 'screens phone-light', testMatch: 'screens.spec.ts', use: { ...phone, deviceScaleFactor: 1, colorScheme: 'light' as const } },
-    { name: 'screens desktop-dark', testMatch: 'screens.spec.ts', use: { ...desktop, viewport: { width: 1440, height: 900 }, colorScheme: 'dark' as const } },
+    // Saved screenshots of Pantry and Shopping, phone-light and desktop-dark (0.4), at two device
+    // pixels per screen pixel, so thin spaces and small text show as they do on a sharp screen.
+    { name: 'screens phone-light', testMatch: 'screens.spec.ts', use: { ...phone, deviceScaleFactor: 2, colorScheme: 'light' as const } },
+    { name: 'screens desktop-dark', testMatch: 'screens.spec.ts', use: { ...desktop, viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark' as const } },
     { name: 'desktop keyboard', testMatch: 'keyboard.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Speed on a simulated slow phone (0.4).
     { name: 'slow phone', testMatch: 'slow-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },

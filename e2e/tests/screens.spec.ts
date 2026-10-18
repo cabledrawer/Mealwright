@@ -2,7 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { PORTS, SHOTS_AUTH_FILE, local } from './servers.ts';
 
 // Saved screenshots (spec "Keeping the UI good", item 6): Pantry and Shopping, phone-light
-// (390 × 844) and desktop-dark (1440 × 900), each compared with the approved image saved in
+// (390 × 844) and desktop-dark (1440 × 900), both taken at two device pixels per screen pixel
+// (so the images are 780 × 1688 and 2880 × 1800), each compared with the approved image saved in
 // tests/screens.spec.ts-snapshots/. ./check fails if one changes.
 //
 // When a change to how a screen looks is meant, update the images and say so in the pull
@@ -68,7 +69,7 @@ test('Pantry looks the way it was approved', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
   await expect(page.getByText('Toor dal').first()).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot('pantry.png');
+  await expect(page).toHaveScreenshot('pantry.png', { scale: 'device' });
 });
 
 test('Shopping looks the way it was approved', async ({ page }) => {
@@ -77,5 +78,5 @@ test('Shopping looks the way it was approved', async ({ page }) => {
   await expect(page.getByText('10 to buy')).toBeVisible();
   await expect(page.getByText(/· saved$/)).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot('shopping.png');
+  await expect(page).toHaveScreenshot('shopping.png', { scale: 'device' });
 });
