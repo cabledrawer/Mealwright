@@ -10,6 +10,7 @@ someone has changed since are left alone, and the result says so ("partly").
 """
 
 import logging
+import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -27,6 +28,7 @@ from mealwright.models import (
     Change,
     ChangeLine,
     ChangeMonth,
+    DoubleTick,
     Food,
     FoodConversion,
     FoodMerge,
@@ -36,7 +38,9 @@ from mealwright.models import (
     FoodStandIn,
     Household,
     ListItem,
+    ListNote,
     ListTick,
+    ShoppingList,
     StockLot,
     SyncAction,
     utcnow,
@@ -756,8 +760,13 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
       "Removed Toor dal from Ingredients") and who did it; only its link to the
       ingredient is cleared. Changes to other ingredients are untouched.
     """
+    from mealwright.shopping import lock_db, on_a_list
+
     now = now or utcnow()
     cutoff = now - undo_window(household) - PURGE_MARGIN
+    # The household's lock first (sync protocol 5.2): an Undo or a phone's queue can't
+    # bring one of these back half way through, and the purge takes a counter number.
+    lock_db(db, household)
     removed = set(
         db.scalars(
             select(Food.id).where(
@@ -768,6 +777,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         )
     )
     if not removed:
+        db.commit()
         return 0
     # Safety net: never delete stock. A removed ingredient that holds some again (an Undo
     # that put stock back should already have brought it back) is brought back instead.
@@ -780,18 +790,16 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     )
     if stocked:
         db.execute(update(Food).where(Food.id.in_(list(stocked))).values(removed_at=None))
-        db.commit()
         logging.getLogger(__name__).warning(
             "Brought back %d removed ingredient(s) that still had stock, instead of deleting them",
             len(stocked),
         )
         removed -= stocked
         if not removed:
+            db.commit()
             return 0
     # Likewise never delete a live list item: an ingredient that is somehow on a list is
     # brought back instead (a merge repoints items, so this shouldn't happen).
-    from mealwright.shopping import on_a_list
-
     listed = {
         food_id
         for food_id in removed
@@ -799,7 +807,6 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     }
     if listed:
         db.execute(update(Food).where(Food.id.in_(list(listed))).values(removed_at=None))
-        db.commit()
         logging.getLogger(__name__).warning(
             "Brought back %d removed ingredient(s) that were still on a list, "
             "instead of deleting them",
@@ -807,6 +814,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         )
         removed -= listed
         if not removed:
+            db.commit()
             return 0
     gone = set(removed)
     frontier = set(removed)
@@ -821,7 +829,8 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         frontier = merged_in - gone
         gone |= frontier
 
-    ids = list(gone)
+    ids = sorted(gone)
+    _purge_action(db, household, ids)
     db.execute(update(Change).where(Change.food_id.in_(ids)).values(food_id=None))
     db.execute(delete(ChangeLine).where(ChangeLine.food_id.in_(ids)))
     db.execute(delete(ChangeMonth).where(ChangeMonth.food_id.in_(ids)))
@@ -850,7 +859,6 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     # ingredient), and the safety net above brings back any that somehow still is. A
     # purchase's changes lose the
     # link first (sync protocol 3.7, 3.9).
-    # PR 3: raise household.list_purged_seq here, so phones that are behind get a fresh copy.
     item_ids = select(ListItem.id).where(ListItem.food_id.in_(ids))
     tick_ids = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
     db.execute(update(Change).where(Change.tick_id.in_(tick_ids)).values(tick_id=None))
@@ -860,3 +868,128 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     db.execute(delete(Food).where(Food.id.in_(ids)))
     db.commit()
     return len(ids)
+
+
+def _purge_action(db: DbSession, household: Household, ids: list[int]) -> None:
+    """The server-made `purge` action (sync protocol 3.9): it takes the next counter number
+    N and sets `list_purged_seq = N`, so every phone that's behind gets a fresh full copy
+    (`reset`) instead of keeping an ingredient that no longer exists. Under the lock."""
+    from mealwright.shopping import payload_hash
+
+    names = {
+        row.id: row.name for row in db.execute(select(Food.id, Food.name).where(Food.id.in_(ids)))
+    }
+    payload: dict[str, Any] = {"foods": {str(food_id): names[food_id] for food_id in ids}}
+    seq = household.list_seq + 1
+    household.list_seq = seq
+    household.list_purged_seq = seq
+    db.add(
+        SyncAction(
+            household_id=household.id,
+            id=str(uuid.uuid4()),
+            seq=seq,
+            kind="purge",
+            login_id=None,
+            login_name="",
+            device_id=None,
+            applied_at=utcnow(),
+            payload=payload,
+            payload_hash=payload_hash(payload),
+            status="applied",
+            reason=None,
+            result={},
+        )
+    )
+    db.flush()
+
+
+# --- Shopping lists (part of the history job, sync protocol 3.9) -------------------------------
+
+
+def tidy_lists(db: DbSession, household: Household, now: datetime | None = None) -> int:
+    """Tidy the shopping lists' records. Returns how many rows went. Safe to repeat.
+
+    - Notes, 7 days (the undo window) after they're made; answered or closed "Did you buy
+      2?" questions, the undo window after they closed. Neither needs a tombstone: open
+      ones are always sent in full, so a phone simply drops one that's gone.
+    - Removed (tombstoned) items, merged-away items and removed lists, with their ticks,
+      after the history length (12 months). A purchase's changes lose the link to its tick
+      first; the changes stay in the history. `list_purged_seq` goes up to the highest
+      version deleted, so a phone further behind than that gets a fresh copy.
+    - The sync log keeps every row for good (a repeat is always caught), but after the
+      history length its `payload` and `result` are emptied.
+    """
+    from mealwright.shopping import lock_db
+
+    now = now or utcnow()
+    soon = now - undo_window(household)
+    old = month_cutoff(household, now)
+    lock_db(db, household)
+    hid = household.id
+    went = 0
+    went += _deleted(
+        db, delete(ListNote).where(ListNote.household_id == hid, ListNote.created_at < soon)
+    )
+    went += _deleted(
+        db,
+        delete(DoubleTick).where(
+            DoubleTick.household_id == hid,
+            DoubleTick.answer.is_not(None),
+            DoubleTick.answered_at < soon,
+        ),
+    )
+    lists = [
+        (row.id, row.version)
+        for row in db.execute(
+            select(ShoppingList.id, ShoppingList.version).where(
+                ShoppingList.household_id == hid,
+                ShoppingList.main.is_(False),
+                ShoppingList.removed_at.is_not(None),
+                ShoppingList.removed_at < old,
+            )
+        )
+    ]
+    list_ids = [list_id for list_id, _ in lists]
+    items = [
+        (row.id, row.version)
+        for row in db.execute(
+            select(ListItem.id, ListItem.version).where(
+                ListItem.household_id == hid,
+                or_(
+                    ListItem.list_id.in_(list_ids),
+                    ListItem.deleted_at < old,
+                    (ListItem.merged_into_id.is_not(None)) & (ListItem.added_at < old),
+                ),
+            )
+        )
+    ]
+    item_ids = [item_id for item_id, _ in items]
+    highest = max([version for _, version in lists + items], default=0)
+    if item_ids:
+        ticks = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
+        db.execute(update(Change).where(Change.tick_id.in_(ticks)).values(tick_id=None))
+        db.execute(delete(ListTick).where(ListTick.item_id.in_(item_ids)))
+        db.execute(delete(ListNote).where(ListNote.item_id.in_(item_ids)))
+        db.execute(delete(DoubleTick).where(DoubleTick.item_id.in_(item_ids)))
+        went += _deleted(db, delete(ListItem).where(ListItem.id.in_(item_ids)))
+    if list_ids:
+        db.execute(delete(ListNote).where(ListNote.list_id.in_(list_ids)))
+        db.execute(delete(DoubleTick).where(DoubleTick.list_id.in_(list_ids)))
+        went += _deleted(db, delete(ShoppingList).where(ShoppingList.id.in_(list_ids)))
+    if highest > household.list_purged_seq:
+        household.list_purged_seq = highest
+    db.execute(
+        update(SyncAction)
+        .where(
+            SyncAction.household_id == hid,
+            SyncAction.applied_at < old,
+            or_(SyncAction.payload != {}, SyncAction.result != {}),
+        )
+        .values(payload={}, result={})
+    )
+    db.commit()
+    return went
+
+
+def _deleted(db: DbSession, statement: Any) -> int:
+    return int(getattr(db.execute(statement), "rowcount", 0) or 0)

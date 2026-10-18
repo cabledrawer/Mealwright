@@ -247,11 +247,15 @@ def refused(action_id: str, reason: str, message: str) -> dict[str, Any]:
 
 def _repeat(act: Act, stored: SyncAction, hashed: str) -> dict[str, Any]:
     if stored.kind == act.kind and stored.payload_hash == hashed:
-        result = dict(stored.result or {})
+        result = dict(stored.result or {})  # emptied after the history length (3.9)
         result.setdefault("id", stored.id)
         result.setdefault("seq", stored.seq)
         result.setdefault("status", stored.status)
         result.setdefault("reason", stored.reason)
+        result.setdefault("item_id", stored.item_id)
+        result.setdefault("change_id", stored.change_id)
+        result.setdefault("message", None)
+        result.setdefault("food_id", None)
         return {**result, "repeat": True}
     return refused(act.id, "key_reused", KEY_REUSED)
 

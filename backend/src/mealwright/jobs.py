@@ -4,7 +4,9 @@ Every job is added in `scheduler()`, in one place:
 
 - **History** (spec section 6, "History and undo"): just after start-up and then every hour,
   changes older than the history length (12 months) become monthly totals, and emptied
-  packets go once they can no longer be undone. It's cheap and safe to repeat, so it
+  packets go once they can no longer be undone. The shopping lists are tidied too (sync
+  protocol 3.9): old notes and answered questions, long-removed items and lists, and old
+  sync-log details. It's cheap and safe to repeat, so it
   doesn't wait for a particular hour: a server that's off at night still gets it.
 - **Log tidy** (mealwright.logs): just after each midnight (UTC), the day's log file is
   put aside and files older than 14 days are deleted. If the server was asleep at
@@ -42,7 +44,7 @@ def tidy_logs(handler: DailyLogFile, now: datetime | None = None) -> None:
 def thin_history(factory: sessionmaker[Session], now: datetime | None = None) -> None:
     """Thin every household's history. Runs straight after start-up (in the background,
     so a big backlog never holds start-up up) and then every hour. Never raises."""
-    from mealwright.history import thin  # imported here: history needs the API package
+    from mealwright.history import thin, tidy_lists  # imported here: history needs the API
 
     now = now or datetime.now(UTC)
     with factory() as db:
@@ -56,6 +58,9 @@ def thin_history(factory: sessionmaker[Session], now: datetime | None = None) ->
                 thinned = thin(db, household, now)
                 if thinned:
                     log.info("Thinned %d old changes into monthly totals", thinned)
+                tidied = tidy_lists(db, household, now)
+                if tidied:
+                    log.info("Tidied %d old shopping-list records", tidied)
             except Exception:
                 db.rollback()
                 log.exception("Couldn't thin the history (will try again within the hour)")
