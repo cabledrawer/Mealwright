@@ -5,6 +5,10 @@
 // `select: true` (the default) also chooses the one you land on, as radio buttons do.
 // `select: false` only moves focus; Space or Enter then chooses. Use that where choosing
 // saves something on the server (the ¼ ½ ¾ Full marks), so arrowing past doesn't save.
+//
+// A single radio can opt out with `data-no-arrow-select`: arrowing onto it only moves focus
+// there (and the Tab stop follows). Space, Enter and a tap still choose it. Use that where
+// choosing opens something, such as the date picker on "Pick a date".
 
 import type { Action } from 'svelte/action';
 
@@ -49,7 +53,7 @@ export const radioKeys: Action<HTMLElement, { select?: boolean } | undefined> = 
     const target = all[to]!;
     for (const r of all) r.tabIndex = r === target ? 0 : -1;
     target.focus();
-    if (select) target.click();
+    if (select && !target.hasAttribute('data-no-arrow-select')) target.click();
   }
 
   const observer = new MutationObserver(sync);

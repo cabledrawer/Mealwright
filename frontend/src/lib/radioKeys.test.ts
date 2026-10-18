@@ -51,3 +51,33 @@ describe('radioKeys', () => {
     expect(radios.map((r) => r.tabIndex)).toEqual([-1, -1, 0]);
   });
 });
+
+describe('radioKeys: data-no-arrow-select', () => {
+  it('arrowing onto it only moves focus; Space and Enter still choose it', async () => {
+    const [a, b, c] = group(true) as [HTMLElement, HTMLElement, HTMLElement];
+    c.setAttribute('data-no-arrow-select', '');
+    let clicks = 0;
+    c.addEventListener('click', () => clicks++);
+    a.focus();
+    await userEvent.keyboard('{ArrowDown}'); // B: chosen as usual
+    expect(b.getAttribute('aria-checked')).toBe('true');
+    await userEvent.keyboard('{ArrowDown}'); // C: focus only
+    expect(document.activeElement).toBe(c);
+    expect(clicks).toBe(0);
+    expect(b.getAttribute('aria-checked')).toBe('true');
+    expect(c.getAttribute('aria-checked')).toBe('false');
+    expect([a, b, c].map((r) => r.tabIndex)).toEqual([-1, -1, 0]);
+    // Arrowing on from it chooses the next one again.
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(a);
+    expect(a.getAttribute('aria-checked')).toBe('true');
+    // Space and Enter on it still choose it.
+    await userEvent.keyboard('{End}');
+    expect(clicks).toBe(0);
+    await userEvent.keyboard(' ');
+    expect(clicks).toBe(1);
+    expect(c.getAttribute('aria-checked')).toBe('true');
+    await userEvent.keyboard('{Enter}');
+    expect(clicks).toBe(2);
+  });
+});
