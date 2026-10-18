@@ -66,3 +66,7 @@ def test_headers_are_not_duplicated(client: TestClient) -> None:
 @pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/openapi.json", "/api/v1/nope"])
 def test_every_api_response_is_no_store(client: TestClient, path: str) -> None:
     assert client.get(path).headers["cache-control"] == "no-store"
+
+
+def test_no_store_is_only_for_the_api(client: TestClient) -> None:
+    assert client.get("/apix").headers.get("cache-control") != "no-store"
