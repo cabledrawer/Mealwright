@@ -61,21 +61,22 @@
 <PageHeader title="Settings" />
 
 <div class="sections">
-  <!-- Settings needs the server (spec section 6, "Opening the app offline"). Signing out
-       still works offline (docs/dev/sync-protocol.md section 12), so that part stays. -->
+  <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
+       work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
+       18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
+       Anything added to Appearance later that needs the server is hidden offline. -->
   {#if network.offline}
     <OfflineNote screen="Settings" />
-  {:else}
-    <section class="section" aria-labelledby="appearance">
-      <h2 id="appearance">Appearance</h2>
-      <div class="card">
-        <div class="row">
-          <span class="label">Theme</span>
-          <ThemeSwitch variant="pill" />
-        </div>
-      </div>
-    </section>
   {/if}
+  <section class="section" aria-labelledby="appearance">
+    <h2 id="appearance">Appearance</h2>
+    <div class="card">
+      <div class="row">
+        <span class="label">Theme</span>
+        <ThemeSwitch variant="pill" />
+      </div>
+    </div>
+  </section>
 
   <section class="section" aria-labelledby="sign-in">
     <h2 id="sign-in">Sign-in</h2>

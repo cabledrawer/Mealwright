@@ -59,10 +59,30 @@ describe('the online-only screens, offline', () => {
     });
   }
 
-  it('Settings still lets you sign out, and hides what needs the server', async () => {
+  it('Settings still lets you sign out and change the theme (phone)', async () => {
+    await page.viewport(390, 800);
     show(Settings);
     await expect.element(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
-    expect(page.getByRole('heading', { name: 'Appearance' }).elements()).toEqual([]);
+    // cabledrawer 18 Oct, "Keep it visible": the theme is saved on this device.
+    await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+    const switcher = page.getByRole('group', { name: 'Theme' });
+    const dark = switcher.getByRole('button', { name: 'Dark' });
+    await dark.click();
+    await expect.element(dark).toHaveAttribute('aria-pressed', 'true');
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    // Saved on this device; nothing needs the server.
+    expect(localStorage.getItem('mealwright.theme')).toBe('dark');
+    await switcher.getByRole('button', { name: 'Auto' }).click();
+  });
+
+  it('Pantry offers no “+ Add to pantry” offline (it needs the server)', async () => {
+    for (const width of [390, 1280]) {
+      await page.viewport(width, 800);
+      show(Pantry);
+      await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+      expect(page.getByRole('button', { name: /Add to pantry/ }).elements()).toEqual([]);
+      for (const component of mounted.splice(0)) unmount(component);
+    }
   });
 
   it('Pantry fetches again once the connection is back', async () => {

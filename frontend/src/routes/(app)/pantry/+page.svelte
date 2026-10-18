@@ -157,7 +157,8 @@
 
 <PageHeader title="Pantry" overline={summary}>
   {#snippet actions()}
-    {#if phone}
+    <!-- Adding needs the server: offline the note below says why, and the button goes. -->
+    {#if network.offline}{:else if phone}
       <button
         type="button"
         class="add-round"
