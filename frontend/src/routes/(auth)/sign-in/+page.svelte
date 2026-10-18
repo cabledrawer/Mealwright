@@ -141,9 +141,23 @@
     void go();
   }
 
-  /** Sign in, as pressed. Every press shows (and reads out) what happened. */
+  /**
+   * Sign in, as pressed. Every press shows (and reads out) what happened. Busy from the first
+   * press, while the phone is read and while the server answers, so a fast second press (or
+   * Enter) starts nothing more.
+   */
   async function go() {
     if (busy) return;
+    busy = true;
+    try {
+      await look();
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** What a press of Sign in does, once it has the page to itself (busy). */
+  async function look() {
     problem = '';
     losing = false;
     anyway = false;
@@ -188,9 +202,15 @@
 
   /** Nothing is wiped yet: only once this sign-in has succeeded (signInNow). */
   async function carryOnAnyway() {
-    anyway = true;
-    cantWarning = false;
-    await signInNow();
+    if (busy) return;
+    busy = true;
+    try {
+      anyway = true;
+      cantWarning = false;
+      await signInNow();
+    } finally {
+      busy = false;
+    }
   }
 
   async function asThem() {
@@ -204,9 +224,15 @@
 
   /** Nothing is wiped yet: only once this sign-in has succeeded (signInNow). */
   async function carryOn() {
-    losing = true;
-    warning = false;
-    await signInNow();
+    if (busy) return;
+    busy = true;
+    try {
+      losing = true;
+      warning = false;
+      await signInNow();
+    } finally {
+      busy = false;
+    }
   }
 
   /** "Couldn't finish signing out": ask the server again. */
@@ -230,7 +256,6 @@
   async function signInNow() {
     // Not while the wipe hasn't finished (another tab's may have failed since a warning came up).
     if (wipeState.failed) return;
-    busy = true;
     try {
       const me = await signIn(username, password, remember);
       // Another login than the one this phone holds starts clean, as at sign-out, but never
@@ -268,8 +293,6 @@
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;
       password = '';
-    } finally {
-      busy = false;
     }
   }
 </script>

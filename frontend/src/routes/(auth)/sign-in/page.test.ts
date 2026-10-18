@@ -932,4 +932,46 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       expect(requests).toEqual([]);
     });
   });
+
+  describe('one press of Sign in is one sign-in', () => {
+    const pressTwice = () => {
+      const form = document.querySelector('form') as HTMLFormElement;
+      form.requestSubmit();
+      form.requestSubmit();
+    };
+
+    it('a second press while the phone is still being read starts nothing more', async () => {
+      await wrensPhone(0);
+      show();
+      await fillIn('wren');
+      const release = holdDatabaseList();
+      pressTwice();
+      await expect.element(page.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
+      release();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+      expect(navigation.goto).toHaveBeenCalledTimes(1);
+    });
+
+    it('a second press while the server is answering starts nothing more', async () => {
+      await wrensPhone(0);
+      show();
+      await fillIn('wren');
+      let answer: (reply: Response) => void = () => {};
+      const fetching = vi.fn(() => new Promise<Response>((done) => (answer = done)));
+      vi.stubGlobal('fetch', fetching);
+      pressTwice();
+      await expect.element(page.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
+      await new Promise((done) => setTimeout(done, 50));
+      expect(fetching).toHaveBeenCalledTimes(1);
+      answer(
+        new Response(JSON.stringify(WREN), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        })
+      );
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(fetching).toHaveBeenCalledTimes(1);
+    });
+  });
 });
