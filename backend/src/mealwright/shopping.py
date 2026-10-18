@@ -27,7 +27,7 @@ from mealwright.amounts import MILLI, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
-from mealwright.foods import find, name_owner, usual_size
+from mealwright.foods import add_size, find, name_owner, usual_size
 from mealwright.history import Tally, diff, record, snapshot
 from mealwright.household import undo_window
 from mealwright.models import (
@@ -855,6 +855,15 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any], b
         kitchen.db.add(food)
         kitchen.db.flush()
         edit.also(food.id)
+        # The packet sizes chosen with it (4.4), in the same change, so its Undo takes them too.
+        made: set[tuple[str, int]] = set()
+        for size in wanted.get("sizes") or []:
+            milli = milli_of(size["amount"])
+            key = (fold(size["name"]), milli or 0)
+            if not milli or milli <= 0 or key in made:
+                continue
+            made.add(key)
+            add_size(kitchen, food, size["name"], milli)
     edit.record("food_created", f"Added {food.name}", food.id)
     return food, {}, False
 

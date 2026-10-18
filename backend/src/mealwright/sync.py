@@ -31,7 +31,7 @@ from mealwright.errors import Problem
 from mealwright.history import as_utc
 from mealwright.household import undo_window
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
-from mealwright.names import clean
+from mealwright.names import clean, size_name
 from mealwright.shopping import Act, Batch, Refused
 
 KEY_REUSED = "That change ID was already used for something else."
@@ -89,6 +89,18 @@ class RemoveList(ActionBase):
     list_id: RowId
 
 
+class NewSizeAction(BaseModel):
+    """A packet size chosen in "How do you count it?": packet = 500 g (4.4). The name needs
+    letters in it, like the editor's "Add a size"; the amount is in base units."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+    amount: Amount
+
+    _clean = field_validator("name")(size_name)
+
+
 class NewFoodAction(BaseModel):
     """A new ingredient typed in the add box ("How do you count it?")."""
 
@@ -97,6 +109,8 @@ class NewFoodAction(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=100)]
     counted_as: Literal["weight", "volume", "count"]
     staple: bool = False
+    # Used only when this action makes the ingredient; ignored when the name is taken.
+    sizes: Annotated[list[NewSizeAction], Field(max_length=10)] = Field(default_factory=list)
 
     _clean = field_validator("name")(_name)
 

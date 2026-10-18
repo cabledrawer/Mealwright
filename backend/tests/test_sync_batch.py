@@ -24,7 +24,7 @@ from sync_kit import (
     send,
 )
 
-from mealwright.models import Food, ListItem, ShoppingList, SyncAction
+from mealwright.models import Change, Food, ListItem, ShoppingList, SyncAction
 
 
 def _rows(kitchen: TestClient) -> int:
@@ -522,3 +522,80 @@ def test_a_phone_ahead_of_the_server_gets_a_full_copy(kitchen: TestClient) -> No
     assert ahead["reset"] is True and ahead["cursor"] == now
     assert [row["id"] for row in ahead["lists"]] == [main]
     assert send(kitchen, since=now + 1)["changes"]["reset"] is True
+
+
+# --- Packet sizes travel with new_food (4.4, cabledrawer 18 Oct decision 8) -------------------------
+
+
+def test_new_food_carries_its_packet_sizes(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    result = one(
+        kitchen,
+        "add",
+        list_id=main,
+        item_id=new_id(),
+        new_food={
+            "name": "Tahini",
+            "counted_as": "weight",
+            "sizes": [
+                {"name": "jar", "amount": 250},
+                {"name": "Jar", "amount": 250},  # the same size twice: made once
+                {"name": "tub", "amount": 500},
+            ],
+        },
+    )
+    assert result["status"] == "applied"
+    got = result["_answer"]["changes"]
+    tahini = next(row for row in got["foods"] if row["id"] == result["food_id"])
+    assert [(s["name"], s["amount"], s["usual"]) for s in tahini["sizes"]] == [
+        ("jar", 250, True),
+        ("tub", 500, False),
+    ]
+    # A blank amount is one of the usual size now.
+    assert item_row(got, result["item_id"])["amount"] == 250
+    # The sizes are part of the food_created change, so its Undo takes them too.
+    with db(kitchen) as session:
+        created = session.scalars(
+            select(Change).where(Change.kind == "food_created", Change.food_id == tahini["id"])
+        ).one()
+        assert len(((created.undo_data or {}).get("foods") or {}).get("sizes", {})) == 2
+
+
+def test_a_size_name_needs_letters(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    start = counter(kitchen)
+    answer = send(
+        kitchen,
+        action(
+            "add",
+            list_id=main,
+            item_id=new_id(),
+            new_food={
+                "name": "Tahini",
+                "counted_as": "weight",
+                "sizes": [{"name": "1", "amount": 5}],
+            },
+        ),
+    )
+    result = answer["results"][0]
+    assert result["status"] == "refused" and result["reason"] == "bad_action"
+    assert counter(kitchen) == start
+
+
+def test_sizes_are_ignored_when_the_name_is_taken(kitchen: TestClient) -> None:
+    main = main_id(kitchen)
+    existing = food(kitchen, "Tahini")
+    result = one(
+        kitchen,
+        "add",
+        list_id=main,
+        item_id=new_id(),
+        new_food={
+            "name": "tahini",
+            "counted_as": "weight",
+            "sizes": [{"name": "jar", "amount": 250}],
+        },
+    )
+    got = result["_answer"]["changes"]
+    row = next(r for r in got["foods"] if r["id"] == existing["id"])
+    assert row["sizes"] == []
