@@ -1,6 +1,8 @@
 // The Shopping screen's state and the things a person can do on it. Every write is an
-// action (actions.ts) sent through sendAction; the screen changes at once and goes back if
-// the server can't take it (save.ts: UX principle 8), with Undo in the toast (principle 6).
+// action (actions.ts) put in the phone's queue through sendAction. The screen shows the copy
+// with the queue on top (applyLocal, sync-protocol 11.2), so a change shows at once, stays
+// while it can't be sent, and goes only if the server refuses it (UX principle 8). Undo is
+// in the toast (principle 6).
 
 import { ApiError } from '$lib/api';
 import { kitchen } from '$lib/freshness.svelte';
@@ -9,14 +11,15 @@ import { newChangeId } from '$lib/changeId';
 import { getFood, listFoods } from '$lib/client/foods';
 import type { FoodRow } from '$lib/client/types';
 import type { Chosen } from '$lib/newIngredient.svelte';
-import { save } from '$lib/save';
+import { COULDNT_SAVE, type Outcome } from '$lib/save';
 import { session } from '$lib/session.svelte';
 import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
 import { makeAction, type ActionFields, type ActionResult } from './actions';
+import { applyLocal } from './applyLocal';
 import { EMPTY_COPY } from './load';
 import { sendAction, shoppingSync } from './sync.svelte';
-import type { ListItem, ShopFood, ShoppingCopy, Tick } from './types';
+import type { FoodSize, ListItem, ShopFood, Tick } from './types';
 import { groupByShop, listCounts, standingTicks, subtitle } from './view';
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
@@ -28,7 +31,19 @@ export interface Ticked {
 }
 
 export class ShoppingModel {
-  copy = $state<ShoppingCopy>(EMPTY_COPY);
+  /** Ingredients picked in the add box that the copy doesn't have yet. */
+  #foods = $state.raw<ShopFood[]>([]);
+  /** Packet sizes asked for, for ingredients the copy has none for. */
+  #sizes = $state.raw<Record<number, FoodSize[]>>({});
+
+  /** What the screen shows: the copy with this phone's waiting changes on top. */
+  readonly copy = $derived(
+    applyLocal(shoppingSync.copy ?? EMPTY_COPY, shoppingSync.waitingActions, {
+      me: session.me ? { login_id: session.me.id, name: session.me.name } : null,
+      foods: this.#foods,
+      sizes: this.#sizes
+    })
+  );
   loaded = $state(false);
   problem = $state<string | null>(null);
   listId = $state<string | null>(null);
@@ -86,11 +101,11 @@ export class ShoppingModel {
     try {
       // The first time: send what's waiting on this phone before showing the list (11.6).
       if (!this.loaded) await shoppingSync.start();
-      this.#show(await shoppingSync.refresh(full));
+      await shoppingSync.refresh(full);
       this.problem = null;
     } catch (error) {
-      if (shoppingSync.copy) this.#show(shoppingSync.copy);
-      else if (!this.loaded) {
+      // Offline: the copy on this phone (if there is one) shows, with the queue on top.
+      if (!shoppingSync.copy && !this.loaded) {
         this.problem =
           error instanceof ApiError ? error.detail : 'Couldn’t load your shopping list.';
       }
@@ -98,24 +113,17 @@ export class ShoppingModel {
     this.loaded = true;
   }
 
-  /** Show the server's copy (kept on this phone). */
-  #show(copy: ShoppingCopy): void {
-    this.copy = structuredClone(copy);
-    if (!this.list) this.listId = null;
-  }
-
   select(listId: string): void {
     this.listId = listId;
   }
 
-  /** After an action: use the changes that came back with it, or a full copy if it was ignored. */
+  /** After an action: the changes that came back with it are in the copy already; if it was
+   * ignored, get a full copy. */
   #sync(result: ActionResult): void {
     if (result.status === 'ignored') {
       if (result.message) toasts.show(result.message);
       void this.load(true);
-    } else if (result.changes && shoppingSync.copy) {
-      this.#show(shoppingSync.copy);
-    } else {
+    } else if (!result.changes) {
       void this.load();
     }
   }
@@ -132,51 +140,51 @@ export class ShoppingModel {
       amount: s.amount,
       usual: s.usual
     }));
-    if (known) known.sizes = sizes;
+    this.#sizes = { ...this.#sizes, [foodId]: sizes };
     return sizes;
   }
 
   // --- Writing -----------------------------------------------------------------------------------
 
-  /** Send one action with the screen changing first and rolling back if it fails. */
-  #act(
+  /**
+   * Make one change: into the queue (so it shows at once, through applyLocal), then to the
+   * server. Offers Undo at once (unless quiet). Resolves when the server has answered; only a
+   * refusal is a failure, and then the change is gone from the screen as it leaves the queue.
+   */
+  async #act(
     fields: ActionFields,
     options: {
-      edit?: (copy: ShoppingCopy, actionId: string) => void;
       label?: string;
       /** No Undo toast (the caller shows its own). */
       quiet?: boolean;
       saved?: (result: ActionResult, actionId: string) => void;
     } = {}
-  ) {
+  ): Promise<Outcome<ActionResult>> {
     const id = newChangeId();
-    let before: ShoppingCopy | null = null;
-    return save<ActionResult>(
-      {
-        apply: () => {
-          before = $state.snapshot(this.copy) as ShoppingCopy;
-          options.edit?.(this.copy, id);
-        },
-        rollback: () => {
-          if (before) this.copy = before;
-        },
-        send: () => sendAction(makeAction(fields, id)),
-        saved: (result) => {
-          this.#sync(result);
-          options.saved?.(result, id);
-        },
-        undo:
-          options.label && !options.quiet
-            ? {
-                label: options.label,
-                labelFrom: (result) => result.message ?? undefined,
-                skip: (result) => result.status === 'ignored',
-                run: () => this.undo(id)
-              }
-            : undefined
-      },
-      id
-    );
+    const entry: UndoEntry | undefined =
+      options.label && !options.quiet
+        ? { label: options.label, undo: () => this.undo(id) }
+        : undefined;
+    const toastId = entry ? undoHistory.record(entry) : undefined;
+    try {
+      const result = await sendAction(makeAction(fields, id));
+      this.#sync(result);
+      options.saved?.(result, id);
+      if (entry && result.status === 'ignored') {
+        // Nothing changed, so there's nothing to undo.
+        undoHistory.forget(entry);
+        if (toastId !== undefined) toasts.dismiss(toastId);
+      } else if (entry && result.message) {
+        entry.label = result.message;
+        if (toastId !== undefined) toasts.update(toastId, result.message);
+      }
+      return { ok: true, value: result };
+    } catch (error) {
+      if (entry) undoHistory.forget(entry);
+      // The server said no, with its reason in plain English.
+      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      return { ok: false, error };
+    }
   }
 
   async undo(actionId: string): Promise<string | void> {
@@ -189,28 +197,27 @@ export class ShoppingModel {
   add(food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>): Promise<unknown> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
-    const itemId = newChangeId();
-    return this.#act(
-      { kind: 'add', list_id: list.id, item_id: itemId, food_id: food.id },
-      {
-        label: `${food.name} added`,
-        saved: (result) => this.#dropIfMerged(result, itemId),
-        edit: (copy) => {
-          if (!copy.foods.some((f) => f.id === food.id)) {
-            copy.foods.push({
-              id: food.id,
-              name: food.name,
-              other_names: [],
-              counted_as: food.counted_as ?? 'weight',
-              staple: food.staple ?? false,
-              aisle: 'other',
-              shop_id: null,
-              place_id: food.place?.id ?? null,
-              sizes: null
-            });
-          }
-          copy.items.push(provisional(itemId, list.id, food.id));
+    if (!this.food(food.id)) {
+      // Not in the copy yet: what the add box knows, so the line shows at once.
+      this.#foods = [
+        ...this.#foods,
+        {
+          id: food.id,
+          name: food.name,
+          other_names: [],
+          counted_as: food.counted_as ?? 'weight',
+          staple: food.staple ?? false,
+          aisle: 'other',
+          shop_id: null,
+          place_id: food.place?.id ?? null,
+          sizes: null
         }
+      ];
+    }
+    return this.#act(
+      { kind: 'add', list_id: list.id, item_id: newChangeId(), food_id: food.id },
+      {
+        label: `${food.name} added`
       }
     );
   }
@@ -223,12 +230,11 @@ export class ShoppingModel {
   async addNew(chosen: Chosen) {
     const list = this.list;
     if (!list) return null;
-    const itemId = newChangeId();
     const outcome = await this.#act(
       {
         kind: 'add',
         list_id: list.id,
-        item_id: itemId,
+        item_id: newChangeId(),
         new_food: {
           name: chosen.name,
           counted_as: chosen.counted_as,
@@ -245,34 +251,10 @@ export class ShoppingModel {
       },
       {
         label: `${chosen.name} added`,
-        saved: (result) => {
-          this.#dropIfMerged(result, itemId);
-          kitchen.changed();
-        },
-        edit: (copy) => {
-          copy.foods.push({
-            id: -1,
-            name: chosen.name,
-            other_names: [],
-            counted_as: chosen.counted_as,
-            staple: chosen.staple,
-            aisle: 'other',
-            shop_id: null,
-            place_id: null,
-            sizes: null
-          });
-          copy.items.push(provisional(itemId, list.id, -1));
-        }
+        saved: () => kitchen.changed()
       }
     );
     return outcome;
-  }
-
-  /** The add joined a line that was there: the phone's own provisional line goes. */
-  #dropIfMerged(result: ActionResult, itemId: string): void {
-    if (result.status === 'merged' && result.item_id !== itemId) {
-      this.copy.items = this.copy.items.filter((i) => i.id !== itemId);
-    }
   }
 
   /** A live, unticked line for this ingredient already on the open list, if any. */
@@ -291,15 +273,10 @@ export class ShoppingModel {
 
   tick(item: ListItem) {
     const food = this.food(item.food_id);
-    const me = { login_id: session.me?.id ?? 0, name: session.me?.name ?? '' };
     return this.#act(
       { kind: 'tick', item_id: item.id },
       {
         quiet: true,
-        edit: (copy, actionId) => {
-          const row = copy.items.find((i) => i.id === item.id);
-          if (row) row.ticks.push(tickFor(actionId, me));
-        },
         saved: (_result, actionId) => {
           this.lastTicked = {
             itemId: item.id,
@@ -340,11 +317,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'untick', item_id: item.id, tick_ids: ids },
       {
-        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} unticked`,
-        edit: (copy) => {
-          const row = copy.items.find((i) => i.id === item.id);
-          row?.ticks.forEach((t) => (t.standing = false));
-        }
+        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} unticked`
       }
     );
   }
@@ -356,13 +329,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'put_away', item_id: item.id, place_id: placeId, tick_ids: ids },
       {
-        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} → ${place}`,
-        edit: (copy) => {
-          const row = copy.items.find((i) => i.id === item.id);
-          if (!row) return;
-          row.put_away_place_id = placeId;
-          row.ticks.forEach((t) => (t.place_id = placeId));
-        }
+        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} → ${place}`
       }
     );
   }
@@ -393,11 +360,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'delete', item_id: item.id },
       {
-        label: `${name} removed from the list`,
-        edit: (copy) => {
-          const row = copy.items.find((i) => i.id === item.id);
-          if (row) row.deleted = true;
-        }
+        label: `${name} removed from the list`
       }
     );
   }
@@ -409,8 +372,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'clear_ticked', list_id: list.id, item_ids: gone },
       {
-        label: `Cleared ${gone.length} ticked ${gone.length === 1 ? 'item' : 'items'}`,
-        edit: (copy) => copy.items.forEach((i) => gone.includes(i.id) && (i.deleted = true))
+        label: `Cleared ${gone.length} ticked ${gone.length === 1 ? 'item' : 'items'}`
       }
     );
   }
@@ -419,8 +381,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'answer_double_tick', question_id: questionId, answer },
       {
-        label: answer === 'two' ? 'Kept both' : 'Took back the extra',
-        edit: (copy) => copy.questions.forEach((q) => q.id === questionId && (q.open = false))
+        label: answer === 'two' ? 'Kept both' : 'Took back the extra'
       }
     );
   }
@@ -429,8 +390,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'dismiss_note', note_id: noteId },
       {
-        quiet: true,
-        edit: (copy) => copy.notes.forEach((n) => n.id === noteId && (n.gone = true))
+        quiet: true
       }
     );
   }
@@ -439,21 +399,16 @@ export class ShoppingModel {
 
   async createList(name: string) {
     const listId = newChangeId();
+    // It shows at once (from the queue), so open it at once.
+    this.listId = listId;
     const outcome = await this.#act(
       { kind: 'create_list', list_id: listId, name },
       {
-        label: `Made the list ${name}`,
-        edit: (copy) =>
-          copy.lists.push({
-            id: listId,
-            name,
-            main: false,
-            position: copy.lists.length,
-            removed: false
-          })
+        label: `Made the list ${name}`
       }
     );
-    if (outcome.ok) this.listId = listId;
+    // Back to the main list if the server refused it.
+    if (!outcome.ok && this.listId === listId) this.listId = null;
     return outcome;
   }
 
@@ -461,8 +416,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'rename_list', list_id: listId, name },
       {
-        label: `Renamed the list to ${name}`,
-        edit: (copy) => copy.lists.forEach((l) => l.id === listId && (l.name = name))
+        label: `Renamed the list to ${name}`
       }
     );
   }
@@ -474,7 +428,6 @@ export class ShoppingModel {
       { kind: 'remove_list', list_id: listId },
       {
         label: `Removed ${name}`,
-        edit: (copy) => copy.lists.forEach((l) => l.id === listId && (l.removed = true)),
         saved: () => {
           if (wasOpen) this.listId = null;
         }
@@ -487,27 +440,4 @@ export class ShoppingModel {
   async search(text: string): Promise<FoodRow[]> {
     return (await listFoods({ q: text, limit: 8 })).foods;
   }
-}
-
-function tickFor(id: string, by: { login_id: number; name: string }): Tick {
-  return { id, by, at: new Date().toISOString(), place_id: null, bought: null, standing: true };
-}
-
-function provisional(id: string, listId: string, foodId: number): ListItem {
-  return {
-    id,
-    list_id: listId,
-    food_id: foodId,
-    shop_id: null,
-    amount: null,
-    size_id: null,
-    display: null,
-    source: 'typed',
-    hand_edited: false,
-    put_away_place_id: null,
-    ticks: [],
-    added_by: null,
-    deleted: false,
-    merged_into_id: null
-  };
 }

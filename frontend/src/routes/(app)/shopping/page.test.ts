@@ -116,6 +116,47 @@ describe('the Shopping page', () => {
     expect(server.actions[1]!.undoes).toBe(server.actions[0]!.id);
   });
 
+  it('11.2: a tick shows at once and stays while the server can’t be reached', async () => {
+    let tries = 0;
+    await render(1300, {
+      'POST /shopping/actions': () => {
+        tries++;
+        return [503, { detail: 'Down for a moment' }];
+      }
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+    await vi.waitFor(() => expect(tries).toBe(1));
+    // Not sent, so not gone: still ticked, and no "Couldn't save".
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+    expect(toasts.current?.tone).not.toBe('problem');
+  });
+
+  it('11.2: only a refusal takes a change off the screen, saying why', async () => {
+    await render(1300, {
+      'POST /shopping/actions': (request) => {
+        const batch = request.body as { actions: { id: string }[] };
+        return [
+          200,
+          {
+            results: batch.actions.map((a) => ({
+              id: a.id,
+              status: 'refused',
+              reason: 'gone',
+              message: 'Onions isn’t on the list any more.'
+            }))
+          }
+        ];
+      }
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Onions isn’t on the list any more.' }))
+      .toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 2' })).toBeVisible();
+    await expect.element(page.getByRole('checkbox', { name: 'Tick Onions' })).not.toBeChecked();
+  });
+
   it('phone: Change in the toast lets you pick another place', async () => {
     await render(390);
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();

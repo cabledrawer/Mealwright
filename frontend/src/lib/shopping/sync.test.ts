@@ -117,9 +117,10 @@ describe('batches', () => {
       inFlight--;
       return applied(one);
     });
+    // 150 changes waiting on the phone (made offline), then a trigger.
     const actions = Array.from({ length: 150 }, (_, i) => tick(`i${i}`));
-    shoppingSync.timing.gatherMs = 50;
-    await Promise.all(actions.map((a) => sendAction(a)));
+    for (const a of actions) await addToQueue(a, ME.id, deviceId());
+    await shoppingSync.send();
     expect(sent.map((s) => s.body.actions.length)).toEqual([100, 50]);
     expect(sent.flatMap((s) => s.body.actions.map((a) => a.id))).toEqual(actions.map((a) => a.id));
     expect(most).toBe(1);

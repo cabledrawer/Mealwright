@@ -93,6 +93,8 @@ export class ShoppingSync {
 
   /** Waiting changes of the signed-in login, including the batch in flight (11.4). */
   readonly waiting = $derived(this.#mine(this.queue).length);
+  /** Those changes, oldest first: what the screen shows on top of the copy (11.2). */
+  readonly waitingActions = $derived(this.#mine(this.queue).map((e) => e.action));
 
   timing: SyncTiming;
 
