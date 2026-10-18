@@ -108,6 +108,10 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   # it is there). `npm test` itself no longer installs it.
   step "frontend: browser"       sh -c 'cd frontend && npx playwright install chromium-headless-shell'
   step "frontend: tests"         sh -c 'cd frontend && npm test'
+  # The browser code size limit (spec "Keeping the UI good", item 5): build the app and
+  # fail if the JS and CSS sent to the browser, gzip-compressed, are over
+  # frontend/browser-code-limit.txt. Raising that number needs cabledrawer's OK.
+  step "frontend: size limit"    sh -c 'cd frontend && npm run -s build && node scripts/check-size.mjs'
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
   skip "frontend" "no frontend yet"
@@ -160,6 +164,17 @@ else
   record "osv-scanner" FAIL "docker is not installed" "-"
 fi
 
+# The component gallery's marker text (defined once, in the gallery page) must not be in the
+# web app inside the image. grep exits 1 for "not found"; any other failure fails the step.
+no_gallery_in_image() {
+  local marker
+  marker=$(sed -n "s/.*MARKER = '\(.*\)';/\1/p" frontend/src/routes/dev/gallery/Gallery.svelte)
+  [[ -n "$marker" ]] || { echo "Can't find the marker in the gallery page."; return 1; }
+  docker run --rm --entrypoint sh "$IMAGE" -c '
+    test -f /app/frontend/index.html || { echo "no web app in the image"; exit 2; }
+    grep -rqF -- "$1" /app/frontend; [ $? -eq 1 ]' _ "$marker"
+}
+
 # --- Docker image ------------------------------------------------------------
 if ((FAST)); then
   skip "image" "fast run"
@@ -167,6 +182,9 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
   step "image: build"            docker build -t "$IMAGE" .
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
+  # The component gallery is for development builds only (spec "Keeping the UI good",
+  # item 3): its marker text must not be anywhere in the web app inside the image.
+  step "image: no gallery"       no_gallery_in_image
   # Trivy reads an exported copy of the image and gets no access to Docker itself.
   step "image: export"           docker save "$IMAGE" -o "$ROOT/.check/image.tar"
   step "image: trivy"            docker run --rm -v "$ROOT/.check:/scan:ro" \

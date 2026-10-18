@@ -1,0 +1,9 @@
+# The most browser code Mealwright may send, in bytes: every .js and .css file in
+# frontend/build, each gzip-compressed (level 9) and added up. Measured by
+# scripts/check-size.mjs, which ./check runs after a build.
+#
+# Raising this needs cabledrawer's OK (spec: Keeping the UI good, item 5).
+#
+# Set on 18 Oct for 0.4's first pull request: the build measured 138358 bytes (135.1 KiB);
+# the limit is 170 KiB, about 26% above that. Proposed by Claude Code, waiting for cabledrawer's OK.
+174080
