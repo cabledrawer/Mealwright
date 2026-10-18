@@ -5,5 +5,5 @@
 # Raising this needs cabledrawer's OK (spec: Keeping the UI good, item 5).
 #
 # Set on 18 Oct for 0.4's first pull request: the build measured 138393 bytes (135.1 KiB);
-# the limit is 170 KiB, about 26% above that. Proposed by Claude Code, waiting for cabledrawer's OK.
+# the limit is 170 KiB, about 26% above that. Proposed by Claude Code; approved by cabledrawer 19 Oct.
 174080
