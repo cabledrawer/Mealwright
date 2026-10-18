@@ -22,6 +22,22 @@ async function timesAdded(page: Page, foodId: number): Promise<number> {
   return changes.filter((c: { kind: string }) => c.kind === 'item_added').length;
 }
 
+/** Take these ingredients off the main list again, so later tests see the list they expect. */
+async function offTheList(page: Page, foodIds: number[]) {
+  const { lists } = await (await page.request.get('/api/v1/shopping/lists')).json();
+  const main = lists.find((l: { main: boolean }) => l.main).id;
+  const view = await (await page.request.get(`/api/v1/shopping/lists/${main}`)).json();
+  type Line = { id: string; food: { id: number } };
+  const lines: Line[] = view.shops.flatMap((shop: { aisles: { items: Line[] }[]; in_trolley: Line[] }) => [
+    ...shop.aisles.flatMap((a) => a.items),
+    ...shop.in_trolley,
+  ]);
+  for (const line of lines.filter((l) => foodIds.includes(l.food.id))) {
+    const gone = await page.request.delete(`/api/v1/shopping/items/${line.id}`, { headers: key() });
+    expect(gone.ok(), await gone.text()).toBe(true);
+  }
+}
+
 /** The offline bar for this layout (phone: above the tabs; desktop: foot of the sidebar). */
 const bar = (page: Page) => page.getByTestId(isPhone(page) ? 'connection-phone' : 'connection-desktop');
 
@@ -77,4 +93,5 @@ test('taps on a staple and on + List made while the connection fails are sent on
   await page.waitForTimeout(1500);
   expect(await timesAdded(page, staple.id)).toBe(1);
   expect(await timesAdded(page, low.id)).toBe(1);
+  await offTheList(page, [staple.id, low.id]);
 });
