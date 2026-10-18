@@ -436,7 +436,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
 
   describe('a phone database that can’t be read (cabledrawer 18 Oct)', () => {
     const CANT_CHECK = CANT_TEXT;
-    const ANYWAY = 'Carry on anyway, anything waiting on this phone may be lost';
+    const ANYWAY = 'Carry on anyway — anything waiting on this phone may be lost';
 
     it('another login: says so on Sign in, with Try again and Carry on anyway; sends and wipes nothing', async () => {
       await wrensPhone(2);
@@ -581,7 +581,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(
           page.getByRole('button', {
-            name: 'Carry on anyway, anything waiting on this computer may be lost'
+            name: 'Carry on anyway — anything waiting on this computer may be lost'
           })
         )
         .toBeVisible();

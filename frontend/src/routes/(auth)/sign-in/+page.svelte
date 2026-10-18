@@ -6,7 +6,7 @@
   // wiped as at signing out, and the next start makes a new device ID. A wrong password
   // wipes nothing. A phone database that can't be read wipes nothing either: the login it was
   // last written for carries on (it never wipes anything, so nothing is at risk); anyone else
-  // is warned that it couldn't check, with "Try again" and "Carry on anyway, anything waiting
+  // is warned that it couldn't check, with "Try again" and "Carry on anyway — anything waiting
   // on this phone may be lost" (cabledrawer 18 Oct). When the server wouldn't end a session the
   // app was signing out, the page says so, with "Try again" (it stays here meanwhile). And
   // when a wipe couldn't delete the phone database, nobody can sign in until it has: the
@@ -67,7 +67,7 @@
   let losing = false;
   /** The phone couldn't check, and Sign in was pressed: the warning with its two choices. */
   let cantWarning = $state(false);
-  /** "Carry on anyway, anything waiting on this phone may be lost" was chosen. */
+  /** "Carry on anyway — anything waiting on this phone may be lost" was chosen. */
   let anyway = false;
 
   $effect(() => {
@@ -340,7 +340,7 @@
         <p role="alert">{cantCheckText(device)}</p>
         <Button disabled={busy} onclick={() => void go()}>Try again</Button>
         <button type="button" class="lose" disabled={busy} onclick={() => void carryOnAnyway()}>
-          Carry on anyway, anything waiting on this {device} may be lost
+          Carry on anyway — anything waiting on this {device} may be lost
         </button>
       </div>
     {:else}
@@ -462,6 +462,7 @@
 
   .lose {
     min-height: var(--touch-target);
+    padding: 0 var(--space-3);
     border: none;
     background: none;
     color: var(--color-warning-text);

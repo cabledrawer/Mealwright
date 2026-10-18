@@ -115,7 +115,7 @@ export async function wipeNow(): Promise<boolean> {
  * UNREADABLE when the phone database couldn't be read: then nothing is wiped and nothing is
  * written, as whether anyone's changes are waiting isn't known. Except: the login it was last
  * written for (rememberedLogin) carries on ('kept', nothing written), and `losing` 'anyway'
- * (the warning's "Carry on anyway, anything waiting on this phone may be lost") wipes. 'wipe-failed' when the wipe
+ * (the warning's "Carry on anyway — anything waiting on this phone may be lost") wipes. 'wipe-failed' when the wipe
  * couldn't delete the phone database: then nobody may be let in (wipePending.svelte.ts).
  */
 export async function wipeIfAnotherLogin(
