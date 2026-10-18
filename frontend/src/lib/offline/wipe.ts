@@ -6,16 +6,26 @@
 //     device ID, `meta`;
 //   - every Cache Storage cache except the app shell (code only, nothing about the household);
 //   - sessionStorage, and every localStorage key except the per-device display preferences
-//     below (which say nothing about the household). The 0.2 device ID key goes too.
+//     and the "sign-out pending" flag below (none says anything about the household). The
+//     0.2 device ID key goes too.
 // The next sign-in makes a new device ID.
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId } from './device';
 import { deletePhone } from './phone';
 import { CACHE_PREFIX } from './rules';
+import { SIGN_OUT_PENDING_KEY } from './signOutPending';
 
-/** localStorage keys a wipe keeps: display preferences of this device only. */
-export const KEPT_ON_WIPE: readonly string[] = ['mealwright.theme', 'mealwright.sidebar'];
+/**
+ * localStorage keys a wipe keeps: display preferences of this device, and the "sign-out
+ * pending" flag, which must outlast the wipe (signOutPending.ts). None says anything about
+ * the household.
+ */
+export const KEPT_ON_WIPE: readonly string[] = [
+  'mealwright.theme',
+  'mealwright.sidebar',
+  SIGN_OUT_PENDING_KEY
+];
 
 /** Wipe everything this browser keeps about the household. */
 export async function wipeDevice(): Promise<void> {

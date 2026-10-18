@@ -3,7 +3,8 @@
 // admin). Otherwise, anyone not signed in goes to sign in, and comes back here after.
 //
 // When the server can't be reached, the app opens as whoever was last signed in on this
-// device, so the shopping list works offline (docs/dev/sync-protocol.md section 11.4).
+// device, so the shopping list works offline (docs/dev/sync-protocol.md section 11.4). With
+// nobody to open as (never signed in here, or signed out), it shows the sign-in page.
 import { redirect } from '@sveltejs/kit';
 import { cantReach, getMe, getSetup, type Me } from '$lib/api';
 import { lastSignedIn, startDevice } from '$lib/offline/device';
@@ -21,8 +22,9 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
     if (setup.needs_setup) redirect(307, SETUP);
     me = await getMe(fetch);
   } catch (error) {
-    const last = cantReach(error) ? await lastSignedIn() : null;
-    if (!last) throw error;
+    if (!cantReach(error)) throw error;
+    const last = await lastSignedIn();
+    if (!last) redirect(307, signInPath(heading));
     // Offline: this device's theme stays as it is; nothing is saved to the account.
     session.me = {
       id: last.id,

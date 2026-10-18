@@ -46,6 +46,10 @@ export default defineConfig({
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    // The offline queue end to end (0.3, PR 6). No saved session: each test signs in its own,
+    // because signing out must not end the one the other tests share.
+    { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
+    { name: 'desktop 0.3 offline', testMatch: 'offline.spec.ts', use: desktop },
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },

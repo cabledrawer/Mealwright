@@ -3,7 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { network } from '$lib/network.svelte';
 import { deviceId } from '$lib/offline/device';
+import { phoneDatabaseName } from '$lib/offline/phone';
 import { addToQueue, readQueue } from '$lib/offline/store';
+import { wipeDevice } from '$lib/offline/wipe';
 import { session } from '$lib/session.svelte';
 import { ME, fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
 import { dropPhone, freshPhone } from '$lib/testing/phone';
@@ -332,5 +334,41 @@ describe('a reset (FE-7)', () => {
     const onions = shoppingSync.copy!.items.find((i) => i.id === 'i-onions');
     expect(onions?.ticks.some((t) => t.standing)).toBe(true);
     expect(shoppingSync.copy!.items.some((i) => i.id === 'i-milk')).toBe(false);
+  });
+});
+
+describe('signing out (sync-protocol 12): a wiped phone stays wiped', () => {
+  const exists = async () =>
+    (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
+
+  it('an answer that comes after the wipe writes nothing back', async () => {
+    let answer: (value: [number, unknown]) => void = () => undefined;
+    let asked: Sent | undefined;
+    vi.stubGlobal('fetch', async (_input: string, init: RequestInit = {}) => {
+      asked = { path: '', body: JSON.parse(String(init.body)), queuedFirst: 0 };
+      const [status, body] = await new Promise<[number, unknown]>((done) => (answer = done));
+      return new Response(JSON.stringify(body), { status });
+    });
+    void sendAction(tick('i-onions')).catch(() => undefined);
+    await vi.waitFor(() => expect(asked).toBeDefined());
+    await wipeDevice();
+    expect(await exists()).toBe(false);
+    answer(applied(asked!));
+    await new Promise((done) => setTimeout(done, 50));
+    expect(await exists()).toBe(false);
+    expect(shoppingSync.copy).toBeNull();
+    expect(network.waiting).toBe(0);
+  });
+
+  it('with nobody signed in, sending and loading never make a new database', async () => {
+    const sent = server(applied);
+    await wipeDevice();
+    session.me = null;
+    await shoppingSync.start();
+    await shoppingSync.send();
+    await expect(shoppingSync.refresh()).rejects.toThrow('Please sign in again.');
+    await expect(sendAction(tick('i-onions'))).rejects.toThrow('Please sign in again.');
+    expect(sent).toEqual([]);
+    expect(await exists()).toBe(false);
   });
 });

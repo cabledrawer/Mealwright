@@ -39,6 +39,8 @@ import { applyChanges } from './load';
 import type { ChangesAnswer, ShoppingCopy } from './types';
 
 export const COULDNT_SEND = 'Couldn’t send your changes';
+/** Asked for the list with nobody signed in (just signed out). */
+export const NOBODY_SIGNED_IN = 'Please sign in again.';
 
 export interface SyncTiming {
   /** Waits before each resend; the last one repeats. */
@@ -109,6 +111,10 @@ export class ShoppingSync {
   #retryTimer: ReturnType<typeof setTimeout> | null = null;
   #gatherTimer: ReturnType<typeof setTimeout> | null = null;
   #opened: Promise<void> | null = null;
+  /** Goes up on forget(): an answer to a request from before then is thrown away unread, so
+   * nothing is written back into a wiped phone (sign-out, section 12). With nobody signed
+   * in, nothing here opens the phone database either, so a wipe stays wiped. */
+  #generation = 0;
 
   constructor(timing: SyncTiming = TIMING) {
     this.timing = timing;
@@ -128,9 +134,12 @@ export class ShoppingSync {
 
   /** Read the copy and the queue from the phone database (once). */
   open(): Promise<void> {
+    if (!session.me) return Promise.resolve();
+    const generation = this.#generation;
     this.#opened ??= (async () => {
       try {
         const [copy, queue] = await Promise.all([loadCopy(), readQueue()]);
+        if (generation !== this.#generation) return;
         if (copy && !this.copy) this.copy = copy;
         this.#setQueue(queue);
       } catch {
@@ -160,6 +169,7 @@ export class ShoppingSync {
    * Resolves with the server's answer to it; rejects only if the server refuses it.
    */
   async enqueue(action: Action): Promise<ActionResult> {
+    if (!session.me) throw new ApiError(401, NOBODY_SIGNED_IN);
     await this.open();
     const plain = $state.snapshot(action) as Action;
     const me = session.me?.id ?? 0;
@@ -224,6 +234,7 @@ export class ShoppingSync {
   }
 
   async #sendAll(): Promise<void> {
+    if (!session.me) return;
     await this.open();
     for (;;) {
       if (this.stopped || !session.me) return;
@@ -254,6 +265,7 @@ export class ShoppingSync {
     for (const entry of batch) entry.tries++;
     void countTries(batch).catch(() => undefined);
     const since = this.copy?.cursor ?? 0;
+    const generation = this.#generation;
     let answer: BatchAnswer;
     try {
       answer = await api<BatchAnswer>(
@@ -270,8 +282,10 @@ export class ShoppingSync {
         { timeoutMs: this.timing.timeoutMs }
       );
     } catch (error) {
+      if (generation !== this.#generation) return 'stop';
       return this.#failedBatch(error, batch);
     }
+    if (generation !== this.#generation) return 'stop';
     this.#failures = 0;
     this.#batch = null;
     await this.#answered(batch, answer);
@@ -363,13 +377,16 @@ export class ShoppingSync {
   /** Ask the server what changed since the copy (everything with `full`), and keep it. */
   refresh(full = false): Promise<ShoppingCopy> {
     return this.#take(async () => {
+      if (!session.me) throw new ApiError(401, NOBODY_SIGNED_IN);
       await this.open();
       const have = full ? null : this.copy;
       const since = have?.cursor ?? 0;
+      const generation = this.#generation;
       const answer = await api<ChangesAnswer>(
         'GET',
         `/shopping/changes?since=${since}&device_id=${encodeURIComponent(deviceId())}`
       );
+      if (generation !== this.#generation) throw new ApiError(401, NOBODY_SIGNED_IN);
       const reset = await this.#merge(answer, full);
       // After a reset the waiting changes go on top of the fresh copy (11.1).
       if (reset && this.#mine(this.queue).length) void this.send();
@@ -392,6 +409,7 @@ export class ShoppingSync {
 
   /** Forget everything in memory (the phone database has been wiped, or for tests). */
   forget(): void {
+    this.#generation++;
     if (this.#retryTimer) clearTimeout(this.#retryTimer);
     if (this.#gatherTimer) clearTimeout(this.#gatherTimer);
     this.#retryTimer = this.#gatherTimer = null;

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '$lib/api';
-import { setMeta } from '$lib/offline/phone';
+import { phoneDatabaseName, setMeta } from '$lib/offline/phone';
+import { markSignOutPending, SIGN_OUT_PENDING_KEY } from '$lib/offline/signOutPending';
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
@@ -45,10 +45,24 @@ describe('opening the app (11.4)', () => {
     expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
   });
 
-  it('can’t open offline on a device nobody has signed in on', async () => {
+  it('offline on a device nobody has signed in on: the sign-in page', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
-    await expect(open()).rejects.toBeInstanceOf(ApiError);
+    await expect(open()).rejects.toMatchObject({
+      status: 307,
+      location: '/sign-in?next=%2Fshopping'
+    });
     expect(session.me).toBeNull();
+    // Looking for whoever was here didn't make a new, empty phone database.
+    expect((await indexedDB.databases()).map((db) => db.name)).not.toContain(phoneDatabaseName());
+  });
+
+  it('offline after signing out offline: the sign-in page, not the last person', async () => {
+    await setMeta(WREN);
+    markSignOutPending();
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await expect(open()).rejects.toMatchObject({ status: 307 });
+    expect(session.me).toBeNull();
+    localStorage.removeItem(SIGN_OUT_PENDING_KEY);
   });
 
   it('a server that answers “not signed in” still goes to sign in, whoever was here', async () => {

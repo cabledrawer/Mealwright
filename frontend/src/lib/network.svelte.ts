@@ -14,6 +14,7 @@
 // changes waiting. They'll save when you're back." (desktop). Once the connection is back
 // AND nothing is waiting any more, a short toast says "Back online — all saved" (11.4).
 
+import { endPendingSignOut } from './offline/signOutPending';
 import { toasts } from './toast.svelte';
 
 /** A failure shorter than this shows nothing. */
@@ -129,6 +130,8 @@ class Network {
   async #check(always = false): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
     try {
+      // Signed out while offline: the server session ends before anything else is sent.
+      if (!(await endPendingSignOut())) throw new Error('still unreachable');
       await fetch('/api/v1/version', {
         cache: 'no-store',
         credentials: 'same-origin',

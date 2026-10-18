@@ -4,6 +4,7 @@ import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { deviceId, loadDeviceId, OLD_DEVICE_KEY } from './device';
 import { phoneDatabaseName, setMeta } from './phone';
 import { CACHE_PREFIX } from './rules';
+import { SIGN_OUT_PENDING_KEY } from './signOutPending';
 import { addToQueue } from './store';
 import { KEPT_ON_WIPE, wipeDevice } from './wipe';
 
@@ -32,6 +33,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     await (await caches.open(OTHER_CACHE)).put('/photo.jpg', new Response('photo'));
     localStorage.setItem('mealwright.theme', 'dark');
     localStorage.setItem('mealwright.sidebar', 'collapsed');
+    localStorage.setItem(SIGN_OUT_PENDING_KEY, '1');
     localStorage.setItem('mealwright.household-from-browser', 'sent');
     localStorage.setItem(OLD_DEVICE_KEY, before);
     sessionStorage.setItem('anything', 'x');
@@ -45,6 +47,11 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     expect(sessionStorage.length).toBe(0);
     const kept = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
     expect(kept.sort()).toEqual([...KEPT_ON_WIPE].sort());
+    expect([...KEPT_ON_WIPE].sort()).toEqual([
+      'mealwright.sidebar',
+      'mealwright.sign-out-pending',
+      'mealwright.theme'
+    ]);
     // The old place of the device ID is empty too (cabledrawer 18 Oct).
     expect(localStorage.getItem(OLD_DEVICE_KEY)).toBeNull();
     expect(shoppingSync.queue).toEqual([]);

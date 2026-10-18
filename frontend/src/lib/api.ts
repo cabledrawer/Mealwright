@@ -2,6 +2,7 @@
 // API-first). Same origin only: the session cookie goes along automatically.
 
 import { network } from './network.svelte';
+import { endPendingSignOut } from './offline/signOutPending';
 
 export type ThemeChoice = 'auto' | 'light' | 'dark';
 
@@ -110,6 +111,11 @@ export async function api<T>(
   options: ApiOptions = {}
 ): Promise<T> {
   const doFetch = options.fetch ?? fetch;
+  // Signed out while offline: end that session on the server before anything else is sent.
+  if (!(await endPendingSignOut(doFetch))) {
+    network.failed();
+    throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
+  }
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (options.idempotencyKey) headers['idempotency-key'] = options.idempotencyKey;

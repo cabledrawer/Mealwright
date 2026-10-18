@@ -43,6 +43,9 @@ export const loseOthersText = (name: string, n: number) =>
 export const loseOnSignOutText = (n: number) =>
   `${changes(n)} ${n === 1 ? "hasn't" : "haven't"} been sent yet. If you sign out now, ${n === 1 ? "it's" : "they're"} lost.`;
 
+/** Added to that warning when "Try sending now" didn't get them all through. */
+export const STILL_CANT_REACH = "Still can't reach your server.";
+
 /** The same username as `who`, as the server compares them (trimmed, any case). */
 export function sameUsername(typed: string, who: SignedIn): boolean {
   return typed.trim().toLowerCase() === who.username.trim().toLowerCase();

@@ -7,7 +7,8 @@
 // localStorage key is cleared (cabledrawer 18 Oct).
 
 import { newChangeId } from '$lib/changeId';
-import { getMeta, setMeta } from './phone';
+import { getMeta, phoneExists, setMeta } from './phone';
+import { signOutPending } from './signOutPending';
 
 /** Where 0.2 kept the device ID. Empty from 0.3 on. */
 export const OLD_DEVICE_KEY = 'mealwright.device-id';
@@ -94,6 +95,8 @@ export async function startDevice(me: SignedIn): Promise<void> {
  * reached (11.4). Null when nobody has signed in here since the phone database was made.
  */
 export async function lastSignedIn(): Promise<SignedIn | null> {
+  // Signed out (perhaps offline): nobody. Looking doesn't make a new, empty database.
+  if (signOutPending() || !(await phoneExists())) return null;
   try {
     const [id, name, username, role] = await Promise.all([
       getMeta('login_id'),
