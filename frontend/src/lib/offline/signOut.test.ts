@@ -236,6 +236,31 @@ describe('signing out when the phone database can’t be deleted (cabledrawer 18
   });
 });
 
+describe('“Sign out anyway” when the phone database can’t be read (cabledrawer 18 Oct)', () => {
+  it('wipes as usual, and ends the server session', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    const requests = fakeApi({ 'DELETE /session': [204, null] });
+    const mend = breakPhone();
+    expect(await signOutHere()).toBe(UNREADABLE);
+    expect(requests).toEqual([]);
+    expect(session.me).not.toBeNull();
+    expect(await signOutHere('anyway')).toBe('signed-out');
+    mend();
+    expect(said(requests)).toEqual(['DELETE /session']);
+    expect(await exists()).toBe(false);
+    expect(session.me).toBeNull();
+  });
+
+  it('readable again: any change waiting comes back to warn, nothing wiped', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    unreachable();
+    expect(await signOutHere('anyway')).toMatchObject({ count: 1 });
+    expect(await exists()).toBe(true);
+  });
+});
+
 describe('signing out over waiting changes: only those the warning showed', () => {
   it('another tab queued more since the warning: nothing wiped, and they come back to warn again', async () => {
     await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });

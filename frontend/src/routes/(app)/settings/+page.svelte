@@ -40,11 +40,18 @@
   // Settings → Sign out returns to Sign in (spec). Changes still waiting are sent first, for
   // up to 5 seconds; if any are left, the one "Are you sure?" of the app says so, because
   // unsent changes can't be undone (docs/dev/sync-protocol.md section 12). When the phone
-  // couldn't check what's waiting, it doesn't sign out (nothing is wiped) and says so.
+  // couldn't check what's waiting, it doesn't sign out (nothing is wiped) and says so, with
+  // Try again and "Sign out anyway" (cabledrawer 18 Oct).
   async function leave() {
     busy = true;
     try {
-      left = found(await trySending());
+      const waiting = await trySending();
+      if (waiting === UNREADABLE && cantCheck) {
+        // Still can't: the line is put back as new, so it's read out again.
+        cantCheck = false;
+        await tick();
+      }
+      left = found(waiting);
       if (left === 0 && !cantCheck) await signOutNow();
     } finally {
       busy = false;
@@ -77,9 +84,9 @@
    * again just before the wipe, and if another tab has queued any other since, nothing is
    * wiped and the warning comes back with the new count, read out again.
    */
-  async function signOutNow() {
+  async function signOutNow(choice: string[] | 'anyway' = shown) {
     busy = true;
-    const result = await signOutHere(shown);
+    const result = await signOutHere(choice);
     if (result === 'signed-out') {
       left = 0;
       await goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
@@ -137,6 +144,13 @@
         <Button disabled={busy} onclick={() => void leave()}>Try again</Button>
         <div class="choices">
           <button type="button" class="stay" disabled={busy} onclick={stay}>Stay signed in</button>
+          <button
+            type="button"
+            class="lose"
+            disabled={busy}
+            onclick={() => void signOutNow('anyway')}
+            >Sign out anyway — anything waiting on this {device} may be lost</button
+          >
         </div>
       </div>
     {:else if left > 0}

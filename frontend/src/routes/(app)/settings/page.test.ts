@@ -13,7 +13,8 @@ import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { ME } from '$lib/testing/fakeShopping';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
+import { wipePending } from '$lib/offline/wipePending.svelte';
 import Settings from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -22,6 +23,9 @@ const navigation = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
 vi.mock('$app/navigation', () => navigation);
 
 const WARNING = "3 changes haven't been sent yet. If you sign out now, they're lost.";
+const CANT_CHECK =
+  "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.";
+const ANYWAY = 'Sign out anyway — anything waiting on this phone may be lost';
 
 const exists = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
@@ -198,6 +202,7 @@ describe('signing out', () => {
       );
     await expect.element(button('Try again')).toBeVisible();
     await expect.element(button('Stay signed in')).toBeVisible();
+    await expect.element(button(ANYWAY)).toBeVisible();
     expect(page.getByRole('button', { name: /lose/ }).elements()).toEqual([]);
     expect(requests).toEqual([]);
     expect(navigation.goto).not.toHaveBeenCalled();
@@ -222,5 +227,79 @@ describe('signing out', () => {
     await expect.element(button('Sign out')).toBeEnabled();
     mend();
     expect(await exists()).toBe(true);
+  });
+
+  describe('Sign out anyway, when the phone couldn’t check (cabledrawer 18 Oct)', () => {
+    it('wipes this browser as usual, ends the session and goes to sign in', async () => {
+      await show(0);
+      await addToQueue(makeAction({ kind: 'tick', item_id: 'unseen' }), ME.id, 'device-1');
+      const requests = reachable();
+      const mend = breakPhone();
+      await button('Sign out').click();
+      await button(ANYWAY).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      mend();
+      expect(navigation.goto).toHaveBeenCalledWith('/sign-in', {
+        replaceState: true,
+        invalidateAll: true
+      });
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /session']);
+      expect(await exists()).toBe(false);
+      expect(session.me).toBeNull();
+    });
+
+    it('readable again by then, with a change waiting: the usual warning instead, nothing wiped', async () => {
+      await show(0);
+      const mend = breakPhone();
+      await button('Sign out').click();
+      await expect.element(button(ANYWAY)).toBeVisible();
+      mend();
+      await addToQueue(makeAction({ kind: 'tick', item_id: 'unseen' }), ME.id, 'device-1');
+      await button(ANYWAY).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+      expect(navigation.goto).not.toHaveBeenCalled();
+      expect(await readQueue()).toHaveLength(1);
+    });
+
+    it('the phone database can’t be deleted either: still signed out, and the wipe left pending', async () => {
+      await show(0);
+      const requests = reachable();
+      const mendRead = breakPhone();
+      const mendDelete = failPhoneDelete();
+      await button('Sign out').click();
+      await button(ANYWAY).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      mendRead();
+      mendDelete();
+      expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /session']);
+      expect(session.me).toBeNull();
+      expect(wipePending()).toBe(true);
+    });
+
+    it('Try again that still can’t check says so again, read out again', async () => {
+      await show(0);
+      const mend = breakPhone();
+      await button('Sign out').click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_CHECK);
+      const before = page.getByRole('alert').element();
+      await button('Try again').click();
+      await vi.waitFor(() => expect(page.getByRole('alert').element()).not.toBe(before));
+      await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_CHECK);
+      mend();
+    });
+
+    it('on a computer it says “this computer”', async () => {
+      await page.viewport(1280, 800);
+      await show(0);
+      const mend = breakPhone();
+      await button('Sign out').click();
+      await expect
+        .element(button('Sign out anyway — anything waiting on this computer may be lost'))
+        .toBeVisible();
+      mend();
+      await page.viewport(390, 800);
+    });
   });
 });

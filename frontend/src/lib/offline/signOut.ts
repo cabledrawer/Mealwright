@@ -63,14 +63,20 @@ async function stillWaiting(): Promise<Waiting | Unreadable> {
  * warning). They're read again just before the wipe, holding the queue lock (another tab may
  * have queued more since): if any other change is waiting by then, nothing is wiped, and
  * they come back, to warn again. UNREADABLE when the phone database couldn't be read.
+ *
+ * Or 'anyway': "Sign out anyway — anything waiting on this phone may be lost", chosen when
+ * the phone database couldn't be read (cabledrawer 18 Oct: not being able to sign out of a shared
+ * or lost phone is worse). It wipes as usual while it still can't be read; readable again,
+ * any change waiting comes back, to warn as usual.
  */
 export async function signOutHere(
-  shown: readonly string[] = []
+  shown: readonly string[] | 'anyway' = []
 ): Promise<'signed-out' | Waiting | Unreadable> {
   const stopped = await withQueueLock(async () => {
     const now = await stillWaiting();
-    if (now === UNREADABLE) return UNREADABLE;
-    if (now.ids.some((id) => !shown.includes(id))) return now;
+    if (now === UNREADABLE) {
+      if (shown !== 'anyway') return UNREADABLE;
+    } else if (now.ids.some((id) => shown === 'anyway' || !shown.includes(id))) return now;
     // Set first: it outlasts the wipe, so the server session is ended even if the page is
     // closed before the server answers.
     markSignOutPending();
