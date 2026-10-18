@@ -22,7 +22,7 @@
     verbFirst?: boolean;
   } = $props();
 
-  const VERBS = /^(Added|Removed|Merged|Made|Undid)\b/;
+  const VERBS = /^(Added|Removed|Merged|Made|Undid|Renamed|Forgot)\b/;
 
   const SHOWN = 3;
 

@@ -220,10 +220,12 @@
     border-top: none;
   }
 
+  /* In a narrow column "+ List" drops under the amount instead of squeezing it. */
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-3);
+    gap: 0 var(--space-3);
   }
 
   /* "+ List" on a running-low row (mockups Desktop-Pantry, Dark-Pantry). */
@@ -250,7 +252,7 @@
   }
 
   .row {
-    flex: 1;
+    flex: 1 1 12rem;
     min-width: 0;
     display: flex;
     align-items: center;
