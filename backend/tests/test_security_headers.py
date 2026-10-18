@@ -61,3 +61,8 @@ def test_location_is_never_allowed(client: TestClient) -> None:
 def test_headers_are_not_duplicated(client: TestClient) -> None:
     response = client.get("/api/v1/version")
     assert len(response.headers.get_list("content-security-policy")) == 1
+
+
+@pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/openapi.json", "/api/v1/nope"])
+def test_every_api_response_is_no_store(client: TestClient, path: str) -> None:
+    assert client.get(path).headers["cache-control"] == "no-store"

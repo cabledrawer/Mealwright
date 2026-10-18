@@ -94,7 +94,13 @@ class SecurityHeadersMiddleware:
                     for name, value in message.get("headers", [])
                     if name.lower() not in self.names
                 ]
-                message["headers"] = existing + self.headers
+                extra = list(self.headers)
+                if scope.get("path", "").startswith("/api"):
+                    # The browser's own cache never keeps anything about a household
+                    # (sync protocol section 12).
+                    existing = [(n, v) for n, v in existing if n.lower() != b"cache-control"]
+                    extra.append((b"cache-control", b"no-store"))
+                message["headers"] = existing + extra
             await send(message)
 
         await self.app(scope, receive, send_with_headers)
