@@ -107,9 +107,12 @@ def record(
     food_id: int | None = None,
     undo_data: dict[str, Any] | None = None,
 ) -> Change:
+    key = kitchen.idempotency_key
+    if kitchen.key_once:
+        kitchen.idempotency_key = None
     change = Change(
         household_id=kitchen.household_id,
-        idempotency_key=kitchen.idempotency_key,
+        idempotency_key=key,
         request=kitchen.request[:200],
         kind=kind,
         login_id=kitchen.login.id,
@@ -237,12 +240,16 @@ class FoodEdit:
     change = edit.record("food_edited", "Turmeric is now a staple", food.id)
     """
 
-    def __init__(self, kitchen: Kitchen, food_ids: Iterable[int]) -> None:
+    def __init__(self, kitchen: Kitchen, food_ids: Iterable[int], batch: Any = None) -> None:
         self.kitchen = kitchen
         self.food_ids = set(food_ids)
         self.before: Snapshot = {}
         self.extra: dict[str, Any] = {}
-        self.batch: Any = None
+        self.batch: Any = batch
+        self.own = batch is None  # its own lock and number, or part of a list action's
+        # The sync-log row for an edit that lists show (sync protocol 5.8).
+        self.sync_kind: str | None = None
+        self.sync_payload: dict[str, Any] | None = None
 
     def __enter__(self) -> FoodEdit:
         # The household's lock and counter come first (sync protocol 5.2), so what the
@@ -250,7 +257,8 @@ class FoodEdit:
         from mealwright.shopping import Batch
 
         self.kitchen.db.flush()
-        self.batch = Batch(self.kitchen)
+        if self.batch is None:
+            self.batch = Batch(self.kitchen)
         self.before = snapshot(self.kitchen, self.food_ids)
         return self
 
@@ -266,11 +274,24 @@ class FoodEdit:
         after = snapshot(self.kitchen, self.food_ids)
         changes = diff(self.before, after)
         data: dict[str, Any] = {"foods": changes, **self.extra}
-        from mealwright.shopping import bump_foods
+        from mealwright.shopping import bump_foods, server_action
 
-        bump_foods(self.kitchen, foods_in(changes), self.batch)
-        self.batch.finish()
-        return record(self.kitchen, kind, summary, food_id, data)
+        touched = foods_in(changes)
+        bump_foods(self.kitchen, touched, self.batch)
+        logs = self.own and bool(self.batch.taken)
+        if logs:
+            data["action"] = self.batch.action
+        change = record(self.kitchen, kind, summary, food_id, data)
+        if logs:
+            server_action(
+                self.batch,
+                self.sync_kind or "food_edit",
+                self.sync_payload or {"food_ids": sorted(touched)},
+                change,
+            )
+        if self.own:
+            self.batch.finish()
+        return change
 
 
 # --- Undo ---------------------------------------------------------------------------------------

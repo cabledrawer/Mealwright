@@ -1,14 +1,13 @@
-"""Shopping lists: the writes (docs/dev/sync-protocol.md sections 3, 5.2, 5.7 and 9).
+"""Shopping lists: the writes (docs/dev/sync-protocol.md sections 3, 4, 5, 6, 8 and 9).
 
-Every write here is one function that takes the household's lock, takes the next number
-from the household's counter, stamps the rows it changes with that number (`version`),
-and records one `Change` (for Undo and Recent changes) and one `SyncAction` (the sync log).
+Every list write is an *action*, handled the same way whether it came from a phone's
+offline queue (POST /shopping/actions) or from one of the plain one-at-a-time requests
+(api/v1/shopping.py): mealwright.sync runs it under the household's lock, gives it the
+next number from the household's counter, and records one `SyncAction` (the sync log)
+plus its `Change`s (for Undo and Recent changes). The handlers here do the work of one
+action each; they read the action's payload and say what happened on the `Act`.
 
-The plain online API (api/v1/shopping.py) calls these. PR 3's action path calls the same
-functions, so online writes and offline actions share one write path. Where PR 3 plugs
-in is marked "PR 3:" below: ticking and the pantry side, notes, the "Did you buy 2?"
-question, clashes between devices (`seen`), and the endpoints that send changes since a
-number.
+The pantry side of a tick lives in mealwright.ticks.
 """
 
 import hashlib
@@ -17,31 +16,38 @@ import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, TypeIs
 
 from fastapi import status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.amounts import MILLI, checked
+from mealwright.aisles import DEFAULT_AISLE
+from mealwright.amounts import MILLI, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
+from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
-from mealwright.foods import find, usual_size
-from mealwright.history import Tally, record
+from mealwright.foods import find, name_owner, usual_size
+from mealwright.history import Tally, diff, record, snapshot
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
     Food,
+    FoodName,
     FoodSize,
+    Household,
     ListItem,
+    ListNote,
     ListTick,
     Shop,
     ShoppingList,
     SyncAction,
     utcnow,
 )
+from mealwright.names import clean, fold
 
 MAIN_LIST_NAME = "This week"
+OTHER_PHONE = "Your other phone"  # {who} for the same login on another phone (section 8)
 
 # Change kinds, at most 20 letters (change.kind).
 LIST_KINDS = (
@@ -52,6 +58,8 @@ LIST_KINDS = (
     "item_amount",
     "item_deleted",
 )
+
+LOCKED = "mealwright.household_locked"
 
 
 # --- Lists that exist ----------------------------------------------------------------------------
@@ -94,26 +102,38 @@ def live_lists(kitchen: Kitchen) -> list[ShoppingList]:
 
 def find_list(kitchen: Kitchen, list_id: str, *, removed_ok: bool = False) -> ShoppingList:
     """A list in this household. One from another household is 'not here', like a missing one."""
-    found = kitchen.db.get(ShoppingList, list_id)
-    if (
-        found is None
-        or found.household_id != kitchen.household_id
-        or (found.removed_at is not None and not removed_ok)
-    ):
+    found = get_list(kitchen, list_id)
+    if found is None or (found.removed_at is not None and not removed_ok):
         raise not_found("That list")
     return found
 
 
-def find_item(kitchen: Kitchen, item_id: str) -> ListItem:
-    """An item in this household, on a list that isn't removed. An item that was merged into
-    another line gives that line (sync protocol 3.2). Deleted items are returned too: the
-    caller decides what a tombstone means."""
+def get_list(kitchen: Kitchen, list_id: str) -> ShoppingList | None:
+    """A list in this household (removed ones too), or None."""
+    found = kitchen.db.get(ShoppingList, list_id)
+    if found is None or found.household_id != kitchen.household_id:
+        return None
+    return found
+
+
+def get_item(kitchen: Kitchen, item_id: str) -> ListItem | None:
+    """An item in this household, or None. An item that was merged into another line gives
+    that line (sync protocol 3.2). Tombstones are returned too: the caller decides what a
+    tombstone means."""
     seen: set[str] = set()
     item = kitchen.db.get(ListItem, item_id)
     while item is not None and item.merged_into_id and item.id not in seen:
         seen.add(item.id)
         item = kitchen.db.get(ListItem, item.merged_into_id)
     if item is None or item.household_id != kitchen.household_id:
+        return None
+    return item
+
+
+def find_item(kitchen: Kitchen, item_id: str) -> ListItem:
+    """An item in this household, on a list that isn't removed (else 404)."""
+    item = get_item(kitchen, item_id)
+    if item is None:
         raise not_found("That item")
     find_list(kitchen, item.list_id)
     return item
@@ -131,41 +151,72 @@ def deleted(item: ListItem) -> Problem:
 
 
 def lock_household(kitchen: Kitchen) -> None:
+    lock_db(kitchen.db, kitchen.household)
+
+
+def lock_db(db: DbSession, household: Household) -> None:
     """Take the household's write lock, so list writes for one household run one at a time
-    (sync protocol 5.2). On SQLite a harmless write takes the lock at once; on Postgres
-    the household row is locked."""
-    db, household = kitchen.db, kitchen.household
+    (sync protocol 5.2). Taken once per transaction.
+
+    SQLite: a transaction that hasn't written yet is started with BEGIN IMMEDIATE, which
+    holds the write lock until commit (a deferred one could fail later with "busy"). One
+    that has already written holds the lock already; a harmless write makes sure of it.
+    Postgres (later): the household row is locked."""
+    db.flush()
+    if db.info.get(LOCKED) is not None and db.info.get(LOCKED) is db.get_transaction():
+        return
     if db.get_bind().dialect.name == "sqlite":
-        db.execute(
-            update(type(household))
-            .where(type(household).id == household.id)
-            .values(list_seq=type(household).list_seq)
-        )
+        raw = db.connection().connection.dbapi_connection
+        if raw is not None and not raw.in_transaction:
+            db.execute(text("BEGIN IMMEDIATE"))
+            db.expire_all()  # what was read before the lock may be out of date
+        else:
+            db.execute(
+                update(Household)
+                .where(Household.id == household.id)
+                .values(list_seq=Household.list_seq)
+            )
         db.refresh(household)
     else:  # pragma: no cover (Postgres comes later)
         db.refresh(household, with_for_update=True)
+    db.info[LOCKED] = db.get_transaction()
 
 
 @dataclass
 class Batch:
     """One locked stretch of list writing. `take()` hands out the next counter number;
-    `finish()` writes the last one back. Repeats and no-ops take none, so numbers have no
-    gaps (sync protocol 5.2)."""
+    `finish()` writes the last one back. Repeats, refusals and no-ops take none, so numbers
+    have no gaps (sync protocol 5.2)."""
 
     kitchen: Kitchen
     last: int = 0
     taken: list[int] = field(default_factory=list)
     action: str = ""
+    locked: bool = False
 
     def __post_init__(self) -> None:
-        lock_household(self.kitchen)
-        self.last = self.kitchen.household.list_seq
-        self.action = action_id(self.kitchen)
+        self.action = self.action or action_id(self.kitchen)
+        self.lock()
+
+    def lock(self) -> None:
+        if not self.locked:
+            lock_household(self.kitchen)
+            self.last = self.kitchen.household.list_seq
+            self.locked = True
 
     def take(self) -> int:
         self.last += 1
         self.taken.append(self.last)
         return self.last
+
+    def give_back(self) -> None:
+        """A refused action hands its number back (it is always the last one taken)."""
+        self.taken.pop()
+        self.last -= 1
+
+    def number(self) -> int:
+        """The number this write uses: the one already taken, else the next."""
+        return self.taken[-1] if self.taken else self.take()
 
     def finish(self) -> None:
         self.kitchen.household.list_seq = self.last
@@ -177,29 +228,30 @@ def action_id(kitchen: Kitchen) -> str:
     return kitchen.idempotency_key or str(uuid.uuid4())
 
 
-def _hash(payload: dict[str, Any]) -> str:
-    text = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(text.encode()).hexdigest()
+def payload_hash(payload: dict[str, Any]) -> str:
+    text_ = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(text_.encode()).hexdigest()
 
 
-def log_action(
+def server_action(
     batch: Batch,
-    seq: int,
-    action: str,
     kind: str,
     payload: dict[str, Any],
+    change: Change | None = None,
     *,
     list_id: str | None = None,
     item_id: str | None = None,
-    change: Change | None = None,
-    reason: str | None = None,
-    status_: str = "applied",
 ) -> SyncAction:
+    """The sync-log row for a server-made list change (sync protocol 5.8): an Undo from
+    Pantry, an ingredient edit that lists show, a merge, the tidy-up. `device_id` is null."""
     kitchen = batch.kitchen
+    action = batch.action
+    if kitchen.db.get(SyncAction, (kitchen.household_id, action)) is not None:
+        action = str(uuid.uuid4())
     row = SyncAction(
         household_id=kitchen.household_id,
         id=action,
-        seq=seq,
+        seq=batch.number(),
         kind=kind,
         login_id=kitchen.login.id,
         login_name=kitchen.login.name,
@@ -208,9 +260,9 @@ def log_action(
         item_id=item_id,
         applied_at=utcnow(),
         payload=payload,
-        payload_hash=_hash(payload),
-        status=status_,
-        reason=reason,
+        payload_hash=payload_hash(payload),
+        status="applied",
+        reason=None,
         result={},
         change_id=change.id if change else None,
     )
@@ -219,56 +271,194 @@ def log_action(
     return row
 
 
-def _done(
-    batch: Batch,
-    seq: int,
+def action_row(kitchen: Kitchen, action: str | None) -> SyncAction | None:
+    if not action:
+        return None
+    return kitchen.db.get(SyncAction, (kitchen.household_id, action))
+
+
+# --- One action ----------------------------------------------------------------------------------
+
+
+class Refused(Exception):
+    """The action is not valid (sync protocol 5.4): nothing of it is recorded."""
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+
+
+@dataclass
+class Act:
+    """One action being applied: what it says, and what happened."""
+
+    batch: Batch
+    id: str
+    kind: str
+    payload: dict[str, Any]
+    device_id: str | None = None
+    seen: int | None = None
+    made_at: datetime | None = None
+    sent_at: datetime | None = None
+    plain: bool = False  # one of the plain one-at-a-time requests
+    seq: int = 0
+    status: str = "applied"  # applied, merged, ignored
+    reason: str | None = None
+    message: str | None = None
+    list_id: str | None = None
+    item_id: str | None = None
+    food_id: int | None = None
+    main_change: Change | None = None  # the list change, for Undo
+    change: Change | None = None  # the pantry change, if any (sync protocol 5.4)
+    out: dict[str, Any] = field(default_factory=dict)  # for the plain requests' answers
+
+    @property
+    def kitchen(self) -> Kitchen:
+        return self.batch.kitchen
+
+    def ignore(self, reason: str, message: str | None = None) -> None:
+        self.status = "ignored"
+        self.reason = reason
+        self.message = message
+
+    def done(
+        self,
+        change_kind: str,
+        summary: str,
+        ops: list[dict[str, Any]],
+        food_id: int | None = None,
+        **extra: Any,
+    ) -> Change:
+        """Record the list Change (for Undo and Recent changes)."""
+        change = record(
+            self.kitchen,
+            change_kind,
+            summary,
+            food_id,
+            {"shopping": ops, "action": self.id, **extra},
+        )
+        if self.main_change is None:
+            self.main_change = change
+        return change
+
+
+def new_id(kitchen: Kitchen, wanted: str | None, model: Any) -> str:
+    """A phone-made UUID, or a new one. An ID already used (by anyone) is refused."""
+    made = wanted or str(uuid.uuid4())
+    if kitchen.db.get(model, made) is not None:
+        raise Refused("id_taken", "That ID is already used.")
+    return made
+
+
+def milli_of(amount: Any) -> int | None:
+    """An action's base amount → thousandths; over 1,000,000 → refused too_big."""
+    if amount is None:
+        return None
+    try:
+        return checked(to_milli(amount))
+    except TooBig as err:
+        raise Refused("too_big", "That amount is too big.") from err
+
+
+# --- Notes (section 8) ---------------------------------------------------------------------------
+
+
+def who(login_id: int | None, name: str, for_login_id: int | None) -> str:
+    """{who}: the other person's name, or "Your other phone" for the same login."""
+    return OTHER_PHONE if login_id is not None and login_id == for_login_id else name
+
+
+def note(
+    act: Act,
     kind: str,
-    change_kind: str,
-    summary: str,
-    ops: list[dict[str, Any]],
-    payload: dict[str, Any],
+    for_login_id: int | None,
+    words: str,
     *,
-    food_id: int | None = None,
-    list_id: str | None = None,
+    list_id: str,
     item_id: str | None = None,
-    status_: str = "applied",
-) -> Change:
-    """Record the Change (for Undo) and the sync-log row for one action."""
-    change = record(
-        batch.kitchen, change_kind, summary, food_id, {"shopping": ops, "action": batch.action}
-    )
-    log_action(
-        batch,
-        seq,
-        batch.action,
-        kind,
-        payload,
+    food_id: int | None = None,
+    undo: str | None = None,
+) -> ListNote | None:
+    if for_login_id is None:
+        return None
+    row = ListNote(
+        household_id=act.kitchen.household_id,
         list_id=list_id,
         item_id=item_id,
-        change=change,
-        status_=status_,
+        food_id=food_id,
+        for_login_id=for_login_id,
+        kind=kind,
+        text=words[:300],
+        undo_action_id=undo,
+        created_at=utcnow(),
+        version=act.seq,
     )
-    batch.finish()
-    return change
+    act.kitchen.db.add(row)
+    act.kitchen.db.flush()
+    return row
+
+
+def notes_gone(kitchen: Kitchen, undone_action: str | None, seq: int) -> None:
+    """A note goes away when what it describes is undone (section 8)."""
+    if not undone_action:
+        return
+    for row in kitchen.db.scalars(
+        select(ListNote).where(
+            ListNote.household_id == kitchen.household_id,
+            ListNote.undo_action_id == undone_action,
+            ListNote.gone_at.is_(None),
+        )
+    ):
+        row.gone_at = utcnow()
+        row.version = seq
+
+
+def unseen(act: Act, row: SyncAction | None) -> bool:
+    """Was `row` recorded after the device last caught up (it hadn't seen it)?"""
+    return row is not None and not act.plain and act.seen is not None and row.seq > act.seen
+
+
+def in_removed_list(act: Act, shopping_list: ShoppingList, ticked: bool = False) -> None:
+    """N7: queued actions that hit a removed list still apply; the person whose queue hit
+    it gets one list-wide note (rule L-7)."""
+    if shopping_list.removed_at is None or act.plain:
+        return
+    removal = action_row(act.kitchen, shopping_list.removed_action_id)
+    if removal is None or not unseen(act, removal):
+        return
+    me = act.kitchen.login.id
+    words = (
+        f"{who(removal.login_id, removal.login_name, me)} had removed {shopping_list.name}."
+        " Your changes are kept with it."
+    )
+    existing = act.kitchen.db.scalar(
+        select(ListNote).where(
+            ListNote.household_id == act.kitchen.household_id,
+            ListNote.list_id == shopping_list.id,
+            ListNote.kind == "N7",
+            ListNote.for_login_id == me,
+            ListNote.gone_at.is_(None),
+        )
+    )
+    if existing is not None:
+        if ticked and not existing.text.endswith("pantry."):
+            existing.text = existing.text + " Your ticks still went into the pantry."
+            existing.version = act.seq
+        return
+    if ticked:
+        words += " Your ticks still went into the pantry."
+    note(act, "N7", me, words, list_id=shopping_list.id, undo=removal.id)
 
 
 # --- Lists ---------------------------------------------------------------------------------------
 
 
-def _new_id(kitchen: Kitchen, wanted: str | None, model: Any) -> str:
-    """A phone-made UUID, or a new one. An ID already used (by anyone) is refused."""
-    new = wanted or str(uuid.uuid4())
-    if kitchen.db.get(model, new) is not None:
-        raise Problem(status.HTTP_409_CONFLICT, "id_taken", "That ID is already used.")
-    return new
-
-
-def make_list(
-    kitchen: Kitchen, name: str, list_id: str | None = None
-) -> tuple[ShoppingList, Change]:
-    batch = Batch(kitchen)
-    new_id = _new_id(kitchen, list_id, ShoppingList)
-    seq = batch.take()
+def make_list(act: Act) -> None:
+    kitchen = act.kitchen
+    ensure_main_list(kitchen.db, kitchen.household_id)
+    list_id = new_id(kitchen, act.payload["list_id"], ShoppingList)
+    name = act.payload["name"]
     position = (
         kitchen.db.scalar(
             select(func.max(ShoppingList.position)).where(
@@ -278,73 +468,67 @@ def make_list(
         or 0
     ) + 1
     made = ShoppingList(
-        id=new_id,
+        id=list_id,
         household_id=kitchen.household_id,
         name=name,
         main=False,
         position=position,
         created_by_name=kitchen.login.name,
-        version=seq,
+        version=act.seq,
     )
     kitchen.db.add(made)
     kitchen.db.flush()
-    change = _done(
-        batch,
-        seq,
-        "create_list",
-        "list_made",
-        f"Made the list {name}",
-        [{"op": "list_made", "list_id": made.id}],
-        {"list_id": made.id, "name": name},
-        list_id=made.id,
-    )
-    return made, change
+    act.list_id = made.id
+    act.out["list"] = made
+    act.done("list_made", f"Made the list {name}", [{"op": "list_made", "list_id": made.id}])
 
 
-def rename_list(kitchen: Kitchen, shopping_list: ShoppingList, name: str) -> Change | None:
+def rename_list(act: Act) -> None:
     """Any list can be renamed, the main list too (the last one received wins, no note)."""
+    shopping_list = get_list(act.kitchen, act.payload["list_id"])
+    if shopping_list is None:
+        act.ignore("gone")
+        return
+    act.list_id = shopping_list.id
+    act.out["list"] = shopping_list
+    name = act.payload["name"]
     if shopping_list.name == name:
-        return None
-    batch = Batch(kitchen)
-    seq = batch.take()
+        act.ignore("no_change")
+        return
+    in_removed_list(act, shopping_list)
     old = shopping_list.name
     shopping_list.name = name
-    shopping_list.version = seq
-    return _done(
-        batch,
-        seq,
-        "rename_list",
+    shopping_list.version = act.seq
+    act.done(
         "list_renamed",
         f"Renamed the list {old} to {name}",
         [{"op": "list_name", "list_id": shopping_list.id, "old": old, "new": name}],
-        {"list_id": shopping_list.id, "name": name},
-        list_id=shopping_list.id,
     )
 
 
-def remove_list(kitchen: Kitchen, shopping_list: ShoppingList) -> Change:
+def remove_list(act: Act) -> None:
     """Hide an extra list (hidden, not frozen). The main list can never be removed."""
+    shopping_list = get_list(act.kitchen, act.payload["list_id"])
+    if shopping_list is None:
+        act.ignore("gone")
+        return
+    act.list_id = shopping_list.id
     if shopping_list.main:
-        raise Problem(
-            status.HTTP_409_CONFLICT,
-            "main_list",
-            "The main list can be renamed, but not removed.",
-        )
-    batch = Batch(kitchen)
-    seq = batch.take()
+        raise Refused("main_list", "The main list can be renamed, but not removed.")
+    if shopping_list.removed_at is not None:
+        act.ignore("no_change")
+        return
     shopping_list.removed_at = utcnow()
-    shopping_list.removed_action_id = batch.action
-    shopping_list.version = seq
-    return _done(
-        batch,
-        seq,
-        "remove_list",
+    shopping_list.removed_action_id = act.id
+    shopping_list.version = act.seq
+    act.done(
         "list_removed",
         f"Removed the list {shopping_list.name}",
         [{"op": "list_removed", "list_id": shopping_list.id}],
-        {"list_id": shopping_list.id},
-        list_id=shopping_list.id,
     )
+
+
+# --- Ingredients and lists -----------------------------------------------------------------------
 
 
 def merged_in(db: DbSession, household_id: int, food_id: int) -> set[int]:
@@ -403,7 +587,7 @@ def move_items(
     """A merge: every list item of the merged-away ingredient goes to the kept one (sync
     protocol 5.8), tombstones too. Two lines that become the same ingredient stay two
     lines. Returns the Undo steps."""
-    seq = batch.taken[-1] if batch.taken else batch.take()
+    seq = batch.number()
     ops: list[dict[str, Any]] = []
     for item in kitchen.db.scalars(
         select(ListItem).where(
@@ -413,6 +597,39 @@ def move_items(
         item.food_id = to_food_id
         item.version = seq
         ops.append({"op": "item_food", "item_id": item.id, "old": from_food_id, "new": to_food_id})
+    kitchen.db.flush()
+    return ops
+
+
+def follow_shop(
+    kitchen: Kitchen, food: Food, old_shop_id: int | None, batch: Batch
+) -> list[dict[str, Any]]:
+    """A usual-shop change moves the ingredient's unticked items that were in the old shop
+    (or Any shop) to the new one (sync protocol 3.2, 5.8). Returns the Undo steps."""
+    if food.shop_id == old_shop_id:
+        return []
+    items = list(
+        kitchen.db.scalars(
+            select(ListItem).where(
+                ListItem.household_id == kitchen.household_id,
+                ListItem.food_id == food.id,
+                ListItem.deleted_at.is_(None),
+                ListItem.merged_into_id.is_(None),
+                ListItem.ticked_at.is_(None),
+            )
+        )
+    )
+    moving = [i for i in items if i.shop_id in (old_shop_id, None) and i.shop_id != food.shop_id]
+    if not moving:
+        return []
+    seq = batch.number()
+    ops: list[dict[str, Any]] = []
+    for item in moving:
+        ops.append(
+            {"op": "item_shop", "item_id": item.id, "old": item.shop_id, "new": food.shop_id}
+        )
+        item.shop_id = food.shop_id
+        item.version = seq
     kitchen.db.flush()
     return ops
 
@@ -435,7 +652,7 @@ def bump_foods(kitchen: Kitchen, food_ids: Iterable[int], batch: Batch | None = 
         return
     own = batch is None
     batch = batch or Batch(kitchen)
-    seq = batch.taken[-1] if batch.taken else batch.take()
+    seq = batch.number()
     kitchen.db.execute(
         update(Food)
         .where(Food.household_id == kitchen.household_id, Food.id.in_(ids))
@@ -460,18 +677,34 @@ def default_amount(kitchen: Kitchen, food: Food) -> tuple[int | None, int | None
 
 
 def check_shop(kitchen: Kitchen, shop_id: int) -> Shop:
+    shop = get_shop(kitchen, shop_id)
+    if shop is None:
+        raise not_found("That shop")
+    return shop
+
+
+def get_shop(kitchen: Kitchen, shop_id: int) -> Shop | None:
     shop = kitchen.db.get(Shop, shop_id)
     if shop is None or shop.household_id != kitchen.household_id:
-        raise not_found("That shop")
+        return None
     return shop
 
 
 def check_size(kitchen: Kitchen, food: Food, size_id: int | None) -> FoodSize | None:
     if size_id is None:
         return None
+    size = get_size(kitchen, food, size_id)
+    if size is None:
+        raise not_found("That size")
+    return size
+
+
+def get_size(kitchen: Kitchen, food: Food, size_id: int | None) -> FoodSize | None:
+    if size_id is None:
+        return None
     size = kitchen.db.get(FoodSize, size_id)
     if size is None or size.food_id != food.id:
-        raise not_found("That size")
+        return None
     return size
 
 
@@ -498,68 +731,178 @@ def matching_line(
     return kitchen.db.scalar(query)
 
 
-def add_item(
-    kitchen: Kitchen,
-    shopping_list: ShoppingList,
-    food: Food,
-    *,
-    amount_milli: int | None,
-    size: FoodSize | None,
-    blank: bool,
-    shop_id: int | None,
-    item_id: str | None = None,
-) -> tuple[ListItem, Change, bool]:
-    """Add an ingredient to a list, or join a line that is already there.
+def made_by(kitchen: Kitchen, item_id: str) -> SyncAction | None:
+    """The action that made this line."""
+    return kitchen.db.scalar(
+        select(SyncAction)
+        .where(
+            SyncAction.household_id == kitchen.household_id,
+            SyncAction.kind == "add",
+            SyncAction.item_id == item_id,
+            SyncAction.status == "applied",
+        )
+        .order_by(SyncAction.seq)
+        .limit(1)
+    )
 
-    `blank`: no amount was given (the usual size, or 1 for items). Joining adds the amounts
-    up (online, the person can see the line; PR 3: a real clash between two devices keeps
-    the bigger amount and leaves notes). Returns (item, change, merged)."""
-    batch = Batch(kitchen)
-    new_id = _new_id(kitchen, item_id, ListItem)
-    if blank:
+
+def _gone_name(kitchen: Kitchen, food_id: Any) -> str | None:
+    """The name of an ingredient deleted for good, from the tidy-up's log row."""
+    for payload in kitchen.db.scalars(
+        select(SyncAction.payload).where(
+            SyncAction.household_id == kitchen.household_id, SyncAction.kind == "purge"
+        )
+    ):
+        name = (payload or {}).get("foods", {}).get(str(food_id))
+        if name:
+            return str(name)
+    return None
+
+
+def _named(kitchen: Kitchen, name: str) -> Food | None:
+    """A visible ingredient with this name or other name (ignoring case and accents)."""
+    owner = name_owner(kitchen, name)
+    if owner is not None:
+        return owner
+    folded = fold(name)
+    for other, food in kitchen.db.execute(
+        select(FoodName, Food)
+        .join(Food, Food.id == FoodName.food_id)
+        .where(
+            Food.household_id == kitchen.household_id,
+            Food.removed_at.is_(None),
+            Food.merged_into_id.is_(None),
+        )
+    ).all():
+        if fold(other.name) == folded:
+            return food
+    return None
+
+
+def _bring_back(act: Act, food: Food) -> dict[str, Any]:
+    """An `add` of an ingredient removed while the phone was offline brings it back
+    (sync protocol 5.9). Returns its Undo snapshot."""
+    kitchen = act.kitchen
+    before = snapshot(kitchen, [food.id])
+    food.removed_at = None
+    kitchen.db.flush()
+    bump_foods(kitchen, [food.id], act.batch)
+    act.message = f"{food.name} is back in Ingredients."
+    return diff(before, snapshot(kitchen, [food.id]))
+
+
+def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any]]:
+    """`new_food` (sync protocol 4.4): the ingredient of that name if there is one, an
+    ingredient of that name removed while offline brought back, else a new one."""
+    kitchen = act.kitchen
+    name = clean(wanted["name"])
+    found = _named(kitchen, name)
+    if found is not None:
+        return found, {}
+    folded = fold(name)
+    for removed in kitchen.db.scalars(
+        select(Food)
+        .where(
+            Food.household_id == kitchen.household_id,
+            Food.removed_at.is_not(None),
+            Food.merged_into_id.is_(None),
+        )
+        .order_by(Food.removed_at.desc())
+    ):
+        if fold(removed.name) == folded:
+            return removed, _bring_back(act, removed)
+    # Imported here: FoodEdit needs this module.
+    from mealwright.history import FoodEdit
+
+    row = table().match(name)
+    with FoodEdit(kitchen, [], batch=act.batch) as edit:
+        food = Food(
+            household_id=kitchen.household_id,
+            name=name,
+            counted_as=wanted.get("counted_as") or (row.counted_as if row else "weight"),
+            staple=bool(wanted.get("staple", False)),
+            aisle=row.aisle if row and row.aisle else DEFAULT_AISLE,
+            table_key=row.key if row else None,
+        )
+        kitchen.db.add(food)
+        kitchen.db.flush()
+        edit.also(food.id)
+    edit.record("food_created", f"Added {food.name}", food.id)
+    return food, {}
+
+
+def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any]]:
+    """The ingredient an `add` names (sync protocol 5.9): merges are followed; one removed
+    while offline is brought back (unless its name is someone else's now: then that one);
+    one deleted for good gives None."""
+    kitchen = act.kitchen
+    food = kitchen.db.get(Food, food_id)
+    seen: set[int] = set()
+    while food is not None and food.merged_into_id is not None and food.id not in seen:
+        seen.add(food.id)
+        food = kitchen.db.get(Food, food.merged_into_id)
+    if food is None or food.household_id != kitchen.household_id:
+        return None, {}
+    if food.removed_at is None:
+        return food, {}
+    taken = _named(kitchen, food.name)
+    if taken is None:
+        for other in kitchen.db.scalars(select(FoodName).where(FoodName.food_id == food.id)):
+            taken = _named(kitchen, other.name)
+            if taken is not None:
+                break
+    if taken is not None:
+        return taken, {}
+    return food, _bring_back(act, food)
+
+
+def _amount_state(item: ListItem) -> list[Any]:
+    return [item.amount_milli, item.size_id]
+
+
+def add_item(act: Act) -> None:
+    """Add an ingredient to a list, or join a line that is already there (rule L-12).
+
+    A blank amount: the usual size, or 1 for items. Joining adds the amounts up, unless it
+    is a real clash between two devices (the adder hadn't seen the line): then the line
+    keeps the bigger amount and both adders get note N2."""
+    kitchen, payload = act.kitchen, act.payload
+    shopping_list = get_list(kitchen, payload["list_id"])
+    if shopping_list is None:
+        act.ignore("gone")
+        return
+    act.list_id = shopping_list.id
+    item_id = new_id(kitchen, payload.get("item_id"), ListItem)
+    foods: dict[str, Any] = {}
+    if payload.get("new_food") is not None:
+        food, foods = _new_food(act, payload["new_food"])
+    else:
+        found, foods = _food_for(act, payload["food_id"])
+        if found is None:
+            name = _gone_name(kitchen, payload["food_id"]) or "That ingredient"
+            act.ignore("gone", f"{name} was removed from Ingredients, so it wasn't added.")
+            return
+        food = found
+    act.food_id = food.id
+    if "shop_id" in payload:
+        wanted_shop = payload["shop_id"]
+        shop = get_shop(kitchen, wanted_shop) if wanted_shop is not None else None
+        shop_id = shop.id if shop else (food.shop_id if wanted_shop is not None else None)
+    else:
+        shop_id = food.shop_id
+    amount_milli = milli_of(payload.get("amount"))
+    size = get_size(kitchen, food, payload.get("size_id"))
+    if amount_milli is None:
         amount_milli, size_id = default_amount(kitchen, food)
         size = kitchen.db.get(FoodSize, size_id) if size_id else None
-    payload = {
-        "list_id": shopping_list.id,
-        "item_id": new_id,
-        "food_id": food.id,
-        "amount_milli": amount_milli,
-        "size_id": size.id if size else None,
-        "shop_id": shop_id,
-    }
+    in_removed_list(act, shopping_list)
+    extra = {"foods": foods} if foods else {}
     line = matching_line(kitchen, shopping_list.id, food.id, shop_id)
-    seq = batch.take()
     if line is not None:
-        before = _amount_state(line)
-        if amount_milli is not None:
-            line.amount_milli = checked((line.amount_milli or 0) + amount_milli)
-            if line.size_id is None and line.amount_milli == amount_milli and size is not None:
-                line.size_id = size.id
-        line.version = seq
-        kitchen.db.flush()
-        change = _done(
-            batch,
-            seq,
-            "add",
-            "item_added",
-            f"Added {food.name} to {shopping_list.name} (joined the line already there)",
-            [
-                {
-                    "op": "item_amount",
-                    "item_id": line.id,
-                    "old": before,
-                    "new": _amount_state(line),
-                }
-            ],
-            payload,
-            food_id=food.id,
-            list_id=shopping_list.id,
-            item_id=line.id,
-            status_="merged",
-        )
-        return line, change, True
+        _join(act, shopping_list, line, food, amount_milli, size, item_id, extra)
+        return
     item = ListItem(
-        id=new_id,
+        id=item_id,
         household_id=kitchen.household_id,
         list_id=shopping_list.id,
         food_id=food.id,
@@ -570,98 +913,281 @@ def add_item(
         hand_edited=False,
         added_by_login_id=kitchen.login.id,
         added_by_name=kitchen.login.name,
-        version=seq,
+        version=act.seq,
     )
     kitchen.db.add(item)
     kitchen.db.flush()
-    change = _done(
-        batch,
-        seq,
-        "add",
+    act.item_id = item.id
+    act.out["item"] = item
+    act.done(
         "item_added",
         f"Added {food.name} to {shopping_list.name}",
-        [
-            {
-                "op": "item_made",
-                "item_id": item.id,
-                "state": _amount_state(item),
-                "shop_id": item.shop_id,
-            }
-        ],
-        payload,
-        food_id=food.id,
-        list_id=shopping_list.id,
-        item_id=item.id,
+        [{"op": "item_made", "item_id": item.id, "state": _amount_state(item), "shop_id": shop_id}],
+        food.id,
+        **extra,
     )
-    return item, change, False
 
 
-def _amount_state(item: ListItem) -> list[Any]:
-    return [item.amount_milli, item.size_id]
+def _join(
+    act: Act,
+    shopping_list: ShoppingList,
+    line: ListItem,
+    food: Food,
+    amount_milli: int | None,
+    size: FoodSize | None,
+    item_id: str,
+    extra: dict[str, Any],
+) -> None:
+    kitchen = act.kitchen
+    before = _amount_state(line)
+    maker = made_by(kitchen, line.id)
+    clash = maker is not None and maker.device_id != act.device_id and unseen(act, maker)
+    if clash:
+        # The bigger amount stays, with its size (no amount counts as smallest).
+        if amount_milli is not None and amount_milli > (line.amount_milli or 0):
+            line.amount_milli = amount_milli
+            line.size_id = size.id if size else None
+        line.hand_edited = True
+    elif amount_milli is not None:
+        try:
+            line.amount_milli = checked((line.amount_milli or 0) + amount_milli)
+        except TooBig as err:
+            raise Refused("too_big", "That amount is too big.") from err
+        if line.size_id is None and line.amount_milli == amount_milli and size is not None:
+            line.size_id = size.id
+    line.version = act.seq
+    if act.payload.get("item_id"):
+        # The phone's own ID for the item leads to the line it joined (sync protocol 3.2).
+        kitchen.db.add(
+            ListItem(
+                id=item_id,
+                household_id=kitchen.household_id,
+                list_id=shopping_list.id,
+                food_id=food.id,
+                shop_id=line.shop_id,
+                source="typed",
+                added_by_login_id=kitchen.login.id,
+                added_by_name=kitchen.login.name,
+                merged_into_id=line.id,
+                version=act.seq,
+            )
+        )
+    kitchen.db.flush()
+    act.status = "merged"
+    act.item_id = line.id
+    act.out["item"] = line
+    act.done(
+        "item_added",
+        f"Added {food.name} to {shopping_list.name} (joined the line already there)",
+        [{"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}],
+        food.id,
+        **extra,
+    )
+    if clash and maker is not None:
+        me = kitchen.login.id
+        to = {me: who(maker.login_id, maker.login_name, me)}
+        if maker.login_id is not None and maker.login_id != me:
+            to[maker.login_id] = who(me, kitchen.login.name, maker.login_id)
+        elif maker.login_id == me:
+            to[me] = OTHER_PHONE
+        for login_id, name in to.items():
+            note(
+                act,
+                "N2",
+                login_id,
+                f"{name} added {food.name} too",
+                list_id=line.list_id,
+                item_id=line.id,
+                food_id=food.id,
+                undo=act.id,
+            )
 
 
-def set_amount(
-    kitchen: Kitchen, item: ListItem, food: Food, amount_milli: int, size: FoodSize | None
-) -> Change | None:
-    """Change the amount to buy. Sets `hand_edited`, so the plan (0.6) never overwrites it.
-    On a ticked item it changes only the list, never the pantry (that's "Different pack?")."""
+def _last_amount_action(kitchen: Kitchen, item_id: str) -> SyncAction | None:
+    return kitchen.db.scalar(
+        select(SyncAction)
+        .where(
+            SyncAction.household_id == kitchen.household_id,
+            SyncAction.item_id == item_id,
+            SyncAction.kind == "set_amount",
+            SyncAction.status == "applied",
+            SyncAction.undone_by_action_id.is_(None),
+        )
+        .order_by(SyncAction.seq.desc())
+        .limit(1)
+    )
+
+
+def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
+    """N4 to the editor whose change wasn't kept, because the item was off the list."""
+    removal = action_row(act.kitchen, item.deleted_action_id)
+    if removal is None or act.plain:
+        return
+    me = act.kitchen.login.id
+    note(
+        act,
+        "N4",
+        me,
+        f"{who(removal.login_id, removal.login_name, me)} had removed {food.name},"
+        " so your change wasn't kept.",
+        list_id=item.list_id,
+        item_id=item.id,
+        food_id=food.id,
+        undo=removal.id,
+    )
+
+
+def set_amount(act: Act) -> None:
+    """Change the amount to buy (the last one received wins). Sets `hand_edited`, so the
+    plan (0.6) never overwrites it. On a ticked item it changes only the list, never the
+    pantry (that's "Different pack?")."""
+    from mealwright.foods import amount_out
+
+    kitchen, payload = act.kitchen, act.payload
+    item = get_item(kitchen, payload["item_id"])
+    if item is None:
+        act.ignore("gone")
+        return
+    act.item_id, act.list_id, act.food_id = item.id, item.list_id, item.food_id
+    food = kitchen.db.get(Food, item.food_id)
+    if food is None:  # pragma: no cover (an ingredient's items go with it)
+        act.ignore("gone")
+        return
+    shopping_list = get_list(kitchen, item.list_id)
+    amount_milli = milli_of(payload["amount"])
+    size = get_size(kitchen, food, payload.get("size_id"))
+    act.out["item"] = item
     if item.deleted_at is not None:
-        raise deleted(item)
+        act.ignore("deleted")
+        _edit_against_delete(act, item, food)
+        return
     new_size = size.id if size else None
     if (item.amount_milli, item.size_id) == (amount_milli, new_size):
-        return None
-    batch = Batch(kitchen)
-    seq = batch.take()
+        act.ignore("no_change")
+        return
+    if shopping_list is not None:
+        in_removed_list(act, shopping_list)
+    overwritten = _last_amount_action(kitchen, item.id)
     before = _amount_state(item)
     item.amount_milli = amount_milli
     item.size_id = new_size
     item.hand_edited = True
-    item.version = seq
-    return _done(
-        batch,
-        seq,
-        "set_amount",
+    item.version = act.seq
+    act.done(
         "item_amount",
         f"Changed {food.name} on the list",
         [{"op": "item_amount", "item_id": item.id, "old": before, "new": _amount_state(item)}],
-        {"item_id": item.id, "amount_milli": amount_milli, "size_id": new_size},
-        food_id=food.id,
-        list_id=item.list_id,
-        item_id=item.id,
+        food.id,
     )
+    if (
+        overwritten is not None
+        and overwritten.device_id != act.device_id
+        and unseen(act, overwritten)
+        and amount_milli is not None
+    ):
+        short = amount_out(food, amount_milli, size).short
+        note(
+            act,
+            "N3",
+            overwritten.login_id,
+            f"{who(kitchen.login.id, kitchen.login.name, overwritten.login_id)}"
+            f" changed {food.name} to {short}",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
 
 
-def delete_item(kitchen: Kitchen, item: ListItem, food: Food) -> Change | None:
-    """Take an item off the list, leaving a tombstone so an old queue can't bring it back."""
-    if item.deleted_at is not None:
-        return None
-    batch = Batch(kitchen)
-    seq = batch.take()
-    _tombstone(kitchen, item, seq, batch.action)
-    return _done(
-        batch,
-        seq,
-        "delete",
-        "item_deleted",
-        f"Took {food.name} off the list",
-        [{"op": "item_deleted", "item_ids": [item.id]}],
-        {"item_id": item.id},
-        food_id=food.id,
-        list_id=item.list_id,
-        item_id=item.id,
-    )
-
-
-def _tombstone(kitchen: Kitchen, item: ListItem, seq: int, action: str) -> None:
+def tombstone(kitchen: Kitchen, item: ListItem, seq: int, action: str) -> None:
     item.deleted_at = utcnow()
     item.deleted_by_name = kitchen.login.name
     item.deleted_action_id = action
     item.version = seq
 
 
+def _lost_to_delete(act: Act, item: ListItem, food: Food) -> None:
+    """A delete from someone who hadn't seen later edits or ticks: N4 to the editors, N1
+    to the tickers whose purchase put stock in (rules L-6, L-9)."""
+    if act.plain or act.seen is None:
+        return
+    kitchen = act.kitchen
+    me, my_name = kitchen.login.id, kitchen.login.name
+    later = kitchen.db.scalars(
+        select(SyncAction).where(
+            SyncAction.household_id == kitchen.household_id,
+            SyncAction.item_id == item.id,
+            SyncAction.seq > act.seen,
+            SyncAction.kind.in_(("set_amount", "tick")),
+            SyncAction.status == "applied",
+            SyncAction.undone_by_action_id.is_(None),
+        )
+    ).all()
+    told: set[tuple[str, int | None]] = set()
+    for row in later:
+        if row.device_id == act.device_id or (row.kind, row.login_id) in told:
+            continue
+        if row.kind == "set_amount":
+            told.add((row.kind, row.login_id))
+            note(
+                act,
+                "N4",
+                row.login_id,
+                f"{who(me, my_name, row.login_id)} had removed {food.name},"
+                " so your change wasn't kept.",
+                list_id=item.list_id,
+                item_id=item.id,
+                food_id=food.id,
+                undo=act.id,
+            )
+            continue
+        tick = kitchen.db.get(ListTick, (kitchen.household_id, row.id))
+        if tick is None or tick.reversed_at is not None or tick.change_id is None:
+            continue
+        told.add((row.kind, row.login_id))
+        note(
+            act,
+            "N1",
+            row.login_id,
+            f"{who(me, my_name, row.login_id)} had removed this."
+            " Your tick still went into the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=row.id,
+        )
+
+
+def delete_item(act: Act) -> None:
+    """Take an item off the list, leaving a tombstone so an old queue can't bring it back."""
+    kitchen = act.kitchen
+    item = get_item(kitchen, act.payload["item_id"])
+    if item is None:
+        act.ignore("gone")
+        return
+    act.item_id, act.list_id, act.food_id = item.id, item.list_id, item.food_id
+    if item.deleted_at is not None:
+        act.ignore("deleted")
+        return
+    food = kitchen.db.get(Food, item.food_id)
+    name = food.name if food else ""
+    shopping_list = get_list(kitchen, item.list_id)
+    if shopping_list is not None:
+        in_removed_list(act, shopping_list)
+    tombstone(kitchen, item, act.seq, act.id)
+    act.done(
+        "item_deleted",
+        f"Took {name} off the list",
+        [{"op": "item_deleted", "item_ids": [item.id]}],
+        item.food_id,
+    )
+    if food is not None:
+        _lost_to_delete(act, item, food)
+
+
 def standing_ticks(kitchen: Kitchen, item_ids: Iterable[str]) -> set[str]:
-    """Items with at least one tick that hasn't been reversed. PR 3 keeps `list_tick` and
-    the item's `ticked_at` copy in step; this reads both so the two can't disagree here."""
+    """Items with at least one tick that hasn't been reversed. The item's `ticked_at` copy
+    is kept in step with `list_tick`; this reads both so the two can't disagree here."""
     ids = list(item_ids)
     if not ids:
         return set()
@@ -676,12 +1202,10 @@ def standing_ticks(kitchen: Kitchen, item_ids: Iterable[str]) -> set[str]:
     )
 
 
-def clear_ticked(
+def ticked_items(
     kitchen: Kitchen, shopping_list: ShoppingList, item_ids: list[str] | None
-) -> tuple[list[ListItem], Change | None]:
-    """Remove the ticked items from a list, as one action with one Undo. An item that was
-    unticked meanwhile stays. Ticking itself is PR 3: here "ticked" is what the tick rows
-    and the item's `ticked_at` say."""
+) -> list[ListItem]:
+    """The live items on a list with a standing tick (only those named, if named)."""
     query = select(ListItem).where(
         ListItem.household_id == kitchen.household_id,
         ListItem.list_id == shopping_list.id,
@@ -690,50 +1214,78 @@ def clear_ticked(
     )
     if item_ids is not None:
         query = query.where(ListItem.id.in_(item_ids))
-    candidates = list(kitchen.db.scalars(query))
+    candidates = list(kitchen.db.scalars(query.order_by(ListItem.added_at, ListItem.id)))
     standing = standing_ticks(kitchen, [i.id for i in candidates])
-    items = [i for i in candidates if i.ticked_at is not None or i.id in standing]
+    return [i for i in candidates if i.ticked_at is not None or i.id in standing]
+
+
+def clear_ticked(act: Act) -> None:
+    """Remove the listed ticked items from a list, as one action with one Undo. An item
+    that was unticked meanwhile stays (rule L-19)."""
+    kitchen = act.kitchen
+    shopping_list = get_list(kitchen, act.payload["list_id"])
+    if shopping_list is None:
+        act.ignore("gone")
+        return
+    act.list_id = shopping_list.id
+    items = ticked_items(kitchen, shopping_list, act.payload["item_ids"])
+    act.out["cleared"] = items
     if not items:
-        return [], None
-    batch = Batch(kitchen)
-    seq = batch.take()
+        act.ignore("not_ticked")
+        return
+    in_removed_list(act, shopping_list)
     for item in items:
-        _tombstone(kitchen, item, seq, batch.action)
+        tombstone(kitchen, item, act.seq, act.id)
     n = len(items)
-    change = _done(
-        batch,
-        seq,
-        "clear_ticked",
+    act.done(
         "item_deleted",
         f"Cleared {n} ticked item{'s' if n != 1 else ''} from {shopping_list.name}",
         [{"op": "item_deleted", "item_ids": [i.id for i in items]}],
-        {"list_id": shopping_list.id, "item_ids": [i.id for i in items]},
-        list_id=shopping_list.id,
     )
-    return items, change
+
+
+def dismiss_note(act: Act) -> None:
+    """Hide a note (its close button). Someone else's note, or one that's gone → ignored
+    gone, quietly."""
+    kitchen = act.kitchen
+    row = kitchen.db.get(ListNote, act.payload["note_id"])
+    if (
+        row is None
+        or row.household_id != kitchen.household_id
+        or row.for_login_id != kitchen.login.id
+        or row.gone_at is not None
+    ):
+        act.ignore("gone")
+        return
+    act.list_id, act.item_id = row.list_id, row.item_id
+    row.gone_at = utcnow()
+    row.version = act.seq
 
 
 # --- Undo ----------------------------------------------------------------------------------------
 
 
-def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) -> int:
-    """Reverse a list change (api: POST /changes/{id}/undo). Each part is put back only if
-    it still looks the way the change left it (like food changes). Rows touched get the
-    Undo's counter number. Returns that number."""
+def _same[T: (ShoppingList, ListItem)](row: T | None, kitchen: Kitchen) -> TypeIs[T]:
+    return row is not None and row.household_id == kitchen.household_id
+
+
+def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, action: str) -> int:
+    """Reverse a list change's list part. Each part is put back only if it still looks the
+    way the change left it (like food changes). Rows touched get the Undo's counter number,
+    which is returned. `action` is the Undo's action ID."""
     data = change.undo_data or {}
-    seq = batch.take()
+    seq = batch.number()
     db = kitchen.db
-    undo_action = batch.action
     for op in data.get("shopping", []):
         kind = op["op"]
         if kind in ("list_made", "list_name", "list_removed"):
             row = db.get(ShoppingList, op["list_id"])
-            if row is None or row.household_id != kitchen.household_id:
+            if not _same(row, kitchen):
                 tally.skipped += 1
                 continue
             if kind == "list_made":
                 row.removed_at = row.removed_at or utcnow()
-                row.removed_action_id = undo_action
+                row.removed_action_id = action
             elif kind == "list_removed":
                 row.removed_at = None
                 row.removed_action_id = None
@@ -746,7 +1298,7 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
             tally.done += 1
         elif kind == "item_made":
             item = db.get(ListItem, op["item_id"])
-            if item is None or item.household_id != kitchen.household_id:
+            if not _same(item, kitchen):
                 tally.skipped += 1
                 continue
             if item.deleted_at is not None:
@@ -756,13 +1308,13 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
                 and _amount_state(item) == op.get("state")
                 and (item.shop_id == op.get("shop_id"))
             ):
-                _tombstone(kitchen, item, seq, undo_action)
+                tombstone(kitchen, item, seq, action)
                 tally.done += 1
             else:  # ticked, or someone changed it since: leave it
                 tally.skipped += 1
         elif kind == "item_amount":
             item = db.get(ListItem, op["item_id"])
-            if item is None or item.household_id != kitchen.household_id or item.deleted_at:
+            if not _same(item, kitchen) or item.deleted_at:
                 tally.skipped += 1
                 continue
             if _amount_state(item) == op["new"]:
@@ -773,22 +1325,46 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
                 tally.done += 1
             else:
                 tally.skipped += 1
-        elif kind == "item_food":  # a merge moved the item to the kept ingredient
+        elif kind in ("item_food", "item_shop", "item_place"):
+            # A merge moved the item to the kept ingredient; a usual-shop change moved it
+            # to the new shop; a put-away chose its place.
+            column = {"item_food": "food_id", "item_shop": "shop_id"}.get(kind, "put_away_place_id")
             item = db.get(ListItem, op["item_id"])
-            if item is None or item.household_id != kitchen.household_id:
+            if not _same(item, kitchen):
                 tally.skipped += 1
-            elif item.food_id == op["new"]:
-                item.food_id = op["old"]
+            elif getattr(item, column) == op["new"]:
+                setattr(item, column, op["old"])
                 item.version = seq
                 tally.done += 1
-            elif item.food_id == op["old"]:
+            elif getattr(item, column) == op["old"]:
+                tally.done += 1
+            else:
+                tally.skipped += 1
+        elif kind == "tick_place":
+            tick = db.get(ListTick, (kitchen.household_id, op["tick_id"]))
+            if tick is None:
+                tally.skipped += 1
+            elif tick.place_id == op["new"]:
+                tick.place_id = op["old"]
+                _touch_item(kitchen, tick.item_id, seq)
+                tally.done += 1
+            else:
+                tally.done += tick.place_id == op["old"]
+                tally.skipped += tick.place_id != op["old"]
+        elif kind == "tick_bought":
+            tick = db.get(ListTick, (kitchen.household_id, op["tick_id"]))
+            if tick is None:
+                tally.skipped += 1
+            elif [tick.bought_milli, tick.bought_size_id] == op["new"]:
+                tick.bought_milli, tick.bought_size_id = op["old"]
+                _touch_item(kitchen, tick.item_id, seq)
                 tally.done += 1
             else:
                 tally.skipped += 1
         elif kind == "item_deleted":
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)
-                if item is None or item.household_id != kitchen.household_id:
+                if not _same(item, kitchen):
                     tally.skipped += 1
                     continue
                 if item.deleted_at is not None:
@@ -801,17 +1377,24 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) 
                     item.version = seq
                 tally.done += 1
     db.flush()
+    notes_gone(kitchen, data.get("action"), seq)
     return seq
 
 
-def log_undo(batch: Batch, seq: int, original: Change, undo_change: Change) -> None:
-    """The sync-log row for an Undo, and the mark on the action it undid."""
+def _touch_item(kitchen: Kitchen, item_id: str, seq: int) -> None:
+    item = kitchen.db.get(ListItem, item_id)
+    if item is not None:
+        item.version = seq
+
+
+def log_undo(batch: Batch, original: Change, undo_change: Change, kind: str = "undo") -> None:
+    """The sync-log row for an Undo from Pantry → Recent changes, and the mark on the
+    action it undid (sync protocol 5.8)."""
     kitchen = batch.kitchen
     undone_action = (original.undo_data or {}).get("action")
-    action = batch.action
-    log_action(batch, seq, action, "undo", {"undoes": undone_action}, change=undo_change)
+    row = server_action(batch, kind, {"undoes": undone_action}, undo_change)
     if undone_action:
-        row = kitchen.db.get(SyncAction, (kitchen.household_id, undone_action))
-        if row is not None:
-            row.undone_by_action_id = action
-    batch.finish()
+        undone = action_row(kitchen, undone_action)
+        if undone is not None:
+            undone.undone_by_action_id = row.id
+            row.list_id, row.item_id = undone.list_id, undone.item_id

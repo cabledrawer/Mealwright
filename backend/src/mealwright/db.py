@@ -26,7 +26,11 @@ def make_engine(url: str) -> Engine:
 
     # hide_parameters: a database error's text leaves out the values (a typed username,
     # food names…), so a traceback in the log never carries what people typed.
-    engine = create_engine(url, connect_args={"check_same_thread": False}, hide_parameters=True)
+    # timeout: how long a write waits for another one to finish (sync protocol 5.2: longer
+    # than any batch of list changes takes).
+    engine = create_engine(
+        url, connect_args={"check_same_thread": False, "timeout": 30}, hide_parameters=True
+    )
 
     @event.listens_for(engine, "connect")
     def _sqlite_pragmas(dbapi_connection: Any, _record: Any) -> None:

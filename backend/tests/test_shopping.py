@@ -501,7 +501,9 @@ def test_every_write_takes_one_number_and_stamps_its_rows(kitchen: TestClient) -
     ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Party"}), 201)
     assert counter(kitchen) == start + 4
     with db(kitchen) as session:
-        rows = list(session.scalars(select(SyncAction).order_by(SyncAction.seq)))
+        # Making the ingredient took a number too (a food_edit row, PR 3): only these four.
+        query = select(SyncAction).where(SyncAction.seq > start).order_by(SyncAction.seq)
+        rows = list(session.scalars(query))
         assert [r.seq for r in rows] == [start + 1, start + 2, start + 3, start + 4]
         assert [r.kind for r in rows] == ["add", "set_amount", "delete", "create_list"]
         assert all(r.status in ("applied", "merged") and r.device_id is None for r in rows)

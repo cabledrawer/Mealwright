@@ -711,7 +711,14 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                 if body.shop_id == food.shop_id:
                     return None
                 shop = _shop(kitchen, body.shop_id) if body.shop_id is not None else None
+                old_shop_id = food.shop_id
                 food.shop_id = shop.id if shop else None
+                # Items to buy in the old usual shop (or Any shop) follow it (5.8).
+                ops = shopping.follow_shop(kitchen, food, old_shop_id, edit.batch)
+                if ops:
+                    edit.extra["shopping"] = ops
+                    edit.sync_kind = "follow_shop"
+                    edit.sync_payload = {"food_id": food.id, "shop_id": food.shop_id}
                 summary = (
                     f"Usual shop for {name} is now {shop.name}"
                     if shop
@@ -1165,7 +1172,8 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
             ops = shopping.move_items(kitchen, gone.id, into.id, edit.batch)
             if ops:
                 edit.extra["shopping"] = ops
-            edit.extra["action"] = edit.batch.action
+            edit.sync_kind = "merge_foods"
+            edit.sync_payload = {"food_id": gone.id, "into_id": into.id}
             record = FoodMerge(
                 household_id=kitchen.household_id, from_food_id=gone.id, into_food_id=into.id
             )
@@ -1174,14 +1182,6 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
             edit.extra["merge_id"] = record.id
         change = edit.record("merged", f"Merged {gone.name} into {into.name}", into.id)
         record.change_id = change.id
-        shopping.log_action(
-            edit.batch,
-            edit.batch.taken[-1],
-            edit.batch.action,
-            "merge_foods",
-            {"food_id": gone.id, "into_id": into.id},
-            change=change,
-        )
         return change
 
     return write(kitchen, response, apply)

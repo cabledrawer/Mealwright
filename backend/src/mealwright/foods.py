@@ -237,11 +237,12 @@ def set_conversion(kitchen: Kitchen, food: Food, kind: str, value_milli: int | N
         if row is not None:
             kitchen.db.delete(row)
         return
+    name = kitchen.login.name  # read first: it may load the login, which flushes
     if row is None:
         row = FoodConversion(household_id=kitchen.household_id, food_id=food.id, kind=kind)
         kitchen.db.add(row)
     row.value_milli = value_milli
-    row.answered_by_name = kitchen.login.name
+    row.answered_by_name = name
     row.answered_at = utcnow()
 
 

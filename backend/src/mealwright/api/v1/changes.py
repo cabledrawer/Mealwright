@@ -40,7 +40,17 @@ from mealwright.stock import lots_of, place_totals
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
 
 # Changes to stock, shown in Pantry → Recent changes.
-STOCK_KINDS = ("added", "used", "binned", "set_left", "moved", "to_freezer", "use_by")
+STOCK_KINDS = (
+    "added",
+    "used",
+    "binned",
+    "set_left",
+    "moved",
+    "to_freezer",
+    "use_by",
+    "shopped",
+    "repacked",
+)
 
 
 class LineOut(BaseModel):
@@ -286,12 +296,99 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     )
 
 
+def undo_change(
+    kitchen: Kitchen,
+    change: Change,
+    batch: shopping.Batch,
+    action: str,
+    *,
+    summary: str | None = None,
+    tick_id: str | None = None,
+    extra: dict[str, object] | None = None,
+) -> Change:
+    """Reverse just that change (the checks are the caller's). Records and returns the
+    `undo` change. `action` is the Undo's action ID; the household's lock is `batch`'s."""
+    tally = Tally()
+    data = change.undo_data or {}
+    if data.get("shopping"):
+        shopping.undo_shopping(kitchen, change, tally, batch, action)
+    # Each lot as it was before the Undo, so the Undo gets its own lines.
+    touched: dict[int, tuple[StockLot, int, int, date | None]] = {}
+    start: dict[int, dict[int, int]] = {}
+    for line in kitchen.db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
+        lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
+        if lot is not None and lot.id not in touched:
+            touched[lot.id] = (lot, lot.amount_milli, lot.place_id, lot.use_by)
+            if lot.food_id not in start:
+                start[lot.food_id] = place_totals(kitchen, lot.food_id)
+    short = undo_lines(kitchen, change, tally)
+    if data.get("foods"):
+        done_before = tally.done
+        touched_foods = undo_foods(kitchen, data["foods"], tally)
+        if tally.done > done_before:
+            shopping.bump_foods(kitchen, touched_foods, batch)
+    if data.get("lot_amounts"):
+        undo_lot_amounts(kitchen, data["lot_amounts"])
+    if tally.done:
+        undo_merge_record(kitchen, data)
+    result = tally.result
+    back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
+    message = _message(kitchen, result, short)
+    if back:
+        message = back if result == "done" else f"{back} {message}"
+    undo = record(
+        kitchen,
+        "undo",
+        summary or f"Undid: {change.summary}",
+        change.food_id,
+        {
+            "result": result,
+            "message": message,
+            # Ingredients this Undo brought back from Ingredients' removed list.
+            "brought_back": revived,
+            # Thinning totals the Undo with the change it undid: same kind, same month.
+            "undoes_kind": change.kind,
+            "undoes_at": as_utc(change.at).isoformat(),
+            **(extra or {}),
+        },
+    )
+    undo.undoes_change_id = change.id
+    if tick_id is not None:
+        undo.tick_id = tick_id
+    # What the Undo actually did to each lot (a partial undo: only what it put back),
+    # for Recent changes and so the monthly totals net out.
+    end = {food: place_totals(kitchen, food) for food in start}
+    for lot, amount, place_id, use_by in touched.values():
+        if (lot.amount_milli, lot.place_id, lot.use_by) != (amount, place_id, use_by):
+            kitchen.db.add(
+                ChangeLine(
+                    household_id=kitchen.household_id,
+                    change_id=undo.id,
+                    food_id=lot.food_id,
+                    lot_id=lot.id,
+                    amount_before_milli=amount,
+                    amount_after_milli=lot.amount_milli,
+                    place_before_id=place_id,
+                    place_after_id=lot.place_id,
+                    use_by_before=use_by,
+                    use_by_after=lot.use_by,
+                    total_before_milli=start[lot.food_id].get(place_id, 0),
+                    total_after_milli=end[lot.food_id].get(lot.place_id, 0),
+                )
+            )
+    kitchen.db.flush()
+    change.undone_by_change_id = undo.id
+    return undo
+
+
 @router.post("/changes/{change_id}/undo")
 def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
     """Reverse just that change; later changes stay. Anyone in the household can undo
     anyone's change within the undo window (7 days)."""
     earlier = replayed(kitchen)
     if earlier is None:
+        # The household's lock first (sync protocol 5.2): an Undo can change lists too.
+        batch = shopping.Batch(kitchen)
         change = kitchen.db.get(Change, change_id)
         if change is None or change.household_id != kitchen.household_id:
             raise not_found("That change")
@@ -303,81 +400,13 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise already_undone()
         if utcnow() >= undo_until(kitchen, change):
             raise too_old()
-        tally = Tally()
-        data = change.undo_data or {}
-        batch = shopping.Batch(kitchen) if data.get("shopping") else None
-        seq = shopping.undo_shopping(kitchen, change, tally, batch) if batch else 0
-        # Each lot as it was before the Undo, so the Undo gets its own lines.
-        touched: dict[int, tuple[StockLot, int, int, date | None]] = {}
-        start: dict[int, dict[int, int]] = {}
-        for line in kitchen.db.scalars(select(ChangeLine).where(ChangeLine.change_id == change.id)):
-            lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
-            if lot is not None and lot.id not in touched:
-                touched[lot.id] = (lot, lot.amount_milli, lot.place_id, lot.use_by)
-                if lot.food_id not in start:
-                    start[lot.food_id] = place_totals(kitchen, lot.food_id)
-        short = undo_lines(kitchen, change, tally)
-        if data.get("foods"):
-            done_before = tally.done
-            # The lock first (5.2); only a food-only Undo needs its own.
-            lock = batch or shopping.Batch(kitchen)
-            touched_foods = undo_foods(kitchen, data["foods"], tally)
-            if tally.done > done_before:
-                shopping.bump_foods(kitchen, touched_foods, lock)
-            if lock is not batch:
-                lock.finish()
-        if data.get("lot_amounts"):
-            undo_lot_amounts(kitchen, data["lot_amounts"])
-        if tally.done:
-            undo_merge_record(kitchen, data)
-        result = tally.result
-        back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
-        message = _message(kitchen, result, short)
-        if back:
-            message = back if result == "done" else f"{back} {message}"
-        undo_change = record(
-            kitchen,
-            "undo",
-            f"Undid: {change.summary}",
-            change.food_id,
-            {
-                "result": result,
-                "message": message,
-                # Ingredients this Undo brought back from Ingredients' removed list.
-                "brought_back": revived,
-                # Thinning totals the Undo with the change it undid: same kind, same month.
-                "undoes_kind": change.kind,
-                "undoes_at": as_utc(change.at).isoformat(),
-            },
-        )
-        undo_change.undoes_change_id = change.id
-        if batch:
-            shopping.log_undo(batch, seq, change, undo_change)
-        # What the Undo actually did to each lot (a partial undo: only what it put back),
-        # for Recent changes and so the monthly totals net out.
-        end = {food: place_totals(kitchen, food) for food in start}
-        for lot, amount, place_id, use_by in touched.values():
-            if (lot.amount_milli, lot.place_id, lot.use_by) != (amount, place_id, use_by):
-                kitchen.db.add(
-                    ChangeLine(
-                        household_id=kitchen.household_id,
-                        change_id=undo_change.id,
-                        food_id=lot.food_id,
-                        lot_id=lot.id,
-                        amount_before_milli=amount,
-                        amount_after_milli=lot.amount_milli,
-                        place_before_id=place_id,
-                        place_after_id=lot.place_id,
-                        use_by_before=use_by,
-                        use_by_after=lot.use_by,
-                        total_before_milli=start[lot.food_id].get(place_id, 0),
-                        total_after_milli=end[lot.food_id].get(lot.place_id, 0),
-                    )
-                )
-        change.undone_by_change_id = undo_change.id
+        from mealwright.ticks import pantry_undo
+
+        undone = pantry_undo(kitchen, change, batch)
+        batch.finish()
         earlier = commit(kitchen)
         if earlier is None:
-            return _undo_out(kitchen, undo_change)
+            return _undo_out(kitchen, undone)
     if earlier.kind != "undo":
         raise Problem(
             status.HTTP_409_CONFLICT,

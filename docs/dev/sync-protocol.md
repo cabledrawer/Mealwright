@@ -223,6 +223,8 @@ Everything that isn't a list action, as in 0.2: the Pantry screen, the ingredien
 | `GET /api/v1/shopping/changes?since=N` | Everything that changed after counter N (5.5). `since=0` = a full copy. |
 | `GET /api/v1/events` | Server-Sent Events (section 10). |
 
+**The batch answer** (PR 3): `{ "results": [ … ], "changes": { … } }`. `results` holds one result (5.4) per action, in the order they were sent; `changes` is the answer to `changes since` (5.5) for the batch's `since`, read after the last action.
+
 **One way to handle a list change (cabledrawer 18 Oct).** All list writes, online or offline, are handled by the same action code. `POST /shopping/actions` is how devices send them (one at a time when online, as a batch from the offline queue). The plain one-at-a-time list requests from PR 2 (`POST /shopping/lists`, `PATCH`/`DELETE /shopping/lists/{id}`, `POST /shopping/lists/{id}/items`, `PATCH`/`DELETE /shopping/items/{id}`, `POST /shopping/lists/{id}/clear-ticked`) are kept, so the Shopping screen (PR 4) can be built on them while PR 3 is in progress, but PR 3 routes each one through the action handling: a `sync_action` row, a counter number and Undo, exactly as if it had come as an action. So online and offline still behave the same and are tested once. Read views for other apps (such as Home Assistant) can be added later on top of the same rows.
 
 ### 5.2 Order and the counter
@@ -250,8 +252,11 @@ Under the household lock, before applying an action, the server looks for its ID
 ```json
 { "id": "5d0e…", "seq": 1041, "status": "applied", "reason": null, "repeat": false,
   "item_id": "6f1c…", "change": { "id": 812, "kind": "shopped", "summary": "Bought 1 bunch Coriander → Fridge", "…": "…" },
-  "message": null }
+  "message": null, "food_id": 22 }
 ```
+
+- `change`: the pantry change where there is one (api-0.2 section 6.1), otherwise the list change the action made (`item_added`, `item_amount`, `list_made` …), so Recent changes and Undo can name it. Null when nothing changed.
+- `food_id` (PR 3): for an `add`, the ingredient the item is for: the kept one after a merge, or the one `new_food` made or joined. Null for other kinds.
 
 | `status` | Meaning | Device does |
 |---|---|---|
@@ -292,8 +297,9 @@ GET /api/v1/shopping/changes?since=1040
 }
 ```
 
-- Rows with `version > since`: lists, items (tombstones as just `id`, `list_id`, `deleted`, `version`) and foods.
-- Notes and questions **for the signed-in login** are always sent **in full**: every note that isn't gone and every open question, whatever `since` is. The device replaces its notes and questions with them each time. So a note or card deleted while a phone was offline (3.9) disappears at its next sync, and a dead "Did you buy 2?" can't linger (SY-59). They're a handful of rows.
+- Rows with `version > since`: lists, items (tombstones as `id`, `list_id`, `deleted`, `version`, plus `food_id`, `shop_id` and `removed_by`) and foods.
+- `removed_by` on a tombstone (PR 3, for cabledrawer's 18 Oct decision 10, "Paneer · removed by Wren"): the login name of whoever removed the item, or "Your other phone" when it was your own login on another device. To tell your devices apart, send `device_id` with the request (`GET …/changes?since=N&device_id=…`; the batch answer uses the batch's `device_id`). Without it, or for a removal made through a one-at-a-time request (no device ID), it is the login's name.
+- Notes and questions **for the signed-in login** are always sent **in full**: every note that isn't gone and every open question, whatever `since` is. The device replaces its notes and questions with them each time. So a note or card deleted while a phone was offline (3.9) disappears at its next sync, and a dead "Did you buy 2?" can't linger (SY-59). They're a handful of rows. A question closed after `since` is also sent once, with `open: false`, so a device that keeps its copy can drop the card straight away.
 - `cursor` is `household.list_seq`. The cursor and the rows come from one snapshot: on SQLite a read transaction is one (WAL mode); on Postgres later the request runs at `REPEATABLE READ`.
 - `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`. The tombstone tidy-up and ingredients deleted for good both raise it (3.9).
 - `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy.

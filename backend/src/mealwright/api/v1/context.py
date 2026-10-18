@@ -22,6 +22,9 @@ class Kitchen:
     household: Household
     idempotency_key: str | None
     request: str  # "POST /api/v1/foods/7/sizes", to spot a key reused for something else
+    # Set while a shopping action is applied: only its first change carries the key (the
+    # action ID), any further changes it makes carry none (sync protocol 4.4).
+    key_once: bool = False
 
     @property
     def household_id(self) -> int:

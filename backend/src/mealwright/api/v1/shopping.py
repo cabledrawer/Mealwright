@@ -4,21 +4,24 @@ Reading is grouped the way the Shopping screen shows it: by shop ("Any shop" las
 aisle in the default order, with ticked items folded into "In the trolley" at the end of
 each shop. Every write records a Change for Undo (POST /changes/{id}/undo), like 0.2.
 
-Ticking and the pantry side, notes and "Did you buy 2?", and the sync endpoints that
-catch a phone up come in the next pull request; they use the same writes (mealwright.shopping).
+Every write here is handled as a list action (mealwright.sync.plain), exactly as if it had
+come in a batch to POST /shopping/actions: a sync_action row, a counter number and Undo
+(sync protocol 5.1, cabledrawer 18 Oct). Addresses and shapes are PR 2's, unchanged.
 """
 
+import uuid
 from collections.abc import Callable
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
-from mealwright import shopping
+from mealwright import shopping, sync
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, DEFAULT_AISLE
-from mealwright.amounts import MAX_MILLI
+from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, Ref, Who
 from mealwright.auth import SameOrigin
@@ -27,6 +30,7 @@ from mealwright.foods import amount_out, change_out, find, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean, fold
+from mealwright.shopping import Act
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
 
@@ -252,13 +256,24 @@ def _write[T, R](
     (docs/dev/api-0.2.md 1.2)."""
     earlier = replayed(kitchen)
     if earlier is None:
-        result = apply()
-        earlier = commit(kitchen)
-        if earlier is None:
-            return build(result)
+        try:
+            result = apply()
+        except sync.Repeat as repeat:
+            if repeat.change is None:  # pragma: no cover (every recorded write has one)
+                raise
+            earlier = repeat.change
+        else:
+            earlier = commit(kitchen)
+            if earlier is None:
+                return build(result)
     response.status_code = status.HTTP_200_OK
     response.headers["Idempotent-Replayed"] = "true"
     return build(None, earlier)
+
+
+def _amount(milli: int | None) -> int | float | None:
+    """Thousandths → the base amount an action carries."""
+    return sync.number(Decimal(milli) / MILLI) if milli is not None else None
 
 
 # --- Lists ---------------------------------------------------------------------------------------
@@ -297,17 +312,17 @@ class RenameList(BaseModel):
 
 @router.post("/shopping/lists", status_code=status.HTTP_201_CREATED)
 def create_list(body: NewList, kitchen: Here, response: Response) -> ListWrite:
-    """Make an extra list."""
+    """Make an extra list (the action `create_list`)."""
 
-    def apply() -> tuple[ShoppingList, Change]:
-        shopping.ensure_main_list(kitchen.db, kitchen.household_id)
-        return shopping.make_list(kitchen, body.name, body.id)
+    def apply() -> Act:
+        payload = {"list_id": body.id or str(uuid.uuid4()), "name": body.name}
+        return sync.plain(kitchen, "create_list", payload, shopping.make_list)
 
-    def build(result: Any, replay: Change | None = None) -> ListWrite:
-        if result is not None:
-            made, change = result
+    def build(act: Act | None, replay: Change | None = None) -> ListWrite:
+        if act is not None and act.main_change is not None:
             return ListWrite(
-                shopping_list=list_out(kitchen, made), change=change_out(kitchen, change)
+                shopping_list=list_out(kitchen, act.out["list"]),
+                change=change_out(kitchen, act.main_change),
             )
         if replay is None:  # pragma: no cover (a replay always has its change)
             raise RuntimeError("no change")
@@ -323,14 +338,17 @@ def create_list(body: NewList, kitchen: Here, response: Response) -> ListWrite:
 
 @router.patch("/shopping/lists/{list_id}")
 def rename_list(list_id: str, body: RenameList, kitchen: Here, response: Response) -> ListWrite:
-    """Rename a list. The main list can be renamed too."""
+    """Rename a list (the action `rename_list`). The main list can be renamed too."""
     shopping_list = shopping.find_list(kitchen, list_id)
 
-    def apply() -> Any:
-        return shopping.rename_list(kitchen, shopping_list, body.name)
+    def apply() -> Act | None:
+        if shopping_list.name == body.name:
+            return None  # nothing to do, nothing recorded
+        payload = {"list_id": shopping_list.id, "name": body.name}
+        return sync.plain(kitchen, "rename_list", payload, shopping.rename_list)
 
-    def build(change: Any, replay: Any = None) -> ListWrite:
-        used = replay or change
+    def build(act: Act | None, replay: Change | None = None) -> ListWrite:
+        used = replay or (act.main_change if act else None)
         return ListWrite(
             shopping_list=list_out(kitchen, shopping_list),
             change=change_out(kitchen, used) if used is not None else None,
@@ -341,14 +359,19 @@ def rename_list(list_id: str, body: RenameList, kitchen: Here, response: Respons
 
 @router.delete("/shopping/lists/{list_id}")
 def remove_list(list_id: str, kitchen: Here, response: Response) -> ListWrite:
-    """Remove an extra list, with Undo. The main list can never be removed."""
+    """Remove an extra list, with Undo (the action `remove_list`). The main list can never
+    be removed."""
     shopping_list = shopping.find_list(kitchen, list_id)
 
-    def apply() -> Any:
-        return shopping.remove_list(kitchen, shopping_list)
+    def apply() -> Act:
+        payload = {"list_id": shopping_list.id}
+        return sync.plain(kitchen, "remove_list", payload, shopping.remove_list)
 
-    def build(change: Any, replay: Any = None) -> ListWrite:
-        return ListWrite(shopping_list=None, change=change_out(kitchen, replay or change))
+    def build(act: Act | None, replay: Change | None = None) -> ListWrite:
+        used = replay or (act.main_change if act else None)
+        return ListWrite(
+            shopping_list=None, change=change_out(kitchen, used) if used is not None else None
+        )
 
     return _write(kitchen, response, apply, build)
 
@@ -382,35 +405,37 @@ def _resolved_amount(kitchen: Kitchen, food: Food, value: AmountIn) -> tuple[int
 
 @router.post("/shopping/lists/{list_id}/items", status_code=status.HTTP_201_CREATED)
 def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> ItemWrite:
-    """Add an ingredient to a list. If the same ingredient is already a line on that list for
-    that shop and isn't ticked, the amounts are added to that line instead (`merged`)."""
+    """Add an ingredient to a list (the action `add`). If the same ingredient is already a
+    line on that list for that shop and isn't ticked, the amounts are added to that line
+    instead (`merged`)."""
     shopping_list = shopping.find_list(kitchen, list_id)
 
-    def apply() -> tuple[ListItem, Any, bool]:
+    def apply() -> Act:
         food = find(kitchen, body.food_id)
+        payload: dict[str, Any] = {
+            "list_id": shopping_list.id,
+            "item_id": body.id or str(uuid.uuid4()),
+            "food_id": food.id,
+            "amount": None,
+            "size_id": None,
+        }
         if "shop_id" in body.model_fields_set:
-            shop_id = shopping.check_shop(kitchen, body.shop_id).id if body.shop_id else None
-        else:
-            shop_id = food.shop_id
-        if body.amount is None:
-            item, change, merged = shopping.add_item(
-                kitchen, shopping_list, food, amount_milli=None, size=None, blank=True,
-                shop_id=shop_id, item_id=body.id,
-            )  # fmt: skip
-        else:
+            shop = shopping.check_shop(kitchen, body.shop_id) if body.shop_id else None
+            payload["shop_id"] = shop.id if shop else None
+        if body.amount is not None:
             milli, size = _resolved_amount(kitchen, food, body.amount)
-            item, change, merged = shopping.add_item(
-                kitchen, shopping_list, food, amount_milli=milli, size=size, blank=False,
-                shop_id=shop_id, item_id=body.id,
-            )  # fmt: skip
-        return item, change, merged
+            payload["amount"], payload["size_id"] = _amount(milli), size.id if size else None
+        return sync.plain(kitchen, "add", payload, shopping.add_item)
 
-    def build(result: Any, replay: Any = None) -> ItemWrite:
-        if result is not None:
-            item, change, merged = result
+    def build(act: Act | None, replay: Change | None = None) -> ItemWrite:
+        if act is not None and act.main_change is not None:
             return ItemWrite(
-                item=_item_out_one(kitchen, item), merged=merged, change=change_out(kitchen, change)
+                item=_item_out_one(kitchen, act.out["item"]),
+                merged=act.status == "merged",
+                change=change_out(kitchen, act.main_change),
             )
+        if replay is None:  # pragma: no cover (a replay always has its change)
+            raise RuntimeError("no change")
         return ItemWrite(item=None, merged=False, change=change_out(kitchen, replay))
 
     return _write(kitchen, response, apply, build)
@@ -418,19 +443,26 @@ def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> 
 
 @router.patch("/shopping/items/{item_id}")
 def change_amount(item_id: str, body: ItemAmount, kitchen: Here, response: Response) -> ItemWrite:
-    """Change how much to buy. An item someone already took off the list gives `409
-    item_deleted`; only Undo brings it back."""
+    """Change how much to buy (the action `set_amount`). An item someone already took off
+    the list gives `409 item_deleted`; only Undo brings it back."""
     item = shopping.find_item(kitchen, item_id)
 
-    def apply() -> Any:
+    def apply() -> Act | None:
         food = find(kitchen, item.food_id)
         if item.deleted_at is not None:
             raise shopping.deleted(item)
         milli, size = _resolved_amount(kitchen, food, body.amount)
-        return shopping.set_amount(kitchen, item, food, milli, size)
+        if (item.amount_milli, item.size_id) == (milli, size.id if size else None):
+            return None  # nothing to do, nothing recorded
+        payload = {
+            "item_id": item.id,
+            "amount": _amount(milli),
+            "size_id": size.id if size else None,
+        }
+        return sync.plain(kitchen, "set_amount", payload, shopping.set_amount)
 
-    def build(change: Any, replay: Any = None) -> ItemWrite:
-        used = replay or change
+    def build(act: Act | None, replay: Change | None = None) -> ItemWrite:
+        used = replay or (act.main_change if act else None)
         return ItemWrite(
             item=_item_out_one(kitchen, item),
             merged=False,
@@ -442,15 +474,18 @@ def change_amount(item_id: str, body: ItemAmount, kitchen: Here, response: Respo
 
 @router.delete("/shopping/items/{item_id}")
 def delete_item(item_id: str, kitchen: Here, response: Response) -> ItemWrite:
-    """Take an item off the list (it leaves a hidden tombstone). Deleting it again does
-    nothing. Undo brings it back."""
+    """Take an item off the list (the action `delete`; it leaves a hidden tombstone).
+    Deleting it again does nothing. Undo brings it back."""
     item = shopping.find_item(kitchen, item_id)
 
-    def apply() -> Any:
-        return shopping.delete_item(kitchen, item, find(kitchen, item.food_id))
+    def apply() -> Act | None:
+        find(kitchen, item.food_id)
+        if item.deleted_at is not None:
+            return None  # already off the list: nothing recorded
+        return sync.plain(kitchen, "delete", {"item_id": item.id}, shopping.delete_item)
 
-    def build(change: Any, replay: Any = None) -> ItemWrite:
-        used = replay or change
+    def build(act: Act | None, replay: Change | None = None) -> ItemWrite:
+        used = replay or (act.main_change if act else None)
         return ItemWrite(
             item=None, merged=False, change=change_out(kitchen, used) if used is not None else None
         )
@@ -460,18 +495,24 @@ def delete_item(item_id: str, kitchen: Here, response: Response) -> ItemWrite:
 
 @router.post("/shopping/lists/{list_id}/clear-ticked")
 def clear_ticked(list_id: str, body: ClearTicked, kitchen: Here, response: Response) -> ClearWrite:
-    """Remove the ticked items from the list in one go, with one Undo."""
+    """Remove the ticked items from the list in one go, with one Undo (the action
+    `clear_ticked`)."""
     shopping_list = shopping.find_list(kitchen, list_id)
 
-    def apply() -> Any:
-        return shopping.clear_ticked(kitchen, shopping_list, body.item_ids)
+    def apply() -> Act | None:
+        items = shopping.ticked_items(kitchen, shopping_list, body.item_ids)
+        if not items:
+            return None  # nothing ticked: nothing recorded
+        payload = {"list_id": shopping_list.id, "item_ids": [i.id for i in items]}
+        return sync.plain(kitchen, "clear_ticked", payload, shopping.clear_ticked)
 
-    def build(result: Any, replay: Any = None) -> ClearWrite:
-        if result is not None:
-            items, change = result
+    def build(act: Act | None, replay: Change | None = None) -> ClearWrite:
+        if replay is None:
+            if act is None or act.main_change is None:
+                return ClearWrite(cleared=[], change=None)
             return ClearWrite(
-                cleared=[i.id for i in items],
-                change=change_out(kitchen, change) if change is not None else None,
+                cleared=[i.id for i in act.out["cleared"]],
+                change=change_out(kitchen, act.main_change),
             )
         ids = [
             i for op in (replay.undo_data or {}).get("shopping", []) for i in op.get("item_ids", [])
