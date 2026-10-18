@@ -87,6 +87,16 @@ class Broadcaster:
         for subscription in targets:
             subscription.put(item)
 
+    def end_session(self, session_id: int) -> None:
+        """That sign-in has ended: tell its streams now, rather than at the next check."""
+        with self._lock:
+            targets = [s for s in self._subscriptions if s.session_id == session_id]
+            for subscription in targets:
+                del self._subscriptions[subscription]
+        for subscription in targets:
+            subscription.put(Event("signed_out", {}))
+            subscription.put(None)
+
     def close(self) -> None:
         """The server is stopping: end every stream so shutdown isn't held up."""
         with self._lock:

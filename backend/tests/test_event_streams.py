@@ -190,3 +190,28 @@ def test_the_broadcaster_closes_the_oldest_of_that_session_only() -> None:
         assert broadcaster.count() == MAX_STREAMS_PER_SESSION + 2
 
     asyncio.run(scenario())
+
+
+def test_signing_out_ends_that_sign_ins_streams_at_once(
+    kitchen: TestClient, second_sign_in: str
+) -> None:
+    """Not up to 25 seconds later, at the next check (ASVS 3.3.1)."""
+    app, mine = kitchen.app, kitchen.cookies[COOKIE]
+
+    async def scenario() -> None:
+        async with streams() as opened:
+            for token in (mine, mine, second_sign_in):
+                one = Stream(app, token)
+                opened.append(one)
+                one.open()
+                await one.hello()
+            signed_out = await asyncio.to_thread(kitchen.delete, f"{API}/session")
+            assert signed_out.status_code == 204
+            for one in opened[:2]:
+                async with asyncio.timeout(2):
+                    await one.ended.wait()
+                assert one.body.endswith("event: signed_out\ndata: {}\n\n")
+            assert await opened[2].still_open()  # the other device stays signed in
+            assert hub(kitchen).count() == 1
+
+    asyncio.run(scenario())
