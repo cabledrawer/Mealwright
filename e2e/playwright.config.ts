@@ -43,6 +43,9 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: local(PORTS.main),
+    // Dates look as they do on cabledrawer's phone (dd/mm/yyyy), not mm/dd/yyyy.
+    locale: 'en-GB',
+    timezoneId: 'Europe/London',
   },
   webServer: {
     command: 'node serve.mjs',
