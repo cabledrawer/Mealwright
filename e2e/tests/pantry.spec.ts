@@ -144,10 +144,15 @@ test('+ Staple makes a new ingredient, with no stock', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Make an ingredient a staple' }).fill(name);
   await page.getByRole('button', { name: `+ New ingredient: “${name}”` }).click();
   await expect(page.getByRole('button', { name })).toBeVisible();
-  const foods = await (
-    await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)
-  ).json();
-  expect(foods.foods[0].staple).toBe(true);
+  // The screen shows the new staple at once (optimistic); the server has it a moment later.
+  await expect
+    .poll(async () => {
+      const found = await (
+        await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)
+      ).json();
+      return found.foods[0]?.staple;
+    })
+    .toBe(true);
   const pantry = await (await page.request.get('/api/v1/pantry')).json();
   expect(JSON.stringify(pantry.places)).not.toContain(name);
 });
