@@ -4,28 +4,50 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
-### Added (0.3, pull request 6b)
+## [0.3.0] - 2026-10-19
 
-- **Tap a staple to add it to the shopping list.** On Pantry, a staple chip adds that ingredient to the main shopping list with the toast "Oil added to the shopping list · Undo". A small tick shows on the chip while it is on the list; tapping a ticked chip adds nothing more and says "Oil is already on the shopping list." The tap goes through the same add action and waiting list as Shopping, so a tap made while the connection is failing is kept on the phone and sent once, when the server is back. Screen readers hear "Add Oil to the shopping list" or "Oil, on the shopping list". An "Edit staples" link under the chips opens Ingredients with the Staples filter.
-- **"+ List" on running-low rows** (hidden in 0.2 until the shopping list worked) does the same for that ingredient (toast with Undo, tick, "already on the shopping list", works through the waiting list).
-- **Recent changes on Ingredients.** New ingredients, Staple on or off, removals, merges and edits, each with Undo for 7 days: on desktop a one-line "Recent changes · 9" bar above the editor ("· 10+" past ten) opens the list in the side column; on the phone a "Recent changes" button opens a sheet. It updates after changes you make here, and when you come back to the page; changes made on another phone don't appear live yet. Pantry's Recent changes still lists stock changes only.
-- **Server:** `GET /api/v1/changes?area=ingredients` lists ingredient changes (and their Undos) only, for your household only. No database change.
+The shopping list milestone: shared shopping lists with a Shopping screen, ticking items into the pantry, and a phone that keeps working without a connection (ticks and adds are kept on the phone and sent later). Also live updates, an installable app, and a few small Pantry and Ingredients improvements. Not published; for testing on cabledrawer's homelab.
 
-### Added (0.3, pull request 5)
+**Before you install it: back up your data.** This version changes the database (the shopping lists are new tables and columns; nothing existing is rewritten), and the old version can't read a database the new one has changed. On the server (from `docs/dev/test-on-homelab.md`, section 4.1; replace `<folder>` with the folder that holds your `compose.yaml`):
 
-- **Live updates.** A second phone or window sees a tick, an added item or a pantry change within a moment, without reloading. They come from your own Mealwright server only (`GET /api/v1/events`, Server-Sent Events); the stream carries numbers, never names. An open screen doesn't count as activity, so the 12-hour sign-out still happens; a kitchen tablet should use "Remember this phone".
-- **Installable app.** A manifest, icons made from the brand icon, and a service worker that keeps only the app's own files, so the app's own files (its code, fonts and icons) load without a connection. The screens still need your server, so opening the app cold with no connection shows an error; showing saved lists while offline comes in the next pull request. It never keeps anything from the server (`/api`) and never updates itself mid-use: a new version starts the next time every window has been closed. No Install button yet.
-- **Connection bar.** "Offline" with Try now on every page (above the tabs on a phone, at the foot of the sidebar on desktop), a short "Back online" toast, and "12 to buy · offline" on Shopping. A blip under 3 seconds shows nothing. The "N changes waiting" wording is ready for the offline queue in the next pull request.
+```bash
+cd <folder>
+OLD=$(grep -oE 'image: *mealwright:[^ ]+' compose.yaml | cut -d: -f3)
+echo "Current version: $OLD"
+docker compose stop mealwright
+sudo tar -C <folder> --exclude=data/logs -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
+sudo chmod 600 backups/data-*.tar.gz
+ls -lh backups/       # the new backup should be there, and not tiny
+```
 
-### Changed (0.3, paper-cuts)
+- `cd` goes to the Mealwright folder.
+- The `OLD=` line reads which version you are running now from `compose.yaml`, and the next line shows it, so the backup's file name says which version it belongs to.
+- `docker compose stop mealwright` stops the app, so the database file is copied in one piece.
+- The `tar` line makes a dated, compressed copy of the `data` folder in `backups/`, leaving out the log folder.
+- `chmod 600` lets only its owner read the backup.
+- `ls -lh backups/` shows the new file; it should be there and not tiny.
 
-- **Collapsed sidebar:** the Recipes icon opens a small pop-out with All recipes, Drafts and Ingredients, the current page marked. It works with the keyboard and screen readers (a menu).
-- **Add to pantry:** "Pick a date" opens the phone's date picker straight away and then shows the date it chose ("Sat 24 Oct") on the chip. The separate Date field is gone, and cancelling the picker changes nothing. The Use-by chips now choose as the arrow keys move, like the app's other chip groups; "Pick a date" opens its picker only on Space, Enter or a tap, never just because focus arrived on it. Screen readers announce the chip once, not also the hidden date field behind it.
-- **Pantry search** shows one list of results, each with its place ("Toor dal · Cupboard") and "also called thuvaram paruppu" when another name matched. On the phone there is a "Search pantry" field above the tabs, with the same one-list results.
-- **Undo says what it undid:** "Undone: Removed Oil from Ingredients", for Ctrl+Z and the toast's Undo.
-- **Use soon card:** "Lemon · Today" and "Tomorrow" start with a capital, like the Today chip.
+To go back, follow section 5 of the same file (restore that backup and set the image tag back to 0.2.1).
 
-### Changed (0.3, pull request 6c: offline safety)
+### Added
+
+**Shopping**
+
+- **Shopping lists.** Every household has a main list, "This week", that can be renamed but never removed, and any number of extra lists that can be made, renamed and removed, with Undo. A line is an ingredient with an amount; adding an ingredient that is already on the list says so instead of adding it twice. Changes to a list can be undone for 7 days.
+- **The Shopping screen.** The list is split by shop, then by aisle, with ticked items folded into "In the trolley · N" at the end of each shop and "Clear ticked" (with Undo). Ingredients with no usual shop go under "Any shop". Tap an amount to change it or take the line off the list. The add box finds ingredients by any of their names. Each ingredient now has an aisle; ingredients you already had get a starting aisle from the bundled table.
+- **Typing a name that isn't an ingredient yet** offers "+ New ingredient", which asks **"How do you count it?"** (By weight, By volume, One by one, or Don't count it for a staple), with the likely answer picked first and its packet sizes asked up front. The same question comes from a new **+ New ingredient** button on Ingredients. **+ Staple** is now on the phone's Pantry too: a name nobody has used becomes a new staple, with nothing recorded in the pantry. The guess comes from the bundled table on your server (`GET /api/v1/foods/guess`); nothing is looked up on the internet.
+- **Ticking puts the shopping into the pantry.** A tick files what you bought in the ingredient's usual place (Cupboard if it has none), with no use-by date. On the phone a toast says where it went, with **Change** (another place) and Undo; on desktop a **Put away** panel beside the list does the same. Unticking, or Undo, takes it back out and never takes the pantry below zero. **Different pack?** changes what the pantry got ("What did you buy?"), and an item with no amount offers **How much?** instead. Staples and items with no amount put nothing in the pantry. Every tick shows in Pantry's Recent changes ("Bought 2 packets Toor dal → Cupboard") with Undo.
+- **Two phones, one list.** Nothing is ever refused with a pop-up because someone else changed the list: the server applies changes in the order it receives them, and where it matters it leaves a **quiet note** under the item, with Undo and a dismiss button, such as "Wren had removed this. Your tick still went into the pantry.", "Wren added milk too" or "Wren changed Milk to 2 litres" ("Your other phone" when it was you). Nine kinds of clash have a note (N1 to N9 in `docs/dev/sync-protocol.md`).
+- **"Did you buy 2?"** When two phones tick the same item while offline, a card asks, with **Yes, 2** and **Just 1**; the first answer settles it for everyone, and Undo brings the card back. Just 1 takes the extra packet back out of the pantry.
+- **Sync for phones** (`POST /api/v1/shopping/actions` and `GET /api/v1/shopping/changes?since=N`): a phone sends a batch of its changes, each with its own ID so that sending one twice does nothing the second time, and gets back an answer for each and everything that changed since it last looked. The batch is described in `docs/dev/sync-protocol.md`, and both are in the OpenAPI document.
+
+**Offline**
+
+- **It works without a connection.** Ticks, adds and every other change to a list are kept on the phone, shown at once, and sent when the connection is back: one batch at a time, in order, tried again after a pause if the server can't be reached. Closing the app doesn't lose them. (iPhone Safari can clear a web app's saved data after about 7 days without use; adding Mealwright to the Home Screen helps.) While offline the bar says "Offline — 3 changes waiting" (on desktop "3 changes waiting. They'll save when you're back."), Shopping's subtitle says "12 to buy · offline, saving on this phone", and when everything is sent a toast says "Back online — all saved".
+- **Opening the app offline.** The app opens as the person last signed in on that phone, and Shopping works from the phone's copy, including finding ingredients in the add box. Pantry, Ingredients and Settings need your server: offline they say "You're offline. Pantry needs your Mealwright server — your shopping list works offline." with a Shopping button. Settings still has Sign out and the theme switch, and "+ Add to pantry" says it needs the server. A phone that has never loaded the list says "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
+- **Signing in running out doesn't lose changes.** If your sign-in runs out while offline, the changes stay on the phone: "Please sign in again. Your 3 changes are kept on this phone." Signing back in as the same person sends them at once. A different person is warned first ("Wren's 3 changes haven't been sent yet. If you carry on, they're lost.", with "Sign in as Wren instead" and "Carry on and lose them") and nothing is ever sent under their login.
+- **A different login always starts clean.** When someone else signs in on a phone, its offline copy is wiped, as at signing out, and the next start makes a new device ID. A wrong password wipes nothing.
+- **Signing out sends first.** Sign out tries to send what is waiting. If something is still unsent: "3 changes haven't been sent yet. If you sign out now, they're lost." with Try sending now, Stay signed in and Sign out and lose them. Signing out wipes the phone's offline copy (the offline database, saved lists and ingredient names, and everything the app kept for the household in the browser), and other tabs of the app clear themselves and go to the sign-in page.
 
 - **A storage error is never "nothing waiting".** If the browser can't read the app's offline store, nothing is deleted or written on that result. The same login carries on (cabledrawer 18 Oct): it never wipes anything. Anyone else pressing Sign in is told "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.", with Try again and "Carry on anyway — anything waiting on this phone may be lost". Settings says the same instead of signing out, with Try again, Stay signed in and "Sign out anyway — anything waiting on this phone may be lost" (cabledrawer 18 Oct). Both "anyway" choices wipe as usual.
 - **Signing out loses only the changes the warning showed.** If another tab queues more after "3 changes haven't been sent yet" appears, "Sign out and lose them" warns again with the new count instead of losing them. Adding a change and wiping take turns across tabs (the browser's Web Locks), so a change added at that moment is never lost unseen.
@@ -33,6 +55,52 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Carrying on loses only the changes the warning showed.** The sign-in warning remembers which of Wren's changes it showed. If another tab has queued a different one since, it warns again with the new count instead of losing it.
 - **No bouncing when the server won't sign out.** If the server answers the sign-out with an error, the sign-in page stays and says "Couldn't finish signing out on this phone." with Try again, instead of going back and forth between the app and the sign-in page. Nothing is deleted. A Try again the server refuses says it again, read out.
 - **The sign-in page says why you were signed out** (cabledrawer 18 Oct): "You were signed out because Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." ("Wren's change … to send it" for one; "this computer" on a computer.)
+- **Sign in is busy from the first press.** Sign in shows "Signing in…" and ignores a second press (or Enter) straight away, so a quick second press can't start a second sign-in while the phone is still being checked.
+- **"Couldn't finish signing out" has a grey Try again**, the quiet look, on that screen only; every other Try again is the main button.
+- **"Still stuck?" under the offline copy message.** Under "This phone couldn't delete its offline copy of the household…" one small line says: "Still stuck? Clear this site's data in your browser's settings." The README has a matching Troubleshooting entry.
+
+**Live updates, installing and connection**
+
+- **Live updates.** A second phone or window sees a tick, an added item or a pantry change within a moment, without reloading. They come from your own Mealwright server only (`GET /api/v1/events`, Server-Sent Events); the stream carries numbers, never names. An open screen doesn't count as activity, so the 12-hour sign-out still happens; a kitchen tablet should use "Remember this phone".
+- **Installable app.** A manifest, icons made from the brand icon, and a service worker that keeps only the app's own files, so the app's own files (its code, fonts and icons) load without a connection. The screens still need your server, so opening the app cold with no connection shows an error; showing saved lists while offline comes in the next pull request. It never keeps anything from the server (`/api`) and never updates itself mid-use: a new version starts the next time every window has been closed. No Install button yet.
+- **Connection bar.** "Offline" with Try now on every page (above the tabs on a phone, at the foot of the sidebar on desktop), a short "Back online" toast, and "12 to buy · offline" on Shopping. A blip under 3 seconds shows nothing. The "N changes waiting" wording is ready for the offline queue in the next pull request.
+
+**Pantry and Ingredients**
+
+- **Tap a staple to add it to the shopping list.** On Pantry, a staple chip adds that ingredient to the main shopping list with the toast "Oil added to the shopping list · Undo". A small tick shows on the chip while it is on the list; tapping a ticked chip adds nothing more and says "Oil is already on the shopping list." The tap goes through the same add action and waiting list as Shopping, so a tap made while the connection is failing is kept on the phone and sent once, when the server is back. Screen readers hear "Add Oil to the shopping list" or "Oil, on the shopping list". An "Edit staples" link under the chips opens Ingredients with the Staples filter.
+- **"+ List" on running-low rows** (hidden in 0.2 until the shopping list worked) does the same for that ingredient (toast with Undo, tick, "already on the shopping list", works through the waiting list).
+- **Recent changes on Ingredients.** New ingredients, Staple on or off, removals, merges and edits, each with Undo for 7 days: on desktop a one-line "Recent changes · 9" bar above the editor ("· 10+" past ten) opens the list in the side column; on the phone a "Recent changes" button opens a sheet. It updates after changes you make here, and when you come back to the page; changes made on another phone don't appear live yet. Pantry's Recent changes still lists stock changes only.
+- **Server:** `GET /api/v1/changes?area=ingredients` lists ingredient changes (and their Undos) only, for your household only. No database change.
+- **Marks in an opened Pantry row.** An opened row with a single packet shows the ¼ · ½ · ¾ · Full marks, with "About 250 g left · type it instead" under them (the link opens the packet menu at "What's left", with the box ready). In a narrow desktop column the marks go two by two, each at least 44 px wide. If saving a mark fails, its tick goes back. The arrow keys move between the marks.
+
+### Changed
+
+- **Collapsed sidebar:** the Recipes icon opens a small pop-out with All recipes, Drafts and Ingredients, the current page marked. It works with the keyboard and screen readers (a menu).
+- **Add to pantry:** "Pick a date" opens the phone's date picker straight away and then shows the date it chose ("Sat 24 Oct") on the chip. The separate Date field is gone, and cancelling the picker changes nothing. The Use-by chips now choose as the arrow keys move, like the app's other chip groups; "Pick a date" opens its picker only on Space, Enter or a tap, never just because focus arrived on it. Screen readers announce the chip once, not also the hidden date field behind it.
+- **Pantry search** shows one list of results, each with its place ("Toor dal · Cupboard") and "also called thuvaram paruppu" when another name matched. On the phone there is a "Search pantry" field above the tabs, with the same one-list results.
+- **Undo says what it undid:** "Undone: Removed Oil from Ingredients", for Ctrl+Z and the toast's Undo.
+- **Use soon card:** "Lemon · Today" and "Tomorrow" start with a capital, like the Today chip.
+- **Recent changes shows its verb in bold** on every change worded verb first: Added, Removed, Renamed, Merged, Undid, "Added other name …", "Removed other name …" and "Forgot your weight of …". An ingredient that happens to be called "Added sugar" is not bolded by mistake.
+
+### Database
+
+- **One migration** (`f509d7a1c609`): six new tables for the shopping lists (`shopping_list`, `list_item`, `list_tick`, `sync_action`, `list_note` and `double_tick`), `aisle` and `version` on ingredients, `tick_id` on changes, and `list_seq` and `list_purged_seq` on the household. It makes each household's main list "This week" and gives existing ingredients a starting aisle from the bundled table. Nothing existing is rewritten. Checked by tests that build a 0.2.1 database with real-looking data, upgrade it, and also go back down and up again.
+- Old shopping-list notes and answered questions are tidied away after 7 days, and removed lists and lines after 12 months, by the same hourly background job that summarises old pantry history. A phone that was behind a tidy-up gets a fresh copy of the lists; changes still waiting on it are kept and sent after.
+
+### Privacy and security
+
+- **Nothing new leaves your server.** Live updates, the sync endpoints and the app's service worker talk only to your own Mealwright server, and the conversions table and the "How do you count it?" guess stay on it too.
+- **The live stream carries numbers, never names.**
+- **Every `/api` answer is sent with `Cache-Control: no-store`, and the service worker never keeps anything from `/api`.**
+- **What the phone keeps, and when it goes.** The offline copy of the lists lives in the browser's own database (IndexedDB). Signing out, or a different person signing in, wipes it, along with the app's other saved data about the household. A sign-in that merely runs out keeps it on purpose, so the changes waiting aren't lost. Besides the theme and sidebar choices and two flags for an unfinished sign-out or wipe, the only thing put in `localStorage` is the last login's number and username (no password or session), so the app knows whose phone it is when the offline copy can't be read; the wipe removes it too.
+- One household can never see or change another's lists, notes, questions or changes (tested on every endpoint). An ID from another household is answered exactly like one that doesn't exist.
+
+### For developers
+
+- New dependency: **idb 8.0.3** (ISC; approved by cabledrawer 17 Oct), a small helper for the browser's IndexedDB. No other new dependency.
+- The sync protocol is written up in `docs/dev/sync-protocol.md` and tested with two- and three-phone tests (random queues from several phones keep the pantry and the list honest); the Shopping screen writes only through one function, `sendAction`, that puts a change on the phone's queue first.
+- `GET /api/v1/changes?area=ingredients` lists ingredient changes only, for your household only.
+- `docs/dev/test-on-homelab.md` explains how to build the image, copy it to the server and go back; no registry is used in 0.x.
 
 ## [0.2.1] - 2026-10-18
 
@@ -172,7 +240,9 @@ Milestone 0.1, Foundation: an empty but real Mealwright you can install, sign in
 - **Works behind any reverse proxy.** Its forwarded headers are believed only from `MEALWRIGHT_TRUSTED_PROXIES` (off by default).
 - Requests from other sites are refused, and the session cookie can't be read by scripts and is stored only as a fingerprint.
 
-[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.2.0...main
+[Unreleased]: https://git.example.org/tess/mealwright/compare/v0.3.0...main
+[0.3.0]: https://git.example.org/tess/mealwright/src/tag/v0.3.0
+[0.2.1]: https://git.example.org/tess/mealwright/src/tag/v0.2.1
 [0.2.0]: https://git.example.org/tess/mealwright/src/tag/v0.2.0
 [0.1.1]: https://git.example.org/tess/mealwright/src/tag/v0.1.1
 [0.1.0]: https://git.example.org/tess/mealwright/src/tag/v0.1.0
