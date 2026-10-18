@@ -42,8 +42,8 @@ export function wipeDevice(): Promise<void> {
   return withQueueLock(wipeNow);
 }
 
-/** The wipe itself. The caller holds the queue lock. */
-async function wipeNow(): Promise<void> {
+/** The wipe itself. The caller holds the queue lock (withQueueLock). */
+export async function wipeNow(): Promise<void> {
   // Every other tab of the app drops what it shows and goes to sign in (otherTabs.ts).
   tellOtherTabs();
   shoppingSync.forget();

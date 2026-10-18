@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import Button from '$lib/components/Button.svelte';
@@ -14,7 +14,7 @@
     UNREADABLE,
     type Unreadable
   } from '$lib/offline/held';
-  import { signOutHere, trySending } from '$lib/offline/signOut';
+  import { signOutHere, trySending, type Waiting } from '$lib/offline/signOut';
   import { session } from '$lib/session.svelte';
 
   // Who is shown stays put while signing out (session.me goes first).
@@ -23,15 +23,18 @@
   let busy = $state(false);
   /** Changes not sent yet: the warning is showing. */
   let left = $state(0);
+  /** Which changes the warning showed: "Sign out and lose them" loses those, never others. */
+  let shown: string[] = [];
   let stillCant = $state(false);
   /** The phone database couldn't be read: whether anything is waiting isn't known. */
   let cantCheck = $state(false);
   const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
 
   /** What's still waiting decides: sign out, warn, or (couldn't check) wait. */
-  function found(waiting: number | Unreadable): number {
+  function found(waiting: Waiting | Unreadable): number {
     cantCheck = waiting === UNREADABLE;
-    return waiting === UNREADABLE ? 0 : waiting;
+    shown = waiting === UNREADABLE ? [] : waiting.ids;
+    return waiting === UNREADABLE ? 0 : waiting.count;
   }
 
   // Settings → Sign out returns to Sign in (spec). Changes still waiting are sent first, for
@@ -63,16 +66,32 @@
 
   function stay() {
     left = 0;
+    shown = [];
     stillCant = false;
     cantCheck = false;
   }
 
-  /** Wipe this browser, end the session (now, or once the server is back) and sign in again. */
+  /**
+   * Wipe this browser, end the session (now, or once the server is back) and sign in again.
+   * Only over the changes the warning showed (none when there was no warning): they're read
+   * again just before the wipe, and if another tab has queued any other since, nothing is
+   * wiped and the warning comes back with the new count, read out again.
+   */
   async function signOutNow() {
     busy = true;
-    await signOutHere();
+    const result = await signOutHere(shown);
+    if (result === 'signed-out') {
+      left = 0;
+      await goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
+      return;
+    }
+    // Take the warning away first, so it's put back (and read out) as new.
     left = 0;
-    await goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
+    cantCheck = false;
+    stillCant = false;
+    await tick();
+    left = found(result);
+    busy = false;
   }
 </script>
 

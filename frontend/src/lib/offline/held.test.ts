@@ -120,7 +120,7 @@ describe('a phone database that can’t be read', () => {
     mend();
     expect(await heldChanges()).toMatchObject({ who: { id: 2 }, count: 1 });
     expect(await storedLoginId()).toBe(2);
-    expect(await storedWaiting(2)).toBe(1);
+    expect(await storedWaiting(2)).toEqual(['a']);
   });
 
   it('nor when the browser can’t even list its databases', async () => {
@@ -137,7 +137,7 @@ describe('a phone database that can’t be read', () => {
     vi.stubGlobal('indexedDB', undefined);
     expect(await heldChanges()).toBeNull();
     expect(await storedLoginId()).toBeNull();
-    expect(await storedWaiting(2)).toBe(0);
+    expect(await storedWaiting(2)).toEqual([]);
   });
 
   it('says so, and that nothing has been deleted', () => {

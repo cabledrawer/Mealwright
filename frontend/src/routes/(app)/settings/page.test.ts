@@ -150,6 +150,32 @@ describe('signing out', () => {
     expect(session.me).toBeNull();
   });
 
+  it('another tab queued more since the warning: warns again with the new count, wipes nothing', async () => {
+    await show(1);
+    await button('Sign out').click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+    // Meanwhile, another tab of the app queues 3 more.
+    for (const item of ['b', 'c', 'd']) {
+      await addToQueue(makeAction({ kind: 'tick', item_id: item }), ME.id, 'device-1');
+    }
+    await button('Sign out and lose it').click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("4 changes haven't been sent yet. If you sign out now, they're lost.");
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect(await exists()).toBe(true);
+    expect(await readQueue()).toHaveLength(4);
+    expect(signOutPending()).toBe(false);
+    expect(session.me).not.toBeNull();
+
+    // Warned about all 4: losing them goes ahead.
+    await button('Sign out and lose them').click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    expect(await exists()).toBe(false);
+  });
+
   it('one change: “Sign out and lose it”', async () => {
     await show(1);
     await button('Sign out').click();

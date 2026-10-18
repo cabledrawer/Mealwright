@@ -45,13 +45,13 @@ export async function heldChanges(): Promise<Held | null | Unreadable> {
 }
 
 /**
- * How many of `loginId`'s changes are waiting in the phone database (signing out, section
- * 12). UNREADABLE when it couldn't be read: not the same as none.
+ * Which of `loginId`'s changes are waiting in the phone database, by action ID (signing
+ * out, section 12). UNREADABLE when it couldn't be read: not the same as none.
  */
-export async function storedWaiting(loginId: number): Promise<number | Unreadable> {
+export async function storedWaiting(loginId: number): Promise<string[] | Unreadable> {
   try {
-    if (!(await phoneExists())) return 0;
-    return (await readQueueHere()).filter((e) => e.login_id === loginId).length;
+    if (!(await phoneExists())) return [];
+    return (await readQueueHere()).filter((e) => e.login_id === loginId).map((e) => e.action.id);
   } catch {
     return UNREADABLE;
   }

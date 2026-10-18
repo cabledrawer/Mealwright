@@ -13,9 +13,9 @@ import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { ME } from '$lib/testing/fakeShopping';
 import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import { UNREADABLE } from './held';
-import { addToQueue } from './store';
+import { addToQueue, dropFromQueue, readQueue } from './store';
 import { phoneDatabaseName, setMeta } from './phone';
-import { endSession, signOutHere, trySending } from './signOut';
+import { endSession, signOutHere, trySending, type Waiting } from './signOut';
 import {
   endPendingSignOut,
   endPendingSignOutWhenOnline,
@@ -28,6 +28,10 @@ import { wipeDevice } from './wipe';
 
 const exists = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
+
+/** How many are left, or UNREADABLE. */
+const left = (waiting: Waiting | typeof UNREADABLE) =>
+  waiting === UNREADABLE ? waiting : waiting.count;
 
 const said = (requests: FakeRequest[]) => requests.map((r) => `${r.method} ${r.path}`);
 
@@ -201,10 +205,15 @@ describe('signing out here', () => {
 
   it('offline: wipes at once, sends nothing, and leaves the flag for later', async () => {
     await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
-    await addToQueue(makeAction({ kind: 'tick', item_id: 'i-onions' }), ME.id, 'device-1');
+    const shown = await addToQueue(
+      makeAction({ kind: 'tick', item_id: 'i-onions' }),
+      ME.id,
+      'device-1'
+    );
     network.offline = true;
     const tried = unreachable();
-    await signOutHere();
+    // "Sign out and lose it", for the change the warning showed.
+    expect(await signOutHere([shown.action.id])).toBe('signed-out');
     expect(tried).toEqual([]);
     expect(await exists()).toBe(false);
     expect(signOutPending()).toBe(true);
@@ -212,10 +221,52 @@ describe('signing out here', () => {
   });
 });
 
+describe('signing out over waiting changes: only those the warning showed', () => {
+  it('another tab queued more since the warning: nothing wiped, and they come back to warn again', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    const shown = await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    network.offline = true;
+    unreachable();
+    // Meanwhile, another tab queues 3 more.
+    for (const item of ['b', 'c', 'd']) {
+      await addToQueue(makeAction({ kind: 'tick', item_id: item }), ME.id, 'device-1');
+    }
+    const again = await signOutHere([shown.action.id]);
+    expect(again).toMatchObject({ count: 4 });
+    expect(await exists()).toBe(true);
+    expect(await readQueue()).toHaveLength(4);
+    expect(signOutPending()).toBe(false);
+    expect(session.me).not.toBeNull();
+    // Losing those 4, once warned, goes ahead.
+    expect(await signOutHere((again as Waiting).ids)).toBe('signed-out');
+    expect(await exists()).toBe(false);
+  });
+
+  it('as many as shown, but not the same ones: warns again', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    const shown = await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    network.offline = true;
+    unreachable();
+    // Another tab sends the shown one and queues a new one.
+    await dropFromQueue([shown.seq!]);
+    const fresh = await addToQueue(makeAction({ kind: 'tick', item_id: 'b' }), ME.id, 'device-1');
+    expect(await signOutHere([shown.action.id])).toEqual({ count: 1, ids: [fresh.action.id] });
+    expect(await exists()).toBe(true);
+  });
+
+  it('nothing shown, but something queued since: warns, never wipes it', async () => {
+    await setMeta({ login_id: 1, login_name: 'Tess', username: 'tess' });
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    unreachable();
+    expect(await signOutHere()).toMatchObject({ count: 1 });
+    expect(await exists()).toBe(true);
+  });
+});
+
 describe('sending first (for up to 5 s)', () => {
   it('nothing waiting: done at once', async () => {
     const tried = unreachable();
-    expect(await trySending()).toBe(0);
+    expect(left(await trySending())).toBe(0);
     expect(tried).toEqual([]);
   });
 
@@ -231,7 +282,7 @@ describe('sending first (for up to 5 s)', () => {
         ];
       }
     });
-    expect(await trySending()).toBe(0);
+    expect(left(await trySending())).toBe(0);
   });
 
   it('server out of reach: gives up after the time and says how many are left', async () => {
@@ -240,7 +291,7 @@ describe('sending first (for up to 5 s)', () => {
     await shoppingSync.open();
     vi.stubGlobal('fetch', () => new Promise<Response>(() => undefined));
     const started = Date.now();
-    expect(await trySending(100)).toBe(2);
+    expect(left(await trySending(100))).toBe(2);
     expect(Date.now() - started).toBeLessThan(2000);
   });
 
@@ -248,7 +299,7 @@ describe('sending first (for up to 5 s)', () => {
     await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
     await shoppingSync.open();
     fakeApi({ 'POST /shopping/actions': [401, { detail: 'Not signed in.' }] });
-    expect(await trySending()).toBe(1);
+    expect(left(await trySending())).toBe(1);
   });
 
   it('counts changes the list hadn’t read, straight from the phone database', async () => {
@@ -257,7 +308,7 @@ describe('sending first (for up to 5 s)', () => {
     await addToQueue(makeAction({ kind: 'tick', item_id: 'b' }), 99, 'device-1');
     const tried = unreachable();
     expect(shoppingSync.waiting).toBe(0);
-    expect(await trySending()).toBe(1);
+    expect(left(await trySending())).toBe(1);
     expect(tried).toEqual([]);
   });
 
@@ -267,6 +318,6 @@ describe('sending first (for up to 5 s)', () => {
     unreachable();
     expect(await trySending()).toBe(UNREADABLE);
     mend();
-    expect(await trySending()).toBe(1);
+    expect(left(await trySending())).toBe(1);
   });
 });
