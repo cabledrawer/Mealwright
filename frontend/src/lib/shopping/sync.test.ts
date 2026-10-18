@@ -111,20 +111,31 @@ describe('batches', () => {
   });
 
   it('sends at most 100 changes in a batch, oldest first, one batch at a time', async () => {
+    // Each batch is held in flight for a while before it's answered, and more triggers come
+    // while it is: none of them may start a second batch alongside.
     let inFlight = 0;
     let most = 0;
-    const sent = server((one) => {
+    const sent: Sent['body'][] = [];
+    vi.stubGlobal('fetch', async (_input: string, init: RequestInit = {}) => {
+      const body = JSON.parse(String(init.body)) as Sent['body'];
+      sent.push(body);
       inFlight++;
       most = Math.max(most, inFlight);
+      await new Promise((r) => setTimeout(r, 60));
       inFlight--;
-      return applied(one);
+      const [status, answer] = applied({ path: '', body, queuedFirst: 0 });
+      return new Response(JSON.stringify(answer), { status });
     });
-    // 150 changes waiting on the phone (made offline), then a trigger.
+    // 150 changes waiting on the phone (made offline), then triggers.
     const actions = Array.from({ length: 150 }, (_, i) => tick(`i${i}`));
     for (const a of actions) await addToQueue(a, ME.id, deviceId());
-    await shoppingSync.send();
-    expect(sent.map((s) => s.body.actions.length)).toEqual([100, 50]);
-    expect(sent.flatMap((s) => s.body.actions.map((a) => a.id))).toEqual(actions.map((a) => a.id));
+    const first = shoppingSync.send();
+    await vi.waitFor(() => expect(inFlight).toBe(1));
+    const more = [shoppingSync.send(), shoppingSync.tryAgain(), shoppingSync.send()];
+    await Promise.all([first, ...more]);
+    await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
+    expect(sent.map((s) => s.actions.length)).toEqual([100, 50]);
+    expect(sent.flatMap((s) => s.actions.map((a) => a.id))).toEqual(actions.map((a) => a.id));
     expect(most).toBe(1);
   });
 

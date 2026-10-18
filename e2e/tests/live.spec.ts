@@ -176,7 +176,7 @@ test.describe('the connection bar', () => {
     await context.unroute('**/api/**', blocked);
     await tryNow.click();
     await expect(bar(page)).toBeHidden({ timeout: 10_000 });
-    await expect(page.getByRole('status').filter({ hasText: 'Back online' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible();
   });
 
   test('desktop: a small dot when the sidebar is collapsed', async ({ page, context }) => {
@@ -207,7 +207,7 @@ test.describe('the connection bar', () => {
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44 - 0.5);
 
     await context.setOffline(false);
-    const toast = page.getByRole('status').filter({ hasText: 'Back online' });
+    const toast = page.getByRole('status').filter({ hasText: 'Back online — all saved' });
     await expect(toast).toBeVisible({ timeout: 10_000 });
     await toast.hover(); // a toast waits while the pointer is on it
     // Check the toast as it stays, not halfway through its 180 ms fade-in.
