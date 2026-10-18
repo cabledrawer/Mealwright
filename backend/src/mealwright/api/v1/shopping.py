@@ -22,6 +22,7 @@ from mealwright.amounts import MAX_MILLI
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, Ref, Who
 from mealwright.auth import SameOrigin
+from mealwright.errors import Problem
 from mealwright.foods import amount_out, change_out, find, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
@@ -184,6 +185,13 @@ def _item_out_one(kitchen: Kitchen, item: ListItem) -> ItemOut:
     return _item_out(kitchen, item, food, _shops(kitchen))
 
 
+def _visible_food(kitchen: Kitchen, food_id: int) -> Food | None:
+    try:
+        return find(kitchen, food_id)
+    except Problem:
+        return None
+
+
 def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
     shops = _shops(kitchen)
     items = list(
@@ -198,9 +206,8 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
     )
     by_shop: dict[int | None, list[tuple[ListItem, Food]]] = {}
     for item in items:
-        try:
-            food = find(kitchen, item.food_id)
-        except Exception:  # an ingredient that's gone: nothing to show  # noqa: S112
+        food = _visible_food(kitchen, item.food_id)
+        if food is None:  # an ingredient that's gone: nothing to show
             continue
         by_shop.setdefault(item.shop_id if item.shop_id in shops else None, []).append((item, food))
     groups: list[ShopGroup] = []
