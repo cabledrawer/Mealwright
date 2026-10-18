@@ -554,7 +554,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done."
+          "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
         );
       mendRead();
       mendDelete();
@@ -669,7 +669,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
 
   describe('a wipe that couldn’t delete the phone database (cabledrawer 18 Oct)', () => {
     const WIPE_FAILED =
-      "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done.";
+      "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.";
 
     it('says so on opening; Try again that fails says so again; once deleted, it goes', async () => {
       await wrensPhone(2);
@@ -733,7 +733,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done."
+          "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
         );
     });
   });

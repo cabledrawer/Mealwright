@@ -90,10 +90,10 @@ export const cantCheckText = (device: Device = 'phone') =>
 
 /**
  * A wipe couldn't delete the phone database: until it has, nobody can sign in here, so no
- * one sees or uses the old login's data (section 12).
+ * one sees or uses the old login's data (section 12). cabledrawer's wording (18 Oct).
  */
 export const wipeFailedText = (device: Device = 'phone') =>
-  `This ${device} couldn't delete its offline copy of the household. Nobody can sign in on it until that's done.`;
+  `This ${device} couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.`;
 
 /** The server answered, but didn't end the session (section 12). */
 export const unfinishedText = (device: Device = 'phone') =>
