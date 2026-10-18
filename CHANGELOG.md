@@ -4,6 +4,11 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- Keeping the UI good: a word list draft (`docs/dev/words.md`), a development-only component gallery at `/dev/gallery`, stress screenshots (many items, long names, 200% text), a browser code size limit in `./check` (170 KiB gzip), a slow-phone browser test, saved Pantry and Shopping screenshots, a stronger reduced-motion rule and keyboard-only tests for the desktop screens.
+- Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
+
 ### Security
 - At most 10 live-update streams per sign-in; past that the oldest closes, and its tab quietly stops live updates (no offline bar) until it is looked at again.
 - Signing out ends that sign-in's live updates at once.
