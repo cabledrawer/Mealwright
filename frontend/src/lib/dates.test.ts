@@ -16,10 +16,12 @@ describe('use-by dates in plain words', () => {
   it('the phone Use soon card keeps the capital on day names', () => {
     expect(compactDateWords('2026-10-19', 2)).toBe('Mon'); // not "mon"
     expect(compactDateWords('2026-11-12', 26)).toBe('12 Nov');
-    // Today and tomorrow are lowercase, as in "use by today".
-    expect(compactDateWords('2026-10-17', 0)).toBe('today');
-    expect(compactDateWords('2026-10-18', 1)).toBe('tomorrow');
+    // Today and tomorrow take a capital here, like the Today chip; mid-sentence they don't.
+    expect(compactDateWords('2026-10-17', 0)).toBe('Today');
+    expect(compactDateWords('2026-10-18', 1)).toBe('Tomorrow');
     expect(useByWords('2026-10-17', 0)).toBe('use by today');
+    expect(useByWords('2026-10-18', 1)).toBe('use by tomorrow');
+    expect(addedWords('2026-10-17', '2026-10-17')).toBe('added today');
     expect(compactDateWords(null, null)).toBe('');
   });
 

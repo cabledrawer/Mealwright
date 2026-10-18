@@ -161,7 +161,7 @@ describe('the Pantry page', () => {
     await expect
       .element(tabs.getByRole('tab', { name: /Use soon/ }))
       .toHaveAttribute('aria-selected', 'true');
-    await expect.element(page.getByRole('button', { name: /Spinach · today/ })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: /Spinach · Today/ })).toBeVisible();
   });
 
   it('Used takes it off at once, saves with a change ID, and offers Undo', async () => {
