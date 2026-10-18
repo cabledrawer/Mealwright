@@ -9,6 +9,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - Signing out ends that sign-in's live updates at once.
 - Requests bigger than 4 MiB are refused ("That's too much to send in one go.").
 - A number too big for the database is refused instead of causing a server error.
+- In https mode (the default) browsers are told to use only https for Mealwright's address for a year (HSTS, without `includeSubDomains` or `preload`). Never sent in plain-http mode.
+- A sign-in without "Remember this phone" (or computer) now lasts at most 30 days in total, even when used every day, the same as with it. It still ends after 12 hours without use.
 - New kept tests: every endpoint refuses a signed-out visitor; one household can't reach another's lists, ticks, notes, changes or live updates.
 
 ## [0.3.0] - 2026-10-19
