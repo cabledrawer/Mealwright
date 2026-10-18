@@ -129,7 +129,17 @@ Carried over from 0.2 (touch only if the PR changes it)
 
 ## Where 0.3 differs from the mockups (the spec wins)
 
-Fill this in per PR as rulings are made; none yet. Hidden in 0.3: list generation from the
+Fill this in per PR as rulings are made. PR 4 (Shopping), none of these is a ruling yet; the lead
+may overrule:
+- Shop tabs end with **All**, which is the starting view, so a newly added item is never hidden
+  in another shop's tab. The mockup starts on the first shop.
+- The list picker says "Main list · 12" (the mockup adds "built from the plan", which waits for 0.6).
+- Aisle headings use the spec's names (Veg & fruit, Dry goods…), not the mockup's.
+- Checkboxes have a 44 px tap area around the 22 px box; buttons are 44 px tall, not 36 px.
+- Taking an item off the list is "Remove from list" inside the amount editor (tap the amount).
+- "How do you count it?" and the "Put away" toast's Change button have no mockup yet.
+
+Hidden in 0.3: list generation from the
 plan, the staples check card, tubs, "Recipes for these".
 
 ## Mockup notes (what builders tend to miss)
