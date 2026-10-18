@@ -1,7 +1,7 @@
 <script lang="ts">
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
   // lead's rulings of 17 Oct):
-  //   phone: tabs All · every place (More if they don't fit) · Use soon; staples;
+  //   phone: search; tabs All · every place (More if they don't fit) · Use soon; staples;
   //          Recent changes at the bottom (last 3, with Undo);
   //   desktop: search, filters, the places as 4 columns or 2 × 2, and a side panel with
   //            Use soon, Staples and Recent changes.
@@ -219,6 +219,13 @@
   </section>
 {/snippet}
 
+{#snippet searchBox(label: string)}
+  <label class="search">
+    <Icon name="search" size={18} stroke={2.2} />
+    <input type="search" placeholder="{label}…" aria-label={label} bind:value={model.query} />
+  </label>
+{/snippet}
+
 {#snippet results()}
   <div class="card results">
     {#if found.length}
@@ -279,6 +286,7 @@
 {:else if !pantry}
   <p class="loading">Loading…</p>
 {:else if phone}
+  <div class="phone-search">{@render searchBox('Search pantry')}</div>
   {#if !searching}
     <PlaceTabs {tabs} bind:selected={tab} panelId="{uid}-panel" />
   {/if}
@@ -343,15 +351,7 @@
   <div class="desk">
     <section class="main-side" aria-label="What's in the pantry">
       <div class="tools">
-        <label class="search">
-          <Icon name="search" size={18} stroke={2.2} />
-          <input
-            type="search"
-            placeholder="Find in pantry…"
-            aria-label="Find in pantry"
-            bind:value={model.query}
-          />
-        </label>
+        {@render searchBox('Find in pantry')}
         <div class="filters" role="group" aria-label="Show">
           {#each FILTERS as f (f.value)}
             <button
@@ -443,6 +443,15 @@
   .first h2 {
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
+  }
+
+  /* The phone's search sits above the tabs and runs the width of the screen. */
+  .phone-search {
+    margin-bottom: var(--space-4);
+  }
+
+  .phone-search .search {
+    max-width: none;
   }
 
   .phone-panel {

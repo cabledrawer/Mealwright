@@ -13,8 +13,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Changed (0.3, paper-cuts)
 
 - **Collapsed sidebar:** the Recipes icon opens a small pop-out with All recipes, Drafts and Ingredients, the current page marked. It works with the keyboard and screen readers (a menu).
-- **Add to pantry:** "Pick a date" opens the phone's date picker straight away and then shows the date it chose ("Sat 24 Oct") on the chip. The separate Date field is gone, and cancelling the picker changes nothing.
-- **Pantry search** shows one list of results, each with its place ("Toor dal · Cupboard") and "also called thuvaram paruppu" when another name matched.
+- **Add to pantry:** "Pick a date" opens the phone's date picker straight away and then shows the date it chose ("Sat 24 Oct") on the chip. The separate Date field is gone, and cancelling the picker changes nothing. The Use-by chips now choose as the arrow keys move, like the app's other chip groups; "Pick a date" opens its picker only on Space, Enter or a tap, never just because focus arrived on it. Screen readers announce the chip once, not also the hidden date field behind it.
+- **Pantry search** shows one list of results, each with its place ("Toor dal · Cupboard") and "also called thuvaram paruppu" when another name matched. On the phone there is a "Search pantry" field above the tabs, with the same one-list results.
 - **Undo says what it undid:** "Undone: Removed Oil from Ingredients", for Ctrl+Z and the toast's Undo.
 - **Use soon card:** "Lemon · Today" and "Tomorrow" start with a capital, like the Today chip.
 

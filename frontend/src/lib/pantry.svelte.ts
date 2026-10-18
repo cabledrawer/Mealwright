@@ -101,6 +101,8 @@ export class PantryModel {
         getUseSoon(),
         listChanges({ area: 'pantry', limit: RECENT }),
         // Which name matched, for "also called …". Without it the results still show.
+        // Asked again on every reload, even for the same words: a new live or stock change can
+        // bring in an ingredient that matches only by another name, which the last answer lacks.
         query ? listFoods({ q: query, limit: 500 }).catch(() => null) : null
       ]);
       if (asked !== this.#asked) return; // something newer is on its way

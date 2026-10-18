@@ -252,6 +252,55 @@ describe('the Pantry page', () => {
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
     });
 
+    describe('phone: the search field above the tabs', () => {
+      const phoneSearch = () => page.getByRole('searchbox', { name: 'Search pantry' });
+
+      it('is above the place tabs and has the accessible name "Search pantry"', async () => {
+        routes();
+        await render(390);
+        await expect.element(phoneSearch()).toBeVisible();
+        await expect.element(page.getByRole('tablist')).toBeVisible();
+        const field = phoneSearch().element().getBoundingClientRect();
+        const tabs = page.getByRole('tablist').element().getBoundingClientRect();
+        expect(field.bottom).toBeLessThanOrEqual(tabs.top);
+        // One search field, not two.
+        expect(page.getByRole('searchbox').elements()).toHaveLength(1);
+        expect(page.getByRole('searchbox', { name: 'Find in pantry' }).elements()).toHaveLength(0);
+        expect(field.right).toBeLessThanOrEqual(390);
+      });
+
+      it('typing shows the one list, with each place and "also called"', async () => {
+        searchRoutes('thuvaram', [7, 20], { 7: 'thuvaram paruppu' });
+        await render(390);
+        await phoneSearch().fill('thuvaram');
+        const list = page.getByRole('list', { name: 'Found in the pantry' });
+        await expect.element(list).toBeVisible();
+        await expect
+          .element(list.getByRole('button', { name: /Toor dal · Cupboard/ }))
+          .toBeVisible();
+        await expect.element(list.getByRole('button', { name: /Spinach · Fridge/ })).toBeVisible();
+        // Only the match by another name says "also called".
+        await expect.element(list.getByText('also called thuvaram paruppu')).toBeVisible();
+        expect(page.getByText(/also called/).elements()).toHaveLength(1);
+        expect(page.getByRole('tablist').elements()).toHaveLength(0);
+        // The field stays, so the search can be changed or cleared.
+        await expect.element(phoneSearch()).toHaveValue('thuvaram');
+        await phoneSearch().fill('');
+        await expect.element(page.getByRole('tablist')).toBeVisible();
+        expect(page.getByRole('list', { name: 'Found in the pantry' }).elements()).toHaveLength(0);
+      });
+
+      it('a match on the ingredient’s own name has no "also called"', async () => {
+        searchRoutes('toor', [7]);
+        await render(390);
+        await phoneSearch().fill('toor');
+        await expect
+          .element(page.getByRole('button', { name: /Toor dal · Cupboard/ }))
+          .toBeVisible();
+        expect(page.getByText(/also called/).elements()).toHaveLength(0);
+      });
+    });
+
     it('phone: with nothing found, it says so once', async () => {
       searchRoutes('zzz', []);
       await render(1300);
@@ -404,7 +453,7 @@ describe('the Pantry page', () => {
     }
 
     const input = (sheet: ReturnType<typeof page.getByRole>) =>
-      sheet.getByLabelText('Use-by date').element() as HTMLInputElement;
+      sheet.element().querySelector<HTMLInputElement>('[data-use-by-input]')!;
 
     /** What the device's picker does when a date is chosen. */
     function choosePicked(sheet: ReturnType<typeof page.getByRole>, value: string) {
@@ -544,19 +593,77 @@ describe('the Pantry page', () => {
       expect(await addAndRead(sheet)).toBeUndefined();
     });
 
-    it('arrow keys move between the chips without opening the picker', async () => {
+    it('arrow keys choose each chip as they move, like the other chip groups', async () => {
+      const sheet = await openSheet();
+      const chip = (name: string) => sheet.getByRole('radio', { name });
+      (chip('No date').element() as HTMLElement).focus();
+      for (const name of ['Today', '+3 days', '+1 week']) {
+        await userEvent.keyboard('{ArrowRight}');
+        await expect.element(chip(name)).toHaveFocus();
+        await expect.element(chip(name)).toHaveAttribute('aria-checked', 'true');
+      }
+      await userEvent.keyboard('{ArrowLeft}');
+      await expect.element(chip('+3 days')).toHaveAttribute('aria-checked', 'true');
+      expect(await addAndRead(sheet)).toBe('2026-10-20');
+    });
+
+    it('arrowing onto "Pick a date" does not open the picker or change the chosen chip', async () => {
       const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      const clicked = vi.fn();
       try {
         const sheet = await openSheet();
-        (sheet.getByRole('radio', { name: '+1 week' }).element() as HTMLElement).focus();
+        sheet.element().addEventListener('click', clicked, true);
+        await sheet.getByRole('radio', { name: '+1 week' }).click();
+        shown.mockClear();
+        clicked.mockClear();
         await userEvent.keyboard('{ArrowRight}');
         await expect.element(sheet.getByRole('radio', { name: 'Pick a date' })).toHaveFocus();
         expect(shown).not.toHaveBeenCalled();
-        await userEvent.keyboard('{Enter}');
-        expect(shown).toHaveBeenCalledOnce();
+        expect(clicked).not.toHaveBeenCalled();
+        // +1 week is still the chosen one.
+        await expect
+          .element(sheet.getByRole('radio', { name: '+1 week' }))
+          .toHaveAttribute('aria-checked', 'true');
+        expect(sheet.getByRole('radio', { name: 'Pick a date' }).element()).toHaveAttribute(
+          'aria-checked',
+          'false'
+        );
+        expect(input(sheet).value).toBe('');
       } finally {
         shown.mockRestore();
       }
+    });
+
+    for (const key of [' ', '{Enter}']) {
+      it(`${key === ' ' ? 'Space' : 'Enter'} on "Pick a date" opens the picker`, async () => {
+        const shown = vi
+          .spyOn(HTMLInputElement.prototype, 'showPicker')
+          .mockImplementation(() => {});
+        try {
+          const sheet = await openSheet();
+          (sheet.getByRole('radio', { name: '+1 week' }).element() as HTMLElement).focus();
+          await userEvent.keyboard('{ArrowRight}');
+          expect(shown).not.toHaveBeenCalled();
+          await userEvent.keyboard(key);
+          expect(shown).toHaveBeenCalledOnce();
+        } finally {
+          shown.mockRestore();
+        }
+      });
+    }
+
+    it('the see-through date field is hidden from assistive tech: only the chip is announced', async () => {
+      const sheet = await openSheet();
+      const field = input(sheet);
+      expect(field.getAttribute('aria-hidden')).toBe('true');
+      expect(field.tabIndex).toBe(-1);
+      expect(field.hasAttribute('aria-label')).toBe(false);
+      // Nothing about a date field is in the accessibility tree; the chip is.
+      expect(sheet.getByLabelText('Use-by date').elements()).toHaveLength(0);
+      await expect.element(sheet.getByRole('radio', { name: 'Pick a date' })).toBeVisible();
+      choosePicked(sheet, '2026-10-24');
+      await expect.element(sheet.getByRole('radio', { name: 'Sat 24 Oct' })).toBeVisible();
+      expect(field.getAttribute('aria-hidden')).toBe('true');
     });
   });
 

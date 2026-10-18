@@ -298,14 +298,10 @@
 
           <section aria-labelledby="{uid}-when">
             <h3 id="{uid}-when">Use by</h3>
-            <!-- Arrow keys only move focus here: choosing is Space or Enter, so arrowing
-                 past "Pick a date" doesn't open the picker. -->
-            <div
-              class="chips"
-              role="radiogroup"
-              aria-labelledby="{uid}-when"
-              use:radioKeys={{ select: false }}
-            >
+            <!-- Arrows choose as they move, like the other chip groups. The one exception is
+                 "Pick a date" (data-no-arrow-select): arrowing onto it only moves focus, so
+                 the picker opens on Space, Enter or a tap, never just because focus arrived. -->
+            <div class="chips" role="radiogroup" aria-labelledby="{uid}-when" use:radioKeys>
               {#each [{ v: 'none', l: 'No date' }, { v: 'today', l: 'Today' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }] as const as option (option.v)}
                 <button
                   type="button"
@@ -319,6 +315,7 @@
                   type="button"
                   role="radio"
                   aria-checked={when === 'pick'}
+                  data-no-arrow-select
                   onclick={openPicker}
                 >
                   {#if when === 'pick'}
@@ -335,7 +332,8 @@
                   min={today}
                   value={picked}
                   tabindex="-1"
-                  aria-label="Use-by date"
+                  aria-hidden="true"
+                  data-use-by-input
                   onchange={picker}
                 />
               </span>
