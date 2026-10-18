@@ -4,6 +4,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added (0.3, pull request 6b)
+
+- **Tap a staple to add it to the shopping list.** On Pantry, a staple chip adds that ingredient to the main shopping list with the toast "Oil added to the shopping list · Undo". A small tick shows on the chip while it is on the list; tapping a ticked chip adds nothing more and says "Oil is already on the shopping list." The tap goes through the same add action and waiting list as Shopping, so a tap made while the connection is failing is kept on the phone and sent once, when the server is back. Screen readers hear "Add Oil to the shopping list" or "Oil, on the shopping list". An "Edit staples" link under the chips opens Ingredients with the Staples filter.
+- **"+ List" on running-low rows** (hidden in 0.2 until the shopping list worked) does the same for that ingredient (toast with Undo, tick, "already on the shopping list", works through the waiting list).
+- **Recent changes on Ingredients.** New ingredients, Staple on or off, removals, merges and edits, each with Undo for 7 days: a side panel on desktop, a "Recent changes" button and sheet on the phone. It follows changes made here and elsewhere. Pantry's Recent changes still lists stock changes only.
+- **Server:** `GET /api/v1/changes?area=ingredients` lists ingredient changes (and their Undos) only, for your household only. No database change.
+
 ### Added (0.3, pull request 5)
 
 - **Live updates.** A second phone or window sees a tick, an added item or a pantry change within a moment, without reloading. They come from your own Mealwright server only (`GET /api/v1/events`, Server-Sent Events); the stream carries numbers, never names. An open screen doesn't count as activity, so the 12-hour sign-out still happens; a kitchen tablet should use "Remember this phone".
