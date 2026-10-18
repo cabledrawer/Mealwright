@@ -138,6 +138,7 @@
     font-size: 1.75rem;
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-tight);
+    word-spacing: normal;
     line-height: 1.15;
   }
 

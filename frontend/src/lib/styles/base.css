@@ -35,6 +35,8 @@ body {
   margin: 0;
   min-height: 100dvh;
   line-height: 1.4;
+  /* Plus Jakarta Sans's own space is only 0.17em wide; this brings it to about 0.25em. */
+  word-spacing: 0.08em;
   overflow-x: clip;
 }
 
@@ -56,6 +58,14 @@ a:hover {
 button {
   font: inherit;
   color: inherit;
+}
+
+/* Browsers reset word-spacing on form controls; keep the body's. */
+input,
+textarea,
+select,
+button {
+  word-spacing: inherit;
 }
 
 img,

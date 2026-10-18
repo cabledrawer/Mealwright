@@ -414,6 +414,7 @@
     font-size: 1.625rem;
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-tight);
+    word-spacing: normal;
   }
 
   .heading p,

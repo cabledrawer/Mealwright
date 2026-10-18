@@ -126,6 +126,7 @@
     font-size: var(--text-title);
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-tight);
+    word-spacing: normal;
     line-height: 1.15;
     overflow-wrap: anywhere;
   }

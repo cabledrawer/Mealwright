@@ -130,6 +130,7 @@
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-tight);
+    word-spacing: normal;
   }
 
   .toggle {
