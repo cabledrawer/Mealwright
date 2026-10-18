@@ -215,6 +215,21 @@ describe('the server says no to the whole batch', () => {
     expect(await readQueue()).toHaveLength(1);
   });
 
+  it('SY-62 (frontend half): signing back in as the same login sends at once, same device', async () => {
+    let signedIn = false;
+    const sent = server((one) => (signedIn ? applied(one) : [401, { detail: 'Sign in again.' }]));
+    void sendAction(tick('a'));
+    await vi.waitFor(() => expect(shoppingSync.stopped).toBe('signed_out'));
+    const device = deviceId();
+    // The same login signs back in: the app starts again (the device ID is kept).
+    signedIn = true;
+    await shoppingSync.start();
+    await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
+    expect(sent).toHaveLength(2);
+    expect(sent[1]!.body).toMatchObject({ device_id: device, login_id: ME.id });
+    expect(sent[1]!.body.actions.map((a) => a.id)).toEqual(sent[0]!.body.actions.map((a) => a.id));
+  });
+
   it('409 other_login: doesn’t send', async () => {
     const sent = server(() => [409, { code: 'other_login', detail: 'Another login.' }]);
     void sendAction(tick('a'));

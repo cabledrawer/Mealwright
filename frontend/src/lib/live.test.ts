@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setUnauthorizedHandler } from './api';
 import { live } from './live.svelte';
 import { network } from './network.svelte';
+import { loadDeviceId } from './offline/device';
+import { getMeta } from './offline/phone';
+import { addToQueue, readQueue } from './offline/store';
+import { dropPhone, freshPhone } from './testing/phone';
 
 // A stand-in for the browser's EventSource, so a test can send the server's lines.
 class FakeSource extends EventTarget {
@@ -76,6 +80,24 @@ describe('the live stream', () => {
     stream().send('signed_out', {});
     expect(handler).toHaveBeenCalledOnce();
     expect(stream().readyState).toBe(2);
+  });
+
+  it('signed_out is not a sign-out: the changes waiting on the phone stay (11.5)', async () => {
+    freshPhone();
+    try {
+      const device = await loadDeviceId();
+      await addToQueue(
+        { id: 'a', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick', item_id: 'i' },
+        1,
+        device
+      );
+      setUnauthorizedHandler(() => {});
+      stream().send('signed_out', {});
+      expect(await readQueue()).toHaveLength(1);
+      expect(await getMeta('device_id')).toBe(device);
+    } finally {
+      await dropPhone();
+    }
   });
 
   it('ignores garbled lines', () => {

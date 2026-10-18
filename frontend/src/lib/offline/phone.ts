@@ -104,6 +104,20 @@ export function openPhone(): Promise<IDBPDatabase> {
   return opening;
 }
 
+/**
+ * Is there a phone database here at all? Asked before reading one on the sign-in page, so
+ * looking doesn't make a new, empty database right after a wipe.
+ */
+export async function phoneExists(): Promise<boolean> {
+  if (opening) return true;
+  try {
+    if (typeof indexedDB.databases !== 'function') return true;
+    return (await indexedDB.databases()).some((db) => db.name === name);
+  } catch {
+    return false;
+  }
+}
+
 /** Close the connection, so the database can be deleted or upgraded. */
 export function closePhone(): void {
   const was = opening;

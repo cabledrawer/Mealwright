@@ -147,8 +147,9 @@ export class ShoppingSync {
    */
   async start(): Promise<void> {
     await this.open();
-    // A new start (perhaps a newer version) tries again after "Couldn't send your changes".
-    if (this.stopped === 'refused') this.stopped = null;
+    // A new start tries again: after "Couldn't send your changes" (perhaps with a newer
+    // version), and after signing back in as the same login when the sign-in ran out (11.5).
+    this.stopped = null;
     if (this.#mine(this.queue).length) await this.send();
   }
 

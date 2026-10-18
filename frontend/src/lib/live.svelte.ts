@@ -9,9 +9,9 @@
 // The browser reconnects by itself after a drop (the server asks for 5 seconds). Coming
 // back to the foreground, the screens fetch again on their own (visibilitychange).
 //
-// FOR PR 6: on `signed_out` this calls sessionEnded(), the same as a 401. PR 6 must keep
-// the offline queue then and show the sync-protocol 11.5 message ("Please sign in again.
-// Your N changes are kept on this phone.") when changes are waiting.
+// On `signed_out` this calls sessionEnded(), the same as a 401. Neither is a sign-out: the
+// offline queue stays on the phone, and the sign-in page says "Please sign in again. Your N
+// changes are kept on this phone." when changes are waiting (sync protocol 11.5).
 
 import { api, sessionEnded } from './api';
 import { network } from './network.svelte';
