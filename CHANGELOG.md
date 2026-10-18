@@ -10,6 +10,14 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Installable app.** A manifest, icons made from the brand icon, and a service worker that keeps only the app's own files, so the app's own files (its code, fonts and icons) load without a connection. The screens still need your server, so opening the app cold with no connection shows an error; showing saved lists while offline comes in the next pull request. It never keeps anything from the server (`/api`) and never updates itself mid-use: a new version starts the next time every window has been closed. No Install button yet.
 - **Connection bar.** "Offline" with Try now on every page (above the tabs on a phone, at the foot of the sidebar on desktop), a short "Back online" toast, and "12 to buy · offline" on Shopping. A blip under 3 seconds shows nothing. The "N changes waiting" wording is ready for the offline queue in the next pull request.
 
+### Changed (0.3, paper-cuts)
+
+- **Collapsed sidebar:** the Recipes icon opens a small pop-out with All recipes, Drafts and Ingredients, the current page marked. It works with the keyboard and screen readers (a menu).
+- **Add to pantry:** "Pick a date" opens the phone's date picker straight away and then shows the date it chose ("Sat 24 Oct") on the chip. The separate Date field is gone, and cancelling the picker changes nothing.
+- **Pantry search** shows one list of results, each with its place ("Toor dal · Cupboard") and "also called thuvaram paruppu" when another name matched.
+- **Undo says what it undid:** "Undone: Removed Oil from Ingredients", for Ctrl+Z and the toast's Undo.
+- **Use soon card:** "Lemon · Today" and "Tomorrow" start with a capital, like the Today chip.
+
 ## [0.2.1] - 2026-10-18
 
 Fixes from cabledrawer's hand test of 0.2.0, plus a few small Pantry improvements from his friction log. Not published; for testing on cabledrawer's homelab.
