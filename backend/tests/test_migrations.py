@@ -317,10 +317,12 @@ def test_0_2_1_migration_goes_back_and_forward(tmp_path: Path) -> None:
     migrate.upgrade(engine)
     with engine.connect() as db:
         assert db.execute(text("SELECT count(*) FROM change_line")).scalar_one() == 6
+
+
 def _make_0_2_database(path: Path) -> Engine:
-    """A 0.2 database: two households, foods, a place, a lot, and a change (as at b4391aaf7695)."""
+    """A 0.2.1 database (a7c3e51d9b02): two households, foods, a lot, a change and its line."""
     engine = make_engine(f"sqlite:///{path}")
-    migrate.upgrade(engine, "b4391aaf7695")
+    migrate.upgrade(engine, "a7c3e51d9b02")
     with engine.begin() as connection:
         for h in (1, 2):
             for sql in (
@@ -337,6 +339,9 @@ def _make_0_2_database(path: Path) -> Engine:
                 "INSERT INTO change (id, household_id, request, kind, login_id, login_name,"
                 " food_id, at, summary) VALUES (:h, :h, 'POST /api/v1/stock', 'added', :h,"
                 " 'User', :h, '2026-10-03', 'Added 500 g Toor dal')",
+                "INSERT INTO change_line (id, household_id, change_id, food_id, lot_id,"
+                " amount_before_milli, amount_after_milli, total_before_milli,"
+                " total_after_milli) VALUES (:h, :h, :h, :h, :h, 0, 500000, 0, 500000)",
             ):
                 connection.execute(text(sql), {"h": h})
     return engine
@@ -384,7 +389,7 @@ def test_shopping_lists_migration_keeps_data_and_gives_each_household_a_main_lis
 def test_shopping_lists_migration_downgrades_and_upgrades_again(tmp_path: Path) -> None:
     engine = _make_0_2_database(tmp_path / "old.db")
     migrate.upgrade(engine)
-    migrate.downgrade(engine, "b4391aaf7695")
+    migrate.downgrade(engine, "a7c3e51d9b02")
     with engine.connect() as connection:
         tables = set(inspect(connection).get_table_names())
         assert not tables & {"shopping_list", "list_item", "list_tick", "sync_action"}
@@ -413,7 +418,7 @@ def test_existing_ingredients_get_a_starting_aisle_only_when_linked_to_the_table
     tmp_path: Path,
 ) -> None:
     engine = make_engine(f"sqlite:///{tmp_path / 'old.db'}")
-    migrate.upgrade(engine, "b4391aaf7695")
+    migrate.upgrade(engine, "a7c3e51d9b02")
     with engine.begin() as connection:
         for h in (1, 2):
             connection.execute(

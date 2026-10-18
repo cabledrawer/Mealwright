@@ -1,7 +1,7 @@
 """add shopping lists
 
 Revision ID: f509d7a1c609
-Revises: b4391aaf7695
+Revises: a7c3e51d9b02
 Create Date: 2026-10-18 00:28:29.910335
 
 """
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "f509d7a1c609"
-down_revision: str | Sequence[str] | None = "b4391aaf7695"
+down_revision: str | Sequence[str] | None = "a7c3e51d9b02"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
