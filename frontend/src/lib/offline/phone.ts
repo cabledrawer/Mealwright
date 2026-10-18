@@ -194,7 +194,8 @@ export function closePhone(): void {
  * Web Locks (sync protocol 12): a wipe reads the queue again and deletes the database while
  * holding the lock, so a change another tab adds lands either before the read (and so is
  * seen, and warned about) or after the wipe, never in between. Where the browser has no Web
- * Locks (older Safari), `work` just runs, as before.
+ * Locks (Safari before 15.4, or any browser on plain http://, as Web Locks need a secure
+ * context), `work` just runs, as before.
  */
 export function withQueueLock<T>(work: () => Promise<T>): Promise<T> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
