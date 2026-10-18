@@ -240,3 +240,93 @@ for (const width of SIZES) {
     });
   }
 }
+
+/** What is left of a food, in its base unit (grams), summed over its packets. */
+const amountLeft = async (page: Page, foodId: number) => {
+  const pantry = await (await page.request.get('/api/v1/pantry')).json();
+  return pantry.places
+    .flatMap(
+      (p: { groups: { food: { id: number }; lots: { stock: { amount: number } }[] }[] }) =>
+        p.groups,
+    )
+    .filter((g: { food: { id: number } }) => g.food.id === foodId)
+    .flatMap((g: { lots: { stock: { amount: number } }[] }) => g.lots)
+    .reduce((sum: number, l: { stock: { amount: number } }) => sum + l.stock.amount, 0);
+};
+
+async function openRow(page: Page, name: string) {
+  await page.goto('/pantry');
+  await page
+    .getByRole('button', { name: new RegExp(`^${name}`) })
+    .first()
+    .click();
+}
+
+test('an opened single-packet row shows the marks; ½ sets the amount and Undo restores it', async ({
+  page,
+}) => {
+  const food = await stocked(page, 'Paneer', 5);
+  await openRow(page, food.name);
+  const marks = page.getByRole('radiogroup', { name: /How much is left/ });
+  await expect(marks.getByRole('radio')).toHaveCount(4);
+  await expect(marks.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true');
+  expect(await amountLeft(page, food.id)).toBe(200);
+
+  await marks.getByRole('radio', { name: '½ left' }).click();
+  await expect(marks.getByRole('radio', { name: '½ left' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect.poll(() => amountLeft(page, food.id)).toBe(100);
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(() => amountLeft(page, food.id)).toBe(200);
+  await expect(marks.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('a row with several packets shows no marks in the row', async ({ page }) => {
+  const food = await stocked(page, 'Rice', 5);
+  await api(page, 'POST', '/stock', {
+    food_id: food.id,
+    amount: { amount: 1, unit: 'pack' },
+  });
+  await openRow(page, food.name);
+  await expect(page.getByRole('list', { name: `Packets of ${food.name}` })).toBeVisible();
+  await expect(page.getByRole('radiogroup')).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Full' })).toHaveCount(0);
+  // The marks are still in the pack line's menu.
+  await page
+    .getByRole('list', { name: `Packets of ${food.name}` })
+    .getByRole('button')
+    .first()
+    .click();
+  await expect(
+    page.getByRole('dialog', { name: new RegExp(food.name) }).getByRole('radio', { name: 'Full' }),
+  ).toBeVisible();
+});
+
+for (const width of SIZES) {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`the marks in the opened row fit a ${width} px phone, ${theme} theme`, async ({
+      page,
+    }) => {
+      test.skip(!isPhone(page), 'the phone layout');
+      await page.emulateMedia({ colorScheme: theme });
+      await page.setViewportSize({ width, height: 800 });
+      const food = await stocked(page, 'Tofu', 5);
+      await openRow(page, food.name);
+      const marks = page.getByRole('radiogroup', { name: /How much is left/ });
+      await expect(marks).toBeVisible();
+      for (const radio of await marks.getByRole('radio').all()) {
+        expect((await radio.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      const fits = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+      expect(fits.scrollWidth).toBeLessThanOrEqual(fits.clientWidth);
+      await page.screenshot({ path: `review-shots/pack-marks/row-${width}-${theme}.png` });
+      await checkPage(page);
+    });
+  }
+}

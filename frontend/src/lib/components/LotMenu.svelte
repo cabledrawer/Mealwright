@@ -4,11 +4,11 @@
   // ¼ · ½ · ¾ · Full picks. A small menu next to the packet on desktop, a sheet from the
   // bottom on phones. A real modal dialog: focus stays inside, Esc closes it, and focus
   // goes back to the packet's row.
-  import { ApiError } from '$lib/api';
   import type { Lot, Place } from '$lib/client/types';
   import { useByWords } from '$lib/dates';
   import type { PantryModel } from '$lib/pantry.svelte';
-  import { PICKS, pickFor } from '$lib/picks';
+  import { pickFor } from '$lib/picks';
+  import PackPicks from './PackPicks.svelte';
 
   let {
     lot,
@@ -35,7 +35,6 @@
   const uid = $props.id();
   let dialog: HTMLDialogElement;
   let step = $state<'actions' | 'move' | 'date' | 'grams'>('actions');
-  let picked = $state<number | null>(null);
   let date = $state('');
 
   const baseUnit = $derived(countedAs === 'weight' ? 'g' : countedAs === 'volume' ? 'ml' : 'count');
@@ -44,7 +43,6 @@
   $effect(() => {
     if (lot && !dialog.open) {
       step = 'actions';
-      picked = null;
       date = lot.use_by ?? '';
       dialog.showModal();
       placeBy(anchor);
@@ -82,22 +80,6 @@
     close();
   }
 
-  function pick(fraction: number) {
-    if (!lot) return;
-    const id = lot.id;
-    picked = fraction;
-    void model.setLeft(id, name, { fraction }).then((outcome) => {
-      // A packet with no size can't take a fraction: offer to type the amount.
-      if (
-        !outcome.ok &&
-        outcome.error instanceof ApiError &&
-        outcome.error.code === 'needs_amount'
-      ) {
-        step = 'grams';
-      }
-    });
-  }
-
   function typeLeft(event: SubmitEvent) {
     event.preventDefault();
     if (!lot) return;
@@ -118,7 +100,6 @@
     act(() => value !== lot?.use_by && model.setUseBy(id, name, value));
   }
 
-  const current = $derived(lot ? (picked ?? pickFor(lot)) : undefined);
   const about = $derived(lot ? (lot.stock.display.split(' · ').at(-1) ?? '') : '');
 </script>
 
@@ -146,17 +127,13 @@
         {#if lot.open || pickFor(lot) !== undefined}
           <div class="picks">
             <span class="hint" id="{uid}-q">How much is left? Best guess is fine.</span>
-            <div class="pick-row" role="radiogroup" aria-labelledby="{uid}-q">
-              {#each PICKS as p (p.value)}
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={current === p.value}
-                  aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
-                  onclick={() => pick(p.value)}>{p.label}</button
-                >
-              {/each}
-            </div>
+            <PackPicks
+              {lot}
+              {name}
+              {model}
+              labelledby="{uid}-q"
+              onneedsamount={() => (step = 'grams')}
+            />
             <span class="hint"
               >{about.charAt(0).toLocaleUpperCase() + about.slice(1)} ·
               <button type="button" class="link" onclick={() => (step = 'grams')}
@@ -310,30 +287,6 @@
     padding: var(--space-5);
     border-radius: var(--radius-md);
     background: var(--color-ground);
-  }
-
-  .pick-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: var(--space-3);
-  }
-
-  .pick-row button {
-    min-height: var(--touch-target);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .pick-row button[aria-checked='true'] {
-    border-color: var(--color-accent);
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
-    font-weight: var(--weight-extrabold);
   }
 
   .link {

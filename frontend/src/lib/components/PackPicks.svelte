@@ -1,0 +1,85 @@
+<script lang="ts">
+  // The ¼ · ½ · ¾ · Full marks for one packet: a radio group, shared by the packet's
+  // menu (LotMenu) and the opened Pantry row (PantryGroup, single-packet foods).
+  // Tapping one saves at once (model.setLeft, with Undo in the toast).
+  import { ApiError } from '$lib/api';
+  import type { Lot } from '$lib/client/types';
+  import type { PantryModel } from '$lib/pantry.svelte';
+  import { PICKS, pickFor } from '$lib/picks';
+
+  let {
+    lot,
+    name,
+    model,
+    labelledby,
+    onneedsamount
+  }: {
+    lot: Lot;
+    name: string;
+    model: PantryModel;
+    /** The id of the text that asks "How much is left?". */
+    labelledby: string;
+    /** Called when the packet has no size, so a fraction can't be worked out. */
+    onneedsamount?: () => void;
+  } = $props();
+
+  /** What was just tapped, shown at once; cleared when the saved amount changes. */
+  let picked = $state<number | null>(null);
+  $effect(() => {
+    void lot.stock.amount;
+    picked = null;
+  });
+
+  const current = $derived(picked ?? pickFor(lot));
+
+  function pick(fraction: number) {
+    picked = fraction;
+    void model.setLeft(lot.id, name, { fraction }).then((outcome) => {
+      if (
+        !outcome.ok &&
+        outcome.error instanceof ApiError &&
+        outcome.error.code === 'needs_amount'
+      ) {
+        onneedsamount?.();
+      }
+    });
+  }
+</script>
+
+<div class="pick-row" role="radiogroup" aria-labelledby={labelledby}>
+  {#each PICKS as p (p.value)}
+    <button
+      type="button"
+      role="radio"
+      aria-checked={current === p.value}
+      aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
+      onclick={() => pick(p.value)}>{p.label}</button
+    >
+  {/each}
+</div>
+
+<style>
+  .pick-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  button {
+    min-height: var(--touch-target);
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  button[aria-checked='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-weight: var(--weight-extrabold);
+  }
+</style>

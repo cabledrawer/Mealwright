@@ -345,6 +345,8 @@ Plans after 1.0 are kept outside the repo.
 
 **Part-used packets (cabledrawer 17 Oct):** after cooking, the app suggests its best estimate of what's left ("about ½ packet · 250 g"). The user can correct it either in grams or as a fraction of the packet. Quick picks are ¼ · ½ · ¾ · full, or you type an amount.
 
+**Marks in the opened pantry row (cabledrawer 18 Oct):** for a food with a single packet, the ¼ · ½ · ¾ · Full marks show in the opened row, next to the "Used some" box, so they are easy to find. With several packets the row stays as it is, and the marks stay in each packet's menu. Tapping a mark saves at once, with Undo.
+
 **Tubs (cabledrawer 17 Oct):** counted in quarters. Eating from a tub uses one whole tub by default; a ¼-step stepper lets you say "used ½". Whatever is left stays where it is ("¾ tub") with its batch colour.
 
 **Packets with different use-by dates (cabledrawer 17 Oct):** each packet is kept separately behind the scenes, so the one that goes off first is used first. The pantry shows them together ("2 packets · 1 kg"); tap to see each packet and its date.

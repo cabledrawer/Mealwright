@@ -10,6 +10,8 @@
   import type { PantryModel } from '$lib/pantry.svelte';
   import Icon from './Icon.svelte';
   import LotMenu from './LotMenu.svelte';
+  import PackPicks from './PackPicks.svelte';
+  import { pickFor } from '$lib/picks';
 
   let {
     group,
@@ -126,6 +128,12 @@
         {/each}
       </ul>
       {#if group.lots.length > 1}<span class="hint">Oldest gets used first.</span>{/if}
+      {#if single && pickFor(single) !== undefined}
+        <div class="marks">
+          <span class="small-label" id="{uid}-left">How much is left? Best guess is fine.</span>
+          <PackPicks lot={single} {name} {model} labelledby="{uid}-left" />
+        </div>
+      {/if}
       <form class="some" onsubmit={useSome}>
         {#if group.food.counted_as === 'count'}
           <label class="small-field">
@@ -342,6 +350,18 @@
     background: var(--color-fill);
     color: var(--color-text-muted);
     cursor: default;
+  }
+
+  .marks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .small-label {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
   }
 
   .some {
