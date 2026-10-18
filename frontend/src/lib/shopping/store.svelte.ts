@@ -347,11 +347,13 @@ export class ShoppingModel {
    */
   tick(item: ListItem) {
     let shown: Shown | undefined;
-    return this.#act(
+    let tickId: string | undefined;
+    const outcome = this.#act(
       { kind: 'tick', item_id: item.id },
       {
         quiet: true,
         queued: (actionId) => {
+          tickId = actionId;
           shown = this.#tickToast(item, actionId);
           this.lastTicked = {
             itemId: item.id,
@@ -371,6 +373,12 @@ export class ShoppingModel {
         }
       }
     );
+    return outcome.then((done) => {
+      // Refused or ignored: nothing was ticked, so Put away has nothing of it to show.
+      const nothing = !done.ok || done.value.status === 'ignored';
+      if (nothing && tickId && this.lastTicked?.actionId === tickId) this.lastTicked = null;
+      return done;
+    });
   }
 
   /** Where a ticked item goes: its tick's place, the place chosen for it, or its usual one. */

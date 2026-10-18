@@ -234,6 +234,39 @@ describe('the Shopping page', () => {
     await expect.element(page.getByRole('checkbox', { name: 'Tick Onions' })).not.toBeChecked();
   });
 
+  it('desktop: a tick the server ignores (another phone ticked it first) leaves the Put away panel', async () => {
+    await render(1300, {
+      'POST /shopping/actions': (request) => {
+        const batch = request.body as { actions: { id: string }[] };
+        // Ticked on another phone meanwhile: this tick is ignored, and the copy comes again.
+        copy.items.find((i) => i.id === 'i-onions')!.ticks.push(tick('other-phone'));
+        return [
+          200,
+          {
+            results: batch.actions.map((a) => ({
+              id: a.id,
+              status: 'ignored',
+              reason: 'already_ticked',
+              message: null
+            }))
+          }
+        ];
+      }
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    // The copy came again, with Onions ticked (by the other phone), and this tick isn't kept.
+    await vi.waitFor(() =>
+      expect(
+        server.requests.filter((r) => r.path === '/shopping/changes').length
+      ).toBeGreaterThanOrEqual(2)
+    );
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+    await expect
+      .element(page.getByRole('button', { name: 'Undo last tick' }))
+      .not.toBeInTheDocument();
+    expect(page.getByRole('combobox', { name: 'Where' }).elements()).toEqual([]);
+  });
+
   it('FE-4 (part 2): sends what an earlier version left waiting, as protocol 1, before showing the list', async () => {
     const device = await loadDeviceId();
     const waiting = { id: 'w1', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick' as const };
