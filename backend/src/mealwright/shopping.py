@@ -846,6 +846,14 @@ def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any]]:
         return None, {}
     if food.removed_at is None:
         return food, {}
+    return revive(act, food)
+
+
+def revive(act: Act, food: Food) -> tuple[Food, dict[str, Any]]:
+    """An ingredient removed while the phone was offline, wanted again by an `add` or a
+    tick (5.9): if its name (or another of its names) is a live ingredient's now, that
+    one; else it is brought back. Returns the ingredient and the Undo snapshot."""
+    kitchen = act.kitchen
     taken = _named(kitchen, food.name)
     if taken is None:
         for other in kitchen.db.scalars(select(FoodName).where(FoodName.food_id == food.id)):

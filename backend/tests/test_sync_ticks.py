@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sync_kit import (
     API,
     PHONE_A,
@@ -27,7 +27,7 @@ from sync_kit import (
     tick,
 )
 
-from mealwright.models import Place, StockLot, SyncAction, utcnow
+from mealwright.models import Food, Place, StockLot, SyncAction, utcnow
 
 BOTH = pytest.mark.parametrize("a_first", [True, False], ids=["A-B", "B-A"])
 
@@ -170,6 +170,55 @@ def test_sy08_sy09_tick_against_a_delete(kitchen: TestClient, a_first: bool) -> 
     assert _undo(kitchen, note["undo"])["status"] == "applied"
     assert s.total("Paneer") == 0
     assert changes(kitchen)["notes"] == []
+
+
+def _removed_with_its_line(s: S0, name: str) -> None:
+    """Wren removes the line, then the ingredient (phone A hasn't seen either)."""
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items[name])
+    ok(s.wren.delete(f"{API}/foods/{s.foods[name]}"))
+
+
+def _live(s: S0, name: str) -> list[int]:
+    with db(s.kitchen) as session:
+        rows = session.scalars(select(Food).where(Food.name == name, Food.removed_at.is_(None)))
+        return [row.id for row in rows]
+
+
+def test_a_tick_brings_back_the_removed_ingredient(kitchen: TestClient) -> None:
+    """7.1 (pending cabledrawer): the purchase needs an ingredient to go into the pantry."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    done = tick(kitchen, s, "Paneer")
+    assert done["status"] == "applied" and done["message"] == "Paneer is back in Ingredients."
+    assert _live(s, "Paneer") == [s.foods["Paneer"]]
+    assert s.total("Paneer") == 400
+
+
+def test_a_tick_goes_to_the_ingredient_that_has_the_name_now(kitchen: TestClient) -> None:
+    """As an `add` would (5.9, SY-66): no second "Paneer"; the stock goes to the live one."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    new = food(kitchen, "Paneer", counted_as="weight")["id"]
+    done = tick(kitchen, s, "Paneer")
+    assert done["status"] == "applied" and done["message"] is None
+    assert _live(s, "Paneer") == [new]
+    with db(kitchen) as session:
+        lots = session.scalars(select(StockLot).where(StockLot.amount_milli > 0)).all()
+        assert [(lot.food_id, lot.amount_milli) for lot in lots] == [(new, 400_000)]
+    assert done["change"]["summary"].startswith("Bought 400\u00a0g Paneer")
+    assert _undo(kitchen, done["id"])["status"] == "applied"  # and it comes out again
+    with db(kitchen) as session:
+        assert session.scalar(select(func.sum(StockLot.amount_milli))) == 0
+
+
+def test_a_tick_with_nothing_to_put_in_brings_nothing_back(kitchen: TestClient) -> None:
+    """A staple (or an item with no amount) puts no stock in, so its removed ingredient
+    stays removed (7.1)."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Salt")
+    done = tick(kitchen, s, "Salt")
+    assert done["status"] == "applied" and done["message"] is None
+    assert _live(s, "Salt") == []
 
 
 # --- Put away and Different pack (7.3, 7.4) ------------------------------------------------------

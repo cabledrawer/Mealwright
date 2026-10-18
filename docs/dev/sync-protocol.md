@@ -408,7 +408,7 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
 - (PR 3) The summary's amount uses 0.2's pantry wording, so a count word reads "Bought 1 bunch of Coriander → Fridge".
-- (PR 3) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would: the purchase needs it in the pantry.
+- (PR 3, pending cabledrawer) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back.
 
 ### 7.2 What a purchase's stock is
 

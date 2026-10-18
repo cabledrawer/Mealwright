@@ -173,8 +173,10 @@ def tick(act: Act) -> None:
     if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
         act.ignore("already_ticked")
         return
-    if food.removed_at is not None:  # on a tombstone only: removing is blocked otherwise
-        shopping._bring_back(act, food)
+    if food.removed_at is not None and not food.staple and item.amount_milli:
+        # On a tombstone only (removing is blocked otherwise), and only when stock goes in:
+        # the purchase needs an ingredient in the pantry (7.1, pending cabledrawer).
+        food, _ = shopping.revive(act, food)
     place = get_place(kitchen, item.put_away_place_id)
     if place is None:
         item.put_away_place_id = None  # a chosen place that's gone (5.9, SY-55)
