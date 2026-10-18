@@ -352,6 +352,26 @@ def partial(done: Iterable[Change]) -> str | None:
     return None
 
 
+def repack_back(kitchen: Kitchen, change: Change, done: list[Change]) -> str | None:
+    """The sentence for an Undo of a pack change that couldn't put things exactly back,
+    because some was used since (7.4 item 6, pending cabledrawer). None if it could."""
+    if change.kind != "repacked" or partial(done) is None:
+        return None
+    ops = (change.undo_data or {}).get("shopping") or []
+    old = next((op["old"] for op in ops if op.get("op") == "tick_bought"), None)
+    food = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
+    if not isinstance(old, list) or len(old) != 2 or food is None:
+        return None
+    size = _size(kitchen, old[1]) or usual_size(kitchen, food.id)
+    shown = amount_out(food, old[0] or 0, size).display
+    return f"{food.name} is back to {shown}. Some had been used since, so check how much is left."
+
+
+def _say(undo: Change, message: str | None) -> None:
+    if message is not None:
+        undo.undo_data = {**(undo.undo_data or {}), "message": message}
+
+
 def took_out(kitchen: Kitchen, done: Iterable[Change]) -> int:
     """How much a reversal's `undo` changes took out of the pantry, in base units."""
     ids = [change.id for change in done]
@@ -797,8 +817,10 @@ def _undo_changes(act: Act, target: SyncAction) -> bool:
             undone.undone_by_action_id = act.id
     done = [undo_change(kitchen, change, act.batch, act.id) for change in changes]
     if done:
+        repacked = repack_back(kitchen, changes[-1], done)
+        _say(done[-1], repacked)
         act.main_change = done[-1]
-        act.message = partial(done)
+        act.message = repacked or partial(done)
     return bool(done)
 
 
@@ -849,6 +871,7 @@ def pantry_undo(kitchen: Kitchen, change: Change, batch: Batch) -> Change:
     later = later_repacks(kitchen, change)
     first = [undo_change(kitchen, newer, batch, batch.action) for newer in later]
     done = undo_change(kitchen, change, batch, batch.action)
+    _say(done, repack_back(kitchen, change, [*first, done]))
     if batch.taken or tick is not None:
         kind = "place_by_undo" if change.kind == "moved" and tick is not None else "undo"
         row = shopping.log_undo(batch, change, done, kind)

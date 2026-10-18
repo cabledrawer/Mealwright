@@ -776,32 +776,74 @@ def test_sy49_pantry_undo_of_a_different_pack(kitchen: TestClient) -> None:
     assert row["ticks"][0]["bought"]["amount"] == 400
 
 
-def _repacked_twice(kitchen: TestClient) -> tuple[Any, dict[str, Any], dict[str, Any]]:
+def _repacked_twice(
+    kitchen: TestClient,
+) -> tuple[Any, dict[str, Any], dict[str, Any], dict[str, Any]]:
     s = s0(kitchen)
     t = tick(kitchen, s, "Paneer")
     item = s.items["Paneer"]
     first = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=400)
-    one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=4, pack=200)
+    later = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=4, pack=200)
     assert s.total("Paneer") == 800
-    return s, t, first
+    return s, t, first, later
+
+
+def _counts_as_undone(kitchen: TestClient, later: dict[str, Any]) -> None:
+    """The later different_pack counts as undone: its own Undo has nothing left to do."""
+    assert _undo(kitchen, later["id"])["reason"] == "already_undone"
+    with db(kitchen) as session:
+        assert session.get(SyncAction, (1, later["id"])).undone_by_action_id is not None
 
 
 def test_undo_of_an_older_different_pack_undoes_the_later_ones_too(kitchen: TestClient) -> None:
-    s, _, first = _repacked_twice(kitchen)
+    s, _, first, later = _repacked_twice(kitchen)
     done = _undo(kitchen, first["id"])
     assert done["status"] == "applied"
     assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
     assert s.item(kitchen, "Paneer")["ticks"][0]["bought"]["amount"] == 400
+    _counts_as_undone(kitchen, later)
 
 
 def test_pantry_undo_of_an_older_different_pack_undoes_the_later_ones_too(
     kitchen: TestClient,
 ) -> None:
-    s, _, first = _repacked_twice(kitchen)
+    s, _, first, later = _repacked_twice(kitchen)
     _pantry_undo(kitchen, first["change"]["id"])
     assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
     assert s.item(kitchen, "Paneer")["ticks"][0]["bought"]["amount"] == 400
     assert [c.kind for c in s.changes_of("Paneer")].count("repacked") == 2
+    _counts_as_undone(kitchen, later)
+
+
+def _repacked_with_use_between(kitchen: TestClient) -> dict[str, Any]:
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Paneer")
+    item = s.items["Paneer"]
+    first = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=400)
+    used = {"amount": {"amount": 100, "unit": "g"}}
+    ok(kitchen.post(f"{API}/foods/{s.foods['Paneer']}/used", json=used))
+    one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=1000)
+    return first
+
+
+BACK = (
+    "Paneer is back to 2\u00a0packs · 400\u00a0g."
+    " Some had been used since, so check how much is left."
+)
+
+
+def test_an_undo_of_a_different_pack_after_a_use_says_so_for_a_pack_change(
+    kitchen: TestClient,
+) -> None:
+    """7.4 item 6 (pending cabledrawer): nothing was "taken back", so it doesn't say that."""
+    first = _repacked_with_use_between(kitchen)
+    done = _undo(kitchen, first["id"])
+    assert done["status"] == "applied" and done["message"] == BACK
+
+
+def test_a_pantry_undo_of_a_different_pack_after_a_use_says_so_too(kitchen: TestClient) -> None:
+    first = _repacked_with_use_between(kitchen)
+    assert _pantry_undo(kitchen, first["change"]["id"])["message"] == BACK
 
 
 def test_an_undo_with_the_purchase_already_as_it_was_skips_nothing(kitchen: TestClient) -> None:
