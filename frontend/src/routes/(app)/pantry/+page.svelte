@@ -22,6 +22,7 @@
   import { live } from '$lib/live.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
+  import { searchResults } from '$lib/pantrySearch';
 
   const model = new PantryModel();
   const uid = $props.id();
@@ -82,6 +83,9 @@
 
   const pantry = $derived(model.pantry);
   const places = $derived(pantry?.places ?? []);
+  /** While there's a search: one list of what it found, whatever tab or column is showing. */
+  const searching = $derived(model.searched !== '');
+  const found = $derived(searching ? searchResults(places, model.matches) : []);
   const summary = $derived(
     pantry
       ? [
@@ -209,12 +213,31 @@
       {/if}
     {:else}
       <p class="empty">
-        {model.query.trim()
-          ? `Nothing called “${model.query.trim()}” here.`
-          : `Nothing in the ${place.name}.`}
+        Nothing in the {place.name}.
       </p>
     {/if}
   </section>
+{/snippet}
+
+{#snippet results()}
+  <div class="card results">
+    {#if found.length}
+      <ul class="groups" aria-label="Found in the pantry">
+        {#each found as item (`${item.group.food.id}-${item.place.id}`)}
+          <PantryGroup
+            group={item.group}
+            place={item.place}
+            {places}
+            {model}
+            showPlace
+            also={item.also}
+          />
+        {/each}
+      </ul>
+    {:else}
+      <p class="empty">Nothing called “{model.searched}”.</p>
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet staples(desktop: boolean)}
@@ -256,10 +279,14 @@
 {:else if !pantry}
   <p class="loading">Loading…</p>
 {:else if phone}
-  <PlaceTabs {tabs} bind:selected={tab} panelId="{uid}-panel" />
+  {#if !searching}
+    <PlaceTabs {tabs} bind:selected={tab} panelId="{uid}-panel" />
+  {/if}
 
-  <div class="phone-panel" id="{uid}-panel" role="tabpanel">
-    {#if tab === 'use-soon'}
+  <div class="phone-panel" id="{uid}-panel" role={searching ? undefined : 'tabpanel'}>
+    {#if searching}
+      {@render results()}
+    {:else if tab === 'use-soon'}
       {#if model.useSoon.length}
         <section class="soon-card" aria-label="Use soon">
           {@render useSoonRows(model.useSoon, true)}
@@ -336,7 +363,9 @@
           {/each}
         </div>
       </div>
-      {#if pantry.counts.items === 0 && model.filter === 'all' && !model.query.trim()}
+      {#if searching}
+        {@render results()}
+      {:else if pantry.counts.items === 0 && model.filter === 'all'}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what's in your fridge and cupboards, and Mealwright keeps count.</p>

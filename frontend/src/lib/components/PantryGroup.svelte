@@ -17,12 +17,18 @@
     group,
     place,
     places,
-    model
+    model,
+    showPlace = false,
+    also = null
   }: {
     group: Group;
     place: Place;
     places: Place[];
     model: PantryModel;
+    /** In search results: "Toor dal · Cupboard". */
+    showPlace?: boolean;
+    /** In search results: "also called thuvaram paruppu". */
+    also?: string | null;
   } = $props();
 
   const uid = $props.id();
@@ -93,7 +99,8 @@
     onclick={() => (open = !open)}
   >
     <span class="what">
-      <span class="name">{name}</span>
+      <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
+      {#if also}<span class="also">{also}</span>{/if}
       <span class="amount" class:low={group.running_low}>
         {amountWords}
         {#if group.lots_count > 1 && group.dates_count > 1}
@@ -221,6 +228,12 @@
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
     overflow-wrap: anywhere;
+  }
+
+  .also {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-style: italic;
   }
 
   .amount {

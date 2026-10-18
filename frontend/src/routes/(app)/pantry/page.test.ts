@@ -168,6 +168,102 @@ describe('the Pantry page', () => {
     await expect.element(page.getByRole('button', { name: /Spinach · Today/ })).toBeVisible();
   });
 
+  describe('searching the pantry', () => {
+    /** The pantry as the server answers a search: only what matched. */
+    function searchRoutes(query: string, keep: number[], matched: Record<number, string> = {}) {
+      const pantry = structuredClone(sample.pantry);
+      for (const place of pantry.places) {
+        place.groups = place.groups.filter((g) => keep.includes(g.food.id));
+        place.items = place.groups.length;
+      }
+      routes({
+        [`GET /pantry?q=${query}`]: [200, pantry],
+        [`GET /foods?q=${query}&limit=500`]: [
+          200,
+          {
+            foods: keep.map((id) => ({
+              id,
+              name: pantry.places.flatMap((p) => p.groups).find((g) => g.food.id === id)!.food.name,
+              other_names: [],
+              matched_name: matched[id] ?? null,
+              maybe_same: []
+            })),
+            counts: {},
+            total: keep.length,
+            next: null
+          }
+        ]
+      });
+    }
+
+    const search = () => page.getByRole('searchbox', { name: 'Find in pantry' });
+
+    it('desktop: one list with each place, "also called", and no per-place lines', async () => {
+      searchRoutes('thuvaram', [7], { 7: 'thuvaram paruppu' });
+      await render(1300);
+      await expect.element(page.getByRole('heading', { name: 'Fridge', level: 2 })).toBeVisible();
+      await search().fill('thuvaram');
+      const list = page.getByRole('list', { name: 'Found in the pantry' });
+      await expect.element(list).toBeVisible();
+      await expect.element(list.getByRole('button', { name: /Toor dal · Cupboard/ })).toBeVisible();
+      await expect.element(list.getByText('also called thuvaram paruppu')).toBeVisible();
+      // The columns, and their "Nothing in the Fridge" lines, are gone.
+      expect(page.getByRole('heading', { name: 'Fridge', level: 2 }).elements()).toHaveLength(0);
+      expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
+      expect(page.getByText(/Nothing called/).elements()).toHaveLength(0);
+      // Clearing the search puts the columns back.
+      await search().fill('');
+      await expect.element(page.getByRole('heading', { name: 'Fridge', level: 2 })).toBeVisible();
+      expect(page.getByRole('list', { name: 'Found in the pantry' }).elements()).toHaveLength(0);
+    });
+
+    it('a match on the food’s own name has no "also called"', async () => {
+      searchRoutes('toor', [7]);
+      await render(1300);
+      await search().fill('toor');
+      await expect.element(page.getByRole('button', { name: /Toor dal · Cupboard/ })).toBeVisible();
+      expect(page.getByText(/also called/).elements()).toHaveLength(0);
+    });
+
+    it('says "Nothing called …" once when nothing matches anywhere', async () => {
+      searchRoutes('zzz', []);
+      await render(1300);
+      await search().fill('zzz');
+      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
+      expect(page.getByText(/Nothing called/).elements()).toHaveLength(1);
+      expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
+    });
+
+    it('phone: the same one list, instead of the tabs, and nothing sideways', async () => {
+      searchRoutes('thuvaram', [7, 20], { 7: 'thuvaram paruppu' });
+      await render(1300);
+      await search().fill('thuvaram');
+      await expect.element(page.getByRole('list', { name: 'Found in the pantry' })).toBeVisible();
+      // The page is now narrow: a phone, with the search still showing.
+      await page.viewport(390, 900);
+      const list = page.getByRole('list', { name: 'Found in the pantry' });
+      await expect.element(list.getByRole('button', { name: /Toor dal · Cupboard/ })).toBeVisible();
+      await expect.element(list.getByRole('button', { name: /Spinach · Fridge/ })).toBeVisible();
+      await expect.element(list.getByText('also called thuvaram paruppu')).toBeVisible();
+      expect(page.getByRole('tablist').elements()).toHaveLength(0);
+      expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
+      const box = (list.element() as HTMLElement).getBoundingClientRect();
+      expect(box.right).toBeLessThanOrEqual(390);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
+    });
+
+    it('phone: with nothing found, it says so once', async () => {
+      searchRoutes('zzz', []);
+      await render(1300);
+      await search().fill('zzz');
+      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
+      await page.viewport(390, 900);
+      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
+      expect(page.getByText(/Nothing called/).elements()).toHaveLength(1);
+      expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
+    });
+  });
+
   it('Used takes it off at once, saves with a change ID, and offers Undo', async () => {
     await render(1300);
     const side = page.getByRole('complementary', { name: /Use soon/ });

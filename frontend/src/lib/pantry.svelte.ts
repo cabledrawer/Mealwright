@@ -6,7 +6,7 @@
 import { ApiError } from './api';
 import { listChanges, serverUndo, undoToast } from './client/changes';
 import type { UndoResult } from './client/types';
-import { createFood, patchFood } from './client/foods';
+import { createFood, listFoods, patchFood } from './client/foods';
 import {
   addStock,
   binnedLot,
@@ -25,6 +25,7 @@ import type {
   AmountIn,
   Answer,
   Change,
+  FoodRow,
   Group,
   Pantry,
   PantryFilter,
@@ -83,20 +84,29 @@ export class PantryModel {
   filter = $state<PantryFilter>('all');
   /** What is typed in "Find in pantry". */
   query = $state('');
+  /** What the pantry on screen was fetched for: while it isn't empty, the screen shows one list of results. */
+  searched = $state('');
+  /** The foods the search found, best first, with the name that matched (for "also called"). */
+  matches = $state<FoodRow[]>([]);
   problem = $state<string | null>(null);
 
   #asked = 0;
 
   async load(): Promise<void> {
     const asked = ++this.#asked;
+    const query = this.query.trim();
     try {
-      const [pantry, useSoon, changes] = await Promise.all([
+      const [pantry, useSoon, changes, found] = await Promise.all([
         getPantry(this.filter, this.query),
         getUseSoon(),
-        listChanges({ area: 'pantry', limit: RECENT })
+        listChanges({ area: 'pantry', limit: RECENT }),
+        // Which name matched, for "also called …". Without it the results still show.
+        query ? listFoods({ q: query, limit: 500 }).catch(() => null) : null
       ]);
       if (asked !== this.#asked) return; // something newer is on its way
       this.pantry = pantry;
+      this.searched = query;
+      this.matches = found?.foods ?? [];
       this.useSoon = useSoon.lots;
       this.changes = changes.changes;
       this.problem = null;
