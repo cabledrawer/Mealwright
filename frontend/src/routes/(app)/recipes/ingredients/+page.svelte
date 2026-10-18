@@ -13,6 +13,7 @@
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { IngredientsList } from '$lib/ingredients.svelte';
   import { mergeTarget } from '$lib/maybeSame';
+  import { newIngredient } from '$lib/newIngredient.svelte';
   import { save } from '$lib/save';
 
   const list = new IngredientsList();
@@ -70,6 +71,16 @@
     else ingredientEditor.open(food.id);
   }
 
+  /** "New ingredient": ask how it's counted, then open it so the rest can be filled in. */
+  async function makeNew() {
+    const made = await newIngredient.ask();
+    if (!made) return;
+    list.query = '';
+    list.filter = 'all';
+    void list.load();
+    open({ id: made.id, name: made.name } as FoodRow);
+  }
+
   /** "Merge" on a Maybe-the-same row: into the food it may be. Undo, not "Are you sure?". */
   function merge(food: FoodRow) {
     const into = mergeTarget(food);
@@ -102,7 +113,11 @@
   subtitle={list.loaded
     ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
-/>
+>
+  {#snippet actions()}
+    <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+  {/snippet}
+</PageHeader>
 
 <div class="layout">
   <section class="list-side" aria-label="All ingredients">
@@ -210,6 +225,18 @@
 </div>
 
 <style>
+  .new {
+    min-height: var(--touch-target);
+    padding: 0 18px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
   .layout {
     display: flex;
     flex-wrap: wrap;

@@ -120,6 +120,29 @@ describe('the Pantry page', () => {
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
 
+  it('phone: + Staple makes a brand-new staple and records no stock', async () => {
+    routes({
+      'POST /foods': [
+        201,
+        {
+          food: toorDal({ id: 99, name: 'Salt', staple: true }),
+          change: changeOf(710, 'Added Salt')
+        }
+      ]
+    });
+    await render(390);
+    await page.getByRole('button', { name: '+ Staple' }).click();
+    await page.getByRole('searchbox', { name: 'Make an ingredient a staple' }).fill('Salt');
+    await page.getByRole('button', { name: '+ New ingredient: “Salt”' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'POST' && r.path === '/foods')?.body).toEqual({
+        name: 'Salt',
+        staple: true
+      })
+    );
+    expect(requests.some((r) => r.path === '/stock' || r.path.startsWith('/stock/'))).toBe(false);
+  });
+
   it('phone: tabs All · Fridge · Freezer · Cupboard · More, with Use soon under More', async () => {
     await render(390);
     const tabs = page.getByRole('tablist', { name: 'Where' });

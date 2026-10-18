@@ -8,6 +8,7 @@
   import Toast from '$lib/components/Toast.svelte';
   import IngredientSheet from '$lib/components/IngredientSheet.svelte';
   import AskOnce from '$lib/components/AskOnce.svelte';
+  import NewIngredient from '$lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '$lib/client/changes';
   import { settleHousehold } from '$lib/client/household';
   import { session } from '$lib/session.svelte';
@@ -61,6 +62,7 @@
 <!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
 <IngredientSheet />
 <AskOnce />
+<NewIngredient />
 <Toast />
 
 <style>

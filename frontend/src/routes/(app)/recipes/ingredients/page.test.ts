@@ -12,6 +12,8 @@ import {
 } from '$lib/testing/fakeApi';
 import { toasts } from '$lib/toast.svelte';
 import { undoHistory } from '$lib/undo.svelte';
+import NewIngredient from '$lib/components/NewIngredient.svelte';
+import { newIngredient } from '$lib/newIngredient.svelte';
 import Ingredients from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -27,6 +29,7 @@ const sticks = toorDal({
 
 describe('the Ingredients page', () => {
   let component: ReturnType<typeof mount> | null = null;
+  let dialog: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[];
 
   beforeEach(() => {
@@ -49,6 +52,14 @@ describe('the Ingredients page', () => {
         ];
       },
       'GET /foods/7': [200, dal],
+      'GET /foods/50': [200, toorDal({ id: 50, name: 'Tahini', counted_as: 'count' })],
+      'POST /foods': [
+        201,
+        {
+          food: toorDal({ id: 50, name: 'Tahini', counted_as: 'count' }),
+          change: changeOf(960, 'Added Tahini')
+        }
+      ],
       'GET /places': [200, PLACES],
       'GET /shops': [200, SHOPS],
       'POST /foods/40/merge': [
@@ -60,10 +71,14 @@ describe('the Ingredients page', () => {
       ]
     });
     component = mount(Ingredients, { target: document.body });
+    dialog = mount(NewIngredient, { target: document.body });
     flushSync();
   });
 
   afterEach(() => {
+    newIngredient.cancel();
+    if (dialog) unmount(dialog);
+    dialog = null;
     if (component) unmount(component);
     component = null;
     vi.unstubAllGlobals();
@@ -101,5 +116,21 @@ describe('the Ingredients page', () => {
       expect(toasts.current?.message).toBe('Merged Drumsticks (moringa) into Drumsticks')
     );
     expect(toasts.current?.action?.label).toBe('Undo');
+  });
+
+  it('New ingredient asks How do you count it?, makes it and opens it', async () => {
+    requests.length = 0;
+    await page.getByRole('button', { name: '+ New ingredient' }).click();
+    await expect.element(page.getByRole('heading', { name: 'How do you count it?' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Tahini');
+    await page.getByRole('radio', { name: /One by one/ }).click();
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'POST' && r.path === '/foods')?.body).toEqual({
+        name: 'Tahini',
+        staple: false,
+        counted_as: 'count'
+      })
+    );
   });
 });

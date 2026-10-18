@@ -205,38 +205,34 @@
 {/snippet}
 
 {#snippet staples(desktop: boolean)}
-  {#if pantry?.staples.length || desktop}
-    <section class="staples" class:panel={desktop} aria-labelledby="{uid}-staples">
-      <h2 id="{uid}-staples">Staples</h2>
-      <p class="hint">Always assumed in stock.</p>
-      <ul class="staple-chips">
-        {#each pantry?.staples ?? [] as staple (staple.id)}
-          <li>
-            <button type="button" onclick={() => ingredientEditor.open(staple.id)}
-              >{staple.name}</button
-            >
-          </li>
-        {/each}
-        {#if desktop}
-          <li class:wide={addingStaple}>
-            {#if addingStaple}
-              <FoodPicker
-                label="Make an ingredient a staple"
-                exclude={(pantry?.staples ?? []).map((s) => s.id)}
-                onpick={pickStaple}
-                oncreate={newStaple}
-                oncancel={() => (addingStaple = false)}
-              />
-            {:else}
-              <button type="button" class="add-staple" onclick={() => (addingStaple = true)}
-                >+ Staple</button
-              >
-            {/if}
-          </li>
+  <section class="staples" class:panel={desktop} aria-labelledby="{uid}-staples">
+    <h2 id="{uid}-staples">Staples</h2>
+    <p class="hint">Always assumed in stock.</p>
+    <ul class="staple-chips">
+      {#each pantry?.staples ?? [] as staple (staple.id)}
+        <li>
+          <button type="button" onclick={() => ingredientEditor.open(staple.id)}
+            >{staple.name}</button
+          >
+        </li>
+      {/each}
+      <li class:wide={addingStaple}>
+        {#if addingStaple}
+          <FoodPicker
+            label="Make an ingredient a staple"
+            exclude={(pantry?.staples ?? []).map((s) => s.id)}
+            onpick={pickStaple}
+            oncreate={newStaple}
+            oncancel={() => (addingStaple = false)}
+          />
+        {:else}
+          <button type="button" class="add-staple" onclick={() => (addingStaple = true)}
+            >+ Staple</button
+          >
         {/if}
-      </ul>
-    </section>
-  {/if}
+      </li>
+    </ul>
+  </section>
 {/snippet}
 
 {#if model.problem && !pantry}
