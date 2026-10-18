@@ -8,6 +8,8 @@
 import { redirect } from '@sveltejs/kit';
 import { cantReach, getMe, getSetup, type Me } from '$lib/api';
 import { lastSignedIn, startDevice } from '$lib/offline/device';
+import { heldChanges } from '$lib/offline/held';
+import { wipeIfAnotherLogin } from '$lib/offline/wipe';
 import { SETUP, session, signInPath } from '$lib/session.svelte';
 import { theme } from '$lib/theme.svelte';
 import type { LayoutLoad } from './$types';
@@ -36,6 +38,11 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
     return;
   }
   if (!me) redirect(307, signInPath(heading));
+  // Signed in as a different login from the one this device holds (perhaps in another tab):
+  // start clean, as at sign-out (cabledrawer 18 Oct). Not over someone's waiting changes: only
+  // the sign-in page can warn about those first, and they're never sent under another login.
+  const held = await heldChanges();
+  if (!held || held.who.id === me.id) await wipeIfAnotherLogin(me);
   session.me = me;
   await startDevice(me);
   // The account's theme wins over this device's copy.

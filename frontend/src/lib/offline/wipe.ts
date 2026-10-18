@@ -9,9 +9,13 @@
 //     and the "sign-out pending" flag below (none says anything about the household). The
 //     0.2 device ID key goes too.
 // The next sign-in makes a new device ID.
+//
+// A different login signing in always starts clean, the same as signing out: a fresh copy
+// and a new device ID (cabledrawer 18 Oct, sync-protocol 11.8). The same login signing back in
+// after its session ran out keeps the copy, the waiting changes and the device ID (11.5).
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { forgetDeviceId } from './device';
+import { forgetDeviceId, storedLoginId } from './device';
 import { deletePhone } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
@@ -54,4 +58,19 @@ export async function wipeDevice(): Promise<void> {
   } catch {
     // Storage blocked: nothing kept there.
   }
+}
+
+/**
+ * A sign-in has succeeded as `me`. If this device holds another login's copy, wipe it first,
+ * exactly as at sign-out, so `me` starts clean with a new device ID (made on the next start).
+ * The same login coming back keeps everything. True when it wiped.
+ *
+ * When the other login has changes waiting, the sign-in page has already warned and the
+ * person chose "Carry on and lose them" (section 16, decision 4).
+ */
+export async function wipeIfAnotherLogin(me: { id: number }): Promise<boolean> {
+  const stored = await storedLoginId();
+  if (stored === null || stored === me.id) return false;
+  await wipeDevice();
+  return true;
 }

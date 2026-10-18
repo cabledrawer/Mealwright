@@ -1,8 +1,10 @@
 <script lang="ts">
   // Changes still waiting on this phone (sync protocol 11.5, section 16 decision 4): the
   // same person signing back in sends them at once (the app does that on starting). Anyone
-  // else is warned first, and never sends them; carrying on wipes the phone's copy, as
-  // signing out does, and the next start makes a new device ID.
+  // else is warned first, and never sends them. A different login always starts clean
+  // (cabledrawer 18 Oct): once its sign-in has succeeded, and only then, the phone's copy is
+  // wiped as at signing out, and the next start makes a new device ID. A wrong password
+  // wipes nothing.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -19,7 +21,7 @@
     waitingForText,
     type Held
   } from '$lib/offline/held';
-  import { wipeDevice } from '$lib/offline/wipe';
+  import { wipeIfAnotherLogin } from '$lib/offline/wipe';
   import { connection, safeNext, session } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import type { PageProps } from './$types';
@@ -39,6 +41,8 @@
   let held = $state<Held | null>(null);
   /** "Wren's 3 changes haven't been sent yet. If you carry on, they're lost." */
   let warning = $state(false);
+  /** "Carry on and lose them" was chosen for this username. */
+  let losing = false;
 
   $effect(() => {
     void heldChanges().then((found) => (held = found));
@@ -55,11 +59,13 @@
   $effect(() => {
     void username;
     untrack(() => (warning = false));
+    losing = false;
   });
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     problem = '';
+    losing = false;
     if (someoneElse) {
       warning = true;
       return;
@@ -76,10 +82,9 @@
     document.getElementById('password')?.focus();
   }
 
+  /** Nothing is wiped yet: only once this sign-in has succeeded (signInNow). */
   async function carryOn() {
-    busy = true;
-    await wipeDevice();
-    held = null;
+    losing = true;
     warning = false;
     await signInNow();
   }
@@ -88,12 +93,14 @@
     busy = true;
     try {
       const me = await signIn(username, password, remember);
-      if (held && me.id !== held.who.id) {
+      if (held && me.id !== held.who.id && !losing) {
         // Another login after all: end that session again before anything is sent.
         await signOut().catch(() => undefined);
         warning = true;
         return;
       }
+      // Signed in. Another login than the one this phone holds starts clean, as at sign-out.
+      if (await wipeIfAnotherLogin(me)) held = null;
       session.me = me;
       theme.adopt(me.theme);
       const next = safeNext(page.url.searchParams.get('next'));

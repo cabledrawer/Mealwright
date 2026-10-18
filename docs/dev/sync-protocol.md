@@ -571,7 +571,7 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 - A `401` keeps the queue. When online the app asks the person to sign in again: "Please sign in again. Your 3 changes are kept on this phone."
 - The **same login** signs back in → the queue is sent at once.
 - The same login signing back in keeps the device ID (a session running out isn't a sign-out), so the queued actions still count as this phone's (SY-62).
-- A **different login**: the queue is never sent under another login (the server refuses it anyway with `409 other_login`). The warning comes first, worded as decision 4 in section 16 (new L306). If they carry on, the **whole offline copy** is wiped, not just the queue, exactly as at sign-out (section 12), and a new device ID is made (FE-3).
+- A **different login**: the queue is never sent under another login (the server refuses it anyway with `409 other_login`). The warning comes first, worded as decision 4 in section 16 (new L306). If they carry on, the **whole offline copy** is wiped, not just the queue, exactly as at sign-out (section 12), and a new device ID is made (FE-3). The wipe happens only once the new login's sign-in has succeeded: a wrong password wipes nothing.
 
 ### 11.6 App updates (L290)
 
@@ -586,7 +586,9 @@ The copy and queue have no expiry on the phone. The app asks the browser for per
 
 ### 11.8 The device ID
 
-`crypto.randomUUID()` the first time the app runs after a sign-in, kept in `meta` and on every queued action. It's kept when the same login signs back in after the session ran out (11.5). A real sign-out, or a different login carrying on, wipes it, and the next sign-in makes a new one. It's random, not worked out from the device, and is sent only to our own server.
+`crypto.randomUUID()` the first time the app runs after a sign-in, kept in `meta` and on every queued action. It's kept when the same login signs back in after the session ran out or the server said `signed_out` (11.5): the copy, the queue and the device ID all stay, and the queue is then sent. A real sign-out wipes it, and the next sign-in makes a new one. It's random, not worked out from the device, and is sent only to our own server.
+
+**A different login always starts clean** (cabledrawer 18 Oct: "A different login always starts clean: fresh copy, new device ID. Same as signing out."). When a sign-in succeeds for a login other than the one in `meta`, the app wipes exactly as at sign-out (section 12) before using the app, and the next start makes a new device ID. This holds whether or not anything was waiting. When changes are waiting, the warning in 11.5 still comes first, and nothing is wiped until the new login's sign-in has succeeded. The app never wipes over waiting changes without that warning: if a different login turns up without that warning having been shown, the waiting changes are kept and never sent under that login.
 
 ## 12. Signing out (spec L468, L93, new L302)
 
@@ -608,7 +610,7 @@ This is the one justified "Are you sure?" (UX principle 6): unsent changes can't
 - `sessionStorage`, and every `localStorage` key except per-device display preferences that say nothing about the household (such as the sidebar being collapsed).
 - The browser's own HTTP cache never holds household data in the first place: every `/api` response, `/api/v1/events` included, is sent with `Cache-Control: no-store` (PR 2 adds it for all of `/api` if 0.2 doesn't already, with a test).
 
-Then `POST` sign-out (0.1) ends the session on the server. **Offline:** the wipe happens at once, the sign-in page shows, and a "sign-out pending" flag (kept outside the wiped database) makes the app end the server session first thing when it's back, before anything else can use the old cookie.
+Then `DELETE /api/v1/session` (0.1) ends the session on the server. **Offline:** the wipe happens at once, the sign-in page shows, and a "sign-out pending" flag (kept outside the wiped database) makes the app end the server session first thing when it's back, before anything else can use the old cookie.
 
 **A shared phone:** each person signs in with their own login; signing out wipes the first person's copy (after the warning), so the next person starts clean. A tablet shared under one household login ("Family") isn't signed out between people; everyone's changes go under that login (the "Who's this?" picker is 0.8). A session that runs out is not a sign-out: nothing is wiped (11.5).
 

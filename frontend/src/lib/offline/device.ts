@@ -91,6 +91,20 @@ export async function startDevice(me: SignedIn): Promise<void> {
 }
 
 /**
+ * The login this device's copy and device ID belong to (`meta`), or null when there is none
+ * (never signed in here, or wiped). Looking doesn't make a new, empty database.
+ */
+export async function storedLoginId(): Promise<number | null> {
+  try {
+    if (!(await phoneExists())) return null;
+    const id = await getMeta('login_id');
+    return typeof id === 'number' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Who was last signed in on this device, for opening the app while the server can't be
  * reached (11.4). Null when nobody has signed in here since the phone database was made.
  */

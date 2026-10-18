@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { phoneDatabaseName, setMeta } from '$lib/offline/phone';
+import { deviceId } from '$lib/offline/device';
+import { getMeta, phoneDatabaseName, phoneExists, setMeta } from '$lib/offline/phone';
+import { addToQueue, loadCopy, readQueue, saveCopy } from '$lib/offline/store';
 import { markSignOutPending, SIGN_OUT_PENDING_KEY } from '$lib/offline/signOutPending';
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
+import { makeAction } from '$lib/shopping/actions';
+import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
+import { fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
 import { dropPhone, freshPhone } from '$lib/testing/phone';
 import { load } from './+layout';
 
@@ -17,6 +22,23 @@ const open = () =>
   } as unknown as LoadEvent);
 
 const WREN = { login_id: 2, login_name: 'Wren', username: 'wren', role: 'member', protocol: 1 };
+const DEVICE = '11111111-2222-4333-8444-555555555555';
+const signedInAs = (id: number, name: string) => ({
+  'GET /setup': [200, { needs_setup: false }] as [number, unknown],
+  'GET /me': [200, { id, name, username: name.toLowerCase(), role: 'member', theme: 'auto' }] as [
+    number,
+    unknown
+  ]
+});
+
+/** Wren's phone: her copy of the list, her device ID, and `count` changes waiting. */
+async function wrensPhone(count: number) {
+  await setMeta({ ...WREN, device_id: DEVICE });
+  await saveCopy(null, sampleCopy());
+  for (let i = 0; i < count; i++) {
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'i-onions' }), 2, DEVICE);
+  }
+}
 
 describe('opening the app (11.4)', () => {
   beforeEach(() => {
@@ -83,5 +105,46 @@ describe('opening the app (11.4)', () => {
     fakeApi({ 'GET /setup': [500, { detail: 'Something broke.' }] });
     await expect(open()).rejects.toMatchObject({ status: 500 });
     expect(session.me).toBeNull();
+  });
+
+  it('a different login always starts clean: the copy goes, and a new device ID is made', async () => {
+    await wrensPhone(0);
+    fakeApi(signedInAs(3, 'Arlo'));
+    await open();
+    expect(session.me).toMatchObject({ id: 3, name: 'Arlo' });
+    // Wren's copy is gone; the database now holds only Arlo, with a new device ID.
+    expect(await loadCopy()).toBeNull();
+    expect(await getMeta('login_id')).toBe(3);
+    const fresh = await getMeta('device_id');
+    expect(fresh).toMatch(/^[0-9a-f-]{36}$/);
+    expect(fresh).not.toBe(DEVICE);
+    expect(deviceId()).toBe(fresh);
+  });
+
+  it('the same login after its session ran out keeps the copy, the queue and the device ID, and sends the queue', async () => {
+    await wrensPhone(2);
+    const copy = sampleCopy();
+    const { requests } = fakeShopping(copy, signedInAs(2, 'Wren'));
+    await open();
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    // Then the app starts the shopping list, which sends what was waiting, from the same device.
+    await shoppingSync.start();
+    await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
+    const sent = requests.filter((r) => r.path === '/shopping/actions');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.body).toMatchObject({ login_id: 2, device_id: DEVICE });
+    expect(await readQueue()).toHaveLength(0);
+    shoppingSync.forget();
+  });
+
+  it('a different login (signed in in another tab) never wipes or sends changes still waiting', async () => {
+    await wrensPhone(1);
+    fakeApi(signedInAs(3, 'Arlo'));
+    await open();
+    expect(await phoneExists()).toBe(true);
+    expect(await readQueue()).toHaveLength(1);
   });
 });

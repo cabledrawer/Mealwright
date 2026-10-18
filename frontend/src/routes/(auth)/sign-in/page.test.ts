@@ -119,6 +119,44 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(await getMeta('device_id')).toBeUndefined();
   });
 
+  it('carrying on with a wrong password wipes nothing: Wren’s changes stay', async () => {
+    await wrensPhone(3);
+    let right = false;
+    requests = fakeApi({
+      'POST /session': () =>
+        right ? [200, ARLO] : [401, { detail: 'That username and password don’t match.' }],
+      'DELETE /session': [204, null]
+    });
+    show();
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Carry on and lose them' }).click();
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect(await readQueue()).toHaveLength(3);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+
+    // The right password this time: warned again, and only carrying on then wipes.
+    right = true;
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByRole('button', { name: 'Carry on and lose them' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    const databases = (await indexedDB.databases()).map((d) => d.name);
+    expect(databases).not.toContain(phoneDatabaseName());
+  });
+
+  it('a different login always starts clean, even with nothing waiting (cabledrawer 18 Oct)', async () => {
+    await wrensPhone(0);
+    show();
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
+    const databases = (await indexedDB.databases()).map((d) => d.name);
+    expect(databases).not.toContain(phoneDatabaseName());
+  });
+
   it('“Sign in as Wren instead” keeps everything and puts Wren’s username in', async () => {
     await wrensPhone(1);
     show();
