@@ -145,6 +145,27 @@ describe('api and the connection bar', () => {
     expect(network.offline).toBe(false);
   });
 
+  it('a 502, 503 or 504 from the reverse proxy means the server is not reachable', async () => {
+    vi.useFakeTimers();
+    for (const status of [502, 503, 504]) {
+      network.reset();
+      await expect(
+        api('GET', '/version', undefined, {
+          fetch: fakeFetch(status, { detail: 'Bad gateway' }).fetch
+        })
+      ).rejects.toMatchObject({ status });
+      vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+      expect(network.offline, `status ${status}`).toBe(true);
+    }
+    // A real server error (500) is still an answer from Mealwright.
+    network.reset();
+    await expect(
+      api('GET', '/version', undefined, { fetch: fakeFetch(500, { detail: 'Oops' }).fetch })
+    ).rejects.toMatchObject({ status: 500 });
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    expect(network.offline).toBe(false);
+  });
+
   it('gives every request a time limit', async () => {
     const { fetch, calls } = fakeFetch(200, {});
     await api('GET', '/version', undefined, { fetch });

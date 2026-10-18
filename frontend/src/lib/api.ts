@@ -49,6 +49,8 @@ export function worthRetrying(error: unknown): boolean {
   return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
 }
 
+const PROXY_GAP = new Set([502, 503, 504]);
+
 type Fetch = typeof fetch;
 
 let onUnauthorized: (() => void) | null = null;
@@ -117,7 +119,10 @@ export async function api<T>(
     network.failed();
     throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
   }
-  network.succeeded(); // any answer means our server is there
+  // Any answer from our server means it is there. But 502, 503 and 504 come from the
+  // reverse proxy when it can't reach Mealwright (spec UX principle 16).
+  if (PROXY_GAP.has(response.status)) network.failed();
+  else network.succeeded();
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
