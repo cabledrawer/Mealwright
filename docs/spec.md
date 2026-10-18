@@ -502,7 +502,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 **Decided after the 0.4 security audit (cabledrawer 19 Oct, "Accept all six"):**
 
 - **HTTPS only, remembered by the browser (HSTS), done in 0.4:** in https mode (the default) every answer tells the browser to use only https for this address for a year (`Strict-Transport-Security: max-age=31536000`). No `includeSubDomains` and no `preload`, so it can't affect the household's other sites on the same domain. Never sent in plain-http mode (`MEALWRIGHT_ALLOW_PLAIN_HTTP`).
-- **Longest sign-in, done in 0.4:** a sign-in without "Remember this device" still ends after 12 hours without use, and now also ends 30 days after it started however often it's used, the same as "Remember this device".
+- **Longest sign-in, done in 0.4:** a sign-in without "Remember this phone/computer" still ends after 12 hours without use, and now also ends 30 days after it started however often it's used, the same as with it.
 - **Shortest password, 0.8:** 12 characters for new passwords (set up, password change, reset). Existing shorter passwords keep working.
 - **Leaked-password check, 0.8:** new passwords are checked against a list of leaked passwords bundled with the app, under a licence on the allow list. Offline only, never an online lookup.
 - **`__Host-` cookie name, 0.8:** the sign-in cookie gets the `__Host-` name, so a site on another subdomain can't set it. It signs everyone out once. It can't work in plain-http mode (browsers only accept it over https); what that mode does is settled in 0.8.
