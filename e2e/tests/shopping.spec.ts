@@ -741,6 +741,12 @@ test("phone: on a long list, In the trolley stays tappable while the put-away to
     await fold.click({ timeout: 5_000 });
     await expect(fold).toHaveAttribute("aria-expanded", "true");
     await expect(toast).toBeVisible();
+    // Take the tick back, so removing the items below leaves no "had removed this" note on
+    // the list for the tests after this one.
+    await toast.getByRole("button", { name: "Undo" }).click();
+    await expect(
+      page.getByRole("checkbox", { name: `Tick ${names[0]}` }),
+    ).toBeVisible();
   } finally {
     // Leave the main list as other tests expect it.
     const view = await (
