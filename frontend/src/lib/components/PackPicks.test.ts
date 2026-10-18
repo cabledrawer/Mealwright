@@ -86,8 +86,8 @@ describe('PackPicks', () => {
   it('in a narrow column (desktop Pantry) the marks go two by two, each 44 px wide with its text inside', async () => {
     render([], { ok: true }, 170);
     const radios = page.getByRole('radio').elements();
-    expect(radios[2].getBoundingClientRect().top).toBeGreaterThan(
-      radios[0].getBoundingClientRect().bottom - 1
+    expect(radios[2]!.getBoundingClientRect().top).toBeGreaterThan(
+      radios[0]!.getBoundingClientRect().bottom - 1
     );
     for (const radio of radios) {
       expect(radio.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);

@@ -30,6 +30,7 @@
   /** The packet whose menu is open, and the row it was opened from. */
   let menuFor = $state<Lot | null>(null);
   let anchor = $state<HTMLElement | null>(null);
+  let menuStart = $state<'actions' | 'grams'>('actions');
 
   const name = $derived(group.food.name);
   const single = $derived(group.lots.length === 1 ? group.lots[0] : undefined);
@@ -44,10 +45,17 @@
     group.food.counted_as === 'weight' ? 'g' : group.food.counted_as === 'volume' ? 'ml' : 'count'
   );
 
-  function openMenu(lot: Lot, event: MouseEvent) {
+  function openMenu(lot: Lot, event: MouseEvent, start: 'actions' | 'grams' = 'actions') {
     anchor = event.currentTarget as HTMLElement;
+    menuStart = start;
     menuFor = lot;
   }
+
+  /** "About 250 g left": what is left of the single packet, as its line says it. */
+  const leftWords = $derived.by(() => {
+    const about = single?.stock.display.split(' · ').at(-1) ?? '';
+    return `${about.charAt(0).toLocaleUpperCase()}${about.slice(1)} left`;
+  });
 
   /** What is typed in the "Used some" / "How many left?" box. */
   let typed = $state('');
@@ -132,6 +140,15 @@
         <div class="marks">
           <span class="small-label" id="{uid}-left">How much is left? Best guess is fine.</span>
           <PackPicks lot={single} {name} {model} labelledby="{uid}-left" />
+          <span class="small-label"
+            >{leftWords} ·
+            <button
+              type="button"
+              class="link"
+              aria-label="type it instead: how much is left"
+              onclick={(event) => openMenu(single, event, 'grams')}>type it instead</button
+            ></span
+          >
         </div>
       {/if}
       <form class="some" onsubmit={useSome}>
@@ -163,6 +180,7 @@
     countedAs={group.food.counted_as}
     {anchor}
     {model}
+    startAt={menuStart}
     onclose={() => (menuFor = null)}
   />
 </li>

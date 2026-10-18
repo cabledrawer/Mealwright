@@ -310,6 +310,22 @@ test('on desktop the marks in the opened row fit their column and pass the acces
   await checkPage(page);
 });
 
+test('"200 g left · type it instead" (a full pack) opens What\'s left in the packet menu', async ({
+  page,
+}) => {
+  const food = await stocked(page, 'Halloumi', 5);
+  await openRow(page, food.name);
+  const link = page.getByRole('button', { name: /^type it instead/ });
+  await expect(link.locator('..')).toHaveText(/^200\sg left · type it instead$/);
+  await link.click();
+  const dialog = page.getByRole('dialog', { name: new RegExp(food.name) });
+  const box = dialog.getByRole('textbox', { name: /What's left/ });
+  await expect(box).toBeFocused();
+  await box.fill('150');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect.poll(() => amountLeft(page, food.id)).toBe(150);
+});
+
 test('a row with several packets shows no marks in the row', async ({ page }) => {
   const food = await stocked(page, 'Rice', 5);
   await api(page, 'POST', '/stock', {

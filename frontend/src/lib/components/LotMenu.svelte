@@ -4,6 +4,7 @@
   // ¼ · ½ · ¾ · Full picks. A small menu next to the packet on desktop, a sheet from the
   // bottom on phones. A real modal dialog: focus stays inside, Esc closes it, and focus
   // goes back to the packet's row.
+  import { tick } from 'svelte';
   import type { Lot, Place } from '$lib/client/types';
   import { useByWords } from '$lib/dates';
   import type { PantryModel } from '$lib/pantry.svelte';
@@ -18,6 +19,7 @@
     countedAs,
     anchor,
     model,
+    startAt = 'actions',
     onclose
   }: {
     /** The packet, or null when the menu is closed. */
@@ -29,6 +31,8 @@
     /** The row it was opened from: the desktop menu sits by it, and focus returns to it. */
     anchor: HTMLElement | null;
     model: PantryModel;
+    /** "grams": open straight at "What's left" (from the opened row's "type it instead"). */
+    startAt?: 'actions' | 'grams';
     onclose: () => void;
   } = $props();
 
@@ -42,11 +46,11 @@
 
   $effect(() => {
     if (lot && !dialog.open) {
-      step = 'actions';
+      step = startAt;
       date = lot.use_by ?? '';
       dialog.showModal();
       placeBy(anchor);
-      dialog.querySelector<HTMLElement>('[data-first]')?.focus();
+      void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
     } else if (!lot && dialog.open) {
       dialog.close();
     }
@@ -197,7 +201,7 @@
         <form class="form" onsubmit={typeLeft}>
           <label>
             What's left{baseUnit === 'count' ? '' : ` (${baseUnit})`}
-            <input name="left" inputmode="decimal" />
+            <input name="left" inputmode="decimal" data-first />
           </label>
           <span class="buttons"><button type="submit" class="main">Save</button></span>
         </form>
