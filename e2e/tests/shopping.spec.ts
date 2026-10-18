@@ -246,7 +246,13 @@ test("phone: + Staple adds a brand-new staple and puts nothing in the pantry", a
   await page
     .getByRole("button", { name: `+ New ingredient: “${name}”` })
     .click();
-  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  // A staple chip adds it to the shopping list when tapped (0.3), so that is its name.
+  await expect(
+    page.getByRole("button", {
+      name: `Add ${name} to the shopping list`,
+      exact: true,
+    }),
+  ).toBeVisible();
   expect((await foodNamed(page, name)).staple).toBe(true);
   const pantry = await (await page.request.get("/api/v1/pantry")).json();
   const stocked = pantry.places

@@ -696,7 +696,7 @@
     align-items: center;
     align-self: flex-start;
     min-height: var(--touch-target);
-    color: var(--color-accent);
+    color: var(--color-accent-on-soft); /* the card behind is grey: --color-accent is a hair short */
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
   }
