@@ -25,6 +25,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Undo says what it undid:** "Undone: Removed Oil from Ingredients", for Ctrl+Z and the toast's Undo.
 - **Use soon card:** "Lemon · Today" and "Tomorrow" start with a capital, like the Today chip.
 
+### Changed (0.3, pull request 6c: offline safety)
+
+- **A storage error is never "nothing waiting".** If the browser can't read the app's offline store, nothing is deleted and nobody is signed in over it, not even the same login. The sign-in page says "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.", and Settings says the same instead of signing out, with Try again and Stay signed in.
+- **Carrying on loses only the changes the warning showed.** The sign-in warning remembers which of Wren's changes it showed. If another tab has queued a different one since, it warns again with the new count instead of losing it.
+- **No bouncing when the server won't sign out.** If the server answers the sign-out with an error, the sign-in page stays and says "Couldn't finish signing out on this phone." with Try again, instead of going back and forth between the app and the sign-in page. Nothing is deleted.
+- **The sign-in page says why you were signed out** (cabledrawer 18 Oct): "You were signed out because Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." ("Wren's change … to send it" for one; "this computer" on a computer.)
+
 ## [0.2.1] - 2026-10-18
 
 Fixes from cabledrawer's hand test of 0.2.0, plus a few small Pantry improvements from his friction log. Not published; for testing on cabledrawer's homelab.
