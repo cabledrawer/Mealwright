@@ -53,6 +53,9 @@ STOCK_KINDS = (
     "repacked",
 )
 
+# Changes to ingredients, shown in Ingredients → Recent changes.
+INGREDIENT_KINDS = ("food_created", "food_edited", "food_removed", "merged", "split")
+
 
 class LineOut(BaseModel):
     """One stock lot touched by a change: before → after."""
@@ -170,22 +173,28 @@ def list_changes(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     before: int | None = None,
     food_id: int | None = None,
-    area: Literal["pantry"] | None = None,
+    area: Literal["pantry", "ingredients"] | None = None,
     mine: bool = False,
 ) -> ChangeList:
-    """Newest first. `area=pantry`: stock changes only. `mine=true&limit=1`: what Ctrl+Z
-    undoes (the web app skips it while the cursor is in a text box)."""
+    """Newest first. `area=pantry`: stock changes only. `area=ingredients`: changes to
+    ingredients only (new, edited, removed, merged, split), with their Undos.
+    `mine=true&limit=1`: what Ctrl+Z undoes (the web app skips it while the cursor is in a
+    text box)."""
     query = select(Change).where(Change.household_id == kitchen.household_id)
     if before is not None:
         query = query.where(Change.id < before)
     if food_id is not None:
         query = query.where(Change.food_id == food_id)
-    if area == "pantry":
+    if area is not None:
+        kinds = STOCK_KINDS if area == "pantry" else INGREDIENT_KINDS
         undone = aliased(Change)
-        stock_undos = select(undone.id).where(undone.kind.in_(STOCK_KINDS))
+        # The household test is repeated for the changes an Undo points at.
+        of_area = select(undone.id).where(
+            undone.household_id == kitchen.household_id, undone.kind.in_(kinds)
+        )
         query = query.where(
-            Change.kind.in_(STOCK_KINDS)
-            | ((Change.kind == "undo") & Change.undoes_change_id.in_(stock_undos))
+            Change.kind.in_(kinds)
+            | ((Change.kind == "undo") & Change.undoes_change_id.in_(of_area))
         )
     if mine:
         query = query.where(Change.login_id == kitchen.login.id, Change.kind != "undo")

@@ -496,9 +496,10 @@ Summaries: "Added 2 packets Toor dal → Cupboard", "Used 200 g Spinach", "Binne
 
 ### 6.5 Recent changes and Undo
 
-**`GET /api/v1/changes?limit=20&before=<id>&food_id=7&area=pantry&mine=false`**
+**`GET /api/v1/changes?limit=20&before=<id>&food_id=7&area=pantry|ingredients&mine=false`**
 
 - `area=pantry` lists stock changes, and the Undos of stock changes, only (Pantry → Recent changes); omit it for everything (food edits, merges).
+- `area=ingredients` (0.3) lists changes to ingredients (`food_created`, `food_edited`, `food_removed`, `merged`, `split`), and the Undos of those, only (Ingredients → Recent changes). Only the signed-in household's changes ever come back.
 - Each change carries `totals`, for showing in Recent changes: one entry per ingredient and place, the ingredient's whole amount in that place before and after the change (other packets included; from 0.2.1, saved with the change so it stays right later) worded as sold: `[{ "food_id", "name", "place_before", "place_after", "before": AmountOut, "after": AmountOut }]`. "Added 2 packs Paneer" gives one entry, "Paneer: 1 pack · 200 g → 2 packs · 400 g" if a pack was already there (`place_before` is null for packets the change added); a move gives "Cupboard → Fridge" with the same amount on both sides (only the packets moved). Changes recorded before 0.2.1 add up just the packets they touched. Undos have them too. Ingredient changes have none.
 - Each change also carries `lines`, one per packet, for detail (and thinning): `[{ "food": {id, name}, "lot_id", "before": AmountOut, "after": AmountOut, "place_before", "place_after", "use_by_before", "use_by_after" }]` (empty for food changes).
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).

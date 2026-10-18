@@ -180,3 +180,64 @@ def test_undo_merge_after_more_changes_is_partly(kitchen: TestClient) -> None:
     back = kitchen.get(f"{API}/foods/{moringa['id']}").json()
     assert back["id"] == moringa["id"]  # the food itself came back
     assert back["sizes"] == []  # the size was changed since, so it stays where it is
+
+
+def test_recent_changes_for_ingredients_only(kitchen: TestClient) -> None:
+    toor = add(kitchen, "Toor dal")["food"]
+    moong = add(kitchen, "Moong dal")["food"]
+    staple = kitchen.patch(f"{API}/foods/{toor['id']}", json={"staple": True}).json()["change"]
+    kitchen.post(f"{API}/foods/{moong['id']}/merge", json={"into_id": toor["id"]})
+    onion = add(kitchen, "Onion")["food"]
+    kitchen.delete(f"{API}/foods/{onion['id']}")
+    # A stock change and its Undo: not an ingredient change.
+    rice = add(kitchen, "Rice")["food"]
+    stocked = kitchen.post(
+        f"{API}/stock", json={"food_id": rice["id"], "amount": {"amount": 200, "unit": "g"}}
+    ).json()["change"]
+    undo(kitchen, stocked["id"])
+
+    def summaries(area: str) -> list[str]:
+        listed = kitchen.get(f"{API}/changes", params={"area": area}).json()["changes"]
+        return [c["summary"] for c in listed]
+
+    assert summaries("ingredients") == [
+        "Added Rice",
+        "Removed Onion from Ingredients",
+        "Added Onion",
+        "Merged Moong dal into Toor dal",
+        "Toor dal is now a staple",
+        "Added Moong dal",
+        "Added Toor dal",
+    ]
+    assert summaries("pantry") == [
+        "Undid: Added 200\u00a0g Rice → Cupboard",
+        "Added 200\u00a0g Rice → Cupboard",
+    ]
+
+    # An Undo of an ingredient change shows up in the ingredient list, and nowhere else.
+    assert undo(kitchen, staple["id"]).json()["result"] == "done"
+    assert summaries("ingredients")[0] == "Undid: Toor dal is now a staple"
+    assert "Undid: Toor dal is now a staple" not in summaries("pantry")
+    row = kitchen.get(f"{API}/changes", params={"area": "ingredients"}).json()["changes"][0]
+    assert row["kind"] == "undo" and row["can_undo"] is False
+
+
+def test_undo_through_the_ingredient_list(kitchen: TestClient) -> None:
+    toor = add(kitchen, "Toor dal")["food"]
+    kitchen.patch(f"{API}/foods/{toor['id']}", json={"staple": True})
+    row = kitchen.get(f"{API}/changes", params={"area": "ingredients"}).json()["changes"][0]
+    assert row["can_undo"] is True
+    assert undo(kitchen, row["id"]).json()["result"] == "done"
+    assert kitchen.get(f"{API}/foods/{toor['id']}").json()["staple"] is False
+    again = kitchen.get(f"{API}/changes", params={"area": "ingredients"}).json()["changes"]
+    assert [c["kind"] for c in again][:2] == ["undo", "food_edited"]
+    assert again[1]["undone"] is not None
+
+
+def test_ingredient_list_is_in_the_openapi_schema(kitchen: TestClient) -> None:
+    assert kitchen.get(f"{API}/changes", params={"area": "recipes"}).status_code == 422
+    schema = kitchen.get(f"{API}/openapi.json").json()
+    parameters = schema["paths"]["/api/v1/changes"]["get"]["parameters"]
+    area = next(p for p in parameters if p["name"] == "area")
+    values = next(a for a in area["schema"]["anyOf"] if "enum" in a)["enum"]
+    assert values == ["pantry", "ingredients"]

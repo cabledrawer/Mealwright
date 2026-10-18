@@ -339,6 +339,7 @@ def test_lists_and_search_show_nothing_of_the_other_household(
     assert ok(neighbour.get(f"{API}/pantry/use-soon"))["lots"] == []
     assert ok(neighbour.get(f"{API}/changes"))["changes"] == []
     assert ok(neighbour.get(f"{API}/changes", params={"food_id": mine["food_id"]}))["changes"] == []
+    assert ok(neighbour.get(f"{API}/changes", params={"area": "ingredients"}))["changes"] == []
     assert ok(neighbour.get(f"{API}/conversions")) == []
     # Cursors: the next page after or before household 1's own ids is still empty.
     assert ok(neighbour.get(f"{API}/foods", params={"after": "0"}))["foods"] == []
@@ -391,3 +392,40 @@ def test_the_other_household_cannot_undo(
     # Household 1 can still undo its own.
     undo = ok(kitchen.post(f"{API}/changes/{mine['change_id']}/undo"))
     assert undo["result"] == "done"
+
+
+def test_ingredient_changes_never_cross_households(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    """Both households have ingredient changes, and Undos of them. Each asks for its own
+    `area=ingredients` list, and gets only its own, with no cursor trick getting round it."""
+    # Household 1: an edit, then its Undo.
+    edit = ok(kitchen.patch(f"{API}/foods/{mine['food_id']}", json={"staple": True}))["change"]
+    ok(kitchen.post(f"{API}/changes/{edit['id']}/undo"))
+    theirs = ok(neighbour.post(f"{API}/foods", json={"name": "Neighbour's okra"}), 201)
+    ok(neighbour.patch(f"{API}/foods/{theirs['food']['id']}", json={"staple": True}))
+
+    def ask(client: TestClient, **params: Any) -> list[dict[str, Any]]:
+        listed = ok(client.get(f"{API}/changes", params={"area": "ingredients", **params}))
+        return listed["changes"]
+
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        from mealwright.models import Change
+
+        owner = {c.id: c.household_id for c in db.scalars(select(Change))}
+    assert set(owner.values()) == {1, 2}
+    ours, other = ask(kitchen), ask(neighbour)
+    assert ours and other
+    assert {owner[c["id"]] for c in ours} == {1}
+    assert {owner[c["id"]] for c in other} == {2}
+    assert [c["summary"] for c in other] == [
+        "Neighbour's okra is now a staple",
+        "Added Neighbour's okra",
+    ]
+    assert all("okra" not in c["summary"] for c in ours)
+    assert all("Toor" not in c["summary"] and "Moong" not in c["summary"] for c in other)
+    # Paging, a food filter and the "mine" filter don't leak either.
+    assert ask(neighbour, food_id=mine["food_id"]) == []
+    assert ask(neighbour, before=10**6, limit=100) == other
+    # The neighbour cannot undo household 1's change through its own list either.
+    assert neighbour.post(f"{API}/changes/{edit['id']}/undo").status_code == 404
