@@ -11,13 +11,14 @@
     model,
     item,
     food,
-    tick,
+    ticks,
     onclose
   }: {
     model: ShoppingModel;
     item: ListItem;
     food: ShopFood;
-    tick: Tick;
+    /** The purchases still counted: more than one after "Did you buy 2?". */
+    ticks: Tick[];
     onclose: () => void;
   } = $props();
 
@@ -30,6 +31,11 @@
     sizeId: number | null;
   }
   let picked = $state<string | null>(null);
+  let tickId = $state('');
+  let problem = $state<string | null>(null);
+  $effect.pre(() => {
+    if (!tickId) tickId = ticks[0]?.id ?? '';
+  });
   let initial: string | null = null;
   let otherCount = $state('1');
   let otherAmount = $state('');
@@ -84,7 +90,12 @@
   });
 
   function done() {
-    if (chosen && picked !== initial) {
+    if (picked === 'other' && !chosen) {
+      problem = 'Type how many packs (1 to 99) and the size of one, like 1 kg.';
+      return;
+    }
+    const tick = ticks.find((t) => t.id === tickId) ?? ticks[0];
+    if (chosen && tick && picked !== initial) {
       void model.differentPack(item, tick, chosen.count, chosen.pack, chosen.sizeId);
     }
     onclose();
@@ -93,8 +104,34 @@
   const title = $derived(item.amount ? 'What did you buy?' : 'How much?');
 </script>
 
-<div class="sheet">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  class="sheet"
+  role="group"
+  aria-labelledby="{uid}-t"
+  tabindex="-1"
+  onkeydown={(event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onclose();
+    }
+  }}
+>
   <span class="title" id="{uid}-t">{title}</span>
+  {#if ticks.length > 1}
+    <span class="title" id="{uid}-w">Which purchase?</span>
+    <div class="choices" role="radiogroup" aria-labelledby="{uid}-w" use:radioKeys>
+      {#each ticks as t (t.id)}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={tickId === t.id}
+          onclick={() => (tickId = t.id)}
+          >{t.by.name}{t.bought ? ` · ${t.bought.display}` : ''}</button
+        >
+      {/each}
+    </div>
+  {/if}
   <div class="choices" role="radiogroup" aria-labelledby="{uid}-t" use:radioKeys>
     {#each choices as choice (choice.key)}
       <button
@@ -136,6 +173,7 @@
       {/if}
     </div>
   {/if}
+  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if chosen}
     <span class="gets" role="status">{pantryGets(chosen.count, chosen.pack, food.counted_as)}</span>
   {/if}
@@ -207,6 +245,11 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
+  }
+
+  .problem {
+    color: var(--color-warning-text);
+    font-size: var(--text-md);
   }
 
   .gets {

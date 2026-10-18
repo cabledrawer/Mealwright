@@ -8,9 +8,12 @@
 
   let {
     model,
+    desktop = false,
     onexisting
   }: {
     model: ShoppingModel;
+    /** Desktop: the button says "Add", as in the mockup; the phone has a round "+". */
+    desktop?: boolean;
     /** The ingredient is already a line on the list: edit that line (cabledrawer 18 Oct). */
     onexisting: (itemId: string) => void;
   } = $props();
@@ -72,14 +75,8 @@
   async function create() {
     const name = typed;
     reset();
-    const made = await newIngredient.ask(name);
-    if (!made) return;
-    void model.add({
-      id: made.id,
-      name: made.name,
-      counted_as: made.counted_as,
-      staple: made.staple
-    });
+    const chosen = await newIngredient.choose(name);
+    if (chosen) void model.addNew(chosen);
   }
 
   function submit(event: SubmitEvent) {
@@ -103,7 +100,11 @@
       aria-controls="{uid}-list"
       bind:value={text}
     />
-    <button type="submit" class="plus" aria-label="Add item" disabled={!typed}>+</button>
+    {#if desktop}
+      <button type="submit" class="plus wide" disabled={!typed}>Add</button>
+    {:else}
+      <button type="submit" class="plus" aria-label="Add item" disabled={!typed}>+</button>
+    {/if}
   </form>
   <ul id="{uid}-list" aria-label="Matching ingredients">
     {#each found as food (food.id)}
@@ -164,6 +165,12 @@
     color: #ffffff;
     font: var(--weight-bold) 1.375rem var(--font-ui);
     cursor: pointer;
+  }
+
+  .plus.wide {
+    width: auto;
+    padding: 0 20px;
+    font-size: var(--text-lg);
   }
 
   .plus:disabled {

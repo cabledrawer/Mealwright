@@ -168,4 +168,53 @@ describe('sendAction', () => {
       ApiError
     );
   });
+
+  it('add with new_food makes the ingredient, then adds the item (sizes are not part of it)', async () => {
+    const requests = fakeApi({
+      'POST /foods': [201, { food: { id: 90 }, change: changeOf(1, 'Added') }],
+      'POST /shopping/lists/L/items': [201, { item: { id: 'a' }, merged: false, change: null }]
+    });
+    const result = await sendAction(
+      makeAction({
+        kind: 'add',
+        list_id: 'L',
+        item_id: 'a',
+        new_food: { name: 'Tahini', counted_as: 'weight', staple: false }
+      })
+    );
+    expect(requests.map((r) => r.path)).toEqual(['/foods', '/shopping/lists/L/items']);
+    expect(requests[0]!.body).toEqual({ name: 'Tahini', staple: false, counted_as: 'weight' });
+    expect(requests[1]!.body).toMatchObject({ id: 'a', food_id: 90 });
+    expect(result.food_id).toBe(90);
+  });
+
+  it('add with new_food uses the existing ingredient when the name is taken', async () => {
+    const requests = fakeApi({
+      'POST /foods': [409, { detail: 'Already there', code: 'name_taken', food_id: 12 }],
+      'POST /shopping/lists/L/items': [201, { item: { id: 'a' }, merged: false, change: null }]
+    });
+    await sendAction(
+      makeAction({
+        kind: 'add',
+        list_id: 'L',
+        item_id: 'a',
+        new_food: { name: 'Tahini', counted_as: 'weight', staple: false }
+      })
+    );
+    expect(requests[1]!.body).toMatchObject({ food_id: 12 });
+  });
+
+  it('Undo of an action sent in a batch is undo {undoes}, never a pantry change Undo', async () => {
+    const requests = fakeApi({
+      'POST /shopping/actions': (request) => {
+        const id = (request.body as { actions: { id: string }[] }).actions[0]!.id;
+        return [200, { results: [{ id, status: 'applied', change: { id: 555 } }] }];
+      }
+    });
+    const tick = makeAction({ kind: 'tick', item_id: 'a' });
+    await sendAction(tick);
+    await sendAction(makeAction({ kind: 'undo', undoes: tick.id }));
+    expect(requests.every((r) => r.path === '/shopping/actions')).toBe(true);
+    expect(requests[1]!.body).toMatchObject({ actions: [{ kind: 'undo', undoes: tick.id }] });
+  });
 });

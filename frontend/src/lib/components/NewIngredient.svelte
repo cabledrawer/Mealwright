@@ -4,6 +4,7 @@
   // here, so they don't have to be added afterwards in the editor. A modal dialog:
   // Escape = Cancel.
   import { api, ApiError } from '$lib/api';
+  import type { CountedAs } from '$lib/client/types';
   import { newIngredient, type HowCounted, type NewSize } from '$lib/newIngredient.svelte';
   import { radioKeys } from '$lib/radioKeys';
 
@@ -24,7 +25,11 @@
   const pending = $derived(newIngredient.current);
   let name = $state('');
   let how = $state<HowCounted>('weight');
+  /** The table's guess, when the table knew the name. */
   let guess = $state<HowCounted | null>(null);
+  let guessed = $state<CountedAs>('weight');
+  /** The person has picked one: a guess that arrives later doesn't change it. */
+  let touched = false;
   let sizes = $state<NewSize[]>([]);
   let addingSize = $state(false);
   let sizeProblem = $state<string | null>(null);
@@ -46,6 +51,8 @@
       name = pending.name;
       how = 'weight';
       guess = null;
+      guessed = 'weight';
+      touched = false;
       sizes = [];
       addingSize = false;
       sizeProblem = null;
@@ -63,12 +70,15 @@
     const asked = typed;
     if (!pending || !asked) return;
     const timer = setTimeout(() => {
-      api<{ counted_as: HowCounted }>('GET', `/foods/guess?name=${encodeURIComponent(asked)}`)
+      api<{ counted_as: CountedAs; from_table: boolean }>(
+        'GET',
+        `/foods/guess?name=${encodeURIComponent(asked)}`
+      )
         .then((answer) => {
           if (asked !== typed) return;
-          const first = guess === null;
-          guess = answer.counted_as;
-          if (first) how = answer.counted_as;
+          guessed = answer.counted_as;
+          guess = answer.from_table ? answer.counted_as : null;
+          if (!touched) how = answer.counted_as;
         })
         .catch(() => {});
     }, 150);
@@ -112,6 +122,16 @@
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!typed || busy) return;
+    if (pending?.mode === 'choose') {
+      const staple = how === 'staple';
+      newIngredient.pick({
+        name: typed,
+        staple,
+        counted_as: staple ? guessed : (how as 'weight' | 'volume' | 'count'),
+        sizes: staple ? [] : sizes
+      });
+      return;
+    }
     busy = true;
     problem = null;
     try {
@@ -146,7 +166,10 @@
             type="button"
             role="radio"
             aria-checked={how === option.value}
-            onclick={() => (how = option.value)}
+            onclick={() => {
+              touched = true;
+              how = option.value;
+            }}
           >
             <span class="label"
               >{option.label}{#if option.value === guess}<span class="guess">Our guess</span

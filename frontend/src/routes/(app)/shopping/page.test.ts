@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import NewIngredient from '$lib/components/NewIngredient.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import { ME, fakeShopping, sampleCopy, tick } from '$lib/testing/fakeShopping';
@@ -224,11 +224,12 @@ describe('the Shopping page', () => {
     it('the picker shows This week, extra lists and + New list, and switches', async () => {
       await render(390);
       await page.getByRole('button', { name: 'This week main list' }).click();
+      const lists = page.getByRole('group', { name: 'Lists' });
       await expect
-        .element(page.getByRole('menuitemradio', { name: /This week/ }))
-        .toHaveAttribute('aria-checked', 'true');
-      await expect.element(page.getByRole('menuitem', { name: '+ New list' })).toBeVisible();
-      await page.getByRole('menuitemradio', { name: /Party on Saturday/ }).click();
+        .element(lists.getByRole('button', { name: /^This week Main list/ }))
+        .toHaveAttribute('aria-current', 'true');
+      await expect.element(lists.getByRole('button', { name: '+ New list' })).toBeVisible();
+      await lists.getByRole('button', { name: /^Party on Saturday Extra list/ }).click();
       await expect
         .element(page.getByText('Extra list · 1 · ticked items still go to the pantry').first())
         .toBeVisible();
@@ -238,7 +239,7 @@ describe('the Shopping page', () => {
     it('+ New list makes a list with a phone-made ID', async () => {
       await render(390);
       await page.getByRole('button', { name: 'This week main list' }).click();
-      await page.getByRole('menuitem', { name: '+ New list' }).click();
+      await page.getByRole('button', { name: '+ New list' }).click();
       await page.getByRole('textbox', { name: 'New list name' }).fill('Camping');
       await page.getByRole('button', { name: 'Make list' }).click();
       await vi.waitFor(() => {
@@ -418,9 +419,104 @@ describe('the Shopping page', () => {
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await vi.waitFor(() => {
         const made = server.requests.find((r) => r.method === 'POST' && r.path === '/foods')!;
-        expect(made.body).toEqual({ name: 'salt', staple: true });
+        expect(made.body).toEqual({ name: 'salt', staple: true, counted_as: 'weight' });
       });
     });
+  });
+
+  it('a note for an item that has gone is a faint row in its shop', async () => {
+    copy.items.find((i) => i.id === 'i-yoghurt')!.deleted = true;
+    copy.notes.push({
+      id: 40,
+      list_id: 'main',
+      item_id: 'i-yoghurt',
+      food_id: 3,
+      text: 'Wren had removed this. Your tick still went into the pantry.',
+      undo: null,
+      gone: false
+    });
+    await render(1300);
+    const shop = page.getByRole('region', { name: 'Supermarket' });
+    await expect
+      .element(
+        shop.getByText('Yoghurt · Wren had removed this. Your tick still went into the pantry.')
+      )
+      .toBeVisible();
+    expect(page.getByRole('list', { name: 'Notes' }).elements()).toHaveLength(0);
+  });
+
+  it('after ticking, keyboard focus goes to the next row, not the page', async () => {
+    await render(390);
+    const onions = page.getByRole('checkbox', { name: 'Tick Onions' });
+    (onions.element() as HTMLElement).focus();
+    await userEvent.keyboard(' ');
+    await vi.waitFor(() => {
+      const active = document.activeElement as HTMLElement | null;
+      expect(active?.getAttribute('aria-label')).toBe('Tick Yoghurt');
+    });
+  });
+
+  it('the list picker is a disclosure; Escape closes it and returns focus to its button', async () => {
+    await render(390);
+    const button = page.getByRole('button', { name: 'This week main list' });
+    await button.click();
+    await expect.element(button).toHaveAttribute('aria-expanded', 'true');
+    expect(page.getByRole('menu').elements()).toHaveLength(0);
+    await userEvent.keyboard('{Escape}');
+    await expect.element(button).toHaveAttribute('aria-expanded', 'false');
+    expect(document.activeElement).toBe(button.element());
+  });
+
+  it('Different pack?: Escape closes the panel and returns focus; a bad Other… says why', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+    const opener = page.getByRole('button', { name: 'Different pack?' }).last();
+    await opener.click();
+    await page.getByRole('radio', { name: 'Other…' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Type how many packs (1 to 99) and the size of one, like 1 kg.');
+    expect(server.actions.some((a) => a.kind === 'different_pack')).toBe(false);
+    await userEvent.keyboard('{Escape}');
+    await expect.element(page.getByText('What did you buy?')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(opener.element());
+  });
+
+  it('Different pack? after a double tick asks which purchase', async () => {
+    copy.items
+      .find((i) => i.id === 'i-paneer')!
+      .ticks.push(
+        tick('t-pan2', {
+          by: { login_id: 2, name: 'Wren' },
+          bought: { amount: 400, display: '2 packs' }
+        })
+      );
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+    await page.getByRole('button', { name: 'Different pack?' }).last().click();
+    await expect.element(page.getByText('Which purchase?')).toBeVisible();
+    await page.getByRole('radio', { name: /^Wren/ }).click();
+    await page.getByRole('radio', { name: '1 × 400 g' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', tick_id: 't-pan2' })
+    );
+  });
+
+  it('Our guess shows only when the table knew the name, and a late guess keeps your choice', async () => {
+    await render(390, {
+      'GET /foods?q=zork&limit=8': [200, { foods: [], total: 0, counts: {}, next: null }],
+      'GET /foods/guess?name=zork': () => [200, { counted_as: 'weight', from_table: false }]
+    });
+    await page.getByRole('textbox', { name: 'Add an item' }).fill('zork');
+    await page.getByRole('button', { name: '+ New ingredient: “zork”' }).click();
+    await page.getByRole('radio', { name: /One by one/ }).click();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(document.body.textContent).not.toContain('Our guess');
+    await expect
+      .element(page.getByRole('radio', { name: /One by one/ }))
+      .toHaveAttribute('aria-checked', 'true');
   });
 
   it('works against a server with only the one-at-a-time requests (no changes feed yet)', async () => {

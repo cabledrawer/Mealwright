@@ -8,6 +8,7 @@
 // builds. Until PR 3 is merged those fail with a plain "couldn't save".
 
 import { api, ApiError } from '$lib/api';
+import { createFood } from '$lib/client/foods';
 import { newChangeId } from '$lib/changeId';
 import type { AmountIn, Change } from '$lib/client/types';
 import { session } from '$lib/session.svelte';
@@ -29,7 +30,10 @@ export type ActionFields =
       kind: 'add';
       list_id: string;
       item_id: string;
-      food_id: number;
+      /** An existing ingredient, or: */
+      food_id?: number;
+      /** a brand-new one from the add box (sync-protocol 4.4). Packet sizes are not part of it. */
+      new_food?: { name: string; counted_as: 'weight' | 'volume' | 'count'; staple: boolean };
       amount?: number | null;
       size_id?: number | null;
       shop_id?: number | null;
@@ -61,6 +65,8 @@ export interface ActionResult {
   message?: string | null;
   /** The item an add joined or made. */
   item_id?: string | null;
+  /** The ingredient an add with `new_food` used or made. */
+  food_id?: number | null;
   change?: Change | null;
 }
 
@@ -138,6 +144,30 @@ interface ItemWrite {
   change: Change | null;
 }
 
+/**
+ * `add` with `new_food` for a server that only has the one-at-a-time requests: make the
+ * ingredient (or use the one with that name, 4.4), then the item is added. PR 3's
+ * POST /shopping/actions does both itself.
+ */
+async function foodForNew(action: Action & { kind: 'add' }): Promise<number> {
+  const fresh = action.new_food;
+  if (!fresh) throw new ApiError(422, 'Pick an ingredient to add.');
+  try {
+    const made = await createFood(
+      { name: fresh.name, staple: fresh.staple, counted_as: fresh.counted_as },
+      newChangeId()
+    );
+    return made.food.id;
+  } catch (error) {
+    const existing =
+      error instanceof ApiError && error.code === 'name_taken'
+        ? (error.body as { food_id?: number } | null)?.food_id
+        : undefined;
+    if (!existing) throw error;
+    return existing;
+  }
+}
+
 function remember(id: string, change: Change | null | undefined): void {
   if (change) changeOf.set(id, change.id);
 }
@@ -177,14 +207,16 @@ export async function sendAction(action: Action): Promise<ActionResult> {
       return { status: 'applied', change: r.change };
     }
     case 'add': {
-      const body: Record<string, unknown> = { id: action.item_id, food_id: action.food_id };
-      if (action.amount) body.amount = wireAmount(action.food_id, action.amount, action.size_id);
+      const foodId = action.food_id ?? (await foodForNew(action));
+      const body: Record<string, unknown> = { id: action.item_id, food_id: foodId };
+      if (action.amount) body.amount = wireAmount(foodId, action.amount, action.size_id);
       if (action.shop_id !== undefined) body.shop_id = action.shop_id;
       const r = await api<ItemWrite>('POST', `/shopping/lists/${action.list_id}/items`, body, key);
       remember(action.id, r.change);
       return {
         status: r.merged ? 'merged' : 'applied',
         item_id: r.item?.id ?? action.item_id,
+        food_id: foodId,
         change: r.change
       };
     }
@@ -259,6 +291,6 @@ async function sendBatch(action: Action): Promise<ActionResult> {
       result.reason ?? null
     );
   }
-  remember(action.id, result.change);
+  // Not remembered: Undo of an action sent in a batch is `undo {undoes}` (sync-protocol 9).
   return result;
 }

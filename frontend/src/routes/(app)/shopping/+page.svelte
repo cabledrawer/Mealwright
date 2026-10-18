@@ -12,9 +12,9 @@
   import PutAwayPanel from '$lib/components/shopping/PutAwayPanel.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import { keepFocus } from '$lib/focusNear';
   import { kitchen } from '$lib/freshness.svelte';
   import { ShoppingModel } from '$lib/shopping/store.svelte';
-  import { liveItems } from '$lib/shopping/view';
 
   const model = new ShoppingModel();
   const uid = $props.id();
@@ -61,11 +61,9 @@
     if (tab !== 'all' && !model.groups.some((g) => key(g.shopId) === tab)) tab = 'all';
   });
 
-  const liveIds = $derived(
-    new Set(model.list ? liveItems(model.copy, model.list.id).map((v) => v.item.id) : [])
-  );
   const notesFor = (itemId: string) => model.notes.filter((n) => n.item_id === itemId);
-  const looseNotes = $derived(model.notes.filter((n) => !n.item_id || !liveIds.has(n.item_id)));
+  // Notes about the list as a whole. A note for an item that has gone sits where it was.
+  const looseNotes = $derived(model.notes.filter((n) => !n.item_id));
 
   function showLine(itemId: string) {
     highlight = itemId;
@@ -97,7 +95,7 @@
             {/each}
           </div>
         {/if}
-        <AddBox {model} onexisting={showLine} />
+        <AddBox {model} {desktop} onexisting={showLine} />
       </div>
 
       {#if !desktop}
@@ -134,9 +132,9 @@
         {@const id = `${uid}-${key(group.shopId)}`}
         <section class="shop" aria-labelledby="{id}-h">
           {#if tab === 'all' && model.groups.length > 1}
-            <h2 class="shop-name" id="{id}-h">{group.name}</h2>
+            <h2 class="shop-name" id="{id}-h" tabindex="-1">{group.name}</h2>
           {:else}
-            <h2 class="visually-hidden" id="{id}-h">{group.name}</h2>
+            <h2 class="visually-hidden" id="{id}-h" tabindex="-1">{group.name}</h2>
           {/if}
           <div class="aisles">
             {#each group.aisles as aisle (aisle.key)}
@@ -155,6 +153,20 @@
               </div>
             {/each}
           </div>
+          {#each group.ghosts as ghost (ghost.note.id)}
+            <p class="ghost">
+              <span>{ghost.name} · {ghost.note.text}</span>
+              {#if ghost.note.undo}
+                <button type="button" onclick={() => void model.undo(ghost.note.undo!)}>Undo</button
+                >
+              {/if}
+              <button
+                type="button"
+                aria-label="Dismiss: {ghost.note.text}"
+                onclick={() => void model.dismissNote(ghost.note.id)}>✕</button
+              >
+            </p>
+          {/each}
           {#if group.trolley.length}
             {@const fold = open[id] ?? false}
             <div class="fold">
@@ -171,8 +183,11 @@
                   <button
                     type="button"
                     class="clear"
-                    onclick={() => void model.clearTicked(group.trolley.map((v) => v.item))}
-                    >Clear ticked</button
+                    onclick={(event) => {
+                      const back = keepFocus(event.currentTarget);
+                      void model.clearTicked(group.trolley.map((v) => v.item));
+                      back();
+                    }}>Clear ticked</button
                   >
                 {/if}
               </div>
@@ -363,6 +378,31 @@
   }
 
   .loose button {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .ghost {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin: 0;
+    padding: var(--space-1) var(--space-6);
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    opacity: 0.85;
+  }
+
+  .ghost span {
+    flex: 1;
+  }
+
+  .ghost button {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
     border: none;

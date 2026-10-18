@@ -4,7 +4,7 @@
 
 import { ApiError } from './api';
 import { newChangeId } from './changeId';
-import { addSize, createFood } from './client/foods';
+import { addSize, createFood, getFood } from './client/foods';
 import type { CountedAs, Ref } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { toasts } from './toast.svelte';
@@ -23,10 +23,38 @@ export interface NewSize {
   unit: string;
 }
 
+/** What the person chose, before anything is made (the Shopping add box sends it as `add`). */
+export interface Chosen {
+  name: string;
+  counted_as: CountedAs;
+  staple: boolean;
+  /** Packet sizes to add afterwards, as a separate online step. */
+  sizes: NewSize[];
+}
+
 interface Pending {
   /** The name typed already, or empty when the dialog should ask for it. */
   name: string;
-  resolve: (made: Made | null) => void;
+  /** make: the dialog makes the ingredient (Ingredients). choose: it only asks (Shopping). */
+  mode: 'make' | 'choose';
+  resolve: (answer: Made | Chosen | null) => void;
+}
+
+/** Add the packet sizes chosen in the dialog to an ingredient that now exists (online only). */
+export async function addChosenSizes(foodId: number, sizes: NewSize[]): Promise<void> {
+  for (const size of sizes) {
+    try {
+      await addSize(
+        foodId,
+        { name: size.name, amount: { amount: size.amount, unit: size.unit } },
+        newChangeId()
+      );
+    } catch {
+      toasts.show(`Couldn’t add the ${size.name} size. You can add it in Ingredients.`, {
+        tone: 'problem'
+      });
+    }
+  }
 }
 
 class NewIngredientFlow {
@@ -34,10 +62,26 @@ class NewIngredientFlow {
 
   /** Open the dialog. Resolves with the ingredient once it exists, or null if cancelled. */
   ask(name = ''): Promise<Made | null> {
+    return this.#open(name, 'make') as Promise<Made | null>;
+  }
+
+  /** Open the dialog only to ask: nothing is made until the caller sends it. */
+  choose(name: string): Promise<Chosen | null> {
+    return this.#open(name, 'choose') as Promise<Chosen | null>;
+  }
+
+  #open(name: string, mode: Pending['mode']): Promise<Made | Chosen | null> {
     this.current?.resolve(null);
     return new Promise((resolve) => {
-      this.current = { name: name.trim(), resolve };
+      this.current = { name: name.trim(), mode, resolve };
     });
+  }
+
+  /** "choose" mode: hand the answer back. */
+  pick(chosen: Chosen): void {
+    const pending = this.current;
+    this.current = null;
+    pending?.resolve(chosen);
   }
 
   cancel(): void {
@@ -67,26 +111,15 @@ class NewIngredientFlow {
         counted_as: result.food.counted_as,
         staple: result.food.staple
       };
-      for (const size of staple ? [] : sizes) {
-        try {
-          await addSize(
-            made.id,
-            { name: size.name, amount: { amount: size.amount, unit: size.unit } },
-            newChangeId()
-          );
-        } catch {
-          toasts.show(`Couldn’t add the ${size.name} size. You can add it in Ingredients.`, {
-            tone: 'problem'
-          });
-        }
-      }
+      if (!staple) await addChosenSizes(made.id, sizes);
     } catch (error) {
       const existing =
         error instanceof ApiError && error.code === 'name_taken'
           ? (error.body as { food_id?: number } | null)?.food_id
           : undefined;
       if (!existing) throw error;
-      made = { id: existing, name, counted_as: 'weight', staple: false };
+      const real = await getFood(existing);
+      made = { id: existing, name: real.name, counted_as: real.counted_as, staple: real.staple };
     }
     kitchen.changed();
     this.current = null;

@@ -2,6 +2,7 @@
   // One line on the list. Unticked: a checkbox, the name (opens the ingredient), and the
   // amount (tap to change it or take the item off the list). In the trolley: struck through,
   // where it went, and "Different pack?" (mockup Shop). Notes for the item sit underneath.
+  import { keepFocus } from '$lib/focusNear';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { toBaseAmount } from '$lib/shopping/amountEdit';
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
@@ -33,6 +34,7 @@
   let text = $state('');
   let problem = $state<string | null>(null);
   let packOpen = $state(false);
+  let packButton = $state<HTMLButtonElement>();
 
   const place = $derived(model.placeName(tick?.place_id ?? item.put_away_place_id));
   const placing = $derived(model.placing === item.id);
@@ -77,7 +79,11 @@
         type="checkbox"
         checked={trolley}
         aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
-        onchange={() => void (trolley ? model.untick(item) : model.tick(item))}
+        onchange={(event) => {
+          const back = keepFocus(event.currentTarget);
+          void (trolley ? model.untick(item) : model.tick(item));
+          back();
+        }}
       />
       <span class="box" aria-hidden="true">
         <svg
@@ -109,6 +115,7 @@
       <button
         type="button"
         class="pill"
+        bind:this={packButton}
         aria-expanded={packOpen}
         onclick={() => (packOpen = !packOpen)}
         >{item.amount ? 'Different pack?' : 'How much?'}</button
@@ -156,17 +163,28 @@
       <button
         type="button"
         class="pill"
-        onclick={() => {
+        onclick={(event) => {
+          const back = keepFocus(event.currentTarget);
           editing = false;
           void model.remove(item);
+          back();
         }}>Remove from list</button
       >
       {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
     </form>
   {/if}
 
-  {#if packOpen && trolley && tick}
-    <PackSheet {model} {item} {food} {tick} onclose={() => (packOpen = false)} />
+  {#if packOpen && trolley && view.ticks.length}
+    <PackSheet
+      {model}
+      {item}
+      {food}
+      ticks={view.ticks}
+      onclose={() => {
+        packOpen = false;
+        packButton?.focus();
+      }}
+    />
   {/if}
 
   {#each notes as note (note.id)}

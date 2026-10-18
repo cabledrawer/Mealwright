@@ -7,6 +7,7 @@
 
   const uid = $props.id();
   let open = $state(false);
+  let button = $state<HTMLButtonElement>();
   let optionsFor = $state<string | null>(null);
   let renaming = $state<string | null>(null);
   let renameText = $state('');
@@ -24,6 +25,7 @@
 
   function choose(id: string) {
     close();
+    button?.focus();
     model.select(id);
   }
 
@@ -65,7 +67,10 @@
 
 <svelte:window
   onkeydown={(event) => {
-    if (open && event.key === 'Escape') close();
+    if (open && event.key === 'Escape') {
+      close();
+      button?.focus();
+    }
   }}
 />
 
@@ -74,7 +79,7 @@
     <button
       type="button"
       class="current"
-      aria-haspopup="menu"
+      bind:this={button}
       aria-expanded={open}
       aria-controls="{uid}-menu"
       onclick={() => (open ? close() : (open = true))}
@@ -93,7 +98,7 @@
       >
     </button>
     {#if open}
-      <div class="menu" id="{uid}-menu" role="menu" aria-label="Lists">
+      <div class="menu" id="{uid}-menu" role="group" aria-label="Lists">
         {#each model.lists as row (row.id)}
           <div class="entry">
             {#if renaming === row.id}
@@ -104,8 +109,7 @@
             {:else}
               <button
                 type="button"
-                role="menuitemradio"
-                aria-checked={row.id === list.id}
+                aria-current={row.id === list.id ? 'true' : undefined}
                 class="choice"
                 class:on={row.id === list.id}
                 onclick={() => choose(row.id)}
@@ -146,9 +150,7 @@
             <button type="submit" class="small">Make list</button>
           </form>
         {:else}
-          <button type="button" role="menuitem" class="add" onclick={() => (making = true)}
-            >+ New list</button
-          >
+          <button type="button" class="add" onclick={() => (making = true)}>+ New list</button>
         {/if}
       </div>
     {/if}

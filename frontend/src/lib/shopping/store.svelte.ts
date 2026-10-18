@@ -6,6 +6,8 @@ import { ApiError } from '$lib/api';
 import { newChangeId } from '$lib/changeId';
 import { getFood, listFoods } from '$lib/client/foods';
 import type { FoodRow } from '$lib/client/types';
+import { kitchen } from '$lib/freshness.svelte';
+import { addChosenSizes, type Chosen } from '$lib/newIngredient.svelte';
 import { save } from '$lib/save';
 import { session } from '$lib/session.svelte';
 import { toasts } from '$lib/toast.svelte';
@@ -207,6 +209,47 @@ export class ShoppingModel {
         }
       }
     );
+  }
+
+  /**
+   * A typed name that isn't an ingredient yet: one `add` with `new_food` (sync-protocol
+   * 4.4). Packet sizes picked in "How do you count it?" are added afterwards, online, as a
+   * separate step: they are not part of the action.
+   */
+  async addNew(chosen: Chosen) {
+    const list = this.list;
+    if (!list) return null;
+    const itemId = newChangeId();
+    const outcome = await this.#act(
+      {
+        kind: 'add',
+        list_id: list.id,
+        item_id: itemId,
+        new_food: { name: chosen.name, counted_as: chosen.counted_as, staple: chosen.staple }
+      },
+      {
+        label: `${chosen.name} added`,
+        edit: (copy) => {
+          copy.foods.push({
+            id: -1,
+            name: chosen.name,
+            other_names: [],
+            counted_as: chosen.counted_as,
+            staple: chosen.staple,
+            aisle: 'other',
+            shop_id: null,
+            place_id: null,
+            sizes: null
+          });
+          copy.items.push(provisional(itemId, list.id, -1));
+        }
+      }
+    );
+    if (outcome.ok && outcome.value.food_id && chosen.sizes.length) {
+      await addChosenSizes(outcome.value.food_id, chosen.sizes);
+      kitchen.changed();
+    }
+    return outcome;
   }
 
   /** A live, unticked line for this ingredient already on the open list, if any. */

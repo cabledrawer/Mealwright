@@ -3,7 +3,7 @@
 // "Any shop" last, and ticked items folded into "In the trolley" at the end of each shop.
 
 import { AISLES, AISLE_NAMES } from './aisles';
-import type { ListItem, ListRow, Person, ShopFood, ShoppingCopy, Tick } from './types';
+import type { ListItem, ListRow, Note, Person, ShopFood, ShoppingCopy, Tick } from './types';
 
 export interface ViewItem {
   item: ListItem;
@@ -18,12 +18,19 @@ export interface AisleGroup {
   items: ViewItem[];
 }
 
+/** A note for an item that is no longer on the list: a faint row where it was (spec L311). */
+export interface Ghost {
+  note: Note;
+  name: string;
+}
+
 export interface ShopGroup {
   /** null: "Any shop". */
   shopId: number | null;
   name: string;
   aisles: AisleGroup[];
   trolley: ViewItem[];
+  ghosts: Ghost[];
   toBuy: number;
 }
 
@@ -48,7 +55,25 @@ export function liveItems(copy: ShoppingCopy, listId: string): ViewItem[] {
   return out;
 }
 
+/** Notes about an item that has gone from the list, with the shop it was in. */
+export function ghostsOf(
+  copy: ShoppingCopy,
+  listId: string
+): { ghost: Ghost; shopId: number | null }[] {
+  const live = new Set(liveItems(copy, listId).map((v) => v.item.id));
+  const known = new Set(copy.shops.map((s) => s.id));
+  const out: { ghost: Ghost; shopId: number | null }[] = [];
+  for (const note of copy.notes) {
+    if (note.gone || note.list_id !== listId || !note.item_id || live.has(note.item_id)) continue;
+    const food = copy.foods.find((f) => f.id === note.food_id);
+    const shopId = food?.shop_id != null && known.has(food.shop_id) ? food.shop_id : null;
+    out.push({ ghost: { note, name: food?.name ?? 'Item' }, shopId });
+  }
+  return out;
+}
+
 export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
+  const ghosts = ghostsOf(copy, listId);
   const shops = [...copy.shops].sort((a, b) => a.position - b.position || a.id - b.id);
   const known = new Set(shops.map((s) => s.id));
   const buckets = new Map<number | null, ViewItem[]>();
@@ -59,11 +84,12 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
     list.push(view);
     buckets.set(key, list);
   }
+  for (const { shopId } of ghosts) if (!buckets.has(shopId)) buckets.set(shopId, []);
   const groups: ShopGroup[] = [];
   const order: (number | null)[] = [...shops.map((s) => s.id), null];
   for (const id of order) {
     const views = buckets.get(id);
-    if (!views?.length) continue;
+    if (!views) continue;
     const shop = shops.find((s) => s.id === id);
     const sorted = [...views].sort(
       (a, b) => byName.compare(a.food.name, b.food.name) || a.item.id.localeCompare(b.item.id)
@@ -83,6 +109,7 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
       name: shop?.name ?? ANY_SHOP,
       aisles,
       trolley,
+      ghosts: ghosts.filter((g) => g.shopId === id).map((g) => g.ghost),
       toBuy: sorted.length - trolley.length
     });
   }
