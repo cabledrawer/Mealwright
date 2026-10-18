@@ -15,7 +15,7 @@ from sqlalchemy import select
 
 from mealwright import sync, ticks
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, AISLES, DEFAULT_AISLE
-from mealwright.amounts import MILLI
+from mealwright.amounts import MILLI, NBSP
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, Who
 from mealwright.auth import SameOrigin
@@ -217,6 +217,21 @@ class BatchOut(BaseModel):
     changes: ChangesOut
 
 
+def list_text(food: Food, milli: int, size: FoodSize | None) -> str:
+    """A list line's amount as it's bought: "1 packet", "2 boxes" (12 eggs, bought by the
+    box), "1 bunch", "5" (five onions), "600 g". Count foods show the size when it's a
+    whole number of them; the pantry's "left" never shows on a list."""
+    if (
+        size is not None
+        and food.counted_as == "count"
+        and size.amount_milli not in (0, MILLI)
+        and milli % size.amount_milli == 0
+    ):
+        whole = milli // size.amount_milli
+        return f"{whole}{NBSP}{size.name if whole == 1 else size.plural}"
+    return amount_out(food, milli, size).short.removesuffix(f"{NBSP}left")
+
+
 def _number(milli: int) -> int | float:
     return sync.number(Decimal(milli) / MILLI)
 
@@ -252,7 +267,7 @@ def _ticks(kitchen: Kitchen, item: ListItem, food: Food | None) -> list[TickRow]
             size = kitchen.db.get(FoodSize, tick.bought_size_id) if tick.bought_size_id else None
             bought = Bought(
                 amount=_number(tick.bought_milli),
-                display=amount_out(food, tick.bought_milli, size).short,
+                display=list_text(food, tick.bought_milli, size),
             )
         out.append(
             TickRow(
@@ -274,7 +289,7 @@ def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> It
     display = None
     if item.amount_milli is not None and food is not None:
         size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
-        display = amount_out(food, item.amount_milli, size).short
+        display = list_text(food, item.amount_milli, size)
     return ItemRow(
         id=item.id,
         list_id=item.list_id,
