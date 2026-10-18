@@ -46,7 +46,8 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // before anything here is touched (the device's `meta`, copy and sender stay as they are),
   // and goes to that warning, with its username filled in. The same when the phone database
   // can't be read: whose changes are waiting isn't known, so nothing is wiped or written and
-  // the sign-in page says it couldn't check. If the server won't end that session, the
+  // the sign-in page says it couldn't check. Except for the login it was last written for,
+  // which carries on, still wiping and writing nothing (cabledrawer 18 Oct). If the server won't end that session, the
   // sign-in page says so and stays (it doesn't send this login back here, to be turned away
   // again and again); still nothing is wiped. And if a wipe couldn't delete the phone
   // database, nobody is let in until it has been: the sign-in page says so, with Try again.
