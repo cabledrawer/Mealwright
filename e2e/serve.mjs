@@ -1,4 +1,4 @@
-// Starts everything the browser tests need: builds the web app, then runs three
+// Starts everything the browser tests need: builds the web app, then runs four
 // Mealwright servers on 127.0.0.1, each with its own empty data folder (see
 // tests/servers.ts). The backend works out the CSP hashes of the built page at start-up,
 // so it starts after the build. Stops them all when Playwright stops this script.
@@ -11,6 +11,7 @@ const base = Number(process.env.E2E_APP_PORT ?? 18080);
 const servers = [
   { name: 'fresh', port: base + 1, plainHttp: true },
   { name: 'strict', port: base + 2, plainHttp: false },
+  { name: 'shots', port: base + 3, plainHttp: true },
   { name: 'main', port: base, plainHttp: true }, // last: Playwright waits for this one
 ];
 
