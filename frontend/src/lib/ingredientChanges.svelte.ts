@@ -11,6 +11,8 @@ export const RECENT_INGREDIENT_CHANGES = 10;
 
 export class IngredientChanges {
   changes = $state<Change[]>([]);
+  /** There are more than the ones listed (the server has a next page). */
+  more = $state(false);
   loaded = $state(false);
   problem = $state<string | null>(null);
 
@@ -25,6 +27,7 @@ export class IngredientChanges {
       });
       if (asked !== this.#asked) return;
       this.changes = list.changes;
+      this.more = list.next !== null;
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;

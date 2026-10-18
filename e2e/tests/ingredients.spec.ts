@@ -156,8 +156,7 @@ test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
   // column. Phone: a "Recent changes" button opens a sheet.
   if (isPhone(page)) await page.getByRole('button', { name: 'Recent changes' }).click();
   else {
-    const bar = page.getByRole('button', { name: /^Recent changes · \d+$/ });
-    await expect(bar).toHaveAttribute('aria-expanded', 'false');
+    const bar = page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ });
     await checkPage(page); // closed: the editor and the bar
     await bar.click();
   }
@@ -180,6 +179,6 @@ test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
     // Close brings the editor back, and focus returns to the bar.
     await recent.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Recent changes · \d+$/ })).toBeFocused();
+    await expect(page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ })).toBeFocused();
   }
 });

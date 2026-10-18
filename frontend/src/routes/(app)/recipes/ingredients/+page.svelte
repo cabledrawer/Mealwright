@@ -110,6 +110,14 @@
     return '';
   }
 
+  /** " · 9", " · 10+" when there are more than the list holds; nothing while loading, on an
+   * error, or when there is nothing to count. */
+  const recentCount = $derived(
+    !recent.loaded || recent.problem || recent.changes.length === 0
+      ? ''
+      : ` · ${recent.changes.length}${recent.more ? '+' : ''}`
+  );
+
   async function openRecent() {
     showRecent = true;
     await tick();
@@ -316,14 +324,8 @@
             type="button"
             class="recent-bar"
             bind:this={recentBar}
-            aria-expanded="false"
-            aria-controls="{uid}-recent"
             onclick={() => void openRecent()}
-            >Recent changes · {recent.changes.length}<Icon
-              name="chevron-down"
-              size={16}
-              stroke={2.4}
-            /></button
+            >Recent changes{recentCount}<Icon name="chevron-down" size={16} stroke={2.4} /></button
           >
           {#if selectedId !== null}
             <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>

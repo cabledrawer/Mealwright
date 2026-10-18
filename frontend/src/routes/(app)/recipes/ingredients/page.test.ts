@@ -178,7 +178,7 @@ describe('the Ingredients page', () => {
   });
 
   /** Desktop: the one-line bar above the editor, and what it opens. */
-  const bar = () => page.getByRole('button', { name: /^Recent changes · \d+$/ });
+  const bar = () => page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ });
   async function openList() {
     await page.viewport(1300, 900);
     await bar().click();
@@ -189,7 +189,6 @@ describe('the Ingredients page', () => {
     await page.viewport(1300, 900);
     // Closed: the bar shows how many there are; the first ingredient's editor is open.
     await expect.element(bar()).toHaveTextContent('Recent changes · 3');
-    await expect.element(bar()).toHaveAttribute('aria-expanded', 'false');
     await expect.element(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
     expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
     // Open: the side column shows the list instead of the editor; focus goes to Close.
@@ -211,7 +210,6 @@ describe('the Ingredients page', () => {
     await page.getByRole('button', { name: /^Drumsticks \(moringa\)/ }).click();
     await expect.element(page.getByRole('complementary', { name: /^Edit/ })).toBeVisible();
     expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
-    await expect.element(bar()).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('desktop: Recent changes sits beside the list, with Undo for what can be undone', async () => {
@@ -247,7 +245,9 @@ describe('the Ingredients page', () => {
         {
           changes: [
             changeOf(971, 'Added sugar is now a staple'),
-            { ...changeOf(970, 'Added Added sugar'), kind: 'food_created' }
+            { ...changeOf(970, 'Added Added sugar'), kind: 'food_created' },
+            changeOf(969, 'Renamed Rice to Basmati rice'),
+            changeOf(968, 'Renamed rice is now a staple')
           ],
           next: null
         }
@@ -256,11 +256,52 @@ describe('the Ingredients page', () => {
     kitchen.changed();
     const recent = await openList();
     await expect.element(recent.getByText('Added', { exact: true })).toBeVisible();
-    const [staple, created] = recent.getByRole('listitem').elements();
+    const [staple, created, renamed, renamedSugar] = recent.getByRole('listitem').elements();
     // The ingredient is called "Added sugar": nothing of it is bold…
     expect(staple!.querySelector('b')).toBeNull();
     // …and in "Added Added sugar" only the verb is.
     expect(created!.querySelector('b')?.textContent).toBe('Added');
+    // A rename starts with its verb; an ingredient called "Renamed rice" doesn't count.
+    expect(renamed!.querySelector('b')?.textContent).toBe('Renamed');
+    expect(renamedSugar!.querySelector('b')).toBeNull();
+  });
+
+  describe('the bar’s count', () => {
+    const rows = (n: number) =>
+      Array.from({ length: n }, (_, i) => changeOf(900 + i, `Added Thing ${i}`));
+    async function withChanges(count: number, next: string | null, extra = {}) {
+      await page.viewport(1300, 900);
+      fakeApi({
+        'GET /changes?limit=10&area=ingredients': [200, { changes: rows(count), next }],
+        ...extra
+      });
+      kitchen.changed();
+    }
+
+    it('is the exact number up to 10', async () => {
+      await withChanges(9, null);
+      await expect.element(bar()).toHaveTextContent('Recent changes · 9');
+      await withChanges(10, null);
+      await expect.element(bar()).toHaveTextContent('Recent changes · 10');
+      expect(bar().element().textContent).not.toContain('+');
+    });
+
+    it('reads 10+ when there are more than the list holds', async () => {
+      await withChanges(10, '890');
+      await expect.element(bar()).toHaveTextContent('Recent changes · 10+');
+    });
+
+    it('has no number when there is nothing yet', async () => {
+      await withChanges(0, null);
+      await vi.waitFor(() => expect(bar().element().textContent?.trim()).toBe('Recent changes'));
+    });
+
+    it('has no number while loading, or when the list could not be fetched', async () => {
+      await page.viewport(1300, 900);
+      fakeApi({ 'GET /changes?limit=10&area=ingredients': [500, { detail: 'Nope' }] });
+      kitchen.changed();
+      await vi.waitFor(() => expect(bar().element().textContent?.trim()).toBe('Recent changes'));
+    });
   });
 
   it('desktop: Undo that the server refuses puts Undo back and says why', async () => {

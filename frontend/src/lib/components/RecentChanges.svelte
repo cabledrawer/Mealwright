@@ -4,6 +4,7 @@
   // it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
   import { totalWords } from '$lib/changeTotals';
+  import { startsWithVerb } from '$lib/changeVerb';
   import type { Change } from '$lib/client/types';
   import { session } from '$lib/session.svelte';
 
@@ -18,22 +19,18 @@
     /** What to say when there are no changes. */
     none?: string;
     /** Summaries start with the verb ("Used 200 g spinach"), so it goes in bold. Where some
-     * start with the ingredient ("Toor dal is now a staple"), only the kinds of change whose
-     * summary always starts with a verb do (decided by the kind, never by the words, so an
-     * ingredient called "Added sugar" is never half bold). */
+     * start with the ingredient ("Toor dal is now a staple"), only those that start with a
+     * verb do (changeVerb.ts: by kind and the server's wording, never by the ingredient's
+     * name, so an ingredient called "Added sugar" is never half bold). */
     verbFirst?: boolean;
   } = $props();
-
-  /** Ingredient changes whose summary starts with a verb: Added X, Removed X from
-   * Ingredients, Merged X into Y, Made X its own ingredient again, Undid: … */
-  const VERB_KINDS = new Set(['food_created', 'food_removed', 'merged', 'split', 'undo']);
 
   const SHOWN = 3;
 
   function split(change: Change): [string, string] {
     const summary = change.summary;
     const space = summary.indexOf(' ');
-    if (!verbFirst && !VERB_KINDS.has(change.kind)) return ['', summary];
+    if (!verbFirst && !startsWithVerb(change)) return ['', summary];
     return space === -1 ? [summary, ''] : [summary.slice(0, space), summary.slice(space)];
   }
 </script>
