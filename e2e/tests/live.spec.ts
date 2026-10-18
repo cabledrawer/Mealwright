@@ -172,26 +172,6 @@ test.describe('the connection bar', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Back online' })).toBeVisible();
   });
 
-  test('every request the app makes goes to the app’s own address only', async ({ page, context }) => {
-    const base = new URL(test.info().project.use.baseURL ?? 'http://127.0.0.1').origin;
-    const strangers: string[] = [];
-    context.on('request', (request) => {
-      const url = request.url();
-      if (url.startsWith('data:') || url.startsWith('blob:')) return;
-      if (new URL(url).origin !== base) strangers.push(`${request.method()} ${url}`);
-    });
-    for (const path of ['/', '/shopping', '/pantry', '/recipes', '/settings', '/plan']) {
-      await open(page, path);
-    }
-    // The service worker's own requests too: wait for it, then load once more under it.
-    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-    await page.reload();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    expect(context.serviceWorkers().length).toBeGreaterThan(0);
-    await page.waitForTimeout(1000);
-    expect(strangers, `requests that left the app's address:\n${strangers.join('\n')}`).toEqual([]);
-  });
-
   test('desktop: a small dot when the sidebar is collapsed', async ({ page, context }) => {
     test.skip(isPhone(page), 'the sidebar is desktop only');
     await open(page, '/shopping');
@@ -227,5 +207,31 @@ test.describe('the connection bar', () => {
       await inTheme(page, theme);
       await expectNoAxeViolations(page, `Back online toast, ${theme}`);
     }
+  });
+});
+
+test.describe('the app talks only to itself', () => {
+  test('every request the app makes goes to the app’s own address only', async ({ page, context }) => {
+    const base = new URL(test.info().project.use.baseURL ?? 'http://127.0.0.1').origin;
+    const strangers: string[] = [];
+    let fromWorker = 0;
+    context.on('request', (request) => {
+      if (request.serviceWorker()) fromWorker += 1;
+      const url = request.url();
+      if (url.startsWith('data:') || url.startsWith('blob:')) return;
+      if (new URL(url).origin !== base) strangers.push(`${request.method()} ${url}`);
+    });
+    for (const path of ['/', '/shopping', '/pantry', '/recipes', '/settings', '/plan']) {
+      await open(page, path);
+    }
+    // The service worker's own requests too: wait for it, then load once more under it.
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    expect(context.serviceWorkers().length).toBeGreaterThan(0);
+    await page.waitForTimeout(1000);
+    // Proof that the worker's own requests (its precaching) were seen, not just the page's.
+    expect(fromWorker, 'no request from the service worker was seen').toBeGreaterThan(0);
+    expect(strangers, `requests that left the app's address:\n${strangers.join('\n')}`).toEqual([]);
   });
 });

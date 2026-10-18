@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 import { AUTH_FILE, PORTS, local } from './tests/servers.ts';
 
+// Lets the tests see the service worker's own requests (test-only; Playwright hides them
+// by default).
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
+
 // Browser tests run against the real app, in headless Chromium. serve.mjs builds the
 // web app and starts three servers on 127.0.0.1 with empty data folders (see
 // tests/servers.ts); global-setup.ts creates the admin on the main one.
