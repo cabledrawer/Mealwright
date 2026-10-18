@@ -7,7 +7,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Added (0.3, pull request 5)
 
 - **Live updates.** A second phone or window sees a tick, an added item or a pantry change within a moment, without reloading. They come from your own Mealwright server only (`GET /api/v1/events`, Server-Sent Events); the stream carries numbers, never names. An open screen doesn't count as activity, so the 12-hour sign-out still happens; a kitchen tablet should use "Remember this phone".
-- **Installable app.** A manifest, icons made from the brand icon, and a service worker that keeps only the app's own files, so it opens with no connection. It never keeps anything from the server (`/api`) and never updates itself mid-use: a new version starts the next time every window has been closed. No Install button yet.
+- **Installable app.** A manifest, icons made from the brand icon, and a service worker that keeps only the app's own files, so the app's own files (its code, fonts and icons) load without a connection. The screens still need your server, so opening the app cold with no connection shows an error; showing saved lists while offline comes in the next pull request. It never keeps anything from the server (`/api`) and never updates itself mid-use: a new version starts the next time every window has been closed. No Install button yet.
 - **Connection bar.** "Offline" with Try now on every page (above the tabs on a phone, at the foot of the sidebar on desktop), a short "Back online" toast, and "12 to buy · offline" on Shopping. A blip under 3 seconds shows nothing. The "N changes waiting" wording is ready for the offline queue in the next pull request.
 
 ## [0.2.1] - 2026-10-18
