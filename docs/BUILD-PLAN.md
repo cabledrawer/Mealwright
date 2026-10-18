@@ -36,9 +36,11 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 | 0.5.0 | Recipe import and drafts |
 | 0.6.0 | Meal plan, batch cooks and Today |
 | 0.7.0 | Cooking: Cook mode, "Cooked it", deductions |
-| 0.8.0 | Household, settings, notifications, backups |
+| 0.8.0 | Household, settings, backups |
 | 0.9.0 | Mealie importer, docs, polish, pre-release checks |
 | 1.0.0 | First public release |
+
+**Target (cabledrawer 18 Oct):** reach 0.9.0 by the end of October. To get there: all of a milestone's questions in one sitting at its start, pull requests side by side when they don't overlap, and light review for low-risk pull requests. Not cut: the security audit, the full `./check` before every merge, and the two-device and household tests.
 
 ---
 
@@ -198,7 +200,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ---
 
-## 0.8.0 Household, settings, notifications, backups
+## 0.8.0 Household, settings, backups
 
 **Spec:** section 3 (Users and households), section 7 (all), Layout decisions (Onboarding, Settings, Settings additions, Sign-in, Sign-out warning).
 
@@ -208,8 +210,9 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - OIDC sign-in with Authlib (PKCE, refresh tokens), auto-create on first login, group → role mapping, option to turn off password logins (Sign in then shows only the SSO button).
 - API tokens: read-only or full, optional expiry.
 - Full Onboarding (`Onboard-*`): admin account, then Amounts, Household and Shops; Skip always available after the admin step.
-- Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Notifications, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
-- Notifications through Apprise, only to targets the household sets up: use-soon and defrost reminders, each recorded so it's never sent twice. Secrets (Apprise URLs, SSO client secret) encrypted at rest.
+- Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
+- Secrets (the SSO client secret) encrypted at rest.
+- **Not in 0.8 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
 - Backups: daily, keep 7, into the data volume (adjustable). Export everything (optional password encryption).
 - Logs: errors and sign-ins only, 14 days, never content.
 - Updates: version-age note (no connection), admin "Check now", optional daily check (off by default, in Privacy). Requests go through the outbound gate and send nothing about the install.
