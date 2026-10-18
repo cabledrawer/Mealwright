@@ -612,6 +612,8 @@ This is the one justified "Are you sure?" (UX principle 6): unsent changes can't
 
 Then `DELETE /api/v1/session` (0.1) ends the session on the server. **Offline:** the wipe happens at once, the sign-in page shows, and a "sign-out pending" flag (kept outside the wiped database) makes the app end the server session first thing when it's back, before anything else can use the old cookie.
 
+**Other tabs** (cabledrawer 18 Oct: "Other tabs clear themselves and go to the sign-in page as soon as you sign out in any tab, with a test."). The tab that wipes tells the others first, on a `BroadcastChannel`, with a `localStorage` `storage` event as the fallback; deleting the database also reaches every tab that has it open (IndexedDB `versionchange`). All of this stays inside the browser. Every other tab then drops what it shows, stops the live stream and sending, never opens (and so never re-creates) the database until someone signs in, and goes to the sign-in page. The same happens when a different login starts clean (11.8).
+
 **A shared phone:** each person signs in with their own login; signing out wipes the first person's copy (after the warning), so the next person starts clean. A tablet shared under one household login ("Family") isn't signed out between people; everyone's changes go under that login (the "Who's this?" picker is 0.8). A session that runs out is not a sign-out: nothing is wiped (11.5).
 
 ## 13. Screen details that touch the protocol (PR 4)

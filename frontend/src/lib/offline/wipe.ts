@@ -8,7 +8,8 @@
 //   - sessionStorage, and every localStorage key except the per-device display preferences
 //     and the "sign-out pending" flag below (none says anything about the household). The
 //     0.2 device ID key goes too.
-// The next sign-in makes a new device ID.
+// The next sign-in makes a new device ID. Other tabs of the app are told first, and clear
+// themselves (otherTabs.ts).
 //
 // A different login signing in always starts clean, the same as signing out: a fresh copy
 // and a new device ID (cabledrawer 18 Oct, sync-protocol 11.8). The same login signing back in
@@ -16,6 +17,7 @@
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, storedLoginId } from './device';
+import { tellOtherTabs } from './otherTabs';
 import { deletePhone } from './phone';
 import { CACHE_PREFIX } from './rules';
 import { SIGN_OUT_PENDING_KEY } from './signOutPending';
@@ -33,6 +35,8 @@ export const KEPT_ON_WIPE: readonly string[] = [
 
 /** Wipe everything this browser keeps about the household. */
 export async function wipeDevice(): Promise<void> {
+  // Every other tab of the app drops what it shows and goes to sign in (otherTabs.ts).
+  tellOtherTabs();
   shoppingSync.forget();
   forgetDeviceId();
   await deletePhone().catch(() => undefined);

@@ -202,3 +202,32 @@ test('E3: signing out offline warns first, then wipes, and the session ends once
   expect(items.find((i) => i.food.name === name)?.ticked_at).toBeNull();
   expect(await phoneDatabase(page)).toBe(false);
 });
+
+test('other tabs: signing out in one tab clears every other tab and takes it to sign in', async ({
+  page,
+  context,
+}) => {
+  const name = `Ajwain ${tag()}`;
+  await signIn(page);
+  await ingredient(page, name);
+  await start(page);
+  const other = await context.newPage();
+  await start(other);
+  await expect(other.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Settings' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  // The other tab cleared itself and went to sign in, without being touched.
+  await expect(other).toHaveURL(/\/sign-in$/);
+  await expect(other.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(other.getByText(name)).toHaveCount(0);
+  await expect(other.getByRole('heading', { name: 'Shopping' })).toHaveCount(0);
+  // And it didn't make the phone database again.
+  await other.waitForTimeout(1500);
+  expect(await phoneDatabase(other)).toBe(false);
+  expect(await phoneDatabase(page)).toBe(false);
+  await other.close();
+});

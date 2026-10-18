@@ -7,7 +7,7 @@
 // localStorage key is cleared (cabledrawer 18 Oct).
 
 import { newChangeId } from '$lib/changeId';
-import { getMeta, phoneExists, setMeta } from './phone';
+import { getMeta, phoneExists, setMeta, unsealPhone } from './phone';
 import { signOutPending } from './signOutPending';
 
 /** Where 0.2 kept the device ID. Empty from 0.3 on. */
@@ -76,6 +76,8 @@ export interface SignedIn {
 
 /** On starting the app signed in: load the device ID and note who is signed in. */
 export async function startDevice(me: SignedIn): Promise<void> {
+  // Signed in here: if another tab had wiped this browser, the database may be made again.
+  unsealPhone();
   await loadDeviceId();
   try {
     await setMeta({

@@ -2,6 +2,7 @@
   // The app itself, for someone signed in. +layout.ts sends everyone else to sign in.
   import type { Snippet } from 'svelte';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { ApiError, saveTheme, setUnauthorizedHandler } from '$lib/api';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
@@ -12,6 +13,7 @@
   import NewIngredient from '$lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '$lib/client/changes';
   import { settleHousehold } from '$lib/client/household';
+  import { onWipedElsewhere } from '$lib/offline/otherTabs';
   import { askToKeepDataHere } from '$lib/offline/persist';
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
@@ -19,14 +21,21 @@
   import { shoppingSync } from '$lib/shopping/sync.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
+  import { toasts } from '$lib/toast.svelte';
   import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 
   let { children }: { children: Snippet } = $props();
+  /** Another tab wiped this browser: nothing of the household shows here any more. */
+  let wiped = $state(false);
 
   // Live updates, the connection bar and the offline queue, for as long as someone is signed
   // in. Waiting changes are sent when the app opens, comes to the foreground or the browser
   // says it's online (shoppingSync.watch), when the connection comes back or on "Try now"
   // (network), and when the event stream reconnects (live's hello). Sync protocol 11.3.
+  //
+  // Signing out (or a different login starting clean) in another tab wipes this browser.
+  // This tab then clears itself at once, stops the stream and sending, never makes the
+  // database again, and goes to sign in (cabledrawer 18 Oct; otherTabs.ts).
   $effect(() => {
     const stopNetwork = network.start(() => {
       live.reconnect();
@@ -35,10 +44,31 @@
     const stopLive = live.start(() => void shoppingSync.send());
     const stopSync = shoppingSync.watch();
     void shoppingSync.start();
-    return () => {
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
       stopSync();
       stopLive();
       stopNetwork();
+    };
+    const stopListening = onWipedElsewhere(() => {
+      wiped = true;
+      stop();
+      session.me = null;
+      shoppingSync.forget();
+      undoHistory.clear();
+      toasts.dismiss();
+      try {
+        sessionStorage.clear();
+      } catch {
+        // Storage blocked: nothing kept there.
+      }
+      void goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
+    });
+    return () => {
+      stopListening();
+      stop();
     };
   });
 
@@ -57,6 +87,9 @@
     // A session that ends (expired, or signed out elsewhere) leads back to sign in,
     // and then back here.
     setUnauthorizedHandler(() => {
+      // Nobody signed in here any more: this tab (or another) is signing out, and goes to
+      // the sign-in page by itself, without "come back to this page".
+      if (!session.me) return;
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- signInPath is always /sign-in plus a checked page
       void goto(signInPath(location.pathname + location.search), { invalidateAll: true });
     });
@@ -84,24 +117,26 @@
 <!-- Ctrl+Z / Cmd+Z undoes your own last change (not while typing in a text box). -->
 <svelte:window onkeydown={handleUndoKey} />
 
-<a class="skip" href="#main">Skip to content</a>
+{#if !wiped}
+  <a class="skip" href="#main">Skip to content</a>
 
-<div class="shell">
-  <div class="sidebar-slot"><Sidebar /></div>
-  <main id="main" tabindex="-1">
-    {@render children()}
-  </main>
-  <div class="tabbar-slot">
-    <ConnectionStatus layout="phone" />
-    <TabBar />
+  <div class="shell">
+    <div class="sidebar-slot"><Sidebar /></div>
+    <main id="main" tabindex="-1">
+      {@render children()}
+    </main>
+    <div class="tabbar-slot">
+      <ConnectionStatus layout="phone" />
+      <TabBar />
+    </div>
   </div>
-</div>
 
-<!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
-<IngredientSheet />
-<AskOnce />
-<NewIngredient />
-<Toast />
+  <!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
+  <IngredientSheet />
+  <AskOnce />
+  <NewIngredient />
+  <Toast />
+{/if}
 
 <style>
   .skip {

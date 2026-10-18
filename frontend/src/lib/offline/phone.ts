@@ -59,11 +59,38 @@ export interface Meta {
 // Tests give each file its own database, as every test file shares one origin.
 let name = DB_NAME;
 let opening: Promise<IDBPDatabase> | null = null;
+/**
+ * Another tab wiped this browser (signed out): this tab must not open the database again,
+ * which would make a new, empty one, or write into it, until someone signs in here.
+ */
+let sealed = false;
+const deletedElsewhere = new Set<() => void>();
 
 /** For tests only: use a database of this name instead of `mealwright`. */
 export function usePhoneDatabase(testName: string): void {
   closePhone();
+  sealed = false;
   name = testName;
+}
+
+/**
+ * Close the database and keep it closed: another tab has wiped this browser (otherTabs.ts).
+ * Opening it rejects until unsealPhone().
+ */
+export function sealPhone(): void {
+  sealed = true;
+  closePhone();
+}
+
+/** Someone has signed in here: the database may be opened (and so made) again. */
+export function unsealPhone(): void {
+  sealed = false;
+}
+
+/** Run `handler` when another tab deletes the database. Returns a function that stops. */
+export function onPhoneDeletedElsewhere(handler: () => void): () => void {
+  deletedElsewhere.add(handler);
+  return () => deletedElsewhere.delete(handler);
 }
 
 /** The database's name: `mealwright`, except in tests. */
@@ -85,9 +112,15 @@ export function openPhoneAt(version: number): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains(full)) db.createObjectStore(full, { keyPath });
       }
     },
-    // Another tab wants to upgrade or delete the database (signing out): let it.
-    blocking() {
-      closePhone();
+    // Another tab wants to upgrade or delete the database: let it. Deleting it means that
+    // tab wiped this browser (signing out, section 12), so this tab seals it and is told.
+    blocking(_current, next) {
+      if (next !== null) {
+        closePhone();
+        return;
+      }
+      sealPhone();
+      for (const handler of [...deletedElsewhere]) handler();
     },
     terminated() {
       opening = null;
@@ -97,6 +130,7 @@ export function openPhoneAt(version: number): Promise<IDBPDatabase> {
 
 /** The open database, opened once. */
 export function openPhone(): Promise<IDBPDatabase> {
+  if (sealed) return Promise.reject(new Error('This browser was wiped in another tab.'));
   if (!opening) {
     opening = openPhoneAt(DB_VERSION);
     opening.catch(() => (opening = null));
