@@ -258,7 +258,7 @@ Under the household lock, before applying an action, the server looks for its ID
 ```
 
 - `change`: the pantry change where there is one (api-0.2 section 6.1), otherwise the list change the action made (`item_added`, `item_amount`, `list_made` …), so Recent changes and Undo can name it. Null when nothing changed.
-- `food_id` (PR 3): for an `add`, the ingredient the item is for: the kept one after a merge, or the one `new_food` made or joined. Null for other kinds.
+- `food_id` (PR 3): for an `add`, the ingredient the item is for: the kept one after a merge, or the one `new_food` made or joined. For `tick`, `untick`, `put_away`, `different_pack` and `answer_double_tick`, the item's ingredient (after merges); for a tick whose stock went to the live ingredient that has the name now (7.1), that one. For an Undo of an action outside that family, the ingredient of the change it undid, if any. Null otherwise.
 
 | `status` | Meaning | Device does |
 |---|---|---|
@@ -409,7 +409,8 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
 - (PR 3) The summary's amount uses 0.2's pantry wording, so a count word reads "Bought 1 bunch of Coriander → Fridge".
-- (PR 3, pending cabledrawer) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back.
+- (PR 3, pending cabledrawer) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would (5.9): the purchase needs it in the pantry. If its name is a live ingredient's now, nothing is brought back and the stock goes to that one (no second "Paneer"). A tick that puts nothing in (a staple, or no amount) brings nothing back. An Undo of the tick takes the stock out and removes the brought-back ingredient again, as an Undo of an `add` does (5.9), unless it has other stock by then (removing it would hide that stock). An untick, or an Undo from Pantry → Recent changes, leaves it in Ingredients.
+- (PR 3, pending cabledrawer) **Counted another way:** if the live ingredient with that name is counted another way than the removed one (the old Paneer by weight, the new one in items), the old amount is never carried across: it would file 400 g as 400 items. A tick records the purchase with no stock and no change, and the ticker gets a quiet note N8 (8) whose Undo takes the tick back. An `add` through the removed ingredient gets a blank add's amount for the live one (its usual size, or 1). (A `new_food` that matches an existing ingredient still takes the action's amount, as 4.4 says; not changed in PR 3.)
 
 ### 7.2 What a purchase's stock is
 
@@ -457,6 +458,7 @@ A note whose Undo would name an Undo (`undo`, `untick_by_undo`, `place_by_undo`)
 | N5 | Untick on a tombstoned item (L-10), only when the untick took stock out (PR 3) | "{who} had removed this, so it isn't back on the list. Your untick took it out of the pantry." | The untick (stock back in). |
 | N6 | Put away overwritten (L-32) | "{who} put {name} in the {place}" | The winning put-away (stock moved back). |
 | N7 | Queued actions hit a removed list (L-7), one per login | "{who} had removed {list}. Your changes are kept with it." plus, if it had ticks, " Your ticks still went into the pantry." | The removal (the list comes back). |
+| N8 | A tick whose ingredient was removed, and the live ingredient with its name is counted another way (7.1, PR 3, pending cabledrawer), to the ticker | "{name} is counted differently now, so nothing went into the pantry." | The tick (the purchase is taken back). |
 
 **The card** (L272, L284, new L296), from the mockup (`Shop.dc.html`):
 

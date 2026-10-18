@@ -183,16 +183,22 @@ def tick(act: Act) -> None:
     if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
         act.ignore("already_ticked")
         return
+    listed = food
+    revived: dict[str, Any] = {}
     if food.removed_at is not None and not food.staple and item.amount_milli:
         # On a tombstone only (removing is blocked otherwise), and only when stock goes in:
         # the purchase needs an ingredient in the pantry (7.1, pending cabledrawer).
-        food, _ = shopping.revive(act, food)
+        food, revived = shopping.revive(act, food)
+        act.food_id = food.id  # the ingredient the stock goes to (5.4)
+    # The live ingredient with that name now is counted another way: the item's amount
+    # means nothing for it, so nothing goes in (7.1, pending cabledrawer).
+    recount = food.counted_as != listed.counted_as
     place = get_place(kitchen, item.put_away_place_id)
     if place is None:
         item.put_away_place_id = None  # a chosen place that's gone (5.9, SY-55)
         place = default_place(kitchen, food)
     size = shopping.get_size(kitchen, food, item.size_id)
-    milli = None if food.staple else item.amount_milli
+    milli = None if food.staple or recount else item.amount_milli
     row = ListTick(
         household_id=kitchen.household_id,
         id=act.id,
@@ -212,12 +218,26 @@ def tick(act: Act) -> None:
         put_in(kitchen, edit, food, place, lot_amounts(row.bought_milli, size), size)
         shown = size or usual_size(kitchen, food.id)
         summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
-        change = edit.record("shopped", summary, food.id, {"action": act.id})
+        data: dict[str, Any] = {"action": act.id}
+        if revived:
+            data["revived"] = revived  # an Undo of the tick removes it again (7.1)
+        change = edit.record("shopped", summary, food.id, data)
         change.tick_id = row.id
         row.change_id = change.id
         act.change = change
     sync_copy(kitchen, item, act.seq)
     _removed_list(act, item, ticked=bool(row.bought_milli))
+    if recount:
+        shopping.note(
+            act,
+            "N8",
+            kitchen.login.id,
+            f"{listed.name} is counted differently now, so nothing went into the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
     if not row.bought_milli:
         return
     _ask(act, item, row)
@@ -419,8 +439,12 @@ def _put_back_one(act: Act, tick: ListTick, undos: list[Change]) -> None:
             tick.bought_milli, tick.bought_size_id = bought
     tick.reversed_at = None
     tick.reversed_by_action_id = None
+    # The ingredient the stock went to: the item's, or the one with its name now (7.1).
     item = db.get(ListItem, tick.item_id)
-    food = live_food(kitchen, item.food_id) if item is not None else None
+    stocked = next((undo.food_id for undo in undos if undo.food_id is not None), None)
+    if stocked is None and item is not None:
+        stocked = item.food_id
+    food = live_food(kitchen, stocked) if stocked is not None else None
     total = sum(amount for amount in took.values() if amount > 0)
     if food is None or total <= 0:
         return
@@ -747,6 +771,7 @@ def undo(act: Act, target: SyncAction) -> None:
             act.ignore("already_undone")
             return
         done = reverse(act, tick, lambda change: f"Undid: {change.summary}")
+        _remove_again(act, tick)
         item = kitchen.db.get(ListItem, tick.item_id)
         if item is not None:
             sync_copy(kitchen, item, act.seq)
@@ -769,6 +794,39 @@ def undo(act: Act, target: SyncAction) -> None:
         return
     target.undone_by_action_id = act.id
     shopping.notes_gone(kitchen, target.id, act.seq)
+
+
+def _remove_again(act: Act, tick: ListTick) -> None:
+    """A tick that brought its ingredient back (7.1): its Undo removes the ingredient again,
+    as an Undo of an `add` does (5.9), once none of its stock is left."""
+    from mealwright.history import Tally, undo_foods
+
+    kitchen = act.kitchen
+    for change in kitchen.db.scalars(
+        select(Change).where(
+            Change.household_id == kitchen.household_id,
+            Change.tick_id == tick.id,
+            Change.kind == "shopped",
+        )
+    ):
+        revived = (change.undo_data or {}).get("revived")
+        if not revived or change.food_id is None:
+            continue
+        left = kitchen.db.scalar(
+            select(StockLot.id)
+            .where(
+                StockLot.household_id == kitchen.household_id,
+                StockLot.food_id == change.food_id,
+                StockLot.amount_milli > 0,
+            )
+            .limit(1)
+        )
+        if left is not None:
+            continue  # removing it would hide that stock
+        tally = Tally()
+        touched = undo_foods(kitchen, revived, tally)
+        if tally.done:
+            shopping.bump_foods(kitchen, touched, act.batch)
 
 
 def later_repacks(kitchen: Kitchen, change: Change) -> list[Change]:

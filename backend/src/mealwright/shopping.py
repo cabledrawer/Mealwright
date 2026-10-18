@@ -844,10 +844,11 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any]]:
     return food, {}
 
 
-def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any]]:
+def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any], bool]:
     """The ingredient an `add` names (sync protocol 5.9): merges are followed; one removed
     while offline is brought back (unless its name is someone else's now: then that one);
-    one deleted for good gives None."""
+    one deleted for good gives None. The last part is True when the one it gives is
+    counted another way than the one named, so the action's amount means nothing for it."""
     kitchen = act.kitchen
     food = kitchen.db.get(Food, food_id)
     seen: set[int] = set()
@@ -855,10 +856,11 @@ def _food_for(act: Act, food_id: int) -> tuple[Food | None, dict[str, Any]]:
         seen.add(food.id)
         food = kitchen.db.get(Food, food.merged_into_id)
     if food is None or food.household_id != kitchen.household_id:
-        return None, {}
+        return None, {}, False
     if food.removed_at is None:
-        return food, {}
-    return revive(act, food)
+        return food, {}, False
+    live, foods = revive(act, food)
+    return live, foods, live.counted_as != food.counted_as
 
 
 def revive(act: Act, food: Food) -> tuple[Food, dict[str, Any]]:
@@ -895,10 +897,11 @@ def add_item(act: Act) -> None:
     act.list_id = shopping_list.id
     item_id = new_id(kitchen, payload.get("item_id"), ListItem)
     foods: dict[str, Any] = {}
+    recount = False
     if payload.get("new_food") is not None:
         food, foods = _new_food(act, payload["new_food"])
     else:
-        found, foods = _food_for(act, payload["food_id"])
+        found, foods, recount = _food_for(act, payload["food_id"])
         if found is None:
             name = _gone_name(kitchen, payload["food_id"]) or "That ingredient"
             act.ignore("gone", f"{name} was removed from Ingredients, so it wasn't added.")
@@ -911,8 +914,9 @@ def add_item(act: Act) -> None:
         shop_id = shop.id if shop else (food.shop_id if wanted_shop is not None else None)
     else:
         shop_id = food.shop_id
-    amount_milli = milli_of(payload.get("amount"))
-    size = get_size(kitchen, food, payload.get("size_id"))
+    # Counted another way now (7.1, pending cabledrawer): never the old amount, a blank add's.
+    amount_milli = None if recount else milli_of(payload.get("amount"))
+    size = None if recount else get_size(kitchen, food, payload.get("size_id"))
     if amount_milli is None:
         amount_milli, size_id = default_amount(kitchen, food)
         size = kitchen.db.get(FoodSize, size_id) if size_id else None

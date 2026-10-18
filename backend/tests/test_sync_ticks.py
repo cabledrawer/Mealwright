@@ -192,6 +192,22 @@ def test_a_tick_brings_back_the_removed_ingredient(kitchen: TestClient) -> None:
     assert done["status"] == "applied" and done["message"] == "Paneer is back in Ingredients."
     assert _live(s, "Paneer") == [s.foods["Paneer"]]
     assert s.total("Paneer") == 400
+    # Its Undo takes the stock out and removes the ingredient again, as for an add (5.9).
+    assert _undo(kitchen, done["id"])["status"] == "applied"
+    assert _live(s, "Paneer") == [] and s.total("Paneer") == 0
+
+
+def test_an_undo_of_a_tick_keeps_the_brought_back_ingredient_while_stock_is_left(
+    kitchen: TestClient,
+) -> None:
+    """Removing it would hide the 250 g added in Pantry since."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    done = tick(kitchen, s, "Paneer")
+    more = {"food_id": s.foods["Paneer"], "amount": {"amount": 250, "unit": "g"}}
+    ok(kitchen.post(f"{API}/stock", json=more), 201)
+    assert _undo(kitchen, done["id"])["status"] == "applied"
+    assert _live(s, "Paneer") == [s.foods["Paneer"]] and s.total("Paneer") == 250
 
 
 def test_a_tick_goes_to_the_ingredient_that_has_the_name_now(kitchen: TestClient) -> None:
@@ -201,6 +217,7 @@ def test_a_tick_goes_to_the_ingredient_that_has_the_name_now(kitchen: TestClient
     new = food(kitchen, "Paneer", counted_as="weight")["id"]
     done = tick(kitchen, s, "Paneer")
     assert done["status"] == "applied" and done["message"] is None
+    assert done["food_id"] == new  # the ingredient the stock went to (5.4)
     assert _live(s, "Paneer") == [new]
     with db(kitchen) as session:
         lots = session.scalars(select(StockLot).where(StockLot.amount_milli > 0)).all()
@@ -209,6 +226,47 @@ def test_a_tick_goes_to_the_ingredient_that_has_the_name_now(kitchen: TestClient
     assert _undo(kitchen, done["id"])["status"] == "applied"  # and it comes out again
     with db(kitchen) as session:
         assert session.scalar(select(func.sum(StockLot.amount_milli))) == 0
+
+
+def test_an_undo_of_an_untick_puts_back_into_the_ingredient_that_has_the_name_now(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    new = food(kitchen, "Paneer", counted_as="weight")["id"]
+    done = tick(kitchen, s, "Paneer")
+    off = one(kitchen, "untick", s.c0, item_id=s.items["Paneer"], tick_ids=[done["id"]])
+    back = _undo(kitchen, off["id"])
+    assert back["change"]["summary"].startswith("Ticked again: 400\u00a0g Paneer")
+    with db(kitchen) as session:
+        assert session.get(Change, back["change"]["id"]).food_id == new
+        lots = session.scalars(select(StockLot).where(StockLot.amount_milli > 0)).all()
+        assert [(lot.food_id, lot.amount_milli) for lot in lots] == [(new, 400_000)]
+
+
+def test_a_tick_into_an_ingredient_counted_differently_puts_nothing_in(
+    kitchen: TestClient,
+) -> None:
+    """7.1 (pending cabledrawer): 400 g of the old Paneer means nothing for a Paneer counted in
+    items. The purchase is recorded with no stock, and the ticker gets a quiet note whose
+    Undo takes the tick back."""
+    s = s0(kitchen)
+    _removed_with_its_line(s, "Paneer")
+    new = food(kitchen, "Paneer", counted_as="count")["id"]
+    done = tick(kitchen, s, "Paneer")
+    assert done["status"] == "applied" and done["change"] is None and done["food_id"] == new
+    assert _live(s, "Paneer") == [new]
+    (purchase,) = s.ticks("Paneer")
+    assert (purchase.bought_milli, purchase.change_id) == (None, None)
+    with db(kitchen) as session:
+        assert session.scalar(select(func.sum(StockLot.amount_milli))) is None
+        assert session.scalars(select(Change).where(Change.kind == "shopped")).all() == []
+    (note,) = changes(kitchen)["notes"]
+    assert note["text"] == "Paneer is counted differently now, so nothing went into the pantry."
+    assert (note["undo"], note["food_id"]) == (done["id"], new)
+    assert changes(s.wren)["notes"] == []  # only the ticker's
+    assert _undo(kitchen, note["undo"])["status"] == "applied"
+    assert s.ticks("Paneer") == [] and changes(kitchen)["notes"] == []
 
 
 def test_a_tick_with_nothing_to_put_in_brings_nothing_back(kitchen: TestClient) -> None:

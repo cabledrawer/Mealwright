@@ -451,6 +451,22 @@ def test_sy66_variant_add_via_a_removed_ingredient(kitchen: TestClient) -> None:
         assert session.get(Food, old).removed_at is not None
 
 
+def test_an_add_via_a_removed_ingredient_never_carries_its_amount_to_one_counted_differently(
+    kitchen: TestClient,
+) -> None:
+    """7.1 (pending cabledrawer): 500 g of the old Ghee means nothing for a Ghee counted in
+    items, so the line gets a blank add's amount: 1 (it has no usual size)."""
+    s = s0(kitchen)
+    old = food(kitchen, "Ghee", counted_as="weight")["id"]
+    ok(kitchen.delete(f"{API}/foods/{old}"))
+    new = food(kitchen, "Ghee", counted_as="count")["id"]
+    item = new_id()
+    added = one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=item, food_id=old, amount=500)
+    assert added["status"] == "applied" and added["food_id"] == new
+    row = item_row(changes(kitchen), item)
+    assert (row["food_id"], row["amount"], row["size_id"]) == (new, 1, None)
+
+
 # --- Sign-in runs out while offline (11.5) -------------------------------------------------------
 
 
