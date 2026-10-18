@@ -144,6 +144,7 @@ No table. The app makes a random UUID after sign-in (11.8) and keeps it on every
 - Ingredients deleted for good by 0.2's hourly job (api-0.2 section 6.6): the job takes a counter number N under the household lock (5.2, recorded as a server-made `purge` action) and sets `household.list_purged_seq = N`, so every device that's behind gets a fresh full copy (`reset`) instead of keeping a dead ingredient. This happens a few times a year.
 - Tombstoned and merged-away items, and removed lists, with their ticks: deleted after `history_months` (12). Before deleting the ticks it sets `change.tick_id` to null on their changes (3.7); the changes themselves stay in the history. `household.list_purged_seq` is raised to the highest `version` deleted.
 - `sync_action`: after `history_months`, `payload` and `result` are emptied, but the row (`id`, `seq`, `kind`, `status`) is **kept for good**, so a repeat is always caught however old the queue. It's a few thousand short rows a year.
+- (PR 3) Merged-away items have no "merged at" time, so they're tidied 12 months after they were **added**. The `purge` action is made by no one: `login_id` null, `login_name` empty.
 - When `shopped` changes are thinned into monthly totals, `list_tick.change_id` becomes null; a later untick still unticks but has no stock to take back.
 
 ## 4. Actions
@@ -302,7 +303,7 @@ GET /api/v1/shopping/changes?since=1040
 - Notes and questions **for the signed-in login** are always sent **in full**: every note that isn't gone and every open question, whatever `since` is. The device replaces its notes and questions with them each time. So a note or card deleted while a phone was offline (3.9) disappears at its next sync, and a dead "Did you buy 2?" can't linger (SY-59). They're a handful of rows. A question closed after `since` is also sent once, with `open: false`, so a device that keeps its copy can drop the card straight away.
 - `cursor` is `household.list_seq`. The cursor and the rows come from one snapshot: on SQLite a read transaction is one (WAL mode); on Postgres later the request runs at `REPEATABLE READ`.
 - `reset: true` (a full copy without tombstones; the device replaces its copy) when `since` is 0 or below `household.list_purged_seq`. The tombstone tidy-up and ingredients deleted for good both raise it (3.9).
-- `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy.
+- `display` is the server's as-sold wording (api-0.2 section 5). Items show only what lists need; the pantry is not in the offline copy. On a list (items and `bought`) a count ingredient with a size reads in that size when the amount is a whole number of them ("2 boxes" for 12 eggs bought by the box of 6), and the pantry's "left" ("12 left") never shows (PR 3, SY-65).
 - `foods` are the ingredients the device needs for the list **and the add box** (search offline by any name): every ingredient that isn't merged away or removed. A household's few hundred names are small.
 
 ### 5.6 Sign-in, household and request errors
@@ -403,6 +404,8 @@ Every rule in spec section 6 "Offline shopping-list sync", and cabledrawer's 17 
 - **Staples** (L287) and **items with no amount**: no stock and no change. The tick is still recorded on the list.
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.
+- (PR 3) The summary's amount uses 0.2's pantry wording, so a count word reads "Bought 1 bunch of Coriander → Fridge".
+- (PR 3) A tick on a removed item whose ingredient has since been removed (not yet deleted for good) brings the ingredient back, as an `add` would: the purchase needs it in the pantry.
 
 ### 7.2 What a purchase's stock is
 
@@ -413,6 +416,7 @@ A purchase's stock is the lots named by the change lines of its own changes (eve
 - Records `put_away_place_id` on the item, then, for each purchase in `tick_ids` that's still standing, moves that purchase's lots that are not empty and still in the purchase's place to the new place, as one `moved` change ("Moved Coriander → Freezer", with `tick_id`), with its own Undo (5.8 keeps the list in step). `list_tick.place_id` is updated.
 - History therefore shows "Bought 1 bunch Coriander → Fridge" then "Moved Coriander → Freezer". Each line reverses cleanly with 0.2's Undo; we don't rewrite the first change.
 - On a tombstoned item the stock still moves (it's about where the shopping went); only the list part is ignored.
+- (PR 3) The list side is recorded as a list change of kind `item_place`, summary "Put away Coriander → Freezer", so it shows and undoes like the other list changes.
 
 ### 7.4 `different_pack`
 
@@ -427,7 +431,7 @@ The person says purchase `tick_id` was really `count` × `pack`:
 
 - **Reversing a purchase** = api-0.2's Undo of each of its amount changes that isn't undone yet, newest first (its `repacked` changes and any put-back change, then its `shopped` change). Each puts back what it can, never below zero, and says so ("Took back 300 g of the 500 g: the rest has been used since."). Moves are left alone; they don't change amounts. The `undo` changes carry the purchase's `tick_id`, and their lines say exactly how much came out of which lot. Summaries: "Unticked: Bought 2 packets Toor dal → Cupboard", "Just 1: took back 1 packet Toor dal".
 - The purchase gets `reversed_at`. The item's `ticked_*` copy follows the first purchase still standing, or clears. A reversed purchase closes an open question as `none` unless that's how "Just 1" settled it.
-- **Putting a purchase back** (Undo of an untick or of "Just 1") puts back **exactly what the reversal took out, lot by lot**, no more: one new `shopped` change ("Ticked again: 300 g Toor dal → Cupboard", with `tick_id`) whose lines are the reversal's lines the other way round, into the same lots (or, if a lot has since been deleted, a new lot of that amount in the purchase's place). If the reversal took back 300 g because 200 g had been used, putting it back gives 300 g, not 500 g (SY-26u, SY-24u). It clears `reversed_at` and points `list_tick.change_id` at the new change. (0.2 has no redo, so we don't undo the undo.) Undo of "Just 1" also reopens the card.
+- **Putting a purchase back** (Undo of an untick or of "Just 1") puts back **exactly what the reversal took out, lot by lot**, no more: one new `shopped` change ("Ticked again: 300 g Toor dal → Cupboard", with `tick_id`) whose lines are the reversal's lines the other way round, into the same lots (or, if a lot has since been deleted, a new lot of that amount in the purchase's place). If the reversal took back 300 g because 200 g had been used, putting it back gives 300 g, not 500 g (SY-26u, SY-24u). It clears `reversed_at`, points `list_tick.change_id` at the new change, and puts back the purchase's `bought` as it was when it was reversed. (0.2 has no redo, so we don't undo the undo.) Undo of "Just 1" also reopens the card.
 - **Undo from Pantry → Recent changes** of a purchase's changes: 5.8.
 
 ## 8. Notes and the card
@@ -442,7 +446,7 @@ Notes are server-made, final wording, addressed to one login (`for_login_id`), s
 | N2 | Both added (L-12), to both adders | "{who} added {name} too" (new L294) | The later add (the line goes back to the earlier amount; the later add is gone). |
 | N3 | Amount overwritten (L-13), to the overwritten person | "{who} changed {name} to {amount}" | The winning change (your amount back, if it's still theirs). |
 | N4 | Edit against a delete, either order (L-6), to the editor | "{who} had removed {name}, so your change wasn't kept." | The delete (the item comes back as it is now). |
-| N5 | Untick on a tombstoned item (L-10) | "{who} had removed this, so it isn't back on the list. Your untick took it out of the pantry." | The untick (stock back in). |
+| N5 | Untick on a tombstoned item (L-10), only when the untick took stock out (PR 3) | "{who} had removed this, so it isn't back on the list. Your untick took it out of the pantry." | The untick (stock back in). |
 | N6 | Put away overwritten (L-32) | "{who} put {name} in the {place}" | The winning put-away (stock moved back). |
 | N7 | Queued actions hit a removed list (L-7), one per login | "{who} had removed {list}. Your changes are kept with it." plus, if it had ticks, " Your ticks still went into the pantry." | The removal (the list comes back). |
 
@@ -459,6 +463,7 @@ Notes are server-made, final wording, addressed to one login (`for_login_id`), s
 - Every list action except `undo`, `dismiss_note` and `refused` ones can be undone with `undo {undoes: <action ID>}` by anyone in the household (L386). The Undo toast on the phone uses the action ID, so it works offline, even before the original has been sent. Both go in the queue, in order.
 - What each Undo does: `create_list` → removes the list; `rename_list` → the old name (if it's still this one); `remove_list` → back; `add` → the item is tombstoned (or, if `merged`, the line goes back to its earlier amount); `set_amount` → the earlier amount, if the item still has this action's amount; `delete`, `clear_ticked` → the items it removed come back; `tick` → reverses that purchase (7.5); `untick`, "Just 1" → puts the purchases back (7.5); `put_away` → stock moved back (0.2 move Undo rules) and the item's earlier place; `different_pack` → 0.2 Undo of its `repacked` change, and the purchase's `bought` goes back; `answer_double_tick` "two" → the card comes back.
 - **Window:** 7 days (the household's undo window), from the undone action's `applied_at` to when the person pressed Undo. Phone clocks can be wrong, so the server corrects the phone's time: each batch carries `sent_at` (the phone's clock when it sent, 4.1), and the time Undo was pressed is taken as `made_at + (server time − sent_at)`. That cancels a phone clock that's simply fast or slow, by any amount. The result is then kept between the undone action's `applied_at` and now. An Undo queued in time is never lost because the phone was offline (SY-22, SY-22b, SY-63). It still trusts the phone not to have its clock changed between pressing Undo and sending; this is a convenience window, not a security rule, so that's accepted. Too late → `ignored too_old`, toast "Too late to undo: changes can be undone for 7 days."
+- (PR 3) Undo of "Just 1" while a newer card is open for the same item: the purchases put back join that card instead of reopening the old one. Undo of "Yes, 2" when fewer than 2 of its purchases still stand → `ignored nothing_to_undo` (there's no question to ask again).
 - Undo of an Undo → `ignored cannot_undo` (no redo, as 0.2). Already undone → `ignored already_undone`. Undo of an ignored action → `ignored nothing_to_undo`.
 
 ## 10. Live updates (PR 5)
