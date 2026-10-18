@@ -33,6 +33,24 @@ const tick = (id: string) => ({
   item_id: 'i'
 });
 
+/**
+ * Hold the browser's list of databases (phoneExists asks it before any read), so a look at
+ * the phone database waits until released. Returns the release, which also restores it.
+ */
+function holdDatabaseList(): () => void {
+  const real = indexedDB.databases.bind(indexedDB);
+  let release = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  const spy = vi.spyOn(indexedDB, 'databases').mockImplementation(async () => {
+    await gate;
+    return real();
+  });
+  return () => {
+    release();
+    spy.mockRestore();
+  };
+}
+
 /** Wren signed in here, and left `count` changes waiting when her sign-in ran out. */
 async function wrensPhone(count: number) {
   await setMeta({
@@ -615,7 +633,8 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByRole('alert')).toHaveTextContent(UNFINISHED);
       refuse = false;
       await page.getByRole('button', { name: 'Try again' }).click();
-      await expect.element(page.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+      await expect.element(page.getByText(UNFINISHED)).not.toBeInTheDocument();
+      expect(page.getByRole('button', { name: /^Try/ }).elements()).toEqual([]);
       expect(page.getByRole('alert').elements()).toEqual([]);
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
         'DELETE /session',
@@ -807,6 +826,71 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
         .toHaveTextContent(
           "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
         );
+    });
+  });
+  describe('every Try again is the same button, saying “Trying…” while it tries (cabledrawer 18 Oct)', () => {
+    const isShared = (name: string) => {
+      const el = page.getByRole('button', { name, exact: true }).element();
+      return el.classList.contains('primary') && !el.classList.contains('quiet');
+    };
+
+    it('couldn’t finish signing out', async () => {
+      signOutState.unfinished = true;
+      show();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+      expect(isShared('Try again')).toBe(true);
+      let answer: (reply: Response) => void = () => {};
+      vi.stubGlobal('fetch', () => new Promise<Response>((done) => (answer = done)));
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
+      answer(new Response(null, { status: 204 }));
+      await expect.element(page.getByText(/Couldn't finish signing out/)).not.toBeInTheDocument();
+      expect(page.getByRole('button', { name: /^Try/ }).elements()).toEqual([]);
+      vi.unstubAllGlobals();
+    });
+
+    it('a wipe that couldn’t delete the phone database', async () => {
+      await wrensPhone(1);
+      const mend = failPhoneDelete();
+      await wipeDevice();
+      mend();
+      show();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+      expect(isShared('Try again')).toBe(true);
+      // Another tab holds the queue lock, so the wipe waits.
+      let release = () => {};
+      const held = new Promise<void>((done) => (release = done));
+      let locked = () => {};
+      const lockTaken = new Promise<void>((done) => (locked = done));
+      void navigator.locks.request(`${phoneDatabaseName()}.queue`, () => {
+        locked();
+        return held;
+      });
+      await lockTaken;
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
+      release();
+      await expect.element(page.getByText(/couldn't delete/)).not.toBeInTheDocument();
+      expect(page.getByRole('button', { name: /^Try/ }).elements()).toEqual([]);
+      expect(await phoneThere()).toBe(false);
+    });
+
+    it('couldn’t check for changes waiting', async () => {
+      await wrensPhone(1);
+      const mend = breakPhone();
+      show();
+      await fillIn('arlo');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+      expect(isShared('Try again')).toBe(true);
+      const release = holdDatabaseList();
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
+      release();
+      await expect.element(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_TEXT);
+      mend();
+      expect(requests).toEqual([]);
     });
   });
 });

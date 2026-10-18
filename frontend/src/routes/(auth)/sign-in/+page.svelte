@@ -171,6 +171,17 @@
     await signInNow();
   }
 
+  /** The couldn't-check warning's Try again: looks again, as Sign in does. */
+  let trying = $state(false);
+  async function tryAgain() {
+    trying = true;
+    try {
+      await go();
+    } finally {
+      trying = false;
+    }
+  }
+
   /** Show the couldn't-check warning, put back as new so it's read out again. */
   async function warnCantCheck() {
     cantWarning = false;
@@ -281,9 +292,9 @@
       <!-- On opening the page a status; after a press the server refused, an alert. -->
       <p role={endTries > 0 ? 'alert' : 'status'}>{unfinishedText(device)}</p>
     {/key}
-    <button type="button" class="again" disabled={ending} onclick={() => void endAgain()}>
+    <Button disabled={ending} onclick={() => void endAgain()}>
       {ending ? 'Trying…' : 'Try again'}
-    </button>
+    </Button>
   </div>
 {/if}
 
@@ -293,9 +304,9 @@
       <!-- On opening the page a status; after a press that didn't help, an alert. -->
       <p role={wipeTries > 0 ? 'alert' : 'status'}>{wipeFailedText(device)}</p>
     {/key}
-    <button type="button" class="again" disabled={wiping} onclick={() => void wipeAgain()}>
+    <Button disabled={wiping} onclick={() => void wipeAgain()}>
       {wiping ? 'Trying…' : 'Try again'}
-    </button>
+    </Button>
   </div>
 {/if}
 
@@ -338,7 +349,9 @@
     {:else if cantWarning && unreadable}
       <div class="warning">
         <p role="alert">{cantCheckText(device)}</p>
-        <Button disabled={busy} onclick={() => void go()}>Try again</Button>
+        <Button disabled={busy || trying} onclick={() => void tryAgain()}>
+          {trying ? 'Trying…' : 'Try again'}
+        </Button>
         <button type="button" class="lose" disabled={busy} onclick={() => void carryOnAnyway()}>
           Carry on anyway — anything waiting on this {device} may be lost
         </button>
@@ -421,18 +434,6 @@
 
   .unfinished p {
     align-self: stretch;
-  }
-
-  .again {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-3);
-    border: none;
-    background: none;
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    text-decoration: underline;
-    cursor: pointer;
   }
 
   .held {

@@ -27,6 +27,24 @@ const CANT_CHECK =
   "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.";
 const ANYWAY = 'Sign out anyway — anything waiting on this phone may be lost';
 
+/**
+ * Hold the browser's list of databases (phoneExists asks it before any read), so a look at
+ * the phone database waits until released. Returns the release, which also restores it.
+ */
+function holdDatabaseList(): () => void {
+  const real = indexedDB.databases.bind(indexedDB);
+  let release = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  const spy = vi.spyOn(indexedDB, 'databases').mockImplementation(async () => {
+    await gate;
+    return real();
+  });
+  return () => {
+    release();
+    spy.mockRestore();
+  };
+}
+
 const exists = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
 
@@ -231,6 +249,22 @@ describe('signing out', () => {
       .element(page.getByRole('alert'))
       .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
     expect(navigation.goto).not.toHaveBeenCalled();
+  });
+
+  it('Try again is the shared button, and says “Trying…” while it looks (cabledrawer 18 Oct)', async () => {
+    await show(0);
+    const mend = breakPhone();
+    await button('Sign out').click();
+    await expect.element(button('Try again')).toBeVisible();
+    expect(button('Try again').element().classList.contains('primary')).toBe(true);
+    expect(button('Try again').element().classList.contains('quiet')).toBe(false);
+    const release = holdDatabaseList();
+    await button('Try again').click();
+    await expect.element(button('Trying…')).toBeDisabled();
+    release();
+    await expect.element(button('Try again')).toBeEnabled();
+    await expect.element(page.getByRole('alert')).toHaveTextContent(CANT_CHECK);
+    mend();
   });
 
   it('Stay signed in closes the couldn’t-check warning', async () => {

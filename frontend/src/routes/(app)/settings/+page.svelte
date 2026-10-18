@@ -58,6 +58,17 @@
     }
   }
 
+  /** The couldn't-check warning's Try again: looks again, as Sign out does. */
+  let trying = $state(false);
+  async function tryAgain() {
+    trying = true;
+    try {
+      await leave();
+    } finally {
+      trying = false;
+    }
+  }
+
   async function sendNow() {
     busy = true;
     stillCant = false;
@@ -141,7 +152,9 @@
     {#if cantCheck}
       <div class="warning">
         <p role="alert">{cantCheckText(device)}</p>
-        <Button disabled={busy} onclick={() => void leave()}>Try again</Button>
+        <Button disabled={busy} onclick={() => void tryAgain()}>
+          {trying ? 'Trying…' : 'Try again'}
+        </Button>
         <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
         <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow('anyway')}
           >Sign out anyway — anything waiting on this {device} may be lost</button
