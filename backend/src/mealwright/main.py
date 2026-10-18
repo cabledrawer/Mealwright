@@ -8,11 +8,12 @@ from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, errors, jobs, migrate
+from mealwright import __version__, errors, events, jobs, migrate
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
+from mealwright.events import Broadcaster
 from mealwright.frontend import inline_script_hashes, mount_frontend
 from mealwright.logs import DailyLogFile
 from mealwright.outbound import OutboundGate, install_network_guard
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
             background = jobs.scheduler(app.state.sessionmaker, log_file)
             background.start()
         yield
+        app.state.events.close()  # end open live streams so shutdown isn't held up
         if background is not None:
             background.shutdown(wait=False)
         engine.dispose()
@@ -65,6 +67,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.settings = settings
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
+    app.state.events = Broadcaster()
+    events.install(app.state.sessionmaker, app.state.events)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.state.slow_down = SlowDown()
     errors.install(app)

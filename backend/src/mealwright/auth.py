@@ -214,6 +214,19 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
     return SignedIn(login=login, session=session)
 
 
+def peek_session(db: DbSession, token: str | None) -> SignedIn | None:
+    """Like `find_session`, but changes nothing: no `last_seen_at`, no new `expires_at`,
+    nothing deleted. The live-updates stream uses it, so an open screen never counts as
+    activity and the 12-hour idle sign-out still happens (cabledrawer 18 Oct)."""
+    if not token:
+        return None
+    session = db.scalar(select(Session).where(Session.token_hash == _token_hash(token)))
+    if session is None or _as_utc(session.expires_at) <= now():
+        return None
+    login = db.get(Login, session.login_id)
+    return None if login is None else SignedIn(login=login, session=session)
+
+
 # --- Request helpers (FastAPI dependencies) -------------------------------------------------
 
 

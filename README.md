@@ -18,7 +18,9 @@ Outbound connections happen only when you switch them on in Settings → Privacy
 
 ## HTTPS required
 
-Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy Manager…) that provides HTTPS. Browsers only allow signing in from other devices, installing the app, offline shopping and keep-screen-awake over HTTPS. On a plain `http://` address, Mealwright says so instead of failing. Install docs with proxy examples come before 1.0.
+Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy Manager…) that provides HTTPS. Browsers only allow signing in from other devices, installing the app, offline shopping and keep-screen-awake over HTTPS. On a plain `http://` address, Mealwright says so instead of failing. Live updates (a second phone seeing a tick at once) use one long-lived request, `/api/v1/events`. Mealwright sends `X-Accel-Buffering: no` for nginx-style proxies; if you've turned response buffering on elsewhere, switch it off for `/api/v1/events` or live updates will arrive late. Install docs with proxy examples come before 1.0.
+
+**Installing and offline.** The app can be added to your phone's or computer's home screen, and works offline once opened, only over HTTPS (browsers allow the offline helper and installing nothing else). On an iPhone, Safari can clear a website's offline data after about 7 days without use; adding Mealwright to the Home Screen helps. The offline helper keeps only the app's own files, never your household's data from the server.
 
 ## Licence
 

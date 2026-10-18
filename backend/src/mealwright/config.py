@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Run the nightly jobs (history thinning, log tidy). Off only in tests.
     run_jobs: bool = True
 
+    # How often the live-updates stream sends a keep-alive line and re-checks the sign-in.
+    # Only tests change it.
+    events_keepalive_seconds: float = 25
+
     @property
     def sqlalchemy_url(self) -> str:
         return self.database_url or f"sqlite:///{self.data_dir / 'mealwright.db'}"

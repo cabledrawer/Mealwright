@@ -2,7 +2,17 @@
 
 from fastapi import APIRouter
 
-from mealwright.api.v1 import account, changes, foods, kitchen, pantry, shopping, sync, version
+from mealwright.api.v1 import (
+    account,
+    changes,
+    events,
+    foods,
+    kitchen,
+    pantry,
+    shopping,
+    sync,
+    version,
+)
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
@@ -12,4 +22,5 @@ router.include_router(foods.router)
 router.include_router(pantry.router)
 router.include_router(shopping.router)
 router.include_router(sync.router)
+router.include_router(events.router)
 router.include_router(changes.router)
