@@ -381,6 +381,7 @@ Plans after 1.0 are kept outside the repo.
 - **Places on screen:** phone tabs show every place (Fridge, Freezer, Cupboard, Spice rack and any added); if they don't fit, the last tab becomes "More", so nothing scrolls sideways. Desktop shows all four default places as four columns at 1440 px if they fit beside the side panel, otherwise a tidy 2×2, whichever looks right in the screenshots. **Phone tab order (cabledrawer 17 Oct):** All · Fridge · Freezer · Cupboard · More; Use soon sits under More with any extra places, since the All tab already shows the Use soon card.
 - **"+ Add to pantry" sheet (no mockup yet):** pick or type a food; amount as sold (1 packet, 2 packets…) or typed grams; place filled in from the food's usual place; optional use-by (none · today · +3 days · +1 week · pick a date; "Today" added by cabledrawer 18 Oct). Screenshots go in the PR; cabledrawer adds it to the mockups canvas afterwards.
 - **Parts that depend on later milestones are hidden until they work:** "+ List" and "tap a staple when it runs out" (0.3, shopping list); tubs (0.6); "Used in N recipes", "Not in any recipe" and "Recipes for these" (0.4).
+- **Tap a staple when it runs out (cabledrawer 18 Oct, 0.3):** tapping a Staples chip adds that staple to the main shopping list, with the toast "Oil added to the shopping list · Undo", and the chip shows a small tick while it's on the list. Tapping a ticked chip doesn't remove it or add another; the toast says "Oil is already on the shopping list." The tap goes through the same add action and waiting list as Shopping, so it works offline. Screen readers hear "Add Oil to the shopping list" or "Oil, on the shopping list". An "Edit staples" link after the chips opens Ingredients with the Staples filter, where a staple opens the editor as usual. No long-press.
 - **Live updates:** in 0.2 the Pantry refreshes when you return to the tab; Server-Sent Events come in 0.3.
 
 ### Plan and batch cooks (decided 17 Oct)
@@ -413,6 +414,7 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 - **Anyone in the household** can undo anyone's change within the undo window (7 days).
 - **Ctrl+Z on desktop** undoes your own last change. When the cursor is in a text box, Ctrl+Z undoes the typing as normal, never a pantry change.
 - **Thinning history** runs as a daily job with APScheduler (approved 17 Oct, MIT), in the household's local time.
+- **Recent changes on Ingredients (cabledrawer 18 Oct, 0.3):** Ingredients gets its own Recent changes, a side panel on desktop and a "Recent changes" button on the phone, listing ingredient changes: new ingredients (including "+ Staple"), Staple on/off, removals, merges and edits, each with Undo for 7 days. Pantry's Recent changes stays stock-only.
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
