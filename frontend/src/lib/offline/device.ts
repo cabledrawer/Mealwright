@@ -7,7 +7,15 @@
 // localStorage key is cleared (cabledrawer 18 Oct).
 
 import { newChangeId } from '$lib/changeId';
-import { getMeta, phoneExists, setMeta, unsealPhone } from './phone';
+import {
+  getMeta,
+  phoneExists,
+  readPhone,
+  setMeta,
+  UNREADABLE,
+  unsealPhone,
+  type Unreadable
+} from './phone';
 import { signOutPending } from './signOutPending';
 
 /** Where 0.2 kept the device ID. Empty from 0.3 on. */
@@ -74,10 +82,18 @@ export interface SignedIn {
   role: string;
 }
 
-/** On starting the app signed in: load the device ID and note who is signed in. */
+/**
+ * On starting the app signed in: load the device ID and note who is signed in.
+ *
+ * Never over another login's device (11.8): the callers wipe that first, or turn this login
+ * away. If, all the same, `meta` names someone else by now (another tab), or can't be read,
+ * nothing here is written: the device ID is kept for this visit only.
+ */
 export async function startDevice(me: SignedIn): Promise<void> {
   // Signed in here: if another tab had wiped this browser, the database may be made again.
   unsealPhone();
+  const stored = await storedLoginId();
+  if (stored === UNREADABLE || (stored !== null && stored !== me.id)) return;
   await loadDeviceId();
   try {
     await setMeta({
@@ -94,37 +110,50 @@ export async function startDevice(me: SignedIn): Promise<void> {
 
 /**
  * The login this device's copy and device ID belong to (`meta`), or null when there is none
- * (never signed in here, or wiped). Looking doesn't make a new, empty database.
+ * (never signed in here, or wiped). UNREADABLE when the phone database couldn't be read: not
+ * the same as none. Looking doesn't make a new, empty database.
  */
-export async function storedLoginId(): Promise<number | null> {
+export async function storedLoginId(): Promise<number | null | Unreadable> {
   try {
     if (!(await phoneExists())) return null;
-    const id = await getMeta('login_id');
+    const id = await readPhone((db) => db.get('meta', 'login_id'));
     return typeof id === 'number' ? id : null;
   } catch {
-    return null;
+    return UNREADABLE;
   }
 }
 
 /**
+ * Who `meta` says was last signed in here, or null when nobody is. Rejects when the phone
+ * database can't be read. Call it only once phoneExists() has said the database is there.
+ */
+export async function readSignedIn(): Promise<SignedIn | null> {
+  const [id, name, username, role] = await readPhone((db) =>
+    Promise.all([
+      db.get('meta', 'login_id'),
+      db.get('meta', 'login_name'),
+      db.get('meta', 'username'),
+      db.get('meta', 'role')
+    ])
+  );
+  if (typeof id !== 'number' || typeof name !== 'string' || typeof username !== 'string') {
+    return null;
+  }
+  return { id, name, username, role: typeof role === 'string' ? role : 'member' };
+}
+
+/**
  * Who was last signed in on this device, for opening the app while the server can't be
- * reached (11.4). Null when nobody has signed in here since the phone database was made.
+ * reached (11.4). Null when nobody has signed in here since the phone database was made, or
+ * when it can't be read (then the app can't open offline, and shows the sign-in page).
  */
 export async function lastSignedIn(): Promise<SignedIn | null> {
-  // Signed out (perhaps offline): nobody. Looking doesn't make a new, empty database.
-  if (signOutPending() || !(await phoneExists())) return null;
   try {
-    const [id, name, username, role] = await Promise.all([
-      getMeta('login_id'),
-      getMeta('login_name'),
-      getMeta('username'),
-      getMeta('role')
-    ]);
-    if (typeof id !== 'number' || typeof name !== 'string' || typeof username !== 'string') {
-      return null;
-    }
-    await loadDeviceId();
-    return { id, name, username, role: typeof role === 'string' ? role : 'member' };
+    // Signed out (perhaps offline): nobody. Looking doesn't make a new, empty database.
+    if (signOutPending() || !(await phoneExists())) return null;
+    const who = await readSignedIn();
+    if (who) await loadDeviceId();
+    return who;
   } catch {
     return null;
   }

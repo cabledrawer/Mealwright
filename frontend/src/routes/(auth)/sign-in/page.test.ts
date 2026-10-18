@@ -6,7 +6,7 @@ import { turnAway } from '$lib/offline/held';
 import { getMeta, phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { addToQueue, readQueue } from '$lib/offline/store';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import SignIn from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -80,6 +80,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
   afterEach(async () => {
     for (const component of mounted.splice(0)) unmount(component);
     document.body.innerHTML = '';
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     await dropPhone();
   });
@@ -289,5 +290,51 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     show();
     await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
     expect(page.getByRole('status').elements()).toEqual([]);
+  });
+
+  it('a phone database that can’t be read: says so, sends nothing, and wipes nothing', async () => {
+    await wrensPhone(2);
+    const mend = breakPhone();
+    show();
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent(
+        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+      );
+    await fillIn('arlo');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+    // It looked again on Sign in, still couldn't, and so let nobody in over it.
+    expect(requests).toEqual([]);
+    expect(navigation.goto).not.toHaveBeenCalled();
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent(
+        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+      );
+    mend();
+    expect(await readQueue()).toHaveLength(2);
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+
+    // Readable again: Sign in looks again, and Arlo gets the usual warning.
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+    expect(requests).toEqual([]);
+  });
+
+  it('on a computer it says “this computer” couldn’t check', async () => {
+    await wrensPhone(1);
+    await page.viewport(1280, 800);
+    const mend = breakPhone();
+    show();
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent(
+        "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
+      );
+    mend();
   });
 });

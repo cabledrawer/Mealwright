@@ -144,11 +144,35 @@ export function openPhone(): Promise<IDBPDatabase> {
  */
 export async function phoneExists(): Promise<boolean> {
   if (opening) return true;
+  // No IndexedDB in this browser at all: nothing can ever have been kept here.
+  if (typeof indexedDB === 'undefined') return false;
+  if (typeof indexedDB.databases !== 'function') return true;
+  // If the browser can't list its databases, this rejects: whether one is here isn't known,
+  // which is not the same as "none" (the callers say "couldn't read", never "nothing here").
+  return (await indexedDB.databases()).some((db) => db.name === name);
+}
+
+/**
+ * The phone database couldn't be read (an IndexedDB error): whether anything is kept or
+ * waiting here isn't known. Never the same as "nothing": the app then wipes nothing, writes
+ * nothing over `meta`, and says so (sync protocol 11.5).
+ */
+export const UNREADABLE = 'unreadable';
+export type Unreadable = typeof UNREADABLE;
+
+/**
+ * Read from the database, once phoneExists() has said it's there (so this never makes it).
+ * A tab sealed by another tab's wipe may still look, as someone may have signed in since in
+ * another tab: it opens a connection of its own for that, closed straight after, and never
+ * writes through it. Rejects when the database can't be read.
+ */
+export async function readPhone<T>(read: (db: IDBPDatabase) => Promise<T>): Promise<T> {
+  if (!sealed) return read(await openPhone());
+  const db = await openPhoneAt(DB_VERSION);
   try {
-    if (typeof indexedDB.databases !== 'function') return true;
-    return (await indexedDB.databases()).some((db) => db.name === name);
-  } catch {
-    return false;
+    return await read(db);
+  } finally {
+    db.close();
   }
 }
 

@@ -43,9 +43,11 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // are never sent under another login, never written over, and lost only through the
   // sign-in page's warning (11.5, section 16 decision 4). So this login is signed out again
   // before anything here is touched (the device's `meta`, copy and sender stay as they are),
-  // and goes to that warning, with its username filled in.
+  // and goes to that warning, with its username filled in. The same when the phone database
+  // can't be read: whose changes are waiting isn't known, so nothing is wiped or written and
+  // the sign-in page says it couldn't check.
   const held = await wipeIfAnotherLogin(me);
-  if (typeof held === 'object') {
+  if (held !== 'kept' && held !== 'wiped') {
     await signOut().catch(() => undefined);
     turnAway(me.username);
     redirect(307, signInPath(heading));

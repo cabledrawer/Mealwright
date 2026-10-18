@@ -17,7 +17,7 @@
 
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, storedLoginId } from './device';
-import { heldChanges, type Held } from './held';
+import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';
 import { tellOtherTabs } from './otherTabs';
 import { deletePhone } from './phone';
 import { CACHE_PREFIX } from './rules';
@@ -75,14 +75,19 @@ export async function wipeDevice(): Promise<void> {
  * some since, and when there are any they come back instead and nothing is wiped. Only
  * `losing`, what the warning showed and "Carry on and lose them" chose to lose, lets the wipe
  * go ahead, and only while it still covers them all.
+ *
+ * UNREADABLE when the phone database couldn't be read: then nothing is wiped and nothing is
+ * written, as whether anyone's changes are waiting isn't known.
  */
 export async function wipeIfAnotherLogin(
   me: { id: number },
   losing: Held | null = null
-): Promise<'kept' | 'wiped' | Held> {
+): Promise<'kept' | 'wiped' | Unreadable | Held> {
   const stored = await storedLoginId();
+  if (stored === UNREADABLE) return UNREADABLE;
   if (stored === null || stored === me.id) return 'kept';
   const held = await heldChanges();
+  if (held === UNREADABLE) return UNREADABLE;
   if (held && held.who.id !== me.id) {
     const chosen = losing && losing.who.id === held.who.id && held.count <= losing.count;
     if (!chosen) return held;

@@ -7,7 +7,13 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import { network } from '$lib/network.svelte';
-  import { loseOnSignOutText, STILL_CANT_REACH } from '$lib/offline/held';
+  import {
+    cantCheckText,
+    loseOnSignOutText,
+    STILL_CANT_REACH,
+    UNREADABLE,
+    type Unreadable
+  } from '$lib/offline/held';
   import { signOutHere, trySending } from '$lib/offline/signOut';
   import { session } from '$lib/session.svelte';
 
@@ -18,15 +24,25 @@
   /** Changes not sent yet: the warning is showing. */
   let left = $state(0);
   let stillCant = $state(false);
+  /** The phone database couldn't be read: whether anything is waiting isn't known. */
+  let cantCheck = $state(false);
+  const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
+
+  /** What's still waiting decides: sign out, warn, or (couldn't check) wait. */
+  function found(waiting: number | Unreadable): number {
+    cantCheck = waiting === UNREADABLE;
+    return waiting === UNREADABLE ? 0 : waiting;
+  }
 
   // Settings → Sign out returns to Sign in (spec). Changes still waiting are sent first, for
   // up to 5 seconds; if any are left, the one "Are you sure?" of the app says so, because
-  // unsent changes can't be undone (docs/dev/sync-protocol.md section 12).
+  // unsent changes can't be undone (docs/dev/sync-protocol.md section 12). When the phone
+  // couldn't check what's waiting, it doesn't sign out (nothing is wiped) and says so.
   async function leave() {
     busy = true;
     try {
-      left = await trySending();
-      if (left === 0) await signOutNow();
+      left = found(await trySending());
+      if (left === 0 && !cantCheck) await signOutNow();
     } finally {
       busy = false;
     }
@@ -36,7 +52,8 @@
     busy = true;
     stillCant = false;
     try {
-      left = await trySending();
+      left = found(await trySending());
+      if (cantCheck) return;
       if (left === 0) await signOutNow();
       else stillCant = true;
     } finally {
@@ -47,6 +64,7 @@
   function stay() {
     left = 0;
     stillCant = false;
+    cantCheck = false;
   }
 
   /** Wipe this browser, end the session (now, or once the server is back) and sign in again. */
@@ -86,12 +104,23 @@
           <span class="label">{who?.name}</span>
           <span class="detail">Signed in as {who?.username}</span>
         </span>
-        <button type="button" class="sign-out" disabled={busy || left > 0} onclick={leave}
-          >Sign out</button
+        <button
+          type="button"
+          class="sign-out"
+          disabled={busy || left > 0 || cantCheck}
+          onclick={leave}>Sign out</button
         >
       </div>
     </div>
-    {#if left > 0}
+    {#if cantCheck}
+      <div class="warning">
+        <p role="alert">{cantCheckText(device)}</p>
+        <Button disabled={busy} onclick={() => void leave()}>Try again</Button>
+        <div class="choices">
+          <button type="button" class="stay" disabled={busy} onclick={stay}>Stay signed in</button>
+        </div>
+      </div>
+    {:else if left > 0}
       <div class="warning">
         <p role="alert">
           {loseOnSignOutText(left)}{#if stillCant}<br />{STILL_CANT_REACH}{/if}

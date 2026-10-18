@@ -8,22 +8,39 @@
 import { network } from '$lib/network.svelte';
 import { session } from '$lib/session.svelte';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
+import { storedWaiting, UNREADABLE, type Unreadable } from './held';
 import { endPendingSignOut, markSignOutPending } from './signOutPending';
 import { wipeDevice } from './wipe';
 
 /** How long Sign out (and "Try sending now") tries to send what's waiting. */
 export const SEND_FOR_MS = 5000;
 
-/** Send what's waiting, for up to `ms`. Gives back how many changes are still waiting. */
-export async function trySending(ms = SEND_FOR_MS): Promise<number> {
-  if (shoppingSync.waiting === 0) return 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  await Promise.race([
-    shoppingSync.tryAgain().catch(() => undefined),
-    new Promise((done) => (timer = setTimeout(done, ms)))
-  ]);
-  clearTimeout(timer);
-  return shoppingSync.waiting;
+/**
+ * Send what's waiting, for up to `ms`. Gives back how many changes are still waiting, read
+ * again from the phone database (the list may not have read them all), or UNREADABLE when it
+ * couldn't be read: then whether any are waiting isn't known, and signing out waits.
+ */
+export async function trySending(ms = SEND_FOR_MS): Promise<number | Unreadable> {
+  if (shoppingSync.waiting > 0) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      shoppingSync.tryAgain().catch(() => undefined),
+      new Promise((done) => (timer = setTimeout(done, ms)))
+    ]);
+    clearTimeout(timer);
+  }
+  return stillWaiting();
+}
+
+/** The signed-in login's changes still waiting here: stored, and any kept in memory only. */
+async function stillWaiting(): Promise<number | Unreadable> {
+  const me = session.me?.id;
+  if (me === undefined) return 0;
+  const stored = await storedWaiting(me);
+  if (stored === UNREADABLE) return UNREADABLE;
+  // Kept in memory only (no IndexedDB here): numbered below zero, and never stored.
+  const inMemory = shoppingSync.queue.filter((e) => e.login_id === me && (e.seq ?? 0) < 0);
+  return stored + inMemory.length;
 }
 
 /** Wipe this browser, then end the server session (now, or once it's back). */

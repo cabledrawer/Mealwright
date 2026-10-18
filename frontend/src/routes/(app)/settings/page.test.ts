@@ -7,13 +7,13 @@ import { page } from 'vitest/browser';
 import { network } from '$lib/network.svelte';
 import { phoneDatabaseName, setMeta } from '$lib/offline/phone';
 import { SIGN_OUT_PENDING_KEY, signOutPending } from '$lib/offline/signOutPending';
-import { readQueue } from '$lib/offline/store';
+import { addToQueue, readQueue } from '$lib/offline/store';
 import { session } from '$lib/session.svelte';
 import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { ME } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import Settings from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -73,6 +73,7 @@ describe('signing out', () => {
   afterEach(async () => {
     for (const component of mounted.splice(0)) unmount(component);
     document.body.innerHTML = '';
+    vi.restoreAllMocks();
     await dropPhone();
     vi.unstubAllGlobals();
     network.reset();
@@ -156,5 +157,44 @@ describe('signing out', () => {
       .element(page.getByRole('alert'))
       .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
     await expect.element(button('Sign out and lose it')).toBeVisible();
+  });
+
+  it('a phone database that can’t be read: says so, and doesn’t sign out or wipe', async () => {
+    await show(0);
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'other-tab' }), ME.id, 'device-1');
+    const requests = reachable();
+    const mend = breakPhone();
+    await button('Sign out').click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+      );
+    await expect.element(button('Try again')).toBeVisible();
+    await expect.element(button('Stay signed in')).toBeVisible();
+    expect(page.getByRole('button', { name: /lose/ }).elements()).toEqual([]);
+    expect(requests).toEqual([]);
+    expect(navigation.goto).not.toHaveBeenCalled();
+    mend();
+    expect(await exists()).toBe(true);
+    expect(await readQueue()).toHaveLength(1);
+
+    // Readable again: Try again finds the change the list hadn't read, and warns as usual.
+    await button('Try again').click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+    expect(navigation.goto).not.toHaveBeenCalled();
+  });
+
+  it('Stay signed in closes the couldn’t-check warning', async () => {
+    await show(0);
+    const mend = breakPhone();
+    await button('Sign out').click();
+    await button('Stay signed in').click();
+    expect(page.getByRole('alert').elements()).toEqual([]);
+    await expect.element(button('Sign out')).toBeEnabled();
+    mend();
+    expect(await exists()).toBe(true);
   });
 });

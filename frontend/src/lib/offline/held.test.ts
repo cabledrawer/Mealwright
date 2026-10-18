@@ -1,14 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { storedLoginId } from './device';
 import {
+  cantCheckText,
   heldChanges,
   keptText,
   loseOnSignOutText,
   loseOthersText,
   sameUsername,
+  storedWaiting,
+  UNREADABLE,
   waitingForText
 } from './held';
-import { deletePhone, phoneDatabaseName, setMeta } from './phone';
+import { closePhone, deletePhone, phoneDatabaseName, sealPhone, setMeta } from './phone';
 import { addToQueue } from './store';
 
 const WREN = { login_id: 2, login_name: 'Wren', username: 'wren', role: 'member' };
@@ -22,7 +26,11 @@ const tick = (id: string) => ({
 });
 
 beforeEach(() => freshPhone());
-afterEach(() => dropPhone());
+afterEach(async () => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  await dropPhone();
+});
 
 describe('changes held on this phone', () => {
   it('counts the last signed-in person’s waiting changes only', async () => {
@@ -30,13 +38,30 @@ describe('changes held on this phone', () => {
     await addToQueue(tick('a'), 2, DEVICE);
     await addToQueue(tick('b'), 2, DEVICE);
     await addToQueue(tick('c'), 1, DEVICE);
-    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 2 });
+    expect(await heldChanges()).toEqual({
+      who: { id: 2, name: 'Wren', username: 'wren', role: 'member' },
+      count: 2,
+      ids: ['a', 'b']
+    });
   });
 
   it('none when nothing is waiting, or nobody signed in here', async () => {
     expect(await heldChanges()).toBeNull();
     await setMeta({ ...WREN, device_id: DEVICE });
     expect(await heldChanges()).toBeNull();
+  });
+
+  it('a tab sealed by another tab’s wipe still reads a database made again since, without making one', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    sealPhone();
+    expect(await heldChanges()).toMatchObject({ who: { id: 2 }, count: 1, ids: ['a'] });
+    expect(await storedLoginId()).toBe(2);
+    await deletePhone();
+    expect(await heldChanges()).toBeNull();
+    expect(await storedLoginId()).toBeNull();
+    const names = (await indexedDB.databases()).map((d) => d.name);
+    expect(names).not.toContain(phoneDatabaseName());
   });
 
   it('looking doesn’t make a database after a wipe', async () => {
@@ -80,5 +105,47 @@ describe('changes held on this phone', () => {
     const wren = { id: 2, name: 'Wren', username: 'wren', role: 'member' };
     expect(sameUsername(' Wren ', wren)).toBe(true);
     expect(sameUsername('arlo', wren)).toBe(false);
+  });
+});
+
+describe('a phone database that can’t be read', () => {
+  it('is “couldn’t read”, never “nothing waiting” or “nobody here”', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    const mend = breakPhone();
+    expect(await heldChanges()).toBe(UNREADABLE);
+    expect(await storedLoginId()).toBe(UNREADABLE);
+    expect(await storedWaiting(2)).toBe(UNREADABLE);
+    // Mended, it reads as it always did.
+    mend();
+    expect(await heldChanges()).toMatchObject({ who: { id: 2 }, count: 1 });
+    expect(await storedLoginId()).toBe(2);
+    expect(await storedWaiting(2)).toBe(1);
+  });
+
+  it('nor when the browser can’t even list its databases', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
+    await addToQueue(tick('a'), 2, DEVICE);
+    closePhone();
+    vi.spyOn(indexedDB, 'databases').mockRejectedValue(new DOMException('broken', 'UnknownError'));
+    expect(await heldChanges()).toBe(UNREADABLE);
+    expect(await storedLoginId()).toBe(UNREADABLE);
+    expect(await storedWaiting(2)).toBe(UNREADABLE);
+  });
+
+  it('a browser with no IndexedDB at all has nothing kept: nothing is waiting', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    expect(await heldChanges()).toBeNull();
+    expect(await storedLoginId()).toBeNull();
+    expect(await storedWaiting(2)).toBe(0);
+  });
+
+  it('says so, and that nothing has been deleted', () => {
+    expect(cantCheckText()).toBe(
+      "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+    );
+    expect(cantCheckText('computer')).toBe(
+      "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
+    );
   });
 });

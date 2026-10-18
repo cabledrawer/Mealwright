@@ -11,7 +11,8 @@ import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import { ME } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { UNREADABLE } from './held';
 import { addToQueue } from './store';
 import { phoneDatabaseName, setMeta } from './phone';
 import { signOutHere, trySending } from './signOut';
@@ -45,6 +46,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await dropPhone();
   vi.unstubAllGlobals();
   network.reset();
@@ -186,6 +188,25 @@ describe('sending first (for up to 5 s)', () => {
     await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
     await shoppingSync.open();
     fakeApi({ 'POST /shopping/actions': [401, { detail: 'Not signed in.' }] });
+    expect(await trySending()).toBe(1);
+  });
+
+  it('counts changes the list hadn’t read, straight from the phone database', async () => {
+    // Queued (say, in another tab) without this tab's list knowing.
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'b' }), 99, 'device-1');
+    const tried = unreachable();
+    expect(shoppingSync.waiting).toBe(0);
+    expect(await trySending()).toBe(1);
+    expect(tried).toEqual([]);
+  });
+
+  it('a phone database that can’t be read: “couldn’t read”, never 0', async () => {
+    await addToQueue(makeAction({ kind: 'tick', item_id: 'a' }), ME.id, 'device-1');
+    const mend = breakPhone();
+    unreachable();
+    expect(await trySending()).toBe(UNREADABLE);
+    mend();
     expect(await trySending()).toBe(1);
   });
 });

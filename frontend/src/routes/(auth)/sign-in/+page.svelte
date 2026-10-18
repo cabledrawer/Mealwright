@@ -4,7 +4,8 @@
   // else is warned first, and never sends them. A different login always starts clean
   // (cabledrawer 18 Oct): once its sign-in has succeeded, and only then, the phone's copy is
   // wiped as at signing out, and the next start makes a new device ID. A wrong password
-  // wipes nothing.
+  // wipes nothing. A phone database that can't be read wipes nothing either, and lets nobody
+  // in over it: the page says it couldn't check.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -14,13 +15,16 @@
   import Switch from '$lib/components/Switch.svelte';
   import TextField from '$lib/components/TextField.svelte';
   import {
+    cantCheckText,
     heldChanges,
     keptText,
     loseOthersText,
     sameUsername,
     takeTurnedAway,
+    UNREADABLE,
     waitingForText,
-    type Held
+    type Held,
+    type Unreadable
   } from '$lib/offline/held';
   import { wipeIfAnotherLogin } from '$lib/offline/wipe';
   import { connection, safeNext, session } from '$lib/session.svelte';
@@ -39,8 +43,10 @@
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
   const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
 
-  /** Someone's changes waiting on this phone. */
-  let held = $state<Held | null>(null);
+  /** Someone's changes waiting on this phone, or UNREADABLE when it couldn't check. */
+  let held = $state<Held | null | Unreadable>(null);
+  const unreadable = $derived(held === UNREADABLE);
+  const waiting = $derived(held === UNREADABLE ? null : held);
   /** "Wren's 3 changes haven't been sent yet. If you carry on, they're lost." */
   let warning = $state(false);
   /** "Carry on and lose them" was chosen for this username. */
@@ -51,14 +57,14 @@
   });
 
   const someoneElse = $derived(
-    !!held && username.trim() !== '' && !sameUsername(username, held.who)
+    !!waiting && username.trim() !== '' && !sameUsername(username, waiting.who)
   );
   const heldText = $derived(
-    !held
+    !waiting
       ? ''
       : someoneElse
-        ? waitingForText(held.who.name, held.count, device)
-        : keptText(held.count, device)
+        ? waitingForText(waiting.who.name, waiting.count, device)
+        : keptText(waiting.count, device)
   );
 
   // Typing another username takes the warning away until Sign in is pressed again.
@@ -74,6 +80,8 @@
     losing = false;
     // Read again: another tab may have queued changes since this page opened.
     held = await heldChanges();
+    // Couldn't check: nothing is sent, and the page keeps saying so.
+    if (held === UNREADABLE) return;
     if (someoneElse) {
       warning = true;
       return;
@@ -82,8 +90,8 @@
   }
 
   async function asThem() {
-    if (!held) return;
-    username = held.who.username;
+    if (!waiting) return;
+    username = waiting.who.username;
     password = '';
     await tick();
     warning = false;
@@ -104,13 +112,14 @@
       // Another login than the one this phone holds starts clean, as at sign-out, but never
       // over waiting changes the warning hasn't shown (read again just now, as another tab
       // may have queued some since).
-      const result = await wipeIfAnotherLogin(me, losing ? held : null);
-      if (typeof result === 'object') {
-        // Another login after all: end that session again before anything is sent, and warn.
+      const result = await wipeIfAnotherLogin(me, losing ? waiting : null);
+      if (result !== 'kept' && result !== 'wiped') {
+        // Another login after all, or the phone couldn't check: end that session again before
+        // anything is sent, and warn.
         await signOut().catch(() => undefined);
         held = result;
         losing = false;
-        warning = true;
+        warning = result !== UNREADABLE;
         return;
       }
       if (result === 'wiped') held = null;
@@ -140,7 +149,9 @@
 
 <ConnectionNotice kind={secure} />
 
-{#if held}
+{#if unreadable}
+  <p class="cant-check" role="status">{cantCheckText(device)}</p>
+{:else if waiting}
   <p class="held" role="status">{heldText}</p>
 {/if}
 
@@ -164,14 +175,14 @@
     {#if problem}
       <p class="problem" role="alert">{problem}</p>
     {/if}
-    {#if warning && held}
+    {#if warning && waiting}
       <div class="warning">
-        <p role="alert">{loseOthersText(held.who.name, held.count)}</p>
+        <p role="alert">{loseOthersText(waiting.who.name, waiting.count)}</p>
         <Button disabled={busy} onclick={() => void asThem()}
-          >Sign in as {held.who.name} instead</Button
+          >Sign in as {waiting.who.name} instead</Button
         >
         <button type="button" class="lose" disabled={busy} onclick={() => void carryOn()}>
-          Carry on and lose {held.count === 1 ? 'it' : 'them'}
+          Carry on and lose {waiting.count === 1 ? 'it' : 'them'}
         </button>
       </div>
     {:else}
@@ -232,7 +243,8 @@
     font-size: var(--text-sm);
   }
 
-  .problem {
+  .problem,
+  .cant-check {
     padding: var(--space-5) 14px;
     border-radius: var(--radius-field);
     background: var(--color-warning);

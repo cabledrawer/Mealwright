@@ -10,7 +10,7 @@ import { makeAction } from '$lib/shopping/actions';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
 import { fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
 import { load } from './+layout';
 
 type LoadEvent = Parameters<typeof load>[0];
@@ -190,5 +190,31 @@ describe('opening the app (11.4)', () => {
     expect(sent[0]!.body).toMatchObject({ login_id: 2, device_id: DEVICE });
     expect(await readQueue()).toHaveLength(0);
     shoppingSync.forget();
+  });
+
+  it('a phone database that can’t be read: this login is signed out again, and nothing is wiped or written', async () => {
+    await wrensPhone(1);
+    const requests = fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+    const mend = breakPhone();
+    try {
+      await expect(open()).rejects.toMatchObject({
+        status: 307,
+        location: '/sign-in?next=%2Fshopping'
+      });
+    } finally {
+      mend();
+    }
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'GET /setup',
+      'GET /me',
+      'DELETE /session'
+    ]);
+    expect(session.me).toBeNull();
+    expect(takeTurnedAway()).toBe('arlo');
+    // Wren's phone exactly as it was.
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(1);
   });
 });
