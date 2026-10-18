@@ -22,6 +22,10 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 
 **Installing and offline.** The app can be added to your phone's or computer's home screen, only over HTTPS: browsers don't allow installing or offline use on a plain `http://` address (except `localhost`). Your shopping list works offline: once you've opened it while connected, the device keeps a copy, and what you tick or add with no connection is kept on the device and sent when you're back ("Offline — 3 changes waiting", then "Back online — all saved"). Pantry, Ingredients and Settings still need your server, and say so. Signing out removes the household's data from the device, and warns you first if changes haven't been sent yet. On an iPhone, Safari can clear a website's offline data after about 7 days without use; adding Mealwright to the Home Screen helps. The offline helper (service worker) keeps only the app's own files (its code, fonts and icons); the list copy and the changes waiting are kept in the browser's own storage on the device, never in its web cache.
 
+## Troubleshooting
+
+**The sign-in page says the phone couldn't delete its offline copy, and Try again doesn't help.** First close any other Mealwright tabs and restart the browser, then press Try again. If it still won't go, clear this site's data in the browser's settings. That removes the offline copy of the household and anything still waiting to be sent on that phone (nothing on the server is touched). Then sign in again.
+
 ## Licence
 
 [AGPL-3.0](LICENSE).
