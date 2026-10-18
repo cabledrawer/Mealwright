@@ -287,6 +287,183 @@ describe('the Pantry page', () => {
     );
   });
 
+  describe('+ Add to pantry: the "Pick a date" chip', () => {
+    async function openSheet() {
+      await render(1300);
+      await page.getByRole('button', { name: '+ Add to pantry' }).click();
+      const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+      await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('toor');
+      await sheet.getByRole('button', { name: 'Toor dal' }).click();
+      await sheet.getByRole('radio', { name: '2 packets' }).click();
+      return sheet;
+    }
+
+    /** Add it, and say what use_by was sent (undefined when none). */
+    async function addAndRead(sheet: ReturnType<typeof page.getByRole>) {
+      await userEvent.click(sheet.getByRole('button', { name: 'Add to pantry' }));
+      await vi.waitFor(() =>
+        expect(requests.find((r) => r.method === 'POST' && r.path === '/stock')).toBeDefined()
+      );
+      return (requests.find((r) => r.path === '/stock')!.body as { use_by?: string }).use_by;
+    }
+
+    const input = (sheet: ReturnType<typeof page.getByRole>) =>
+      sheet.getByLabelText('Use-by date').element() as HTMLInputElement;
+
+    /** What the device's picker does when a date is chosen. */
+    function choosePicked(sheet: ReturnType<typeof page.getByRole>, value: string) {
+      const field = input(sheet);
+      field.value = value;
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    it('opens the date picker at once, with no separate Date field', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        expect(sheet.getByLabelText('Date', { exact: true }).elements()).toHaveLength(0);
+        await sheet.getByRole('radio', { name: 'Pick a date' }).click();
+        expect(shown).toHaveBeenCalledOnce();
+        // The picker is the chip's own; its earliest date is today.
+        expect(input(sheet).min).toBe('2026-10-17');
+      } finally {
+        shown.mockRestore();
+      }
+    });
+
+    it('once a date is chosen, the chip shows it with a calendar icon, and it is sent', async () => {
+      const sheet = await openSheet();
+      choosePicked(sheet, '2026-10-24');
+      const chip = sheet.getByRole('radio', { name: 'Sat 24 Oct' });
+      await expect.element(chip).toHaveAttribute('aria-checked', 'true');
+      expect(chip.element().querySelector('svg')).not.toBeNull();
+      expect(sheet.getByRole('radio', { name: 'No date' }).element()).toHaveAttribute(
+        'aria-checked',
+        'false'
+      );
+      // Same height as the other chips.
+      const high = (name: string) =>
+        sheet.getByRole('radio', { name }).element().getBoundingClientRect().height;
+      expect(high('Sat 24 Oct')).toBe(high('Today'));
+      expect(await addAndRead(sheet)).toBe('2026-10-24');
+    });
+
+    it('tapping it again changes the date', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        choosePicked(sheet, '2026-10-24');
+        await sheet.getByRole('radio', { name: 'Sat 24 Oct' }).click();
+        expect(shown).toHaveBeenCalledOnce();
+        choosePicked(sheet, '2026-11-02');
+        await expect
+          .element(sheet.getByRole('radio', { name: 'Mon 2 Nov' }))
+          .toHaveAttribute('aria-checked', 'true');
+        expect(sheet.getByRole('radio', { name: 'Sat 24 Oct' }).elements()).toHaveLength(0);
+        expect(await addAndRead(sheet)).toBe('2026-11-02');
+      } finally {
+        shown.mockRestore();
+      }
+    });
+
+    for (const [chip, expected] of [
+      ['No date', undefined],
+      ['Today', '2026-10-17'],
+      ['+3 days', '2026-10-20'],
+      ['+1 week', '2026-10-24']
+    ] as const) {
+      it(`choosing "${chip}" clears the picked date`, async () => {
+        const sheet = await openSheet();
+        choosePicked(sheet, '2026-12-01');
+        await expect
+          .element(sheet.getByRole('radio', { name: 'Tue 1 Dec' }))
+          .toHaveAttribute('aria-checked', 'true');
+        await sheet.getByRole('radio', { name: chip }).click();
+        await expect.element(sheet.getByRole('radio', { name: 'Pick a date' })).toBeVisible();
+        expect(input(sheet).value).toBe('');
+        expect(await addAndRead(sheet)).toBe(expected);
+      });
+    }
+
+    it('cancelling the picker leaves everything as it was', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        await sheet.getByRole('radio', { name: '+3 days' }).click();
+        // Open the picker and cancel: no change comes back.
+        await sheet.getByRole('radio', { name: 'Pick a date' }).click();
+        expect(shown).toHaveBeenCalledOnce();
+        await expect
+          .element(sheet.getByRole('radio', { name: '+3 days' }))
+          .toHaveAttribute('aria-checked', 'true');
+        await expect.element(sheet.getByRole('radio', { name: 'Pick a date' })).toBeVisible();
+        expect(sheet.getByRole('radio', { name: 'Pick a date' }).element()).toHaveAttribute(
+          'aria-checked',
+          'false'
+        );
+        expect(input(sheet).value).toBe('');
+        expect(await addAndRead(sheet)).toBe('2026-10-20');
+      } finally {
+        shown.mockRestore();
+      }
+    });
+
+    it('cancelling with no date chosen saves no date', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        await sheet.getByRole('radio', { name: 'Pick a date' }).click(); // cancelled
+        expect(await addAndRead(sheet)).toBeUndefined();
+      } finally {
+        shown.mockRestore();
+      }
+    });
+
+    it('cancelling after a date was chosen keeps that date', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        choosePicked(sheet, '2026-10-24');
+        await sheet.getByRole('radio', { name: 'Sat 24 Oct' }).click(); // cancelled
+        await expect
+          .element(sheet.getByRole('radio', { name: 'Sat 24 Oct' }))
+          .toHaveAttribute('aria-checked', 'true');
+        expect(await addAndRead(sheet)).toBe('2026-10-24');
+      } finally {
+        shown.mockRestore();
+      }
+    });
+
+    it('a date before today, or one cleared in the picker, is not kept', async () => {
+      const sheet = await openSheet();
+      choosePicked(sheet, '2026-10-01');
+      await expect
+        .element(sheet.getByRole('radio', { name: 'Pick a date' }))
+        .toHaveAttribute('aria-checked', 'false');
+      choosePicked(sheet, '2026-10-24');
+      choosePicked(sheet, '');
+      await expect
+        .element(sheet.getByRole('radio', { name: 'No date' }))
+        .toHaveAttribute('aria-checked', 'true');
+      expect(await addAndRead(sheet)).toBeUndefined();
+    });
+
+    it('arrow keys move between the chips without opening the picker', async () => {
+      const shown = vi.spyOn(HTMLInputElement.prototype, 'showPicker').mockImplementation(() => {});
+      try {
+        const sheet = await openSheet();
+        (sheet.getByRole('radio', { name: '+1 week' }).element() as HTMLElement).focus();
+        await userEvent.keyboard('{ArrowRight}');
+        await expect.element(sheet.getByRole('radio', { name: 'Pick a date' })).toHaveFocus();
+        expect(shown).not.toHaveBeenCalled();
+        await userEvent.keyboard('{Enter}');
+        expect(shown).toHaveBeenCalledOnce();
+      } finally {
+        shown.mockRestore();
+      }
+    });
+  });
+
   it('+ Add to pantry: a "Today" use-by, and an example that suits the unit', async () => {
     await render(1300);
     await page.getByRole('button', { name: '+ Add to pantry' }).click();

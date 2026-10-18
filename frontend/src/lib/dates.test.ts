@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, addedWords, compactDateWords, dateWords, useByWords } from './dates';
+import {
+  addDays,
+  addedWords,
+  compactDateWords,
+  dateWords,
+  pickedDateWords,
+  useByWords
+} from './dates';
 
 describe('use-by dates in plain words', () => {
   // 17 Oct 2026 is a Saturday.
@@ -23,6 +30,11 @@ describe('use-by dates in plain words', () => {
     expect(useByWords('2026-10-18', 1)).toBe('use by tomorrow');
     expect(addedWords('2026-10-17', '2026-10-17')).toBe('added today');
     expect(compactDateWords(null, null)).toBe('');
+  });
+
+  it('writes a chosen date as weekday, day and month', () => {
+    expect(pickedDateWords('2026-10-24')).toBe('Sat 24 Oct');
+    expect(pickedDateWords('2027-01-05')).toBe('Tue 5 Jan');
   });
 
   it('makes "use by …" phrases', () => {

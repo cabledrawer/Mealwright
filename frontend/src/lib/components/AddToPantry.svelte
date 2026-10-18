@@ -1,18 +1,20 @@
 <script lang="ts">
   // "+ Add to pantry" (spec "Decided for 0.2"; no mockup yet): pick or type a food; how
   // much, as sold (1 packet, 2 packets…) or typed; where (filled in from the food's
-  // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date).
+  // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
+  // which opens the device's own date picker and then shows the date it chose).
   // A sheet from the bottom on phones, a dialog on desktop.
   import { radioKeys } from '$lib/radioKeys';
   import { addToPantry } from '$lib/addToPantry.svelte';
   import { newChangeId } from '$lib/changeId';
   import { createFood, getFood } from '$lib/client/foods';
   import type { Food, Place, Ref } from '$lib/client/types';
-  import { addDays } from '$lib/dates';
+  import { addDays, pickedDateWords } from '$lib/dates';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { ApiError } from '$lib/api';
   import { amountExample } from '$lib/amountExample';
   import FoodPicker from './FoodPicker.svelte';
+  import Icon from './Icon.svelte';
 
   let { model, places, today }: { model: PantryModel; places: Place[]; today: string } = $props();
 
@@ -27,6 +29,7 @@
   let placeId = $state<number | null>(null);
   let when = $state<'none' | 'today' | '3' | '7' | 'pick'>('none');
   let picked = $state('');
+  let dateInput = $state<HTMLInputElement>();
   let problem = $state<string | null>(null);
 
   $effect(() => {
@@ -110,6 +113,47 @@
     }));
   }
 
+  /**
+   * "Pick a date": open the device's own picker. On a touch screen the date input lies
+   * over the chip and the tap lands on it directly (see the style), which is what makes
+   * iOS Safari open its date wheel at once. With a mouse or keyboard the chip asks the
+   * input to show its picker, falling back to a click where showPicker isn't there.
+   * Nothing changes until a date comes back, so cancelling leaves things as they were.
+   */
+  function openPicker() {
+    if (!dateInput) return;
+    try {
+      dateInput.showPicker();
+    } catch {
+      dateInput.focus();
+      dateInput.click();
+    }
+  }
+
+  /** A date came back from the picker (or it was cleared there). */
+  function picker() {
+    if (!dateInput) return;
+    const value = dateInput.value;
+    if (value && value >= today) {
+      picked = value;
+      when = 'pick';
+    } else {
+      // Cleared in the picker, or earlier than today: a cleared date goes back to "No
+      // date", an earlier one leaves things as they were.
+      if (!value && when === 'pick') {
+        when = 'none';
+        picked = '';
+      }
+      dateInput.value = picked;
+    }
+  }
+
+  /** Choosing any other chip puts the picked date away. */
+  function setWhen(option: 'none' | 'today' | '3' | '7') {
+    when = option;
+    picked = '';
+  }
+
   function useBy(): string | null {
     if (when === 'today') return today;
     if (when === '3') return addDays(today, 3);
@@ -140,10 +184,6 @@
           : typedUnit;
       amount = { amount: n, unit };
       words = unit === 'count' ? String(n) : `${n}\u00a0${typedUnit}`;
-    }
-    if (when === 'pick' && !picked) {
-      problem = 'Pick a date, or choose “No date”.';
-      return;
     }
     const place = places.find((p) => p.id === placeId);
     const stock = {
@@ -258,22 +298,48 @@
 
           <section aria-labelledby="{uid}-when">
             <h3 id="{uid}-when">Use by</h3>
-            <div class="chips" role="radiogroup" aria-labelledby="{uid}-when" use:radioKeys>
-              {#each [{ v: 'none', l: 'No date' }, { v: 'today', l: 'Today' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }, { v: 'pick', l: 'Pick a date' }] as const as option (option.v)}
+            <!-- Arrow keys only move focus here: choosing is Space or Enter, so arrowing
+                 past "Pick a date" doesn't open the picker. -->
+            <div
+              class="chips"
+              role="radiogroup"
+              aria-labelledby="{uid}-when"
+              use:radioKeys={{ select: false }}
+            >
+              {#each [{ v: 'none', l: 'No date' }, { v: 'today', l: 'Today' }, { v: '3', l: '+3 days' }, { v: '7', l: '+1 week' }] as const as option (option.v)}
                 <button
                   type="button"
                   role="radio"
                   aria-checked={when === option.v}
-                  onclick={() => (when = option.v)}>{option.l}</button
+                  onclick={() => setWhen(option.v)}>{option.l}</button
                 >
               {/each}
+              <span class="pick">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={when === 'pick'}
+                  onclick={openPicker}
+                >
+                  {#if when === 'pick'}
+                    <Icon name="calendar" size={16} stroke={2.2} />{pickedDateWords(picked)}
+                  {:else}
+                    Pick a date
+                  {/if}
+                </button>
+                <!-- The device's own date picker, laid over the chip and see-through. -->
+                <input
+                  bind:this={dateInput}
+                  class="native"
+                  type="date"
+                  min={today}
+                  value={picked}
+                  tabindex="-1"
+                  aria-label="Use-by date"
+                  onchange={picker}
+                />
+              </span>
             </div>
-            {#if when === 'pick'}
-              <label class="date">
-                Date
-                <input type="date" min={today} bind:value={picked} />
-              </label>
-            {/if}
           </section>
         {/if}
       {/if}
@@ -401,37 +467,47 @@
   }
 
   /*
-   * The date field must never be wider than the sheet (seen on an iPhone in dark theme).
-   * iOS Safari (WebKit) gives <input type="date"> a width of its own, from the date text
-   * inside it, and ignores width: 100% unless the native look is switched off. So:
-   *  - appearance: none (with the -webkit- spelling) lets width and min-width apply;
-   *  - min-width: 0 and max-width: 100% stop it from growing past its box, and the label
-   *    around it may shrink (a flex item's minimum width is otherwise its content);
-   *  - the two ::-webkit-… rules drop WebKit's own padding and minimum width inside the
-   *    field, which are what made it wider than the sheet.
-   * The field is also only as wide as a date needs, not the whole row.
+   * "Pick a date" is a chip with a see-through date input laid exactly over it.
+   *  - Touch screens: the input takes the tap itself. That is the one thing iOS Safari
+   *    (WebKit) reliably answers with its date wheel; a script calling showPicker() on
+   *    another element's tap is not as dependable there.
+   *  - Mouse: the input ignores the pointer, so the chip is clicked as usual and asks
+   *    the input to open its picker, which then sits right at the chip.
+   * appearance: none (with the -webkit- spelling), min-width: 0 and a 16 px font keep
+   * WebKit from giving the input a width of its own, or zooming the page on focus.
    */
-  label.date {
-    min-width: 0;
-    align-items: flex-start;
+  .pick {
+    position: relative;
+    display: inline-flex;
   }
 
-  label.date input {
+  .chips .pick button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .native {
     -webkit-appearance: none;
     appearance: none;
-    display: block;
-    width: min(100%, 14rem);
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     min-width: 0;
     max-width: 100%;
-  }
-
-  label.date input::-webkit-date-and-time-value {
-    min-width: 0;
-    text-align: left;
-  }
-
-  label.date input::-webkit-datetime-edit {
+    margin: 0;
     padding: 0;
+    border: none;
+    opacity: 0;
+    font-size: 16px;
+    pointer-events: none;
+  }
+
+  @media (pointer: coarse) {
+    .native {
+      pointer-events: auto;
+    }
   }
 
   .hint {

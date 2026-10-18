@@ -15,7 +15,8 @@
     | 'back'
     | 'chevron-down'
     | 'search'
-    | 'pencil';
+    | 'pencil'
+    | 'calendar';
 </script>
 
 <script lang="ts">
@@ -71,6 +72,10 @@
   {:else if name === 'pencil'}
     <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
     <path d="M13.5 6.5l4 4" />
+  {:else if name === 'calendar'}
+    <rect x="4" y="5" width="16" height="15" rx="2.5" />
+    <path d="M4 10h16M8.5 3v4M15.5 3v4" />
+    <path d="M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01" />
   {:else if name === 'search'}
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />

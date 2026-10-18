@@ -206,13 +206,14 @@ test('Add to pantry has a Today use-by', async ({ page }) => {
 const SIZES = [320, 390] as const;
 for (const width of SIZES) {
   for (const theme of ['light', 'dark'] as const) {
-    test(`the Add to pantry date field fits a ${width} px phone, ${theme} theme`, async ({
+    test(`the Add to pantry "Pick a date" chip fits a ${width} px phone, ${theme} theme`, async ({
       page,
     }) => {
       test.skip(!isPhone(page), 'the bottom sheet is the phone layout');
       await page.emulateMedia({ colorScheme: theme }); // the account is on Auto
       await page.setViewportSize({ width, height: 800 });
       const food = await stocked(page, 'Lentils', null);
+      const { today } = await (await page.request.get('/api/v1/household')).json();
       await page.goto('/pantry');
       await page
         .getByRole('button', { name: /Add to pantry/ })
@@ -221,26 +222,53 @@ for (const width of SIZES) {
       const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
       await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill(food.name);
       await sheet.getByRole('button', { name: new RegExp(`^${food.name}`) }).click();
-      await sheet.getByRole('radio', { name: 'Pick a date' }).click();
-      const date = sheet.getByLabel('Date', { exact: true });
-      await expect(date).toBeVisible();
+
+      const chip = sheet.getByRole('radio', { name: 'Pick a date' });
+      await expect(chip).toBeVisible();
+      // On a touch screen the see-through date input lies exactly over the chip, so a tap
+      // lands on the input itself and the phone opens its date picker straight away.
+      const overChip = await chip.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        const input = el.parentElement!.querySelector('input[type="date"]')!;
+        const field = input.getBoundingClientRect();
+        return {
+          hitsInput: hit === input,
+          sameBox:
+            Math.abs(field.x - box.x) < 1 &&
+            Math.abs(field.y - box.y) < 1 &&
+            Math.abs(field.width - box.width) < 1 &&
+            Math.abs(field.height - box.height) < 1,
+        };
+      });
+      expect(overChip).toEqual({ hitsInput: true, sameBox: true });
+      await page.screenshot({
+        path: `review-shots/paper-cuts/date-chip-before-${width}-${theme}.png`,
+      });
+
+      // Choose a date the way the phone's picker does: set the value, send "change".
+      const [year, month, day] = (today as string).split('-').map(Number);
+      const later = new Date(Date.UTC(year!, month! - 1, day! + 10)).toISOString().slice(0, 10);
+      await sheet.locator('input[type="date"]').fill(later);
+      const chosen = sheet.getByRole('radio', { checked: true, name: /^\w{3} \d{1,2} \w{3}$/ });
+      await expect(chosen).toBeVisible();
+      await expect(chosen.locator('svg')).toBeVisible();
       const fits = await sheet.evaluate((dialog) => {
-        const field = dialog.querySelector('input[type="date"]')!.getBoundingClientRect();
+        const chips = [...dialog.querySelectorAll<HTMLElement>('[role="radio"]')];
         const box = dialog.getBoundingClientRect();
         return {
           scrollWidth: dialog.scrollWidth,
           clientWidth: dialog.clientWidth,
-          fieldRight: field.right,
-          boxRight: box.right,
-          fieldLeft: field.left,
-          boxLeft: box.left,
+          outside: chips.filter((c) => {
+            const r = c.getBoundingClientRect();
+            return r.right > box.right || r.left < box.left;
+          }).length,
         };
       });
       expect(fits.scrollWidth).toBeLessThanOrEqual(fits.clientWidth);
-      expect(fits.fieldRight).toBeLessThanOrEqual(fits.boxRight);
-      expect(fits.fieldLeft).toBeGreaterThanOrEqual(fits.boxLeft);
+      expect(fits.outside).toBe(0);
       await page.screenshot({
-        path: `review-shots/fix-0.2.1/add-sheet-${width}-${theme}.png`,
+        path: `review-shots/paper-cuts/date-chip-after-${width}-${theme}.png`,
       });
     });
   }

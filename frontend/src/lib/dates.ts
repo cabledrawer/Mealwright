@@ -30,6 +30,12 @@ export function dateWords(iso: string | null, daysLeft: number | null): string {
   return dayMonth.format(noonUtc(iso));
 }
 
+/** A chosen date on a chip: "Sat 24 Oct". */
+export function pickedDateWords(iso: string): string {
+  const date = noonUtc(iso);
+  return `${weekday.format(date)} ${dayMonth.format(date)}`;
+}
+
 /** The short date in the phone Use soon card ("Today", "Tomorrow", "Tue", "12 Nov"): the
  * same words as the Today chip, with a capital, since it starts the date after "Lemon ·".
  * Mid-sentence wording ("use by today", "added today") stays lower-case. */
