@@ -36,6 +36,9 @@ export default defineConfig({
     // Ingredients, Pantry and Undo (0.2).
     { name: 'phone 0.2', testMatch: /(pantry|ingredients|undo).*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.2', testMatch: /(pantry|ingredients|undo).*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    // Shopping and the "How do you count it?" question (0.3).
+    { name: 'phone 0.3', testMatch: /shopping.*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.3', testMatch: /shopping.*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
