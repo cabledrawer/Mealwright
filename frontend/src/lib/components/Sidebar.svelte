@@ -1,7 +1,9 @@
 <script lang="ts">
   // The desktop and tablet sidebar. Expanded: logo, the five pages (Recipes as a
-  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed: icons only, with tooltips, a single theme button, and a
-  // button to expand it again. Not shown on phones (they get the bottom tabs).
+  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed:
+  // icons only, with tooltips (Recipes opens a small pop-out with its three pages), a
+  // single theme button, and a button to expand it again. Not shown on phones (they get
+  // the bottom tabs).
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { PAGES, RECIPES_PAGES, isCurrent, isCurrentRecipesPage } from '$lib/nav';
@@ -10,6 +12,7 @@
   import ConnectionStatus from './ConnectionStatus.svelte';
   import Icon from './Icon.svelte';
   import Logo from './Logo.svelte';
+  import RecipesPopout from './RecipesPopout.svelte';
   import ThemeSwitch from './ThemeSwitch.svelte';
 
   const settingsCurrent = $derived(page.url.pathname.startsWith('/settings'));
@@ -39,17 +42,22 @@
       {@const tree = item.href === '/recipes' && !sidebar.collapsed}
       <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
            only that you're somewhere inside it. -->
-      <a
-        href={resolve(item.href)}
-        class:section={tree && current}
-        aria-current={current && !tree ? 'page' : undefined}
-        aria-label={sidebar.collapsed ? item.label : undefined}
-        title={sidebar.collapsed ? item.label : undefined}
-      >
-        <Icon name={item.icon} size={sidebar.collapsed ? 22 : 20} />
-        {#if !sidebar.collapsed}<span class="label">{item.label}</span>{/if}
-        {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
-      </a>
+      {#if item.href === '/recipes' && sidebar.collapsed}
+        <!-- Collapsed, Recipes opens a small pop-out with its three pages. -->
+        <RecipesPopout pathname={page.url.pathname} {current} />
+      {:else}
+        <a
+          href={resolve(item.href)}
+          class:section={tree && current}
+          aria-current={current && !tree ? 'page' : undefined}
+          aria-label={sidebar.collapsed ? item.label : undefined}
+          title={sidebar.collapsed ? item.label : undefined}
+        >
+          <Icon name={item.icon} size={sidebar.collapsed ? 22 : 20} />
+          {#if !sidebar.collapsed}<span class="label">{item.label}</span>{/if}
+          {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
+        </a>
+      {/if}
       {#if tree}
         <div class="tree" role="group" aria-label="Recipes">
           {#each RECIPES_PAGES as sub (sub.href)}

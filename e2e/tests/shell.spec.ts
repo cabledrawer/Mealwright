@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { checkPage } from './a11y.ts';
 
 // The app shell (0.1): the five pages and Settings, the bottom tabs on phones and the
 // collapsible sidebar on desktop, and the Auto · Light · Dark switch. Each test runs
@@ -254,6 +255,40 @@ test.describe('desktop sidebar', () => {
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(200);
     await page.reload();
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(200);
+  });
+
+  test('collapsed, Recipes opens a pop-out with its three pages and the current one marked', async ({
+    page,
+  }) => {
+    await page.goto('/recipes/drafts');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
+    const icon = sidebar.getByRole('button', { name: 'Recipes' });
+    await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
+    await icon.click();
+    const menu = page.getByRole('menu', { name: 'Recipes' });
+    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Drafts', 'Ingredients']);
+    await expect(menu.getByRole('menuitem', { name: 'Drafts' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await checkPage(page);
+
+    // It stays inside the window and Esc puts focus back on the icon.
+    const box = (await menu.boundingBox())!;
+    const iconBox = (await icon.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(iconBox.x + iconBox.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(icon).toBeFocused();
+
+    // Choosing a page goes there, and the sidebar stays collapsed.
+    await icon.click();
+    await menu.getByRole('menuitem', { name: 'Ingredients' }).click();
+    await expect(page).toHaveURL('/recipes/ingredients');
+    await expect(menu).toBeHidden();
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(72);
   });
 
   test('collapsed, the theme is one button that steps through Auto, Light, Dark', async ({
