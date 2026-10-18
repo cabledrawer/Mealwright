@@ -8,6 +8,7 @@
   import { dateWords, useByWords } from '$lib/dates';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
+  import { listLabel, type PantryList } from '$lib/pantryList.svelte';
   import Icon from './Icon.svelte';
   import LotMenu from './LotMenu.svelte';
   import PackPicks from './PackPicks.svelte';
@@ -18,6 +19,7 @@
     place,
     places,
     model,
+    shopping,
     showPlace = false,
     also = null
   }: {
@@ -25,6 +27,8 @@
     place: Place;
     places: Place[];
     model: PantryModel;
+    /** "+ List" on a running-low row adds to the shopping list. */
+    shopping: PantryList;
     /** In search results: "Toor dal · Cupboard". */
     showPlace?: boolean;
     /** In search results: "also called thuvaram paruppu". */
@@ -47,6 +51,7 @@
       .filter(Boolean)
       .join(' · ')
   );
+  const listed = $derived(shopping.onList(group.food.id));
   const baseUnit = $derived(
     group.food.counted_as === 'weight' ? 'g' : group.food.counted_as === 'volume' ? 'ml' : 'count'
   );
@@ -91,34 +96,47 @@
 </script>
 
 <li class="group">
-  <button
-    type="button"
-    class="row"
-    aria-expanded={open}
-    aria-controls="{uid}-more"
-    onclick={() => (open = !open)}
-  >
-    <span class="what">
-      <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
-      {#if also}<span class="also">{also}</span>{/if}
-      <span class="amount" class:low={group.running_low}>
-        {amountWords}
-        {#if group.lots_count > 1 && group.dates_count > 1}
-          <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
+  <div class="head">
+    <button
+      type="button"
+      class="row"
+      aria-expanded={open}
+      aria-controls="{uid}-more"
+      onclick={() => (open = !open)}
+    >
+      <span class="what">
+        <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
+        {#if also}<span class="also">{also}</span>{/if}
+        <span class="amount" class:low={group.running_low}>
+          {amountWords}
+          {#if group.lots_count > 1 && group.dates_count > 1}
+            <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
+          {/if}
+        </span>
+        <!-- Desktop columns are narrow: the date goes under the amount there. -->
+        {#if date}
+          <span class="date under" class:soon={group.use_soon}>{date}</span>
         {/if}
       </span>
-      <!-- Desktop columns are narrow: the date goes under the amount there. -->
       {#if date}
-        <span class="date under" class:soon={group.use_soon}>{date}</span>
+        <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
       {/if}
-    </span>
-    {#if date}
-      <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
+      <span class="chevron" class:flipped={open}
+        ><Icon name="chevron-down" size={16} stroke={2.4} /></span
+      >
+    </button>
+    {#if group.running_low}
+      <button
+        type="button"
+        class="to-list"
+        class:listed
+        aria-label={listLabel(name, listed)}
+        onclick={() => void shopping.tap(group.food)}
+      >
+        {#if listed}<Icon name="check" size={14} stroke={3} />{/if}+ List
+      </button>
     {/if}
-    <span class="chevron" class:flipped={open}
-      ><Icon name="chevron-down" size={16} stroke={2.4} /></span
-    >
-  </button>
+  </div>
 
   {#if open}
     <div class="more" id="{uid}-more">
@@ -202,11 +220,41 @@
     border-top: none;
   }
 
+  .head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  /* "+ List" on a running-low row (mockups Desktop-Pantry, Dark-Pantry). */
+  .to-list {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .to-list.listed {
+    border-color: transparent;
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+  }
+
   .row {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: var(--space-4);
-    width: 100%;
     min-height: 52px;
     padding: var(--space-3) 0;
     border: none;

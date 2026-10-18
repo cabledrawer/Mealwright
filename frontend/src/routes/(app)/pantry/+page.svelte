@@ -5,9 +5,12 @@
   //          Recent changes at the bottom (last 3, with Undo);
   //   desktop: search, filters, the places as 4 columns or 2 × 2, and a side panel with
   //            Use soon, Staples and Recent changes.
-  // Waiting for later milestones (spec "Decided for 0.2"): "+ List" and "tap a staple
-  // when it runs out" (0.3), tubs (0.6), "Recipes for these" (0.4).
+  // Tapping a staple, and "+ List" on a running-low row, add to the main shopping list
+  // (0.3, PantryList). Waiting for later milestones (spec "Decided for 0.2"): tubs (0.6),
+  // "Recipes for these" (0.4).
   import { browser } from '$app/environment';
+  import { resolve } from '$app/paths';
+  import { untrack } from 'svelte';
   import { addToPantry } from '$lib/addToPantry.svelte';
   import type { PantryFilter, PantryPlace, Ref, UseSoonLot } from '$lib/client/types';
   import AddToPantry from '$lib/components/AddToPantry.svelte';
@@ -24,10 +27,12 @@
   import { network } from '$lib/network.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
+  import { PantryList, listLabel } from '$lib/pantryList.svelte';
   import { searchResults } from '$lib/pantrySearch';
   import { toasts } from '$lib/toast.svelte';
 
   const model = new PantryModel();
+  const shopping = new PantryList();
   const uid = $props.id();
 
   const PHONE = '(max-width: 767px)';
@@ -55,6 +60,19 @@
     void model.load();
   });
 
+  // What is on the shopping list, for the staples' ticks and "+ List": fetch again after any
+  // change here, and when another phone changed the list (as Shopping does).
+  $effect(() => {
+    void kitchen.version;
+    untrack(() => void shopping.refresh());
+  });
+  $effect(() => {
+    const heard = live.shopping;
+    untrack(() => {
+      if (shopping.loaded && heard > shopping.cursor) void shopping.refresh();
+    });
+  });
+
   // Stock changed on another phone or window: fetch again. Only the lists on screen are
   // replaced; an open editor or form keeps what was typed (it doesn't watch this).
   let firstLive = true;
@@ -75,6 +93,7 @@
     else if (wasOffline) {
       wasOffline = false;
       void model.load();
+      void shopping.refresh();
     }
   });
 
@@ -92,7 +111,9 @@
   });
 
   function onVisible() {
-    if (document.visibilityState === 'visible') void model.load();
+    if (document.visibilityState !== 'visible') return;
+    void model.load();
+    void shopping.refresh();
   }
 
   const pantry = $derived(model.pantry);
@@ -221,7 +242,7 @@
     {#if groups.length}
       <ul class="groups">
         {#each visible as group (group.food.id)}
-          <PantryGroup {group} {place} {places} {model} />
+          <PantryGroup {group} {place} {places} {model} {shopping} />
         {/each}
       </ul>
       {#if visible.length < groups.length}
@@ -257,6 +278,7 @@
             place={item.place}
             {places}
             {model}
+            {shopping}
             showPlace
             also={item.also}
           />
@@ -274,10 +296,18 @@
     <p class="hint">Always assumed in stock.</p>
     <ul class="staple-chips">
       {#each pantry?.staples ?? [] as staple (staple.id)}
+        {@const listed = shopping.onList(staple.id)}
         <li>
-          <button type="button" onclick={() => ingredientEditor.open(staple.id)}
-            >{staple.name}</button
+          <button
+            type="button"
+            class="chip"
+            class:listed
+            aria-label={listLabel(staple.name, listed)}
+            onclick={() => void shopping.tap({ ...staple, staple: true })}
           >
+            {staple.name}
+            {#if listed}<Icon name="check" size={14} stroke={3} />{/if}
+          </button>
         </li>
       {/each}
       <li class:wide={addingStaple}>
@@ -296,6 +326,7 @@
         {/if}
       </li>
     </ul>
+    <a class="edit-staples" href="{resolve('/recipes/ingredients')}?filter=staples">Edit staples</a>
   </section>
 {/snippet}
 
@@ -645,6 +676,29 @@
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
     cursor: pointer;
+  }
+
+  /* A staple chip is a button: a tap adds it to the shopping list. A small tick shows while
+     it's on the list. */
+  .staple-chips .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .staple-chips .chip.listed {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+  }
+
+  .edit-staples {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    color: var(--color-accent);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
   }
 
   .staple-chips .add-staple {

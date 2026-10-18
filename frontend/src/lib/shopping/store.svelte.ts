@@ -263,7 +263,12 @@ export class ShoppingModel {
     else toasts.show(message);
   }
 
-  add(food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>): Promise<unknown> {
+  /** Add an ingredient to the open list. `label` is the toast's words ("Oil added to the
+   * shopping list"); Shopping's own add box says "Oil added". */
+  add(
+    food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>,
+    label = `${food.name} added`
+  ): Promise<unknown> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
     if (!this.food(food.id)) {
@@ -285,9 +290,7 @@ export class ShoppingModel {
     }
     return this.#act(
       { kind: 'add', list_id: list.id, item_id: newChangeId(), food_id: food.id },
-      {
-        label: `${food.name} added`
-      }
+      { label }
     );
   }
 

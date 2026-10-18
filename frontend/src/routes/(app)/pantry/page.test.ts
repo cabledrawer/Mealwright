@@ -119,8 +119,11 @@ describe('the Pantry page', () => {
     await expect
       .element(page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }))
       .toBeVisible();
-    // Not until later milestones.
-    expect(page.getByText(/\+ List|Recipes for these/).elements()).toHaveLength(0);
+    // "+ List" works in 0.3 (on running-low rows). Not until later milestones: the rest.
+    await expect
+      .element(page.getByRole('button', { name: 'Add Basmati rice to the shopping list' }))
+      .toBeVisible();
+    expect(page.getByText(/Recipes for these/).elements()).toHaveLength(0);
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
 

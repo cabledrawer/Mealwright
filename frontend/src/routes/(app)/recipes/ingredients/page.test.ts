@@ -19,6 +19,16 @@ import Ingredients from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
 
+// The page's address: "Edit staples" on Pantry opens it with ?filter=staples.
+const route = vi.hoisted(() => ({ search: '' }));
+vi.mock('$app/state', () => ({
+  page: {
+    get url() {
+      return new URL(`http://mealwright.test/recipes/ingredients${route.search}`);
+    }
+  }
+}));
+
 const dal = toorDal();
 const sticks = toorDal({
   id: 40,
@@ -230,5 +240,24 @@ describe('the Ingredients page', () => {
     const before = asked();
     kitchen.changed();
     await vi.waitFor(() => expect(asked()).toBeGreaterThan(before));
+  });
+
+  it('opens with the Staples filter when Pantry’s Edit staples link asked for it', async () => {
+    unmount(component!);
+    document.body.innerHTML = '';
+    requests.length = 0;
+    route.search = '?filter=staples';
+    try {
+      component = mount(Ingredients, { target: document.body });
+      flushSync();
+      await vi.waitFor(() =>
+        expect(requests.some((r) => r.url === '/foods?filter=staples&limit=50')).toBe(true)
+      );
+      await expect
+        .element(page.getByRole('button', { name: 'Staples', exact: true }))
+        .toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      route.search = '';
+    }
   });
 });

@@ -3,6 +3,7 @@
   // by any name, with the editor. Desktop shows the editor beside the list; phones open
   // it as a sheet. Recipe counts and "Not in any recipe" wait for recipes (0.4).
   import { browser } from '$app/environment';
+  import { page } from '$app/state';
   import { serverUndo } from '$lib/client/changes';
   import { mergeFood } from '$lib/client/foods';
   import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
@@ -27,6 +28,9 @@
   let recentSheet: HTMLDialogElement;
   let selectedId = $state<number | null>(null);
   let panelName = $state('');
+
+  // "Edit staples" on Pantry opens this page with ?filter=staples.
+  if (page.url.searchParams.get('filter') === 'staples') list.filter = 'staples';
 
   const FILTERS: { value: FoodFilter; label: string }[] = [
     { value: 'all', label: 'All' },

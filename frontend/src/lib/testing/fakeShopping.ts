@@ -178,6 +178,7 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
       }
       case 'undo': {
         const before = done.get(String(action.undoes));
+        if (before?.kind === 'add') gone(String(before.item_id), 'Tess');
         if (before?.kind === 'remove_list') {
           copy.lists.forEach((l) => l.id === before.list_id && (l.removed = false));
         }
