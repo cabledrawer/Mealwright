@@ -4,7 +4,7 @@ import { COULDNT_SAVE, save, useSender, worthRetrying, type Change } from './sav
 import { askOnce } from './askOnce.svelte';
 import type { Ask } from './client/types';
 import { toasts } from './toast.svelte';
-import { UNDONE, undoHistory } from './undo.svelte';
+import { undoHistory } from './undo.svelte';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -137,7 +137,9 @@ describe('save with Undo', () => {
     await save(placeChange(state, 'Fridge', async () => 'ok', true));
     expect(toasts.current?.message).toBe('Toor dal lives in Fridge');
     toasts.act();
-    await vi.waitFor(() => expect(toasts.current?.message).toBe(UNDONE));
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Undone: Toor dal lives in Fridge')
+    );
     expect(state.place).toBe('Cupboard');
   });
 

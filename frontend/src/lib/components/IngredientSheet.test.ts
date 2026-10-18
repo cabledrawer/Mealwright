@@ -4,7 +4,7 @@ import { page, userEvent } from 'vitest/browser';
 import { ingredientEditor } from '$lib/ingredientEditor.svelte';
 import { PLACES, SHOPS, changeOf, fakeApi, toorDal, type FakeRequest } from '$lib/testing/fakeApi';
 import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 import IngredientSheet from './IngredientSheet.svelte';
 import '../styles/tokens.css';
 import '../styles/base.css';
@@ -206,6 +206,22 @@ describe('the ingredient editor, opened from anywhere', () => {
     expect(ingredientEditor.foodId).toBeNull(); // the editor closes
     toasts.act();
     await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/904/undo')).toBe(true));
+  });
+
+  it('Ctrl+Z after removing an ingredient says what was undone', async () => {
+    const dialog = await openToorDal();
+    await dialog.getByRole('button', { name: 'Remove from Ingredients' }).click();
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+    );
+    document.body.addEventListener('keydown', handleUndoKey, { once: true });
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })
+    );
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Undone: Removed Toor dal from Ingredients')
+    );
+    expect(requests.some((r) => r.path === '/changes/904/undo')).toBe(true);
   });
 
   it('won’t add a size whose name is only a number', async () => {

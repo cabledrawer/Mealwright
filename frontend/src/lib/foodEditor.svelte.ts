@@ -24,6 +24,7 @@ import type { Answer, Change as ServerChange, Food, FoodPatch, Ref, Size } from 
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
 import { toasts } from './toast.svelte';
+import { undoneWords } from './undo.svelte';
 
 type Write = { change: ServerChange | null; food?: Food };
 
@@ -251,7 +252,7 @@ export class FoodModel {
     if (!last?.can_undo) return;
     try {
       const message = await serverUndo(last.id)();
-      toasts.show(message || 'Undone');
+      toasts.show(message || undoneWords(last.summary));
     } catch (error) {
       toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo — try again', {
         tone: 'problem'

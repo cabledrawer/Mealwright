@@ -10,8 +10,8 @@ export interface UndoEntry {
   /** What happened, in plain words. Shown in the toast: "Toor dal moved to Fridge". */
   label: string;
   /**
-   * Take the change back. Return a message to show instead of "Undone" (e.g. "Put back
-   * 1 packet. The rest was used."), or false to show nothing.
+   * Take the change back. Return a message to show instead of "Undone: <label>" (e.g.
+   * "Put back 1 packet. The rest was used."), or false to show nothing.
    */
   undo: () => Promise<string | void | false> | string | void | false;
 }
@@ -20,6 +20,12 @@ export interface UndoEntry {
 const KEEP = 50;
 
 export const UNDONE = 'Undone';
+
+/** "Undone: Removed Oil from Ingredients": what was taken back, in the change's own words. */
+export function undoneWords(label: string): string {
+  const words = label.trim();
+  return words ? `${UNDONE}: ${words}` : UNDONE;
+}
 export const COULDNT_UNDO = 'Couldn’t undo — try again';
 
 class UndoHistory {
@@ -82,7 +88,7 @@ class UndoHistory {
     this.forget(entry);
     try {
       const message = await entry.undo();
-      if (message !== false) toasts.show(message || UNDONE);
+      if (message !== false) toasts.show(message || undoneWords(entry.label));
     } catch (error) {
       // "Already undone", "Too old to undo": the server's own words; nothing to retry.
       if (!worthRetrying(error)) {

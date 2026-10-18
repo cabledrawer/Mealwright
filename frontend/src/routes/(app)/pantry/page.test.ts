@@ -5,7 +5,7 @@ import { addToPantry } from '$lib/addToPantry.svelte';
 import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '$lib/testing/fakeApi';
 import { samplePantry } from '$lib/testing/fakePantry';
 import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 import Pantry from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -51,6 +51,10 @@ describe('the Pantry page', () => {
           ],
           next: null
         }
+      ],
+      'POST /changes/700/undo': [
+        200,
+        { result: 'done', message: '', change: changeOf(702, 'Undid'), food: null }
       ],
       'POST /changes/31/undo': [
         200,
@@ -180,6 +184,19 @@ describe('the Pantry page', () => {
     ).toMatch(UUID);
     await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
     expect(toasts.current?.action?.label).toBe('Undo');
+  });
+
+  it('Ctrl+Z after a pantry change says what was undone', async () => {
+    await render(1300);
+    const side = page.getByRole('complementary', { name: /Use soon/ });
+    await side.getByRole('button', { name: 'Used' }).first().click();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
+    document.body.addEventListener('keydown', handleUndoKey, { once: true });
+    document.body.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })
+    );
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Undone: Used 200 g spinach'));
+    expect(requests.some((r) => r.path === '/changes/700/undo')).toBe(true);
   });
 
   it('a failed change puts it back and says so calmly', async () => {

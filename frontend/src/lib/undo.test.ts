@@ -44,8 +44,14 @@ describe('undo history', () => {
     toasts.act();
     await tick();
     expect(undo).toHaveBeenCalledOnce();
-    expect(toasts.current?.message).toBe(UNDONE);
+    expect(toasts.current?.message).toBe('Undone: Milk used up');
     expect(undoHistory.size).toBe(0);
+  });
+
+  it('says plain "Undone" when there is nothing to describe', async () => {
+    undoHistory.record({ label: '  ', undo: () => {} });
+    await undoHistory.undoLast();
+    expect(toasts.current?.message).toBe(UNDONE);
   });
 
   it('undoes the most recent change first, one at a time', async () => {
@@ -128,6 +134,13 @@ describe('Ctrl+Z / Cmd+Z', () => {
     expect(isTextEntry(make('<select><option>Fridge</option></select>'))).toBe(false);
     expect(isTextEntry(document.body)).toBe(false);
     expect(isTextEntry(null)).toBe(false);
+  });
+
+  it('Ctrl+Z says what was undone, in the change’s own sentence', async () => {
+    undoHistory.record({ label: 'Removed Oil from Ingredients', undo: () => {} });
+    press(document.body, { key: 'z', ctrlKey: true });
+    await tick();
+    expect(toasts.current?.message).toBe('Undone: Removed Oil from Ingredients');
   });
 
   it('undoes your last change when focus is not in a text box', async () => {
