@@ -4,6 +4,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Security
+- At most 10 live-update streams per sign-in; past that the oldest closes and its tab reconnects.
+- Signing out ends that sign-in's live updates at once.
+- Requests bigger than 4 MiB are refused ("That's too much to send in one go.").
+- A number too big for the database is refused instead of causing a server error.
+- New kept tests: every endpoint refuses a signed-out visitor; one household can't reach another's lists, ticks, notes, changes or live updates.
+
 ## [0.3.0] - 2026-10-19
 
 The shopping list milestone: shared shopping lists with a Shopping screen, ticking items into the pantry, and a phone that keeps working without a connection (ticks and adds are kept on the phone and sent later). Also live updates, an installable app, and a few small Pantry and Ingredients improvements. Not published; for testing on cabledrawer's homelab.
