@@ -76,9 +76,10 @@ test('changes save as you go, and Undo puts them back', async ({ page }) => {
   const toast = page.getByRole('status').filter({ hasText: /./ }).last();
   await expect(toast.getByRole('button', { name: 'Undo' })).toBeVisible();
 
-  // Saved on the server…
-  const saved = await (await page.request.get(`/api/v1/foods/${food.id}`)).json();
-  expect(saved.staple).toBe(true);
+  // Saved on the server… (the toast shows at once, before the server has answered)
+  await expect
+    .poll(async () => (await (await page.request.get(`/api/v1/foods/${food.id}`)).json()).staple)
+    .toBe(true);
 
   // …and Undo takes it back.
   await toast.getByRole('button', { name: 'Undo' }).click();
