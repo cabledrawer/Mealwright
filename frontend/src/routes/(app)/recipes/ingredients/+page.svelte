@@ -10,15 +10,21 @@
   import OfflineNote from '$lib/components/OfflineNote.svelte';
   import IngredientEditor from '$lib/components/IngredientEditor.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import RecentChanges from '$lib/components/RecentChanges.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
+  import { IngredientChanges } from '$lib/ingredientChanges.svelte';
   import { IngredientsList } from '$lib/ingredients.svelte';
+  import { live } from '$lib/live.svelte';
   import { mergeTarget } from '$lib/maybeSame';
   import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
   import { save } from '$lib/save';
 
   const list = new IngredientsList();
+  const recent = new IngredientChanges();
+  const uid = $props.id();
+  let recentSheet: HTMLDialogElement;
   let selectedId = $state<number | null>(null);
   let panelName = $state('');
 
@@ -45,6 +51,20 @@
     return () => clearTimeout(timer);
   });
 
+  // Recent changes: fetch again after any change here or elsewhere, when stock moved (a
+  // purchase can bring an ingredient back), and when coming back to the tab.
+  $effect(() => {
+    void kitchen.version;
+    void live.pantry;
+    void recent.load();
+  });
+
+  // The sheet is for phones; if the window grows into a desktop, it closes (the side panel
+  // shows the same list).
+  $effect(() => {
+    if (desktop && recentSheet?.open) recentSheet.close();
+  });
+
   // Ingredients needs the server (spec section 6, "Opening the app offline"): offline it
   // shows a note pointing to Shopping, and fetches again once the connection is back.
   let wasOffline = false;
@@ -53,6 +73,7 @@
     else if (wasOffline) {
       wasOffline = false;
       void list.load();
+      void recent.load();
     }
   });
 
@@ -63,7 +84,9 @@
 
   // Back to the tab after a while: fetch again (live updates come in 0.3).
   function onVisible() {
-    if (document.visibilityState === 'visible') void list.load();
+    if (document.visibilityState !== 'visible') return;
+    void list.load();
+    void recent.load();
   }
 
   /** The quiet line under a food's name. */
@@ -120,6 +143,21 @@
 
 <svelte:document onvisibilitychange={onVisible} />
 
+{#snippet changesList()}
+  {#if recent.problem && !recent.changes.length}
+    <p class="none" role="alert">{recent.problem}</p>
+  {:else}
+    <RecentChanges
+      changes={recent.changes}
+      onundo={(change) => void recent.undo(change)}
+      verbFirst={false}
+      none={recent.loaded
+        ? 'Nothing yet. Changes to ingredients show here, with Undo.'
+        : 'Loading…'}
+    />
+  {/if}
+{/snippet}
+
 <PageHeader
   title="Ingredients"
   parent={{ href: '/recipes', label: 'Recipes' }}
@@ -158,6 +196,13 @@
               onclick={() => (list.filter = f.value)}>{f.label}</button
             >
           {/each}
+          {#if !desktop}
+            <button
+              type="button"
+              class="filter recent-button"
+              onclick={() => recentSheet.showModal()}>Recent changes</button
+            >
+          {/if}
           {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
             <button
               type="button"
@@ -228,21 +273,46 @@
       </p>
     </section>
 
-    {#if selectedId !== null}
-      <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
-        {#key selectedId}
-          <IngredientEditor
-            foodId={selectedId}
-            variant="panel"
-            onname={(n) => (panelName = n)}
-            onclose={() => (selectedId = null)}
-            onopen={(id) => (selectedId = id)}
-          />
-        {/key}
-      </aside>
+    {#if desktop}
+      <div class="side">
+        {#if selectedId !== null}
+          <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
+            {#key selectedId}
+              <IngredientEditor
+                foodId={selectedId}
+                variant="panel"
+                onname={(n) => (panelName = n)}
+                onclose={() => (selectedId = null)}
+                onopen={(id) => (selectedId = id)}
+              />
+            {/key}
+          </aside>
+        {/if}
+        <section class="panel recent" aria-labelledby="{uid}-recent">
+          <h2 id="{uid}-recent">Recent changes</h2>
+          {@render changesList()}
+        </section>
+      </div>
     {/if}
   </div>
 {/if}
+
+<dialog
+  bind:this={recentSheet}
+  aria-labelledby="{uid}-sheet"
+  onclick={(event) => {
+    if (event.target === recentSheet) recentSheet.close();
+  }}
+>
+  <div class="sheet-body">
+    <span class="handle" aria-hidden="true"></span>
+    <div class="sheet-head">
+      <h2 id="{uid}-sheet">Recent changes</h2>
+      <button type="button" class="close" onclick={() => recentSheet.close()}>Close</button>
+    </div>
+    {@render changesList()}
+  </div>
+</dialog>
 
 <style>
   .new {
@@ -480,8 +550,75 @@
     text-align: center;
   }
 
-  .panel {
+  .side {
     display: none;
+  }
+
+  .none {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+  }
+
+  .recent-button {
+    color: var(--color-accent);
+  }
+
+  /* The phone's Recent changes sheet: from the bottom, like the ingredient editor. */
+  dialog {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(680px, calc(100dvh - 120px));
+    margin: 0;
+    padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
+    border: none;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: var(--color-surface);
+    color: var(--color-text);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  dialog::backdrop {
+    background: var(--color-overlay);
+  }
+
+  .sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .handle {
+    align-self: center;
+    width: 40px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--color-border-strong);
+  }
+
+  .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sheet-head h2,
+  .recent h2 {
+    margin: 0;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .close {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   /* Desktop: a table-like list, and the editor beside it. */
@@ -554,21 +691,33 @@
       text-align: left;
     }
 
-    /* The editor stays in view while the list scrolls. */
-    .panel {
+    /* The editor and Recent changes stay in view while the list scrolls. */
+    .side {
       position: sticky;
       top: var(--space-7);
       align-self: flex-start;
-      display: block;
+      display: flex;
       flex: 1 1 340px;
+      flex-direction: column;
+      gap: var(--space-6);
       min-width: 0;
       max-height: calc(100dvh - 2 * var(--space-7));
       overflow-x: hidden;
       overflow-y: auto;
       scrollbar-width: thin;
+    }
+
+    .panel {
+      flex: none;
       padding: var(--space-8) 22px;
       border-radius: var(--radius-panel);
       background: var(--color-surface);
+    }
+
+    .recent {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
     }
   }
 </style>

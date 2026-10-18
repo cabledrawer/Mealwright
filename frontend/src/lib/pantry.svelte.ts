@@ -4,8 +4,7 @@
 // the server's wording ("1½ packets · about 750 g") replaces any guess.
 
 import { ApiError } from './api';
-import { listChanges, serverUndo, undoToast } from './client/changes';
-import type { UndoResult } from './client/types';
+import { listChanges, serverUndo, undoFromList } from './client/changes';
 import { createFood, listFoods, patchFood } from './client/foods';
 import {
   addStock,
@@ -35,7 +34,6 @@ import type {
 } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
-import { toasts } from './toast.svelte';
 
 /** How many recent changes the Pantry shows (desktop panel; phones show 3). */
 export const RECENT = 8;
@@ -317,18 +315,7 @@ export class PantryModel {
   }
 
   /** Undo from the Recent changes list (anyone's change, within the undo window). */
-  async undo(change: Change): Promise<void> {
-    const undone = this.changes;
-    this.changes = this.changes.map((c) => (c.id === change.id ? { ...c, can_undo: false } : c));
-    try {
-      let answer: UndoResult | null = null;
-      await serverUndo(change.id, (result) => (answer = result))();
-      toasts.show(undoToast(change.summary, answer));
-    } catch (error) {
-      this.changes = undone;
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo — try again', {
-        tone: 'problem'
-      });
-    }
+  undo(change: Change): Promise<void> {
+    return undoFromList(change, this);
   }
 }

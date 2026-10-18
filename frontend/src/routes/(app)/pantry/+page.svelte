@@ -358,7 +358,10 @@
     <!-- The last 3, always; "Show more" for the rest. -->
     <section class="recent" aria-labelledby="{uid}-precent">
       <h2 id="{uid}-precent">Recent changes</h2>
-      <RecentChanges changes={moreChanges ? model.changes : model.changes.slice(0, 3)} {model} />
+      <RecentChanges
+        changes={moreChanges ? model.changes : model.changes.slice(0, 3)}
+        onundo={(change) => void model.undo(change)}
+      />
       {#if model.changes.length > 3}
         <button
           type="button"
@@ -417,7 +420,7 @@
       {@render staples(true)}
       <section class="card side-card" aria-labelledby="{uid}-recent">
         <h2 id="{uid}-recent">Recent changes</h2>
-        <RecentChanges changes={model.changes} {model} />
+        <RecentChanges changes={model.changes} onundo={(change) => void model.undo(change)} />
       </section>
     </aside>
   </div>

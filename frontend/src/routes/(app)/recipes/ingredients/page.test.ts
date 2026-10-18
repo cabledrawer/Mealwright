@@ -10,6 +10,7 @@ import {
   toorDal,
   type FakeRequest
 } from '$lib/testing/fakeApi';
+import { kitchen } from '$lib/freshness.svelte';
 import { toasts } from '$lib/toast.svelte';
 import { undoHistory } from '$lib/undo.svelte';
 import NewIngredient from '$lib/components/NewIngredient.svelte';
@@ -58,6 +59,32 @@ describe('the Ingredients page', () => {
         {
           food: toorDal({ id: 50, name: 'Tahini', counted_as: 'count' }),
           change: changeOf(960, 'Added Tahini')
+        }
+      ],
+      'GET /changes?limit=10&area=ingredients': [
+        200,
+        {
+          changes: [
+            changeOf(961, 'Toor dal is now a staple'),
+            { ...changeOf(960, 'Added Tahini'), can_undo: false, undone: { at: 'x', who: {} } },
+            {
+              ...changeOf(959, 'Merged Moong dal into Mung dal'),
+              who: { login_id: 2, name: 'Wren' }
+            }
+          ],
+          next: null
+        }
+      ],
+      'POST /changes/961/undo': [
+        200,
+        {
+          result: 'done',
+          message: 'Undone.',
+          change: changeOf(962, 'Undid: Toor dal is now a staple'),
+          undone: changeOf(961, 'Toor dal is now a staple'),
+          food: null,
+          groups: [],
+          brought_back: []
         }
       ],
       'GET /places': [200, PLACES],
@@ -132,5 +159,76 @@ describe('the Ingredients page', () => {
         counted_as: 'count'
       })
     );
+  });
+
+  it('desktop: Recent changes sits beside the list, with Undo for what can be undone', async () => {
+    await page.viewport(1300, 900);
+    const recent = page.getByRole('region', { name: 'Recent changes' });
+    await expect.element(recent.getByRole('listitem').first()).toBeVisible();
+    expect(recent.getByRole('listitem').elements()).toHaveLength(3);
+    // "Toor dal is now a staple" starts with the ingredient, so only the verbs are bold.
+    expect(recent.getByRole('listitem').first().element().querySelector('b')).toBeNull();
+    await expect.element(recent.getByText('Added', { exact: true })).toBeVisible();
+    await expect.element(recent.getByText('· Wren')).toBeVisible();
+    // No button on desktop; the panel is always there.
+    expect(page.getByRole('button', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    // Undone already, so no Undo; the others have one.
+    expect(recent.getByRole('button', { name: 'Undo: Added Tahini' }).elements()).toHaveLength(0);
+    await recent.getByRole('button', { name: 'Undo: Toor dal is now a staple' }).click();
+    await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/961/undo')).toBe(true));
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Undone: Toor dal is now a staple')
+    );
+    // And the list is fetched again, as after any change.
+    const asked = () => requests.filter((r) => r.path === '/changes').length;
+    await vi.waitFor(() => expect(asked()).toBeGreaterThan(1));
+  });
+
+  it('desktop: Undo that the server refuses puts Undo back and says why', async () => {
+    await page.viewport(1300, 900);
+    fakeApi({
+      'GET /changes?limit=10&area=ingredients': [
+        200,
+        { changes: [changeOf(961, 'Toor dal is now a staple')], next: null }
+      ],
+      'POST /changes/961/undo': [
+        409,
+        { detail: 'That is too old to undo.', code: 'too_old', title: 'Too old' }
+      ]
+    });
+    kitchen.changed();
+    const recent = page.getByRole('region', { name: 'Recent changes' });
+    await recent.getByRole('button', { name: 'Undo: Toor dal is now a staple' }).click();
+    await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
+    await expect
+      .element(recent.getByRole('button', { name: 'Undo: Toor dal is now a staple' }))
+      .toBeVisible();
+  });
+
+  it('phone: a Recent changes button opens a sheet with the same list', async () => {
+    await page.viewport(390, 900);
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    await page.getByRole('button', { name: 'Recent changes' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Recent changes' });
+    expect(sheet.getByRole('listitem').elements()).toHaveLength(3);
+    await sheet.getByRole('button', { name: 'Undo: Toor dal is now a staple' }).click();
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Undone: Toor dal is now a staple')
+    );
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await vi.waitFor(() =>
+      expect(
+        [...document.querySelectorAll('dialog')].find(
+          (d) => d.querySelector('h2')?.textContent === 'Recent changes'
+        )?.open
+      ).toBe(false)
+    );
+  });
+
+  it('Recent changes is fetched again when something changed', async () => {
+    const asked = () => requests.filter((r) => r.path === '/changes').length;
+    const before = asked();
+    kitchen.changed();
+    await vi.waitFor(() => expect(asked()).toBeGreaterThan(before));
   });
 });

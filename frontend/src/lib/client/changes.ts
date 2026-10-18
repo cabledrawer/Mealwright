@@ -1,8 +1,9 @@
 // Recent changes and Undo (contract 6.5).
 
-import { api } from '$lib/api';
+import { ApiError, api } from '$lib/api';
 import { newChangeId } from '$lib/changeId';
 import { kitchen } from '$lib/freshness.svelte';
+import { toasts } from '$lib/toast.svelte';
 import type { UndoEntry } from '$lib/undo.svelte';
 import type { Change, UndoResult } from './types';
 
@@ -12,7 +13,7 @@ export interface ChangeList {
 }
 
 export function listChanges(
-  options: { mine?: boolean; area?: 'pantry'; foodId?: number; limit?: number } = {}
+  options: { mine?: boolean; area?: 'pantry' | 'ingredients'; foodId?: number; limit?: number } = {}
 ): Promise<ChangeList> {
   const params = new URLSearchParams();
   if (options.limit) params.set('limit', String(options.limit));
@@ -62,4 +63,24 @@ export async function lastOwnChange(): Promise<UndoEntry | null> {
   const { changes } = await listChanges({ mine: true, limit: 20 });
   const last = changes.find((c) => c.can_undo && !c.undone);
   return last ? { label: last.summary, undo: serverUndo(last.id) } : null;
+}
+
+/**
+ * Undo from a Recent changes list (Pantry's or Ingredients'): the row loses its Undo at
+ * once, the server reverses just that change, and the toast says what happened. If it
+ * can't be done the row gets its Undo back and the toast says so.
+ */
+export async function undoFromList(change: Change, list: { changes: Change[] }): Promise<void> {
+  const before = list.changes;
+  list.changes = before.map((c) => (c.id === change.id ? { ...c, can_undo: false } : c));
+  try {
+    let answer: UndoResult | null = null;
+    await serverUndo(change.id, (result) => (answer = result))();
+    toasts.show(undoToast(change.summary, answer));
+  } catch (error) {
+    list.changes = before;
+    toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo — try again', {
+      tone: 'problem'
+    });
+  }
 }

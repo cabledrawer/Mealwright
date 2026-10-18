@@ -1,19 +1,34 @@
 <script lang="ts">
-  // Pantry → Recent changes (spec, History and undo): the household's latest stock
+  // Recent changes (spec, History and undo), on Pantry (stock) and Ingredients: the household's latest
   // changes, each with what it did per ingredient (the server's totals) and Undo while
   // it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
   import { totalWords } from '$lib/changeTotals';
   import type { Change } from '$lib/client/types';
-  import type { PantryModel } from '$lib/pantry.svelte';
   import { session } from '$lib/session.svelte';
 
-  let { changes, model }: { changes: Change[]; model: PantryModel } = $props();
+  let {
+    changes,
+    onundo,
+    none = 'Nothing yet. Changes to the pantry show here, with Undo.',
+    verbFirst = true
+  }: {
+    changes: Change[];
+    onundo: (change: Change) => void;
+    /** What to say when there are no changes. */
+    none?: string;
+    /** Summaries start with the verb ("Used 200 g spinach"), so it goes in bold. Where some
+     * start with the ingredient ("Toor dal is now a staple"), only the known verbs do. */
+    verbFirst?: boolean;
+  } = $props();
+
+  const VERBS = /^(Added|Removed|Merged|Made|Undid)\b/;
 
   const SHOWN = 3;
 
   function split(summary: string): [string, string] {
     const space = summary.indexOf(' ');
+    if (!verbFirst && !VERBS.test(summary)) return ['', summary];
     return space === -1 ? [summary, ''] : [summary.slice(0, space), summary.slice(space)];
   }
 </script>
@@ -25,7 +40,7 @@
       <li>
         <span class="what">
           <span
-            ><b>{verb}</b>{rest}
+            >{#if verb}<b>{verb}</b>{/if}{rest}
             {#if change.who.login_id !== session.me?.id}
               <span class="who">· {change.who.name}</span>
             {/if}</span
@@ -47,14 +62,14 @@
             type="button"
             class="undo"
             aria-label="Undo: {change.summary}"
-            onclick={() => void model.undo(change)}>Undo</button
+            onclick={() => onundo(change)}>Undo</button
           >
         {/if}
       </li>
     {/each}
   </ul>
 {:else}
-  <p class="none">Nothing yet. Changes to the pantry show here, with Undo.</p>
+  <p class="none">{none}</p>
 {/if}
 
 <style>
