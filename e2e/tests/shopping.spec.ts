@@ -720,3 +720,41 @@ test("phone: Undo of a put-away (the toast after Change) moves it back", async (
     .click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
 });
+
+test("phone: on a long list, In the trolley stays tappable while the put-away toast is up", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the toast covers the end of the page on the phone");
+  const prefix = `Long ${tag()}`;
+  const names = Array.from(
+    { length: 25 },
+    (_, n) => `${prefix} ${String(n).padStart(2, "0")}`,
+  );
+  try {
+    for (const name of names) await onList(page, name);
+    await page.goto("/shopping");
+    await page.getByRole("checkbox", { name: `Tick ${names[0]}` }).click();
+    const toast = page.getByRole("status").filter({ hasText: names[0] });
+    await expect(toast).toBeVisible();
+    // The ticked item is in the trolley, at the foot of a long list, with the toast up.
+    const fold = page.getByRole("button", { name: /^In the trolley/ });
+    await fold.click({ timeout: 5_000 });
+    await expect(fold).toHaveAttribute("aria-expanded", "true");
+    await expect(toast).toBeVisible();
+  } finally {
+    // Leave the main list as other tests expect it.
+    const view = await (
+      await page.request.get(`/api/v1/shopping/lists/${await mainList(page)}`)
+    ).json();
+    type Line = { id: string; food: { name: string } };
+    const lines: Line[] = view.shops.flatMap(
+      (shop: { aisles: { items: Line[] }[]; in_trolley: Line[] }) => [
+        ...shop.aisles.flatMap((a) => a.items),
+        ...shop.in_trolley,
+      ],
+    );
+    for (const line of lines.filter((l) => l.food.name.startsWith(prefix))) {
+      await call(page, "DELETE", `/shopping/items/${line.id}`);
+    }
+  }
+});
