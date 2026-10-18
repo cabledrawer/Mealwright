@@ -136,6 +136,12 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Spec:** section 2 (Recipes), section 6 (Recipes), Layout decisions (Recipes navigation, Recipe page).
 
+**How 0.4 is built:**
+
+- **PR 0a, security audit (Opus high; cabledrawer 18 Oct):** as spec section 8 "Security along the way". Side by side with PR 0b.
+- **PR 0b, Keeping the UI good set-up** (as in `ui-quality-decision.md`).
+- From 0.4: the checker adds a security section for PRs touching sign-in, permissions, households, sync, imports, uploads or the outbound gate; every release PR includes a short security pass.
+
 **Build:**
 
 - Data: recipe (title, servings, steps, photos, tags, nutrition per serving, source URL / import date / source note, version number), ingredients pointing to a food **or another recipe**, original wording kept, a homemade link (a recipe made ahead gets its own pantry food). Guard against loops.

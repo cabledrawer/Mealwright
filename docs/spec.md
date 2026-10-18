@@ -541,6 +541,13 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 - **Name:** search the UK, EU and US trademark registers for "Mealwright" in the software classes. Search only, no registration.
 - **Security:** automatic scanners in the build (known vulnerabilities in dependencies, code scanning, image scan) plus a self-check against a standard web-app security checklist. Just before release, ask the self-hosting community to review and try to break it.
 
+**Security along the way (cabledrawer 18 Oct, from 0.4):** the scanners catch known holes in other people's packages; these checks look at our own code.
+
+- **Security audit at the start of 0.4.** One PR reviews everything built in 0.1–0.3 against a standard web-app checklist (OWASP ASVS level 1): sign-in and sessions; that every API request checks who is signed in and what they may do; that one household can never read or change another's data; the sync API (repeated, out-of-order or oversized batches, change numbers, Undo); input checks; error messages that give nothing away; security headers; secrets and settings; the outbound gate. It adds tests that try to reach another household's data, and keeps them. Findings are sorted fix now (in this PR or the next) / later (a note in `docs/dev/progress.md` with the milestone it's fixed in). Runs side by side with the "Keeping the UI good" set-up PR (cabledrawer 18 Oct); the audit's fixes stay out of files that PR touches, and any that overlap wait until it merges. Opus at high effort, like the riskiest 0.3 work.
+- **Security in the checker's review.** Any PR that touches sign-in, permissions, households, sync, imports, file uploads or the outbound gate gets a security section in the checker's verdict, and needs tests that try to get around it.
+- **A small security pass in every release PR.** The milestone's own changes are checked against the same checklist. The 0.9 checklist becomes a final confirmation rather than the first look.
+- **Monthly rescan of the running app (cabledrawer 18 Oct).** cabledrawer rescans the image running on his homelab with Trivy (pinned, telemetry and update check off) about once a month. No separate scan at install time, since `./check` already scanned that image. Steps in the Mealwright Manual, not the repo.
+
 **Bug reports and contributions (17 Oct):**
 
 - **Bugs:** GitHub issues, using the pre-filled form from Settings → About → "Report a problem". Feature requests go to GitHub Discussions, so issues stay bugs only.

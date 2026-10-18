@@ -90,6 +90,9 @@ showing) get their own `checkPage` call in the feature's tests.
 - [ ] Commits small, each builds; signed off by cabledrawer with `Assisted-by: Claude Code`.
 - [ ] PR starts with "What cabledrawer needs to check"; `CHANGELOG.md` updated.
 
+**Security (from 0.4)**
+- [ ] For PRs touching sign-in, permissions, households, sync, imports, uploads or the outbound gate: a "Security" heading in the verdict. Check: every new endpoint requires sign-in and checks the household; there's a test trying the wrong household and signed-out access; errors don't reveal other households' data; nothing new leaves the outbound gate.
+
 ## What to look at for 0.3
 
 Shopping (mockups `Shop`, `Desktop-Shop`, `Dark-Phone-Shop`, `Dark-Shop`)
