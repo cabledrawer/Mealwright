@@ -550,12 +550,22 @@ test("a quiet note can be dismissed", async ({ page }) => {
   await page.goto("/shopping");
   const note = page.getByText(new RegExp(`added ${name} too`));
   await expect(note).toBeVisible();
+  // The dismiss goes into the phone's queue first, then to the server: wait for it to go.
+  const sent = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/v1/shopping/actions") &&
+      r.request().method() === "POST",
+  );
   await page
-    .getByRole("button", { name: /^Dismiss: .*added .* too/ })
-    .first()
+    .getByRole("button", {
+      name: `Dismiss: Your other phone added ${name} too`,
+    })
     .click();
   await expect(note).toHaveCount(0);
+  await sent;
   await page.reload();
+  // The list is showing (not still loading) and the note stays gone.
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   await expect(page.getByText(new RegExp(`added ${name} too`))).toHaveCount(0);
   void item;
 });

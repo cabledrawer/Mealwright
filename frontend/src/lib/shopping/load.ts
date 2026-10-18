@@ -17,7 +17,8 @@ export const EMPTY_COPY: ShoppingCopy = {
   shops: [],
   places: [],
   people: null,
-  removed: {}
+  removed: {},
+  aisles: []
 };
 
 /** Ask the server what changed since `copy` (everything, when there is no copy yet). */
@@ -70,6 +71,7 @@ export function applyChanges(copy: ShoppingCopy | null, answer: ChangesAnswer): 
     shops: answer.shops,
     places: answer.places,
     people: answer.people,
-    removed
+    removed,
+    aisles: answer.aisles ?? base.aisles ?? []
   };
 }

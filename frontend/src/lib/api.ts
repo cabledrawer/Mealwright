@@ -86,6 +86,8 @@ export interface ApiOptions {
    * server never applies the same change twice.
    */
   idempotencyKey?: string;
+  /** How long it may take before it counts as "no connection" (default 30 s). */
+  timeoutMs?: number;
 }
 
 /** How long a request may take before it counts as "no connection". */
@@ -113,7 +115,7 @@ export async function api<T>(
       credentials: 'same-origin',
       headers: Object.keys(headers).length ? headers : undefined,
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      signal: AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS)
     });
   } catch {
     network.failed();

@@ -54,6 +54,16 @@ describe('the live stream', () => {
     expect(live.shopping).toBe(12);
   });
 
+  it('says each time the stream (re)connects, so waiting changes are sent', () => {
+    stop();
+    const hello = vi.fn();
+    stop = live.start(hello);
+    stream().send('hello', { cursor: 10 });
+    live.reconnect();
+    stream().send('hello', { cursor: 10 });
+    expect(hello).toHaveBeenCalledTimes(2);
+  });
+
   it('counts pantry changes', () => {
     stream().send('pantry', { change_id: 7 });
     stream().send('pantry', { change_id: 8 });

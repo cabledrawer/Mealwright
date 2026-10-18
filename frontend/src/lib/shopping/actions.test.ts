@@ -1,15 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '$lib/api';
 import { fakeApi } from '$lib/testing/fakeApi';
+import { sampleCopy } from '$lib/testing/fakeShopping';
+import { dropPhone, freshPhone } from '$lib/testing/phone';
 import { session } from '$lib/session.svelte';
-import { deviceId, makeAction, sendAction, setSendContext } from './actions';
+import { deviceId, makeAction, setSendContext } from './actions';
+import { sendAction, shoppingSync } from './sync.svelte';
 
 beforeEach(() => {
+  freshPhone();
   session.me = { id: 1, name: 'Tess', username: 'k', role: 'admin', theme: 'auto' };
   setSendContext({ cursor: () => 77 });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(async () => {
+  await dropPhone();
+  vi.unstubAllGlobals();
+});
 
 const answering = (extra: Record<string, unknown> = {}) =>
   fakeApi({
@@ -17,7 +24,10 @@ const answering = (extra: Record<string, unknown> = {}) =>
       const id = (request.body as { actions: { id: string }[] }).actions[0]!.id;
       return [
         200,
-        { results: [{ id, status: 'applied', change: null, ...extra }], changes: { cursor: 78 } }
+        {
+          results: [{ id, status: 'applied', change: null, ...extra }],
+          changes: { ...sampleCopy(), cursor: 78, reset: false }
+        }
       ];
     }
   });
@@ -38,7 +48,7 @@ describe('deviceId', () => {
   });
 });
 
-describe('sendAction', () => {
+describe('sendAction (through the queue)', () => {
   it('sends every kind as a batch of one in the envelope of sync-protocol 4.1', async () => {
     const requests = answering();
     const kinds = [
@@ -61,7 +71,9 @@ describe('sendAction', () => {
     expect(requests.every((r) => r.path === '/shopping/actions')).toBe(true);
     const sent = requests.map((r) => r.body as { actions: Record<string, unknown>[] });
     expect(sent.map((b) => b.actions[0])).toEqual(kinds);
-    expect(sent[0]).toMatchObject({ protocol: 1, login_id: 1, since: 77 });
+    // `since` is the cursor of the copy kept on the phone (none yet here).
+    expect(sent[0]).toMatchObject({ protocol: 1, login_id: 1, since: 0 });
+    expect(sent[1]).toMatchObject({ since: shoppingSync.copy!.cursor });
     expect((sent[0] as unknown as { device_id: string }).device_id).toMatch(/^[0-9a-f-]{36}$/);
     expect(sent[3]!.actions[0]).toMatchObject({ amount: 500, size_id: 12 }); // base amounts
   });
@@ -96,7 +108,7 @@ describe('sendAction', () => {
   it('hands back the changes that came with the answer', async () => {
     answering();
     const result = await sendAction(makeAction({ kind: 'tick', item_id: 'a' }));
-    expect(result.changes).toEqual({ cursor: 78 });
+    expect(result.changes?.cursor).toBe(78);
   });
 
   it('a refused action is an error with the server’s sentence', async () => {

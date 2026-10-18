@@ -114,6 +114,13 @@ export interface ShoppingCopy {
   people: Person[] | null;
   /** Items taken off the list, from tombstones the server sent: where they were and who. */
   removed: Record<string, Removed>;
+  /** The aisle names, as the server words them. */
+  aisles?: AisleRow[];
+}
+
+export interface AisleRow {
+  key: string;
+  name: string;
 }
 
 export interface Removed {
@@ -146,4 +153,5 @@ export interface ChangesAnswer {
   shops: ShopRow[];
   places: PlaceRow[];
   people: Person[];
+  aisles?: AisleRow[];
 }

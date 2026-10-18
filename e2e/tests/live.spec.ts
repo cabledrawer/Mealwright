@@ -203,6 +203,12 @@ test.describe('the connection bar', () => {
     const toast = page.getByRole('status').filter({ hasText: 'Back online' });
     await expect(toast).toBeVisible({ timeout: 10_000 });
     await toast.hover(); // a toast waits while the pointer is on it
+    // Check the toast as it stays, not halfway through its 180 ms fade-in.
+    await toast.evaluate((el) =>
+      Promise.all(
+        (el.closest('.toast') ?? el).getAnimations({ subtree: true }).map((a) => a.finished),
+      ),
+    );
     for (const theme of THEMES) {
       await inTheme(page, theme);
       await expectNoAxeViolations(page, `Back online toast, ${theme}`);

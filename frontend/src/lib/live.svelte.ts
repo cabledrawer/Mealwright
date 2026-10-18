@@ -38,9 +38,14 @@ class Live {
   pantry = $state(0);
 
   #source: EventSource | null = null;
+  #onHello: (() => void) | null = null;
 
-  /** Open the stream. Returns a function that closes it. */
-  start(): () => void {
+  /**
+   * Open the stream. `onHello` runs each time it (re)connects: the offline queue sends then.
+   * Returns a function that closes it.
+   */
+  start(onHello: (() => void) | null = null): () => void {
+    this.#onHello = onHello;
     this.#open();
     const onVisible = () => {
       // A phone may have dropped the stream while the app was in the background.
@@ -49,6 +54,7 @@ class Live {
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
+      this.#onHello = null;
       this.#close();
     };
   }
@@ -67,6 +73,7 @@ class Live {
     source.addEventListener('hello', (event) => {
       network.succeeded();
       this.#shopping(numberIn(event, 'cursor'));
+      this.#onHello?.();
     });
     source.addEventListener('shopping', (event) => this.#shopping(numberIn(event, 'cursor')));
     source.addEventListener('pantry', () => this.pantry++);

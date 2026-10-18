@@ -16,18 +16,27 @@
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
   import { session } from '$lib/session.svelte';
+  import { shoppingSync } from '$lib/shopping/sync.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 
   let { children }: { children: Snippet } = $props();
 
-  // Live updates and the connection bar, for as long as someone is signed in. (PR 6 keeps
-  // the offline queue when the session ends; see network.svelte.ts and live.svelte.ts.)
+  // Live updates, the connection bar and the offline queue, for as long as someone is signed
+  // in. Waiting changes are sent when the app opens, comes to the foreground or the browser
+  // says it's online (shoppingSync.watch), when the connection comes back or on "Try now"
+  // (network), and when the event stream reconnects (live's hello). Sync protocol 11.3.
   $effect(() => {
-    const stopNetwork = network.start(() => live.reconnect());
-    const stopLive = live.start();
+    const stopNetwork = network.start(() => {
+      live.reconnect();
+      void shoppingSync.tryAgain();
+    });
+    const stopLive = live.start(() => void shoppingSync.send());
+    const stopSync = shoppingSync.watch();
+    void shoppingSync.start();
     return () => {
+      stopSync();
       stopLive();
       stopNetwork();
     };

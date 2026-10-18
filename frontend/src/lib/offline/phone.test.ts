@@ -39,6 +39,7 @@ describe('the phone database (sync-protocol 11.1)', () => {
       [
         'meta',
         'queue',
+        'copy.aisles',
         'copy.foods',
         'copy.items',
         'copy.lists',
@@ -50,7 +51,7 @@ describe('the phone database (sync-protocol 11.1)', () => {
         'copy.shops'
       ].sort()
     );
-    expect(ALL_COPY_STORES).toHaveLength(9);
+    expect(ALL_COPY_STORES).toHaveLength(10);
   });
 
   it('FE-5: has no pantry store', async () => {

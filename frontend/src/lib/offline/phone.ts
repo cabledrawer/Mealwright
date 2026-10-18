@@ -28,6 +28,7 @@ export const COPY_STORES = {
   shops: 'id',
   places: 'id',
   people: 'login_id',
+  aisles: 'key',
   /** Items taken off the list (from the server's tombstones), keyed by item ID. */
   removed: 'id'
 } as const;

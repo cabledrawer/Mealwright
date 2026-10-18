@@ -13,14 +13,9 @@ import { save } from '$lib/save';
 import { session } from '$lib/session.svelte';
 import { toasts } from '$lib/toast.svelte';
 import { undoHistory } from '$lib/undo.svelte';
-import {
-  makeAction,
-  sendAction,
-  setSendContext,
-  type ActionFields,
-  type ActionResult
-} from './actions';
-import { applyChanges, EMPTY_COPY, loadChanges } from './load';
+import { makeAction, type ActionFields, type ActionResult } from './actions';
+import { EMPTY_COPY } from './load';
+import { sendAction, shoppingSync } from './sync.svelte';
 import type { ListItem, ShopFood, ShoppingCopy, Tick } from './types';
 import { groupByShop, listCounts, standingTicks, subtitle } from './view';
 
@@ -38,10 +33,6 @@ export class ShoppingModel {
   problem = $state<string | null>(null);
   listId = $state<string | null>(null);
   lastTicked = $state<Ticked | null>(null);
-
-  constructor() {
-    setSendContext({ cursor: () => this.copy.cursor });
-  }
 
   // --- Reading -----------------------------------------------------------------------------------
 
@@ -93,17 +84,24 @@ export class ShoppingModel {
   /** Fetch what changed (or, with `full`, a whole new copy) and merge it in. */
   async load(full = false): Promise<void> {
     try {
-      const have = this.loaded && !full ? this.copy : null;
-      this.copy = applyChanges(have, await loadChanges(have));
+      // The first time: send what's waiting on this phone before showing the list (11.6).
+      if (!this.loaded) await shoppingSync.start();
+      this.#show(await shoppingSync.refresh(full));
       this.problem = null;
-      if (!this.list) this.listId = null;
     } catch (error) {
-      if (!this.loaded) {
+      if (shoppingSync.copy) this.#show(shoppingSync.copy);
+      else if (!this.loaded) {
         this.problem =
           error instanceof ApiError ? error.detail : 'Couldn’t load your shopping list.';
       }
     }
     this.loaded = true;
+  }
+
+  /** Show the server's copy (kept on this phone). */
+  #show(copy: ShoppingCopy): void {
+    this.copy = structuredClone(copy);
+    if (!this.list) this.listId = null;
   }
 
   select(listId: string): void {
@@ -115,8 +113,8 @@ export class ShoppingModel {
     if (result.status === 'ignored') {
       if (result.message) toasts.show(result.message);
       void this.load(true);
-    } else if (result.changes) {
-      this.copy = applyChanges(this.copy, result.changes);
+    } else if (result.changes && shoppingSync.copy) {
+      this.#show(shoppingSync.copy);
     } else {
       void this.load();
     }

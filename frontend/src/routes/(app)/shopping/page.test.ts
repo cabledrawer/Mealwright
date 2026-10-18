@@ -4,6 +4,7 @@ import { page, userEvent } from 'vitest/browser';
 import NewIngredient from '$lib/components/NewIngredient.svelte';
 import Toast from '$lib/components/Toast.svelte';
 import { ME, fakeShopping, sampleCopy, tick } from '$lib/testing/fakeShopping';
+import { dropPhone, freshPhone } from '$lib/testing/phone';
 import { session } from '$lib/session.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
 import type { ShoppingCopy } from '$lib/shopping/types';
@@ -31,6 +32,7 @@ describe('the Shopping page', () => {
   }
 
   beforeEach(() => {
+    freshPhone();
     copy = sampleCopy();
     session.me = { ...ME };
     undoHistory.clear();
@@ -38,7 +40,8 @@ describe('the Shopping page', () => {
     newIngredient.cancel();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await dropPhone();
     newIngredient.cancel();
     for (const component of mounted.splice(0)) unmount(component);
     document.body.innerHTML = '';
@@ -96,7 +99,12 @@ describe('the Shopping page', () => {
   it('phone: ticking sends a tick and the toast says where it went, with Change and Undo', async () => {
     await render(390);
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
-    const sent = server.requests.find((r) => r.path === '/shopping/actions')!;
+    // Stored on the phone first, then sent.
+    const sent = await vi.waitFor(() => {
+      const found = server.requests.find((r) => r.path === '/shopping/actions');
+      if (!found) throw new Error('not sent yet');
+      return found;
+    });
     const body = sent.body as { protocol: number; actions: { kind: string; item_id: string }[] };
     expect(body.protocol).toBe(1);
     expect(body.actions[0]).toMatchObject({ kind: 'tick', item_id: 'i-onions' });
