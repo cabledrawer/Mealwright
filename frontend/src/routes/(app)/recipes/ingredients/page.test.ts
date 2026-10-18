@@ -76,9 +76,15 @@ describe('the Ingredients page', () => {
         {
           changes: [
             changeOf(961, 'Toor dal is now a staple'),
-            { ...changeOf(960, 'Added Tahini'), can_undo: false, undone: { at: 'x', who: {} } },
+            {
+              ...changeOf(960, 'Added Tahini'),
+              kind: 'food_created',
+              can_undo: false,
+              undone: { at: 'x', who: {} }
+            },
             {
               ...changeOf(959, 'Merged Moong dal into Mung dal'),
+              kind: 'merged',
               who: { login_id: 2, name: 'Wren' }
             }
           ],
@@ -176,9 +182,10 @@ describe('the Ingredients page', () => {
     const recent = page.getByRole('region', { name: 'Recent changes' });
     await expect.element(recent.getByRole('listitem').first()).toBeVisible();
     expect(recent.getByRole('listitem').elements()).toHaveLength(3);
-    // "Toor dal is now a staple" starts with the ingredient, so only the verbs are bold.
+    // "Toor dal is now a staple" starts with the ingredient, so nothing in it is bold; the
+    // verbs of "Added …" and "Merged …" are, decided by the kind of change.
     expect(recent.getByRole('listitem').first().element().querySelector('b')).toBeNull();
-    await expect.element(recent.getByText('Added', { exact: true })).toBeVisible();
+    await expect.element(recent.getByText('Merged', { exact: true })).toBeVisible();
     await expect.element(recent.getByText('· Wren')).toBeVisible();
     // No button on desktop; the panel is always there.
     expect(page.getByRole('button', { name: 'Recent changes' }).elements()).toHaveLength(0);
@@ -192,6 +199,30 @@ describe('the Ingredients page', () => {
     // And the list is fetched again, as after any change.
     const asked = () => requests.filter((r) => r.path === '/changes').length;
     await vi.waitFor(() => expect(asked()).toBeGreaterThan(1));
+  });
+
+  it('bold is decided by the kind of change, so “Added sugar” is never half bold', async () => {
+    await page.viewport(1300, 900);
+    fakeApi({
+      'GET /changes?limit=10&area=ingredients': [
+        200,
+        {
+          changes: [
+            changeOf(971, 'Added sugar is now a staple'),
+            { ...changeOf(970, 'Added Added sugar'), kind: 'food_created' }
+          ],
+          next: null
+        }
+      ]
+    });
+    kitchen.changed();
+    const recent = page.getByRole('region', { name: 'Recent changes' });
+    await expect.element(recent.getByText('Added', { exact: true })).toBeVisible();
+    const [staple, created] = recent.getByRole('listitem').elements();
+    // The ingredient is called "Added sugar": nothing of it is bold…
+    expect(staple!.querySelector('b')).toBeNull();
+    // …and in "Added Added sugar" only the verb is.
+    expect(created!.querySelector('b')?.textContent).toBe('Added');
   });
 
   it('desktop: Undo that the server refuses puts Undo back and says why', async () => {

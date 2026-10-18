@@ -22,10 +22,12 @@ describe('Pantry → the shopping list', () => {
   let server: ReturnType<typeof fakeShopping>;
   /** The connection to the server is failing (fetch rejects, as when there is no signal). */
   let down = false;
+  /** While set, the shopping list's answer is held back (the list hasn't arrived yet). */
+  let hold: Promise<void> | null = null;
 
   const adds = () => server.actions.filter((a) => a.kind === 'add');
 
-  async function render(width: number) {
+  async function render(width: number, listArrives = true) {
     const sample = samplePantry();
     server = fakeShopping(sampleCopy(), {
       'GET /pantry': [200, sample.pantry],
@@ -33,9 +35,11 @@ describe('Pantry → the shopping list', () => {
       'GET /changes?limit=8&area=pantry': [200, { changes: [], next: null }]
     });
     const working = fetch;
-    vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
-      down ? Promise.reject(new TypeError('Failed to fetch')) : working(input, init)
-    );
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      if (down) throw new TypeError('Failed to fetch');
+      if (hold && String(input).includes('/shopping/changes')) await hold;
+      return working(input, init);
+    });
     await page.viewport(width, 1000);
     for (const component of [Pantry, Toast]) {
       const target = document.body.appendChild(document.createElement('div'));
@@ -43,6 +47,7 @@ describe('Pantry → the shopping list', () => {
     }
     flushSync();
     await expect.element(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
+    if (!listArrives) return;
     // The shopping list has arrived, so a tap knows what is on it.
     await vi.waitFor(() =>
       expect(server.requests.some((r) => r.path === '/shopping/changes')).toBe(true)
@@ -51,6 +56,7 @@ describe('Pantry → the shopping list', () => {
 
   beforeEach(() => {
     down = false;
+    hold = null;
     freshPhone();
     session.me = { ...ME };
     undoHistory.clear();
@@ -102,6 +108,24 @@ describe('Pantry → the shopping list', () => {
     const button = chip('Add Salt to the shopping list').element() as HTMLElement;
     button.click();
     button.click();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(adds()).toHaveLength(1);
+  });
+
+  it('two quick taps before the shopping list has arrived add it once', async () => {
+    let arrive!: () => void;
+    hold = new Promise<void>((resolve) => (arrive = resolve));
+    await render(1300, false);
+    await expect.element(chip('Add Salt to the shopping list')).toBeVisible();
+    const button = chip('Add Salt to the shopping list').element() as HTMLElement;
+    button.click();
+    expect(toasts.current).toBeNull();
+    button.click();
+    // The second tap is the same tap.
+    expect(toasts.current?.message).toBe('Salt is already on the shopping list.');
+    arrive();
+    await vi.waitFor(() => expect(adds()).toHaveLength(1));
+    await expect.element(chip('Salt, on the shopping list')).toBeVisible();
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(adds()).toHaveLength(1);
   });

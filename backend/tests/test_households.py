@@ -427,5 +427,8 @@ def test_ingredient_changes_never_cross_households(
     # Paging, a food filter and the "mine" filter don't leak either.
     assert ask(neighbour, food_id=mine["food_id"]) == []
     assert ask(neighbour, before=10**6, limit=100) == other
+    for client, household in ((kitchen, 1), (neighbour, 2)):
+        own = ask(client, mine=True)
+        assert own and {owner[c["id"]] for c in own} == {household}
     # The neighbour cannot undo household 1's change through its own list either.
     assert neighbour.post(f"{API}/changes/{edit['id']}/undo").status_code == 404

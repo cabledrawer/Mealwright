@@ -18,17 +18,22 @@
     /** What to say when there are no changes. */
     none?: string;
     /** Summaries start with the verb ("Used 200 g spinach"), so it goes in bold. Where some
-     * start with the ingredient ("Toor dal is now a staple"), only the known verbs do. */
+     * start with the ingredient ("Toor dal is now a staple"), only the kinds of change whose
+     * summary always starts with a verb do (decided by the kind, never by the words, so an
+     * ingredient called "Added sugar" is never half bold). */
     verbFirst?: boolean;
   } = $props();
 
-  const VERBS = /^(Added|Removed|Merged|Made|Undid|Renamed|Forgot)\b/;
+  /** Ingredient changes whose summary starts with a verb: Added X, Removed X from
+   * Ingredients, Merged X into Y, Made X its own ingredient again, Undid: … */
+  const VERB_KINDS = new Set(['food_created', 'food_removed', 'merged', 'split', 'undo']);
 
   const SHOWN = 3;
 
-  function split(summary: string): [string, string] {
+  function split(change: Change): [string, string] {
+    const summary = change.summary;
     const space = summary.indexOf(' ');
-    if (!verbFirst && !VERBS.test(summary)) return ['', summary];
+    if (!verbFirst && !VERB_KINDS.has(change.kind)) return ['', summary];
     return space === -1 ? [summary, ''] : [summary.slice(0, space), summary.slice(space)];
   }
 </script>
@@ -36,7 +41,7 @@
 {#if changes.length}
   <ul class="changes">
     {#each changes as change (change.id)}
-      {@const [verb, rest] = split(change.summary)}
+      {@const [verb, rest] = split(change)}
       <li>
         <span class="what">
           <span

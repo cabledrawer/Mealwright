@@ -49,26 +49,24 @@ export class PantryList {
     counted_as?: 'weight' | 'volume' | 'count';
     staple?: boolean;
   }) {
-    if (this.#pending.has(food.id) || this.onList(food.id)) {
-      toasts.show(`${food.name} is already on the shopping list.`);
-      return;
-    }
-    if (!this.#shopping.list) {
-      // The list hasn't arrived yet (a moment after opening, or never on this phone).
-      await this.refresh();
-      if (!this.#shopping.list) {
-        toasts.show("Your shopping list isn't ready yet. Try again in a moment.", {
-          tone: 'problem'
-        });
-        return;
-      }
-      if (this.onList(food.id)) {
-        toasts.show(`${food.name} is already on the shopping list.`);
-        return;
-      }
-    }
+    const already = () => this.#pending.has(food.id) || this.onList(food.id);
+    const say = () => toasts.show(`${food.name} is already on the shopping list.`);
+    if (already()) return say();
+    // This tap is under way from here on, so a second tap in the next moments (while the
+    // list arrives, or the add goes into the waiting list) is "already on the list".
     this.#pending.add(food.id);
     try {
+      if (!this.#shopping.list) {
+        // The list hasn't arrived yet (a moment after opening, or never on this phone).
+        await this.refresh();
+        if (!this.#shopping.list) {
+          toasts.show("Your shopping list isn't ready yet. Try again in a moment.", {
+            tone: 'problem'
+          });
+          return;
+        }
+        if (this.onList(food.id)) return say();
+      }
       await this.#shopping.add(food, `${food.name} added to the shopping list`);
     } finally {
       this.#pending.delete(food.id);
