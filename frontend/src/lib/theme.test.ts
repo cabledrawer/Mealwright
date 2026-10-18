@@ -72,6 +72,36 @@ describe('theme', () => {
     expect(root.dataset.theme).toBe('light');
   });
 
+  it('colours the browser bar like the page, light or dark, even when picked by hand', () => {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.append(meta);
+    try {
+      theme.set('dark');
+      expect(meta.content).toBe('#111614');
+      theme.set('light');
+      expect(meta.content).toBe('#f5f6f4');
+    } finally {
+      meta.remove();
+    }
+  });
+
+  it('colours it at start-up too (static/theme.js)', () => {
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.append(meta);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+      runStartupScript();
+      expect(meta.content).toBe('#111614');
+      localStorage.setItem(THEME_STORAGE_KEY, 'light');
+      runStartupScript();
+      expect(meta.content).toBe('#f5f6f4');
+    } finally {
+      meta.remove();
+    }
+  });
+
   it('cycles', () => {
     theme.set('auto');
     theme.cycle();

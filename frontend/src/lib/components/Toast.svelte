@@ -143,7 +143,9 @@
     .region {
       left: var(--space-7);
       right: var(--space-7);
-      bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--space-6));
+      bottom: calc(
+        var(--tabbar-height) + env(safe-area-inset-bottom) + var(--offline-offset) + var(--space-6)
+      );
     }
   }
 

@@ -7,6 +7,7 @@
   import { PAGES, RECIPES_PAGES, isCurrent, isCurrentRecipesPage } from '$lib/nav';
   import { initial, session } from '$lib/session.svelte';
   import { sidebar } from '$lib/sidebar.svelte';
+  import ConnectionStatus from './ConnectionStatus.svelte';
   import Icon from './Icon.svelte';
   import Logo from './Logo.svelte';
   import ThemeSwitch from './ThemeSwitch.svelte';
@@ -64,6 +65,7 @@
   </nav>
 
   <div class="foot">
+    <ConnectionStatus layout={sidebar.collapsed ? 'dot' : 'desktop'} />
     <ThemeSwitch variant={sidebar.collapsed ? 'cycle' : 'sidebar'} />
     <a
       class="settings"

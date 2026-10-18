@@ -4,6 +4,7 @@
 
 import { ApiError } from '$lib/api';
 import { kitchen } from '$lib/freshness.svelte';
+import { network } from '$lib/network.svelte';
 import { newChangeId } from '$lib/changeId';
 import { getFood, listFoods } from '$lib/client/foods';
 import type { FoodRow } from '$lib/client/types';
@@ -56,7 +57,13 @@ export class ShoppingModel {
   );
   readonly subtitle = $derived(
     this.list
-      ? subtitle(this.list, this.counts.toBuy, this.copy.people, session.me?.id ?? null)
+      ? subtitle(
+          this.list,
+          this.counts.toBuy,
+          this.copy.people,
+          session.me?.id ?? null,
+          network.offline
+        )
       : ''
   );
   readonly cards = $derived(

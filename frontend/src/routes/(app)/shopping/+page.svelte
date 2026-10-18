@@ -15,6 +15,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { keepFocus } from '$lib/focusNear';
   import { kitchen } from '$lib/freshness.svelte';
+  import { live } from '$lib/live.svelte';
   import { ShoppingModel } from '$lib/shopping/store.svelte';
 
   const model = new ShoppingModel();
@@ -29,13 +30,22 @@
     return () => media.removeEventListener('change', onChange);
   });
 
-  // Fetch again after a change elsewhere (an ingredient edit, a merge). Live updates and
-  // the offline copy arrive in 0.3's next pull requests.
+  // Fetch again after a change elsewhere (an ingredient edit, a merge). The live stream (below)
+  // covers other phones; the offline copy arrives in PR 6.
   $effect(() => {
     void kitchen.version;
     // Only kitchen.version is watched: load() reads and replaces the copy, which would
     // otherwise run this again for ever.
     untrack(() => void model.load());
+  });
+
+  // Another phone or window changed the list: ask what changed since our own counter. Our
+  // own changes come back with their answer, so their counter is already ours.
+  $effect(() => {
+    const heard = live.shopping;
+    untrack(() => {
+      if (model.loaded && heard > model.copy.cursor) void model.load();
+    });
   });
 
   function onVisible() {

@@ -123,6 +123,10 @@ describe('subtitle', () => {
       '12 to buy · synced with Wren and 2 others'
     );
   });
+  it('says offline while offline (PR 5: just that; PR 6 adds "saving on this phone")', () => {
+    expect(subtitle(main, 12, [me, wren], 1, true)).toBe('12 to buy · offline');
+    expect(subtitle(main, 12, null, 1, true)).toBe('12 to buy · offline');
+  });
   it('says saved for one login', () => {
     expect(subtitle(main, 12, [me], 1)).toBe('12 to buy · saved');
   });

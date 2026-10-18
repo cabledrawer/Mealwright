@@ -16,4 +16,8 @@
     (choice === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   root.setAttribute('data-theme-choice', choice);
   root.setAttribute('data-theme', dark ? 'dark' : 'light');
+  // The browser's address bar and the installed app's title bar follow the page.
+  // Same colours as --color-ground in src/lib/styles/tokens.css.
+  var bar = document.querySelector('meta[name="theme-color"]');
+  if (bar) bar.setAttribute('content', dark ? '#111614' : '#f5f6f4');
 })();

@@ -26,6 +26,9 @@ export const THEME_HINTS: Record<ThemeChoice, string> = {
 
 export const THEME_STORAGE_KEY = 'mealwright.theme';
 
+/** The page's ground colour (--color-ground), for the browser's bar. Same as static/theme.js. */
+export const THEME_COLOR = { light: '#f5f6f4', dark: '#111614' } as const;
+
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
@@ -109,6 +112,10 @@ class Theme {
     const root = document.documentElement;
     root.setAttribute('data-theme-choice', this.choice);
     root.setAttribute('data-theme', this.resolved);
+    // The browser's bar follows the page (static/theme.js does the same before first paint).
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', this.resolved === 'dark' ? THEME_COLOR.dark : THEME_COLOR.light);
   }
 }
 

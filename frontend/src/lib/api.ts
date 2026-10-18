@@ -1,6 +1,8 @@
 // The web app talks to the server only through the public API, /api/v1 (CLAUDE.md:
 // API-first). Same origin only: the session cookie goes along automatically.
 
+import { network } from './network.svelte';
+
 export type ThemeChoice = 'auto' | 'light' | 'dark';
 
 export interface Me {
@@ -84,6 +86,14 @@ export interface ApiOptions {
   idempotencyKey?: string;
 }
 
+/** How long a request may take before it counts as "no connection". */
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/** The session ended (a 401, or the live stream's signed_out): go to the sign-in page. */
+export function sessionEnded(): void {
+  onUnauthorized?.();
+}
+
 export async function api<T>(
   method: Method,
   path: string,
@@ -100,15 +110,18 @@ export async function api<T>(
       method,
       credentials: 'same-origin',
       headers: Object.keys(headers).length ? headers : undefined,
-      body: body === undefined ? undefined : JSON.stringify(body)
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
   } catch {
+    network.failed();
     throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
   }
+  network.succeeded(); // any answer means our server is there
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    if (response.status === 401 && !options.signingIn) onUnauthorized?.();
+    if (response.status === 401 && !options.signingIn) sessionEnded();
     throw new ApiError(response.status, detailOf(data), codeOf(data), data);
   }
   return data as T;

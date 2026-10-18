@@ -5,18 +5,44 @@
   import { ApiError, saveTheme, setUnauthorizedHandler } from '$lib/api';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
+  import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import IngredientSheet from '$lib/components/IngredientSheet.svelte';
   import AskOnce from '$lib/components/AskOnce.svelte';
   import NewIngredient from '$lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '$lib/client/changes';
   import { settleHousehold } from '$lib/client/household';
+  import { askToKeepDataHere } from '$lib/offline/persist';
+  import { live } from '$lib/live.svelte';
+  import { network } from '$lib/network.svelte';
   import { session } from '$lib/session.svelte';
   import { signInPath } from '$lib/session.svelte';
   import { theme } from '$lib/theme.svelte';
   import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
 
   let { children }: { children: Snippet } = $props();
+
+  // Live updates and the connection bar, for as long as someone is signed in. (PR 6 keeps
+  // the offline queue when the session ends; see network.svelte.ts and live.svelte.ts.)
+  $effect(() => {
+    const stopNetwork = network.start(() => live.reconnect());
+    const stopLive = live.start();
+    return () => {
+      stopLive();
+      stopNetwork();
+    };
+  });
+
+  // Installed to the home screen: ask the browser to keep our stored data (once, quietly).
+  $effect(() => {
+    void askToKeepDataHere();
+  });
+
+  // The phone's offline bar lifts the toast and the page's end above the bottom tabs.
+  $effect(() => {
+    document.documentElement.toggleAttribute('data-offline', network.offline);
+    return () => document.documentElement.removeAttribute('data-offline');
+  });
 
   $effect(() => {
     // A session that ends (expired, or signed out elsewhere) leads back to sign in,
@@ -56,7 +82,10 @@
   <main id="main" tabindex="-1">
     {@render children()}
   </main>
-  <div class="tabbar-slot"><TabBar /></div>
+  <div class="tabbar-slot">
+    <ConnectionStatus layout="phone" />
+    <TabBar />
+  </div>
 </div>
 
 <!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
@@ -101,7 +130,8 @@
     }
     main {
       gap: 22px;
-      padding: 0 var(--space-8) calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 24px);
+      padding: 0 var(--space-8)
+        calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--offline-offset) + 24px);
     }
   }
 

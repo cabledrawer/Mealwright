@@ -144,10 +144,13 @@ export function subtitle(
   list: ListRow,
   toBuy: number,
   people: Person[] | null,
-  meId: number | null
+  meId: number | null,
+  offline = false
 ): string {
   if (!list.main) return `Extra list · ${toBuy} · ticked items still go to the pantry`;
   const count = `${toBuy} to buy`;
+  // PR 6 grows this to "· offline, saving on this phone" (spec section 6).
+  if (offline) return `${count} · offline`;
   if (!people) return count;
   const who = syncedWith(people, meId);
   return who ? `${count} · synced with ${who}` : `${count} · saved`;

@@ -15,6 +15,9 @@
   /* Grounds and surfaces */
   --color-ground: #f5f6f4; /* page background */
   --color-surface: #ffffff; /* cards */
+  --color-offline: #eef0ec; /* the offline bar */
+  --color-offline-dot: #8a938d;
+  --color-offline-action: #1f5c42; /* Try now */
   --color-chrome: #ffffff; /* sidebar and bottom tabs */
   --color-fill: #f1f3f0; /* search field, quiet buttons, theme picker track */
   --color-fill-strong: #e6e9e5; /* segmented control track (Settings) */
@@ -147,7 +150,13 @@
   --touch-target: 44px;
   --sidebar-width: 248px;
   --sidebar-collapsed-width: 72px;
+  --connection-bar-height: 48px; /* the phone's offline bar */
+  --offline-offset: 0px; /* how far the offline bar lifts things above the bottom tabs */
   --tabbar-height: 62px; /* plus the device's safe area at the bottom */
+}
+
+:root[data-offline] {
+  --offline-offset: var(--connection-bar-height);
 }
 
 :root[data-theme='dark'] {
@@ -155,6 +164,9 @@
 
   --color-ground: #111614;
   --color-surface: #1b221f;
+  --color-offline: #1e2622;
+  --color-offline-dot: #7e8a83;
+  --color-offline-action: #6fcf9e;
   --color-chrome: #161c19;
   --color-fill: #252e29;
   --color-fill-strong: #252e29;

@@ -19,6 +19,7 @@
   import RecentChanges from '$lib/components/RecentChanges.svelte';
   import { compactDateWords, dateWords } from '$lib/dates';
   import { kitchen } from '$lib/freshness.svelte';
+  import { live } from '$lib/live.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { PantryModel } from '$lib/pantry.svelte';
 
@@ -42,11 +43,23 @@
   let expanded = $state<Record<number, boolean>>({});
   const FIRST = 8;
 
-  // Fetch again after any change, a new filter, or coming back to the tab (no live
-  // updates until 0.3).
+  // Fetch again after any change, a new filter, or coming back to the tab (stock
+  // changes elsewhere arrive below).
   $effect(() => {
     void kitchen.version;
     void model.filter;
+    void model.load();
+  });
+
+  // Stock changed on another phone or window: fetch again. Only the lists on screen are
+  // replaced; an open editor or form keeps what was typed (it doesn't watch this).
+  let firstLive = true;
+  $effect(() => {
+    void live.pantry;
+    if (firstLive) {
+      firstLive = false;
+      return;
+    }
     void model.load();
   });
 

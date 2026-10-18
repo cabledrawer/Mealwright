@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api, detailOf, getMe, setUnauthorizedHandler } from './api';
+import { OFFLINE_AFTER_MS, network } from './network.svelte';
 
 afterEach(() => setUnauthorizedHandler(null));
 
@@ -118,5 +119,35 @@ describe('api for changes (0.2)', () => {
     expect(error.code).toBe('name_taken');
     expect(error.body).toEqual(answer);
     expect(error.detail).toBe(answer.detail);
+  });
+});
+
+describe('api and the connection bar', () => {
+  afterEach(() => {
+    network.reset();
+    vi.useRealTimers();
+  });
+
+  it('a network failure is a failure; any answer, even a refusal, is a success', async () => {
+    vi.useFakeTimers();
+    const down = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as typeof globalThis.fetch;
+    await expect(api('GET', '/version', undefined, { fetch: down })).rejects.toMatchObject({
+      status: 0
+    });
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    expect(network.offline).toBe(true);
+    // The server answers (even "no"): it is there.
+    await expect(
+      api('GET', '/version', undefined, { fetch: fakeFetch(403, { detail: 'No.' }).fetch })
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(network.offline).toBe(false);
+  });
+
+  it('gives every request a time limit', async () => {
+    const { fetch, calls } = fakeFetch(200, {});
+    await api('GET', '/version', undefined, { fetch });
+    expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
   });
 });
