@@ -8,6 +8,7 @@ from fastapi import status
 from sqlalchemy import select
 
 from mealwright import amounts
+from mealwright.aisles import DEFAULT_AISLE
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -42,7 +43,7 @@ from mealwright.conversions import (
     to_base_milli,
 )
 from mealwright.errors import Problem, not_found
-from mealwright.history import can_undo, undo_until
+from mealwright.history import FoodEdit, can_undo, undo_until
 from mealwright.household import cup_ml
 from mealwright.models import (
     Change,
@@ -181,6 +182,40 @@ def name_taken(name: str, food: Food) -> Problem:
         f"There's already an ingredient called {food.name}.",
         food_id=food.id,
     )
+
+
+def make_food(
+    kitchen: Kitchen,
+    name: str,
+    *,
+    counted_as: str | None = None,
+    staple: bool = False,
+    place_id: int | None = None,
+    shop_id: int | None = None,
+    aisle: str | None = None,
+) -> Change:
+    """Add an ingredient and record it in Recent changes (with Undo). How it's counted
+    defaults from the bundled table, else by weight. The caller has checked the place and
+    shop. A name another ingredient already has is a 409 `name_taken`."""
+    owner = name_owner(kitchen, name)
+    if owner is not None:
+        raise name_taken(name, owner)
+    row = table().match(name)
+    with FoodEdit(kitchen, []) as edit:
+        food = Food(
+            household_id=kitchen.household_id,
+            name=name,
+            counted_as=counted_as or (row.counted_as if row else "weight"),
+            staple=staple,
+            place_id=place_id,
+            shop_id=shop_id,
+            aisle=aisle or (row.aisle if row and row.aisle else DEFAULT_AISLE),
+            table_key=row.key if row else None,
+        )
+        kitchen.db.add(food)
+        kitchen.db.flush()
+        edit.also(food.id)
+    return edit.record("food_created", f"Added {food.name}", food.id)
 
 
 def refresh_table_key(kitchen: Kitchen, food: Food) -> None:

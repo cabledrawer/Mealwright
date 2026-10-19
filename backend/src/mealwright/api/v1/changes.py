@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import shopping
+from mealwright import recipes, shopping
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -35,7 +35,7 @@ from mealwright.history import (
     undo_merge_record,
     undo_until,
 )
-from mealwright.models import Change, ChangeLine, Food, StockLot, utcnow
+from mealwright.models import Change, ChangeLine, Food, Recipe, StockLot, utcnow
 from mealwright.stock import lots_of, place_totals
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
@@ -220,6 +220,7 @@ class UndoOut(BaseModel):
     food: FoodOut | None
     groups: list[GroupOut]  # the pantry groups touched, as they are now
     brought_back: list[Ref]  # removed ingredients this Undo returned to Ingredients
+    recipe: Ref | None = None  # the recipe this Undo brought back (0.4)
 
 
 def _plain(food: Food, milli: int) -> str:
@@ -290,6 +291,11 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
         for place_id in (line.place_before_id, line.place_after_id):
             if place_id is not None:
                 pairs.add((line.food_id, place_id))
+    recipe = None
+    if data.get("recipe_id") is not None:
+        back_recipe = kitchen.db.get(Recipe, data["recipe_id"])
+        if back_recipe is not None and back_recipe.household_id == kitchen.household_id:
+            recipe = Ref(id=back_recipe.id, name=back_recipe.name)
     revived = []
     for food_id in data.get("brought_back", []):
         back = kitchen.db.get(Food, food_id)
@@ -297,6 +303,7 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
             revived.append(Ref(id=back.id, name=back.name))
     return UndoOut(
         brought_back=revived,
+        recipe=recipe,
         result=result,
         message=data.get("message", UNDO_MESSAGES[result]),
         change=change_out(kitchen, undo),
@@ -420,7 +427,10 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise too_old()
         from mealwright.ticks import pantry_undo
 
-        undone = pantry_undo(kitchen, change, batch)
+        if change.kind == "recipe_removed":
+            undone = recipes.undo_removal(kitchen, change)
+        else:
+            undone = pantry_undo(kitchen, change, batch)
         batch.finish()
         earlier = commit(kitchen)
         if earlier is None:

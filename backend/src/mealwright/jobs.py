@@ -13,8 +13,9 @@ Every job is added in `scheduler()`, in one place:
   midnight, it runs when it wakes; at start-up, mealwright.logs puts aside a file from an
   earlier day.
 
-- **Removed ingredients** (spec section 6): just after start-up and then every hour,
-  ingredients removed longer ago than the undo window (7 days) are deleted for good.
+- **Removed ingredients and recipes** (spec section 6): just after start-up and then every
+  hour, ingredients and recipes removed longer ago than the undo window (7 days) are deleted
+  for good.
 
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
@@ -70,6 +71,7 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
     """Delete ingredients removed longer ago than the undo window. Runs straight after
     start-up and then every hour. Never raises."""
     from mealwright.history import purge_removed  # imported here: history needs the API
+    from mealwright.recipes import purge_removed_recipes
 
     now = now or datetime.now(UTC)
     with factory() as db:
@@ -83,6 +85,9 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 purged = purge_removed(db, household, now)
                 if purged:
                     log.info("Deleted %d removed ingredients for good", purged)
+                gone = purge_removed_recipes(db, household, now)
+                if gone:
+                    log.info("Deleted %d removed recipes for good", gone)
             except Exception:
                 db.rollback()
                 log.exception("Couldn't tidy removed ingredients (will try again within the hour)")
@@ -110,7 +115,7 @@ def scheduler(
         args=[factory],
         next_run_time=datetime.now(UTC),
         id="removed-ingredients",
-        name="Delete removed ingredients for good",
+        name="Delete removed ingredients and recipes for good",
     )
     if log_file is not None:
         jobs.add_job(

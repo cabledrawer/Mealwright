@@ -40,6 +40,8 @@ from mealwright.models import (
     ListItem,
     ListNote,
     ListTick,
+    Recipe,
+    RecipeLine,
     ShoppingList,
     StockLot,
     SyncAction,
@@ -181,6 +183,8 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
         "stand_ins": {},
         "conversions": {},
         "lots": {},
+        "recipe_lines": {},
+        "recipe_homes": {},
     }
     for food in db.scalars(select(Food).where(Food.id.in_(ids))):
         # One entry per field, so undoing one field never touches another.
@@ -206,6 +210,13 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
     # Which food each lot belongs to (a merge moves them); amounts are stock changes.
     for lot in db.scalars(select(StockLot).where(StockLot.food_id.in_(ids))):
         snap["lots"][str(lot.id)] = {"food_id": lot.food_id, "size_id": lot.size_id}
+    # The recipe lines that use these foods (a merge moves them, removing a food unlinks
+    # them; a line that has lost its food is no longer found here, so it shows as gone), and
+    # the recipes whose own pantry ingredient this is.
+    for line in db.scalars(select(RecipeLine).where(RecipeLine.food_id.in_(ids))):
+        snap["recipe_lines"][str(line.id)] = {"food_id": line.food_id, "size_id": line.size_id}
+    for recipe in db.scalars(select(Recipe).where(Recipe.homemade_food_id.in_(ids))):
+        snap["recipe_homes"][str(recipe.id)] = {"food_id": recipe.homemade_food_id}
     return snap
 
 
@@ -440,12 +451,43 @@ def _restore_lot(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bo
     return True
 
 
+def _line_as_left(kitchen: Kitchen, key: str, new: dict[str, Any] | None) -> bool:
+    """Is this recipe line still the way the change left it? Moved to the other ingredient
+    (a merge), or unlinked (an ingredient removed) and not linked to anything else since.
+    A line taken out of its recipe meanwhile is gone, so it can't be put back."""
+    line = kitchen.db.get(RecipeLine, int(key))
+    if line is None or line.household_id != kitchen.household_id:
+        return False
+    return line.food_id is None if new is None else line.food_id == new["food_id"]
+
+
+def _restore_recipe_line(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    """Put a recipe line back on its ingredient (and its size, if that still belongs to it)."""
+    line = kitchen.db.get(RecipeLine, int(key))
+    if line is None or value is None:
+        return value is None
+    line.food_id = value["food_id"]
+    size = kitchen.db.get(FoodSize, value["size_id"]) if value["size_id"] else None
+    line.size_id = size.id if size is not None and size.food_id == value["food_id"] else None
+    return True
+
+
+def _restore_recipe_home(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    recipe = kitchen.db.get(Recipe, int(key))
+    if recipe is None or recipe.household_id != kitchen.household_id or value is None:
+        return value is None
+    recipe.homemade_food_id = value["food_id"]
+    return True
+
+
 _RESTORE: dict[str, Callable[[Kitchen, str, Any], bool]] = {
     "names": _restore_name,
     "sizes": _restore_size,
     "stand_ins": _restore_stand_in,
     "conversions": _restore_conversion,
     "lots": _restore_lot,
+    "recipe_lines": _restore_recipe_line,
+    "recipe_homes": _restore_recipe_home,
 }
 
 
@@ -482,7 +524,16 @@ def undo_foods(
         if key.endswith(":exists") and old is None
     }
     # Foods first (a restored name or size may belong to a food that comes back).
-    for collection in ("fields", "names", "sizes", "stand_ins", "conversions", "lots"):
+    for collection in (
+        "fields",
+        "names",
+        "sizes",
+        "stand_ins",
+        "conversions",
+        "lots",
+        "recipe_lines",
+        "recipe_homes",
+    ):
         for key, (old, new) in sorted(changes.get(collection, {}).items()):
             if (
                 collection == "fields"
@@ -493,7 +544,9 @@ def undo_foods(
             now = current.get(collection, {}).get(key)
             if now == old:
                 continue  # already back the way it was
-            if now != new:
+            if now != new or (
+                collection == "recipe_lines" and not _line_as_left(kitchen, key, new)
+            ):
                 tally.skipped += 1
                 continue
             if collection == "fields":
@@ -846,6 +899,13 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         )
     )
     db.execute(delete(FoodConversion).where(FoodConversion.food_id.in_(ids)))
+    db.execute(update(RecipeLine).where(RecipeLine.food_id.in_(ids)).values(food_id=None))
+    db.execute(
+        update(RecipeLine)
+        .where(RecipeLine.size_id.in_(select(FoodSize.id).where(FoodSize.food_id.in_(ids))))
+        .values(size_id=None)
+    )
+    db.execute(update(Recipe).where(Recipe.homemade_food_id.in_(ids)).values(homemade_food_id=None))
     db.execute(delete(FoodSize).where(FoodSize.food_id.in_(ids)))
     db.execute(delete(FoodName).where(FoodName.food_id.in_(ids)))
     db.execute(

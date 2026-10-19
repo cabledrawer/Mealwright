@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
-from mealwright import amounts, shopping
+from mealwright import amounts, recipes, shopping
 from mealwright.aisles import AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
@@ -41,6 +41,7 @@ from mealwright.foods import (
     grams_per_cup_to_mg_per_ml,
     household_conversions,
     known,
+    make_food,
     name_owner,
     name_taken,
     other_names,
@@ -71,6 +72,8 @@ from mealwright.models import (
     FoodSize,
     FoodStandIn,
     Place,
+    Recipe,
+    RecipeLine,
     Shop,
     StockLot,
     utcnow,
@@ -157,6 +160,8 @@ class FoodOut(BaseModel):
     stock: AmountOut  # how much there is, in every place
     last_change: LastChange | None
     merged_from: Ref | None = None
+    used_in_recipes: int  # how many recipes have a line for it (0.4)
+    used_in: list[Ref]  # those recipes, A to Z
 
 
 class FoodWrite(BaseModel):
@@ -175,11 +180,13 @@ class FoodListItem(BaseModel):
     place: Ref | None
     stand_ins: list[Ref]
     maybe_same: list[MaybeSame]
+    used_in_recipes: int
 
 
 class FoodCounts(BaseModel):
     all: int
     staples: int
+    unused: int  # ingredients no recipe uses ("Not in any recipe")
     maybe_same: int  # foods with at least one match
     maybe_same_pairs: int  # pairs: what the "Maybe the same" chip counts
 
@@ -338,6 +345,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
     same = maybe_same(kitchen, foods, names_by_food(kitchen)).get(food.id, set())
     by_id = {f.id: f for f in foods}
     cup_weight, item_weight = _conversion(kitchen, food)
+    using = recipes.recipes_using(kitchen, food.id)
     last = db.scalar(
         select(Change)
         .where(
@@ -380,6 +388,8 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
             else None
         ),
         merged_from=Ref(id=merged_from.id, name=merged_from.name) if merged_from else None,
+        used_in_recipes=len(using),
+        used_in=using,
     )
 
 
@@ -433,12 +443,12 @@ def _shop(kitchen: Kitchen, shop_id: int) -> Shop:
 def list_foods(
     kitchen: Here,
     q: Annotated[str, Query(max_length=100)] = "",
-    filter: Literal["all", "staples", "maybe_same"] = "all",
+    filter: Literal["all", "staples", "maybe_same", "unused"] = "all",
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     after: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
 ) -> FoodList:
-    """Every food, searchable by any of its names. Filters: All · Staples · Maybe the same
-    ("Not in any recipe" arrives with recipes in 0.4)."""
+    """Every food, searchable by any of its names. Filters: All · Staples · Maybe the same ·
+    Not in any recipe (`unused`)."""
     foods = all_foods(kitchen)
     names = names_by_food(kitchen)
     same = maybe_same(kitchen, foods, names)
@@ -461,9 +471,11 @@ def list_foods(
         for p in kitchen.db.scalars(select(Place).where(Place.household_id == kitchen.household_id))
     }
     stocked = stocked_ids(kitchen)
+    in_recipes = recipes.recipe_counts(kitchen)
     counts = FoodCounts(
         all=len(foods),
         staples=sum(f.staple for f in foods),
+        unused=sum(f.id not in in_recipes for f in foods),
         maybe_same=len(same),
         maybe_same_pairs=len(
             {(min(a, b), max(a, b)) for a, others in same.items() for b in others}
@@ -476,6 +488,8 @@ def list_foods(
         if filter == "staples" and not food.staple:
             continue
         if filter == "maybe_same" and food.id not in same:
+            continue
+        if filter == "unused" and food.id in in_recipes:
             continue
         matched: str | None = None
         rank = 4
@@ -507,6 +521,7 @@ def list_foods(
                     key=lambda r: fold(r.name),
                 ),
                 maybe_same=same_out(food, same.get(food.id, set()), by_id, stocked),
+                used_in_recipes=in_recipes.get(food.id, 0),
             )
         )
     more = start + limit < len(scored)
@@ -559,29 +574,19 @@ def create_food(body: NewFood, kitchen: Here, response: Response) -> FoodWrite:
     """Add a food. How it's counted defaults from the bundled table, else by weight."""
 
     def apply() -> Change:
-        owner = name_owner(kitchen, body.name)
-        if owner is not None:
-            raise name_taken(body.name, owner)
         if body.place_id is not None:
             _place(kitchen, body.place_id)
         if body.shop_id is not None:
             _shop(kitchen, body.shop_id)
-        row = table().match(body.name)
-        with FoodEdit(kitchen, []) as edit:
-            food = Food(
-                household_id=kitchen.household_id,
-                name=body.name,
-                counted_as=body.counted_as or (row.counted_as if row else "weight"),
-                staple=body.staple,
-                place_id=body.place_id,
-                shop_id=body.shop_id,
-                aisle=body.aisle or (row.aisle if row and row.aisle else DEFAULT_AISLE),
-                table_key=row.key if row else None,
-            )
-            kitchen.db.add(food)
-            kitchen.db.flush()
-            edit.also(food.id)
-        return edit.record("food_created", f"Added {food.name}", food.id)
+        return make_food(
+            kitchen,
+            body.name,
+            counted_as=body.counted_as,
+            staple=body.staple,
+            place_id=body.place_id,
+            shop_id=body.shop_id,
+            aisle=body.aisle,
+        )
 
     return write(kitchen, response, apply)
 
@@ -805,8 +810,15 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
 
 
 def cannot_remove(kitchen: Kitchen, food: Food) -> str | None:
-    """Why this ingredient can't be removed, or None if nothing depends on it. The one
-    place to add what comes later: recipes (0.4)."""
+    """Why this ingredient can't be removed, or None if nothing depends on it. Recipe lines
+    don't count: they keep their words and say "not linked" (cabledrawer 19 Oct, question 30);
+    but a recipe's own made-ahead ingredient can't go while the recipe still says so."""
+    homemade = recipes.made_ahead_of(kitchen, food.id)
+    if homemade is not None:
+        return (
+            f"{food.name} is the made-ahead ingredient of {homemade.name}. "
+            "Turn off Made ahead on that recipe first."
+        )
     if has_stock(kitchen, food.id):
         return (
             f"{food.name} is still in the pantry. Use it up, or merge it with another ingredient."
@@ -830,6 +842,9 @@ def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
             raise Problem(status.HTTP_409_CONFLICT, "in_use", reason)
         with FoodEdit(kitchen, [food.id]) as edit:
             food.removed_at = utcnow()
+            # Recipe lines keep their words but are no longer linked ("not linked").
+            for line in kitchen.db.scalars(select(RecipeLine).where(RecipeLine.food_id == food.id)):
+                line.food_id = None
         return edit.record("food_removed", f"Removed {food.name} from Ingredients", food.id)
 
     return write(kitchen, response, apply)
@@ -1145,6 +1160,14 @@ def merge_foods(
         lot.food_id, lot.amount_milli = into.id, milli
         if lot.size_id in same_size:
             lot.size_id = same_size[lot.size_id]
+    # Recipe lines follow the ingredient (and its sizes), and so does a recipe's own pantry
+    # ingredient (cabledrawer 19 Oct, question 30).
+    for line in db.scalars(select(RecipeLine).where(RecipeLine.food_id == gone.id)):
+        line.food_id = into.id
+        if line.size_id in same_size:
+            line.size_id = same_size[line.size_id]
+    for recipe in db.scalars(select(Recipe).where(Recipe.homemade_food_id == gone.id)):
+        recipe.homemade_food_id = into.id
     db.flush()
     for size_id in same_size:
         twin_size = db.get(FoodSize, size_id)
@@ -1217,6 +1240,31 @@ class Split(BaseModel):
     other_name_id: int
 
 
+def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, back: Food) -> None:
+    """ "Made its own ingredient again" puts the recipe lines the merge moved back on it (and
+    the recipe whose own pantry ingredient it was). Which lines moved is in the merge's
+    change; lines that are no longer on the kept ingredient stay where they are."""
+    db = kitchen.db
+    merge_change = db.get(Change, merge_row.change_id) if merge_row.change_id else None
+    moved = ((merge_change.undo_data or {}).get("foods") or {}) if merge_change else {}
+    for key, (old, new) in moved.get("recipe_lines", {}).items():
+        if not (old and new and old["food_id"] == back.id and new["food_id"] == kept.id):
+            continue
+        line = db.get(RecipeLine, int(key))
+        if line is None or line.household_id != kitchen.household_id or line.food_id != kept.id:
+            continue
+        line.food_id = back.id
+        size = db.get(FoodSize, line.size_id) if line.size_id else None
+        if size is not None and size.food_id != back.id:
+            line.size_id = None  # its packets stay with the kept ingredient
+    for key, (old, new) in moved.get("recipe_homes", {}).items():
+        if not (old and new and old["food_id"] == back.id and new["food_id"] == kept.id):
+            continue
+        recipe = db.get(Recipe, int(key))
+        if recipe is not None and recipe.homemade_food_id == kept.id:
+            recipe.homemade_food_id = back.id
+
+
 @router.post("/foods/{food_id}/split", status_code=status.HTTP_201_CREATED)
 def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodWrite:
     """Turn one of a food's other names back into its own food."""
@@ -1254,6 +1302,7 @@ def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodW
                 new.removed_at = None
                 earlier.split_at = utcnow()
                 edit.extra["split_merge_id"] = earlier.id
+                _put_recipe_links_back(kitchen, earlier, food, revived)
             else:
                 new = Food(
                     household_id=kitchen.household_id,

@@ -92,7 +92,9 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         ),
         201,
     )
+    recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
     return {
+        "recipe_id": recipe["id"],
         "list_id": lists[0]["id"],
         "extra_list_id": extra["shopping_list"]["id"],
         "item_id": item["item"]["id"],
@@ -156,6 +158,10 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/shopping/lists/{list_id}/clear-ticked"): {},
     ("PATCH", "/api/v1/shopping/items/{item_id}"): {"amount": {"amount": 3, "unit": "g"}},
     ("DELETE", "/api/v1/shopping/items/{item_id}"): None,
+    ("GET", "/api/v1/recipes/{recipe_id}"): None,
+    ("PUT", "/api/v1/recipes/{recipe_id}"): {"name": "Mine now", "version": 1},
+    ("DELETE", "/api/v1/recipes/{recipe_id}"): None,
+    ("GET", "/api/v1/recipes/{recipe_id}/cannot-use"): None,
 }
 
 
