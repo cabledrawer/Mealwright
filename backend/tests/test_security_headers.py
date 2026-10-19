@@ -82,7 +82,7 @@ def test_no_store_is_only_for_the_api(client: TestClient) -> None:
 @pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/nope", "/no-such-page"])
 def test_https_mode_tells_browsers_to_use_only_https(client: TestClient, path: str) -> None:
     response = client.get(path)
-    # One year; nothing that reaches the household's other sites, never the preload list.
+    # One year; no includeSubDomains (other sub-domains are not affected), never the preload list.
     assert response.headers.get_list("strict-transport-security") == ["max-age=31536000"]
 
 

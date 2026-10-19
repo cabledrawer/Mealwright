@@ -60,11 +60,13 @@ PERMISSIONS_POLICY = ", ".join(
 
 
 # "Use only https for this address from now on", for a year (cabledrawer 19 Oct). No
-# includeSubDomains and no preload, so it can't affect the household's other sites on
-# the same domain. Never sent in plain-http mode (MEALWRIGHT_ALLOW_PLAIN_HTTP): a browser
-# that picked it up there (say through an https address in front) would then refuse the
-# http:// address the admin chose. Browsers ignore it on a plain http:// response
-# (RFC 6797 section 8.1), so in https mode it takes effect through the proxy's https.
+# includeSubDomains and no preload, so other sub-domains are not affected; another
+# plain-http service on the same host name (a different port) would be, because HSTS
+# covers the host name on every port (RFC 6797). Never sent in plain-http mode
+# (MEALWRIGHT_ALLOW_PLAIN_HTTP): a browser that picked it up there (say through an
+# https address in front) would then refuse the http:// address the admin chose.
+# Browsers ignore it on a plain http:// response (RFC 6797 section 8.1), so in https
+# mode it takes effect through the proxy's https.
 HSTS = "max-age=31536000"
 
 
