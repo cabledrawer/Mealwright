@@ -738,6 +738,7 @@ class RecipePhoto(Base):
     household, under `file_key`; photos are added by the photos pull request."""
 
     __tablename__ = "recipe_photo"
+    __table_args__ = ({"sqlite_autoincrement": True},)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(

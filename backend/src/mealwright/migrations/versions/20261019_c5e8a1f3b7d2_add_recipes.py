@@ -178,6 +178,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_recipe_photo")),
         sa.UniqueConstraint("recipe_id", name=op.f("uq_recipe_photo_recipe_id")),
+        sqlite_autoincrement=True,
     )
     with op.batch_alter_table("recipe_photo", schema=None) as batch_op:
         batch_op.create_index(

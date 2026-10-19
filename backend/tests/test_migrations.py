@@ -556,3 +556,15 @@ def test_recipe_rows_follow_their_household_and_the_database_keeps_the_rules(
         link = connection.exec_driver_sql("SELECT food_id FROM recipe_line").scalar_one()
     # The remaining line is household 2's, whose ingredient we deleted: unlinked, words kept.
     assert link is None
+
+
+def test_recipe_tables_never_reuse_an_id(tmp_path: Path) -> None:
+    """Like the other tables, so Undo can put a row back with its old id."""
+    engine = make_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    migrate.upgrade(engine)
+    with engine.connect() as connection:
+        for table in sorted(RECIPE_TABLES - {"recipe_tag"}):
+            sql = connection.exec_driver_sql(
+                "SELECT sql FROM sqlite_master WHERE name = ?", (table,)
+            ).scalar_one()
+            assert "AUTOINCREMENT" in sql, table
