@@ -105,7 +105,7 @@ Bringing a recipe back is refused with 409 `recipe_loop` (the same words as a sa
 
 ### 2.5 Retries
 
-Creating and saving a recipe also remember the request's `Idempotency-Key`, as every other write does (a quiet change of kind `recipe_created` or `recipe_saved`, which is not listed in Recent changes and can't be undone). A retried `POST /recipes` makes nothing more and answers `200` with the recipe and `Idempotent-Replayed: true`; a retried `PUT` answers `200` the same way, instead of a `recipe_changed` conflict with yourself. The same key for a different request is 409 `key_reused`.
+Creating and saving a recipe that carry an `Idempotency-Key` also remember it, as every other write does (a request with no key leaves nothing behind; a quiet change of kind `recipe_created` or `recipe_saved`, which is not listed in Recent changes and can't be undone). A retried `POST /recipes` makes nothing more and answers `200` with the recipe and `Idempotent-Replayed: true`; a retried `PUT` answers `200` the same way, instead of a `recipe_changed` conflict with yourself. The same key for a different request is 409 `key_reused`. Retrying a create after the recipe was deleted answers 404 `not_found`, because the answer is the recipe as it is now.
 
 ## 3. Ingredients that recipes use
 

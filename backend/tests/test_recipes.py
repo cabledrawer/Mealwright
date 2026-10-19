@@ -812,6 +812,26 @@ def test_saves_are_not_listed_in_recent_changes_and_cannot_be_undone(kitchen: Te
     assert response.status_code == 409 and response.json()["code"] == "cannot_undo"
 
 
+def test_without_a_key_nothing_is_remembered(kitchen: TestClient) -> None:
+    """The quiet record is only for retries: a request with no Idempotency-Key leaves none."""
+    recipe = make(kitchen)
+    ok(save(kitchen, recipe, name="Sambar 2"))
+    made = make(kitchen, "Dosa batter", made_ahead=True)
+    assert made["homemade"] is not None
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        kinds = sorted(c.kind for c in db.scalars(select(Change)))
+    assert kinds == ["food_created"]  # only the made-ahead ingredient, which Recent changes shows
+
+
+def test_a_retried_create_after_the_recipe_was_deleted_is_a_404(kitchen: TestClient) -> None:
+    headers = {"Idempotency-Key": "make-then-delete"}
+    first = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}, headers=headers), 201)
+    ok(kitchen.delete(f"{API}/recipes/{first['id']}"))
+    again = kitchen.post(f"{API}/recipes", json={"name": "Sambar"}, headers=headers)
+    assert again.status_code == 404 and again.json()["code"] == "not_found"
+    assert ok(kitchen.get(f"{API}/recipes"))["total"] == 0
+
+
 def test_bumping_versions_never_reaches_another_household(kitchen: TestClient) -> None:
     from mealwright.history import bump_recipes
 

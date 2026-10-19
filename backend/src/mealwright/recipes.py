@@ -301,14 +301,15 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
     # Remember the request's Idempotency-Key, the way every other write does, so a retry is
     # recognised. Only when there is one. First, so the made-ahead ingredient's own change
     # below carries no key.
-    kitchen.key_once = True
-    record(
-        kitchen,
-        "recipe_created" if creating else "recipe_saved",
-        f"Saved {recipe.name}",
-        None,
-        {"recipe_id": recipe.id},
-    )
+    if kitchen.idempotency_key is not None:
+        kitchen.key_once = True
+        record(
+            kitchen,
+            "recipe_created" if creating else "recipe_saved",
+            f"Saved {recipe.name}",
+            None,
+            {"recipe_id": recipe.id},
+        )
 
     _save_lines(kitchen, recipe, body, resolved)
     db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))
