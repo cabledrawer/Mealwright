@@ -29,7 +29,7 @@ const desktop = {
 export default defineConfig({
   testDir: './tests',
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
-  expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0 } },
+  expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0, threshold: 0 } },
   workers: 1,
   retries: 0,
   forbidOnly: true,
