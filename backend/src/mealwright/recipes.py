@@ -33,7 +33,7 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
-from mealwright.foods import make_food
+from mealwright.foods import make_food, name_owner, name_taken
 from mealwright.foods import visible as food_visible
 from mealwright.history import as_utc, bump_recipes, bump_recipes_by, record
 from mealwright.household import undo_window
@@ -429,6 +429,16 @@ def _save_made_ahead(kitchen: Kitchen, recipe: Recipe, body: RecipeIn) -> None:
     unit = body.makes.unit if body.makes else None
     counted = MADE_AHEAD_COUNTED.get(unit or "") or ("count" if unit else None)
     name = (body.homemade_name or recipe.name)[:100].strip()
+    # Made ahead off, then on again: the ingredient that was kept (with any pantry stock it
+    # still has) is linked back, as long as no other recipe has it as its own (cabledrawer 19
+    # Oct, R3). Otherwise a name another ingredient has is refused (`name_taken`).
+    kept = name_owner(kitchen, name)
+    if kept is not None:
+        holder = made_ahead_of(kitchen, kept.id)
+        if holder is not None and holder.id != recipe.id:
+            raise name_taken(name, kept)
+        recipe.homemade_food_id = kept.id
+        return
     change = make_food(kitchen, name, counted_as=counted)
     recipe.homemade_food_id = change.food_id
 

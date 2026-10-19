@@ -526,14 +526,22 @@ def test_save_mine_anyway_is_an_update_from_the_newer_version(kitchen: TestClien
 
 
 def test_save_mine_anyway_is_refused_if_a_third_save_came_in(kitchen: TestClient) -> None:
+    """cabledrawer 19 Oct, R4: a third person's save in between stops "Save mine anyway" again,
+    naming them, so nobody overwrites a version they haven't seen."""
     wren = person(kitchen)
+    arlo = person(kitchen, "Arlo", "arlo")
     recipe = make(kitchen)
     ok(save(wren, recipe, name="Wren's"))
     stopped = save(kitchen, recipe, name="Tess's").json()
-    again = ok(save(wren, {**recipe, "version": 2}, name="Wren again"))
+    again = ok(save(arlo, {**recipe, "version": 2}, name="Arlo's"))
     assert again["version"] == 3
     response = save(kitchen, recipe, name="Tess's", version=stopped["version"], overwrite=True)
-    assert response.status_code == 409 and response.json()["version"] == 3
+    assert response.status_code == 409
+    problem = response.json()
+    assert problem["code"] == "recipe_changed" and problem["version"] == 3
+    assert problem["detail"] == "Arlo changed this recipe after you opened it."
+    assert problem["changed_by"]["name"] == "Arlo"
+    assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["name"] == "Arlo's"
 
 
 def test_a_version_from_the_future_is_refused_too(kitchen: TestClient) -> None:
@@ -714,22 +722,60 @@ def test_made_ahead_off_unlinks_the_ingredient_and_keeps_it(kitchen: TestClient)
         assert db.get(Recipe, recipe["id"]).homemade_food_id is None  # type: ignore[union-attr]
 
 
-def test_made_ahead_on_again_needs_a_free_name(kitchen: TestClient) -> None:
-    recipe = make(kitchen, "Dosa batter", made_ahead=True)
-    off = ok(save(kitchen, recipe, made_ahead=False))
-    again = save(kitchen, off, made_ahead=True)
-    assert again.status_code == 409 and again.json()["code"] == "name_taken"
-    renamed = ok(save(kitchen, off, made_ahead=True, homemade_name="Dosa batter 2"))
-    assert renamed["homemade"]["name"] == "Dosa batter 2"
-
-
-def test_made_ahead_with_a_name_another_ingredient_has_is_refused_and_saves_nothing(
+def test_made_ahead_on_again_links_the_kept_ingredient_back_with_its_stock(
     kitchen: TestClient,
 ) -> None:
-    food(kitchen, "Dosa batter")
-    response = kitchen.post(f"{API}/recipes", json={"name": "Dosa batter", "made_ahead": True})
+    """cabledrawer 19 Oct, R3: off, then on again with the same name, relinks the ingredient
+    that was kept, pantry stock and all, instead of making a second one."""
+    recipe = make(kitchen, "Dosa batter", made_ahead=True, makes={"amount": 2, "unit": "l"})
+    food_id = recipe["homemade"]["id"]
+    ok(
+        kitchen.post(
+            f"{API}/stock", json={"food_id": food_id, "amount": {"amount": 1500, "unit": "ml"}}
+        ),
+        201,
+    )
+    off = ok(save(kitchen, recipe, made_ahead=False))
+    assert off["homemade"] is None
+    again = ok(save(kitchen, off, made_ahead=True))
+    assert again["made_ahead"] is True
+    assert again["homemade"] == {"id": food_id, "name": "Dosa batter"}
+    assert len(foods_named(kitchen, "Dosa batter")) == 1
+    assert ok(kitchen.get(f"{API}/foods/{food_id}"))["stock"]["amount"] == 1500
+
+
+def test_made_ahead_can_be_given_a_different_name_when_switched_on_again(
+    kitchen: TestClient,
+) -> None:
+    recipe = make(kitchen, "Dosa batter", made_ahead=True)
+    off = ok(save(kitchen, recipe, made_ahead=False))
+    renamed = ok(save(kitchen, off, made_ahead=True, homemade_name="Dosa batter 2"))
+    assert renamed["homemade"]["name"] == "Dosa batter 2"
+    assert len(foods_named(kitchen, "Dosa batter")) == 1  # the old one is still there
+
+
+def test_made_ahead_on_again_is_refused_when_another_recipe_holds_the_ingredient(
+    kitchen: TestClient,
+) -> None:
+    first = make(kitchen, "Dosa batter", made_ahead=True)
+    second = make(kitchen, "Batter 2")
+    response = save(kitchen, second, made_ahead=True, homemade_name="Dosa batter")
     assert response.status_code == 409 and response.json()["code"] == "name_taken"
-    assert ok(kitchen.get(f"{API}/recipes"))["total"] == 0
+    assert response.json()["food_id"] == first["homemade"]["id"]
+    assert ok(kitchen.get(f"{API}/recipes/{second['id']}"))["made_ahead"] is False
+    # And once the first lets it go, the second can have it.
+    ok(save(kitchen, first, made_ahead=False))
+    taken = ok(save(kitchen, second, made_ahead=True, homemade_name="Dosa batter"))
+    assert taken["homemade"]["id"] == first["homemade"]["id"]
+
+
+def test_an_ordinary_ingredient_with_that_name_is_linked_not_duplicated(
+    kitchen: TestClient,
+) -> None:
+    plain = food(kitchen, "Dosa batter")
+    recipe = make(kitchen, "Dosa batter", made_ahead=True)
+    assert recipe["homemade"]["id"] == plain["id"]
+    assert len(foods_named(kitchen, "Dosa batter")) == 1
 
 
 def test_a_long_recipe_name_gives_a_homemade_name_that_fits(kitchen: TestClient) -> None:

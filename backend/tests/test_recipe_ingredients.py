@@ -267,9 +267,13 @@ def test_an_ingredient_a_recipe_makes_itself_cannot_be_removed(kitchen: TestClie
     response = kitchen.delete(f"{API}/foods/{batter['homemade']['id']}")
     assert response.status_code == 409 and response.json()["code"] == "in_use"
     assert response.json()["detail"] == (
-        "Dosa batter is the made-ahead ingredient of Dosa batter. "
-        "Turn off Made ahead on that recipe first."
+        "Made by the recipe Dosa batter. Turn off Made ahead there to remove it."
     )
+    assert response.json()["recipe"] == {"id": batter["id"], "name": "Dosa batter"}
+    # The ingredient itself says which recipe makes it.
+    editor = ok(kitchen.get(f"{API}/foods/{batter['homemade']['id']}"))
+    assert editor["made_by"] == {"id": batter["id"], "name": "Dosa batter"}
+    assert ok(kitchen.get(f"{API}/foods/{food(kitchen, 'Salt')['id']}"))["made_by"] is None
     # Once Made ahead is off, it can go.
     ok(save(kitchen, batter, made_ahead=False))
     ok(kitchen.delete(f"{API}/foods/{batter['homemade']['id']}"))

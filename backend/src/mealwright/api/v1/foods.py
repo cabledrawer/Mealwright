@@ -3,7 +3,7 @@
 from collections import defaultdict
 from collections.abc import Callable
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
@@ -163,6 +163,8 @@ class FoodOut(BaseModel):
     merged_from: Ref | None = None
     used_in_recipes: int  # how many recipes have a line for it (0.4)
     used_in: list[Ref]  # those recipes, A to Z
+    # The recipe whose own made-ahead ingredient this is (so it can't be removed), if any.
+    made_by: Ref | None = None
 
 
 class FoodWrite(BaseModel):
@@ -347,6 +349,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
     by_id = {f.id: f for f in foods}
     cup_weight, item_weight = _conversion(kitchen, food)
     using = recipes.recipes_using(kitchen, food.id)
+    maker = recipes.made_ahead_of(kitchen, food.id)
     last = db.scalar(
         select(Change)
         .where(
@@ -391,6 +394,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         merged_from=Ref(id=merged_from.id, name=merged_from.name) if merged_from else None,
         used_in_recipes=len(using),
         used_in=using,
+        made_by=Ref(id=maker.id, name=maker.name) if maker else None,
     )
 
 
@@ -810,24 +814,27 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
     return result
 
 
-def cannot_remove(kitchen: Kitchen, food: Food) -> str | None:
-    """Why this ingredient can't be removed, or None if nothing depends on it. Recipe lines
-    don't count: they keep their words and say "not linked" (cabledrawer 19 Oct, question 30);
-    but a recipe's own made-ahead ingredient can't go while the recipe still says so."""
+def cannot_remove(kitchen: Kitchen, food: Food) -> tuple[str, dict[str, Any]] | None:
+    """Why this ingredient can't be removed (and anything the screen needs to say it), or
+    None if nothing depends on it. Recipe lines don't count: they keep their words and say
+    "not linked" (cabledrawer 19 Oct, question 30); but a recipe's own made-ahead ingredient
+    can't go while the recipe still says so (cabledrawer 19 Oct, R2)."""
     homemade = recipes.made_ahead_of(kitchen, food.id)
     if homemade is not None:
         return (
-            f"{food.name} is the made-ahead ingredient of {homemade.name}. "
-            "Turn off Made ahead on that recipe first."
+            f"Made by the recipe {homemade.name}. Turn off Made ahead there to remove it.",
+            {"recipe": {"id": homemade.id, "name": homemade.name}},
         )
     if has_stock(kitchen, food.id):
         return (
-            f"{food.name} is still in the pantry. Use it up, or merge it with another ingredient."
+            f"{food.name} is still in the pantry. Use it up, or merge it with another ingredient.",
+            {},
         )
     if removed_recently(kitchen, food.id):
         return (
             f"{food.name} is on a shopping list. Take it off the list first, "
-            "or merge it with another ingredient."
+            "or merge it with another ingredient.",
+            {},
         )
     return None
 
@@ -840,7 +847,7 @@ def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
         food = find(kitchen, food_id)
         reason = cannot_remove(kitchen, food)
         if reason is not None:
-            raise Problem(status.HTTP_409_CONFLICT, "in_use", reason)
+            raise Problem(status.HTTP_409_CONFLICT, "in_use", reason[0], **reason[1])
         with FoodEdit(kitchen, [food.id]) as edit:
             food.removed_at = utcnow()
             # Recipe lines keep their words but are no longer linked ("not linked").
