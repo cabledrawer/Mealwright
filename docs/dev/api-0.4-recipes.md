@@ -62,7 +62,7 @@ Ingredients (`/foods`) gain `used_in_recipes` (a count) and, on one ingredient, 
 }
 ```
 
-- **Limits.** Name 1 to 200 characters; description 200; source note 500; time 1 to 14,400 minutes; `serves` 1 to 99 or `null`; at most 200 lines (headings count), 100 steps (headings count), 5,000 characters in a step, 20 tags of up to 40 characters, a line's words and note up to 200 characters. Over a limit: the usual 422 list, whose `loc` says which box (`["body","lines",3,"amount"]`).
+- **Limits.** (Decided by cabledrawer: name 200, 200 lines, 100 steps, 5,000 characters a step, serves 1 to 99. The rest are proposed, waiting for cabledrawer: description 200, source note 500, time 14,400 minutes, 20 tags of up to 40 characters, a line's words and note 200.) Name 1 to 200 characters; description 200; source note 500; time 1 to 14,400 minutes; `serves` 1 to 99 or `null`; at most 200 lines (headings count), 100 steps (headings count), 5,000 characters in a step, 20 tags of up to 40 characters, a line's words and note up to 200 characters. Over a limit: the usual 422 list, whose `loc` says which box (`["body","lines",3,"amount"]`).
 - **Amounts.** A number, or text such as `"½"`, `"1½"`, `"1 1/2"`, `"1/2"`, `"1.5"`. Empty or `null` is no amount. Zero and negatives are refused.
 - **Units.** `g kg ml l tsp tbsp cup pinch` (also `grams`, `tablespoons`, …). No unit is a plain count ("10 shallots"). Or `size_id`: one of the linked ingredient's own sizes ("1 packet"), not together with a unit. A line linked to a recipe has no sizes. `makes.unit` is `g kg ml l` or a count word ("dosas").
 - **Lines.** `food_id` or `recipe_id`, never both. `words` may be empty when linked (it then starts as the name). A heading has only words. Send a line's `id` back to keep it as the same line (ingredient merges follow lines by id); leave it out for a new line. A line the body leaves out is removed. The same goes for tags: send the whole list.
@@ -99,11 +99,17 @@ Every save adds 1 to `version`. `PUT` must send the `version` the editor opened.
 
 ### 2.4 Delete and Undo
 
+Bringing a recipe back is refused with 409 `recipe_loop` (the same words as a save) if, while it was deleted, other recipes were changed so that it would now make a loop.
+
 `DELETE` hides the recipe at once. The answer's `change` has `can_undo` and `undo_until` (7 days, the household's undo window), and appears in Recent changes and for Ctrl+Z like any change. Undo (`POST /changes/{id}/undo`) brings the recipe back, and every line of other recipes that used it is linked again, because those lines never lost the link. After the window an hourly job deletes the recipe for good (with its lines, steps, tag links and photo record); lines of other recipes that used it then keep their words and show `link: "none"`. (The photos pull request must also delete the photo files at that point.) A retry of a delete with the same `Idempotency-Key` answers with the original change.
+
+### 2.5 Retries
+
+Creating and saving a recipe also remember the request's `Idempotency-Key`, as every other write does (a quiet change of kind `recipe_created` or `recipe_saved`, which is not listed in Recent changes and can't be undone). A retried `POST /recipes` makes nothing more and answers `200` with the recipe and `Idempotent-Replayed: true`; a retried `PUT` answers `200` the same way, instead of a `recipe_changed` conflict with yourself. The same key for a different request is 409 `key_reused`.
 
 ## 3. Ingredients that recipes use
 
 - **Merge** moves the recipe lines (and a recipe's made-ahead link) to the kept ingredient; a line's size follows if the ingredient's size was joined with a matching one. The line's words stay. Undo of the merge puts them back.
 - **"Made its own ingredient again"** (`/foods/{id}/split`) puts back the lines that the merge moved, as long as they are still on the kept ingredient. A line's packet size stays with the kept ingredient, so such a line loses its size.
 - **Remove** keeps every line's words and amount but unlinks it (`link: "none"`); Undo links it again, unless the line was linked to something else or taken out of the recipe since (the Undo then says it only partly worked).
-- Deleting a recipe, merging, removing and Undo of those do not change a recipe's `version`.
+- A merge, a split, removing an ingredient, deleting or bringing back a recipe that others use, Undo of those, and the daily deletion for good each add 1 to the `version` of every recipe whose links they change, marked as changed by whoever did it (`Mealwright` for the daily deletion). An editor that was open on such a recipe is stopped by the usual `recipe_changed` answer instead of writing old links back.
