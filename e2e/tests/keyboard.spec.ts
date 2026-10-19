@@ -50,11 +50,16 @@ async function tabThrough(page: Page, limit = 400): Promise<Stop[]> {
       // A ring is an outline, or a box-shadow (some controls draw theirs that way). Text boxes
       // draw it round the box that holds them (":focus-within"), so look up to three
       // levels out as well, but never as far as the page itself.
-      const hasRing = (node: Element) => {
-        const style = getComputedStyle(node);
-        const outline = style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0;
-        return outline || style.boxShadow !== 'none';
-      };
+      // Some rows draw theirs on a ::after that covers the whole row, so look there too (only
+      // at a pseudo-element that is really drawn, which has content).
+      const drawn = (style: CSSStyleDeclaration) =>
+        (style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0) || style.boxShadow !== 'none';
+      const hasRing = (node: Element) =>
+        drawn(getComputedStyle(node)) ||
+        (['::before', '::after'] as const).some((pseudo) => {
+          const style = getComputedStyle(node, pseudo);
+          return style.content !== 'none' && style.content !== 'normal' && drawn(style);
+        });
       let ring = hasRing(el);
       let up: Element | null = el.parentElement;
       for (let i = 0; i < 3 && !ring && up && up !== document.body && up.tagName !== 'MAIN'; i++) {
