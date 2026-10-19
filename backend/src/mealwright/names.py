@@ -68,16 +68,21 @@ def clean(name: str) -> str:
 
 # Characters that show nothing (or change how the text around them is drawn) are refused in
 # every name and in recipe text (security audit, 19 Oct): they can hide one name behind
-# another, or flip the order text is shown in. The two joiners stay, because Tamil,
-# Malayalam, Persian and emoji need them.
+# another, or flip the order text is shown in. Refused: control characters, the direction
+# marks, overrides and isolates (U+202A to 202E, U+2066 to 2069) and other invisible
+# format characters. Allowed: the two joiners, which Tamil, Malayalam and other Indian
+# scripts and emoji sequences need; the emoji tag characters (U+E0020 to E007F), which flag
+# emoji such as Scotland's are spelled with; and variation selectors (they are not format
+# characters).
 _JOINERS = {"\u200c", "\u200d"}
+_EMOJI_TAGS = range(0xE0020, 0xE0080)
 
 
 def has_hidden(value: str, newlines: bool = False) -> bool:
     """Does the text hold a tab, a line break (unless `newlines`), another control
     character, or an invisible formatting character?"""
     for char in value:
-        if char in _JOINERS or (newlines and char == "\n"):
+        if char in _JOINERS or ord(char) in _EMOJI_TAGS or (newlines and char == "\n"):
             continue
         if unicodedata.category(char) in ("Cc", "Cf", "Cs", "Zl", "Zp"):
             return True

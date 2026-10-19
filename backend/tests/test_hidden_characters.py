@@ -110,3 +110,33 @@ def test_old_names_still_read_fine(kitchen: TestClient) -> None:
     # Renaming it to something clean works; to something with a hidden character doesn't.
     refused(kitchen.patch(f"{API}/foods/{food['id']}", json={"name": "New\tname"}))
     assert ok(kitchen.patch(f"{API}/foods/{food['id']}", json={"name": "New name"}))["food"]
+
+
+# Written with chr() so the invisible ones can be seen in the code.
+ZWNJ, ZWJ, RLO = chr(0x200C), chr(0x200D), chr(0x202E)
+SCOTLAND = chr(0x1F3F4) + "".join(chr(0xE0000 + ord(c)) for c in "gbsct") + chr(0xE007F)
+FAMILY = chr(0x1F468) + ZWJ + chr(0x1F469) + ZWJ + chr(0x1F467) + ZWJ + chr(0x1F466)
+TAMIL_WITH_ZWNJ = "\u0b95\u0bcd" + ZWNJ + "\u0bb7"
+MALAYALAM_WITH_ZWJ = "\u0d28\u0d4d" + ZWJ + " \u0d15\u0d4d" + ZWJ
+HEART_AS_EMOJI = chr(0x2764) + chr(0xFE0F)  # a variation selector
+
+
+def test_words_that_need_joiners_and_emoji_sequences_are_fine() -> None:
+    for fine in [TAMIL_WITH_ZWNJ, MALAYALAM_WITH_ZWJ, FAMILY, SCOTLAND, HEART_AS_EMOJI]:
+        assert not has_hidden(fine), fine.encode("unicode_escape")
+        assert one_line(f"Dal {fine}") == f"Dal {fine}"
+        assert text_block(f"Mix {fine}\nthen serve") == f"Mix {fine}\nthen serve"
+
+
+def test_direction_overrides_and_isolates_are_refused_next_to_good_text() -> None:
+    for bad_char in [RLO, chr(0x202A), chr(0x202D), chr(0x2066), chr(0x2069), chr(0x200E)]:
+        for text in (f"Dal{bad_char}", f"{FAMILY}{bad_char}", f"{SCOTLAND}{bad_char}x"):
+            assert has_hidden(text), text.encode("unicode_escape")
+
+
+def test_good_words_work_in_real_names_and_a_flipped_name_does_not(kitchen: TestClient) -> None:
+    for name in [f"Kheer {FAMILY}", f"Haggis {SCOTLAND}", f"Dal {TAMIL_WITH_ZWNJ}"]:
+        ok(kitchen.post(f"{API}/foods", json={"name": name}), 201)
+        ok(kitchen.post(f"{API}/recipes", json={"name": name, "tags": [name[:30]]}), 201)
+    refused(kitchen.post(f"{API}/foods", json={"name": f"Dal {RLO}lad"}))
+    refused(kitchen.post(f"{API}/recipes", json={"name": f"Dal {RLO}lad"}))
