@@ -240,3 +240,24 @@ def test_a_recipe_deleted_for_good_leaves_the_words_and_no_link(kitchen: TestCli
         assert purge_removed_recipes(db, db.get(Household, 1)) == 1  # type: ignore[arg-type]
     line = current(kitchen, sambar)["lines"][0]
     assert line["words"] == "Sambar powder" and line["link"] == "none"
+
+
+def test_undo_of_a_delete_cannot_make_a_loop(kitchen: TestClient) -> None:
+    """A uses B, B uses C. B is deleted. C is then saved using A. Bringing B back would make
+    B -> C -> A -> B, so the Undo is refused, with the same words as a save."""
+    a, b, c = (make(kitchen, name) for name in ["Aa", "Bb", "Cc"])
+    ok(uses(kitchen, a, b))
+    ok(uses(kitchen, b, c))
+    removed = ok(kitchen.delete(f"{API}/recipes/{b['id']}"))["change"]
+    ok(uses(kitchen, c, a))  # nothing is in the way: Bb is deleted
+    response = kitchen.post(f"{API}/changes/{removed['id']}/undo")
+    assert response.status_code == 409, response.text
+    problem = response.json()
+    assert problem["code"] == "recipe_loop"
+    assert problem["detail"] == f"Bb {CANT} use Cc, because Cc uses Aa, which uses Bb."
+    assert problem["chain"] == ["Cc", "Aa", "Bb"] and problem["line"] == 0
+    # Nothing came back, and the change can still be undone once the loop is gone.
+    assert kitchen.get(f"{API}/recipes/{b['id']}").status_code == 404
+    ok(save(kitchen, current(kitchen, c), lines=[]))
+    ok(kitchen.post(f"{API}/changes/{removed['id']}/undo"))
+    assert kitchen.get(f"{API}/recipes/{b['id']}").status_code == 200

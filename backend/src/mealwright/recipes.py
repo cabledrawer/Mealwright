@@ -80,9 +80,11 @@ def live_recipes(kitchen: Kitchen) -> dict[int, Recipe]:
 # --- The loop guard (cabledrawer 19 Oct, questions 19 and 20) --------------------------------------
 
 
-def uses_graph(kitchen: Kitchen) -> dict[int, set[int]]:
-    """Which recipe uses which, among recipes that haven't been deleted."""
-    live = set(
+def uses_graph(kitchen: Kitchen, also_live: int | None = None) -> dict[int, set[int]]:
+    """Which recipe uses which, among recipes that haven't been deleted (and `also_live`,
+    a recipe about to be brought back by Undo)."""
+    live = {also_live} if also_live is not None else set()
+    live |= set(
         kitchen.db.scalars(
             select(Recipe.id).where(
                 Recipe.household_id == kitchen.household_id, Recipe.removed_at.is_(None)
@@ -160,12 +162,18 @@ def blocked_for(kitchen: Kitchen, recipe: Recipe) -> list[Blocked]:
     return sorted(blocked, key=lambda b: (b.id != recipe.id, fold(b.name)))
 
 
-def check_loops(kitchen: Kitchen, recipe: Recipe | None, picks: list[tuple[int, Recipe]]) -> None:
+def check_loops(
+    kitchen: Kitchen,
+    recipe: Recipe | None,
+    picks: list[tuple[int, Recipe]],
+    restoring: bool = False,
+) -> None:
     """Every save checks again, because someone may have changed the other recipe
-    meanwhile. `picks` is (line number, recipe used)."""
+    meanwhile. `picks` is (line number, recipe used). `restoring`: the recipe is deleted
+    and Undo is bringing it back, so it counts as there."""
     if recipe is None:  # a brand-new recipe has no one using it yet, and can't use itself
         return
-    graph = uses_graph(kitchen)
+    graph = uses_graph(kitchen, also_live=recipe.id if restoring else None)
     for index, used in picks:
         if used.id == recipe.id:
             raise Problem(
@@ -435,6 +443,18 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
     if recipe is None or recipe.household_id != kitchen.household_id:
         raise Problem(status.HTTP_410_GONE, "too_old", "That's too long ago to undo.")
+    # While it was deleted, recipes that use it (or ones it uses) may have been changed so
+    # that bringing it back would make a loop: the same check as a save, with the same words.
+    picks = []
+    for line in kitchen.db.scalars(
+        select(RecipeLine)
+        .where(RecipeLine.recipe_id == recipe.id, RecipeLine.sub_recipe_id.is_not(None))
+        .order_by(RecipeLine.position)
+    ):
+        used = kitchen.db.get(Recipe, line.sub_recipe_id or 0)
+        if used is not None and used.removed_at is None:
+            picks.append((line.position, used))
+    check_loops(kitchen, recipe, picks, restoring=True)
     recipe.removed_at = None
     undo = record(
         kitchen,
