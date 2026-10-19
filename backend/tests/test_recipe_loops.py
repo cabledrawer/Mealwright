@@ -261,3 +261,64 @@ def test_undo_of_a_delete_cannot_make_a_loop(kitchen: TestClient) -> None:
     ok(save(kitchen, current(kitchen, c), lines=[]))
     ok(kitchen.post(f"{API}/changes/{removed['id']}/undo"))
     assert kitchen.get(f"{API}/recipes/{b['id']}").status_code == 200
+
+
+def test_the_loop_check_is_fast_in_a_big_household(kitchen: TestClient) -> None:
+    """2,000 recipes, each using twenty earlier ones. The picker's list and a save both look
+    at the whole web of recipes while the household's write lock is held, so they must be
+    quick: one search, not one per recipe."""
+    import random
+    import time
+
+    from mealwright.models import Recipe, RecipeLine, utcnow
+
+    rng = random.Random(7)  # noqa: S311 (a test graph, not a secret)
+    count = 2000
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        now = utcnow()
+        for i in range(1, count + 2):
+            db.add(
+                Recipe(
+                    id=i,
+                    household_id=1,
+                    name=f"Recipe {i:04d}",
+                    version=1,
+                    created_at=now,
+                    updated_at=now,
+                    updated_by_name="Tess",
+                )
+            )
+        db.flush()
+        for i in range(2, count + 1):
+            for sub in rng.sample(range(1, i), min(20, i - 1)):
+                db.add(
+                    RecipeLine(
+                        household_id=1,
+                        recipe_id=i,
+                        position=0,
+                        kind="ingredient",
+                        words="x",
+                        sub_recipe_id=sub,
+                    )
+                )
+        db.commit()
+    lonely = count + 1  # nobody uses it: only itself is blocked
+    started = time.perf_counter()
+    blocked = ok(kitchen.get(f"{API}/recipes/{lonely}/cannot-use"))["recipes"]
+    assert [b["name"] for b in blocked] == [f"Recipe {lonely:04d}"]
+    assert time.perf_counter() - started < 1.0
+    # A recipe nearly everything reaches: lots of reasons, each from the same search.
+    started = time.perf_counter()
+    blocked = ok(kitchen.get(f"{API}/recipes/3/cannot-use"))["recipes"]
+    assert time.perf_counter() - started < 1.0
+    assert len(blocked) > 1000
+    by_id = {b["id"]: b for b in blocked}
+    middle = by_id[count]
+    assert middle["reason"].startswith(f"Recipe 0003 {CANT} use Recipe {count:04d}, because ")
+    assert middle["chain"][0] == f"Recipe {count:04d}" and middle["chain"][-1] == "Recipe 0003"
+    # A save that picks a recipe is checked against the same web, also quickly.
+    mine = ok(kitchen.get(f"{API}/recipes/{lonely}"))
+    started = time.perf_counter()
+    saved = save(kitchen, mine, lines=[{"words": "x", "recipe_id": i} for i in (10, 20, 30)])
+    assert saved.status_code == 200, saved.text
+    assert time.perf_counter() - started < 1.0

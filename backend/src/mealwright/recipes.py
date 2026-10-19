@@ -103,24 +103,30 @@ def uses_graph(kitchen: Kitchen, also_live: int | None = None) -> dict[int, set[
     return graph
 
 
-def path_between(graph: dict[int, set[int]], start: int, goal: int) -> list[int] | None:
-    """The shortest chain of "uses" from `start` to `goal` ([start, …, goal]), or None."""
-    parent: dict[int, int | None] = {start: None}
-    queue = deque([start])
+def reaching(graph: dict[int, set[int]], target: int) -> dict[int, int]:
+    """One search backwards from `target`: every recipe that uses it, directly or through
+    others, with the next recipe on its shortest chain towards it. Following the links from
+    a recipe gives its chain: [recipe, next, …, target]."""
+    used_by: dict[int, list[int]] = {}
+    for user, used in graph.items():
+        for sub in used:
+            used_by.setdefault(sub, []).append(user)
+    toward: dict[int, int] = {}
+    queue = deque([target])
     while queue:
         here = queue.popleft()
-        if here == goal:
-            chain = []
-            step: int | None = here
-            while step is not None:
-                chain.append(step)
-                step = parent[step]
-            return chain[::-1]
-        for nxt in sorted(graph.get(here, ())):
-            if nxt not in parent:
-                parent[nxt] = here
-                queue.append(nxt)
-    return None
+        for user in sorted(used_by.get(here, ())):
+            if user != target and user not in toward:
+                toward[user] = here
+                queue.append(user)
+    return toward
+
+
+def chain_from(toward: dict[int, int], start: int, target: int) -> list[int]:
+    chain = [start]
+    while chain[-1] != target:
+        chain.append(toward[chain[-1]])
+    return chain
 
 
 def loop_sentence(names: list[str]) -> str:
@@ -135,7 +141,7 @@ def loop_sentence(names: list[str]) -> str:
 def blocked_for(kitchen: Kitchen, recipe: Recipe) -> list[Blocked]:
     """The recipes this recipe can't use, and why: itself, and every recipe that already
     uses it (directly or through others)."""
-    graph = uses_graph(kitchen)
+    toward = reaching(uses_graph(kitchen), recipe.id)
     names = {rid: r.name for rid, r in live_recipes(kitchen).items()}
     blocked = [
         Blocked(
@@ -145,20 +151,16 @@ def blocked_for(kitchen: Kitchen, recipe: Recipe) -> list[Blocked]:
             chain=[recipe.name],
         )
     ]
-    for other_id in names:
-        if other_id == recipe.id:
-            continue
-        chain = path_between(graph, other_id, recipe.id)
-        if chain is not None:
-            words = [names[i] for i in chain]
-            blocked.append(
-                Blocked(
-                    id=other_id,
-                    name=names[other_id],
-                    reason=loop_sentence(words),
-                    chain=words,
-                )
+    for other_id in toward:
+        words = [names.get(i, "") for i in chain_from(toward, other_id, recipe.id)]
+        blocked.append(
+            Blocked(
+                id=other_id,
+                name=names[other_id],
+                reason=loop_sentence(words),
+                chain=words,
             )
+        )
     return sorted(blocked, key=lambda b: (b.id != recipe.id, fold(b.name)))
 
 
@@ -173,7 +175,7 @@ def check_loops(
     and Undo is bringing it back, so it counts as there."""
     if recipe is None:  # a brand-new recipe has no one using it yet, and can't use itself
         return
-    graph = uses_graph(kitchen, also_live=recipe.id if restoring else None)
+    toward = reaching(uses_graph(kitchen, also_live=recipe.id if restoring else None), recipe.id)
     for index, used in picks:
         if used.id == recipe.id:
             raise Problem(
@@ -183,11 +185,9 @@ def check_loops(
                 line=index,
                 recipe_id=used.id,
             )
-        chain = path_between(graph, used.id, recipe.id)
-        if chain is not None:
-            names = [
-                (kitchen.db.get(Recipe, i) or used).name for i in chain
-            ]  # used … recipe (its stored name)
+        if used.id in toward:
+            chain = chain_from(toward, used.id, recipe.id)
+            names = [(kitchen.db.get(Recipe, i) or used).name for i in chain]
             raise Problem(
                 status.HTTP_409_CONFLICT,
                 "recipe_loop",
