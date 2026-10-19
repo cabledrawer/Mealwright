@@ -66,10 +66,56 @@ def clean(name: str) -> str:
     return " ".join(name.split())
 
 
+# Characters that show nothing (or change how the text around them is drawn) are refused in
+# every name and in recipe text (security audit, 19 Oct): they can hide one name behind
+# another, or flip the order text is shown in. The two joiners stay, because Tamil,
+# Malayalam, Persian and emoji need them.
+_JOINERS = {"\u200c", "\u200d"}
+
+
+def has_hidden(value: str, newlines: bool = False) -> bool:
+    """Does the text hold a tab, a line break (unless `newlines`), another control
+    character, or an invisible formatting character?"""
+    for char in value:
+        if char in _JOINERS or (newlines and char == "\n"):
+            continue
+        if unicodedata.category(char) in ("Cc", "Cf", "Cs", "Zl", "Zp"):
+            return True
+    return False
+
+
+HIDDEN_ONE_LINE = "That has a tab, a line break or a hidden character in it. Take it out."
+HIDDEN_TEXT = "That has a hidden character in it. Take it out."
+
+
+def one_line(value: str) -> str:
+    """The shared check for a one-line field (a name, a tag, a note): refused if it has a
+    tab, a line break or any hidden character. Raises ValueError, which the API turns into
+    a 422 with this sentence. The text is returned unchanged."""
+    if has_hidden(value):
+        raise ValueError(HIDDEN_ONE_LINE)
+    return value
+
+
+def text_block(value: str) -> str:
+    """The shared check for text that may run over several lines (a method step): line
+    breaks are fine (a Windows line break becomes a plain one), other hidden characters
+    are refused."""
+    value = value.replace("\r\n", "\n")
+    if has_hidden(value, newlines=True):
+        raise ValueError(HIDDEN_TEXT)
+    return value
+
+
+def clean_name(value: str) -> str:
+    """`one_line`, then `clean`: for every name someone types."""
+    return clean(one_line(value))
+
+
 def size_name(value: str) -> str:
     """A name for a way a food is sold ("packet", "tub", "dozen"): tidied, and with letters
     in it, so "1" can't become "1 1" in the pantry."""
-    value = clean(value)
+    value = clean_name(value)
     if not any(c.isalpha() for c in value):
         raise ValueError("Give the size a name, like tub or packet.")
     return value

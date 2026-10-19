@@ -29,7 +29,7 @@ from mealwright.errors import Problem
 from mealwright.foods import amount_out, change_out, find, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
-from mealwright.names import clean, fold
+from mealwright.names import clean_name, fold
 from mealwright.shopping import Act
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
@@ -297,7 +297,7 @@ class NewList(BaseModel):
     id: UUID | None = None  # a phone-made ID, if the phone is making the list
     name: ListName
 
-    _clean = field_validator("name")(lambda value: clean(value) or _blank())
+    _clean = field_validator("name")(lambda value: clean_name(value) or _blank())
 
 
 def _blank() -> str:
@@ -307,7 +307,7 @@ def _blank() -> str:
 class RenameList(BaseModel):
     name: ListName
 
-    _clean = field_validator("name")(lambda value: clean(value) or _blank())
+    _clean = field_validator("name")(lambda value: clean_name(value) or _blank())
 
 
 @router.post("/shopping/lists", status_code=status.HTTP_201_CREATED)

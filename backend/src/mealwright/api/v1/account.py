@@ -27,6 +27,7 @@ from mealwright.auth import (
 )
 from mealwright.household import add_default_places
 from mealwright.models import Household, Login
+from mealwright.names import one_line
 from mealwright.shopping import ensure_main_list
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
@@ -80,7 +81,7 @@ class SetupIn(BaseModel):
     @field_validator("name")
     @classmethod
     def _name(cls, value: str) -> str:
-        value = value.strip()
+        value = one_line(value).strip()
         if not value:
             raise ValueError("Please enter your name.")
         return value

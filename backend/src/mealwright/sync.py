@@ -31,7 +31,7 @@ from mealwright.errors import Problem
 from mealwright.history import as_utc
 from mealwright.household import undo_window
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
-from mealwright.names import clean, size_name
+from mealwright.names import clean_name, size_name
 from mealwright.shopping import Act, Batch, Refused
 
 KEY_REUSED = "That change ID was already used for something else."
@@ -53,7 +53,7 @@ ListName = Annotated[str, Field(min_length=1, max_length=60)]
 
 
 def _name(value: str) -> str:
-    cleaned = clean(value)
+    cleaned = clean_name(value)
     if not cleaned:
         raise ValueError("Please type a name.")
     return cleaned

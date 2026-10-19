@@ -75,7 +75,7 @@ from mealwright.models import (
     StockLot,
     utcnow,
 )
-from mealwright.names import clean, fold, normalise, search_match, size_name
+from mealwright.names import clean, clean_name, fold, normalise, one_line, search_match, size_name
 from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
 
@@ -98,7 +98,7 @@ AisleName = Literal[
 
 
 def _name(value: str) -> str:
-    value = clean(value)
+    value = clean_name(value)
     if not value:
         raise ValueError("Please type a name.")
     return value
@@ -600,6 +600,16 @@ class FoodPatch(BaseModel):
     cup_weight: CupGrams | None = None  # grams in one household cup
     item_weight: ItemGrams | None = None  # grams in one item
     answers: list[Answer] = Field(default_factory=list, max_length=5)
+
+    @field_validator("name")
+    @classmethod
+    def _checked_name(cls, value: str | None) -> str | None:
+        return _name(value) if value is not None else None
+
+    @field_validator("count_word")
+    @classmethod
+    def _checked_word(cls, value: str | None) -> str | None:
+        return one_line(value) if value is not None else None
 
 
 FIELD_NAMES = (

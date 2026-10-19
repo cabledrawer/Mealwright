@@ -16,7 +16,7 @@ from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, replayed
 from mealwright.household import cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Shop
-from mealwright.names import clean, fold
+from mealwright.names import clean_name, fold
 
 router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
 
@@ -55,7 +55,7 @@ class NewShop(BaseModel):
     @field_validator("name")
     @classmethod
     def _clean(cls, value: str) -> str:
-        value = clean(value)
+        value = clean_name(value)
         if not value:
             raise ValueError("Please type the shop's name.")
         return value
