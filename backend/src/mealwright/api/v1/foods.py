@@ -57,6 +57,7 @@ from mealwright.foods import (
 )
 from mealwright.history import (
     FoodEdit,
+    bump_recipes_by,
     can_undo,
     commit,
     fix_usual_sizes,
@@ -843,8 +844,12 @@ def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
         with FoodEdit(kitchen, [food.id]) as edit:
             food.removed_at = utcnow()
             # Recipe lines keep their words but are no longer linked ("not linked").
-            for line in kitchen.db.scalars(select(RecipeLine).where(RecipeLine.food_id == food.id)):
+            unlinked = list(
+                kitchen.db.scalars(select(RecipeLine).where(RecipeLine.food_id == food.id))
+            )
+            for line in unlinked:
                 line.food_id = None
+            bump_recipes_by(kitchen, {line.recipe_id for line in unlinked})
         return edit.record("food_removed", f"Removed {food.name} from Ingredients", food.id)
 
     return write(kitchen, response, apply)
@@ -1162,12 +1167,16 @@ def merge_foods(
             lot.size_id = same_size[lot.size_id]
     # Recipe lines follow the ingredient (and its sizes), and so does a recipe's own pantry
     # ingredient (cabledrawer 19 Oct, question 30).
+    changed: set[int] = set()
     for line in db.scalars(select(RecipeLine).where(RecipeLine.food_id == gone.id)):
         line.food_id = into.id
+        changed.add(line.recipe_id)
         if line.size_id in same_size:
             line.size_id = same_size[line.size_id]
     for recipe in db.scalars(select(Recipe).where(Recipe.homemade_food_id == gone.id)):
         recipe.homemade_food_id = into.id
+        changed.add(recipe.id)
+    bump_recipes_by(kitchen, changed)
     db.flush()
     for size_id in same_size:
         twin_size = db.get(FoodSize, size_id)
@@ -1254,6 +1263,7 @@ def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, b
         if line is None or line.household_id != kitchen.household_id or line.food_id != kept.id:
             continue
         line.food_id = back.id
+        bump_recipes_by(kitchen, [line.recipe_id])
         size = db.get(FoodSize, line.size_id) if line.size_id else None
         if size is not None and size.food_id != back.id:
             line.size_id = None  # its packets stay with the kept ingredient
@@ -1263,6 +1273,7 @@ def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, b
         recipe = db.get(Recipe, int(key))
         if recipe is not None and recipe.homemade_food_id == kept.id:
             recipe.homemade_food_id = back.id
+            bump_recipes_by(kitchen, [recipe.id])
 
 
 @router.post("/foods/{food_id}/split", status_code=status.HTTP_201_CREATED)

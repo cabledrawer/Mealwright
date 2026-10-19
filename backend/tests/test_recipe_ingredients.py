@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sync_kit import ok
+from sync_kit import ok, person
 from test_recipes import food, make, save
 
 from mealwright.models import Food, Household, RecipeLine, utcnow
@@ -98,7 +98,7 @@ def test_merging_moves_the_recipe_lines_to_the_kept_ingredient(kitchen: TestClie
     ]
     after = current(kitchen, sambar)
     assert [line["id"] for line in after["lines"]] == [line["id"] for line in before["lines"]]
-    assert after["version"] == before["version"]  # a merge is not an edit of the recipe
+    assert after["version"] == before["version"] + 1  # see "Links changed behind the editor"
     assert ok(kitchen.get(f"{API}/foods/{toor['id']}"))["used_in_recipes"] == 1
 
 
@@ -202,7 +202,7 @@ def test_removing_keeps_the_words_and_unlinks_the_lines(kitchen: TestClient) -> 
     ]
     line = current(kitchen, sambar)["lines"][0]
     assert (line["amount"], line["unit"]) == (200, "g")  # the amount stays
-    assert current(kitchen, sambar)["version"] == version
+    assert current(kitchen, sambar)["version"] == version + 1
 
 
 def test_removing_can_be_undone_and_the_lines_are_linked_again(kitchen: TestClient) -> None:
@@ -299,3 +299,89 @@ def test_a_merged_away_id_still_links_to_the_ingredient_it_went_into(kitchen: Te
         )
     )
     assert saved["lines"][0]["food"]["name"] == "Toor dal"
+
+
+# --- Links changed behind the editor ------------------------------------------------------------
+
+
+def test_a_merge_stops_an_editor_that_was_open_on_the_recipe(kitchen: TestClient) -> None:
+    """Tess opens Sambar. Wren merges two dals. Tess's save would write the old
+    links back, so it is stopped and says it was Wren."""
+    wren = person(kitchen)
+    toor, arhar, sambar = two_dals(kitchen)
+    opened = current(kitchen, sambar)  # Tess's editor holds this version
+    ok(wren.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    stopped = save(kitchen, opened, name="Sambar 2")
+    assert stopped.status_code == 409, stopped.text
+    problem = stopped.json()
+    assert problem["code"] == "recipe_changed"
+    assert problem["detail"] == "Wren changed this recipe after you opened it."
+    assert problem["version"] == opened["version"] + 1
+    assert links(kitchen, sambar)[1] == ("arhar", "Toor dal", "ingredient")  # the merge stands
+
+
+def test_removing_splitting_undoing_and_deleting_also_move_the_version(kitchen: TestClient) -> None:
+    toor, arhar, sambar = two_dals(kitchen)
+    powder = make(kitchen, "Sambar powder")
+    ok(
+        save(
+            kitchen,
+            current(kitchen, sambar),
+            lines=[
+                {"id": line["id"], "words": line["words"], "food_id": line["food"]["id"]}
+                for line in current(kitchen, sambar)["lines"]
+                if line["food"]
+            ]
+            + [{"words": "powder", "recipe_id": powder["id"]}],
+        )
+    )
+    version = current(kitchen, sambar)["version"]
+
+    def bumped() -> bool:
+        nonlocal version
+        now = current(kitchen, sambar)["version"]
+        moved, version = now > version, now
+        return moved
+
+    merged = ok(kitchen.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    assert bumped()
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert bumped()  # undoing the merge moves the lines again
+    removed = ok(kitchen.delete(f"{API}/foods/{arhar['id']}"))
+    assert bumped()
+    ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
+    assert bumped()
+    gone = ok(kitchen.delete(f"{API}/recipes/{powder['id']}"))["change"]
+    assert bumped()  # its line now says "recipe removed"
+    ok(kitchen.post(f"{API}/changes/{gone['id']}/undo"))
+    assert bumped()
+    # Splitting: merge, then make it its own ingredient again.
+    ok(kitchen.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    assert bumped()
+    name_id = ok(kitchen.get(f"{API}/foods/{toor['id']}"))["other_names"][0]["id"]
+    ok(kitchen.post(f"{API}/foods/{toor['id']}/split", json={"other_name_id": name_id}), 201)
+    assert bumped()
+    # A recipe that doesn't use any of them is left alone.
+    other = make(kitchen, "Plain rice")
+    ok(kitchen.delete(f"{API}/foods/{toor['id']}"))
+    assert current(kitchen, other)["version"] == 1
+
+
+def test_a_recipe_deleted_for_good_moves_the_version_of_the_recipes_that_used_it(
+    kitchen: TestClient,
+) -> None:
+    from mealwright.recipes import purge_removed_recipes
+
+    powder = make(kitchen, "Sambar powder")
+    sambar = make(kitchen, "Sambar", lines=[{"words": "powder", "recipe_id": powder["id"]}])
+    ok(kitchen.delete(f"{API}/recipes/{powder['id']}"))
+    version = current(kitchen, sambar)["version"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        from mealwright.models import Recipe
+
+        db.get(Recipe, powder["id"]).removed_at = utcnow() - timedelta(days=8)  # type: ignore[union-attr]
+        db.commit()
+        assert purge_removed_recipes(db, db.get(Household, 1)) == 1  # type: ignore[arg-type]
+    now = current(kitchen, sambar)
+    assert now["version"] == version + 1 and now["lines"][0]["link"] == "none"
+    assert save(kitchen, {**now, "version": version}).status_code == 409

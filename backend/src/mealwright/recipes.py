@@ -35,7 +35,7 @@ from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
 from mealwright.foods import make_food
 from mealwright.foods import visible as food_visible
-from mealwright.history import as_utc, record
+from mealwright.history import as_utc, bump_recipes, bump_recipes_by, record
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -434,10 +434,22 @@ def _save_made_ahead(kitchen: Kitchen, recipe: Recipe, body: RecipeIn) -> None:
 # --- Deleting and Undo ------------------------------------------------------------------------
 
 
+def _users_of(kitchen: Kitchen, recipe_id: int) -> set[int]:
+    """The other recipes with a line that uses this one."""
+    return {
+        rid
+        for rid in kitchen.db.scalars(
+            select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id == recipe_id)
+        )
+        if rid != recipe_id
+    }
+
+
 def remove(kitchen: Kitchen, recipe: Recipe) -> Change:
     """Delete a recipe: hidden at once, gone for good after the undo window. Lines of other
     recipes that use it keep their words and say "recipe removed"."""
     recipe.removed_at = utcnow()
+    bump_recipes_by(kitchen, _users_of(kitchen, recipe.id))
     return record(
         kitchen,
         "recipe_removed",
@@ -467,6 +479,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
             picks.append((line.position, used))
     check_loops(kitchen, recipe, picks, restoring=True)
     recipe.removed_at = None
+    bump_recipes_by(kitchen, _users_of(kitchen, recipe.id))
     undo = record(
         kitchen,
         "undo",
@@ -509,6 +522,10 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     if not ids:
         db.commit()
         return 0
+    users = set(
+        db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id.in_(ids)))
+    ) - set(ids)
+    bump_recipes(db, users, None, "Mealwright")
     db.execute(
         update(RecipeLine).where(RecipeLine.sub_recipe_id.in_(ids)).values(sub_recipe_id=None)
     )

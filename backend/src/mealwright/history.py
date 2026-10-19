@@ -151,6 +151,32 @@ def can_undo(kitchen: Kitchen, change: Change) -> bool:
     )
 
 
+# --- Recipes changed behind the editor's back ---------------------------------------------------
+
+
+def bump_recipes(db: DbSession, recipe_ids: Iterable[int], login_id: int | None, name: str) -> None:
+    """A merge, a removal, a delete or an Undo changed some recipes' links without anyone
+    editing them: each gets the next version, and is marked as changed by whoever did it, so
+    an editor that was open on one is stopped ("Wren changed this recipe after you opened
+    it") instead of saving the old links back."""
+    ids = set(recipe_ids)
+    if ids:
+        db.execute(
+            update(Recipe)
+            .where(Recipe.id.in_(ids))
+            .values(
+                version=Recipe.version + 1,
+                updated_at=utcnow(),
+                updated_by_login_id=login_id,
+                updated_by_name=name,
+            )
+        )
+
+
+def bump_recipes_by(kitchen: Kitchen, recipe_ids: Iterable[int]) -> None:
+    bump_recipes(kitchen.db, recipe_ids, kitchen.login.id, kitchen.login.name)
+
+
 # --- Food snapshots ---------------------------------------------------------------------------
 
 FIELDS = (
@@ -475,6 +501,7 @@ def _restore_recipe_line(kitchen: Kitchen, key: str, value: dict[str, Any] | Non
     line.food_id = value["food_id"]
     size = kitchen.db.get(FoodSize, value["size_id"]) if value["size_id"] else None
     line.size_id = size.id if size is not None and size.food_id == value["food_id"] else None
+    bump_recipes_by(kitchen, [line.recipe_id])
     return True
 
 
@@ -483,6 +510,7 @@ def _restore_recipe_home(kitchen: Kitchen, key: str, value: dict[str, Any] | Non
     if recipe is None or recipe.household_id != kitchen.household_id or value is None:
         return value is None
     recipe.homemade_food_id = value["food_id"]
+    bump_recipes_by(kitchen, [recipe.id])
     return True
 
 
@@ -905,6 +933,9 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
         )
     )
     db.execute(delete(FoodConversion).where(FoodConversion.food_id.in_(ids)))
+    behind = set(db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.food_id.in_(ids))))
+    behind |= set(db.scalars(select(Recipe.id).where(Recipe.homemade_food_id.in_(ids))))
+    bump_recipes(db, behind, None, "Mealwright")
     db.execute(update(RecipeLine).where(RecipeLine.food_id.in_(ids)).values(food_id=None))
     db.execute(
         update(RecipeLine)
