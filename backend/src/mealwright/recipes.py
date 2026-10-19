@@ -269,6 +269,7 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
     )
     now = utcnow()
     name = kitchen.login.name  # read first: loading it may flush
+    creating = recipe is None
     if recipe is None:
         recipe = Recipe(
             household_id=kitchen.household_id,
@@ -297,6 +298,16 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
     recipe.updated_by_login_id = kitchen.login.id
     recipe.updated_by_name = name
     db.flush()
+    # Remember the request's Idempotency-Key, the way every other write does, so a retry is
+    # recognised. First, so the made-ahead ingredient's own change below carries no key.
+    kitchen.key_once = True
+    record(
+        kitchen,
+        "recipe_created" if creating else "recipe_saved",
+        f"Saved {recipe.name}",
+        None,
+        {"recipe_id": recipe.id},
+    )
 
     _save_lines(kitchen, recipe, body, resolved)
     db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))

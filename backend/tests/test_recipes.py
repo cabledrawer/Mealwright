@@ -730,3 +730,76 @@ def test_made_ahead_with_a_name_another_ingredient_has_is_refused_and_saves_noth
 def test_a_long_recipe_name_gives_a_homemade_name_that_fits(kitchen: TestClient) -> None:
     recipe = make(kitchen, "b" * 150, made_ahead=True)
     assert recipe["homemade"]["name"] == "b" * 100
+
+
+# --- Retries: the Idempotency-Key ---------------------------------------------------------------
+
+
+def test_the_same_create_twice_makes_one_recipe_and_answers_the_same(kitchen: TestClient) -> None:
+    headers = {"Idempotency-Key": "make-sambar-1"}
+    body = {"name": "Sambar", "tags": ["Quick"], "lines": [{"words": "salt"}]}
+    first = kitchen.post(f"{API}/recipes", json=body, headers=headers)
+    second = kitchen.post(f"{API}/recipes", json=body, headers=headers)
+    assert first.status_code == 201 and second.status_code == 200
+    assert second.headers["Idempotent-Replayed"] == "true"
+    assert second.json() == first.json()
+    assert ok(kitchen.get(f"{API}/recipes"))["total"] == 1
+
+
+def test_the_same_create_twice_with_made_ahead_does_not_clash_with_itself(
+    kitchen: TestClient,
+) -> None:
+    headers = {"Idempotency-Key": "make-batter-1"}
+    body = {"name": "Dosa batter", "made_ahead": True}
+    first = kitchen.post(f"{API}/recipes", json=body, headers=headers)
+    second = kitchen.post(f"{API}/recipes", json=body, headers=headers)
+    assert first.status_code == 201, first.text
+    assert second.status_code == 200, second.text  # not 409 name_taken
+    assert second.json() == first.json()
+    assert len(foods_named(kitchen, "Dosa batter")) == 1
+    assert ok(kitchen.get(f"{API}/recipes"))["total"] == 1
+
+
+def test_the_same_save_twice_is_not_a_conflict_with_yourself(kitchen: TestClient) -> None:
+    recipe = make(kitchen)
+    headers = {"Idempotency-Key": "save-sambar-1"}
+    first = save(kitchen, recipe, name="Sambar 2")
+    assert first.status_code == 200
+    recipe = ok(first)
+    one = kitchen.put(
+        f"{API}/recipes/{recipe['id']}",
+        json={"name": "Sambar 3", "version": recipe["version"]},
+        headers=headers,
+    )
+    two = kitchen.put(
+        f"{API}/recipes/{recipe['id']}",
+        json={"name": "Sambar 3", "version": recipe["version"]},
+        headers=headers,
+    )
+    assert one.status_code == 200 and two.status_code == 200, two.text
+    assert two.headers["Idempotent-Replayed"] == "true"
+    assert one.json()["version"] == two.json()["version"] == recipe["version"] + 1
+
+
+def test_a_key_reused_for_something_else_is_refused(kitchen: TestClient) -> None:
+    headers = {"Idempotency-Key": "one-key"}
+    first = ok(kitchen.post(f"{API}/recipes", json={"name": "A"}, headers=headers), 201)
+    other = kitchen.put(
+        f"{API}/recipes/{first['id']}",
+        json={"name": "B", "version": 1},
+        headers=headers,
+    )
+    assert other.status_code == 409 and other.json()["code"] == "key_reused"
+
+
+def test_saves_are_not_listed_in_recent_changes_and_cannot_be_undone(kitchen: TestClient) -> None:
+    recipe = make(kitchen)
+    ok(save(kitchen, recipe, name="Sambar 2"))
+    assert ok(kitchen.get(f"{API}/changes"))["changes"] == []
+    assert ok(kitchen.get(f"{API}/changes", params={"mine": True, "limit": 1}))["changes"] == []
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        kept = db.scalars(select(Change).where(Change.kind.like("recipe_%"))).all()
+        assert sorted(c.kind for c in kept) == ["recipe_created", "recipe_saved"]
+        change_id = kept[0].id
+    response = kitchen.post(f"{API}/changes/{change_id}/undo")
+    assert response.status_code == 409 and response.json()["code"] == "cannot_undo"

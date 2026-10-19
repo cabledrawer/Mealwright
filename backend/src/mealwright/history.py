@@ -137,9 +137,15 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
     return as_utc(change.at) + undo_window(kitchen.household)
 
 
+# Changes that only remember a request's Idempotency-Key (a recipe made or saved): there is
+# nothing to undo, and they are not listed in Recent changes.
+KEY_ONLY_KINDS = ("recipe_created", "recipe_saved")
+
+
 def can_undo(kitchen: Kitchen, change: Change) -> bool:
     return (
         change.kind != "undo"
+        and change.kind not in KEY_ONLY_KINDS
         and change.undone_by_change_id is None
         and utcnow() < undo_until(kitchen, change)
     )

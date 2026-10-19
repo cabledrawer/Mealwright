@@ -18,6 +18,7 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
+    KEY_ONLY_KINDS,
     UNDO_MESSAGES,
     Shortfall,
     Tally,
@@ -180,7 +181,9 @@ def list_changes(
     ingredients only (new, edited, removed, merged, split), with their Undos.
     `mine=true&limit=1`: what Ctrl+Z undoes (the web app skips it while the cursor is in a
     text box)."""
-    query = select(Change).where(Change.household_id == kitchen.household_id)
+    query = select(Change).where(
+        Change.household_id == kitchen.household_id, Change.kind.not_in(KEY_ONLY_KINDS)
+    )
     if before is not None:
         query = query.where(Change.id < before)
     if food_id is not None:
@@ -421,6 +424,8 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise Problem(
                 status.HTTP_409_CONFLICT, "cannot_undo", "An Undo can't itself be undone."
             )
+        if change.kind in KEY_ONLY_KINDS:
+            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can't be undone.")
         if change.undone_by_change_id is not None:
             raise already_undone()
         if utcnow() >= undo_until(kitchen, change):

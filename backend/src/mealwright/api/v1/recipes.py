@@ -20,7 +20,6 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Recipe, RecipeTag, Tag
@@ -75,18 +74,22 @@ def suggest_tags(kitchen: Here, q: Annotated[str, Query(max_length=40)] = "") ->
 
 
 @router.post("/recipes", status_code=status.HTTP_201_CREATED)
-def create_recipe(body: RecipeIn, kitchen: Here) -> RecipeOut:
+def create_recipe(body: RecipeIn, kitchen: Here, response: Response) -> RecipeOut:
     """Make a recipe. Only the name is needed. A new recipe serves 4 unless you say
-    otherwise. With `made_ahead`, its own pantry ingredient is made too."""
+    otherwise. With `made_ahead`, its own pantry ingredient is made too. A retry with the
+    same `Idempotency-Key` makes nothing more and answers with the recipe as it is now."""
     lock_household(kitchen)
-    recipe = recipes.save(kitchen, None, body)
-    if commit(kitchen) is not None:  # pragma: no cover (a retried Idempotency-Key)
-        raise Problem(
-            status.HTTP_409_CONFLICT,
-            "key_reused",
-            "That change ID was already used for something else.",
-        )
-    return recipes.recipe_out(kitchen, recipe)
+    earlier = replayed(kitchen)
+    if earlier is None:
+        recipe = recipes.save(kitchen, None, body)
+        earlier = commit(kitchen)
+        if earlier is None:
+            return recipes.recipe_out(kitchen, recipe)
+    response.status_code = status.HTTP_200_OK
+    response.headers["Idempotent-Replayed"] = "true"
+    return recipes.recipe_out(
+        kitchen, recipes.find(kitchen, (earlier.undo_data or {}).get("recipe_id", 0))
+    )
 
 
 @router.get("/recipes/{recipe_id}")

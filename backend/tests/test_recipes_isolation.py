@@ -258,3 +258,17 @@ def test_every_recipe_row_belongs_to_the_household_that_made_it(
         tag_owner = {t.id: t.household_id for t in db.scalars(select(Tag))}
         for link in db.scalars(select(RecipeTag)):
             assert link.household_id == recipe_owner[link.recipe_id] == tag_owner[link.tag_id]
+
+
+def test_the_same_create_key_in_both_households_makes_a_recipe_in_each(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    headers = {"Idempotency-Key": "same-create-key"}
+    first = ok(kitchen.post(f"{API}/recipes", json={"name": "Rasam"}, headers=headers), 201)
+    second = ok(neighbour.post(f"{API}/recipes", json={"name": "Rasam"}, headers=headers), 201)
+    assert first["id"] != second["id"]
+    # A retry in each household gets its own recipe back.
+    again = neighbour.post(f"{API}/recipes", json={"name": "Rasam"}, headers=headers)
+    assert again.status_code == 200 and again.json()["id"] == second["id"]
+    again = kitchen.post(f"{API}/recipes", json={"name": "Rasam"}, headers=headers)
+    assert again.status_code == 200 and again.json()["id"] == first["id"]
