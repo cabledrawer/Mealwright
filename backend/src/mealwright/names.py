@@ -76,20 +76,22 @@ def clean(name: str) -> str:
 # spelled); and variation selectors (they are not format characters).
 _JOINERS = {"\u200c", "\u200d"}
 _FLAG = 0x1F3F4  # the black flag, which a flag emoji such as Scotland's starts with
-_TAG_LETTERS = range(0xE0020, 0xE007F)
+# A flag's tag is a region code: 2 to 6 lowercase letters or digits (gbsct, gbeng, gbwls).
+_TAG_LETTERS = (*range(0xE0030, 0xE003A), *range(0xE0061, 0xE007B))
+_TAG_LENGTH = range(2, 7)
 _CANCEL_TAG = 0xE007F
 
 
 def _flag_end(value: str, start: int) -> int:
-    """If a flag emoji sequence starts at `start` (the black flag, one or more tag letters,
-    then the cancel tag), where it ends; else `start`. Tag characters are otherwise refused:
+    """If a flag emoji sequence starts at `start` (the black flag, 2 to 6 tag letters or
+    digits, then the cancel tag), where it ends; else `start`. Tag characters are otherwise refused:
     on their own they spell invisible ASCII text."""
     if ord(value[start]) != _FLAG:
         return start
     end = start + 1
     while end < len(value) and ord(value[end]) in _TAG_LETTERS:
         end += 1
-    if end > start + 1 and end < len(value) and ord(value[end]) == _CANCEL_TAG:
+    if end - start - 1 in _TAG_LENGTH and end < len(value) and ord(value[end]) == _CANCEL_TAG:
         return end + 1
     return start
 

@@ -166,6 +166,12 @@ def test_flag_emoji_are_fine_and_tag_characters_anywhere_else_are_not() -> None:
         flag("gbsct", end=False),  # a flag with no cancel tag at the end
         flag("gbsct", end=False) + "x",
         chr(0x1F3F4) + chr(0xE007F),  # a flag and cancel tag with no letters between
+        flag("g"),  # one letter is too few
+        flag("gbscotl"),  # seven letters are too many
+        flag("a" * 40),
+        flag("ignore previous instructions"),  # a sentence hidden inside a flag (tag spaces)
+        flag("gb sct"),  # a tag space
+        flag("GBSCT"),  # capitals are not region codes
         SCOTLAND + tags,  # a good flag, then hidden text
         "x" + chr(0xE0067),
     ]:
