@@ -506,7 +506,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 - **Shortest password, 0.8:** 12 characters for new passwords (set up, password change, reset). Existing shorter passwords keep working.
 - **Leaked-password check, 0.8:** new passwords are checked against a list of leaked passwords bundled with the app, under a licence on the allow list. Offline only, never an online lookup.
 - **`__Host-` cookie name, 0.8:** the sign-in cookie gets the `__Host-` name, so a site on another subdomain can't set it. It signs everyone out once. It can't work in plain-http mode (browsers only accept it over https); what that mode does is settled in 0.8.
-- **Database file readable only by Mealwright, 0.9:** `mealwright.db` (today readable by any user inside the container) becomes readable only by the `mealwright` user, done with the backup docs, once it's clear how backup tools read `/data`.
+- **Database file readable only by Mealwright, 0.9:** `mealwright.db` (today readable by any user inside the container) becomes readable only by the `mealwright` user, done with the backup docs (lead's note: once it's clear how backup tools read `/data`).
 
 **Backups (cabledrawer 17 Oct):** the app makes its own backup automatically, daily by default, into its existing data volume, keeping the last 7. The user can change how often and how many are kept. Nothing leaves the server; the user's own backup tools can copy it from there.
 
