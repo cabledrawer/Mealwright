@@ -358,6 +358,11 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("NewList", "id"): "test_households",
     ("NewItem", "food_id"): "test_households",
     ("NewItem", "shop_id"): "test_households",
+    # Recipes: test_recipes_isolation.py, test_household_2_cannot_link_a_line_to_household_1.
+    ("RecipeLineIn", "id"): "test_recipes_isolation",
+    ("RecipeLineIn", "food_id"): "test_recipes_isolation",
+    ("RecipeLineIn", "recipe_id"): "test_recipes_isolation",
+    ("RecipeLineIn", "size_id"): "test_recipes_isolation",
     # Plain shopping endpoints: here.
     ("NewItem", "id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
     ("AmountOrNone", "size_id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",

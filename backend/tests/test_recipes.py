@@ -889,3 +889,44 @@ def test_bumping_versions_never_reaches_another_household(kitchen: TestClient) -
         bump_recipes(db, 1, [recipe["id"]], None, "Mealwright")
         db.commit()
         assert db.get(Recipe, recipe["id"]).version == 2  # type: ignore[union-attr]
+
+
+# --- Next to the 4 MiB limit and the number-too-big handler ---------------------------------------
+
+
+def test_a_request_over_4_mib_is_refused_before_it_is_read(kitchen: TestClient) -> None:
+    big = "x" * (4 * 1024 * 1024 + 10)
+    response = kitchen.post(f"{API}/recipes", json={"name": "Sambar", "source_note": big})
+    assert response.status_code == 413, response.text[:200]
+    assert response.json()["detail"] == "That's too much to send in one go."
+    assert ok(kitchen.get(f"{API}/recipes"))["total"] == 0
+
+
+def test_the_biggest_allowed_recipe_is_well_under_that_limit(kitchen: TestClient) -> None:
+    lines = [{"words": "w" * 200, "note": "n" * 200} for _ in range(200)]
+    steps = [{"text": "s" * 5000} for _ in range(100)]
+    body = {"name": "n" * 200, "lines": lines, "steps": steps, "description": "d" * 200}
+    assert len(str(body)) < 4 * 1024 * 1024
+    assert kitchen.post(f"{API}/recipes", json=body).status_code == 201
+
+
+def test_absurd_numbers_are_a_422_never_a_server_error(kitchen: TestClient) -> None:
+    huge = 10**400
+    for body in [
+        {"name": "A", "time_minutes": huge},
+        {"name": "A", "serves": huge},
+        {"name": "A", "nutrition": {"kcal": huge}},
+        {"name": "A", "makes": {"amount": huge, "unit": "g"}},
+        {"name": "A", "lines": [{"words": "x", "amount": huge}]},
+        {"name": "A", "lines": [{"words": "x", "food_id": huge}]},
+        {"name": "A", "lines": [{"words": "x", "recipe_id": huge}]},
+    ]:
+        response = kitchen.post(f"{API}/recipes", json=body)
+        assert response.status_code in (404, 422), (body, response.status_code, response.text[:200])
+    assert kitchen.get(f"{API}/recipes/{huge}").status_code in (404, 422)
+    assert kitchen.put(
+        f"{API}/recipes/{huge}", json={"name": "A", "version": huge}
+    ).status_code in (
+        404,
+        422,
+    )
