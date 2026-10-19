@@ -798,8 +798,10 @@ def test_a_key_reused_for_something_else_is_refused(kitchen: TestClient) -> None
 
 
 def test_saves_are_not_listed_in_recent_changes_and_cannot_be_undone(kitchen: TestClient) -> None:
-    recipe = make(kitchen)
-    ok(save(kitchen, recipe, name="Sambar 2"))
+    made = kitchen.post(f"{API}/recipes", json={"name": "Sambar"}, headers={"Idempotency-Key": "a"})
+    recipe = ok(made, 201)
+    body = {"name": "Sambar 2", "version": recipe["version"]}
+    ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body, headers={"Idempotency-Key": "b"}))
     assert ok(kitchen.get(f"{API}/changes"))["changes"] == []
     assert ok(kitchen.get(f"{API}/changes", params={"mine": True, "limit": 1}))["changes"] == []
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
@@ -808,3 +810,16 @@ def test_saves_are_not_listed_in_recent_changes_and_cannot_be_undone(kitchen: Te
         change_id = kept[0].id
     response = kitchen.post(f"{API}/changes/{change_id}/undo")
     assert response.status_code == 409 and response.json()["code"] == "cannot_undo"
+
+
+def test_bumping_versions_never_reaches_another_household(kitchen: TestClient) -> None:
+    from mealwright.history import bump_recipes
+
+    recipe = make(kitchen)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        bump_recipes(db, 2, [recipe["id"]], None, "Next door")  # household 2 asks for it
+        db.commit()
+        assert db.get(Recipe, recipe["id"]).version == 1  # type: ignore[union-attr]
+        bump_recipes(db, 1, [recipe["id"]], None, "Mealwright")
+        db.commit()
+        assert db.get(Recipe, recipe["id"]).version == 2  # type: ignore[union-attr]

@@ -154,7 +154,9 @@ def can_undo(kitchen: Kitchen, change: Change) -> bool:
 # --- Recipes changed behind the editor's back ---------------------------------------------------
 
 
-def bump_recipes(db: DbSession, recipe_ids: Iterable[int], login_id: int | None, name: str) -> None:
+def bump_recipes(
+    db: DbSession, household_id: int, recipe_ids: Iterable[int], login_id: int | None, name: str
+) -> None:
     """A merge, a removal, a delete or an Undo changed some recipes' links without anyone
     editing them: each gets the next version, and is marked as changed by whoever did it, so
     an editor that was open on one is stopped ("Wren changed this recipe after you opened
@@ -163,7 +165,7 @@ def bump_recipes(db: DbSession, recipe_ids: Iterable[int], login_id: int | None,
     if ids:
         db.execute(
             update(Recipe)
-            .where(Recipe.id.in_(ids))
+            .where(Recipe.household_id == household_id, Recipe.id.in_(ids))
             .values(
                 version=Recipe.version + 1,
                 updated_at=utcnow(),
@@ -174,7 +176,7 @@ def bump_recipes(db: DbSession, recipe_ids: Iterable[int], login_id: int | None,
 
 
 def bump_recipes_by(kitchen: Kitchen, recipe_ids: Iterable[int]) -> None:
-    bump_recipes(kitchen.db, recipe_ids, kitchen.login.id, kitchen.login.name)
+    bump_recipes(kitchen.db, kitchen.household_id, recipe_ids, kitchen.login.id, kitchen.login.name)
 
 
 # --- Food snapshots ---------------------------------------------------------------------------
@@ -935,7 +937,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     db.execute(delete(FoodConversion).where(FoodConversion.food_id.in_(ids)))
     behind = set(db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.food_id.in_(ids))))
     behind |= set(db.scalars(select(Recipe.id).where(Recipe.homemade_food_id.in_(ids))))
-    bump_recipes(db, behind, None, "Mealwright")
+    bump_recipes(db, household.id, behind, None, "Mealwright")
     db.execute(update(RecipeLine).where(RecipeLine.food_id.in_(ids)).values(food_id=None))
     db.execute(
         update(RecipeLine)

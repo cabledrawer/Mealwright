@@ -299,7 +299,8 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
     recipe.updated_by_name = name
     db.flush()
     # Remember the request's Idempotency-Key, the way every other write does, so a retry is
-    # recognised. First, so the made-ahead ingredient's own change below carries no key.
+    # recognised. Only when there is one. First, so the made-ahead ingredient's own change
+    # below carries no key.
     kitchen.key_once = True
     record(
         kitchen,
@@ -525,7 +526,7 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     users = set(
         db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id.in_(ids)))
     ) - set(ids)
-    bump_recipes(db, users, None, "Mealwright")
+    bump_recipes(db, household.id, users, None, "Mealwright")
     db.execute(
         update(RecipeLine).where(RecipeLine.sub_recipe_id.in_(ids)).values(sub_recipe_id=None)
     )
