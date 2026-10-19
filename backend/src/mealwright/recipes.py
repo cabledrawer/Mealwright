@@ -20,15 +20,15 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
-    LineOut,
     MakesOut,
     NutritionOut,
     PhotoOut,
     RecipeBrief,
     RecipeIn,
+    RecipeLineOut,
     RecipeOut,
+    RecipeStepOut,
     SizeRef,
-    StepOut,
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref, Who
@@ -616,7 +616,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         else:
             link = "none"
         lines.append(
-            LineOut(
+            RecipeLineOut(
                 id=row.id,
                 kind=cast(Literal["ingredient", "heading"], row.kind),
                 words=row.words,
@@ -631,7 +631,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             )
         )
     steps = [
-        StepOut(id=s.id, kind=cast(Literal["step", "heading"], s.kind), text=s.text)
+        RecipeStepOut(id=s.id, kind=cast(Literal["step", "heading"], s.kind), text=s.text)
         for s in db.scalars(
             select(RecipeStep)
             .where(RecipeStep.recipe_id == recipe.id)

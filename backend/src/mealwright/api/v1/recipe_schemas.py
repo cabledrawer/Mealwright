@@ -202,7 +202,7 @@ def _tidy(value: str | None) -> str | None:
 # --- Input ------------------------------------------------------------------------------------
 
 
-class LineIn(BaseModel):
+class RecipeLineIn(BaseModel):
     """One ingredient line, or a heading. Send `id` for a line the recipe already has, so
     it keeps its identity (and an ingredient merge can follow it); leave it out for a new
     line."""
@@ -230,7 +230,7 @@ class LineIn(BaseModel):
         return _tidy(value)
 
     @model_validator(mode="after")
-    def _make_sense(self) -> LineIn:
+    def _make_sense(self) -> RecipeLineIn:
         if self.kind == "heading":
             if not self.words:
                 raise ValueError("Type the heading.")
@@ -261,12 +261,12 @@ class LineIn(BaseModel):
         return self
 
 
-class StepIn(BaseModel):
+class RecipeStepIn(BaseModel):
     kind: Literal["step", "heading"] = "step"
     text: Annotated[str, Field(min_length=1, max_length=MAX_STEP_CHARS)]
 
     @model_validator(mode="after")
-    def _check(self) -> StepIn:
+    def _check(self) -> RecipeStepIn:
         if self.kind == "heading":
             self.text = " ".join(one_line(self.text).split())
             if len(self.text) > 200:
@@ -321,8 +321,8 @@ class RecipeIn(BaseModel):
         default_factory=list, max_length=MAX_TAGS
     )
     nutrition: NutritionIn = Field(default_factory=NutritionIn)
-    lines: list[LineIn] = Field(default_factory=list, max_length=MAX_LINES)
-    steps: list[StepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+    lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)
+    steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
     source_note: Annotated[str, Field(max_length=500)] | None = None
 
     @field_validator("name")
@@ -379,7 +379,7 @@ class SizeRef(BaseModel):
     plural: str
 
 
-class LineOut(BaseModel):
+class RecipeLineOut(BaseModel):
     id: int
     kind: Literal["ingredient", "heading"]
     words: str
@@ -395,7 +395,7 @@ class LineOut(BaseModel):
     note: str | None
 
 
-class StepOut(BaseModel):
+class RecipeStepOut(BaseModel):
     id: int
     kind: Literal["step", "heading"]
     text: str
@@ -432,8 +432,8 @@ class RecipeOut(BaseModel):
     homemade: Ref | None  # its own pantry ingredient, once saved with Made ahead on
     tags: list[str]
     nutrition: NutritionOut
-    lines: list[LineOut]
-    steps: list[StepOut]
+    lines: list[RecipeLineOut]
+    steps: list[RecipeStepOut]
     source_note: str | None
     photo: PhotoOut | None
     used_by: list[Ref]  # recipes that use this one as an ingredient
