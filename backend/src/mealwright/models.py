@@ -594,3 +594,160 @@ class DoubleTick(Base):
     answered_by_name: Mapped[str | None] = mapped_column(String(100))
     answer_action_id: Mapped[str | None] = mapped_column(String(64))
     version: Mapped[int] = mapped_column(BigInteger, default=0)
+
+
+# --- Recipes (docs/dev/api-0.4-recipes.md) -------------------------------------------------------
+# Amounts on a recipe line are thousandths of the unit the person typed (2 tbsp is 2000), not of
+# a base unit: the recipe keeps its own wording. Ids are never reused (sqlite_autoincrement), so
+# Undo can put a deleted recipe back with its old id and the lines that use it still point at it.
+
+
+class Recipe(Base):
+    __tablename__ = "recipe"
+    __table_args__ = (
+        CheckConstraint("serves IS NULL OR (serves >= 1 AND serves <= 99)", name="serves_range"),
+        CheckConstraint("version >= 1", name="version_positive"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(String(200))
+    # Whole minutes, in total. Null: not given.
+    time_minutes: Mapped[int | None] = mapped_column(Integer)
+    # 1 to 99. Null: not given (a batter or a powder).
+    serves: Mapped[int | None] = mapped_column(Integer)
+    # "Makes 1.5 litres": thousandths of the unit; the unit is g, kg, ml, l or a count word.
+    makes_milli: Mapped[int | None] = mapped_column(BigInteger)
+    makes_unit: Mapped[str | None] = mapped_column(String(30))
+    # Made ahead (keeps in the pantry): its own pantry ingredient, made when the recipe is saved.
+    made_ahead: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    homemade_food_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food.id", ondelete="SET NULL"), index=True
+    )
+    # Per serving, in thousandths (kcal, g). Null means unknown: never stored as 0.
+    kcal_milli: Mapped[int | None] = mapped_column(BigInteger)
+    protein_milli: Mapped[int | None] = mapped_column(BigInteger)
+    carbs_milli: Mapped[int | None] = mapped_column(BigInteger)
+    fat_milli: Mapped[int | None] = mapped_column(BigInteger)
+    fibre_milli: Mapped[int | None] = mapped_column(BigInteger)
+    # Plain text ("Amma's", a book title). The server never visits it.
+    source_note: Mapped[str | None] = mapped_column(String(500))
+    # Starts at 1; every save adds 1 (two people editing: the second save is stopped).
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    updated_by_name: Mapped[str] = mapped_column(String(100), default="")
+    # A deleted recipe is hidden for the undo window (7 days), then deleted for good.
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RecipeLine(Base):
+    """One ingredient line of a recipe, or a heading ("For the tempering") between them."""
+
+    __tablename__ = "recipe_line"
+    __table_args__ = (
+        CheckConstraint("kind IN ('ingredient', 'heading')", name="kind_known"),
+        CheckConstraint("food_id IS NULL OR sub_recipe_id IS NULL", name="one_link"),
+        Index("ix_recipe_line_recipe_id_position", "recipe_id", "position"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(10), default="ingredient")
+    # The words as typed ("thuvaram paruppu"), or a heading's text. Kept when the link goes.
+    words: Mapped[str] = mapped_column(String(200))
+    # Optional. Thousandths of the unit: 1½ is 1500.
+    amount_milli: Mapped[int | None] = mapped_column(BigInteger)
+    # g, kg, ml, l, tsp, tbsp, cup, pinch. Null with no size: a count ("10 shallots").
+    unit: Mapped[str | None] = mapped_column(String(10))
+    # One of the linked ingredient's own sizes ("1 packet").
+    size_id: Mapped[int | None] = mapped_column(ForeignKey("food_size.id", ondelete="SET NULL"))
+    # An ingredient or another recipe, never both. Both empty: "not linked" (or "recipe
+    # removed" once the recipe it pointed at is gone for good).
+    food_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food.id", ondelete="SET NULL"), index=True
+    )
+    sub_recipe_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe.id", ondelete="SET NULL"), index=True
+    )
+    note: Mapped[str | None] = mapped_column(String(200))
+
+
+class RecipeStep(Base):
+    """One method step, or a heading, in order. Plain text."""
+
+    __tablename__ = "recipe_step"
+    __table_args__ = (
+        CheckConstraint("kind IN ('step', 'heading')", name="kind_known"),
+        Index("ix_recipe_step_recipe_id_position", "recipe_id", "position"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(10), default="step")
+    text: Mapped[str] = mapped_column(String(5000))
+
+
+class Tag(Base):
+    """A tag the household made up ("Batch-friendly", "Quick"). Typed on a recipe, never
+    managed on a screen of its own."""
+
+    __tablename__ = "tag"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(40))
+
+
+class RecipeTag(Base):
+    __tablename__ = "recipe_tag"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    recipe_id: Mapped[int] = mapped_column(
+        ForeignKey("recipe.id", ondelete="CASCADE"), primary_key=True
+    )
+    tag_id: Mapped[int] = mapped_column(
+        ForeignKey("tag.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+
+
+class RecipePhoto(Base):
+    """The record of a recipe's one photo. The files live on the data volume, in a folder per
+    household, under `file_key`; photos are added by the photos pull request."""
+
+    __tablename__ = "recipe_photo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"), unique=True)
+    # A random name; the file is `<household_id>/<file_key>.jpg` (and `-small.jpg`).
+    file_key: Mapped[str] = mapped_column(String(64))
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    bytes: Mapped[int] = mapped_column(Integer)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    added_by_name: Mapped[str] = mapped_column(String(100), default="")

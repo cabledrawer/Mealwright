@@ -6,6 +6,7 @@ from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, column, insert, inspect, text
 from sqlalchemy import table as sql_table
+from sqlalchemy.exc import IntegrityError
 
 from mealwright import migrate
 from mealwright.auth import hash_password
@@ -445,3 +446,113 @@ def test_existing_ingredients_get_a_starting_aisle_only_when_linked_to_the_table
     with engine.connect() as connection:
         aisles = dict(connection.exec_driver_sql("SELECT name, aisle FROM food").all())
     assert aisles == {"Cumin seeds": "spices", "Toor dal": None, "Cumin": None, "Salt": None}
+
+
+# --- Recipes (0.4) -------------------------------------------------------------------------
+
+RECIPE_TABLES = {
+    "recipe",
+    "recipe_line",
+    "recipe_step",
+    "tag",
+    "recipe_tag",
+    "recipe_photo",
+}
+BEFORE_RECIPES = "f509d7a1c609"  # 0.3.0
+
+
+def _with_recipes(engine: Engine) -> None:
+    """A recipe in each household, with a line that uses the other recipe, a step, a tag
+    and a photo record."""
+    with engine.begin() as connection:
+        for h in (1, 2):
+            for sql in (
+                "INSERT INTO recipe (id, household_id, name, serves, version, created_at,"
+                " updated_at, updated_by_name, made_ahead) VALUES (:h, :h, 'Sambar', 4, 1,"
+                " '2026-10-19', '2026-10-19', 'User', 0)",
+                "INSERT INTO recipe_line (id, household_id, recipe_id, position, kind, words,"
+                " amount_milli, unit, food_id) VALUES (:h, :h, :h, 0, 'ingredient', 'thuvaram',"
+                " 200000, 'g', :h)",
+                "INSERT INTO recipe_step (id, household_id, recipe_id, position, kind, text)"
+                " VALUES (:h, :h, :h, 0, 'step', 'Boil the dal.')",
+                "INSERT INTO tag (id, household_id, name) VALUES (:h, :h, 'Quick')",
+                "INSERT INTO recipe_tag (household_id, recipe_id, tag_id) VALUES (:h, :h, :h)",
+                "INSERT INTO recipe_photo (id, household_id, recipe_id, file_key, width, height,"
+                " bytes, added_at, added_by_name) VALUES (:h, :h, :h, 'abc', 800, 600, 1000,"
+                " '2026-10-19', 'User')",
+            ):
+                connection.execute(text(sql), {"h": h})
+
+
+def test_recipes_migration_adds_the_tables_and_keeps_everything_else(tmp_path: Path) -> None:
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine, BEFORE_RECIPES)
+    assert not RECIPE_TABLES & set(inspect(engine).get_table_names())
+    migrate.upgrade(engine)
+    assert set(inspect(engine).get_table_names()) >= RECIPE_TABLES
+    for table in RECIPE_TABLES:
+        columns = {c["name"] for c in inspect(engine).get_columns(table)}
+        assert "household_id" in columns, table
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM food").scalar_one() == 2
+        assert connection.exec_driver_sql("SELECT count(*) FROM stock_lot").scalar_one() == 2
+
+
+def test_recipes_migration_downgrades_and_upgrades_again(tmp_path: Path) -> None:
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine)
+    _with_recipes(engine)
+    migrate.downgrade(engine, BEFORE_RECIPES)
+    assert not RECIPE_TABLES & set(inspect(engine).get_table_names())
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM food").scalar_one() == 2
+        assert connection.exec_driver_sql("SELECT count(*) FROM change_line").scalar_one() == 2
+    migrate.upgrade(engine)
+    assert set(inspect(engine).get_table_names()) >= RECIPE_TABLES
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one() == 0
+
+
+def test_recipe_rows_follow_their_household_and_the_database_keeps_the_rules(
+    tmp_path: Path,
+) -> None:
+    engine = _make_0_2_database(tmp_path / "old.db")
+    migrate.upgrade(engine)
+    _with_recipes(engine)
+    # A line may point at an ingredient or at a recipe, not both; serves is 1 to 99; a
+    # recipe has one photo.
+    bad = (
+        "INSERT INTO recipe_line (household_id, recipe_id, position, kind, words, food_id,"
+        " sub_recipe_id) VALUES (1, 1, 1, 'ingredient', 'x', 1, 1)",
+        "INSERT INTO recipe_line (household_id, recipe_id, position, kind, words)"
+        " VALUES (1, 1, 1, 'note', 'x')",
+        "INSERT INTO recipe (household_id, name, serves, version, created_at, updated_at,"
+        " updated_by_name, made_ahead) VALUES (1, 'Big', 100, 1, '2026-10-19', '2026-10-19',"
+        " '', 0)",
+        "INSERT INTO recipe_photo (household_id, recipe_id, file_key, width, height, bytes,"
+        " added_at, added_by_name) VALUES (1, 1, 'second', 1, 1, 1, '2026-10-19', '')",
+    )
+    for sql in bad:
+        with pytest.raises(IntegrityError), engine.begin() as connection:
+            connection.execute(text(sql))
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        # Deleting a recipe takes its lines, steps, tag links and photo with it; deleting an
+        # ingredient only unlinks the lines that used it.
+        connection.exec_driver_sql("DELETE FROM food WHERE id = 2")
+        connection.exec_driver_sql("DELETE FROM recipe WHERE id = 1")
+        counts = {
+            table: connection.exec_driver_sql(f"SELECT count(*) FROM {table}").scalar_one()  # noqa: S608
+            for table in ("recipe", "recipe_line", "recipe_step", "recipe_tag", "recipe_photo")
+        }
+    assert counts == {
+        "recipe": 1,
+        "recipe_line": 1,
+        "recipe_step": 1,
+        "recipe_tag": 1,
+        "recipe_photo": 1,
+    }
+    with engine.connect() as connection:
+        link = connection.exec_driver_sql("SELECT food_id FROM recipe_line").scalar_one()
+    # The remaining line is household 2's, whose ingredient we deleted: unlinked, words kept.
+    assert link is None
