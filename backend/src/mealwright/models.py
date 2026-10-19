@@ -674,8 +674,10 @@ class RecipeLine(Base):
     unit: Mapped[str | None] = mapped_column(String(10))
     # One of the linked ingredient's own sizes ("1 packet").
     size_id: Mapped[int | None] = mapped_column(ForeignKey("food_size.id", ondelete="SET NULL"))
-    # An ingredient or another recipe, never both. Both empty: "not linked" (or "recipe
-    # removed" once the recipe it pointed at is gone for good).
+    # An ingredient or another recipe, never both. A line can also have no link at all: its
+    # ingredient was removed (the words stay, "not linked"), or the recipe it used was
+    # deleted and the undo window has passed. While that recipe can still be undone the
+    # link stays, and the line shows "recipe removed".
     food_id: Mapped[int | None] = mapped_column(
         ForeignKey("food.id", ondelete="SET NULL"), index=True
     )
