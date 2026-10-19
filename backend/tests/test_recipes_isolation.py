@@ -272,3 +272,59 @@ def test_the_same_create_key_in_both_households_makes_a_recipe_in_each(
     assert again.status_code == 200 and again.json()["id"] == second["id"]
     again = kitchen.post(f"{API}/recipes", json={"name": "Rasam"}, headers=headers)
     assert again.status_code == 200 and again.json()["id"] == first["id"]
+
+
+def test_household_2_cannot_merge_or_split_with_household_1_ingredients(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    ghee = ok(neighbour.post(f"{API}/foods", json={"name": "Ghee"}), 201)["food"]
+    ok(neighbour.post(f"{API}/foods/{ghee['id']}/other-names", json={"name": "nei"}), 201)
+    their_name = ok(neighbour.get(f"{API}/foods/{ghee['id']}"))["other_names"][0]["id"]
+    # Give household 1 an other name and a merge so there is something to split.
+    arhar = ok(kitchen.post(f"{API}/foods", json={"name": "Arhar dal"}), 201)["food"]
+    ok(kitchen.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": mine["food_id"]}))
+    name_id = ok(kitchen.get(f"{API}/foods/{mine['food_id']}"))["other_names"][0]["id"]
+    before = rows_of_household_1(kitchen)
+    attempts = [
+        ("POST", f"{API}/foods/{ghee['id']}/merge", {"into_id": mine["food_id"]}),
+        ("POST", f"{API}/foods/{mine['food_id']}/merge", {"into_id": ghee["id"]}),
+        ("POST", f"{API}/foods/{mine['food_id']}/split", {"other_name_id": name_id}),
+        ("POST", f"{API}/foods/{ghee['id']}/split", {"other_name_id": name_id}),
+        ("POST", f"{API}/foods/{mine['food_id']}/split", {"other_name_id": their_name}),
+        ("DELETE", f"{API}/foods/{mine['food_id']}", None),
+        ("GET", f"{API}/foods/{mine['food_id']}", None),
+    ]
+    for method, url, body in attempts:
+        response = neighbour.request(method, url, json=body)
+        not_found(response)
+    assert rows_of_household_1(kitchen) == before
+    # Household 1's recipe line is still on its ingredient.
+    sambar = ok(kitchen.get(f"{API}/recipes/{mine['recipe_id']}"))
+    assert sambar["lines"][0]["food"]["id"] == mine["food_id"]
+
+
+def test_used_in_counts_and_the_unused_filter_do_not_leak(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    # Household 1 uses its Toor dal in a recipe, and has the recipe-less Arhar dal too.
+    ok(kitchen.post(f"{API}/foods", json={"name": "Arhar dal"}), 201)
+    toor2 = ok(neighbour.post(f"{API}/foods", json={"name": "Toor dal"}), 201)["food"]
+    ok(neighbour.post(f"{API}/foods", json={"name": "Rice"}), 201)
+    listed = ok(neighbour.get(f"{API}/foods"))
+    assert {f["name"]: f["used_in_recipes"] for f in listed["foods"]} == {
+        "Toor dal": 0,
+        "Rice": 0,
+    }
+    assert listed["counts"]["unused"] == 2 and listed["counts"]["all"] == 2
+    unused = ok(neighbour.get(f"{API}/foods", params={"filter": "unused"}))
+    assert sorted(f["name"] for f in unused["foods"]) == ["Rice", "Toor dal"]
+    assert ok(neighbour.get(f"{API}/foods/{toor2['id']}"))["used_in"] == []
+    # And household 1's numbers are its own.
+    mine_listed = ok(kitchen.get(f"{API}/foods"))
+    counts = {f["name"]: f["used_in_recipes"] for f in mine_listed["foods"]}
+    assert counts["Toor dal"] == 1 and counts["Arhar dal"] == 0
+    assert mine_listed["counts"]["unused"] == 2  # Arhar dal and the made-ahead Sambar powder
+    # A recipe in household 2 using its own Toor dal doesn't count towards household 1's.
+    make(neighbour, "Dal", lines=[{"words": "dal", "food_id": toor2["id"]}])
+    assert ok(kitchen.get(f"{API}/foods/{mine['food_id']}"))["used_in_recipes"] == 1
+    assert ok(neighbour.get(f"{API}/foods/{toor2['id']}"))["used_in_recipes"] == 1
