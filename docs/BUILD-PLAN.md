@@ -254,7 +254,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Done when:** every "v1.0 must have" item in spec section 2 is built and ticked off in a checklist in `docs/`; the pre-release checklist is complete.
 
-**cabledrawer checks:** asks the self-hosting community for a review, runs a private trial with two or three invited self-hosters for about a month (how they get the build is decided then; no public image or release), and fixes what comes back (as 0.9.x patches).
+**cabledrawer checks:** asks the self-hosting community for a review, runs a private trial with two or three invited self-hosters for about a month (how they get the build is decided then; no public image or release), and fixes what comes back (as 0.9.x patches). The non-technical prototype test (`docs/prototype-test-plan.md`) is run alongside the private trial (cabledrawer 19 Oct; it moved here from before 0.4).
 
 ---
 

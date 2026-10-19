@@ -4,8 +4,15 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+Work towards 0.4.0 (recipes).
+
 ### Added
 
+- Recipes: the data and the API, with no screens yet. A recipe holds its name, a one-line description, time, servings (a new recipe starts at 4), "Makes", tags, nutrition per serving (an empty box stays "unknown", never 0), ingredient lines and method steps (with headings), and a source note. Recipes can use other recipes as ingredients, to any depth, and a loop is refused with the chain named. A recipe can be marked made ahead, which adds its own ingredient. Saving is all at once, and a second person saving over a change is stopped and told who made it. Deleting is at once and can be undone for 7 days.
+- Ingredients: merging moves recipe lines to the ingredient you keep (and "made its own ingredient again" puts them back); removing an ingredient keeps each line's words, unlinks it, and Undo links it again; "used in N recipes" and a "Not in any recipe" filter are in the API.
+- Database: one change adds the recipe tables (recipes, lines, steps, tags and the photo record). Nothing existing is rewritten.
+- Names: tabs, line breaks and invisible control characters are now refused in every name, including the names of ingredients, shops and shopping lists that already exist when they are changed. Names already saved are not touched.
+- Docs only: spec section 6 records the 0.4 recipe decisions; receipts and prices are recorded as an idea only (nothing changes in 0.4 to 0.9); the non-technical prototype test moves to 0.9 with the private trial.
 - Keeping the UI good: the approved word list (`docs/dev/words.md`), a development-only component gallery at `/dev/gallery`, stress screenshots (many items, long names, 200% text), a browser code size limit in `./check` (170 KiB gzip), a slow-phone browser test, saved Pantry and Shopping screenshots, a stronger reduced-motion rule and keyboard-only tests for the desktop screens.
 - More space between words: Plus Jakarta Sans's own space is narrow, so the text now has a little extra word spacing (buttons and text boxes too). Titles and the wordmark are unchanged.
 - Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
