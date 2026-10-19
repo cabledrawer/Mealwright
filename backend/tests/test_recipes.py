@@ -215,6 +215,11 @@ def test_the_name_and_text_limits(kitchen: TestClient) -> None:
     assert make(kitchen, "Slow", time_minutes=90)["time_minutes"] == 90
 
 
+def test_time_is_at_most_14400_minutes(kitchen: TestClient) -> None:
+    assert make(kitchen, "Cured", time_minutes=14_400)["time_minutes"] == 14_400
+    assert where(bad(kitchen, time_minutes=14_401)) == ["time_minutes"]
+
+
 def test_serves_is_1_to_99(kitchen: TestClient) -> None:
     assert make(kitchen, "One", serves=1)["serves"] == 1
     assert make(kitchen, "Many", serves=99)["serves"] == 99
