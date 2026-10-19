@@ -385,3 +385,29 @@ def test_a_recipe_deleted_for_good_moves_the_version_of_the_recipes_that_used_it
     now = current(kitchen, sambar)
     assert now["version"] == version + 1 and now["lines"][0]["link"] == "none"
     assert save(kitchen, {**now, "version": version}).status_code == 409
+
+
+def test_an_ingredient_deleted_for_good_moves_the_version_of_the_recipes_still_linked_to_it(
+    kitchen: TestClient,
+) -> None:
+    """The safety net in the daily job: a line that is somehow still linked to an ingredient
+    that is being deleted for good is unlinked, and its recipe gets the next version."""
+    from mealwright.history import purge_removed
+
+    toor = food(kitchen, "Toor dal")
+    sambar = make(kitchen, "Sambar", lines=[{"words": "dal", "food_id": toor["id"]}])
+    batter = make(kitchen, "Dosa batter", made_ahead=True)
+    ok(save(kitchen, batter, made_ahead=False))
+    ok(kitchen.delete(f"{API}/foods/{toor['id']}"))
+    other = make(kitchen, "Plain rice")
+    before = current(kitchen, sambar)["version"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.get(Food, toor["id"]).removed_at = utcnow() - timedelta(days=8)  # type: ignore[union-attr]
+        line = db.scalars(select(RecipeLine).where(RecipeLine.recipe_id == sambar["id"])).one()
+        line.food_id = toor["id"]  # still linked: what the safety net is for
+        db.commit()
+        assert purge_removed(db, db.get(Household, 1)) == 1  # type: ignore[arg-type]
+    now = current(kitchen, sambar)
+    assert now["version"] == before + 1 and now["lines"][0]["link"] == "none"
+    assert now["updated_by"]["name"] == "Mealwright"
+    assert current(kitchen, other)["version"] == 1
