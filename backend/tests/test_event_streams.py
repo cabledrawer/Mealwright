@@ -215,3 +215,34 @@ def test_signing_out_ends_that_sign_ins_streams_at_once(
             assert hub(kitchen).count() == 1
 
     asyncio.run(scenario())
+
+
+def test_a_sign_out_just_before_subscribing_still_closes_the_stream(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stream checked the sign-in, then the person signed out (which tells every
+    stream that is subscribed), then the stream subscribed. It must not stay open until
+    the next check, 25 seconds later."""
+    app, mine = kitchen.app, kitchen.cookies[COOKIE]
+    broadcaster = hub(kitchen)
+    real_subscribe = broadcaster.subscribe
+
+    def sign_out_first(household_id: int, session_id: int | None = None) -> Any:
+        # The TestClient runs the sign-out on its own thread and loop.
+        assert kitchen.delete(f"{API}/session").status_code == 204
+        return real_subscribe(household_id, session_id)
+
+    monkeypatch.setattr(broadcaster, "subscribe", sign_out_first)
+
+    async def scenario() -> None:
+        async with streams() as opened:
+            one = Stream(app, mine)
+            opened.append(one)
+            one.open()
+            async with asyncio.timeout(2):
+                await one.ended.wait()
+            assert one.status == 401
+            assert "event: hello" not in one.body
+            assert hub(kitchen).count() == 0
+
+    asyncio.run(scenario())

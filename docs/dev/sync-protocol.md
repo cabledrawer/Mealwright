@@ -532,6 +532,7 @@ data: {"change_id": 815}
 - One in-process broadcaster: the container runs one server process. (Several processes, or Postgres, would need Postgres `LISTEN/NOTIFY`; noted for later.)
 - If the stream drops, the browser reconnects by itself; the app also re-fetches changes when it comes back to the foreground.
 - **At most 10 streams per sign-in** (security audit, 0.4). Opening an eleventh closes that sign-in's oldest stream with no event, so its browser reconnects by itself; the newest always wins, so a phone that left dead connections behind is never locked out. Other sign-ins are not touched.
+- A stream whose sign-in ends between its first check and its subscription is refused with 401 ("Please sign in."), as any signed-out request is, so it never stays open until the next check (0.4).
 
 ## 11. The device (PR 6)
 

@@ -120,11 +120,22 @@ async def get_events(request: Request) -> StreamingResponse:
     # with a cursor at least as high, never missed. Past the limit for one sign-in, this
     # closes that sign-in's oldest stream.
     subscription = broadcaster.subscribe(household_id, session_id)
+
+    def counter_if_still_signed_in() -> int | None:
+        # Asked again after subscribing: a sign-out between the first check and the
+        # subscription told no stream of ours, so this stream would stay open until the
+        # next check, 25 seconds later.
+        cursor = _counter(factory, household_id)
+        return cursor if _still_signed_in(factory, token or "") else None
+
     try:
-        cursor = await run_in_threadpool(_counter, factory, household_id)
+        cursor = await run_in_threadpool(counter_if_still_signed_in)
     except BaseException:
         broadcaster.unsubscribe(subscription)
         raise
+    if cursor is None:
+        broadcaster.unsubscribe(subscription)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
     return StreamingResponse(
         stream(
             factory,
