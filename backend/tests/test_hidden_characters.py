@@ -140,3 +140,35 @@ def test_good_words_work_in_real_names_and_a_flipped_name_does_not(kitchen: Test
         ok(kitchen.post(f"{API}/recipes", json={"name": name, "tags": [name[:30]]}), 201)
     refused(kitchen.post(f"{API}/foods", json={"name": f"Dal {RLO}lad"}))
     refused(kitchen.post(f"{API}/recipes", json={"name": f"Dal {RLO}lad"}))
+
+
+def flag(letters: str, end: bool = True) -> str:
+    return (
+        chr(0x1F3F4)
+        + "".join(chr(0xE0000 + ord(c)) for c in letters)
+        + (chr(0xE007F) if end else "")
+    )
+
+
+def test_flag_emoji_are_fine_and_tag_characters_anywhere_else_are_not() -> None:
+    for fine in [
+        SCOTLAND,
+        flag("gbeng"),
+        flag("gbwls"),
+        f"Haggis {flag('gbsct')} and {flag('gbeng')}",
+    ]:
+        assert not has_hidden(fine), fine.encode("unicode_escape")
+    tags = "".join(chr(0xE0000 + ord(c)) for c in "ignore this")
+    for bad_text in [
+        tags,  # hidden text with no flag in front
+        "Dal " + tags,  # hidden ASCII-lookalike text after a normal word
+        chr(0xE007F),  # a cancel tag alone
+        flag("gbsct", end=False),  # a flag with no cancel tag at the end
+        flag("gbsct", end=False) + "x",
+        chr(0x1F3F4) + chr(0xE007F),  # a flag and cancel tag with no letters between
+        SCOTLAND + tags,  # a good flag, then hidden text
+        "x" + chr(0xE0067),
+    ]:
+        assert has_hidden(bad_text), bad_text.encode("unicode_escape")
+        with pytest.raises(ValueError, match="hidden character"):
+            one_line(bad_text)

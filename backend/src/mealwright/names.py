@@ -71,18 +71,41 @@ def clean(name: str) -> str:
 # another, or flip the order text is shown in. Refused: control characters, the direction
 # marks, overrides and isolates (U+202A to 202E, U+2066 to 2069) and other invisible
 # format characters. Allowed: the two joiners, which Tamil, Malayalam and other Indian
-# scripts and emoji sequences need; the emoji tag characters (U+E0020 to E007F), which flag
-# emoji such as Scotland's are spelled with; and variation selectors (they are not format
-# characters).
+# scripts and emoji sequences need; the emoji tag characters, but only inside a flag emoji
+# (a black flag, tag letters, then the cancel tag: how Scotland's and Wales's flags are
+# spelled); and variation selectors (they are not format characters).
 _JOINERS = {"\u200c", "\u200d"}
-_EMOJI_TAGS = range(0xE0020, 0xE0080)
+_FLAG = 0x1F3F4  # the black flag, which a flag emoji such as Scotland's starts with
+_TAG_LETTERS = range(0xE0020, 0xE007F)
+_CANCEL_TAG = 0xE007F
+
+
+def _flag_end(value: str, start: int) -> int:
+    """If a flag emoji sequence starts at `start` (the black flag, one or more tag letters,
+    then the cancel tag), where it ends; else `start`. Tag characters are otherwise refused:
+    on their own they spell invisible ASCII text."""
+    if ord(value[start]) != _FLAG:
+        return start
+    end = start + 1
+    while end < len(value) and ord(value[end]) in _TAG_LETTERS:
+        end += 1
+    if end > start + 1 and end < len(value) and ord(value[end]) == _CANCEL_TAG:
+        return end + 1
+    return start
 
 
 def has_hidden(value: str, newlines: bool = False) -> bool:
     """Does the text hold a tab, a line break (unless `newlines`), another control
     character, or an invisible formatting character?"""
-    for char in value:
-        if char in _JOINERS or ord(char) in _EMOJI_TAGS or (newlines and char == "\n"):
+    index = 0
+    while index < len(value):
+        char = value[index]
+        end = _flag_end(value, index)
+        if end > index:
+            index = end
+            continue
+        index += 1
+        if char in _JOINERS or (newlines and char == "\n"):
             continue
         if unicodedata.category(char) in ("Cc", "Cf", "Cs", "Zl", "Zp"):
             return True
