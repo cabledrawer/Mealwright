@@ -29,6 +29,7 @@ EXAMPLE = (
     ": keep-alive\n\n"
     "event: signed_out\ndata: {}\n\n"
 )
+# (A stream closed because its sign-in opened too many gets `event: replaced` instead.)
 
 
 def frame(item: Event) -> str:
@@ -91,8 +92,9 @@ async def stream(
                 "25 seconds, and `signed_out` (then the stream closes) when the sign-in "
                 "runs out. Numbers only, never names. Only this household's events. The "
                 "stream is not activity: it never extends the sign-in. One sign-in may "
-                "hold 10 streams open; opening another closes its oldest (browsers "
-                "reconnect by themselves)."
+                "hold 10 streams open; opening another closes its oldest, which is "
+                "sent `replaced` first (the web app then stays quiet, without "
+                "reconnecting, until its tab is looked at again)."
             ),
             "content": {"text/event-stream": {"schema": {"type": "string"}, "example": EXAMPLE}},
         },

@@ -118,3 +118,55 @@ describe('the live stream', () => {
     stop = live.start();
   });
 });
+
+describe('a stream closed for a newer tab (replaced, more than 10 tabs on one sign-in)', () => {
+  const lookAt = (state: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: state });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  // The server sends `replaced`, then closes the connection, which a browser reports as an
+  // error if the stream is still open.
+  const replaced = () => {
+    const source = stream();
+    source.send('replaced', {});
+    source.readyState = source.readyState === 2 ? 2 : 0;
+    source.dispatchEvent(new Event('error'));
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    delete (document as { visibilityState?: unknown }).visibilityState;
+  });
+
+  it('closes quietly: no offline bar', () => {
+    stream().send('hello', { cursor: 1 });
+    replaced();
+    vi.advanceTimersByTime(60_000);
+    expect(network.offline).toBe(false);
+    expect(stream().readyState).toBe(2); // so the browser doesn't reconnect by itself
+  });
+
+  it('never opens a new stream by itself, so it can’t close another tab’s in turn', () => {
+    replaced();
+    vi.advanceTimersByTime(60_000);
+    live.reconnect(); // the connection came back: every tab hears it
+    lookAt('hidden');
+    vi.advanceTimersByTime(60_000);
+    expect(FakeSource.all).toHaveLength(1);
+  });
+
+  it('opens again when the tab is looked at again', () => {
+    replaced();
+    lookAt('hidden');
+    lookAt('visible');
+    expect(FakeSource.all).toHaveLength(2);
+    expect(stream().readyState).toBe(1);
+    // and it is an ordinary stream again
+    live.reconnect();
+    expect(FakeSource.all).toHaveLength(3);
+  });
+});

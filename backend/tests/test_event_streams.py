@@ -19,7 +19,7 @@ from conftest import ADMIN
 from fastapi.testclient import TestClient
 
 from mealwright.auth import COOKIE
-from mealwright.events import MAX_STREAMS_PER_SESSION, Broadcaster
+from mealwright.events import MAX_STREAMS_PER_SESSION, Broadcaster, Event
 
 API = "/api/v1"
 
@@ -147,7 +147,10 @@ def test_one_sign_in_cannot_open_streams_without_end(
             async with asyncio.timeout(2):
                 await opened[0].ended.wait()
             assert opened[0].status == 200
-            assert "signed_out" not in opened[0].body  # the browser just reconnects
+            # Told why, so its tab stops quietly instead of showing Offline and coming
+            # back (which would close another tab's stream, and so on in turns).
+            assert opened[0].body.endswith("event: replaced\ndata: {}\n\n")
+            assert "signed_out" not in opened[0].body
             for one in (*opened[1:MAX_STREAMS_PER_SESSION], theirs, newest):
                 assert await one.still_open(0.05)
             assert hub(kitchen).count() == MAX_STREAMS_PER_SESSION + 1
@@ -181,7 +184,9 @@ def test_the_broadcaster_closes_the_oldest_of_that_session_only() -> None:
         untracked = broadcaster.subscribe(1)
         newest = broadcaster.subscribe(1, session_id=7)
         await asyncio.sleep(0)
-        assert mine[0].queue.qsize() == 1 and mine[0].queue.get_nowait() is None
+        assert mine[0].queue.qsize() == 2
+        assert mine[0].queue.get_nowait() == Event("replaced", {})
+        assert mine[0].queue.get_nowait() is None
         for one in (*mine[1:], other, untracked, newest):
             assert one.queue.empty()
         assert broadcaster.count() == MAX_STREAMS_PER_SESSION + 2

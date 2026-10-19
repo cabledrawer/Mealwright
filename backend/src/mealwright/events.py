@@ -9,8 +9,10 @@
 - One broadcaster per server process (the container runs one). Writes may happen on a
   threadpool thread, so events are handed to each stream's own event loop thread-safely.
 - One sign-in may hold at most `MAX_STREAMS_PER_SESSION` streams open (security audit,
-  0.4). Opening one more closes that sign-in's oldest stream: its browser reconnects by
-  itself, and a phone that left dead connections behind is never locked out.
+  0.4). Opening one more closes that sign-in's oldest stream, so a phone that left dead
+  connections behind is never locked out. The closed stream is told `replaced` first, so
+  its tab stops quietly until it is looked at again, rather than showing the offline bar
+  and reconnecting (which would close another tab's stream, and so on in turns).
 """
 
 import asyncio
@@ -35,7 +37,7 @@ MAX_STREAMS_PER_SESSION = 10
 
 @dataclass(frozen=True)
 class Event:
-    name: str  # "hello", "shopping", "pantry" or "signed_out"
+    name: str  # "hello", "shopping", "pantry", "signed_out" or "replaced"
     data: dict[str, int]
 
 
@@ -70,6 +72,7 @@ class Broadcaster:
                 same = [s for s in self._subscriptions if s.session_id == session_id]
                 for oldest in same[: max(len(same) - MAX_STREAMS_PER_SESSION + 1, 0)]:
                     del self._subscriptions[oldest]
+                    oldest.put(Event("replaced", {}))
                     oldest.put(None)
             self._subscriptions[subscription] = None
             if self._closed:

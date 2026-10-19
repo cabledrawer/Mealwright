@@ -5,7 +5,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ## [Unreleased]
 
 ### Security
-- At most 10 live-update streams per sign-in; past that the oldest closes and its tab reconnects.
+- At most 10 live-update streams per sign-in; past that the oldest closes, and its tab quietly stops live updates (no offline bar) until it is looked at again.
 - Signing out ends that sign-in's live updates at once.
 - Requests bigger than 4 MiB are refused ("That's too much to send in one go.").
 - A number too big for the database is refused instead of causing a server error.
