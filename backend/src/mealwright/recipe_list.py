@@ -24,9 +24,9 @@ Everything else below is the spec's or cabledrawer's, as marked:
   ingredient (cabledrawer 20 Oct).
 - A line that uses any other recipe (not made ahead) is not checked (cabledrawer 20 Oct: inner
   recipes are checked in a later version). So is one using a made-ahead recipe with no pantry
-  ingredient yet, or a deleted recipe, and one with no amount (lead's notes, for cabledrawer to
-  confirm). Such a recipe is never "Can cook now" and its hint never says "all in
-  stock" or "all in stock but 1": the row says `stock_unchecked`, and the screen says
+  ingredient yet, or a recipe since deleted (cabledrawer 20 Oct), and one with no amount (lead's
+  note, for cabledrawer to confirm). Such a recipe is never "Can cook now" and its hint never
+  says "all in stock" or "all in stock but 1": the row says `stock_unchecked`, and the screen says
   "N missing" when something that was checked is missing, and no stock words otherwise
   (cabledrawer 20 Oct).
 - "Can cook now" is: something counts, nothing is missing, and no line is left unchecked
