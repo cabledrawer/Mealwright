@@ -185,6 +185,17 @@
     }
   }
 
+  /* The recipe editor is a full page of its own on a phone: no bottom tabs (it has its own bar
+     with Cancel and Save), so nothing is lifted above them either. */
+  @media (max-width: 767px) {
+    :global(html[data-full-page]) {
+      --tabbar-height: 0px;
+    }
+    :global(html[data-full-page]) .tabbar-slot {
+      display: none;
+    }
+  }
+
   /* Tablet and desktop: sidebar beside the page. */
   @media (min-width: 768px) {
     .shell {

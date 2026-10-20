@@ -66,7 +66,15 @@ const PAIRS: Pair[] = [
   ['--color-accent-on-soft', '--color-accent-soft', 4.5], // the chosen ¼ ½ ¾ Full
   ['--color-on-list', '--color-surface', 4.5], // "On list" on the recipe page
   ['--color-on-list-dot', '--color-surface', 3],
-  ['--color-use-soon-text', '--color-fill', 4.5] // "1 missing" on its bar
+  ['--color-use-soon-text', '--color-fill', 4.5], // "1 missing" on its bar
+  // The recipe editor
+  ['--color-photo-text', '--color-photo', 4.5], // "Uploading photo…"
+  ['--color-text', '--color-changed', 4.5], // Wren's version: what they changed
+  ['--color-text-muted', '--color-changed', 4.5],
+  ['--color-warning-text', '--color-surface', 4.5], // a box's message
+  ['--color-warning-text', '--color-ground', 4.5],
+  ['--color-text', '--color-warning', 4.5], // the "Couldn't save" bar's button text
+  ['--color-tub-chip-text', '--color-surface', 4.5] // "Not linked"
 ];
 
 function rgb(value: string): [number, number, number] {

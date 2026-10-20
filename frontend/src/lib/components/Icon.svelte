@@ -19,7 +19,13 @@
     | 'calendar'
     | 'check'
     | 'plus'
-    | 'trash';
+    | 'trash'
+    | 'grip'
+    | 'close'
+    | 'photo'
+    | 'info'
+    | 'alert'
+    | 'cloud-off';
 </script>
 
 <script lang="ts">
@@ -85,6 +91,23 @@
     <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
   {:else if name === 'check'}
     <path d="M5 12.5l4.5 4.5L19 7.5" />
+  {:else if name === 'grip'}
+    <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3" />
+  {:else if name === 'close'}
+    <path d="M6 6l12 12M18 6L6 18" />
+  {:else if name === 'photo'}
+    <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+    <circle cx="12" cy="13" r="3.5" />
+  {:else if name === 'info'}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  {:else if name === 'alert'}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v6M12 16.5h.01" />
+  {:else if name === 'cloud-off'}
+    <path d="M3 3l18 18" />
+    <path d="M8.5 8.6A5 5 0 0 0 6 18h11" />
+    <path d="M10.7 6.2A6 6 0 0 1 18 11a4 4 0 0 1 2.5 6.3" />
   {:else if name === 'search'}
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />

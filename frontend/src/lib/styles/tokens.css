@@ -116,6 +116,11 @@
   /* The recipe page's stock marks: "On list" is orange (text, and the dot beside it). */
   --color-on-list: #8a5a00;
   --color-on-list-dot: #b07400; /* mockup #d99a1e, darkened for 3:1 */
+  /* Recipe editor (mockups RecipeEditor-*) */
+  --color-photo: #efe6d4; /* the photo's place while there is no picture */
+  --color-photo-text: #6e5a33;
+  --color-warning-border: #f2b9a6; /* the "Couldn't save" bar */
+  --color-changed: #fff6e0; /* what someone else changed, in their version of a recipe */
 
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
@@ -257,4 +262,8 @@
   --color-reading-chip: #252e29;
   --color-on-list: #f2b441;
   --color-on-list-dot: #f2b441;
+  --color-photo: #34302a;
+  --color-photo-text: #c9b994;
+  --color-warning-border: #6b3424;
+  --color-changed: #2e2714;
 }

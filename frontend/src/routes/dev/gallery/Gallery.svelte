@@ -14,6 +14,14 @@
   // fake those answers.
   import AskOnce from '$lib/components/AskOnce.svelte';
   import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
+  import ConflictSheet from '$lib/components/recipe/ConflictSheet.svelte';
+  import EditorNote from '$lib/components/recipe/EditorNote.svelte';
+  import IngredientPicker from '$lib/components/recipe/IngredientPicker.svelte';
+  import LineList from '$lib/components/recipe/LineList.svelte';
+  import PhotoField from '$lib/components/recipe/PhotoField.svelte';
+  import ServesField from '$lib/components/recipe/ServesField.svelte';
+  import StepList from '$lib/components/recipe/StepList.svelte';
+  import TagsField from '$lib/components/recipe/TagsField.svelte';
   import Button from '$lib/components/Button.svelte';
   import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
   import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
@@ -49,7 +57,9 @@
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { askOnce } from '$lib/askOnce.svelte';
-  import type { RecipeLine, RecipeRow } from '$lib/client/recipes';
+  import type { RecipeLine, RecipeOut, RecipeRow } from '$lib/client/recipes';
+  import type { FoodRow } from '$lib/client/types';
+  import { RecipeDraft, type DraftPhoto } from '$lib/recipes/draft.svelte';
   import type { Change } from '$lib/client/types';
   import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
@@ -88,7 +98,13 @@
     'search',
     'pencil',
     'calendar',
-    'check'
+    'check',
+    'grip',
+    'close',
+    'photo',
+    'info',
+    'alert',
+    'cloud-off'
   ];
 
   // --- Switch, fields -----------------------------------------------------------------
@@ -458,6 +474,159 @@
     );
   }
 
+  // --- Recipe editor ------------------------------------------------------------------------
+  const photo = {
+    id: 1,
+    width: 4,
+    height: 3,
+    url: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%224%22 height=%223%22%3E%3Crect width=%224%22 height=%223%22 fill=%22%23e7b866%22/%3E%3C/svg%3E',
+    list_width: 4,
+    list_height: 3,
+    list_url: ''
+  };
+  const photoStates: { label: string; photo: DraftPhoto }[] = [
+    {
+      label: 'Empty',
+      photo: { shown: null, change: 'none', uploading: null, file: null, error: null }
+    },
+    {
+      label: 'Uploading',
+      photo: {
+        shown: null,
+        change: 'none',
+        uploading: new File([], 'a.jpg'),
+        file: null,
+        error: null
+      }
+    },
+    {
+      label: 'With a photo',
+      photo: { shown: photo, change: 'new', uploading: null, file: null, error: null }
+    },
+    {
+      label: 'Too big (the server’s words)',
+      photo: {
+        shown: null,
+        change: 'none',
+        uploading: null,
+        file: null,
+        error: 'That photo is too big to use (over 50 megapixels). Try a smaller copy.'
+      }
+    }
+  ];
+  let editorServes = $state<number | null>(4);
+  let servesCleared = $state<number | null>(null);
+  let tags = $state(['Batch-friendly', 'South Indian']);
+  const suggest = async () => [{ name: 'Quick' }, { name: 'Kids' }];
+  const row = (id: number, name: string, matched: string | null = null) =>
+    ({ id, name, matched_name: matched, other_names: [] }) as unknown as FoodRow;
+  const searchEverything = async () => ({
+    foods: [row(7, 'Toor dal', 'thuvaram paruppu'), row(8, 'Sambar onions', 'small onions')],
+    recipes: [
+      {
+        id: 3,
+        name: 'Sambar powder',
+        description: null,
+        version: 1,
+        makes: { amount: 200, amount_text: '200', unit: 'g' }
+      },
+      { id: 1, name: 'Sambar', description: null, version: 1, makes: null },
+      { id: 4, name: 'Sambar rice', description: null, version: 1, makes: null }
+    ]
+  });
+  const blocked = [
+    { id: 1, name: 'Sambar', reason: 'A recipe can’t use itself.', chain: ['Sambar'] },
+    {
+      id: 4,
+      name: 'Sambar rice',
+      reason: 'Sambar can’t use Sambar rice, because Sambar rice uses Sambar.',
+      chain: ['Sambar', 'Sambar rice']
+    }
+  ];
+  const noLine = {
+    amount: null,
+    amount_text: null,
+    unit: null,
+    size: null,
+    food: null,
+    recipe: null
+  };
+  const rx = {
+    id: 1,
+    name: 'Sambar',
+    description: 'Lentil & vegetable stew',
+    time_minutes: 50,
+    serves: 6,
+    makes: null,
+    made_ahead: false,
+    homemade: null,
+    tags: ['Quick'],
+    nutrition: { kcal: 320, protein: null, carbs: null, fat: null, fibre: null },
+    lines: [
+      { ...noLine, id: 1, kind: 'heading', words: 'For the dal', link: null, note: null },
+      {
+        ...noLine,
+        id: 2,
+        kind: 'ingredient',
+        words: 'thuvaram paruppu',
+        amount: 200,
+        amount_text: '200',
+        unit: 'g',
+        food: { id: 7, name: 'Toor dal' },
+        link: 'ingredient',
+        note: 'rinsed'
+      },
+      {
+        ...noLine,
+        id: 3,
+        kind: 'ingredient',
+        words: 'Sambar powder',
+        amount: 2,
+        amount_text: '2',
+        unit: 'tbsp',
+        recipe: { id: 3, name: 'Sambar powder' },
+        link: 'recipe',
+        note: null
+      },
+      { ...noLine, id: 4, kind: 'ingredient', words: 'karuveppilai', link: 'none', note: null },
+      { ...noLine, id: 5, kind: 'ingredient', words: 'salt to taste', link: 'none', note: null }
+    ],
+    steps: [
+      { id: 1, kind: 'heading', text: 'The dal' },
+      { id: 2, kind: 'step', text: 'Rinse the dal and pressure-cook with the turmeric until soft.' }
+    ],
+    source_note: null,
+    photo: null,
+    used_by: [],
+    version: 3,
+    updated_at: '2026-10-19T18:04:11+00:00',
+    updated_by: { login_id: 1, name: 'Tess' }
+  } as RecipeOut;
+  const draft = RecipeDraft.from(rx);
+  const theirs = {
+    ...rx,
+    serves: 8,
+    version: 4,
+    lines: [
+      { ...rx.lines[0]! },
+      { ...rx.lines[1]!, amount: 300, amount_text: '300' },
+      rx.lines[2]!,
+      {
+        ...noLine,
+        id: 9,
+        kind: 'ingredient',
+        words: 'aubergine',
+        amount: 1,
+        amount_text: '1',
+        link: 'none',
+        note: null
+      }
+    ]
+  } as RecipeOut;
+  let wrenOpen = $state(false);
+  let phoneWide = $state(true);
+  const noErrors = {};
+
   // --- Offline bars -------------------------------------------------------------------------
   const wasOffline = network.offline;
   const wasWaiting = network.waiting;
@@ -500,6 +669,7 @@
     <a href="#ingredient-recipes">Ingredients and recipes</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
+    <a href="#recipe-editor">Recipe editor</a>
     <a href="#icons">Icons</a>
   </nav>
 
@@ -908,6 +1078,118 @@
     </div>
   </section>
 
+  <section id="recipe-editor">
+    <h2>Recipe editor</h2>
+    <p class="note">
+      The boxes and parts of New recipe and Edit recipe. Nothing here is saved or sent.
+    </p>
+
+    <h3>Photo</h3>
+    <div class="grid">
+      {#each photoStates as state (state.label)}
+        <div class="cell">
+          <p class="note">{state.label}</p>
+          <PhotoField photo={state.photo} onpick={() => {}} onremove={() => {}} />
+        </div>
+      {/each}
+    </div>
+
+    <h3>Boxes, buttons and notes</h3>
+    <div class="grid">
+      <div class="mw-field">
+        <label class="mw-label" for="g-rx-name">Name</label>
+        <textarea id="g-rx-name" class="mw-input" rows="2"
+          >Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder</textarea
+        >
+      </div>
+      <div class="mw-field">
+        <label class="mw-label" for="g-rx-bad"
+          >Time <span class="mw-optional">(minutes)</span></label
+        >
+        <input id="g-rx-bad" class="mw-input" aria-invalid="true" value="1h" />
+        <span class="mw-error">Use whole minutes, from 1 to 14,400.</span>
+      </div>
+      <div class="mw-field">
+        <label class="mw-label" for="g-rx-unit">Unit</label>
+        <select id="g-rx-unit" class="mw-input"><option>g</option><option>tbsp</option></select>
+        <span class="mw-hint">A small hint under a box.</span>
+      </div>
+      <div class="row">
+        <button type="button" class="mw-pill">Change photo</button>
+        <button type="button" class="mw-pill" disabled>Disabled</button>
+        <button type="button" class="mw-add">+ Add ingredient</button>
+        <button type="button" class="mw-icon" aria-label="Take out"
+          ><Icon name="close" size={18} /></button
+        >
+      </div>
+    </div>
+    <div class="stack narrow">
+      <EditorNote tone="offline">You’re offline. Save when you’re back online.</EditorNote>
+      <EditorNote tone="trouble">
+        <span>Couldn’t save. Try again.</span>
+        <button type="button" class="mw-pill">Try again</button>
+      </EditorNote>
+      <EditorNote tone="conflict">
+        <span>Wren changed this recipe after you opened it.</span>
+        <span class="row">
+          <button type="button" class="mw-pill" onclick={() => (wrenOpen = true)}
+            >See Wren’s version</button
+          >
+          <button type="button" class="demo">Save mine anyway</button>
+        </span>
+      </EditorNote>
+    </div>
+
+    <h3>Serves, tags</h3>
+    <div class="grid">
+      <ServesField bind:serves={editorServes} />
+      <ServesField bind:serves={servesCleared} />
+      <TagsField bind:tags {suggest} />
+    </div>
+
+    <h3>Pick an ingredient (a recipe that would make a loop is greyed out)</h3>
+    <div class="narrow">
+      <IngredientPicker
+        query="sam"
+        search={searchEverything}
+        {blocked}
+        onpick={() => toasts.show('Gallery: nothing is picked.')}
+        oncreate={() => toasts.show('Gallery: this opens “How do you count it?”.')}
+      />
+    </div>
+
+    <h3>Ingredient lines and method</h3>
+    <label class="inline"
+      ><Switch bind:checked={phoneWide} label="Pick from a sheet" /> Pick from a sheet (phone) instead
+      of under the line</label
+    >
+    <div class="wide">
+      <LineList
+        {draft}
+        phone={phoneWide}
+        errors={noErrors}
+        {blocked}
+        search={searchEverything}
+        announce={() => {}}
+      />
+      <StepList {draft} errors={noErrors} announce={() => {}} />
+    </div>
+
+    <h3>Wren’s version</h3>
+    <button type="button" class="demo" onclick={() => (wrenOpen = true)}>Open Wren’s version</button
+    >
+    {#if wrenOpen}
+      <ConflictSheet
+        who="Wren"
+        opened={rx}
+        {theirs}
+        phone={phoneWide}
+        onclose={() => (wrenOpen = false)}
+        onsave={() => (wrenOpen = false)}
+      />
+    {/if}
+  </section>
+
   <section id="icons">
     <h2>Icons</h2>
     <ul class="icons">
@@ -1037,6 +1319,13 @@
 
   .narrow {
     max-width: 390px;
+  }
+
+  .wide {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-9);
+    max-width: 900px;
   }
 
   .narrow.wide {
