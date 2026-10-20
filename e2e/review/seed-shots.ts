@@ -3,6 +3,7 @@
 //
 //   node review/screens.ts --screen Shopping --path /shopping --serve --prepare review/seed-shots.ts
 //   node review/screens.ts --path /pantry --serve --prepare review/seed-shots.ts --stress
+//   node review/screens.ts --path /recipes/7 --serve --prepare review/seed-shots.ts --stress   (the large recipe)
 //
 // tests/screens.spec.ts (the saved screenshots) uses seed() too.
 import type { APIRequestContext } from '@playwright/test';
@@ -163,6 +164,45 @@ export async function stress(request: APIRequestContext) {
     await api.post('/stock', { food_id: id, amount: { amount: 100 + i, unit: 'g' }, place_id: placeId.get(place) });
     await api.post(`/shopping/lists/${list}/items`, { food_id: id, amount: { amount: 250, unit: 'g' } });
   }
+  // The recipe page: one large recipe (many lines with long names, headings, long notes and a
+  // long method) made first, so on a fresh kitchen it is recipe 7 after the 6 from seed():
+  //   node review/screens.ts --path /recipes/7 --serve --prepare review/seed-shots.ts --stress
+  const lines: Json[] = [];
+  for (let i = 1; i <= 36; i++) {
+    if (i % 12 === 1) lines.push({ kind: 'heading', words: `Part ${Math.ceil(i / 12)}: ${LONG_NAMES[i % LONG_NAMES.length]!}` });
+    const name = i <= LONG_NAMES.length ? LONG_NAMES[i - 1]! : `Test ingredient ${String(i).padStart(3, '0')}`;
+    const { foods } = (await api.get(`/foods?q=${encodeURIComponent(name)}`)) as { foods: { id: number; name: string }[] };
+    const found = foods.find((f) => f.name === name);
+    lines.push({
+      words: i % 5 === 0 ? `${name} (${LONG_OTHER_NAMES[i % LONG_OTHER_NAMES.length]!})` : name.toLowerCase(),
+      ...(found ? { food_id: found.id } : {}),
+      amount: i % 3 === 0 ? 2 : 50 + i * 25,
+      unit: i % 3 === 0 ? 'tbsp' : 'g',
+      ...(i % 4 === 0 ? { note: 'rinsed well, drained and left to dry on a clean cloth for ten minutes' } : {}),
+    });
+  }
+  lines.push({ words: 'salt and a good pinch of patience, to taste' });
+  const steps: Json[] = [];
+  for (let part = 1; part <= 3; part++) {
+    steps.push({ kind: 'heading', text: `${LONG_NAMES[part % LONG_NAMES.length]!}` });
+    for (let n = 1; n <= 8; n++) {
+      steps.push({
+        text: `Step ${part}.${n}: ${LONG_OTHER_NAMES[n % LONG_OTHER_NAMES.length]!}. Stir gently, keep the heat low and let it rest before you go on to the next step.`,
+      });
+    }
+  }
+  await api.post('/recipes', {
+    name: `${LONG_NAMES[0]!} ${LONG_NAMES[1]!}`,
+    description: 'A very large family-feast recipe with a long description that goes on to test wrapping on a narrow phone screen at double text size.',
+    time_minutes: 240,
+    serves: 12,
+    makes: { amount: 3.5, unit: 'litres' },
+    nutrition: { kcal: 640, protein: 31, carbs: 80, fat: 21, fibre: 14 },
+    source_note: `Amma’s notebook, page 12, and ${LONG_OTHER_NAMES[1]!}`,
+    tags: ['Festival and special-occasion cooking', 'Batch-friendly', 'Quick'],
+    lines,
+    steps,
+  });
   // All recipes: 200+ recipes, a few with very long names, tags and use-soon ingredients.
   const longRecipes: RecipeSpec[] = [];
   for (let i = 1; i <= TOTAL; i++) {
