@@ -6,7 +6,7 @@ import zlib
 from typing import Any
 
 from fastapi.testclient import TestClient
-from PIL import Image, ImageCms
+from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
 API = "/api/v1"
@@ -75,8 +75,50 @@ def animated_webp() -> bytes:
     return out.getvalue()
 
 
-def srgb_profile() -> bytes:
-    return ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+def wide_gamut_profile() -> bytes:
+    """A colour profile like Adobe RGB (1998): its red, green and blue are wider than
+    sRGB's, so the same numbers mean other colours. Pillow can't make one, so it's built
+    here, the smallest ICC profile littlecms takes (version 2, three colours and a curve)."""
+
+    def number(value: float) -> bytes:
+        return struct.pack(">i", round(value * 65536))
+
+    def xyz(x: float, y: float, z: float) -> bytes:
+        return b"XYZ " + b"\0" * 4 + number(x) + number(y) + number(z)
+
+    name = b"Wide test RGB\0"
+    desc = b"desc" + b"\0" * 4 + struct.pack(">I", len(name)) + name + b"\0" * 78
+    curve = b"curv" + b"\0" * 4 + struct.pack(">IH", 1, 0x0233) + b"\0\0"  # gamma 2.2
+    white = (0.9642, 1.0, 0.8249)  # D50
+    tags = [
+        (b"desc", desc),
+        (b"wtpt", xyz(*white)),
+        (b"rXYZ", xyz(0.60974, 0.31111, 0.01947)),
+        (b"gXYZ", xyz(0.20528, 0.62567, 0.06087)),
+        (b"bXYZ", xyz(0.14919, 0.06322, 0.74457)),
+        (b"rTRC", curve),
+        (b"gTRC", curve),
+        (b"bTRC", curve),
+        (b"cprt", b"text" + b"\0" * 4 + b"Test only\0"),
+    ]
+    table, data = b"", b""
+    start = 128 + 4 + 12 * len(tags)
+    for kind, body in tags:
+        body += b"\0" * (-len(body) % 4)
+        table += kind + struct.pack(">II", start + len(data), len(body))
+        data += body
+    header = (
+        struct.pack(">I", start + len(data))
+        + b"\0" * 4
+        + struct.pack(">I", 0x02100000)
+        + b"mntrRGB XYZ "
+        + b"\0" * 12
+        + b"acsp"
+        + b"\0" * 28
+        + xyz(*white)[8:]
+        + b"\0" * 48
+    )
+    return header + struct.pack(">I", len(tags)) + table + data
 
 
 def gif() -> bytes:

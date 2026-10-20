@@ -130,22 +130,34 @@ def test_the_photo_is_turned_the_way_up_its_exif_note_says(
     assert kit.opened(cleaned.small).getexif().get(0x0112) is None
 
 
-def test_a_colour_profile_is_used_then_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
-    used: list[str] = []
-    real = ImageCms.profileToProfile
+def test_a_colour_profile_is_used_then_dropped() -> None:
+    profile = kit.wide_gamut_profile()
+    green = (60, 160, 90)
+    # What those numbers are in sRGB, under that profile: far from the numbers themselves.
+    expected = ImageCms.profileToProfile(
+        Image.new("RGB", (1, 1), green),
+        ImageCms.ImageCmsProfile(io.BytesIO(profile)),
+        ImageCms.createProfile("sRGB"),
+    )
+    assert expected is not None
+    in_srgb = expected.getpixel((0, 0))
+    assert isinstance(in_srgb, tuple) and abs(in_srgb[0] - green[0]) > 40
 
-    def spy(*args: Any, **kwargs: Any) -> Any:
-        used.append(ImageCms.getProfileDescription(args[2]))
-        return real(*args, **kwargs)
+    def cleaned(**save: Any) -> photos.Cleaned:
+        out = io.BytesIO()
+        Image.new("RGB", (400, 300), green).save(out, "JPEG", quality=95, **save)
+        return photos.clean(out.getvalue())
 
-    monkeypatch.setattr(photos.ImageCms, "profileToProfile", spy)
-    sent = kit.jpeg(icc_profile=kit.srgb_profile())
-    assert kit.opened(sent).info.get("icc_profile")
-    cleaned = photos.clean(sent)
-    assert len(used) == 1 and "sRGB" in used[0]
-    large = kit.opened(cleaned.large)
-    assert "icc_profile" not in large.info
-    assert colour(large, 20, 20) == "red" and colour(large, 380, 20) == "blue"
+    def near(found: Any, wanted: Any) -> bool:
+        return all(abs(a - b) <= 4 for a, b in zip(found, wanted, strict=True))
+
+    plain = cleaned()  # no profile: the numbers are taken as they are
+    tagged = cleaned(icc_profile=profile)
+    assert near(kit.opened(plain.large).getpixel((200, 150)), green)
+    for data in (tagged.large, tagged.small):
+        saved = kit.opened(data)
+        assert near(saved.getpixel((saved.width // 2, saved.height // 2)), in_srgb)
+        assert "icc_profile" not in saved.info and b"ICC_PROFILE" not in data
 
 
 def test_a_profile_pillow_cannot_use_is_ignored_not_refused() -> None:
