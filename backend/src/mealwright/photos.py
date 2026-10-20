@@ -3,9 +3,9 @@
 An upload is read by Pillow, and only JPEG, PNG and WebP are taken, decided by what the
 bytes are (never the file name or the Content-Type). Then:
 
-1. The picture is made the large copy's size first (a JPEG is decoded smaller), so a big
-   photo is only ever held full size once, and then turned the way its EXIF note says
-   is up.
+1. The picture is made the large copy's size first (a JPEG is decoded smaller, with
+   Pillow's draft mode; cabledrawer 20 Oct), so a big photo is only ever held full size once,
+   and then turned the way its EXIF note says is up.
 2. It's rebuilt from the pixels alone, so nothing else in the file is kept: no EXIF (camera,
    date, GPS place), XMP, PNG text, thumbnails or colour profile. A colour profile is used
    first, to turn the colours into sRGB. See-through parts become white. An animated image
@@ -43,7 +43,7 @@ from sqlalchemy.orm import Session, SessionTransaction
 
 log = logging.getLogger(__name__)
 
-MAX_PIXELS = 40_000_000
+MAX_PIXELS = 50_000_000  # recent phones take 48 to 50 MP photos (cabledrawer 20 Oct)
 LARGE_SIDE = 1600  # longest side of the large copy
 LIST_SIDE = 156  # shortest side of the list copy: 52 px at 3x (Recipes-Phone)
 QUALITY = 85
@@ -52,7 +52,8 @@ MAX_WAITING = 10  # uploads not saved on a recipe yet, per household (cabledrawe
 WAITING_HOURS = 24  # an upload no recipe took is deleted after this
 
 NOT_A_PHOTO = "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."
-TOO_MANY_PIXELS = "That photo has too many pixels. Try one under 40 megapixels."
+# cabledrawer 20 Oct
+TOO_MANY_PIXELS = "That photo is too big to use (over 50 megapixels). Try a smaller copy."
 TOO_MANY_WAITING = "Too many photos waiting to be saved. Save or cancel a recipe first."
 
 # Pillow refuses anything over twice this by itself, and only warns over it; while a photo
@@ -60,7 +61,8 @@ TOO_MANY_WAITING = "Too many photos waiting to be saved. Save or cancel a recipe
 # before any pixel is read.
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 
-# One photo at a time: a 40-megapixel picture needs a few hundred MB while it's worked on.
+# One photo at a time: a 50-megapixel PNG needs a few hundred MB while it's worked on (a JPEG
+# much less: it's decoded at a smaller scale).
 _ONE_AT_A_TIME = threading.Semaphore(1)
 
 _KEY = re.compile(r"^[0-9a-f]{32}$")

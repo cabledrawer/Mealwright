@@ -28,7 +28,8 @@ _PHOTO_BODY = {
     "requestBody": {
         "required": True,
         "description": "The photo file itself, as the request body (not a form). At most "
-        f"{MAX_PHOTO_BYTES // (1024 * 1024)} MB and 40 megapixels.",
+        f"{MAX_PHOTO_BYTES // (1024 * 1024)} MB and "
+        f"{photos.MAX_PIXELS // 1_000_000} megapixels.",
         "content": {
             kind: {"schema": {"type": "string", "format": "binary"}}
             for kind in ("image/jpeg", "image/png", "image/webp")
@@ -179,7 +180,9 @@ def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
 def photo_file(photo_id: int, copy: Literal["large", "list"], kitchen: Here) -> FileResponse:
     """A photo's large copy or its list copy, for members of the household only. An
     upload not saved yet can be shown too (the editor's preview); a photo of a deleted
-    recipe can't, until the delete is undone."""
+    recipe can't, until the delete is undone. Like every /api answer, it's sent
+    `Cache-Control: no-store`, so the browser keeps no copy."""
+    # no-store for photos too: cabledrawer 20 Oct.
     photo = _own(kitchen, photo_id)
     if photo.recipe_id is not None:
         recipe = kitchen.db.get(Recipe, photo.recipe_id)
@@ -206,6 +209,7 @@ def delete_unsaved_photo(photo_id: int, kitchen: Here) -> Response:
     lock_household(kitchen)
     photo = _own(kitchen, photo_id)
     if photo.recipe_id is not None:
+        # The wording: cabledrawer 20 Oct.
         raise Problem(
             status.HTTP_409_CONFLICT,
             "photo_in_use",

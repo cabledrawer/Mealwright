@@ -28,6 +28,7 @@ NOT_A_PHOTO = "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."
 TOO_BIG = "That photo is bigger than 15 MB."
 WAITING = "Too many photos waiting to be saved. Save or cancel a recipe first."
 GONE = "That photo isn't here any more."
+TOO_MANY_PIXELS = "That photo is too big to use (over 50 megapixels). Try a smaller copy."
 
 
 def store(client: TestClient) -> Path:
@@ -130,17 +131,20 @@ def test_the_photo_is_turned_the_way_up_its_exif_note_says(
     assert kit.opened(cleaned.small).getexif().get(0x0112) is None
 
 
-def test_a_big_photo_is_turned_too() -> None:
-    # A big photo is made small first and turned after, so test one bigger than the copies.
-    cleaned = photos.clean(kit.jpeg(4000, 3000, orientation=6))
+@pytest.mark.parametrize("stored", [(4000, 3000), (8160, 6120)], ids=["12mp", "50mp"])
+def test_a_big_photo_is_turned_too(stored: tuple[int, int]) -> None:
+    """A big photo is made small first (a JPEG decoded smaller) and turned after, so test
+    ones bigger than the copies: the shrink works on the photo as it's stored, sideways,
+    and the turned photo still gets the large copy's full size."""
+    cleaned = photos.clean(kit.jpeg(*stored, orientation=6))
     large = kit.opened(cleaned.large)
-    width, height = large.size
-    assert height > width and (width, height) == cleaned.large_size
+    assert large.size == cleaned.large_size == (1200, 1600)
     assert colour(large, 20, 20) == "red"
-    assert colour(large, 20, height - 20) == "blue"
+    assert colour(large, 20, 1580) == "blue"
 
 
-def test_a_colour_profile_is_used_then_dropped() -> None:
+@pytest.mark.parametrize("size", [(400, 300), (4000, 3000)], ids=["small", "shrunk"])
+def test_a_colour_profile_is_used_then_dropped(size: tuple[int, int]) -> None:
     profile = kit.wide_gamut_profile()
     green = (60, 160, 90)
     # What those numbers are in sRGB, under that profile: far from the numbers themselves.
@@ -155,7 +159,7 @@ def test_a_colour_profile_is_used_then_dropped() -> None:
 
     def cleaned(**save: Any) -> photos.Cleaned:
         out = io.BytesIO()
-        Image.new("RGB", (400, 300), green).save(out, "JPEG", quality=95, **save)
+        Image.new("RGB", size, green).save(out, "JPEG", quality=95, **save)
         return photos.clean(out.getvalue())
 
     def near(found: Any, wanted: Any) -> bool:
@@ -164,6 +168,7 @@ def test_a_colour_profile_is_used_then_dropped() -> None:
     plain = cleaned()  # no profile: the numbers are taken as they are
     tagged = cleaned(icc_profile=profile)
     assert near(kit.opened(plain.large).getpixel((200, 150)), green)
+    assert tagged.large_size == (min(size[0], 1600), min(size[1], 1200))
     for data in (tagged.large, tagged.small):
         saved = kit.opened(data)
         assert near(saved.getpixel((saved.width // 2, saved.height // 2)), in_srgb)
@@ -173,6 +178,25 @@ def test_a_colour_profile_is_used_then_dropped() -> None:
 def test_a_profile_pillow_cannot_use_is_ignored_not_refused() -> None:
     cleaned = photos.clean(kit.jpeg(icc_profile=b"not really a colour profile"))
     assert "icc_profile" not in kit.opened(cleaned.large).info
+
+
+@pytest.mark.parametrize("mode", ["CMYK", "L"])
+def test_cmyk_and_grey_jpegs_are_taken_big_or_small(mode: str) -> None:
+    """JPEGs are decoded at a smaller scale when they'll be shrunk anyway; CMYK (from
+    print software) and grey ones work both ways."""
+    for size, large_size in (((400, 300), (400, 300)), ((4000, 3000), (1600, 1200))):
+        out = io.BytesIO()
+        kit.picture(*size).convert(mode).save(out, "JPEG", quality=95)
+        cleaned = photos.clean(out.getvalue())
+        large = kit.opened(cleaned.large)
+        assert large.mode == "RGB" and large.size == cleaned.large_size == large_size
+        left = large.getpixel((20, 20))
+        right = large.getpixel((large_size[0] - 20, 20))
+        if mode == "CMYK":
+            assert (colour(large, 20, 20), colour(large, large_size[0] - 20, 20)) == ("red", "blue")
+        else:  # red and blue as grey: two different greys, the same in each channel
+            assert isinstance(left, tuple) and isinstance(right, tuple)
+            assert len(set(left)) == len(set(right)) == 1 and abs(left[0] - right[0]) > 20
 
 
 def test_see_through_parts_become_white() -> None:
@@ -232,17 +256,24 @@ def test_a_png_cut_short_is_refused() -> None:
 
 
 @pytest.mark.parametrize(
-    "size", [(8001, 5000), (40_001, 1000), (20_000, 20_000), (100_000, 100_000)]
+    "size",
+    [(16_666_667, 3), (10_001, 5000), (50_001, 1000), (20_000, 20_000), (100_000, 100_000)],
 )
-def test_more_than_40_megapixels_is_refused_before_any_pixel_is_read(size: tuple[int, int]) -> None:
+def test_more_than_50_megapixels_is_refused_before_any_pixel_is_read(size: tuple[int, int]) -> None:
+    # 16,666,667 x 3 is 50,000,001 pixels: one more than the limit (cabledrawer 20 Oct).
     with pytest.raises(photos.TooManyPixels):
         photos.clean(kit.png_header_only(*size))
+
+
+def test_exactly_50_megapixels_is_taken() -> None:
+    assert photos.MAX_PIXELS == 10_000 * 5000 == 50_000_000
+    assert photos.clean(kit.jpeg(10_000, 5000)).large_size == (1600, 800)
 
 
 def test_pillows_too_many_pixels_warning_refuses_the_photo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Pillow warns over its limit and refuses over twice it. Its limit is 40 megapixels,
+    """Pillow warns over its limit and refuses over twice it. Its limit is 50 megapixels,
     the same as Mealwright's own check, so there's no real photo in between: the limit is
     lowered here to show the warning alone refuses it."""
     import warnings
@@ -272,19 +303,13 @@ print(cleaned.large_size, (peak() - before) // 1024)
 """
 
 
-@pytest.mark.parametrize(("mode", "at_most"), [("RGB", 300), ("RGBA", 450)])
-def test_a_40_megapixel_png_is_cleaned_in_a_few_hundred_mb(
-    tmp_path: Path, mode: str, at_most: int
-) -> None:
-    """Made small first, so the full-size picture is in memory once. Before, a 40 MP PNG
-    took about 820 MB (RGB) and 950 MB (see-through). Measured in a process of its own:
-    its peak memory less what it had before cleaning. (VmHWM, not getrusage: that one
-    starts from the test runner's own peak.)"""
+def peak_mb(path: Path) -> tuple[str, int]:
+    """Cleans the photo in a process of its own: its large copy's size and its peak memory
+    less what it had before cleaning, in MB. (VmHWM, not getrusage: that one starts from
+    the test runner's own peak.)"""
     import subprocess
     import sys
 
-    path = tmp_path / "big.png"
-    kit.picture(8000, 5000, mode).save(path, "PNG")
     assert os.path.getsize(path) < MAX_PHOTO_BYTES
     source = str(Path(photos.__file__).parents[1])
     found = subprocess.run(  # noqa: S603 (fixed command, no user input)
@@ -292,16 +317,40 @@ def test_a_40_megapixel_png_is_cleaned_in_a_few_hundred_mb(
         capture_output=True,
         text=True,
         check=True,
-        cwd=tmp_path,
+        cwd=path.parent,
         env={**os.environ, "PYTHONPATH": source},
         timeout=120,
     ).stdout.split()
-    assert found[:2] == ["(1600,", "1000)"]
-    assert int(found[2]) < at_most
+    return " ".join(found[:2]), int(found[2])
+
+
+@pytest.mark.parametrize(("mode", "at_most"), [("RGB", 300), ("RGBA", 450)])
+def test_a_50_megapixel_png_is_cleaned_in_a_few_hundred_mb(
+    tmp_path: Path, mode: str, at_most: int
+) -> None:
+    """Made small first, so the full-size picture is in memory once. Before, a 40 MP PNG
+    took about 820 MB (RGB) and 950 MB (see-through); now a 50 MP one takes about 260 MB
+    and 420 MB."""
+    path = tmp_path / "big.png"
+    kit.picture(10_000, 5000, mode).save(path, "PNG")
+    size, used = peak_mb(path)
+    assert size == "(1600, 800)"
+    assert used < at_most
+
+
+def test_a_50_megapixel_jpeg_is_decoded_small(tmp_path: Path) -> None:
+    """A JPEG that will be shrunk anyway is decoded at a smaller scale (Pillow's draft
+    mode; cabledrawer 20 Oct), so a 50 MP phone photo takes about 46 MB, not the 240 MB a
+    full decode takes."""
+    path = tmp_path / "phone.jpg"
+    path.write_bytes(kit.jpeg(8160, 6120))  # a 50 MP phone camera's size
+    size, used = peak_mb(path)
+    assert size == "(1600, 1200)"
+    assert used < 100
 
 
 def test_the_pillow_limits_are_set() -> None:
-    assert Image.MAX_IMAGE_PIXELS == 40_000_000
+    assert Image.MAX_IMAGE_PIXELS == 50_000_000
     assert photos.FORMATS == ("JPEG", "PNG", "WEBP")
 
 
@@ -381,9 +430,9 @@ def test_what_it_is_comes_from_the_bytes_not_the_content_type(kitchen: TestClien
 
 
 def test_too_many_pixels_is_refused(kitchen: TestClient) -> None:
-    response = kit.upload(kitchen, kit.png_header_only(8001, 5000), "image/png")
+    response = kit.upload(kitchen, kit.png_header_only(10_001, 5000), "image/png")
     assert response.status_code == 422
-    assert response.json()["code"] == "too_many_pixels"
+    assert response.json() == {"detail": TOO_MANY_PIXELS, "code": "too_many_pixels"}
     assert files_of(kitchen) == []
 
 
