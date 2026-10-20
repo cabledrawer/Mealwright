@@ -6,13 +6,13 @@ query per recipe): the recipes, their lines, the ingredients, sizes, the househo
 conversions, stock, tags and other names are each read once for the whole household, then
 worked out here. Every query is limited to the signed-in household.
 
-The stock rules. cabledrawer's answers (19 Oct, questions 21 and 22): only ingredient lines with an
-amount count, and any other ingredient is in stock when the pantry covers what the recipe
-needs at its own servings, if the two amounts can be compared; if not, any stock counts.
+The stock rules. cabledrawer's answer (19 Oct, question 22): an ingredient is in stock when the
+pantry covers what the recipe needs at its own servings, if the two amounts can be compared;
+if not, any stock counts.
 Everything else below is the spec's or a lead's note, as marked:
 - Only ingredient lines with an amount count. Headings, lines with no amount ("salt to
-  taste") and lines that link to nothing never do (cabledrawer, Q21 and Q22). A recipe whose lines
-  all lack amounts gets no hint and is not "Can cook now" (lead's note, waiting for cabledrawer).
+  taste") and lines that link to nothing never do. A recipe whose lines all lack amounts
+  gets no hint and is not "Can cook now". Both lead's notes, waiting for cabledrawer.
 - A staple counts as in stock, always (spec, Stock section: "Staples: assumed in stock,
   not quantity-tracked").
 - Any other ingredient is in stock when the amount in the pantry covers what the recipe needs
