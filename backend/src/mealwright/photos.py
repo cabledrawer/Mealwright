@@ -53,10 +53,10 @@ NOT_A_PHOTO = "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."
 TOO_MANY_PIXELS = "That photo has too many pixels. Try one under 40 megapixels."
 TOO_MANY_WAITING = "Too many photos waiting to be saved. Save or cancel a recipe first."
 
-# Pillow refuses anything over twice this by itself, and warns over it; the warning is made
-# an error, and the size is also checked by hand before any pixel is read.
+# Pillow refuses anything over twice this by itself, and only warns over it; while a photo
+# is opened that warning is an error too (`_clean`), and the size is also checked by hand
+# before any pixel is read.
 Image.MAX_IMAGE_PIXELS = MAX_PIXELS
-warnings.simplefilter("error", Image.DecompressionBombWarning)
 
 # One photo at a time: a 40-megapixel picture needs a few hundred MB while it's worked on.
 _ONE_AT_A_TIME = threading.Semaphore(1)
@@ -95,19 +95,23 @@ def clean(data: bytes) -> Cleaned:
 
 def _clean(data: bytes) -> Cleaned:
     try:
-        with Image.open(io.BytesIO(data), formats=list(FORMATS)) as opened:
-            width, height = opened.size
-            if width < 1 or height < 1:
-                raise NotAPhoto
-            if width * height > MAX_PIXELS:
-                raise TooManyPixels
-            opened.seek(0)  # an animated image keeps its first frame
-            if opened.format == "JPEG":
-                # Decode at a smaller scale when the photo is much bigger than needed.
-                opened.draft(opened.mode, _fit((width, height), LARGE_SIDE))
-            opened.load()
-            icc = opened.info.get("icc_profile")
-            picture = _upright(opened)
+        with warnings.catch_warnings():
+            # Here Pillow's "too many pixels" warning refuses the photo, whatever the
+            # warning filters elsewhere say.
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data), formats=list(FORMATS)) as opened:
+                width, height = opened.size
+                if width < 1 or height < 1:
+                    raise NotAPhoto
+                if width * height > MAX_PIXELS:
+                    raise TooManyPixels
+                opened.seek(0)  # an animated image keeps its first frame
+                if opened.format == "JPEG":
+                    # Decode at a smaller scale when the photo is much bigger than needed.
+                    opened.draft(opened.mode, _fit((width, height), LARGE_SIDE))
+                opened.load()
+                icc = opened.info.get("icc_profile")
+                picture = _upright(opened)
     except TooManyPixels, NotAPhoto:
         raise
     except Image.DecompressionBombError, Image.DecompressionBombWarning:

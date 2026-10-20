@@ -217,6 +217,24 @@ def test_more_than_40_megapixels_is_refused_before_any_pixel_is_read(size: tuple
         photos.clean(kit.png_header_only(*size))
 
 
+def test_pillows_too_many_pixels_warning_refuses_the_photo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pillow warns over its limit and refuses over twice it. Its limit is 40 megapixels,
+    the same as Mealwright's own check, so there's no real photo in between: the limit is
+    lowered here to show the warning alone refuses it."""
+    import warnings
+
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    sent = kit.jpeg(40, 30)  # 1,200 pixels: over the limit, under twice it
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # whatever the filters outside say
+        with pytest.raises(photos.TooManyPixels):
+            photos.clean(sent)
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 2000)
+    assert photos.clean(sent).large_size == (40, 30)
+
+
 def test_the_pillow_limits_are_set() -> None:
     assert Image.MAX_IMAGE_PIXELS == 40_000_000
     assert photos.FORMATS == ("JPEG", "PNG", "WEBP")
