@@ -106,12 +106,10 @@ def _clean(data: bytes) -> Cleaned:
                 if width * height > MAX_PIXELS:
                     raise TooManyPixels
                 opened.seek(0)  # an animated image keeps its first frame
-                if opened.format == "JPEG":
-                    # Decode at a smaller scale when the photo is much bigger than needed.
-                    opened.draft(opened.mode, _fit((width, height), LARGE_SIDE))
-                opened.load()
+                picture = _shrunk(opened)
                 icc = opened.info.get("icc_profile")
-                picture = _upright(opened)
+            # The full-size picture went when the file was closed; only the small one is left.
+            picture = _upright(picture)
     except TooManyPixels, NotAPhoto:
         raise
     except Image.DecompressionBombError, Image.DecompressionBombWarning:
@@ -122,11 +120,33 @@ def _clean(data: bytes) -> Cleaned:
 
     rgb = _to_srgb_on_white(picture, icc)
     # Rebuilt from the pixels alone: nothing from the file's own metadata comes along.
-    bare = Image.frombytes("RGB", rgb.size, rgb.tobytes())
-    large = bare.copy()
-    large.thumbnail((LARGE_SIDE, LARGE_SIDE), Image.Resampling.LANCZOS)
-    small = bare.resize(_list_size(bare.size), Image.Resampling.LANCZOS)
+    large = Image.frombytes("RGB", rgb.size, rgb.tobytes())
+    small = large.resize(_list_size(large.size), Image.Resampling.LANCZOS)
     return Cleaned(_jpeg(large), large.size, _jpeg(small), small.size)
+
+
+# Modes Pillow can shrink as they are; anything else is turned into RGB(A) first.
+_SHRINKABLE = {"L", "LA", "RGB", "RGBA", "CMYK"}
+
+
+def _shrunk(opened: Image.Image) -> Image.Image:
+    """The picture, made the large copy's size before anything else is done to it, so a big
+    photo is only ever in memory full size once (a JPEG not even that: it's decoded at a
+    smaller scale). Its info (the EXIF "this way up" note) comes along for `_upright`."""
+    target = _fit(opened.size, LARGE_SIDE)
+    if opened.format == "JPEG":
+        opened.draft(opened.mode, target)
+    opened.load()
+    picture = opened
+    see_through = picture.has_transparency_data
+    if picture.mode not in _SHRINKABLE or (see_through and picture.mode not in {"LA", "RGBA"}):
+        # A palette or 16-bit picture, or one with a see-through colour: shrinking it as it
+        # is would mix its colours wrongly.
+        picture = picture.convert("RGBA" if see_through else "RGB")
+    if picture.size == target:
+        return picture.copy() if picture is opened else picture
+    # A quick shrink by a whole number first, then the fine one (no visible difference).
+    return picture.resize(target, Image.Resampling.LANCZOS, reducing_gap=3.0)
 
 
 def _fit(size: tuple[int, int], longest: int) -> tuple[int, int]:
@@ -146,8 +166,7 @@ def _upright(picture: Image.Image) -> Image.Image:
         turned = ImageOps.exif_transpose(picture)
     except Exception:
         turned = None
-    # Always a copy: the opened file's own pixels go when it's closed.
-    return turned if turned is not None else picture.copy()
+    return turned if turned is not None else picture
 
 
 def _to_srgb_on_white(picture: Image.Image, icc: bytes | None) -> Image.Image:

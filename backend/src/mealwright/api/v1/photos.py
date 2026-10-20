@@ -5,6 +5,7 @@ A photo is uploaded on its own and answered with its id at once; the recipe's Sa
 attaches it (`photo_id`), so nothing on the recipe changes until Save (cabledrawer 20 Oct).
 """
 
+import threading
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -59,6 +60,31 @@ def _waiting(kitchen: Kitchen) -> int:
     )
 
 
+# Uploads still being worked on, per photo folder and household. They count toward the
+# 10 waiting from the start. The server is one process, like `photos.clean`'s one at a time.
+_IN_HAND: dict[tuple[str, int], int] = {}
+_IN_HAND_LOCK = threading.Lock()
+
+
+def _in_hand(place: tuple[str, int]) -> int:
+    with _IN_HAND_LOCK:
+        return _IN_HAND.get(place, 0)
+
+
+def _take(place: tuple[str, int]) -> None:
+    with _IN_HAND_LOCK:
+        _IN_HAND[place] = _IN_HAND.get(place, 0) + 1
+
+
+def _give_back(place: tuple[str, int]) -> None:
+    with _IN_HAND_LOCK:
+        left = _IN_HAND.get(place, 0) - 1
+        if left > 0:
+            _IN_HAND[place] = left
+        else:
+            _IN_HAND.pop(place, None)
+
+
 def _too_many_waiting() -> Problem:
     return Problem(status.HTTP_409_CONFLICT, "too_many_photos_waiting", photos.TOO_MANY_WAITING)
 
@@ -91,28 +117,36 @@ def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
     that no recipe has taken within 24 hours is deleted. A household can have at most 10
     uploads waiting to be saved. A retry uploads it again (there's no Idempotency-Key here):
     the extra one is deleted after 24 hours like any unsaved upload."""
-    if _waiting(kitchen) >= photos.MAX_WAITING:
-        raise _too_many_waiting()
-    kitchen.db.commit()  # nothing held while the photo is worked on
-    try:
-        cleaned = photos.clean(data)
-    except photos.TooManyPixels:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "too_many_pixels", photos.TOO_MANY_PIXELS
-        ) from None
-    except photos.NotAPhoto:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "not_a_photo", photos.NOT_A_PHOTO
-        ) from None
-    del data
-
     store = photos.store_of(kitchen.db)
-    key = photos.new_key()
-    size = photos.write(store, kitchen.household_id, key, cleaned)
-    saved = False
+    place = (str(store), kitchen.household_id)
+    # Its place among the 10 is taken before the photo is worked on, so uploads sent at
+    # once can't all pass the count; it's given back if the upload fails.
+    lock_household(kitchen)
+    if _waiting(kitchen) + _in_hand(place) >= photos.MAX_WAITING:
+        raise _too_many_waiting()
+    _take(place)
+    held, key, saved = True, None, False
     try:
+        kitchen.db.commit()  # nothing held while the photo is worked on
+        try:
+            cleaned = photos.clean(data)
+        except photos.TooManyPixels:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_many_pixels", photos.TOO_MANY_PIXELS
+            ) from None
+        except photos.NotAPhoto:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "not_a_photo", photos.NOT_A_PHOTO
+            ) from None
+        del data
+        key = photos.new_key()
+        size = photos.write(store, kitchen.household_id, key, cleaned)
         lock_household(kitchen)
-        if _waiting(kitchen) >= photos.MAX_WAITING:  # again, now nobody else can add one
+        # The record takes over from the place under the household's lock, so no other
+        # upload counts this one twice, or not at all.
+        _give_back(place)
+        held = False
+        if _waiting(kitchen) >= photos.MAX_WAITING:  # only if something went wrong
             raise _too_many_waiting()
         photo = RecipePhoto(
             household_id=kitchen.household_id,
@@ -130,7 +164,9 @@ def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
         kitchen.db.commit()
         saved = True
     finally:
-        if not saved:
+        if held:
+            _give_back(place)
+        if key is not None and not saved:
             photos.remove_files(store, kitchen.household_id, key)
     return photo_view(photo)
 

@@ -235,6 +235,49 @@ def test_pillows_too_many_pixels_warning_refuses_the_photo(
     assert photos.clean(sent).large_size == (40, 30)
 
 
+PEAK = r"""
+import re, sys
+from mealwright import photos
+
+def peak():  # the process's own highest memory use so far, in KiB (Linux)
+    with open("/proc/self/status") as status:
+        return int(re.search(r"VmHWM:\s+(\d+) kB", status.read()).group(1))
+
+data = open(sys.argv[1], "rb").read()
+before = peak()
+cleaned = photos.clean(data)
+print(cleaned.large_size, (peak() - before) // 1024)
+"""
+
+
+@pytest.mark.parametrize(("mode", "at_most"), [("RGB", 300), ("RGBA", 450)])
+def test_a_40_megapixel_png_is_cleaned_in_a_few_hundred_mb(
+    tmp_path: Path, mode: str, at_most: int
+) -> None:
+    """Made small first, so the full-size picture is in memory once. Before, a 40 MP PNG
+    took about 820 MB (RGB) and 950 MB (see-through). Measured in a process of its own:
+    its peak memory less what it had before cleaning. (VmHWM, not getrusage: that one
+    starts from the test runner's own peak.)"""
+    import subprocess
+    import sys
+
+    path = tmp_path / "big.png"
+    kit.picture(8000, 5000, mode).save(path, "PNG")
+    assert os.path.getsize(path) < MAX_PHOTO_BYTES
+    source = str(Path(photos.__file__).parents[1])
+    found = subprocess.run(  # noqa: S603 (fixed command, no user input)
+        [sys.executable, "-c", PEAK, str(path)],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": source},
+        timeout=120,
+    ).stdout.split()
+    assert found[:2] == ["(1600,", "1000)"]
+    assert int(found[2]) < at_most
+
+
 def test_the_pillow_limits_are_set() -> None:
     assert Image.MAX_IMAGE_PIXELS == 40_000_000
     assert photos.FORMATS == ("JPEG", "PNG", "WEBP")
@@ -436,6 +479,67 @@ def test_at_most_10_uploads_wait_to_be_saved(kitchen: TestClient) -> None:
     # So does deleting one.
     assert kitchen.delete(f"{API}/recipes/photos/{waiting[1]['id']}").status_code == 204
     kit.uploaded(kitchen, kit.jpeg(40, 30))
+
+
+def test_11_uploads_at_once_give_exactly_one_refusal(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each upload takes its place before its photo is worked on, so the 11th is refused
+    straight away, not after the work, however they overlap."""
+    import threading
+
+    worked: list[int] = []
+    real = photos.clean
+
+    def slow(data: bytes) -> photos.Cleaned:
+        worked.append(1)
+        time.sleep(0.2)  # so all 11 are under way together
+        return real(data)
+
+    monkeypatch.setattr(photos, "clean", slow)
+    sent = kit.jpeg(40, 30)
+    answers: list[Any] = []
+
+    def one() -> None:
+        other = TestClient(kitchen.app, base_url="https://testserver")
+        other.cookies.update(kitchen.cookies)
+        answers.append(kit.upload(other, sent))
+
+    threads = [threading.Thread(target=one) for _ in range(11)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(60)
+    assert sorted(a.status_code for a in answers) == [201] * 10 + [409]
+    refused = next(a for a in answers if a.status_code == 409)
+    assert refused.json() == {"detail": WAITING, "code": "too_many_photos_waiting"}
+    assert len(worked) == 10
+    assert len(files_of(kitchen)) == 20
+    assert kit.upload(kitchen, sent).status_code == 409
+
+
+def test_an_upload_that_fails_gives_its_place_back(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mealwright.api.v1.photos as route
+
+    for _ in range(9):
+        kit.uploaded(kitchen, kit.jpeg(40, 30))
+    assert kit.upload(kitchen, kit.TEXT).status_code == 422
+    assert kit.upload(kitchen, kit.png_header_only(8001, 5000)).status_code == 422
+    real = photos.write
+
+    def broken(*_args: Any, **_kwargs: Any) -> int:
+        raise OSError("the disk is full")
+
+    monkeypatch.setattr(photos, "write", broken)
+    with pytest.raises(OSError, match="the disk is full"):
+        kit.upload(kitchen, kit.jpeg(40, 30))
+    monkeypatch.setattr(photos, "write", real)
+    assert route._IN_HAND == {}
+    kit.uploaded(kitchen, kit.jpeg(40, 30))  # the 10th
+    assert kit.upload(kitchen, kit.jpeg(40, 30)).status_code == 409
+    assert route._IN_HAND == {}
 
 
 def test_the_24_hour_clean_up_frees_a_place(kitchen: TestClient) -> None:
