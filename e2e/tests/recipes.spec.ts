@@ -106,6 +106,56 @@ test('search finds other names, tags and recipe names, never the method', async 
   await expect(page.getByText(`No recipe matches “${word} nonsense”.`)).toBeVisible();
 });
 
+/** Today, the household's: a use-by date of today is "use soon". */
+const householdToday = async (page: Page) => ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
+
+test('the Use soon filter keeps the recipes that use something about to go off, and search narrows it', async ({ page }) => {
+  const word = unique(page, 'Palak').replace(/\s+/g, '');
+  const soon = await makeFood(page, unique(page, 'Greens'));
+  const later = await makeFood(page, unique(page, 'Rice'));
+  await putInPantry(page, soon, 500, { use_by: await householdToday(page) });
+  await putInPantry(page, later, 500);
+  await makeRecipe(page, { name: `${word} greens`, lines: [line(soon, 100)] });
+  await makeRecipe(page, { name: `${word} greens curry`, lines: [line(soon, 100)] });
+  await makeRecipe(page, { name: `${word} rice`, lines: [line(later, 100)] });
+
+  await page.goto('/recipes');
+  await search(page, word);
+  const rows = page.locator('li');
+  await expect(rows).toHaveCount(3);
+  const filters = page.getByRole('group', { name: 'Show' });
+  const chip = filters.getByRole('button', { name: 'Use soon', exact: true });
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByText(`${word} rice`, { exact: true })).toHaveCount(0);
+  await checkPage(page);
+  await search(page, `${word} curry`);
+  await expect(rows).toHaveCount(1);
+  await search(page, `${word} nonsense`);
+  await expect(page.getByText(`No recipe matches “${word} nonsense”.`)).toBeVisible();
+  await checkPage(page);
+});
+
+test('Pantry’s link to the recipes for what is going off opens All recipes on Use soon', async ({ page }) => {
+  const word = unique(page, 'Spinach').replace(/\s+/g, '');
+  const soon = await makeFood(page, unique(page, 'Greens'));
+  await putInPantry(page, soon, 500, { use_by: await householdToday(page) });
+  await makeRecipe(page, { name: `${word} soup`, lines: [line(soon, 100)] });
+  await makeRecipe(page, { name: `${word} plain` });
+
+  await page.goto('/pantry');
+  await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: isPhone(page) ? 'Recipes that use them →' : 'Recipes for these' }).click();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  const chip = page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Use soon', exact: true });
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await search(page, word);
+  await expect(page.getByText(`${word} soup`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${word} plain`, { exact: true })).toHaveCount(0);
+  await checkPage(page);
+});
+
 test('the filter row: Can cook now, a tag, and search together', async ({ page }) => {
   const word = unique(page, 'Chana').replace(/\s+/g, '');
   const have = await makeFood(page, unique(page, 'Have'));
