@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '$lib/api';
 import type { LineOut, RecipeOut } from '$lib/client/recipes';
 import { blankLine, blankStep, RecipeDraft } from './draft.svelte';
@@ -215,6 +215,85 @@ describe('opening a saved recipe', () => {
     expect(draft.dirty).toBe(true);
     draft.lines[1]!.amount = '1½';
     expect(draft.dirty).toBe(false);
+  });
+});
+
+describe('an upload that lands after the editor was left', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A server whose photo upload answers only when the test says so. */
+  function slowUpload() {
+    const sent: string[] = [];
+    const waiting: ((answer: Response) => void)[] = [];
+    let arrived: () => void = () => {};
+    const posted = new Promise<void>((resolve) => (arrived = resolve));
+    vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+      sent.push(call);
+      if (call === 'POST /recipes/photos') {
+        return new Promise<Response>((resolve) => {
+          waiting.push(resolve);
+          arrived();
+        });
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const file = new File([new Uint8Array([1])], 'dish.png', { type: 'image/png' });
+    return {
+      sent,
+      file,
+      posted,
+      land: (answer: Response, which = 0) => waiting[which]!(answer)
+    };
+  }
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('is deleted at once, and shows nothing', async () => {
+    const { sent, file, posted, land } = slowUpload();
+    const draft = new RecipeDraft();
+    const picking = draft.pickPhoto(file);
+    await posted;
+    draft.discardUpload(); // Cancel while it is going up
+    land(new Response(JSON.stringify({ ...photo, id: 9 }), { status: 201 }));
+    await picking;
+    await flush();
+    expect(sent).toContain('DELETE /recipes/photos/9');
+    expect(draft.photo).toMatchObject({
+      shown: null,
+      change: 'none',
+      uploading: null,
+      error: null
+    });
+    expect(draft.build().body).not.toHaveProperty('photo_id');
+  });
+
+  it('shows no error if it failed after the editor was left', async () => {
+    const { sent, file, posted, land } = slowUpload();
+    const draft = new RecipeDraft();
+    const picking = draft.pickPhoto(file);
+    await posted;
+    draft.discardUpload();
+    land(new Response(JSON.stringify({ detail: 'x', code: 'not_a_photo' }), { status: 422 }));
+    await picking;
+    expect(draft.photo.error).toBeNull();
+    expect(sent.some((c) => c.startsWith('DELETE'))).toBe(false);
+  });
+
+  it('is kept when the editor was left and then opened again before it landed', async () => {
+    const { sent, file, posted, land } = slowUpload();
+    const draft = new RecipeDraft();
+    const first = draft.pickPhoto(file);
+    await posted;
+    draft.discardUpload();
+    const again = draft.pickPhoto(file); // Undo opened the editor again
+    await flush();
+    land(new Response(JSON.stringify({ ...photo, id: 9 }), { status: 201 }), 0);
+    land(new Response(JSON.stringify({ ...photo, id: 10 }), { status: 201 }), 1);
+    await Promise.all([first, again]);
+    await flush();
+    expect(sent).toContain('DELETE /recipes/photos/9'); // the first one, left behind
+    expect(sent).not.toContain('DELETE /recipes/photos/10');
+    expect(draft.photo).toMatchObject({ change: 'new' });
   });
 });
 

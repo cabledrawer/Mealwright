@@ -160,6 +160,8 @@ export class RecipeDraft {
   /** The recipe as it was opened (null: a new one) and the version the save must name. */
   opened = $state<RecipeOut | null>(null);
   #initial = '';
+  /** Counts the times the editor was left, so an upload that lands after one knows. */
+  #leaves = 0;
 
   static from(recipe: RecipeOut): RecipeDraft {
     const draft = new RecipeDraft();
@@ -261,13 +263,21 @@ export class RecipeDraft {
   /** Upload the picked photo at once; the answer's id goes in `photo_id` on Save. */
   async pickPhoto(file: File): Promise<void> {
     const before = this.photo.shown;
+    const leaves = this.#leaves;
     this.photo = { ...this.photo, uploading: file, error: null };
     try {
       const uploaded = await uploadPhoto(file);
+      if (this.#leaves !== leaves) {
+        // The editor was left while this was going up: nobody will save it, so give its place
+        // back now rather than after 24 hours, and show nothing.
+        void deletePhoto(uploaded.id).catch(() => {});
+        return;
+      }
       // An earlier unsaved upload this one replaces gives its place back.
       if (this.photo.change === 'new' && before) void deletePhoto(before.id).catch(() => {});
       this.photo = { shown: uploaded, change: 'new', uploading: null, file, error: null };
     } catch (error) {
+      if (this.#leaves !== leaves) return;
       // The server's own words ("That photo is bigger than 15 MB."); the old photo stays.
       const message = error instanceof ApiError ? error.detail : 'Couldn’t upload the photo.';
       this.photo = { ...this.photo, uploading: null, error: message };
@@ -288,10 +298,15 @@ export class RecipeDraft {
     };
   }
 
-  /** The editor was cancelled: an upload that no recipe took gives its place back. */
+  /**
+   * The editor was cancelled or left: an upload that no recipe took gives its place back, and one
+   * still going up is deleted the moment it lands (see `pickPhoto`).
+   */
   discardUpload(): void {
+    this.#leaves++;
     const shown = this.photo.shown;
     if (this.photo.change === 'new' && shown) void deletePhoto(shown.id).catch(() => {});
+    if (this.photo.uploading) this.photo = { ...this.photo, uploading: null };
   }
 
   // --- Sending --------------------------------------------------------------------------------

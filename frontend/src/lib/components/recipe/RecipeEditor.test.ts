@@ -211,6 +211,46 @@ describe('the boxes', () => {
   });
 });
 
+describe('leaving while a photo is going up', () => {
+  it('Cancel with nothing else typed still deletes the upload when it lands', async () => {
+    const sent: string[] = [];
+    let land: (answer: Response) => void = () => {};
+    vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+      sent.push(call);
+      if (call === 'POST /recipes/photos') {
+        return new Promise<Response>((resolve) => (land = resolve));
+      }
+      return Promise.resolve(
+        new Response(call.startsWith('DELETE') ? null : '{}', {
+          status: call.startsWith('DELETE') ? 204 : 404
+        })
+      );
+    });
+    open();
+    const file = new File([new Uint8Array([1, 2, 3])], 'dish.png', { type: 'image/png' });
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
+    await expect.element(page.getByText('Uploading photo…')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    expect(navigation.go).toHaveBeenCalledWith('/recipes');
+    land(
+      new Response(
+        JSON.stringify({
+          id: 9,
+          width: 2,
+          height: 2,
+          url: '/api/v1/recipes/photos/9/large',
+          list_width: 2,
+          list_height: 2,
+          list_url: '/api/v1/recipes/photos/9/list'
+        }),
+        { status: 201 }
+      )
+    );
+    await vi.waitFor(() => expect(sent).toContain('DELETE /recipes/photos/9'));
+  });
+});
+
 describe('an existing recipe', () => {
   const sambar = {
     id: 2,

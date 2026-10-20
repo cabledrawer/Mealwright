@@ -160,9 +160,10 @@
   /** Leave with unsaved changes: nothing is asked; Undo opens the editor again as it was. */
   function keepForUndo() {
     const d = draft;
+    // Even with nothing else changed, a photo still going up must not be left behind.
+    d?.discardUpload();
     if (!d?.dirty) return;
     keep(key, d);
-    d.discardUpload();
     undoHistory.record({
       label: 'Changes not saved',
       undo: () => {
