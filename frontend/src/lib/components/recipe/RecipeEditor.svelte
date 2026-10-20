@@ -35,7 +35,7 @@
   import { COUNT, NUTRIENTS, RecipeDraft, type Errors } from '$lib/recipes/draft.svelte';
   import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '$lib/recipes/paths';
   import { fold, recipeSearch } from '$lib/recipes/search';
-  import { claim, editorKey, keep, reopen } from '$lib/recipes/stash';
+  import { takeKept, editorKey, keep, reopen } from '$lib/recipes/stash';
   import { toasts } from '$lib/toast.svelte';
   import { undoHistory } from '$lib/undo.svelte';
 
@@ -87,7 +87,7 @@
 
   async function open() {
     loading = 'loading';
-    const kept = claim(key);
+    const kept = takeKept(key);
     if (kept) {
       draft = kept;
       loading = 'ready';

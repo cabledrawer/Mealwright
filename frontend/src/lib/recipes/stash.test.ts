@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RecipeDraft } from './draft.svelte';
-import { claim, editorKey, keep, reopen } from './stash';
+import { takeKept, editorKey, keep, reopen } from './stash';
 
 describe('the cancelled editor', () => {
   it('has a key for a new recipe and one for each recipe being edited', () => {
@@ -11,11 +11,11 @@ describe('the cancelled editor', () => {
   it('comes back only when Undo asked for it, and only once', () => {
     const draft = new RecipeDraft();
     keep('new', draft);
-    expect(claim('new')).toBeNull(); // a fresh editor never takes it
+    expect(takeKept('new')).toBeNull(); // a fresh editor never takes it
     expect(reopen('edit:3')).toBe(false);
     expect(reopen('new')).toBe(true);
-    expect(claim('edit:3')).toBeNull();
-    expect(claim('new')).toBe(draft);
-    expect(claim('new')).toBeNull();
+    expect(takeKept('edit:3')).toBeNull();
+    expect(takeKept('new')).toBe(draft);
+    expect(takeKept('new')).toBeNull();
   });
 });

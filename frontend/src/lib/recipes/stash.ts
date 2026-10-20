@@ -21,7 +21,7 @@ export function reopen(key: string): boolean {
 }
 
 /** What the editor for `key` should start from, if it is being reopened. */
-export function claim(key: string): RecipeDraft | null {
+export function takeKept(key: string): RecipeDraft | null {
   if (!kept || kept.key !== key || reopening !== key) return null;
   const draft = kept.draft;
   kept = null;

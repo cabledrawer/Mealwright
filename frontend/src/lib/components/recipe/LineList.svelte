@@ -135,7 +135,7 @@
 
   function pick(line: DraftLine, choice: Pick) {
     const sized = line.unit.startsWith('size:');
-    if (choice.kind === 'food') {
+    if (choice.kind === 'ingredient') {
       line.food = choice.food;
       line.recipe = null;
       loadSizes(choice.food.id);
@@ -148,14 +148,14 @@
     if (sized) line.unit = '';
     // The words stay as typed (cabledrawer 19 Oct, question 14); an empty box takes the name.
     if (!line.words.trim())
-      line.words = (choice.kind === 'food' ? choice.food : choice.recipe).name;
+      line.words = (choice.kind === 'ingredient' ? choice.food : choice.recipe).name;
     close();
   }
 
   async function createIngredient(line: DraftLine, name: string) {
     // Both dialogs are modal: the sheet gives way while "How do you count it?" is open.
     const made = await newIngredient.ask(name);
-    if (made) pick(line, { kind: 'food', food: { id: made.id, name: made.name } });
+    if (made) pick(line, { kind: 'ingredient', food: { id: made.id, name: made.name } });
   }
 
   function sameName(line: DraftLine): boolean {

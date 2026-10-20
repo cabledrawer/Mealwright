@@ -48,7 +48,7 @@ describe('IngredientPicker', () => {
     await page.getByRole('button', { name: /^Toor dal/ }).click();
     await page.getByRole('button', { name: /^Sambar powder/ }).click();
     expect(picked).toEqual([
-      { kind: 'food', food: { id: 7, name: 'Toor dal' } },
+      { kind: 'ingredient', food: { id: 7, name: 'Toor dal' } },
       { kind: 'recipe', recipe: { id: 3, name: 'Sambar powder' } }
     ]);
   });
