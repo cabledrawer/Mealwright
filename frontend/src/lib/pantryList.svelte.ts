@@ -13,7 +13,7 @@
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { toasts } from '$lib/toast.svelte';
-import { undoHistory, undoneWords } from '$lib/undo.svelte';
+import { undoHistory, undoneWords, type UndoEntry } from '$lib/undo.svelte';
 import { ShoppingModel } from './shopping/store.svelte';
 
 export class PantryList {
@@ -98,40 +98,59 @@ export class PantryList {
         }
       }
       const added: { id: string; name: string }[] = [];
-      for (const food of fresh) {
-        if (this.onList(food.id)) continue; // it arrived while the list was loading
-        let inQueue!: () => void;
-        const queued = new Promise<void>((resolve) => (inQueue = resolve));
-        const done = this.#shopping.add(food, `${food.name} added to the shopping list`, {
-          queued: (id) => {
-            added.push({ id, name: food.name });
-            inQueue();
-          }
-        });
-        // In the queue (the same moment a single add shows its toast), or refused.
-        await Promise.race([queued, done]);
-      }
-      if (added.length === 0) return;
-      if (added.length === 1) {
-        // Only one made it: the same words and Undo as a single add.
-        const [one] = added;
-        const label = `${one!.name} added to the shopping list`;
-        const entry = { label, undo: () => this.#shopping.undo(one!.id, label) };
-        undoHistory.record(entry);
-        return;
-      }
-      const label = `${added.length} ingredients added to the shopping list`;
-      undoHistory.record({
-        label,
+      const wording = () =>
+        added.length === 1
+          ? `${added[0]!.name} added to the shopping list`
+          : `${added.length} ingredients added to the shopping list`;
+      // The group's one Undo entry (on the list once everything is in the queue), and whether
+      // a refusal came before that.
+      let recorded = false;
+      let refusal = false;
+      const group: UndoEntry = {
+        label: '',
+        // Newest first, each as an `undo` action queued after its add (works offline too).
         undo: async () => {
-          // Newest first, each as an `undo` action queued after its add (works offline too).
-          for (const one of added.toReversed()) {
+          const label = group.label;
+          for (const one of [...added].reverse()) {
             await this.#shopping.undo(one.id, `${one.name} added to the shopping list`);
           }
           toasts.show(undoneWords(label));
           return false as const;
         }
-      });
+      };
+      for (const food of fresh) {
+        if (this.onList(food.id)) continue; // it arrived while the list was loading
+        let inQueue!: () => void;
+        const queued = new Promise<void>((resolve) => (inQueue = resolve));
+        const mine = { id: '', name: food.name };
+        const done = this.#shopping.add(food, `${food.name} added to the shopping list`, {
+          queued: (id) => {
+            mine.id = id;
+            added.push(mine);
+            inQueue();
+          }
+        });
+        // A refusal (its reason is already on the screen) takes that add out of the group, the
+        // way a single add forgets its own Undo: nothing is left to undo for it.
+        void done.then((outcome) => {
+          if (outcome?.ok !== false) return;
+          const at = added.indexOf(mine);
+          if (at === -1) return;
+          added.splice(at, 1);
+          refusal = true;
+          if (!recorded) return;
+          if (added.length === 0) undoHistory.forget(group);
+          else group.label = wording();
+        });
+        // In the queue (the same moment a single add shows its toast), or refused.
+        await Promise.race([queued, done]);
+      }
+      if (added.length === 0) return;
+      group.label = wording();
+      recorded = true;
+      // Something was refused while the rest went in: that message stays on the screen (Undo
+      // is still there, with Ctrl+Z). Otherwise one toast says how many were added.
+      undoHistory.record(group, { toast: !refusal });
     } finally {
       for (const food of fresh) this.#pending.delete(food.id);
     }

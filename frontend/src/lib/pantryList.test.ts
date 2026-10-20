@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { network } from './network.svelte';
 import { PantryList } from './pantryList.svelte';
 import { session } from './session.svelte';
+import { shoppingSync } from './shopping/sync.svelte';
 import { fakeShopping, ME, sampleCopy } from './testing/fakeShopping';
 import { dropPhone, freshPhone } from './testing/phone';
 import { toasts } from './toast.svelte';
@@ -133,5 +134,86 @@ describe('adding several ingredients to the shopping list', () => {
     await vi.waitFor(() => expect(adds()).toHaveLength(3));
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(adds()).toHaveLength(3);
+  });
+
+  describe('when the server refuses one of them', () => {
+    /** The server says no to the add of food 7 (Tahini) and yes to the rest. */
+    function refuseTahini() {
+      const working = fetch;
+      vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+        if (String(input).endsWith('/shopping/actions') && init?.body) {
+          const batch = JSON.parse(String(init.body)) as { actions: Record<string, unknown>[] };
+          if (batch.actions.some((a) => a.food_id === 7)) {
+            const kept = batch.actions.filter((a) => a.food_id !== 7);
+            const answer = await working(input, {
+              ...init,
+              body: JSON.stringify({ ...batch, actions: kept })
+            });
+            const body = (await answer.json()) as { results: Record<string, unknown>[] };
+            const refused = batch.actions
+              .filter((a) => a.food_id === 7)
+              .map((a) => ({
+                id: a.id,
+                status: 'refused',
+                reason: 'bad_action',
+                message: 'Tahini can’t go on that list.'
+              }));
+            return new Response(
+              JSON.stringify({ ...body, results: [...refused, ...body.results] })
+            );
+          }
+        }
+        return working(input, init);
+      });
+    }
+
+    it('says why, keeps that message, and Undo takes back only the ones that went in', async () => {
+      await open();
+      refuseTahini();
+      await list.tapMany([TAHINI, CORIANDER, PANEER]);
+      await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
+      expect(toasts.current?.message).toBe('Tahini can’t go on that list.');
+      await vi.waitFor(() => expect(adds().map((a) => a.food_id)).toEqual([2, 4]));
+      // The refused one is not in the group: Undo (Ctrl+Z) takes back the other two, newest first.
+      await undoHistory.undoLast();
+      await vi.waitFor(() =>
+        expect(server.actions.filter((a) => a.kind === 'undo')).toHaveLength(2)
+      );
+      const undone = server.actions.filter((a) => a.kind === 'undo').map((a) => a.undoes);
+      expect(undone).toEqual(
+        adds()
+          .map((a) => a.id)
+          .reverse()
+      );
+      expect(undoHistory.size).toBe(0);
+    });
+
+    it('does not let the group toast cover the problem, however fast the answer comes', async () => {
+      await open();
+      refuseTahini();
+      const gather = shoppingSync.timing.gatherMs;
+      shoppingSync.timing.gatherMs = 0; // sent at once: the answer may come while the rest go in
+      try {
+        await list.tapMany([TAHINI, CORIANDER, PANEER]);
+        await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(toasts.current?.message).toBe('Tahini can’t go on that list.');
+        await vi.waitFor(() => expect(adds().map((a) => a.food_id)).toEqual([2, 4]));
+        await undoHistory.undoLast();
+        await vi.waitFor(() =>
+          expect(server.actions.filter((a) => a.kind === 'undo')).toHaveLength(2)
+        );
+      } finally {
+        shoppingSync.timing.gatherMs = gather;
+      }
+    });
+
+    it('forgets the group when every add is refused', async () => {
+      await open();
+      refuseTahini();
+      await list.tapMany([TAHINI]);
+      await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
+      expect(undoHistory.size).toBe(0);
+    });
   });
 });
