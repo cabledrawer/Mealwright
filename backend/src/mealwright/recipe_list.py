@@ -6,16 +6,23 @@ query per recipe): the recipes, their lines, the ingredients, sizes, the househo
 conversions, stock, tags and other names are each read once for the whole household, then
 worked out here. Every query is limited to the signed-in household.
 
-The stock rules (spec section 2 and section 6, "Stock"; cabledrawer 19 Oct, questions 21 and 22):
+The stock rules. cabledrawer's answers (19 Oct, questions 21 and 22): only ingredient lines with an
+amount count, and any other ingredient is in stock when the pantry covers what the recipe
+needs at its own servings, if the two amounts can be compared; if not, any stock counts.
+Everything else below is the spec's or a lead's note, as marked:
 - Only ingredient lines with an amount count. Headings, lines with no amount ("salt to
-  taste") and lines that link to nothing never do.
-- A staple counts as in stock, always ("assumed in stock, not quantity-tracked").
-- Any other ingredient is in stock when the amount in the pantry (every place, the freezer
-  too) covers what the recipe needs at its own servings, if the two can be compared; if they
-  can't ("1 cup" of something with no known weight, a pinch), any stock counts.
-- A line that uses a made-ahead recipe is checked against that recipe's own pantry ingredient.
-  A line that uses any other recipe doesn't count (shopping through it comes with 0.6).
-- "Can cook now" is: something counts and nothing is missing.
+  taste") and lines that link to nothing never do (cabledrawer, Q21 and Q22). A recipe whose lines
+  all lack amounts gets no hint and is not "Can cook now" (lead's note, waiting for cabledrawer).
+- A staple counts as in stock, always (spec, Stock section: "Staples: assumed in stock,
+  not quantity-tracked").
+- Any other ingredient is in stock when the amount in the pantry covers what the recipe needs
+  at its own servings, if the two can be compared; if they can't ("1 cup" of something with
+  no known weight, a pinch), any stock counts (cabledrawer, Q22).
+- Stock in every place counts, the freezer too (lead's note, waiting for cabledrawer).
+- A line that uses a made-ahead recipe is checked against that recipe's own pantry
+  ingredient. A line that uses any other recipe is not checked and doesn't count (shopping
+  through it comes with 0.6). Both lead's notes, waiting for cabledrawer.
+- "Can cook now" is: something counts and nothing is missing (lead's note, waiting for cabledrawer).
 """
 
 from collections import defaultdict

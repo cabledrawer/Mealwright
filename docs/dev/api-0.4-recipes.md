@@ -164,16 +164,16 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 - `kcal` is per serving; `null` is unknown (the screen says "nutrition unknown"), `0` is a real zero.
 - `stock` is `null` when no ingredient line counts. `use_soon` is `null` when nothing the recipe uses is about to go off.
 
-**What counts as "in stock" (cabledrawer 19 Oct, questions 21 and 22; the spec's Stock section):**
+**What counts as "in stock".** cabledrawer's answers (19 Oct, questions 21 and 22): only ingredient lines with an amount count (headings, lines with no amount such as "salt to taste", and lines linked to nothing never do), and any other ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, if the two amounts can be compared; if they can't, **any stock counts**. The rest below is the spec's or the lead's note, as marked.
 
-- Only ingredient lines **with an amount** count. Headings, lines with no amount ("salt to taste") and lines linked to nothing never do. `counted` is the number of different ingredients that count; `missing` how many of those are not in stock.
-- A **staple** always counts as in stock (the spec: "assumed in stock, not quantity-tracked").
-- Any other ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, when the two amounts can be compared (the line's unit or size against the ingredient's own, using the household's cup size and the weights it knows). Several lines for one ingredient are added up. When they can't be compared (a cup of something with no known weight, a pinch), **any stock counts**.
-- Stock in every place counts, the freezer too.
-- A line that uses a recipe **marked Made ahead** is checked against that recipe's own pantry ingredient. A line that uses any other recipe doesn't count (shopping through it comes with 0.6; lead's note, not cabledrawer's).
-- `can_cook_now` is: something counts and nothing is missing. A recipe where nothing counts is not "Can cook now" (lead's note, not cabledrawer's).
+- Only ingredient lines **with an amount** count (cabledrawer, Q21 and Q22). `counted` is the number of different ingredients that count; `missing` how many of those are not in stock. A recipe whose lines all lack amounts gets no hint and is not in Can cook now (lead's note, waiting for cabledrawer).
+- A **staple** always counts as in stock (the spec, Stock section: "Staples: assumed in stock, not quantity-tracked").
+- Any other ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, when the two amounts can be compared (the line's unit or size against the ingredient's own, using the household's cup size and the weights it knows) (cabledrawer, Q22). Several lines for one ingredient are added up. When they can't be compared (a cup of something with no known weight, a pinch), **any stock counts** (cabledrawer, Q22).
+- Stock in every place counts, the freezer too (lead's note, waiting for cabledrawer).
+- A line that uses a recipe **marked Made ahead** is checked against that recipe's own pantry ingredient (lead's note, waiting for cabledrawer). A line that uses any other recipe is not checked: it doesn't count, so the recipe can still say "all in stock" (shopping through it comes with 0.6; lead's note, waiting for cabledrawer).
+- `can_cook_now` is: something counts and nothing is missing. A recipe where nothing counts is not "Can cook now" (lead's note, waiting for cabledrawer).
 
-**Use soon (lead's note, not cabledrawer's):** `use_soon` names the ingredients the recipe uses (lines that count, as above) that have a packet with a use-by date from today up to the household's Use soon limit (today, tomorrow or the day after: spec, Stock). Only the ingredients with the **soonest** date are named, so one date always goes with them. A packet whose date has passed is not a nudge and is left out.
+**Use soon (lead's note, waiting for cabledrawer):** `use_soon` names the ingredients the recipe uses (lines that count, as above) that have a packet with a use-by date from today up to the household's Use soon limit (today, tomorrow or the day after: spec, Stock). Only the ingredients with the **soonest** date are named, so one date always goes with them. A packet whose date has passed is not a nudge and is left out.
 
 "Planned Sun" waits for 0.6.
 
