@@ -12,6 +12,9 @@ Work towards 0.4.0 (recipes).
 - Ingredients: merging moves recipe lines to the ingredient you keep (and "made its own ingredient again" puts them back); removing an ingredient keeps each line's words, unlinks it, and Undo links it again; "used in N recipes" and a "Not in any recipe" filter are in the API.
 - Database: one change adds the recipe tables (recipes, lines, steps, tags and the photo record). Nothing existing is rewritten.
 - Names: tabs, line breaks and invisible control characters are now refused in every name, including the names of ingredients, shops and shopping lists that already exist when they are changed. Names already saved are not touched. The two joiners that Tamil and Malayalam need, emoji sequences (families, flags such as Scotland's) and variation selectors are allowed.
+- Recipe photos (API only, no screens yet; cabledrawer 19 and 20 Oct): one photo per recipe, JPEG, PNG or WebP up to 15 MB and 40 megapixels. Each photo is turned upright, its hidden details (camera, date, the place it was taken, comments) are removed, colours are made sRGB and see-through parts white, and it's kept on your own server as two JPEGs (a large copy and a small one for the list); the file sent isn't kept. A photo is uploaded first and only goes on the recipe when the recipe is saved. Uploads that aren't saved on a recipe are deleted after 24 hours, and a household can have at most 10 of them at once. Replacing or removing a photo deletes its files; so does the deletion for good 7 days after a recipe is deleted, and Undo keeps it.
+- Database: one more change for photos: a photo can be without a recipe while it's waiting to be saved, and its list copy's size is kept. Nothing existing is lost; going back to the earlier version deletes only the photos that were never saved on a recipe.
+- New dependency: Pillow 12.3.0 (MIT-CMU licence), to read and clean photos.
 - Docs only: spec section 6 records the 0.4 recipe decisions; receipts and prices are recorded as an idea only (nothing changes in 0.4 to 0.9); the non-technical prototype test moves to 0.9 with the private trial.
 - Keeping the UI good: the approved word list (`docs/dev/words.md`), a development-only component gallery at `/dev/gallery`, stress screenshots (many items, long names, 200% text), a browser code size limit in `./check` (170 KiB gzip), a slow-phone browser test, saved Pantry and Shopping screenshots, a stronger reduced-motion rule and keyboard-only tests for the desktop screens.
 - More space between words: Plus Jakarta Sans's own space is narrow, so the text now has a little extra word spacing (buttons and text boxes too). Titles and the wordmark are unchanged.
@@ -20,7 +23,7 @@ Work towards 0.4.0 (recipes).
 ### Security
 - At most 10 live-update streams per sign-in; past that the oldest closes, and its tab quietly stops live updates (no offline bar) until it is looked at again.
 - Signing out ends that sign-in's live updates at once.
-- Requests bigger than 4 MiB are refused ("That's too much to send in one go.").
+- Requests bigger than 4 MiB are refused ("That's too much to send in one go."). A photo upload may be up to 15 MB ("That photo is bigger than 15 MB."); nothing else may.
 - A number too big for the database is refused instead of causing a server error.
 - In https mode (the default) browsers are told to use only https for Mealwright's address for a year (HSTS, without `includeSubDomains` or `preload`). Never sent in plain-http mode.
 - A sign-in without "Remember this phone" (or computer) now lasts at most 30 days in total, even when used every day, the same as with it. It still ends after 12 hours without use.

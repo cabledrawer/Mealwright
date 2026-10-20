@@ -4,7 +4,7 @@ Written 19 Oct 2026 for the first 0.4 pull request ("Recipes: the data, the API 
 
 Recipes are online only in 0.4. Nothing here touches the shopping-list sync or the offline queue.
 
-## 1. Tables (one migration, `c5e8a1f3b7d2`)
+## 1. Tables (migrations `c5e8a1f3b7d2`, and `97d61f9dd082` for photos)
 
 Every table has `household_id`.
 
@@ -14,7 +14,7 @@ Every table has `household_id`.
 | `recipe_line` | an ingredient line or a heading: position, `words` (as typed), `amount_milli` and `unit` (in the unit typed, not a base unit), `size_id`, `food_id` or `sub_recipe_id` (never both), `note` |
 | `recipe_step` | a step or a heading: position, `text` |
 | `tag`, `recipe_tag` | tags the household typed, and which recipe has which |
-| `recipe_photo` | the photo's record only (`file_key`, size, who added it). Files and uploads come with the photos pull request. |
+| `recipe_photo` | the photo's record only: `recipe_id` (empty for an upload not saved on a recipe yet), `file_key` (the random file name), the large copy's `width` and `height`, `list_width` and `list_height`, `bytes` (both files), who added it and when. The files are on the data volume (section 2.6). `97d61f9dd082` (the photos pull request) made `recipe_id` optional and added `list_width` and `list_height`. |
 
 Amounts are thousandths of the unit the person typed (`2 tbsp` is `2000`). Nutrition is thousandths too; `NULL` is "unknown" and `0` is a real zero.
 
@@ -32,6 +32,9 @@ All under `/api/v1`, signed in, same-origin for writes. An id from another house
 | `DELETE /recipes/{id}` | delete, at once, answering `{change}` with the Undo. |
 | `POST /changes/{change_id}/undo` | the existing Undo; for a deleted recipe it brings the recipe back (`recipe` in the answer says which). |
 | `GET /recipes/{id}/cannot-use` | the recipes this one can't use, and why. |
+| `POST /recipes/photos` (201) | upload a photo (the file itself as the body); answers `photo` with its id. Section 2.6. |
+| `GET /recipes/photos/{id}/large`, `/list` | the photo's large or list copy (a JPEG). |
+| `DELETE /recipes/photos/{id}` (204) | delete an upload that isn't saved on a recipe (cabledrawer 20 Oct). |
 
 Ingredients (`/foods`) gain `used_in_recipes` (a count) and, on one ingredient, `used_in` (the recipes, A to Z); the list gains `filter=unused` ("Not in any recipe") and `counts.unused`.
 
@@ -58,7 +61,8 @@ Ingredients (`/foods`) gain `used_in_recipes` (a count) and, on one ingredient, 
     { "words": "salt to taste" }
   ],
   "steps": [ { "kind": "heading", "text": "The dal" }, { "text": "Boil the dal." } ],
-  "source_note": "Amma's"
+  "source_note": "Amma's",
+  "photo_id": 5
 }
 ```
 
@@ -67,6 +71,7 @@ Ingredients (`/foods`) gain `used_in_recipes` (a count) and, on one ingredient, 
 - **Units.** `g kg ml l tsp tbsp cup pinch` (also `grams`, `tablespoons`, …). No unit is a plain count ("10 shallots"). Or `size_id`: one of the linked ingredient's own sizes ("1 packet"), not together with a unit. A line linked to a recipe has no sizes. `makes.unit` is `g kg ml l` or a count word ("dosas").
 - **Lines.** `food_id` or `recipe_id`, never both. `words` may be empty when linked (it then starts as the name). A heading has only words. Send a line's `id` back to keep it as the same line (ingredient merges follow lines by id); leave it out for a new line. A line the body leaves out is removed. The same goes for tags: send the whole list.
 - **Nutrition.** Empty (`null` or left out) is stored as unknown, never 0. `0` is zero.
+- **Photo.** `photo_id` is an upload's id (from `POST /recipes/photos`) or the photo the recipe has already. Left out or `null`: no photo, and the one it had is deleted when the save goes through, files included; so is one that's replaced. Only an upload of your own household that isn't on any recipe yet can be attached; any other id (unknown, another household's, one on another recipe) is 404 `not_found`, "That photo isn't here any more.", and nothing is saved.
 - **Text.** Tabs, line breaks, and invisible control characters are refused in every one-line field (422, "That has a tab, a line break or a hidden character in it. Take it out."). A step may have line breaks.
 - **Made ahead.** With `made_ahead: true` and no live homemade ingredient, saving makes one (named `homemade_name`, else the recipe's name, cut to 100 characters; counted by weight, by volume or by number to match `makes`), records it in Ingredients' Recent changes, and links it. If the recipe has no live homemade ingredient but an ingredient with that name exists (Made ahead was switched off and on again), that ingredient is linked back, stock and all, unless another recipe has it as its own made-ahead ingredient: then 409 `name_taken` (nothing is saved). `made_ahead: false` unlinks it and keeps the ingredient. An ingredient that is a recipe's own made-ahead ingredient can't be removed: `DELETE /foods/{id}` answers 409 `in_use`, `detail` "Made by the recipe Dosa batter. Turn off Made ahead there to remove it." and `recipe: {id, name}` so the screen can link the name. `GET /foods/{id}` has `made_by: {id, name}` (or `null`) for the same reason.
 
@@ -101,11 +106,36 @@ Every save adds 1 to `version`. `PUT` must send the `version` the editor opened.
 
 Bringing a recipe back is refused with 409 `recipe_loop` (the same words as a save) if, while it was deleted, other recipes were changed so that it would now make a loop.
 
-`DELETE` hides the recipe at once. The answer's `change` has `can_undo` and `undo_until` (7 days, the household's undo window), and appears in Recent changes and for Ctrl+Z like any change. Undo (`POST /changes/{id}/undo`) brings the recipe back, and every line of other recipes that used it is linked again, because those lines never lost the link. After the window an hourly job deletes the recipe for good (with its lines, steps, tag links and photo record); lines of other recipes that used it then keep their words and show `link: "none"`. (The photos pull request must also delete the photo files at that point.) A retry of a delete with the same `Idempotency-Key` answers with the original change.
+`DELETE` hides the recipe at once. The answer's `change` has `can_undo` and `undo_until` (7 days, the household's undo window), and appears in Recent changes and for Ctrl+Z like any change. Undo (`POST /changes/{id}/undo`) brings the recipe back, and every line of other recipes that used it is linked again, because those lines never lost the link. After the window an hourly job deletes the recipe for good (with its lines, steps, tag links and photo, whose files are deleted once that's committed); lines of other recipes that used it then keep their words and show `link: "none"`. Undo within the window keeps the photo; while the recipe is deleted, its photo isn't shown. A retry of a delete with the same `Idempotency-Key` answers with the original change.
 
 ### 2.5 Retries
 
 Creating and saving a recipe that carry an `Idempotency-Key` also remember it, as every other write does (a request with no key leaves nothing behind; a quiet change of kind `recipe_created` or `recipe_saved`, which is not listed in Recent changes and can't be undone). A retried `POST /recipes` makes nothing more and answers `200` with the recipe and `Idempotent-Replayed: true`; a retried `PUT` answers `200` the same way, instead of a `recipe_changed` conflict with yourself. The same key for a different request is 409 `key_reused`. Retrying a create after the recipe was deleted answers 404 `not_found`, because the answer is the recipe as it is now.
+
+### 2.6 Photos (cabledrawer 19 and 20 Oct)
+
+**Upload.** `POST /recipes/photos` takes the photo file itself as the request body (not a form), `Content-Type` `image/jpeg`, `image/png` or `image/webp`; what the file is comes from its bytes, never the type or a name. Only this route takes up to 15 MB (15 × 1024 × 1024 bytes); every other request stays at 4 MiB. The sign-in is checked before the body is read, and the size is counted as it arrives. The server then:
+
+1. refuses anything over 40 megapixels from its header alone (422 `too_many_pixels`, "That photo has too many pixels. Try one under 40 megapixels.", proposed wording, waiting for cabledrawer), and anything that isn't a JPEG, PNG or WebP Pillow can read whole: GIF, SVG, HEIC, a text file called `.jpg`, a file cut short (422 `not_a_photo`, "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."). Over 15 MB is 413 `photo_too_big`, "That photo is bigger than 15 MB.";
+2. turns it upright (EXIF orientation), keeps an animated picture's first frame, converts colours from the file's colour profile to sRGB, makes see-through parts white, and rebuilds the picture from its pixels alone, so no EXIF (camera, date, GPS), XMP, PNG text, comment, thumbnail or colour profile is kept;
+3. saves two JPEGs (quality 85): the large copy (longest side 1600 px, never made bigger) and the list copy (shortest side 156 px, the 52 px list square at 3×; never bigger than the photo, and never longer than 1600 px). The file sent is not kept.
+
+The answer (201) is the photo, the same shape as a recipe's `photo`:
+
+```json
+{ "id": 5, "width": 1600, "height": 1200, "url": "/api/v1/recipes/photos/5/large",
+  "list_width": 208, "list_height": 156, "list_url": "/api/v1/recipes/photos/5/list" }
+```
+
+A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 Oct); the 11th is 409 `too_many_photos_waiting`, "Too many photos waiting to be saved. Save or cancel a recipe first." Saving one on a recipe, deleting one, or the 24-hour clean-up frees a place. The count is each household's own. There is no `Idempotency-Key` on uploads: a retry uploads the photo again, and the extra one is deleted after 24 hours like any unsaved upload.
+
+**Attach.** Nothing on the recipe changes until Save (cabledrawer 20 Oct): send `photo_id` in `POST /recipes` or `PUT /recipes/{id}` (section 2.1). An upload no recipe has taken within 24 hours is deleted by the hourly job (on this server only; it contacts nothing).
+
+**Show.** `GET /recipes/photos/{id}/large` and `/list` answer the JPEG, for people signed in to the photo's household only: `Content-Type: image/jpeg`, `X-Content-Type-Options: nosniff`, and, like every `/api` answer, `Cache-Control: no-store` (sync protocol section 12). An unsaved upload can be shown (the editor's preview); a photo of a deleted recipe can't, until Undo. A replaced photo always gets a new id, so a URL always shows the same picture. Another household's id, or one that doesn't exist, is 404 `not_found` "That photo isn't here any more.", the same answer for both. The pages' `img-src 'self'` covers these URLs.
+
+**Delete an unsaved upload** (cabledrawer 20 Oct). `DELETE /recipes/photos/{id}` (204) deletes an upload of your household that isn't on a recipe, files included: for an editor that's cancelled. A photo on one of your recipes is 409 `photo_in_use` ("That photo is on a recipe. Take it off in the recipe, then save."): it goes by saving the recipe without it. Another household's id is 404, exactly as an unknown one.
+
+**Files.** In the data folder, `photos/<household id>/<random 32 letters>.jpg` and `…-list.jpg`; the folder is readable by the server only. Each file is written to a temporary file in the same folder and renamed, so a half-written file is never shown. Files are deleted only once the database change that deleted the record is committed. The hourly job also deletes files in a household's folder that have no record and are over a day old (after a crash, say).
 
 ## 3. Ingredients that recipes use
 
