@@ -4,7 +4,7 @@
   // server in 0.3; the shopping list works from the phone's copy, so point there.
   import { resolve } from '$app/paths';
 
-  let { screen }: { screen: 'Pantry' | 'Ingredients' | 'Settings' } = $props();
+  let { screen }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Settings' } = $props();
 </script>
 
 <section class="offline" aria-labelledby="offline-note-title">

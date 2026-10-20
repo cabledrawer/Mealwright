@@ -1,0 +1,235 @@
+import { flushSync, mount, unmount } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
+import type { RecipePage, RecipeRow } from '$lib/client/recipes';
+import { network } from '$lib/network.svelte';
+import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
+import Recipes from './+page.svelte';
+import '$lib/styles/tokens.css';
+import '$lib/styles/base.css';
+
+const row = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRow => ({
+  id,
+  name,
+  description: null,
+  time_minutes: null,
+  serves: 4,
+  tags: [],
+  ingredient_count: 5,
+  kcal: null,
+  stock: null,
+  use_soon: null,
+  ...extra
+});
+
+const sambar = row(1, 'Sambar', {
+  time_minutes: 50,
+  kcal: 320,
+  tags: ['Batch-friendly'],
+  stock: { counted: 7, missing: 1, can_cook_now: false }
+});
+const palak = row(2, 'Palak paneer', {
+  stock: { counted: 3, missing: 0, can_cook_now: true },
+  use_soon: { foods: [{ id: 9, name: 'Spinach' }], use_by: '2026-10-20', days_left: 0 }
+});
+const rajma = row(3, 'Rajma', { time_minutes: 60 });
+
+const answer = (recipes: RecipeRow[], all = recipes.length, next: string | null = null) =>
+  [200, { total: recipes.length, all_recipes: all, recipes, next } satisfies RecipePage] as [
+    number,
+    unknown
+  ];
+
+const TAGS = [
+  { name: 'Batch-friendly', recipes: 1 },
+  { name: 'Quick', recipes: 2 }
+];
+
+describe('the All recipes page', () => {
+  let component: ReturnType<typeof mount> | null = null;
+  let requests: FakeRequest[];
+
+  /** Open the page with the server answering `routes` (the list and the tags by default). */
+  function open(routes: Parameters<typeof fakeApi>[0] = {}) {
+    requests = fakeApi({
+      'GET /recipes/tags': [200, { tags: TAGS }],
+      'GET /recipes?limit=50': answer([palak, rajma, sambar]),
+      ...routes
+    });
+    component = mount(Recipes, { target: document.body });
+    flushSync();
+  }
+
+  beforeEach(async () => {
+    await page.viewport(390, 844);
+    network.reset();
+  });
+
+  afterEach(() => {
+    if (component) unmount(component);
+    component = null;
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  it('shows the count in the title and the list, with each recipe’s line', async () => {
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
+    await expect.element(page.getByText('3 recipes')).toBeVisible();
+    await expect
+      .element(page.getByText('50 min · 320 kcal · all in stock but 1'))
+      .toBeInTheDocument();
+    await expect.element(page.getByText('Uses spinach (today)')).toBeVisible();
+    await expect.element(page.getByText('60 min · nutrition unknown')).toBeVisible();
+    // A to Z is the server's order; the page keeps it.
+    const names = [...document.querySelectorAll('li .name')].map((n) => n.textContent);
+    expect(names).toEqual(['Palak paneer', 'Rajma', 'Sambar']);
+  });
+
+  it('says “1 recipe” for one', async () => {
+    open({ 'GET /recipes?limit=50': answer([sambar]) });
+    await expect.element(page.getByText('1 recipe', { exact: true })).toBeVisible();
+  });
+
+  it('has the Ingredients button, and no Drafts or New recipe button yet', async () => {
+    open();
+    await expect
+      .element(page.getByRole('link', { name: 'Ingredients' }))
+      .toHaveAttribute('href', '/recipes/ingredients');
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Drafts|New recipe|Import|Planned/);
+  });
+
+  it('rows are not links yet (the recipe page comes next)', async () => {
+    open();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.querySelectorAll('li a, li button')).toHaveLength(0);
+  });
+
+  it('has a filter row: All, Can cook now, then the household’s tags', async () => {
+    open();
+    const group = page.getByRole('group', { name: 'Show' });
+    await expect.element(group).toBeVisible();
+    const labels = [...document.querySelectorAll('[aria-label="Show"] button')].map(
+      (b) => b.textContent
+    );
+    expect(labels).toEqual(['All', 'Can cook now', 'Batch-friendly', 'Quick']);
+    await expect
+      .element(group.getByRole('button', { name: 'All', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Can cook now asks the server for just those', async () => {
+    open({ 'GET /recipes?can_cook_now=true&limit=50': answer([palak], 3) });
+    await page.getByRole('button', { name: 'Can cook now' }).click();
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?can_cook_now=true&limit=50')).toBe(true)
+    );
+    await expect.element(page.getByText('Rajma')).not.toBeInTheDocument();
+    // The title still counts every recipe.
+    await expect.element(page.getByText('3 recipes')).toBeVisible();
+  });
+
+  it('a tag filters, and search works with it', async () => {
+    open({
+      'GET /recipes?tag=Quick&limit=50': answer([rajma], 3),
+      'GET /recipes?q=dal&tag=Quick&limit=50': answer([], 3)
+    });
+    await page.getByRole('button', { name: 'Quick' }).click();
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?tag=Quick&limit=50')).toBe(true)
+    );
+    await page.getByRole('searchbox', { name: 'Search recipes' }).fill('dal');
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?q=dal&tag=Quick&limit=50')).toBe(true)
+    );
+    await expect.element(page.getByText('No recipe matches “dal”.')).toBeVisible();
+  });
+
+  it('searches on the server, by whatever words are typed', async () => {
+    open({ 'GET /recipes?q=thuvaram&limit=50': answer([sambar], 3) });
+    await page.getByRole('searchbox', { name: 'Search recipes' }).fill('thuvaram');
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?q=thuvaram&limit=50')).toBe(true)
+    );
+    await expect.element(page.getByText('Palak paneer')).not.toBeInTheDocument();
+  });
+
+  it('says so when Can cook now finds nothing', async () => {
+    open({ 'GET /recipes?can_cook_now=true&limit=50': answer([], 3) });
+    await page.getByRole('button', { name: 'Can cook now' }).click();
+    await expect
+      .element(page.getByText('No recipe can be cooked with what is in stock right now.'))
+      .toBeVisible();
+  });
+
+  it('shows the first page and adds the next with Show more', async () => {
+    open({
+      'GET /recipes?limit=50': answer([sambar], 2, '1'),
+      'GET /recipes?after=1&limit=50': answer([palak], 2)
+    });
+    await page.getByRole('button', { name: 'Show more' }).click();
+    await expect.element(page.getByText('Palak paneer')).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
+  });
+
+  it('with no recipes at all, says so, with no button to add one yet', async () => {
+    open({ 'GET /recipes?limit=50': answer([], 0), 'GET /recipes/tags': [200, { tags: [] }] });
+    await expect.element(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
+    await expect.element(page.getByText('Recipes you add will show here.')).toBeVisible();
+    await expect.element(page.getByText('0 recipes')).toBeVisible();
+    expect(document.querySelector('[role="searchbox"], input[type="search"]')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/New recipe|Add a recipe|Import/);
+    expect(document.querySelectorAll('main button, button')).toHaveLength(0);
+  });
+
+  it('says Loading… while the first answer is on its way', async () => {
+    open({ 'GET /recipes?limit=50': () => new Promise(() => {}) as never });
+    await expect.element(page.getByText('Loading…')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/No recipes yet/);
+  });
+
+  it('says what went wrong and offers Try again', async () => {
+    let fail = true;
+    open({
+      'GET /recipes?limit=50': () => (fail ? [500, { detail: 'broken' }] : answer([sambar]))
+    });
+    await expect.element(page.getByText('Couldn’t load your recipes. Try again.')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/No recipes yet/);
+    fail = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+  });
+
+  it('long names wrap instead of pushing the page sideways', async () => {
+    const long = row(
+      4,
+      'பச்சைப் பயறு (பாசிப்பயறு) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது'.repeat(2),
+      {
+        use_soon: {
+          foods: [
+            { id: 1, name: 'Organic stone-ground whole wheat flour from the Saturday market' }
+          ],
+          use_by: '2026-10-20',
+          days_left: 0
+        }
+      }
+    );
+    open({ 'GET /recipes?limit=50': answer([long]) });
+    await expect.element(page.getByText(/பச்சைப்/).first()).toBeVisible();
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+  });
+
+  it('offline: says it needs the server, and asks for nothing', async () => {
+    network.offline = true;
+    open();
+    await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+    await expect
+      .element(
+        page.getByText('Recipes needs your Mealwright server — your shopping list works offline.')
+      )
+      .toBeVisible();
+    expect(requests.filter((r) => r.path.startsWith('/recipes'))).toHaveLength(0);
+  });
+});

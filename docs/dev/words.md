@@ -151,6 +151,24 @@ cabledrawer accepted all twelve recommendations on 19 Oct. **Built screen text i
 
 ---
 
-## 12. Not covered yet (for later versions of this list)
+## 12. All recipes (0.4, PR 3a)
 
-Recipe screens (0.4), Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).
+Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Recipes-Phone`, cabledrawer's answers of 19 and 20 Oct and the built screen (`frontend/src/routes/(app)/recipes/+page.svelte`, `frontend/src/lib/recipeLine.ts`). cabledrawer approves any change here.
+
+- **Title and count:** "Recipes", with "48 recipes" above it ("1 recipe"). The count is every recipe, whatever is searched or filtered.
+- **Buttons at the top:** "Ingredients" (phone). Not there yet: "+ New recipe" (comes with the editor), "Drafts" (drafts only come with import in 0.5; cabledrawer 20 Oct), "Planned Sun" (0.6).
+- **Search:** "Search recipes". It looks in recipe names, tags and ingredient names, other names included, never the method (cabledrawer 19 Oct, question 24).
+- **Filter row:** "All" · "Can cook now" · then the household's own tags, one chosen at a time.
+- **A recipe's line,** each part only when known, with a no-break space inside "50 min" and "320 kcal": `50 min · 320 kcal · all in stock but 1`. Calories say "nutrition unknown", never 0.
+- **Stock words:** "all in stock" · "all in stock but 1" (only when there is more than one ingredient) · "2 missing" ("1 missing" when its only ingredient is missing). Nothing when no ingredient has an amount.
+- **Use soon:** "Uses spinach (today)", "Uses spinach and paneer (tomorrow)", "Uses spinach and 2 more (Mon)": ingredient names in lower case, the soonest day, in orange. If something is missing as well, it is said after: "Uses spinach (today) · all in stock but 1".
+- **Empty:** the heading "No recipes yet" and "Recipes you add will show here." (no button until the editor).
+- **Nothing found:** "No recipe matches “dal”." · "No recipe can be cooked with what is in stock right now." · "No recipes with that tag."
+- **Loading and failing:** "Loading…" · "Couldn’t load your recipes. Try again." with the button "Try again" · "Couldn’t load more recipes. Try again." · the button "Show more" after 50.
+- **Offline:** "You're offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as Pantry and Ingredients).
+
+---
+
+## 13. Not covered yet (for later versions of this list)
+
+Recipe screens beyond All recipes (the recipe page and the editor), Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

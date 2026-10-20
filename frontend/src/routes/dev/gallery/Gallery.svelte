@@ -16,6 +16,7 @@
   import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
   import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import FilterChips from '$lib/components/FilterChips.svelte';
   import Icon, { type Name } from '$lib/components/Icon.svelte';
   import LotMenu from '$lib/components/LotMenu.svelte';
   import Logo from '$lib/components/Logo.svelte';
@@ -26,6 +27,7 @@
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
+  import RecipeListRow from '$lib/components/RecipeListRow.svelte';
   import RecipesPopout from '$lib/components/RecipesPopout.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Switch from '$lib/components/Switch.svelte';
@@ -34,6 +36,7 @@
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { askOnce } from '$lib/askOnce.svelte';
+  import type { RecipeRow } from '$lib/client/recipes';
   import type { Change } from '$lib/client/types';
   import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
@@ -113,6 +116,80 @@
   const pantryPack = sample.paneer[0]!;
   let menuLot = $state<typeof pantryPack | null>(null);
   let menuAnchor = $state<HTMLElement | null>(null);
+
+  // --- Recipes ------------------------------------------------------------------------------
+  const recipe = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRow => ({
+    id,
+    name,
+    description: null,
+    time_minutes: null,
+    serves: 4,
+    tags: [],
+    ingredient_count: 5,
+    kcal: null,
+    stock: null,
+    use_soon: null,
+    ...extra
+  });
+  const recipeRows: RecipeRow[] = [
+    recipe(1, 'Sambar', {
+      time_minutes: 50,
+      kcal: 320,
+      stock: { counted: 7, missing: 1, can_cook_now: false }
+    }),
+    recipe(2, 'Palak paneer', {
+      stock: { counted: 3, missing: 0, can_cook_now: true },
+      use_soon: { foods: [{ id: 9, name: 'Spinach' }], use_by: '2026-10-20', days_left: 0 }
+    }),
+    recipe(3, 'Rajma', { time_minutes: 60 }),
+    recipe(4, 'Chana masala', {
+      time_minutes: 45,
+      kcal: 380,
+      stock: { counted: 6, missing: 0, can_cook_now: true }
+    }),
+    recipe(5, 'Veg biryani', {
+      time_minutes: 75,
+      kcal: 410,
+      stock: { counted: 12, missing: 4, can_cook_now: false }
+    }),
+    recipe(
+      6,
+      'பச்சைப் பயறு (பாசிப்பயறு) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது with a very long name',
+      {
+        time_minutes: 1440,
+        kcal: 1234,
+        use_soon: {
+          foods: [
+            { id: 1, name: 'Organic stone-ground whole wheat flour from the Saturday market' },
+            { id: 2, name: 'Paneer' },
+            { id: 3, name: 'Milk' }
+          ],
+          use_by: '2026-10-21',
+          days_left: 1
+        },
+        stock: { counted: 4, missing: 2, can_cook_now: false }
+      }
+    )
+  ];
+  type Filter = 'all' | 'cook' | `tag:${string}`;
+  let chosen = $state<Filter>('all');
+  let chosenMany = $state<Filter>('tag:Quick');
+  const fewFilters: { value: Filter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'cook', label: 'Can cook now' },
+    { value: 'tag:Batch-friendly', label: 'Batch-friendly' }
+  ];
+  const manyFilters: { value: Filter; label: string }[] = [
+    ...fewFilters,
+    { value: 'tag:Quick', label: 'Quick' },
+    { value: 'tag:Kids', label: 'Kids' },
+    {
+      value: 'tag:Festival and special-occasion cooking',
+      label: 'Festival and special-occasion cooking'
+    },
+    { value: 'tag:Sunday', label: 'Sunday' },
+    { value: 'tag:Freezer-friendly', label: 'Freezer-friendly' }
+  ];
 
   // --- Recent changes -----------------------------------------------------------------------
   const who = { login_id: 1, name: 'Tess' };
@@ -221,6 +298,7 @@
     <a href="#dialogs">Dialogs</a>
     <a href="#tabs">Tabs</a>
     <a href="#pantry">Pantry rows</a>
+    <a href="#recipes">Recipes</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#icons">Icons</a>
@@ -295,6 +373,7 @@
       </EmptyState>
       <OfflineNote screen="Pantry" />
       <OfflineNote screen="Ingredients" />
+      <OfflineNote screen="Recipes" />
       <OfflineNote screen="Settings" />
       <ConnectionNotice kind="plain-refused" />
       <ConnectionNotice kind="plain-allowed" />
@@ -397,6 +476,38 @@
       {model}
       onclose={() => (menuLot = null)}
     />
+  </section>
+
+  <section id="recipes">
+    <h2>Recipe rows, filter row, empty list</h2>
+    <p class="note">
+      A recipe with no photo has a plain warm square. The line shows only what is known; what is
+      about to go off is orange. Rows become links with the recipe page.
+    </p>
+    <div class="stack">
+      <div class="narrow card">
+        {#each recipeRows as row (row.id)}
+          <div class="divided"><RecipeListRow recipe={row} /></div>
+        {/each}
+      </div>
+      <div class="narrow">
+        <FilterChips
+          options={fewFilters}
+          selected={chosen}
+          label="Show (few)"
+          onselect={(v) => (chosen = v)}
+        />
+      </div>
+      <div class="narrow">
+        <FilterChips
+          options={manyFilters}
+          selected={chosenMany}
+          label="Show (many)"
+          onselect={(v) => (chosenMany = v)}
+        />
+      </div>
+      <EmptyState title="No recipes yet">Recipes you add will show here.</EmptyState>
+    </div>
   </section>
 
   <section id="changes">
@@ -567,6 +678,20 @@
 
   /* A box that holds fixed or sticky parts (the bars, the sidebar, the bottom tabs), so they
      sit here instead of on the screen. */
+  .card {
+    padding: var(--space-2) var(--space-6);
+    border-radius: var(--radius-2xl);
+    background: var(--color-surface);
+  }
+
+  .divided {
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .divided:last-child {
+    border-bottom: none;
+  }
+
   .frame {
     position: relative;
     overflow: hidden;

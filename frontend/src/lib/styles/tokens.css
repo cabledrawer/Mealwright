@@ -103,6 +103,9 @@
   --color-staple-chip: #ffffff;
   --color-segment-track: #e6e9e5; /* place tabs on phone */
 
+  /* Recipes */
+  --color-recipe-square: #f3e3c3; /* a recipe with no photo: a plain warm square (mockup) */
+
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
   --font-reading: 'Newsreader Variable', Georgia, serif;
@@ -235,4 +238,6 @@
   --color-staples-panel: #1b221f;
   --color-staple-chip: #252e29;
   --color-segment-track: #252e29;
+
+  --color-recipe-square: #3a3222;
 }

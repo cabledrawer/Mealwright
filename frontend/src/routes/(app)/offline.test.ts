@@ -8,6 +8,7 @@ import { toasts } from '$lib/toast.svelte';
 import { ME } from '$lib/testing/fakeShopping';
 import Ingredients from './recipes/ingredients/+page.svelte';
 import Pantry from './pantry/+page.svelte';
+import Recipes from './recipes/+page.svelte';
 import Settings from './settings/+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -45,6 +46,7 @@ describe('the online-only screens, offline', () => {
   for (const [name, screen] of [
     ['Pantry', Pantry],
     ['Ingredients', Ingredients],
+    ['Recipes', Recipes],
     ['Settings', Settings]
   ] as const) {
     it(`${name} says it needs the server, with a Shopping button`, async () => {
