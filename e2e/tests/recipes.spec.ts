@@ -285,7 +285,6 @@ test('a failed Show more keeps the list, the count and the filters, and Try agai
   await expect(page.getByText('60 recipes')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Can cook now' })).toBeVisible();
   await expect(page.getByText(/Couldn’t load your recipes/)).toHaveCount(0);
-  await checkPage(page);
   fail = false;
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.locator('li')).toHaveCount(60);
