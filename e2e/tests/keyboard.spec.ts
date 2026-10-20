@@ -142,6 +142,29 @@ test.describe('signed in', () => {
     await checkKeyboard(page, 'All recipes');
   });
 
+  test('The recipe page', async ({ page }) => {
+    // Its own recipe, made through the API, with a line in each state.
+    const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+    const made = async (path: string, data: object) =>
+      (await (await page.request.post(`/api/v1${path}`, { data, headers: key() })).json()) as Record<string, any>;
+    const stamp = Date.now().toString(36);
+    const dal = (await made('/foods', { name: `Keyboard dal ${stamp}`, counted_as: 'weight' })).food.id;
+    const ghee = (await made('/foods', { name: `Keyboard ghee ${stamp}`, counted_as: 'weight' })).food.id;
+    await made('/stock', { food_id: dal, amount: { amount: 500, unit: 'g' } });
+    const recipe = await made('/recipes', {
+      name: `Keyboard recipe ${stamp}`,
+      lines: [
+        { words: 'dal', food_id: dal, amount: 200, unit: 'g' },
+        { words: 'ghee', food_id: ghee, amount: 1, unit: 'tbsp' },
+      ],
+      steps: [{ text: 'Stir.' }],
+    });
+    await page.goto(`/recipes/${recipe.id}`);
+    await expect(page.getByRole('heading', { name: recipe.name, level: 1 })).toBeVisible();
+    await expect(page.getByText('1 missing')).toBeVisible();
+    await checkKeyboard(page, 'The recipe page');
+  });
+
   test('Settings', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();

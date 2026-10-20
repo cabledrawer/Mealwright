@@ -40,6 +40,8 @@ type RecipeSpec = {
   name: string;
   time?: number;
   kcal?: number;
+  /** The rest, for the recipe page's saved screenshot (the list doesn't show them). */
+  page?: { description: string; nutrition: object; steps: string[]; source: string };
   tags?: string[];
   /** [ingredient, amount, unit]: a unit of '' is a count. */
   lines: [string, number, string][];
@@ -54,6 +56,17 @@ const RECIPES: RecipeSpec[] = [
     time: 50,
     kcal: 320,
     tags: ['Batch-friendly'],
+    page: {
+      description: 'Lentil & vegetable stew',
+      nutrition: { kcal: 320, protein: 16, carbs: 48, fat: 7, fibre: 11 },
+      steps: [
+        'Rinse the dal and pressure-cook with turmeric until soft.',
+        'Soak the tamarind in warm water; squeeze out the pulp.',
+        'Cook the onions and tomatoes in the tamarind water with the sambar powder.',
+        'Stir in the dal, simmer, then finish with a mustard-seed tempering.',
+      ],
+      source: 'Amma’s',
+    },
     lines: [['Toor dal', 150, 'g'], ['Onion', 2, ''], ['Tamarind', 20, 'g'], ['Sambar powder', 2, 'tbsp'], ['Tomato', 2, '']],
   },
   { name: 'Palak paneer', time: 40, kcal: 290, lines: [['Spinach', 200, 'g'], ['Paneer', 200, 'g'], ['Onion', 1, ''], ['Turmeric', 1, 'tsp']] },
@@ -86,7 +99,10 @@ async function makeRecipes(api: Api, specs: RecipeSpec[]) {
     await api.post('/recipes', {
       name: spec.name,
       time_minutes: spec.time ?? null,
-      nutrition: spec.kcal === undefined ? {} : { kcal: spec.kcal },
+      ...(spec.page
+        ? { description: spec.page.description, source_note: spec.page.source, steps: spec.page.steps.map((text) => ({ text })) }
+        : {}),
+      nutrition: spec.page ? spec.page.nutrition : spec.kcal === undefined ? {} : { kcal: spec.kcal },
       tags: spec.tags ?? [],
       lines,
     });

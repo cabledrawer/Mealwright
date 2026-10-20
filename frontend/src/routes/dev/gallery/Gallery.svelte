@@ -27,8 +27,13 @@
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
+  import KeepAwake from '$lib/components/KeepAwake.svelte';
+  import MissingBar from '$lib/components/MissingBar.svelte';
+  import NutritionStrip from '$lib/components/NutritionStrip.svelte';
+  import RecipeIngredient from '$lib/components/RecipeIngredient.svelte';
   import RecipeListRow from '$lib/components/RecipeListRow.svelte';
   import RecipesPopout from '$lib/components/RecipesPopout.svelte';
+  import ServingsStepper from '$lib/components/ServingsStepper.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
@@ -36,12 +41,14 @@
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { askOnce } from '$lib/askOnce.svelte';
-  import type { RecipeRow } from '$lib/client/recipes';
+  import type { RecipeLine, RecipeRow } from '$lib/client/recipes';
   import type { Change } from '$lib/client/types';
   import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
   import type { PantryList } from '$lib/pantryList.svelte';
+  import type { Mark } from '$lib/recipeStock';
+  import type { ScreenAwake } from '$lib/screenAwake.svelte';
   import { samplePantry } from '$lib/testing/fakePantry';
   import { toasts } from '$lib/toast.svelte';
 
@@ -192,6 +199,99 @@
     { value: 'tag:Freezer-friendly', label: 'Freezer-friendly' }
   ];
 
+  // --- The recipe page's parts ------------------------------------------------------------------
+  const ingredient = (id: number, extra: Partial<RecipeLine>): RecipeLine => ({
+    id,
+    kind: 'ingredient',
+    words: 'toor dal',
+    amount: null,
+    amount_text: null,
+    unit: null,
+    size: null,
+    food: null,
+    recipe: null,
+    link: 'ingredient',
+    note: null,
+    ...extra
+  });
+  const NB = '\u00a0';
+  const ingredientRows: { line: RecipeLine; amount: string | null; mark: Mark | null }[] = [
+    {
+      line: ingredient(1, { food: { id: 5, name: 'Toor dal' }, words: 'Toor dal' }),
+      amount: `200${NB}g`,
+      mark: { kind: 'in', label: 'Cupboard' }
+    },
+    {
+      line: ingredient(2, {
+        food: { id: 5, name: 'Toor dal' },
+        words: 'thuvaram paruppu',
+        note: 'rinsed'
+      }),
+      amount: `1½${NB}cups`,
+      mark: { kind: 'in', label: 'Freezer' }
+    },
+    {
+      line: ingredient(3, { food: { id: 6, name: 'Onions' }, words: 'shallots' }),
+      amount: '10',
+      mark: { kind: 'list', label: 'On list' }
+    },
+    {
+      line: ingredient(4, { food: { id: 7, name: 'Sambar powder' }, words: 'sambar powder' }),
+      amount: `2${NB}tbsp`,
+      mark: { kind: 'staple', label: 'Staple' }
+    },
+    {
+      line: ingredient(5, { food: { id: 8, name: 'Paneer' }, words: 'paneer' }),
+      amount: `400${NB}g`,
+      mark: { kind: 'short', label: 'Not enough' }
+    },
+    {
+      line: ingredient(6, { food: { id: 9, name: 'Ghee' }, words: 'ghee' }),
+      amount: `1${NB}tbsp`,
+      mark: { kind: 'missing', label: null }
+    },
+    {
+      line: ingredient(7, {
+        link: 'recipe',
+        recipe: { id: 3, name: 'Sambar powder' },
+        words: 'masala'
+      }),
+      amount: `2${NB}tbsp`,
+      mark: null
+    },
+    { line: ingredient(8, { link: 'none', words: 'salt to taste' }), amount: null, mark: null },
+    {
+      line: ingredient(9, { link: 'recipe_removed', words: 'old homemade paste' }),
+      amount: `1${NB}cup`,
+      mark: null
+    },
+    {
+      line: ingredient(10, {
+        food: { id: 10, name: 'Organic stone-ground whole wheat flour from the Saturday market' },
+        words: 'பச்சைப் பயறு (பாசிப்பயறு) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது',
+        note: 'soaked overnight and drained very well'
+      }),
+      amount: `1½${NB}packets`,
+      mark: { kind: 'in', label: 'Spice rack' }
+    }
+  ];
+  let serves = $state(4);
+  let servesOne = $state(1);
+  let servesMany = $state(99);
+  let awakeOn = $state(false);
+  const awakeAvailable = {
+    supported: true,
+    get on() {
+      return awakeOn;
+    },
+    refused: false,
+    set: (on: boolean) => {
+      awakeOn = on;
+      return Promise.resolve();
+    }
+  } as unknown as ScreenAwake;
+  const awakeRefused = { supported: true, on: false, refused: true } as unknown as ScreenAwake;
+
   // --- Recent changes -----------------------------------------------------------------------
   const who = { login_id: 1, name: 'Tess' };
   const change = (id: number, summary: string, extra: Partial<Change> = {}): Change => ({
@@ -300,6 +400,7 @@
     <a href="#tabs">Tabs</a>
     <a href="#pantry">Pantry rows</a>
     <a href="#recipes">Recipes</a>
+    <a href="#recipe-page">Recipe page</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#icons">Icons</a>
@@ -483,7 +584,7 @@
     <h2>Recipe rows, filter row, empty list</h2>
     <p class="note">
       A recipe with no photo has a plain warm square. The line shows only what is known; what is
-      about to go off is orange. Rows become links with the recipe page.
+      about to go off is orange. Each row opens the recipe.
     </p>
     <div class="stack">
       <div class="narrow card">
@@ -508,6 +609,54 @@
         />
       </div>
       <EmptyState title="No recipes yet">Recipes you add will show here.</EmptyState>
+    </div>
+  </section>
+
+  <section id="recipe-page">
+    <h2>Recipe page: ingredient lines, servings, nutrition, missing line, keep awake</h2>
+    <p class="note">
+      A line's dot and words say where the ingredient is: green with its place, orange "On list",
+      grey ring "Staple", dashed ring "Not enough", or dashed with no words (missing). The
+      ingredient's own name is small text under the words only when it differs. A line that uses
+      another recipe opens it; "not linked" and "recipe removed" open nothing.
+    </p>
+    <div class="stack">
+      <ul class="narrow card lines">
+        {#each ingredientRows as row (row.line.id)}
+          <li class="divided">
+            <RecipeIngredient
+              line={row.line}
+              amount={row.amount}
+              mark={row.mark}
+              onopen={() => toasts.show('Gallery: the ingredient editor opens here.')}
+            />
+          </li>
+        {/each}
+      </ul>
+      <div class="narrow stepper-row">
+        <ServingsStepper value={serves} onchange={(v) => (serves = v)} />
+        <ServingsStepper value={servesOne} onchange={(v) => (servesOne = v)} />
+        <ServingsStepper value={servesMany} onchange={(v) => (servesMany = v)} />
+      </div>
+      <div class="narrow stack">
+        <NutritionStrip nutrition={{ kcal: 320, protein: 16, carbs: 48, fat: 7.5, fibre: 11 }} />
+        <NutritionStrip nutrition={{ kcal: 320, protein: null, carbs: 48, fat: 0, fibre: null }} />
+        <NutritionStrip
+          nutrition={{ kcal: null, protein: null, carbs: null, fat: null, fibre: null }}
+        />
+      </div>
+      <div class="narrow stack">
+        <MissingBar count={1} onadd={() => toasts.show('Gallery: nothing is added to the list.')} />
+        <MissingBar
+          count={12}
+          onadd={() => toasts.show('Gallery: nothing is added to the list.')}
+        />
+      </div>
+      <div class="narrow stack">
+        <KeepAwake awake={awakeAvailable} />
+        <KeepAwake awake={awakeRefused} />
+        <p class="note">(Where the browser can't keep the screen awake, nothing is drawn.)</p>
+      </div>
     </div>
   </section>
 
@@ -683,6 +832,18 @@
     padding: var(--space-2) var(--space-6);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
+  }
+
+  ul.lines {
+    margin: 0;
+    padding: var(--space-2) var(--space-6);
+    list-style: none;
+  }
+
+  .stepper-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
   }
 
   .divided {
