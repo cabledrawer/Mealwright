@@ -55,6 +55,8 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   await expect(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
   await expect(page.getByText(/^\d+ recipes?$/)).toBeVisible();
   await search(page, tag);
+  // Wait for the search to narrow the list to the three, so nothing else is on screen.
+  await expect(page.locator('li')).toHaveCount(3);
   await expect(page.getByText('50 min · 320 kcal · all in stock but 1', { exact: true })).toBeVisible();
   await expect(page.getByText('nutrition unknown · all in stock', { exact: true })).toBeVisible();
   await expect(page.getByText('60 min · nutrition unknown', { exact: true })).toBeVisible();

@@ -64,6 +64,11 @@ test.beforeEach(async ({ page }) => {
   await fixTheDate(page);
 });
 
+// A request still on its way when the test ends would be reported as an error of the test.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 test('Pantry looks the way it was approved', async ({ page }) => {
   await page.goto('/pantry');
   await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
