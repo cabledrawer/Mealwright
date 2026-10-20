@@ -13,7 +13,9 @@
   // Each row opens the recipe page. Hidden until they work, not stubbed: "+ New recipe" (the
   // editor, PR 5), the Drafts button (drafts only come from 0.5's import; agreed by cabledrawer
   // 20 Oct), "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
   import { tick, untrack } from 'svelte';
   import EmptyState from './EmptyState.svelte';
   import FilterChips from './FilterChips.svelte';
@@ -24,7 +26,7 @@
   import { kitchen } from '$lib/freshness.svelte';
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
-  import { RecipeList, type RecipeFilter } from '$lib/recipes.svelte';
+  import { RecipeList, searchOf, type RecipeFilter } from '$lib/recipes.svelte';
 
   let {
     pane = false,
@@ -47,6 +49,33 @@
     { value: 'soon', label: 'Use soon' },
     ...list.tags.map((tag) => ({ value: `tag:${tag.name}` as const, label: tag.name }))
   ]);
+
+  // "Use soon" lives in the address (?filter=use-soon): a chip tap changes it without adding a
+  // history step, and the list follows the address when it changes (Back, Forward, a link).
+  const soonInUrl = () => page.url.searchParams.get('filter') === 'use-soon';
+  let seenSoon = untrack(soonInUrl);
+  $effect(() => {
+    const soon = soonInUrl();
+    if (soon === seenSoon) return;
+    seenSoon = soon;
+    untrack(() => {
+      if (soon && list.filter !== 'soon') list.filter = 'soon';
+      else if (!soon && list.filter === 'soon') list.filter = 'all';
+    });
+  });
+
+  function choose(value: RecipeFilter) {
+    list.filter = value;
+    const search = searchOf(value);
+    if (search === page.url.search) return;
+    // Quietly: this page again, in the same history step, with no scroll and no focus move.
+    const id = page.params.id;
+    const here = id ? resolve('/(app)/recipes/[id]', { id }) : resolve('/recipes');
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- here is resolve()'s answer, plus this page's own ?filter=
+    goto(here + search, { replaceState: true, keepFocus: true, noScroll: true }).catch(() => {
+      // No router (a component test): the address stays as it is.
+    });
+  }
 
   // Search as you type (after a short pause), and fetch again whenever something changed
   // here, in the pantry on another phone, or when coming back to the tab.
@@ -123,19 +152,21 @@
       </label>
 
       {#if list.loaded && !list.problem}
-        <FilterChips
-          options={filters}
-          selected={list.filter}
-          label="Show"
-          onselect={(value) => (list.filter = value)}
-        />
+        <FilterChips options={filters} selected={list.filter} label="Show" onselect={choose} />
       {/if}
 
       <div class="card" aria-busy={!list.loaded}>
         {#if list.recipes.length}
           <ul>
             {#each list.recipes as recipe (recipe.id)}
-              <li><RecipeListRow {recipe} {pane} current={recipe.id === currentId} /></li>
+              <li>
+                <RecipeListRow
+                  {recipe}
+                  {pane}
+                  current={recipe.id === currentId}
+                  search={pane ? searchOf(list.filter) : ''}
+                />
+              </li>
             {/each}
           </ul>
           {#if list.moreProblem}

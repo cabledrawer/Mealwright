@@ -156,6 +156,113 @@ test('Pantry’s link to the recipes for what is going off opens All recipes on 
   await checkPage(page);
 });
 
+/** Two recipes that use something going off today and one that doesn't, all found by `word`. */
+async function soonRecipes(page: Page, word: string) {
+  const soon = await makeFood(page, unique(page, 'Greens'));
+  const later = await makeFood(page, unique(page, 'Rice'));
+  await putInPantry(page, soon, 500, { use_by: await householdToday(page) });
+  await putInPantry(page, later, 500);
+  const first = await makeRecipe(page, { name: `${word} greens`, lines: [line(soon, 100)] });
+  await makeRecipe(page, { name: `${word} greens curry`, lines: [line(soon, 100)] });
+  await makeRecipe(page, { name: `${word} rice`, lines: [line(later, 100)] });
+  return first.id as number;
+}
+
+const useSoonChip = (page: Page) =>
+  page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Use soon', exact: true });
+const allChip = (page: Page) => page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All', exact: true });
+
+test('the Use soon chip and the address stay in step, without adding history steps', async ({ page }) => {
+  const word = unique(page, 'Step').replace(/\s+/g, '');
+  await soonRecipes(page, word);
+  await page.goto('/recipes?filter=use-soon');
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  const steps = await page.evaluate(() => history.length);
+  // A chip tap changes the address quietly (replaced, not added).
+  await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Can cook now' }).click();
+  await expect(page).toHaveURL('/recipes');
+  await useSoonChip(page).click();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  await allChip(page).click();
+  await expect(page).toHaveURL('/recipes');
+  await useSoonChip(page).click();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  expect(await page.evaluate(() => history.length)).toBe(steps);
+  // A reload keeps it.
+  await page.reload();
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await search(page, word);
+  await expect(page.locator('li')).toHaveCount(2);
+});
+
+test('on a phone, Back from a recipe finds the list on the chip it was on', async ({ page }) => {
+  test.skip(!isPhone(page), 'phone layout');
+  const word = unique(page, 'Back').replace(/\s+/g, '');
+  await soonRecipes(page, word);
+  await page.goto('/recipes');
+  await useSoonChip(page).click();
+  await search(page, word);
+  await page.getByRole('link', { name: new RegExp(`^${word} greens curry`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.goBack();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  // And the other way: All, a recipe, Back.
+  await allChip(page).click();
+  await expect(page).toHaveURL('/recipes');
+  await search(page, word);
+  await page.getByRole('link', { name: new RegExp(`^${word} rice`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.goBack();
+  await expect(page).toHaveURL('/recipes');
+  await expect(allChip(page)).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('on a computer, opening a recipe keeps the Use soon filter, a reload too, and Back and Forward move it with the address', async ({ page }) => {
+  test.skip(isPhone(page), 'the three panes');
+  const word = unique(page, 'Panes').replace(/\s+/g, '');
+  await soonRecipes(page, word);
+  await page.goto('/recipes?filter=use-soon');
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await search(page, word);
+  await expect(page.locator('li')).toHaveCount(2);
+  // Open a recipe: the address keeps the filter, and so does the list beside it.
+  await page.getByRole('link', { name: new RegExp(`^${word} greens curry`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+\?filter=use-soon$/);
+  await expect(page.getByRole('heading', { name: `${word} greens curry`, level: 1 })).toBeVisible();
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('region', { name: 'Recipe list' }).locator('li')).toHaveCount(2); // the search was kept too, as before
+  // Reload: the recipe is open and the chip is still on.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: `${word} greens curry`, level: 1 })).toBeVisible();
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  // Back to the list, Forward to the recipe: the address and the chip agree each time.
+  await page.goBack();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await page.goForward();
+  await expect(page).toHaveURL(/\/recipes\/\d+\?filter=use-soon$/);
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+
+  // From All: open a recipe, then switch to Use soon. Back (to the address without the filter)
+  // puts the chip back on All; Forward puts it on Use soon again.
+  await page.goto('/recipes');
+  await expect(allChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await search(page, word);
+  await page.getByRole('link', { name: new RegExp(`^${word} rice`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const open = page.url();
+  await useSoonChip(page).click();
+  await expect(page).toHaveURL(`${open}?filter=use-soon`);
+  await page.goBack();
+  await expect(page).toHaveURL('/recipes');
+  await expect(allChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await page.goForward();
+  await expect(page).toHaveURL(`${open}?filter=use-soon`);
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await checkPage(page);
+});
+
 test('the filter row: Can cook now, a tag, and search together', async ({ page }) => {
   const word = unique(page, 'Chana').replace(/\s+/g, '');
   const have = await makeFood(page, unique(page, 'Have'));

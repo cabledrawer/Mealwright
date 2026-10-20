@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { RecipePage, RecipeRow } from '$lib/client/recipes';
 import { network } from '$lib/network.svelte';
+import { RecipeList } from '$lib/recipes.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
 import RecipeListScreen from './RecipeListScreen.svelte';
 import '$lib/styles/tokens.css';
@@ -34,10 +35,14 @@ const answer = (recipes: RecipeRow[]) =>
 describe('All recipes as the middle pane', () => {
   let component: ReturnType<typeof mount> | null = null;
 
-  function open(props: { currentId?: number | null; pane?: boolean } = {}) {
+  function open(
+    props: { currentId?: number | null; pane?: boolean; list?: RecipeList } = {},
+    answers: Record<string, [number, unknown]> = {}
+  ) {
     fakeApi({
       'GET /recipes/tags': [200, { tags: [] }],
-      'GET /recipes?limit=50': answer(rows)
+      'GET /recipes?limit=50': answer(rows),
+      ...answers
     });
     component = mount(RecipeListScreen, { target: document.body, props: { pane: true, ...props } });
     flushSync();
@@ -100,6 +105,20 @@ describe('All recipes as the middle pane', () => {
     const links = [...document.querySelectorAll('li a')].map((a) => a.getAttribute('href'));
     expect(links).toEqual(['/recipes/1', '/recipes/2', '/recipes/3']);
     expect(document.querySelectorAll('li button')).toHaveLength(0);
+  });
+
+  it('in the panes, rows keep the Use soon filter in the recipe’s address, so a reload and Back find it', async () => {
+    open(
+      { list: new RecipeList('soon') },
+      { 'GET /recipes?use_soon=true&limit=50': answer([rows[1]!]) }
+    );
+    await expect.element(page.getByText('Palak paneer')).toBeVisible();
+    expect([...document.querySelectorAll('li a')].map((a) => a.getAttribute('href'))).toEqual([
+      '/recipes/2?filter=use-soon'
+    ]);
+    await expect
+      .element(page.getByRole('button', { name: 'Use soon', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true');
   });
 
   it('offline it leaves the note to the panes’ layout (one for both panes)', async () => {

@@ -9,13 +9,16 @@
   let {
     recipe,
     pane = false,
-    current = false
+    current = false,
+    search = ''
   }: {
     recipe: RecipeRow;
     /** In the desktop's middle pane: the row has its own card to light up. */
     pane?: boolean;
     /** The recipe open beside the list. */
     current?: boolean;
+    /** The list's own query ("?filter=use-soon"), kept in the recipe's address in the panes. */
+    search?: string;
   } = $props();
   /** Between the parts; a normal space each side, so a long line wraps there. */
   const SEP = ' · ';
@@ -25,7 +28,7 @@
 <a
   class="recipe"
   class:pane
-  href={resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}
+  href="{resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}{search}"
   aria-current={current ? 'page' : undefined}
 >
   <span class="square" aria-hidden="true"></span>

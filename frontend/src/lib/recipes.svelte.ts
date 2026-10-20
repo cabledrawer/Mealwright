@@ -13,10 +13,18 @@ const PAGE = 50;
  */
 export type RecipeFilter = 'all' | 'cook' | 'soon' | `tag:${string}`;
 
-/** Pantry's "Recipes for these" opens All recipes at `/recipes?filter=use-soon`. */
+/**
+ * Pantry's "Recipes for these" opens All recipes at `/recipes?filter=use-soon`. The address
+ * keeps "Use soon" (and only that filter) so a reload, Back and Forward and a recipe opened
+ * beside the list all find it again; the search box and the other chips are not in it.
+ */
 export function filterFromSearch(search: URLSearchParams): RecipeFilter {
   return search.get('filter') === 'use-soon' ? 'soon' : 'all';
 }
+
+/** The address's query for a filter: "?filter=use-soon", or nothing. */
+export const searchOf = (filter: RecipeFilter): string =>
+  filter === 'soon' ? '?filter=use-soon' : '';
 
 export class RecipeList {
   query = $state('');
