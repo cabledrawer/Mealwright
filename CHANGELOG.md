@@ -27,6 +27,7 @@ Work towards 0.4.0 (recipes).
 - Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
 
 ### Security
+- certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3). No other library changed.
 - At most 10 live-update streams per sign-in; past that the oldest closes, and its tab quietly stops live updates (no offline bar) until it is looked at again.
 - Signing out ends that sign-in's live updates at once.
 - Requests bigger than 4 MiB are refused ("That's too much to send in one go."). A photo upload may be up to 15 MB ("That photo is bigger than 15 MB."); nothing else may.
