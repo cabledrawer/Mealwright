@@ -183,7 +183,7 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 
 ## 5. Where one recipe's ingredients are (the recipe page)
 
-`GET /recipes/{id}/stock` (signed in; another household's or a deleted recipe is a 404) answers, for the recipe page, the same stock rules as section 4, line by line. It only reads. The recipe's **own** servings are used, so the answer does not change when the page's − / + scale the amounts on screen (the lead's note, 21 Oct, not decided by cabledrawer).
+`GET /recipes/{id}/stock?servings=` (signed in; another household's or a deleted recipe is a 404) answers, for the recipe page, the same stock rules as section 4, line by line. It only reads. **`servings`** is optional, a whole number from 1 to 99 (anything else is a 422, like the API's other range errors); it is what the page's minus and plus buttons chose, and the amounts needed scale by `servings` / the recipe's Serves (rounded up, so a short pantry is never called enough). Left out, the recipe's own Serves is used. A recipe with no Serves ignores `servings`. This is cabledrawer's Q22 rule (19 Oct, Q22): there must be enough for the recipe at the chosen servings when the amounts can be compared; when they can't (no known weight for "1 cup"), any stock counts. The All recipes list has no stepper and stays at each recipe's own servings.
 
 ```json
 { "lines": [ { "line_id": 41, "food": { "id": 7, "name": "Toor dal" }, "state": "in_stock", "place": "Cupboard" } ],

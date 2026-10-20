@@ -135,6 +135,7 @@ def test_household_1_recipe_ids_are_404_for_household_2(
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}"))
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}/cannot-use"))
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}/stock"))
+    not_found(neighbour.get(f"{API}/recipes/{recipe_id}/stock", params={"servings": 2}))
     not_found(neighbour.delete(f"{API}/recipes/{recipe_id}"))
     not_found(neighbour.put(f"{API}/recipes/{recipe_id}", json={"name": "Mine now", "version": 1}))
     # A deleted recipe is no more reachable, and household 2 can't undo household 1's delete.

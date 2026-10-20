@@ -13,16 +13,21 @@ from test_recipes import food, make
 API = "/api/v1"
 
 
-def stock_of(kitchen: TestClient, recipe: dict[str, Any]) -> dict[str, Any]:
-    answer: dict[str, Any] = ok(kitchen.get(f"{API}/recipes/{recipe['id']}/stock"))
+def stock_of(
+    kitchen: TestClient, recipe: dict[str, Any], servings: int | None = None
+) -> dict[str, Any]:
+    params = {} if servings is None else {"servings": servings}
+    answer: dict[str, Any] = ok(kitchen.get(f"{API}/recipes/{recipe['id']}/stock", params=params))
     return answer
 
 
-def states(kitchen: TestClient, recipe: dict[str, Any]) -> dict[int, tuple[str, str | None]]:
+def states(
+    kitchen: TestClient, recipe: dict[str, Any], servings: int | None = None
+) -> dict[int, tuple[str, str | None]]:
     """line id → (state, place)."""
     return {
         found["line_id"]: (found["state"], found["place"])
-        for found in stock_of(kitchen, recipe)["lines"]
+        for found in stock_of(kitchen, recipe, servings)["lines"]
     }
 
 
@@ -191,6 +196,66 @@ def test_the_page_agrees_with_the_list_for_every_recipe(kitchen: TestClient) -> 
         assert sum(state in ("short", "missing") for state in foods.values()) == answer["missing"]
 
 
+def test_the_chosen_servings_scale_what_is_needed(kitchen: TestClient) -> None:
+    """cabledrawer, 19 Oct, Q22: enough for the recipe at the chosen servings."""
+    rice = food(kitchen, "Zorba rice")
+    stock(kitchen, rice["id"], 300, "g")
+    short_at_own = make(kitchen, "Four", serves=4, lines=[line(rice["id"], 400, "g")])
+    assert {s for s, _ in states(kitchen, short_at_own).values()} == {"short"}
+    assert {s for s, _ in states(kitchen, short_at_own, 4).values()} == {"short"}
+    # Half the servings, half the rice: 200 g of 300 g.
+    assert {s for s, _ in states(kitchen, short_at_own, 2).values()} == {"in_stock"}
+    again = stock_of(kitchen, short_at_own, 2)
+    assert (again["counted"], again["missing"]) == (1, 0)
+    # The other way round: enough at its own servings, not at 8.
+    stock(kitchen, rice["id"], 200, "g")  # 500 g now
+    enough = make(kitchen, "Also four", serves=4, lines=[line(rice["id"], 400, "g")])
+    assert {s for s, _ in states(kitchen, enough).values()} == {"in_stock"}
+    assert {s for s, _ in states(kitchen, enough, 8).values()} == {"short"}
+    doubled = stock_of(kitchen, enough, 8)
+    assert (doubled["counted"], doubled["missing"]) == (1, 1)
+    # Nothing in the pantry stays "missing" at any servings.
+    ghee = food(kitchen, "Zorba ghee")
+    none = make(kitchen, "No ghee", serves=4, lines=[line(ghee["id"], 1, "tbsp")])
+    assert {s for s, _ in states(kitchen, none, 1).values()} == {"missing"}
+
+
+def test_servings_round_up_so_a_short_pantry_is_never_enough(kitchen: TestClient) -> None:
+    rice = food(kitchen, "Zorba rice")
+    stock(kitchen, rice["id"], 33, "g")
+    recipe = make(kitchen, "Thirds", serves=3, lines=[line(rice["id"], 100, "g")])
+    assert {s for s, _ in states(kitchen, recipe, 1).values()} == {"short"}  # 33.33 g
+    stock(kitchen, rice["id"], 1, "g")
+    assert {s for s, _ in states(kitchen, recipe, 1).values()} == {"in_stock"}
+
+
+def test_an_amount_that_cannot_be_compared_is_in_stock_at_any_servings(
+    kitchen: TestClient,
+) -> None:
+    grain = food(kitchen, "Zorba grain")  # no known weight for a cup
+    stock(kitchen, grain["id"], 1, "g")
+    recipe = make(kitchen, "Cups", serves=2, lines=[line(grain["id"], 3, "cup")])
+    for servings in (None, 1, 2, 99):
+        assert {s for s, _ in states(kitchen, recipe, servings).values()} == {"in_stock"}
+
+
+def test_servings_are_ignored_when_the_recipe_has_no_serves(kitchen: TestClient) -> None:
+    rice = food(kitchen, "Zorba rice")
+    stock(kitchen, rice["id"], 300, "g")
+    recipe = make(kitchen, "No serves", serves=None, lines=[line(rice["id"], 400, "g")])
+    for servings in (None, 1, 2, 99):
+        assert {s for s, _ in states(kitchen, recipe, servings).values()} == {"short"}
+
+
+def test_servings_must_be_a_whole_number_from_1_to_99(kitchen: TestClient) -> None:
+    recipe = make(kitchen, "Any", serves=4)
+    for bad in ("0", "100", "-1", "2.5", "many", ""):
+        answer = kitchen.get(f"{API}/recipes/{recipe['id']}/stock", params={"servings": bad})
+        assert answer.status_code == 422, bad
+    for good in (1, 99):
+        assert stock_of(kitchen, recipe, good)["lines"] == []
+
+
 def test_a_deleted_or_unknown_recipe_is_not_found(kitchen: TestClient) -> None:
     gone = make(kitchen, "Old")
     ok(kitchen.delete(f"{API}/recipes/{gone['id']}"))
@@ -199,7 +264,7 @@ def test_a_deleted_or_unknown_recipe_is_not_found(kitchen: TestClient) -> None:
         assert answer.status_code == 404 and answer.json()["code"] == "not_found"
 
 
-def count_queries(kitchen: TestClient, recipe: dict[str, Any]) -> int:
+def count_queries(kitchen: TestClient, recipe: dict[str, Any], servings: int | None = None) -> int:
     engine = kitchen.app.state.engine  # type: ignore[attr-defined]
     counted: list[str] = []
 
@@ -208,7 +273,7 @@ def count_queries(kitchen: TestClient, recipe: dict[str, Any]) -> int:
 
     event.listen(engine, "before_cursor_execute", note)
     try:
-        stock_of(kitchen, recipe)
+        stock_of(kitchen, recipe, servings)
     finally:
         event.remove(engine, "before_cursor_execute", note)
     return len(counted)
@@ -220,9 +285,11 @@ def test_a_fixed_number_of_queries_however_many_lines_and_recipes(kitchen: TestC
         stock(kitchen, found["id"], 1000, "g")
     few = make(kitchen, "Few", lines=[line(f["id"], 10, "g") for f in foods[:3]])
     before = count_queries(kitchen, few)
+    assert count_queries(kitchen, few, 2) == before
     for i in range(40):
         make(kitchen, f"Other {i:02d}", lines=[line(f["id"], 10, "g") for f in foods[:5]])
     many = make(kitchen, "Many", lines=[line(f["id"], 10, "g") for f in foods])
     assert len(stock_of(kitchen, many)["lines"]) == 60
     assert count_queries(kitchen, many) == before
+    assert count_queries(kitchen, many, 7) == before
     assert before <= 20

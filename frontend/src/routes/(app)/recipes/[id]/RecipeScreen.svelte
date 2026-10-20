@@ -72,7 +72,10 @@
   }
 
   // Leaving the page: the screen may sleep again (the switch always starts off).
-  onDestroy(() => void awake.leave());
+  onDestroy(() => {
+    view.stop();
+    void awake.leave();
+  });
 
   const recipe = $derived(view.recipe);
   const factor = $derived(view.factor);

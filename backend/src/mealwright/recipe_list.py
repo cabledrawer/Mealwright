@@ -191,12 +191,21 @@ def _ingredient_of(line: Line, foods: dict[int, Food], recipes: dict[int, Recipe
     return None
 
 
+def _scaled(need: int, recipe: Recipe, servings: int | None) -> int:
+    """What a recipe needs at `servings` instead of its own Serves (rounded up, so a short
+    pantry is never called enough). With no Serves set, or no `servings`, nothing changes."""
+    if servings is None or not recipe.serves:
+        return need
+    return -(-need * servings // recipe.serves)
+
+
 def hints(
-    lines: list[Line], recipes: dict[int, Recipe], stock: Stock
+    lines: list[Line], recipes: dict[int, Recipe], stock: Stock, servings: int | None = None
 ) -> dict[int, tuple[StockHint | None, UseSoonHint | None, bool]]:
     """For every recipe: whether its ingredients are in stock, what it uses that is about to
     go off, and whether some line uses a recipe that can't be checked (so "all in stock" and
-    "Can cook now" would claim too much)."""
+    "Can cook now" would claim too much). `servings` (the recipe page's minus and plus buttons)
+    replaces each recipe's own Serves; the list leaves it out."""
     by_recipe: dict[int, list[Line]] = defaultdict(list)
     unchecked: set[int] = set()
     for line in lines:
@@ -215,6 +224,10 @@ def hints(
             if food is None:
                 continue
             needs[food.id] = needs.get(food.id, 0) + (stock.need(line, food) or 0)
+        needs = {
+            food_id: _scaled(needed, recipes[recipe_id], servings)
+            for food_id, needed in needs.items()
+        }
         if not needs:
             found[recipe_id] = (None, None, left)
             continue
@@ -334,17 +347,19 @@ def page(
     )
 
 
-def stock_of(kitchen: Kitchen, recipe: Recipe) -> RecipeStock:
+def stock_of(kitchen: Kitchen, recipe: Recipe, servings: int | None = None) -> RecipeStock:
     """Where each ingredient of one recipe is, for the recipe page: the same rules as the
     list's hints (this file's docstring), line by line. Only lines that count are answered
     (a line with no amount, a heading, an unlinked line, or a recipe that isn't checked has no
     state). Several lines for one ingredient share its state. Read-only, a fixed number of
-    queries, limited to the signed-in household."""
+    queries, limited to the signed-in household. The amounts needed are those for `servings`
+    (cabledrawer, 19 Oct, Q22: enough for the recipe at the chosen servings); left out, the
+    recipe's own Serves, and with no Serves set `servings` is ignored."""
     recipes = live_recipes(kitchen)
     lines = _lines(kitchen, set(recipes), only=recipe.id)
     foods = _foods(kitchen)
     stock = Stock(kitchen, foods)
-    hint, _soon, unchecked = hints(lines, recipes, stock)[recipe.id]
+    hint, _soon, unchecked = hints(lines, recipes, stock, servings)[recipe.id]
 
     counted = [
         (line, food)
@@ -355,6 +370,7 @@ def stock_of(kitchen: Kitchen, recipe: Recipe) -> RecipeStock:
     needs: dict[int, int] = defaultdict(int)
     for line, food in counted:
         needs[food.id] += stock.need(line, food) or 0
+    needs = defaultdict(int, {f: _scaled(n, recipe, servings) for f, n in needs.items()})
 
     places = {
         place.id: place

@@ -2,11 +2,15 @@
 // from the server (online only in 0.4, cabledrawer 19 Oct, question 33). An answer that arrives
 // after a newer ask is ignored. The servings chosen with − / + live here and nowhere else: they
 // change what the page shows, never the saved recipe (question 26), and are gone when the page
-// is left.
+// is left. The stock marks follow the chosen servings (cabledrawer 19 Oct, Q22): after − / + the
+// page asks the server again, once the taps stop.
 
 import { ApiError } from './api';
 import { getRecipe, getRecipeStock, type Recipe, type RecipeStock } from './client/recipes';
 import { MAX_SERVES, MIN_SERVES, factorOf } from './recipeAmounts';
+
+/** How long to wait after the last − / + before asking for the stock again. */
+export const STOCK_WAIT_MS = 300;
 
 export class RecipeView {
   recipe = $state<Recipe | null>(null);
@@ -16,12 +20,17 @@ export class RecipeView {
   /** The recipe is not there (deleted, or never was). */
   gone = $state(false);
   problem = $state<string | null>(null);
-  /** Servings now; the recipe's own until − / + is used. Null when the recipe has none. */
-  servesNow = $state<number | null>(null);
+  /** What − / + chose; null until it is used (then the page follows the recipe's own Serves). */
+  chosen = $state<number | null>(null);
 
   #asked = 0;
+  #stockAsked = 0;
+  #timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(readonly id: number) {}
+
+  /** Servings now: the chosen number, else the recipe's own. Null when the recipe has none. */
+  readonly servesNow = $derived(this.recipe?.serves ? (this.chosen ?? this.recipe.serves) : null);
 
   /** How many times the recipe's own amounts: 1 until the servings change. */
   readonly factor = $derived(
@@ -29,16 +38,45 @@ export class RecipeView {
   );
 
   setServes(value: number): void {
-    this.servesNow = Math.min(MAX_SERVES, Math.max(MIN_SERVES, Math.round(value)));
+    this.chosen = Math.min(MAX_SERVES, Math.max(MIN_SERVES, Math.round(value)));
+    // A run of taps makes one request, a little after the last one.
+    if (this.#timer !== null) clearTimeout(this.#timer);
+    this.#timer = setTimeout(() => {
+      this.#timer = null;
+      void this.#refreshStock();
+    }, STOCK_WAIT_MS);
+  }
+
+  /** Leaving the page: nothing more is asked. */
+  stop(): void {
+    if (this.#timer !== null) clearTimeout(this.#timer);
+    this.#timer = null;
+    this.#asked++;
+    this.#stockAsked++;
+  }
+
+  /** Ask for the stock again at the chosen servings. Only the newest answer counts. */
+  async #refreshStock(): Promise<void> {
+    const asked = ++this.#stockAsked;
+    try {
+      const stock = await getRecipeStock(this.id, this.chosen);
+      if (asked === this.#stockAsked) this.stock = stock;
+    } catch (error) {
+      if (asked !== this.#stockAsked) return;
+      // Marks for the wrong servings would mislead: better none this time.
+      this.stock = null;
+      if (error instanceof ApiError && error.status === 404) void this.load();
+    }
   }
 
   /** Fetch the recipe and its stock. A stock that can't be read leaves the recipe without marks. */
   async load(): Promise<void> {
     const asked = ++this.#asked;
+    const stockAsked = ++this.#stockAsked;
     try {
       const [recipe, stock] = await Promise.all([
         getRecipe(this.id),
-        getRecipeStock(this.id).catch((error: unknown) => {
+        getRecipeStock(this.id, this.chosen).catch((error: unknown) => {
           // The recipe itself missing is the recipe's answer to give; anything else just
           // means no marks this time.
           if (error instanceof ApiError && error.status === 404) throw error;
@@ -47,12 +85,10 @@ export class RecipeView {
       ]);
       if (asked !== this.#asked) return;
       this.recipe = recipe;
-      this.stock = stock;
+      // A newer stock answer (after − / +) is the one to keep.
+      if (stockAsked === this.#stockAsked) this.stock = stock;
       this.gone = false;
       this.problem = null;
-      // Keep the servings the person chose, as long as the recipe still has servings.
-      if (recipe.serves === null) this.servesNow = null;
-      else if (this.servesNow === null) this.servesNow = recipe.serves;
     } catch (error) {
       if (asked !== this.#asked) return;
       if (error instanceof ApiError && error.status === 404) {

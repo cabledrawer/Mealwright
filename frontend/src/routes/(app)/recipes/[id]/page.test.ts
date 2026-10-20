@@ -260,6 +260,106 @@ describe('the recipe page', () => {
     });
   });
 
+  describe('the stock marks follow the chosen servings (cabledrawer 19 Oct, Q22)', () => {
+    const everything: RecipeStock = {
+      lines: [
+        { line_id: 2, food: { id: 5, name: 'Toor dal' }, state: 'in_stock', place: 'Cupboard' },
+        { line_id: 3, food: { id: 7, name: 'Tahini' }, state: 'in_stock', place: 'Fridge' },
+        { line_id: 4, food: { id: 2, name: 'Coriander' }, state: 'in_stock', place: 'Fridge' }
+      ],
+      counted: 3,
+      missing: 0,
+      stock_unchecked: false
+    };
+    const servingsOf = (url: string) => new URL(url, 'http://x').searchParams.get('servings');
+
+    it('change the marks and the missing count after − / +, with one request for a run of taps', async () => {
+      await open({}, STOCK, {
+        'GET /recipes/1/stock': (request) => [
+          200,
+          servingsOf(request.url) === '2' ? everything : STOCK
+        ]
+      });
+      await expect.element(page.getByText('2 missing')).toBeVisible();
+      await expect.element(page.getByText('Not enough')).toBeVisible();
+      await page.getByRole('button', { name: 'Fewer servings' }).click();
+      await page.getByRole('button', { name: 'Fewer servings' }).click();
+      await expect.element(page.getByText('Serves 2')).toBeVisible();
+      await vi.waitFor(() => expect(page.getByText('2 missing').elements()).toHaveLength(0));
+      expect(page.getByText('Not enough').elements()).toHaveLength(0);
+      expect(page.getByRole('button', { name: 'Add to the list' }).elements()).toHaveLength(0);
+      await expect.element(page.getByText('Fridge').first()).toBeVisible();
+      const asked = server.requests.filter((r) => r.path === '/recipes/1/stock').map((r) => r.url);
+      expect(asked).toEqual(['/recipes/1/stock', '/recipes/1/stock?servings=2']);
+      // And back up: the marks come back.
+      await page.getByRole('button', { name: 'More servings' }).click();
+      await page.getByRole('button', { name: 'More servings' }).click();
+      await expect.element(page.getByText('2 missing')).toBeVisible();
+    });
+
+    it('never let a slow old answer overwrite a newer one', async () => {
+      const oneShort: RecipeStock = {
+        lines: [
+          everything.lines[0]!,
+          { line_id: 3, food: { id: 7, name: 'Tahini' }, state: 'missing', place: null },
+          everything.lines[2]!
+        ],
+        counted: 3,
+        missing: 1,
+        stock_unchecked: false
+      };
+      await open({}, STOCK, {
+        'GET /recipes/1/stock': (request) => {
+          const asked = servingsOf(request.url);
+          return [200, asked === '5' ? everything : asked === '6' ? oneShort : STOCK];
+        }
+      });
+      await expect.element(page.getByText('2 missing')).toBeVisible();
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const working = fetch;
+      vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+        if (String(input).endsWith('servings=5')) await held;
+        return working(input, init);
+      });
+      await page.getByRole('button', { name: 'More servings' }).click();
+      // The answer for 5 is on its way (held); now ask for 6 and let that one arrive first.
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await page.getByRole('button', { name: 'More servings' }).click();
+      await expect.element(page.getByText('1 missing')).toBeVisible();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(server.requests.some((r) => r.url.endsWith('servings=5'))).toBe(true);
+      // The old answer (nothing missing) arrived last and was ignored.
+      await expect.element(page.getByText('1 missing')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Add to the list' })).toBeVisible();
+    });
+  });
+
+  describe('Serves changing elsewhere (L5)', () => {
+    it('is followed until − / + is used, and then the chosen number stays', async () => {
+      let serves = 4;
+      await open({}, STOCK, {
+        'GET /recipes/1': () => [200, { ...SAMBAR, serves }]
+      });
+      await expect.element(page.getByText('Serves 4')).toBeVisible();
+      serves = 6;
+      document.dispatchEvent(new Event('visibilitychange'));
+      await expect.element(page.getByText('Serves 6')).toBeVisible();
+      // The saved amounts are for the new Serves: shown as they are, not scaled.
+      await expect.element(page.getByText(`200${NB}g`)).toBeVisible();
+      await page.getByRole('button', { name: 'More servings' }).click();
+      await expect.element(page.getByText('Serves 7')).toBeVisible();
+      await expect.element(page.getByText(`233${NB}g`)).toBeVisible();
+      serves = 8;
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.waitFor(() =>
+        expect(server.requests.filter((r) => r.path === '/recipes/1').length).toBeGreaterThan(2)
+      );
+      await expect.element(page.getByText('Serves 7')).toBeVisible();
+    });
+  });
+
   describe('"N missing · Add to the list" (question 23)', () => {
     it('counts what is short or missing, and adds it with one Undo', async () => {
       await open();

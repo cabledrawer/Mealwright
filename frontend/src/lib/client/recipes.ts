@@ -142,5 +142,9 @@ export interface RecipeStock {
 }
 
 export const getRecipe = (id: number | string) => api<Recipe>('GET', `/recipes/${id}`);
-export const getRecipeStock = (id: number | string) =>
-  api<RecipeStock>('GET', `/recipes/${id}/stock`);
+/** `servings` is what − / + chose (1 to 99); left out, the recipe's own Serves is used. */
+export const getRecipeStock = (id: number | string, servings?: number | null) =>
+  api<RecipeStock>(
+    'GET',
+    `/recipes/${id}/stock${servings === undefined || servings === null ? '' : `?servings=${servings}`}`
+  );
