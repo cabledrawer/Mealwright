@@ -166,8 +166,11 @@
     undoHistory.record({
       label: 'Changes not saved',
       undo: () => {
+        const path = editing ? editPage(recipeId!) : NEW_RECIPE;
+        // Already on that editor (Ctrl+Z from another recipe): nothing to open again.
+        if (location.pathname === path) return 'That editor is already open.';
         if (!reopen(key)) return 'Those changes can’t be brought back any more.';
-        void go(editing ? editPage(recipeId!) : NEW_RECIPE);
+        void go(path);
         return false;
       }
     });
