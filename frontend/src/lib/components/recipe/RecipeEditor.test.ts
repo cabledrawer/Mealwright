@@ -287,6 +287,70 @@ describe('an existing recipe', () => {
     expect(puts[1]!.body).toMatchObject({ version: 5, overwrite: true, description: 'Mine' });
   });
 
+  describe('"Save mine anyway" waits for the same things Save waits for', () => {
+    const changed = [
+      409,
+      {
+        detail: 'Wren changed this recipe after you opened it.',
+        code: 'recipe_changed',
+        version: 5,
+        changed_by: { login_id: 2, name: 'Wren' }
+      }
+    ] as [number, unknown];
+
+    async function openInConflict() {
+      const requests = fakeApi({
+        'GET /recipes/2': [200, sambar],
+        'GET /recipes/2/cannot-use': [200, { recipes: [] }],
+        'PUT /recipes/2': changed
+      });
+      open({ recipeId: 2 });
+      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sambar');
+      await page.getByRole('textbox', { name: /^Short description/ }).fill('Mine');
+      await page.getByRole('button', { name: /^Save/ }).click();
+      await expect.element(page.getByRole('button', { name: 'Save mine anyway' })).toBeEnabled();
+      return requests;
+    }
+
+    it('is greyed out while offline, in the note and in the sheet, and sends nothing', async () => {
+      const requests = await openInConflict();
+      await page.getByRole('button', { name: 'See Wren’s version' }).click();
+      const sheet = page.getByRole('dialog');
+      await expect.element(sheet.getByRole('button', { name: 'Save mine anyway' })).toBeEnabled();
+      network.offline = true;
+      await expect.element(sheet.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
+      await expect
+        .element(sheet.getByText('You’re offline. Save when you’re back online.'))
+        .toBeVisible();
+      await page.getByRole('button', { name: 'Back to my edit' }).click();
+      await expect.element(page.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
+      document
+        .querySelector<HTMLButtonElement>('button.mine')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+    });
+
+    it('is greyed out while a photo is still uploading', async () => {
+      const requests = await openInConflict();
+      const answer = globalThis.fetch;
+      vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+        init?.method === 'POST' && String(input).endsWith('/recipes/photos')
+          ? new Promise<Response>(() => {})
+          : answer(input, init)
+      );
+      const file = new File([new Uint8Array([1, 2, 3])], 'dish.png', { type: 'image/png' });
+      await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
+      await expect.element(page.getByText('Uploading photo…')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
+      document
+        .querySelector<HTMLButtonElement>('button.mine')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+    });
+  });
+
   it('says so when the recipe is not there', async () => {
     fakeApi({ 'GET /recipes/9': [404, { detail: 'That recipe isn’t here.' }] });
     open({ recipeId: 9 });

@@ -66,9 +66,9 @@
   let leaving = false;
   let attempt = { snapshot: '', key: '' };
 
-  const canSave = $derived(
-    !!draft && draft.name.trim() !== '' && !saving && !draft.photo.uploading && !network.offline
-  );
+  // Save and "Save mine anyway" both wait for the network and for a photo still going up.
+  const canOverwrite = $derived(!!draft && !saving && !draft.photo.uploading && !network.offline);
+  const canSave = $derived(canOverwrite && !!draft && draft.name.trim() !== '');
   const effectiveHomemade = $derived((draft?.homemadeName.trim() || draft?.name.trim()) ?? '');
 
   // The phone layout has no bottom tabs in the editor: it is a full page of its own.
@@ -201,7 +201,7 @@
 
   async function save(overwrite = false) {
     const d = draft;
-    if (!d || saving || (!overwrite && !canSave)) return;
+    if (!d || !(overwrite ? canOverwrite : canSave)) return;
     const built = d.build();
     errors = built.errors;
     cantSave = false;
@@ -347,7 +347,12 @@
           <button type="button" class="mw-pill" onclick={() => void seeTheirs()}>
             See {conflict.who}’s version
           </button>
-          <button type="button" class="mine" disabled={saving} onclick={() => void save(true)}>
+          <button
+            type="button"
+            class="mine"
+            disabled={!canOverwrite}
+            onclick={() => void save(true)}
+          >
             Save mine anyway
           </button>
         </span>
@@ -583,7 +588,8 @@
       opened={draft.opened}
       theirs={wrens}
       {phone}
-      busy={saving}
+      busy={!canOverwrite}
+      offline={network.offline}
       onclose={() => (seeing = false)}
       onsave={() => void save(true)}
     />

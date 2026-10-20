@@ -12,6 +12,7 @@
     theirs,
     phone,
     busy = false,
+    offline = false,
     onclose,
     onsave
   }: {
@@ -20,7 +21,9 @@
     opened: RecipeOut;
     theirs: RecipeOut;
     phone: boolean;
+    /** Save mine anyway can't go now (saving, offline, or a photo still going up). */
     busy?: boolean;
+    offline?: boolean;
     onclose: () => void;
     onsave: () => void;
   } = $props();
@@ -121,6 +124,10 @@
     {/if}
 
     <p class="hint">Highlighted: what {who} changed. Nothing here can be edited.</p>
+
+    {#if offline}<p class="hint" role="status">
+        You’re offline. Save when you’re back online.
+      </p>{/if}
 
     <div class="buttons">
       <button type="button" class="back" onclick={onclose}>Back to my edit</button>
