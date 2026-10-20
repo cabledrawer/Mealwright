@@ -558,3 +558,79 @@ def test_search_tags_filters_and_stock_hints_never_see_the_other_household(
         r["name"] for r in ok(kitchen.get(f"{API}/recipes", params={"q": "dal tadka"}))["recipes"]
     ] == []
     assert ok(kitchen.get(f"{API}/recipes"))["all_recipes"] == 2
+
+
+def hints(client: TestClient, recipe: str) -> dict[str, Any]:
+    """The stock line, the Use soon line and Can cook now, as one household sees them."""
+    listed = ok(client.get(f"{API}/recipes"))["recipes"]
+    row = next(r for r in listed if r["name"] == recipe)
+    cook = [
+        r["name"]
+        for r in ok(client.get(f"{API}/recipes", params={"can_cook_now": "true"}))["recipes"]
+    ]
+    return {"stock": row["stock"], "use_soon": row["use_soon"], "can_cook_now": cook}
+
+
+def test_the_other_households_stock_and_use_by_dates_change_no_hint(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    today_1 = ok(kitchen.get(f"{API}/household"))["today"]
+    today_2 = ok(neighbour.get(f"{API}/household"))["today"]
+    toor2 = ok(
+        neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
+    )["food"]
+    make(
+        kitchen,
+        "Plain dal",
+        lines=[{"words": "dal", "food_id": mine["food_id"], "amount": 100, "unit": "g"}],
+    )
+    dal_tadka = [{"words": "dal", "food_id": toor2["id"], "amount": 100, "unit": "g"}]
+    make(neighbour, "Dal tadka", lines=dal_tadka)
+
+    # Household 1 has no Toor dal. Household 2 has plenty, going off today: that is not
+    # household 1's, so Plain dal still lacks its dal, has no nudge and can't be cooked now.
+    alone = hints(kitchen, "Plain dal")
+    assert alone["stock"]["missing"] == 1
+    assert alone["use_soon"] is None and alone["can_cook_now"] == []
+    ok(
+        neighbour.post(
+            f"{API}/stock",
+            json={
+                "food_id": toor2["id"],
+                "amount": {"amount": 5000, "unit": "g"},
+                "use_by": today_2,
+            },
+        ),
+        201,
+    )
+    recipes_before = ok(kitchen.get(f"{API}/recipes"))
+    rows_before = rows_of_household_1(kitchen)
+    assert hints(neighbour, "Dal tadka")["stock"] == {
+        "counted": 1,
+        "missing": 0,
+        "can_cook_now": True,
+    }
+    assert ok(kitchen.get(f"{API}/recipes")) == recipes_before
+    assert hints(kitchen, "Plain dal") == alone
+    assert rows_of_household_1(kitchen) == rows_before
+
+    # The other way: household 1 now stocks its own dal (2 packets, going off today). Household
+    # 2's hints stay exactly what its own stock gives, and household 1's follow its own.
+    theirs_before = hints(neighbour, "Dal tadka")
+    assert theirs_before["use_soon"]["days_left"] == 0
+    ok(
+        kitchen.post(
+            f"{API}/stock",
+            json={
+                "food_id": mine["food_id"],
+                "amount": {"amount": 2, "unit": "packet"},
+                "use_by": today_1,
+            },
+        ),
+        201,
+    )
+    mine_now = hints(kitchen, "Plain dal")
+    assert mine_now["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    assert mine_now["use_soon"]["foods"][0]["name"] == "Toor dal"
+    assert mine_now["use_soon"]["days_left"] == 0
+    assert hints(neighbour, "Dal tadka") == theirs_before
