@@ -338,12 +338,19 @@ def test_a_50_megapixel_png_is_cleaned_in_a_few_hundred_mb(
     assert used < at_most
 
 
-def test_a_50_megapixel_jpeg_is_decoded_small(tmp_path: Path) -> None:
+@pytest.mark.parametrize("pictures", [1, 2])
+def test_a_50_megapixel_jpeg_is_decoded_small(tmp_path: Path, pictures: int) -> None:
     """A JPEG that will be shrunk anyway is decoded at a smaller scale (Pillow's draft
     mode; cabledrawer 20 Oct), so a 50 MP phone photo takes about 46 MB, not the 240 MB a
-    full decode takes."""
+    full decode takes. The same for a phone's multi-picture JPEG (MPO: 2 pictures)."""
     path = tmp_path / "phone.jpg"
-    path.write_bytes(kit.jpeg(8160, 6120))  # a 50 MP phone camera's size
+    if pictures == 1:
+        path.write_bytes(kit.jpeg(8160, 6120))  # a 50 MP phone camera's size
+    else:
+        extra = Image.new("RGB", (640, 480), "green")
+        kit.picture(8160, 6120).save(path, "MPO", save_all=True, append_images=[extra])
+        with Image.open(path) as opened:
+            assert opened.format == "MPO"
     size, used = peak_mb(path)
     assert size == "(1600, 1200)"
     assert used < 100

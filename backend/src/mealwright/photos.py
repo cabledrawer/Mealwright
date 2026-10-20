@@ -37,7 +37,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image, ImageCms, ImageOps
+from PIL import Image, ImageCms, ImageOps, JpegImagePlugin
 from sqlalchemy import event
 from sqlalchemy.orm import Session, SessionTransaction
 
@@ -138,7 +138,8 @@ def _shrunk(opened: Image.Image) -> Image.Image:
     photo is only ever in memory full size once (a JPEG not even that: it's decoded at a
     smaller scale). Its info (the EXIF "this way up" note) comes along for `_upright`."""
     target = _fit(opened.size, LARGE_SIDE)
-    if opened.format == "JPEG":
+    # A phone's multi-picture JPEG opens as "MPO", a kind of JPEG: it's decoded small too.
+    if isinstance(opened, JpegImagePlugin.JpegImageFile):
         opened.draft(opened.mode, target)
     opened.load()
     picture = opened
