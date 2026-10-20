@@ -130,6 +130,16 @@ def test_the_photo_is_turned_the_way_up_its_exif_note_says(
     assert kit.opened(cleaned.small).getexif().get(0x0112) is None
 
 
+def test_a_big_photo_is_turned_too() -> None:
+    # A big photo is made small first and turned after, so test one bigger than the copies.
+    cleaned = photos.clean(kit.jpeg(4000, 3000, orientation=6))
+    large = kit.opened(cleaned.large)
+    width, height = large.size
+    assert height > width and (width, height) == cleaned.large_size
+    assert colour(large, 20, 20) == "red"
+    assert colour(large, 20, height - 20) == "blue"
+
+
 def test_a_colour_profile_is_used_then_dropped() -> None:
     profile = kit.wide_gamut_profile()
     green = (60, 160, 90)

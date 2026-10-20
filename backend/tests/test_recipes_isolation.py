@@ -430,6 +430,49 @@ def test_the_10_waiting_uploads_are_counted_per_household(
     kit.uploaded(neighbour, small)
 
 
+def test_uploads_under_way_are_counted_per_household(
+    kitchen: TestClient, neighbour: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Household 1's uploads still being worked on don't take household 2's places."""
+    import threading
+
+    from mealwright import photos
+
+    mine, theirs = kit.jpeg(40, 30), kit.jpeg(42, 30)
+    gate, started = threading.Event(), threading.Semaphore(0)
+    real = photos.clean
+
+    def slow(data: bytes) -> photos.Cleaned:
+        if data == mine:  # household 1's are held while they're worked on
+            started.release()
+            gate.wait(30)
+        return real(data)
+
+    monkeypatch.setattr(photos, "clean", slow)
+    answers: list[int] = []
+
+    def one() -> None:
+        other = TestClient(kitchen.app, base_url="https://testserver")
+        other.cookies.update(kitchen.cookies)
+        answers.append(kit.upload(other, mine).status_code)
+
+    threads = [threading.Thread(target=one) for _ in range(10)]
+    for thread in threads:
+        thread.start()
+    try:
+        for _ in range(10):
+            assert started.acquire(timeout=30)
+        assert kit.upload(kitchen, mine).status_code == 409  # household 1's 10 are under way
+        for _ in range(10):
+            kit.uploaded(neighbour, theirs)
+        assert kit.upload(neighbour, theirs).status_code == 409
+    finally:
+        gate.set()
+        for thread in threads:
+            thread.join(60)
+    assert answers == [201] * 10
+
+
 def test_the_clean_up_only_deletes_each_households_own_old_uploads(
     kitchen: TestClient, neighbour: TestClient, photos_of_1: dict[str, Any]
 ) -> None:

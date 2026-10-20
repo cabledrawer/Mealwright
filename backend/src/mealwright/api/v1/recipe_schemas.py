@@ -327,7 +327,14 @@ class RecipeIn(BaseModel):
     # The recipe's photo: the id from `POST /recipes/photos`, or the one it has already.
     # Left out: the photo stays as it is. null: no photo (the one it had is deleted on
     # Save). A new id: that photo replaces it. (Lead's note, for cabledrawer to confirm.)
-    photo_id: int | None = None
+    photo_id: int | None = Field(
+        default=None,
+        description=(
+            "The id from `POST /recipes/photos`, or the photo's own id. Left out: the photo"
+            " stays as it is. null: no photo (the one it had is deleted on save). A new id:"
+            " that photo replaces it."
+        ),
+    )
 
     @field_validator("name")
     @classmethod
