@@ -19,11 +19,12 @@
   import { RECIPES_PAGES, isCurrentRecipesPage } from '$lib/nav';
   import { network } from '$lib/network.svelte';
   import { recipePanes } from '$lib/recipePanes.svelte';
-  import { RecipeList } from '$lib/recipes.svelte';
+  import { RecipeList, filterFromSearch } from '$lib/recipes.svelte';
 
   let { children }: { children: Snippet } = $props();
 
-  const list = new RecipeList();
+  // Pantry's "Recipes for these" arrives with ?filter=use-soon, which starts the list on "Use soon".
+  const list = new RecipeList(filterFromSearch(page.url.searchParams));
   const panes = $derived(
     recipePanes.fits && isCurrentRecipesPage(RECIPES_PAGES[0]!, page.url.pathname)
   );

@@ -7,12 +7,20 @@ import { listRecipes, listTags, type RecipeRow, type TagCount } from './client/r
 
 const PAGE = 50;
 
-/** What the filter row has chosen: everything, only what can be cooked now, or one tag. */
-export type RecipeFilter = 'all' | 'cook' | `tag:${string}`;
+/**
+ * What the filter row has chosen: everything, only what can be cooked now, only what uses
+ * something about to go off ("soon"), or one tag.
+ */
+export type RecipeFilter = 'all' | 'cook' | 'soon' | `tag:${string}`;
+
+/** Pantry's "Recipes for these" opens All recipes at `/recipes?filter=use-soon`. */
+export function filterFromSearch(search: URLSearchParams): RecipeFilter {
+  return search.get('filter') === 'use-soon' ? 'soon' : 'all';
+}
 
 export class RecipeList {
   query = $state('');
-  filter = $state<RecipeFilter>('all');
+  filter: RecipeFilter = $state('all');
   recipes = $state<RecipeRow[]>([]);
   tags = $state<TagCount[]>([]);
   /** How many match. */
@@ -28,11 +36,16 @@ export class RecipeList {
 
   #asked = 0;
 
+  constructor(filter: RecipeFilter = 'all') {
+    this.filter = filter;
+  }
+
   #options() {
     return {
       q: this.query,
       tag: this.filter.startsWith('tag:') ? this.filter.slice(4) : null,
-      canCookNow: this.filter === 'cook'
+      canCookNow: this.filter === 'cook',
+      useSoon: this.filter === 'soon'
     };
   }
 

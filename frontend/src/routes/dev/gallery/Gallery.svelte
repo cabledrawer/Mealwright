@@ -271,12 +271,13 @@
       }
     )
   ];
-  type Filter = 'all' | 'cook' | `tag:${string}`;
+  type Filter = 'all' | 'cook' | 'soon' | `tag:${string}`;
   let chosen = $state<Filter>('all');
   let chosenMany = $state<Filter>('tag:Quick');
   const fewFilters: { value: Filter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'cook', label: 'Can cook now' },
+    { value: 'soon', label: 'Use soon' },
     { value: 'tag:Batch-friendly', label: 'Batch-friendly' }
   ];
   const manyFilters: { value: Filter; label: string }[] = [
@@ -720,7 +721,9 @@
     <h2>Recipe rows, filter row, empty list</h2>
     <p class="note">
       A recipe with no photo has a plain warm square. The line shows only what is known; what is
-      about to go off is orange. Each row opens the recipe.
+      about to go off is orange. Each row opens the recipe. "Use soon" in the filter row keeps the
+      recipes that use something about to go off; Pantry's Use soon card links to it ("Recipes for
+      these" on a computer, "Recipes that use them →" on a phone).
     </p>
     <div class="stack">
       <div class="narrow card">

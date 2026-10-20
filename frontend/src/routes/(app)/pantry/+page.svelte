@@ -6,8 +6,9 @@
   //   desktop: search, filters, the places as 4 columns or 2 × 2, and a side panel with
   //            Use soon, Staples and Recent changes.
   // Tapping a staple, and "+ List" on a running-low row, add to the main shopping list
-  // (0.3, PantryList). Waiting for later milestones (spec "Decided for 0.2"): tubs (0.6),
-  // "Recipes for these" (0.4).
+  // (0.3, PantryList). "Recipes for these" (desktop) and "Recipes that use them →" (phone) open
+  // All recipes on its "Use soon" filter (0.4). Waiting for later milestones (spec "Decided for
+  // 0.2"): tubs (0.6).
   import { browser } from '$app/environment';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
@@ -231,6 +232,11 @@
   </ul>
 {/snippet}
 
+<!-- Opens All recipes on its "Use soon" filter: the recipes that use what is about to go off. -->
+{#snippet recipesFor(words: string)}
+  <a class="recipes-for" href="{resolve('/recipes')}?filter=use-soon">{words}</a>
+{/snippet}
+
 {#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null)}
   {@const groups = place.groups}
   {@const visible = limit && !expanded[place.id] ? groups.slice(0, limit) : groups}
@@ -352,6 +358,7 @@
       {#if model.useSoon.length}
         <section class="soon-card" aria-label="Use soon">
           {@render useSoonRows(model.useSoon, true)}
+          {@render recipesFor('Recipes that use them →')}
         </section>
       {:else}
         <p class="empty card">Nothing needs using up soon.</p>
@@ -366,6 +373,7 @@
               >{model.useSoon.length - 1} more →</button
             >
           {/if}
+          {@render recipesFor('Recipes that use them →')}
         </section>
       {/if}
       {#if pantry.counts.items === 0 && tab === 'all'}
@@ -441,7 +449,10 @@
 
     <aside class="side" aria-label="Use soon, staples and recent changes">
       <section class="card side-card" aria-labelledby="{uid}-dsoon">
-        <h2 id="{uid}-dsoon">Use soon</h2>
+        <div class="side-head">
+          <h2 id="{uid}-dsoon">Use soon</h2>
+          {#if model.useSoon.length}{@render recipesFor('Recipes for these')}{/if}
+        </div>
         {#if model.useSoon.length}
           {@render useSoonRows(model.useSoon, false)}
         {:else}
@@ -589,6 +600,32 @@
 
   .soon-more {
     color: var(--color-use-soon-heading);
+  }
+
+  .recipes-for {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    color: var(--color-accent);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .recipes-for:hover {
+    text-decoration: underline;
+  }
+
+  .soon-card .recipes-for {
+    color: var(--color-use-soon-heading);
+  }
+
+  .side-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 var(--space-5);
   }
 
   .soon-list {

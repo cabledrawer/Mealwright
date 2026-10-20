@@ -110,14 +110,14 @@ describe('the All recipes page', () => {
     expect(document.querySelectorAll('li button')).toHaveLength(0);
   });
 
-  it('has a filter row: All, Can cook now, then the household’s tags', async () => {
+  it('has a filter row: All, Can cook now, Use soon, then the household’s tags', async () => {
     open();
     const group = page.getByRole('group', { name: 'Show' });
     await expect.element(group).toBeVisible();
     const labels = [...document.querySelectorAll('[aria-label="Show"] button')].map(
       (b) => b.textContent
     );
-    expect(labels).toEqual(['All', 'Can cook now', 'Batch-friendly', 'Quick']);
+    expect(labels).toEqual(['All', 'Can cook now', 'Use soon', 'Batch-friendly', 'Quick']);
     await expect
       .element(group.getByRole('button', { name: 'All', exact: true }))
       .toHaveAttribute('aria-pressed', 'true');
@@ -132,6 +132,33 @@ describe('the All recipes page', () => {
     await expect.element(page.getByText('Rajma')).not.toBeInTheDocument();
     // The title still counts every recipe.
     await expect.element(page.getByText('3 recipes')).toBeVisible();
+  });
+
+  it('Use soon asks the server for the recipes that use something about to go off, and works with search', async () => {
+    open({
+      'GET /recipes?use_soon=true&limit=50': answer([palak], 3),
+      'GET /recipes?q=palak&use_soon=true&limit=50': answer([palak], 3)
+    });
+    const chip = page.getByRole('button', { name: 'Use soon', exact: true });
+    await chip.click();
+    await expect.element(chip).toHaveAttribute('aria-pressed', 'true');
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?use_soon=true&limit=50')).toBe(true)
+    );
+    await expect.element(page.getByText('Rajma')).not.toBeInTheDocument();
+    await expect.element(page.getByText('3 recipes')).toBeVisible(); // the title counts every recipe
+    await page.getByRole('searchbox', { name: 'Search recipes' }).fill('palak');
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/recipes?q=palak&use_soon=true&limit=50')).toBe(true)
+    );
+  });
+
+  it('says so when no recipe uses anything that needs using up soon', async () => {
+    open({ 'GET /recipes?use_soon=true&limit=50': answer([], 3) });
+    await page.getByRole('button', { name: 'Use soon', exact: true }).click();
+    await expect
+      .element(page.getByText('No recipe uses anything that needs using up soon.'))
+      .toBeVisible();
   });
 
   it('a tag filters, and search works with it', async () => {

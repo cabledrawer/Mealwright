@@ -53,6 +53,8 @@ export function listRecipes(
     q?: string;
     tag?: string | null;
     canCookNow?: boolean;
+    /** Only recipes that use something about to go off (`use_soon=true`). */
+    useSoon?: boolean;
     after?: string | null;
     limit?: number;
   } = {}
@@ -61,6 +63,7 @@ export function listRecipes(
   if (options.q?.trim()) params.set('q', options.q.trim());
   if (options.tag) params.set('tag', options.tag);
   if (options.canCookNow) params.set('can_cook_now', 'true');
+  if (options.useSoon) params.set('use_soon', 'true');
   if (options.after) params.set('after', options.after);
   if (options.limit) params.set('limit', String(options.limit));
   const query = params.toString();

@@ -123,8 +123,30 @@ describe('the Pantry page', () => {
     await expect
       .element(page.getByRole('button', { name: 'Add Basmati rice to the shopping list' }))
       .toBeVisible();
-    expect(page.getByText(/Recipes for these/).elements()).toHaveLength(0);
+    // "Recipes for these" opens All recipes on its Use soon filter (0.4).
+    await expect
+      .element(page.getByRole('link', { name: 'Recipes for these' }))
+      .toHaveAttribute('href', '/recipes?filter=use-soon');
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
+  });
+
+  it('phone: the Use soon card links to the recipes that use them, from All and from Use soon', async () => {
+    await render(390);
+    const link = page.getByRole('link', { name: 'Recipes that use them →' });
+    await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
+    expect(page.getByText('Recipes for these').elements()).toHaveLength(0);
+    // “1 more →” opens the Use soon tab, which has the same link.
+    await page.getByRole('button', { name: /\d+ more →/ }).click();
+    await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
+  });
+
+  it('no link to recipes when nothing needs using up soon', async () => {
+    sample.useSoon.length = 0;
+    await render(1300);
+    await expect.element(page.getByText('Nothing needs using up soon.')).toBeVisible();
+    expect(
+      page.getByRole('link', { name: /Recipes (for these|that use them)/ }).elements()
+    ).toHaveLength(0);
   });
 
   it('phone: + Staple makes a brand-new staple and records no stock', async () => {

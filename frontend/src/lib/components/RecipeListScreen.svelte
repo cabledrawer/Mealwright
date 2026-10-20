@@ -44,6 +44,7 @@
   const filters = $derived<{ value: RecipeFilter; label: string }[]>([
     { value: 'all', label: 'All' },
     { value: 'cook', label: 'Can cook now' },
+    { value: 'soon', label: 'Use soon' },
     ...list.tags.map((tag) => ({ value: `tag:${tag.name}` as const, label: tag.name }))
   ]);
 
@@ -98,7 +99,9 @@
       ? `No recipe matches “${list.query.trim()}”.`
       : list.filter === 'cook'
         ? 'No recipe can be cooked with what is in stock right now.'
-        : 'No recipes with that tag.'
+        : list.filter === 'soon'
+          ? 'No recipe uses anything that needs using up soon.'
+          : 'No recipes with that tag.'
   );
 </script>
 
