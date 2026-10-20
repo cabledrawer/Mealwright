@@ -3,7 +3,9 @@
 An upload is read by Pillow, and only JPEG, PNG and WebP are taken, decided by what the
 bytes are (never the file name or the Content-Type). Then:
 
-1. The picture is turned the way its EXIF note says is up.
+1. The picture is made the large copy's size first (a JPEG is decoded smaller), so a big
+   photo is only ever held full size once, and then turned the way its EXIF note says
+   is up.
 2. It's rebuilt from the pixels alone, so nothing else in the file is kept: no EXIF (camera,
    date, GPS place), XMP, PNG text, thumbnails or colour profile. A colour profile is used
    first, to turn the colours into sRGB. See-through parts become white. An animated image
