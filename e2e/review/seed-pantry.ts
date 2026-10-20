@@ -21,7 +21,7 @@ export class Api {
   }
 
   /** The JSON answer, with `_status` added; a list comes back as `{ items, _status }`. */
-  async call(method: 'GET' | 'POST' | 'PATCH', path: string, data?: Json, ok: number[] = []): Promise<Json> {
+  async call(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, data?: Json, ok: number[] = []): Promise<Json> {
     const response = await this.api.fetch(`/api/v1${path}`, {
       method,
       data,
@@ -37,6 +37,7 @@ export class Api {
 
   get = (path: string) => this.call('GET', path);
   post = (path: string, data: Json, ok?: number[]) => this.call('POST', path, data, ok);
+  put = (path: string, data: Json) => this.call('PUT', path, data);
   patch = (path: string, data: Json) => this.call('PATCH', path, data);
 }
 

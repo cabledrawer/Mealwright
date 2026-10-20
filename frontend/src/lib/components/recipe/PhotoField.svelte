@@ -88,13 +88,14 @@
     justify-content: center;
     gap: var(--space-3);
     width: 100%;
-    height: 150px;
+    min-height: 150px;
     border-radius: var(--radius-xl);
     background: var(--color-photo);
     color: var(--color-photo-text);
   }
 
   img.frame {
+    height: 150px;
     object-fit: cover;
   }
 
@@ -106,7 +107,7 @@
   }
 
   .empty.problem {
-    height: 120px;
+    min-height: 120px;
     border-color: var(--color-warning-text);
   }
 
@@ -181,6 +182,10 @@
 
   @media (min-width: 768px) {
     .frame {
+      min-height: 170px;
+    }
+
+    img.frame {
       height: 170px;
     }
   }

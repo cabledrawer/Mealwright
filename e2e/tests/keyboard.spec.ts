@@ -207,6 +207,27 @@ test.describe('signed in', () => {
     await checkKeyboard(page, 'The recipe page');
   });
 
+  test('New recipe', async ({ page }) => {
+    await page.goto('/recipes/new');
+    await expect(page.getByRole('heading', { name: 'New recipe', level: 1 })).toBeVisible();
+    await checkKeyboard(page, 'New recipe');
+  });
+
+  test('Edit recipe', async ({ page }) => {
+    const made = await page.request.post('/api/v1/recipes', {
+      data: {
+        name: `Keyboard ${Date.now()}`,
+        tags: ['Quick'],
+        lines: [{ kind: 'heading', words: 'For the dal' }, { words: 'dal', amount: 200, unit: 'g' }],
+        steps: [{ text: 'Boil.' }],
+      },
+    });
+    const { id } = (await made.json()) as { id: number };
+    await page.goto(`/recipes/${id}/edit`);
+    await expect(page.getByRole('heading', { name: 'Edit recipe', level: 1 })).toBeVisible();
+    await checkKeyboard(page, 'Edit recipe');
+  });
+
   test('Settings', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();

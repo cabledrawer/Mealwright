@@ -260,6 +260,39 @@ cabledrawer 20 Oct (word for word): "7. #45: keep “Use soon”. Agreed: the fi
 
 ---
 
-## 17. Not covered yet (for later versions of this list)
+## 17. The recipe editor (0.4, PR 5)
 
-Recipe editor, Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).
+Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `NewRecipe-*`, `EditorState-*`), the editor brief and cabledrawer's decisions of 19 and 20 Oct. **"Decided"** means cabledrawer's own words or answer; **"mockup"** means it is drawn in cabledrawer's mockups; **"proposed, for cabledrawer"** means I wrote it because nothing covered it. Nothing here changes an earlier section.
+
+| Where | Words | Source |
+|---|---|---|
+| Titles | New recipe · Edit recipe | mockup |
+| Top bar | Cancel · Save (Saving… while it works; "Ctrl+S" shown beside Save on a computer) | mockup; "Saving…" proposed, for cabledrawer |
+| Under the title (computer) | Nothing changes until you save. Only the name is needed. | mockup |
+| Toasts | Saved · Changes not saved (with Undo, which opens the editor again as it was) · Deleted Sambar (with Undo) | decided (editor brief 1; spec "Cancel and offline"; "Saved" the editor brief) |
+| Bars | You’re offline. Save when you’re back online. · Couldn’t save. Try again. (with Try again) · Wren changed this recipe after you opened it. (with See Wren’s version · Save mine anyway) | decided |
+| Photo | Add a photo · Take one or choose from your photos · Uploading photo… · Change photo · Remove photo · Hidden details like location are removed before the photo is kept. | mockup |
+| Photo errors | The server's own sentences, shown as they are: That photo is bigger than 15 MB. · That photo is too big to use (over 50 megapixels). Try a smaller copy. · That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP. · Too many photos waiting to be saved. Save or cancel a recipe first. | decided (cabledrawer 19 and 20 Oct, spec "Photos") |
+| Boxes | Name (hint "A name is all you need to save.") · Short description (optional) · Time (minutes) · Serves (Fewer servings · More servings · Clear (for a batter or a powder)) · Makes (optional) (litres · ml · g · kg · count) · Tags (optional) · Nutrition per serving (optional) (kcal · protein g · carbs g · fat g · fibre g) · Source (optional) | mockup |
+| Makes, a count | "What it makes, e.g. dosas" is asked when the unit is "count" | proposed, for cabledrawer (the mockup has a unit list with "count" but no place for the word) |
+| Hints | For a batter, a podi or anything made ahead: “Makes 200 g”. · Type a tag and press Enter. Tags you’ve used before are suggested. · Leave a box empty if you don’t know: it shows as unknown, never 0. · A web address shows as a link you can open yourself. Mealwright never visits it. | mockup |
+| Made ahead | Made ahead (keeps in the pantry) · For things you make once and use over days · Adds **Dosa batter** to Ingredients as homemade, so the pantry can keep it. · Add how much it makes, so the pantry can count it. · "Dosa batter is already in Ingredients. It will be linked to this recipe, and its pantry stock stays." (real names) | mockup; the "already in Ingredients" sentence decided (cabledrawer 19 Oct, word for word) |
+| Made ahead, saved recipe | Kept in Ingredients as **Dosa batter**. · Dosa batter stays in Ingredients, no longer linked to this recipe. (when switched off) | proposed, for cabledrawer (the second says what "Decided 2" does) |
+| Lines | Ingredients · "9 lines · drag to reorder" (phone) · "9 lines · drag, or Alt+↑ / Alt+↓ to move" (computer) · Amount · Unit (none · g · kg · ml · l · tsp · tbsp · cup · pinch, and the ingredient's own sizes) · Ingredient (your words) · Note (optional), e.g. rinsed · Linked to *Toor dal* · recipe · recipe removed · Not linked · Pick an ingredient · + Add ingredient · + Add heading | mockup; "recipe removed" decided (Q29) |
+| Picker | Pick an ingredient · Search ingredients and recipes · Your words stay on the line. Other names count: “thuvaram” finds Toor dal. · Ingredients · Recipes · also called: small onions · recipe · makes 200 g · + New ingredient “sam” · A new ingredient opens “How do you count it?”, with packet sizes, as on Shopping. · Done · Close | mockup |
+| Picker, nothing typed or failed | Type an ingredient or a recipe. · Couldn’t search. Try again. | proposed, for cabledrawer |
+| Loop guard | The server's sentences: A recipe can’t use itself. · Sambar can’t use Sambar rice, because Sambar rice uses Sambar. | decided (Q19; API 2.3) |
+| Taking out | Screen-reader names: Take out of this recipe (a line) · Take out this heading · Take out step 3 · Remove tag Quick. Toasts: Took out turmeric · Took out a step (with Undo) | "Take out of this recipe" from section 1; the rest proposed, for cabledrawer |
+| Moving | Screen-reader names: Move ingredient 3. Alt and the up or down arrow moves it. · Said after a move: Moved to 3 of 12 | proposed, for cabledrawer |
+| Method | Method · Plain text, one step per box · Describe this step · + Add step · + Add heading | mockup |
+| Delete | Delete recipe · No “Are you sure?”: you can undo it for 7 days. | mockup |
+| Wren's version | Wren’s version · Saved by Wren after you opened this recipe. Your edit is still here, underneath. (phone) / untouched. (computer) · Highlighted: what Wren changed. Nothing here can be edited. · Back to my edit · Save mine anyway · "· was 200 g" · "· added by Wren" · "· taken out by Wren" · "+ 7 more lines, unchanged" · The method is unchanged. · Wren also changed: time, tags. | mockup; "taken out", "unchanged" and the last two lines proposed, for cabledrawer (the mockup says "the same as yours", which is not right for a line you changed yourself) |
+| Opening | Opening the recipe… · Couldn’t load this recipe. Check your connection and try again. · That recipe isn’t here any more. | proposed, for cabledrawer |
+| Full lists | A recipe can have up to 200 lines, headings included. · …up to 100 steps… · A recipe can have up to 20 tags. · A tag can have up to 40 characters. | proposed, for cabledrawer (limits are cabledrawer's) |
+| Boxes the app marks | Use whole minutes, from 1 to 14,400. · Use a number like 320 or 14.5, or leave it empty. · Say what it makes, like dosas. · Type what it is, or pick an ingredient. The server's other sentences are shown as they are. | proposed, for cabledrawer |
+
+---
+
+## 18. Not covered yet (for later versions of this list)
+
+Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

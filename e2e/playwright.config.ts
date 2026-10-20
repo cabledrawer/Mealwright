@@ -64,6 +64,9 @@ export default defineConfig({
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
     { name: 'desktop 0.3 offline', testMatch: 'offline.spec.ts', use: desktop },
+    // The recipe editor (0.4).
+    { name: 'phone 0.4 editor', testMatch: /recipe-editor.*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.4 editor', testMatch: /recipe-editor.*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
     // Saved screenshots of Pantry and Shopping, phone-light and desktop-dark (0.4), at two device
     // pixels per screen pixel, so thin spaces and small text show as they do on a sharp screen.
     { name: 'screens phone-light', testMatch: 'screens.spec.ts', use: { ...phone, deviceScaleFactor: 2, colorScheme: 'light' as const } },
