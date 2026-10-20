@@ -676,14 +676,22 @@ def test_clearing_the_photo_deletes_it(kitchen: TestClient) -> None:
     assert files_of(kitchen) == []
 
 
-def test_leaving_photo_id_out_keeps_the_photo(kitchen: TestClient) -> None:
+def test_left_out_keeps_the_photo_and_an_explicit_null_removes_it(kitchen: TestClient) -> None:
+    """cabledrawer 20 Oct: a save that leaves the photo out keeps it; "Remove photo" sends
+    `"photo_id": null`. Both on the same recipe."""
     photo = kit.uploaded(kitchen)
     recipe = make(kitchen, photo_id=photo["id"])
+    files = photo_files(kitchen, photo["id"])
     body = {"name": recipe["name"], "version": recipe["version"]}
     saved = ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body))
     assert saved["photo"] == photo and saved["version"] == recipe["version"] + 1
     assert fetch(kitchen, photo).status_code == 200
-    assert len(files_of(kitchen)) == 2
+    assert all(p.is_file() for p in files) and len(files_of(kitchen)) == 2
+    body = {"name": recipe["name"], "version": saved["version"], "photo_id": None}
+    removed = ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body))
+    assert removed["photo"] is None and record(kitchen, photo["id"]) is None
+    assert not any(p.exists() for p in files) and files_of(kitchen) == []
+    assert fetch(kitchen, photo).status_code == 404
     # Left out on a new recipe: it has none.
     assert make(kitchen, "Rasam")["photo"] is None
 
