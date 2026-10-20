@@ -8,21 +8,28 @@ worked out here. Every query is limited to the signed-in household.
 
 The stock rules. cabledrawer's answer (19 Oct, question 22): an ingredient is in stock when the
 pantry covers what the recipe needs at its own servings, if the two amounts can be compared;
-if not, any stock counts.
-Everything else below is the spec's or a lead's note, as marked:
-- Only ingredient lines with an amount count. Headings, lines with no amount ("salt to
-  taste") and lines that link to nothing never do. A recipe whose lines all lack amounts
-  gets no hint and is not "Can cook now". Both lead's notes, waiting for cabledrawer.
+if not, any stock counts. cabledrawer's answers of 20 Oct (1 to 5) are marked below.
+Everything else below is the spec's or cabledrawer's, as marked:
+- Only ingredient lines with an amount count. A line with no amount ("salt to taste") never
+  counts towards stock (cabledrawer 19 Oct, question 13); headings don't count (cabledrawer 20 Oct);
+  a line that links to nothing has nothing to check. A recipe where no line counts gets no
+  hint and is not "Can cook now" (cabledrawer 20 Oct).
 - A staple counts as in stock, always (spec, Stock section: "Staples: assumed in stock,
   not quantity-tracked").
 - Any other ingredient is in stock when the amount in the pantry covers what the recipe needs
   at its own servings, if the two can be compared; if they can't ("1 cup" of something with
   no known weight, a pinch), any stock counts (cabledrawer, Q22).
-- Stock in every place counts, the freezer too (lead's note, waiting for cabledrawer).
+- Stock in every place counts, the freezer too (cabledrawer 20 Oct).
 - A line that uses a made-ahead recipe is checked against that recipe's own pantry
-  ingredient. A line that uses any other recipe is not checked and doesn't count (shopping
-  through it comes with 0.6). Both lead's notes, waiting for cabledrawer.
-- "Can cook now" is: something counts and nothing is missing (lead's note, waiting for cabledrawer).
+  ingredient (cabledrawer 20 Oct).
+- A line that uses any other recipe (not made ahead, or made ahead but with no pantry
+  ingredient yet, or removed) is not checked (cabledrawer 20 Oct: inner recipes are checked in a
+  later version). Such a recipe is never "Can cook now" and its hint never says "all in
+  stock" or "all in stock but 1": the row says `stock_unchecked`, and the screen says
+  "N missing" when something that was checked is missing, and no stock words otherwise
+  (cabledrawer 20 Oct).
+- "Can cook now" is: something counts, nothing is missing, and no line is left unchecked
+  (cabledrawer 20 Oct).
 """
 
 from collections import defaultdict
@@ -176,15 +183,21 @@ def _ingredient_of(line: Line, foods: dict[int, Food], recipes: dict[int, Recipe
 
 def hints(
     lines: list[Line], recipes: dict[int, Recipe], stock: Stock
-) -> dict[int, tuple[StockHint | None, UseSoonHint | None]]:
-    """For every recipe: whether its ingredients are in stock, and what it uses that is
-    about to go off."""
+) -> dict[int, tuple[StockHint | None, UseSoonHint | None, bool]]:
+    """For every recipe: whether its ingredients are in stock, what it uses that is about to
+    go off, and whether some line uses a recipe that can't be checked (so "all in stock" and
+    "Can cook now" would claim too much)."""
     by_recipe: dict[int, list[Line]] = defaultdict(list)
+    unchecked: set[int] = set()
     for line in lines:
         if line.amount_milli is not None:
             by_recipe[line.recipe_id].append(line)
-    found: dict[int, tuple[StockHint | None, UseSoonHint | None]] = {}
+        # Any line that uses a recipe, with an amount or not, that is not checked.
+        if line.sub_recipe_id is not None and _ingredient_of(line, stock.foods, recipes) is None:
+            unchecked.add(line.recipe_id)
+    found: dict[int, tuple[StockHint | None, UseSoonHint | None, bool]] = {}
     for recipe_id in recipes:
+        left = recipe_id in unchecked
         needs: dict[int, int] = {}
         for line in by_recipe.get(recipe_id, ()):
             food = _ingredient_of(line, stock.foods, recipes)
@@ -192,7 +205,7 @@ def hints(
                 continue
             needs[food.id] = needs.get(food.id, 0) + (stock.need(line, food) or 0)
         if not needs:
-            found[recipe_id] = (None, None)
+            found[recipe_id] = (None, None, left)
             continue
         missing = sum(
             not stock.has_enough(stock.foods[food_id], needed) for food_id, needed in needs.items()
@@ -211,8 +224,9 @@ def hints(
                 days_left=(first - stock.today).days,
             )
         found[recipe_id] = (
-            StockHint(counted=len(needs), missing=missing, can_cook_now=missing == 0),
+            StockHint(counted=len(needs), missing=missing, can_cook_now=missing == 0 and not left),
             soon,
+            left,
         )
     return found
 
@@ -296,6 +310,7 @@ def page(
             kcal=None if recipe.kcal_milli is None else recipe.kcal_milli / 1000,
             stock=found[recipe.id][0],
             use_soon=found[recipe.id][1],
+            stock_unchecked=found[recipe.id][2],
         )
         for recipe, brief in zip(shown, briefs, strict=True)
     ]

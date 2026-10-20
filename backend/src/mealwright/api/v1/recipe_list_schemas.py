@@ -12,7 +12,7 @@ from mealwright.api.v1.schemas import Ref
 class StockHint(BaseModel):
     counted: int  # the ingredients that count (lines with no amount and headings never do)
     missing: int  # how many of those are not in stock
-    can_cook_now: bool  # something counts, and nothing is missing
+    can_cook_now: bool  # something counts, nothing is missing, and no line is left unchecked
 
 
 class UseSoonHint(BaseModel):
@@ -25,6 +25,9 @@ class RecipeRow(RecipeBrief):
     kcal: float | None  # per serving; null is unknown, never 0
     stock: StockHint | None  # null when no ingredient line counts
     use_soon: UseSoonHint | None
+    # Some line uses a recipe that isn't checked (not made ahead, or no pantry ingredient yet):
+    # the screen never says "all in stock" for it, and it is never Can cook now.
+    stock_unchecked: bool
 
 
 class RecipePage(BaseModel):

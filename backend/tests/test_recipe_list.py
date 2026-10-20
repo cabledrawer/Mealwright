@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sync_kit import ok
-from test_recipes import food, make
+from test_recipes import food, make, save
 
 API = "/api/v1"
 
@@ -167,19 +167,106 @@ def test_lines_without_an_amount_and_headings_never_count(kitchen: TestClient) -
 
 def test_a_made_ahead_recipe_is_checked_through_its_own_ingredient(kitchen: TestClient) -> None:
     batter = make(kitchen, "Dosa batter", made_ahead=True, makes={"amount": 2, "unit": "litres"})
-    plain = make(kitchen, "Plain base")
     make(
         kitchen,
         "Dosa",
+        lines=[{"words": "batter", "amount": 2, "unit": "cup", "recipe_id": batter["id"]}],
+    )
+    # The made-ahead batter has no stock yet.
+    dosa = row(kitchen, "Dosa")
+    assert dosa["stock"] == {"counted": 1, "missing": 1, "can_cook_now": False}
+    assert dosa["stock_unchecked"] is False
+    stock(kitchen, batter["homemade"]["id"], 1500, "ml")
+    dosa = row(kitchen, "Dosa")
+    assert dosa["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    assert dosa["stock_unchecked"] is False
+    assert names(kitchen, can_cook_now="true") == ["Dosa"]
+
+
+def test_a_recipe_using_an_unchecked_recipe_is_never_all_in_stock_or_can_cook_now(
+    kitchen: TestClient,
+) -> None:
+    """cabledrawer 20 Oct: a recipe that uses another recipe that isn't made ahead is left out of
+    Can cook now and never says "all in stock"; inner recipes are checked in a later version."""
+    rice = food(kitchen, "Zorba rice")
+    dal = food(kitchen, "Zorba dal")
+    stock(kitchen, rice["id"], 500, "g")
+    base = make(kitchen, "Plain base")
+    make(
+        kitchen,
+        "Everything else here",
         lines=[
-            {"words": "batter", "amount": 2, "unit": "cup", "recipe_id": batter["id"]},
-            {"words": "base", "amount": 1, "unit": "cup", "recipe_id": plain["id"]},
+            line(rice["id"], 100, "g"),
+            {"words": "base", "amount": 1, "unit": "cup", "recipe_id": base["id"]},
         ],
     )
-    # The made-ahead batter has no stock yet; the other recipe is not counted (0.6).
-    assert row(kitchen, "Dosa")["stock"] == {"counted": 1, "missing": 1, "can_cook_now": False}
+    make(
+        kitchen,
+        "One missing",
+        lines=[
+            line(rice["id"], 100, "g"),
+            line(dal["id"], 100, "g"),
+            {"words": "base", "amount": 1, "unit": "cup", "recipe_id": base["id"]},
+        ],
+    )
+    # A line with no amount that uses a recipe is unchecked too; nothing else counts.
+    make(kitchen, "Only the base", lines=[{"words": "base", "recipe_id": base["id"]}])
+    everything = row(kitchen, "Everything else here")
+    assert everything["stock"] == {"counted": 1, "missing": 0, "can_cook_now": False}
+    assert everything["stock_unchecked"] is True
+    one_missing = row(kitchen, "One missing")
+    assert one_missing["stock"] == {"counted": 2, "missing": 1, "can_cook_now": False}
+    assert one_missing["stock_unchecked"] is True
+    only = row(kitchen, "Only the base")
+    assert only["stock"] is None and only["stock_unchecked"] is True
+    # The inner recipe itself is a plain recipe with no lines: nothing unchecked.
+    assert row(kitchen, "Plain base")["stock_unchecked"] is False
+    stock(kitchen, dal["id"], 500, "g")
+    assert names(kitchen, can_cook_now="true") == []
+    assert row(kitchen, "Everything else here")["stock"]["can_cook_now"] is False
+
+
+def test_made_ahead_without_a_pantry_ingredient_or_removed_is_unchecked(
+    kitchen: TestClient,
+) -> None:
+    batter = make(kitchen, "Dosa batter", made_ahead=True)
+    save(kitchen, batter, made_ahead=False)
+    gone = make(kitchen, "Gone base")
+    make(
+        kitchen,
+        "Uses batter",
+        lines=[{"words": "b", "amount": 1, "unit": "cup", "recipe_id": batter["id"]}],
+    )
+    make(
+        kitchen,
+        "Uses gone",
+        lines=[{"words": "g", "amount": 1, "unit": "cup", "recipe_id": gone["id"]}],
+    )
+    ok(kitchen.delete(f"{API}/recipes/{gone['id']}"))
+    assert row(kitchen, "Uses batter")["stock_unchecked"] is True
+    assert row(kitchen, "Uses gone")["stock_unchecked"] is True
+
+
+def test_two_levels_deep_the_outer_recipe_is_unchecked_and_the_middle_one_is_checked(
+    kitchen: TestClient,
+) -> None:
+    batter = make(kitchen, "Dosa batter", made_ahead=True, makes={"amount": 2, "unit": "litres"})
     stock(kitchen, batter["homemade"]["id"], 1500, "ml")
-    assert row(kitchen, "Dosa")["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    middle = make(
+        kitchen,
+        "Middle",
+        lines=[{"words": "batter", "amount": 1, "unit": "cup", "recipe_id": batter["id"]}],
+    )
+    make(
+        kitchen,
+        "Outer",
+        lines=[{"words": "middle", "amount": 1, "unit": "cup", "recipe_id": middle["id"]}],
+    )
+    assert row(kitchen, "Middle")["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    assert row(kitchen, "Middle")["stock_unchecked"] is False
+    assert row(kitchen, "Outer")["stock"] is None
+    assert row(kitchen, "Outer")["stock_unchecked"] is True
+    assert names(kitchen, can_cook_now="true") == ["Middle"]
 
 
 def test_removed_and_merged_ingredients_do_not_count(kitchen: TestClient) -> None:
