@@ -507,6 +507,66 @@ def test_a_save_that_is_refused_keeps_the_photo(kitchen: TestClient) -> None:
     assert fetch(kitchen, photo).status_code == 200
 
 
+def commit_fails_after_the_photo_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The next commit fails once a photo has been deleted in the request (the disk is
+    full, say), as a commit can after the photo step."""
+    from sqlalchemy.orm import Session
+
+    import mealwright.api.v1.photos as route
+    from mealwright import recipes
+
+    stepped: list[int] = []
+    real_delete, real_commit = recipes.delete_photo, Session.commit
+
+    def delete_photo(db: Session, photo: RecipePhoto) -> None:
+        stepped.append(photo.id)
+        real_delete(db, photo)
+
+    def commit(self: Session) -> None:
+        if stepped:
+            stepped.clear()
+            raise RuntimeError("the disk is full")
+        real_commit(self)
+
+    monkeypatch.setattr(recipes, "delete_photo", delete_photo)
+    monkeypatch.setattr(route, "delete_photo", delete_photo)
+    monkeypatch.setattr(Session, "commit", commit)
+
+
+@pytest.mark.parametrize("replace", [True, False], ids=["replaced", "cleared"])
+def test_a_save_whose_commit_fails_keeps_the_old_photo_and_its_files(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch, replace: bool
+) -> None:
+    old = kit.uploaded(kitchen)
+    recipe = make(kitchen, photo_id=old["id"])
+    old_files = photo_files(kitchen, old["id"])
+    new = kit.uploaded(kitchen, kit.png())
+    commit_fails_after_the_photo_step(monkeypatch)
+    with pytest.raises(RuntimeError, match="the disk is full"):
+        save(kitchen, recipe, photo_id=new["id"] if replace else None)
+    kept = record(kitchen, old["id"])
+    assert kept is not None and kept.recipe_id == recipe["id"]
+    assert all(p.exists() for p in old_files)
+    assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["photo"] == old
+    assert fetch(kitchen, old).status_code == 200
+    waiting = record(kitchen, new["id"])
+    assert waiting is not None and waiting.recipe_id is None
+    assert len(files_of(kitchen)) == 4
+
+
+def test_a_delete_whose_commit_fails_keeps_the_upload_and_its_files(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    photo = kit.uploaded(kitchen)
+    files = photo_files(kitchen, photo["id"])
+    commit_fails_after_the_photo_step(monkeypatch)
+    with pytest.raises(RuntimeError, match="the disk is full"):
+        kitchen.delete(f"{API}/recipes/photos/{photo['id']}")
+    assert record(kitchen, photo["id"]) is not None
+    assert all(p.exists() for p in files)
+    assert fetch(kitchen, photo).status_code == 200
+
+
 def test_a_photo_on_one_recipe_cannot_be_put_on_another(kitchen: TestClient) -> None:
     photo = kit.uploaded(kitchen)
     first = make(kitchen, "Sambar", photo_id=photo["id"])
