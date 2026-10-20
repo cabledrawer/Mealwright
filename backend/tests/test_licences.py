@@ -92,6 +92,28 @@ def test_mpl_with_exhibit_b_is_rejected(lic: ModuleType, tmp_path: Path) -> None
     assert not ok and "Incompatible With Secondary Licenses" in detail
 
 
+def test_mit_cmu_is_allowed_for_pillow_only(lic: ModuleType) -> None:
+    pillow = FakeDist("Pillow", **{"License-Expression": "MIT-CMU"})
+    assert lic.check(pillow) == (True, "MIT-CMU (allowed for pillow only)")
+
+
+@pytest.mark.parametrize(
+    ("name", "fields"),
+    [
+        ("other", {"License-Expression": "MIT-CMU"}),  # another package saying MIT-CMU
+        ("pillow-simd", {"License-Expression": "MIT-CMU"}),  # a name that only starts the same
+        ("pillow", {"License-Expression": "HPND"}),  # Pillow changes its licence
+        ("pillow", {"License-Expression": "MIT-CMU OR HPND"}),  # not the exact text
+        ("pillow", {"License-Expression": "MIT-CMU AND HPND"}),
+        ("pillow", {"License": "MIT-CMU"}),  # only the License-Expression field counts
+    ],
+)
+def test_mit_cmu_is_refused_otherwise(lic: ModuleType, name: str, fields: dict[str, str]) -> None:
+    ok, _ = lic.check(FakeDist(name, **fields))
+    assert not ok
+    assert lic.evaluate("MIT-CMU") is False  # never on the general allow list
+
+
 def test_installed_packages_pass(lic: ModuleType) -> None:
     assert lic.main() == 0
 

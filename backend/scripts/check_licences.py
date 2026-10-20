@@ -11,6 +11,9 @@ parts of some of them (Svelte).
 GPL-2.0-only is never allowed. OFL-1.1 is allowed for fonts only, so never for a Python
 package. MPL-2.0 packages marked "Incompatible With Secondary Licenses" (MPL-2.0 Exhibit B)
 must be rejected: MPL-2.0 only works with AGPL through that secondary-licence clause.
+MIT-CMU is allowed for Pillow only (cabledrawer 19 Oct; ONE_PACKAGE): the package name and its
+License-Expression must both match exactly, so any other package, or a change to Pillow's
+licence, fails again.
 
 Anything the script can't read for certain fails, rather than being guessed. Once a person
 has checked such a package by hand, add it to REVIEWED with a note.
@@ -77,6 +80,11 @@ FONT_PACKAGES = re.compile(r"^@fontsource(-variable)?/")
 
 # Packages checked by hand: name -> (licence, who checked it and when).
 REVIEWED: dict[str, tuple[str, str]] = {}
+
+# A licence allowed for one package only: name -> its exact License-Expression.
+ONE_PACKAGE = {
+    "pillow": "MIT-CMU",  # cabledrawer 19 Oct (photos); exact match, cabledrawer 20 Oct
+}
 
 # Never checked: the project itself.
 SELF = {"mealwright"}
@@ -186,6 +194,8 @@ def check(dist: Distribution, dev: bool = False) -> tuple[bool, str]:
     expression, source = licence_of(dist)
     if expression is None:
         return False, f"can't tell ({source}); check by hand"
+    if source == "License-Expression" and ONE_PACKAGE.get(name) == expression:
+        return True, f"{expression} (allowed for {name} only)"
     try:
         allowed = evaluate(expression, DEV_ALLOWED if dev else ALLOWED)
     except ValueError, IndexError:
