@@ -114,13 +114,13 @@
               <li><RecipeListRow {recipe} /></li>
             {/each}
           </ul>
+          {#if list.moreProblem}
+            <p class="more-problem" role="alert">{list.moreProblem}</p>
+          {/if}
           {#if list.next}
             <button type="button" class="more-button" onclick={() => void list.more()}
-              >Show more</button
+              >{list.moreProblem ? 'Try again' : 'Show more'}</button
             >
-          {/if}
-          {#if list.problem}
-            <p class="nothing" role="alert">{list.problem}</p>
           {/if}
         {:else if list.problem}
           <div class="failed" role="alert">
@@ -226,6 +226,19 @@
     color: var(--color-text-muted);
     font-size: var(--text-base);
     text-align: center;
+  }
+
+  .more-problem {
+    margin: 0;
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--color-divider);
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    text-align: center;
+  }
+
+  .more-problem + .more-button {
+    border-top: none;
   }
 
   .failed {

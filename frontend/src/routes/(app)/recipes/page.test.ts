@@ -174,6 +174,27 @@ describe('the All recipes page', () => {
     await expect.element(page.getByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
   });
 
+  it('a failed Show more keeps the rows, the count and the filters, and Try again adds the next page', async () => {
+    let fail = true;
+    open({
+      'GET /recipes?limit=50': answer([sambar], 2, '1'),
+      'GET /recipes?after=1&limit=50': () =>
+        fail ? [500, { detail: 'broken' }] : answer([palak], 2)
+    });
+    await page.getByRole('button', { name: 'Show more' }).click();
+    await expect.element(page.getByText('Couldn’t load more recipes. Try again.')).toBeVisible();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    await expect.element(page.getByText('2 recipes')).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Can cook now' })).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Couldn’t load your recipes/);
+    fail = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect.element(page.getByText('Palak paneer')).toBeVisible();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Couldn’t load more/);
+    await expect.element(page.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
   it('with no recipes at all, says so, with no button to add one yet', async () => {
     open({ 'GET /recipes?limit=50': answer([], 0), 'GET /recipes/tags': [200, { tags: [] }] });
     await expect.element(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();

@@ -266,6 +266,32 @@ test('many recipes with long names, and the text at 200%, never scroll sideways'
   }
 });
 
+test('a failed Show more keeps the list, the count and the filters, and Try again loads the next page', async ({ page }) => {
+  let fail = true;
+  await page.route('**/api/v1/recipes?**', (route) => {
+    if (route.request().url().includes('after=')) {
+      return fail
+        ? route.fulfill({ status: 500, json: { detail: 'Something broke.' } })
+        : route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(60).slice(50), next: null } });
+    }
+    return route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(50), next: '50' } });
+  });
+  await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [{ name: 'Quick', recipes: 3 }] } }));
+  await page.goto('/recipes');
+  await expect(page.locator('li')).toHaveCount(50);
+  await page.getByRole('button', { name: 'Show more' }).click();
+  await expect(page.getByText('Couldn’t load more recipes. Try again.')).toBeVisible();
+  await expect(page.locator('li')).toHaveCount(50);
+  await expect(page.getByText('60 recipes')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Can cook now' })).toBeVisible();
+  await expect(page.getByText(/Couldn’t load your recipes/)).toHaveCount(0);
+  await checkPage(page);
+  fail = false;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.locator('li')).toHaveCount(60);
+  await expect(page.getByText(/Couldn’t load more/)).toHaveCount(0);
+});
+
 test('reduced motion: nothing on the page animates', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/recipes');

@@ -23,6 +23,8 @@ export class RecipeList {
   /** False until the first answer, so the page can say "Loading…" instead of "No recipes". */
   loaded = $state(false);
   problem = $state<string | null>(null);
+  /** "Show more" failed. Kept apart from `problem`, so the rows, the count and the filters stay. */
+  moreProblem = $state<string | null>(null);
 
   #asked = 0;
 
@@ -49,6 +51,7 @@ export class RecipeList {
       this.next = page.next;
       this.tags = tags.tags;
       this.problem = null;
+      this.moreProblem = null;
       // A tag no recipe has any more is gone from the row; so is the choice.
       if (
         this.filter.startsWith('tag:') &&
@@ -76,9 +79,10 @@ export class RecipeList {
       if (asked !== this.#asked) return;
       this.recipes = [...this.recipes, ...page.recipes];
       this.next = page.next;
+      this.moreProblem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem =
+      this.moreProblem =
         error instanceof ApiError && error.status === 0
           ? error.detail
           : 'Couldn’t load more recipes. Try again.';
