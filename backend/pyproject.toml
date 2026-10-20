@@ -12,7 +12,7 @@ dependencies = [
     "apscheduler==3.11.3",
     "argon2-cffi==25.1.0",
     "fastapi>=0.143.3",
-    "pillow==12.3.0",
+    "pillow==13.0.0",
     "pydantic-settings>=2.16.0",
     "sqlalchemy>=2.1.5",
     "uvicorn>=0.54.0",

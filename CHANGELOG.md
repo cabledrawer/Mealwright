@@ -27,7 +27,8 @@ Work towards 0.4.0 (recipes).
 - Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
 
 ### Security
-- certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3). No other library changed.
+- certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3).
+- Pillow 12.3.0 → 13.0.0 (reads and shrinks recipe photos), for nine warnings: GHSA-8g5g-8vmr-9782 / CVE-2026-112403 (critical, CVSS 9.2, JPEG decoding); GHSA-c6hw-5grf-ff96 / CVE-2026-112404 and GHSA-pchr-8j38-3x4p / CVE-2026-112896 (high, 8.8); GHSA-58r4-6rv3-gfh8 / CVE-2026-112397, GHSA-65qm-jvmh-6pqg / CVE-2026-112400, GHSA-p4wg-p73j-c528 / CVE-2026-112895 and GHSA-q45j-58j2-45rg / CVE-2026-112897 (high, 8.7); GHSA-vx6w-vv9f-6gvg / CVE-2026-112899 (medium, 6.9) and GHSA-462x-pgg6-55fp / CVE-2026-112395 (medium, 6.5). Its licence (MIT-CMU) is unchanged and it has no dependencies of its own. No other library changed.
 - At most 10 live-update streams per sign-in; past that the oldest closes, and its tab quietly stops live updates (no offline bar) until it is looked at again.
 - Signing out ends that sign-in's live updates at once.
 - Requests bigger than 4 MiB are refused ("That's too much to send in one go."). A photo upload may be up to 15 MB ("That photo is bigger than 15 MB."); nothing else may.
