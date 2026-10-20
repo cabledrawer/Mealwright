@@ -639,6 +639,66 @@ def test_the_other_households_stock_and_use_by_dates_change_no_hint(
     assert hints(neighbour, "Dal tadka") == theirs_before
 
 
+def test_the_use_soon_filter_never_sees_the_other_household(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    today_2 = ok(neighbour.get(f"{API}/household"))["today"]
+    toor2 = ok(
+        neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
+    )["food"]
+    make(
+        kitchen,
+        "Plain dal",
+        lines=[{"words": "dal", "food_id": mine["food_id"], "amount": 100, "unit": "g"}],
+    )
+    make(
+        neighbour,
+        "Dal tadka",
+        lines=[{"words": "dal", "food_id": toor2["id"], "amount": 100, "unit": "g"}],
+    )
+    ok(
+        neighbour.post(
+            f"{API}/stock",
+            json={
+                "food_id": toor2["id"],
+                "amount": {"amount": 5000, "unit": "g"},
+                "use_by": today_2,
+            },
+        ),
+        201,
+    )
+
+    def soon(client: TestClient) -> dict[str, Any]:
+        return ok(client.get(f"{API}/recipes", params={"use_soon": "true"}))
+
+    # Household 2's dal goes off today; household 1's recipes don't notice, and the title
+    # count stays household 1's own.
+    mine_alone = soon(kitchen)
+    everything = ok(kitchen.get(f"{API}/recipes"))["all_recipes"]
+    assert (mine_alone["total"], mine_alone["all_recipes"], mine_alone["recipes"]) == (
+        0,
+        everything,
+        [],
+    )
+    assert [r["name"] for r in soon(neighbour)["recipes"]] == ["Dal tadka"]
+    # And the other way round: household 1's own stock never reaches household 2.
+    ok(
+        kitchen.post(
+            f"{API}/stock",
+            json={
+                "food_id": mine["food_id"],
+                "amount": {"amount": 2, "unit": "packet"},
+                "use_by": ok(kitchen.get(f"{API}/household"))["today"],
+            },
+        ),
+        201,
+    )
+    theirs_now = [r["name"] for r in soon(kitchen)["recipes"]]
+    assert "Plain dal" in theirs_now and "Dal tadka" not in theirs_now
+    assert [r["name"] for r in soon(neighbour)["recipes"]] == ["Dal tadka"]
+    assert soon(neighbour)["total"] == 1
+
+
 def test_the_recipe_page_stock_never_sees_the_other_household(
     kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:

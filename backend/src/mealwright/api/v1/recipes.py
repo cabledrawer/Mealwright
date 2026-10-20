@@ -41,16 +41,20 @@ def list_recipes(
     q: Annotated[str, Query(max_length=100)] = "",
     tag: Annotated[str | None, Query(max_length=40)] = None,
     can_cook_now: bool = False,
+    use_soon: bool = False,
 ) -> RecipePage:
     """Every recipe, A to Z (ignoring case and accents), each with its stock hints.
     `q` searches recipe names, tags and ingredient names (other names too), never the
-    method; `tag` keeps one tag; `can_cook_now` keeps recipes with nothing missing. They
-    work together. Recipes that were deleted and can still be undone are not listed."""
+    method; `tag` keeps one tag; `can_cook_now` keeps recipes with nothing missing;
+    `use_soon` keeps recipes that use an ingredient with stock on Use soon (the recipes whose
+    row has a `use_soon` hint). They work together. Recipes that were deleted and can still be
+    undone are not listed."""
     return recipe_list.page(
         kitchen,
         q=q,
         tag=tag,
         can_cook_now=can_cook_now,
+        use_soon=use_soon,
         start=int(after) if after else 0,
         limit=limit,
     )

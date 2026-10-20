@@ -24,7 +24,7 @@ All under `/api/v1`, signed in, same-origin for writes. An id from another house
 
 | | |
 |---|---|
-| `GET /recipes?limit=&after=&q=&tag=&can_cook_now=` | every recipe, A to Z, each with its stock hints (section 4). `{total, all_recipes, recipes: [row], next}`. A deleted recipe isn't listed. |
+| `GET /recipes?limit=&after=&q=&tag=&can_cook_now=&use_soon=` | every recipe, A to Z, each with its stock hints (section 4). `{total, all_recipes, recipes: [row], next}`. A deleted recipe isn't listed. |
 | `GET /recipes/tags?q=` | tag suggestions: `{tags: [{name, recipes}]}`. A tag no recipe has any more isn't listed. |
 | `POST /recipes` (201) | make a recipe. Only `name` is needed; `serves` defaults to 4 (send `null` for none). |
 | `GET /recipes/{id}` | the whole recipe (below). |
@@ -146,13 +146,14 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 
 ## 4. The All recipes list (search, tags, Can cook now, stock hints)
 
-`GET /recipes` takes `limit` (1 to 500, default 50), `after`, and three things that work together:
+`GET /recipes` takes `limit` (1 to 500, default 50), `after`, and four things that work together:
 
 | | |
 |---|---|
 | `q` | words to search for (up to 100 characters). Every word must be found, ignoring case and accents. It looks in the recipe's name, its tags, and its ingredient names: the ingredient's name and **other names** (`thuvaram` finds a recipe with Toor dal), the words typed on the line, and the name of a recipe used as an ingredient. **Never the method.** |
 | `tag` | keep recipes with this tag (ignoring case). |
 | `can_cook_now=true` | keep recipes that can be cooked now (below). |
+| `use_soon=true` | keep recipes that use an ingredient with stock on Use soon: exactly the recipes whose row has a `use_soon` hint (below), from the same code, so the two can't disagree. The lead's note (for cabledrawer's "Recipes for these" on Pantry; not his decision). `true` or `false`; anything else is a 422. |
 
 `total` is how many match; `all_recipes` is how many recipes the household has (the number in the screen's title). `next` pages through the matches. Every row is the brief (section 2) plus:
 

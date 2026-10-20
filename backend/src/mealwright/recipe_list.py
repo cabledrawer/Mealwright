@@ -304,11 +304,13 @@ def page(
     q: str,
     tag: str | None,
     can_cook_now: bool,
+    use_soon: bool = False,
     start: int,
     limit: int,
 ) -> RecipePage:
-    """One page of the household's recipes, A to Z, that match the search, the tag and
-    "Can cook now" (all three together)."""
+    """One page of the household's recipes, A to Z, that match the search, the tag, "Can cook
+    now" and "uses something to use soon" (all together). The last keeps exactly the recipes
+    whose row has a `use_soon` hint: it is the same answer, not a second rule."""
     recipes = live_recipes(kitchen)
     ordered = sorted(recipes.values(), key=lambda r: (fold(r.name), r.id))
     lines = _lines(kitchen, set(recipes))
@@ -317,6 +319,8 @@ def page(
     kept = ordered
     if can_cook_now:
         kept = [r for r in kept if (found[r.id][0] and found[r.id][0].can_cook_now)]  # type: ignore[union-attr]
+    if use_soon:
+        kept = [r for r in kept if found[r.id][1] is not None]
     terms = fold(q).split()
     wanted = fold(tag) if tag and tag.strip() else None
     if terms or wanted:

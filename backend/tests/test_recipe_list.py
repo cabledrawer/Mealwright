@@ -349,6 +349,83 @@ def test_only_the_soonest_date_is_named(kitchen: TestClient) -> None:
     assert [f["name"] for f in soon["foods"]] == ["Spinach"] and soon["days_left"] == 1
 
 
+def test_use_soon_keeps_exactly_the_recipes_that_have_a_use_soon_hint(kitchen: TestClient) -> None:
+    now = today(kitchen)
+    spinach = food(kitchen, "Spinach")
+    old = food(kitchen, "Old kale")
+    far = food(kitchen, "Far cabbage")
+    rice = food(kitchen, "Zorba rice")
+    stock(kitchen, spinach["id"], 200, "g", use_by=now.isoformat())
+    stock(kitchen, old["id"], 200, "g", use_by=(now - timedelta(days=1)).isoformat())
+    stock(kitchen, far["id"], 200, "g", use_by=(now + timedelta(days=3)).isoformat())
+    stock(kitchen, rice["id"], 500, "g")  # no date: never a nudge
+    make(kitchen, "Palak", lines=[line(spinach["id"], 100, "g")])
+    make(kitchen, "Old", lines=[line(old["id"], 10, "g")])
+    make(kitchen, "Far", lines=[line(far["id"], 10, "g")])
+    make(kitchen, "Rice", lines=[line(rice["id"], 10, "g")])
+    make(kitchen, "Nothing")
+    assert names(kitchen, use_soon="true") == ["Palak"]
+    # The same rule as the rows' hint: nobody else can disagree with it.
+    hinted = [r["name"] for r in listing(kitchen, limit=500)["recipes"] if r["use_soon"]]
+    assert names(kitchen, use_soon="true") == hinted
+    assert names(kitchen, use_soon="false") == names(kitchen)
+    assert names(kitchen) == ["Far", "Nothing", "Old", "Palak", "Rice"]
+
+
+def test_use_soon_works_with_search_tags_and_can_cook_now(kitchen: TestClient) -> None:
+    now = today(kitchen).isoformat()
+    spinach = food(kitchen, "Spinach")
+    paneer = food(kitchen, "Paneer")
+    ghee = food(kitchen, "Ghee")
+    stock(kitchen, spinach["id"], 200, "g", use_by=now)
+    stock(kitchen, paneer["id"], 200, "g", use_by=now)
+    make(kitchen, "Palak", tags=["Quick"], lines=[line(spinach["id"], 100, "g")])
+    make(
+        kitchen,
+        "Palak paneer",
+        lines=[
+            line(spinach["id"], 100, "g"),
+            line(paneer["id"], 100, "g"),
+            line(ghee["id"], 1, "g"),
+        ],
+    )
+    make(kitchen, "Paneer tikka", tags=["Quick"], lines=[line(paneer["id"], 100, "g")])
+    make(kitchen, "Plain", tags=["Quick"])
+    assert names(kitchen, use_soon="true") == ["Palak", "Palak paneer", "Paneer tikka"]
+    assert names(kitchen, use_soon="true", q="paneer") == ["Palak paneer", "Paneer tikka"]
+    assert names(kitchen, use_soon="true", tag="quick") == ["Palak", "Paneer tikka"]
+    # Ghee is missing from Palak paneer, so only the others can be cooked now.
+    assert names(kitchen, use_soon="true", can_cook_now="true") == ["Palak", "Paneer tikka"]
+    assert names(kitchen, use_soon="true", can_cook_now="true", q="paneer", tag="quick") == [
+        "Paneer tikka"
+    ]
+    assert names(kitchen, use_soon="true", q="nothing like this") == []
+
+
+def test_use_soon_keeps_the_totals_and_the_paging_right(kitchen: TestClient) -> None:
+    now = today(kitchen).isoformat()
+    spinach = food(kitchen, "Spinach")
+    stock(kitchen, spinach["id"], 5000, "g", use_by=now)
+    for i in range(7):
+        make(kitchen, f"Soon {i}", lines=[line(spinach["id"], 10, "g")])
+        make(kitchen, f"Later {i}")
+    first = listing(kitchen, use_soon="true", limit=3)
+    assert (first["total"], first["all_recipes"]) == (7, 14)  # the title count is every recipe
+    assert [r["name"] for r in first["recipes"]] == ["Soon 0", "Soon 1", "Soon 2"]
+    assert first["next"] == "3"
+    second = listing(kitchen, use_soon="true", limit=3, after=first["next"])
+    assert [r["name"] for r in second["recipes"]] == ["Soon 3", "Soon 4", "Soon 5"]
+    last = listing(kitchen, use_soon="true", limit=3, after=second["next"])
+    assert [r["name"] for r in last["recipes"]] == ["Soon 6"] and last["next"] is None
+
+
+def test_use_soon_takes_only_true_or_false(kitchen: TestClient) -> None:
+    assert kitchen.get(f"{API}/recipes", params={"use_soon": "maybe"}).status_code == 422
+    assert kitchen.get(f"{API}/recipes", params={"use_soon": "2"}).status_code == 422
+    for value in ["true", "false", "1", "0"]:
+        assert kitchen.get(f"{API}/recipes", params={"use_soon": value}).status_code == 200
+
+
 # --- Can cook now, tags, search ----------------------------------------------------------------
 
 
@@ -480,6 +557,7 @@ def test_the_list_reads_a_fixed_number_of_queries_however_many_recipes(
         "plain": count_queries(kitchen, limit=50),
         "search": count_queries(kitchen, limit=50, q="rice quick"),
         "cook": count_queries(kitchen, limit=50, can_cook_now="true", tag="quick"),
+        "soon": count_queries(kitchen, limit=50, use_soon="true", q="rice", can_cook_now="true"),
     }
     add(290, 10)  # 300 recipes
     assert listing(kitchen, limit=500)["total"] == 300
@@ -487,8 +565,10 @@ def test_the_list_reads_a_fixed_number_of_queries_however_many_recipes(
         "plain": count_queries(kitchen, limit=50),
         "search": count_queries(kitchen, limit=50, q="rice quick"),
         "cook": count_queries(kitchen, limit=50, can_cook_now="true", tag="quick"),
+        "soon": count_queries(kitchen, limit=50, use_soon="true", q="rice", can_cook_now="true"),
     }
     assert many == few
+    assert listing(kitchen, use_soon="true", limit=500)["total"] == 300
     assert max(many.values()) <= 25
     # And a page of 500 rows still answers every row with its hints.
     everything = listing(kitchen, limit=500)["recipes"]
