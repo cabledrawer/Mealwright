@@ -8,8 +8,8 @@
 import { sidebar } from './sidebar.svelte';
 
 /** The width of the sidebar (tokens.css: --sidebar-width, --sidebar-collapsed-width). */
-const SIDEBAR = 248;
-const SIDEBAR_COLLAPSED = 72;
+export const SIDEBAR = 248;
+export const SIDEBAR_COLLAPSED = 72;
 /** The app's desktop breakpoint: from here the sidebar replaces the bottom tabs. */
 const DESKTOP = 768;
 /** What the list and the reading pane need beside the sidebar. */
