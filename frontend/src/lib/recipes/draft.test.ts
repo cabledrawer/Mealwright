@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '$lib/api';
 import type { LineOut, RecipeOut } from '$lib/client/recipes';
-import { blankLine, blankStep, RecipeDraft } from './draft.svelte';
+import { toasts } from '$lib/toast.svelte';
+import { blankLine, blankStep, RecipeDraft, releaseWhenToastGoes } from './draft.svelte';
 
 const photo = {
   id: 5,
@@ -294,6 +295,141 @@ describe('an upload that lands after the editor was left', () => {
     expect(sent).toContain('DELETE /recipes/photos/9'); // the first one, left behind
     expect(sent).not.toContain('DELETE /recipes/photos/10');
     expect(draft.photo).toMatchObject({ change: 'new' });
+  });
+});
+
+describe('an upload kept for Undo', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function server() {
+    const sent: string[] = [];
+    const waiting: ((answer: Response) => void)[] = [];
+    let arrived: () => void = () => {};
+    const posted = new Promise<void>((resolve) => (arrived = resolve));
+    vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+      sent.push(call);
+      if (call === 'POST /recipes/photos') {
+        return new Promise<Response>((resolve) => {
+          waiting.push(resolve);
+          arrived();
+        });
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    const file = new File([new Uint8Array([1])], 'dish.png', { type: 'image/png' });
+    const land = (id: number) =>
+      waiting[0]!(new Response(JSON.stringify({ ...photo, id }), { status: 201 }));
+    return { sent, file, posted, land };
+  }
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const deletes = (sent: string[]) => sent.filter((c) => c.startsWith('DELETE'));
+
+  async function withUpload() {
+    const s = server();
+    const draft = RecipeDraft.from(recipe({ photo: null }));
+    const picking = draft.pickPhoto(s.file);
+    await s.posted;
+    s.land(9);
+    await picking;
+    return { ...s, draft };
+  }
+
+  it('is not deleted while Undo can still be used, and is sent when Undo brought it back', async () => {
+    const { sent, draft } = await withUpload();
+    draft.park();
+    await flush();
+    expect(deletes(sent)).toEqual([]);
+    draft.resume(); // Undo was pressed
+    draft.release(); // the toast goes after that: nothing happens
+    await flush();
+    expect(deletes(sent)).toEqual([]);
+    expect(draft.build().body.photo_id).toBe(9);
+  });
+
+  it('is deleted when Undo can no longer be used, and the photo goes back to how it was opened', async () => {
+    const { sent, draft } = await withUpload();
+    draft.park();
+    draft.release();
+    await flush();
+    expect(deletes(sent)).toEqual(['DELETE /recipes/photos/9']);
+    expect(draft.photo).toMatchObject({ shown: null, change: 'none', uploading: null });
+    expect('photo_id' in draft.build().body).toBe(false); // never the deleted upload's id
+  });
+
+  it('puts back the recipe’s own photo, not a stale id, when the upload had replaced it', async () => {
+    const s = server();
+    const draft = RecipeDraft.from(recipe({ photo }));
+    const picking = draft.pickPhoto(s.file);
+    await s.posted;
+    s.land(9);
+    await picking;
+    draft.park();
+    draft.release();
+    expect(draft.photo).toMatchObject({ shown: photo, change: 'none' });
+    expect('photo_id' in draft.build().body).toBe(false);
+  });
+
+  it('is deleted when the "Changes not saved" toast goes', async () => {
+    const { sent, draft } = await withUpload();
+    const id = toasts.show('Changes not saved');
+    draft.park();
+    releaseWhenToastGoes(draft, id);
+    await flush();
+    expect(deletes(sent)).toEqual([]);
+    toasts.dismiss(id);
+    await vi.waitFor(() => expect(deletes(sent)).toEqual(['DELETE /recipes/photos/9']));
+  });
+
+  it('is left alone when Undo was pressed as the toast went', async () => {
+    const { sent, draft } = await withUpload();
+    const id = toasts.show('Changes not saved');
+    draft.park();
+    releaseWhenToastGoes(draft, id);
+    draft.resume(); // Undo's button dismisses the toast, then reopens the editor
+    toasts.dismiss(id);
+    await flush();
+    await flush();
+    expect(deletes(sent)).toEqual([]);
+    expect(draft.photo.change).toBe('new');
+  });
+
+  it('one still going up when Cancel was pressed is kept for Undo if it lands in time', async () => {
+    const { sent, file, posted, land } = server();
+    const draft = new RecipeDraft();
+    const picking = draft.pickPhoto(file);
+    await posted;
+    draft.park();
+    land(9);
+    await picking;
+    await flush();
+    expect(deletes(sent)).toEqual([]);
+    expect(draft.photo).toMatchObject({ change: 'new', uploading: null });
+    draft.resume(); // Undo
+    expect(draft.build().body.photo_id).toBe(9);
+    draft.park();
+    draft.release(); // ...and when Undo goes, it goes too
+    await flush();
+    expect(deletes(sent)).toEqual(['DELETE /recipes/photos/9']);
+  });
+
+  it('one still going up is deleted the moment it lands, if Undo is gone by then', async () => {
+    const { sent, file, posted, land } = server();
+    const draft = new RecipeDraft();
+    const picking = draft.pickPhoto(file);
+    await posted;
+    draft.park();
+    draft.release();
+    land(9);
+    await picking;
+    await flush();
+    expect(deletes(sent)).toEqual(['DELETE /recipes/photos/9']);
+    expect(draft.photo).toMatchObject({
+      shown: null,
+      change: 'none',
+      uploading: null,
+      error: null
+    });
   });
 });
 

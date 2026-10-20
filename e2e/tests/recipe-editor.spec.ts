@@ -341,7 +341,7 @@ test('Made ahead makes the ingredient on Save, and turning it off keeps it', asy
   expect(recipe.homemade).toBeNull();
 });
 
-test('the photo: untouched leaves photo_id out, Remove photo sends null, Cancel frees an unsaved upload', async ({ page }) => {
+test('the photo: untouched leaves photo_id out, Remove photo sends null, Cancel frees an unsaved upload once Undo has gone', async ({ page }) => {
   const bodies: Json[] = [];
   const deleted: string[] = [];
   await page.route(/\/api\/v1\/recipes(\/\d+)?$/, async (route) => {
@@ -385,11 +385,17 @@ test('the photo: untouched leaves photo_id out, Remove photo sends null, Cancel 
   expect((await getRecipe(page, recipe.id)).photo).toBeNull();
 
   // 4. Cancel: an upload nobody took is deleted so its place is free.
-  await page.goto(`/recipes/${recipe.id}/edit`);
+  // (A new recipe: Cancel lands on All recipes, which this branch has.)
+  await page.goto('/recipes/new');
   await page.locator('input[type=file]').setInputFiles({ name: 'dish.png', mimeType: 'image/png', buffer: DISH });
   await expect(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect.poll(() => deleted.length).toBe(1);
+  await expect(page).toHaveURL('/recipes');
+  // While "Changes not saved · Undo" is up the upload is kept, so Undo can bring it back...
+  await expect(page.getByText('Changes not saved')).toBeVisible();
+  expect(deleted.length).toBe(0);
+  // ...and it goes once that toast has gone.
+  await expect.poll(() => deleted.length, { timeout: 20_000 }).toBe(1);
 });
 
 test('the server’s words about a photo are shown as they are', async ({ page }) => {

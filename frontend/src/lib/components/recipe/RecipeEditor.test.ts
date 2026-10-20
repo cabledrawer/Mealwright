@@ -251,6 +251,86 @@ describe('leaving while a photo is going up', () => {
   });
 });
 
+describe('Undo after Cancel with a photo uploaded', () => {
+  function server() {
+    const sent: { call: string; body: unknown }[] = [];
+    vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+      sent.push({ call, body: init.body });
+      if (call === 'POST /recipes/photos') {
+        return new Response(
+          JSON.stringify({
+            id: 9,
+            width: 2,
+            height: 2,
+            url: '/api/v1/recipes/photos/9/large',
+            list_width: 2,
+            list_height: 2,
+            list_url: '/api/v1/recipes/photos/9/list'
+          }),
+          { status: 201 }
+        );
+      }
+      if (call === 'DELETE /recipes/photos/9') return new Response(null, { status: 204 });
+      if (call === 'POST /recipes')
+        return new Response(JSON.stringify({ id: 12 }), { status: 201 });
+      return new Response('{}', { status: 404 });
+    });
+    return sent;
+  }
+
+  async function cancelWithPhoto() {
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Photo');
+    const file = new File([new Uint8Array([1, 2, 3])], 'dish.png', { type: 'image/png' });
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
+    await expect.element(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    expect(toasts.current?.message).toBe('Changes not saved');
+  }
+
+  const reopened = () => {
+    unmount(component!);
+    component = null;
+    open();
+  };
+
+  it('keeps the upload while Undo can be used; after Undo, Save sends its id', async () => {
+    const sent = server();
+    await cancelWithPhoto();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sent.some((r) => r.call.startsWith('DELETE'))).toBe(false);
+    toasts.act(); // Undo
+    reopened();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Photo');
+    await expect.element(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    const created = sent.find((r) => r.call === 'POST /recipes')!;
+    expect(JSON.parse(String(created.body))).toMatchObject({ photo_id: 9 });
+    expect(sent.some((r) => r.call.startsWith('DELETE'))).toBe(false);
+  });
+
+  it('deletes the upload when the toast goes; a late Undo brings the editor back without it', async () => {
+    const sent = server();
+    await cancelWithPhoto();
+    toasts.dismiss(); // timed out
+    await vi.waitFor(() =>
+      expect(sent.filter((r) => r.call.startsWith('DELETE')).map((r) => r.call)).toEqual([
+        'DELETE /recipes/photos/9'
+      ])
+    );
+    await undoHistory.undoLast(); // Ctrl+Z, long after
+    reopened();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Photo');
+    await expect.element(page.getByText('Add a photo')).toBeVisible();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    const created = sent.find((r) => r.call === 'POST /recipes')!;
+    expect('photo_id' in JSON.parse(String(created.body))).toBe(false);
+  });
+});
+
 describe('an existing recipe', () => {
   const sambar = {
     id: 2,

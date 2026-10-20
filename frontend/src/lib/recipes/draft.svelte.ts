@@ -1,6 +1,7 @@
 // The recipe being typed in the editor. Nothing here is saved until Save (cabledrawer 19 Oct,
 // question 27): this is a copy of the recipe, changed freely, then sent whole.
 
+import { untrack } from 'svelte';
 import { ApiError } from '$lib/api';
 import {
   deletePhoto,
@@ -13,6 +14,7 @@ import {
   type RecipeOut
 } from '$lib/client/recipes';
 import type { Ref } from '$lib/client/types';
+import { toasts } from '$lib/toast.svelte';
 
 export const MAX_LINES = 200;
 export const MAX_STEPS = 100;
@@ -70,7 +72,7 @@ export interface DraftPhoto {
   change: PhotoChange;
   /** The picture being uploaded now. */
   uploading: File | null;
-  /** The file behind the upload, kept so Undo of a cancelled editor can upload it again. */
+  /** The file behind the upload. */
   file: File | null;
   error: string | null;
 }
@@ -168,8 +170,10 @@ export class RecipeDraft {
   /** The recipe as it was opened (null: a new one) and the version the save must name. */
   opened = $state<RecipeOut | null>(null);
   #initial = '';
-  /** Counts the times the editor was left, so an upload that lands after one knows. */
-  #leaves = 0;
+  /** Counts the picks (and the times the editor was given up), so an old upload knows it is old. */
+  #picks = 0;
+  /** Left with "Changes not saved": kept for Undo, so a finished upload is kept with it. */
+  #parked = false;
 
   static from(recipe: RecipeOut): RecipeDraft {
     const draft = new RecipeDraft();
@@ -271,13 +275,13 @@ export class RecipeDraft {
   /** Upload the picked photo at once; the answer's id goes in `photo_id` on Save. */
   async pickPhoto(file: File): Promise<void> {
     const before = this.photo.shown;
-    const leaves = this.#leaves;
+    const mine = ++this.#picks;
     this.photo = { ...this.photo, uploading: file, error: null };
     try {
       const uploaded = await uploadPhoto(file);
-      if (this.#leaves !== leaves) {
-        // The editor was left while this was going up: nobody will save it, so give its place
-        // back now rather than after 24 hours, and show nothing.
+      if (mine !== this.#picks) {
+        // The editor was given up (or another photo picked) while this was going up: nobody
+        // will save it, so give its place back now rather than after 24 hours, and show nothing.
         void deletePhoto(uploaded.id).catch(() => {});
         return;
       }
@@ -285,7 +289,7 @@ export class RecipeDraft {
       if (this.photo.change === 'new' && before) void deletePhoto(before.id).catch(() => {});
       this.photo = { shown: uploaded, change: 'new', uploading: null, file, error: null };
     } catch (error) {
-      if (this.#leaves !== leaves) return;
+      if (mine !== this.#picks) return;
       // The server's own words ("That photo is bigger than 15 MB."); the old photo stays.
       const message = error instanceof ApiError ? error.detail : 'Couldn’t upload the photo.';
       this.photo = { ...this.photo, uploading: null, error: message };
@@ -307,14 +311,41 @@ export class RecipeDraft {
   }
 
   /**
-   * The editor was cancelled or left: an upload that no recipe took gives its place back, and one
-   * still going up is deleted the moment it lands (see `pickPhoto`).
+   * The editor was given up and nothing can bring it back: an upload that no recipe took gives
+   * its place back, one still going up is deleted the moment it lands (see `pickPhoto`), and the
+   * photo goes back to how the recipe was opened, so a deleted upload's id is never sent.
    */
   discardUpload(): void {
-    this.#leaves++;
+    this.#picks++;
+    this.#parked = false;
     const shown = this.photo.shown;
-    if (this.photo.change === 'new' && shown) void deletePhoto(shown.id).catch(() => {});
-    if (this.photo.uploading) this.photo = { ...this.photo, uploading: null };
+    if (this.photo.change === 'new' && shown) {
+      void deletePhoto(shown.id).catch(() => {});
+      this.photo = {
+        shown: this.opened?.photo ?? null,
+        change: 'none',
+        uploading: null,
+        file: null,
+        error: null
+      };
+    } else if (this.photo.uploading) {
+      this.photo = { ...this.photo, uploading: null };
+    }
+  }
+
+  /** Cancelled with "Changes not saved": while Undo can still be used, the upload is kept. */
+  park(): void {
+    this.#parked = true;
+  }
+
+  /** Undo was used: the editor is open again, with its upload. */
+  resume(): void {
+    this.#parked = false;
+  }
+
+  /** Undo can no longer be used (its toast is gone, or another editor was opened). */
+  release(): void {
+    if (this.#parked) this.discardUpload();
   }
 
   // --- Sending --------------------------------------------------------------------------------
@@ -452,4 +483,23 @@ export class RecipeDraft {
     }
     return errors;
   }
+}
+
+/**
+ * "Changes not saved · Undo": once that toast is gone (timed out, or replaced by another), Undo
+ * is no longer offered, so the kept upload is deleted. Pressing Undo calls `resume()` first, so a
+ * draft that is open again is left alone.
+ */
+export function releaseWhenToastGoes(draft: RecipeDraft, toastId: number | undefined): void {
+  if (toastId === undefined) {
+    draft.release();
+    return;
+  }
+  const stop = $effect.root(() => {
+    $effect(() => {
+      if (toasts.current?.id === toastId) return;
+      untrack(() => draft.release());
+      queueMicrotask(() => stop());
+    });
+  });
 }

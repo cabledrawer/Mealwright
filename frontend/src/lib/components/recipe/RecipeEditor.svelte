@@ -32,7 +32,13 @@
   import { kitchen } from '$lib/freshness.svelte';
   import { network } from '$lib/network.svelte';
   import { autosize } from '$lib/recipes/autosize';
-  import { COUNT, NUTRIENTS, RecipeDraft, type Errors } from '$lib/recipes/draft.svelte';
+  import {
+    COUNT,
+    NUTRIENTS,
+    RecipeDraft,
+    releaseWhenToastGoes,
+    type Errors
+  } from '$lib/recipes/draft.svelte';
   import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '$lib/recipes/paths';
   import { fold, recipeSearch } from '$lib/recipes/search';
   import { takeKept, editorKey, keep, reopen } from '$lib/recipes/stash';
@@ -91,18 +97,6 @@
     if (kept) {
       draft = kept;
       loading = 'ready';
-      const file = kept.photo.change === 'new' ? kept.photo.file : null;
-      if (file) {
-        // The cancelled editor gave its upload's place back; upload the picture again.
-        kept.photo = {
-          shown: kept.opened?.photo ?? null,
-          change: 'none',
-          uploading: null,
-          file: null,
-          error: null
-        };
-        void kept.pickPhoto(file);
-      }
     } else if (recipeId === null) {
       draft = new RecipeDraft();
       draft.markSaved();
@@ -160,11 +154,16 @@
   /** Leave with unsaved changes: nothing is asked; Undo opens the editor again as it was. */
   function keepForUndo() {
     const d = draft;
-    // Even with nothing else changed, a photo still going up must not be left behind.
-    d?.discardUpload();
-    if (!d?.dirty) return;
+    if (!d) return;
+    if (!d.dirty) {
+      // Nothing to bring back, but a photo still going up must not be left behind.
+      d.discardUpload();
+      return;
+    }
+    // The upload stays for Undo; it goes once the toast does (or another editor is cancelled).
     keep(key, d);
-    undoHistory.record({
+    d.park();
+    const toast = undoHistory.record({
       label: 'Changes not saved',
       undo: () => {
         const path = editing ? editPage(recipeId!) : NEW_RECIPE;
@@ -175,6 +174,7 @@
         return false;
       }
     });
+    releaseWhenToastGoes(d, toast);
   }
 
   function cancel() {

@@ -10,6 +10,8 @@ let reopening: string | null = null;
 export const editorKey = (id: number | null) => (id === null ? 'new' : `edit:${id}`);
 
 export function keep(key: string, draft: RecipeDraft): void {
+  // Another editor was cancelled since: the first one's Undo is gone, so its upload goes.
+  if (kept && kept.draft !== draft) kept.draft.release();
   kept = { key, draft };
 }
 
@@ -17,6 +19,7 @@ export function keep(key: string, draft: RecipeDraft): void {
 export function reopen(key: string): boolean {
   if (kept?.key !== key) return false;
   reopening = key;
+  kept.draft.resume();
   return true;
 }
 
