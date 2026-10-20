@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 
 MAX_PIXELS = 50_000_000  # recent phones take 48 to 50 MP photos (cabledrawer 20 Oct)
 LARGE_SIDE = 1600  # longest side of the large copy
-LIST_SIDE = 156  # shortest side of the list copy: 52 px at 3x (Recipes-Phone)
+LIST_SIDE = 156  # shortest side of the list copy: 52 px at 3x (Recipes-Phone; cabledrawer 20 Oct)
 QUALITY = 85
 FORMATS = ("JPEG", "PNG", "WEBP")
 MAX_WAITING = 10  # uploads not saved on a recipe yet, per household (cabledrawer 20 Oct)
