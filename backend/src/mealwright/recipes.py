@@ -326,7 +326,8 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
         )
     _save_tags(kitchen, recipe, body.tags)
     _save_made_ahead(kitchen, recipe, body)
-    _save_photo(kitchen, recipe, body.photo_id)
+    if "photo_id" in body.model_fields_set:  # left out: the photo stays as it is
+        _save_photo(kitchen, recipe, body.photo_id)
     db.flush()
     return recipe
 

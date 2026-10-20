@@ -325,7 +325,8 @@ class RecipeIn(BaseModel):
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
     source_note: Annotated[str, Field(max_length=500)] | None = None
     # The recipe's photo: the id from `POST /recipes/photos`, or the one it has already.
-    # Left out or null: no photo (the one it had is deleted on Save).
+    # Left out: the photo stays as it is. null: no photo (the one it had is deleted on
+    # Save). A new id: that photo replaces it. (Lead's note, for cabledrawer to confirm.)
     photo_id: int | None = None
 
     @field_validator("name")

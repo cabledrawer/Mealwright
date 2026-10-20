@@ -617,11 +617,28 @@ def test_clearing_the_photo_deletes_it(kitchen: TestClient) -> None:
     assert files_of(kitchen) == []
 
 
-def test_leaving_photo_id_out_clears_it_too(kitchen: TestClient) -> None:
+def test_leaving_photo_id_out_keeps_the_photo(kitchen: TestClient) -> None:
     photo = kit.uploaded(kitchen)
     recipe = make(kitchen, photo_id=photo["id"])
     body = {"name": recipe["name"], "version": recipe["version"]}
+    saved = ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body))
+    assert saved["photo"] == photo and saved["version"] == recipe["version"] + 1
+    assert fetch(kitchen, photo).status_code == 200
+    assert len(files_of(kitchen)) == 2
+    # Left out on a new recipe: it has none.
+    assert make(kitchen, "Rasam")["photo"] is None
+
+
+def test_photo_id_null_removes_it_and_a_new_id_replaces_it(kitchen: TestClient) -> None:
+    first = kit.uploaded(kitchen)
+    recipe = make(kitchen, photo_id=first["id"])
+    second = kit.uploaded(kitchen, kit.png())
+    body = {"name": recipe["name"], "version": recipe["version"], "photo_id": second["id"]}
+    replaced = ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body))
+    assert replaced["photo"] == second and record(kitchen, first["id"]) is None
+    body = {"name": recipe["name"], "version": replaced["version"], "photo_id": None}
     assert ok(kitchen.put(f"{API}/recipes/{recipe['id']}", json=body))["photo"] is None
+    assert record(kitchen, second["id"]) is None
     assert files_of(kitchen) == []
 
 
