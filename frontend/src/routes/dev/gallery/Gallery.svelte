@@ -129,6 +129,7 @@
     kcal: null,
     stock: null,
     use_soon: null,
+    stock_unchecked: false,
     ...extra
   });
   const recipeRows: RecipeRow[] = [

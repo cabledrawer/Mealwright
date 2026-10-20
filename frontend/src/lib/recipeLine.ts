@@ -14,9 +14,14 @@ export interface Part {
   soon?: boolean;
 }
 
-/** "all in stock", "all in stock but 1", "2 missing"; nothing when no ingredient counts. */
-export function stockWords(stock: RecipeRow['stock']): string {
+/**
+ * "all in stock", "all in stock but 1", "2 missing"; nothing when no ingredient counts.
+ * When some line uses a recipe that isn't checked (`unchecked`), "all in stock" would say too
+ * much: it says only what is missing, and nothing when nothing is (cabledrawer 20 Oct).
+ */
+export function stockWords(stock: RecipeRow['stock'], unchecked = false): string {
   if (!stock || stock.counted === 0) return '';
+  if (unchecked) return stock.missing === 0 ? '' : `${stock.missing} missing`;
   if (stock.missing === 0) return 'all in stock';
   if (stock.missing === 1 && stock.counted > 1) return 'all in stock but 1';
   return `${stock.missing} missing`;
@@ -49,7 +54,7 @@ export function recipeParts(recipe: RecipeRow): Part[] {
   parts.push({
     text: recipe.kcal === null ? 'nutrition unknown' : `${Math.round(recipe.kcal)}${NBSP}kcal`
   });
-  const stock = stockWords(recipe.stock);
+  const stock = stockWords(recipe.stock, recipe.stock_unchecked);
   // Something about to go off is the better news; what is missing is still said.
   if (recipe.use_soon) parts.push({ text: useSoonWords(recipe.use_soon), soon: true });
   if (stock && (!recipe.use_soon || (recipe.stock?.missing ?? 0) > 0)) parts.push({ text: stock });

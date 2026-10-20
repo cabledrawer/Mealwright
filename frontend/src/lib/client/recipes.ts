@@ -30,6 +30,8 @@ export interface RecipeRow {
   kcal: number | null;
   stock: StockHint | null;
   use_soon: UseSoonHint | null;
+  /** Some line uses a recipe that isn't checked (not made ahead): never "all in stock". */
+  stock_unchecked: boolean;
 }
 
 export interface RecipePage {

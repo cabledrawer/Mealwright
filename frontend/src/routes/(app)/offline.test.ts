@@ -51,7 +51,7 @@ describe('the online-only screens, offline', () => {
   ] as const) {
     it(`${name} says it needs the server, with a Shopping button`, async () => {
       show(screen);
-      await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
       await expect
         .element(
           page.getByText(`${name} needs your Mealwright server — your shopping list works offline.`)
@@ -92,7 +92,7 @@ describe('the online-only screens, offline', () => {
       toasts.dismiss();
       addToPantry.close();
       show(Pantry);
-      await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
       const button = page.getByRole('button', { name, exact: true });
       await expect.element(button).toBeVisible();
       await expect.element(button).toBeEnabled();
@@ -110,7 +110,7 @@ describe('the online-only screens, offline', () => {
 
   it('Pantry fetches again once the connection is back', async () => {
     show(Pantry);
-    await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     const before = asked.length;
     network.offline = false;
     flushSync();

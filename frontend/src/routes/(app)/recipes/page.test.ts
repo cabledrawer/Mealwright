@@ -19,6 +19,7 @@ const row = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRo
   kcal: null,
   stock: null,
   use_soon: null,
+  stock_unchecked: false,
   ...extra
 });
 
@@ -245,7 +246,7 @@ describe('the All recipes page', () => {
   it('offline: says it needs the server, and asks for nothing', async () => {
     network.offline = true;
     open();
-    await expect.element(page.getByRole('heading', { name: "You're offline." })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     await expect
       .element(
         page.getByText('Recipes needs your Mealwright server — your shopping list works offline.')

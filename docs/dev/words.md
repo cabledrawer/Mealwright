@@ -106,7 +106,7 @@ All from spec principle 16 and "Offline shopping-list sync" (cabledrawer 17 to 1
 - **Bar, phone:** "Offline — 3 changes waiting" (singular "1 change waiting"), with "Try now". **Desktop:** "Offline", with "Try now", and under it "3 changes waiting. They'll save when you're back." In the collapsed sidebar a small dot that is also the "Try now" button.
 - **Back:** the toast "Back online — all saved" (short, goes by itself).
 - **Shopping subtitle:** "12 to buy · saved" when connected; offline "12 to buy · offline, saving on this phone" (on a computer "…on this computer"); extra lists "Extra list · 5 · offline".
-- **A screen that needs the server:** "You're offline." then "Pantry needs your Mealwright server — your shopping list works offline." (naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you're back online."
+- **A screen that needs the server:** "You’re offline." then "Pantry needs your Mealwright server — your shopping list works offline." (naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you're back online."
 - **A phone that has never loaded the list:** "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
 - **"Changes", never "actions", "operations" or "mutations"; "waiting", never "queued" or "pending".**
 
@@ -153,19 +153,19 @@ cabledrawer accepted all twelve recommendations on 19 Oct. **Built screen text i
 
 ## 12. All recipes (0.4, PR 3a)
 
-Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Recipes-Phone`, cabledrawer's answers of 19 and 20 Oct and the built screen (`frontend/src/routes/(app)/recipes/+page.svelte`, `frontend/src/lib/recipeLine.ts`). cabledrawer approves any change here.
+Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Recipes-Phone`, cabledrawer's answers of 19 and 20 Oct and the built screen (`frontend/src/routes/(app)/recipes/+page.svelte`, `frontend/src/lib/recipeLine.ts`). cabledrawer approved this section’s words (cabledrawer 20 Oct), and approves any change here.
 
 - **Title and count:** "Recipes", with "48 recipes" above it ("1 recipe"). The count is every recipe, whatever is searched or filtered.
 - **Buttons at the top:** "Ingredients" (phone). Not there yet: "+ New recipe" (comes with the editor), "Drafts" (drafts only come with import in 0.5; cabledrawer 20 Oct), "Planned Sun" (0.6).
 - **Search:** "Search recipes". It looks in recipe names, tags and ingredient names, other names included, never the method (cabledrawer 19 Oct, question 24).
 - **Filter row:** "All" · "Can cook now" · then the household's own tags, one chosen at a time.
 - **A recipe's line,** each part only when known, with a no-break space inside "50 min" and "320 kcal": `50 min · 320 kcal · all in stock but 1`. Calories say "nutrition unknown", never 0.
-- **Stock words:** "all in stock" · "all in stock but 1" (only when there is more than one ingredient) · "2 missing" ("1 missing" when its only ingredient is missing). Nothing when no ingredient has an amount.
+- **Stock words:** "all in stock" · "all in stock but 1" (only when there is more than one ingredient) · "2 missing" ("1 missing" when its only ingredient is missing). Nothing when no ingredient has an amount. **When a recipe uses another recipe that isn’t made ahead** (it can’t be checked yet), neither "all in stock" nor "all in stock but 1" is ever shown: it says "1 missing", "2 missing" when something that was checked is missing, and no stock words otherwise; such a recipe is also left out of "Can cook now". New wording approved (cabledrawer 20 Oct).
 - **Use soon:** "Uses spinach (today)", "Uses spinach and paneer (tomorrow)", "Uses spinach and 2 more (Mon)": ingredient names in lower case, the soonest day, in orange. If something is missing as well, it is said after: "Uses spinach (today) · all in stock but 1".
 - **Empty:** the heading "No recipes yet" and "Recipes you add will show here." (no button until the editor).
 - **Nothing found:** "No recipe matches “dal”." · "No recipe can be cooked with what is in stock right now." · "No recipes with that tag."
 - **Loading and failing:** "Loading…" · "Couldn’t load your recipes. Try again." with the button "Try again" · "Couldn’t load more recipes. Try again." · the button "Show more" after 50.
-- **Offline:** "You're offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as Pantry and Ingredients).
+- **Offline:** "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as Pantry and Ingredients).
 
 ---
 

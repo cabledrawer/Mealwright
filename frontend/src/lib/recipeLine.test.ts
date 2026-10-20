@@ -13,6 +13,7 @@ const recipe = (extra: Partial<RecipeRow> = {}): RecipeRow => ({
   kcal: 320,
   stock: { counted: 7, missing: 1, can_cook_now: false },
   use_soon: null,
+  stock_unchecked: false,
   ...extra
 });
 
@@ -60,6 +61,31 @@ describe('the line under a recipe', () => {
   });
 });
 
+describe('a recipe that uses a recipe that is not checked', () => {
+  // cabledrawer 20 Oct: never "all in stock" nor "all in stock but 1"; "N missing" if something
+  // checked is missing, otherwise no stock words.
+  const unchecked = (counted: number, missing: number) =>
+    recipe({ stock: { counted, missing, can_cook_now: false }, stock_unchecked: true });
+
+  it('never says all in stock, with or without one missing', () => {
+    expect(recipeLine(unchecked(7, 0))).toBe('50 min · 320 kcal');
+    expect(recipeLine(unchecked(7, 1))).toBe('50 min · 320 kcal · 1 missing');
+    expect(recipeLine(unchecked(7, 3))).toBe('50 min · 320 kcal · 3 missing');
+  });
+
+  it('says no stock words when nothing was checked', () => {
+    expect(recipeLine(recipe({ stock: null, stock_unchecked: true }))).toBe('50 min · 320 kcal');
+  });
+
+  it('still says what is about to go off', () => {
+    const row = {
+      ...unchecked(7, 0),
+      use_soon: { foods: [spinach], use_by: '2026-10-20', days_left: 0 }
+    };
+    expect(recipeLine(row)).toBe('50 min · 320 kcal · Uses spinach (today)');
+  });
+});
+
 describe('stock words', () => {
   const stock = (counted: number, missing: number) => ({
     counted,
@@ -72,6 +98,12 @@ describe('stock words', () => {
     expect(stockWords(stock(5, 1))).toBe('all in stock but 1');
     expect(stockWords(stock(5, 2))).toBe('2 missing');
     expect(stockWords(stock(1, 1))).toBe('1 missing'); // nothing at all is in stock
+  });
+
+  it('leaves out "all in stock" when some line is not checked', () => {
+    expect(stockWords(stock(5, 0), true)).toBe('');
+    expect(stockWords(stock(5, 1), true)).toBe('1 missing');
+    expect(stockWords(stock(5, 2), true)).toBe('2 missing');
   });
 
   it('says nothing when no ingredient counts', () => {
