@@ -1,7 +1,10 @@
 <script lang="ts">
   // Ingredients (mockups Ingredients-Phone, Ingredients-Desktop): every food, searchable
   // by any name, with the editor. Desktop shows the editor beside the list; phones open
-  // it as a sheet. Recipe counts and "Not in any recipe" wait for recipes (0.4).
+  // it as a sheet. Each row says how many recipes use it ("5 recipes"; "Used in 5 recipes" for a
+  // screen reader), and "Not in any recipe · 9" is a filter beside Staples (spec "Ingredients
+  // screen", cabledrawer 17 Oct; 0.4). On a Maybe-the-same row the Merge button takes the place of
+  // the count, as in the mockups.
   import { browser } from '$app/environment';
   import { page } from '$app/state';
   import { tick } from 'svelte';
@@ -13,6 +16,7 @@
   import IngredientEditor from '$lib/components/IngredientEditor.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
+  import UsedCount from '$lib/components/UsedCount.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import { IngredientChanges } from '$lib/ingredientChanges.svelte';
@@ -39,8 +43,13 @@
 
   const FILTERS: { value: FoodFilter; label: string }[] = [
     { value: 'all', label: 'All' },
-    { value: 'staples', label: 'Staples' }
+    { value: 'staples', label: 'Staples' },
+    { value: 'unused', label: 'Not in any recipe' }
   ];
+
+  /** The count on a filter chip that has one ("Not in any recipe · 9"); nothing until it is known. */
+  const chipCount = (value: FoodFilter): string =>
+    value === 'unused' && list.loaded && !list.problem ? ` · ${list.counts.unused}` : '';
 
   const isDesktop = () => browser && matchMedia('(min-width: 768px)').matches;
   let desktop = $state(isDesktop());
@@ -224,7 +233,7 @@
               type="button"
               class="filter"
               aria-pressed={list.filter === f.value}
-              onclick={() => (list.filter = f.value)}>{f.label}</button
+              onclick={() => (list.filter = f.value)}>{f.label}{chipCount(f.value)}</button
             >
           {/each}
           {#if !desktop}
@@ -248,7 +257,7 @@
 
       <div class="card">
         <div class="heads" aria-hidden="true">
-          <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span></span>
+          <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span>Recipes</span>
         </div>
         {#if list.foods.length}
           <ul>
@@ -274,6 +283,8 @@
                 <span class="end">
                   {#if maybe}
                     <button type="button" class="merge" onclick={() => merge(food)}>Merge</button>
+                  {:else}
+                    <UsedCount count={food.used_in_recipes ?? 0} />
                   {/if}
                 </span>
               </li>
@@ -288,6 +299,8 @@
           <p class="nothing">Loading…</p>
         {:else if list.query.trim()}
           <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
+        {:else if list.filter === 'unused'}
+          <p class="nothing">Every ingredient is in a recipe.</p>
         {:else if list.filter !== 'all'}
           <p class="nothing">Nothing here right now.</p>
         {:else}
@@ -546,6 +559,10 @@
     font-weight: var(--weight-bold);
   }
 
+  .end {
+    flex: none;
+  }
+
   .merge {
     position: relative; /* above the row's click area */
     min-height: var(--touch-target);
@@ -702,6 +719,10 @@
       display: grid;
       grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.9fr) 80px;
       column-gap: 14px;
+    }
+
+    .heads span:last-child {
+      text-align: right;
     }
 
     .heads {

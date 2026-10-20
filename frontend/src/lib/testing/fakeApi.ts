@@ -82,6 +82,9 @@ export function toorDal(overrides: Partial<Food> = {}): Food {
     maybe_same: [],
     stock: null,
     last_change: null,
+    used_in_recipes: 0,
+    used_in: [],
+    made_by: null,
     ...overrides
   };
 }
@@ -97,7 +100,8 @@ export function rowOf(food: Food): FoodRow {
     counted_as_display: food.staple ? 'Staple' : 'Packets · 500 g',
     place: food.place,
     stand_ins: food.stand_ins,
-    maybe_same: food.maybe_same
+    maybe_same: food.maybe_same,
+    used_in_recipes: food.used_in_recipes
   };
 }
 

@@ -98,9 +98,11 @@ export interface FoodRow extends Ref {
   place: Ref | null;
   stand_ins: Ref[];
   maybe_same: MaybeSame[];
+  /** How many recipes have a line for it (0.4). Left out of the rows the shopping list's search builds on the phone. */
+  used_in_recipes?: number;
 }
 
-export type FoodFilter = 'all' | 'staples' | 'maybe_same';
+export type FoodFilter = 'all' | 'staples' | 'maybe_same' | 'unused';
 
 export interface FoodList {
   total: number;
@@ -140,6 +142,11 @@ export interface Food extends Ref {
   last_change: { id: number; summary: string; can_undo: boolean } | null;
   /** Set when an old (merged-away) id was asked for. */
   merged_from?: Ref;
+  /** How many recipes have a line for it, and which (A to Z). */
+  used_in_recipes: number;
+  used_in: Ref[];
+  /** The recipe whose own made-ahead ingredient this is: it can't be removed while that is on. */
+  made_by: Ref | null;
 }
 
 /** The answer to every food write. `change` is null when nothing changed. */

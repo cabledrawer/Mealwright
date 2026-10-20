@@ -29,7 +29,7 @@ vi.mock('$app/state', () => ({
   }
 }));
 
-const dal = toorDal();
+const dal = toorDal({ used_in_recipes: 5 });
 const sticks = toorDal({
   id: 40,
   name: 'Drumsticks (moringa)',
@@ -48,15 +48,17 @@ describe('the Ingredients page', () => {
     toasts.dismiss();
     requests = fakeApi({
       'GET /foods': (request) => {
-        const q = new URLSearchParams(request.url.split('?')[1]).get('q');
-        const foods = [rowOf(sticks), rowOf(dal)].filter(
+        const params = new URLSearchParams(request.url.split('?')[1]);
+        const q = params.get('q');
+        // Every ingredient is in a recipe, so “Not in any recipe” finds none.
+        const foods = (params.get('filter') === 'unused' ? [] : [rowOf(sticks), rowOf(dal)]).filter(
           (f) => !q || f.name.toLowerCase().includes(q) || f.other_names.some((n) => n.includes(q))
         );
         return [
           200,
           {
             total: 2,
-            counts: { all: 2, staples: 0, maybe_same: 2, maybe_same_pairs: 1 },
+            counts: { all: 2, staples: 0, unused: 9, maybe_same: 2, maybe_same_pairs: 1 },
             foods,
             next: null
           }
@@ -146,6 +148,40 @@ describe('the Ingredients page', () => {
     await vi.waitFor(() =>
       expect(requests.some((r) => r.url === '/foods?filter=staples&limit=50')).toBe(true)
     );
+  });
+
+  it('says how many recipes use each ingredient, where there are any', async () => {
+    // “5 recipes” on a phone row; a screen reader hears “Used in 5 recipes”.
+    const row = page.getByRole('listitem').filter({ hasText: 'Toor dal' });
+    await expect.element(row).toBeVisible();
+    expect(row.element().textContent).toMatch(/Used in 5 recipes$/);
+    const used = row.element().querySelector('.used')!.cloneNode(true) as HTMLElement;
+    used.querySelector('.visually-hidden')!.remove();
+    expect(used.textContent!.replace(/\s+/g, ' ').trim()).toBe('5 recipes');
+    // A Maybe-the-same row has its Merge button there instead, as in the mockups; nothing is
+    // said about an ingredient no recipe uses.
+    const maybe = page.getByRole('listitem').filter({ hasText: 'Drumsticks (moringa)' });
+    expect(maybe.getByText(/recipe/).elements()).toHaveLength(0);
+  });
+
+  it('“Not in any recipe · 9” is a filter beside Staples, and asks the server for it', async () => {
+    const chip = page.getByRole('button', { name: 'Not in any recipe · 9' });
+    await expect.element(chip).toBeVisible();
+    const chips = Array.from(document.querySelectorAll('.filters button')).map((b) =>
+      b.textContent?.trim()
+    );
+    expect(chips.slice(0, 3)).toEqual(['All', 'Staples', 'Not in any recipe · 9']);
+    await expect.element(chip).toHaveAttribute('aria-pressed', 'false');
+    await chip.click();
+    await expect.element(chip).toHaveAttribute('aria-pressed', 'true');
+    await vi.waitFor(() =>
+      expect(requests.some((r) => r.url === '/foods?filter=unused&limit=50')).toBe(true)
+    );
+  });
+
+  it('says so calmly when every ingredient is in a recipe', async () => {
+    await page.getByRole('button', { name: 'Not in any recipe · 9' }).click();
+    await expect.element(page.getByText('Every ingredient is in a recipe.')).toBeVisible();
   });
 
   it('Merge on a Maybe-the-same row merges straight away, with Undo', async () => {
