@@ -7,10 +7,11 @@
   // Light or dark: use the Theme switch at the top (the colours are page-wide, so there
   // is one theme at a time).
   //
-  // Not shown yet (they need the server's answers): the ingredient editor and its sheet,
-  // "Add to pantry", the ingredient picker and the Shopping list's rows, pack sheet, list
-  // picker, put-away panel and "Did you buy 2?" card. They get a place here when the
-  // gallery can fake those answers.
+  // Not shown yet (they need the server's answers): the ingredient editor and its sheet
+  // (but its "Used in N recipes" and "Remove from Ingredients" parts are below), "Add to
+  // pantry", the ingredient picker and the Shopping list's rows, pack sheet, list picker,
+  // put-away panel and "Did you buy 2?" card. They get a place here when the gallery can
+  // fake those answers.
   import AskOnce from '$lib/components/AskOnce.svelte';
   import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -31,6 +32,9 @@
   import RemoveConfirm from '$lib/components/shopping/RemoveConfirm.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
+  import RemoveIngredient from '$lib/components/RemoveIngredient.svelte';
+  import UsedCount from '$lib/components/UsedCount.svelte';
+  import UsedInRecipes from '$lib/components/UsedInRecipes.svelte';
   import KeepAwake from '$lib/components/KeepAwake.svelte';
   import MissingBar from '$lib/components/MissingBar.svelte';
   import NutritionStrip from '$lib/components/NutritionStrip.svelte';
@@ -197,6 +201,20 @@
     remove: saved
   } as unknown as ShoppingModel;
   let asking = $state(false);
+
+  // --- Ingredients and recipes -------------------------------------------------------------
+  const usedIn = [
+    'Dal tadka',
+    'Dosa batter',
+    'Lemon rice',
+    'Rasam',
+    'Sambar',
+    'Sambar powder',
+    'Tomato rasam'
+  ].map((name, i) => ({ id: i + 1, name }));
+  const longRecipe =
+    'Spiced roasted cauliflower with tahini, pomegranate and a very long name that keeps going';
+  const removeDemo = () => toasts.show('Gallery: nothing is removed here.');
 
   // --- Recipes ------------------------------------------------------------------------------
   const recipe = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRow => ({
@@ -476,6 +494,7 @@
     <a href="#recipes">Recipes</a>
     <a href="#recipe-page">Recipe page</a>
     <a href="#recipe-panes">Desktop panes</a>
+    <a href="#ingredient-recipes">Ingredients and recipes</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#icons">Icons</a>
@@ -800,6 +819,51 @@
         </div>
       </div>
       <div class="reading-demo"><ChooseRecipe /></div>
+    </div>
+  </section>
+
+  <section id="ingredient-recipes">
+    <h2>Ingredients and the recipes that use them</h2>
+    <p class="note">
+      In the Ingredients list each row ends with how many recipes use the ingredient ("5 recipes" on
+      a phone; the number alone under "Recipes" on a computer; nothing when none do). In the
+      ingredient editor, "Used in N recipes" links to each recipe (a long list is folded behind "+ 2
+      more"), and "Remove from Ingredients" says how many recipes use it first: they don't block it,
+      their lines keep their words and show "not linked". A recipe's own made-ahead ingredient says
+      why it can't be removed instead.
+    </p>
+    <div class="stack">
+      <h3>The count at the end of a row</h3>
+      <div class="row">
+        <UsedCount count={0} />
+        <UsedCount count={1} />
+        <UsedCount count={5} />
+        <UsedCount count={214} />
+      </div>
+      <h3>Used in recipes (editor)</h3>
+      <div class="narrow stack">
+        <UsedInRecipes recipes={[]} count={0} />
+        <UsedInRecipes recipes={[{ id: 1, name: 'Sambar' }]} count={1} />
+        <UsedInRecipes recipes={usedIn.slice(0, 3)} count={3} />
+        <UsedInRecipes recipes={usedIn} count={usedIn.length} />
+        <UsedInRecipes recipes={[{ id: 9, name: longRecipe }]} count={1} />
+      </div>
+      <h3>Remove from Ingredients (editor)</h3>
+      <div class="narrow stack">
+        <RemoveIngredient usedIn={0} madeBy={null} removable onremove={removeDemo} />
+        <RemoveIngredient usedIn={1} madeBy={null} removable onremove={removeDemo} />
+        <RemoveIngredient usedIn={3} madeBy={null} removable onremove={removeDemo} />
+        <RemoveIngredient
+          usedIn={1}
+          madeBy={{ id: 4, name: 'Dosa batter' }}
+          removable
+          onremove={removeDemo}
+        />
+        <p class="note">
+          (Some of it in the pantry, or on a shopping list: nothing is drawn, as before.)
+        </p>
+        <RemoveIngredient usedIn={2} madeBy={null} removable={false} onremove={removeDemo} />
+      </div>
     </div>
   </section>
 

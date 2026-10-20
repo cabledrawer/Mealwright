@@ -244,6 +244,19 @@ Giving a ticked line with no amount its first amount ("How much?" → "Different
 
 ---
 
-## 16. Not covered yet (for later versions of this list)
+## 16. Ingredients and the recipes that use them (0.4, PR 6)
+
+**Proposed, for cabledrawer** (written by Claude Code on 20 Oct from the mockups `Ingredients-Phone` and `Ingredients-Desktop`, the spec's "Ingredients screen" and "Removing an ingredient", and cabledrawer's answers of 19 Oct, questions 20 and 30). Words that are new are marked "new". cabledrawer approves any change here.
+
+- **A row in the Ingredients list:** "5 recipes" at its end on a phone ("1 recipe" for one), just the number under a "Recipes" heading on a computer, nothing when no recipe uses it. Screen readers hear "Used in 5 recipes". On a Maybe-the-same row the Merge button is there instead, as in the mockups.
+- **The filter:** "Not in any recipe · 9" beside All and Staples (the count comes from the server). When there are none: "Every ingredient is in a recipe." (new).
+- **In the editor:** the heading "Used in 5 recipes" ("Used in 1 recipe"), then each recipe's name as a link to its page. More than five: "+ 2 more" (screen readers: "+ 2 more recipes"), then "Show fewer". An ingredient no recipe uses: the heading "Used in recipes" and "Not in any recipe yet." (new).
+- **"Remove from Ingredients"** says first, in small text above the button: "Used in 3 recipes. Their lines keep their words and show “not linked”." (one: "Used in 1 recipe. Its line keeps its words and shows “not linked”.") (new; the first sentence is the spec's, cabledrawer 19 Oct). The toast and Undo are as everywhere: "Removed Toor dal from Ingredients" · Undo · "Undone: Removed Toor dal from Ingredients".
+- **A recipe's own made-ahead ingredient** has no remove button, and says "Made by the recipe Dosa batter. Turn off Made ahead there to remove it." with the recipe's name as a link (the spec's words, cabledrawer 19 Oct).
+- **Hidden still** (hidden, not stubbed): "Recipes for these" on Pantry's Use soon card (it needs a way to ask for recipes that use what is about to go off), tubs (0.6).
+
+---
+
+## 17. Not covered yet (for later versions of this list)
 
 Recipe editor, Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

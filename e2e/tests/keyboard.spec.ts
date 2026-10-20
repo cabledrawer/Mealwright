@@ -144,6 +144,31 @@ test.describe('signed in', () => {
     await checkKeyboard(page, 'Ingredients');
   });
 
+  test('Ingredients, with the editor open on one that recipes use', async ({ page }) => {
+    // The editor beside the list has the “Used in 6 recipes” links and “Remove from Ingredients”.
+    const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+    const made = async (path: string, data: object) =>
+      (await (await page.request.post(`/api/v1${path}`, { data, headers: key() })).json()) as Record<string, any>;
+    const stamp = Date.now().toString(36);
+    const dal = (await made('/foods', { name: `Keyboard used ${stamp}`, counted_as: 'weight' })).food.id;
+    for (let i = 0; i < 6; i++) {
+      await made('/recipes', {
+        name: `Keyboard used in ${i} ${stamp}`,
+        lines: [{ words: 'dal', food_id: dal, amount: 100, unit: 'g' }],
+      });
+    }
+    await page.goto('/recipes/ingredients');
+    await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(`Keyboard used ${stamp}`);
+    await page
+      .getByRole('region', { name: 'All ingredients' })
+      .getByRole('button', { name: new RegExp(`^Keyboard used ${stamp}`) })
+      .click();
+    const editor = page.getByRole('complementary', { name: `Edit Keyboard used ${stamp}` });
+    await expect(editor.getByRole('heading', { name: 'Used in 6 recipes' })).toBeVisible();
+    await expect(editor.getByRole('button', { name: '+ 1 more recipe' })).toBeVisible();
+    await checkKeyboard(page, 'Ingredients with the editor open');
+  });
+
   test('All recipes', async ({ page }) => {
     // One recipe at least, so there is a list and a filter row to Tab through.
     await page.request.post('/api/v1/recipes', {

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PORTS, SHOTS_AUTH_FILE, local } from './servers.ts';
 
-// Saved screenshots (spec "Keeping the UI good", item 6): Pantry, Shopping, All recipes and the recipe page, phone-light
+// Saved screenshots (spec "Keeping the UI good", item 6): Pantry, Shopping, All recipes, the recipe page and Ingredients, phone-light
 // (390 × 844) and desktop-dark (1440 × 900), both taken at two device pixels per screen pixel
 // (so the images are 780 × 1688 and 2880 × 1800), each compared with the approved image saved in
 // tests/screens.spec.ts-snapshots/. ./check fails if one changes.
@@ -103,4 +103,17 @@ test('The recipe page looks the way it was approved', async ({ page }) => {
   await expect(page.getByText('Cupboard').first()).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot('recipe.png', { scale: 'device' });
+});
+
+test('Ingredients looks the way it was approved', async ({ page }) => {
+  await page.goto('/recipes/ingredients');
+  await expect(page.getByRole('heading', { name: 'Ingredients', level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Not in any recipe · \d+$/ })).toBeVisible();
+  // Some rows say how many recipes use them, and on a computer the first one's editor lists them.
+  await expect(page.getByText(/^Used in \d+ recipes?$/).first()).toBeAttached();
+  if (page.viewportSize()!.width >= 768) {
+    await expect(page.getByRole('complementary', { name: /^Edit/ }).getByRole('heading', { name: /^Used in/ })).toBeVisible();
+  }
+  await settle(page);
+  await expect(page).toHaveScreenshot('ingredients.png', { scale: 'device' });
 });
