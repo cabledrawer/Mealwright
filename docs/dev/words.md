@@ -232,6 +232,18 @@ Giving a ticked line with no amount its first amount ("How much?" → "Different
 
 ---
 
-## 15. Not covered yet (for later versions of this list)
+## 15. Recipes on a computer (0.4, PR 4)
+
+**Proposed, for cabledrawer** (written by Claude Code on 20 Oct from the mockups `Desktop-Recipe` and `Dark-Recipe`, cabledrawer's answers of 19 and 20 Oct, and the built screens `frontend/src/routes/(app)/recipes/+layout.svelte`, `frontend/src/lib/components/RecipeListScreen.svelte` and `ChooseRecipe.svelte`). Everything from sections 12 and 13 is reused as it is; only what is new is listed. cabledrawer approves any change here.
+
+- **The three panes:** the sidebar, then All recipes (title "Recipes", the count above it, search, the filter row and the rows as in section 12, no Ingredients button because the sidebar has it), then the recipe (section 13). The open recipe's row is marked. Screen readers hear the panes as "Recipe list" and "Recipe".
+- **No recipe open (`/recipes` on a computer):** the heading "Choose a recipe" and "Pick one from the list to read it here." (new; the lead's note: the other choice was to open the first recipe). With no recipes at all the reading pane says nothing: the list already says "No recipes yet".
+- **Offline:** one note for both panes: the title "Recipes", "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as section 12).
+- **Where the three panes fit (lead's note, for cabledrawer to confirm):** from 1024 px wide with the sidebar open, or 848 px with it collapsed. Narrower (a tablet held upright), Recipes shows one page at a time with the sidebar, as before; under 768 px it is the phone's layout.
+- **Not on these screens yet** (hidden, not stubbed): "+ New recipe" and Edit (the editor), "Import a recipe" (0.5), "Drafts · 3 unfinished imports" in the list (the sidebar's Drafts entry stays as it was), "Plan it", "Start cooking", "Cook once, eat for…", the photo.
+
+---
+
+## 16. Not covered yet (for later versions of this list)
 
 Recipe editor, Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).
