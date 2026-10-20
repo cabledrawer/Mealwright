@@ -158,22 +158,24 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 
 ```json
 { "kcal": 320, "stock": { "counted": 7, "missing": 1, "can_cook_now": false },
-  "use_soon": { "foods": [{ "id": 3, "name": "Spinach" }], "use_by": "2026-10-20", "days_left": 0 } }
+  "use_soon": { "foods": [{ "id": 3, "name": "Spinach" }], "use_by": "2026-10-20", "days_left": 0 },
+  "stock_unchecked": false }
 ```
 
 - `kcal` is per serving; `null` is unknown (the screen says "nutrition unknown"), `0` is a real zero.
-- `stock` is `null` when no ingredient line counts. `use_soon` is `null` when nothing the recipe uses is about to go off.
+- `stock` is `null` when no ingredient line counts. `use_soon` is `null` when nothing the recipe uses is about to go off. `stock_unchecked` is `true` when some line uses a recipe that isn't checked (below); then the screen never says "all in stock", so it doesn't guess.
 
-**What counts as "in stock".** cabledrawer's answer (19 Oct, question 22): an ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, if the two amounts can be compared; if they can't, **any stock counts**. The rest below is the spec's or the lead's note, as marked.
+**What counts as "in stock".** cabledrawer's answer (19 Oct, question 22): an ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, if the two amounts can be compared; if they can't, **any stock counts**. cabledrawer's answers of 20 Oct (1 to 5) are marked. The rest is the spec's, as marked.
 
-- Only ingredient lines **with an amount** count; headings, lines with no amount such as "salt to taste", and lines linked to nothing never do (lead's note, waiting for cabledrawer). `counted` is the number of different ingredients that count; `missing` how many of those are not in stock. A recipe whose lines all lack amounts gets no hint and is not in Can cook now (lead's note, waiting for cabledrawer).
+- Only ingredient lines **with an amount** count. A line with no amount, such as "salt to taste", never counts towards stock (cabledrawer 19 Oct, question 13); headings don't count (cabledrawer 20 Oct); a line linked to nothing has nothing to check. `counted` is the number of different ingredients that count; `missing` how many of those are not in stock. A recipe where no line counts gets no hint (`stock` is `null`) and is not in Can cook now (cabledrawer 20 Oct).
 - A **staple** always counts as in stock (the spec, Stock section: "Staples: assumed in stock, not quantity-tracked").
 - Any other ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, when the two amounts can be compared (the line's unit or size against the ingredient's own, using the household's cup size and the weights it knows) (cabledrawer, Q22). Several lines for one ingredient are added up. When they can't be compared (a cup of something with no known weight, a pinch), **any stock counts** (cabledrawer, Q22).
-- Stock in every place counts, the freezer too (lead's note, waiting for cabledrawer).
-- A line that uses a recipe **marked Made ahead** is checked against that recipe's own pantry ingredient (lead's note, waiting for cabledrawer). A line that uses any other recipe is not checked: it doesn't count, so the recipe can still say "all in stock" (shopping through it comes with 0.6; lead's note, waiting for cabledrawer).
-- `can_cook_now` is: something counts and nothing is missing. A recipe where nothing counts is not "Can cook now" (lead's note, waiting for cabledrawer).
+- Stock in every place counts, the freezer too (cabledrawer 20 Oct).
+- A line that uses a recipe **marked Made ahead** is checked against that recipe's own pantry ingredient (cabledrawer 20 Oct).
+- A line that uses **any other recipe** (not made ahead; or made ahead but with no pantry ingredient yet; or a removed recipe), with an amount or not, is **not checked** for now: inner recipes are checked in a later version (cabledrawer 20 Oct). Such a recipe has `stock_unchecked: true`, and then: it is **never in Can cook now** (`can_cook_now` is `false`, and the filter leaves it out); its hint **never says "all in stock"**, and **not "all in stock but 1" either**; the screen says "N missing" when something that was checked is missing, and no stock words otherwise (cabledrawer 20 Oct). Two levels deep, the outer recipe is unchecked if its direct line is not made ahead; a made-ahead inner recipe works as before, whatever it uses itself.
+- `can_cook_now` is: something counts, nothing is missing, and no line is left unchecked (cabledrawer 20 Oct).
 
-**Use soon (lead's note, waiting for cabledrawer):** `use_soon` names the ingredients the recipe uses (lines that count, as above) that have a packet with a use-by date from today up to the household's Use soon limit (today, tomorrow or the day after: spec, Stock). Only the ingredients with the **soonest** date are named, so one date always goes with them. A packet whose date has passed is not a nudge and is left out.
+**Use soon (cabledrawer 20 Oct):** `use_soon` names the ingredients the recipe uses (lines that count, as above) that have a packet with a use-by date from today up to the household's Use soon limit (today, tomorrow or the day after: spec, Stock). Only the ingredients with the **soonest** date are named, so one date always goes with them. A packet whose date has passed is not a nudge and is left out.
 
 "Planned Sun" waits for 0.6.
 
