@@ -459,11 +459,13 @@ RECIPE_TABLES = {
     "recipe_photo",
 }
 BEFORE_RECIPES = "f509d7a1c609"  # 0.3.0
+RECIPES = "c5e8a1f3b7d2"  # 0.4's first pull request
 
 
 def _with_recipes(engine: Engine) -> None:
     """A recipe in each household, with a line that uses the other recipe, a step, a tag
-    and a photo record."""
+    and a photo record, put in at RECIPES and then upgraded to the newest migration."""
+    migrate.upgrade(engine, RECIPES)
     with engine.begin() as connection:
         for h in (1, 2):
             for sql in (
@@ -482,6 +484,7 @@ def _with_recipes(engine: Engine) -> None:
                 " '2026-10-19', 'User')",
             ):
                 connection.execute(text(sql), {"h": h})
+    migrate.upgrade(engine)
 
 
 def test_recipes_migration_adds_the_tables_and_keeps_everything_else(tmp_path: Path) -> None:
@@ -500,7 +503,6 @@ def test_recipes_migration_adds_the_tables_and_keeps_everything_else(tmp_path: P
 
 def test_recipes_migration_downgrades_and_upgrades_again(tmp_path: Path) -> None:
     engine = _make_0_2_database(tmp_path / "old.db")
-    migrate.upgrade(engine)
     _with_recipes(engine)
     migrate.downgrade(engine, BEFORE_RECIPES)
     assert not RECIPE_TABLES & set(inspect(engine).get_table_names())
@@ -517,7 +519,6 @@ def test_recipe_rows_follow_their_household_and_the_database_keeps_the_rules(
     tmp_path: Path,
 ) -> None:
     engine = _make_0_2_database(tmp_path / "old.db")
-    migrate.upgrade(engine)
     _with_recipes(engine)
     # A line may point at an ingredient or at a recipe, not both; serves is 1 to 99; a
     # recipe has one photo.
@@ -529,8 +530,9 @@ def test_recipe_rows_follow_their_household_and_the_database_keeps_the_rules(
         "INSERT INTO recipe (household_id, name, serves, version, created_at, updated_at,"
         " updated_by_name, made_ahead) VALUES (1, 'Big', 100, 1, '2026-10-19', '2026-10-19',"
         " '', 0)",
-        "INSERT INTO recipe_photo (household_id, recipe_id, file_key, width, height, bytes,"
-        " added_at, added_by_name) VALUES (1, 1, 'second', 1, 1, 1, '2026-10-19', '')",
+        "INSERT INTO recipe_photo (household_id, recipe_id, file_key, width, height,"
+        " list_width, list_height, bytes, added_at, added_by_name)"
+        " VALUES (1, 1, 'second', 1, 1, 1, 1, 1, '2026-10-19', '')",
     )
     for sql in bad:
         with pytest.raises(IntegrityError), engine.begin() as connection:
@@ -568,3 +570,67 @@ def test_recipe_tables_never_reuse_an_id(tmp_path: Path) -> None:
                 "SELECT sql FROM sqlite_master WHERE name = ?", (table,)
             ).scalar_one()
             assert "AUTOINCREMENT" in sql, table
+
+
+PHOTO_UPLOADS = "97d61f9dd082"  # 0.4's photos pull request
+
+
+def _photos(engine: Engine) -> list[tuple[object, ...]]:
+    with engine.connect() as connection:
+        return [
+            tuple(row)
+            for row in connection.exec_driver_sql(
+                "SELECT id, household_id, recipe_id, file_key, width, height FROM recipe_photo"
+                " ORDER BY id"
+            )
+        ]
+
+
+def test_photo_uploads_migration_keeps_a_recipe_database_and_goes_back(tmp_path: Path) -> None:
+    """A database already at the recipes migration, with a recipe and its photo record,
+    gets the new columns; going back keeps the saved photo and forgets unsaved uploads."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)  # put in at RECIPES, then upgraded to the newest
+    before = [(1, 1, 1, "abc", 800, 600), (2, 2, 2, "abc", 800, 600)]
+    assert _photos(engine) == before
+    with engine.begin() as connection:
+        sizes = connection.exec_driver_sql("SELECT list_width, list_height FROM recipe_photo").all()
+        assert [tuple(row) for row in sizes] == [(0, 0), (0, 0)]
+        # An upload that isn't on a recipe yet: allowed now, more than one per household.
+        for key in ("u1", "u2"):
+            connection.execute(
+                text(
+                    "INSERT INTO recipe_photo (household_id, recipe_id, file_key, width, height,"
+                    " list_width, list_height, bytes, added_at, added_by_name)"
+                    " VALUES (1, NULL, :key, 10, 10, 10, 10, 1, '2026-10-20', '')"
+                ),
+                {"key": key},
+            )
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one() == 2
+    columns = {c["name"]: c for c in inspect(engine).get_columns("recipe_photo")}
+    assert columns["recipe_id"]["nullable"] is True
+    assert columns["list_width"]["default"] is None
+
+    migrate.downgrade(engine, RECIPES)
+    assert _photos(engine) == before
+    columns = {c["name"]: c for c in inspect(engine).get_columns("recipe_photo")}
+    assert "list_width" not in columns
+    assert columns["recipe_id"]["nullable"] is False
+    migrate.upgrade(engine)
+    assert _photos(engine) == before
+    assert migrate_head(engine) == PHOTO_UPLOADS
+    with engine.connect() as connection:
+        sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'recipe_photo'"
+        ).scalar_one()
+        indexes = {i["name"] for i in inspect(engine).get_indexes("recipe_photo")}
+    assert "AUTOINCREMENT" in sql
+    assert "ix_recipe_photo_household_id" in indexes
+
+
+def migrate_head(engine: Engine) -> str:
+    with engine.connect() as connection:
+        return str(
+            connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
+        )

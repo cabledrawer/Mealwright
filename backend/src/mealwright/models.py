@@ -736,8 +736,11 @@ class RecipeTag(Base):
 
 
 class RecipePhoto(Base):
-    """The record of a recipe's one photo. The files live on the data volume, in a folder per
-    household, under `file_key`; photos are added by the photos pull request."""
+    """A recipe's one photo (cabledrawer 19 Oct, questions 6, 8, 36 and 37). Only the cleaned
+    copies are kept, never the uploaded file: two JPEGs on the data volume, in the
+    household's own folder, under a random `file_key` (mealwright.photos). An upload is
+    saved here at once with no recipe; the recipe's own Save attaches it (cabledrawer 20 Oct),
+    and an upload no recipe took within 24 hours is deleted by the hourly job."""
 
     __tablename__ = "recipe_photo"
     __table_args__ = ({"sqlite_autoincrement": True},)
@@ -746,11 +749,18 @@ class RecipePhoto(Base):
     household_id: Mapped[int] = mapped_column(
         ForeignKey("household.id", ondelete="CASCADE"), index=True
     )
-    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"), unique=True)
-    # A random name; the file is `<household_id>/<file_key>.jpg` (and `-small.jpg`).
+    # Null: uploaded, not saved on a recipe yet.
+    recipe_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe.id", ondelete="CASCADE"), unique=True
+    )
+    # A random name; the files are `photos/<household_id>/<file_key>.jpg` and
+    # `<file_key>-list.jpg` in the data folder.
     file_key: Mapped[str] = mapped_column(String(64))
+    # The large copy (longest side at most 1600 px) and the list copy.
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
-    bytes: Mapped[int] = mapped_column(Integer)
+    list_width: Mapped[int] = mapped_column(Integer)
+    list_height: Mapped[int] = mapped_column(Integer)
+    bytes: Mapped[int] = mapped_column(Integer)  # both files together
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     added_by_name: Mapped[str] = mapped_column(String(100), default="")
