@@ -135,6 +135,13 @@ test.describe('signed in', () => {
     await checkKeyboard(page, 'Ingredients');
   });
 
+  test('All recipes', async ({ page }) => {
+    await page.goto('/recipes');
+    await expect(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Show' })).toBeVisible();
+    await checkKeyboard(page, 'All recipes');
+  });
+
   test('Settings', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();

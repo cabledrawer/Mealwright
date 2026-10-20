@@ -1,0 +1,275 @@
+import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
+
+// The All recipes page (0.4, PR 3a), against the real server: the rows and their stock lines,
+// search, the filter row, and every state of the screen (spec "Keeping the UI good", item 2):
+// empty, loading, failed, offline, one, many, long names and text at 200%. Runs in the
+// "phone 0.4 recipes" and "desktop 0.4 recipes" projects, signed in as the test admin.
+//
+// Recipes and ingredients are made through the API with names that are unique to the test, and
+// each test searches for its own, so tests don't trip over each other or over other files.
+
+const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+
+async function call(page: Page, method: 'POST' | 'PUT', path: string, data: object, status = 201) {
+  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
+  expect(response.status(), `${method} ${path}: ${await response.text()}`).toBe(status);
+  return (await response.json()) as Record<string, any>;
+}
+
+const unique = (page: Page, word: string) =>
+  `${word} ${test.info().project.name.startsWith('phone') ? 'p' : 'd'}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+
+async function makeFood(page: Page, name: string, extra: object = {}) {
+  const made = await call(page, 'POST', '/foods', { name, counted_as: 'weight', ...extra });
+  return made.food.id as number;
+}
+
+async function putInPantry(page: Page, foodId: number, grams: number, extra: object = {}) {
+  await call(page, 'POST', '/stock', { food_id: foodId, amount: { amount: grams, unit: 'g' }, ...extra });
+}
+
+async function makeRecipe(page: Page, body: object) {
+  return call(page, 'POST', '/recipes', body);
+}
+
+const line = (foodId: number, grams: number) => ({ words: 'x', food_id: foodId, amount: grams, unit: 'g' });
+
+const search = (page: Page, words: string) =>
+  page.getByRole('searchbox', { name: 'Search recipes' }).fill(words);
+
+test.beforeEach(async ({ page }) => {
+  await setAccountTheme(page, 'auto');
+});
+
+test('shows the count, the rows and what is in stock, and passes the accessibility checks', async ({ page }) => {
+  const tag = unique(page, 'Rice');
+  const rice = await makeFood(page, tag);
+  const nothing = await makeFood(page, unique(page, 'Nothing'));
+  await putInPantry(page, rice, 500);
+  await makeRecipe(page, { name: `${tag} one`, time_minutes: 50, nutrition: { kcal: 320 }, lines: [line(rice, 200), line(nothing, 10)] });
+  await makeRecipe(page, { name: `${tag} two`, lines: [line(rice, 100)] });
+  await makeRecipe(page, { name: `${tag} three`, time_minutes: 60 });
+
+  await page.goto('/recipes');
+  await expect(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
+  await expect(page.getByText(/^\d+ recipes?$/)).toBeVisible();
+  await search(page, tag);
+  await expect(page.getByText('50 min · 320 kcal · all in stock but 1', { exact: true })).toBeVisible();
+  await expect(page.getByText('nutrition unknown · all in stock', { exact: true })).toBeVisible();
+  await expect(page.getByText('60 min · nutrition unknown', { exact: true })).toBeVisible();
+  // Rows are in A to Z order, and not links yet.
+  const names = await page.locator('li').allInnerTexts();
+  expect(names.map((n) => n.split('\n')[0])).toEqual([`${tag} one`, `${tag} three`, `${tag} two`]);
+  await expect(page.locator('li a, li button')).toHaveCount(0);
+  // Not built yet, so not there: New recipe, Drafts (nothing to import yet), Import.
+  await expect(page.getByRole('main').getByText(/New recipe|Drafts|Import a recipe|Planned/)).toHaveCount(0);
+  await checkPage(page);
+});
+
+test('the Ingredients button opens Ingredients (phone)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the sidebar has it on a computer');
+  await page.goto('/recipes');
+  await page.getByRole('link', { name: 'Ingredients' }).click();
+  await expect(page).toHaveURL('/recipes/ingredients');
+});
+
+test('search finds other names, tags and recipe names, never the method', async ({ page }) => {
+  const word = unique(page, 'Paruppu').replace(/\s+/g, '');
+  const dal = await makeFood(page, unique(page, 'Toor dal'));
+  await call(page, 'POST', `/foods/${dal}/other-names`, { name: word });
+  const tagged = unique(page, 'Sambar');
+  await makeRecipe(page, { name: tagged, tags: [`Quick${word}`], lines: [line(dal, 100)] });
+  const stirred = unique(page, 'Kheer');
+  await makeRecipe(page, { name: stirred, steps: [{ text: `Stir in the ${word} slowly.` }] });
+
+  await page.goto('/recipes');
+  await search(page, word);
+  await expect(page.getByText(tagged, { exact: true })).toBeVisible();
+  await expect(page.getByText(stirred, { exact: true })).toHaveCount(0);
+  await search(page, `quick${word}`); // the tag
+  await expect(page.getByText(tagged, { exact: true })).toBeVisible();
+  await search(page, stirred.toLowerCase()); // the recipe's own name, any case
+  await expect(page.getByText(stirred, { exact: true })).toBeVisible();
+  await search(page, `${word} nonsense`);
+  await expect(page.getByText(`No recipe matches “${word} nonsense”.`)).toBeVisible();
+});
+
+test('the filter row: Can cook now, a tag, and search together', async ({ page }) => {
+  const word = unique(page, 'Chana').replace(/\s+/g, '');
+  const have = await makeFood(page, unique(page, 'Have'));
+  const lack = await makeFood(page, unique(page, 'Lack'));
+  await putInPantry(page, have, 500);
+  await makeRecipe(page, { name: `${word} yes`, tags: [`Fast${word}`], lines: [line(have, 100)] });
+  await makeRecipe(page, { name: `${word} no`, tags: [`Fast${word}`], lines: [line(have, 100), line(lack, 10)] });
+  await makeRecipe(page, { name: `${word} slow`, lines: [line(have, 100)] });
+
+  await page.goto('/recipes');
+  await search(page, word);
+  const rows = page.locator('li');
+  await expect(rows).toHaveCount(3);
+  const filters = page.getByRole('group', { name: 'Show' });
+  await filters.getByRole('button', { name: 'Can cook now' }).click();
+  await expect(filters.getByRole('button', { name: 'Can cook now' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(rows).toHaveCount(2); // "no" is missing one
+  await expect(page.getByText(`${word} no`, { exact: true })).toHaveCount(0);
+  // One filter at a time: a tag replaces Can cook now.
+  await filters.getByRole('button', { name: `Fast${word}` }).click();
+  await expect(filters.getByRole('button', { name: 'Can cook now' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(rows).toHaveCount(2);
+  await expect(page.getByText(`${word} slow`, { exact: true })).toHaveCount(0);
+  // And the search narrows whatever is chosen.
+  await search(page, `${word} yes`);
+  await expect(rows).toHaveCount(1);
+  await search(page, word);
+  await filters.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(rows).toHaveCount(3);
+  // The title still counts every recipe, not just the matches.
+  await expect(page.getByText(/^\d+ recipes$/)).toBeVisible();
+});
+
+test('a stock line follows the pantry: use soon, and a made-up total', async ({ page }) => {
+  const spinach = await makeFood(page, unique(page, 'Spinach'));
+  const today = (await (await page.request.get('/api/v1/household')).json()).today as string;
+  await putInPantry(page, spinach, 200, { use_by: today });
+  const name = unique(page, 'Palak');
+  await makeRecipe(page, { name, lines: [line(spinach, 100)] });
+  await page.goto('/recipes');
+  await search(page, name);
+  const lowerFirst = (s: string) => s[0]!.toLowerCase() + s.slice(1);
+  const foodName = (await (await page.request.get(`/api/v1/foods/${spinach}`)).json()).name as string;
+  await expect(page.getByText(`Uses ${lowerFirst(foodName)} (today)`)).toBeVisible();
+});
+
+// --- The states of the screen ------------------------------------------------------------
+
+const EMPTY = { total: 0, all_recipes: 0, recipes: [], next: null };
+
+test('empty: says No recipes yet, with no button to add one', async ({ page }) => {
+  await page.route('**/api/v1/recipes?**', (route) => route.fulfill({ json: EMPTY }));
+  await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [] } }));
+  await page.goto('/recipes');
+  await expect(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
+  await expect(page.getByText('Recipes you add will show here.')).toBeVisible();
+  await expect(page.getByText(/New recipe|Add a recipe|Import/)).toHaveCount(0);
+  await expect(page.getByRole('searchbox')).toHaveCount(0);
+  await checkPage(page);
+});
+
+test('loading: says Loading… until the server answers', async ({ page }) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/v1/recipes?**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/recipes');
+  await expect(page.getByText('Loading…')).toBeVisible();
+  await expect(page.getByText(/No recipes yet/)).toHaveCount(0);
+  release();
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+});
+
+test('failed: says what happened and Try again loads it', async ({ page }) => {
+  await page.route('**/api/v1/recipes?**', (route) =>
+    route.fulfill({ status: 500, json: { detail: 'Something broke.' } }),
+  );
+  await page.goto('/recipes');
+  await expect(page.getByText('Couldn’t load your recipes. Try again.')).toBeVisible();
+  await expect(page.getByText(/No recipes yet/)).toHaveCount(0);
+  await checkPage(page);
+  await page.unroute('**/api/v1/recipes?**');
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByText('Couldn’t load your recipes. Try again.')).toHaveCount(0);
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+});
+
+async function goOffline(page: Page, context: BrowserContext) {
+  await page.goto('/recipes');
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+  // Only our server is unreachable: the app comes to the foreground, fetches and finds out.
+  await context.route('**/api/**', (route) => route.abort());
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+}
+
+test('offline: says it needs the server, and points to Shopping', async ({ page, context }) => {
+  await goOffline(page, context);
+  await expect(
+    page.getByText('Recipes needs your Mealwright server — your shopping list works offline.'),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('searchbox')).toHaveCount(0);
+  await checkPage(page);
+  await context.unroute('**/api/**');
+});
+
+// --- Many, long names, 200% text ------------------------------------------------------------
+
+const LONG = [
+  'பச்சைப் பயறு (பாசிப்பயறு) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது',
+  'Organic stone-ground whole wheat flour flatbreads from the Saturday market, coarse, 5 kg bag',
+];
+
+function manyRecipes(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    name: i < LONG.length ? LONG[i]! : `Recipe ${String(i + 1).padStart(3, '0')}`,
+    description: null,
+    time_minutes: 45,
+    serves: 4,
+    makes: null,
+    made_ahead: false,
+    tags: [],
+    ingredient_count: 6,
+    photo: null,
+    version: 1,
+    updated_at: '2026-10-20T10:00:00Z',
+    kcal: i % 3 === 0 ? null : 300 + i,
+    stock: { counted: 6, missing: i % 4, can_cook_now: i % 4 === 0 },
+    use_soon:
+      i % 5 === 0
+        ? { foods: [{ id: 1, name: LONG[1]! }, { id: 2, name: 'Spinach' }, { id: 3, name: 'Milk' }], use_by: '2026-10-20', days_left: 0 }
+        : null,
+  }));
+}
+
+test('many recipes with long names, and the text at 200%, never scroll sideways', async ({ page }) => {
+  await page.route('**/api/v1/recipes?**', (route) =>
+    route.fulfill({ json: { total: 220, all_recipes: 220, recipes: manyRecipes(50), next: '50' } }),
+  );
+  await page.route('**/api/v1/recipes/tags', (route) =>
+    route.fulfill({
+      json: { tags: [...LONG, 'Quick', 'Kids', 'Sunday', 'Freezer-friendly'].map((name) => ({ name, recipes: 3 })) },
+    }),
+  );
+  await page.goto('/recipes');
+  await expect(page.getByText('220 recipes')).toBeVisible();
+  await expect(page.locator('li')).toHaveCount(50);
+  await expect(page.getByRole('button', { name: 'Show more' })).toBeVisible();
+  await checkPage(page);
+  await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  await expect(page.getByText('220 recipes')).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  // The tab labels hold at 200% text (a known paper cut): none overlaps the next.
+  if (isPhone(page)) {
+    const boxes = await page.locator('nav[aria-label="Main"] a span').evaluateAll((spans) =>
+      spans.map((s) => {
+        const range = document.createRange();
+        range.selectNodeContents(s);
+        const { left, right } = range.getBoundingClientRect();
+        return { left, right };
+      }),
+    );
+    for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right);
+  }
+});
+
+test('reduced motion: nothing on the page animates', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/recipes');
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+  const running = await page.evaluate(() =>
+    document.getAnimations().filter((a) => a.playState === 'running' && (a.effect?.getTiming().duration as number) > 0.1).length,
+  );
+  expect(running).toBe(0);
+});

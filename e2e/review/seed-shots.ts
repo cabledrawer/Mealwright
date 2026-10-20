@@ -36,10 +36,74 @@ async function foodId(api: Api, name: string): Promise<number> {
   return found.id;
 }
 
-/** The kitchen (as seed-pantry.ts) and a shopping list. */
+type RecipeSpec = {
+  name: string;
+  time?: number;
+  kcal?: number;
+  tags?: string[];
+  /** [ingredient, amount, unit]: a unit of '' is a count. */
+  lines: [string, number, string][];
+};
+
+/** What All recipes shows (tests/screens.spec.ts, the saved screenshots). The pantry from
+ *  seed-pantry.ts decides each line's stock: spinach goes off today; tomatoes, rajma beans and
+ *  green beans are not in it. */
+const RECIPES: RecipeSpec[] = [
+  {
+    name: 'Sambar',
+    time: 50,
+    kcal: 320,
+    tags: ['Batch-friendly'],
+    lines: [['Toor dal', 150, 'g'], ['Onion', 2, ''], ['Tamarind', 20, 'g'], ['Sambar powder', 2, 'tbsp'], ['Tomato', 2, '']],
+  },
+  { name: 'Palak paneer', time: 40, kcal: 290, lines: [['Spinach', 200, 'g'], ['Paneer', 200, 'g'], ['Onion', 1, ''], ['Turmeric', 1, 'tsp']] },
+  {
+    name: 'Veg biryani',
+    time: 75,
+    kcal: 410,
+    tags: ['Batch-friendly'],
+    lines: [['Basmati rice', 600, 'g'], ['Onion', 2, ''], ['Green beans', 150, 'g'], ['Frozen peas', 100, 'g'], ['Cumin seeds', 5, 'g']],
+  },
+  { name: 'Rajma', time: 60, lines: [['Rajma beans', 250, 'g'], ['Onion', 1, ''], ['Tomato', 3, '']] },
+  { name: 'Chana masala', time: 45, kcal: 380, tags: ['Quick'], lines: [['Chickpeas (dried)', 250, 'g'], ['Onion', 2, ''], ['Turmeric', 1, 'tsp']] },
+  { name: 'Jeera rice', time: 25, kcal: 260, tags: ['Quick'], lines: [['Basmati rice', 200, 'g'], ['Cumin seeds', 5, 'g']] },
+];
+
+async function makeRecipes(api: Api, specs: RecipeSpec[]) {
+  const ids = new Map<string, number>();
+  const id = async (name: string) => {
+    if (!ids.has(name)) {
+      const made = await api.post('/foods', { name, counted_as: name.startsWith('Onion') || name === 'Tomato' ? 'count' : 'weight' }, [409]);
+      ids.set(name, made._status === 409 ? (made.food_id as number) : ((made.food as Json).id as number));
+    }
+    return ids.get(name)!;
+  };
+  for (const spec of specs) {
+    const lines = [];
+    for (const [food, amount, unit] of spec.lines) {
+      lines.push({ words: food.toLowerCase(), food_id: await foodIdOrNew(api, food, id), amount, ...(unit ? { unit } : {}) });
+    }
+    await api.post('/recipes', {
+      name: spec.name,
+      time_minutes: spec.time ?? null,
+      nutrition: spec.kcal === undefined ? {} : { kcal: spec.kcal },
+      tags: spec.tags ?? [],
+      lines,
+    });
+  }
+}
+
+/** An existing ingredient by name, else a new one. */
+async function foodIdOrNew(api: Api, name: string, make: (name: string) => Promise<number>): Promise<number> {
+  const { foods } = (await api.get(`/foods?q=${encodeURIComponent(name)}`)) as { foods: { id: number; name: string }[] };
+  return foods.find((f) => f.name === name)?.id ?? make(name);
+}
+
+/** The kitchen (as seed-pantry.ts), a shopping list and some recipes. */
 export async function seed(request: APIRequestContext) {
   await seedKitchen(request);
   const api = new Api(request);
+  await makeRecipes(api, RECIPES);
   const list = await mainList(api);
   for (const [name, amount, unit] of LIST) {
     await api.post(`/shopping/lists/${list}/items`, { food_id: await foodId(api, name), amount: { amount, unit } });
@@ -60,6 +124,8 @@ const LONG_OTHER_NAMES = [
   'a very long other name that goes on and on to test wrapping in narrow columns on a phone',
 ];
 
+const TOTAL = 220;
+
 /** 200+ ingredients in the pantry and on the list, a few with very long names. */
 export async function stress(request: APIRequestContext) {
   const api = new Api(request);
@@ -68,7 +134,6 @@ export async function stress(request: APIRequestContext) {
   const placeId = new Map(
     ((await api.get('/places')).items as { id: number; name: string }[]).map((p) => [p.name, p.id]),
   );
-  const TOTAL = 220;
   for (let i = 1; i <= TOTAL; i++) {
     const long = i <= LONG_NAMES.length;
     const name = long ? LONG_NAMES[i - 1]! : `Test ingredient ${String(i).padStart(3, '0')}`;
@@ -82,4 +147,21 @@ export async function stress(request: APIRequestContext) {
     await api.post('/stock', { food_id: id, amount: { amount: 100 + i, unit: 'g' }, place_id: placeId.get(place) });
     await api.post(`/shopping/lists/${list}/items`, { food_id: id, amount: { amount: 250, unit: 'g' } });
   }
+  // All recipes: 200+ recipes, a few with very long names, tags and use-soon ingredients.
+  const longRecipes: RecipeSpec[] = [];
+  for (let i = 1; i <= TOTAL; i++) {
+    const long = i <= LONG_NAMES.length;
+    longRecipes.push({
+      name: long ? `${LONG_NAMES[i - 1]!} ${LONG_NAMES[(i % LONG_NAMES.length)]!}` : `Test recipe ${String(i).padStart(3, '0')}`,
+      time: 20 + (i % 9) * 10,
+      ...(i % 3 === 0 ? {} : { kcal: 250 + (i % 11) * 20 }),
+      tags: i % 4 === 0 ? ['Quick', 'Kids'] : i % 7 === 0 ? ['Festival and special-occasion cooking'] : [],
+      lines: [
+        ['Spinach', 100, 'g'],
+        ['Paneer', 100, 'g'],
+        [i <= LONG_NAMES.length ? LONG_NAMES[i - 1]! : `Test ingredient ${String(i).padStart(3, '0')}`, 50, 'g'],
+      ],
+    });
+  }
+  await makeRecipes(api, longRecipes);
 }
