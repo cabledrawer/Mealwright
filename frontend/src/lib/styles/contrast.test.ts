@@ -61,7 +61,10 @@ const PAIRS: Pair[] = [
   ['--color-text-muted', '--color-segment-track', 4.5],
   ['--color-text', '--color-segment-active', 4.5],
   ['--color-use-soon-text', '--color-surface', 4.5], // "running low", date chips
-  ['--color-accent-on-soft', '--color-accent-soft', 4.5] // the chosen ¼ ½ ¾ Full
+  ['--color-accent-on-soft', '--color-accent-soft', 4.5], // the chosen ¼ ½ ¾ Full
+  ['--color-on-list', '--color-surface', 4.5], // "On list" on the recipe page
+  ['--color-on-list-dot', '--color-surface', 3],
+  ['--color-use-soon-text', '--color-fill', 4.5] // "1 missing" on its bar
 ];
 
 function rgb(value: string): [number, number, number] {

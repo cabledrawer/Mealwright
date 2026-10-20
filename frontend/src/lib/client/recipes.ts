@@ -69,3 +69,78 @@ export function listRecipes(
 
 /** The tags the household uses, A to Z: the filter row. */
 export const listTags = () => api<{ tags: TagCount[] }>('GET', '/recipes/tags');
+
+// --- One recipe (the recipe page) ---------------------------------------------------------
+
+export interface SizeRef extends Ref {
+  plural: string;
+}
+
+/** One ingredient line, or a heading. */
+export interface RecipeLine {
+  id: number;
+  kind: 'ingredient' | 'heading';
+  /** As the recipe's author wrote it: "thuvaram paruppu". */
+  words: string;
+  amount: number | null;
+  /** The amount as typed: "1½". */
+  amount_text: string | null;
+  /** g, kg, ml, l, tsp, tbsp, cup or pinch; null is a count (or a size). */
+  unit: string | null;
+  size: SizeRef | null;
+  food: Ref | null;
+  recipe: Ref | null;
+  /** recipe_removed: the recipe it used was deleted; none: not linked. Null for a heading. */
+  link: 'ingredient' | 'recipe' | 'recipe_removed' | 'none' | null;
+  note: string | null;
+}
+
+export interface RecipeStep {
+  id: number;
+  kind: 'step' | 'heading';
+  text: string;
+}
+
+export interface Recipe {
+  id: number;
+  name: string;
+  description: string | null;
+  time_minutes: number | null;
+  serves: number | null;
+  makes: { amount: number; amount_text: string; unit: string } | null;
+  made_ahead: boolean;
+  tags: string[];
+  /** Per serving; null is unknown, never 0. */
+  nutrition: {
+    kcal: number | null;
+    protein: number | null;
+    carbs: number | null;
+    fat: number | null;
+    fibre: number | null;
+  };
+  lines: RecipeLine[];
+  steps: RecipeStep[];
+  source_note: string | null;
+  version: number;
+}
+
+/** Where one ingredient line is in the pantry (GET /recipes/{id}/stock). */
+export interface LineStock {
+  line_id: number;
+  /** The pantry ingredient it is checked against (a made-ahead recipe's own, for a recipe). */
+  food: Ref;
+  state: 'in_stock' | 'staple' | 'short' | 'missing';
+  /** Where most of it is, when in stock: "Cupboard". */
+  place: string | null;
+}
+
+export interface RecipeStock {
+  lines: LineStock[];
+  counted: number;
+  missing: number;
+  stock_unchecked: boolean;
+}
+
+export const getRecipe = (id: number | string) => api<Recipe>('GET', `/recipes/${id}`);
+export const getRecipeStock = (id: number | string) =>
+  api<RecipeStock>('GET', `/recipes/${id}/stock`);

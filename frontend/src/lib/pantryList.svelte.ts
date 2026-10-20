@@ -13,6 +13,7 @@
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 import { toasts } from '$lib/toast.svelte';
+import { undoHistory, undoneWords } from '$lib/undo.svelte';
 import { ShoppingModel } from './shopping/store.svelte';
 
 export class PantryList {
@@ -70,6 +71,69 @@ export class PantryList {
       await this.#shopping.add(food, `${food.name} added to the shopping list`);
     } finally {
       this.#pending.delete(food.id);
+    }
+  }
+
+  /**
+   * Several ingredients at once (a recipe's missing ones): each goes through the same add
+   * action and waiting list as one tap, so what is queued is exactly what adding them by hand
+   * sends. Only the toast is shared: "3 ingredients added to the shopping list", with one Undo
+   * (and Ctrl+Z) that takes them all back. Ones already on the list are left alone.
+   */
+  async tapMany(foods: { id: number; name: string; counted_as?: 'weight' | 'volume' | 'count' }[]) {
+    const fresh = foods.filter((f) => !this.#pending.has(f.id) && !this.onList(f.id));
+    if (fresh.length <= 1) {
+      if (fresh[0]) return this.tap(fresh[0]);
+      return;
+    }
+    for (const food of fresh) this.#pending.add(food.id);
+    try {
+      if (!this.#shopping.list) {
+        await this.refresh();
+        if (!this.#shopping.list) {
+          toasts.show("Your shopping list isn't ready yet. Try again in a moment.", {
+            tone: 'problem'
+          });
+          return;
+        }
+      }
+      const added: { id: string; name: string }[] = [];
+      for (const food of fresh) {
+        if (this.onList(food.id)) continue; // it arrived while the list was loading
+        let inQueue!: () => void;
+        const queued = new Promise<void>((resolve) => (inQueue = resolve));
+        const done = this.#shopping.add(food, `${food.name} added to the shopping list`, {
+          queued: (id) => {
+            added.push({ id, name: food.name });
+            inQueue();
+          }
+        });
+        // In the queue (the same moment a single add shows its toast), or refused.
+        await Promise.race([queued, done]);
+      }
+      if (added.length === 0) return;
+      if (added.length === 1) {
+        // Only one made it: the same words and Undo as a single add.
+        const [one] = added;
+        const label = `${one!.name} added to the shopping list`;
+        const entry = { label, undo: () => this.#shopping.undo(one!.id, label) };
+        undoHistory.record(entry);
+        return;
+      }
+      const label = `${added.length} ingredients added to the shopping list`;
+      undoHistory.record({
+        label,
+        undo: async () => {
+          // Newest first, each as an `undo` action queued after its add (works offline too).
+          for (const one of added.toReversed()) {
+            await this.#shopping.undo(one.id, `${one.name} added to the shopping list`);
+          }
+          toasts.show(undoneWords(label));
+          return false as const;
+        }
+      });
+    } finally {
+      for (const food of fresh) this.#pending.delete(food.id);
     }
   }
 }

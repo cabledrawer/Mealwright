@@ -267,8 +267,14 @@ export class ShoppingModel {
    * shopping list"); Shopping's own add box says "Oil added". */
   add(
     food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>,
-    label = `${food.name} added`
-  ): Promise<unknown> {
+    label = `${food.name} added`,
+    /**
+     * For several adds that share one toast and one Undo (a recipe's missing ingredients):
+     * `quiet` leaves out this add's own toast, and `queued` hears the action's ID as soon as
+     * it is in the queue, so the caller can undo it. What is queued is the same either way.
+     */
+    group?: { queued: (actionId: string) => void }
+  ): Promise<Outcome<ActionResult> | null> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
     if (!this.food(food.id)) {
@@ -290,7 +296,7 @@ export class ShoppingModel {
     }
     return this.#act(
       { kind: 'add', list_id: list.id, item_id: newChangeId(), food_id: food.id },
-      { label }
+      group ? { label, quiet: true, queued: (id) => group.queued(id) } : { label }
     );
   }
 

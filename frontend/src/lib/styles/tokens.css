@@ -105,6 +105,9 @@
 
   /* Recipes */
   --color-recipe-square: #f3e3c3; /* a recipe with no photo: a plain warm square (mockup) */
+  /* The recipe page's stock marks: "On list" is orange (text, and the dot beside it). */
+  --color-on-list: #8a5a00;
+  --color-on-list-dot: #b07400; /* mockup #d99a1e, darkened for 3:1 */
 
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
@@ -240,4 +243,6 @@
   --color-segment-track: #252e29;
 
   --color-recipe-square: #3a3222;
+  --color-on-list: #f2b441;
+  --color-on-list-dot: #f2b441;
 }

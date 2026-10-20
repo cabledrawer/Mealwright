@@ -102,10 +102,12 @@ describe('the All recipes page', () => {
     expect(document.body.textContent).not.toMatch(/Drafts|New recipe|Import|Planned/);
   });
 
-  it('rows are not links yet (the recipe page comes next)', async () => {
+  it('each row opens its recipe', async () => {
     open();
     await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.querySelectorAll('li a, li button')).toHaveLength(0);
+    const links = [...document.querySelectorAll('li a')].map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['/recipes/2', '/recipes/3', '/recipes/1']); // A to Z: Palak, Rajma, Sambar
+    expect(document.querySelectorAll('li button')).toHaveLength(0);
   });
 
   it('has a filter row: All, Can cook now, then the household’s tags', async () => {

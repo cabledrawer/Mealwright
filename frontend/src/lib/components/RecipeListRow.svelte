@@ -1,8 +1,8 @@
 <script lang="ts">
   // One recipe in the All recipes list (mockups Recipes-Phone, Dark-Recipes-Phone): a
   // square, the name, and a quiet line "50 min · 320 kcal · all in stock but 1". The square
-  // is plain and warm until the photo goes in (0.4, PR 2). The row is not a link yet: the
-  // recipe page (PR 3b) makes it one.
+  // is plain and warm until the photo goes in (0.4, PR 2). The whole row opens the recipe.
+  import { resolve } from '$app/paths';
   import type { RecipeRow } from '$lib/client/recipes';
   import { recipeParts } from '$lib/recipeLine';
 
@@ -12,7 +12,7 @@
   const parts = $derived(recipeParts(recipe));
 </script>
 
-<div class="recipe">
+<a class="recipe" href={resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}>
   <span class="square" aria-hidden="true"></span>
   <span class="text">
     <span class="name">{recipe.name}</span>
@@ -22,11 +22,13 @@
         >{/each}</span
     >
   </span>
-</div>
+</a>
 
 <style>
   .recipe {
     position: relative;
+    color: var(--color-text);
+    text-decoration: none;
     display: flex;
     align-items: center;
     gap: var(--space-6);

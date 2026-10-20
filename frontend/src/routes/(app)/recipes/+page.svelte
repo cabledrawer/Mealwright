@@ -4,9 +4,9 @@
   // search, the filter row (All · Can cook now · the household's tags) and the list A to Z.
   // Each row says how long it takes, its calories and what is in stock.
   //
-  // Hidden until they work, not stubbed: "+ New recipe" (the editor, PR 5), the Drafts
-  // button (drafts only come from 0.5's import; agreed by cabledrawer 20 Oct), the recipe page
-  // that rows open (PR 3b), "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
+  // Each row opens the recipe page. Hidden until they work, not stubbed: "+ New recipe" (the
+  // editor, PR 5), the Drafts button (drafts only come from 0.5's import; agreed by cabledrawer
+  // 20 Oct), "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
