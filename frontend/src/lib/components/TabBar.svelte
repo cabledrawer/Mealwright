@@ -24,7 +24,8 @@
     inset: auto 0 0 0;
     z-index: 10;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* Each column is at least as wide as its label, so at 200% text they don't overlap. */
+    grid-template-columns: repeat(5, minmax(min-content, 1fr));
     min-height: var(--tabbar-height);
     padding: var(--space-4) var(--space-3) max(var(--space-4), env(safe-area-inset-bottom));
     background: var(--color-chrome);
