@@ -8,6 +8,7 @@
   // button (drafts only come from 0.5's import; agreed by cabledrawer 20 Oct), the recipe page
   // that rows open (PR 3b), "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
   import { resolve } from '$app/paths';
+  import { untrack } from 'svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FilterChips from '$lib/components/FilterChips.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -34,7 +35,8 @@
     void list.filter;
     void kitchen.version;
     void live.pantry;
-    const timer = setTimeout(() => void list.load(), list.loaded ? 200 : 0);
+    // Not `loaded` itself: the first answer setting it would fetch everything a second time.
+    const timer = setTimeout(() => void list.load(), untrack(() => list.loaded) ? 200 : 0);
     return () => clearTimeout(timer);
   });
 

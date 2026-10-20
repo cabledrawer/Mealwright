@@ -1,5 +1,13 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
+import {
+  THEMES,
+  checkPage,
+  expectNoAxeViolations,
+  expectNoSidewaysScroll,
+  expectTouchTargets,
+  isPhone,
+  setAccountTheme,
+} from './a11y.ts';
 
 // The All recipes page (0.4, PR 3a), against the real server: the rows and their stock lines,
 // search, the filter row, and every state of the screen (spec "Keeping the UI good", item 2):
@@ -266,29 +274,53 @@ test('many recipes with long names, and the text at 200%, never scroll sideways'
   }
 });
 
-test('a failed Show more keeps the list, the count and the filters, and Try again loads the next page', async ({ page }) => {
-  let fail = true;
-  await page.route('**/api/v1/recipes?**', (route) => {
-    if (route.request().url().includes('after=')) {
-      return fail
-        ? route.fulfill({ status: 500, json: { detail: 'Something broke.' } })
-        : route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(60).slice(50), next: null } });
+// The theme is set before the page opens: switching it on the open page reloads the list,
+// which would clear the failed state before its accessibility checks.
+for (const theme of THEMES) {
+  test(`a failed Show more keeps the list, the count and the filters, and Try again loads the next page (${theme})`, async ({ page }) => {
+    let fail = true;
+    await page.route('**/api/v1/recipes?**', (route) => {
+      if (route.request().url().includes('after=')) {
+        return fail
+          ? route.fulfill({ status: 500, json: { detail: 'Something broke.' } })
+          : route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(60).slice(50), next: null } });
+      }
+      return route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(50), next: '50' } });
+    });
+    await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [{ name: 'Quick', recipes: 3 }] } }));
+    await page.emulateMedia({ colorScheme: theme });
+    await page.goto('/recipes');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+    await expect(page.locator('li')).toHaveCount(50);
+    await page.getByRole('button', { name: 'Show more' }).click();
+    await expect(page.getByText('Couldn’t load more recipes. Try again.')).toBeVisible();
+    await expect(page.locator('li')).toHaveCount(50);
+    await expect(page.getByText('60 recipes')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Can cook now' })).toBeVisible();
+    await expect(page.getByText(/Couldn’t load your recipes/)).toHaveCount(0);
+    await expectNoAxeViolations(page, `/recipes, failed Show more, ${isPhone(page) ? 'phone' : 'desktop'}, ${theme}`);
+    if (isPhone(page)) {
+      await expectTouchTargets(page);
+      await expectNoSidewaysScroll(page);
     }
-    return route.fulfill({ json: { total: 60, all_recipes: 60, recipes: manyRecipes(50), next: '50' } });
+    fail = false;
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.locator('li')).toHaveCount(60);
+    await expect(page.getByText(/Couldn’t load more/)).toHaveCount(0);
   });
-  await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [{ name: 'Quick', recipes: 3 }] } }));
+}
+
+test('opening the page asks for the list once', async ({ page }) => {
+  const asked: string[] = [];
+  await page.route('**/api/v1/recipes?**', (route) => {
+    asked.push(route.request().url());
+    return route.fulfill({ json: { total: 3, all_recipes: 3, recipes: manyRecipes(3), next: null } });
+  });
+  await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [] } }));
   await page.goto('/recipes');
-  await expect(page.locator('li')).toHaveCount(50);
-  await page.getByRole('button', { name: 'Show more' }).click();
-  await expect(page.getByText('Couldn’t load more recipes. Try again.')).toBeVisible();
-  await expect(page.locator('li')).toHaveCount(50);
-  await expect(page.getByText('60 recipes')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Can cook now' })).toBeVisible();
-  await expect(page.getByText(/Couldn’t load your recipes/)).toHaveCount(0);
-  fail = false;
-  await page.getByRole('button', { name: 'Try again' }).click();
-  await expect(page.locator('li')).toHaveCount(60);
-  await expect(page.getByText(/Couldn’t load more/)).toHaveCount(0);
+  await expect(page.locator('li')).toHaveCount(3);
+  await page.waitForTimeout(600); // longer than the 200 ms pause before a search
+  expect(asked).toHaveLength(1);
 });
 
 test('reduced motion: nothing on the page animates', async ({ page }) => {
