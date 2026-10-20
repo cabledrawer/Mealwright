@@ -12,6 +12,7 @@
   // picker, put-away panel and "Did you buy 2?" card. They get a place here when the
   // gallery can fake those answers.
   import AskOnce from '$lib/components/AskOnce.svelte';
+  import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
   import Button from '$lib/components/Button.svelte';
   import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
   import ConnectionStatus from '$lib/components/ConnectionStatus.svelte';
@@ -474,6 +475,7 @@
     <a href="#pantry">Pantry rows</a>
     <a href="#recipes">Recipes</a>
     <a href="#recipe-page">Recipe page</a>
+    <a href="#recipe-panes">Desktop panes</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#icons">Icons</a>
@@ -775,6 +777,32 @@
     </div>
   </section>
 
+  <section id="recipe-panes">
+    <h2>Desktop Recipes: the list pane, the reading pane</h2>
+    <p class="note">
+      On a computer, Recipes is three panes: the sidebar, All recipes and the recipe being read. In
+      the middle pane each row is a card of its own, the open recipe's row lifted; on the reading
+      pane the nutrition, Keep screen awake and servings sit on a quiet fill. With no recipe open
+      the reading pane says "Choose a recipe". Below the width where they fit, it is one page at a
+      time, as on a phone.
+    </p>
+    <div class="panes-demo">
+      <div class="list-demo">
+        {#each recipeRows.slice(0, 4) as row, i (row.id)}
+          <RecipeListRow recipe={row} pane current={i === 1} />
+        {/each}
+      </div>
+      <div class="reading-demo">
+        <NutritionStrip nutrition={{ kcal: 320, protein: 16, carbs: 48, fat: 7.5, fibre: 11 }} />
+        <KeepAwake awake={awakeAvailable} />
+        <div class="stepper-row">
+          <ServingsStepper value={serves} onchange={(v) => (serves = v)} />
+        </div>
+      </div>
+      <div class="reading-demo"><ChooseRecipe /></div>
+    </div>
+  </section>
+
   <section id="changes">
     <h2>Recent changes</h2>
     <div class="stack">
@@ -968,6 +996,34 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-4);
+  }
+
+  .panes-demo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--space-7);
+  }
+
+  .list-demo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-7);
+    border-radius: var(--radius-xl);
+    background: var(--color-ground);
+    outline: 1px solid var(--color-border);
+  }
+
+  .reading-demo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: var(--space-7);
+    border-radius: var(--radius-xl);
+    background: var(--color-chrome);
+    outline: 1px solid var(--color-border);
+    --reading-card: var(--color-reading-card);
+    --reading-chip: var(--color-reading-chip);
   }
 
   .divided {
