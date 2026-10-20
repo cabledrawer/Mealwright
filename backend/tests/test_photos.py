@@ -666,9 +666,17 @@ def test_files_are_in_the_households_own_folder_under_random_names(kitchen: Test
     assert len(names) == 2
     assert stat.S_IMODE(folder.stat().st_mode) == 0o700
     # The name has nothing to do with the photo's id.
+    keys = set()
     for photo in (first, second):
         saved = record(kitchen, photo["id"])
-        assert saved is not None and str(photo["id"]) not in saved.file_key[:4]
+        assert saved is not None
+        assert saved.file_key not in {
+            str(photo["id"]),
+            f"{photo['id']:032x}",
+            f"{photo['id']:032d}",
+        }
+        keys.add(saved.file_key)
+    assert keys == names
 
 
 def test_nothing_is_written_outside_the_households_folder(
