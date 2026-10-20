@@ -30,8 +30,8 @@ def install(app: FastAPI) -> None:
     from mealwright.limits import BodyTooBig, too_big_response
 
     @app.exception_handler(BodyTooBig)
-    async def _body_too_big(_request: Request, _error: BodyTooBig) -> JSONResponse:
-        return too_big_response()
+    async def _body_too_big(_request: Request, error: BodyTooBig) -> JSONResponse:
+        return too_big_response(str(error.detail), error.code)
 
     @app.exception_handler(TooBig)
     async def _too_big(_request: Request, _error: TooBig) -> JSONResponse:

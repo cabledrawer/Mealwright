@@ -54,6 +54,7 @@ def save(client: TestClient, recipe: dict[str, Any], **changes: Any) -> Any:
         ],
         "steps": [{"kind": s["kind"], "text": s["text"]} for s in recipe["steps"]],
         "source_note": recipe["source_note"],
+        "photo_id": recipe["photo"]["id"] if recipe["photo"] else None,
         "version": recipe["version"],
         **changes,
     }

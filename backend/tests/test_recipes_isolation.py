@@ -1,4 +1,5 @@
-"""One household can never see or change another's recipes, tags or lines (cabledrawer 19 Oct).
+"""One household can never see or change another's recipes, tags, lines or photos
+(cabledrawer 19 Oct).
 
 Two real households, each with its own admin and session. Household 1 has recipes (one
 inside another), tags, lines, an ingredient with a size, and a deleted recipe that can be
@@ -8,8 +9,10 @@ afterwards. (PR 0a has a general isolation test; when it merges this one can sha
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
+import photo_kit as kit
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
@@ -328,3 +331,124 @@ def test_used_in_counts_and_the_unused_filter_do_not_leak(
     make(neighbour, "Dal", lines=[{"words": "dal", "food_id": toor2["id"]}])
     assert ok(kitchen.get(f"{API}/foods/{mine['food_id']}"))["used_in_recipes"] == 1
     assert ok(neighbour.get(f"{API}/foods/{toor2['id']}"))["used_in_recipes"] == 1
+
+
+# --- Photos (cabledrawer 19 and 20 Oct) -----------------------------------------------------------
+
+
+@pytest.fixture
+def photos_of_1(kitchen: TestClient, mine: dict[str, Any]) -> dict[str, Any]:
+    """Household 1's photos: one on Sambar, one uploaded and not saved yet."""
+    on_recipe = kit.uploaded(kitchen)
+    ok(save(kitchen, mine["sambar"], photo_id=on_recipe["id"]))
+    waiting = kit.uploaded(kitchen, kit.png())
+    return {"on_recipe": on_recipe, "waiting": waiting}
+
+
+def files_of_household(kitchen: TestClient, household_id: int) -> list[tuple[str, bytes]]:
+    folder = (
+        Path(kitchen.app.state.settings.data_dir)  # type: ignore[attr-defined]
+        / "photos"
+        / str(household_id)
+    )
+    if not folder.exists():
+        return []
+    return sorted((p.name, p.read_bytes()) for p in folder.iterdir())
+
+
+def test_household_2_cannot_fetch_or_delete_household_1s_photos(
+    kitchen: TestClient, neighbour: TestClient, photos_of_1: dict[str, Any]
+) -> None:
+    before = rows_of_household_1(kitchen), files_of_household(kitchen, 1)
+    unknown = 999_999
+    for photo in photos_of_1.values():
+        for url in (photo["url"], photo["list_url"]):
+            not_found(neighbour.get(url))
+            # Exactly as for an id that doesn't exist.
+            assert (
+                neighbour.get(url).json()
+                == neighbour.get(url.replace(f"/{photo['id']}/", f"/{unknown}/")).json()
+            )
+        not_found(neighbour.delete(f"{API}/recipes/photos/{photo['id']}"))
+        assert (
+            neighbour.delete(f"{API}/recipes/photos/{photo['id']}").json()
+            == neighbour.delete(f"{API}/recipes/photos/{unknown}").json()
+        )
+    assert (rows_of_household_1(kitchen), files_of_household(kitchen, 1)) == before
+    # Household 1 still sees both.
+    for photo in photos_of_1.values():
+        assert kitchen.get(photo["url"]).status_code == 200
+
+
+def test_household_2_cannot_use_household_1s_photos(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any], photos_of_1: dict[str, Any]
+) -> None:
+    before = rows_of_household_1(kitchen), files_of_household(kitchen, 1)
+    own = make(neighbour, "Rasam")
+    unknown = {"name": "Rasam", "photo_id": 999_999}
+    for photo in photos_of_1.values():
+        # Attach to a new recipe, or put on (replace) its own recipe's photo.
+        body = {"name": "Rasam", "photo_id": photo["id"]}
+        response = neighbour.post(f"{API}/recipes", json=body)
+        not_found(response)
+        assert response.json() == neighbour.post(f"{API}/recipes", json=unknown).json()
+        not_found(save(neighbour, own, photo_id=photo["id"]))
+        # Clear or replace household 1's own recipe photo.
+        not_found(save(neighbour, mine["sambar"], photo_id=None))
+    assert ok(neighbour.get(f"{API}/recipes"))["total"] == 1
+    assert (rows_of_household_1(kitchen), files_of_household(kitchen, 1)) == before
+    assert files_of_household(kitchen, 2) == []
+    sambar = ok(kitchen.get(f"{API}/recipes/{mine['recipe_id']}"))
+    assert sambar["photo"] == photos_of_1["on_recipe"]
+
+
+def test_each_households_photos_are_in_its_own_folder(
+    kitchen: TestClient, neighbour: TestClient, photos_of_1: dict[str, Any]
+) -> None:
+    theirs = kit.uploaded(neighbour)
+    root = Path(kitchen.app.state.settings.data_dir) / "photos"  # type: ignore[attr-defined]
+    assert {p.name for p in root.iterdir()} == {"1", "2"}
+    assert len(files_of_household(kitchen, 1)) == 4
+    assert len(files_of_household(kitchen, 2)) == 2
+    assert kitchen.get(theirs["url"]).status_code == 404
+    assert neighbour.get(theirs["url"]).status_code == 200
+
+
+def test_the_10_waiting_uploads_are_counted_per_household(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    small = kit.jpeg(40, 30)
+    for _ in range(10):
+        kit.uploaded(kitchen, small)
+    assert kit.upload(kitchen, small).status_code == 409
+    # Household 1's ten don't use up household 2's places.
+    theirs = [kit.uploaded(neighbour, small) for _ in range(10)]
+    assert kit.upload(neighbour, small).status_code == 409
+    # And household 2 attaching one frees a place for household 2 only.
+    make(neighbour, "Rasam", photo_id=theirs[0]["id"])
+    assert kit.upload(kitchen, small).status_code == 409
+    kit.uploaded(neighbour, small)
+
+
+def test_the_clean_up_only_deletes_each_households_own_old_uploads(
+    kitchen: TestClient, neighbour: TestClient, photos_of_1: dict[str, Any]
+) -> None:
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from mealwright import jobs
+    from mealwright.models import RecipePhoto, utcnow
+
+    theirs = kit.uploaded(neighbour)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(
+            update(RecipePhoto)
+            .where(RecipePhoto.id == theirs["id"])
+            .values(added_at=utcnow() - timedelta(hours=25))
+        )
+        db.commit()
+    before = rows_of_household_1(kitchen), files_of_household(kitchen, 1)
+    jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    assert (rows_of_household_1(kitchen), files_of_household(kitchen, 1)) == before
+    assert files_of_household(kitchen, 2) == []

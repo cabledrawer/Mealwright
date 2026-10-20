@@ -51,6 +51,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import fold
+from mealwright.photos import delete_after_commit
 
 CANT = "can\u2019t"
 
@@ -325,8 +326,36 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
         )
     _save_tags(kitchen, recipe, body.tags)
     _save_made_ahead(kitchen, recipe, body)
+    _save_photo(kitchen, recipe, body.photo_id)
     db.flush()
     return recipe
+
+
+def _save_photo(kitchen: Kitchen, recipe: Recipe, photo_id: int | None) -> None:
+    """Attach the photo the editor uploaded, keep the one it had, or (null) have none. A
+    photo that's replaced or cleared is deleted, its files once the save is committed
+    (cabledrawer 20 Oct). Only an upload of this household that's not on any recipe yet can
+    be attached; anything else is refused like an id that doesn't exist."""
+    db = kitchen.db
+    current = db.scalar(select(RecipePhoto).where(RecipePhoto.recipe_id == recipe.id))
+    if current is not None and current.id == photo_id:
+        return
+    new = None
+    if photo_id is not None:
+        new = db.get(RecipePhoto, photo_id)
+        if new is None or new.household_id != kitchen.household_id or new.recipe_id is not None:
+            raise not_found("That photo")
+    if current is not None:
+        delete_photo(db, current)
+        db.flush()  # the recipe's one photo place is free before the new one takes it
+    if new is not None:
+        new.recipe_id = recipe.id
+
+
+def delete_photo(db: DbSession, photo: RecipePhoto) -> None:
+    """Delete the record now and the files once this is committed."""
+    delete_after_commit(db, photo.household_id, [photo.file_key])
+    db.delete(photo)
 
 
 def _save_lines(
@@ -541,12 +570,46 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     db.execute(
         update(RecipeLine).where(RecipeLine.sub_recipe_id.in_(ids)).values(sub_recipe_id=None)
     )
+    keys = list(db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.recipe_id.in_(ids))))
+    if keys:
+        delete_after_commit(db, household.id, keys)  # the files, once this is committed
     for table in (RecipeLine, RecipeStep, RecipeTag, RecipePhoto):
         db.execute(delete(table).where(table.recipe_id.in_(ids)))
     db.execute(delete(Recipe).where(Recipe.id.in_(ids)))
     drop_unused_tags(db, household.id)
     db.commit()
     return len(ids)
+
+
+def drop_waiting_photos(db: DbSession, household: Household, now: datetime | None = None) -> int:
+    """Delete uploads that no recipe took within a day (cabledrawer 20 Oct), and files in the
+    household's photo folder that have no record (after a crash, say). Returns how many
+    uploads went. Local only: nothing here makes a network connection."""
+    from datetime import timedelta
+
+    from mealwright.photos import WAITING_HOURS, store_of, sweep_files
+    from mealwright.shopping import lock_db
+
+    now = now or utcnow()
+    lock_db(db, household)
+    old = list(
+        db.scalars(
+            select(RecipePhoto).where(
+                RecipePhoto.household_id == household.id,
+                RecipePhoto.recipe_id.is_(None),
+                RecipePhoto.added_at < now - timedelta(hours=WAITING_HOURS),
+            )
+        )
+    )
+    for photo in old:
+        delete_photo(db, photo)
+    db.commit()
+    known = set(
+        db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.household_id == household.id))
+    )
+    db.commit()
+    sweep_files(store_of(db), household.id, known, now.timestamp())
+    return len(old)
 
 
 # --- Ingredients that recipes use -------------------------------------------------------------
@@ -614,9 +677,22 @@ def makes_out(recipe: Recipe) -> MakesOut | None:
     )
 
 
+def photo_view(photo: RecipePhoto) -> PhotoOut:
+    url = f"/api/v1/recipes/photos/{photo.id}"
+    return PhotoOut(
+        id=photo.id,
+        width=photo.width,
+        height=photo.height,
+        url=f"{url}/large",
+        list_width=photo.list_width,
+        list_height=photo.list_height,
+        list_url=f"{url}/list",
+    )
+
+
 def photo_out(db: DbSession, recipe_id: int) -> PhotoOut | None:
     photo = db.scalar(select(RecipePhoto).where(RecipePhoto.recipe_id == recipe_id))
-    return PhotoOut(id=photo.id, width=photo.width, height=photo.height) if photo else None
+    return photo_view(photo) if photo else None
 
 
 def tags_of(kitchen: Kitchen, recipe_ids: list[int]) -> dict[int, list[str]]:
@@ -750,7 +826,7 @@ def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
         )
     }
     photos = {
-        p.recipe_id: PhotoOut(id=p.id, width=p.width, height=p.height)
+        p.recipe_id: photo_view(p)
         for p in kitchen.db.scalars(select(RecipePhoto).where(RecipePhoto.recipe_id.in_(ids)))
     }
     return [

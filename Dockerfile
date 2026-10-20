@@ -19,9 +19,11 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_NO_CACHE=1
 WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# Pillow is only ever installed from its ready-made wheel (amd64 and arm64), never built
+# here from source: if no wheel fits, the build stops.
+RUN uv sync --frozen --no-dev --no-install-project --no-build-package pillow
 COPY backend/ ./
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable --no-build-package pillow
 
 # --- 3. The image that runs --------------------------------------------------------------
 FROM python:3.14-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170

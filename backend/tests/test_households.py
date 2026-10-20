@@ -12,6 +12,7 @@ the same afterwards.
 from collections.abc import Iterator
 from typing import Any
 
+import photo_kit as kit
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
@@ -93,8 +94,11 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         201,
     )
     recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
+    photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     return {
         "recipe_id": recipe["id"],
+        "photo_id": photo["id"],
+        "copy": "large",
         "list_id": lists[0]["id"],
         "extra_list_id": extra["shopping_list"]["id"],
         "item_id": item["item"]["id"],
@@ -162,6 +166,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("PUT", "/api/v1/recipes/{recipe_id}"): {"name": "Mine now", "version": 1},
     ("DELETE", "/api/v1/recipes/{recipe_id}"): None,
     ("GET", "/api/v1/recipes/{recipe_id}/cannot-use"): None,
+    ("GET", "/api/v1/recipes/photos/{photo_id}/{copy}"): None,
+    ("DELETE", "/api/v1/recipes/photos/{photo_id}"): None,
 }
 
 

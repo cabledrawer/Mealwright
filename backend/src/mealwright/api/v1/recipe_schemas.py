@@ -324,6 +324,9 @@ class RecipeIn(BaseModel):
     lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
     source_note: Annotated[str, Field(max_length=500)] | None = None
+    # The recipe's photo: the id from `POST /recipes/photos`, or the one it has already.
+    # Left out or null: no photo (the one it had is deleted on Save).
+    photo_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -416,9 +419,17 @@ class NutritionOut(BaseModel):
 
 
 class PhotoOut(BaseModel):
+    """`url` is the large copy (longest side at most 1600 px), `list_url` the small one
+    for the recipe list (shortest side 156 px). Both are JPEGs. A new photo always gets a
+    new id, so a URL always shows the same picture."""
+
     id: int
     width: int
     height: int
+    url: str
+    list_width: int
+    list_height: int
+    list_url: str
 
 
 class RecipeOut(BaseModel):

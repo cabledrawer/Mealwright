@@ -15,7 +15,9 @@ Every job is added in `scheduler()`, in one place:
 
 - **Removed ingredients and recipes** (spec section 6): just after start-up and then every
   hour, ingredients and recipes removed longer ago than the undo window (7 days) are deleted
-  for good.
+  for good, recipe photos with them (their files too). Photos uploaded but not saved on any
+  recipe within 24 hours are deleted, and so are photo files with no record that are older
+  than that (cabledrawer 20 Oct).
 
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
@@ -71,7 +73,7 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
     """Delete ingredients removed longer ago than the undo window. Runs straight after
     start-up and then every hour. Never raises."""
     from mealwright.history import purge_removed  # imported here: history needs the API
-    from mealwright.recipes import purge_removed_recipes
+    from mealwright.recipes import drop_waiting_photos, purge_removed_recipes
 
     now = now or datetime.now(UTC)
     with factory() as db:
@@ -88,6 +90,9 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 gone = purge_removed_recipes(db, household, now)
                 if gone:
                     log.info("Deleted %d removed recipes for good", gone)
+                dropped = drop_waiting_photos(db, household, now)
+                if dropped:
+                    log.info("Deleted %d photos that were never saved on a recipe", dropped)
             except Exception:
                 db.rollback()
                 log.exception("Couldn't tidy removed ingredients (will try again within the hour)")

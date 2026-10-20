@@ -363,6 +363,9 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("RecipeLineIn", "food_id"): "test_recipes_isolation",
     ("RecipeLineIn", "recipe_id"): "test_recipes_isolation",
     ("RecipeLineIn", "size_id"): "test_recipes_isolation",
+    # Photos: test_recipes_isolation.py, test_household_2_cannot_use_household_1s_photos.
+    ("RecipeIn", "photo_id"): "test_recipes_isolation",
+    ("RecipeUpdate", "photo_id"): "test_recipes_isolation",
     # Plain shopping endpoints: here.
     ("NewItem", "id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
     ("AmountOrNone", "size_id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",

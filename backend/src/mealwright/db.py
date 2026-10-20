@@ -1,6 +1,7 @@
 """Database engine, sessions and the declarative base."""
 
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, MetaData, create_engine, event
@@ -42,8 +43,11 @@ def make_engine(url: str) -> Engine:
     return engine
 
 
-def make_sessionmaker(engine: Engine) -> sessionmaker[Session]:
-    return sessionmaker(bind=engine, expire_on_commit=False)
+def make_sessionmaker(engine: Engine, photos: Path | None = None) -> sessionmaker[Session]:
+    """`photos`: the folder recipe photo files are kept in, so a session can delete a
+    photo's files once its record is gone (mealwright.photos)."""
+    info = {} if photos is None else {"mealwright.photos.store": str(photos)}
+    return sessionmaker(bind=engine, expire_on_commit=False, info=info)
 
 
 def session_scope(factory: sessionmaker[Session]) -> Iterator[Session]:
