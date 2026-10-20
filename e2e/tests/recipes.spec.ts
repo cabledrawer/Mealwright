@@ -195,8 +195,13 @@ test('failed: says what happened and Try again loads it', async ({ page }) => {
 });
 
 async function goOffline(page: Page, context: BrowserContext) {
+  // Wait for the live stream's hello first: one arriving after the failed fetch would rightly
+  // say the server is there after all.
+  const hello = page.waitForResponse((r) => r.url().endsWith('/api/v1/events'));
   await page.goto('/recipes');
   await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+  await hello;
+  await page.waitForTimeout(500);
   // Only our server is unreachable: the app comes to the foreground, fetches and finds out.
   await context.route('**/api/**', (route) => route.abort());
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
