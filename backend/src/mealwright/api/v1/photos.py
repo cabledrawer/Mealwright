@@ -204,7 +204,7 @@ def photo_file(photo_id: int, copy: Literal["large", "list"], kitchen: Here) -> 
 )
 def delete_unsaved_photo(photo_id: int, kitchen: Here) -> Response:
     """Delete an upload that isn't saved on a recipe, for an editor that's cancelled. A
-    photo on a recipe isn't deleted here: save the recipe without it."""
+    photo on a recipe isn't deleted here: save the recipe with `photo_id` null."""
     # Agreed by cabledrawer, 20 Oct (spec section 6, Photos).
     lock_household(kitchen)
     photo = _own(kitchen, photo_id)
