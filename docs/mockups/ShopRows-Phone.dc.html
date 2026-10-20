@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Shopping rows</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #F5F6F4; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #17201C; display: flex; flex-direction: column; overflow: hidden; position: relative">
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; padding: 30px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: #5B655F; font-weight: 500">{{ count }}</span><h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Shopping</h1></div>
+<span style="width: 44px; height: 44px; border-radius: 22px; background: #E4F1EA; color: #1F5C42; display: flex; align-items: center; justify-content: center; font-weight: 800">K</span>
+</div>
+<div style="display: flex; gap: 8px">
+<label style="flex: 1; display: flex; align-items: center; border: 1px solid #D3D8D3; background: #FFFFFF; border-radius: 14px; padding: 0 14px; min-height: 48px; box-sizing: border-box"><input type="text" placeholder="Add an item…" aria-label="Add an item" style="border: none; background: transparent; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; flex: 1; min-width: 0; outline: none"></label>
+<button aria-label="Add" style="width: 48px; height: 48px; flex: none; border: none; border-radius: 14px; background: #8FBFA6; color: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 0; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+<span style="font-size: 12px; color: #5B655F; margin-top: -6px">The “+” is centred in its button (hand test, 20 Oct).</span>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 800">Spice Bazaar</h2>
+<div style="background: #FFFFFF; border-radius: 18px; padding: 0 14px">
+<sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 2px">
+<button role="checkbox" aria-checked="false" aria-label="Tick Toor dal" style="width: 28px; height: 28px; flex: none; border: 2px solid #5B655F; border-radius: 8px; background: transparent; padding: 0; cursor: pointer"></button>
+<button onClick="{{ openEdit }}" style="flex: 1; min-width: 0; border: none; background: transparent; padding: 0; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; min-height: 44px; cursor: pointer">Toor dal</button>
+<button onClick="{{ openEdit }}" aria-label="Change amount, 500 g" style="flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 6px 10px 6px 12px; min-height: 36px; font: 600 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">500 g<span style="display: flex; color: #5B655F"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+</div></sc-if>
+<sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}"><div role="group" aria-label="Change Toor dal" style="border: 2px solid #2E7D5B; border-radius: 16px; padding: 12px; margin: 6px -6px; display: flex; flex-direction: column; gap: 12px; background: #FFFFFF">
+<div style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 16px; font-weight: 700">Toor dal</span><button onClick="{{ closeEdit }}" style="border: none; background: #F1F3F0; color: #17201C; border-radius: 999px; padding: 8px 16px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Done</button></div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button aria-label="Less" style="width: 48px; height: 48px; flex: none; border: none; border-radius: 12px; background: #F1F3F0; font: 700 22px 'Plus Jakarta Sans', sans-serif; color: #17201C; cursor: pointer">−</button>
+<input type="text" inputmode="decimal" aria-label="Amount" value="500" style="flex: 1; min-width: 0; min-height: 48px; border: 1px solid #D3D8D3; border-radius: 12px; background: #FFFFFF; color: #17201C; text-align: center; font: 700 18px 'Plus Jakarta Sans', sans-serif">
+<button aria-label="More" style="width: 48px; height: 48px; flex: none; border: none; border-radius: 12px; background: #F1F3F0; font: 700 22px 'Plus Jakarta Sans', sans-serif; color: #17201C; cursor: pointer">+</button>
+<select aria-label="Unit" style="flex: none; width: 96px; min-height: 48px; border: 1px solid #D3D8D3; border-radius: 12px; background: #FFFFFF; color: #17201C; padding: 0 8px; font: 600 16px 'Plus Jakarta Sans', sans-serif"><option>g</option><option>packet (500 g)</option><option>kg</option></select>
+</div>
+<span style="font-size: 12px; color: #5B655F">The box holds the real amount: edit it, or use − / +.</span>
+<button onClick="{{ askRemoveToor }}" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; border: none; background: transparent; color: #9C320B; padding: 6px 0; min-height: 40px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Remove from list</button>
+</div></sc-if>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 800">Any shop</h2>
+<div style="background: #FFFFFF; border-radius: 18px; padding: 0 14px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid #E8EBE7; padding: 0 2px">
+<button role="checkbox" aria-checked="false" aria-label="Tick Coriander" style="width: 28px; height: 28px; flex: none; border: 2px solid #5B655F; border-radius: 8px; background: transparent; padding: 0; cursor: pointer"></button>
+<button onClick="{{ openEdit }}" style="flex: 1; min-width: 0; border: none; background: transparent; padding: 0; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; min-height: 44px; cursor: pointer">Coriander</button>
+<button onClick="{{ openEdit }}" aria-label="Change amount, 2 bunches" style="flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 6px 10px 6px 12px; min-height: 36px; font: 600 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">2 bunches<span style="display: flex; color: #5B655F"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+</div>
+<sc-if value="{{ noSwipe }}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid #E8EBE7; padding: 0 2px">
+<button role="checkbox" aria-checked="false" aria-label="Tick Onion" style="width: 28px; height: 28px; flex: none; border: 2px solid #5B655F; border-radius: 8px; background: transparent; padding: 0; cursor: pointer"></button>
+<button onClick="{{ openEdit }}" style="flex: 1; min-width: 0; border: none; background: transparent; padding: 0; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif; color: #17201C; min-height: 44px; cursor: pointer">Onion</button>
+<button onClick="{{ openEdit }}" aria-label="Change amount, 4" style="flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 6px 10px 6px 12px; min-height: 36px; font: 600 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">4<span style="display: flex; color: #5B655F"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+</div></sc-if>
+<sc-if value="{{ swipe }}" hint-placeholder-val="{{ false }}"><div style="position: relative; overflow: hidden; border-bottom: 1px solid #E8EBE7; margin: 0 -14px">
+<button onClick="{{ askRemoveOnion }}" style="position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: #B3261E; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Remove</button>
+<div style="position: relative; transform: translateX(-104px); background: #FFFFFF; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 16px">
+<button role="checkbox" aria-checked="false" aria-label="Tick Onion" style="width: 28px; height: 28px; flex: none; border: 2px solid #5B655F; border-radius: 8px; background: transparent; padding: 0; cursor: pointer"></button>
+<span style="flex: 1; font-size: 16px; font-weight: 600">Onion</span>
+<button aria-label="Change amount, 4" style="flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 999px; padding: 6px 10px 6px 12px; min-height: 36px; font: 600 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">4<span style="display: flex; color: #5B655F"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span></button>
+</div>
+</div></sc-if>
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 2px; border-bottom: 1px solid #E8EBE7; ">
+<span style="padding-top: 2px"><button role="checkbox" aria-checked="true" aria-label="Untick Drumsticks" style="width: 28px; height: 28px; flex: none; border: none; border-radius: 8px; background: #2E7D5B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></button></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 16px; font-weight: 600; color: #5B655F">Drumsticks</span><span style="font-size: 14px; color: #5B655F"></span></div>
+<span style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 700; color: #4F3500; background: #FDF1D8; border-radius: 10px; padding: 4px 10px">Not in the pantry yet. No amount.<button style="border: none; background: transparent; padding: 4px 2px; min-height: 32px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B; text-decoration: underline; cursor: pointer; color: #4F3500">Add amount</button></span>
+</div>
+</div>
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 2px; border-bottom: 1px solid #E8EBE7; ">
+<span style="padding-top: 2px"><button role="checkbox" aria-checked="true" aria-label="Untick Milk" style="width: 28px; height: 28px; flex: none; border: none; border-radius: 8px; background: #2E7D5B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></button></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 16px; font-weight: 600; color: #5B655F">Milk</span><span style="font-size: 14px; color: #5B655F">2 L</span></div>
+<span style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 700; color: #1F5C42; background: #E4F1EA; border-radius: 10px; padding: 4px 10px">In the Fridge · 2 L<button style="border: none; background: transparent; padding: 4px 2px; min-height: 32px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B; text-decoration: underline; cursor: pointer">Change</button><button style="border: none; background: transparent; padding: 4px 2px; min-height: 32px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B; text-decoration: underline; cursor: pointer">Undo</button></span>
+</div>
+</div>
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 2px; ">
+<span style="padding-top: 2px"><button role="checkbox" aria-checked="true" aria-label="Untick Salt" style="width: 28px; height: 28px; flex: none; border: none; border-radius: 8px; background: #2E7D5B; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></button></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 16px; font-weight: 600; color: #5B655F">Salt</span><span style="font-size: 14px; color: #5B655F"></span></div>
+<span style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; font-weight: 700; color: #17201C; background: #F1F3F0; border-radius: 10px; padding: 4px 10px">Restocked · staples aren’t counted<button style="border: none; background: transparent; padding: 4px 2px; min-height: 32px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #2E7D5B; text-decoration: underline; cursor: pointer">Undo</button></span>
+</div>
+</div>
+</div>
+</div>
+<span style="font-size: 12px; color: #5B655F">Tapping a name or its amount opens the amount, never ticks it. Only the square ticks.</span>
+</div>
+
+<sc-if value="{{ removed }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 100px; background: #17201C; color: #FFFFFF; border-radius: 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2)">Removed {{ target }}<button onClick="{{ undo }}" style="border: none; background: transparent; color: #FFFFFF; padding: 10px 14px; min-height: 44px; font: 800 14px 'Plus Jakarta Sans', sans-serif; text-decoration: underline; cursor: pointer">Undo</button></div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: #FFFFFF; border-top: 1px solid #E3E6E2; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Shop.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #2E7D5B; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Phone-Pantry.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #5B655F; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+<sc-if value="{{ confirm }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: rgba(23, 32, 28, 0.45); display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ keep }}" aria-label="Keep it" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="alertdialog" aria-label="Remove from the shopping list?" style="background: #FFFFFF; border-radius: 28px 28px 0 0; padding: 12px 20px 32px; display: flex; flex-direction: column; gap: 14px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: #D3D8D3; align-self: center"></span>
+<span style="font-size: 20px; font-weight: 800">Remove {{ target }} from the shopping list?</span>
+<span style="font-size: 14px; color: #5B655F">Nothing goes into the pantry.</span>
+<button onClick="{{ doRemove }}" style="border: none; background: #B3261E; color: #FFFFFF; border-radius: 14px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Remove</button>
+<button onClick="{{ keep }}" style="border: 1px solid #D3D8D3; background: #FFFFFF; color: #17201C; border-radius: 14px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Keep it</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show": {"editor": "enum", "options": ["normal", "editing", "swipe", "confirm", "removed"], "default": "normal"}, "$preview": {"width": 390, "height": 844}}'>
+
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const show = this.props.show ?? 'normal';
+const target = s.target !== undefined ? s.target : 'Onion';
+const editing = s.editing !== undefined ? s.editing : show === 'editing';
+const confirm = s.confirm !== undefined ? s.confirm : show === 'confirm';
+const removed = s.removed !== undefined ? s.removed : show === 'removed';
+const swipe = s.swipe !== undefined ? s.swipe : (show === 'swipe' || show === 'confirm');
+const goneToor = removed && target === 'Toor dal';
+const goneOnion = removed && target === 'Onion';
+const set = (o) => () => this.setState(o);
+return {
+editing: editing && !goneToor, notEditing: !editing && !goneToor,
+swipe: swipe && !goneOnion, noSwipe: !swipe && !goneOnion,
+confirm: confirm, removed: removed, target: target,
+count: removed ? '5 to buy · saved' : '6 to buy · saved',
+openEdit: set({ editing: true }), closeEdit: set({ editing: false }),
+askRemoveToor: set({ confirm: true, target: 'Toor dal' }),
+askRemoveOnion: set({ confirm: true, target: 'Onion' }),
+keep: set({ confirm: false }),
+doRemove: set({ confirm: false, removed: true, editing: false, swipe: false }),
+undo: set({ removed: false })
+};
+}
+}
+
+</script>
+</body>
+</html>
