@@ -81,7 +81,137 @@ describe('the ingredient editor, opened from anywhere', () => {
     await expect.element(dialog.getByRole('switch', { name: 'Staple' })).toBeVisible();
     await expect.element(dialog.getByLabelText('Running low at')).toHaveValue('½ packet');
     await expect.element(dialog.getByLabelText(/^Lives in/)).toHaveDisplayValue('Cupboard');
-    expect(dialog.getByText(/used in/i).elements()).toHaveLength(0); // waits for 0.4
+    // Used in no recipe: the heading is still there, and says so calmly.
+    await expect.element(dialog.getByRole('heading', { name: 'Used in recipes' })).toBeVisible();
+    await expect.element(dialog.getByText('Not in any recipe yet.')).toBeVisible();
+    expect(dialog.getByText(/^Used in \d/).elements()).toHaveLength(0);
+  });
+
+  describe('the recipes that use it (0.4)', () => {
+    const recipes = (names: string[]) => names.map((name, i) => ({ id: 30 + i, name }));
+
+    /** Following a link would load a new page into the test runner. */
+    function noNavigation() {
+      const stop = (event: Event) => event.preventDefault();
+      document.addEventListener('click', stop, true);
+      return () => document.removeEventListener('click', stop, true);
+    }
+
+    it('lists them A to Z as links to their pages, under “Used in 3 recipes”', async () => {
+      food = toorDal({ used_in_recipes: 3, used_in: recipes(['Dal tadka', 'Rasam', 'Sambar']) });
+      const dialog = await openToorDal();
+      await expect
+        .element(dialog.getByRole('heading', { name: 'Used in 3 recipes' }))
+        .toBeVisible();
+      const links = dialog.getByRole('link').elements() as HTMLAnchorElement[];
+      expect(links.map((a) => a.textContent)).toEqual(['Dal tadka', 'Rasam', 'Sambar']);
+      expect(links.map((a) => new URL(a.href).pathname)).toEqual([
+        '/recipes/30',
+        '/recipes/31',
+        '/recipes/32'
+      ]);
+      expect(dialog.getByRole('button', { name: /more/ }).elements()).toHaveLength(0);
+    });
+
+    it('says “Used in 1 recipe” for one', async () => {
+      food = toorDal({ used_in_recipes: 1, used_in: recipes(['Sambar']) });
+      const dialog = await openToorDal();
+      await expect.element(dialog.getByRole('heading', { name: 'Used in 1 recipe' })).toBeVisible();
+    });
+
+    it('folds a long list behind “+ 2 more”, and the same button shows fewer again', async () => {
+      const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((l) => `Recipe ${l}`);
+      food = toorDal({ used_in_recipes: 7, used_in: recipes(names) });
+      const dialog = await openToorDal();
+      expect(dialog.getByRole('link').elements()).toHaveLength(5);
+      const more = dialog.getByRole('button', { name: '+ 2 more recipes' });
+      await expect.element(more).toHaveAttribute('aria-expanded', 'false');
+      await more.click();
+      expect(dialog.getByRole('link').elements()).toHaveLength(7);
+      const fewer = dialog.getByRole('button', { name: 'Show fewer' });
+      await expect.element(fewer).toHaveAttribute('aria-expanded', 'true');
+      expect(document.activeElement).toBe(fewer.element()); // focus stays on the button
+      await fewer.click();
+      expect(dialog.getByRole('link').elements()).toHaveLength(5);
+    });
+
+    it('a long name wraps instead of widening the editor', async () => {
+      const long = 'Spiced roasted cauliflower with tahini and pomegranate '.repeat(4).trim();
+      food = toorDal({ used_in_recipes: 1, used_in: recipes([long]) });
+      const dialog = await openToorDal();
+      const link = dialog.getByRole('link', { name: long }).element() as HTMLElement;
+      const box = (document.querySelector('dialog') as HTMLElement).getBoundingClientRect();
+      expect(link.getBoundingClientRect().right).toBeLessThanOrEqual(box.right);
+      expect(link.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    });
+
+    it('following a recipe closes the editor; a new-tab click leaves it open', async () => {
+      food = toorDal({ used_in_recipes: 2, used_in: recipes(['Rasam', 'Sambar']) });
+      const dialog = await openToorDal();
+      const restore = noNavigation();
+      try {
+        (dialog.getByRole('link', { name: 'Rasam' }).element() as HTMLElement).dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true })
+        );
+        expect(ingredientEditor.foodId).toBe(7);
+        await dialog.getByRole('link', { name: 'Sambar' }).click();
+        expect(ingredientEditor.foodId).toBeNull();
+      } finally {
+        restore();
+      }
+    });
+
+    it('“Remove from Ingredients” says “Used in 3 recipes” first, and the recipes do not block it', async () => {
+      food = toorDal({ used_in_recipes: 3, used_in: recipes(['Dal tadka', 'Rasam', 'Sambar']) });
+      const dialog = await openToorDal();
+      const hint = dialog.getByText(
+        'Used in 3 recipes. Their lines keep their words and show “not linked”.'
+      );
+      await expect.element(hint).toBeVisible();
+      const remove = dialog.getByRole('button', { name: 'Remove from Ingredients' });
+      await expect
+        .element(remove)
+        .toHaveAccessibleDescription(
+          'Used in 3 recipes. Their lines keep their words and show “not linked”.'
+        );
+      await remove.click();
+      await vi.waitFor(() =>
+        expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+      );
+      expect(toasts.current?.action?.label).toBe('Undo');
+      toasts.act();
+      await vi.waitFor(() =>
+        expect(toasts.current?.message).toBe('Undone: Removed Toor dal from Ingredients')
+      );
+    });
+
+    it('one recipe: “Its line keeps its words and shows “not linked”.”', async () => {
+      food = toorDal({ used_in_recipes: 1, used_in: recipes(['Sambar']) });
+      const dialog = await openToorDal();
+      await expect
+        .element(
+          dialog.getByText('Used in 1 recipe. Its line keeps its words and shows “not linked”.')
+        )
+        .toBeVisible();
+    });
+
+    it('a recipe’s own made-ahead ingredient says why it can’t be removed, with a link', async () => {
+      food = toorDal({
+        used_in_recipes: 1,
+        used_in: recipes(['Dosa']),
+        made_by: { id: 31, name: 'Dosa batter' }
+      });
+      const dialog = await openToorDal();
+      await expect.element(dialog.getByText(/^Made by the recipe/)).toBeVisible();
+      await expect
+        .element(dialog.getByText(/Turn off Made ahead there to remove it\./))
+        .toBeVisible();
+      const link = dialog.getByRole('link', { name: 'Dosa batter' });
+      expect(new URL((link.element() as HTMLAnchorElement).href).pathname).toBe('/recipes/31');
+      expect(
+        dialog.getByRole('button', { name: 'Remove from Ingredients' }).elements()
+      ).toHaveLength(0);
+    });
   });
 
   it('closes with Done and with Escape', async () => {

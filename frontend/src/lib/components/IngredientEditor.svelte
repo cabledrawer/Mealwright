@@ -4,7 +4,10 @@
   // and beside the list on the Ingredients page. Saves as you go: each field is saved
   // when it's left or switched, with Undo (foodEditor.svelte.ts).
   //
-  // Waiting for later milestones (spec "Decided for 0.2"): "Used in N recipes" (0.4).
+  // 0.4: "Used in N recipes" lists the recipes that use the ingredient, each a link to its
+  // page, and "Remove from Ingredients" says so before it is pressed (spec "Removing an
+  // ingredient", cabledrawer 19 Oct: the recipes don't block it; their lines keep their words
+  // and show "not linked").
   import { parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
   import { canRemove } from '$lib/canRemove';
@@ -14,7 +17,9 @@
   import { toasts } from '$lib/toast.svelte';
   import FoodPicker from './FoodPicker.svelte';
   import Icon from './Icon.svelte';
+  import RemoveIngredient from './RemoveIngredient.svelte';
   import Switch from './Switch.svelte';
+  import UsedInRecipes from './UsedInRecipes.svelte';
 
   let {
     foodId,
@@ -250,6 +255,15 @@
         close();
       }
     };
+  }
+
+  /**
+   * A recipe link was followed with a plain click. In the phone sheet and the desktop's modal
+   * panel the editor closes first (the page behind it changes); beside the Ingredients list the
+   * page itself changes. A click that opens a new tab never gets here.
+   */
+  function leaving() {
+    if (variant === 'sheet') onclose?.();
   }
 
   function focusOnShow(node: HTMLElement) {
@@ -590,6 +604,8 @@
       </ul>
     </section>
 
+    <UsedInRecipes recipes={food.used_in} count={food.used_in_recipes} onfollow={leaving} />
+
     <footer>
       {#if picking === 'merge'}
         <FoodPicker
@@ -612,12 +628,13 @@
       >
     </footer>
 
-    {#if canRemove(food)}
-      <!-- Only when nothing depends on it (canRemove). Undo works for 7 days. -->
-      <button type="button" class="remove-ingredient" onclick={() => void model.remove()}
-        >Remove from Ingredients</button
-      >
-    {/if}
+    <RemoveIngredient
+      usedIn={food.used_in_recipes}
+      madeBy={food.made_by}
+      removable={canRemove(food)}
+      onremove={() => void model.remove()}
+      onfollow={leaving}
+    />
   {/if}
 </div>
 
@@ -839,19 +856,6 @@
   .link:disabled {
     cursor: not-allowed;
     opacity: 0.6;
-  }
-
-  .remove-ingredient {
-    align-self: flex-start;
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .chip-input {

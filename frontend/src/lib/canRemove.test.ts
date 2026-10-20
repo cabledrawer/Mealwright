@@ -7,4 +7,12 @@ describe('removing an ingredient', () => {
     expect(canRemove({ stock: { amount: 0, display: '0 g' } })).toBe(true);
     expect(canRemove({ stock: { amount: 750, display: '1½ packets · about 750 g' } })).toBe(false);
   });
+
+  it('is not blocked by the recipes that use it (cabledrawer 19 Oct)', () => {
+    expect(canRemove({ stock: null, made_by: null })).toBe(true);
+  });
+
+  it('is not offered for a recipe’s own made-ahead ingredient', () => {
+    expect(canRemove({ stock: null, made_by: { id: 3, name: 'Dosa batter' } })).toBe(false);
+  });
 });

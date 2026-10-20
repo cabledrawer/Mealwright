@@ -186,6 +186,22 @@ describe('the recipe page', () => {
     await expect.element(page.getByText('recipe removed')).toBeVisible();
   });
 
+  it('a line that is not linked, or whose recipe was deleted, is calm text that opens nothing', async () => {
+    await open();
+    // Whatever the words, neither is a button or a link (the deleted recipe's id is still sent,
+    // so a save keeps the link, but the page must not follow it).
+    for (const words of [/salt to taste/, /old stuff/]) {
+      await expect.element(page.getByText(words)).toBeVisible();
+      expect(page.getByRole('button', { name: words }).elements()).toHaveLength(0);
+      expect(page.getByRole('link', { name: words }).elements()).toHaveLength(0);
+    }
+    // Each says why in small words, and the stock marks leave them out.
+    const plain = [...document.querySelectorAll('.line.plain')].map((el) =>
+      el.textContent?.replace(/\s+/g, ' ').trim()
+    );
+    expect(plain).toEqual(['salt to taste not linked', 'old stuff recipe removed']);
+  });
+
   it('marks where each ingredient is', async () => {
     await open();
     await expect.element(page.getByText('Cupboard', { exact: true })).toBeVisible();
