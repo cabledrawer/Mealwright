@@ -24,11 +24,11 @@ Everything else below is the spec's or cabledrawer's, as marked:
   ingredient (cabledrawer 20 Oct).
 - A line that uses any other recipe (not made ahead) is not checked (cabledrawer 20 Oct: inner
   recipes are checked in a later version). So is one using a made-ahead recipe with no pantry
-  ingredient yet, or a recipe since deleted (cabledrawer 20 Oct), and one with no amount (lead's
-  note, for cabledrawer to confirm). Such a recipe is never "Can cook now" and its hint never
-  says "all in stock" or "all in stock but 1": the row says `stock_unchecked`, and the screen says
-  "N missing" when something that was checked is missing, and no stock words otherwise
-  (cabledrawer 20 Oct).
+  ingredient yet, or a recipe since deleted (cabledrawer 20 Oct). A line with no amount is
+  ignored, whatever it points at (cabledrawer 20 Oct, question 13). Such a recipe is never
+  "Can cook now" and its hint never says "all in stock" or "all in stock but 1": the row
+  says `stock_unchecked`, and the screen says "N missing" when something that was checked
+  is missing, and no stock words otherwise (cabledrawer 20 Oct).
 - "Can cook now" is: something counts, nothing is missing, and no line is left unchecked
   (cabledrawer 20 Oct).
 """
@@ -191,9 +191,10 @@ def hints(
     by_recipe: dict[int, list[Line]] = defaultdict(list)
     unchecked: set[int] = set()
     for line in lines:
-        if line.amount_milli is not None:
-            by_recipe[line.recipe_id].append(line)
-        # Any line that uses a recipe, with an amount or not, that is not checked.
+        # A line with no amount is ignored, whatever it points at (cabledrawer 20 Oct).
+        if line.amount_milli is None:
+            continue
+        by_recipe[line.recipe_id].append(line)
         if line.sub_recipe_id is not None and _ingredient_of(line, stock.foods, recipes) is None:
             unchecked.add(line.recipe_id)
     found: dict[int, tuple[StockHint | None, UseSoonHint | None, bool]] = {}

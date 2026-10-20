@@ -209,8 +209,13 @@ def test_a_recipe_using_an_unchecked_recipe_is_never_all_in_stock_or_can_cook_no
             {"words": "base", "amount": 1, "unit": "cup", "recipe_id": base["id"]},
         ],
     )
-    # A line with no amount that uses a recipe is unchecked too; nothing else counts.
+    # A line with no amount is ignored, whatever it points at (cabledrawer 20 Oct, question 13).
     make(kitchen, "Only the base", lines=[{"words": "base", "recipe_id": base["id"]}])
+    make(
+        kitchen,
+        "Rice and some base",
+        lines=[line(rice["id"], 100, "g"), {"words": "base", "recipe_id": base["id"]}],
+    )
     everything = row(kitchen, "Everything else here")
     assert everything["stock"] == {"counted": 1, "missing": 0, "can_cook_now": False}
     assert everything["stock_unchecked"] is True
@@ -218,17 +223,21 @@ def test_a_recipe_using_an_unchecked_recipe_is_never_all_in_stock_or_can_cook_no
     assert one_missing["stock"] == {"counted": 2, "missing": 1, "can_cook_now": False}
     assert one_missing["stock_unchecked"] is True
     only = row(kitchen, "Only the base")
-    assert only["stock"] is None and only["stock_unchecked"] is True
+    assert only["stock"] is None and only["stock_unchecked"] is False
+    some = row(kitchen, "Rice and some base")
+    assert some["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    assert some["stock_unchecked"] is False
     # The inner recipe itself is a plain recipe with no lines: nothing unchecked.
     assert row(kitchen, "Plain base")["stock_unchecked"] is False
     stock(kitchen, dal["id"], 500, "g")
-    assert names(kitchen, can_cook_now="true") == []
+    assert names(kitchen, can_cook_now="true") == ["Rice and some base"]
     assert row(kitchen, "Everything else here")["stock"]["can_cook_now"] is False
 
 
 def test_made_ahead_without_a_pantry_ingredient_or_removed_is_unchecked(
     kitchen: TestClient,
 ) -> None:
+    """cabledrawer 20 Oct: both count as "can't be checked", like a recipe that isn't made ahead."""
     batter = make(kitchen, "Dosa batter", made_ahead=True)
     save(kitchen, batter, made_ahead=False)
     gone = make(kitchen, "Gone base")
