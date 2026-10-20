@@ -269,6 +269,29 @@ def test_two_levels_deep_the_outer_recipe_is_unchecked_and_the_middle_one_is_che
     assert names(kitchen, can_cook_now="true") == ["Middle"]
 
 
+def test_a_made_ahead_recipe_that_uses_an_unchecked_one_is_still_checked_by_its_stock(
+    kitchen: TestClient,
+) -> None:
+    tempering = make(kitchen, "Tempering")
+    batter = make(
+        kitchen,
+        "Dosa batter",
+        made_ahead=True,
+        makes={"amount": 2, "unit": "litres"},
+        lines=[{"words": "t", "amount": 1, "unit": "cup", "recipe_id": tempering["id"]}],
+    )
+    stock(kitchen, batter["homemade"]["id"], 1500, "ml")
+    make(
+        kitchen,
+        "Dosa",
+        lines=[{"words": "batter", "amount": 1, "unit": "cup", "recipe_id": batter["id"]}],
+    )
+    assert row(kitchen, "Dosa batter")["stock_unchecked"] is True
+    assert row(kitchen, "Dosa")["stock"] == {"counted": 1, "missing": 0, "can_cook_now": True}
+    assert row(kitchen, "Dosa")["stock_unchecked"] is False
+    assert names(kitchen, can_cook_now="true") == ["Dosa"]
+
+
 def test_removed_and_merged_ingredients_do_not_count(kitchen: TestClient) -> None:
     rice = food(kitchen, "Zorba rice")
     ok(kitchen.delete(f"{API}/foods/{rice['id']}"))
