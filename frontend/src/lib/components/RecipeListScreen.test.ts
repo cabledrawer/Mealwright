@@ -13,6 +13,8 @@ const row = (id: number, name: string): RecipeRow => ({
   id,
   name,
   description: null,
+  makes: null,
+  version: 1,
   time_minutes: 30,
   serves: 4,
   tags: [],

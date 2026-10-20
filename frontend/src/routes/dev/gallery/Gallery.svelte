@@ -221,6 +221,8 @@
     id,
     name,
     description: null,
+    makes: null,
+    version: 1,
     time_minutes: null,
     serves: 4,
     tags: [],

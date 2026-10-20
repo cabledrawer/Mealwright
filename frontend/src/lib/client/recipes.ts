@@ -1,7 +1,8 @@
-// Recipes: the All recipes list (docs/dev/api-0.4-recipes.md, sections 2 and 4).
+// Recipes (docs/dev/api-0.4-recipes.md): the All recipes list, one recipe, and the editor's
+// saving, loop guard, tags and photos. Online only in 0.4: nothing here touches the offline queue.
 
 import { api } from '$lib/api';
-import type { Ref } from './types';
+import type { Change, Ref, Who } from './types';
 
 /** What the pantry says about a recipe's ingredients. */
 export interface StockHint {
@@ -18,10 +19,16 @@ export interface UseSoonHint {
   days_left: number;
 }
 
-export interface RecipeRow {
+/** The few fields every recipe answer has: the editor's picker uses them. */
+export interface RecipeBrief {
   id: number;
   name: string;
   description: string | null;
+  makes: { amount: number; amount_text: string; unit: string } | null;
+  version: number;
+}
+
+export interface RecipeRow extends RecipeBrief {
   time_minutes: number | null;
   serves: number | null;
   tags: string[];
@@ -104,6 +111,24 @@ export interface RecipeStep {
   text: string;
 }
 
+export interface Nutrition {
+  kcal: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fibre: number | null;
+}
+
+export interface PhotoOut {
+  id: number;
+  width: number;
+  height: number;
+  url: string;
+  list_width: number;
+  list_height: number;
+  list_url: string;
+}
+
 export interface Recipe {
   id: number;
   name: string;
@@ -114,13 +139,7 @@ export interface Recipe {
   made_ahead: boolean;
   tags: string[];
   /** Per serving; null is unknown, never 0. */
-  nutrition: {
-    kcal: number | null;
-    protein: number | null;
-    carbs: number | null;
-    fat: number | null;
-    fibre: number | null;
-  };
+  nutrition: Nutrition;
   lines: RecipeLine[];
   steps: RecipeStep[];
   source_note: string | null;
@@ -144,10 +163,97 @@ export interface RecipeStock {
   stock_unchecked: boolean;
 }
 
-export const getRecipe = (id: number | string) => api<Recipe>('GET', `/recipes/${id}`);
+/** The whole answer: the recipe page uses the `Recipe` part, the editor all of it. */
+export interface RecipeOut extends Recipe {
+  homemade: Ref | null;
+  photo: PhotoOut | null;
+  used_by: Ref[];
+  updated_at: string;
+  updated_by: Who;
+}
+
+/** The editor's names for a line and a step. */
+export type LineOut = RecipeLine;
+export type StepOut = RecipeStep;
+
+export const getRecipe = (id: number | string) => api<RecipeOut>('GET', `/recipes/${id}`);
 /** `servings` is what − / + chose (1 to 99); left out, the recipe's own Serves is used. */
 export const getRecipeStock = (id: number | string, servings?: number | null) =>
   api<RecipeStock>(
     'GET',
     `/recipes/${id}/stock${servings === undefined || servings === null ? '' : `?servings=${servings}`}`
   );
+
+// --- The editor ---------------------------------------------------------------------------
+
+/** One line as it is sent. */
+export interface LineIn {
+  id?: number;
+  kind: 'ingredient' | 'heading';
+  words: string;
+  amount?: string | null;
+  unit?: string | null;
+  size_id?: number | null;
+  food_id?: number | null;
+  recipe_id?: number | null;
+  note?: string | null;
+}
+
+/** What `POST /recipes` takes; `PUT` adds `version` and `overwrite`. */
+export interface RecipeIn {
+  name: string;
+  description: string | null;
+  time_minutes: number | null;
+  serves: number | null;
+  makes: { amount: string; unit: string } | null;
+  made_ahead: boolean;
+  homemade_name: string | null;
+  tags: string[];
+  nutrition: Record<keyof Nutrition, string | null>;
+  lines: LineIn[];
+  steps: { kind: 'step' | 'heading'; text: string }[];
+  source_note: string | null;
+  /** Left out: the photo stays. null: no photo. A number: that upload. */
+  photo_id?: number | null;
+}
+
+export interface Blocked {
+  id: number;
+  name: string;
+  reason: string;
+  chain: string[];
+}
+
+const key = (idempotencyKey: string) => ({ idempotencyKey });
+
+export const createRecipe = (body: RecipeIn, idempotencyKey: string) =>
+  api<RecipeOut>('POST', '/recipes', body, key(idempotencyKey));
+
+export const saveRecipe = (
+  id: number,
+  body: RecipeIn,
+  version: number,
+  overwrite: boolean,
+  idempotencyKey: string
+) => api<RecipeOut>('PUT', `/recipes/${id}`, { ...body, version, overwrite }, key(idempotencyKey));
+
+export const deleteRecipe = (id: number, idempotencyKey: string) =>
+  api<{ change: Change }>('DELETE', `/recipes/${id}`, undefined, key(idempotencyKey));
+
+/** The recipes this one can't use as an ingredient, and why (the loop guard). */
+export const cannotUse = (id: number) =>
+  api<{ recipes: Blocked[] }>('GET', `/recipes/${id}/cannot-use`).then((r) => r.recipes);
+
+/** Tags the household already uses, the ones starting with `q` first. */
+export const suggestTags = (q: string) =>
+  api<{ tags: { name: string; recipes: number }[] }>(
+    'GET',
+    `/recipes/tags?q=${encodeURIComponent(q)}`
+  ).then((r) => r.tags);
+
+/** A photo's own file is the body; the server finds out what it is from its bytes. */
+export const uploadPhoto = (file: Blob) =>
+  api<PhotoOut>('POST', '/recipes/photos', file, { timeoutMs: 120_000 });
+
+/** An upload that isn't on a recipe (a cancelled editor, or a photo swapped before Save). */
+export const deletePhoto = (id: number) => api<void>('DELETE', `/recipes/photos/${id}`);

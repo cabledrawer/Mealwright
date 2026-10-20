@@ -117,7 +117,10 @@ export async function api<T>(
     throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
   }
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers['content-type'] = 'application/json';
+  // A file (a recipe photo) goes as it is; everything else is JSON.
+  const file = body instanceof Blob ? body : null;
+  if (body !== undefined)
+    headers['content-type'] = file ? file.type || 'image/jpeg' : 'application/json';
   if (options.idempotencyKey) headers['idempotency-key'] = options.idempotencyKey;
   let response: Response;
   try {
@@ -125,7 +128,7 @@ export async function api<T>(
       method,
       credentials: 'same-origin',
       headers: Object.keys(headers).length ? headers : undefined,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: file ?? (body === undefined ? undefined : JSON.stringify(body)),
       signal: AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS)
     });
   } catch {

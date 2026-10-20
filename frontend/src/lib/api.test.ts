@@ -45,6 +45,14 @@ describe('api', () => {
     });
   });
 
+  it('sends a file as it is, with its own type (a recipe photo), not as JSON', async () => {
+    const { fetch, calls } = fakeFetch(201, { id: 5 });
+    const photo = new File([new Uint8Array([1, 2, 3])], 'dish.webp', { type: 'image/webp' });
+    await api('POST', '/recipes/photos', photo, { fetch });
+    expect(calls[0]!.init?.body).toBe(photo);
+    expect(calls[0]!.init?.headers).toEqual({ 'content-type': 'image/webp' });
+  });
+
   it('turns refusals into ApiError with the reason', async () => {
     const body = { detail: 'Too many tries. Please wait 1 minute.' };
     const { fetch } = fakeFetch(429, body);
