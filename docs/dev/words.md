@@ -237,10 +237,10 @@ Giving a ticked line with no amount its first amount ("How much?" → "Different
 **Proposed, for cabledrawer** (written by Claude Code on 20 Oct from the mockups `Desktop-Recipe` and `Dark-Recipe`, cabledrawer's answers of 19 and 20 Oct, and the built screens `frontend/src/routes/(app)/recipes/+layout.svelte`, `frontend/src/lib/components/RecipeListScreen.svelte` and `ChooseRecipe.svelte`). Everything from sections 12 and 13 is reused as it is; only what is new is listed. cabledrawer approves any change here.
 
 - **The three panes:** the sidebar, then All recipes (title "Recipes", the count above it, search, the filter row and the rows as in section 12, no Ingredients button because the sidebar has it), then the recipe (section 13). The open recipe's row is marked. Screen readers hear the panes as "Recipe list" and "Recipe".
-- **No recipe open (`/recipes` on a computer):** the heading "Choose a recipe" and "Pick one from the list to read it here." (new; the lead's note: the other choice was to open the first recipe). With no recipes at all the reading pane says nothing: the list already says "No recipes yet".
+- **No recipe open (`/recipes` on a computer):** the heading "Choose a recipe" and "Pick one from the list to read it here." (new, proposed; an empty pane rather than the first recipe: cabledrawer 20 Oct). With no recipes at all the reading pane says nothing: the list already says "No recipes yet".
 - **Offline:** one note for both panes: the title "Recipes", "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as section 12).
-- **Where the three panes fit (lead's note, for cabledrawer to confirm):** from 1024 px wide with the sidebar open, or 848 px with it collapsed. Narrower (a tablet held upright), Recipes shows one page at a time with the sidebar, as before; under 768 px it is the phone's layout.
-- **Not on these screens yet** (hidden, not stubbed): "+ New recipe" and Edit (the editor), "Import a recipe" (0.5), "Drafts · 3 unfinished imports" in the list (the sidebar's Drafts entry stays as it was), "Plan it", "Start cooking", "Cook once, eat for…", the photo.
+- **Where the three panes fit (cabledrawer 20 Oct):** from 1024 px wide with the sidebar open, or 848 px with it collapsed. Narrower (a tablet held upright), Recipes shows one page at a time with the sidebar, as before; under 768 px it is the phone's layout.
+- **Not on these screens yet** (hidden, not stubbed): "+ New recipe" and Edit (the editor), "Import a recipe" (0.5), "Drafts · 3 unfinished imports" in the list (the sidebar's Drafts entry is hidden too, cabledrawer 20 Oct; done in PR 7), "Plan it", "Start cooking", "Cook once, eat for…", the photo.
 
 ---
 
