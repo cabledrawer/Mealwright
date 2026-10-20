@@ -43,11 +43,12 @@ async function tabThrough(page: Page, limit = 400): Promise<Stop[]> {
   // Tab would carry on from there; so go back with Shift+Tab until focus leaves the page, and
   // the next Tab is the first stop.
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  for (let i = 0; i < limit; i++) {
+  let atTop = false;
+  for (let i = 0; i < limit && !atTop; i++) {
     await page.keyboard.press('Shift+Tab');
-    const left = await page.evaluate(() => !document.activeElement || document.activeElement === document.body);
-    if (left) break;
+    atTop = await page.evaluate(() => !document.activeElement || document.activeElement === document.body);
   }
+  expect(atTop, `Shift+Tab left the page within ${limit} presses, so Tab starts at the top`).toBe(true);
   const stops: Stop[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < limit; i++) {
