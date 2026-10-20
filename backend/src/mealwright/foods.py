@@ -240,10 +240,8 @@ def household_conversions(kitchen: Kitchen, food_id: int) -> dict[str, FoodConve
     }
 
 
-def known(kitchen: Kitchen, food: Food, answers: list[Answer] | None = None) -> Known:
-    """What's known about converting this food: answers given with this request, then the
-    household's own, then the bundled table."""
-    mine = household_conversions(kitchen, food.id)
+def known_from(food: Food, mine: dict[str, FoodConversion]) -> Known:
+    """The household's answers for this food (already loaded), else the bundled table."""
     row = table_row(food)
     mg_per_ml = mine["weight_per_ml"].value_milli if "weight_per_ml" in mine else None
     item_mg = mine["item_weight"].value_milli if "item_weight" in mine else None
@@ -251,6 +249,14 @@ def known(kitchen: Kitchen, food: Food, answers: list[Answer] | None = None) -> 
         mg_per_ml = row.mg_per_ml
     if item_mg is None and row:
         item_mg = row.item_weight_mg
+    return Known(mg_per_ml, item_mg)
+
+
+def known(kitchen: Kitchen, food: Food, answers: list[Answer] | None = None) -> Known:
+    """What's known about converting this food: answers given with this request, then the
+    household's own, then the bundled table."""
+    base = known_from(food, household_conversions(kitchen, food.id))
+    mg_per_ml, item_mg = base.mg_per_ml, base.item_mg
     for answer in answers or []:
         if answer.food_id != food.id or answer.grams is None:
             continue

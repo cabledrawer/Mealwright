@@ -7,12 +7,12 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
-from mealwright import recipes
+from mealwright import recipe_list, recipes
 from mealwright.api.v1.context import Here
+from mealwright.api.v1.recipe_list_schemas import RecipePage
 from mealwright.api.v1.recipe_schemas import (
     BlockedList,
     RecipeIn,
-    RecipeList,
     RecipeOut,
     RecipeUpdate,
     TagList,
@@ -38,17 +38,21 @@ def list_recipes(
     kitchen: Here,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     after: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
-) -> RecipeList:
-    """Every recipe, A to Z (ignoring case and accents). Recipes that were deleted and can
-    still be undone are not listed."""
-    found = sorted(recipes.live_recipes(kitchen).values(), key=lambda r: (fold(r.name), r.id))
-    start = int(after) if after else 0
-    page = found[start : start + limit]
-    more = start + limit < len(found)
-    return RecipeList(
-        total=len(found),
-        recipes=recipes.brief_list(kitchen, page),
-        next=str(start + limit) if more else None,
+    q: Annotated[str, Query(max_length=100)] = "",
+    tag: Annotated[str | None, Query(max_length=40)] = None,
+    can_cook_now: bool = False,
+) -> RecipePage:
+    """Every recipe, A to Z (ignoring case and accents), each with its stock hints.
+    `q` searches recipe names, tags and ingredient names (other names too), never the
+    method; `tag` keeps one tag; `can_cook_now` keeps recipes with nothing missing. They
+    work together. Recipes that were deleted and can still be undone are not listed."""
+    return recipe_list.page(
+        kitchen,
+        q=q,
+        tag=tag,
+        can_cook_now=can_cook_now,
+        start=int(after) if after else 0,
+        limit=limit,
     )
 
 

@@ -24,7 +24,7 @@ All under `/api/v1`, signed in, same-origin for writes. An id from another house
 
 | | |
 |---|---|
-| `GET /recipes?limit=&after=` | every recipe, A to Z. `{total, recipes: [brief], next}`. A deleted recipe isn't listed. |
+| `GET /recipes?limit=&after=&q=&tag=&can_cook_now=` | every recipe, A to Z, each with its stock hints (section 4). `{total, all_recipes, recipes: [row], next}`. A deleted recipe isn't listed. |
 | `GET /recipes/tags?q=` | tag suggestions: `{tags: [{name, recipes}]}`. A tag no recipe has any more isn't listed. |
 | `POST /recipes` (201) | make a recipe. Only `name` is needed; `serves` defaults to 4 (send `null` for none). |
 | `GET /recipes/{id}` | the whole recipe (below). |
@@ -143,3 +143,38 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 - **"Made its own ingredient again"** (`/foods/{id}/split`) puts back the lines that the merge moved, as long as they are still on the kept ingredient. A line's packet size stays with the kept ingredient, so such a line loses its size.
 - **Remove** keeps every line's words and amount but unlinks it (`link: "none"`); Undo links it again, unless the line was linked to something else or taken out of the recipe since (the Undo then says it only partly worked).
 - A merge, a split, removing an ingredient, deleting or bringing back a recipe that others use, Undo of those, and the daily deletion for good each add 1 to the `version` of every recipe whose links they change, marked as changed by whoever did it (`Mealwright` for the daily deletion). An editor that was open on such a recipe is stopped by the usual `recipe_changed` answer instead of writing old links back.
+
+## 4. The All recipes list (search, tags, Can cook now, stock hints)
+
+`GET /recipes` takes `limit` (1 to 500, default 50), `after`, and three things that work together:
+
+| | |
+|---|---|
+| `q` | words to search for (up to 100 characters). Every word must be found, ignoring case and accents. It looks in the recipe's name, its tags, and its ingredient names: the ingredient's name and **other names** (`thuvaram` finds a recipe with Toor dal), the words typed on the line, and the name of a recipe used as an ingredient. **Never the method.** |
+| `tag` | keep recipes with this tag (ignoring case). |
+| `can_cook_now=true` | keep recipes that can be cooked now (below). |
+
+`total` is how many match; `all_recipes` is how many recipes the household has (the number in the screen's title). `next` pages through the matches. Every row is the brief (section 2) plus:
+
+```json
+{ "kcal": 320, "stock": { "counted": 7, "missing": 1, "can_cook_now": false },
+  "use_soon": { "foods": [{ "id": 3, "name": "Spinach" }], "use_by": "2026-10-20", "days_left": 0 } }
+```
+
+- `kcal` is per serving; `null` is unknown (the screen says "nutrition unknown"), `0` is a real zero.
+- `stock` is `null` when no ingredient line counts. `use_soon` is `null` when nothing the recipe uses is about to go off.
+
+**What counts as "in stock" (cabledrawer 19 Oct, questions 21 and 22; the spec's Stock section):**
+
+- Only ingredient lines **with an amount** count. Headings, lines with no amount ("salt to taste") and lines linked to nothing never do. `counted` is the number of different ingredients that count; `missing` how many of those are not in stock.
+- A **staple** always counts as in stock (the spec: "assumed in stock, not quantity-tracked").
+- Any other ingredient is in stock when the pantry holds **enough for the recipe at its own servings**, when the two amounts can be compared (the line's unit or size against the ingredient's own, using the household's cup size and the weights it knows). Several lines for one ingredient are added up. When they can't be compared (a cup of something with no known weight, a pinch), **any stock counts**.
+- Stock in every place counts, the freezer too.
+- A line that uses a recipe **marked Made ahead** is checked against that recipe's own pantry ingredient. A line that uses any other recipe doesn't count (shopping through it comes with 0.6; lead's note, not cabledrawer's).
+- `can_cook_now` is: something counts and nothing is missing. A recipe where nothing counts is not "Can cook now" (lead's note, not cabledrawer's).
+
+**Use soon (lead's note, not cabledrawer's):** `use_soon` names the ingredients the recipe uses (lines that count, as above) that have a packet with a use-by date from today up to the household's Use soon limit (today, tomorrow or the day after: spec, Stock). Only the ingredients with the **soonest** date are named, so one date always goes with them. A packet whose date has passed is not a nudge and is left out.
+
+"Planned Sun" waits for 0.6.
+
+**Cost.** However many recipes there are, the list reads a fixed number of rows sets (recipes, lines, ingredients, sizes, conversions, stock, tags, other names, then the page), never one query per recipe. A test counts them with 10 and with 300 recipes. Everything is limited to the signed-in household.

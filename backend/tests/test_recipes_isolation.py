@@ -105,7 +105,12 @@ def test_the_other_household_sees_no_recipes_and_no_tags(
     kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     before = rows_of_household_1(kitchen)
-    assert ok(neighbour.get(f"{API}/recipes")) == {"total": 0, "recipes": [], "next": None}
+    assert ok(neighbour.get(f"{API}/recipes")) == {
+        "total": 0,
+        "all_recipes": 0,
+        "recipes": [],
+        "next": None,
+    }
     assert ok(neighbour.get(f"{API}/recipes/tags")) == {"tags": []}
     assert ok(neighbour.get(f"{API}/recipes/tags", params={"q": "quick"})) == {"tags": []}
     assert ok(neighbour.get(f"{API}/foods"))["foods"] == []
@@ -495,3 +500,61 @@ def test_the_clean_up_only_deletes_each_households_own_old_uploads(
     jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
     assert (rows_of_household_1(kitchen), files_of_household(kitchen, 1)) == before
     assert files_of_household(kitchen, 2) == []
+
+
+def test_search_tags_filters_and_stock_hints_never_see_the_other_household(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    # Household 1: Toor dal with another name, stock that goes off today, a tagged recipe.
+    ok(kitchen.post(f"{API}/foods/{mine['food_id']}/other-names", json={"name": "thuvaram"}), 201)
+    ok(
+        kitchen.post(
+            f"{API}/stock",
+            json={
+                "food_id": mine["food_id"],
+                "amount": {"amount": 2, "unit": "packet"},
+                "use_by": ok(kitchen.get(f"{API}/household"))["today"],
+            },
+        ),
+        201,
+    )
+    mine_listed = {r["name"]: r for r in ok(kitchen.get(f"{API}/recipes"))["recipes"]}
+    assert mine_listed["Sambar"]["use_soon"]["foods"][0]["name"] == "Toor dal"
+    before = rows_of_household_1(kitchen)
+
+    # Household 2 searches for everything household 1 has: names, tags, ingredients, other names.
+    for q in ["Sambar", "powder", "Quick", "Batch", "Podi", "toor", "dal", "thuvaram", "Old rasam"]:
+        found = ok(neighbour.get(f"{API}/recipes", params={"q": q}))
+        assert found == {"total": 0, "all_recipes": 0, "recipes": [], "next": None}, q
+    for params in [{"tag": "Quick"}, {"tag": "podi"}, {"can_cook_now": "true"}]:
+        found = ok(neighbour.get(f"{API}/recipes", params=params))
+        assert found["recipes"] == [] and found["total"] == 0, params
+
+    # Household 2 has its own Toor dal and recipe: it finds only its own, with its own stock.
+    toor2 = ok(neighbour.post(f"{API}/foods", json={"name": "Toor dal"}), 201)["food"]
+    make(
+        neighbour,
+        "Dal tadka",
+        lines=[{"words": "dal", "food_id": toor2["id"], "amount": 100, "unit": "g"}],
+    )
+    for q in ["toor", "dal", "thuvaram"]:
+        found = ok(neighbour.get(f"{API}/recipes", params={"q": q}))
+        assert [r["name"] for r in found["recipes"]] == (
+            ["Dal tadka"] if q != "thuvaram" else []
+        ), q
+    theirs = ok(neighbour.get(f"{API}/recipes"))["recipes"][0]
+    assert theirs["stock"] == {
+        "counted": 1,
+        "missing": 1,
+        "can_cook_now": False,
+    }  # no stock of its own
+    assert theirs["use_soon"] is None
+    assert ok(neighbour.get(f"{API}/recipes", params={"can_cook_now": "true"}))["total"] == 0
+
+    # And household 1's answers are unchanged by any of it.
+    assert rows_of_household_1(kitchen) == before
+    assert ok(kitchen.get(f"{API}/recipes", params={"q": "thuvaram"}))["total"] == 1
+    assert [
+        r["name"] for r in ok(kitchen.get(f"{API}/recipes", params={"q": "dal tadka"}))["recipes"]
+    ] == []
+    assert ok(kitchen.get(f"{API}/recipes"))["all_recipes"] == 2
