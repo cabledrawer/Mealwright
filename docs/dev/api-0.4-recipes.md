@@ -180,3 +180,19 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 "Planned Sun" waits for 0.6.
 
 **Cost.** However many recipes there are, the list reads a fixed number of rows sets (recipes, lines, ingredients, sizes, conversions, stock, tags, other names, then the page), never one query per recipe. A test counts them with 10 and with 300 recipes. Everything is limited to the signed-in household.
+
+## 5. Where one recipe's ingredients are (the recipe page)
+
+`GET /recipes/{id}/stock` (signed in; another household's or a deleted recipe is a 404) answers, for the recipe page, the same stock rules as section 4, line by line. It only reads. The recipe's **own** servings are used, so the answer does not change when the page's − / + scale the amounts on screen (the lead's note, 21 Oct, not decided by cabledrawer).
+
+```json
+{ "lines": [ { "line_id": 41, "food": { "id": 7, "name": "Toor dal" }, "state": "in_stock", "place": "Cupboard" } ],
+  "counted": 7, "missing": 1, "stock_unchecked": false }
+```
+
+- `state`: `in_stock` (enough, or any when the amounts can't be compared), `staple` (assumed in stock), `short` (some in the pantry, not enough), `missing` (none). `place` is where most of it is (the first of equal places in their order), only for `in_stock`.
+- `food` is the pantry ingredient the line is checked against: the linked ingredient, or a made-ahead recipe's own ingredient.
+- Lines that don't count are left out: headings, lines with no amount, lines linked to nothing, lines using a recipe that isn't checked. Several lines for one ingredient are added up and share its state.
+- `counted`, `missing` and `stock_unchecked` are exactly the list's hint for this recipe (a test compares them). The screen never says "all in stock" when `stock_unchecked` is `true`.
+- "On list" is not here: the page reads the shopping list's own copy, so it follows waiting changes and live updates.
+- A fixed number of queries however many recipes and lines there are (tested).

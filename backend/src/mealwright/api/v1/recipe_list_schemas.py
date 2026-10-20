@@ -2,6 +2,7 @@
 (docs/dev/api-0.4-recipes.md, section 4)."""
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -35,3 +36,22 @@ class RecipePage(BaseModel):
     all_recipes: int  # every recipe the household has (the number in the title)
     recipes: list[RecipeRow]
     next: str | None
+
+
+class LineStock(BaseModel):
+    line_id: int
+    food: Ref  # the pantry ingredient this line is checked against (a made-ahead recipe's own)
+    # in_stock: the pantry holds enough (or any, when the amounts can't be compared) ·
+    # staple: assumed in stock · short: some in the pantry, not enough · missing: none.
+    state: Literal["in_stock", "staple", "short", "missing"]
+    place: str | None  # where most of it is, when in_stock ("Cupboard")
+
+
+class RecipeStock(BaseModel):
+    """Where one recipe's ingredients are (the recipe page). Lines that don't count (no amount,
+    a heading, nothing linked, a recipe that isn't checked) are not in `lines`."""
+
+    lines: list[LineStock]
+    counted: int  # as in the list's hint: different ingredients that count
+    missing: int  # how many of those are not in stock
+    stock_unchecked: bool  # some line uses a recipe that isn't checked: never "all in stock"

@@ -37,14 +37,17 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import select
 
 from mealwright.amounts import MILLI, TooBig, unit_family
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_list_schemas import (
+    LineStock,
     RecipePage,
     RecipeRow,
+    RecipeStock,
     StockHint,
     UseSoonHint,
 )
@@ -57,6 +60,7 @@ from mealwright.models import (
     FoodConversion,
     FoodName,
     FoodSize,
+    Place,
     Recipe,
     RecipeLine,
     RecipeTag,
@@ -69,6 +73,7 @@ from mealwright.recipes import brief_list, live_recipes
 
 @dataclass(frozen=True)
 class Line:
+    id: int
     recipe_id: int
     words: str
     food_id: int | None
@@ -78,20 +83,21 @@ class Line:
     size_id: int | None
 
 
-def _lines(kitchen: Kitchen, live: set[int]) -> list[Line]:
-    """Every ingredient line (not headings) of the household's recipes."""
-    rows = kitchen.db.execute(
-        select(
-            RecipeLine.recipe_id,
-            RecipeLine.words,
-            RecipeLine.food_id,
-            RecipeLine.sub_recipe_id,
-            RecipeLine.amount_milli,
-            RecipeLine.unit,
-            RecipeLine.size_id,
-        ).where(RecipeLine.household_id == kitchen.household_id, RecipeLine.kind == "ingredient")
-    )
-    return [Line(*row) for row in rows if row[0] in live]
+def _lines(kitchen: Kitchen, live: set[int], only: int | None = None) -> list[Line]:
+    """Every ingredient line (not headings) of the household's recipes, or of recipe `only`."""
+    query = select(
+        RecipeLine.id,
+        RecipeLine.recipe_id,
+        RecipeLine.words,
+        RecipeLine.food_id,
+        RecipeLine.sub_recipe_id,
+        RecipeLine.amount_milli,
+        RecipeLine.unit,
+        RecipeLine.size_id,
+    ).where(RecipeLine.household_id == kitchen.household_id, RecipeLine.kind == "ingredient")
+    if only is not None:
+        query = query.where(RecipeLine.recipe_id == only)
+    return [Line(*row) for row in kitchen.db.execute(query) if row[1] in live]
 
 
 def _foods(kitchen: Kitchen) -> dict[int, Food]:
@@ -113,6 +119,8 @@ class Stock:
         self.today = today(household)
         soon = self.today + timedelta(days=household.use_soon_days)
         self.total: dict[int, int] = defaultdict(int)
+        # How much of each ingredient is in each place (place id → thousandths).
+        self.in_place: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
         self.soonest: dict[int, date] = {}
         for lot in kitchen.db.scalars(
             select(StockLot).where(
@@ -120,6 +128,7 @@ class Stock:
             )
         ):
             self.total[lot.food_id] += lot.amount_milli
+            self.in_place[lot.food_id][lot.place_id] += lot.amount_milli
             # A packet whose date has passed is not a nudge to cook: the Pantry shows it.
             if lot.use_by is not None and self.today <= lot.use_by <= soon:
                 best = self.soonest.get(lot.food_id)
@@ -322,4 +331,67 @@ def page(
         all_recipes=len(recipes),
         recipes=rows,
         next=str(start + limit) if more else None,
+    )
+
+
+def stock_of(kitchen: Kitchen, recipe: Recipe) -> RecipeStock:
+    """Where each ingredient of one recipe is, for the recipe page: the same rules as the
+    list's hints (this file's docstring), line by line. Only lines that count are answered
+    (a line with no amount, a heading, an unlinked line, or a recipe that isn't checked has no
+    state). Several lines for one ingredient share its state. Read-only, a fixed number of
+    queries, limited to the signed-in household."""
+    recipes = live_recipes(kitchen)
+    lines = _lines(kitchen, set(recipes), only=recipe.id)
+    foods = _foods(kitchen)
+    stock = Stock(kitchen, foods)
+    hint, _soon, unchecked = hints(lines, recipes, stock)[recipe.id]
+
+    counted = [
+        (line, food)
+        for line in lines
+        if line.amount_milli is not None
+        and (food := _ingredient_of(line, foods, recipes)) is not None
+    ]
+    needs: dict[int, int] = defaultdict(int)
+    for line, food in counted:
+        needs[food.id] += stock.need(line, food) or 0
+
+    places = {
+        place.id: place
+        for place in kitchen.db.scalars(
+            select(Place).where(Place.household_id == kitchen.household_id)
+        )
+    }
+
+    def where(food_id: int) -> str | None:
+        """The place holding most of it (the first of equals, in the order of the places)."""
+        held = [(place_id, amount) for place_id, amount in stock.in_place[food_id].items()]
+        held = [(p, a) for p, a in held if p in places]
+        if not held:
+            return None
+        best = min(held, key=lambda h: (-h[1], places[h[0]].position, h[0]))
+        return places[best[0]].name
+
+    answered: list[LineStock] = []
+    for line, food in counted:
+        state: Literal["in_stock", "staple", "short", "missing"]
+        if food.staple:
+            state = "staple"
+        elif stock.has_enough(food, needs[food.id]):
+            state = "in_stock"
+        else:
+            state = "short" if stock.total.get(food.id, 0) > 0 else "missing"
+        answered.append(
+            LineStock(
+                line_id=line.id,
+                food=Ref(id=food.id, name=food.name),
+                state=state,
+                place=where(food.id) if state == "in_stock" else None,
+            )
+        )
+    return RecipeStock(
+        lines=answered,
+        counted=hint.counted if hint else 0,
+        missing=hint.missing if hint else 0,
+        stock_unchecked=unchecked,
     )

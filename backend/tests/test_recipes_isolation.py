@@ -134,10 +134,12 @@ def test_household_1_recipe_ids_are_404_for_household_2(
     recipe_id, gone_id = mine["recipe_id"], mine["gone_id"]
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}"))
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}/cannot-use"))
+    not_found(neighbour.get(f"{API}/recipes/{recipe_id}/stock"))
     not_found(neighbour.delete(f"{API}/recipes/{recipe_id}"))
     not_found(neighbour.put(f"{API}/recipes/{recipe_id}", json={"name": "Mine now", "version": 1}))
     # A deleted recipe is no more reachable, and household 2 can't undo household 1's delete.
     not_found(neighbour.get(f"{API}/recipes/{gone_id}"))
+    not_found(neighbour.get(f"{API}/recipes/{gone_id}/stock"))
     not_found(neighbour.post(f"{API}/changes/{mine['remove_change_id']}/undo"))
     assert rows_of_household_1(kitchen) == before
 
@@ -634,3 +636,42 @@ def test_the_other_households_stock_and_use_by_dates_change_no_hint(
     assert mine_now["use_soon"]["foods"][0]["name"] == "Toor dal"
     assert mine_now["use_soon"]["days_left"] == 0
     assert hints(neighbour, "Dal tadka") == theirs_before
+
+
+def test_the_recipe_page_stock_never_sees_the_other_household(
+    kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
+) -> None:
+    """GET /recipes/{id}/stock: each household's lines are checked against its own pantry, and
+    the other's stock, places and staples never show."""
+    toor2 = ok(
+        neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
+    )["food"]
+    ok(
+        neighbour.post(
+            f"{API}/stock", json={"food_id": toor2["id"], "amount": {"amount": 5000, "unit": "g"}}
+        ),
+        201,
+    )
+    plain = make(
+        kitchen,
+        "Plain dal",
+        lines=[{"words": "dal", "food_id": mine["food_id"], "amount": 100, "unit": "g"}],
+    )
+    theirs = make(
+        neighbour,
+        "Dal tadka",
+        lines=[{"words": "dal", "food_id": toor2["id"], "amount": 100, "unit": "g"}],
+    )
+    before = rows_of_household_1(kitchen)
+    # Household 1 has no Toor dal of its own: household 2's 5 kg is not its stock.
+    mine_now = ok(kitchen.get(f"{API}/recipes/{plain['id']}/stock"))
+    assert [(s["food"]["id"], s["state"], s["place"]) for s in mine_now["lines"]] == [
+        (mine["food_id"], "missing", None)
+    ]
+    assert (mine_now["counted"], mine_now["missing"]) == (1, 1)
+    # Household 2 sees its own stock, in its own place.
+    own = ok(neighbour.get(f"{API}/recipes/{theirs['id']}/stock"))
+    assert [(s["food"]["id"], s["state"]) for s in own["lines"]] == [(toor2["id"], "in_stock")]
+    assert own["lines"][0]["place"] in {"Fridge", "Freezer", "Cupboard", "Spice rack"}
+    assert (own["counted"], own["missing"]) == (1, 0)
+    assert rows_of_household_1(kitchen) == before
