@@ -668,8 +668,14 @@ def different_pack(act: Act) -> None:
     new_lots = put_in(kitchen, edit, food, place, [pack] * count, size)
     take(kitchen, edit, new_lots, used_since, include_freezer=True)
     old_size = _size(kitchen, tick.bought_size_id) or usual_size(kitchen, food.id)
-    old = amount_out(food, tick.bought_milli or 0, old_size).display
     new = amount_out(food, total, size).display
+    if tick.bought_milli:
+        old = amount_out(food, tick.bought_milli, old_size).display
+        summary = f"{food.name}: bought {new} instead of {old}"
+    else:
+        # A purchase that had no amount gets its first one; "instead of 0 g" read oddly
+        # (cabledrawer 20 Oct, hand test).
+        summary = f"{food.name}: bought {new} (first amount)"
     ops = [
         {
             "op": "tick_bought",
@@ -680,7 +686,7 @@ def different_pack(act: Act) -> None:
     ]
     change = edit.record(
         "repacked",
-        f"{food.name}: bought {new} instead of {old}",
+        summary,
         food.id,
         {"shopping": ops, "action": act.id},
     )

@@ -380,6 +380,30 @@ def test_sy15_different_pack(kitchen: TestClient) -> None:
     assert row["amount"] == 400 and row["ticks"][0]["bought"]["amount"] == 400
 
 
+def test_sy15b_a_first_amount_is_worded_as_one(kitchen: TestClient) -> None:
+    """An item with no amount, ticked, then "How much?": the change reads as a first
+    amount, never "instead of 0 g" (cabledrawer 20 Oct, hand test)."""
+    s = s0(kitchen)
+    flour = food(kitchen, "Flour", counted_as="weight")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=flour))
+    t = one(kitchen, "tick", counter(kitchen), item_id=item)
+    assert t["change"] is None  # nothing went into the pantry
+    done = one(
+        kitchen,
+        "different_pack",
+        counter(kitchen),
+        item_id=item,
+        tick_id=t["id"],
+        count=1,
+        pack=1000,
+    )
+    assert done["status"] == "applied" and done["change"]["kind"] == "repacked"
+    summary = done["change"]["summary"]
+    assert summary == "Flour: bought 1\u00a0pack · 1\u00a0kg (first amount)"
+    assert "instead of" not in summary
+
+
 def test_sy16_different_pack_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     t = tick(kitchen, s, "Paneer")
