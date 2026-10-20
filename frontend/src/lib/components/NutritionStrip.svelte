@@ -48,7 +48,7 @@
     gap: var(--space-3);
     padding: var(--space-5) var(--space-3);
     border-radius: var(--radius-xl);
-    background: var(--color-surface);
+    background: var(--reading-card, var(--color-surface));
   }
 
   .figure {

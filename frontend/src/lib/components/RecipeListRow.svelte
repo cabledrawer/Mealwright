@@ -6,13 +6,28 @@
   import type { RecipeRow } from '$lib/client/recipes';
   import { recipeParts } from '$lib/recipeLine';
 
-  let { recipe }: { recipe: RecipeRow } = $props();
+  let {
+    recipe,
+    pane = false,
+    current = false
+  }: {
+    recipe: RecipeRow;
+    /** In the desktop's middle pane: the row has its own card to light up. */
+    pane?: boolean;
+    /** The recipe open beside the list. */
+    current?: boolean;
+  } = $props();
   /** Between the parts; a normal space each side, so a long line wraps there. */
   const SEP = ' · ';
   const parts = $derived(recipeParts(recipe));
 </script>
 
-<a class="recipe" href={resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}>
+<a
+  class="recipe"
+  class:pane
+  href={resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}
+  aria-current={current ? 'page' : undefined}
+>
   <span class="square" aria-hidden="true"></span>
   <span class="text">
     <span class="name">{recipe.name}</span>
@@ -34,6 +49,22 @@
     gap: var(--space-6);
     min-height: 72px;
     padding: var(--space-4) 0;
+  }
+
+  /* In the middle pane each row is a card of its own (mockup Desktop-Recipe); the open one is
+     lifted white, the others show a faint fill under the pointer. */
+  .pane {
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+
+  .pane:hover {
+    background: var(--color-fill);
+  }
+
+  .pane[aria-current='page'] {
+    background: var(--color-surface);
+    box-shadow: 0 1px 0 var(--color-border);
   }
 
   .square {

@@ -108,6 +108,11 @@
 
   /* Recipes */
   --color-recipe-square: #f3e3c3; /* a recipe with no photo: a plain warm square (mockup) */
+  /* On the desktop's reading pane (white, or a shade darker than the ground in dark) the
+     nutrition tile, the Keep screen awake row and the servings track sit on these (mockups
+     Desktop-Recipe and Dark-Recipe). */
+  --color-reading-card: #f5f6f4;
+  --color-reading-chip: #f5f6f4;
   /* The recipe page's stock marks: "On list" is orange (text, and the dot beside it). */
   --color-on-list: #8a5a00;
   --color-on-list-dot: #b07400; /* mockup #d99a1e, darkened for 3:1 */
@@ -248,6 +253,8 @@
   --color-segment-track: #252e29;
 
   --color-recipe-square: #3a3222;
+  --color-reading-card: #1b221f;
+  --color-reading-chip: #252e29;
   --color-on-list: #f2b441;
   --color-on-list-dot: #f2b441;
 }

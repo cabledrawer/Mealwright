@@ -35,7 +35,7 @@
     min-height: var(--touch-target);
     padding: 0 14px;
     border-radius: var(--radius-lg);
-    background: var(--color-surface);
+    background: var(--reading-chip, var(--color-surface));
   }
 
   .what {

@@ -26,6 +26,9 @@ async function makeFood(page: Page, name: string, extra: object = {}) {
 const putInPantry = (page: Page, foodId: number, grams: number) =>
   call(page, 'POST', '/stock', { food_id: foodId, amount: { amount: grams, unit: 'g' } });
 
+/** The recipe itself: the reading pane on a computer (beside the list), the whole page on a phone. */
+const reader = (page: Page) => (isPhone(page) ? page.locator('main') : page.getByRole('region', { name: 'Recipe', exact: true }));
+
 const makeRecipe = (page: Page, body: object) => call(page, 'POST', '/recipes', body);
 
 const line = (foodId: number, amount: number, unit = 'g', words = 'x') => ({ words, food_id: foodId, amount, unit });
@@ -72,18 +75,18 @@ test('opens from All recipes, says where each ingredient is, and passes the acce
   await page.getByRole('link', { name: new RegExp(name) }).click();
   await expect(page).toHaveURL(`/recipes/${recipe.id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
-  await expect(page.getByText('Lentil & vegetable stew · 50 min')).toBeVisible();
+  await expect(reader(page).getByText('Lentil & vegetable stew · 50 min')).toBeVisible();
   const lines = page.getByRole('region', { name: 'Ingredients' });
   await expect(lines.getByRole('button', { name: /thuvaram paruppu/ })).toContainText('Cupboard');
   await expect(lines.getByRole('button', { name: /salt/ })).toContainText('Staple');
   await expect(lines.getByRole('button', { name: /paneer/ })).toContainText('Not enough');
   await expect(lines.getByRole('button', { name: /ghee/ })).toContainText('Missing');
   await expect(lines.getByText('a handful of coriander')).toBeVisible();
-  await expect(page.getByText('2 missing', { exact: true })).toBeVisible();
-  await expect(page.getByText('Rinse the dal.')).toBeVisible();
-  await expect(page.getByText('Batch-friendly')).toBeVisible();
-  await expect(page.getByText('Source: Amma’s')).toBeVisible();
-  await expect(page.getByText('unknown', { exact: true }).first()).toBeVisible(); // carbs were never typed
+  await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
+  await expect(reader(page).getByText('Rinse the dal.')).toBeVisible();
+  await expect(reader(page).getByText('Batch-friendly')).toBeVisible();
+  await expect(reader(page).getByText('Source: Amma’s')).toBeVisible();
+  await expect(reader(page).getByText('unknown', { exact: true }).first()).toBeVisible(); // carbs were never typed
   // Hidden in 0.4: not drawn, not stubbed.
   await expect(page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Edit|Delete/)).toHaveCount(0);
   await checkPage(page);
@@ -92,19 +95,19 @@ test('opens from All recipes, says where each ingredient is, and passes the acce
 test('servings scale the amounts on screen only, and the saved recipe stays as it was', async ({ page }) => {
   const { recipe } = await sambar(page);
   await page.goto(`/recipes/${recipe.id}`);
-  await expect(page.getByText('Serves 4')).toBeVisible();
+  await expect(reader(page).getByText('Serves 4')).toBeVisible();
   await page.getByRole('button', { name: 'More servings' }).click();
   await page.getByRole('button', { name: 'More servings' }).click();
-  await expect(page.getByText('Serves 6')).toBeVisible();
-  await expect(page.getByText(/^300\sg/)).toBeVisible();
-  await expect(page.getByText(/^1½\stsp/)).toBeVisible();
+  await expect(reader(page).getByText('Serves 6')).toBeVisible();
+  await expect(reader(page).getByText(/^300\sg/)).toBeVisible();
+  await expect(reader(page).getByText(/^1½\stsp/)).toBeVisible();
   const saved = await (await page.request.get(`/api/v1/recipes/${recipe.id}`)).json();
   expect(saved.serves).toBe(4);
   expect(saved.version).toBe(1);
   // Leaving and coming back starts at the recipe's own number again.
   await page.goBack();
   await page.goForward();
-  await expect(page.getByText('Serves 4')).toBeVisible();
+  await expect(reader(page).getByText('Serves 4')).toBeVisible();
 });
 
 test('a tap on an ingredient opens the ingredient editor, and a recipe line opens that recipe', async ({ page }) => {
@@ -127,18 +130,18 @@ test('a tap on an ingredient opens the ingredient editor, and a recipe line open
 test('"2 missing · Add to the list" adds both with one Undo, and the lines say On list', async ({ page }) => {
   const { recipe } = await sambar(page);
   await page.goto(`/recipes/${recipe.id}`);
-  await expect(page.getByText('2 missing', { exact: true })).toBeVisible();
+  await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add to the list' }).click();
   await expect(page.getByText('2 ingredients added to the shopping list')).toBeVisible();
   await expect(page.getByRole('button', { name: /paneer/ })).toContainText('On list');
   await expect(page.getByRole('button', { name: /ghee/ })).toContainText('On list');
   // Nothing left to add: the line is gone, and nothing says "all in stock".
-  await expect(page.getByText(/missing/)).toHaveCount(0);
+  await expect(reader(page).getByText(/missing/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add to the list' })).toHaveCount(0);
-  await expect(page.getByText(/all in stock/i)).toHaveCount(0);
+  await expect(reader(page).getByText(/all in stock/i)).toHaveCount(0);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Undone: 2 ingredients added to the shopping list')).toBeVisible();
-  await expect(page.getByText('2 missing', { exact: true })).toBeVisible();
+  await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
 });
 
 test('a recipe that uses an unchecked recipe never says all in stock', async ({ page }) => {
@@ -151,7 +154,7 @@ test('a recipe that uses an unchecked recipe never says all in stock', async ({ 
   });
   await page.goto(`/recipes/${recipe.id}`);
   await expect(page.getByRole('button', { name: /^100 g/ })).toContainText('Cupboard');
-  await expect(page.getByText(/missing|all in stock/i)).toHaveCount(0);
+  await expect(reader(page).getByText(/missing|all in stock/i)).toHaveCount(0);
 });
 
 // --- Keep screen awake ---------------------------------------------------------------------
@@ -211,10 +214,10 @@ test('loading: says Loading… until the server answers', async ({ page }) => {
     await route.continue();
   });
   await page.goto(`/recipes/${recipe.id}`);
-  await expect(page.getByText('Loading…')).toBeVisible();
+  await expect(reader(page).getByText('Loading…')).toBeVisible();
   release();
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
-  await expect(page.getByText('Loading…')).toHaveCount(0);
+  await expect(reader(page).getByText('Loading…')).toHaveCount(0);
 });
 
 test('failed: says what happened and Try again loads it', async ({ page }) => {
@@ -267,8 +270,8 @@ test('a recipe with only a name, no nutrition and no servings reads calmly', asy
   const recipe = await makeRecipe(page, { name, serves: null });
   await page.goto(`/recipes/${recipe.id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
-  await expect(page.getByText('Nutrition unknown')).toBeVisible();
-  await expect(page.getByText('Nothing written down yet.')).toBeVisible();
+  await expect(reader(page).getByText('Nutrition unknown')).toBeVisible();
+  await expect(reader(page).getByText('Nothing written down yet.')).toBeVisible();
   await expect(page.getByRole('group', { name: 'Servings' })).toHaveCount(0);
   await checkPage(page);
 });
@@ -276,7 +279,7 @@ test('a recipe with only a name, no nutrition and no servings reads calmly', asy
 test('a recipe that makes something but has no servings shows Makes as plain text', async ({ page }) => {
   const recipe = await makeRecipe(page, { name: unique('Batter'), serves: null, makes: { amount: 1.5, unit: 'l' } });
   await page.goto(`/recipes/${recipe.id}`);
-  await expect(page.getByText('Makes 1½ litres')).toBeVisible();
+  await expect(reader(page).getByText('Makes 1½ litres')).toBeVisible();
   await expect(page.getByRole('group', { name: 'Servings' })).toHaveCount(0);
 });
 

@@ -37,7 +37,7 @@
     gap: var(--space-2);
     padding: 3px;
     border-radius: var(--radius-full);
-    background: var(--color-fill);
+    background: var(--reading-chip, var(--color-fill));
   }
 
   button {

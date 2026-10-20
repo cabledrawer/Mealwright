@@ -9,7 +9,7 @@
   // Edit button and Delete (the editor), the photo (the photos pull request), and "From: <site>"
   // (imports, 0.5; a typed-in recipe's source note is shown as typed).
   import { resolve } from '$app/paths';
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import KeepAwake from '$lib/components/KeepAwake.svelte';
@@ -23,6 +23,7 @@
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
   import { PantryList } from '$lib/pantryList.svelte';
+  import { recipePanes } from '$lib/recipePanes.svelte';
   import { lineAmount, makesAmount } from '$lib/recipeAmounts';
   import { RecipeView, stepGroups } from '$lib/recipePage.svelte';
   import { markFor, toAdd } from '$lib/recipeStock';
@@ -77,6 +78,25 @@
     void awake.leave();
   });
 
+  // In the desktop's three panes this is the reading pane (mockups Desktop-Recipe and
+  // Dark-Recipe): wider, ingredients beside the method when there is room, and focus comes
+  // to the recipe's heading when it opens, so the screen reader says its name and Tab goes on
+  // from there.
+  const panes = $derived(recipePanes.fits);
+  let root = $state<HTMLElement>();
+  let focused = false;
+  $effect(() => {
+    if (!panes || focused || !view.loaded || network.offline) return;
+    focused = true;
+    void tick().then(() => {
+      // The recipe's name, or "Recipe not found"; a failure has no heading and says itself.
+      const heading = root?.querySelector<HTMLElement>('h1, h2');
+      if (!heading) return;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    });
+  });
+
   const recipe = $derived(view.recipe);
   const factor = $derived(view.factor);
   const stockOf = $derived(new Map((view.stock?.lines ?? []).map((s) => [s.line_id, s])));
@@ -97,7 +117,7 @@
 <svelte:document onvisibilitychange={onVisible} />
 <svelte:head><title>{name} · Mealwright</title></svelte:head>
 
-<div class="page">
+<div class="page" class:panes bind:this={root}>
   <div class="top">
     <a class="back" href={resolve('/recipes')}><Icon name="back" size={18} stroke={2.4} />Recipes</a
     >
@@ -109,7 +129,8 @@
   </div>
 
   {#if network.offline}
-    <OfflineNote screen="Recipes" />
+    <!-- In the three panes the layout shows this note once, for both panes. -->
+    {#if !panes}<OfflineNote screen="Recipes" />{/if}
   {:else if recipe}
     <article class="recipe">
       <header>
@@ -127,54 +148,58 @@
         <p class="quiet">Nothing written down yet.</p>
       {/if}
 
-      {#if recipe.lines.length}
-        <section aria-labelledby="ingredients-title">
-          <div class="head">
-            <h2 id="ingredients-title">Ingredients</h2>
-            {#if view.servesNow !== null}
-              <ServingsStepper value={view.servesNow} onchange={(n) => view.setServes(n)} />
-            {/if}
-          </div>
-          <ul class="card lines">
-            {#each recipe.lines as line (line.id)}
-              <li>
-                {#if line.kind === 'heading'}
-                  <h3>{line.words}</h3>
-                {:else}
-                  <RecipeIngredient
-                    {line}
-                    amount={lineAmount(line, factor)}
-                    mark={markFor(
-                      stockOf.get(line.id),
-                      stockOf.get(line.id) ? shopping.onList(stockOf.get(line.id)!.food.id) : false
-                    )}
-                    onopen={(foodId) => ingredientEditor.open(foodId)}
-                  />
-                {/if}
-              </li>
-            {/each}
-          </ul>
-          {#if adding.length}
-            <MissingBar count={adding.length} onadd={() => void shopping.tapMany(adding)} />
-          {/if}
-        </section>
-      {/if}
-
-      {#if steps.length}
-        <section aria-labelledby="method-title">
-          <h2 id="method-title">Method</h2>
-          <div class="card method">
-            {#each steps as group, i (i)}
-              {#if group.heading}<h3>{group.heading}</h3>{/if}
-              {#if group.steps.length}
-                <ol start={group.start}>
-                  {#each group.steps as text, j (j)}<li>{text}</li>{/each}
-                </ol>
+      <div class="body">
+        {#if recipe.lines.length}
+          <section aria-labelledby="ingredients-title">
+            <div class="head">
+              <h2 id="ingredients-title">Ingredients</h2>
+              {#if view.servesNow !== null}
+                <ServingsStepper value={view.servesNow} onchange={(n) => view.setServes(n)} />
               {/if}
-            {/each}
-          </div>
-        </section>
-      {/if}
+            </div>
+            <ul class="card lines">
+              {#each recipe.lines as line (line.id)}
+                <li>
+                  {#if line.kind === 'heading'}
+                    <h3>{line.words}</h3>
+                  {:else}
+                    <RecipeIngredient
+                      {line}
+                      amount={lineAmount(line, factor)}
+                      mark={markFor(
+                        stockOf.get(line.id),
+                        stockOf.get(line.id)
+                          ? shopping.onList(stockOf.get(line.id)!.food.id)
+                          : false
+                      )}
+                      onopen={(foodId) => ingredientEditor.open(foodId)}
+                    />
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+            {#if adding.length}
+              <MissingBar count={adding.length} onadd={() => void shopping.tapMany(adding)} />
+            {/if}
+          </section>
+        {/if}
+
+        {#if steps.length}
+          <section aria-labelledby="method-title">
+            <h2 id="method-title">Method</h2>
+            <div class="card method">
+              {#each steps as group, i (i)}
+                {#if group.heading}<h3>{group.heading}</h3>{/if}
+                {#if group.steps.length}
+                  <ol start={group.start}>
+                    {#each group.steps as text, j (j)}<li>{text}</li>{/each}
+                  </ol>
+                {/if}
+              {/each}
+            </div>
+          </section>
+        {/if}
+      </div>
 
       {#if recipe.tags.length}
         <ul class="tags" aria-label="Tags">
@@ -260,6 +285,55 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
+  }
+
+  /* The ingredients and the method: one under the other, as the page flows on a phone. */
+  .body {
+    display: contents;
+  }
+
+  /* In the desktop's reading pane: on the pane's own paper, not on cards; as wide as the
+     pane, up to a comfortable reading width, and centred beyond that. */
+  .page.panes {
+    width: 100%;
+    max-width: 68rem;
+    margin-inline: auto;
+    padding: var(--space-10) clamp(var(--space-8), 3vw, 3rem) var(--space-11);
+    box-sizing: border-box;
+    container-type: inline-size;
+  }
+
+  /* The heading focus lands on when a recipe opens is not something to press: no ring round it. */
+  .page :global(:is(h1, h2)[tabindex='-1']:focus) {
+    outline: none;
+  }
+
+  .panes .card {
+    padding-inline: 0;
+    background: transparent;
+  }
+
+  .panes .method {
+    padding-bottom: 0;
+  }
+
+  /* Room for it: the ingredients beside the method, as the mockup draws them. */
+  @container (min-width: 42.5rem) {
+    h1 {
+      font-size: 2.75rem;
+      line-height: 1;
+    }
+
+    .body {
+      display: grid;
+      grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.7fr);
+      gap: var(--space-11);
+      align-items: start;
+    }
+
+    .body > section:only-child {
+      grid-column: 1 / -1;
+    }
   }
 
   header {

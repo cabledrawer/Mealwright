@@ -39,7 +39,15 @@ async function expected(page: Page): Promise<string[]> {
 
 /** Press Tab through the page. Returns where focus stopped, until it comes back round. */
 async function tabThrough(page: Page, limit = 400): Promise<Stop[]> {
+  // Start from the top of the page. A recipe opens with focus on its heading (on a computer), and
+  // Tab would carry on from there; so go back with Shift+Tab until focus leaves the page, and
+  // the next Tab is the first stop.
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  for (let i = 0; i < limit; i++) {
+    await page.keyboard.press('Shift+Tab');
+    const left = await page.evaluate(() => !document.activeElement || document.activeElement === document.body);
+    if (left) break;
+  }
   const stops: Stop[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < limit; i++) {
@@ -136,9 +144,16 @@ test.describe('signed in', () => {
   });
 
   test('All recipes', async ({ page }) => {
+    // One recipe at least, so there is a list and a filter row to Tab through.
+    await page.request.post('/api/v1/recipes', {
+      data: { name: `Keyboard list ${Date.now().toString(36)}` },
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    });
     await page.goto('/recipes');
     await expect(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Show' })).toBeVisible();
+    // On a computer the list has the reading pane beside it.
+    await expect(page.getByRole('region', { name: 'Recipe', exact: true })).toBeVisible();
     await checkKeyboard(page, 'All recipes');
   });
 
@@ -161,7 +176,8 @@ test.describe('signed in', () => {
     });
     await page.goto(`/recipes/${recipe.id}`);
     await expect(page.getByRole('heading', { name: recipe.name, level: 1 })).toBeVisible();
-    await expect(page.getByText('1 missing')).toBeVisible();
+    // On a computer the list is beside it, and its rows say "1 missing" too.
+    await expect(page.getByRole('region', { name: 'Recipe', exact: true }).getByText('1 missing')).toBeVisible();
     await checkKeyboard(page, 'The recipe page');
   });
 
