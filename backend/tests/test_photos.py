@@ -324,13 +324,14 @@ def peak_mb(path: Path) -> tuple[str, int]:
     return " ".join(found[:2]), int(found[2])
 
 
-@pytest.mark.parametrize(("mode", "at_most"), [("RGB", 300), ("RGBA", 450)])
+@pytest.mark.parametrize(("mode", "at_most"), [("RGB", 300), ("RGBA", 500)])
 def test_a_50_megapixel_png_is_cleaned_in_a_few_hundred_mb(
     tmp_path: Path, mode: str, at_most: int
 ) -> None:
     """Made small first, so the full-size picture is in memory once. Before, a 40 MP PNG
     took about 820 MB (RGB) and 950 MB (see-through); now a 50 MP one takes about 260 MB
-    and 420 MB."""
+    and 450 MB (Pillow 13's quick first shrink now applies to see-through pictures too:
+    about 32 MB more than Pillow 12, and faster; cabledrawer 20 Oct)."""
     path = tmp_path / "big.png"
     kit.picture(10_000, 5000, mode).save(path, "PNG")
     size, used = peak_mb(path)
