@@ -23,6 +23,14 @@ export const NUTRIENTS: (keyof Nutrition)[] = ['kcal', 'protein', 'carbs', 'fat'
 /** The "Makes" units with a button of their own; anything else is a count word ("dosas"). */
 export const MAKES_UNITS = ['l', 'ml', 'g', 'kg'] as const;
 export const COUNT = 'count';
+/** The API's own codes for a refused photo (upload, attach, delete), whatever words they come with. */
+const PHOTO_CODES = new Set([
+  'photo_too_big',
+  'too_many_photos_waiting',
+  'too_many_pixels',
+  'not_a_photo',
+  'photo_in_use'
+]);
 
 export interface SizeRef {
   id: number;
@@ -416,7 +424,11 @@ export class RecipeDraft {
       errors[`line:${line}`] = error.detail;
     } else if (error.code === 'name_taken') {
       errors.homemade = error.detail;
-    } else if (/photo/i.test(error.detail)) {
+    } else if (
+      (error.code && PHOTO_CODES.has(error.code)) ||
+      // Saving with an upload that is gone: a 404 with no line in it, while a new photo is waiting.
+      (error.status === 404 && error.code === 'not_found' && !line && this.photo.change === 'new')
+    ) {
       errors.photo = error.detail;
     } else if (error.status === 422 && Array.isArray(data.detail)) {
       for (const item of data.detail as { loc?: (string | number)[]; msg?: string }[]) {

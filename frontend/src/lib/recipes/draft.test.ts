@@ -422,7 +422,43 @@ describe('what is wrong with the boxes', () => {
       homemade: 'There’s already an ingredient called Dosa batter.'
     });
     const gone = new ApiError(404, 'That photo isn’t here any more.', 'not_found', {});
+    expect(draft.explain(gone, built)).toEqual({});
+    draft.photo = { ...draft.photo, shown: { ...photo, id: 8 }, change: 'new' };
     expect(draft.explain(gone, built)).toEqual({ photo: 'That photo isn’t here any more.' });
+  });
+
+  it('knows a photo problem by its code, and shows the server’s own words', () => {
+    const draft = new RecipeDraft();
+    draft.name = 'x';
+    const built = draft.build();
+    for (const [status, code, words] of [
+      [413, 'photo_too_big', 'That photo is bigger than 15 MB.'],
+      [
+        422,
+        'too_many_pixels',
+        'That photo is too big to use (over 50 megapixels). Try a smaller copy.'
+      ],
+      [422, 'not_a_photo', 'That isn’t a photo Mealwright can use. Try a JPEG, PNG or WebP.'],
+      [
+        409,
+        'too_many_photos_waiting',
+        'Too many photos waiting to be saved. Save or cancel a recipe first.'
+      ]
+    ] as const) {
+      expect(draft.explain(new ApiError(status, words, code, {}), built)).toEqual({ photo: words });
+    }
+  });
+
+  it('does not take a refusal for a photo problem just because it says "photo"', () => {
+    const draft = new RecipeDraft();
+    draft.name = 'x';
+    const built = draft.build();
+    const other = new ApiError(422, 'Photo sauce needs a name.', null, {
+      detail: [{ loc: ['body', 'name'], msg: 'Give it a name.' }]
+    });
+    expect(draft.explain(other, built)).toEqual({ name: 'Give it a name.' });
+    const server = new ApiError(500, 'The photo cookbook broke.', 'server_error', {});
+    expect(draft.explain(server, built)).toEqual({});
   });
 });
 
