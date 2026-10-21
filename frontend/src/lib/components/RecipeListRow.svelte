@@ -3,9 +3,10 @@
   // square, the name, and a quiet line "50 min · 320 kcal · all in stock but 1". The square
   // is plain and warm; the recipe's photo fills it when it has one (the small copy, `list_url`,
   // made for this square at 3×). A photo that can't be fetched (offline, deleted) leaves the
-  // plain square. The whole row opens the recipe.
+  // plain square, and tries again when the connection comes back. The whole row opens the recipe.
   import { resolve } from '$app/paths';
   import type { RecipeRow } from '$lib/client/recipes';
+  import { network } from '$lib/network.svelte';
   import { recipeParts } from '$lib/recipeLine';
 
   let {
@@ -26,9 +27,14 @@
   const SEP = ' · ';
   const parts = $derived(recipeParts(recipe));
 
-  // The address of a photo that failed: a different photo (a new id) gets another go.
-  let failed = $state<string | null>(null);
-  const photo = $derived(recipe.photo && recipe.photo.list_url !== failed ? recipe.photo : null);
+  // The address of a photo that failed, and when: a different photo (a new id) gets another go,
+  // and the same one tries again once the connection comes back.
+  let failed = $state<{ url: string; back: number } | null>(null);
+  const photo = $derived(
+    recipe.photo && (recipe.photo.list_url !== failed?.url || network.backAgain !== failed.back)
+      ? recipe.photo
+      : null
+  );
 </script>
 
 <a
@@ -47,7 +53,7 @@
         height={photo.list_height}
         loading="lazy"
         decoding="async"
-        onerror={() => (failed = photo.list_url)}
+        onerror={() => (failed = { url: photo.list_url, back: network.backAgain })}
       />
     {/if}
   </span>

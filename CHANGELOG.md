@@ -59,9 +59,9 @@ Work towards 0.4.0 (recipes).
 - On a phone at 200% text, the bottom tabs' labels no longer touch each other.
 - Ingredients on a phone: the title no longer breaks inside the word next to "+ New ingredient".
 - Opening the app offline or on a weak signal shows Today and the saved shopping list at once (cabledrawer 20 Oct, hand test). In 0.3.0 a signal where requests hang rather than fail held a blank screen for about 30 seconds, then "Loading…" on Shopping for up to 75 seconds when changes were waiting. Now the app waits at most half a second for the server, opens as the person last signed in on this device, and tries the network in the background; the list updates when the server answers. Waiting changes still start sending as the app opens, and are sent once, not three times. If the server then says the sign-in has run out, it goes to sign in as usual; if it names another login, that login is signed out again and goes to the sign-in page (nothing is wiped while the screen is up), where the usual warning or wipe follows.
-
 - After a slow or offline start, once the server can be reached again (live updates connect, or the connection comes back), the app asks it again who is signed in, and acts as a normal start would: the same login carries on, and nobody or a different login goes to the sign-in page.
 - Every way of signing out (the Sign out button, the sign-out warning, a session that ends) now also forgets the household's shops and places held in memory, so the next person to sign in never sees them, even without a reload.
+- Recipe photos: a photo that couldn't be fetched (offline, say) now tries again when the connection comes back, in All recipes and on the recipe page, instead of staying hidden until a reload.
 
 ### Security
 - certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3).

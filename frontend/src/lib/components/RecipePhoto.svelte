@@ -3,8 +3,10 @@
   // under the top row; Desktop-Recipe and Dark-Recipe: a box beside the nutrition figures).
   // It is the large copy (`url`), cropped to fill the box and never stretched. A recipe with no
   // photo has no box at all, and neither has one whose photo can't be fetched (offline, or
-  // deleted meanwhile): never a broken-image icon. Only ever our own server's address.
+  // deleted meanwhile): never a broken-image icon. It tries again when the connection comes
+  // back (network.backAgain). Only ever our own server's address.
   import type { PhotoOut } from '$lib/client/recipes';
+  import { network } from '$lib/network.svelte';
 
   let {
     photo,
@@ -18,9 +20,12 @@
     beside?: boolean;
   } = $props();
 
-  // The address of a photo that failed: another photo (a new id) gets its own go.
-  let failed = $state<string | null>(null);
-  const shown = $derived(photo && photo.url !== failed ? photo : null);
+  // The address of a photo that failed, and when: another photo (a new id) gets its own go, and
+  // the same one tries again once the connection comes back.
+  let failed = $state<{ url: string; back: number } | null>(null);
+  const shown = $derived(
+    photo && (photo.url !== failed?.url || network.backAgain !== failed.back) ? photo : null
+  );
 </script>
 
 {#if shown}
@@ -31,7 +36,7 @@
       width={shown.width}
       height={shown.height}
       decoding="async"
-      onerror={() => (failed = shown.url)}
+      onerror={() => (failed = { url: shown.url, back: network.backAgain })}
     />
   </div>
 {/if}

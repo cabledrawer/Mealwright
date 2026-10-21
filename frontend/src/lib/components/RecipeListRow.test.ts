@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import type { PhotoOut, RecipeRow } from '$lib/client/recipes';
+import { network } from '$lib/network.svelte';
 import RecipeListRow from './RecipeListRow.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -56,6 +57,7 @@ describe('a recipe row', () => {
   });
 
   afterEach(() => {
+    network.reset();
     if (component) unmount(component);
     component = null;
     document.body.innerHTML = '';
@@ -91,6 +93,21 @@ describe('a recipe row', () => {
     await expect.poll(() => pictures().length).toBe(0);
     const box = square().getBoundingClientRect();
     expect([box.width, box.height]).toEqual([52, 52]);
+  });
+
+  it('tries a failed photo again when the connection comes back', async () => {
+    const missing = '/api/v1/recipes/photos/404/list';
+    open(row({ photo: photo({ list_url: missing }) }));
+    await expect.poll(() => pictures().length).toBe(0);
+    // No second try while nothing has changed.
+    await new Promise((done) => setTimeout(done, 100));
+    expect(pictures().length).toBe(0);
+    network.failed();
+    network.succeeded();
+    flushSync();
+    expect(pictures()[0]?.getAttribute('src')).toBe(missing);
+    // Still missing: back to the plain square, until the next time.
+    await expect.poll(() => pictures().length).toBe(0);
   });
 
   it('centres the square beside a short name', () => {

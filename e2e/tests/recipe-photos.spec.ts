@@ -6,7 +6,8 @@ import { uploadPhoto, type Shape } from '../review/photos.ts';
 // (a box above the name on a phone, beside the nutrition figures in the computer's reading pane),
 // against the real server. Every state (spec "Keeping the UI good", item 2): with and without a
 // photo, a very tall and a very wide one (cropped, not stretched), a photo that can't be
-// fetched, a name that wraps (the square stays at the top), and the text at 200%. Runs in the
+// fetched (and tries again when the connection comes back), a name that wraps (the square stays at
+// the top), and the text at 200%. Runs in the
 // "phone 0.4 photos" and "desktop 0.4 photos" projects, signed in as the test admin.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
@@ -39,6 +40,14 @@ const row = (page: Page, name: string) => page.getByRole('link', { name: new Reg
 /** The row's square: its first child. */
 const square = (link: Locator) => link.locator('.square');
 const reader = (page: Page) => (isPhone(page) ? page.locator('main') : page.getByRole('region', { name: 'Recipe', exact: true }));
+
+/** The phone loses its connection, the photos come back, and so does the connection. */
+async function offlineThenBack(page: Page) {
+  await page.context().setOffline(true);
+  await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
+  await page.unrouteAll();
+  await page.context().setOffline(false);
+}
 
 /** Wait until the picture has really loaded: its natural size is known. */
 const loaded = (img: Locator) => expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
@@ -106,6 +115,23 @@ test('All recipes: a photo that can’t be fetched leaves the plain square, with
   const plain = await square(link).boundingBox();
   expect([plain!.width, plain!.height]).toEqual([52, 52]);
   await checkPage(page);
+});
+
+test('All recipes: a photo that failed while offline loads once the connection comes back', async ({ page }) => {
+  const tag = unique('Back');
+  await recipeWith(page, tag, 'dish');
+  await page.route('**/api/v1/recipes/photos/*/list', (route) => route.abort());
+  await page.goto('/recipes');
+  await search(page, tag);
+  const link = row(page, tag);
+  await expect(link).toBeVisible();
+  await expect(link.locator('img')).toHaveCount(0);
+  await offlineThenBack(page);
+  const img = link.locator('img');
+  await expect(img).toHaveCount(1);
+  await loaded(img);
+  const box = (await img.boundingBox())!;
+  expect([box.width, box.height]).toEqual([52, 52]);
 });
 
 test('All recipes: when a name wraps onto several lines the square stays at the top of the row', async ({ page }) => {
@@ -210,6 +236,18 @@ test('the recipe page: a photo that can’t be fetched leaves no box and no brok
   await expect(reader(page).getByRole('region', { name: 'Nutrition per serving' })).toBeVisible();
   await expect(reader(page).locator('img')).toHaveCount(0);
   await expect(reader(page).locator('.frame')).toHaveCount(0);
+  await checkPage(page);
+});
+
+test('the recipe page: a photo that failed while offline loads once the connection comes back', async ({ page }) => {
+  const name = unique('Back');
+  const { recipe } = await recipeWith(page, name, 'dish');
+  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  await page.goto(`/recipes/${recipe.id}`);
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  await expect(reader(page).locator('.frame')).toHaveCount(0);
+  await offlineThenBack(page);
+  await loaded(reader(page).getByRole('img', { name: `Photo of ${name}` }));
   await checkPage(page);
 });
 

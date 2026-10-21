@@ -58,6 +58,9 @@ class Network {
   }
   /** A "Try now" check is running. */
   trying = $state(false);
+  /** How many times the connection has come back after a failure. Something that failed
+   *  while we were offline (a recipe photo) tries again when this goes up. */
+  backAgain = $state(0);
 
   #failingSince: number | null = null;
   #showTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,6 +76,7 @@ class Network {
     this.#failingSince = null;
     this.#clearTimers();
     this.offline = false;
+    this.backAgain++;
     if (this.#wasShown) {
       this.#wasShown = false;
       this.#backOnline = true;
@@ -160,6 +164,7 @@ class Network {
     this.offline = false;
     this.#waiting = 0;
     this.trying = false;
+    this.backAgain = 0;
   }
 }
 

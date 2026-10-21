@@ -78,6 +78,25 @@ describe('the offline bar', () => {
   });
 });
 
+describe('when the connection comes back', () => {
+  it('counts each time it comes back, so a failed photo can try again', () => {
+    expect(network.backAgain).toBe(0);
+    network.failed();
+    network.succeeded(); // even a blip too short for the bar
+    expect(network.backAgain).toBe(1);
+    network.failed();
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    network.succeeded();
+    expect(network.backAgain).toBe(2);
+  });
+
+  it('doesn’t count answers while nothing was failing', () => {
+    network.succeeded();
+    network.succeeded();
+    expect(network.backAgain).toBe(0);
+  });
+});
+
 describe('the words in the bar', () => {
   it('says just "Offline" when nothing is waiting', () => {
     expect(offlineText('phone', 0)).toEqual({ title: 'Offline', detail: null });

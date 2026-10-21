@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import type { PhotoOut } from '$lib/client/recipes';
+import { network } from '$lib/network.svelte';
 import RecipePhoto from './RecipePhoto.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -34,6 +35,7 @@ describe('the recipe page photo', () => {
   });
 
   afterEach(() => {
+    network.reset();
     if (component) unmount(component);
     component = null;
     document.body.innerHTML = '';
@@ -70,6 +72,17 @@ describe('the recipe page photo', () => {
 
   it('draws nothing when the photo can’t be fetched', async () => {
     open({ photo: photo({ url: '/api/v1/recipes/photos/404/large' }) });
+    await expect.poll(() => document.querySelector('.frame')).toBeNull();
+  });
+
+  it('tries a failed photo again when the connection comes back', async () => {
+    const missing = '/api/v1/recipes/photos/404/large';
+    open({ photo: photo({ url: missing }) });
+    await expect.poll(() => document.querySelector('.frame')).toBeNull();
+    network.failed();
+    network.succeeded();
+    flushSync();
+    expect(document.querySelector('img')?.getAttribute('src')).toBe(missing);
     await expect.poll(() => document.querySelector('.frame')).toBeNull();
   });
 });
