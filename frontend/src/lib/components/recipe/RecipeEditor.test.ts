@@ -471,6 +471,57 @@ describe('an existing recipe', () => {
     });
   });
 
+  it('a recipe deleted meanwhile, saved with a new photo: keeps what was typed, and Cancel still frees the upload', async () => {
+    // cabledrawer 20 Oct: "your placement agreed, as long as nothing typed is lost and the unsaved
+    // photo is released."
+    const sent: string[] = [];
+    vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+      sent.push(call);
+      const json = (status: number, body: unknown) =>
+        new Response(JSON.stringify(body), { status });
+      if (call === 'GET /recipes/2') return json(200, sambar);
+      if (call === 'GET /recipes/2/cannot-use') return json(200, { recipes: [] });
+      if (call === 'POST /recipes/photos') {
+        return json(201, {
+          id: 9,
+          width: 2,
+          height: 2,
+          url: '/api/v1/recipes/photos/9/large',
+          list_width: 2,
+          list_height: 2,
+          list_url: '/api/v1/recipes/photos/9/list'
+        });
+      }
+      if (call === 'PUT /recipes/2') {
+        return json(404, { code: 'not_found', detail: "That recipe isn't here any more." });
+      }
+      if (call === 'DELETE /recipes/photos/9') return new Response(null, { status: 204 });
+      return json(404, {});
+    });
+    open({ recipeId: 2 });
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sambar');
+    await page.getByRole('textbox', { name: /^Short description/ }).fill('Stew');
+    const file = new File([new Uint8Array([1, 2, 3])], 'dish.png', { type: 'image/png' });
+    await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
+    await expect.element(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await expect.element(page.getByText("That recipe isn't here any more.")).toBeVisible();
+    // Nothing typed is lost, and the editor stays open with the new photo.
+    expect(navigation.go).not.toHaveBeenCalled();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sambar');
+    await expect
+      .element(page.getByRole('textbox', { name: /^Short description/ }))
+      .toHaveValue('Stew');
+    await expect.element(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
+    expect(sent).not.toContain('DELETE /recipes/photos/9');
+    // The unsaved photo is released: Cancel, then the "Changes not saved" toast goes.
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    expect(toasts.current?.message).toBe('Changes not saved');
+    toasts.dismiss();
+    await vi.waitFor(() => expect(sent).toContain('DELETE /recipes/photos/9'));
+  });
+
   it('says so when the recipe is not there', async () => {
     fakeApi({ 'GET /recipes/9': [404, { detail: 'That recipe isn’t here.' }] });
     open({ recipeId: 9 });
