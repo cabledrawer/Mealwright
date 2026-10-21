@@ -1,9 +1,11 @@
 // Opened as whoever was last signed in on this device before the server had said who is
-// signed in (a weak signal: +layout.ts, sync-protocol 11.4). Until it says, nothing the
+// signed in (a weak signal: +layout.ts, sync-protocol 11.4). Until it says (and the start
+// has acted on it; not after a server error, which doesn't say), nothing the
 // server lists may go into this device's copy: its session might be another login's, whose
 // list must never be written over this one's. Sending is safe meanwhile, as every batch
 // names its login and the server turns away another login's (409 other_login, 11.5).
-// (cabledrawer 20 Oct, hand test.)
+// (How cabledrawer's decision of 20 Oct, hand test, to show the saved copy at once is kept safe:
+// the builder's choice, proposed, for cabledrawer.)
 
 let held: { until: Promise<void>; release: () => void } | null = null;
 

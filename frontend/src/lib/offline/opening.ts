@@ -1,23 +1,30 @@
-// Starting the app on a weak signal (sync-protocol 11.4; cabledrawer 20 Oct, hand test).
+// Starting the app on a weak signal (sync-protocol 11.4).
+//
+// cabledrawer's decision (20 Oct, hand test): offline or on a weak signal, the saved copy shows
+// at once and the network is tried in the background; when it answers, the list updates in
+// place. How long the start waits before opening from this device (START_WAIT_MS) is the
+// builder's choice, proposed, for cabledrawer.
 //
 // The start asks the server whether it needs setting up and who is signed in. Offline, or on
 // a signal so weak that requests hang rather than fail, that answer can take until the 30 s
-// timeout, and nothing showed meanwhile. So the start waits for it only briefly
-// (START_WAIT_MS, and not at all when the browser says it is offline). If it hasn't come by
-// then, the app opens at once as whoever was last signed in on this device, as it does
-// offline, and the answer is acted on when it comes, with the same rules as at the start:
+// timeout, and nothing showed meanwhile. So the start waits for it only briefly (not at all
+// when the browser says it is offline). If it hasn't come by then, the app opens at once as
+// whoever was last signed in on this device, as it does offline, and the answer is acted on
+// when it comes, with the same rules as at the start:
 //
 // - Still no connection: the app carries on as it opened, as it does offline.
 // - The same login: carries on, now known to be signed in.
-// - Anything else (not signed in, another login, the server needing setting up, a server
-//   error): +layout.ts runs again with that answer, and decides exactly as if it had come
-//   in time (sign in, the warning, the wipe). A different login that then starts clean
-//   starts the app again, so nothing of the last one stays on the screen.
+// - Not signed in, or the server needing setting up: +layout.ts runs again with that answer
+//   and decides exactly as if it had come in time.
+// - A different login: never wiped while the screen is up, and the app never reloads itself
+//   (11.6). That login is signed out again and goes to the sign-in page with its username
+//   filled in, as the start does for a login it turns away; the sign-in page then warns, or
+//   wipes, by its usual rules. Until then the app stays the device login's, so a change made
+//   meanwhile is queued as theirs and kept.
 //
 // Until the answer has been acted on, the server's lists are held back (confirmed.ts).
 
 import { cantReach, getMe, getSetup, type Me, type SetupState } from '$lib/api';
-import { session } from '$lib/session.svelte';
 import { releaseServerLists } from './confirmed';
 
 /** How long the start waits for the server before opening from this device. */
@@ -45,15 +52,17 @@ export function inTime(asked: Promise<Answer>): Promise<Answer | null> {
   return Promise.race([asked, late]).finally(() => clearTimeout(timer));
 }
 
-/** How a late answer is acted on: +layout.ts runs again, or the app starts again. (Loaded
- * when needed, so the tests, which put their own here, never load the app's navigation.) */
+/** How a late answer is acted on: +layout.ts runs again. (Loaded when needed, so the tests,
+ * which put their own here, never load the app's navigation.) */
 export const restart = {
-  rerun: async (): Promise<void> => (await import('$app/navigation')).invalidateAll(),
-  reload: (): void => location.reload()
+  rerun: async (): Promise<void> => (await import('$app/navigation')).invalidateAll()
 };
 
+/** A late answer, and the login the app had opened as from this device. */
+export type LateAnswer = { answer: Answer; openedAs: number };
+
 let starts = 0;
-let late: Answer | null = null;
+let late: LateAnswer | null = null;
 
 /** A new start of +layout.ts: a late answer to an earlier one is then left alone. */
 export function newStart(): number {
@@ -61,14 +70,19 @@ export function newStart(): number {
 }
 
 /** The late answer +layout.ts is running again for, if any (once). */
-export function takeLateAnswer(): Answer | null {
+export function takeLateAnswer(): LateAnswer | null {
   const answer = late;
   late = null;
   return answer;
 }
 
-/** The server answered after the app opened from this device (start number `start`). */
-export async function answeredLate(asked: Promise<Answer>, start: number): Promise<void> {
+/** The server answered after the app opened from this device as `openedAs` (start number
+ * `start`). +layout.ts decides on it, and lets the server's lists through once it has. */
+export async function answeredLate(
+  asked: Promise<Answer>,
+  start: number,
+  openedAs: number
+): Promise<void> {
   const answer = await asked;
   // Another start has asked again since (signed in, say): its answer decides.
   if (start !== starts) return;
@@ -77,16 +91,12 @@ export async function answeredLate(asked: Promise<Answer>, start: number): Promi
     releaseServerLists();
     return;
   }
-  const before = session.me?.id;
-  late = answer;
+  late = { answer, openedAs };
   try {
     await restart.rerun();
   } catch {
     // The page shows the error itself.
   } finally {
     late = null;
-    releaseServerLists();
   }
-  // A different login started clean (the wipe): start again as them.
-  if (session.me && session.me.id !== before) restart.reload();
 }

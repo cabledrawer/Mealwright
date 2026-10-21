@@ -6,11 +6,13 @@
 // device, so the shopping list works offline (docs/dev/sync-protocol.md section 11.4). With
 // nobody to open as (never signed in here, or signed out), it shows the sign-in page.
 //
-// It doesn't wait long to find out (cabledrawer 20 Oct, hand test): if the server hasn't
-// answered within half a second (at once when the browser says it is offline), the app opens
-// as that person straight away, and the answer, when it comes, is decided on with the same
-// rules as here (lib/offline/opening.ts).
-import { redirect } from '@sveltejs/kit';
+// It doesn't wait long to find out (cabledrawer 20 Oct, hand test: the saved copy shows at once):
+// if the server hasn't answered within half a second (at once when the browser says it is
+// offline), the app opens as that person straight away, and the answer, when it comes, is
+// decided on with the same rules as here (lib/offline/opening.ts). A late answer naming a
+// different login never wipes while the screen is up: that login is turned away to the
+// sign-in page instead (turnAwayLate).
+import { isRedirect, redirect } from '@sveltejs/kit';
 import { cantReach, type Me } from '$lib/api';
 import { holdServerLists, releaseServerLists } from '$lib/offline/confirmed';
 import { lastSignedIn, startDevice, type SignedIn } from '$lib/offline/device';
@@ -21,12 +23,18 @@ import {
   inTime,
   newStart,
   takeLateAnswer,
-  type Answer
+  type Answer,
+  type LateAnswer
 } from '$lib/offline/opening';
 import { endSession } from '$lib/offline/signOut';
 import { wipeIfAnotherLogin } from '$lib/offline/wipe';
+import { wipePending } from '$lib/offline/wipePending.svelte';
+import { placesAndShops } from '$lib/placesAndShops.svelte';
 import { SETUP, session, signInPath } from '$lib/session.svelte';
+import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { theme } from '$lib/theme.svelte';
+import { toasts } from '$lib/toast.svelte';
+import { undoHistory } from '$lib/undo.svelte';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
@@ -34,7 +42,7 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   const heading = untrack(() => url.pathname + url.search);
   const start = newStart();
   const late = takeLateAnswer();
-  if (late) return decide(late, heading);
+  if (late) return decide(late.answer, heading, late);
   const asked = askServer(fetch);
   const answer = await inTime(asked);
   if (answer) return decide(answer, heading);
@@ -44,7 +52,7 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   if (last && (!session.me || session.me.id === last.id)) {
     holdServerLists();
     openAs(fromDevice(last));
-    void answeredLate(asked, start);
+    void answeredLate(asked, start, last.id);
     return;
   }
   // Nobody to open as, and the browser says it is offline: no need to wait to know.
@@ -52,15 +60,19 @@ export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   return decide(await asked, heading);
 };
 
-async function decide(answer: Answer, heading: string): Promise<void> {
+/** Decide, then let the server's lists through: once it is known who is signed in, or that
+ * nobody is (sign in, setup). Not after a server error: who is signed in still isn't known. */
+async function decide(answer: Answer, heading: string, late: LateAnswer | null = null) {
   try {
-    await decideNow(answer, heading);
-  } finally {
-    releaseServerLists();
+    await decideNow(answer, heading, late);
+  } catch (error) {
+    if (isRedirect(error)) releaseServerLists();
+    throw error;
   }
+  releaseServerLists();
 }
 
-async function decideNow(answer: Answer, heading: string): Promise<void> {
+async function decideNow(answer: Answer, heading: string, late: LateAnswer | null): Promise<void> {
   if ('error' in answer) {
     if (!cantReach(answer.error)) throw answer.error;
     const last = await lastSignedIn();
@@ -70,9 +82,14 @@ async function decideNow(answer: Answer, heading: string): Promise<void> {
     return;
   }
   session.setup = answer.setup;
-  if (answer.setup.needs_setup) redirect(307, SETUP);
+  if (answer.setup.needs_setup) {
+    // Opened from this device already (a late answer): nobody is signed in here any more.
+    session.me = null;
+    redirect(307, SETUP);
+  }
   const me = answer.me;
   if (!me) signIn(heading);
+  if (late && me.id !== late.openedAs) return turnAwayLate(me, heading);
   // Signed in as a different login from the one this device holds (perhaps in another tab):
   // start clean, as at sign-out (cabledrawer 18 Oct). Not over someone's waiting changes: those
   // are never sent under another login, never written over, and lost only through the
@@ -95,6 +112,27 @@ async function decideNow(answer: Answer, heading: string): Promise<void> {
   await startDevice(me);
   // The account's theme wins over this device's copy.
   theme.adopt(me.theme);
+}
+
+/**
+ * The server answered late, naming a different login from the one the app opened as from this
+ * device (signed in in another tab, say). Nothing is wiped while the screen is up, and the app
+ * doesn't reload itself (11.6). Until the sign-in page shows, the app stays the device login's:
+ * a change made meanwhile is queued as theirs, kept, and never sent as the other login (the
+ * server refuses another login's batch, 11.5). That other login is signed out again and goes
+ * to the sign-in page with its username filled in, as a login turned away at the start does;
+ * the sign-in page then warns about the waiting changes, or wipes when there are none, by its
+ * usual rules (11.5). What the app showed is forgotten first, so none of it carries over to
+ * whoever signs in next. Not when a wipe is still unfinished: nobody may sign in until it is.
+ */
+async function turnAwayLate(me: Me, heading: string): Promise<never> {
+  await endSession();
+  if (!wipePending()) turnAway(me.username);
+  shoppingSync.forget();
+  placesAndShops.forget();
+  undoHistory.clear();
+  toasts.dismiss();
+  signIn(heading);
 }
 
 /** To the sign-in page. Opened from this device already (the server answered late): nobody

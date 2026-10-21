@@ -25,6 +25,13 @@ class PlacesAndShops {
     return this.#loading;
   }
 
+  /** Forget them (another login's household may be next): the next load() fetches again. */
+  forget(): void {
+    this.#loading = null;
+    this.places = [];
+    this.shops = [];
+  }
+
   /** "+ Shop": adds it, or finds the one already called that. */
   async addShop(name: string): Promise<Shop> {
     const shop = await addShop(name.trim());
