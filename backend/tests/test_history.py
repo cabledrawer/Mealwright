@@ -6,10 +6,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import select, update
 
+from mealwright import history
+from mealwright.api.v1.context import Kitchen
 from mealwright.auth import hash_password
-from mealwright.models import Change, Login, utcnow
+from mealwright.models import Change, Household, Login, Recipe, RecipeLine, utcnow
 
 API = "/api/v1"
 
@@ -241,3 +243,42 @@ def test_ingredient_list_is_in_the_openapi_schema(kitchen: TestClient) -> None:
     area = next(p for p in parameters if p["name"] == "area")
     values = next(a for a in area["schema"]["anyOf"] if "enum" in a)["enum"]
     assert values == ["pantry", "ingredients"]
+
+
+# --- A hand-made Undo record can't reach into another household ---------------------------
+
+
+@pytest.mark.parametrize("restore", ["recipe_lines", "recipe_homes"])
+def test_an_undo_record_pointing_at_another_households_recipe_changes_nothing(
+    kitchen: TestClient, restore: str
+) -> None:
+    mine = add(kitchen, "Toor dal")["food"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(Household(id=2, name="Next door"))
+        db.flush()
+        recipe = Recipe(household_id=2, name="Their dal", version=1)
+        db.add(recipe)
+        db.flush()
+        line = RecipeLine(household_id=2, recipe_id=recipe.id, position=0, words="dal")
+        db.add(line)
+        db.commit()
+        recipe_id, line_id = recipe.id, line.id
+
+        asking = Kitchen(
+            db=db,
+            login=db.scalars(select(Login)).one(),
+            household=db.get(Household, 1),  # type: ignore[arg-type]
+            idempotency_key=None,
+            request="POST /api/v1/changes/1/undo",
+        )
+        key = str(line_id if restore == "recipe_lines" else recipe_id)
+        value = {"food_id": mine["id"], "size_id": None}
+        # Like a record that doesn't fit: not put back, and nothing changed.
+        assert history._RESTORE[restore](asking, key, value) is False
+        assert history._RESTORE[restore](asking, key, None) is True
+        db.commit()
+
+        theirs = db.get(Recipe, recipe_id)
+        assert theirs is not None
+        assert theirs.homemade_food_id is None and theirs.version == 1
+        assert db.get(RecipeLine, line_id).food_id is None  # type: ignore[union-attr]

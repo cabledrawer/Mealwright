@@ -569,7 +569,7 @@ def _line_as_left(kitchen: Kitchen, key: str, new: dict[str, Any] | None) -> boo
 def _restore_recipe_line(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
     """Put a recipe line back on its ingredient (and its size, if that still belongs to it)."""
     line = kitchen.db.get(RecipeLine, int(key))
-    if line is None or value is None:
+    if line is None or line.household_id != kitchen.household_id or value is None:
         return value is None
     line.food_id = value["food_id"]
     size = kitchen.db.get(FoodSize, value["size_id"]) if value["size_id"] else None
