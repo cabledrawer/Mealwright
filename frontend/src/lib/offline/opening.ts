@@ -29,7 +29,7 @@
 // or the connection comes back: (app)/+layout.svelte), it is asked again (askAgain), with the
 // lists held back meanwhile, and its answer is acted on exactly as a late answer is above.
 
-import { cantReach, getMe, getSetup, type Me, type SetupState } from '$lib/api';
+import { ApiError, cantReach, getMe, getSetup, type Me, type SetupState } from '$lib/api';
 import { holdServerLists, releaseServerLists } from './confirmed';
 
 /** How long the start waits for the server before opening from this device. */
@@ -88,8 +88,8 @@ export function openedOffline(openedAs: number): void {
 /**
  * The server can be reached again (live updates connected, or the connection is back). If
  * the app opened from this device without the server saying who is signed in, ask it now,
- * holding the server's lists back until the answer has been acted on. Still no connection:
- * asked again next time. Otherwise +layout.ts decides, as for a late answer: the same login
+ * holding the server's lists back until the answer has been acted on. Still no connection,
+ * or a server error (a 5xx): asked again next time. Otherwise +layout.ts decides, as for a late answer: the same login
  * carries on; nobody, or a different login, goes to the sign-in page.
  */
 export async function askAgain(fetch: typeof globalThis.fetch = globalThis.fetch): Promise<void> {
@@ -109,12 +109,18 @@ export async function askAgain(fetch: typeof globalThis.fetch = globalThis.fetch
     releaseServerLists();
     return;
   }
-  if ('error' in answer && cantReach(answer.error)) {
+  if ('error' in answer && notYet(answer.error)) {
     releaseServerLists();
     return;
   }
   unconfirmed = null;
   await decideLate({ answer, openedAs });
+}
+
+/** Asking again got no real answer: no connection, or the server had a problem (a 5xx).
+ * The app carries on as it opened, and asks again next time, never showing an error page. */
+function notYet(error: unknown): boolean {
+  return cantReach(error) || (error instanceof ApiError && error.status >= 500);
 }
 
 async function decideLate(answer: LateAnswer): Promise<void> {

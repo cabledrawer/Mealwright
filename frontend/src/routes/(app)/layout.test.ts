@@ -793,6 +793,23 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       expect(takeTurnedAway()).toBe('arlo');
     });
 
+    it('a server error when asked again: carries on as opened, no error page, and asked again next time', async () => {
+      await wrensPhone(0);
+      await openedStillOffline();
+      const opened = session.me;
+      const requests = fakeApi({ 'GET /setup': [500, { detail: 'Something broke.' }] });
+      await askAgain();
+      expect(said(requests)).toEqual(['GET /setup']);
+      expect(reruns).toEqual([]);
+      expect(session.me).toBe(opened);
+      expect(serverListsHeld()).toBeNull();
+      vi.unstubAllGlobals();
+      fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+      await askAgain();
+      await expect(reruns[0]).rejects.toMatchObject({ status: 307 });
+      expect(takeTurnedAway()).toBe('arlo');
+    });
+
     it('opened offline at once: asked as soon as it’s back', async () => {
       await wrensPhone(0);
       vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
