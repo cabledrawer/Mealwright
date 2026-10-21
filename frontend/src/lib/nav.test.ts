@@ -27,7 +27,7 @@ describe('isCurrentRecipesPage', () => {
     for (const [path, label] of [
       ['/recipes', 'All recipes'],
       ['/recipes/12', 'All recipes'],
-      ['/recipes/drafts', 'Drafts'],
+      ['/recipes/new', 'All recipes'],
       ['/recipes/ingredients', 'Ingredients']
     ] as const) {
       const current = RECIPES_PAGES.filter((p) => isCurrentRecipesPage(p, path));
@@ -40,6 +40,10 @@ describe('isCurrentRecipesPage', () => {
 
   it('marks none elsewhere', () => {
     expect(RECIPES_PAGES.some((p) => isCurrentRecipesPage(p, '/pantry'))).toBe(false);
-    expect(isCurrentRecipesPage(sub('Drafts'), '/recipes/draftsx')).toBe(false);
+    expect(isCurrentRecipesPage(sub('Ingredients'), '/recipes/ingredientsx')).toBe(false);
+  });
+
+  it('has no Drafts entry in 0.4 (drafts come with import)', () => {
+    expect(RECIPES_PAGES.map((p) => p.label)).toEqual(['All recipes', 'Ingredients']);
   });
 });

@@ -1,7 +1,7 @@
 <script lang="ts">
   // The desktop and tablet sidebar. Expanded: logo, the five pages (Recipes as a
-  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed:
-  // icons only, with tooltips (Recipes opens a small pop-out with its three pages), a
+  // tree: All recipes · Ingredients; Drafts waits for import, 0.5), the theme switch and
+  // Settings. Collapsed: icons only, with tooltips (Recipes opens a small pop-out with its pages), a
   // single theme button, and a button to expand it again. Not shown on phones (they get
   // the bottom tabs).
   import { resolve } from '$app/paths';
@@ -43,7 +43,7 @@
       <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
            only that you're somewhere inside it. -->
       {#if item.href === '/recipes' && sidebar.collapsed}
-        <!-- Collapsed, Recipes opens a small pop-out with its three pages. -->
+        <!-- Collapsed, Recipes opens a small pop-out with its pages. -->
         <RecipesPopout pathname={page.url.pathname} {current} />
       {:else}
         <a

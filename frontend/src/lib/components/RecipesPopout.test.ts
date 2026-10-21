@@ -15,7 +15,7 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
     component = null;
   });
 
-  function render(pathname = '/recipes/drafts') {
+  function render(pathname = '/recipes/ingredients') {
     box = document.createElement('div');
     box.innerHTML =
       '<button id="before">Before</button><div id="mount"></div><button id="after">After</button><p id="elsewhere" style="position: fixed; right: 0; bottom: 0">Elsewhere</p>';
@@ -44,15 +44,15 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
     expect(menu().elements()).toHaveLength(0);
   });
 
-  it('Enter opens it: All recipes, Drafts, Ingredients, with the current page marked', async () => {
-    const { icon, menu } = render('/recipes/drafts');
+  it('Enter opens it: All recipes and Ingredients (no Drafts yet), with the current page marked', async () => {
+    const { icon, menu } = render('/recipes/ingredients');
     (icon.element() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     await expect.element(menu()).toBeVisible();
     await expect.element(icon).toHaveAttribute('aria-expanded', 'true');
-    expect(names()).toEqual(['All recipes', 'Drafts', 'Ingredients']);
-    const drafts = page.getByRole('menuitem', { name: 'Drafts' });
-    await expect.element(drafts).toHaveAttribute('aria-current', 'page');
+    expect(names()).toEqual(['All recipes', 'Ingredients']);
+    const ingredients = page.getByRole('menuitem', { name: 'Ingredients' });
+    await expect.element(ingredients).toHaveAttribute('aria-current', 'page');
     expect(
       page
         .getByRole('menuitem')
@@ -60,9 +60,9 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
         .filter((e) => e.getAttribute('aria-current') === 'page')
     ).toHaveLength(1);
     // Focus lands on the current page.
-    await expect.element(drafts).toHaveFocus();
+    await expect.element(ingredients).toHaveFocus();
     // They are real links.
-    await expect.element(drafts).toHaveAttribute('href', '/recipes/drafts');
+    await expect.element(ingredients).toHaveAttribute('href', '/recipes/ingredients');
   });
 
   it('Space opens it too, and a click', async () => {
@@ -79,14 +79,12 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
       .toHaveAttribute('aria-current', 'page');
   });
 
-  it('the arrow keys move between the three, round the ends; Home and End jump', async () => {
+  it('the arrow keys move between them, round the ends; Home and End jump', async () => {
     const { icon } = render('/recipes');
     (icon.element() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     const item = (name: string) => page.getByRole('menuitem', { name });
     await expect.element(item('All recipes')).toHaveFocus();
-    await userEvent.keyboard('{ArrowDown}');
-    await expect.element(item('Drafts')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');
     await expect.element(item('Ingredients')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');

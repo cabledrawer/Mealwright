@@ -232,6 +232,14 @@ test.describe('theme', () => {
 test.describe('desktop sidebar', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'desktop layout only');
 
+  test('Recipes’ tree is All recipes and Ingredients, with no Drafts in 0.4', async ({ page }) => {
+    await page.goto('/recipes/ingredients');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await expect(sidebar.getByRole('link', { name: 'Ingredients', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'All recipes', exact: true })).toBeVisible();
+    await expect(sidebar.getByText('Drafts')).toHaveCount(0);
+  });
+
   test('collapses to icons, and is remembered', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
@@ -257,18 +265,19 @@ test.describe('desktop sidebar', () => {
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(200);
   });
 
-  test('collapsed, Recipes opens a pop-out with its three pages and the current one marked', async ({
+  test('collapsed, Recipes opens a pop-out with its pages and the current one marked', async ({
     page,
   }) => {
-    await page.goto('/recipes/drafts');
+    await page.goto('/recipes/ingredients');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     const icon = sidebar.getByRole('button', { name: 'Recipes' });
     await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
     await icon.click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Drafts', 'Ingredients']);
-    await expect(menu.getByRole('menuitem', { name: 'Drafts' })).toHaveAttribute(
+    // No Drafts in 0.4: drafts come with import (0.5).
+    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Ingredients']);
+    await expect(menu.getByRole('menuitem', { name: 'Ingredients' })).toHaveAttribute(
       'aria-current',
       'page',
     );

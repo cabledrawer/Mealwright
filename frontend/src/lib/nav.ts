@@ -31,15 +31,16 @@ export interface RecipesPage {
   label: string;
 }
 
+// Drafts (/recipes/drafts) is left out of the menu in 0.4: drafts only come with import (0.5),
+// so the entry is hidden, not shown empty. Put it back between the two when import is built.
 export const RECIPES_PAGES: readonly RecipesPage[] = [
   { href: '/recipes', label: 'All recipes' },
-  { href: '/recipes/drafts', label: 'Drafts' },
   { href: '/recipes/ingredients', label: 'Ingredients' }
 ];
 
 /**
  * Whether `sub` is the current page under Recipes. Anything under /recipes that isn't
- * Drafts or Ingredients (a recipe's own page, later) belongs to All recipes.
+ * Ingredients (a recipe's own page, the editor) belongs to All recipes.
  */
 export function isCurrentRecipesPage(sub: RecipesPage, pathname: string): boolean {
   const under = (href: string) => pathname === href || pathname.startsWith(href + '/');
