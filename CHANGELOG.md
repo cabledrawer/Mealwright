@@ -26,6 +26,10 @@ Work towards 0.4.0 (recipes).
 - More space between words: Plus Jakarta Sans's own space is narrow, so the text now has a little extra word spacing (buttons and text boxes too). Titles and the wordmark are unchanged.
 - Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
 
+### Fixed
+
+- Opening the app offline or on a weak signal shows Today and the saved shopping list at once (cabledrawer 20 Oct, hand test). In 0.3.0 a signal where requests hang rather than fail held a blank screen for about 30 seconds, then "Loading…" on Shopping for up to 75 seconds when changes were waiting. Now the app waits at most half a second for the server, opens as the person last signed in on this device, and tries the network in the background; the list updates when the server answers. Waiting changes still start sending as the app opens, and are sent once, not three times. If the server then says the sign-in has run out, or that another login is signed in, the usual rules apply (sign in again, the warning, the wipe).
+
 ### Security
 - certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3).
 - Pillow 12.3.0 → 13.0.0 (reads and shrinks recipe photos), for nine warnings: GHSA-8g5g-8vmr-9782 / CVE-2026-112403 (critical, CVSS 9.2, JPEG decoding); GHSA-c6hw-5grf-ff96 / CVE-2026-112404 and GHSA-pchr-8j38-3x4p / CVE-2026-112896 (high, 8.8); GHSA-58r4-6rv3-gfh8 / CVE-2026-112397, GHSA-65qm-jvmh-6pqg / CVE-2026-112400, GHSA-p4wg-p73j-c528 / CVE-2026-112895 and GHSA-q45j-58j2-45rg / CVE-2026-112897 (high, 8.7); GHSA-vx6w-vv9f-6gvg / CVE-2026-112899 (medium, 6.9) and GHSA-462x-pgg6-55fp / CVE-2026-112395 (medium, 6.5). Its licence (MIT-CMU) is unchanged and it has no dependencies of its own. No other library changed.

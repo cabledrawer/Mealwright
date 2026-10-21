@@ -557,7 +557,7 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 ### 11.3 Sending
 
 - **One batch in flight at a time**, the oldest up to 100 queued actions of the signed-in login, in queue order. Never reordered, never merged, never dropped except by its result or by "Sign out and lose them".
-- Send straight after a new action (gathering anything made within 250 ms), and on: the browser's `online` event, the app opening or coming to the foreground, the event stream reconnecting, "Try now", and the retry timer.
+- Send straight after a new action (gathering anything made within 250 ms), and on: the browser's `online` event, the app opening or coming to the foreground, the event stream reconnecting, "Try now", and the retry timer. Reasons that come before the next send has begun share that one send, so opening the app sends once, not once per part of the app that asks (cabledrawer 20 Oct, hand test).
 - **No answer, a network error, a timeout (15 s), or 5xx** (including a proxy's 502 to 504): send **the same batch** again after 2, 4, 8, 16, 30, then every 60 seconds, each ±20%. Repeats make this safe (5.3). Back to normal after any success.
 - `401`: stop sending and keep the queue (11.5). `409 other_login`: don't send (11.5). `413`: halve the batch and carry on. `422`: a bug; keep the queue, stop, show "Couldn't send your changes" with Try now.
 
@@ -568,6 +568,12 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 - Offline: phone "Offline — 3 changes waiting" with Try now, above the bottom tabs; desktop "Offline · 3 changes waiting. They'll save when you're back." with Try now at the foot of the sidebar, a small dot when collapsed (mockups). With nothing waiting it says just "Offline".
 - Shopping's subtitle while offline: "12 to buy · offline, saving on this phone" (desktop "… on this computer"), from the mockups.
 - Back online and the queue empty: a short toast "Back online — all saved". Nothing extra while all is well.
+- **Opening on a weak signal** (cabledrawer 20 Oct, hand test). The start asks the server whether it needs setting up and who is signed in, and waits for that answer for at most half a second (not at all when the browser says it's offline). If it hasn't come by then, the app opens at once as whoever was last signed in on this device, exactly as it does offline: Today and Shopping show from the copy, with the queue on top. Nothing waits for a request's timeout before something shows. When the answer comes, it's decided with the same rules as at the start:
+  - Still no connection: the app carries on as it opened.
+  - The same login: the app carries on, now known to be signed in.
+  - Not signed in, a different login, or the server needing setting up: the start runs again with that answer and decides exactly as if it had come in time (sign in again, 11.5's warning and the wipe, section 12). A different login with nothing waiting is wiped as before, and then the app starts again as that login, so nothing of the last login stays on the screen. This is the one time the app reloads itself (11.6): the copy has just been wiped, so nobody is mid-shop.
+  - Until the answer has been acted on, nothing the server lists is written into the copy, because its session might be another login's. Sending goes ahead meanwhile: every batch names its login, and the server refuses another login's (`409 other_login`), so nothing is sent under the wrong login.
+  - If nobody has signed in on this device before, there is nothing to open from, so the start waits for the server as before (straight to the sign-in page when the browser says it's offline).
 
 ### 11.5 Sign-in runs out while offline (L285)
 
@@ -587,8 +593,8 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 
 ### 11.6 App updates (L290)
 
-- The app never calls `skipWaiting()` and never reloads itself while it's open, so a new version never takes over mid-shop. The browser switches to the new version once every window of the app has been closed, so the next cold start opens the new version.
-- That means the old version can't send its queue first. Instead, **the new version sends the old version's queue before it shows the list.** On start it opens IndexedDB (its upgrade code keeps `queue` and `meta` exactly as they were) and, if the queue has entries, starts sending them as they are (protocol 1) before showing Shopping. Offline, the list shows from the copy with the queue on top, as always, and the queue goes when it can.
+- The app never calls `skipWaiting()` and never reloads itself while it's open (one exception: a late answer at the start that wipes the copy for a different login, 11.4), so a new version never takes over mid-shop. The browser switches to the new version once every window of the app has been closed, so the next cold start opens the new version.
+- That means the old version can't send its queue first. Instead, **the new version sends the old version's queue before it shows the list.** On start it opens IndexedDB (its upgrade code keeps `queue` and `meta` exactly as they were) and, if the queue has entries, starts sending them as they are (protocol 1) as Shopping opens. Shopping shows from the copy with the queue on top straight away, without waiting for that send to finish (cabledrawer 20 Oct, hand test: on a weak signal the wait held "Loading…" for over 40 seconds). The server's list is asked for only after that send has finished, so it already includes the queue. Offline, the list shows from the copy with the queue on top, as always, and the queue goes when it can.
 - This is safe because the server accepts protocol 1 for the life of `/api/v1` (4.1). FE-4 tests it.
 - Docs: offline needs HTTPS (L461); iPhone Safari can clear offline data after 7 days without use, and adding to the Home Screen helps (L290).
 
