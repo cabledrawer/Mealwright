@@ -14,6 +14,8 @@ import { fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
 import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
 import { wipeDevice } from '$lib/offline/wipe';
 import { wipePending } from '$lib/offline/wipePending.svelte';
+import { releaseServerLists, serverListsHeld } from '$lib/offline/confirmed';
+import { restart, START_WAIT_MS } from '$lib/offline/opening';
 import { load as signInLoad } from '../(auth)/+layout';
 import { load } from './+layout';
 
@@ -321,5 +323,246 @@ describe('opening the app (11.4)', () => {
     await expect(open()).rejects.toMatchObject({ status: 307 });
     expect(signOutState.unfinished).toBe(false);
     takeTurnedAway();
+  });
+});
+
+describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () => {
+  const { rerun, reload } = restart;
+  const begin = async (): Promise<void> => {
+    await open();
+  };
+  /** The layout running again for a late answer (in the app: invalidateAll). */
+  let reruns: Promise<void>[];
+  let reloads: number;
+  let releases: (() => void)[];
+
+  /** A server whose answers hang until release(): `asked` lists each request as it is made. */
+  function slowServer(answer: typeof fetch) {
+    const asked: string[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((done) => (release = done));
+    releases.push(release);
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      asked.push(
+        `${args[1]?.method ?? 'GET'} ${
+          String(args[0])
+            .replace(/^\/api\/v1/, '')
+            .split('?')[0]
+        }`
+      );
+      await released;
+      return answer(...args);
+    });
+    return { asked, release };
+  }
+
+  /** fakeApi's answers, slowly. */
+  function slowly(routes: Parameters<typeof fakeApi>[0]) {
+    const requests = fakeApi(routes);
+    return { ...slowServer(globalThis.fetch), requests };
+  }
+
+  const timed = async <T>(work: () => Promise<T>) => {
+    const started = performance.now();
+    const result = await work();
+    return { result, ms: performance.now() - started };
+  };
+
+  beforeEach(() => {
+    freshPhone();
+    session.me = null;
+    network.reset();
+    signOutState.unfinished = false;
+    reruns = [];
+    reloads = 0;
+    releases = [];
+    restart.rerun = () => {
+      const again = begin();
+      reruns.push(again);
+      return again.then(
+        () => undefined,
+        () => undefined
+      );
+    };
+    restart.reload = () => void reloads++;
+  });
+
+  afterEach(async () => {
+    for (const release of releases) release();
+    await Promise.allSettled(reruns);
+    releaseServerLists();
+    restart.rerun = rerun;
+    restart.reload = reload;
+    shoppingSync.forget();
+    takeTurnedAway();
+    await dropPhone();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    network.reset();
+  });
+
+  it('opens at once as the last signed-in person, and the same login then carries on in place', async () => {
+    await wrensPhone(1);
+    const server = slowly(signedInAs(2, 'Wren'));
+    const { ms } = await timed(begin);
+    expect(ms).toBeLessThan(START_WAIT_MS + 500);
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+    expect(serverListsHeld()).not.toBeNull();
+    const opened = session.me;
+
+    server.release();
+    await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+    expect(reruns).toHaveLength(1);
+    await expect(reruns[0]).resolves.toBeUndefined();
+    // The same person, the very same object (so the layout keeps its Undo), not started again.
+    expect(session.me).toBe(opened);
+    expect(reloads).toBe(0);
+    expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /setup', 'GET /me']);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('the list isn’t asked for until the server has said who is signed in; sending starts at once', async () => {
+    await wrensPhone(1);
+    const copy = sampleCopy();
+    const shop = fakeShopping(copy, signedInAs(2, 'Wren'));
+    const server = slowServer(globalThis.fetch);
+    await begin();
+    await shoppingSync.start();
+    const listed = shoppingSync.refresh();
+    await new Promise((done) => setTimeout(done, 200));
+    // The waiting change is on its way (11.6); the list is not.
+    expect(server.asked).toEqual(['GET /setup', 'POST /shopping/actions']);
+
+    server.release();
+    await listed;
+    await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
+    const order = shop.requests.map((r) => `${r.method} ${r.path}`);
+    expect(order.indexOf('GET /me')).toBeLessThan(order.indexOf('GET /shopping/changes'));
+    expect(order.indexOf('POST /shopping/actions')).toBeLessThan(
+      order.indexOf('GET /shopping/changes')
+    );
+    // Sent once, and applied once.
+    expect(shop.actions).toHaveLength(1);
+  });
+
+  it('a late “not signed in”: the sign-in page, nothing wiped, and the list never asked for', async () => {
+    await wrensPhone(1);
+    const server = slowly({
+      'GET /setup': [200, { needs_setup: false }],
+      'GET /me': [401, { detail: 'Not signed in.' }]
+    });
+    await begin();
+    expect(session.me).toMatchObject({ id: 2 });
+    const listed = shoppingSync.refresh().catch((error: unknown) => error);
+
+    server.release();
+    await vi.waitFor(() => expect(reruns).toHaveLength(1));
+    await expect(reruns[0]).rejects.toMatchObject({
+      status: 307,
+      location: '/sign-in?next=%2Fshopping'
+    });
+    expect(await listed).toMatchObject({ status: 401, detail: 'Please sign in again.' });
+    expect(session.me).toBeNull();
+    expect(reloads).toBe(0);
+    expect(server.asked).toEqual(['GET /setup', 'GET /me']);
+    // Wren's phone exactly as it was (11.5: her change waits for her).
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).not.toBeNull();
+    expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('a late different login, with changes waiting: signed out again and sent to the warning, touching nothing', async () => {
+    await wrensPhone(1);
+    const saved = await loadCopy();
+    const server = slowly({
+      ...signedInAs(3, 'Arlo'),
+      'DELETE /session': [204, null],
+      'POST /shopping/actions': [409, { code: 'other_login', detail: 'Another login.' }]
+    });
+    await begin();
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+    // The app starts sending Wren's change meanwhile: the server turns it away (11.5).
+    await shoppingSync.start();
+    const listed = shoppingSync.refresh().catch((error: unknown) => error);
+
+    server.release();
+    await vi.waitFor(() => expect(reruns).toHaveLength(1));
+    await expect(reruns[0]).rejects.toMatchObject({
+      status: 307,
+      location: '/sign-in?next=%2Fshopping'
+    });
+    expect(await listed).toMatchObject({ status: 401, detail: 'Please sign in again.' });
+    expect(session.me).toBeNull();
+    expect(reloads).toBe(0);
+    expect(takeTurnedAway()).toBe('arlo');
+    expect(server.requests.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
+      ['DELETE /session', 'GET /me', 'GET /setup', 'POST /shopping/actions'].sort()
+    );
+    // Wren's phone exactly as it was: her `meta`, her device ID, her copy and her change.
+    expect(await getMeta('login_id')).toBe(2);
+    expect(await getMeta('login_name')).toBe('Wren');
+    expect(await getMeta('device_id')).toBe(DEVICE);
+    expect(await loadCopy()).toEqual(saved);
+    expect(await readQueue()).toHaveLength(1);
+    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 1 });
+  });
+
+  it('a late different login with nothing waiting: starts clean, and the app starts again as them', async () => {
+    await wrensPhone(0);
+    const server = slowly(signedInAs(3, 'Arlo'));
+    await begin();
+    expect(session.me).toMatchObject({ id: 2 });
+
+    server.release();
+    await vi.waitFor(() => expect(reloads).toBe(1));
+    await expect(reruns[0]).resolves.toBeUndefined();
+    expect(session.me).toMatchObject({ id: 3, name: 'Arlo' });
+    expect(await loadCopy()).toBeNull();
+    expect(await getMeta('login_id')).toBe(3);
+    expect(await getMeta('device_id')).not.toBe(DEVICE);
+  });
+
+  it('a late answer that the server still can’t be reached: carries on as opened', async () => {
+    await wrensPhone(1);
+    const server = slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
+    await begin();
+    const opened = session.me;
+    server.release();
+    await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+    expect(reruns).toEqual([]);
+    expect(session.me).toBe(opened);
+    expect(await readQueue()).toHaveLength(1);
+  });
+
+  it('the browser says it’s offline: no wait at all, with or without someone to open as', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
+    const nobody = await timed(() => begin().catch((error: unknown) => error));
+    expect(nobody.result).toMatchObject({ status: 307, location: '/sign-in?next=%2Fshopping' });
+    expect(nobody.ms).toBeLessThan(START_WAIT_MS);
+
+    await setMeta(WREN);
+    const wren = await timed(begin);
+    expect(wren.ms).toBeLessThan(START_WAIT_MS);
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+  });
+
+  it('someone else just signed in waits for the server rather than opening as the last person', async () => {
+    await wrensPhone(0);
+    session.me = { id: 3, name: 'Arlo', username: 'arlo', role: 'member', theme: 'auto' };
+    const server = slowly(signedInAs(3, 'Arlo'));
+    let opened = false;
+    const opening = begin().then(() => (opened = true));
+    await new Promise((done) => setTimeout(done, START_WAIT_MS + 300));
+    expect(opened).toBe(false);
+    expect(session.me).toMatchObject({ id: 3 });
+
+    server.release();
+    await opening;
+    expect(session.me).toMatchObject({ id: 3, name: 'Arlo' });
+    expect(reruns).toEqual([]);
   });
 });

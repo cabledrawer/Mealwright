@@ -19,6 +19,7 @@
 // away: the queue is kept and sent after the fresh copy has arrived (11.1).
 
 import { api, ApiError } from '$lib/api';
+import { serverListsHeld } from '$lib/offline/confirmed';
 import { deviceId } from '$lib/offline/device';
 import type { QueueEntry } from '$lib/offline/phone';
 import {
@@ -111,6 +112,8 @@ export class ShoppingSync {
   #retryTimer: ReturnType<typeof setTimeout> | null = null;
   #gatherTimer: ReturnType<typeof setTimeout> | null = null;
   #opened: Promise<void> | null = null;
+  /** The turn of sending that hasn't started yet, if any. */
+  #nextSend: Promise<void> | null = null;
   /** Goes up on forget(): an answer to a request from before then is thrown away unread, so
    * nothing is written back into a wiped phone (sign-out, section 12). With nobody signed
    * in, nothing here opens the phone database either, so a wipe stays wiped. */
@@ -152,16 +155,17 @@ export class ShoppingSync {
   }
 
   /**
-   * Starting the app (or a new version of it, 11.6): read what's on the phone, and send what
-   * is waiting before the list is shown. Offline, that fails at once and the list shows from
-   * the copy, with the queue on top.
+   * Starting the app (or a new version of it, 11.6): read what's on the phone, and start
+   * sending what is waiting before anything is asked of the server. Resolves once the copy and
+   * the queue are read, without waiting for the send: the list shows from the copy at once,
+   * with the queue on top, and a weak signal doesn't hold it back (cabledrawer 20 Oct, hand test).
    */
   async start(): Promise<void> {
     await this.open();
     // A new start tries again: after "Couldn't send your changes" (perhaps with a newer
     // version), and after signing back in as the same login when the sign-in ran out (11.5).
     this.stopped = null;
-    if (this.#mine(this.queue).length) await this.send();
+    if (this.#mine(this.queue).length) void this.send();
   }
 
   // --- Changes in ---------------------------------------------------------------------------------
@@ -217,7 +221,18 @@ export class ShoppingSync {
       clearTimeout(this.#retryTimer);
       this.#retryTimer = null;
     }
-    return this.#take(() => this.#sendAll());
+    return this.#sendNext();
+  }
+
+  /** One more turn of sending. Triggers that come before it has started share it: it sends
+   * everything waiting when it starts, so a second turn behind it would only wait again for
+   * a weak signal's timeout. */
+  #sendNext(): Promise<void> {
+    this.#nextSend ??= this.#take(() => {
+      this.#nextSend = null;
+      return this.#sendAll();
+    });
+    return this.#nextSend;
   }
 
   /** "Try now" after "Couldn't send your changes": start sending again. */
@@ -330,7 +345,7 @@ export class ShoppingSync {
     if (this.#retryTimer) clearTimeout(this.#retryTimer);
     this.#retryTimer = setTimeout(() => {
       this.#retryTimer = null;
-      void this.#take(() => this.#sendAll());
+      void this.#sendNext();
     }, wait);
   }
 
@@ -379,8 +394,11 @@ export class ShoppingSync {
 
   // --- Changes from the server --------------------------------------------------------------------
 
-  /** Ask the server what changed since the copy (everything with `full`), and keep it. */
+  /** Ask the server what changed since the copy (everything with `full`), and keep it. Not
+   * before the server has said who is signed in, when the app opened before it did. */
   refresh(full = false): Promise<ShoppingCopy> {
+    const held = serverListsHeld();
+    if (held) return held.then(() => this.refresh(full));
     return this.#take(async () => {
       if (!session.me) throw new ApiError(401, NOBODY_SIGNED_IN);
       await this.open();
@@ -423,6 +441,7 @@ export class ShoppingSync {
     this.#failures = 0;
     this.#batchSize = this.timing.maxBatch;
     this.#opened = null;
+    this.#nextSend = null;
     this.#turn = Promise.resolve();
     this.copy = null;
     this.stopped = null;

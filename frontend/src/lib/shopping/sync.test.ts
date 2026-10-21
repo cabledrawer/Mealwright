@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { network } from '$lib/network.svelte';
-import { deviceId } from '$lib/offline/device';
+import { deviceId, loadDeviceId } from '$lib/offline/device';
 import { phoneDatabaseName } from '$lib/offline/phone';
 import { addToQueue, readQueue } from '$lib/offline/store';
 import { wipeDevice } from '$lib/offline/wipe';
@@ -215,6 +215,49 @@ describe('no answer: the same batch again, later', () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(outcome).not.toHaveBeenCalled();
     expect(await readQueue()).toHaveLength(1);
+  });
+});
+
+describe('starting on a weak signal (cabledrawer 20 Oct, hand test)', () => {
+  it('start() reads the phone and starts sending what is waiting, without waiting for the answer (11.6)', async () => {
+    shoppingSync.timing.timeoutMs = 200;
+    const sent = server(() => 'hang');
+    shoppingSync.forget();
+    const waiting = tick('a');
+    await addToQueue(waiting, ME.id, await loadDeviceId());
+    const started = performance.now();
+    await shoppingSync.start();
+    expect(performance.now() - started).toBeLessThan(150);
+    // Read from the phone, so it shows on top of the copy at once, and on its way.
+    expect(shoppingSync.waitingActions.map((a) => a.id)).toEqual([waiting.id]);
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]!.body.actions.map((a) => a.id)).toEqual([waiting.id]);
+    shoppingSync.forget();
+  });
+
+  it('triggers that come before a turn of sending has started share it: a hanging signal is waited for once', async () => {
+    shoppingSync.timing.timeoutMs = 50;
+    shoppingSync.timing.retries = [60_000];
+    const sent = server((one, n) => (n <= 2 ? 'hang' : applied(one)));
+    shoppingSync.forget();
+    const waiting = tick('a');
+    await addToQueue(waiting, ME.id, await loadDeviceId());
+    await shoppingSync.start();
+    await vi.waitFor(() => expect(sent).toHaveLength(1));
+    // Two triggers while the first batch hangs (the app opening, the stream's hello): one turn.
+    await Promise.all([shoppingSync.send(), shoppingSync.send()]);
+    expect(sent).toHaveLength(2);
+    // The next trigger gets through: the same change, by the same ID, applied once.
+    await shoppingSync.send();
+    expect(sent).toHaveLength(3);
+    expect(sent.map((one) => one.body.actions.map((a) => a.id))).toEqual([
+      [waiting.id],
+      [waiting.id],
+      [waiting.id]
+    ]);
+    expect(await readQueue()).toEqual([]);
+    expect(shoppingSync.queue).toEqual([]);
+    shoppingSync.forget();
   });
 });
 
