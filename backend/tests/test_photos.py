@@ -175,6 +175,42 @@ def test_a_colour_profile_is_used_then_dropped(size: tuple[int, int]) -> None:
         assert "icc_profile" not in saved.info and b"ICC_PROFILE" not in data
 
 
+def profile_reaching_the_converter(
+    monkeypatch: pytest.MonkeyPatch, profile: bytes
+) -> tuple[list[int], photos.Cleaned]:
+    """Cleans a photo carrying this profile; returns the sizes of the profiles that reached
+    littlecms (`profileToProfile`) and the result."""
+    reached: list[int] = []
+    real = ImageCms.profileToProfile
+
+    def spy(image: Image.Image, source: Any, *args: Any, **kwargs: Any) -> Any:
+        reached.append(1)
+        return real(image, source, *args, **kwargs)
+
+    monkeypatch.setattr(photos.ImageCms, "profileToProfile", spy)
+    return reached, photos.clean(kit.jpeg(icc_profile=profile))
+
+
+def test_a_colour_profile_over_1_mb_is_never_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    big = kit.wide_gamut_profile().ljust(photos.MAX_PROFILE_BYTES + 1, b"\0")
+    reached, cleaned = profile_reaching_the_converter(monkeypatch, big)
+    assert reached == []  # it never went near littlecms
+    assert kit.opened(cleaned.large).size == (400, 300)  # and the photo was still kept
+    assert "icc_profile" not in kit.opened(cleaned.large).info
+
+
+def test_a_colour_profile_of_exactly_1_mb_is_still_used(monkeypatch: pytest.MonkeyPatch) -> None:
+    edge = kit.wide_gamut_profile().ljust(photos.MAX_PROFILE_BYTES, b"\0")
+    assert photos.MAX_PROFILE_BYTES == 1_048_576
+    reached, _ = profile_reaching_the_converter(monkeypatch, edge)
+    assert reached == [1]
+
+
+def test_a_small_colour_profile_is_still_used(monkeypatch: pytest.MonkeyPatch) -> None:
+    reached, _ = profile_reaching_the_converter(monkeypatch, kit.wide_gamut_profile())
+    assert reached == [1]
+
+
 def test_a_profile_pillow_cannot_use_is_ignored_not_refused() -> None:
     cleaned = photos.clean(kit.jpeg(icc_profile=b"not really a colour profile"))
     assert "icc_profile" not in kit.opened(cleaned.large).info
