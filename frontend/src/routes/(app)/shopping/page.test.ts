@@ -192,6 +192,35 @@ describe('the Shopping page', () => {
     expect((await readQueue()).map((e) => e.action.kind)).toEqual(['tick', 'undo']);
   });
 
+  it('offline: Remove asks, the row goes at once, and Undo brings it back with its amount, queued after the delete', async () => {
+    await openOffline(390);
+    await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+    await page.getByRole('button', { name: 'Remove from list' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' })
+      .getByRole('button', { name: 'Remove', exact: true })
+      .click();
+    const toast = page.getByRole('status').filter({ hasText: 'Removed Yoghurt' });
+    await expect.element(toast).toBeVisible();
+    await expect
+      .element(page.getByRole('checkbox', { name: 'Tick Yoghurt' }))
+      .not.toBeInTheDocument();
+    await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Undone: Removed Yoghurt' }))
+      .toBeVisible();
+    // Back on the list with its amount, from the phone's own copy.
+    await expect.element(page.getByRole('checkbox', { name: 'Tick Yoghurt' })).toBeVisible();
+    await expect
+      .element(page.getByRole('button', { name: 'Change amount: Yoghurt, 500 g' }))
+      .toBeVisible();
+    // The queue holds the delete, then the undo that matches it.
+    const queue = (await readQueue()).map((e) => e.action);
+    expect(queue.map((a) => a.kind)).toEqual(['delete', 'undo']);
+    expect(queue[0]).toMatchObject({ item_id: 'i-yoghurt' });
+    expect(queue[1]).toMatchObject({ undoes: queue[0]!.id });
+  });
+
   it('Undo: when the server answers in its own words, the toast says those', async () => {
     await render(390, {
       'POST /shopping/actions': (request) => {
