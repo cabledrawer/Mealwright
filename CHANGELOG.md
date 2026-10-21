@@ -37,7 +37,7 @@ Work towards 0.4.0 (recipes).
 
 ### Changed
 
-- The recipe page: a recipe that says what it makes but not how many it serves now gets − and + too, in whole multiples (Makes 200 g, then 400 g, 600 g; never below 1×), and its amounts scale the same way (cabledrawer 20 Oct).
+- The recipe page: a recipe that says what it makes but not how many it serves now gets − and + too, in whole multiples (Makes 200 g, then 400 g, 600 g; from 1× up to 99×, the same range as Serves, cabledrawer 21 Oct), and its amounts scale the same way (cabledrawer 20 Oct).
 - The menu no longer shows a Drafts entry under Recipes (cabledrawer 20 Oct).
 - Shopping: the amount box has an "Edit ingredient" link to that row's ingredient (on a phone and a computer; cabledrawer 21 Oct). It's hidden offline, like the other ways into the ingredient editor.
 - The recipe editor: the "Makes" box's hint says "What it makes, like dosas" (cabledrawer 21 Oct). On a computer, Save and Cancel are wider, as in the mockup.
@@ -56,8 +56,7 @@ Work towards 0.4.0 (recipes).
 - Docs: `docs/dev/words.md` sections 14 to 17 and "Photo of {name}" are approved (cabledrawer 21 Oct); a removed ingredient coming back, the fixed test date and time and the 144 KiB size limit are in the spec, credited to cabledrawer.
 
 ### Fixed
-- Ingredients → Recent changes: when a removed ingredient comes back through an Undo in Pantry or an offline phone adding it, a line says so ("Lemon is back in Ingredients", with no Undo; cabledrawer 20 and 21 Oct), and the old "Removed … from Ingredients" line loses its Undo. Only the newest removal of an ingredient has Undo, and only while it is still removed.
-
+- Ingredients → Recent changes: when a removed ingredient comes back through an Undo in Pantry or an offline phone adding it, a line says so ("Lemon is back in Ingredients", with no Undo; cabledrawer 20 and 21 Oct), and the old "Removed … from Ingredients" line loses its Undo. Only the newest removal of an ingredient has Undo, and only while it is still removed. Ticking it on a shopping list, or adding a new ingredient with its name, brings it back the same way. When the change that brought it back is undone and the ingredient is removed again, the line shows as undone, with the Undo's "Undid: …" line above it (cabledrawer 21 Oct).
 - The recipe editor: a new recipe is never saved twice after an answer is lost, even when you edit it before "Try again", and the edit is kept. "Try again" is greyed out while offline, like Save, and a double click on Save sends one request.
 - On a phone at 200% text, the bottom tabs' labels no longer touch each other.
 - Ingredients on a phone: the title no longer breaks inside a word; "+ New ingredient" beside it is now a round + button.
