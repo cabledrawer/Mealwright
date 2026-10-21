@@ -106,4 +106,21 @@ describe('signing out forgets the household’s shops and places', () => {
     await loading;
     await arloSeesOnlyHis();
   });
+
+  it('a shop added just before signing out isn’t kept for the next login', async () => {
+    await wrensLoaded({ 'POST /shops': [201, { id: 2, name: 'Wren’s market' }] });
+    let answer!: () => void;
+    const answered = new Promise<void>((done) => (answer = done));
+    const fetched = globalThis.fetch;
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      await answered;
+      return fetched(...args);
+    });
+    const adding = placesAndShops.addShop('Wren’s market');
+    sessionEnded();
+    answer();
+    await adding;
+    expect(placesAndShops.shops).toEqual([]);
+    await arloSeesOnlyHis();
+  });
 });

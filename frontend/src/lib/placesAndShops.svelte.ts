@@ -14,6 +14,8 @@ class PlacesAndShops {
   places = $state<Place[]>([]);
   shops = $state<Shop[]>([]);
   #loading: Promise<void> | null = null;
+  /** Goes up each time they're forgotten, so an answer to an earlier login is dropped. */
+  #generation = 0;
 
   /** Fetch them (once; later calls wait for the same answer). */
   load(force = false): Promise<void> {
@@ -36,6 +38,7 @@ class PlacesAndShops {
 
   /** Forget them (another login's household may be next): the next load() fetches again. */
   forget(): void {
+    this.#generation += 1;
     this.#loading = null;
     this.places = [];
     this.shops = [];
@@ -43,7 +46,10 @@ class PlacesAndShops {
 
   /** "+ Shop": adds it, or finds the one already called that. */
   async addShop(name: string): Promise<Shop> {
+    const generation = this.#generation;
     const shop = await addShop(name.trim());
+    // Forgotten (signed out) while asking: the shop is the last login's, so it isn't kept.
+    if (generation !== this.#generation) return shop;
     if (!this.shops.some((s) => s.id === shop.id)) this.shops = [...this.shops, shop];
     return shop;
   }
