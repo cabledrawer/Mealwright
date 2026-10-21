@@ -11,7 +11,7 @@ from mealwright import amounts
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import not_found
+from mealwright.errors import StoredInt, not_found
 from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, replayed
 from mealwright.household import cup_ml, places, today, valid_time_zone
@@ -216,7 +216,7 @@ class Forgotten(BaseModel):
 
 
 @router.delete("/conversions/{conversion_id}")
-def forget_conversion(conversion_id: int, kitchen: Here, response: Response) -> Forgotten:
+def forget_conversion(conversion_id: StoredInt, kitchen: Here, response: Response) -> Forgotten:
     """Forget a remembered answer: the table is used again, or the question asked again."""
     earlier = replayed(kitchen)
     if earlier is None:

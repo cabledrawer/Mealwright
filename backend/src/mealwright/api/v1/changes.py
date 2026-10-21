@@ -15,7 +15,7 @@ from mealwright.api.v1.foods import FoodOut, food_out
 from mealwright.api.v1.pantry import GroupOut, Pantry
 from mealwright.api.v1.schemas import AmountOut, ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
     KEY_ONLY_KINDS,
@@ -172,8 +172,8 @@ def _lines(kitchen: Kitchen, view: Pantry, change: Change) -> list[LineOut]:
 def list_changes(
     kitchen: Here,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    before: int | None = None,
-    food_id: int | None = None,
+    before: StoredInt | None = None,
+    food_id: StoredInt | None = None,
     area: Literal["pantry", "ingredients"] | None = None,
     mine: bool = False,
 ) -> ChangeList:
@@ -410,7 +410,7 @@ def undo_change(
 
 
 @router.post("/changes/{change_id}/undo")
-def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
+def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
     """Reverse just that change; later changes stay. Anyone in the household can undo
     anyone's change within the undo window (7 days)."""
     earlier = replayed(kitchen)

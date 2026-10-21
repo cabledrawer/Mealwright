@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from mealwright.api.v1.schemas import Ref, Who
+from mealwright.errors import StoredInt
 from mealwright.names import clean_name, one_line, text_block
 
 # --- What people may type -------------------------------------------------------------------
@@ -207,16 +208,16 @@ class RecipeLineIn(BaseModel):
     it keeps its identity (and an ingredient merge can follow it); leave it out for a new
     line."""
 
-    id: int | None = None
+    id: StoredInt | None = None
     kind: Literal["ingredient", "heading"] = "ingredient"
     # The recipe's own words ("thuvaram paruppu"). May be empty when `food_id` or
     # `recipe_id` is given: it then starts as that ingredient's or recipe's name.
     words: Annotated[str, Field(max_length=200)] = ""
     amount: Milli = None
     unit: LineUnit = None
-    size_id: int | None = None  # one of the linked ingredient's own sizes ("1 packet")
-    food_id: int | None = None
-    recipe_id: int | None = None  # another recipe used as an ingredient
+    size_id: StoredInt | None = None  # one of the linked ingredient's own sizes ("1 packet")
+    food_id: StoredInt | None = None
+    recipe_id: StoredInt | None = None  # another recipe used as an ingredient
     note: Annotated[str, Field(max_length=200)] | None = None
 
     @field_validator("words")
@@ -328,7 +329,7 @@ class RecipeIn(BaseModel):
     # Left out: the photo stays as it is. null: no photo (the one it had is deleted on
     # Save). A new id: that photo replaces it. (cabledrawer 20 Oct: the editor's "Remove photo"
     # sends null; leaving the field out never removes it.)
-    photo_id: int | None = Field(
+    photo_id: StoredInt | None = Field(
         default=None,
         description=(
             "The id from `POST /recipes/photos`, or the photo’s own id. Left out: the photo"
@@ -378,7 +379,7 @@ class RecipeIn(BaseModel):
 class RecipeUpdate(RecipeIn):
     """The whole recipe, as the editor saved it. `version` is the version it opened."""
 
-    version: Annotated[int, Field(ge=1)]
+    version: Annotated[StoredInt, Field(ge=1)]
     # "Save mine anyway": sent with the newer `version` from the 409 `recipe_changed`.
     overwrite: bool = False
 

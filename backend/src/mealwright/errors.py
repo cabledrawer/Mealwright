@@ -6,10 +6,11 @@ See docs/dev/api-0.2.md section 1.1. Plain HTTPException (just `detail`) is stil
 where the client only shows the message.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from pydantic import AfterValidator
 
 
 class Problem(Exception):
@@ -23,6 +24,28 @@ class Problem(Exception):
 
 def not_found(what: str = "That") -> Problem:
     return Problem(status.HTTP_404_NOT_FOUND, "not_found", f"{what} isn’t here any more.")
+
+
+# The biggest and smallest whole numbers the database stores (SQLite: 64 bits).
+MOST_STORED = 2**63 - 1
+LEAST_STORED = -(2**63)
+
+
+def _stored(value: int) -> int:
+    """Refuse a number the database can't hold. Nothing has such an ID or cursor, and
+    passing it on would fail inside the database with a server error.
+
+    Raised as a Problem, not a ValueError: pydantic passes other errors on unchanged, so
+    the request gets this 422 at once, wherever in the path, query or body it is."""
+    if not LEAST_STORED <= value <= MOST_STORED:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "bad_number", "That number is too big."
+        )
+    return value
+
+
+# A whole number from a request that is looked up or stored: an ID, a cursor, a version.
+StoredInt = Annotated[int, AfterValidator(_stored)]
 
 
 def install(app: FastAPI) -> None:
@@ -39,12 +62,6 @@ def install(app: FastAPI) -> None:
             "detail": f"That’s too much: at most {MAX_AMOUNT:,} g, ml or items.",
             "code": "too_big",
         }
-        return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
-
-    @app.exception_handler(OverflowError)
-    async def _number_too_big(_request: Request, _error: OverflowError) -> JSONResponse:
-        # An ID or cursor bigger than the database can hold (2^63 - 1): nothing has it.
-        body = {"detail": "That number is too big.", "code": "bad_number"}
         return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     @app.exception_handler(Problem)

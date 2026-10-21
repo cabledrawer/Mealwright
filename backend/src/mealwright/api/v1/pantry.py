@@ -14,7 +14,7 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out, find, resolve, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
@@ -379,9 +379,9 @@ def _date(day: date) -> str:
 
 
 class AddStock(BaseModel):
-    food_id: int
+    food_id: StoredInt
     amount: AmountIn
-    place_id: int | None = None
+    place_id: StoredInt | None = None
     use_by: date | None = None
 
 
@@ -436,7 +436,7 @@ class SetLeft(BaseModel):
 
 
 @router.post("/stock/{lot_id}/left")
-def set_left(lot_id: int, body: SetLeft, kitchen: Here, response: Response) -> StockWrite:
+def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response) -> StockWrite:
     """How much is left in this packet. Best guess is fine; it can go up too (Full)."""
 
     def apply() -> tuple[Change, int]:
@@ -488,7 +488,7 @@ def _use(
 
 @router.post("/stock/{lot_id}/used")
 def used(
-    lot_id: int, kitchen: Here, response: Response, body: UsedSome | None = None
+    lot_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
 ) -> StockWrite:
     """Used it (all of it, or an amount). Never below zero: `short_by` says what was missing."""
     return stock_write(kitchen, response, lambda: _use("used", lot_id, body or UsedSome(), kitchen))
@@ -496,7 +496,7 @@ def used(
 
 @router.post("/stock/{lot_id}/binned")
 def binned(
-    lot_id: int, kitchen: Here, response: Response, body: UsedSome | None = None
+    lot_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
 ) -> StockWrite:
     return stock_write(
         kitchen, response, lambda: _use("binned", lot_id, body or UsedSome(), kitchen)
@@ -509,7 +509,7 @@ class ToFreezer(BaseModel):
 
 @router.post("/stock/{lot_id}/to-freezer")
 def to_freezer(
-    lot_id: int, kitchen: Here, response: Response, body: ToFreezer | None = None
+    lot_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
 ) -> StockWrite:
     """Move the whole packet to the Freezer, with a new use-by 3 months away."""
 
@@ -538,11 +538,11 @@ def to_freezer(
 
 
 class Move(BaseModel):
-    place_id: int
+    place_id: StoredInt
 
 
 @router.post("/stock/{lot_id}/move")
-def move(lot_id: int, body: Move, kitchen: Here, response: Response) -> StockWrite:
+def move(lot_id: StoredInt, body: Move, kitchen: Here, response: Response) -> StockWrite:
     """Move the whole packet. Its use-by stays as it is."""
 
     def apply() -> tuple[Change, int]:
@@ -568,7 +568,9 @@ class LotPatch(BaseModel):
 
 
 @router.patch("/stock/{lot_id}")
-def change_use_by(lot_id: int, body: LotPatch, kitchen: Here, response: Response) -> StockWrite:
+def change_use_by(
+    lot_id: StoredInt, body: LotPatch, kitchen: Here, response: Response
+) -> StockWrite:
     """Change (or clear) the use-by date."""
 
     def apply() -> tuple[Change, int]:
@@ -588,7 +590,7 @@ def change_use_by(lot_id: int, body: LotPatch, kitchen: Here, response: Response
 
 class FoodAmount(BaseModel):
     amount: AmountIn
-    place_id: int | None = None
+    place_id: StoredInt | None = None
 
 
 class AmountOrNone(AmountIn):
@@ -599,7 +601,7 @@ class AmountOrNone(AmountIn):
 
 class FoodLeft(BaseModel):
     amount: AmountOrNone
-    place_id: int | None = None
+    place_id: StoredInt | None = None
 
 
 def _scope(kitchen: Kitchen, food: Food, place_id: int | None) -> tuple[list[StockLot], bool]:
@@ -610,7 +612,9 @@ def _scope(kitchen: Kitchen, food: Food, place_id: int | None) -> tuple[list[Sto
 
 
 @router.post("/foods/{food_id}/used")
-def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response) -> StockWrite:
+def food_used(
+    food_id: StoredInt, body: FoodAmount, kitchen: Here, response: Response
+) -> StockWrite:
     """ "How much did you use?" on a group: taken from the packet that goes off first.
     Without a place, the freezer is left alone."""
 
@@ -635,7 +639,7 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
 
 
 @router.post("/foods/{food_id}/left")
-def food_left(food_id: int, body: FoodLeft, kitchen: Here, response: Response) -> StockWrite:
+def food_left(food_id: StoredInt, body: FoodLeft, kitchen: Here, response: Response) -> StockWrite:
     """ "3 left" on a group: takes from the packets that go off first, or tops up the
     newest one if the number is higher. 0 is "None left": every packet is emptied
     (outside the freezer, unless the freezer is named)."""

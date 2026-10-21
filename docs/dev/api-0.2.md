@@ -29,7 +29,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 409 | `already_undone` | Undo pressed twice |
 | 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2) |
 | 422 | `too_big` | an amount over 1,000,000 g, ml or items (typed, or worked out by a conversion); cup weights are at most 2 kg and item weights at most 50 kg |
-| 422 | `bad_number` | an ID or cursor bigger than the database can hold (over 2^63 − 1; security audit, 0.4). In a sync action, IDs and `seen` over 2^53 − 1 are refused `bad_action` instead |
+| 422 | `bad_number` | an ID, cursor or version bigger than the database can hold (over 2^63 − 1, or under −2^63; security audit, 0.4), in the path, the query or the body. Each is refused where the request is read; any other number overflow is a server error (500). In a sync action, IDs and `seen` over 2^53 − 1 are refused `bad_action` instead |
 | 422 | `one_field` | a food PATCH with more or less than one field |
 | 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
 | 409 | `key_reused` | an `Idempotency-Key` was reused for a different request |

@@ -16,7 +16,7 @@ from mealwright import photos
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import PhotoOut
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.limits import MAX_PHOTO_BYTES
 from mealwright.models import Recipe, RecipePhoto, utcnow
 from mealwright.recipes import delete_photo, photo_view
@@ -177,7 +177,7 @@ def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
     response_class=FileResponse,
     responses={200: {"content": {"image/jpeg": {}}, "description": "The JPEG."}},
 )
-def photo_file(photo_id: int, copy: Literal["large", "list"], kitchen: Here) -> FileResponse:
+def photo_file(photo_id: StoredInt, copy: Literal["large", "list"], kitchen: Here) -> FileResponse:
     """A photo's large copy or its list copy, for members of the household only. An
     upload not saved yet can be shown too (the editor's preview); a photo of a deleted
     recipe can't, until the delete is undone. Like every /api answer, it's sent
@@ -202,7 +202,7 @@ def photo_file(photo_id: int, copy: Literal["large", "list"], kitchen: Here) -> 
     status_code=status.HTTP_204_NO_CONTENT,
     responses={409: {"description": "`photo_in_use`: the photo is on a recipe."}},
 )
-def delete_unsaved_photo(photo_id: int, kitchen: Here) -> Response:
+def delete_unsaved_photo(photo_id: StoredInt, kitchen: Here) -> Response:
     """Delete an upload that isn't saved on a recipe, for an editor that's cancelled. A
     photo on a recipe isn't deleted here: save the recipe with `photo_id` null."""
     # Agreed by cabledrawer, 20 Oct (spec section 6, Photos).

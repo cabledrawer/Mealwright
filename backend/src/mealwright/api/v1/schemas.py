@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from mealwright.errors import StoredInt
 from mealwright.names import size_name
 
 CountedAsName = Literal["weight", "volume", "count"]
@@ -78,7 +79,7 @@ class Answer(BaseModel):
     """A reply to an "ask once" question (docs/dev/api-0.2.md section 4.4)."""
 
     kind: Literal["weight_per_ml", "item_weight", "size"]
-    food_id: int
+    food_id: StoredInt
     # weight_per_ml: grams in one household cup; item_weight: grams in one item.
     grams: PositiveNumber | None = None
     # size: its name ("loaf") and how many base units it holds (20 slices, 500 g).
@@ -111,7 +112,7 @@ class AmountIn(BaseModel):
 
     amount: PositiveNumber
     unit: Annotated[str, Field(min_length=1, max_length=40)] | None = None
-    size_id: int | None = None
+    size_id: StoredInt | None = None
     answers: list[Answer] = Field(default_factory=list, max_length=5)
 
     @model_validator(mode="after")

@@ -25,7 +25,7 @@ from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, Ref, Who
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem
+from mealwright.errors import Problem, StoredInt
 from mealwright.foods import amount_out, change_out, find, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
@@ -381,11 +381,11 @@ def remove_list(list_id: str, kitchen: Here, response: Response) -> ListWrite:
 
 class NewItem(BaseModel):
     id: UUID | None = None  # a phone-made ID
-    food_id: int
+    food_id: StoredInt
     # Omitted or null: one of its usual size, or 1 if counted in items (otherwise none).
     amount: AmountIn | None = None
     # Omitted: the ingredient's usual shop. Null: "Any shop".
-    shop_id: int | None = None
+    shop_id: StoredInt | None = None
 
 
 class ItemAmount(BaseModel):

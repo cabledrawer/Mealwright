@@ -20,6 +20,7 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import SameOrigin
+from mealwright.errors import StoredInt
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Recipe, RecipeTag, Tag
@@ -101,13 +102,13 @@ def create_recipe(body: RecipeIn, kitchen: Here, response: Response) -> RecipeOu
 
 
 @router.get("/recipes/{recipe_id}")
-def get_recipe(recipe_id: int, kitchen: Here) -> RecipeOut:
+def get_recipe(recipe_id: StoredInt, kitchen: Here) -> RecipeOut:
     return recipes.recipe_out(kitchen, recipes.find(kitchen, recipe_id))
 
 
 @router.get("/recipes/{recipe_id}/stock")
 def recipe_stock(
-    recipe_id: int,
+    recipe_id: StoredInt,
     kitchen: Here,
     servings: Annotated[int, Query(ge=1, le=99)] | None = None,
 ) -> RecipeStock:
@@ -120,7 +121,7 @@ def recipe_stock(
 
 @router.put("/recipes/{recipe_id}")
 def update_recipe(
-    recipe_id: int, body: RecipeUpdate, kitchen: Here, response: Response
+    recipe_id: StoredInt, body: RecipeUpdate, kitchen: Here, response: Response
 ) -> RecipeOut:
     """Replace everything in the recipe at once ("nothing changes until Save"). Send the
     `version` the editor opened. If someone saved the recipe since, nothing is saved:
@@ -142,7 +143,7 @@ def update_recipe(
 
 
 @router.delete("/recipes/{recipe_id}")
-def delete_recipe(recipe_id: int, kitchen: Here, response: Response) -> RecipeRemoved:
+def delete_recipe(recipe_id: StoredInt, kitchen: Here, response: Response) -> RecipeRemoved:
     """Delete a recipe, at once, with no question. It can be undone for 7 days
     (`POST /changes/{id}/undo`). Recipes that use it keep the line's words, marked
     "recipe removed"; Undo puts the link back."""
@@ -159,7 +160,7 @@ def delete_recipe(recipe_id: int, kitchen: Here, response: Response) -> RecipeRe
 
 
 @router.get("/recipes/{recipe_id}/cannot-use")
-def recipes_it_cannot_use(recipe_id: int, kitchen: Here) -> BlockedList:
+def recipes_it_cannot_use(recipe_id: StoredInt, kitchen: Here) -> BlockedList:
     """The recipes this recipe can't use as an ingredient, and why (itself, and every
     recipe that already uses it), so the editor can grey them out before Save. The server
     checks again on every save."""

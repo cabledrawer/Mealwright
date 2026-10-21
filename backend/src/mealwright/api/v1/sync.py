@@ -19,7 +19,7 @@ from mealwright.amounts import MILLI, NBSP
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, Who
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem
+from mealwright.errors import Problem, StoredInt
 from mealwright.foods import amount_out, change_out
 from mealwright.models import (
     Change,
@@ -55,10 +55,10 @@ class Refusal(BaseModel):
 
 
 class Envelope(BaseModel):
-    protocol: int  # always 1 in /api/v1
+    protocol: StoredInt  # always 1 in /api/v1
     device_id: DeviceId
-    login_id: int  # the login that queued these actions
-    since: int = Field(ge=0)  # the device's cursor
+    login_id: StoredInt  # the login that queued these actions
+    since: StoredInt = Field(ge=0)  # the device's cursor
     sent_at: datetime  # the device's clock when it sent the batch (Undo's window, section 9)
     # Each action is checked on its own: a malformed one is refused, the rest still apply.
     actions: list[SkipValidation[sync.Action]]
@@ -548,7 +548,7 @@ def apply_actions(body: Envelope, kitchen: Here) -> BatchOut:
 @router.get("/shopping/changes")
 def get_changes(
     kitchen: Here,
-    since: Annotated[int, Query(ge=0)] = 0,
+    since: Annotated[StoredInt, Query(ge=0)] = 0,
     device_id: Annotated[str | None, Query(pattern=sync.UUID_PATTERN)] = None,
 ) -> ChangesOut:
     """Everything that changed after counter `since`; `since=0` is a full copy (5.5).

@@ -27,7 +27,7 @@ from mealwright.api.v1.schemas import (
 )
 from mealwright.auth import SameOrigin
 from mealwright.conversions import AskOnce, Known, UnitAmount, convert_milli, table, to_base_milli
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import (
     UNIT_WORDS,
     add_size,
@@ -552,7 +552,7 @@ def guess_counted_as(
 
 
 @router.get("/foods/{food_id}")
-def get_food(food_id: int, kitchen: Here) -> FoodOut:
+def get_food(food_id: StoredInt, kitchen: Here) -> FoodOut:
     """The ingredient editor. A merged-away id gives the food it was merged into."""
     asked = kitchen.db.get(Food, food_id)
     food = find(kitchen, food_id)
@@ -567,8 +567,8 @@ class NewFood(BaseModel):
     name: Name
     counted_as: CountedAsName | None = None
     staple: bool = False
-    place_id: int | None = None
-    shop_id: int | None = None
+    place_id: StoredInt | None = None
+    shop_id: StoredInt | None = None
     aisle: AisleName | None = None  # default: the bundled table's, else other
 
     _clean = field_validator("name")(_name)
@@ -603,8 +603,8 @@ class FoodPatch(BaseModel):
     counted_as: CountedAsName | None = None
     staple: bool | None = None
     count_word: Annotated[str, Field(max_length=30)] | None = None
-    place_id: int | None = None
-    shop_id: int | None = None
+    place_id: StoredInt | None = None
+    shop_id: StoredInt | None = None
     aisle: AisleName | None = None
     running_low_at: AmountIn | None = None
     cup_weight: CupGrams | None = None  # grams in one household cup
@@ -680,7 +680,7 @@ def _change_counted_as(
 
 
 @router.patch("/foods/{food_id}")
-def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) -> FoodWrite:
+def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Response) -> FoodWrite:
     """Change one thing about a food. Each change can be undone."""
     given = [name for name in FIELD_NAMES if name in body.model_fields_set]
     if len(given) != 1:
@@ -840,7 +840,7 @@ def cannot_remove(kitchen: Kitchen, food: Food) -> tuple[str, dict[str, Any]] | 
 
 
 @router.delete("/foods/{food_id}")
-def remove_food(food_id: int, kitchen: Here, response: Response) -> FoodWrite:
+def remove_food(food_id: StoredInt, kitchen: Here, response: Response) -> FoodWrite:
     """Remove a food that nothing uses (proposed, see spec section 6). Can be undone."""
 
     def apply() -> Change:
@@ -872,7 +872,9 @@ class NewName(BaseModel):
 
 
 @router.post("/foods/{food_id}/other-names", status_code=status.HTTP_201_CREATED)
-def add_other_name(food_id: int, body: NewName, kitchen: Here, response: Response) -> FoodWrite:
+def add_other_name(
+    food_id: StoredInt, body: NewName, kitchen: Here, response: Response
+) -> FoodWrite:
     """Another name for the food. Recipe imports match any of them."""
 
     def apply() -> Change:
@@ -898,7 +900,9 @@ def add_other_name(food_id: int, body: NewName, kitchen: Here, response: Respons
 
 
 @router.delete("/foods/{food_id}/other-names/{name_id}")
-def remove_other_name(food_id: int, name_id: int, kitchen: Here, response: Response) -> FoodWrite:
+def remove_other_name(
+    food_id: StoredInt, name_id: StoredInt, kitchen: Here, response: Response
+) -> FoodWrite:
     def apply() -> Change:
         food = find(kitchen, food_id)
         row = kitchen.db.get(FoodName, name_id)
@@ -950,7 +954,9 @@ def _size_amount(kitchen: Kitchen, food: Food, amount: Decimal | AmountIn) -> in
 
 
 @router.post("/foods/{food_id}/sizes", status_code=status.HTTP_201_CREATED)
-def add_food_size(food_id: int, body: NewSize, kitchen: Here, response: Response) -> FoodWrite:
+def add_food_size(
+    food_id: StoredInt, body: NewSize, kitchen: Here, response: Response
+) -> FoodWrite:
     """A way the food is sold (packet = 500 g). The first one becomes Usual."""
 
     def apply() -> Change:
@@ -969,7 +975,7 @@ def add_food_size(food_id: int, body: NewSize, kitchen: Here, response: Response
 
 @router.patch("/foods/{food_id}/sizes/{size_id}")
 def edit_food_size(
-    food_id: int, size_id: int, body: SizePatch, kitchen: Here, response: Response
+    food_id: StoredInt, size_id: StoredInt, body: SizePatch, kitchen: Here, response: Response
 ) -> FoodWrite:
     """Rename a size, change how much it holds, or make it the Usual one."""
     if len(body.model_fields_set) != 1:
@@ -1009,7 +1015,9 @@ def edit_food_size(
 
 
 @router.delete("/foods/{food_id}/sizes/{size_id}")
-def remove_food_size(food_id: int, size_id: int, kitchen: Here, response: Response) -> FoodWrite:
+def remove_food_size(
+    food_id: StoredInt, size_id: StoredInt, kitchen: Here, response: Response
+) -> FoodWrite:
     def apply() -> Change:
         food = find(kitchen, food_id)
         size = kitchen.db.get(FoodSize, size_id)
@@ -1028,12 +1036,14 @@ def remove_food_size(food_id: int, size_id: int, kitchen: Here, response: Respon
 
 
 class NewStandIn(BaseModel):
-    food_id: int
+    food_id: StoredInt
     both_ways: bool = False
 
 
 @router.post("/foods/{food_id}/stand-ins", status_code=status.HTTP_201_CREATED)
-def add_stand_in(food_id: int, body: NewStandIn, kitchen: Here, response: Response) -> FoodWrite:
+def add_stand_in(
+    food_id: StoredInt, body: NewStandIn, kitchen: Here, response: Response
+) -> FoodWrite:
     """`body.food_id` can be used instead of this food (and the other way too, if asked)."""
 
     def apply() -> Change | None:
@@ -1064,7 +1074,9 @@ def add_stand_in(food_id: int, body: NewStandIn, kitchen: Here, response: Respon
 
 
 @router.delete("/foods/{food_id}/stand-ins/{stand_in_id}")
-def remove_stand_in(food_id: int, stand_in_id: int, kitchen: Here, response: Response) -> FoodWrite:
+def remove_stand_in(
+    food_id: StoredInt, stand_in_id: StoredInt, kitchen: Here, response: Response
+) -> FoodWrite:
     def apply() -> Change:
         food = find(kitchen, food_id)
         link = kitchen.db.get(FoodStandIn, (food.id, stand_in_id))
@@ -1085,11 +1097,11 @@ def remove_stand_in(food_id: int, stand_in_id: int, kitchen: Here, response: Res
 
 
 class NotSame(BaseModel):
-    food_id: int
+    food_id: StoredInt
 
 
 @router.post("/foods/{food_id}/not-the-same", status_code=status.HTTP_204_NO_CONTENT)
-def not_the_same(food_id: int, body: NotSame, kitchen: Here) -> None:
+def not_the_same(food_id: StoredInt, body: NotSame, kitchen: Here) -> None:
     """Never suggest these two as "Maybe the same" again. Quiet: no Undo."""
     food = find(kitchen, food_id)
     other = find(kitchen, body.food_id)
@@ -1107,7 +1119,7 @@ def not_the_same(food_id: int, body: NotSame, kitchen: Here) -> None:
 
 
 class Merge(BaseModel):
-    into_id: int
+    into_id: StoredInt
     answers: list[Answer] = Field(default_factory=list, max_length=5)
 
 
@@ -1224,7 +1236,7 @@ def merge_foods(
 
 
 @router.post("/foods/{food_id}/merge")
-def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodWrite:
+def merge(food_id: StoredInt, body: Merge, kitchen: Here, response: Response) -> FoodWrite:
     """Merge this food into another. Undo (within the undo window) restores both."""
 
     def apply() -> Change:
@@ -1253,7 +1265,7 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
 
 
 class Split(BaseModel):
-    other_name_id: int
+    other_name_id: StoredInt
 
 
 def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, back: Food) -> None:
@@ -1284,7 +1296,7 @@ def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, b
 
 
 @router.post("/foods/{food_id}/split", status_code=status.HTTP_201_CREATED)
-def split(food_id: int, body: Split, kitchen: Here, response: Response) -> FoodWrite:
+def split(food_id: StoredInt, body: Split, kitchen: Here, response: Response) -> FoodWrite:
     """Turn one of a food's other names back into its own food."""
 
     def apply() -> Change:
@@ -1357,7 +1369,7 @@ class Converted(BaseModel):
 
 @router.get("/foods/{food_id}/convert", response_model_by_alias=True)
 def convert(
-    food_id: int,
+    food_id: StoredInt,
     kitchen: Here,
     amount: Annotated[Decimal, Query(gt=0, max_digits=15, decimal_places=3)],
     unit: Annotated[str, Query(min_length=1, max_length=40)],
