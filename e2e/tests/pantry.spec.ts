@@ -65,6 +65,34 @@ test('the Pantry shows what is where, and passes the accessibility checks', asyn
   await checkPage(page);
 });
 
+test('each place’s count stays on one line, apart from its name, at 100% and 200% text', async ({ page }) => {
+  await stocked(page, 'Paneer');
+  await page.goto('/pantry');
+  const heads = page.locator('.place-head:not(.visually-hidden)');
+  await expect(heads.first()).toBeVisible();
+  for (const size of ['100%', '200%']) {
+    await page.evaluate((s) => (document.documentElement.style.fontSize = s), size);
+    const problems = await heads.evaluateAll((all) =>
+      all.flatMap((head) => {
+        const name = head.querySelector('h2')!;
+        const count = head.querySelector('.count')!;
+        const n = name.getBoundingClientRect();
+        const c = count.getBoundingClientRect();
+        const lines = count.getClientRects().length;
+        const style = getComputedStyle(count);
+        const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.3;
+        const oneLine = lines === 1 && c.height < lineHeight * 1.5;
+        // Beside the name with a gap, or on a line of its own under it.
+        const apart = c.left >= n.right + 4 || c.top >= n.bottom - 1;
+        const inside = c.right <= head.getBoundingClientRect().right + 0.5;
+        return oneLine && apart && inside ? [] : [`${name.textContent}: “${count.textContent}”`];
+      }),
+    );
+    expect(problems, `at ${size} text`).toEqual([]);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test('Used from Use soon takes it out, and Undo puts it back', async ({ page }) => {
   const food = await stocked(page, 'Spinach', 0);
   await page.goto('/pantry');

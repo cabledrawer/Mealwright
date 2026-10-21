@@ -536,9 +536,22 @@
 
   .place-head {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: baseline;
+    gap: 0 var(--space-3);
     padding: var(--space-5) 0 var(--space-3);
+  }
+
+  .place-head h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* "7 ingredients" stays on one line, apart from the place's name: when there's no room
+     beside the name (a narrow column, or text at 200%), it goes under it. */
+  .place-head .count {
+    white-space: nowrap;
   }
 
   .place-head h2 {
