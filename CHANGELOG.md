@@ -30,7 +30,7 @@ Work towards 0.4.0 (recipes).
 - Database: one more change for photos: a photo can be without a recipe while it's waiting to be saved, and its list copy's size is kept. Nothing existing is lost; going back to the earlier version deletes only the photos that were never saved on a recipe.
 - New dependency: Pillow 12.3.0 (MIT-CMU licence), to read and clean photos. It makes the image about 30 MB bigger (cabledrawer 20 Oct: OK).
 - Docs only: spec section 6 records the 0.4 recipe decisions; receipts and prices are recorded as an idea only (nothing changes in 0.4 to 0.9); the non-technical prototype test moves to 0.9 with the private trial.
-- Keeping the UI good: the approved word list (`docs/dev/words.md`), a development-only component gallery at `/dev/gallery`, stress screenshots (many items, long names, 200% text), a browser code size limit in `./check` (170 KiB gzip), a slow-phone browser test, saved Pantry and Shopping screenshots, a stronger reduced-motion rule and keyboard-only tests for the desktop screens.
+- Keeping the UI good: the approved word list (`docs/dev/words.md`), a development-only component gallery at `/dev/gallery`, stress screenshots (many items, long names, 200% text), a browser code size limit in `./check` (170 KiB gzip, raised to 200 KiB for the recipe editor, cabledrawer 21 Oct), a slow-phone browser test, saved Pantry and Shopping screenshots, a stronger reduced-motion rule and keyboard-only tests for the desktop screens.
 - More space between words: Plus Jakarta Sans's own space is narrow, so the text now has a little extra word spacing (buttons and text boxes too). Titles and the wordmark are unchanged.
 - Spec and plan: "Keeping the UI good" and "Faster working" (cabledrawer 18 and 19 Oct).
 

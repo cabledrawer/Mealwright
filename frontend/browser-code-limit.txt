@@ -6,4 +6,7 @@
 #
 # Set on 18 Oct for 0.4's first pull request: the build measured 138393 bytes (135.1 KiB);
 # the limit is 170 KiB, about 26% above that. Proposed by Claude Code; approved by cabledrawer 19 Oct.
-174080
+#
+# Raised on 21 Oct for the recipe editor (#43): the build measured 187923 bytes (183.5 KiB);
+# the limit is now 200 KiB, about 9% above that. Approved by cabledrawer 21 Oct.
+204800
