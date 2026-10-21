@@ -180,13 +180,25 @@
         {#if group.food.counted_as === 'count'}
           <label class="small-field">
             How many left?
-            <input name="n" inputmode="numeric" placeholder="e.g. 3" bind:value={typed} />
+            <input
+              name="n"
+              inputmode="numeric"
+              maxlength="20"
+              placeholder="e.g. 3"
+              bind:value={typed}
+            />
           </label>
           <button type="submit" class="pill" disabled={!canSave}>Save</button>
         {:else}
           <label class="small-field">
             Used some ({baseUnit})
-            <input name="n" inputmode="decimal" placeholder="e.g. 200" bind:value={typed} />
+            <input
+              name="n"
+              inputmode="decimal"
+              maxlength="20"
+              placeholder="e.g. 200"
+              bind:value={typed}
+            />
           </label>
           <button type="submit" class="pill" disabled={!canSave}>Used</button>
         {/if}

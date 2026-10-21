@@ -201,7 +201,7 @@
         <form class="form" onsubmit={typeLeft}>
           <label>
             What’s left{baseUnit === 'count' ? '' : ` (${baseUnit})`}
-            <input name="left" inputmode="decimal" data-first />
+            <input name="left" inputmode="decimal" maxlength="20" data-first />
           </label>
           <span class="buttons"><button type="submit" class="main">Save</button></span>
         </form>

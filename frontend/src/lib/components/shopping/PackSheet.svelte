@@ -153,12 +153,13 @@
     <div class="other">
       <label>
         How many packs
-        <input inputmode="numeric" bind:value={otherCount} />
+        <input inputmode="numeric" maxlength="20" bind:value={otherCount} />
       </label>
       <label>
         Size of one
         <input
           inputmode="decimal"
+          maxlength="20"
           bind:value={otherAmount}
           placeholder={baseText(250, food.counted_as)}
         />

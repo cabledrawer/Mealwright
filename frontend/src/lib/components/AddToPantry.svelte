@@ -265,6 +265,7 @@
                   Amount
                   <input
                     inputmode="decimal"
+                    maxlength="20"
                     bind:value={typedAmount}
                     placeholder={amountExample(
                       typedUnit,

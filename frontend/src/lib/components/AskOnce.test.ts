@@ -51,6 +51,15 @@ describe('the "ask once" question', () => {
     });
   });
 
+  it('the answer box stops at 20 characters, like every amount box', async () => {
+    void askOnce.ask(ask);
+    flushSync();
+    const box = page.getByRole('dialog').getByRole('textbox', { name: /^Your answer/ });
+    await box.clear();
+    await userEvent.type(box, '1234567890'.repeat(3));
+    await expect.element(box).toHaveValue('12345678901234567890');
+  });
+
   it('Not now, or Escape, answers nothing', async () => {
     let answer = askOnce.ask(ask);
     flushSync();

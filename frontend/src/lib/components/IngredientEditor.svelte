@@ -8,7 +8,7 @@
   // page, and "Remove from Ingredients" says so before it is pressed (spec "Removing an
   // ingredient", cabledrawer 19 Oct: the recipes don't block it; their lines keep their words
   // and show "not linked").
-  import { parseAmount } from '$lib/amountText';
+  import { MAX_AMOUNT_TEXT, MAX_TYPED_AMOUNT, parseAmount } from '$lib/amountText';
   import type { CountedAs, Food, Ref } from '$lib/client/types';
   import { canRemove } from '$lib/canRemove';
   import { FoodModel } from '$lib/foodEditor.svelte';
@@ -109,10 +109,12 @@
 
   /** "200 g" or "200" → 200 (grams). Empty → null (forget it). Nonsense → undefined. */
   function grams(text: string): number | null | undefined {
-    const t = text.trim().toLowerCase().replace(/\s*g$/, '').replace(',', '.');
+    const typed = text.trim();
+    if (typed.length > MAX_AMOUNT_TEXT) return undefined;
+    const t = typed.toLowerCase().replace(/\s*g$/, '').replace(',', '.');
     if (!t) return null;
     const n = Number(t);
-    return n > 0 ? n : undefined;
+    return n > 0 && Number.isFinite(n) ? n : undefined;
   }
 
   function setCupWeight(event: Event) {
@@ -442,7 +444,7 @@
               <span class="equals" aria-hidden="true">=</span>
               <label>
                 Amount
-                <input name="amount" inputmode="decimal" placeholder="500" />
+                <input name="amount" inputmode="decimal" maxlength="20" placeholder="500" />
               </label>
               <label>
                 Unit
@@ -490,6 +492,7 @@
           Weight of one
           <input
             value={food.item_weight ? `${Math.round(food.item_weight.grams)} g` : ''}
+            maxlength="20"
             placeholder="e.g. 150 g"
             onchange={setItemWeight}
             onkeydown={boxKeys(() => {})}
@@ -500,6 +503,7 @@
           Weight of 1 cup
           <input
             value={food.cup_weight ? `${Math.round(food.cup_weight.grams)} g` : ''}
+            maxlength="20"
             placeholder="e.g. 200 g"
             onchange={setCupWeight}
             onkeydown={boxKeys(() => {})}
@@ -510,6 +514,7 @@
         Running low at
         <input
           value={food.running_low_at?.short ?? food.running_low_at?.display ?? ''}
+          maxlength={MAX_TYPED_AMOUNT}
           placeholder="e.g. ½ packet"
           aria-invalid={lowProblem ? true : undefined}
           aria-describedby={lowProblem ? `${uid}-low` : undefined}

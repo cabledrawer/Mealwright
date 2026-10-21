@@ -12,7 +12,7 @@ export const MAX_AMOUNT_TEXT = 20;
 const MAX_UNIT_TEXT = 40;
 /** The number, a space, the unit and a full stop. Longer text is no amount, and is refused
  * before the pattern below reads it: that takes time growing with the square of the length. */
-const MAX_TEXT = MAX_AMOUNT_TEXT + 1 + MAX_UNIT_TEXT + 1;
+export const MAX_TYPED_AMOUNT = MAX_AMOUNT_TEXT + 1 + MAX_UNIT_TEXT + 1;
 
 /** The unit to use when only a number was typed: the usual size, else g / ml / items. */
 export function defaultUnit(food: Pick<Food, 'counted_as' | 'sizes'>): string {
@@ -26,7 +26,7 @@ export function parseAmount(
   food: Pick<Food, 'counted_as' | 'sizes' | 'count_word' | 'count_word_plural'>
 ): AmountIn | null {
   const typed = text.trim().toLowerCase();
-  if (typed.length > MAX_TEXT) return null;
+  if (typed.length > MAX_TYPED_AMOUNT) return null;
   if (/^[\d.,¼½¾/\s]*/u.exec(typed)![0].trimEnd().length > MAX_AMOUNT_TEXT) return null;
   const match = typed.match(/^(\d+(?:[.,]\d+)?)?\s*([¼½¾]|\d+\/\d+)?\s*([\p{L} ]*?)\.?$/u);
   if (!match) return null;

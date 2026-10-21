@@ -152,6 +152,7 @@
       bind:this={input}
       bind:value={draft.text}
       inputmode="decimal"
+      maxlength="20"
       aria-label="Amount"
       aria-describedby="{uid}-hint{problem ? ` ${uid}-p` : ''}"
       aria-invalid={problem ? 'true' : undefined}

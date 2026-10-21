@@ -44,6 +44,7 @@
           aria-label={unitLabel ? `Your answer, in ${unitLabel}` : 'Your answer'}
           type="text"
           inputmode="decimal"
+          maxlength="20"
           bind:value
           aria-describedby="{uid}-hint"
         />

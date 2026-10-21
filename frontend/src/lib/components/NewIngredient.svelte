@@ -216,6 +216,7 @@
                 <input
                   bind:value={sizeAmount}
                   inputmode="decimal"
+                  maxlength="20"
                   placeholder="500"
                   onkeydown={sizeKey}
                 />
