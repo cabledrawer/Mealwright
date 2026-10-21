@@ -113,6 +113,106 @@ describe('a new recipe', () => {
     await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Rasam');
   });
 
+  it('a double click on Save sends one request', async () => {
+    const requests = fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await userEvent.dblClick(page.getByRole('button', { name: /^Save/ }));
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    expect(requests.filter((r) => r.method === 'POST')).toHaveLength(1);
+  });
+
+  /**
+   * Like the server: the first request with a key is made but its answer is lost on the way;
+   * the same key again answers with what was made then, whatever the body (history.py
+   * `replayed` compares only the method and path). A new key makes another recipe.
+   */
+  function lostOnce() {
+    const made = new Map<string, Record<string, unknown>>();
+    let next = 12;
+    const keyOf = (r: FakeRequest) => r.headers['idempotency-key']!;
+    return fakeApi({
+      'POST /recipes': (r) => {
+        const earlier = made.get(keyOf(r));
+        if (earlier) return [200, earlier];
+        made.set(keyOf(r), saved({ id: next++, ...(r.body as object) }));
+        return made.size === 1
+          ? [503, { detail: 'The answer got lost.' }]
+          : [201, made.get(keyOf(r))];
+      },
+      'PUT /recipes/12': (r) => [200, saved({ ...(r.body as object), version: 2 })]
+    });
+  }
+
+  it('"Try again" after a lost answer sends the same request key, so it is made once', async () => {
+    const requests = lostOnce();
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    const posts = requests.filter((r) => r.method === 'POST');
+    expect(posts).toHaveLength(2);
+    expect(posts[1]!.headers['idempotency-key']).toBe(posts[0]!.headers['idempotency-key']);
+    expect(requests.some((r) => r.method === 'PUT')).toBe(false);
+  });
+
+  it('an edit after a lost answer is never saved as a second recipe, and is never lost', async () => {
+    const requests = lostOnce();
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await expect.element(page.getByText('Couldn’t save. Try again.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Tomato rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    const posts = requests.filter((r) => r.method === 'POST');
+    // The same request again (same key, same body): the server answers with recipe 12 ...
+    expect(posts).toHaveLength(2);
+    expect(posts[1]!.headers['idempotency-key']).toBe(posts[0]!.headers['idempotency-key']);
+    expect(posts[1]!.body).toEqual(posts[0]!.body);
+    // ... and the edit is saved on top of it, as its own change.
+    const put = requests.find((r) => r.method === 'PUT')!;
+    expect(put.path).toBe('/recipes/12');
+    expect(put.body).toMatchObject({ name: 'Tomato rasam', version: 1, overwrite: false });
+    expect(put.headers['idempotency-key']).not.toBe(posts[0]!.headers['idempotency-key']);
+  });
+
+  it('a clear refusal is not a lost answer: after it, an edit is sent as a new request', async () => {
+    let first = true;
+    const requests = fakeApi({
+      'POST /recipes': () => {
+        if (!first) return [201, saved()];
+        first = false;
+        return [422, { code: 'too_long', detail: 'That name is too long.' }];
+      }
+    });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await expect.element(page.getByText('That name is too long.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Tomato rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    const posts = requests.filter((r) => r.method === 'POST');
+    expect(posts[1]!.body).toMatchObject({ name: 'Tomato rasam' });
+    expect(posts[1]!.headers['idempotency-key']).not.toBe(posts[0]!.headers['idempotency-key']);
+  });
+
+  it('greys out "Try again" while offline, as Save is', async () => {
+    fakeApi({ 'POST /recipes': [503, { detail: 'down' }] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await page.getByRole('button', { name: /^Save/ }).click();
+    const again = page.getByRole('button', { name: 'Try again' });
+    await expect.element(again).toBeEnabled();
+    network.offline = true;
+    await expect.element(again).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: /^Save/ })).toBeDisabled();
+    network.offline = false;
+    await expect.element(again).toBeEnabled();
+  });
+
   it('turns Made ahead on with the name that is already an ingredient: says it will be linked', async () => {
     fakeApi({
       'GET /foods': [200, { foods: [{ id: 4, name: 'Dosa batter', other_names: [] }] }]
@@ -503,7 +603,7 @@ describe('an existing recipe', () => {
         });
       }
       if (call === 'PUT /recipes/2') {
-        return json(404, { code: 'not_found', detail: "That recipe isn't here any more." });
+        return json(404, { code: 'not_found', detail: 'That recipe isn’t here any more.' });
       }
       if (call === 'DELETE /recipes/photos/9') return new Response(null, { status: 204 });
       return json(404, {});
@@ -515,7 +615,7 @@ describe('an existing recipe', () => {
     await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
     await expect.element(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
     await page.getByRole('button', { name: /^Save/ }).click();
-    await expect.element(page.getByText("That recipe isn't here any more.")).toBeVisible();
+    await expect.element(page.getByText('That recipe isn’t here any more.')).toBeVisible();
     // Nothing typed is lost, and the editor stays open with the new photo.
     expect(navigation.go).not.toHaveBeenCalled();
     await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sambar');

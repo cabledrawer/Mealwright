@@ -27,6 +27,7 @@
     saveRecipe,
     suggestTags,
     type Blocked,
+    type RecipeIn,
     type RecipeOut
   } from '$lib/client/recipes';
   import { kitchen } from '$lib/freshness.svelte';
@@ -71,6 +72,16 @@
   /** Set when the editor is being left on purpose (saved, cancelled, deleted). */
   let leaving = false;
   let attempt = { snapshot: '', key: '' };
+  /**
+   * A new recipe whose Save got no answer: it may have been made. Until the server answers, a
+   * retry sends that same request again (same key, same body), so it is never made twice. The
+   * server knows a key again by its method and path only, not by the body (history.py
+   * `replayed`): it answers with the recipe as first sent and ignores a changed body. So an
+   * edit made in between is saved afterwards, on top, as a normal save of that recipe.
+   */
+  let unanswered: { key: string; body: RecipeIn; snapshot: string } | null = null;
+  /** The new recipe once the server has made it: any later save changes it, never makes one. */
+  let made: { id: number; version: number } | null = null;
 
   // Save and "Save mine anyway" both wait for the network and for a photo still going up.
   const canOverwrite = $derived(!!draft && !saving && !draft.photo.uploading && !network.offline);
@@ -211,22 +222,40 @@
       showFirstProblem();
       return;
     }
-    const version = overwrite && conflict ? conflict.version : (d.opened?.version ?? 0);
+    const version =
+      overwrite && conflict ? conflict.version : (made?.version ?? d.opened?.version ?? 0);
     // The same change keeps its ID when it is sent again, so a retry never saves twice.
     const snapshot = `${d.snapshot()}|${version}|${overwrite}`;
     if (attempt.snapshot !== snapshot) attempt = { snapshot, key: newChangeId() };
     saving = true;
+    let creating = false;
     try {
-      const saved =
-        recipeId === null
-          ? await createRecipe(built.body, attempt.key)
-          : await saveRecipe(recipeId, built.body, version, overwrite, attempt.key);
+      let saved: RecipeOut;
+      const id = made?.id ?? recipeId;
+      if (id === null) {
+        creating = true;
+        const first = unanswered ?? { key: attempt.key, body: built.body, snapshot };
+        unanswered = first;
+        saved = await createRecipe(first.body, first.key);
+        unanswered = null;
+        creating = false;
+        made = { id: saved.id, version: saved.version };
+        if (first.snapshot !== snapshot) {
+          // Edited while the answer was lost: save the edit on top, as its own change.
+          attempt = { snapshot: `${d.snapshot()}|${saved.version}|false`, key: newChangeId() };
+          saved = await saveRecipe(saved.id, built.body, saved.version, false, attempt.key);
+        }
+      } else {
+        saved = await saveRecipe(id, built.body, version, overwrite, attempt.key);
+      }
       leaving = true;
       kitchen.changed();
       toasts.show('Saved');
       void go(recipePage(saved.id));
     } catch (error) {
       seeing = false;
+      // A clear answer for the new recipe (not a lost one) means it wasn't made.
+      if (creating && !(error instanceof ApiError && worthRetrying(error))) unanswered = null;
       if (!(error instanceof ApiError)) throw error;
       if (error.code === 'recipe_changed') {
         const data = error.body as { version: number; changed_by?: { name: string } };
@@ -335,7 +364,10 @@
     {#if cantSave}
       <EditorNote tone="trouble">
         <span>Couldn’t save. Try again.</span>
-        <button type="button" class="mw-pill" onclick={() => void save()}>Try again</button>
+        <!-- Greyed out offline, as Save is: it would only fail again. -->
+        <button type="button" class="mw-pill" disabled={!canSave} onclick={() => void save()}
+          >Try again</button
+        >
       </EditorNote>
     {/if}
     {#if problem}
@@ -887,10 +919,11 @@
       grid-area: heading;
     }
 
+    /* The mockup's computer bar: Cancel 18 px each side, Save 14 px text with 22 px each side. */
     .cancel {
       grid-area: cancel;
       justify-self: end;
-      padding: 0 var(--space-8);
+      padding: 0 18px;
       border: 1px solid var(--color-border-strong);
       border-radius: var(--radius-full);
       background: var(--color-surface);
@@ -900,6 +933,8 @@
 
     .save {
       grid-area: save;
+      padding: 0 22px;
+      font-size: var(--text-base);
     }
 
     h1 {
