@@ -32,13 +32,31 @@ export class RecipeView {
   /** Servings now: the chosen number, else the recipe's own. Null when the recipe has none. */
   readonly servesNow = $derived(this.recipe?.serves ? (this.chosen ?? this.recipe.serves) : null);
 
-  /** How many times the recipe's own amounts: 1 until the servings change. */
-  readonly factor = $derived(
-    this.recipe?.serves && this.servesNow ? factorOf(this.servesNow, this.recipe.serves) : 1
+  /**
+   * A recipe with Makes and no Serves: how many times what it makes, from 1 (Makes 200 g →
+   * 400 g → 600 g), chosen with the same − / +. Null for any other recipe.
+   */
+  readonly timesNow = $derived(
+    this.recipe && !this.recipe.serves && this.recipe.makes ? (this.chosen ?? 1) : null
   );
+
+  /** How many times the recipe's own amounts: 1 until the servings (or the times) change. */
+  readonly factor = $derived(
+    this.recipe?.serves && this.servesNow
+      ? factorOf(this.servesNow, this.recipe.serves)
+      : (this.timesNow ?? 1)
+  );
+
+  /**
+   * The stock marks to show. The server scales them by servings only, so for a recipe without
+   * Serves they are right at 1× alone; at 2× and up the page shows none rather than wrong ones.
+   */
+  readonly stockNow = $derived(this.timesNow !== null && this.timesNow > 1 ? null : this.stock);
 
   setServes(value: number): void {
     this.chosen = Math.min(MAX_SERVES, Math.max(MIN_SERVES, Math.round(value)));
+    // Without Serves the server can't scale the marks (see stockNow): nothing to ask.
+    if (this.timesNow !== null) return;
     // A run of taps makes one request, a little after the last one.
     if (this.#timer !== null) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {

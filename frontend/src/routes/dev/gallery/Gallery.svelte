@@ -51,6 +51,7 @@
   import RecipePhoto from '$lib/components/RecipePhoto.svelte';
   import RecipesPopout from '$lib/components/RecipesPopout.svelte';
   import ServingsStepper from '$lib/components/ServingsStepper.svelte';
+  import { makesAmount } from '$lib/recipeAmounts';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import Switch from '$lib/components/Switch.svelte';
   import TabBar from '$lib/components/TabBar.svelte';
@@ -434,6 +435,8 @@
   let serves = $state(4);
   let servesOne = $state(1);
   let servesMany = $state(99);
+  // A recipe with Makes and no Serves: − / + in whole multiples of "Makes 200 g".
+  let makesTimes = $state(1);
   let awakeOn = $state(false);
   const awakeAvailable = {
     supported: true,
@@ -1004,6 +1007,16 @@
         <ServingsStepper value={serves} onchange={(v) => (serves = v)} />
         <ServingsStepper value={servesOne} onchange={(v) => (servesOne = v)} />
         <ServingsStepper value={servesMany} onchange={(v) => (servesMany = v)} />
+        <ServingsStepper
+          value={makesTimes}
+          makes={makesAmount({ amount: 200, amount_text: '200', unit: 'g' }, makesTimes)}
+          onchange={(v) => (makesTimes = v)}
+        />
+        <ServingsStepper
+          value={99}
+          makes={makesAmount({ amount: 1.5, amount_text: '1½', unit: 'l' }, 99)}
+          onchange={() => {}}
+        />
       </div>
       <p class="note">
         The recipe's photo: a box 170 px tall above the name on a phone, cropped to fill (an

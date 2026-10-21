@@ -102,8 +102,10 @@
 
   const recipe = $derived(view.recipe);
   const factor = $derived(view.factor);
-  const stockOf = $derived(new Map((view.stock?.lines ?? []).map((s) => [s.line_id, s])));
-  const adding = $derived(view.stock ? toAdd(view.stock.lines, (f) => shopping.onList(f)) : []);
+  const stockOf = $derived(new Map((view.stockNow?.lines ?? []).map((s) => [s.line_id, s])));
+  const adding = $derived(
+    view.stockNow ? toAdd(view.stockNow.lines, (f) => shopping.onList(f)) : []
+  );
   const steps = $derived(stepGroups(recipe?.steps ?? []));
   const meta = $derived.by(() => {
     if (!recipe) return [];
@@ -112,7 +114,12 @@
     if (recipe.time_minutes !== null) parts.push(`${recipe.time_minutes}\u00a0min`);
     return parts;
   });
-  const makes = $derived(recipe?.makes ? `Makes ${makesAmount(recipe.makes, factor)}` : null);
+  const makesNow = $derived(recipe?.makes ? makesAmount(recipe.makes, factor) : null);
+  /** Without Serves, "Makes …" sits between − and + instead of in the quiet line. */
+  const makesStepper = $derived(
+    view.timesNow !== null && recipe !== null && recipe.lines.length > 0
+  );
+  const makes = $derived(makesNow && !makesStepper ? `Makes ${makesNow}` : null);
   const empty = $derived(recipe !== null && !recipe.lines.length && !recipe.steps.length);
   const name = $derived(recipe?.name ?? 'Recipe');
 </script>
@@ -170,6 +177,12 @@
               <h2 id="ingredients-title">Ingredients</h2>
               {#if view.servesNow !== null}
                 <ServingsStepper value={view.servesNow} onchange={(n) => view.setServes(n)} />
+              {:else if makesStepper && view.timesNow !== null}
+                <ServingsStepper
+                  value={view.timesNow}
+                  makes={makesNow}
+                  onchange={(n) => view.setServes(n)}
+                />
               {/if}
             </div>
             <ul class="card lines">

@@ -263,11 +263,63 @@ describe('the recipe page', () => {
       await expect.element(page.getByText('Serves 4')).toBeVisible();
     });
 
-    it('are hidden when the recipe has none, and "Makes" is then plain text', async () => {
-      await open({ serves: null, makes: { amount: 1.5, amount_text: '1½', unit: 'l' } });
-      await expect.element(page.getByText(`Makes 1½${NB}litres`, { exact: false })).toBeVisible();
-      expect(page.getByRole('group', { name: 'Servings' }).elements()).toHaveLength(0);
+    it('are hidden when the recipe has neither Serves nor Makes', async () => {
+      await open({ serves: null, makes: null });
+      await expect.element(page.getByRole('heading', { name: 'Ingredients' })).toBeVisible();
+      expect(page.getByRole('group').elements()).toHaveLength(0);
+      expect(page.getByText(/^(Serves|Makes)/).elements()).toHaveLength(0);
+    });
+
+    it('Makes without Serves: − / + in whole multiples from 1×, on screen only', async () => {
+      await open({ serves: null, makes: { amount: 200, amount_text: '200', unit: 'g' } });
+      const group = page.getByRole('group', { name: 'How much it makes' });
+      await expect.element(group.getByText(`Makes 200${NB}g`)).toBeVisible();
+      // Not twice: the quiet line under the name leaves it to − / +.
+      expect(page.getByText(/Makes/).elements()).toHaveLength(1);
+      await expect.element(page.getByRole('button', { name: 'Make less' })).toBeDisabled();
+      await expect.element(page.getByText(`200${NB}g`, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Make more' }).click();
+      await expect.element(group.getByText(`Makes 400${NB}g`)).toBeVisible();
+      // The lines scale the same way: twice the toor dal.
+      await expect.element(page.getByText(`400${NB}g`, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Make more' }).click();
+      await expect.element(group.getByText(`Makes 600${NB}g`)).toBeVisible();
+      await page.getByRole('button', { name: 'Make less' }).click();
+      await page.getByRole('button', { name: 'Make less' }).click();
+      await expect.element(group.getByText(`Makes 200${NB}g`)).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Make less' })).toBeDisabled();
+      // Nothing was saved, and no Serves appeared.
+      expect(server.requests.some((r) => r.method !== 'GET')).toBe(false);
       expect(page.getByText(/^Serves/).elements()).toHaveLength(0);
+    });
+
+    it('Makes without Serves: the marks show at 1× only, as the server counts for 1×', async () => {
+      await open({ serves: null, makes: { amount: 200, amount_text: '200', unit: 'g' } });
+      await expect.element(page.getByText('Cupboard', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Make more' }).click();
+      await expect.element(page.getByText('Cupboard', { exact: true })).not.toBeInTheDocument();
+      await page.getByRole('button', { name: 'Make less' }).click();
+      await expect.element(page.getByText('Cupboard', { exact: true })).toBeVisible();
+      // The server ignores servings without Serves, so − / + never asks it again.
+      await new Promise((done) => setTimeout(done, 400));
+      expect(server.requests.filter((r) => r.path.startsWith('/recipes/1/stock'))).toHaveLength(1);
+    });
+
+    it('stop at 99×', async () => {
+      await open({ serves: null, makes: { amount: 1, amount_text: '1', unit: 'dosa' } });
+      for (let i = 0; i < 98; i++) await page.getByRole('button', { name: 'Make more' }).click();
+      await expect.element(page.getByRole('button', { name: 'Make more' })).toBeDisabled();
+      await expect.element(page.getByText(/^Makes 99/)).toBeVisible();
+    });
+
+    it('keep the quiet "Makes" line when there are no ingredient lines to scale', async () => {
+      await open({
+        serves: null,
+        lines: [],
+        makes: { amount: 200, amount_text: '200', unit: 'g' }
+      });
+      await expect.element(page.getByText(`Makes 200${NB}g`, { exact: false })).toBeVisible();
+      expect(page.getByRole('group').elements()).toHaveLength(0);
     });
 
     it('scale what a recipe makes too', async () => {
@@ -531,7 +583,7 @@ describe('the recipe page', () => {
       await expect.element(page.getByText('You’re offline.')).toBeVisible();
       await expect
         .element(
-          page.getByText('Recipes needs your Mealwright server — your shopping list works offline.')
+          page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.')
         )
         .toBeVisible();
       await expect

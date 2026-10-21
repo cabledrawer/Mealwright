@@ -2,28 +2,35 @@
   // "− Serves 4 +" on the recipe page (mockup Recipe; cabledrawer 19 Oct, question 26): whole
   // servings from 1 to 99, on screen only. The page goes back to the recipe's own number when
   // you leave it. Buttons are 44 px, a little larger than the mockup's 36 px (touch targets).
+  // A recipe with Makes and no Serves gets the same − / + in whole multiples, from 1× to 99×:
+  // "− Makes 400 g +" (spec, recipe page; words.md section 13).
   import { MAX_SERVES, MIN_SERVES } from '$lib/recipeAmounts';
 
   let {
     value,
-    onchange
+    onchange,
+    makes = null
   }: {
+    /** Servings, or for a recipe without Serves how many times what it makes. */
     value: number;
     onchange: (value: number) => void;
+    /** A recipe without Serves: what it makes at `value` times, e.g. "400 g". */
+    makes?: string | null;
   } = $props();
 </script>
 
-<div class="stepper" role="group" aria-label="Servings">
+<div class="stepper" role="group" aria-label={makes === null ? 'Servings' : 'How much it makes'}>
   <button
     type="button"
-    aria-label="Fewer servings"
+    aria-label={makes === null ? 'Fewer servings' : 'Make less'}
     disabled={value <= MIN_SERVES}
     onclick={() => onchange(value - 1)}>−</button
   >
-  <span class="now" aria-live="polite">Serves {value}</span>
+  <span class="now" aria-live="polite">{makes === null ? `Serves ${value}` : `Makes ${makes}`}</span
+  >
   <button
     type="button"
-    aria-label="More servings"
+    aria-label={makes === null ? 'More servings' : 'Make more'}
     disabled={value >= MAX_SERVES}
     onclick={() => onchange(value + 1)}>+</button
   >

@@ -259,7 +259,7 @@ test('offline: says it needs the server, and points to Shopping', async ({ page,
   const { recipe, name } = await sambar(page);
   await goOffline(page, context, recipe.id, name);
   await expect(
-    page.getByText('Recipes needs your Mealwright server — your shopping list works offline.'),
+    page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.'),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await checkPage(page);
@@ -277,11 +277,48 @@ test('a recipe with only a name, no nutrition and no servings reads calmly', asy
   await checkPage(page);
 });
 
-test('a recipe that makes something but has no servings shows Makes as plain text', async ({ page }) => {
+test('a recipe that makes something but has no servings and no lines shows Makes as plain text', async ({ page }) => {
   const recipe = await makeRecipe(page, { name: unique('Batter'), serves: null, makes: { amount: 1.5, unit: 'l' } });
   await page.goto(`/recipes/${recipe.id}`);
   await expect(reader(page).getByText('Makes 1½ litres')).toBeVisible();
   await expect(page.getByRole('group', { name: 'Servings' })).toHaveCount(0);
+});
+
+test('Makes without Serves: − / + in whole multiples from 1×, the lines scaling with it', async ({ page }) => {
+  const dal = await makeFood(page, unique('Toor dal'));
+  const recipe = await makeRecipe(page, {
+    name: unique('Batter'),
+    serves: null,
+    makes: { amount: 200, unit: 'g' },
+    lines: [line(dal, 150, 'g', 'urad dal')],
+  });
+  await page.goto(`/recipes/${recipe.id}`);
+  const stepper = page.getByRole('group', { name: 'How much it makes' });
+  await expect(stepper.getByText('Makes 200 g')).toBeVisible();
+  await expect(reader(page).getByText(/Makes/)).toHaveCount(1);
+  await expect(stepper.getByRole('button', { name: 'Make less' })).toBeDisabled();
+  await stepper.getByRole('button', { name: 'Make more' }).click();
+  await expect(stepper.getByText('Makes 400 g')).toBeVisible();
+  await expect(reader(page).getByText(/^300\sg/)).toBeVisible();
+  await stepper.getByRole('button', { name: 'Make more' }).click();
+  await expect(stepper.getByText('Makes 600 g')).toBeVisible();
+  await expect(reader(page).getByText(/^450\sg/)).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Servings' })).toHaveCount(0);
+  await checkPage(page);
+  const saved = await (await page.request.get(`/api/v1/recipes/${recipe.id}`)).json();
+  expect(saved.serves).toBeNull();
+  expect(saved.makes.amount).toBe(200);
+  expect(saved.version).toBe(1);
+  // At 200% text it still fits beside "Ingredients", or under it.
+  await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  await expectNoSidewaysScroll(page);
+  const box = await stepper.boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  // Leaving and coming back starts at 1× again.
+  await page.evaluate(() => (document.documentElement.style.fontSize = ''));
+  await page.goBack();
+  await page.goForward();
+  await expect(stepper.getByText('Makes 200 g')).toBeVisible();
 });
 
 test('one line is enough', async ({ page }) => {
