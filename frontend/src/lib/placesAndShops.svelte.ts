@@ -1,6 +1,12 @@
 // The household's places (Fridge, Freezer, Cupboard, Spice rack…) and shops, fetched
 // once and shared by the editor and the pantry.
+//
+// Forgotten on every way of signing out, so none of them carries over to whoever signs in
+// next without a reload: the Sign out button and the sign-out warning (both wipe, wipe.ts),
+// a session that ends (a 401, or the live stream's signed_out: below), another tab's wipe
+// ((app)/+layout.svelte), and a late answer naming another login ((app)/+layout.ts).
 
+import { forgetWhenSessionEnds } from './api';
 import { addShop, getPlaces, getShops } from './client/foods';
 import type { Place, Shop } from './client/types';
 
@@ -12,15 +18,18 @@ class PlacesAndShops {
   /** Fetch them (once; later calls wait for the same answer). */
   load(force = false): Promise<void> {
     if (!this.#loading || force) {
-      this.#loading = Promise.all([getPlaces(), getShops()])
+      const loading: Promise<void> = Promise.all([getPlaces(), getShops()])
         .then(([places, shops]) => {
+          // Forgotten (signed out) while asking: the answer is the last login's, so it's dropped.
+          if (this.#loading !== loading) return;
           this.places = places;
           this.shops = shops;
         })
         .catch((error: unknown) => {
-          this.#loading = null;
+          if (this.#loading === loading) this.#loading = null;
           throw error;
         });
+      this.#loading = loading;
     }
     return this.#loading;
   }
@@ -41,3 +50,5 @@ class PlacesAndShops {
 }
 
 export const placesAndShops = new PlacesAndShops();
+
+forgetWhenSessionEnds(() => placesAndShops.forget());

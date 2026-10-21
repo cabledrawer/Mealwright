@@ -99,8 +99,17 @@ export interface ApiOptions {
 /** How long a request may take before it counts as "no connection". */
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/** What else to forget when the session ends (things held in memory for the household). */
+const onEnded = new Set<() => void>();
+
+/** Run `forget` whenever the session ends, before the app goes to the sign-in page. */
+export function forgetWhenSessionEnds(forget: () => void): void {
+  onEnded.add(forget);
+}
+
 /** The session ended (a 401, or the live stream's signed_out): go to the sign-in page. */
 export function sessionEnded(): void {
+  for (const forget of onEnded) forget();
   onUnauthorized?.();
 }
 

@@ -5,6 +5,8 @@
 //   - the whole phone database (`mealwright`): queue, offline copy, ingredient names, cursor,
 //     device ID, `meta`;
 //   - every Cache Storage cache except the app shell (code only, nothing about the household);
+//   - what's held in memory: the list's copy and queue, and the household's shops and places
+//     (placesAndShops.svelte.ts);
 //   - sessionStorage, and every localStorage key except the per-device display preferences
 //     and the "sign-out pending" flag below (none says anything about the household). The
 //     0.2 device ID key goes too.
@@ -15,6 +17,7 @@
 // and a new device ID (cabledrawer 18 Oct, sync-protocol 11.8). The same login signing back in
 // after its session ran out keeps the copy, the waiting changes and the device ID (11.5).
 
+import { placesAndShops } from '$lib/placesAndShops.svelte';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, rememberedLogin, storedLoginId } from './device';
 import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';
@@ -64,6 +67,7 @@ export async function wipeNow(): Promise<boolean> {
   // Every other tab of the app drops what it shows and goes to sign in (otherTabs.ts).
   tellOtherTabs();
   shoppingSync.forget();
+  placesAndShops.forget();
   forgetDeviceId();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deleted = await Promise.race([

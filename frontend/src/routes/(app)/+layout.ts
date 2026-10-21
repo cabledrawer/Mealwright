@@ -22,6 +22,7 @@ import {
   askServer,
   inTime,
   newStart,
+  openedOffline,
   takeLateAnswer,
   type Answer,
   type LateAnswer
@@ -77,8 +78,10 @@ async function decideNow(answer: Answer, heading: string, late: LateAnswer | nul
     if (!cantReach(answer.error)) throw answer.error;
     const last = await lastSignedIn();
     if (!last) signIn(heading);
-    // Offline: this device's theme stays as it is; nothing is saved to the account.
+    // Offline: this device's theme stays as it is; nothing is saved to the account. The
+    // server is asked who is signed in once it can be reached (askAgain).
     openAs(fromDevice(last));
+    openedOffline(last.id);
     return;
   }
   session.setup = answer.setup;

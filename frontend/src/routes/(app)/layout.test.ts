@@ -15,13 +15,16 @@ import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing
 import { wipeDevice } from '$lib/offline/wipe';
 import { wipePending } from '$lib/offline/wipePending.svelte';
 import { releaseServerLists, serverListsHeld } from '$lib/offline/confirmed';
-import { restart, START_WAIT_MS } from '$lib/offline/opening';
+import { askAgain, restart, START_WAIT_MS } from '$lib/offline/opening';
 import { placesAndShops } from '$lib/placesAndShops.svelte';
 import { SETUP } from '$lib/session.svelte';
 import { load as signInLoad } from '../(auth)/+layout';
 import { load } from './+layout';
 
 type LoadEvent = Parameters<typeof load>[0];
+
+const said = (requests: { method: string; path: string }[]) =>
+  requests.map((r) => `${r.method} ${r.path}`);
 
 const open = () =>
   load({
@@ -704,6 +707,113 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(reruns).toEqual([]);
     expect(session.me).toBe(opened);
     expect(await readQueue()).toHaveLength(1);
+  });
+
+  describe('then the server can be reached again (#47): it’s asked again who is signed in', () => {
+    /** A slow start whose late answer was "still no connection". */
+    async function openedStillOffline() {
+      const server = slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
+      await begin();
+      server.release();
+      await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+      expect(reruns).toEqual([]);
+      vi.unstubAllGlobals();
+    }
+
+    it('the same login: carries on in place, as it opened', async () => {
+      await wrensPhone(1);
+      await openedStillOffline();
+      const opened = session.me;
+      const requests = fakeApi(signedInAs(2, 'Wren'));
+      await askAgain();
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
+      expect(reruns).toHaveLength(1);
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(session.me).toBe(opened);
+      expect(serverListsHeld()).toBeNull();
+      expect(await getMeta('device_id')).toBe(DEVICE);
+      expect(await readQueue()).toHaveLength(1);
+      // Known now: never asked again.
+      await askAgain();
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
+    });
+
+    it('a different login: signed out again to the sign-in page, and nothing of Wren’s kept in memory', async () => {
+      await wrensPhone(0);
+      const saved = await loadCopy();
+      await openedStillOffline();
+      placesAndShops.places = [{ id: 9, name: 'Wren’s fridge', kind: 'fridge' }];
+      const requests = fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+      await askAgain();
+      expect(reruns).toHaveLength(1);
+      await expect(reruns[0]).rejects.toMatchObject({
+        status: 307,
+        location: '/sign-in?next=%2Fshopping'
+      });
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me', 'DELETE /session']);
+      expect(session.me).toBeNull();
+      expect(takeTurnedAway()).toBe('arlo');
+      expect(placesAndShops.places).toEqual([]);
+      // Nothing wiped while the screen was up, as for any late answer.
+      expect(await getMeta('device_id')).toBe(DEVICE);
+      expect(await loadCopy()).toEqual(saved);
+    });
+
+    it('nobody signed in: the sign-in page, nothing wiped', async () => {
+      await wrensPhone(1);
+      await openedStillOffline();
+      fakeApi({
+        'GET /setup': [200, { needs_setup: false }],
+        'GET /me': [401, { detail: 'Not signed in.' }]
+      });
+      await askAgain();
+      await expect(reruns[0]).rejects.toMatchObject({ status: 307 });
+      expect(session.me).toBeNull();
+      expect(await readQueue()).toHaveLength(1);
+    });
+
+    it('the lists are held back until it has answered; still no connection: asked again next time', async () => {
+      await wrensPhone(0);
+      await openedStillOffline();
+      const server = slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
+      const asking = askAgain();
+      await vi.waitFor(() => expect(server.asked).toEqual(['GET /setup']));
+      expect(serverListsHeld()).not.toBeNull();
+      // Asked once at a time.
+      await askAgain();
+      expect(server.asked).toEqual(['GET /setup']);
+      server.release();
+      await asking;
+      expect(serverListsHeld()).toBeNull();
+      expect(reruns).toEqual([]);
+      vi.unstubAllGlobals();
+      fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+      await askAgain();
+      await expect(reruns[0]).rejects.toMatchObject({ status: 307 });
+      expect(takeTurnedAway()).toBe('arlo');
+    });
+
+    it('opened offline at once: asked as soon as it’s back', async () => {
+      await wrensPhone(0);
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+      await begin();
+      expect(session.me).toMatchObject({ id: 2 });
+      vi.unstubAllGlobals();
+      fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
+      await askAgain();
+      await expect(reruns[0]).rejects.toMatchObject({ status: 307 });
+      expect(session.me).toBeNull();
+    });
+
+    it('a start the server answered in time never asks again', async () => {
+      await wrensPhone(0);
+      const requests = fakeApi(signedInAs(2, 'Wren'));
+      await begin();
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
+      await askAgain();
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
+      expect(reruns).toEqual([]);
+    });
   });
 
   it('the browser says it’s offline: no wait at all, with or without someone to open as', async () => {

@@ -13,10 +13,12 @@
   import NewIngredient from '$lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '$lib/client/changes';
   import { settleHousehold } from '$lib/client/household';
+  import { askAgain } from '$lib/offline/opening';
   import { onWipedElsewhere } from '$lib/offline/otherTabs';
   import { askToKeepDataHere } from '$lib/offline/persist';
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
+  import { placesAndShops } from '$lib/placesAndShops.svelte';
   import { session } from '$lib/session.svelte';
   import { shoppingSync } from '$lib/shopping/sync.svelte';
   import { signInPath } from '$lib/session.svelte';
@@ -37,11 +39,17 @@
   // This tab then clears itself at once, stops the stream and sending, never makes the
   // database again, and goes to sign in (cabledrawer 18 Oct; otherTabs.ts).
   $effect(() => {
+    // Opened from this device before the server said who is signed in (a slow or offline
+    // start): it's asked again once it can be reached (askAgain, opening.ts).
     const stopNetwork = network.start(() => {
       live.reconnect();
       void shoppingSync.tryAgain();
+      void askAgain();
     });
-    const stopLive = live.start(() => void shoppingSync.send());
+    const stopLive = live.start(() => {
+      void shoppingSync.send();
+      void askAgain();
+    });
     const stopSync = shoppingSync.watch();
     void shoppingSync.start();
     let stopped = false;
@@ -57,6 +65,7 @@
       stop();
       session.me = null;
       shoppingSync.forget();
+      placesAndShops.forget();
       undoHistory.clear();
       toasts.dismiss();
       try {
