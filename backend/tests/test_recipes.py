@@ -4,6 +4,7 @@ editing, made ahead, and tag suggestions. The loop guard is in test_recipe_loops
 ingredients and recipes work together in test_recipe_ingredients.py, and the other
 household in test_recipes_isolation.py."""
 
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok, person
 
+from mealwright.api.v1.recipe_schemas import BAD_AMOUNT
 from mealwright.models import Change, Food, Household, Recipe, RecipeLine, Tag, utcnow
 
 API = "/api/v1"
@@ -304,6 +306,45 @@ def test_an_empty_amount_is_no_amount(kitchen: TestClient) -> None:
     for typed in (None, "", "  "):
         line = make(kitchen, lines=[{"words": "salt", "amount": typed}])["lines"][0]
         assert line["amount"] is None and line["amount_text"] is None
+
+
+def test_a_very_long_amount_is_refused_before_it_is_read(kitchen: TestClient) -> None:
+    """Turning a long run of digits into a number takes time that grows with the square of
+    its length: 200,000 digits took a third of a second, so a 4 MB body could hold the
+    server for minutes. Text over 20 characters is refused before it is read (security
+    pass, 0.4), with the words any other text that isn't an amount gets."""
+    huge = "1" * 200_000
+    for fields, place in [
+        ({"lines": [{"words": "x", "amount": huge}]}, "lines.0.amount"),
+        ({"makes": {"amount": huge, "unit": "g"}}, "makes.amount"),
+    ]:
+        started = time.monotonic()
+        problem = bad(kitchen, **fields)
+        assert time.monotonic() - started < 1
+        assert where(problem) == [place]
+        assert BAD_AMOUNT in problem["detail"][0]["msg"]
+
+
+@pytest.mark.parametrize(
+    ("typed", "allowed"),
+    [
+        ("0" * 18 + "1½", True),  # 20 characters
+        ("0" * 19 + "1½", False),
+        (" " * 17 + "1/2", True),  # spaces count
+        (" " * 18 + "1/2", False),
+    ],
+)
+def test_an_amount_is_at_most_20_characters(kitchen: TestClient, typed: str, allowed: bool) -> None:
+    for fields, place in [
+        ({"lines": [{"words": "x", "amount": typed}]}, "lines.0.amount"),
+        ({"makes": {"amount": typed, "unit": "l"}}, "makes.amount"),
+    ]:
+        if allowed:
+            make(kitchen, **fields)
+        else:
+            problem = bad(kitchen, **fields)
+            assert where(problem) == [place]
+            assert BAD_AMOUNT in problem["detail"][0]["msg"]
 
 
 def test_units_have_other_spellings(kitchen: TestClient) -> None:

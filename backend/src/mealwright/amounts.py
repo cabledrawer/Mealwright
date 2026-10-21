@@ -67,6 +67,10 @@ def unit_size(unit: str, cup_ml: int) -> Decimal:
 # bigger is a typing slip, and keeps every stored number far inside a 64-bit integer.
 MAX_AMOUNT = 1_000_000
 MAX_MILLI = MAX_AMOUNT * MILLI
+# The most characters an amount sent as text may have, on every amount the server reads.
+# Longer text is refused before it is parsed: turning a very long run of digits into a
+# number takes time that grows with the square of its length (security pass, 0.4).
+MAX_AMOUNT_TEXT = 20
 
 
 class TooBig(ValueError):

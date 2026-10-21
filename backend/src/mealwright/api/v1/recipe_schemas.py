@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name, one_line, text_block
@@ -115,7 +116,8 @@ def _fraction_of(text: str) -> Fraction:
 
 def parse_amount(value: Any) -> int | None:
     """What someone typed as an amount, in thousandths: 1½ is 1500. Empty is None (no
-    amount). Numbers and text are both fine. Zero and negatives are refused."""
+    amount). Numbers and text are both fine. Zero and negatives are refused, and so is
+    text longer than MAX_AMOUNT_TEXT, before it is parsed."""
     if value is None:
         return None
     if isinstance(value, bool):
@@ -126,6 +128,8 @@ def parse_amount(value: Any) -> int | None:
         except ArithmeticError:
             raise ValueError(BAD_AMOUNT) from None
     elif isinstance(value, str):
+        if len(value) > MAX_AMOUNT_TEXT:
+            raise ValueError(BAD_AMOUNT)
         if not value.strip():
             return None
         fraction = _fraction_of(value)
