@@ -156,6 +156,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 **Done when:** a recipe with a recipe inside it can be created, scaled and searched; the loop guard is tested; the screens match the mockups.
 
 - The recipe screens pass the states check (empty, loading, failed, offline, one, many, long names, 200% text), use the word list, and their components are in the gallery; the milestone ends with a paper-cuts pull request.
+- **In the 0.4 paper-cuts PR (PR 7), from the hand-test fix reviews (cabledrawer 21 Oct):** after a slow start, ask the server again who is signed in; signing out clears the household's shops and places held in memory, so nothing carries over to the next person; a small "Edit ingredient" link in the Shopping amount box to the ingredient editor.
 
 ---
 
@@ -174,7 +175,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Today's first-day state links to import (finished in 0.6).
 - **Paper-cuts pull request, from cabledrawer's hand test (cabledrawer 20 Oct):**
   - Phone Pantry: a card per place (icon, "Fridge · 6 items", jump chips, empty places folded). Mockup: `PantryPlaces-Phone` and its dark version in `docs/mockups/`.
-  - Show a purchase date on pantry rows with no use-by ("bought 20 Oct"). cabledrawer 20 Oct: this is for 0.7 unless it is already stored and only needs showing, in which case it can be a 0.5 paper cut. It is already stored (`stock_lot.added_at`, sent by the Pantry API as each lot's `added_on`, and `addedWords` in `frontend/src/lib/dates.ts` already words it), so it only needs showing. So it is listed here for 0.5, for cabledrawer to confirm (found 21 Oct). "Added" is when the stock went in: for a ticked item that is the tick, but a "Different pack?" change makes new lots dated when it was changed.
+  - Show a purchase date on pantry rows with no use-by ("bought 20 Oct"): a 0.5 paper cut (cabledrawer 21 Oct). It is already stored (`stock_lot.added_at`, sent by the Pantry API as each lot's `added_on`, and `addedWords` in `frontend/src/lib/dates.ts` already words it), so it only needs showing. "Added" is when the stock went in. cabledrawer 21 Oct: "Both catches are accepted for now (an offline tick is dated when the phone sends it; “Different pack?” dates the new pack that day)."
   - For the 0.5 kickoff: swiping is under-used on the phone; cabledrawer's helper chat will bring him ideas then. Nothing to build until he has decided.
 
 **Done when:** a test suite of saved real-world recipe pages (stored as files, never fetched in tests) parses correctly; SSRF tests cover private IPs, DNS rebinding and redirects; with the Privacy switch off, import is refused.
