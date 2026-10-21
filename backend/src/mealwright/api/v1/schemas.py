@@ -2,20 +2,39 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
+from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.errors import StoredInt
 from mealwright.names import size_name
 
+
+def _short_amount(value: Any) -> Any:
+    """An amount sent as text is at most MAX_AMOUNT_TEXT characters, the same rule as a
+    recipe's amounts (security pass, 0.4). Longer text gets the answer any other text that
+    isn't a number gets. Nothing that was taken is refused: every value these fields take
+    is at most 17 characters written plainly (a sync amount over 1,000,000 is refused
+    too_big anyway), and the web app sends them as numbers, which this leaves alone."""
+    if isinstance(value, str) and len(value) > MAX_AMOUNT_TEXT:
+        raise PydanticCustomError("decimal_parsing", "Input should be a valid decimal")
+    return value
+
+
+# Put on every number field that holds an amount (Annotated[Decimal, Field(...), ShortAmount]).
+ShortAmount = BeforeValidator(_short_amount)
+
 CountedAsName = Literal["weight", "volume", "count"]
-Number = Annotated[Decimal, Field(max_digits=15, decimal_places=3)]
+Number = Annotated[Decimal, Field(max_digits=15, decimal_places=3), ShortAmount]
 # Typed amounts: up to 1,000,000 of a unit (MAX_AMOUNT); the result is checked again in
 # base units. Cup weights up to 2 kg, item weights up to 50 kg.
-PositiveNumber = Annotated[Decimal, Field(gt=0, le=1_000_000, max_digits=13, decimal_places=3)]
-CupGrams = Annotated[Decimal, Field(gt=0, le=2_000, max_digits=8, decimal_places=3)]
-ItemGrams = Annotated[Decimal, Field(gt=0, le=50_000, max_digits=9, decimal_places=3)]
+PositiveNumber = Annotated[
+    Decimal, Field(gt=0, le=1_000_000, max_digits=13, decimal_places=3), ShortAmount
+]
+CupGrams = Annotated[Decimal, Field(gt=0, le=2_000, max_digits=8, decimal_places=3), ShortAmount]
+ItemGrams = Annotated[Decimal, Field(gt=0, le=50_000, max_digits=9, decimal_places=3), ShortAmount]
 
 
 class Ref(BaseModel):

@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 
 from mealwright import shopping
 from mealwright.api.v1.context import Kitchen
+from mealwright.api.v1.schemas import ShortAmount
 from mealwright.errors import Problem
 from mealwright.history import as_utc
 from mealwright.household import undo_window
@@ -48,7 +49,7 @@ RowId = Annotated[str, Field(min_length=1, max_length=64)]
 MAX_NUMBER = 2**53 - 1
 RowNumber = Annotated[int, Field(ge=0, le=MAX_NUMBER)]
 # A base amount (g, ml or items), up to 3 decimal places. Over 1,000,000 → refused too_big.
-Amount = Annotated[Decimal, Field(gt=0, decimal_places=3, max_digits=20)]
+Amount = Annotated[Decimal, Field(gt=0, decimal_places=3, max_digits=20), ShortAmount]
 ListName = Annotated[str, Field(min_length=1, max_length=60)]
 
 

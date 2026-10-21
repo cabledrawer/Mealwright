@@ -12,7 +12,14 @@ from sqlalchemy import select
 
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
-from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, CountedAsName, Ref
+from mealwright.api.v1.schemas import (
+    AmountIn,
+    AmountOut,
+    ChangeOut,
+    CountedAsName,
+    Ref,
+    ShortAmount,
+)
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out, find, resolve, usual_size
@@ -425,7 +432,9 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
 class SetLeft(BaseModel):
     """What's left: a quick pick (¼ ½ ¾ Full, as a fraction of the packet) or an amount."""
 
-    fraction: Annotated[Decimal, Field(ge=0, le=1, max_digits=6, decimal_places=4)] | None = None
+    fraction: (
+        Annotated[Decimal, Field(ge=0, le=1, max_digits=6, decimal_places=4), ShortAmount] | None
+    ) = None
     amount: AmountIn | None = None
 
     @model_validator(mode="after")
@@ -596,7 +605,9 @@ class FoodAmount(BaseModel):
 class AmountOrNone(AmountIn):
     """Like AmountIn, but 0 is allowed: "None left"."""
 
-    amount: Annotated[Decimal, Field(ge=0, le=1_000_000, max_digits=13, decimal_places=3)]
+    amount: Annotated[
+        Decimal, Field(ge=0, le=1_000_000, max_digits=13, decimal_places=3), ShortAmount
+    ]
 
 
 class FoodLeft(BaseModel):

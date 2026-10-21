@@ -23,6 +23,7 @@ from mealwright.api.v1.schemas import (
     ItemGrams,
     PositiveNumber,
     Ref,
+    ShortAmount,
     SizeOut,
 )
 from mealwright.auth import SameOrigin
@@ -1371,7 +1372,7 @@ class Converted(BaseModel):
 def convert(
     food_id: StoredInt,
     kitchen: Here,
-    amount: Annotated[Decimal, Query(gt=0, max_digits=15, decimal_places=3)],
+    amount: Annotated[Decimal, Query(gt=0, max_digits=15, decimal_places=3), ShortAmount],
     unit: Annotated[str, Query(min_length=1, max_length=40)],
 ) -> Converted:
     """ "What's 1 cup of toor dal?" in the food's base unit. When nobody knows yet, the

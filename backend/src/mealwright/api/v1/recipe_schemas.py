@@ -16,7 +16,7 @@ from pydantic import (
 )
 
 from mealwright.amounts import MAX_AMOUNT_TEXT
-from mealwright.api.v1.schemas import Ref, Who
+from mealwright.api.v1.schemas import Ref, ShortAmount, Who
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name, one_line, text_block
 
@@ -299,7 +299,9 @@ class MakesIn(BaseModel):
         return self
 
 
-Nutrient = Annotated[Decimal | None, Field(ge=0, le=100_000, max_digits=12, decimal_places=3)]
+Nutrient = Annotated[
+    Decimal | None, Field(ge=0, le=100_000, max_digits=12, decimal_places=3), ShortAmount
+]
 
 
 class NutritionIn(BaseModel):
