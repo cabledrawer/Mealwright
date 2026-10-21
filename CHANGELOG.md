@@ -62,6 +62,7 @@ Work towards 0.4.0 (recipes).
 - After a slow or offline start, once the server can be reached again (live updates connect, or the connection comes back), the app asks it again who is signed in, and acts as a normal start would: the same login carries on, and nobody or a different login goes to the sign-in page.
 - Every way of signing out (the Sign out button, the sign-out warning, a session that ends) now also forgets the household's shops and places held in memory, so the next person to sign in never sees them, even without a reload.
 - Recipe photos: a photo that couldn't be fetched (offline, say) now tries again when the connection comes back, in All recipes and on the recipe page, instead of staying hidden until a reload.
+- Recipe photos: a browser test now shows that Edit → Save with a new photo, and then with the photo removed, changes both the recipe page and its row in All recipes (phone and computer).
 
 ### Security
 - certifi 2026.7.22 → 2026.10.19 (the server's list of trusted certificates), for GHSA-6q48-6c7w-9gw2 (critical, CVSS 9.1). vite 8.3.1 → 8.3.3 (a build tool only, not in the app), for GHSA-587h-7wmj-h5pm (high, 7.5), GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw (medium, 6.3).

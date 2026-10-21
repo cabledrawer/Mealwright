@@ -1,13 +1,13 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
-import { uploadPhoto, type Shape } from '../review/photos.ts';
+import { photoPng, uploadPhoto, type Shape } from '../review/photos.ts';
 
 // Recipe photos on All recipes (the 52 px square at the start of each row) and on the recipe page
 // (a box above the name on a phone, beside the nutrition figures in the computer's reading pane),
 // against the real server. Every state (spec "Keeping the UI good", item 2): with and without a
 // photo, a very tall and a very wide one (cropped, not stretched), a photo that can't be
 // fetched (and tries again when the connection comes back), a name that wraps (the square stays at
-// the top), and the text at 200%. Runs in the
+// the top), the text at 200%, and Edit → Save with a new photo and with none. Runs in the
 // "phone 0.4 photos" and "desktop 0.4 photos" projects, signed in as the test admin.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
@@ -259,5 +259,56 @@ test('the recipe page: with the text at 200% the photo and figures still fit', a
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expectNoSidewaysScroll(page);
+  await checkPage(page);
+});
+
+test('Edit → Save with a new photo, then with the photo removed: the recipe page and the list both show it', async ({ page }) => {
+  const name = unique('Edited');
+  const { recipe } = await recipeWith(page, name);
+  const list = () => (isPhone(page) ? page.locator('main') : page.getByRole('region', { name: 'Recipe list' }));
+  /** Back to All recipes the way a person would: the phone's "Recipes" link; on a computer the list is beside it. */
+  async function theList() {
+    if (isPhone(page)) {
+      await reader(page).getByRole('link', { name: 'Recipes', exact: true }).click();
+      await expect(page).toHaveURL('/recipes');
+      await search(page, name);
+    }
+    return row(page, name);
+  }
+  async function openAndEdit() {
+    await row(page, name).click();
+    await expect(page).toHaveURL(`/recipes/${recipe.id}`);
+    await reader(page).getByRole('link', { name: 'Edit', exact: true }).click();
+    await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`);
+  }
+
+  await page.goto('/recipes');
+  await search(page, name);
+  await expect(list().getByRole('link', { name: new RegExp(name) }).locator('img')).toHaveCount(0);
+
+  // A new photo: the page shows the large copy, and the list's square the small one.
+  await openAndEdit();
+  await page.locator('input[type=file]').setInputFiles({ name: 'dish.png', mimeType: 'image/png', buffer: photoPng('dish') });
+  await expect(page.getByRole('button', { name: 'Change photo' })).toBeVisible();
+  await page.getByRole('button', { name: /^Save/ }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}`);
+  const img = reader(page).getByRole('img', { name: `Photo of ${name}` });
+  await expect(img).toHaveAttribute('src', /^\/api\/v1\/recipes\/photos\/\d+\/large$/);
+  await loaded(img);
+  const id = /photos\/(\d+)\//.exec((await img.getAttribute('src'))!)![1];
+  const square = (await theList()).locator('img');
+  await expect(square).toHaveAttribute('src', `/api/v1/recipes/photos/${id}/list`);
+  await loaded(square);
+
+  // The photo removed: no box on the page, the plain square in the list.
+  await openAndEdit();
+  await page.getByRole('button', { name: 'Remove photo' }).click();
+  await expect(page.getByRole('button', { name: 'Add a photo' })).toBeVisible();
+  await page.getByRole('button', { name: /^Save/ }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}`);
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  await expect(reader(page).locator('.frame')).toHaveCount(0);
+  await expect(reader(page).locator('img')).toHaveCount(0);
+  await expect((await theList()).locator('img')).toHaveCount(0);
   await checkPage(page);
 });
