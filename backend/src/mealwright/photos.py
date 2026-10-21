@@ -293,9 +293,13 @@ def _delete_now(db: Session) -> None:
     for household_id, key in waiting:
         try:
             remove_files(store, household_id, key)
-        except Exception:
-            # The hourly job deletes files with no record, so it's tried again.
-            log.exception("Couldn't delete a photo's files (will try again within the hour)")
+        except Exception as e:
+            # The hourly job deletes files with no record, so it's tried again. Only the
+            # kind of error is logged: its text carries the file's path.
+            log.warning(
+                "Couldn't delete a photo's files (will try again within the hour): %s",
+                type(e).__name__,
+            )
 
 
 @event.listens_for(Session, "after_transaction_end")

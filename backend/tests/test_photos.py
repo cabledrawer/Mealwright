@@ -1033,6 +1033,31 @@ def test_a_photo_whose_files_are_missing_is_not_found(kitchen: TestClient) -> No
     assert response.json() == {"detail": GONE, "code": "not_found"}
 
 
+def test_a_failed_file_delete_logs_the_kind_of_error_not_the_path(
+    kitchen: TestClient, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    photo = kit.uploaded(kitchen)
+    found = record(kitchen, photo["id"])
+    assert found is not None
+    household, key = str(found.household_id), found.file_key
+    wanted = photo_files(kitchen, photo["id"])[0]
+
+    def refuse(self: Path, missing_ok: bool = False) -> None:
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+    with caplog.at_level("DEBUG", logger="mealwright.photos"):
+        assert kitchen.delete(f"{API}/recipes/photos/{photo['id']}").status_code == 204
+    monkeypatch.undo()
+
+    assert wanted.exists()  # the delete did fail
+    text = caplog.text
+    assert "Couldn't delete a photo's files" in text
+    assert "PermissionError" in text
+    assert key not in text and str(wanted) not in text and "Permission denied" not in text
+    assert f"/{household}/" not in text and "Traceback" not in text
+
+
 def test_a_failed_save_after_writing_leaves_no_files(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
