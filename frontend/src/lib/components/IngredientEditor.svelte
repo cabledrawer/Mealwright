@@ -1074,11 +1074,4 @@
     font-weight: var(--weight-bold);
     cursor: pointer;
   }
-
-  @media (min-width: 768px) {
-    label input,
-    label select {
-      font-size: var(--text-base);
-    }
-  }
 </style>

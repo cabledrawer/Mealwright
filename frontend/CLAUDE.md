@@ -4,7 +4,7 @@
 
 - Phone and desktop both first-class; **phone breaks ties**. Bottom tabs on phone, collapsible sidebar on desktop.
 - Plain words ("cupboard", "use soon", "tubs left"), never database words.
-- Undo, not "Are you sure?". Optimistic updates. One switch component for every on/off.
+- Undo, not "Are you sure?" (two exceptions: signing out with unsent changes; removing a line from the shopping list, cabledrawer 20 Oct). Optimistic updates. One switch component for every on/off.
 - Auto · Light · Dark switch always in plain sight. A designed dark theme, not inverted.
 - Vertical scrolling only; no chunky scrollbars.
 - Show connection status (offline bar with waiting changes; "Back online — all saved").

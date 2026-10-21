@@ -121,7 +121,7 @@ test("the list picker makes, renames and removes an extra list, with Undo", asyn
 
   await page.getByRole("button", { name: new RegExp(`^${renamed}`) }).click();
   await page.getByRole("button", { name: `${renamed} options` }).click();
-  await page.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("button", { name: /^This week/ })).toBeVisible();
   const toast = page
     .getByRole("status")
@@ -141,7 +141,7 @@ test("the main list can be renamed but not removed", async ({ page }) => {
   await page.getByRole("button", { name: /^This week/ }).click();
   await page.getByRole("button", { name: /^This week options/ }).click();
   await expect(page.getByRole("button", { name: "Rename" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
 });
 
 test("a typed name that is not an ingredient asks How do you count it?, with packet sizes up front", async ({
@@ -209,13 +209,21 @@ test("changing the amount of a line", async ({ page }) => {
   const name = `Flour ${tag()}`;
   await onList(page, name, 500);
   await page.goto("/shopping");
-  await page.getByRole("button", { name: new RegExp(`^${name}: `) }).click();
   await page
-    .getByRole("textbox", { name: new RegExp(`How much ${name}`) })
-    .fill("2 kg");
-  await page.getByRole("button", { name: "Save" }).click();
+    .getByRole("button", { name: new RegExp(`^Change amount: ${name}, `) })
+    .click();
+  const box = page.getByRole("form", { name: `Change ${name}` });
+  await expect(box.getByRole("textbox", { name: "Amount" })).toHaveValue("500");
+  // A new unit keeps the amount: 500 g is 0.5 kg.
+  await box.getByRole("combobox", { name: "Unit" }).selectOption("kg");
+  await expect(box.getByRole("textbox", { name: "Amount" })).toHaveValue("0.5");
+  await box.getByRole("textbox", { name: "Amount" }).fill("2");
+  await expect(box.getByRole("textbox", { name: "Amount" })).toHaveValue("2");
+  await box.getByRole("button", { name: "Done" }).click();
   await expect(
-    page.getByRole("button", { name: new RegExp(`^${name}: 2`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 2`),
+    }),
   ).toBeVisible();
 });
 
@@ -271,16 +279,18 @@ test("the list picker open and the amount editor open pass the accessibility che
   await expect(page.getByRole("group", { name: "Lists" })).toBeVisible();
   for (const theme of THEMES) {
     await inTheme(page, theme);
-    await checkPage(page);
+    // The open menu lies over the top rows of the list; axe would count a row it half covers as
+    // a too-small target. The rows are checked in the other tests.
+    await checkPage(page, { exclude: [".aisles"] });
   }
   // Escape closes it and puts focus back on the picker button.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("group", { name: "Lists" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^This week/ })).toBeFocused();
 
-  await page.getByRole("button", { name: new RegExp(`^${name}: `) }).click();
+  await page.getByRole("button", { name, exact: true }).click();
   await expect(
-    page.getByRole("textbox", { name: new RegExp(`How much ${name}`) }),
+    page.getByRole("form", { name: `Change ${name}` }),
   ).toBeVisible();
   for (const theme of THEMES) {
     await inTheme(page, theme);
@@ -296,8 +306,25 @@ test("removing a line from the list keeps keyboard focus in the list", async ({
   await onList(page, first);
   await onList(page, second);
   await page.goto("/shopping");
-  await page.getByRole("button", { name: new RegExp(`^${first}: `) }).click();
+  await page.getByRole("button", { name: first, exact: true }).click();
   await page.getByRole("button", { name: "Remove from list" }).click();
+  // Removing asks first (cabledrawer 20 Oct); Keep it leaves the line, Remove takes it off.
+  const ask = page.getByRole("alertdialog", {
+    name: `Remove ${first} from the shopping list?`,
+  });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
+  await ask.getByRole("button", { name: "Keep it" }).click();
+  // Keep it leaves the amount box open on the same line.
+  await expect(page.getByRole("form", { name: `Change ${first}` })).toBeVisible();
+  await page.getByRole("button", { name: "Remove from list" }).click();
+  await ask.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: `Removed ${first}` })
+      .getByRole("button", { name: "Undo" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: first, exact: true }),
   ).toHaveCount(0);
@@ -464,6 +491,7 @@ test("Different pack? changes what the pantry got, and Undo puts it back", async
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
+  await row.getByRole("button", { name: `Change where ${name} went` }).click();
   await row.getByRole("button", { name: "Different pack?" }).click();
   await row.getByRole("radio", { name: "Other…" }).click();
   await row.getByRole("textbox", { name: "Size of one" }).fill("1");
@@ -485,9 +513,11 @@ test("Clear ticked takes the ticked items off the list, and Undo brings them bac
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   await page.getByRole("button", { name: "Clear ticked" }).click();
-  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  // A ticked row's name is plain text (only unticked names are buttons that open the amount).
+  const ticked = page.getByRole("checkbox", { name: `Untick ${name}` });
+  await expect(ticked).toHaveCount(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
-  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(ticked).toBeVisible();
 });
 
 test("two phones tick the same item: the card asks Did you buy 2?, and Yes keeps both", async ({
@@ -615,6 +645,8 @@ test("ticked states pass the accessibility checks in both themes", async ({
   // The trolley open, with its ticked row.
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(row.getByText(/^In the Fridge · /)).toBeVisible();
+  await row.getByRole("button", { name: `Change where ${name} went` }).click();
   await expect(
     row.getByRole("button", { name: "Different pack?" }),
   ).toBeVisible();
@@ -657,18 +689,20 @@ test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
     if (width === 320)
       await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
     await page.getByRole("button", { name: /^In the trolley/ }).click();
-    const label = page.getByRole("button", { name, exact: true });
+    const label = page
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByText(name, { exact: true });
     await expect(label).toBeVisible();
     const clipped = await label.evaluate(
       (el) => el.scrollWidth > el.clientWidth + 1,
     );
     expect(clipped).toBe(false);
     const box = await label.boundingBox();
-    const pill = await page
-      .getByRole("button", { name: "Different pack?" })
-      .first()
+    const line = await page
+      .getByRole("group", { name: `Where ${name} went` })
       .boundingBox();
-    expect(box!.y + box!.height).toBeLessThanOrEqual(pill!.y + 1); // the buttons sit under the name
+    expect(box!.y + box!.height).toBeLessThanOrEqual(line!.y + 1); // the status line sits under the name
   }
 });
 
@@ -724,7 +758,10 @@ test("phone: Undo of a put-away (the toast after Change) moves it back", async (
 test("phone: on a long list, In the trolley stays tappable while the put-away toast is up", async ({
   page,
 }) => {
-  test.skip(!isPhone(page), "the toast covers the end of the page on the phone");
+  test.skip(
+    !isPhone(page),
+    "the toast covers the end of the page on the phone",
+  );
   const prefix = `Long ${tag()}`;
   const names = Array.from(
     { length: 25 },
@@ -763,4 +800,238 @@ test("phone: on a long list, In the trolley stays tappable while the put-away to
       await call(page, "DELETE", `/shopping/items/${line.id}`);
     }
   }
+});
+
+// --- Rows: the amount box, removing asks first, where a tick went (cabledrawer 20 Oct, hand test) -------
+
+/** A line with no amount, or a staple, made through the API. */
+async function plainLine(
+  page: Page,
+  name: string,
+  options: { staple?: boolean } = {},
+) {
+  const { food } = await call(page, "POST", "/foods", {
+    name,
+    counted_as: "weight",
+    staple: options.staple ?? false,
+  });
+  await call(page, "POST", `/shopping/lists/${await mainList(page)}/items`, {
+    food_id: food.id,
+  });
+  return food.id as number;
+}
+
+test("a ticked row says where it went: with an amount, with none, and a staple", async ({
+  page,
+}) => {
+  await settleCards(page);
+  const withAmount = `Amt ${tag()}`;
+  const bare = `Bare ${tag()}`;
+  const staple = `Stap ${tag()}`;
+  const { foodId } = await packs(page, withAmount);
+  await plainLine(page, bare);
+  await plainLine(page, staple, { staple: true });
+  await page.goto("/shopping");
+  for (const n of [withAmount, bare, staple]) {
+    await page.getByRole("checkbox", { name: `Tick ${n}` }).click();
+  }
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  const row = (n: string) => page.getByRole("listitem").filter({ hasText: n });
+  await expect(row(withAmount).getByText(/^In the Fridge · /)).toBeVisible();
+  await expect(
+    row(bare).getByText("Not in the pantry yet. No amount."),
+  ).toBeVisible();
+  await expect(
+    row(bare).getByRole("button", { name: `Add amount for ${bare}` }),
+  ).toBeVisible();
+  await expect(
+    row(staple).getByText("Restocked · staples aren’t counted"),
+  ).toBeVisible();
+  // No row says "→ Fridge" or "→ Cupboard" any more.
+  for (const n of [withAmount, bare, staple]) {
+    await expect(row(n)).not.toContainText("→");
+  }
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  // The line's own Undo takes the tick back out of the pantry.
+  await row(withAmount)
+    .getByRole("button", { name: `Undo ticking ${withAmount}` })
+    .click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({});
+});
+
+test("Add amount on a ticked row with no amount gives it a first amount, and Recent changes says so", async ({
+  page,
+}) => {
+  await settleCards(page);
+  const name = `First ${tag()}`;
+  const foodId = await plainLine(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await row.getByRole("button", { name: `Add amount for ${name}` }).click();
+  await expect(row.getByText("How much?")).toBeVisible();
+  await row.getByRole("radio", { name: "Other…" }).click();
+  await row.getByRole("textbox", { name: "Size of one" }).fill("1");
+  await row.getByRole("combobox", { name: "Unit" }).selectOption("kg");
+  await row.getByRole("button", { name: "Done" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Cupboard: 1000 });
+  const { changes } = await (
+    await page.request.get(`/api/v1/changes?food_id=${foodId}&limit=20`)
+  ).json();
+  const summaries = changes.map((c: { summary: string }) => c.summary);
+  expect(summaries.join("\n")).toContain("(first amount)");
+  expect(summaries.join("\n")).not.toContain("instead of");
+});
+
+test("removing asks first: Keep it keeps the line; Remove takes it off, with Undo", async ({
+  page,
+}) => {
+  const name = `Ask ${tag()}`;
+  await onList(page, name);
+  await page.goto("/shopping");
+  await page
+    .getByRole("button", { name: new RegExp(`^Change amount: ${name}, `) })
+    .click();
+  await page.getByRole("button", { name: "Remove from list" }).click();
+  const ask = page.getByRole("alertdialog", {
+    name: `Remove ${name} from the shopping list?`,
+  });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByText("Nothing goes into the pantry.")).toBeVisible();
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  await ask.getByRole("button", { name: "Keep it" }).click();
+  // Keep it leaves the amount box open on the same line.
+  await expect(page.getByRole("form", { name: `Change ${name}` })).toBeVisible();
+  await page.getByRole("button", { name: "Remove from list" }).click();
+  await ask.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  const toast = page.getByRole("status").filter({ hasText: `Removed ${name}` });
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("desktop: a keyboard alone opens the amount box, saves it, and answers the question", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the computer layout");
+  const name = `Keys ${tag()}`;
+  await onList(page, name, 500);
+  await page.goto("/shopping");
+  // The name is a button: Enter opens the box, with the amount selected.
+  await page.getByRole("button", { name, exact: true }).focus();
+  await page.keyboard.press("Enter");
+  const amount = page.getByRole("textbox", { name: "Amount" });
+  await expect(amount).toBeFocused();
+  await page.keyboard.type("750");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 750`),
+    }),
+  ).toBeVisible();
+  // Focus is back on the name; Tab reaches the amount, then the bin that shows with focus.
+  await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  const bin = page.getByRole("button", {
+    name: `Remove ${name} from the list`,
+  });
+  await expect(bin).toBeFocused();
+  await expect(bin).toBeVisible();
+  await page.keyboard.press("Enter");
+  const ask = page.getByRole("alertdialog", {
+    name: `Remove ${name} from the shopping list?`,
+  });
+  await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
+  // Tab reaches Remove and Shift+Tab goes back; Escape keeps the line and gives the focus back.
+  await page.keyboard.press("Tab");
+  await expect(
+    ask.getByRole("button", { name: "Remove", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(ask).toHaveCount(0);
+  await expect(bin).toBeFocused();
+  // Enter on Remove removes it.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+});
+
+/** A finger sliding sideways over a row, for real: touch events through the browser. */
+async function swipeLeft(page: Page, name: string) {
+  const row = page
+    .getByRole("button", { name, exact: true })
+    .locator("xpath=ancestor::div[contains(@class,'slide')]");
+  await row.scrollIntoViewIfNeeded();
+  const box = (await row.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const from = box.x + box.width - 40;
+  const cdp = await page.context().newCDPSession(page);
+  const send = (type: "touchStart" | "touchMove" | "touchEnd", x?: number) =>
+    cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: x === undefined ? [] : [{ x, y }],
+    });
+  await send("touchStart", from);
+  for (let i = 1; i <= 8; i++) await send("touchMove", from - i * 14);
+  await send("touchEnd");
+  await cdp.detach();
+}
+
+test("phone: swiping a row left shows a red Remove, which asks first; a swipe alone removes nothing", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone swipe");
+  const name = `Swipe ${tag()}`;
+  await onList(page, name);
+  await page.goto("/shopping");
+  await swipeLeft(page, name);
+  const red = page.getByRole("button", {
+    name: `Remove ${name} from the list`,
+  });
+  await expect(red).toBeVisible();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  for (const theme of THEMES) {
+    await inTheme(page, theme);
+    await checkPage(page);
+  }
+  await red.click();
+  const ask = page.getByRole("alertdialog", {
+    name: `Remove ${name} from the shopping list?`,
+  });
+  await expect(ask).toBeVisible();
+  await ask.getByRole("button", { name: "Keep it" }).click();
+  // Still on the list, and still not ticked: the swipe and the question changed nothing.
+  await expect(
+    page.getByRole("checkbox", { name: `Tick ${name}` }),
+  ).not.toBeChecked();
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("phone: the row is a pill, the box is big enough to tap, and nothing sideways scrolls at 200% text", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone layout");
+  const name = `Large type ${tag()} with a rather long ingredient name`;
+  await onList(page, name);
+  await page.goto("/shopping");
+  await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  await checkPage(page);
+  await page.getByRole("button", { name, exact: true }).click();
+  await expect(
+    page.getByRole("form", { name: `Change ${name}` }),
+  ).toBeVisible();
+  await checkPage(page);
 });

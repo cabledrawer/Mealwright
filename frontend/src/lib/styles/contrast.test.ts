@@ -39,6 +39,8 @@ const PAIRS: Pair[] = [
   ['--color-accent', '--color-field', 4.5], // "Show" in the password field
   ['--color-note-text', '--color-note', 4.5],
   ['--color-warning-text', '--color-warning', 4.5],
+  ['--color-danger-text', '--color-danger', 4.5], // the red Remove button
+  ['--color-warning-text', '--color-surface', 4.5], // "Remove from list" in the amount box
   ['--color-field-border', '--color-field', 3], // a text box's edge (WCAG 1.4.11)
   ['--color-field-border', '--color-ground', 3],
   ['--color-field-border', '--color-surface', 3],

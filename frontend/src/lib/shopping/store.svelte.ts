@@ -19,6 +19,7 @@ import { makeAction, type ActionFields, type ActionResult } from './actions';
 import { applyLocal } from './applyLocal';
 import { EMPTY_COPY } from './load';
 import { searchCopy } from './search';
+import { putAwayState, type PutAway } from './putAway';
 import { sendAction, shoppingSync } from './sync.svelte';
 import type { FoodSize, ListItem, ShopFood, Tick } from './types';
 import { groupByShop, listCounts, standingTicks, subtitle } from './view';
@@ -407,25 +408,76 @@ export class ShoppingModel {
     return tick?.place_id ?? item.put_away_place_id ?? this.food(item.food_id)?.place_id ?? null;
   }
 
-  /** "Coriander → Fridge", or "Onions ticked" when the place isn't known yet. */
-  #tickLabel(item: ListItem, actionId: string): string {
+  /**
+   * What a tick did, as the toast tells it: "Coriander → Fridge", "Onions ticked" (no amount,
+   * or the place isn't known yet), "Salt restocked" (a staple; cabledrawer 20 Oct).
+   */
+  #tickState(item: ListItem, actionId: string): { label: string; state: PutAway } {
     const row = this.item(item.id) ?? item;
-    const name = this.food(item.food_id)?.name ?? 'Ingredient';
+    const food = this.food(item.food_id);
+    const name = food?.name ?? 'Ingredient';
     const place = this.placeName(this.placeOf(row, actionId));
-    return place ? `${name} → ${place}` : `${name} ticked`;
+    const state = putAwayState(
+      row,
+      food ?? { staple: false },
+      row.ticks.find((t) => t.id === actionId),
+      this.isWaiting(actionId),
+      place
+    );
+    const label =
+      state.kind === 'staple'
+        ? `${name} restocked`
+        : state.kind === 'amount' && place
+          ? `${name} → ${place}`
+          : `${name} ticked`;
+    return { label, state };
+  }
+
+  #tickLabel(item: ListItem, actionId: string): string {
+    return this.#tickState(item, actionId).label;
   }
 
   /** The tick's toast: where it goes, with Change and Undo (phone; desktop has the panel too). */
   #tickToast(item: ListItem, actionId: string): Shown {
-    const entry = this.#undoEntry(actionId, this.#tickLabel(item, actionId));
+    const { label, state } = this.#tickState(item, actionId);
+    const entry = this.#undoEntry(actionId, label);
     undoHistory.record(entry, { toast: false });
     const toastId = toasts.show(entry.label, {
       // Change even before the place is known: the server always puts it somewhere (7.1).
-      extra: { label: 'Change', run: () => (this.placing = item.id) },
+      // A staple, or a line with no amount, goes nowhere, so there is nothing to change.
+      extra:
+        state.kind === 'amount'
+          ? { label: 'Change', run: () => (this.placing = item.id) }
+          : undefined,
       action: { label: 'Undo', run: () => void undoHistory.undo(entry) },
       duration: 8000
     });
     return { entry, toastId };
+  }
+
+  /** Has this phone made the change and not heard back from the server yet? */
+  isWaiting(actionId: string): boolean {
+    return shoppingSync.waitingActions.some((a) => a.id === actionId);
+  }
+
+  /** What a ticked line's tick did, for its row and the Put away panel (cabledrawer 20 Oct). */
+  putAwayFor(item: ListItem): PutAway {
+    const tick = item.ticks.find((t) => t.standing);
+    return putAwayState(
+      item,
+      this.food(item.food_id) ?? { staple: false },
+      tick,
+      tick ? this.isWaiting(tick.id) : false,
+      this.placeName(this.placeOf(item, tick?.id))
+    );
+  }
+
+  /** A row's Undo: take that tick back, the same Undo as the toast's. */
+  undoTick(item: ListItem): Promise<unknown> {
+    const tick = item.ticks.find((t) => t.standing);
+    if (!tick) return Promise.resolve();
+    if (this.lastTicked?.tickId === tick.id) return this.undoLastTick();
+    return this.undo(tick.id, this.#tickLabel(item, tick.id));
   }
 
   /** The Put away panel's "Undo last tick": the same Undo as the toast's. */
@@ -487,7 +539,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'delete', item_id: item.id },
       {
-        label: `${name} removed from the list`
+        label: `Removed ${name}`
       }
     );
   }

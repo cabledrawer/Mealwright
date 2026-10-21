@@ -6,7 +6,7 @@
 //   await checkPage(page);            // axe in light and dark, plus the phone checks
 //
 // Or use the pieces on their own: inTheme, expectNoAxeViolations, expectTouchTargets,
-// expectNoSidewaysScroll.
+// expectNoSidewaysScroll, expectFieldsDontZoom.
 //
 // axe-core runs inside the page from the local node_modules copy; it sends nothing
 // anywhere.
@@ -186,6 +186,30 @@ export async function expectNoSidewaysScroll(page: Page) {
   ).toBeLessThanOrEqual(widths.client);
 }
 
+/**
+ * Every text box, list box and the like uses a font of at least 16 px, so iOS never zooms
+ * the page in when one gets the focus (cabledrawer 20 Oct, hand test). Checked on every size:
+ * an iPad in the wide layout zooms too.
+ */
+export async function expectFieldsDontZoom(page: Page) {
+  const small: string[] = await page.evaluate(() => {
+    const out: string[] = [];
+    const selector =
+      'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea';
+    for (const el of document.querySelectorAll(selector)) {
+      if (!el.checkVisibility({ checkOpacity: false, checkVisibilityCSS: true })) continue;
+      const px = parseFloat(getComputedStyle(el).fontSize);
+      if (px < 16) {
+        const name = el.getAttribute('aria-label') ?? el.getAttribute('name') ?? '';
+        const cls = el.classList.length ? `.${[...el.classList].slice(0, 2).join('.')}` : '';
+        out.push(`<${el.tagName.toLowerCase()}${cls}> "${name}": ${px} px`);
+      }
+    }
+    return out;
+  });
+  expect(small, `fields under 16 px (iOS would zoom in):\n${small.join('\n')}`).toEqual([]);
+}
+
 export type CheckOptions = AxeOptions & {
   /** Selectors allowed to be under 44 px (phone only). Say why next to each. */
   smallTargets?: string[];
@@ -204,6 +228,7 @@ export async function checkPage(page: Page, options: CheckOptions = {}) {
     await inTheme(page, theme);
     await expectNoAxeViolations(page, `${where}, ${isPhone(page) ? 'phone' : 'desktop'}, ${theme}`, options);
   }
+  await expectFieldsDontZoom(page);
   if (isPhone(page)) {
     await expectTouchTargets(page, options.smallTargets);
     await expectNoSidewaysScroll(page);

@@ -193,7 +193,7 @@
     <!-- Adding needs the server: offline the button stays, and a tap says why (cabledrawer 18 Oct). -->
     {#if phone}
       <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
-        >+</button
+        ><Icon name="plus" size={20} stroke={2.6} /></button
       >
     {:else}
       <button type="button" class="add-pill" onclick={addClicked}>+ Add to pantry</button>
@@ -461,13 +461,15 @@
 
 <style>
   .add-round {
+    display: grid;
+    place-items: center;
+    padding: 0;
     width: var(--touch-target);
     height: var(--touch-target);
     border: none;
     border-radius: var(--radius-full);
     background: var(--color-inverse);
     color: var(--color-inverse-text);
-    font: var(--weight-bold) 1.375rem var(--font-ui);
     cursor: pointer;
   }
 
@@ -779,7 +781,7 @@
     border: none;
     background: transparent;
     color: var(--color-text);
-    font: var(--weight-medium) var(--text-base) var(--font-ui);
+    font: var(--weight-medium) 1rem var(--font-ui);
   }
 
   .search input:focus {

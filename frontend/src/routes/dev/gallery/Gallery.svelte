@@ -25,6 +25,9 @@
   import PackPicks from '$lib/components/PackPicks.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PantryGroup from '$lib/components/PantryGroup.svelte';
+  import AmountBox from '$lib/components/shopping/AmountBox.svelte';
+  import ItemRow from '$lib/components/shopping/ItemRow.svelte';
+  import RemoveConfirm from '$lib/components/shopping/RemoveConfirm.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
   import KeepAwake from '$lib/components/KeepAwake.svelte';
@@ -49,7 +52,16 @@
   import type { PantryList } from '$lib/pantryList.svelte';
   import type { Mark } from '$lib/recipeStock';
   import type { ScreenAwake } from '$lib/screenAwake.svelte';
+  import type { PutAway } from '$lib/shopping/putAway';
+  import type { ShoppingModel } from '$lib/shopping/store.svelte';
+  import type { ViewItem } from '$lib/shopping/view';
   import { samplePantry } from '$lib/testing/fakePantry';
+  import {
+    food as shopFood,
+    item as shopItem,
+    tess,
+    tick as shopTick
+  } from '$lib/testing/fakeShopping';
   import { toasts } from '$lib/toast.svelte';
 
   // Read by the check that the real build has no gallery in it (e2e/tests/gallery.spec.ts).
@@ -123,6 +135,67 @@
   const pantryPack = sample.paneer[0]!;
   let menuLot = $state<typeof pantryPack | null>(null);
   let menuAnchor = $state<HTMLElement | null>(null);
+
+  // --- Shopping rows, with a stand-in model -------------------------------------------------
+  const lineOf = (
+    id: string,
+    name: string,
+    item: Parameters<typeof shopItem>[2] = {},
+    food: Parameters<typeof shopFood>[3] = {},
+    ticked = false
+  ): ViewItem => {
+    const ticks = ticked
+      ? [
+          shopTick(`t-${id}`, {
+            by: tess,
+            bought: item.amount ? { amount: item.amount, display: item.display ?? '' } : null
+          })
+        ]
+      : [];
+    return {
+      item: shopItem(id, 1, { ticks, ...item }),
+      food: shopFood(1, name, 'dry_goods', { sizes: [], ...food }),
+      ticks
+    };
+  };
+  const rows = {
+    toorDal: lineOf('g-dal', 'Toor dal', { amount: 500, display: '500 g' }),
+    noAmount: lineOf('g-roll', 'Kitchen roll', { amount: null, display: null }),
+    long: lineOf(
+      'g-long',
+      'Dried red Kashmiri chillies, whole, from the Indian grocer on the high street',
+      { amount: 2, display: '2 packets' }
+    ),
+    swiped: lineOf('g-onion', 'Onion', { amount: 4, display: '4' }, { counted_as: 'count' }),
+    milk: lineOf(
+      'g-milk',
+      'Milk',
+      { amount: 2000, display: '2 L' },
+      { counted_as: 'volume' },
+      true
+    ),
+    bare: lineOf('g-bare', 'Drumsticks', { amount: null, display: null }, {}, true),
+    salt: lineOf('g-salt', 'Salt', { amount: 750, display: '750 g' }, { staple: true }, true)
+  };
+  const putAways: Record<string, PutAway> = {
+    'g-milk': { kind: 'amount', place: 'Fridge', amount: '2 L' },
+    'g-bare': { kind: 'none' },
+    'g-salt': { kind: 'staple' }
+  };
+  const shopModel = {
+    device: 'phone',
+    placing: null,
+    copy: { places: [] },
+    placeName: () => 'Fridge',
+    putAwayFor: (item: { id: string }) => putAways[item.id] ?? { kind: 'none' },
+    sizesOf: () => Promise.resolve([]),
+    tick: saved,
+    untick: saved,
+    undoTick: saved,
+    setAmount: saved,
+    remove: saved
+  } as unknown as ShoppingModel;
+  let asking = $state(false);
 
   // --- Recipes ------------------------------------------------------------------------------
   const recipe = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRow => ({
@@ -580,6 +653,48 @@
     />
   </section>
 
+  <section id="shopping-rows">
+    <h2>Shopping rows, amount box, "Remove?" question, status line</h2>
+    <p class="note">
+      Stand-in data; nothing is saved. Only the square ticks; the name and the amount open the
+      amount box. A row slid to the left shows a red Remove (a finger does that on a phone).
+    </p>
+    <h3>Rows: with an amount, with none, a very long name, and swiped</h3>
+    <ul class="shop-rows">
+      <ItemRow model={shopModel} view={rows.toorDal} />
+      <ItemRow model={shopModel} view={rows.noAmount} />
+      <ItemRow model={shopModel} view={rows.long} />
+      <ItemRow model={shopModel} view={rows.swiped} swiped />
+    </ul>
+    <h3>Ticked rows: where it went, with no amount, and a staple</h3>
+    <ul class="shop-rows">
+      <ItemRow model={shopModel} view={rows.milk} trolley />
+      <ItemRow model={shopModel} view={rows.bare} trolley />
+      <ItemRow model={shopModel} view={rows.salt} trolley />
+    </ul>
+    <h3>Amount box</h3>
+    <div class="shop-rows">
+      <AmountBox
+        model={shopModel}
+        view={rows.toorDal}
+        onclose={() => {}}
+        onremove={() => (asking = true)}
+      />
+    </div>
+    <h3>Remove? (a sheet on a phone, a dialog on a computer)</h3>
+    <button type="button" class="demo" onclick={() => (asking = true)}>Ask: Remove Onion?</button>
+    {#if asking}
+      <RemoveConfirm
+        name="Onion"
+        onremove={() => {
+          asking = false;
+          toasts.show('Removed Onion', { action: { label: 'Undo', run: () => {} } });
+        }}
+        onkeep={() => (asking = false)}
+      />
+    {/if}
+  </section>
+
   <section id="recipes">
     <h2>Recipe rows, filter row, empty list</h2>
     <p class="note">
@@ -801,6 +916,15 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-4);
+  }
+
+  .shop-rows {
+    max-width: 420px;
+    margin: 0;
+    padding: var(--space-1) 14px;
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    list-style: none;
   }
 
   .demo {

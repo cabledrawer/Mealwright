@@ -39,6 +39,11 @@ describe('the Shopping page', () => {
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
   }
 
+  /** A ticked row's "Change" opens the places and "Different pack?". */
+  async function openChange(name: string) {
+    await page.getByRole('button', { name: `Change where ${name} went` }).click();
+  }
+
   beforeEach(() => {
     freshPhone();
     copy = sampleCopy();
@@ -83,10 +88,12 @@ describe('the Shopping page', () => {
     const fold = page.getByRole('button', { name: 'In the trolley · 2' });
     await expect.element(fold).toHaveAttribute('aria-expanded', 'false');
     await fold.click();
-    await expect.element(page.getByRole('button', { name: '→ Fridge' }).first()).toBeVisible();
-    await expect
-      .element(page.getByRole('button', { name: 'Different pack?' }).first())
-      .toBeVisible();
+    await expect.element(page.getByText('In the Fridge · 2 packs')).toBeVisible();
+    await expect.element(page.getByText('In the Fridge · 1 bunch')).toBeVisible();
+    expect(document.body.textContent).not.toContain('→ Fridge');
+    await openChange('Paneer');
+    await expect.element(page.getByRole('button', { name: 'Different pack?' })).toBeVisible();
+    await expect.element(page.getByRole('radio', { name: 'Fridge' })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Clear ticked' })).toBeVisible();
   });
 
@@ -402,7 +409,13 @@ describe('the Shopping page', () => {
   it('desktop: the Put away panel shows the last tick and where it went', async () => {
     await render(1300);
     await expect.element(page.getByRole('heading', { name: 'Put away' })).toBeVisible();
-    await expect.element(page.getByText('Ticked items go straight into the pantry.')).toBeVisible();
+    await expect
+      .element(
+        page.getByText(
+          'Ticked items with an amount go straight into the pantry. Each ticked row says where it went.'
+        )
+      )
+      .toBeVisible();
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
     const where = page.getByRole('combobox', { name: 'Where' });
     await expect.element(where).toBeVisible();
@@ -417,7 +430,8 @@ describe('the Shopping page', () => {
   it('Different pack? offers the planned pack and sends the one picked', async () => {
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
-    await page.getByRole('button', { name: 'Different pack?' }).last().click();
+    await openChange('Paneer');
+    await page.getByRole('button', { name: 'Different pack?' }).click();
     await expect.element(page.getByText('What did you buy?')).toBeVisible();
     await expect
       .element(page.getByRole('radio', { name: '2 × 200 g' }))
@@ -439,7 +453,8 @@ describe('the Shopping page', () => {
   it('Different pack? → Other… takes a whole number of packs and an amount', async () => {
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
-    await page.getByRole('button', { name: 'Different pack?' }).last().click();
+    await openChange('Paneer');
+    await page.getByRole('button', { name: 'Different pack?' }).click();
     await page.getByRole('radio', { name: 'Other…' }).click();
     await page.getByRole('textbox', { name: 'How many packs' }).fill('3');
     await page.getByRole('textbox', { name: 'Size of one' }).fill('1');
@@ -451,11 +466,14 @@ describe('the Shopping page', () => {
     );
   });
 
-  it('an item with no amount offers How much? once ticked', async () => {
+  it('an item with no amount says so once ticked, and Add amount opens How much?', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
-    await expect.element(page.getByRole('button', { name: 'How much?' })).toBeVisible();
+    await expect.element(page.getByText('Not in the pantry yet. No amount.')).toBeVisible();
+    expect(document.body.textContent).not.toContain('→ Cupboard');
+    await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
+    await expect.element(page.getByText('How much?')).toBeVisible();
   });
 
   it('“Did you buy 2?” is a card with Yes, 2 and Just 1', async () => {
@@ -724,7 +742,8 @@ describe('the Shopping page', () => {
   it('Different pack?: Escape closes the panel and returns focus; a bad Other… says why', async () => {
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
-    const opener = page.getByRole('button', { name: 'Different pack?' }).last();
+    await openChange('Paneer');
+    const opener = page.getByRole('button', { name: 'Different pack?' });
     await opener.click();
     await page.getByRole('radio', { name: 'Other…' }).click();
     await page.getByRole('button', { name: 'Done' }).click();
@@ -748,7 +767,8 @@ describe('the Shopping page', () => {
       );
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
-    await page.getByRole('button', { name: 'Different pack?' }).last().click();
+    await openChange('Paneer');
+    await page.getByRole('button', { name: 'Different pack?' }).click();
     await expect.element(page.getByText('Which purchase?')).toBeVisible();
     await page.getByRole('radio', { name: /^Wren/ }).click();
     await page.getByRole('radio', { name: '1 × 400 g' }).click();
@@ -817,7 +837,175 @@ describe('the Shopping page', () => {
     copy.items.find((i) => i.id === 'i-onions')!.display = '2 boxes';
     await render(1300);
     await expect
-      .element(page.getByRole('button', { name: 'Onions: 2 boxes. Change' }))
+      .element(page.getByRole('button', { name: 'Change amount: Onions, 2 boxes' }))
       .toBeVisible();
+  });
+
+  describe('rows (cabledrawer 20 Oct, hand test)', () => {
+    /** A finger sliding sideways over a row: down, two moves, up. */
+    function swipe(row: HTMLElement, dx: number, dy = 0) {
+      const base = { pointerId: 7, pointerType: 'touch', isPrimary: true, bubbles: true };
+      const at = (x: number, y: number) => ({ ...base, clientX: x, clientY: y });
+      row.dispatchEvent(new PointerEvent('pointerdown', at(300, 300)));
+      row.dispatchEvent(new PointerEvent('pointermove', at(300 + dx / 2, 300 + dy / 2)));
+      row.dispatchEvent(new PointerEvent('pointermove', at(300 + dx, 300 + dy)));
+      row.dispatchEvent(new PointerEvent('pointerup', at(300 + dx, 300 + dy)));
+    }
+    const slideOf = (name: string) =>
+      page
+        .getByRole('checkbox', { name: `Tick ${name}` })
+        .element()
+        .closest('.slide') as HTMLElement;
+
+    it('only the square ticks: the name opens the amount box, which holds the real amount', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await expect.element(page.getByRole('form', { name: 'Change Yoghurt' })).toBeVisible();
+      await expect.element(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('500');
+      await expect.element(page.getByRole('combobox', { name: 'Unit' })).toHaveValue('g');
+      expect(server.actions).toEqual([]);
+    });
+
+    it('the amount pill opens it too; − / + and Done send one set_amount; focus comes back', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Change amount: Yoghurt, 500 g' }).click();
+      await page.getByRole('button', { name: 'More' }).click();
+      await expect.element(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('550');
+      expect(server.actions).toEqual([]); // nothing is sent while you press +
+      await page.getByRole('button', { name: 'Done' }).click();
+      await vi.waitFor(() =>
+        expect(server.actions).toMatchObject([
+          { kind: 'set_amount', item_id: 'i-yoghurt', amount: 550 }
+        ])
+      );
+      await vi.waitFor(() => expect(document.activeElement?.textContent?.trim()).toBe('Yoghurt'));
+    });
+
+    it('a changed unit keeps the amount, and Escape leaves the line as it was', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await page.getByRole('combobox', { name: 'Unit' }).selectOptions('kg');
+      await expect.element(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('0.5');
+      await userEvent.keyboard('{Escape}');
+      await expect
+        .element(page.getByRole('form', { name: 'Change Yoghurt' }))
+        .not.toBeInTheDocument();
+      expect(server.actions).toEqual([]);
+    });
+
+    it('a box that can’t be read says why and stays open', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Amount' }).fill('lots');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Type an amount, like 500 g or 2 packets.');
+      expect(server.actions).toEqual([]);
+    });
+
+    it('Remove from list asks first; Keep it removes nothing; Remove sends delete, with Undo', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await page.getByRole('button', { name: 'Remove from list' }).click();
+      const ask = page.getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' });
+      await expect.element(ask).toBeVisible();
+      await expect.element(ask.getByText('Nothing goes into the pantry.')).toBeVisible();
+      expect(server.actions).toEqual([]); // asking removes nothing
+      // The safe choice has the focus.
+      expect(document.activeElement?.textContent?.trim()).toBe('Keep it');
+      await ask.getByRole('button', { name: 'Keep it' }).click();
+      await expect.element(ask).not.toBeInTheDocument();
+      expect(server.actions).toEqual([]);
+      await page.getByRole('button', { name: 'Remove from list' }).click();
+      await page
+        .getByRole('alertdialog')
+        .getByRole('button', { name: 'Remove', exact: true })
+        .click();
+      await vi.waitFor(() =>
+        expect(server.actions.at(-1)).toMatchObject({ kind: 'delete', item_id: 'i-yoghurt' })
+      );
+      const toast = page.getByRole('status').filter({ hasText: 'Removed Yoghurt' });
+      await expect.element(toast.getByRole('button', { name: 'Undo' })).toBeVisible();
+    });
+
+    it('Escape on the question keeps the line', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await page.getByRole('button', { name: 'Remove from list' }).click();
+      await expect.element(page.getByRole('alertdialog')).toBeVisible();
+      await userEvent.keyboard('{Escape}');
+      await expect.element(page.getByRole('alertdialog')).not.toBeInTheDocument();
+      expect(server.actions).toEqual([]);
+    });
+
+    it('phone: swiping left shows a red Remove, which asks; a swipe alone removes nothing', async () => {
+      await render(390);
+      swipe(slideOf('Yoghurt'), -100);
+      const red = page.getByRole('button', { name: 'Remove Yoghurt from the list' });
+      await expect.element(red).toBeVisible();
+      expect(server.actions).toEqual([]);
+      await red.click();
+      await expect
+        .element(page.getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' }))
+        .toBeVisible();
+      expect(server.actions).toEqual([]);
+    });
+
+    it('phone: an up-and-down drag scrolls and shows no Remove', async () => {
+      await render(390);
+      swipe(slideOf('Yoghurt'), -20, 80);
+      expect(page.getByRole('button', { name: 'Remove Yoghurt from the list' }).elements()).toEqual(
+        []
+      );
+    });
+
+    it('phone: a tap on a swiped row closes it instead of opening or ticking it', async () => {
+      await render(390);
+      swipe(slideOf('Yoghurt'), -100);
+      await expect
+        .element(page.getByRole('button', { name: 'Remove Yoghurt from the list' }))
+        .toBeVisible();
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      expect(page.getByRole('form', { name: 'Change Yoghurt' }).elements()).toEqual([]);
+      expect(server.actions).toEqual([]);
+    });
+
+    it('computer: a bin asks the same question', async () => {
+      await render(1300);
+      await page.getByRole('button', { name: 'Remove Yoghurt from the list' }).click();
+      await expect
+        .element(page.getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' }))
+        .toBeVisible();
+    });
+
+    it('a staple says “restocked” in the toast and on its row, and has no Change', async () => {
+      copy.foods.find((f) => f.id === 3)!.staple = true;
+      await render(390);
+      await page.getByRole('checkbox', { name: 'Tick Yoghurt' }).click();
+      const toast = page.getByRole('status').filter({ hasText: 'Yoghurt restocked' });
+      await expect.element(toast).toBeVisible();
+      expect(toast.getByRole('button', { name: 'Change' }).elements()).toEqual([]);
+      await page.getByRole('button', { name: 'In the trolley · 3' }).click();
+      await expect.element(page.getByText('Restocked · staples aren’t counted')).toBeVisible();
+      expect(document.body.textContent).not.toContain('→ Cupboard');
+    });
+
+    it('a line with no amount says “ticked” in the toast, with nothing to change', async () => {
+      await render(390);
+      await page.getByRole('checkbox', { name: 'Tick Kitchen roll' }).click();
+      const toast = page.getByRole('status').filter({ hasText: 'Kitchen roll ticked' });
+      await expect.element(toast).toBeVisible();
+      expect(toast.getByRole('button', { name: 'Change' }).elements()).toEqual([]);
+    });
+
+    it('the Undo on a ticked row takes that tick back', async () => {
+      await render(1300);
+      await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+      await page.getByRole('button', { name: 'Undo ticking Paneer' }).click();
+      await vi.waitFor(() =>
+        expect(server.actions.at(-1)).toMatchObject({ kind: 'undo', undoes: 't-pan' })
+      );
+    });
   });
 });

@@ -590,9 +590,5 @@
     .handle {
       display: none;
     }
-    label input,
-    label select {
-      font-size: var(--text-base);
-    }
   }
 </style>

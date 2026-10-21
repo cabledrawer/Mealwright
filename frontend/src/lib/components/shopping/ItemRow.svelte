@@ -1,40 +1,49 @@
 <script lang="ts">
-  // One line on the list. Unticked: a checkbox, the name (opens the ingredient), and the
-  // amount (tap to change it or take the item off the list). In the trolley: struck through,
-  // where it went, and "Different pack?" (mockup Shop). Notes for the item sit underneath.
+  // One line on the list (mockups ShopRows-*; cabledrawer 20 Oct).
+  // Not ticked: only the square ticks. The name and the amount (a pill) both open the amount box.
+  // On a phone, swiping the row left shows a red Remove; on a computer a bin shows when the
+  // pointer is over the row. Both, and "Remove from list" in the amount box, ask first.
+  // In the trolley: a status line that says where the tick went (PutAwayLine), with "Change"
+  // for the place and "Different pack?" there. Notes for the item sit underneath.
+  import { tick as afterUpdate, untrack } from 'svelte';
   import { keepFocus } from '$lib/focusNear';
-  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-  import { toBaseAmount } from '$lib/shopping/amountEdit';
+  import { radioKeys } from '$lib/radioKeys';
+  import { swipeToReveal } from '$lib/swipe';
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
   import type { Note } from '$lib/shopping/types';
   import type { ViewItem } from '$lib/shopping/view';
+  import Icon from '../Icon.svelte';
+  import AmountBox from './AmountBox.svelte';
   import PackSheet from './PackSheet.svelte';
-  import { radioKeys } from '$lib/radioKeys';
+  import PutAwayLine from './PutAwayLine.svelte';
+  import RemoveConfirm from './RemoveConfirm.svelte';
 
   let {
     model,
     view,
     trolley = false,
     notes = [],
-    highlight = false
+    highlight = false,
+    swiped = false
   }: {
     model: ShoppingModel;
     view: ViewItem;
     trolley?: boolean;
     notes?: Note[];
     highlight?: boolean;
+    /** Start with the red Remove showing (the component gallery). */
+    swiped?: boolean;
   } = $props();
 
-  const uid = $props.id();
   const item = $derived(view.item);
   const food = $derived(view.food);
   const tick = $derived(view.ticks[0]);
 
   let editing = $state(false);
-  let text = $state('');
-  let problem = $state<string | null>(null);
+  let asking = $state(false);
   let packOpen = $state(false);
-  let packButton = $state<HTMLButtonElement>();
+  let packButton = $state<HTMLElement>();
+  let nameButton = $state<HTMLButtonElement>();
 
   const place = $derived(model.placeName(tick?.place_id ?? item.put_away_place_id));
   const placing = $derived(model.placing === item.id);
@@ -43,98 +52,173 @@
       ? `Planned ${item.display}`
       : null
   );
+  const putAway = $derived(trolley ? model.putAwayFor(item) : null);
 
-  async function startEdit() {
-    text = '';
-    problem = null;
-    editing = true;
-    await model.sizesOf(food.id).catch(() => []);
-  }
+  // The line was ticked elsewhere while its amount box was open: the box has no place now.
+  $effect(() => {
+    if (trolley) editing = false;
+  });
 
-  function saveAmount(event: SubmitEvent) {
-    event.preventDefault();
-    const parsed = toBaseAmount(text, {
-      counted_as: food.counted_as,
-      sizes: food.sizes ?? [],
-      count_word: food.count_word ?? null,
-      count_word_plural: food.count_word_plural ?? null
-    });
-    if ('problem' in parsed) {
-      problem = parsed.problem;
-      return;
+  // --- Swipe (phone) -------------------------------------------------------------------------------
+  const REVEAL = 104;
+  let revealed = $state(untrack(() => swiped));
+  let drag = $state<number | null>(null);
+  const swipeable = $derived(model.device === 'phone' && !trolley && !editing);
+  const offset = $derived(drag ?? (revealed ? -REVEAL : 0));
+
+  $effect(() => {
+    if (!swipeable) {
+      revealed = false;
+      drag = null;
     }
-    editing = false;
-    void model.setAmount(item, parsed.amount, parsed.sizeId);
+  });
+
+  function openBox() {
+    revealed = false;
+    editing = true;
   }
 
-  function focusOnShow(node: HTMLElement) {
-    node.focus();
+  async function closeBox() {
+    editing = false;
+    await afterUpdate();
+    nameButton?.focus();
+  }
+
+  // Where the focus was when the question opened, so Keep it can give it back.
+  let opener: Element | null = null;
+
+  function ask() {
+    opener = document.activeElement;
+    revealed = false;
+    asking = true;
+  }
+
+  async function keep() {
+    asking = false;
+    await afterUpdate();
+    // The red Remove and the amount box go when the question closes: fall back to the name.
+    const back = opener?.isConnected ? opener : nameButton;
+    (back as HTMLElement | null | undefined)?.focus();
+  }
+
+  function remove(event: MouseEvent) {
+    // The row goes, and the focus with it: note the neighbour to move to first.
+    const back = keepFocus(event.currentTarget as HTMLElement);
+    asking = false;
+    editing = false;
+    void model.remove(item);
+    back();
   }
 </script>
 
 <li class="item" class:trolley class:highlight>
-  <div class="line">
-    <label class="tick">
-      <input
-        type="checkbox"
-        checked={trolley}
-        aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
-        onchange={(event) => {
-          const back = keepFocus(event.currentTarget);
-          void (trolley ? model.untick(item) : model.tick(item));
-          back();
+  {#if editing && !trolley}
+    <AmountBox {model} {view} onclose={() => void closeBox()} onremove={ask} />
+  {:else}
+    <div class="swipe">
+      {#if swipeable && offset < 0}
+        <button type="button" class="swipe-remove" onclick={ask}>
+          <Icon name="trash" size={20} stroke={2.2} />Remove<span class="visually-hidden">
+            {food.name} from the list</span
+          >
+        </button>
+      {/if}
+      <div
+        class="slide"
+        class:dragging={drag !== null}
+        style:transform={offset ? `translateX(${offset}px)` : undefined}
+        use:swipeToReveal={{
+          width: REVEAL,
+          open: revealed,
+          enabled: swipeable,
+          ondrag: (value) => (drag = value),
+          onsettle: (open) => (revealed = open)
         }}
-      />
-      <span class="box" aria-hidden="true">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="3.2"
-          stroke-linecap="round"
-          stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
-        >
-      </span>
-    </label>
-    <span class="what">
-      <button type="button" class="name" onclick={() => ingredientEditor.open(food.id)}
-        >{food.name}</button
+        onclickcapture={(event) => {
+          // A swiped row closes on the next tap, whatever it lands on.
+          if (!revealed) return;
+          event.stopPropagation();
+          event.preventDefault();
+          revealed = false;
+        }}
       >
-      {#if planned}<span class="sub">{planned}</span>{/if}
-    </span>
-    {#if trolley}
-      <span class="pills">
-        <button
-          type="button"
-          class="pill"
-          aria-expanded={placing}
-          onclick={() => (model.placing = placing ? null : item.id)}
-          >{place ? `→ ${place}` : 'Put away'}</button
-        >
-        <button
-          type="button"
-          class="pill"
-          bind:this={packButton}
-          aria-expanded={packOpen}
-          onclick={() => (packOpen = !packOpen)}
-          >{item.amount ? 'Different pack?' : 'How much?'}</button
-        >
-      </span>
-    {:else}
-      <button
-        type="button"
-        class="amount"
-        aria-expanded={editing}
-        aria-label={item.display
-          ? `${food.name}: ${item.display}. Change`
-          : `Set how much ${food.name}`}
-        onclick={() => (editing ? (editing = false) : void startEdit())}
-        >{item.display ?? '+'}</button
-      >
-    {/if}
-  </div>
+        <div class="line">
+          <label class="tick">
+            <input
+              type="checkbox"
+              checked={trolley}
+              aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
+              onchange={(event) => {
+                const back = keepFocus(event.currentTarget);
+                void (trolley ? model.untick(item) : model.tick(item));
+                back();
+              }}
+            />
+            <span class="box" aria-hidden="true">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+              >
+            </span>
+          </label>
+          {#if trolley}
+            <span class="what">
+              <span class="top">
+                <span class="name">{food.name}</span>
+                {#if item.display}<span class="bought">{item.display}</span>{/if}
+              </span>
+              {#if planned}<span class="sub">{planned}</span>{/if}
+              {#if putAway}
+                <PutAwayLine
+                  state={putAway}
+                  name={food.name}
+                  changing={placing}
+                  onchange={() => (model.placing = placing ? null : item.id)}
+                  onadd={(button) => {
+                    packButton = button;
+                    packOpen = true;
+                  }}
+                  onundo={() => void model.undoTick(item)}
+                />
+              {/if}
+            </span>
+          {:else}
+            <button
+              type="button"
+              class="name"
+              bind:this={nameButton}
+              aria-expanded={editing}
+              onclick={openBox}>{food.name}</button
+            >
+            <button
+              type="button"
+              class="amount"
+              aria-expanded={editing}
+              aria-label={item.display
+                ? `Change amount: ${food.name}, ${item.display}`
+                : `Add amount for ${food.name}`}
+              onclick={openBox}
+            >
+              {item.display ?? 'Add amount'}
+              {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
+            </button>
+            <button
+              type="button"
+              class="bin"
+              aria-label="Remove {food.name} from the list"
+              onclick={ask}><Icon name="trash" size={20} stroke={2.2} /></button
+            >
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if placing && trolley}
     <div class="places" role="radiogroup" aria-label="Where did {food.name} go?" use:radioKeys>
@@ -147,33 +231,13 @@
         >
       {/each}
     </div>
-  {/if}
-
-  {#if editing && !trolley}
-    <form class="edit" onsubmit={saveAmount}>
-      <label>
-        How much {food.name}?
-        <input
-          bind:value={text}
-          inputmode="decimal"
-          placeholder={item.display ?? 'e.g. 500 g'}
-          aria-describedby={problem ? `${uid}-p` : undefined}
-          use:focusOnShow
-        />
-      </label>
-      <button type="submit" class="pill strong">Save</button>
-      <button
-        type="button"
-        class="pill"
-        onclick={(event) => {
-          const back = keepFocus(event.currentTarget);
-          editing = false;
-          void model.remove(item);
-          back();
-        }}>Remove from list</button
-      >
-      {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
-    </form>
+    <button
+      type="button"
+      class="pack"
+      bind:this={packButton}
+      aria-expanded={packOpen}
+      onclick={() => (packOpen = !packOpen)}>Different pack?</button
+    >
   {/if}
 
   {#if packOpen && trolley && view.ticks.length}
@@ -203,6 +267,10 @@
       >
     </p>
   {/each}
+
+  {#if asking}
+    <RemoveConfirm name={food.name} onremove={remove} onkeep={() => void keep()} />
+  {/if}
 </li>
 
 <style>
@@ -216,34 +284,76 @@
     border-bottom: none;
   }
 
-  .highlight {
+  /* The row slides over a red Remove; the card's own padding is given back to the row. */
+  .swipe {
+    position: relative;
+    margin: 0 -14px;
+    overflow: hidden;
+  }
+
+  .item:first-child .swipe {
+    border-top-left-radius: var(--radius-xl);
+    border-top-right-radius: var(--radius-xl);
+  }
+
+  .item:last-child .swipe {
+    border-bottom-left-radius: var(--radius-xl);
+    border-bottom-right-radius: var(--radius-xl);
+  }
+
+  .swipe-remove {
+    position: absolute;
+    inset: 0 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    width: 104px;
+    padding: 0;
+    border: none;
+    background: var(--color-danger);
+    color: var(--color-danger-text);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .slide {
+    position: relative;
+    padding: 0 14px;
+    background: var(--color-surface);
+    /* Sideways belongs to the swipe; up and down still scroll the page. */
+    touch-action: pan-y;
+    transition: transform 0.18s ease;
+  }
+
+  .highlight .slide {
     background: var(--color-accent-soft);
+  }
+
+  .slide.dragging {
+    transition: none;
+  }
+
+  .visually-hidden {
+    position: absolute;
+    left: -9999px;
   }
 
   .line {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 0 var(--space-6);
-    min-height: 52px;
-  }
-
-  .pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
+    min-height: 60px;
     padding: var(--space-2) 0;
   }
 
-  /* On a phone the buttons go on their own line under the name, so the name stays whole. */
-  @media (max-width: 767px) {
-    .pills {
-      flex-basis: 100%;
-      padding-left: 38px;
-    }
+  .trolley .line {
+    align-items: flex-start;
+    padding: var(--space-3) 0;
   }
 
-  /* A 44 px tap area around a 22 px box, as in the mockup's row. */
+  /* A 44 px tap area around the 28 px square, as in the mockup's row. */
   .tick {
     position: relative;
     display: grid;
@@ -251,7 +361,7 @@
     place-items: center;
     width: var(--touch-target);
     height: var(--touch-target);
-    margin-left: calc(-1 * var(--space-4));
+    margin: 0 calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-4));
   }
 
   .tick input {
@@ -267,10 +377,10 @@
   .box {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     border: 2px solid var(--color-field-border);
-    border-radius: 7px;
+    border-radius: 8px;
     background: var(--color-field);
     color: transparent;
   }
@@ -290,45 +400,107 @@
     display: flex;
     flex: 1 1 8rem;
     flex-direction: column;
+    gap: var(--space-2);
     min-width: 0;
   }
 
+  .top {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding-top: var(--space-4);
+  }
+
   .name {
+    min-width: 0;
+    color: var(--color-text);
+    font: var(--weight-semibold) 1rem var(--font-ui);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  /* Not ticked: the name is a button that opens the amount box. */
+  button.name {
+    flex: 1 1 8rem;
     min-height: var(--touch-target);
     padding: 0;
     border: none;
     background: transparent;
-    color: var(--color-text);
-    font: var(--weight-semibold) var(--text-lg) var(--font-ui);
-    text-align: left;
     cursor: pointer;
   }
 
   .trolley .name {
     color: var(--color-text-muted);
-    text-decoration: line-through;
+  }
+
+  .bought {
+    flex: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
   }
 
   .sub {
-    margin-top: calc(-1 * var(--space-3));
-    padding-bottom: var(--space-2);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
   }
 
+  /* The amount looks tappable: a pill, with a chevron when there is an amount. */
   .amount {
-    min-width: var(--touch-target);
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-2);
     min-height: var(--touch-target);
-    padding: 0 var(--space-2);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font: var(--weight-regular) var(--text-base) var(--font-ui);
-    text-align: right;
+    padding: 0 var(--space-5) 0 var(--space-6);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--weight-semibold) var(--text-base) var(--font-ui);
     cursor: pointer;
   }
 
-  .pill {
+  .amount :global(svg) {
+    color: var(--color-text-muted);
+  }
+
+  /* A bin for the pointer, on computers that can hover: it shows over the row or when the
+     keyboard reaches it. On a phone the swipe does it; on a touch tablet the amount box. */
+  .bin {
+    display: none;
+    flex: none;
+    place-items: center;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-warning-text);
+    cursor: pointer;
+  }
+
+  @media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+    .bin {
+      display: grid;
+      opacity: 0;
+    }
+
+    .item:hover .bin,
+    .item:focus-within .bin {
+      opacity: 1;
+    }
+  }
+
+  .places {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin: 0 0 var(--space-3) 34px;
+  }
+
+  .places button,
+  .pack {
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: 1px solid var(--color-border-strong);
@@ -339,62 +511,15 @@
     cursor: pointer;
   }
 
-  .pill.strong {
-    border-color: transparent;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .places,
-  .edit {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--space-3);
+  .pack {
+    align-self: flex-start;
     margin: 0 0 var(--space-4) 34px;
-  }
-
-  .edit label {
-    display: flex;
-    flex: 1 1 10rem;
-    flex-direction: column;
-    gap: var(--space-2);
-    color: var(--color-label);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-  }
-
-  .edit input {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-md);
-    background: var(--color-field);
-    color: var(--color-text);
-    font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
   .places button[aria-checked='true'] {
     border-color: var(--color-accent);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
-  }
-
-  .places button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .problem {
-    flex-basis: 100%;
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
   }
 
   .note {

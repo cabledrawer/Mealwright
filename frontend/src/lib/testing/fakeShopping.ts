@@ -95,7 +95,7 @@ export function sampleCopy(): ShoppingCopy {
       item('i-coriander', 2, {
         amount: 1,
         display: '1 bunch',
-        ticks: [tick('t-cor')]
+        ticks: [tick('t-cor', { bought: { amount: 1, display: '1 bunch' } })]
       }),
       item('i-paneer', 4, {
         amount: 400,
@@ -143,7 +143,16 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
     const item = copy.items.find((i) => i.id === action.item_id);
     switch (action.kind) {
       case 'tick':
-        item?.ticks.push(tick(String(action.id), { place_id: 1 }));
+        // Like the real server: an amount that is counted (not a staple) goes into the pantry.
+        item?.ticks.push(
+          tick(String(action.id), {
+            place_id: 1,
+            bought:
+              item.amount && item.display && !copy.foods.find((f) => f.id === item.food_id)?.staple
+                ? { amount: item.amount, display: item.display }
+                : null
+          })
+        );
         break;
       case 'untick':
         item?.ticks.forEach((t) => (t.standing = false));

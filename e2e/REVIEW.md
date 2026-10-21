@@ -78,7 +78,9 @@ showing) get their own `checkPage` call in the feature's tests.
       shopping-list lines only (cabledrawer 19 Oct); the Pantry count says "ingredients". Wording matches the mockup unless the
       spec says otherwise.
 - [ ] Undo, not "Are you sure?": no confirm dialogs. Every change shows an Undo toast;
-      Ctrl+Z on desktop undoes your own last change.
+      Ctrl+Z on desktop undoes your own last change. Two exceptions only: the sign-out
+      warning with unsent changes, and removing a line from the shopping list
+      (cabledrawer 20 Oct), which also shows "Removed Onion" with Undo afterwards.
 - [ ] Optimistic updates: the screen changes before the server answers, and rolls back
       with a calm message if it fails (test with the request held or failing).
 - [ ] One switch component (`Switch.svelte`) for every on/off; no checkboxes.

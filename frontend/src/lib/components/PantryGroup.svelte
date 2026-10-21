@@ -509,8 +509,5 @@
     .click {
       display: inline;
     }
-    .small-field input {
-      font-size: var(--text-md);
-    }
   }
 </style>

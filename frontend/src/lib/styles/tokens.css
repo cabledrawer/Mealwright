@@ -65,6 +65,9 @@
   --color-note-text: #1f5c42;
   --color-warning: #fde9e1; /* something needs attention, calmly */
   --color-warning-text: #9c320b;
+  /* A button that removes something: white on this red passes AA (mockups ShopRows-*). */
+  --color-danger: #b3261e;
+  --color-danger-text: #ffffff;
   --radius-field: 14px;
   --radius-button: 16px;
 
@@ -213,6 +216,8 @@
   --color-note-text: #8fe0b5;
   --color-warning: #3e2119;
   --color-warning-text: #ff9b76;
+  --color-danger: #c8442f;
+  --color-danger-text: #ffffff;
 
   --color-switch-off: #39433d;
   --color-switch-on: #6fcf9e;

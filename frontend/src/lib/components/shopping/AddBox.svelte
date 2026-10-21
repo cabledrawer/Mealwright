@@ -1,6 +1,7 @@
 <script lang="ts">
   // "Add an item…" (mockup Shop): type a name; matching ingredients are offered, and a name
   // nobody has used offers + New ingredient: "tahini", which asks How do you count it?.
+  import Icon from '$lib/components/Icon.svelte';
   import type { FoodRow } from '$lib/client/types';
   import { newIngredient } from '$lib/newIngredient.svelte';
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
@@ -103,7 +104,9 @@
     {#if desktop}
       <button type="submit" class="plus wide" disabled={!typed}>Add</button>
     {:else}
-      <button type="submit" class="plus" aria-label="Add item" disabled={!typed}>+</button>
+      <button type="submit" class="plus" aria-label="Add item" disabled={!typed}
+        ><Icon name="plus" size={20} stroke={2.6} /></button
+      >
     {/if}
   </form>
   <ul id="{uid}-list" aria-label="Matching ingredients">
@@ -153,24 +156,26 @@
     border-radius: var(--radius-lg);
     background: var(--color-field);
     color: var(--color-text);
-    font: var(--weight-medium) var(--text-lg) var(--font-ui);
+    font: var(--weight-medium) 1rem var(--font-ui);
   }
 
   .plus {
+    display: grid;
+    place-items: center;
+    padding: 0;
     width: 48px;
     height: 48px;
     border: none;
     border-radius: var(--radius-lg);
     background: #2e7d5b; /* white on this green passes AA in both themes, as in the mockups */
     color: #ffffff;
-    font: var(--weight-bold) 1.375rem var(--font-ui);
     cursor: pointer;
   }
 
   .plus.wide {
     width: auto;
     padding: 0 20px;
-    font-size: var(--text-lg);
+    font: var(--weight-bold) var(--text-lg) var(--font-ui);
   }
 
   .plus:disabled {

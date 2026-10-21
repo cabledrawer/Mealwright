@@ -1,7 +1,8 @@
 <script lang="ts">
-  // Desktop only (mockup Desktop-Shop): "Put away", beside the list. Ticked items go straight
-  // into the pantry; choose where the last one went, or Undo last tick. The phone has the
-  // toast ("Coriander → Fridge · Change · Undo") instead.
+  // Desktop only (mockup ShopRows-Desktop): "Put away", beside the list. Ticked items with an
+  // amount go straight into the pantry, and every ticked row says where it went; here you can
+  // also choose where the last one went, or Undo last tick. The phone has the toast
+  // ("Coriander → Fridge · Change · Undo") instead.
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
 
   let { model }: { model: ShoppingModel } = $props();
@@ -21,11 +22,13 @@
 
 <section class="panel" aria-labelledby="{uid}-t">
   <h2 id="{uid}-t">Put away</h2>
-  <p class="hint">Ticked items go straight into the pantry.</p>
+  <p class="hint">
+    Ticked items with an amount go straight into the pantry. Each ticked row says where it went.
+  </p>
   {#if last && item && standing}
     <div class="row">
       <span class="what">{last.name}{item.display ? `, ${item.display}` : ''}</span>
-      {#if placeId !== null}
+      {#if placeId !== null && model.putAwayFor(item).kind === 'amount'}
         <label>
           Where
           <select
@@ -92,7 +95,7 @@
     border-radius: var(--radius-md);
     background: var(--color-field);
     color: var(--color-text);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
+    font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
   .link {

@@ -17,7 +17,9 @@
     | 'search'
     | 'pencil'
     | 'calendar'
-    | 'check';
+    | 'check'
+    | 'plus'
+    | 'trash';
 </script>
 
 <script lang="ts">
@@ -77,6 +79,10 @@
     <rect x="4" y="5" width="16" height="15" rx="2.5" />
     <path d="M4 10h16M8.5 3v4M15.5 3v4" />
     <path d="M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01" />
+  {:else if name === 'plus'}
+    <path d="M12 5v14M5 12h14" />
+  {:else if name === 'trash'}
+    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
   {:else if name === 'check'}
     <path d="M5 12.5l4.5 4.5L19 7.5" />
   {:else if name === 'search'}
