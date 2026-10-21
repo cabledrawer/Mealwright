@@ -458,7 +458,7 @@
               type="text"
               maxlength="30"
               aria-label="What it makes"
-              placeholder="What it makes, e.g. dosas"
+              placeholder="What it makes, like dosas"
               bind:value={draft.makesWord}
             />
           {/if}

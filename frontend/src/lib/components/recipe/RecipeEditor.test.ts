@@ -166,6 +166,15 @@ describe('the boxes', () => {
     await expect.element(group).toHaveTextContent('− 4 +');
   });
 
+  it('asks what a count makes, "like dosas", only when the unit is count', async () => {
+    fakeApi({});
+    open();
+    const word = page.getByRole('textbox', { name: 'What it makes' });
+    await expect.element(word).not.toBeInTheDocument();
+    await page.getByRole('combobox', { name: 'Makes unit' }).selectOptions('count');
+    await expect.element(word).toHaveAttribute('placeholder', 'What it makes, like dosas');
+  });
+
   it('uploads a picked photo at once, shows it, and sends its id', async () => {
     const sent: { method: string; url: string; body: unknown; type: string | null }[] = [];
     vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
