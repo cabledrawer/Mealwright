@@ -175,7 +175,7 @@ plan, the staples check card, tubs, "Recipes for these".
 - A recipe with no photo has **no box** on its page. The mockups draw a grey "[Recipe photo, saved locally]" placeholder; that is a design note, not a state to ship (the lead's choice, for cabledrawer to confirm). In the list the plain warm square stays, as in the mockups.
 - The page's photo is 170 px tall on a phone with the page's own side margin (16 px), and on a computer it is the mockup's box beside the figures (`flex: 1 1 260px; min-height: 150px`, radius 20 px), which wraps above them when the pane is narrow (and at 200% text). The tablet width (768 to the panes' width) uses the phone's layout.
 - A name that wraps keeps the square at the top of the row; a one-line row centres it, as drawn (cabledrawer 20 Oct, #44).
-- The saved Edit recipe screenshots now show Sambar's photo in the editor (the seeded Sambar has one).
+- The saved Edit recipe screenshots now show Sambar's photo in the editor (the seeded Sambar has one), and the desktop-dark New recipe screenshot shows photos in the list pane beside it.
 - Photos are not cached for offline use: offline, the list shows the plain squares and the page no box.
 
 ## Mockup notes (what builders tend to miss)
