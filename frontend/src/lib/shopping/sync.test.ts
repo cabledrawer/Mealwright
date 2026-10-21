@@ -259,6 +259,20 @@ describe('starting on a weak signal (cabledrawer 20 Oct, hand test)', () => {
     expect(shoppingSync.queue).toEqual([]);
     shoppingSync.forget();
   });
+
+  it('a change is queued as whoever made it, even if the app turns to another login while it’s stored (11.4)', async () => {
+    server(() => 'hang');
+    const me = session.me;
+    let queued!: () => void;
+    const stored = new Promise<void>((done) => (queued = done));
+    void shoppingSync.enqueue(tick('a'), queued).catch(() => {});
+    // A late answer at the start turns the app away to sign in, mid-store.
+    session.me = null;
+    await stored;
+    session.me = me;
+    expect((await readQueue()).map((e) => e.login_id)).toEqual([ME.id]);
+    shoppingSync.forget();
+  });
 });
 
 describe('the server says no to the whole batch', () => {

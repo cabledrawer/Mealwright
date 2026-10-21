@@ -178,9 +178,11 @@ export class ShoppingSync {
    */
   async enqueue(action: Action, queued?: () => void): Promise<ActionResult> {
     if (!session.me) throw new ApiError(401, NOBODY_SIGNED_IN);
+    // Whoever was signed in when the change was made: theirs, even if the app turns to
+    // another login while it's being stored (a late answer at the start, 11.4).
+    const me = session.me.id;
     await this.open();
     const plain = $state.snapshot(action) as Action;
-    const me = session.me?.id ?? 0;
     const answered = new Promise<ActionResult>(
       (resolve, reject) => (this.#waiters[plain.id] = { resolve, reject })
     );
