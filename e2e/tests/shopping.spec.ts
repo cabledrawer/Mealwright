@@ -973,7 +973,8 @@ async function swipeLeft(page: Page, name: string) {
   const row = page
     .getByRole("button", { name, exact: true })
     .locator("xpath=ancestor::div[contains(@class,'slide')]");
-  await row.scrollIntoViewIfNeeded();
+  // Mid-screen, clear of the fixed header and the bottom tabs.
+  await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const box = (await row.boundingBox())!;
   const y = box.y + box.height / 2;
   const from = box.x + box.width - 40;
