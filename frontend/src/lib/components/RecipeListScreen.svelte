@@ -10,9 +10,10 @@
   // recipe's row marked, and it scrolls on its own. The panes' layout keeps this component
   // alive while recipes open beside it, so the search, the filter and the scroll stay.
   //
-  // Each row opens the recipe page. Hidden until they work, not stubbed: "+ New recipe" (the
-  // editor, PR 5), the Drafts button (drafts only come from 0.5's import; agreed by cabledrawer
-  // 20 Oct), "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
+  // Each row opens the recipe page; "New recipe" opens the editor (under the search on a phone,
+  // under the title in the pane, as the mockups have it). Hidden until they work, not stubbed:
+  // the Drafts button (drafts only come from 0.5's import; agreed by cabledrawer 20 Oct), "Planned
+  // Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
@@ -31,12 +32,15 @@
   let {
     pane = false,
     currentId = null,
+    alone,
     list = new RecipeList()
   }: {
     /** The middle pane of the desktop's three. */
     pane?: boolean;
     /** The recipe open beside the list: its row is marked. */
     currentId?: number | null;
+    /** Nothing is open beside the pane, so its title is the page's main heading. */
+    alone?: boolean;
     /** The list's state; the panes' layout passes its own, so the page beside can see it too. */
     list?: RecipeList;
   } = $props();
@@ -136,9 +140,16 @@
 
 <svelte:document onvisibilitychange={onVisible} />
 
+{#snippet newRecipe()}
+  <a class="new" href={resolve('/recipes/new')}
+    ><Icon name="plus" size={20} stroke={2.4} />New recipe</a
+  >
+{/snippet}
+
 {#snippet found()}
   {#if none}
     <EmptyState title="No recipes yet">Recipes you add will show here.</EmptyState>
+    {#if !pane}{@render newRecipe()}{/if}
   {:else}
     <div class="screen">
       <label class="search">
@@ -150,6 +161,8 @@
           bind:value={list.query}
         />
       </label>
+
+      {#if !pane}{@render newRecipe()}{/if}
 
       {#if list.loaded && !list.problem}
         <FilterChips options={filters} selected={list.filter} label="Show" onselect={choose} />
@@ -193,12 +206,14 @@
 {/snippet}
 
 {#if pane}
-  <!-- Offline, the panes' layout shows the one note for both panes and hides this one. -->
+  <!-- Offline, the panes' layout shows the one note for both panes and hides this one (but not
+       beside the editor, which stays in view with what was typed: this list then stays as it was). -->
   <section class="pane" aria-label="Recipe list" bind:this={root}>
     <header>
       {#if count}<p class="overline">{count}</p>{/if}
-      <svelte:element this={currentId === null ? 'h1' : 'h2'}>Recipes</svelte:element>
+      <svelte:element this={(alone ?? currentId === null) ? 'h1' : 'h2'}>Recipes</svelte:element>
     </header>
+    {@render newRecipe()}
     {@render found()}
   </section>
 {:else}
@@ -240,6 +255,26 @@
   .more a:hover {
     background: var(--color-fill);
     color: var(--color-text);
+  }
+
+  /* The mockups' dark button, as wide as the column. */
+  .new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 52px;
+    padding: 0 18px;
+    border-radius: var(--radius-field);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .new:hover {
+    color: var(--color-inverse-text);
   }
 
   .screen {

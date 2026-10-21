@@ -161,9 +161,12 @@ describe('the recipe page', () => {
     // Numbered through the headings: the tempering starts at 2.
     const lists = document.querySelectorAll('ol');
     expect([...lists].map((ol) => ol.getAttribute('start'))).toEqual(['1', '2']);
-    // Not built yet, so not there.
+    // Edit opens the editor (Delete is in there); the rest is not built yet, so not there.
+    await expect
+      .element(page.getByRole('link', { name: 'Edit', exact: true }))
+      .toHaveAttribute('href', '/recipes/1/edit');
     const text = document.body.textContent ?? '';
-    for (const hidden of ['Plan it', 'Start cooking', 'Cook once', 'Edit', 'Delete']) {
+    for (const hidden of ['Plan it', 'Start cooking', 'Cook once', 'Delete']) {
       expect(text).not.toContain(hidden);
     }
   });
@@ -530,6 +533,9 @@ describe('the recipe page', () => {
           page.getByText('Recipes needs your Mealwright server — your shopping list works offline.')
         )
         .toBeVisible();
+      await expect
+        .element(page.getByRole('link', { name: 'Edit', exact: true }))
+        .not.toBeInTheDocument();
     });
 
     it('a recipe with only a name says nothing is written down yet', async () => {

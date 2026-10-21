@@ -618,11 +618,15 @@
     color: var(--color-text-muted);
   }
 
+  /* `container-type`: two columns only when the editor itself is wide enough. On a computer
+     it opens in the reading pane beside the list, much narrower than the window, and there
+     it is one column, as in the mockups. */
   .editor {
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
     max-width: 1100px;
+    container-type: inline-size;
   }
 
   /* The bar with Cancel and Save stays in reach the whole time (phone: a top bar). */
@@ -911,7 +915,7 @@
     }
   }
 
-  @media (min-width: 1000px) {
+  @container (min-width: 60rem) {
     .grid {
       display: grid;
       grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);

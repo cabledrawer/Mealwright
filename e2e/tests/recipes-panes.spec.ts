@@ -65,9 +65,10 @@ test('/recipes shows the list beside a calm empty reading pane, and passes the a
     'aria-current',
     'page',
   );
+  await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
   // Hidden in 0.4: not drawn, not stubbed.
   await expect(
-    page.getByRole('main').getByText(/New recipe|Import a recipe|Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
+    page.getByRole('main').getByText(/Import a recipe|Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
   ).toHaveCount(0);
   await checkPage(page);
 });
@@ -273,7 +274,9 @@ test('keyboard: Tab goes nav, then list, then reading pane; rows are links; Ente
   // Tab goes on into the reading pane (the Keep screen awake switch or the servings), not back.
   await page.keyboard.press('Tab');
   expect(await paneOfFocus(page)).toBe(2);
-  // Shift+Tab twice goes back to the list.
+  // Shift+Tab goes back through Edit and the crumbs at the top of the recipe, then to the list.
+  await page.keyboard.press('Shift+Tab');
+  await expect(reading(page).getByRole('link', { name: 'Edit', exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Shift+Tab');
   expect(await paneOfFocus(page)).toBe(1);
@@ -391,7 +394,7 @@ test('loading and failed: each pane says its own, and the list still works', asy
   await expect(reading(page).getByRole('heading', { name: recipe.name, level: 1 })).toBeVisible();
 });
 
-test('empty household: the list says No recipes yet and the reading pane stays quiet', async ({ page }) => {
+test('empty household: the list says No recipes yet, New recipe is there, and the reading pane stays quiet', async ({ page }) => {
   await page.route('**/api/v1/recipes?**', (route) =>
     route.fulfill({
       json: { total: 0, all_recipes: 0, recipes: [], next: null },
@@ -401,7 +404,8 @@ test('empty household: the list says No recipes yet and the reading pane stays q
   await page.goto('/recipes');
   await expect(list(page).getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(reading(page).getByText('Choose a recipe')).toHaveCount(0);
-  await expect(page.getByRole('main').getByText(/New recipe|Add a recipe|Import/)).toHaveCount(0);
+  await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText(/Add a recipe|Import/)).toHaveCount(0);
   await checkPage(page);
 });
 

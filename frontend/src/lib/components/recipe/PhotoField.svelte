@@ -75,6 +75,11 @@
 </div>
 
 <style>
+  /* Hidden, but 16 px like every box, so no phone ever zooms in on it. */
+  input[type='file'] {
+    font-size: 1rem;
+  }
+
   .photo {
     display: flex;
     flex-direction: column;

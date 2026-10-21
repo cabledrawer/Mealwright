@@ -156,7 +156,7 @@ cabledrawer accepted all twelve recommendations on 19 Oct. **Built screen text i
 Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Recipes-Phone`, cabledrawer's answers of 19 and 20 Oct and the built screen (`frontend/src/routes/(app)/recipes/+page.svelte`, `frontend/src/lib/recipeLine.ts`). cabledrawer approved this section’s words (cabledrawer 20 Oct), and approves any change here.
 
 - **Title and count:** "Recipes", with "48 recipes" above it ("1 recipe"). The count is every recipe, whatever is searched or filtered.
-- **Buttons at the top:** "Ingredients" (phone). Not there yet: "+ New recipe" (comes with the editor), "Drafts" (drafts only come with import in 0.5; cabledrawer 20 Oct), "Planned Sun" (0.6).
+- **Buttons at the top:** "Ingredients" (phone) and "New recipe" (the editor, PR 5; section 17). Not there yet: "Drafts" (drafts only come with import in 0.5; cabledrawer 20 Oct), "Planned Sun" (0.6).
 - **Search:** "Search recipes". It looks in recipe names, tags and ingredient names, other names included, never the method (cabledrawer 19 Oct, question 24).
 - **Filter row:** "All" · "Can cook now" · "Use soon" (new, 0.4 PR 6: the recipes that use something about to go off; the mockups have no chip, and "Use soon" is Pantry's own word; kept, cabledrawer 20 Oct: "keep “Use soon”") · then the household's own tags, one chosen at a time. "Use soon" finding nothing: "No recipe uses anything that needs using up soon." (new).
 - **A recipe's line,** each part only when known, with a no-break space inside "50 min" and "320 kcal": `50 min · 320 kcal · all in stock but 1`. Calories say "nutrition unknown", never 0.
@@ -183,7 +183,7 @@ Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Reci
 - **"1 missing" line:** under the ingredients, "1 missing" (or "3 missing") and the button "Add to the list". It counts ingredients that are not in stock and not already on the shopping list (as the mockup does), once each. When nothing is left to add the line is not shown at all, and the page never says "all in stock" (so a recipe using a recipe that isn't checked can't claim it). The toast says "Sambar powder added to the shopping list" for one, "3 ingredients added to the shopping list" for several, each with Undo; Undo says "Undone: 3 ingredients added to the shopping list".
 - **Method:** the heading "Method", steps numbered through the headings. **Tags** as small chips. **Source:** "Source: Amma’s" (new; "From: <site>" comes with import in 0.5).
 - **States:** "Loading…" · "Couldn’t load this recipe. Try again." with "Try again" · "Recipe not found" with "This recipe isn’t here any more. It may have been deleted." (new) · offline: "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." · a recipe with only a name: "Nothing written down yet." (new).
-- **Not on this screen yet** (hidden, not stubbed): "Plan it" (0.6), "Start cooking" and "Cook once, eat for…" (0.7), "Edit" and Delete (the editor), the photo (the photos pull request).
+- **Not on this screen yet** (hidden, not stubbed): "Plan it" (0.6), "Start cooking" and "Cook once, eat for…" (0.7), the photo. "Edit" (top right) came with the editor, PR 5, and Delete is inside the editor (section 17).
 
 ---
 
@@ -267,6 +267,7 @@ Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `New
 | Where | Words | Source |
 |---|---|---|
 | Titles | New recipe · Edit recipe | mockup |
+| Ways in | New recipe (a dark button with a +: All recipes, under the search on a phone and under the title on a computer, and under "No recipes yet") · Edit (the recipe page, top right) | mockup |
 | Top bar | Cancel · Save (Saving… while it works; "Ctrl+S" shown beside Save on a computer) | mockup; "Saving…" proposed, for cabledrawer |
 | Under the title (computer) | Nothing changes until you save. Only the name is needed. | mockup |
 | Toasts | Saved · Changes not saved (with Undo, which opens the editor again as it was) · Deleted Sambar (with Undo) | decided (editor brief 1; spec "Cancel and offline"; "Saved" the editor brief) |

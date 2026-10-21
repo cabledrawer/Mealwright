@@ -127,36 +127,15 @@ test('New recipe looks the way it was approved', async ({ page }) => {
 });
 
 test('Edit recipe looks the way it was approved', async ({ page }) => {
-  // Sambar, as in the mockups (words only, so nothing here depends on the other test data).
-  const made = await page.request.post('/api/v1/recipes', {
-    data: {
-      name: 'Sambar',
-      description: 'Lentil & vegetable stew',
-      time_minutes: 50,
-      serves: 6,
-      tags: ['Batch-friendly', 'South Indian'],
-      nutrition: { kcal: 320, protein: 16, carbs: 48, fat: 7, fibre: 11 },
-      source_note: 'Amma’s',
-      lines: [
-        { kind: 'heading', words: 'For the dal' },
-        { words: 'thuvaram paruppu', amount: 200, unit: 'g', note: 'rinsed' },
-        { words: 'turmeric', amount: '½', unit: 'tsp' },
-        { kind: 'heading', words: 'For the sambar' },
-        { words: 'tamarind', amount: 20, unit: 'g', note: 'soaked in warm water' },
-        { words: 'shallots', amount: 10, note: 'peeled' },
-        { words: 'salt to taste' },
-      ],
-      steps: [
-        { text: 'Rinse the dal and pressure-cook with the turmeric until soft. Mash lightly.' },
-        { text: 'Squeeze the soaked tamarind and keep the water; throw away the pulp.' },
-      ],
-    },
-  });
-  const { id } = (await made.json()) as { id: number };
-  await page.goto(`/recipes/${id}/edit`);
+  // The seeded Sambar, as in the mockups, opened the way people open it: its page, then Edit.
+  // (A Sambar of its own would be a second one in All recipes and the computer's list pane.)
+  await page.goto('/recipes');
+  await page.getByRole('link', { name: /^Sambar/ }).click();
+  await expect(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: 'Edit', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Edit recipe', level: 1 })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Sambar');
-  await expect(page.getByRole('textbox', { name: 'Heading 4', exact: true })).toHaveValue('For the sambar');
+  await expect(page.getByRole('textbox', { name: 'Step 4', exact: true })).toHaveValue(/mustard-seed tempering/);
   await settle(page);
   await expect(page).toHaveScreenshot('edit-recipe.png', { scale: 'device' });
 });

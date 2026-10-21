@@ -163,7 +163,9 @@ plan, the staples check card, tubs, "Recipes for these".
 
 - The upload shows "Uploading photo…" with a moving bar, not a percentage: the browser's `fetch` can't report progress, and a bar that stops moving under reduced motion is still honest. The mockup's "too big" example (15 MB) is out of date: the server's own sentences are shown (50 megapixels, cabledrawer 20 Oct).
 - Touch targets are 44 px: the drag handle and × are drawn narrower but have a 44 px touch area. The "Remove line" label is "Take out of this recipe" (words list, section 1).
-- A phone has no bottom tabs in the editor (a full page of its own); a computer shows the editor in the main area. The three-pane Recipes (list pane beside the editor) comes with the recipe list pull request.
+- A phone has no bottom tabs in the editor (a full page of its own). On a computer the editor opens in the reading pane beside the recipe list, as the mockups have it, in one column (two columns only when the pane is very wide); offline the list pane stays as it was and the editor stays in view. "New recipe" on All recipes and "Edit" on the recipe page open it.
+- Every box is 16 px (cabledrawer 20 Oct, so phones don't zoom in), so the ingredient note and the heading boxes are a little larger than the mockup's 14 px.
+- The saved Edit recipe screenshot is the seeded Sambar, opened with Edit from its page (no headings; its lines are linked).
 - "Pick an ingredient" on a computer opens under the line when you type or click in its ingredient box (the mockup's popover); on a phone it is a sheet with its own search box that edits the line's words.
 - Wren's version says "unchanged" where the mockup says "the same as yours"; Makes has a box for the count word (dosas) when the unit is "count".
 - The mockups are copied into `docs/mockups/` but `canvas.json` is unchanged: listing the new boards needs canvas positions only the design canvas knows, so `review/screens.ts --screen` can't find the new mockups by title yet.

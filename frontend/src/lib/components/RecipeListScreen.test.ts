@@ -70,10 +70,13 @@ describe('All recipes as the middle pane', () => {
     await expect.element(page.getByText('3 recipes')).toBeVisible();
   });
 
-  it('has no Ingredients button and no page header, but keeps search, filters and rows', async () => {
+  it('has no Ingredients button and no page header, but keeps search, filters, rows and New recipe', async () => {
     open();
     await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|New recipe|Import|Planned/);
+    await expect
+      .element(page.getByRole('link', { name: 'New recipe' }))
+      .toHaveAttribute('href', '/recipes/new');
+    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|Import|Planned/);
     expect(document.querySelector('.page-header')).toBeNull();
     await expect.element(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
     await expect.element(page.getByRole('group', { name: 'Show' })).toBeVisible();

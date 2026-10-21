@@ -95,13 +95,16 @@ describe('the All recipes page', () => {
     await expect.element(page.getByText('1 recipe', { exact: true })).toBeVisible();
   });
 
-  it('has the Ingredients button, and no Drafts or New recipe button yet', async () => {
+  it('has the Ingredients button and New recipe, and no Drafts button yet', async () => {
     open();
     await expect
       .element(page.getByRole('link', { name: 'Ingredients' }))
       .toHaveAttribute('href', '/recipes/ingredients');
+    await expect
+      .element(page.getByRole('link', { name: 'New recipe' }))
+      .toHaveAttribute('href', '/recipes/new');
     await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/Drafts|New recipe|Import|Planned/);
+    expect(document.body.textContent).not.toMatch(/Drafts|Import|Planned/);
   });
 
   it('each row opens its recipe', async () => {
@@ -227,13 +230,16 @@ describe('the All recipes page', () => {
     await expect.element(page.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 
-  it('with no recipes at all, says so, with no button to add one yet', async () => {
+  it('with no recipes at all, says so, and offers New recipe', async () => {
     open({ 'GET /recipes?limit=50': answer([], 0), 'GET /recipes/tags': [200, { tags: [] }] });
     await expect.element(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
     await expect.element(page.getByText('Recipes you add will show here.')).toBeVisible();
     await expect.element(page.getByText('0 recipes')).toBeVisible();
     expect(document.querySelector('[role="searchbox"], input[type="search"]')).toBeNull();
-    expect(document.body.textContent).not.toMatch(/New recipe|Add a recipe|Import/);
+    await expect
+      .element(page.getByRole('link', { name: 'New recipe' }))
+      .toHaveAttribute('href', '/recipes/new');
+    expect(document.body.textContent).not.toMatch(/Add a recipe|Import/);
     expect(document.querySelectorAll('main button, button')).toHaveLength(0);
   });
 
@@ -284,5 +290,6 @@ describe('the All recipes page', () => {
       )
       .toBeVisible();
     expect(requests.filter((r) => r.path.startsWith('/recipes'))).toHaveLength(0);
+    expect(document.body.textContent).not.toContain('New recipe');
   });
 });

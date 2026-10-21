@@ -10,7 +10,10 @@
   // before, with no wrapper at all.
   //
   // /recipes shows the list and a calm empty reading pane (cabledrawer to confirm: the alternative
-  // was to open the first recipe).
+  // was to open the first recipe). The recipe editor (New recipe, Edit recipe) opens in the
+  // reading pane, beside the list, as the mockups RecipeEditor-Desktop and NewRecipe-Desktop
+  // have it. Offline it stays in view with everything typed (spec "Cancel and offline"), so
+  // the one offline note for the whole area is not shown while editing.
   import type { Snippet } from 'svelte';
   import { page } from '$app/state';
   import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
@@ -29,6 +32,10 @@
     recipePanes.fits && isCurrentRecipesPage(RECIPES_PAGES[0]!, page.url.pathname)
   );
   const currentId = $derived(page.params.id === undefined ? null : Number(page.params.id));
+  /** New recipe or Edit recipe is open in the reading pane. */
+  const editing = $derived(
+    page.route.id === '/(app)/recipes/new' || page.route.id === '/(app)/recipes/[id]/edit'
+  );
   /** There are no recipes at all: nothing to point to in the reading pane. */
   const none = $derived(list.loaded && !list.problem && list.all === 0);
 
@@ -41,28 +48,32 @@
 </script>
 
 <svelte:head>
-  {#if panes && currentId === null}<title>Recipes · Mealwright</title>{/if}
+  {#if panes && currentId === null && !editing}<title>Recipes · Mealwright</title>{/if}
 </svelte:head>
 
 {#if panes}
   <div class="panes">
     <!-- Offline: one note for the whole area, not one in each pane. The panes stay in place
          (hidden), so the search and the open recipe are still there when the connection is back. -->
-    {#if network.offline}
+    {#if network.offline && !editing}
       <div class="offline">
         <h1>Recipes</h1>
         <OfflineNote screen="Recipes" />
       </div>
     {/if}
-    <div class="row" hidden={network.offline}>
-      <RecipeListScreen pane {list} {currentId} />
+    <div class="row" hidden={network.offline && !editing}>
+      <RecipeListScreen pane {list} {currentId} alone={currentId === null && !editing} />
       <div class="reading" role="region" aria-label="Recipe" bind:this={reading}>
-        {#if currentId === null}
+        {#if currentId === null && !editing}
           {#if !none}
             <ChooseRecipe />
           {/if}
         {/if}
-        {@render children()}
+        {#if editing}
+          <div class="editing">{@render children()}</div>
+        {:else}
+          {@render children()}
+        {/if}
       </div>
     </div>
   </div>
@@ -107,6 +118,12 @@
     background: var(--color-chrome);
     --reading-card: var(--color-reading-card);
     --reading-chip: var(--color-reading-chip);
+  }
+
+  /* The editor has the same margin here as on a page of its own (its bar reaches out over it).
+     On a wrapper, not on the pane: a scrolling box's padding would hold the sticky bar down. */
+  .editing {
+    padding: var(--space-10) var(--space-11);
   }
 
   .offline {

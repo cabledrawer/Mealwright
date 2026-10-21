@@ -5,9 +5,9 @@
   // servings (on screen only), "N missing · Add to the list", the method, tags and where it
   // came from. Online only, like Pantry and All recipes (question 33).
   //
-  // Hidden until they work, not stubbed: Plan it (0.6), Start cooking and Cook once (0.7), the
-  // Edit button and Delete (the editor), the photo (the photos pull request), and "From: <site>"
-  // (imports, 0.5; a typed-in recipe's source note is shown as typed).
+  // Edit, at the top on the right, opens the editor (Delete is in the editor). Hidden until they
+  // work, not stubbed: Plan it (0.6), Start cooking and Cook once (0.7), the photo, and "From:
+  // <site>" (imports, 0.5; a typed-in recipe's source note is shown as typed).
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -126,6 +126,9 @@
       <span class="sep" aria-hidden="true">›</span>
       <span aria-current="page">{recipe ? recipe.name : ''}</span>
     </nav>
+    {#if recipe && !network.offline}
+      <a class="edit" href={resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}>Edit</a>
+    {/if}
   </div>
 
   {#if network.offline}
@@ -236,6 +239,7 @@
   .top {
     display: flex;
     align-items: center;
+    gap: var(--space-4);
     min-height: var(--touch-target);
   }
 
@@ -248,6 +252,27 @@
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
     text-decoration: none;
+  }
+
+  /* Edit sits at the far right of the top row (mockups Recipe and Desktop-Recipe). */
+  .edit {
+    display: flex;
+    flex: none;
+    align-items: center;
+    min-height: var(--touch-target);
+    margin-left: auto;
+    padding: 0 var(--space-6);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .edit:hover {
+    color: var(--color-text);
   }
 
   .crumbs {
@@ -278,6 +303,10 @@
     }
     .crumbs {
       display: flex;
+    }
+    .edit {
+      border-color: var(--color-border-strong);
+      background: var(--color-surface);
     }
   }
 

@@ -45,8 +45,10 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
 });
 
-test('a new recipe: Save waits for a name, then lands on the recipe', async ({ page }) => {
-  await page.goto('/recipes/new');
+test('a new recipe: New recipe opens it, Save waits for a name, lands on the recipe, and Edit opens it again', async ({ page }) => {
+  await page.goto('/recipes');
+  await page.getByRole('link', { name: 'New recipe', exact: true }).click();
+  await expect(page).toHaveURL(/\/recipes\/new$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('New recipe');
   await expect(save(page)).toBeDisabled();
   await expect(page.getByText('A name is all you need to save.')).toBeVisible();
@@ -58,14 +60,21 @@ test('a new recipe: Save waits for a name, then lands on the recipe', async ({ p
   await expect(save(page)).toBeEnabled();
   await save(page).click();
 
-  // It lands on the recipe's page (which arrives with the recipe page pull request; the
-  // "Saved" toast is checked in RecipeEditor.test.ts).
+  // It lands on the recipe's page, with "Saved".
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   const id = Number(new URL(page.url()).pathname.split('/').at(-1));
   const recipe = await getRecipe(page, id);
   expect(recipe.name).toBe(name);
   expect(recipe.serves).toBe(4);
   expect(recipe.version).toBe(1);
+
+  // Edit, at the top of the recipe page, opens the editor filled in.
+  await page.getByRole('link', { name: 'Edit', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/edit$`));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Edit recipe');
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue(name);
 });
 
 test('every box is saved, and Edit opens them filled in', async ({ page }) => {

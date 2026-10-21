@@ -73,8 +73,9 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   expect(names.map((n) => n.split('\n')[0])).toEqual([`${tag} one`, `${tag} three`, `${tag} two`]);
   await expect(page.locator('li a')).toHaveCount(3);
   await expect(page.locator('li button')).toHaveCount(0);
-  // Not built yet, so not there: New recipe, Drafts (nothing to import yet), Import.
-  await expect(page.getByRole('main').getByText(/New recipe|Drafts|Import a recipe|Planned/)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
+  // Not built yet, so not there: Drafts (nothing to import yet), Import.
+  await expect(page.getByRole('main').getByText(/Drafts|Import a recipe|Planned/)).toHaveCount(0);
   await checkPage(page);
 });
 
@@ -313,13 +314,14 @@ test('a stock line follows the pantry: use soon, and a made-up total', async ({ 
 
 const EMPTY = { total: 0, all_recipes: 0, recipes: [], next: null };
 
-test('empty: says No recipes yet, with no button to add one', async ({ page }) => {
+test('empty: says No recipes yet, with New recipe to add one', async ({ page }) => {
   await page.route('**/api/v1/recipes?**', (route) => route.fulfill({ json: EMPTY }));
   await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [] } }));
   await page.goto('/recipes');
   await expect(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(page.getByText('Recipes you add will show here.')).toBeVisible();
-  await expect(page.getByText(/New recipe|Add a recipe|Import/)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
+  await expect(page.getByText(/Add a recipe|Import/)).toHaveCount(0);
   await expect(page.getByRole('searchbox')).toHaveCount(0);
   await checkPage(page);
 });

@@ -549,7 +549,6 @@
     order: 5;
     background: var(--color-fill);
     border-color: transparent;
-    font-size: var(--text-base);
   }
 
   .msg {
@@ -606,7 +605,6 @@
     flex: 1;
     border-style: dashed;
     background: transparent;
-    font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
   }
 

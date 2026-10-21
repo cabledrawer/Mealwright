@@ -243,7 +243,6 @@
     flex: 1;
     border-style: dashed;
     background: transparent;
-    font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
   }
 
