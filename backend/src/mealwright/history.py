@@ -197,6 +197,31 @@ def record_back(kitchen: Kitchen, food: Food) -> Change:
     return change
 
 
+def back_undone(kitchen: Kitchen, foods: dict[str, Any], undo_id: int) -> None:
+    """An Undo removed again an ingredient the undone change had brought back (`foods` is
+    that change's food snapshot): its "Lemon is back in Ingredients" line shows as undone,
+    the same way any other undone line looks (cabledrawer 21 Oct)."""
+    for key, (old, new) in foods.get("fields", {}).items():
+        if not (key.endswith(":removed") and old is True and new is False):
+            continue
+        food = kitchen.db.get(Food, int(key.split(":")[0]))
+        if food is None or food.household_id != kitchen.household_id or food.removed_at is None:
+            continue  # still in Ingredients (it has stock or is on a list): the line stands
+        back = kitchen.db.scalar(
+            select(Change)
+            .where(
+                Change.household_id == kitchen.household_id,
+                Change.kind == "food_back",
+                Change.food_id == food.id,
+                Change.undone_by_change_id.is_(None),
+            )
+            .order_by(Change.id.desc())
+            .limit(1)
+        )
+        if back is not None:
+            back.undone_by_change_id = undo_id
+
+
 # --- Recipes changed behind the editor's back ---------------------------------------------------
 
 

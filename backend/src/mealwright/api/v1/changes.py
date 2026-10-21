@@ -26,6 +26,7 @@ from mealwright.history import (
     UndoResult,
     already_undone,
     as_utc,
+    back_undone,
     can_undo,
     commit,
     foods_in,
@@ -181,7 +182,7 @@ def list_changes(
     mine: bool = False,
 ) -> ChangeList:
     """Newest first. `area=pantry`: stock changes only. `area=ingredients`: changes to
-    ingredients only (new, edited, removed, merged, split), with their Undos.
+    ingredients only (new, edited, removed, back, merged, split), with their Undos.
     `mine=true&limit=1`: what Ctrl+Z undoes (the web app skips it while the cursor is in a
     text box)."""
     query = select(Change).where(
@@ -198,9 +199,19 @@ def list_changes(
         of_area = select(undone.id).where(
             undone.household_id == kitchen.household_id, undone.kind.in_(kinds)
         )
+        # An Undo that undid a line of the area along the way ("Lemon is back in
+        # Ingredients", undone with the add that brought it back) is listed there too.
+        undid_area = select(undone.undone_by_change_id).where(
+            undone.household_id == kitchen.household_id,
+            undone.kind.in_(kinds),
+            undone.undone_by_change_id.is_not(None),
+        )
         query = query.where(
             Change.kind.in_(kinds)
-            | ((Change.kind == "undo") & Change.undoes_change_id.in_(of_area))
+            | (
+                (Change.kind == "undo")
+                & (Change.undoes_change_id.in_(of_area) | Change.id.in_(undid_area))
+            )
         )
     if mine:
         query = query.where(
@@ -415,6 +426,8 @@ def undo_change(
             )
     kitchen.db.flush()
     change.undone_by_change_id = undo.id
+    if data.get("foods"):
+        back_undone(kitchen, data["foods"], undo.id)
     return undo
 
 

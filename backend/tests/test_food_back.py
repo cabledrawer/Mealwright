@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sync_kit import PHONE_R, new_id, one, s0
+from sync_kit import PHONE_A, PHONE_R, new_id, one, s0, tick
 
 from mealwright.auth import hash_password
 from mealwright.household import add_default_places
@@ -198,6 +198,72 @@ def test_an_offline_add_that_brings_it_back_adds_a_line_and_takes_the_removal_s_
         if row["kind"] == "food_removed" and "Eggs" in row["summary"]
     )
     assert removal["can_undo"] is True
+    assert_back_undone(kitchen, "Eggs")
+
+
+def assert_back_undone(client: TestClient, name: str) -> None:
+    """cabledrawer 21 Oct: once the change that brought it back is undone, "… is back in
+    Ingredients" is undone too, the same way any other undone line looks: it says who undid
+    it, and the Undo's own "Undid: …" line is in Ingredients' list above it."""
+    rows = ok(client.get(f"{API}/changes", params={"area": "ingredients"}))["changes"]
+    back = next(row for row in rows if row["kind"] == "food_back" and name in row["summary"])
+    assert back["undone"] is not None
+    undid = rows[: rows.index(back)]
+    assert [row["kind"] for row in undid] == ["undo"]
+    assert undid[0]["summary"].startswith("Undid: ")
+
+
+# --- By a tick, or a new ingredient with its name -----------------------------------------------
+
+
+def back_lines(client: TestClient, name: str) -> list[dict[str, Any]]:
+    rows = ok(client.get(f"{API}/changes", params={"area": "ingredients"}))["changes"]
+    return [row for row in rows if row["kind"] == "food_back" and name in row["summary"]]
+
+
+def test_a_tick_that_brings_it_back_adds_one_line_and_its_undo_undoes_the_line(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    done = tick(kitchen, s, "Paneer")
+    assert done["message"] == "Paneer is back in Ingredients."
+    [back] = back_lines(kitchen, "Paneer")
+    assert back["undone"] is None and back["can_undo"] is False
+    # Its Undo takes the stock out and removes Paneer again (7.1).
+    assert one(kitchen, "undo", 0, PHONE_A, undoes=done["id"])["status"] == "applied"
+    assert_back_undone(kitchen, "Paneer")
+
+
+def test_a_new_ingredient_with_a_removed_one_s_name_adds_one_line(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    ok(kitchen.delete(f"{API}/foods/{s.foods['Eggs']}"))
+    added = one(
+        s.wren,
+        "add",
+        s.c0,
+        PHONE_R,
+        list_id=s.main,
+        item_id=new_id(),
+        new_food={"name": "eggs", "counted_as": "count"},
+    )
+    assert added["status"] == "applied"
+    assert added["message"] == "Eggs is back in Ingredients."
+    [back] = back_lines(kitchen, "Eggs")
+    assert back["undone"] is None
+
+
+def test_an_undo_that_leaves_it_in_ingredients_leaves_the_line(kitchen: TestClient) -> None:
+    """Still on a list, so the Undo of the tick keeps Paneer (0.2's rule): it is still back."""
+    s = s0(kitchen)
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    done = tick(kitchen, s, "Paneer")
+    one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=s.foods["Paneer"])
+    one(kitchen, "undo", 0, PHONE_A, undoes=done["id"])
+    [back] = back_lines(kitchen, "Paneer")
+    assert back["undone"] is None
 
 
 # --- Another household ---------------------------------------------------------------------------

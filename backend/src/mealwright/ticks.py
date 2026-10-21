@@ -805,7 +805,7 @@ def undo(act: Act, target: SyncAction) -> None:
 def _remove_again(act: Act, tick: ListTick) -> None:
     """A tick that brought its ingredient back (7.1): its Undo removes the ingredient again,
     as an Undo of an `add` does (5.9), unless it has stock or is on a list (0.2's rule)."""
-    from mealwright.history import Tally, undo_foods
+    from mealwright.history import Tally, back_undone, undo_foods
 
     kitchen = act.kitchen
     for change in kitchen.db.scalars(
@@ -824,6 +824,8 @@ def _remove_again(act: Act, tick: ListTick) -> None:
         touched = undo_foods(kitchen, revived, tally)
         if tally.done:
             shopping.bump_foods(kitchen, touched, act.batch)
+        if change.undone_by_change_id is not None:  # the purchase's own Undo, just recorded
+            back_undone(kitchen, revived, change.undone_by_change_id)
 
 
 def later_repacks(kitchen: Kitchen, change: Change) -> list[Change]:
