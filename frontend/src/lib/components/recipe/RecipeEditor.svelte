@@ -598,9 +598,8 @@
             bind:value={draft.source}
           />
           {#if errors.source}<span class="mw-error">{errors.source}</span>{/if}
-          <span class="mw-hint"
-            >A web address shows as a link you can open yourself. Mealwright never visits it.</span
-          >
+          <!-- The hint "A web address shows as a link you can open yourself. Mealwright never
+               visits it." comes back in 0.5, with the links (cabledrawer 21 Oct). -->
         </div>
 
         {#if editing}
