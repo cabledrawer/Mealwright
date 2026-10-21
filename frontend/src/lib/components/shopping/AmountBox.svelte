@@ -3,7 +3,12 @@
   // the row was: the ingredient's name and Done, − / + beside a box that holds the real amount,
   // a unit choice, and "Remove from list" (which asks first). Done, or Enter, saves it as one
   // change with its Undo; Escape leaves it as it was. Nothing is sent while you type.
+  // "Edit ingredient" (spec, Shopping rows) saves the box as Done does, then opens the
+  // ingredient editor. Hidden offline, like the recipe page's Edit (the editor needs the
+  // server), and for an ingredient still being made (no server ID yet).
   import { untrack } from 'svelte';
+  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
+  import { network } from '$lib/network.svelte';
   import {
     readDraft,
     startDraft,
@@ -100,6 +105,12 @@
     else input?.focus();
   }
 
+  function editIngredient() {
+    if (!save()) return void input?.focus();
+    onclose();
+    ingredientEditor.open(food.id);
+  }
+
   function step(direction: 1 | -1) {
     problem = null;
     draft = stepDraft(draft, direction, choices, editFood);
@@ -163,9 +174,14 @@
   </div>
   <span class="hint" id="{uid}-hint">The box holds the real amount: edit it, or use − / +.</span>
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
-  <button type="button" class="remove" onclick={onremove}>
-    <Icon name="trash" size={20} stroke={2.2} />Remove from list
-  </button>
+  <div class="foot">
+    <button type="button" class="remove" onclick={onremove}>
+      <Icon name="trash" size={20} stroke={2.2} />Remove from list
+    </button>
+    {#if !network.offline && food.id > 0}
+      <button type="button" class="edit" onclick={editIngredient}>Edit ingredient</button>
+    {/if}
+  </div>
 </form>
 
 <style>
@@ -266,10 +282,27 @@
     font-weight: var(--weight-bold);
   }
 
+  .foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-6);
+  }
+
+  .edit {
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-sm) var(--font-ui);
+    cursor: pointer;
+  }
+
   .remove {
     display: flex;
     align-items: center;
-    align-self: flex-start;
     gap: var(--space-3);
     min-height: var(--touch-target);
     padding: 0;

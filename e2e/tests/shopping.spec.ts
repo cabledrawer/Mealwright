@@ -227,6 +227,36 @@ test("changing the amount of a line", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("the amount box’s Edit ingredient saves the box and opens the ingredient editor; offline it isn’t there", async ({
+  page,
+  context,
+}) => {
+  const name = `Semolina ${tag()}`;
+  await onList(page, name, 500);
+  await page.goto("/shopping");
+  await page.getByRole("button", { name, exact: true }).click();
+  const box = page.getByRole("form", { name: `Change ${name}` });
+  await box.getByRole("textbox", { name: "Amount" }).fill("750");
+  await box.getByRole("button", { name: "Edit ingredient" }).click();
+  const editor = page.getByRole("dialog", { name: `Edit ${name}` });
+  await expect(editor).toBeVisible();
+  await expect(box).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 750`) }),
+  ).toBeVisible();
+
+  await context.setOffline(true);
+  await expect(
+    page.getByTestId(isPhone(page) ? "connection-phone" : "connection-desktop"),
+  ).toContainText("Offline");
+  await page.getByRole("button", { name, exact: true }).click();
+  await expect(box.getByRole("button", { name: "Remove from list" })).toBeVisible();
+  await expect(box.getByRole("button", { name: "Edit ingredient" })).toHaveCount(0);
+  await context.setOffline(false);
+});
+
 test("Ingredients has a New ingredient button that asks How do you count it?", async ({
   page,
 }) => {

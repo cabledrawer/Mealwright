@@ -8,7 +8,9 @@ import { dropPhone, freshPhone } from '$lib/testing/phone';
 import { loadDeviceId } from '$lib/offline/device';
 import { addToQueue, readQueue, saveCopy } from '$lib/offline/store';
 import { applyChanges } from '$lib/shopping/load';
+import { ingredientEditor } from '$lib/ingredientEditor.svelte';
 import { session } from '$lib/session.svelte';
+import { network } from '$lib/network.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
 import type { ShoppingCopy } from '$lib/shopping/types';
 import { toasts } from '$lib/toast.svelte';
@@ -54,6 +56,8 @@ describe('the Shopping page', () => {
   });
 
   afterEach(async () => {
+    ingredientEditor.close();
+    network.reset();
     await dropPhone();
     newIngredient.cancel();
     for (const component of mounted.splice(0)) unmount(component);
@@ -931,6 +935,44 @@ describe('the Shopping page', () => {
         .element(page.getByRole('alert'))
         .toHaveTextContent('Type an amount, like 500 g or 2 packets.');
       expect(server.actions).toEqual([]);
+    });
+
+    for (const width of [390, 1300]) {
+      it(`${width === 390 ? 'phone' : 'computer'}: Edit ingredient saves the box, then opens the ingredient editor`, async () => {
+        await render(width);
+        await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+        const box = page.getByRole('form', { name: 'Change Yoghurt' });
+        await box.getByRole('button', { name: 'More' }).click();
+        await box.getByRole('button', { name: 'Edit ingredient' }).click();
+        await expect.element(box).not.toBeInTheDocument();
+        expect(ingredientEditor.foodId).toBe(3);
+        await vi.waitFor(() =>
+          expect(server.actions).toMatchObject([
+            { kind: 'set_amount', item_id: 'i-yoghurt', amount: 550 }
+          ])
+        );
+      });
+    }
+
+    it('Edit ingredient with a box that can’t be read says why, and opens nothing', async () => {
+      await render(390);
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Amount' }).fill('lots');
+      await page.getByRole('button', { name: 'Edit ingredient' }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Type an amount, like 500 g or 2 packets.');
+      expect(ingredientEditor.foodId).toBeNull();
+      expect(server.actions).toEqual([]);
+    });
+
+    it('offline: no Edit ingredient (the editor needs the server); Remove from list stays', async () => {
+      await openOffline(390);
+      network.offline = true; // as the bar shows after a few seconds without the server
+      await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+      const box = page.getByRole('form', { name: 'Change Yoghurt' });
+      await expect.element(box.getByRole('button', { name: 'Remove from list' })).toBeVisible();
+      expect(box.getByRole('button', { name: 'Edit ingredient' }).elements()).toHaveLength(0);
     });
 
     it('Remove from list asks first; Keep it removes nothing; Remove sends delete, with Undo', async () => {

@@ -204,6 +204,7 @@ Written by Claude Code on 21 Oct from cabledrawer's hand-test answers of 20 Oct 
 - The ingredient's name, **Done**; **−** and **+** (screen readers: "Less", "More") around the box that holds the real amount (screen readers: "Amount"); the unit choice (screen readers: "Unit"), which lists the ingredient's units and sizes the way the mockup does: "g", "kg", "packet (500 g)". It is left out when there is only one unit.
 - Under it, in small text: **The box holds the real amount: edit it, or use − / +.**
 - **Remove from list** (with a bin), which asks first.
+- **Edit ingredient**, a small link beside Remove from list, opens the ingredient editor for that row’s ingredient (proposed, for cabledrawer: it saves the box first, as Done does, and an amount it can’t read stops it with the usual message; it isn’t shown offline, like the recipe page’s Edit, because the editor needs the server).
 - A box that can't be read says it in the existing words: "Type an amount, like 500 g or 2 packets." (section 4). Saving with Done or Enter makes one change with its Undo ("Toor dal amount changed"); Escape leaves the line as it was (approved, cabledrawer 21 Oct).
 
 **Removing asks first (cabledrawer 20 Oct)**
