@@ -8,6 +8,7 @@
 // tests/screens.spec.ts (the saved screenshots) uses seed() too.
 import type { APIRequestContext } from '@playwright/test';
 import { Api, seed as seedKitchen, type Json } from './seed-pantry.ts';
+import { uploadPhoto, type Shape } from './photos.ts';
 
 export { prepare } from './seed-pantry.ts';
 
@@ -44,6 +45,8 @@ type RecipeSpec = {
   /** The rest, for the recipe page's saved screenshot (the list doesn't show them). */
   page?: { description: string; nutrition: object; steps: string[]; source: string };
   tags?: string[];
+  /** A test photo (review/photos.ts) to put on the recipe. */
+  photo?: Shape;
   /** [ingredient, amount, unit]: a unit of '' is a count. */
   lines: [string, number, string][];
 };
@@ -57,6 +60,7 @@ const RECIPES: RecipeSpec[] = [
     time: 50,
     kcal: 320,
     tags: ['Batch-friendly'],
+    photo: 'dish',
     page: {
       description: 'Lentil & vegetable stew',
       nutrition: { kcal: 320, protein: 16, carbs: 48, fat: 7, fibre: 11 },
@@ -70,12 +74,13 @@ const RECIPES: RecipeSpec[] = [
     },
     lines: [['Toor dal', 150, 'g'], ['Onion', 2, ''], ['Tamarind', 20, 'g'], ['Sambar powder', 2, 'tbsp'], ['Tomato', 2, '']],
   },
-  { name: 'Palak paneer', time: 40, kcal: 290, lines: [['Spinach', 200, 'g'], ['Paneer', 200, 'g'], ['Onion', 1, ''], ['Turmeric', 1, 'tsp']] },
+  { name: 'Palak paneer', time: 40, kcal: 290, photo: 'tall', lines: [['Spinach', 200, 'g'], ['Paneer', 200, 'g'], ['Onion', 1, ''], ['Turmeric', 1, 'tsp']] },
   {
     name: 'Veg biryani',
     time: 75,
     kcal: 410,
     tags: ['Batch-friendly'],
+    photo: 'wide',
     lines: [['Basmati rice', 600, 'g'], ['Onion', 2, ''], ['Green beans', 150, 'g'], ['Frozen peas', 100, 'g'], ['Cumin seeds', 5, 'g']],
   },
   { name: 'Rajma', time: 60, lines: [['Rajma beans', 250, 'g'], ['Onion', 1, ''], ['Tomato', 3, '']] },
@@ -83,7 +88,7 @@ const RECIPES: RecipeSpec[] = [
   { name: 'Jeera rice', time: 25, kcal: 260, tags: ['Quick'], lines: [['Basmati rice', 200, 'g'], ['Cumin seeds', 5, 'g']] },
 ];
 
-async function makeRecipes(api: Api, specs: RecipeSpec[]) {
+async function makeRecipes(api: Api, specs: RecipeSpec[], request: APIRequestContext) {
   const ids = new Map<string, number>();
   const id = async (name: string) => {
     if (!ids.has(name)) {
@@ -105,6 +110,7 @@ async function makeRecipes(api: Api, specs: RecipeSpec[]) {
         : {}),
       nutrition: spec.page ? spec.page.nutrition : spec.kcal === undefined ? {} : { kcal: spec.kcal },
       tags: spec.tags ?? [],
+      ...(spec.photo ? { photo_id: await uploadPhoto(request, spec.photo) } : {}),
       lines,
     });
   }
@@ -120,7 +126,7 @@ async function foodIdOrNew(api: Api, name: string, make: (name: string) => Promi
 export async function seed(request: APIRequestContext) {
   await seedKitchen(request);
   const api = new Api(request);
-  await makeRecipes(api, RECIPES);
+  await makeRecipes(api, RECIPES, request);
   const list = await mainList(api);
   for (const [name, amount, unit] of LIST) {
     await api.post(`/shopping/lists/${list}/items`, { food_id: await foodId(api, name), amount: { amount, unit } });
@@ -219,5 +225,5 @@ export async function stress(request: APIRequestContext) {
       ],
     });
   }
-  await makeRecipes(api, longRecipes);
+  await makeRecipes(api, longRecipes, request);
 }

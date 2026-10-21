@@ -170,6 +170,14 @@ plan, the staples check card, tubs, "Recipes for these".
 - Wren's version says "unchanged" where the mockup says "the same as yours"; Makes has a box for the count word (dosas) when the unit is "count".
 - The mockups are copied into `docs/mockups/` but `canvas.json` is unchanged: listing the new boards needs canvas positions only the design canvas knows, so `review/screens.ts --screen` can't find the new mockups by title yet.
 
+## Where the recipe photos (0.4, photos PR) differ from the mockups
+
+- A recipe with no photo has **no box** on its page. The mockups draw a grey "[Recipe photo, saved locally]" placeholder; that is a design note, not a state to ship (the lead's choice, for cabledrawer to confirm). In the list the plain warm square stays, as in the mockups.
+- The page's photo is 170 px tall on a phone with the page's own side margin (16 px), and on a computer it is the mockup's box beside the figures (`flex: 1 1 260px; min-height: 150px`, radius 20 px), which wraps above them when the pane is narrow (and at 200% text). The tablet width (768 to the panes' width) uses the phone's layout.
+- A name that wraps keeps the square at the top of the row; a one-line row centres it, as drawn (cabledrawer 20 Oct, #44).
+- The saved Edit recipe screenshots now show Sambar's photo in the editor (the seeded Sambar has one).
+- Photos are not cached for offline use: offline, the list shows the plain squares and the page no box.
+
 ## Mockup notes (what builders tend to miss)
 
 Colours come from `docs/mockups/*.dc.html`; most are already tokens in

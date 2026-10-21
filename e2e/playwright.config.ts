@@ -55,6 +55,9 @@ export default defineConfig({
     // The recipe page and its states (0.4).
     { name: 'phone 0.4 recipe page', testMatch: 'recipe-page.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 recipe page', testMatch: 'recipe-page.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // Recipe photos on All recipes and the recipe page (0.4).
+    { name: 'phone 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Recipes on a computer: the three panes (0.4).
     { name: 'desktop 0.4 panes', testMatch: 'recipes-panes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
