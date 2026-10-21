@@ -954,7 +954,7 @@
       </div>
       <p class="note">
         With a photo it fills the square, cropped and never stretched (an ordinary one, a very tall
-        one, a very wide one). A photo that can't be fetched leaves the plain square, and a name
+        one, a very wide one). A photo that can’t be fetched leaves the plain square, and a name
         that wraps keeps the square at the top.
       </p>
       <div class="narrow card">
@@ -1019,9 +1019,9 @@
         />
       </div>
       <p class="note">
-        The recipe's photo: a box 170 px tall above the name on a phone, cropped to fill (an
+        The recipe’s photo: a box 170 px tall above the name on a phone, cropped to fill (an
         ordinary one, a very tall one, a very wide one). A recipe with no photo, or a photo that
-        can't be fetched, has no box at all. On a computer it sits beside the nutrition figures and
+        can’t be fetched, has no box at all. On a computer it sits beside the nutrition figures and
         wraps above them when there is no room.
       </p>
       <div class="narrow stack">

@@ -105,18 +105,18 @@ Patterns in use:
 All from spec principle 16 and "Offline shopping-list sync" (cabledrawer 17 to 18 Oct); built in `network.svelte.ts`, `ConnectionStatus.svelte`, `OfflineNote.svelte`, `shopping/view.ts`, `store.svelte.ts`.
 
 - **Nothing extra while all is well.** A short blip shows nothing.
-- **Bar, phone:** "Offline — 3 changes waiting" (singular "1 change waiting"), with "Try now". **Desktop:** "Offline", with "Try now", and under it "3 changes waiting. They'll save when you're back." In the collapsed sidebar a small dot that is also the "Try now" button.
+- **Bar, phone:** "Offline — 3 changes waiting" (singular "1 change waiting"), with "Try now". **Desktop:** "Offline", with "Try now", and under it "3 changes waiting. They’ll save when you’re back." In the collapsed sidebar a small dot that is also the "Try now" button.
 - **Back:** the toast "Back online — all saved" (short, goes by itself).
 - **Shopping subtitle:** "12 to buy · saved" when connected; offline "12 to buy · offline, saving on this phone" (on a computer "…on this computer"); extra lists "Extra list · 5 · offline".
-- **A screen that needs the server:** "You’re offline." then "Pantry needs your Mealwright server. Your shopping list works offline." (ruling 4; naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you're back online."
-- **A phone that has never loaded the list:** "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
+- **A screen that needs the server:** "You’re offline." then "Pantry needs your Mealwright server. Your shopping list works offline." (ruling 4; naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you’re back online."
+- **A phone that has never loaded the list:** "Your shopping list isn’t on this phone yet. It’ll be here after you’ve opened it once while connected."
 - **"Changes", never "actions", "operations" or "mutations"; "waiting", never "queued" or "pending".**
 
 ## 9. Signing in and out
 
 From spec "Sign in", "Sign-out warning", "Offline shopping-list sync" (cabledrawer 17 and 18 Oct); built in `sign-in/+page.svelte`, `setup/+page.svelte`, `settings/+page.svelte`, `offline/held.ts`.
 
-- Sign in page: "Welcome back", "Sign in to your household's kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Remember this phone" / "Remember this computer", with "for 30 days" in small text (section 11, ruling 2), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household's admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
+- Sign in page: "Welcome back", "Sign in to your household’s kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Remember this phone" / "Remember this computer", with "for 30 days" in small text (section 11, ruling 2), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household’s admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
 - First run: "Welcome! First, your account", "You're the first person here, so you'll be the admin…", button **Create account**; "No default password and no account with us. This login lives only on your server."
 - Password turned off by the admin: only the single-sign-on button and "Trouble signing in? Ask your household's admin."
 - **Plain http:// connection:** "This connection isn't secure" with "Signing in needs a secure connection. Open Mealwright at its https:// address, through your reverse proxy." (refused) or the warning "This connection isn't secure. Passwords travel unencrypted. Use only for testing on a network you trust." (allowed) (spec section 7).
