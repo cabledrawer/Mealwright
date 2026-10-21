@@ -27,7 +27,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 409 | `name_taken` | food name already used (`food_id` says which) |
 | 409 | `ask_once` | the server needs a conversion it doesn't know (section 4.4; carries `ask`) |
 | 409 | `already_undone` | Undo pressed twice |
-| 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2) |
+| 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2); from 0.4 also on a `food_back` line, or on a removal line that isn't the ingredient's newest or whose ingredient is back (cabledrawer 21 Oct) |
 | 422 | `too_big` | an amount over 1,000,000 g, ml or items (typed, or worked out by a conversion); cup weights are at most 2 kg and item weights at most 50 kg |
 | 422 | `bad_number` | an ID, cursor or version bigger than the database can hold (over 2^63 − 1, or under −2^63; security audit, 0.4), in the path, the query or the body. Each is refused where the request is read; any other number overflow is a server error (500). In a sync action, IDs and `seen` over 2^53 − 1 are refused `bad_action` instead |
 | 422 | `one_field` | a food PATCH with more or less than one field |
@@ -149,7 +149,7 @@ Adding "2 packets" makes **two lots of one packet each**, so each can be used, b
 |---|---|
 | `id`, `household_id` | |
 | `idempotency_key` | str(64), null; unique (household, key) |
-| `kind` | `added` · `used` · `binned` · `set_left` · `moved` · `to_freezer` · `use_by` · `food_created` · `food_edited` · `food_removed` · `merged` · `split` · `undo`. Later: `shopped` (0.3), `cooked` (0.7). |
+| `kind` | `added` · `used` · `binned` · `set_left` · `moved` · `to_freezer` · `use_by` · `food_created` · `food_edited` · `food_removed` · `food_back` · `merged` · `split` · `undo`. `food_back` (0.4) is "Lemon is back in Ingredients": a removed ingredient brought back by a Pantry Undo or an offline add. It has no Undo, and it makes the older removal line lose its Undo; only the newest removal of an ingredient can be undone, and only while it is still removed, worked out when the list is read (cabledrawer 20 and 21 Oct; no change to the database's layout). Later: `shopped` (0.3), `cooked` (0.7). |
 | `login_id`, `login_name` | Who. The name is copied so the history still reads right if the login is renamed or removed. |
 | `at` | when |
 | `summary` | Server-made plain sentence, e.g. "Used 200 g Spinach" (section 5). Ingredient names always appear exactly as the household typed them ("MDH sambar masala"), in every summary and message. |

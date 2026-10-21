@@ -176,6 +176,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **Paper-cuts pull request, from cabledrawer's hand test (cabledrawer 20 Oct):**
   - Phone Pantry: a card per place (icon, "Fridge · 6 items", jump chips, empty places folded). Mockup: `PantryPlaces-Phone` and its dark version in `docs/mockups/`.
   - Show a purchase date on pantry rows with no use-by ("bought 20 Oct"): a 0.5 paper cut (cabledrawer 21 Oct). It is already stored (`stock_lot.added_at`, sent by the Pantry API as each lot's `added_on`, and `addedWords` in `frontend/src/lib/dates.ts` already words it), so it only needs showing. "Added" is when the stock went in. cabledrawer 21 Oct: "Both catches are accepted for now (an offline tick is dated when the phone sends it; “Different pack?” dates the new pack that day)."
+  - The `e2e/tests/live.spec.ts` connection-bar tests fail only when the whole browser suite runs (under load) and pass when run alone (seen on #49 and 0.4's paper cuts): find out why and fix it (cabledrawer 21 Oct: "The live.spec.ts connection-bar test that fails only under load: add it to the 0.5 paper cuts.").
   - For the 0.5 kickoff: swiping is under-used on the phone; cabledrawer's helper chat will bring him ideas then. Nothing to build until he has decided.
 
 **Done when:** a test suite of saved real-world recipe pages (stored as files, never fetched in tests) parses correctly; SSRF tests cover private IPs, DNS rebinding and redirects; with the Privacy switch off, import is refused.

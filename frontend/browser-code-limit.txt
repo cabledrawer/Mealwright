@@ -9,7 +9,9 @@
 #
 # Set on 21 Oct, when the check moved from the whole build to the largest page: the
 # largest page was the recipe editor (/recipes/[id]/edit), 117527 bytes (114.8 KiB) on
-# the build of PR 7. The limit is 144 KiB, about 25% above that.
+# the build of PR 7. The limit is 144 KiB, about 25% above that. Approved by cabledrawer
+# 21 Oct: "Yes: the size limit is 144 KiB, measuring the largest page including the
+# shared code and the styles (25% above today's 114.8 KiB, my 25% rule)."
 #
 # Before that, the limit was for every .js and .css file in the build added up:
 #
