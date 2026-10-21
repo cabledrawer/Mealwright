@@ -7,6 +7,7 @@ const recipe = (extra: Partial<RecipeRow> = {}): RecipeRow => ({
   name: 'Sambar',
   description: null,
   makes: null,
+  photo: null,
   version: 1,
   time_minutes: 50,
   serves: 4,

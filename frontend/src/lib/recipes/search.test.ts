@@ -8,6 +8,7 @@ const brief = (id: number, name: string): RecipeBrief => ({
   name,
   description: null,
   makes: null,
+  photo: null,
   version: 1
 });
 const ALL = [

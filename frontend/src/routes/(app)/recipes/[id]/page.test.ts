@@ -88,6 +88,7 @@ const SAMBAR: Recipe = {
     { id: 4, kind: 'step', text: 'Stir it in.' }
   ],
   source_note: 'Amma’s',
+  photo: null,
   version: 1
 };
 
@@ -552,6 +553,49 @@ describe('the recipe page', () => {
       });
       await expect.element(page.getByRole('heading', { level: 1 })).toBeVisible();
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+  });
+
+  describe('the photo', () => {
+    // A 2 × 2 pixel PNG, so the photo really loads.
+    const DISH =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGN4VqcERAwQCgAtxgYZHCtf2QAAAABJRU5ErkJggg==';
+    const photo = (url: string) => ({
+      id: 5,
+      width: 1600,
+      height: 1200,
+      url,
+      list_width: 208,
+      list_height: 156,
+      list_url: '/api/v1/recipes/photos/5/list'
+    });
+
+    it('sits between the top row and the name, 170 px tall, with the large copy', async () => {
+      await open({ photo: photo(DISH) });
+      const img = page.getByRole('img', { name: 'Photo of Sambar' });
+      await expect.element(img).toBeVisible();
+      await expect.element(img).toHaveAttribute('src', DISH);
+      const box = document.querySelector('.frame')!.getBoundingClientRect();
+      expect(box.height).toBe(170);
+      const top = document.querySelector('.top')!.getBoundingClientRect();
+      const name = document.querySelector('h1')!.getBoundingClientRect();
+      expect(box.top).toBeGreaterThanOrEqual(top.bottom);
+      expect(box.bottom).toBeLessThanOrEqual(name.top);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    });
+
+    it('is not drawn at all when the recipe has none', async () => {
+      await open({ photo: null });
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      expect(document.querySelector('img')).toBeNull();
+      expect(document.querySelector('.frame')).toBeNull();
+    });
+
+    it('is gone, with no broken-image icon, when it can’t be fetched', async () => {
+      await open({ photo: photo('/api/v1/recipes/photos/404/large') });
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      await expect.poll(() => document.querySelector('img')).toBeNull();
+      expect(document.querySelector('.frame')).toBeNull();
     });
   });
 });

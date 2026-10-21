@@ -14,6 +14,7 @@ const row = (id: number, name: string): RecipeRow => ({
   name,
   description: null,
   makes: null,
+  photo: null,
   version: 1,
   time_minutes: 30,
   serves: 4,

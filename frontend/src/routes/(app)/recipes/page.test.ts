@@ -13,6 +13,7 @@ const row = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRo
   name,
   description: null,
   makes: null,
+  photo: null,
   version: 1,
   time_minutes: null,
   serves: 4,

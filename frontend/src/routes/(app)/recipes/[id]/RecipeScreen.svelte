@@ -5,8 +5,10 @@
   // servings (on screen only), "N missing · Add to the list", the method, tags and where it
   // came from. Online only, like Pantry and All recipes (question 33).
   //
-  // Edit, at the top on the right, opens the editor (Delete is in the editor). Hidden until they
-  // work, not stubbed: Plan it (0.6), Start cooking and Cook once (0.7), the photo, and "From:
+  // Edit, at the top on the right, opens the editor (Delete is in the editor). The photo is
+  // above the name on a phone and beside the nutrition figures in the desktop's reading pane;
+  // a recipe without one has no box. Hidden until they
+  // work, not stubbed: Plan it (0.6), Start cooking and Cook once (0.7), and "From:
   // <site>" (imports, 0.5; a typed-in recipe's source note is shown as typed).
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
@@ -16,6 +18,7 @@
   import MissingBar from '$lib/components/MissingBar.svelte';
   import NutritionStrip from '$lib/components/NutritionStrip.svelte';
   import OfflineNote from '$lib/components/OfflineNote.svelte';
+  import RecipePhoto from '$lib/components/RecipePhoto.svelte';
   import RecipeIngredient from '$lib/components/RecipeIngredient.svelte';
   import ServingsStepper from '$lib/components/ServingsStepper.svelte';
   import { kitchen } from '$lib/freshness.svelte';
@@ -136,6 +139,7 @@
     {#if !panes}<OfflineNote screen="Recipes" />{/if}
   {:else if recipe}
     <article class="recipe">
+      {#if !panes}<RecipePhoto photo={recipe.photo} name={recipe.name} />{/if}
       <header>
         <h1>{recipe.name}</h1>
         {#if meta.length || makes}
@@ -145,7 +149,15 @@
 
       <KeepAwake {awake} />
 
-      <NutritionStrip nutrition={recipe.nutrition} />
+      {#if panes && recipe.photo}
+        <!-- The photo beside the figures; narrower than the two together, they wrap. -->
+        <div class="facts">
+          <RecipePhoto photo={recipe.photo} name={recipe.name} beside />
+          <div class="nutrition"><NutritionStrip nutrition={recipe.nutrition} /></div>
+        </div>
+      {:else}
+        <NutritionStrip nutrition={recipe.nutrition} />
+      {/if}
 
       {#if empty}
         <p class="quiet">Nothing written down yet.</p>
@@ -363,6 +375,23 @@
     .body > section:only-child {
       grid-column: 1 / -1;
     }
+  }
+
+  /* Photo and nutrition in one wrapping row (mockup Desktop-Recipe). */
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--space-7);
+  }
+
+  .nutrition {
+    display: flex;
+    flex: 2 1 360px;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-7);
+    min-width: 0;
   }
 
   header {

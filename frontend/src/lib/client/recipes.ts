@@ -25,6 +25,8 @@ export interface RecipeBrief {
   name: string;
   description: string | null;
   makes: { amount: number; amount_text: string; unit: string } | null;
+  /** The cover photo; null when there is none. */
+  photo: PhotoOut | null;
   version: number;
 }
 
@@ -143,6 +145,8 @@ export interface Recipe {
   lines: RecipeLine[];
   steps: RecipeStep[];
   source_note: string | null;
+  /** The cover photo; null when there is none. */
+  photo: PhotoOut | null;
   version: number;
 }
 
@@ -166,7 +170,6 @@ export interface RecipeStock {
 /** The whole answer: the recipe page uses the `Recipe` part, the editor all of it. */
 export interface RecipeOut extends Recipe {
   homemade: Ref | null;
-  photo: PhotoOut | null;
   used_by: Ref[];
   updated_at: string;
   updated_by: Who;

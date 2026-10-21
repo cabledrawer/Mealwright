@@ -48,6 +48,7 @@
   import NutritionStrip from '$lib/components/NutritionStrip.svelte';
   import RecipeIngredient from '$lib/components/RecipeIngredient.svelte';
   import RecipeListRow from '$lib/components/RecipeListRow.svelte';
+  import RecipePhoto from '$lib/components/RecipePhoto.svelte';
   import RecipesPopout from '$lib/components/RecipesPopout.svelte';
   import ServingsStepper from '$lib/components/ServingsStepper.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -57,7 +58,7 @@
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { askOnce } from '$lib/askOnce.svelte';
-  import type { RecipeLine, RecipeOut, RecipeRow } from '$lib/client/recipes';
+  import type { PhotoOut, RecipeLine, RecipeOut, RecipeRow } from '$lib/client/recipes';
   import type { FoodRow } from '$lib/client/types';
   import { RecipeDraft, type DraftPhoto } from '$lib/recipes/draft.svelte';
   import type { Change } from '$lib/client/types';
@@ -238,6 +239,7 @@
     name,
     description: null,
     makes: null,
+    photo: null,
     version: 1,
     time_minutes: null,
     serves: 4,
@@ -287,6 +289,49 @@
         },
         stock: { counted: 4, missing: 2, can_cook_now: false }
       }
+    )
+  ];
+  // Photos for the gallery: little pictures drawn here as data (nothing is fetched). A wide one,
+  // a tall one and an ordinary one show the cropping; "gone" is an address that answers nothing.
+  const drawn = (width: number, height: number, from: string, to: string) =>
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+        `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>` +
+        `<rect width="${width}" height="${height}" fill="url(#g)"/>` +
+        `<circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) / 3}" fill="#f4efe4"/>` +
+        `<circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) / 6}" fill="#c0522d"/></svg>`
+    );
+  const photoOf = (width: number, height: number, from: string, to: string): PhotoOut => {
+    const picture = drawn(width, height, from, to);
+    return {
+      id: width * 1000 + height,
+      width,
+      height,
+      url: picture,
+      list_width: width >= height ? Math.round((156 * width) / height) : 156,
+      list_height: width >= height ? 156 : Math.round((156 * height) / width),
+      list_url: picture
+    };
+  };
+  const dish = photoOf(1600, 1200, '#e0a458', '#7a9e4f');
+  const tallDish = photoOf(300, 1600, '#d9822b', '#3f6b8c');
+  const wideDish = photoOf(1600, 300, '#b5483a', '#e8c170');
+  const goneDish: PhotoOut = {
+    ...dish,
+    id: 9,
+    url: '/gallery-no-such-photo-large.jpg',
+    list_url: '/gallery-no-such-photo-list.jpg'
+  };
+  const photoRows: RecipeRow[] = [
+    recipe(11, 'Sambar', { photo: dish, time_minutes: 50, kcal: 320 }),
+    recipe(12, 'A very tall photo', { photo: tallDish, time_minutes: 30 }),
+    recipe(13, 'A very wide photo', { photo: wideDish, time_minutes: 30 }),
+    recipe(14, 'A photo that is gone', { photo: goneDish, time_minutes: 20 }),
+    recipe(
+      15,
+      'Spiced roasted cauliflower with tahini, pomegranate and a very long name that keeps going on to a third line',
+      { photo: dish, time_minutes: 40, kcal: 290 }
     )
   ];
   type Filter = 'all' | 'cook' | 'soon' | `tag:${string}`;
@@ -528,10 +573,11 @@
         name: 'Sambar powder',
         description: null,
         version: 1,
+        photo: null,
         makes: { amount: 200, amount_text: '200', unit: 'g' }
       },
-      { id: 1, name: 'Sambar', description: null, version: 1, makes: null },
-      { id: 4, name: 'Sambar rice', description: null, version: 1, makes: null }
+      { id: 1, name: 'Sambar', description: null, version: 1, photo: null, makes: null },
+      { id: 4, name: 'Sambar rice', description: null, version: 1, photo: null, makes: null }
     ]
   });
   const blocked = [
@@ -903,6 +949,16 @@
           <div class="divided"><RecipeListRow recipe={row} /></div>
         {/each}
       </div>
+      <p class="note">
+        With a photo it fills the square, cropped and never stretched (an ordinary one, a very tall
+        one, a very wide one). A photo that can't be fetched leaves the plain square, and a name
+        that wraps keeps the square at the top.
+      </p>
+      <div class="narrow card">
+        {#each photoRows as row (row.id)}
+          <div class="divided"><RecipeListRow recipe={row} /></div>
+        {/each}
+      </div>
       <div class="narrow">
         <FilterChips
           options={fewFilters}
@@ -948,6 +1004,25 @@
         <ServingsStepper value={serves} onchange={(v) => (serves = v)} />
         <ServingsStepper value={servesOne} onchange={(v) => (servesOne = v)} />
         <ServingsStepper value={servesMany} onchange={(v) => (servesMany = v)} />
+      </div>
+      <p class="note">
+        The recipe's photo: a box 170 px tall above the name on a phone, cropped to fill (an
+        ordinary one, a very tall one, a very wide one). A recipe with no photo, or a photo that
+        can't be fetched, has no box at all. On a computer it sits beside the nutrition figures and
+        wraps above them when there is no room.
+      </p>
+      <div class="narrow stack">
+        <RecipePhoto photo={dish} name="Sambar" />
+        <RecipePhoto photo={tallDish} name="A very tall photo" />
+        <RecipePhoto photo={wideDish} name="A very wide photo" />
+        <RecipePhoto photo={goneDish} name="A photo that is gone" />
+        <RecipePhoto photo={null} name="No photo" />
+      </div>
+      <div class="wide-facts">
+        <RecipePhoto photo={dish} name="Sambar" beside />
+        <div class="facts-figures">
+          <NutritionStrip nutrition={{ kcal: 320, protein: 16, carbs: 48, fat: 7.5, fibre: 11 }} />
+        </div>
       </div>
       <div class="narrow stack">
         <NutritionStrip nutrition={{ kcal: 320, protein: 16, carbs: 48, fat: 7.5, fibre: 11 }} />
@@ -1330,6 +1405,23 @@
 
   .narrow.wide {
     max-width: 520px;
+  }
+
+  /* The computer's photo-beside-the-figures row (RecipeScreen's .facts). */
+  .wide-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--space-7);
+    max-width: 760px;
+  }
+
+  .facts-figures {
+    display: flex;
+    flex: 2 1 360px;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-7);
   }
 
   .narrow.tight {
