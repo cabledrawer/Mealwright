@@ -124,9 +124,20 @@ export class ShoppingModel {
 
   /** Fetch what changed (or, with `full`, a whole new copy) and merge it in. */
   async load(full = false): Promise<void> {
+    if (!this.loaded) {
+      // The first time: read this phone's copy and queue, and start sending what's waiting
+      // before asking for the list (11.6). The copy shows at once, with the queue on top; the
+      // server's answer updates it when it comes (cabledrawer 20 Oct, hand test). With no copy
+      // here and the browser offline, there's nothing to wait for either.
+      await shoppingSync.start();
+      if (shoppingSync.copy) {
+        this.loaded = true;
+      } else if (!navigator.onLine) {
+        this.#notHere = true;
+        this.loaded = true;
+      }
+    }
     try {
-      // The first time: send what's waiting on this phone before showing the list (11.6).
-      if (!this.loaded) await shoppingSync.start();
       await shoppingSync.refresh(full);
       this.#problem = null;
       this.#notHere = false;

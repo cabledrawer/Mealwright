@@ -13,6 +13,7 @@ import { newIngredient } from '$lib/newIngredient.svelte';
 import type { ShoppingCopy } from '$lib/shopping/types';
 import { toasts } from '$lib/toast.svelte';
 import { undoHistory } from '$lib/undo.svelte';
+import { notHereText } from '$lib/shopping/store.svelte';
 import Shopping from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -295,6 +296,60 @@ describe('the Shopping page', () => {
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
     expect(page.getByRole('alert').elements()).toEqual([]);
+  });
+
+  /** Every request hangs until the returned release() (a weak signal); then `server` answers. */
+  function weakSignal(): () => void {
+    const answer = globalThis.fetch;
+    let release!: () => void;
+    const released = new Promise<void>((done) => (release = done));
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      await released;
+      return answer(...args);
+    });
+    return release;
+  }
+
+  it('a weak signal: the list on this phone shows at once, and the server’s answer updates it (cabledrawer 20 Oct, hand test)', async () => {
+    await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
+    const device = await loadDeviceId();
+    const waiting = { id: 'w1', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick' as const };
+    await addToQueue({ ...waiting, item_id: 'i-onions' }, ME.id, device);
+    // Someone else added Tahini meanwhile.
+    copy.items.push({ ...structuredClone(copy.items[1]!), id: 'i-tahini', food_id: 7 });
+    server = fakeShopping(copy);
+    const release = weakSignal();
+    await page.viewport(390, 1000);
+    mountShopping();
+    // At once: the copy, with the waiting tick on top, and no "Loading…".
+    const soon = { timeout: 1000 };
+    await expect
+      .element(page.getByRole('button', { name: 'In the trolley · 3' }), soon)
+      .toBeVisible();
+    await expect.element(page.getByText('Loading…')).not.toBeInTheDocument();
+    expect(page.getByRole('checkbox', { name: 'Tick Tahini' }).elements()).toEqual([]);
+
+    release();
+    await expect.element(page.getByRole('checkbox', { name: 'Tick Tahini' })).toBeVisible();
+    // The waiting tick was sent first, once, and is still there (now in the server's copy).
+    const asked = server.requests.map((r) => `${r.method} ${r.path}`);
+    expect(asked.indexOf('POST /shopping/actions')).toBeLessThan(
+      asked.indexOf('GET /shopping/changes')
+    );
+    expect(server.actions).toMatchObject([{ id: 'w1', kind: 'tick' }]);
+    await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
+  });
+
+  it('the browser offline, on a phone that has never had the list: says so at once', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    server = fakeShopping(copy);
+    weakSignal();
+    await page.viewport(390, 1000);
+    mountShopping();
+    await expect
+      .element(page.getByRole('alert'), { timeout: 1000 })
+      .toHaveTextContent(notHereText('phone'));
+    vi.restoreAllMocks();
   });
 
   it('offline, the add box finds ingredients on this phone and adds one (11.1)', async () => {
