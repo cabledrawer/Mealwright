@@ -235,7 +235,9 @@ Giving a ticked line with no amount its first amount ("How much?" → "Different
 
 ## 15. Recipes on a computer (0.4, PR 4)
 
-**Proposed, for cabledrawer** (written by Claude Code on 20 Oct from the mockups `Desktop-Recipe` and `Dark-Recipe`, cabledrawer's answers of 19 and 20 Oct, and the built screens `frontend/src/routes/(app)/recipes/+layout.svelte`, `frontend/src/lib/components/RecipeListScreen.svelte` and `ChooseRecipe.svelte`). Everything from sections 12 and 13 is reused as it is; only what is new is listed. cabledrawer approves any change here.
+**Approved by cabledrawer on 21 Oct, as written** (cabledrawer 21 Oct, word for word: "In PR 7, mark words.md section 15 (Recipes on a computer) as approved"). Every line below, including any marked "new, proposed", is approved.
+
+Written by Claude Code on 20 Oct from the mockups `Desktop-Recipe` and `Dark-Recipe`, cabledrawer's answers of 19 and 20 Oct, and the built screens `frontend/src/routes/(app)/recipes/+layout.svelte`, `frontend/src/lib/components/RecipeListScreen.svelte` and `ChooseRecipe.svelte`). Everything from sections 12 and 13 is reused as it is; only what is new is listed. cabledrawer approves any change here.
 
 - **The three panes:** the sidebar, then All recipes (title "Recipes", the count above it, search, the filter row and the rows as in section 12, no Ingredients button because the sidebar has it), then the recipe (section 13). The open recipe's row is marked. Screen readers hear the panes as "Recipe list" and "Recipe".
 - **No recipe open (`/recipes` on a computer):** the heading "Choose a recipe" and "Pick one from the list to read it here." (new, proposed; an empty pane rather than the first recipe: cabledrawer 20 Oct). With no recipes at all the reading pane says nothing: the list already says "No recipes yet".
@@ -247,7 +249,9 @@ Giving a ticked line with no amount its first amount ("How much?" → "Different
 
 ## 16. Ingredients and the recipes that use them (0.4, PR 6)
 
-**Proposed, for cabledrawer** (written by Claude Code on 20 Oct from the mockups `Ingredients-Phone` and `Ingredients-Desktop`, the spec's "Ingredients screen" and "Removing an ingredient", and cabledrawer's answers of 19 Oct, questions 20 and 30). Words that are new are marked "new". cabledrawer approves any change here.
+**Approved by cabledrawer on 21 Oct, as written** (cabledrawer 21 Oct, word for word: "4. words.md section 16: approved as written, cabledrawer 21 Oct."). Every line below, including those marked "new" or "proposed", is approved.
+
+Written by Claude Code on 20 Oct from the mockups `Ingredients-Phone` and `Ingredients-Desktop`, the spec's "Ingredients screen" and "Removing an ingredient", and cabledrawer's answers of 19 Oct, questions 20 and 30). Words that are new are marked "new". cabledrawer approves any change here.
 
 cabledrawer 20 Oct (word for word): "7. #45: keep “Use soon”. Agreed: the filter and link, 5 recipes before “+ N more”, “Not in any recipe” on the phone." Those items are marked agreed below; the rest is still proposed. He added: "Note for the future: #45's filter and link were an addition beyond the plan. Next time, ask me before building something new."
 
@@ -263,6 +267,8 @@ cabledrawer 20 Oct (word for word): "7. #45: keep “Use soon”. Agreed: the fi
 
 ## 17. The recipe editor (0.4, PR 5)
 
+**Approved by cabledrawer on 21 Oct, with one change** (cabledrawer 21 Oct, word for word: "3. words.md section 17: approved as written, cabledrawer 21 Oct, with one change: "What it makes, e.g. dosas" becomes "What it makes, like dosas"."). Every row below, including those marked "proposed, for cabledrawer", is approved.
+
 Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `NewRecipe-*`, `EditorState-*`), the editor brief and cabledrawer's decisions of 19 and 20 Oct. **"Decided"** means cabledrawer's own words or answer; **"mockup"** means it is drawn in cabledrawer's mockups; **"proposed, for cabledrawer"** means I wrote it because nothing covered it. Nothing here changes an earlier section.
 
 | Where | Words | Source |
@@ -276,7 +282,7 @@ Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `New
 | Photo | Add a photo · Take one or choose from your photos · Uploading photo… · Change photo · Remove photo · Hidden details like location are removed before the photo is kept. | mockup |
 | Photo errors | The server's own sentences, shown as they are: That photo is bigger than 15 MB. · That photo is too big to use (over 50 megapixels). Try a smaller copy. · That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP. · Too many photos waiting to be saved. Save or cancel a recipe first. | decided (cabledrawer 19 and 20 Oct, spec "Photos") |
 | Boxes | Name (hint "A name is all you need to save.") · Short description (optional) · Time (minutes) · Serves (Fewer servings · More servings · Clear (for a batter or a powder)) · Makes (optional) (litres · ml · g · kg · count) · Tags (optional) · Nutrition per serving (optional) (kcal · protein g · carbs g · fat g · fibre g) · Source (optional) | mockup |
-| Makes, a count | "What it makes, e.g. dosas" is asked when the unit is "count" | proposed, for cabledrawer (the mockup has a unit list with "count" but no place for the word) |
+| Makes, a count | "What it makes, like dosas" is asked when the unit is "count" | approved with this change, cabledrawer 21 Oct (it was "e.g. dosas"; the mockup has a unit list with "count" but no place for the word) |
 | Hints | For a batter, a podi or anything made ahead: “Makes 200 g”. · Type a tag and press Enter. Tags you’ve used before are suggested. · Leave a box empty if you don’t know: it shows as unknown, never 0. · A web address shows as a link you can open yourself. Mealwright never visits it. | mockup |
 | Made ahead | Made ahead (keeps in the pantry) · For things you make once and use over days · Adds **Dosa batter** to Ingredients as homemade, so the pantry can keep it. · Add how much it makes, so the pantry can count it. · "Dosa batter is already in Ingredients. It will be linked to this recipe, and its pantry stock stays." (real names) | mockup; the "already in Ingredients" sentence decided (cabledrawer 19 Oct, word for word) |
 | Made ahead, saved recipe | Kept in Ingredients as **Dosa batter**. · Dosa batter stays in Ingredients, no longer linked to this recipe. (when switched off) | proposed, for cabledrawer (the second says what "Decided 2" does) |
