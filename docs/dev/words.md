@@ -1,6 +1,6 @@
 # The word list: how Mealwright talks
 
-**Approved by cabledrawer on 19 Oct.** Written by Claude Code on 18 Oct from the spec and the screens as they are built (0.3). Every line says where it comes from. Where the built screens disagreed with each other or with the spec, cabledrawer ruled on all twelve on 19 Oct; the rulings are in section 11. cabledrawer approves any change to this list (spec: UX — CORE → Keeping the UI good, item 1). **Not all rulings are in the screens yet:** the built screen text was left as it is in this pull request. Rulings 1 to 4 ("item", the sign-in switch, curly apostrophes, error endings) are fixed on the screens in the 0.4 paper-cuts pull request, so until then a few built screens still differ from this list.
+**Approved by cabledrawer on 19 Oct (section 14 is new on 21 Oct and waits for his OK where it says "proposed").** Written by Claude Code on 18 Oct from the spec and the screens as they are built (0.3). Every line says where it comes from. Where the built screens disagreed with each other or with the spec, cabledrawer ruled on all twelve on 19 Oct; the rulings are in section 11. cabledrawer approves any change to this list (spec: UX — CORE → Keeping the UI good, item 1). **Not all rulings are in the screens yet:** the built screen text was left as it is in this pull request. Rulings 1 to 4 ("item", the sign-in switch, curly apostrophes, error endings) are fixed on the screens in the 0.4 paper-cuts pull request, so until then a few built screens still differ from this list.
 
 **Who uses this:** builders write on-screen text from it; the checker checks every pull request's on-screen text against it (`e2e/REVIEW.md`, "Keeping the UI good"). A test already scans the web app for the word "food" (`frontend/src/lib/plainWords.test.ts`).
 
@@ -36,7 +36,7 @@
 
 **Words the checker rejects on screen** (`review`, Plain words): "units", "lots", "entities", "quantity", "SKU", "location", "sync", "queue", "conflict". Principle 7 adds "food items", "labels", "groups". "Item(s)" is **allowed, for shopping-list lines only** (cabledrawer 19 Oct, section 11, ruling 1); the Pantry count says "ingredients".
 
-**Never "Are you sure?"** There are no confirm dialogs: actions happen at once and offer Undo (spec principle 6). The one justified exception is signing out with unsent changes (spec "Signing out with unsent changes").
+**Never "Are you sure?"** There are no confirm dialogs: actions happen at once and offer Undo (spec principle 6). There are two justified exceptions: signing out with unsent changes (spec "Signing out with unsent changes"), and removing a line from the shopping list, which asks "Remove Onion from the shopping list?" first (cabledrawer 20 Oct; section 14).
 
 **Never "No conflict pop-ups":** clashes are a quiet note with Undo ("Wren ticked this too") (spec "Offline shopping-list sync").
 
@@ -50,7 +50,7 @@ Today · Plan · Shopping · Pantry · Recipes (sidebar names). Phone tabs: Toda
 - Shops are names only. **Any shop** is the group for ingredients with no usual shop; **All** is the view with every shop under its own heading and is where Shopping opens (spec "Shopping opens on All", cabledrawer 18 Oct).
 - Lists: **Main list** (called "This week" until renamed; "main list" is shown in small text beside it) and **extra lists** ("Party on Saturday"). **+ New list**. The picker reads "Main list · 12" and "Extra list · 5 · ticked items still go to the pantry". Source: spec "Shopping extra lists"; `ListPicker.svelte`.
 - Aisles use these names: Veg & fruit · Meat & fish · Dairy · Dry goods · Tins & jars · Spices · Other (`frontend/src/lib/shopping/aisles.ts`; spec "Shopping").
-- Where something goes: "→ Fridge" (a put-away result), "Moved Milk → Freezer".
+- Where something goes: "In the Fridge · 2 L" (the line under a ticked row, section 14), "Milk → Fridge" (the toast), "Moved Milk → Freezer".
 
 ## 4. Amounts and dates
 
@@ -77,7 +77,7 @@ Rules (all from what is built; the spec only fixes a few of them):
 
 ## 6. Toasts and Undo
 
-- A toast is one calm sentence about **what happened**, in the past tense, with the ingredient's name first or the verb first as the server words it: "Used 200 g spinach", "Binned Milk", "Toor dal moved to Fridge", "Basmati rice ticked", "Oil added to the shopping list", "Renamed to Toor dal", "Toor dal is a staple". Source: `pantry.svelte.ts`, `store.svelte.ts`, `IngredientEditor.svelte`, `foodEditor.svelte.ts`; spec "Tap a staple when it runs out".
+- A toast is one calm sentence about **what happened**, in the past tense, with the ingredient's name first or the verb first as the server words it: "Used 200 g spinach", "Binned Milk", "Toor dal moved to Fridge", "Basmati rice ticked", "Oil added to the shopping list", "Renamed to Toor dal", "Toor dal is a staple", "Removed Onion", "Salt restocked". Source: `pantry.svelte.ts`, `store.svelte.ts`, `IngredientEditor.svelte`, `foodEditor.svelte.ts`; spec "Tap a staple when it runs out".
 - Every change has an **Undo** button in its toast (6 seconds; it waits while the pointer or keyboard focus is on it) and **Ctrl+Z** on desktop (spec principle 6; `toast.svelte.ts`).
 - **After Undo: "Undone: " and the change's own words,** with the original capital letter: "Undone: Used 200 g spinach", "Undone: Removed Oil from Ingredients" (`undo.svelte.ts`, `client/changes.ts`). When only some could be put back, the server's own sentence is added: "Undone: Used about ½ tub Yogurt. Yogurt is back in Ingredients, with ½ tub in the Fridge." (api, "Remove a food").
 - **Already done is said, not repeated:** "Oil is already on the shopping list." (Pantry) and "Milk is already on the list · 2 L" (Shopping add box) (spec "Tap a staple…", "Adding something that's already on the list").
@@ -187,6 +187,51 @@ Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Reci
 
 ---
 
-## 14. Not covered yet (for later versions of this list)
+## 14. Shopping rows (0.4, hand-test fixes)
+
+Written by Claude Code on 21 Oct from cabledrawer's hand-test answers of 20 Oct and the mockups `ShopRows-Phone`, `ShopRows-Desktop`, their dark versions and the four state files `ShopRows-confirm`, `-editing`, `-removed`, `-swipe`. Words cabledrawer wrote himself are marked "cabledrawer 20 Oct" and are decided. Words marked "proposed, for cabledrawer" were worded by Claude Code and need his OK. cabledrawer approves any change here.
+
+**The row (cabledrawer 20 Oct)**
+
+- Only the square ticks. The name and the amount both open the amount box. The amount is a pill with a small arrow; with no amount the pill says **Add amount** (proposed, for cabledrawer).
+- Screen-reader names (proposed, for cabledrawer): the pill is "Change amount: Toor dal, 500 g" (or "Add amount for Toor dal"); the square is "Tick Toor dal" / "Untick Toor dal" (as before); the computer's bin is "Remove Toor dal from the list"; the swiped row's red button reads "Remove" and a screen reader adds the name ("Remove Toor dal from the list").
+
+**The amount box (cabledrawer 20 Oct; the mockup's words)**
+
+- The ingredient's name, **Done**; **−** and **+** (screen readers: "Less", "More") around the box that holds the real amount (screen readers: "Amount"); the unit choice (screen readers: "Unit"), which lists the ingredient's units and sizes the way the mockup does: "g", "kg", "packet (500 g)". It is left out when there is only one unit.
+- Under it, in small text: **The box holds the real amount: edit it, or use − / +.**
+- **Remove from list** (with a bin), which asks first.
+- A box that can't be read says it in the existing words: "Type an amount, like 500 g or 2 packets." (section 4). Saving with Done or Enter makes one change with its Undo ("Toor dal amount changed"); Escape leaves the line as it was (proposed, for cabledrawer).
+
+**Removing asks first (cabledrawer 20 Oct)**
+
+cabledrawer 20 Oct: "there should be an are you sure - swiping can be by accident so important here", and for Remove in the amount box: "it should ask are you sure". This is the second justified exception to "Undo, not Are you sure?" (the first is signing out with unsent changes). It is for removing a line from the shopping list only.
+
+- The question: **Remove Onion from the shopping list?** and under it **Nothing goes into the pantry.** The buttons: **Remove** (red) and **Keep it**. A sheet from the bottom on a phone, a dialog on a computer. "Keep it" has the focus when it opens, Escape and a tap outside also keep it.
+- Afterwards the toast **Removed Onion** with **Undo** (then "Undone: Removed Onion").
+- Swipe left on a phone row shows a red **Remove**; tapping it asks as above. A swipe alone never removes. On a computer a bin shows when the pointer is over the row (or the keyboard reaches it); it asks as above.
+
+**Where a ticked row went (cabledrawer 20 Oct, option A)**
+
+The line under a ticked row stays until the row is unticked or cleared. No ticked row shows "→ Fridge" or "→ Cupboard" any more.
+
+| What was ticked | The line | Buttons |
+|---|---|---|
+| A line with an amount | **In the Fridge · 2 L** | **Change** (the places, and "Different pack?" under them) · **Undo** |
+| A line with no amount | **Not in the pantry yet. No amount.** (amber) | **Add amount** (opens "How much?") |
+| A staple | **Restocked · staples aren’t counted** | **Undo** |
+
+- Toasts when ticking: "Milk → Fridge" with Change and Undo (as before); a staple says **Salt restocked** (cabledrawer 20 Oct); a line with no amount says "Drumsticks ticked".
+- Screen-reader names for the buttons on the line (proposed, for cabledrawer): "Change where Milk went", "Undo ticking Milk", "Add amount for Drumsticks". The line itself is a group called "Where Milk went".
+- Before the server has answered (offline), the line says where the tick will go, from the line's own amount and the ingredient's usual place. Once the server has answered, it says what really went in.
+- **The Put away panel (desktop; cabledrawer 20 Oct):** "Ticked items with an amount go straight into the pantry. Each ticked row says where it went." The last tick still shows beneath it with Where and Undo last tick; for a staple or a line with no amount there is no Where.
+
+**Recent changes: a first amount (proposed, for cabledrawer)**
+
+Giving a ticked line with no amount its first amount ("How much?" → "Different pack?") used to read "Flour: bought 1 pack · 1 kg instead of 0 g". It now reads **Flour: bought 1 pack · 1 kg (first amount)**.
+
+---
+
+## 15. Not covered yet (for later versions of this list)
 
 Recipe editor, Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

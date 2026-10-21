@@ -58,7 +58,7 @@ Hard rules (no exceptions):
 3. **Few taps for common actions.** Tick an item = 1 tap; add to list = 2 taps; log a batch cook in under a minute.
 4. **Nothing to set up before it's useful.** Sensible defaults for units, shops, locations; setup optional, never a wall.
 5. **Hide the advanced stuff.** Density, conversions, aisle order behind "more", only when needed.
-6. **Undo, not "Are you sure?"** Actions happen instantly with an undo toast (Ctrl+Z on desktop).
+6. **Undo, not "Are you sure?"** Actions happen instantly with an undo toast (Ctrl+Z on desktop). There are two justified exceptions, where asking first is kinder than Undo: signing out with changes that were never sent (they can't be undone), and removing a line from the shopping list (a swipe can be an accident; cabledrawer 20 Oct, hand test).
 7. **Plain words.** "Cupboard", "use soon", "tubs left" — never database words like "food items", "units", "labels", "groups".
 8. **Fast and calm.** Instant (optimistic) updates; restrained visual style; one consistent component set / design system.
 9. **Accessible.** WCAG AA, large text support, real dark mode.
@@ -306,7 +306,7 @@ Plans after 1.0 are kept outside the repo.
 - **Typing something that isn't an ingredient yet** makes it a new ingredient, asking "How do you count it?". A blank amount means one of its usual size, or 1 if it's counted in items.
 - **Extra lists** can be renamed and removed, with Undo. The main list can be renamed but never removed.
 - **Main list subtitle:** "12 to buy · synced with Wren", or "12 to buy · saved" in a one-person household.
-- **Signing out with unsent changes:** "3 changes haven't been sent yet. If you sign out now, they're lost." Buttons: Try sending now · Stay signed in · Sign out and lose them. This is the one justified exception to "Undo, not Are you sure?" (UX principle 6): changes that were never sent can't be undone. If the phone can't check what's waiting (its offline store can't be read): "This phone couldn't check for changes waiting to be sent. Nothing has been deleted." Buttons: Try again · Stay signed in · Sign out anyway — anything waiting on this phone may be lost (cabledrawer 18 Oct).
+- **Signing out with unsent changes:** "3 changes haven't been sent yet. If you sign out now, they're lost." Buttons: Try sending now · Stay signed in · Sign out and lose them. This is one of the two justified exceptions to "Undo, not Are you sure?" (UX principle 6): changes that were never sent can't be undone. The other is removing a line from the shopping list (cabledrawer 20 Oct; see "Shopping rows" below). If the phone can't check what's waiting (its offline store can't be read): "This phone couldn't check for changes waiting to be sent. Nothing has been deleted." Buttons: Try again · Stay signed in · Sign out anyway — anything waiting on this phone may be lost (cabledrawer 18 Oct).
 - **An item with no amount** (weighed or measured, with no usual size): ticking it puts nothing into the pantry, and the ticked row offers "How much?" for one more tap if you want it counted. No prompt (cabledrawer 18 Oct).
 - **"How do you count it?"** is asked once, when a typed name is a brand-new ingredient: By weight · By volume · One by one · Don't count it (a staple, for kitchen roll and soap). When connected to your Mealwright server, the bundled table's guess is picked first (the table is on the server; nothing is looked up on the internet) (cabledrawer 18 Oct).
 - **Put away on two phones** with different places: the one the server receives last wins, with a quiet note ("Wren put coriander in the Freezer") and Undo (cabledrawer 18 Oct).
@@ -363,6 +363,19 @@ Plans after 1.0 are kept outside the repo.
 - **"Maybe the same":** simple offline matching (same name ignoring case, plurals and brackets, or a name matching another food's other names), each with a "Not the same" button. No fuzzy-matching library.
 - **Shops before Settings exists:** the editor's "Usual shop" has a "+ Shop" chip that adds a shop by name. The four default places are created automatically; renaming places comes in Settings (0.8).
 - **Removing an ingredient:** decided by cabledrawer 17 Oct; see "Removing an ingredient" above.
+
+### Shopping rows (decided 20 Oct, hand test)
+
+cabledrawer's answers after trying 0.4 on his phone (mockups `ShopRows-*`, in `docs/mockups/`). They change how a shopping row behaves; the sync rules in "Offline shopping-list sync" are untouched.
+
+- **Only the square ticks** (cabledrawer 20 Oct: "a row tap put 2 Drumsticks into the Cupboard by accident"). Tapping a row's name or its amount opens the amount.
+- **The amount looks tappable:** a pill. It opens the amount box: the real amount in a box you can edit (never grey hint text), − / + beside it, a unit choice, and "Remove from list".
+- **Removing always asks "are you sure?"** (cabledrawer 20 Oct: "there should be an are you sure - swiping can be by accident so important here", and for Remove in the amount box: "it should ask are you sure"). A sheet on a phone, a dialog on a computer: "Remove Onion from the shopping list?" / "Nothing goes into the pantry." / Remove / Keep it. After removing, a toast "Removed Onion" with Undo as well. This is a deliberate exception to "Undo, not Are you sure?", for removing from the shopping list only (see the two exceptions in UX principle 6).
+- **Swipe left on a phone row** shows a red Remove; tapping it asks as above. A swipe alone never removes. (A setting to swipe right instead comes in 0.8.) On a computer a bin shows when the pointer is over the row. Keyboard and screen-reader users reach Remove from the amount box.
+- **A status line on every ticked row (option A),** staying until the row is unticked or cleared: with an amount "In the Fridge · 2 L" with Change and Undo; with no amount, in amber, "Not in the pantry yet. No amount." with "Add amount"; for a staple "Restocked · staples aren’t counted" with Undo, and the staple's toast says "Salt restocked". Ticked rows with no amount, and staples, no longer show "→ Fridge" or "→ Cupboard". The desktop Put away panel says: "Ticked items with an amount go straight into the pantry. Each ticked row says where it went."
+- **Recent changes** words giving a ticked line its first amount as a first amount, not "instead of 0 g" (cabledrawer 20 Oct; the words are proposed in `docs/dev/words.md` section 14).
+- **Paper cuts, same day:** the "+" is centred in the Pantry header's round button and the Shopping Add button; every text box, list box and field is at least 16 px so iOS never zooms in (the ingredient editor had one that wasn't).
+- **Later (cabledrawer 20 Oct):** a card per place on the phone Pantry (0.5 paper cuts); a restock date per staple (0.7); a purchase date on pantry rows with no use-by (0.7); ready choices in the "How much?" sheet for a new ingredient (0.7); a setting to swipe right instead of left (0.8). See `docs/BUILD-PLAN.md`.
 
 ### Stock (decided 17 Oct)
 

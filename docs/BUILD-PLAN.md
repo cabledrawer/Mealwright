@@ -172,6 +172,10 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Screen: Import review (`*Import*`): as written → how Mealwright reads it → what's in your kitchen; matched / to confirm / needs you / staple; "Same as <food>" vs "New food"; Save · Save & plan it; "Nothing is saved until you choose."
 - Leaving without saving → "Save as draft?" → Drafts (`Drafts-*`), kept 15 days, then deleted quietly.
 - Today's first-day state links to import (finished in 0.6).
+- **Paper-cuts pull request, from cabledrawer's hand test (cabledrawer 20 Oct):**
+  - Phone Pantry: a card per place (icon, "Fridge · 6 items", jump chips, empty places folded). Mockup: `PantryPlaces-Phone` and its dark version in `docs/mockups/`.
+  - Show a purchase date on pantry rows with no use-by ("bought 20 Oct"). cabledrawer 20 Oct: this is for 0.7 unless it is already stored and only needs showing, in which case it can be a 0.5 paper cut. It is already stored (`stock_lot.added_at`, sent by the Pantry API as each lot's `added_on`, and `addedWords` in `frontend/src/lib/dates.ts` already words it), so it only needs showing. So it is listed here for 0.5, for cabledrawer to confirm (found 21 Oct). "Added" is when the stock went in: for a ticked item that is the tick, but a "Different pack?" change makes new lots dated when it was changed.
+  - For the 0.5 kickoff: swiping is under-used on the phone; cabledrawer's helper chat will bring him ideas then. Nothing to build until he has decided.
 
 **Done when:** a test suite of saved real-world recipe pages (stored as files, never fetched in tests) parses correctly; SSRF tests cover private IPs, DNS rebinding and redirects; with the Privacy switch off, import is refused.
 
@@ -205,6 +209,9 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - "Cooked it" review (`Cooked-*`): every proposed change with Before → After, a Use switch, Used/Left plus stepper for count foods, "Bought some — used them" for missing items, tubs made and where they go. Confirm → one change-log group with Undo.
 - Cooked record: a snapshot of the recipe as cooked plus its stock changes. Future meals follow the latest recipe.
 - Batch cooks deduct once on the cook day and create the tubs; eating a tub uses the tub (¼ steps).
+- **From cabledrawer's hand test (cabledrawer 20 Oct):**
+  - A restock date for each staple: a date line on restocked chips, in the ingredient editor, and a column on Ingredients. The words "Restocked · staples aren’t counted" are already on the Shopping rows (0.4).
+  - Ready choices in the "How much?" sheet for a new ingredient (nothing to choose from yet when an ingredient has no sizes).
 
 **Done when:** the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end.
 
@@ -225,6 +232,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
 - Secrets (the SSO client secret) encrypted at rest.
 - Passwords and the sign-in cookie (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): new passwords need at least 12 characters (existing ones keep working); new passwords are checked against a bundled, offline list of leaked passwords under a licence on the allow list (never an online lookup) (lead's note: cabledrawer approves the list and its licence first); the sign-in cookie gets the `__Host-` name, which signs everyone out once (say so in the release notes) and can't work in plain-http mode (decide with cabledrawer what that mode does).
+- A setting to swipe right instead of left on Shopping rows, with the other settings (cabledrawer 20 Oct: "should be done before 0.9.0").
 - **Not in 0.8 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
 - Backups: daily, keep 7, into the data volume (adjustable). Export everything (optional password encryption).
 - Logs: errors and sign-ins only, 14 days, never content.

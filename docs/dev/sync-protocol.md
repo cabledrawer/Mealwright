@@ -788,7 +788,7 @@ For cabledrawer, with two phones. About 20 minutes, plus a night. Your server is
 - Tap **Just 1** on one phone. The card disappears from the other phone within a few seconds. Pantry: 1 packet more than you wrote down in step 4.
 - **Coriander** ticked, and in Pantry the same as you wrote down in step 4 (not 1 bunch less, not 1 more).
 - **Milk** gone from the list. Phone B shows a quiet note "Your other phone had removed Milk, so your change wasn't kept." with Undo. Nothing changed in the pantry for milk.
-- Pantry → Recent changes lists the ticks, each one by cabledrawer.
+- Pantry → Recent changes lists the ticks. Your own changes show no name; another login's show it (cabledrawer 20 Oct).
 
 **Bonus (one minute):** on phone B, go offline, tick something, then Settings → Sign out. You should get "1 change hasn't been sent yet. If you sign out now, it's lost." with Try sending now · Stay signed in · Sign out and lose it. Tap **Stay signed in**, go back online, and the change saves.
 
