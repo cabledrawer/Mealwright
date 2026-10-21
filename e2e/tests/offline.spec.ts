@@ -336,9 +336,12 @@ test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?";
 });
 
 // Opening on no signal, or one so weak requests hang (cabledrawer 20 Oct, hand test: the app was
-// blank for 30–40 s, then Shopping said "Loading…" for 42 s). "About a second" is allowed
-// 1.5 s here, for a busy test machine; measured, it is under 0.1 s offline and about 0.8 s
-// with every request hanging (the start waits half a second for the server).
+// blank for 30–40 s, then Shopping said "Loading…" for 42 s; the saved copy shows at once).
+// "About a second" is allowed 1.5 s here, for a busy test machine (the builder's choice,
+// proposed, for cabledrawer); measured, it is under 0.1 s offline and about 0.8 s with every
+// request hanging (the start waits half a second for the server). The offline test also
+// passed before the fix, as Playwright's offline fails requests at once: it guards against
+// going back. The hanging test is the one that shows the fix.
 const ABOUT_A_SECOND = 1500;
 
 /** Open the app at Today, then tap Shopping: how long each took to show. */
@@ -372,13 +375,14 @@ test('opening offline shows Today, then the saved list, each within about a seco
 });
 
 test('a slow network doesn’t hold the saved list back, and the list updates when the answers come', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(90_000);
   const t = tag();
   const [first, second] = [`Ghee ${t}`, `Jaggery ${t}`];
   await signIn(page);
   await ingredient(page, first);
   await start(page);
-  // Every request to the server is held for 20 s (page.request below isn't).
+  // Every request to the server is held for 5 s (page.request below isn't): long enough to
+  // show the list isn't waiting for it.
   let release!: () => void;
   const released = new Promise<void>((done) => (release = done));
   await page.route(/\/api\//, async (route) => {
@@ -389,7 +393,7 @@ test('a slow network doesn’t hold the saved list back, and the list updates wh
   const holding = setTimeout(() => {
     releasedAt = Date.now();
     release();
-  }, 20_000);
+  }, 5_000);
   try {
     const { todayMs, listMs } = await openToday(page, first);
     expect(todayMs).toBeLessThan(ABOUT_A_SECOND);
