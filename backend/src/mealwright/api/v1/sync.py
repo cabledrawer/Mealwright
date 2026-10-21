@@ -526,7 +526,7 @@ def apply_actions(body: Envelope, kitchen: Here) -> BatchOut:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "bad_protocol",
-            "This app version speaks a sync protocol the server doesn't know.",
+            "This app version speaks a sync protocol the server doesn’t know.",
         )
     if body.login_id != kitchen.login.id:
         raise Problem(

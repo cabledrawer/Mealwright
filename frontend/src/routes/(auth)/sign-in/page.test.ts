@@ -20,7 +20,7 @@ vi.mock('$app/state', () => ({ page: { url: new URL('http://mealwright.test/sign
 
 const DEVICE = '11111111-2222-4333-8444-555555555555';
 const CANT_TEXT =
-  "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.";
+  'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.';
 const phoneThere = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
 const WREN = { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' };
@@ -132,12 +132,12 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        "Wren's 3 changes are waiting on this phone. Sign in as Wren to send them."
+        'Wren’s 3 changes are waiting on this phone. Sign in as Wren to send them.'
       );
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 3 changes haven't been sent yet. If you carry on, they're lost.");
+      .toHaveTextContent('Wren’s 3 changes haven’t been sent yet. If you carry on, they’re lost.');
     // Nothing has gone to the server yet, and nothing ever goes from Wren's queue.
     expect(requests).toEqual([]);
 
@@ -199,7 +199,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        "Wren's 2 changes are waiting on this computer. Sign in as Wren to send them."
+        'Wren’s 2 changes are waiting on this computer. Sign in as Wren to send them.'
       );
   });
 
@@ -210,7 +210,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+      .toHaveTextContent('Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     await page.getByRole('button', { name: 'Sign in as Wren instead' }).click();
     await expect.element(page.getByLabelText('Username')).toHaveValue('wren');
     await expect.element(page.getByLabelText('Password')).toHaveValue('');
@@ -229,7 +229,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+      .toHaveTextContent('Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /session',
       'DELETE /session'
@@ -246,13 +246,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+        'You were signed out because Wren’s change is waiting on this phone. Sign in as Wren to send it.'
       );
     await userEvent.fill(page.getByLabelText('Password'), 'a long password');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+      .toHaveTextContent('Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     expect(requests).toEqual([]);
     await page.getByRole('button', { name: 'Carry on and lose it' }).click();
     await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
@@ -275,7 +275,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "You were signed out because Wren's 3 changes are waiting on this phone. Sign in as Wren to send them."
+          'You were signed out because Wren’s 3 changes are waiting on this phone. Sign in as Wren to send them.'
         );
       expect(page.getByRole('status').elements()).toHaveLength(1);
       // The warning and its buttons are as they were.
@@ -284,7 +284,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          "Wren's 3 changes haven't been sent yet. If you carry on, they're lost."
+          'Wren’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       await expect
         .element(page.getByRole('button', { name: 'Sign in as Wren instead' }))
@@ -302,7 +302,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "You were signed out because Wren's 2 changes are waiting on this computer. Sign in as Wren to send them."
+          'You were signed out because Wren’s 2 changes are waiting on this computer. Sign in as Wren to send them.'
         );
     });
 
@@ -312,7 +312,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await fillIn('arlo');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+        .toHaveTextContent('Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.');
     });
 
     it('only right after: a page opened again says it the usual way', async () => {
@@ -322,7 +322,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+          'You were signed out because Wren’s change is waiting on this phone. Sign in as Wren to send it.'
         );
       for (const component of mounted.splice(0)) unmount(component);
       document.body.innerHTML = '';
@@ -330,7 +330,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await fillIn('arlo');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+        .toHaveTextContent('Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.');
     });
 
     it('another username typed in: the usual line', async () => {
@@ -340,7 +340,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await userEvent.fill(page.getByLabelText('Username'), 'meena');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.");
+        .toHaveTextContent('Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.');
     });
 
     it('while the server hasn’t ended his session, it doesn’t say he was signed out', async () => {
@@ -351,7 +351,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       show();
       await expect
         .element(
-          page.getByText("Wren's 1 change is waiting on this phone. Sign in as Wren to send it.")
+          page.getByText('Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.')
         )
         .toHaveAttribute('role', 'status');
       fakeApi({ 'DELETE /session': [204, null] });
@@ -359,7 +359,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "You were signed out because Wren's change is waiting on this phone. Sign in as Wren to send it."
+          'You were signed out because Wren’s change is waiting on this phone. Sign in as Wren to send it.'
         );
     });
   });
@@ -376,7 +376,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+      .toHaveTextContent('Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests).toEqual([]);
     expect(await readQueue()).toHaveLength(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -389,13 +389,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+      .toHaveTextContent('Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     // Another tab queues one more before Carry on is pressed.
     await addToQueue(tick('t2'), 2, DEVICE);
     await page.getByRole('button', { name: 'Carry on and lose it' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.");
+      .toHaveTextContent('Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /session',
       'DELETE /session'
@@ -418,7 +418,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+      .toHaveTextContent('Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     // In Wren's other tab: her change goes, and she makes a new one. Still 1 waiting.
     const [shown] = await readQueue();
     await dropFromQueue([shown!.seq!]);
@@ -434,7 +434,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     );
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("Wren's 1 change hasn't been sent yet. If you carry on, it's lost.");
+      .toHaveTextContent('Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     expect(navigation.goto).not.toHaveBeenCalled();
     expect((await readQueue()).map((e) => e.action.id)).toEqual(['new']);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -488,7 +488,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          "Wren's 2 changes haven't been sent yet. If you carry on, they're lost."
+          'Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       expect(requests).toEqual([]);
     });
@@ -551,7 +551,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          "Wren's 2 changes haven't been sent yet. If you carry on, they're lost."
+          'Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
         'POST /session',
@@ -572,7 +572,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
+          'This phone couldn’t delete its offline copy of the household. Nobody can sign in on it until that’s done. Close other Mealwright tabs or restart the browser, then Try again.'
         );
       mendRead();
       mendDelete();
@@ -592,7 +592,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
+          'This computer couldn’t check for changes waiting to be sent. Nothing has been deleted.'
         );
       await fillIn('arlo');
       await page.getByRole('button', { name: 'Sign in' }).click();
@@ -608,7 +608,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
   });
 
   describe('couldn’t finish signing out (the server answered, but kept the session)', () => {
-    const UNFINISHED = "Couldn't finish signing out on this phone.";
+    const UNFINISHED = 'Couldn’t finish signing out on this phone.';
     let refuse = true;
 
     beforeEach(() => {
@@ -654,7 +654,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByText(UNFINISHED)).toBeVisible();
       await expect
         .element(
-          page.getByText("Wren's 2 changes haven't been sent yet. If you carry on, they're lost.")
+          page.getByText('Wren’s 2 changes haven’t been sent yet. If you carry on, they’re lost.')
         )
         .toBeVisible();
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
@@ -682,13 +682,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       show();
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent("Couldn't finish signing out on this computer.");
+        .toHaveTextContent('Couldn’t finish signing out on this computer.');
     });
   });
 
   describe('a wipe that couldn’t delete the phone database (cabledrawer 18 Oct)', () => {
     const WIPE_FAILED =
-      "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.";
+      'This phone couldn’t delete its offline copy of the household. Nobody can sign in on it until that’s done. Close other Mealwright tabs or restart the browser, then Try again.';
 
     it('says so on opening; Try again that fails says so again; once deleted, it goes', async () => {
       await wrensPhone(2);
@@ -715,7 +715,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       localStorage.setItem(WIPE_PENDING_KEY, '1');
       show();
       await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
-      expect(page.getByText(/couldn't delete/).elements()).toEqual([]);
+      expect(page.getByText(/couldn’t delete/).elements()).toEqual([]);
       expect(page.getByRole('button', { name: 'Try again' }).elements()).toEqual([]);
       // Nothing of Wren's is shown meanwhile either.
       expect(page.getByText(/Wren/).elements()).toEqual([]);
@@ -753,7 +753,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     });
 
     it('a small “Still stuck?” line sits under the message, only while the message shows (cabledrawer 18 Oct)', async () => {
-      const STUCK = "Still stuck? Clear this site's data in your browser's settings.";
+      const STUCK = 'Still stuck? Clear this site’s data in your browser’s settings.';
       await wrensPhone(1);
       const mend = failPhoneDelete();
       await wipeDevice();
@@ -778,7 +778,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     it('no “Still stuck?” line on the other messages', async () => {
       signOutState.unfinished = true;
       show();
-      await expect.element(page.getByText(/Couldn't finish signing out/)).toBeVisible();
+      await expect.element(page.getByText(/Couldn’t finish signing out/)).toBeVisible();
       expect(page.getByText(/Still stuck/).elements()).toEqual([]);
     });
 
@@ -893,7 +893,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
+          'This computer couldn’t delete its offline copy of the household. Nobody can sign in on it until that’s done. Close other Mealwright tabs or restart the browser, then Try again.'
         );
     });
   });
@@ -915,7 +915,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
       answer(new Response(null, { status: 204 }));
-      await expect.element(page.getByText(/Couldn't finish signing out/)).not.toBeInTheDocument();
+      await expect.element(page.getByText(/Couldn’t finish signing out/)).not.toBeInTheDocument();
       expect(page.getByRole('button', { name: /^Try/ }).elements()).toEqual([]);
       vi.unstubAllGlobals();
     });
@@ -941,7 +941,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect.element(page.getByRole('button', { name: 'Trying…' })).toBeDisabled();
       release();
-      await expect.element(page.getByText(/couldn't delete/)).not.toBeInTheDocument();
+      await expect.element(page.getByText(/couldn’t delete/)).not.toBeInTheDocument();
       expect(page.getByRole('button', { name: /^Try/ }).elements()).toEqual([]);
       expect(await phoneThere()).toBe(false);
     });

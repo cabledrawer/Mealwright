@@ -137,8 +137,8 @@ test('Find in pantry finds an ingredient by its other name', async ({ page }) =>
   await page.getByRole('searchbox', { name: 'Find in pantry' }).fill('zzzz');
   await expect(page.getByText('Nothing called “zzzz”.')).toHaveCount(1);
   await expect(page.getByText(/^Nothing in the/)).toHaveCount(0);
-  // The header counts match: "0 items" everywhere while nothing is found.
-  await expect(page.getByText(/^[1-9]\d* items?$/)).toHaveCount(0);
+  // The header counts match: "0 ingredients" everywhere while nothing is found.
+  await expect(page.getByText(/^[1-9]\d* ingredients?$/)).toHaveCount(0);
 });
 
 test('+ Staple makes a new ingredient, with no stock', async ({ page }) => {
@@ -357,7 +357,7 @@ test('"200 g left · type it instead" (a full pack) opens What\'s left in the pa
   await expect(link.locator('..')).toHaveText(/^200\sg left · type it instead$/);
   await link.click();
   const dialog = page.getByRole('dialog', { name: new RegExp(food.name) });
-  const box = dialog.getByRole('textbox', { name: /What's left/ });
+  const box = dialog.getByRole('textbox', { name: /What’s left/ });
   await expect(box).toBeFocused();
   await box.fill('150');
   await dialog.getByRole('button', { name: 'Save' }).click();

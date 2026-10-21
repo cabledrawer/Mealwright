@@ -304,7 +304,7 @@
 
 <div class="heading">
   <h1>Welcome back</h1>
-  <p>Sign in to your household's kitchen</p>
+  <p>Sign in to your household’s kitchen</p>
 </div>
 
 <ConnectionNotice kind={secure} />
@@ -361,7 +361,7 @@
     <div class="remember">
       <span class="remember-text">
         <span id="remember-label" class="remember-label">Remember this {device}</span>
-        <span id="remember-hint" class="remember-hint">Stay signed in for 30 days</span>
+        <span id="remember-hint" class="remember-hint">for 30 days</span>
       </span>
       <Switch
         bind:checked={remember}
@@ -399,7 +399,7 @@
     {/if}
   </form>
 
-  <p class="forgot">Forgot your password? Ask your household's admin to reset it.</p>
+  <p class="forgot">Forgot your password? Ask your household’s admin to reset it.</p>
 {/if}
 
 <style>

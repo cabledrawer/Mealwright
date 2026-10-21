@@ -395,12 +395,12 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
             raise Problem(
                 status.HTTP_409_CONFLICT,
                 "staple",
-                f"{food.name} is a staple, so it isn't counted.",
+                f"{food.name} is a staple, so it isn’t counted.",
             )
         place = _place(kitchen, body.place_id) if body.place_id else default_place(kitchen, food)
         resolved = resolve(kitchen, food, body.amount)
         if resolved.milli <= 0:
-            raise Problem(422, "too_small", "That's too small to add.")
+            raise Problem(422, "too_small", "That’s too small to add.")
         edit = StockEdit(kitchen)
         amounts: list[int]
         if resolved.size is not None:
@@ -521,7 +521,7 @@ def to_freezer(
             raise not_found("The freezer")
         if lot.place_id == freezer.id:
             raise Problem(
-                status.HTTP_409_CONFLICT, "already_frozen", "That's already in the freezer."
+                status.HTTP_409_CONFLICT, "already_frozen", "That’s already in the freezer."
             )
         day = today(kitchen.household)
         edit = StockEdit(kitchen)
@@ -551,7 +551,7 @@ def move(lot_id: int, body: Move, kitchen: Here, response: Response) -> StockWri
         place = _place(kitchen, body.place_id)
         if place.id == lot.place_id:
             raise Problem(
-                status.HTTP_409_CONFLICT, "already_there", f"That's already in {place.name}."
+                status.HTTP_409_CONFLICT, "already_there", f"That’s already in {place.name}."
             )
         edit = StockEdit(kitchen)
         edit.touch(lot).place_id = place.id
@@ -623,7 +623,7 @@ def food_used(food_id: int, body: FoodAmount, kitchen: Here, response: Response)
             raise Problem(
                 status.HTTP_409_CONFLICT,
                 "nothing_left",
-                f"There's no {food.name} left.",
+                f"There’s no {food.name} left.",
             )
         edit = StockEdit(kitchen)
         short = take(kitchen, edit, lots, wanted, include_freezer=freezer)
@@ -671,7 +671,7 @@ def food_left(food_id: int, body: FoodLeft, kitchen: Here, response: Response) -
                 )
         else:
             raise Problem(
-                status.HTTP_409_CONFLICT, "no_change", "That's how much there is already."
+                status.HTTP_409_CONFLICT, "no_change", "That’s how much there is already."
             )
         size = usual_size(kitchen, food.id)
         summary = f"{food.name}: {short_text(food, total, size)} → {short_text(food, target, size)}"

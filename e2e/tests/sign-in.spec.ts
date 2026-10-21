@@ -8,7 +8,7 @@ import { ADMIN, PORTS, insecure, local } from './servers.ts';
 const SECURE_NEEDED =
   'Signing in needs a secure connection. Open Mealwright at its https:// address, through your reverse proxy.';
 const PLAIN_WARNING =
-  "This connection isn't secure. Passwords travel unencrypted. Use only for testing on a network you trust.";
+  "This connection isn’t secure. Passwords travel unencrypted. Use only for testing on a network you trust.";
 
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
@@ -31,8 +31,8 @@ test.describe('first run', () => {
     // Says what's missing before asking the server.
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByLabel('Your name')).toBeFocused();
-    await expect(page.getByText('Please enter your name.')).toBeVisible();
-    await expect(page.getByText('Please choose a username.')).toBeVisible();
+    await expect(page.getByText('Enter your name.')).toBeVisible();
+    await expect(page.getByText('Choose a username.')).toBeVisible();
     await expect(page.getByText('Use at least 10 characters.')).toBeVisible();
 
     await page.getByLabel('Your name').fill(ADMIN.name);
@@ -77,7 +77,7 @@ test.describe('signing in', () => {
   test('a wrong password says so, and clears the password', async ({ page }) => {
     await page.goto('/sign-in');
     await signIn(page, 'not-the-password');
-    await expect(page.getByRole('alert')).toHaveText("That username and password don't match.");
+    await expect(page.getByRole('alert')).toHaveText("That username and password don’t match.");
     await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');
     await expect(page).toHaveURL('/sign-in');
   });
@@ -87,18 +87,21 @@ test.describe('signing in', () => {
       route.fulfill({
         status: 429,
         contentType: 'application/json',
-        body: JSON.stringify({ detail: 'Too many tries. Please wait 2 minutes.' }),
+        body: JSON.stringify({ detail: 'Too many tries. Wait 2 minutes.' }),
       }),
     );
     await page.goto('/sign-in');
     await signIn(page);
-    await expect(page.getByRole('alert')).toHaveText('Too many tries. Please wait 2 minutes.');
+    await expect(page.getByRole('alert')).toHaveText('Too many tries. Wait 2 minutes.');
   });
 
   test('"Remember this computer" keeps you signed in for 30 days', async ({ page, context }) => {
     await page.goto('/sign-in');
     const remember = page.getByRole('switch', { name: 'Remember this computer' });
     await expect(remember).toHaveAttribute('aria-checked', 'true');
+    // "for 30 days" is the small text under it (section 11, ruling 2 of the word list).
+    await expect(remember).toHaveAccessibleDescription('for 30 days');
+    await expect(page.getByText('Stay signed in')).toHaveCount(0);
     await signIn(page);
     await expect(heading(page)).toHaveText('Today');
     const [cookie] = await context.cookies();
@@ -139,7 +142,7 @@ test.describe('signing in', () => {
     await page.evaluate(() => localStorage.setItem('mealwright.wipe-pending', 'failed'));
     await page.reload();
     await expect(page.getByRole('status')).toHaveText(
-      "This computer couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.",
+      "This computer couldn’t delete its offline copy of the household. Nobody can sign in on it until that’s done. Close other Mealwright tabs or restart the browser, then Try again.",
     );
     const form = [
       page.getByLabel('Username'),
@@ -150,7 +153,7 @@ test.describe('signing in', () => {
     for (const control of form) await expect(control).toBeDisabled();
     // Only Try again works. Once it has deleted it, the message goes and the form comes back.
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(page.getByText(/couldn't delete/)).toHaveCount(0);
+    await expect(page.getByText(/couldn’t delete/)).toHaveCount(0);
     for (const control of form) await expect(control).toBeEnabled();
     expect(await page.evaluate(() => localStorage.getItem('mealwright.wipe-pending'))).toBeNull();
     await signIn(page);
@@ -161,6 +164,9 @@ test.describe('signing in', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/sign-in');
     await expect(page.getByRole('switch', { name: 'Remember this phone' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Remember this phone' })).toHaveAccessibleDescription(
+      'for 30 days',
+    );
     const sideways = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

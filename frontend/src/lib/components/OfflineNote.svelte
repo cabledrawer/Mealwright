@@ -9,7 +9,7 @@
 
 <section class="offline" aria-labelledby="offline-note-title">
   <h2 id="offline-note-title">You’re offline.</h2>
-  <p>{screen} needs your Mealwright server — your shopping list works offline.</p>
+  <p>{screen} needs your Mealwright server. Your shopping list works offline.</p>
   <a class="shopping" href={resolve('/shopping')}>Shopping</a>
 </section>
 

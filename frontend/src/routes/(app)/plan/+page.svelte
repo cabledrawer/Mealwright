@@ -6,5 +6,5 @@
 <PageHeader title="Plan" />
 
 <EmptyState title="Nothing here yet">
-  This is where you'll plan your week's meals and batch cooks.
+  This is where you’ll plan your week’s meals and batch cooks.
 </EmptyState>

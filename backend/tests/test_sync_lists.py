@@ -75,7 +75,7 @@ def test_sy06_sy07_delete_against_an_edit(kitchen: TestClient, a_first: bool, ba
     assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
     assert s.total("Milk") == 0
     (note,) = changes(s.wren)["notes"]
-    assert note["text"] == "Tess had removed Milk, so your change wasn't kept."
+    assert note["text"] == "Tess had removed Milk, so your change wasn’t kept."
     assert note["undo"] == results["delete"]["id"]
     assert changes(kitchen)["notes"] == []
     assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
@@ -465,7 +465,7 @@ def test_sy54_add_of_an_ingredient_deleted_for_good(kitchen: TestClient) -> None
         amount=6,
     )
     assert (added["status"], added["reason"]) == ("ignored", "gone")
-    assert added["message"] == "Eggs was removed from Ingredients, so it wasn't added."
+    assert added["message"] == "Eggs was removed from Ingredients, so it wasn’t added."
 
 
 def test_sy56_amount_in_a_size_removed_meanwhile(kitchen: TestClient) -> None:
@@ -844,7 +844,7 @@ def test_a_note_never_offers_to_undo_an_undo(kitchen: TestClient) -> None:
     late = one(s.wren, "set_amount", seen, PHONE_R, item_id=item, amount=12)
     assert (late["status"], late["reason"]) == ("ignored", "deleted")
     (note,) = changes(s.wren)["notes"]
-    assert note["text"] == "Tess had removed Eggs, so your change wasn't kept."
+    assert note["text"] == "Tess had removed Eggs, so your change wasn’t kept."
     assert note["undo"] is None
 
 

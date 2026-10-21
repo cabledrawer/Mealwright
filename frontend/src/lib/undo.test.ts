@@ -38,7 +38,7 @@ describe('undo history', () => {
     expect(toasts.current?.action?.label).toBe('Undo');
   });
 
-  it("the toast's Undo takes back that change and says so", async () => {
+  it('the toast’s Undo takes back that change and says so', async () => {
     const undo = vi.fn();
     undoHistory.record({ label: 'Milk used up', undo });
     toasts.act();

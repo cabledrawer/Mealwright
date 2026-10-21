@@ -57,7 +57,7 @@ class NewShop(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Please type the shop's name.")
+            raise ValueError("Type the shop’s name.")
         return value
 
 
@@ -105,7 +105,7 @@ class FromBrowser(BaseModel):
     @classmethod
     def _zone(cls, value: str | None) -> str | None:
         if value is not None and not valid_time_zone(value):
-            raise ValueError("That isn't a time zone Mealwright knows.")
+            raise ValueError("That isn’t a time zone Mealwright knows.")
         return value
 
 

@@ -317,7 +317,7 @@
           <p class="nothing">Nothing here right now.</p>
         {:else}
           <p class="nothing">
-            No ingredients yet. They're added when you put something in the pantry or import a
+            No ingredients yet. They’re added when you put something in the pantry or import a
             recipe.
           </p>
         {/if}
@@ -589,7 +589,7 @@
   }
 
   .merge {
-    position: relative; /* above the row's click area */
+    position: relative; /* above the row’s click area */
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: none;

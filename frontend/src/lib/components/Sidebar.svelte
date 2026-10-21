@@ -41,7 +41,7 @@
       {@const current = isCurrent(item, page.url.pathname)}
       {@const tree = item.href === '/recipes' && !sidebar.collapsed}
       <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
-           only that you're somewhere inside it. -->
+           only that you’re somewhere inside it. -->
       {#if item.href === '/recipes' && sidebar.collapsed}
         <!-- Collapsed, Recipes opens a small pop-out with its pages. -->
         <RecipesPopout pathname={page.url.pathname} {current} />

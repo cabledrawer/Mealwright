@@ -100,7 +100,7 @@ describe('save', () => {
     expect(state.place).toBe('Fridge');
   });
 
-  it("shows the server's reason, without Try again, when it says no", async () => {
+  it('shows the server’s reason, without Try again, when it says no', async () => {
     const state = { place: 'Cupboard' };
     await save(
       placeChange(state, 'Fridge', () =>
@@ -274,7 +274,7 @@ describe('Undo and a question', () => {
   });
 });
 
-describe("the server's own words", () => {
+describe('the server’s own words', () => {
   it('replace the toast once the server answers', async () => {
     const change = placeChange(
       { place: 'Cupboard' },

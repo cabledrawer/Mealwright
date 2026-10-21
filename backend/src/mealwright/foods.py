@@ -179,7 +179,7 @@ def name_taken(name: str, food: Food) -> Problem:
     return Problem(
         status.HTTP_409_CONFLICT,
         "name_taken",
-        f"There's already an ingredient called {food.name}.",
+        f"There’s already an ingredient called {food.name}.",
         food_id=food.id,
     )
 

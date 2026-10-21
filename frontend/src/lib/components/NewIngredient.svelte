@@ -137,7 +137,7 @@
     try {
       await newIngredient.make(typed, how, sizes);
     } catch (error) {
-      problem = error instanceof ApiError ? error.detail : 'Couldn’t add it — try again.';
+      problem = error instanceof ApiError ? error.detail : 'Couldn’t add it. Try again.';
       busy = false;
     }
   }

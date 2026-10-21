@@ -45,7 +45,7 @@ interface Shown {
  * "this phone" with the bottom tabs, "this computer" with the sidebar (by layout).
  */
 export const notHereText = (device: 'phone' | 'computer') =>
-  `Your shopping list isn't on this ${device} yet. It'll be here after you've opened it once while connected.`;
+  `Your shopping list isn’t on this ${device} yet. It’ll be here after you’ve opened it once while connected.`;
 
 export class ShoppingModel {
   /** Ingredients picked in the add box that the copy doesn't have yet. */

@@ -24,10 +24,10 @@ from mealwright.limits import MAX_BODY_BYTES, MAX_PHOTO_BYTES
 from mealwright.models import Recipe, RecipePhoto, utcnow
 
 API = "/api/v1"
-NOT_A_PHOTO = "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."
+NOT_A_PHOTO = "That isn’t a photo Mealwright can use. Try a JPEG, PNG or WebP."
 TOO_BIG = "That photo is bigger than 15 MB."
 WAITING = "Too many photos waiting to be saved. Save or cancel a recipe first."
-GONE = "That photo isn't here any more."
+GONE = "That photo isn’t here any more."
 TOO_MANY_PIXELS = "That photo is too big to use (over 50 megapixels). Try a smaller copy."
 
 

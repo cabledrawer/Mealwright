@@ -55,7 +55,7 @@ ListName = Annotated[str, Field(min_length=1, max_length=60)]
 def _name(value: str) -> str:
     cleaned = clean_name(value)
     if not cleaned:
-        raise ValueError("Please type a name.")
+        raise ValueError("Type a name.")
     return cleaned
 
 
@@ -499,7 +499,7 @@ def apply_batch(
         except ValidationError as err:
             first = err.errors()[0]
             where = ".".join(str(part) for part in first["loc"])
-            message = f"That change isn't valid ({where}: {first['msg']})."
+            message = f"That change isn’t valid ({where}: {first['msg']})."
             results.append(refused(action_id[:64], "bad_action", message[:300]))
             continue
         act = Act(
@@ -514,7 +514,7 @@ def apply_batch(
         )
         handler = handlers.get(action.kind)
         if handler is None:  # pragma: no cover (every kind has a handler)
-            results.append(refused(action.id, "bad_action", "That kind of change isn't known."))
+            results.append(refused(action.id, "bad_action", "That kind of change isn’t known."))
             continue
         results.append(run(act, handler))
     batch.finish()

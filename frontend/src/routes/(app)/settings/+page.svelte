@@ -157,7 +157,7 @@
         </Button>
         <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
         <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow('anyway')}
-          >Sign out anyway — anything waiting on this {device} may be lost</button
+          >Sign out anyway. Anything waiting on this {device} may be lost</button
         >
       </div>
     {:else if left > 0}

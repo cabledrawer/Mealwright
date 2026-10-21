@@ -15,7 +15,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 MAX_BODY_BYTES = 4 * 1024 * 1024
-TOO_BIG = "That's too much to send in one go."
+TOO_BIG = "That’s too much to send in one go."
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
 PHOTO_TOO_BIG = "That photo is bigger than 15 MB."
 

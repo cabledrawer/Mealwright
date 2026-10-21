@@ -480,7 +480,7 @@
     });
   }
   function toastProblem() {
-    toasts.show('Couldn’t save that. Please try again.', {
+    toasts.show('Couldn’t save that. Try again.', {
       tone: 'problem',
       action: { label: 'Try again', run: () => {} }
     });
@@ -940,7 +940,7 @@
     <p class="note">
       A recipe with no photo has a plain warm square. The line shows only what is known; what is
       about to go off is orange. Each row opens the recipe. "Use soon" in the filter row keeps the
-      recipes that use something about to go off; Pantry's Use soon card links to it ("Recipes for
+      recipes that use something about to go off; Pantry’s Use soon card links to it ("Recipes for
       these" on a computer, "Recipes that use them →" on a phone).
     </p>
     <div class="stack">
@@ -982,9 +982,9 @@
   <section id="recipe-page">
     <h2>Recipe page: ingredient lines, servings, nutrition, missing line, keep awake</h2>
     <p class="note">
-      A line's dot and words say where the ingredient is: green with its place, orange "On list",
+      A line’s dot and words say where the ingredient is: green with its place, orange "On list",
       grey ring "Staple", dashed ring "Not enough", or dashed with no words (missing). The
-      ingredient's own name is small text under the words only when it differs. A line that uses
+      ingredient’s own name is small text under the words only when it differs. A line that uses
       another recipe opens it; "not linked" and "recipe removed" open nothing.
     </p>
     <div class="stack">
@@ -1041,7 +1041,7 @@
       <div class="narrow stack">
         <KeepAwake awake={awakeAvailable} />
         <KeepAwake awake={awakeRefused} />
-        <p class="note">(Where the browser can't keep the screen awake, nothing is drawn.)</p>
+        <p class="note">(Where the browser can’t keep the screen awake, nothing is drawn.)</p>
       </div>
     </div>
   </section>
@@ -1050,7 +1050,7 @@
     <h2>Desktop Recipes: the list pane, the reading pane</h2>
     <p class="note">
       On a computer, Recipes is three panes: the sidebar, All recipes and the recipe being read. In
-      the middle pane each row is a card of its own, the open recipe's row lifted; on the reading
+      the middle pane each row is a card of its own, the open recipe’s row lifted; on the reading
       pane the nutrition, Keep screen awake and servings sit on a quiet fill. With no recipe open
       the reading pane says "Choose a recipe". Below the width where they fit, it is one page at a
       time, as on a phone.
@@ -1078,9 +1078,9 @@
       In the Ingredients list each row ends with how many recipes use the ingredient ("5 recipes" on
       a phone; the number alone under "Recipes" on a computer; nothing when none do). In the
       ingredient editor, "Used in N recipes" links to each recipe (a long list is folded behind "+ 2
-      more"), and "Remove from Ingredients" says how many recipes use it first: they don't block it,
-      their lines keep their words and show "not linked". A recipe's own made-ahead ingredient says
-      why it can't be removed instead.
+      more"), and "Remove from Ingredients" says how many recipes use it first: they don’t block it,
+      their lines keep their words and show "not linked". A recipe’s own made-ahead ingredient says
+      why it can’t be removed instead.
     </p>
     <div class="stack">
       <h3>The count at the end of a row</h3>

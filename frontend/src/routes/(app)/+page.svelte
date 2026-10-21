@@ -13,5 +13,5 @@
 <PageHeader title="Today" overline={today} />
 
 <EmptyState title="Nothing here yet">
-  This is where you'll see what you're eating today, the tubs you have left and what to use soon.
+  This is where you’ll see what you’re eating today, the tubs you have left and what to use soon.
 </EmptyState>

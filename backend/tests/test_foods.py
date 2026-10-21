@@ -62,7 +62,7 @@ def test_name_must_be_new(kitchen: TestClient) -> None:
     response = kitchen.post(f"{API}/foods", json={"name": "TOOR DAL"})
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "There's already an ingredient called Toor dal.",
+        "detail": "There’s already an ingredient called Toor dal.",
         "code": "name_taken",
         "food_id": first["id"],
     }

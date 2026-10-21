@@ -422,7 +422,7 @@ def test_a_link_to_something_that_is_not_there_says_which_line(kitchen: TestClie
     recipe = make(kitchen)
     response = save(kitchen, recipe, lines=[{"words": "ok"}, {"words": "dal", "food_id": 12345}])
     assert response.status_code == 404 and response.json()["line"] == 1
-    assert response.json()["detail"] == "That ingredient isn't here any more."
+    assert response.json()["detail"] == "That ingredient isn’t here any more."
     response = save(kitchen, recipe, lines=[{"words": "sub", "recipe_id": 12345}])
     assert response.status_code == 404 and response.json()["detail"].startswith("That recipe")
     assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["version"] == 1
@@ -899,7 +899,7 @@ def test_a_request_over_4_mib_is_refused_before_it_is_read(kitchen: TestClient) 
     big = "x" * (4 * 1024 * 1024 + 10)
     response = kitchen.post(f"{API}/recipes", json={"name": "Sambar", "source_note": big})
     assert response.status_code == 413, response.text[:200]
-    assert response.json()["detail"] == "That's too much to send in one go."
+    assert response.json()["detail"] == "That’s too much to send in one go."
     assert ok(kitchen.get(f"{API}/recipes"))["total"] == 0
 
 

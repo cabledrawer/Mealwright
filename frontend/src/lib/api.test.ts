@@ -14,9 +14,9 @@ function fakeFetch(status: number, body?: unknown) {
 }
 
 describe('detailOf', () => {
-  it("uses the server's sentence", () => {
-    expect(detailOf({ detail: "That username and password don't match." })).toBe(
-      "That username and password don't match."
+  it('uses the server’s sentence', () => {
+    expect(detailOf({ detail: 'That username and password don’t match.' })).toBe(
+      'That username and password don’t match.'
     );
   });
 
@@ -28,8 +28,8 @@ describe('detailOf', () => {
   });
 
   it('falls back to a plain sentence', () => {
-    expect(detailOf(null)).toBe('Something went wrong. Please try again.');
-    expect(detailOf({ detail: [] })).toBe('Something went wrong. Please try again.');
+    expect(detailOf(null)).toBe('Something went wrong. Try again.');
+    expect(detailOf({ detail: [] })).toBe('Something went wrong. Try again.');
   });
 });
 
@@ -54,10 +54,10 @@ describe('api', () => {
   });
 
   it('turns refusals into ApiError with the reason', async () => {
-    const body = { detail: 'Too many tries. Please wait 1 minute.' };
+    const body = { detail: 'Too many tries. Wait 1 minute.' };
     const { fetch } = fakeFetch(429, body);
     await expect(api('POST', '/session', {}, { fetch, signingIn: true })).rejects.toEqual(
-      new ApiError(429, 'Too many tries. Please wait 1 minute.', null, body)
+      new ApiError(429, 'Too many tries. Wait 1 minute.', null, body)
     );
   });
 
@@ -74,13 +74,13 @@ describe('api', () => {
     expect(ended).toBe(1);
   });
 
-  it("says plainly when the server can't be reached", async () => {
+  it('says plainly when the server can’t be reached', async () => {
     const fetch = (async () => {
       throw new TypeError('Failed to fetch');
     }) as typeof globalThis.fetch;
     await expect(api('GET', '/me', undefined, { fetch })).rejects.toMatchObject({
       status: 0,
-      detail: "Can't reach your Mealwright server. Check your connection."
+      detail: 'Can’t reach your Mealwright server. Check your connection.'
     });
   });
 });

@@ -97,7 +97,7 @@ class Answer(BaseModel):
             if self.name is None or self.amount is None:
                 raise ValueError("A size answer needs a name and an amount.")
         elif self.grams is None:
-            raise ValueError("Please give the weight in grams.")
+            raise ValueError("Give the weight in grams.")
         elif self.kind == "weight_per_ml" and self.grams > 2_000:
             raise ValueError("A cup weighs at most 2,000 g.")
         elif self.kind == "item_weight" and self.grams > 50_000:

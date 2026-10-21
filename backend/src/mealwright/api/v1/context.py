@@ -35,7 +35,7 @@ class Kitchen:
             raise Problem(
                 status.HTTP_403_FORBIDDEN,
                 "admins_only",
-                "Only the household's admin can change this.",
+                "Only the household’s admin can change this.",
             )
 
 
@@ -47,7 +47,7 @@ def kitchen(
         str | None,
         Header(
             description="A client-made ID (e.g. a UUID) for this change, so a retry "
-            "isn't applied twice."
+            "isn’t applied twice."
         ),
     ] = None,
 ) -> Kitchen:

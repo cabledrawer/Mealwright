@@ -92,10 +92,10 @@ describe('the words in the bar', () => {
   it('desktop: a second line, as in the mockups', () => {
     expect(offlineText('desktop', 3)).toEqual({
       title: 'Offline',
-      detail: "3 changes waiting. They'll save when you're back."
+      detail: '3 changes waiting. They’ll save when you’re back.'
     });
     expect(offlineText('desktop', 1).detail).toBe(
-      "1 change waiting. They'll save when you're back."
+      '1 change waiting. They’ll save when you’re back.'
     );
   });
 });

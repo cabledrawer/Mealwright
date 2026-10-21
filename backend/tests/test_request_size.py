@@ -15,7 +15,7 @@ from sync_kit import PHONE_A, action, login_id, main_id, now
 from mealwright.limits import MAX_BODY_BYTES
 
 API = "/api/v1"
-TOO_BIG = "That's too much to send in one go."
+TOO_BIG = "That’s too much to send in one go."
 
 
 def biggest_real_batch(client: TestClient) -> bytes:

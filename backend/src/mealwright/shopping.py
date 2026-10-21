@@ -927,7 +927,7 @@ def add_item(act: Act) -> None:
         found, foods, recount = _food_for(act, payload["food_id"])
         if found is None:
             name = _gone_name(kitchen, payload["food_id"]) or "That ingredient"
-            act.ignore("gone", f"{name} was removed from Ingredients, so it wasn't added.")
+            act.ignore("gone", f"{name} was removed from Ingredients, so it wasn’t added.")
             return
         food = found
     act.food_id = food.id
@@ -1096,7 +1096,7 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
         "N4",
         me,
         f"{who(removal.login_id, removal.login_name, me)} had removed {food.name},"
-        " so your change wasn't kept.",
+        " so your change wasn’t kept.",
         list_id=item.list_id,
         item_id=item.id,
         food_id=food.id,
@@ -1201,7 +1201,7 @@ def _lost_to_delete(act: Act, item: ListItem, food: Food) -> None:
                 "N4",
                 row.login_id,
                 f"{who(me, my_name, row.login_id)} had removed {food.name},"
-                " so your change wasn't kept.",
+                " so your change wasn’t kept.",
                 list_id=item.list_id,
                 item_id=item.id,
                 food_id=food.id,

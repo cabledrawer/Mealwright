@@ -411,7 +411,7 @@ test('the server’s words about a photo are shown as they are', async ({ page }
   await page.goto('/recipes/new');
   const upload = page.locator('input[type=file]');
   await upload.setInputFiles({ name: 'notes.txt', mimeType: 'image/jpeg', buffer: Buffer.from('not a picture') });
-  await expect(page.getByRole('alert').filter({ hasText: "That isn't a photo Mealwright can use." })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: "That isn’t a photo Mealwright can use." })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add a photo' })).toBeVisible();
 
   await upload.setInputFiles({ name: 'huge.jpg', mimeType: 'image/jpeg', buffer: Buffer.alloc(16 * 1024 * 1024, 1) });

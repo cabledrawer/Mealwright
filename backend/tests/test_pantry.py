@@ -433,7 +433,7 @@ def test_used_with_nothing_left_records_nothing(kitchen: TestClient) -> None:
         f"{API}/foods/{ghee['id']}/used", json={"amount": {"amount": 50, "unit": "g"}}
     )
     assert response.status_code == 409
-    assert response.json() == {"detail": "There's no Ghee left.", "code": "nothing_left"}
+    assert response.json() == {"detail": "There’s no Ghee left.", "code": "nothing_left"}
     kinds = [
         c["kind"]
         for c in kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
@@ -495,7 +495,7 @@ def test_names_appear_exactly_as_typed(kitchen: TestClient) -> None:
     empty = kitchen.post(
         f"{API}/foods/{masala['id']}/used", json={"amount": {"amount": 5, "unit": "g"}}
     )
-    assert empty.json()["detail"] == "There's no MDH sambar masala left."
+    assert empty.json()["detail"] == "There’s no MDH sambar masala left."
     asked = kitchen.post(
         f"{API}/stock", json={"food_id": masala["id"], "amount": {"amount": 1, "unit": "tbsp"}}
     ).json()

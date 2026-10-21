@@ -22,6 +22,9 @@ const ALLOWED = new Set<string>([]);
 
 const FOOD = /\bfoods?\b/i;
 
+/** A straight apostrophe inside a word ("can't", "X's" where X stands for a ${…}). */
+const STRAIGHT = /[A-Za-z]'[A-Za-z]/;
+
 function withoutComments(code: string): string {
   return code
     .replace(/<!--[\s\S]*?-->/g, ' ')
@@ -170,5 +173,29 @@ describe('plain words', () => {
       }
     }
     expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  // Curly apostrophes on screen (word list section 11, ruling 3): "Couldn’t", "You’re".
+  it('uses curly apostrophes on screen, never a straight one', () => {
+    const problems: string[] = [];
+    for (const [path, source] of Object.entries(sources)) {
+      if (SKIP.some((skip) => skip.test(path))) continue;
+      for (const text of visibleStrings(path, source)) {
+        if (STRAIGHT.test(text)) problems.push(`${path}: “${text}”`);
+      }
+    }
+    expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  it('the apostrophe check catches a straight one in markup, attributes and code', () => {
+    const svelte = (body: string) => visibleStrings('/x.svelte', body);
+    const found = (texts: string[]) => texts.some((text) => STRAIGHT.test(text));
+    expect(found(svelte("<p>You're offline.</p>"))).toBe(true);
+    expect(found(svelte('<input placeholder="What\'s left" />'))).toBe(true);
+    expect(found(visibleStrings('/x.ts', 'const a = "Can\'t reach it";'))).toBe(true);
+    expect(found(visibleStrings('/x.ts', "const a = `${name}'s list`;"))).toBe(true);
+    expect(found(svelte('<p>You’re offline.</p>'))).toBe(false);
+    // Comments aren't on screen.
+    expect(found(visibleStrings('/x.ts', "// it's a comment\nconst a = 1;"))).toBe(false);
   });
 });

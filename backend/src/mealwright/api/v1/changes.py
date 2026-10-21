@@ -422,10 +422,10 @@ def undo(change_id: int, kitchen: Here, response: Response) -> UndoOut:
             raise not_found("That change")
         if change.kind == "undo":
             raise Problem(
-                status.HTTP_409_CONFLICT, "cannot_undo", "An Undo can't itself be undone."
+                status.HTTP_409_CONFLICT, "cannot_undo", "An Undo can’t itself be undone."
             )
         if change.kind in KEY_ONLY_KINDS:
-            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can't be undone.")
+            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         if change.undone_by_change_id is not None:
             raise already_undone()
         if utcnow() >= undo_until(kitchen, change):

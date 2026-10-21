@@ -168,7 +168,7 @@
   }
 
   /* Phone: content between the fixed header and the fixed bottom tabs. The toast floats just
-     above the tabs, so the foot of the page leaves room for it too (a long list's last
+     above the tabs, so the foot of the page leaves room for it too (a long list’s last
      button, "In the trolley", must stay tappable while a toast is up). */
   @media (max-width: 767px) {
     .sidebar-slot {

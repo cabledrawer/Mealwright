@@ -287,7 +287,7 @@ describe('the All recipes page', () => {
     await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     await expect
       .element(
-        page.getByText('Recipes needs your Mealwright server — your shopping list works offline.')
+        page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.')
       )
       .toBeVisible();
     expect(requests.filter((r) => r.path.startsWith('/recipes'))).toHaveLength(0);

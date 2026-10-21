@@ -498,7 +498,7 @@ def untick(act: Act) -> None:
             act,
             "N5",
             me,
-            f"{who(remover.login_id, remover.login_name, me)} had removed this, so it isn't"
+            f"{who(remover.login_id, remover.login_name, me)} had removed this, so it isn’t"
             " back on the list. Your untick took it out of the pantry.",
             list_id=item.list_id,
             item_id=item.id,

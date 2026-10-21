@@ -76,8 +76,8 @@ def test_error_paths_say_ingredient(kitchen: TestClient) -> None:
     details = [r.json()["detail"] for r in responses]
     assert all(r.status_code >= 400 for r in responses)
     assert [d for d in details if FOOD.search(d)] == []
-    assert "There's already an ingredient called Toor dal." in details
-    assert "That ingredient isn't here any more." in details
+    assert "There’s already an ingredient called Toor dal." in details
+    assert "That ingredient isn’t here any more." in details
 
     summaries = [c["summary"] for c in kitchen.get(f"{API}/changes").json()["changes"]]
     assert [s for s in summaries if FOOD.search(s)] == []

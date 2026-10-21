@@ -28,12 +28,12 @@
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
 
   const errors = $derived({
-    name: name.trim() ? undefined : 'Please enter your name.',
+    name: name.trim() ? undefined : 'Enter your name.',
     username: USERNAME.test(username.trim().toLowerCase())
       ? undefined
       : username.trim()
         ? 'Use up to 50 lowercase letters, numbers, dots, dashes or underscores.'
-        : 'Please choose a username.',
+        : 'Choose a username.',
     password:
       password.length >= MIN_PASSWORD ? undefined : `Use at least ${MIN_PASSWORD} characters.`
   });
@@ -69,7 +69,7 @@
 <div class="heading">
   <h1>Welcome! First, your account</h1>
   <p>
-    You're the first person here, so you'll be the admin. You'll be able to add the rest of the
+    You’re the first person here, so you’ll be the admin. You’ll be able to add the rest of the
     household later.
   </p>
 </div>

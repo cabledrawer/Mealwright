@@ -51,7 +51,7 @@ FORMATS = ("JPEG", "PNG", "WEBP")
 MAX_WAITING = 10  # uploads not saved on a recipe yet, per household (cabledrawer 20 Oct)
 WAITING_HOURS = 24  # an upload no recipe took is deleted after this
 
-NOT_A_PHOTO = "That isn't a photo Mealwright can use. Try a JPEG, PNG or WebP."
+NOT_A_PHOTO = "That isn’t a photo Mealwright can use. Try a JPEG, PNG or WebP."
 # cabledrawer 20 Oct
 TOO_MANY_PIXELS = "That photo is too big to use (over 50 megapixels). Try a smaller copy."
 TOO_MANY_WAITING = "Too many photos waiting to be saved. Save or cancel a recipe first."

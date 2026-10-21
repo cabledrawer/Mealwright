@@ -22,10 +22,10 @@ import '$lib/styles/base.css';
 const navigation = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
 vi.mock('$app/navigation', () => navigation);
 
-const WARNING = "3 changes haven't been sent yet. If you sign out now, they're lost.";
+const WARNING = '3 changes haven’t been sent yet. If you sign out now, they’re lost.';
 const CANT_CHECK =
-  "This phone couldn't check for changes waiting to be sent. Nothing has been deleted.";
-const ANYWAY = 'Sign out anyway — anything waiting on this phone may be lost';
+  'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.';
+const ANYWAY = 'Sign out anyway. Anything waiting on this phone may be lost';
 
 /**
  * Hold the browser's list of databases (phoneExists asks it before any read), so a look at
@@ -158,7 +158,7 @@ describe('signing out', () => {
     await button('Try sending now').click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent(`${WARNING}Still can't reach your server.`);
+      .toHaveTextContent(`${WARNING}Still can’t reach your server.`);
     expect(navigation.goto).not.toHaveBeenCalled();
     expect(await readQueue()).toHaveLength(3);
   });
@@ -192,7 +192,7 @@ describe('signing out', () => {
     await button('Sign out').click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+      .toHaveTextContent('1 change hasn’t been sent yet. If you sign out now, it’s lost.');
     // Meanwhile, another tab of the app queues 3 more.
     for (const item of ['b', 'c', 'd']) {
       await addToQueue(makeAction({ kind: 'tick', item_id: item }), ME.id, 'device-1');
@@ -200,7 +200,7 @@ describe('signing out', () => {
     await button('Sign out and lose it').click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("4 changes haven't been sent yet. If you sign out now, they're lost.");
+      .toHaveTextContent('4 changes haven’t been sent yet. If you sign out now, they’re lost.');
     expect(navigation.goto).not.toHaveBeenCalled();
     expect(await exists()).toBe(true);
     expect(await readQueue()).toHaveLength(4);
@@ -218,7 +218,7 @@ describe('signing out', () => {
     await button('Sign out').click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+      .toHaveTextContent('1 change hasn’t been sent yet. If you sign out now, it’s lost.');
     await expect.element(button('Sign out and lose it')).toBeVisible();
   });
 
@@ -231,7 +231,7 @@ describe('signing out', () => {
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent(
-        "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+        'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.'
       );
     await expect.element(button('Try again')).toBeVisible();
     await expect.element(button('Stay signed in')).toBeVisible();
@@ -247,7 +247,7 @@ describe('signing out', () => {
     await button('Try again').click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+      .toHaveTextContent('1 change hasn’t been sent yet. If you sign out now, it’s lost.');
     expect(navigation.goto).not.toHaveBeenCalled();
   });
 
@@ -307,7 +307,7 @@ describe('signing out', () => {
       await button(ANYWAY).click();
       await expect
         .element(page.getByRole('alert'))
-        .toHaveTextContent("1 change hasn't been sent yet. If you sign out now, it's lost.");
+        .toHaveTextContent('1 change hasn’t been sent yet. If you sign out now, it’s lost.');
       expect(navigation.goto).not.toHaveBeenCalled();
       expect(await readQueue()).toHaveLength(1);
     });
@@ -345,7 +345,7 @@ describe('signing out', () => {
       const mend = breakPhone();
       await button('Sign out').click();
       await expect
-        .element(button('Sign out anyway — anything waiting on this computer may be lost'))
+        .element(button('Sign out anyway. Anything waiting on this computer may be lost'))
         .toBeVisible();
       mend();
       await page.viewport(390, 800);

@@ -444,7 +444,7 @@ test("ticking puts the item into the pantry, and Undo takes it out", async ({
   ).not.toBeChecked();
 });
 
-test("the toast's Change moves it to another place", async ({ page }) => {
+test("the toast’s Change moves it to another place", async ({ page }) => {
   test.skip(!isPhone(page), "the phone toast");
   const name = `Change ${tag()}`;
   const { foodId } = await packs(page, name);

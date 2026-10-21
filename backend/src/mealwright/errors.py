@@ -22,7 +22,7 @@ class Problem(Exception):
 
 
 def not_found(what: str = "That") -> Problem:
-    return Problem(status.HTTP_404_NOT_FOUND, "not_found", f"{what} isn't here any more.")
+    return Problem(status.HTTP_404_NOT_FOUND, "not_found", f"{what} isn’t here any more.")
 
 
 def install(app: FastAPI) -> None:
@@ -36,7 +36,7 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(TooBig)
     async def _too_big(_request: Request, _error: TooBig) -> JSONResponse:
         body = {
-            "detail": f"That's too much: at most {MAX_AMOUNT:,} g, ml or items.",
+            "detail": f"That’s too much: at most {MAX_AMOUNT:,} g, ml or items.",
             "code": "too_big",
         }
         return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)

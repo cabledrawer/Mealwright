@@ -37,7 +37,7 @@ log = logging.getLogger("mealwright.sign_in")
 router = APIRouter(tags=["account"], dependencies=[SameOrigin])
 
 USERNAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,49}$")
-WRONG = "That username and password don't match."
+WRONG = "That username and password don’t match."
 Theme = Literal["auto", "light", "dark"]
 
 
@@ -83,7 +83,7 @@ class SetupIn(BaseModel):
     def _name(cls, value: str) -> str:
         value = one_line(value).strip()
         if not value:
-            raise ValueError("Please enter your name.")
+            raise ValueError("Enter your name.")
         return value
 
     @field_validator("username")
@@ -176,7 +176,7 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
         # fill the disk. The slow-down is logged once, when it starts or doubles (below).
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Too many tries. Please wait {how_long(wait)}.",
+            f"Too many tries. Wait {how_long(wait)}.",
             headers={"Retry-After": str(wait)},
         )
     if not check_password(login, body.password) or login is None:

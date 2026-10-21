@@ -798,7 +798,7 @@ def test_sy38_untick_after_clear_ticked(kitchen: TestClient) -> None:
     assert s.total("Toor dal") == 0
     (note,) = changes(s.wren)["notes"]
     assert note["text"] == (
-        "Tess had removed this, so it isn't back on the list."
+        "Tess had removed this, so it isn’t back on the list."
         " Your untick took it out of the pantry."
     )
     assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"

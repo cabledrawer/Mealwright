@@ -37,7 +37,7 @@ export async function inTheme(page: Page, theme: Theme) {
 /** Put the signed-in account back on Auto, so the device setting decides the theme. */
 export async function setAccountTheme(page: Page, theme: 'auto' | Theme = 'auto') {
   const response = await page.request.put('/api/v1/me/preferences', { data: { theme } });
-  expect(response.ok(), `couldn't set the account theme: ${response.status()}`).toBe(true);
+  expect(response.ok(), `couldn’t set the account theme: ${response.status()}`).toBe(true);
 }
 
 export type AxeOptions = {

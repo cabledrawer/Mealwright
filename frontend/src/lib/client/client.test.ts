@@ -77,7 +77,7 @@ describe('undo on the server', () => {
     expect(kitchen.version).toBe(before + 1);
   });
 
-  it("shows the server's message when only some could be put back", async () => {
+  it('shows the server’s message when only some could be put back', async () => {
     const message = 'Put back 150 g of the 500 g — the rest has been used since.';
     fakeServer([200, { result: 'partly', message, change }]);
     expect(await serverUndo(812)()).toBe(message);

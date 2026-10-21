@@ -167,7 +167,7 @@ test.describe('the connection bar', () => {
     await expect(bar(page)).toBeVisible({ timeout: 15_000 });
     // Pantry needs the server: it says so, and points to Shopping.
     await expect(
-      page.getByText('Pantry needs your Mealwright server — your shopping list works offline.'),
+      page.getByText('Pantry needs your Mealwright server. Your shopping list works offline.'),
     ).toBeVisible();
     const tryNow = bar(page).getByRole('button', { name: 'Try now' });
     await tryNow.click();
@@ -245,6 +245,6 @@ test.describe('the app talks only to itself', () => {
     await page.waitForTimeout(1000);
     // Proof that the worker's own requests (its precaching) were seen, not just the page's.
     expect(fromWorker, 'no request from the service worker was seen').toBeGreaterThan(0);
-    expect(strangers, `requests that left the app's address:\n${strangers.join('\n')}`).toEqual([]);
+    expect(strangers, `requests that left the app’s address:\n${strangers.join('\n')}`).toEqual([]);
   });
 });

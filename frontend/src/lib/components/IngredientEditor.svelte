@@ -208,7 +208,7 @@
     try {
       setShop(await placesAndShops.addShop(name));
     } catch {
-      toasts.show('Couldn’t add that shop — try again', { tone: 'problem' });
+      toasts.show('Couldn’t add that shop. Try again.', { tone: 'problem' });
     }
   }
 
@@ -405,7 +405,7 @@
     </section>
 
     <section aria-labelledby="{uid}-sold">
-      <h3 id="{uid}-sold">How it's sold</h3>
+      <h3 id="{uid}-sold">How it’s sold</h3>
       <ul class="sold">
         {#each food.sizes as size (size.id)}
           <li>
@@ -546,7 +546,7 @@
         {#if addingShop}
           <input
             class="chip-input"
-            aria-label="New shop's name"
+            aria-label="New shop’s name"
             use:focusOnShow
             onchange={addShop}
             onblur={() => (addingShop = false)}
@@ -561,7 +561,7 @@
     <div class="switch-row">
       <span class="switch-text">
         <span id="{uid}-staple" class="switch-label">Staple</span>
-        <span id="{uid}-staple-hint" class="hint">Assume it's in stock; don't count it</span>
+        <span id="{uid}-staple-hint" class="hint">Assume it’s in stock; don’t count it</span>
       </span>
       <Switch
         checked={food.staple}

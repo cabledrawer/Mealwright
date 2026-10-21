@@ -44,7 +44,7 @@ describe('toasts', () => {
     expect(toasts.current).toBeNull();
   });
 
-  it("an old toast's timer never closes a newer one", () => {
+  it('an old toast’s timer never closes a newer one', () => {
     toasts.show('First');
     vi.advanceTimersByTime(TOAST_MS - 10);
     toasts.show('Second');

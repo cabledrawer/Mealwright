@@ -685,12 +685,12 @@ def too_old() -> Problem:
     return Problem(
         status.HTTP_410_GONE,
         "too_old",
-        "That's too long ago to undo.",
+        "That’s too long ago to undo.",
     )
 
 
 def already_undone() -> Problem:
-    return Problem(status.HTTP_409_CONFLICT, "already_undone", "That's already been undone.")
+    return Problem(status.HTTP_409_CONFLICT, "already_undone", "That’s already been undone.")
 
 
 # --- Thinning (a daily job) -------------------------------------------------------------------

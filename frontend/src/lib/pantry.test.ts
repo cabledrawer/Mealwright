@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { group, lot, samplePantry } from './testing/fakePantry';
 import { withGroups, withoutLot } from './pantry.svelte';
 
-describe("putting the server's answer on screen", () => {
+describe('putting the server’s answer on screen', () => {
   it('replaces the food’s group in that place', () => {
     const { pantry } = samplePantry();
     const fresh = group(20, 'Spinach', '100 g', [lot('100 g', '2026-10-17', 0)]);

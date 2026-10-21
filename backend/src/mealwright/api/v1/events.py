@@ -87,10 +87,10 @@ async def stream(
         200: {
             "description": (
                 "A stream of Server-Sent Events: `hello {cursor}` on connect, `shopping "
-                "{cursor}` after a commit that raised the household's list counter, "
+                "{cursor}` after a commit that raised the household’s list counter, "
                 "`pantry {change_id}` after a stock change, a `: keep-alive` comment every "
                 "25 seconds, and `signed_out` (then the stream closes) when the sign-in "
-                "runs out. Numbers only, never names. Only this household's events. The "
+                "runs out. Numbers only, never names. Only this household’s events. The "
                 "stream is not activity: it never extends the sign-in. One sign-in may "
                 "hold 10 streams open; opening another closes its oldest, which is "
                 "sent `replaced` first (the web app then stays quiet, without "

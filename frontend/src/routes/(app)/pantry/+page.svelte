@@ -125,7 +125,7 @@
   const summary = $derived(
     pantry
       ? [
-          `${pantry.counts.items} ${pantry.counts.items === 1 ? 'item' : 'items'}`,
+          `${pantry.counts.items} ${pantry.counts.items === 1 ? 'ingredient' : 'ingredients'}`,
           pantry.counts.use_soon ? `${pantry.counts.use_soon} use soon` : ''
         ]
           .filter(Boolean)
@@ -169,7 +169,7 @@
   function addClicked() {
     if (network.offline) {
       toasts.show(
-        "Adding to the pantry needs your Mealwright server. Try again when you're back online."
+        'Adding to the pantry needs your Mealwright server. Try again when you’re back online.'
       );
       return;
     }
@@ -243,7 +243,7 @@
   <section class="place" aria-labelledby="{uid}-place-{place.id}">
     <div class="place-head" class:visually-hidden={!heading}>
       <h2 id="{uid}-place-{place.id}">{place.name}</h2>
-      <span class="count">{place.items} {place.items === 1 ? 'item' : 'items'}</span>
+      <span class="count">{place.items} {place.items === 1 ? 'ingredient' : 'ingredients'}</span>
     </div>
     {#if groups.length}
       <ul class="groups">
@@ -379,7 +379,7 @@
       {#if pantry.counts.items === 0 && tab === 'all'}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
-          <p class="hint">Add what's in your fridge and cupboards, and Mealwright keeps count.</p>
+          <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
           <button type="button" class="add-pill" onclick={() => addToPantry.show()}
             >+ Add to pantry</button
           >
@@ -414,7 +414,7 @@
   </div>
 {:else}
   <div class="desk">
-    <section class="main-side" aria-label="What's in the pantry">
+    <section class="main-side" aria-label="What’s in the pantry">
       <div class="tools">
         {@render searchBox('Find in pantry')}
         <div class="filters" role="group" aria-label="Show">
@@ -433,7 +433,7 @@
       {:else if pantry.counts.items === 0 && model.filter === 'all'}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
-          <p class="hint">Add what's in your fridge and cupboards, and Mealwright keeps count.</p>
+          <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
           <button type="button" class="add-pill" onclick={() => addToPantry.show()}
             >+ Add to pantry</button
           >
@@ -718,7 +718,7 @@
   }
 
   /* A staple chip is a button: a tap adds it to the shopping list. A small tick shows while
-     it's on the list. */
+     it’s on the list. */
   .staple-chips .chip {
     display: inline-flex;
     align-items: center;

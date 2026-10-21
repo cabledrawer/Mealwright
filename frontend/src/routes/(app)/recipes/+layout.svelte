@@ -121,7 +121,7 @@
   }
 
   /* The editor has the same margin here as on a page of its own (its bar reaches out over it).
-     On a wrapper, not on the pane: a scrolling box's padding would hold the sticky bar down. */
+     On a wrapper, not on the pane: a scrolling box’s padding would hold the sticky bar down. */
   .editing {
     padding: var(--space-10) var(--space-11);
   }

@@ -252,7 +252,7 @@ describe('the ingredient editor, opened from anywhere', () => {
     const dialog = await openToorDal();
     const staple = dialog.getByRole('switch', { name: 'Staple' });
     await staple.click();
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Couldn’t save — try again'));
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Couldn’t save. Try again.'));
     await expect.element(staple).toHaveAttribute('aria-checked', 'false');
   });
 

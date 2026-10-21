@@ -230,7 +230,7 @@ export class FoodModel {
       kitchen.changed();
     } catch (error) {
       putBack();
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t save — try again', {
+      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t save. Try again.', {
         tone: 'problem'
       });
     }
@@ -254,7 +254,7 @@ export class FoodModel {
       const message = await serverUndo(last.id)();
       toasts.show(message || undoneWords(last.summary));
     } catch (error) {
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo — try again', {
+      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo. Try again.', {
         tone: 'problem'
       });
     }

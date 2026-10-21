@@ -12,7 +12,7 @@
 
 {#if kind === 'plain-refused'}
   <div class="notice refused" role="alert">
-    <p class="title">This connection isn't secure</p>
+    <p class="title">This connection isn’t secure</p>
     <p>
       Signing in needs a secure connection. Open Mealwright at its https:// address, through your
       reverse proxy.
@@ -21,7 +21,7 @@
 {:else if kind === 'plain-allowed'}
   <div class="notice allowed" role="status">
     <p>
-      This connection isn't secure. Passwords travel unencrypted. Use only for testing on a network
+      This connection isn’t secure. Passwords travel unencrypted. Use only for testing on a network
       you trust.
     </p>
   </div>

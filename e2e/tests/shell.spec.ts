@@ -81,6 +81,26 @@ test('every page opens, with its title and the right tab marked', async ({ page,
   expect(watcher.outside).toEqual([]);
 });
 
+test('every page uses curly apostrophes on screen, never a straight one', async ({ page }) => {
+  // Word list section 11, ruling 3. The text, and what is read out or shown in attributes.
+  const straight = /[A-Za-z]'[A-Za-z]/;
+  for (const path of [...PAGES.map((p) => p.path), '/recipes/ingredients', '/recipes/new', '/settings']) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    const texts = await page.evaluate(() => [
+      document.body.innerText,
+      ...[...document.querySelectorAll('[aria-label], [title], [placeholder], [alt], [aria-description]')].flatMap(
+        (el) =>
+          ['aria-label', 'title', 'placeholder', 'alt', 'aria-description']
+            .map((name) => el.getAttribute(name) ?? '')
+            .filter(Boolean),
+      ),
+    ]);
+    const found = texts.flatMap((text) => text.split('\n')).filter((line) => straight.test(line));
+    expect(found, path).toEqual([]);
+  }
+});
+
 test('the main navigation moves between pages', async ({ page, baseURL }) => {
   const watcher = await watch(page, baseURL!);
   await page.goto('/');

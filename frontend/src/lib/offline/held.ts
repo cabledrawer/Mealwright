@@ -70,7 +70,7 @@ export const keptText = (n: number, device: Device = 'phone') =>
 
 /** Someone else is about to sign in on a device holding `name`'s changes. */
 export const waitingForText = (name: string, n: number, device: Device = 'phone') =>
-  `${name}'s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this ${device}. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
+  `${name}’s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this ${device}. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
 
 /**
  * Right after the app signed someone out over `name`'s changes, in place of the line above
@@ -78,40 +78,40 @@ export const waitingForText = (name: string, n: number, device: Device = 'phone'
  */
 export const signedOutBecauseText = (name: string, n: number, device: Device = 'phone') =>
   n === 1
-    ? `You were signed out because ${name}'s change is waiting on this ${device}. Sign in as ${name} to send it.`
-    : `You were signed out because ${name}'s ${n} changes are waiting on this ${device}. Sign in as ${name} to send them.`;
+    ? `You were signed out because ${name}’s change is waiting on this ${device}. Sign in as ${name} to send it.`
+    : `You were signed out because ${name}’s ${n} changes are waiting on this ${device}. Sign in as ${name} to send them.`;
 
 /**
  * The phone database couldn't be read, so whether anyone's changes are waiting isn't known:
  * nothing is wiped, and nobody new is let in over it.
  */
 export const cantCheckText = (device: Device = 'phone') =>
-  `This ${device} couldn't check for changes waiting to be sent. Nothing has been deleted.`;
+  `This ${device} couldn’t check for changes waiting to be sent. Nothing has been deleted.`;
 
 /**
  * A wipe couldn't delete the phone database: until it has, nobody can sign in here, so no
  * one sees or uses the old login's data (section 12). cabledrawer's wording (18 Oct).
  */
 export const wipeFailedText = (device: Device = 'phone') =>
-  `This ${device} couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again.`;
+  `This ${device} couldn’t delete its offline copy of the household. Nobody can sign in on it until that’s done. Close other Mealwright tabs or restart the browser, then Try again.`;
 
 /** A small line under the message above: when Try again keeps failing (cabledrawer 18 Oct). */
-export const stillStuckText = "Still stuck? Clear this site's data in your browser's settings.";
+export const stillStuckText = 'Still stuck? Clear this site’s data in your browser’s settings.';
 
 /** The server answered, but didn't end the session (section 12). */
 export const unfinishedText = (device: Device = 'phone') =>
-  `Couldn't finish signing out on this ${device}.`;
+  `Couldn’t finish signing out on this ${device}.`;
 
 /** The warning before a different login carries on. */
 export const loseOthersText = (name: string, n: number) =>
-  `${name}'s ${changes(n)} ${n === 1 ? "hasn't" : "haven't"} been sent yet. If you carry on, ${n === 1 ? "it's" : "they're"} lost.`;
+  `${name}’s ${changes(n)} ${n === 1 ? 'hasn’t' : 'haven’t'} been sent yet. If you carry on, ${n === 1 ? 'it’s' : 'they’re'} lost.`;
 
 /** The warning before signing out (section 12). */
 export const loseOnSignOutText = (n: number) =>
-  `${changes(n)} ${n === 1 ? "hasn't" : "haven't"} been sent yet. If you sign out now, ${n === 1 ? "it's" : "they're"} lost.`;
+  `${changes(n)} ${n === 1 ? 'hasn’t' : 'haven’t'} been sent yet. If you sign out now, ${n === 1 ? 'it’s' : 'they’re'} lost.`;
 
 /** Added to that warning when "Try sending now" didn't get them all through. */
-export const STILL_CANT_REACH = "Still can't reach your server.";
+export const STILL_CANT_REACH = 'Still can’t reach your server.';
 
 /** The same username as `who`, as the server compares them (trimmed, any case). */
 export function sameUsername(typed: string, who: Pick<SignedIn, 'username'>): boolean {

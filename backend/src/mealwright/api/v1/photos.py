@@ -103,7 +103,7 @@ def _own(kitchen: Kitchen, photo_id: int) -> RecipePhoto:
     status_code=status.HTTP_201_CREATED,
     openapi_extra=_PHOTO_BODY,
     responses={
-        409: {"description": "`too_many_photos_waiting`: 10 uploads aren't saved yet."},
+        409: {"description": "`too_many_photos_waiting`: 10 uploads aren’t saved yet."},
         413: {"description": "`photo_too_big`: over 15 MB."},
         422: {"description": "`not_a_photo` or `too_many_pixels`."},
     },

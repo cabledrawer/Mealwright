@@ -26,7 +26,7 @@ export function undoneWords(label: string): string {
   const words = label.trim();
   return words ? `${UNDONE}: ${words}` : UNDONE;
 }
-export const COULDNT_UNDO = 'Couldn’t undo — try again';
+export const COULDNT_UNDO = 'Couldn’t undo. Try again.';
 
 class UndoHistory {
   /** How many changes can be undone (for an "Undo last change" button). */

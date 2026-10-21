@@ -134,7 +134,7 @@ def parse_amount(value: Any) -> int | None:
     if milli <= 0:
         raise ValueError("Use an amount above 0, or leave it empty.")
     if milli > MAX_AMOUNT_MILLI:
-        raise ValueError("That's too much: at most 1,000,000.")
+        raise ValueError("That’s too much: at most 1,000,000.")
     return milli
 
 
@@ -331,7 +331,7 @@ class RecipeIn(BaseModel):
     photo_id: int | None = Field(
         default=None,
         description=(
-            "The id from `POST /recipes/photos`, or the photo's own id. Left out: the photo"
+            "The id from `POST /recipes/photos`, or the photo’s own id. Left out: the photo"
             " stays as it is. null: no photo (the one it had is deleted on save). A new id:"
             " that photo replaces it. To remove the photo, send null: leaving the field out"
             " never removes it."
@@ -343,7 +343,7 @@ class RecipeIn(BaseModel):
     def _name(cls, value: str) -> str:
         cleaned = clean_name(value)
         if not cleaned:
-            raise ValueError("Please type a name.")
+            raise ValueError("Type a name.")
         return cleaned
 
     @field_validator("description", "source_note")

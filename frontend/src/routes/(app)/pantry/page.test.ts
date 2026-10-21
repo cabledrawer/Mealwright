@@ -6,6 +6,7 @@ import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '$lib/testi
 import { samplePantry } from '$lib/testing/fakePantry';
 import { toasts } from '$lib/toast.svelte';
 import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
+import NewIngredient from '$lib/components/NewIngredient.svelte';
 import Pantry from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
@@ -114,7 +115,7 @@ describe('the Pantry page', () => {
     for (const name of ['Fridge', 'Freezer', 'Cupboard', 'Spice rack']) {
       await expect.element(page.getByRole('heading', { name, level: 2 })).toBeVisible();
     }
-    await expect.element(page.getByText('6 items · 2 use soon')).toBeVisible();
+    await expect.element(page.getByText('6 ingredients · 2 use soon')).toBeVisible();
     await expect.element(page.getByText(/300 g · running low/)).toBeVisible();
     await expect
       .element(page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }))
@@ -170,6 +171,72 @@ describe('the Pantry page', () => {
       })
     );
     expect(requests.some((r) => r.path === '/stock' || r.path.startsWith('/stock/'))).toBe(false);
+  });
+
+  it('Add to pantry: + New ingredient asks How do you count it?, then picks what it made', async () => {
+    routes({
+      'GET /foods?q=tahini&limit=8': [200, { foods: [], counts: {}, total: 0, next: null }],
+      'POST /foods': [
+        201,
+        {
+          food: toorDal({ id: 50, name: 'Tahini', counted_as: 'count', sizes: [] }),
+          change: changeOf(960, 'Added Tahini')
+        }
+      ],
+      'GET /foods/50': [200, toorDal({ id: 50, name: 'Tahini', counted_as: 'count', sizes: [] })]
+    });
+    const question = mount(NewIngredient, { target: document.body });
+    try {
+      await render(390);
+      await page.getByRole('button', { name: 'Add to pantry' }).click();
+      const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+      await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('tahini');
+      await sheet.getByRole('button', { name: '+ New ingredient: “tahini”' }).click();
+      // Nothing is made until the question is answered.
+      await expect
+        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .toBeVisible();
+      expect(requests.some((r) => r.method === 'POST' && r.path === '/foods')).toBe(false);
+      await page.getByRole('radio', { name: /One by one/ }).click();
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await vi.waitFor(() =>
+        expect(requests.find((r) => r.method === 'POST' && r.path === '/foods')?.body).toEqual({
+          name: 'tahini',
+          staple: false,
+          counted_as: 'count'
+        })
+      );
+      // Back in Add to pantry with it picked.
+      await expect.element(sheet.getByText('Tahini', { exact: true })).toBeVisible();
+      await expect
+        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .not.toBeInTheDocument();
+    } finally {
+      unmount(question);
+    }
+  });
+
+  it('Add to pantry: Cancel on How do you count it? makes nothing and stays in the sheet', async () => {
+    routes({
+      'GET /foods?q=tahini&limit=8': [200, { foods: [], counts: {}, total: 0, next: null }]
+    });
+    const question = mount(NewIngredient, { target: document.body });
+    try {
+      await render(390);
+      await page.getByRole('button', { name: 'Add to pantry' }).click();
+      const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+      await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('tahini');
+      await sheet.getByRole('button', { name: '+ New ingredient: “tahini”' }).click();
+      const asking = page.getByRole('dialog', { name: 'How do you count it?' });
+      await asking.getByRole('button', { name: 'Cancel' }).click();
+      await expect.element(asking).not.toBeInTheDocument();
+      await expect
+        .element(sheet.getByRole('searchbox', { name: 'Find an ingredient' }))
+        .toBeVisible();
+      expect(requests.some((r) => r.method === 'POST' && r.path === '/foods')).toBe(false);
+    } finally {
+      unmount(question);
+    }
   });
 
   it('phone: tabs All · Fridge · Freezer · Cupboard · More, with Use soon under More', async () => {
@@ -376,7 +443,7 @@ describe('the Pantry page', () => {
     await render(1300);
     const side = page.getByRole('complementary', { name: /Use soon/ });
     await side.getByRole('button', { name: 'Used' }).first().click();
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Couldn’t save — try again'));
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Couldn’t save. Try again.'));
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).toBeVisible();
   });
 
@@ -767,7 +834,7 @@ describe('the Pantry page', () => {
     );
   });
 
-  it("shows the server's sentence when there's nothing left to use", async () => {
+  it('shows the server’s sentence when there’s nothing left to use', async () => {
     routes({
       'POST /foods/7/used': [
         409,
@@ -818,7 +885,7 @@ describe('the Pantry page', () => {
   it('a packet’s menu: by keyboard, with Esc back to the packet, and Used', async () => {
     await render(1300);
     await page
-      .getByRole('region', { name: "What's in the pantry" })
+      .getByRole('region', { name: 'What’s in the pantry' })
       .getByRole('button', { name: /^Paneer/ })
       .click();
     const packets = page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button');

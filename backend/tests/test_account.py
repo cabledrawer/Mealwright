@@ -119,7 +119,7 @@ def test_wrong_password_and_unknown_user_look_the_same(client: TestClient) -> No
     wrong = client.post("/api/v1/session", json={"username": "tess", "password": "nope"})
     unknown = client.post("/api/v1/session", json={"username": "nobody", "password": "nope"})
     assert wrong.status_code == unknown.status_code == 401
-    assert wrong.json() == unknown.json() == {"detail": "That username and password don't match."}
+    assert wrong.json() == unknown.json() == {"detail": "That username and password don’t match."}
 
 
 def test_session_cookie_is_locked_down(client: TestClient) -> None:
@@ -253,7 +253,7 @@ def test_slow_down_after_five_wrong_guesses(client: TestClient) -> None:
     # Even the right password has to wait.
     assert blocked.status_code == 429
     assert int(blocked.headers["retry-after"]) > 0
-    assert blocked.json()["detail"] == "Too many tries. Please wait 30 seconds."
+    assert blocked.json()["detail"] == "Too many tries. Wait 30 seconds."
 
 
 @pytest.mark.parametrize(
@@ -337,7 +337,7 @@ def test_the_message_matches_the_real_lock(
     for _ in range(5):
         assert sign_in(client, "wrong-password") == 401
     blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
-    assert blocked.json()["detail"] == "Too many tries. Please wait 30 seconds."
+    assert blocked.json()["detail"] == "Too many tries. Wait 30 seconds."
     assert blocked.headers["retry-after"] == "30"
     clock[0] += 29.5
     assert sign_in(client, "wrong-password") == 429  # still locked half a second before
@@ -345,7 +345,7 @@ def test_the_message_matches_the_real_lock(
     assert sign_in(client, "wrong-password") == 401  # checked normally at 30 s
     # The 6th wrong guess doubles the wait, and the message says so.
     blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
-    assert blocked.json()["detail"] == "Too many tries. Please wait 1 minute."
+    assert blocked.json()["detail"] == "Too many tries. Wait 1 minute."
     clock[0] += 59.5
     assert sign_in(client) == 429
     clock[0] += 0.5

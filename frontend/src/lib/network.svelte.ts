@@ -38,7 +38,7 @@ export function offlineText(
   if (layout === 'phone') return { title: `Offline — ${changes(waiting)} waiting`, detail: null };
   return {
     title: 'Offline',
-    detail: `${changes(waiting)} waiting. They'll save when you're back.`
+    detail: `${changes(waiting)} waiting. They’ll save when you’re back.`
   };
 }
 

@@ -55,7 +55,7 @@ const bar = (page: Page) => page.getByTestId(isPhone(page) ? 'connection-phone' 
 /** "Offline — 3 changes waiting" on a phone; on a desktop, the line under "Offline". */
 const waitingText = (page: Page, n: number) => {
   const changes = `${n} ${n === 1 ? 'change' : 'changes'}`;
-  return isPhone(page) ? `Offline — ${changes} waiting` : `${changes} waiting. They'll save when you're back.`;
+  return isPhone(page) ? `Offline — ${changes} waiting` : `${changes} waiting. They’ll save when you’re back.`;
 };
 
 /** The phone database is there. */
@@ -165,7 +165,7 @@ test('E3: signing out offline warns first, then wipes, and the session ends once
   await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
 
   // The warning, with its three choices. Stay signed in keeps the change.
-  const warning = "1 change hasn't been sent yet. If you sign out now, it's lost.";
+  const warning = "1 change hasn’t been sent yet. If you sign out now, it’s lost.";
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(warning);
   await expect(page.getByRole('button', { name: 'Try sending now' })).toBeVisible();

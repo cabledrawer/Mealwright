@@ -115,7 +115,7 @@ export class PantryModel {
       this.problem =
         error instanceof ApiError && error.status === 0
           ? error.detail
-          : 'Couldn’t load the pantry. Please try again.';
+          : 'Couldn’t load the pantry. Try again.';
     }
   }
 
@@ -208,7 +208,7 @@ export class PantryModel {
   /** The ¼ · ½ · ¾ · Full picks (a fraction of the packet), or a typed amount. */
   setLeft(lotId: number, foodName: string, left: { fraction: number } | { amount: AmountIn }) {
     return this.#act({
-      label: `${foodName}: what's left changed`,
+      label: `${foodName}: what’s left changed`,
       send: (key, answers) => setLeft(lotId, left, key, answers)
     });
   }

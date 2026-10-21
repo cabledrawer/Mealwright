@@ -64,7 +64,7 @@ async function stillWaiting(): Promise<Waiting | Unreadable> {
  * have queued more since): if any other change is waiting by then, nothing is wiped, and
  * they come back, to warn again. UNREADABLE when the phone database couldn't be read.
  *
- * Or 'anyway': "Sign out anyway — anything waiting on this phone may be lost", chosen when
+ * Or 'anyway': "Sign out anyway. Anything waiting on this phone may be lost", chosen when
  * the phone database couldn't be read (cabledrawer 18 Oct: not being able to sign out of a shared
  * or lost phone is worse). It wipes as usual while it still can't be read; readable again,
  * any change waiting comes back, to warn as usual.

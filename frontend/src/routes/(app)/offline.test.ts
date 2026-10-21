@@ -54,7 +54,7 @@ describe('the online-only screens, offline', () => {
       await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
       await expect
         .element(
-          page.getByText(`${name} needs your Mealwright server — your shopping list works offline.`)
+          page.getByText(`${name} needs your Mealwright server. Your shopping list works offline.`)
         )
         .toBeVisible();
       await expect
@@ -81,7 +81,7 @@ describe('the online-only screens, offline', () => {
 
   // cabledrawer 18 Oct: keep the button visible; a tap explains instead of opening the sheet.
   const NEEDS_SERVER =
-    "Adding to the pantry needs your Mealwright server. Try again when you're back online.";
+    'Adding to the pantry needs your Mealwright server. Try again when you’re back online.';
 
   for (const [layout, width, name] of [
     ['phone', 390, 'Add to pantry'],

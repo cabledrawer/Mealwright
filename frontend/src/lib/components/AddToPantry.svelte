@@ -6,13 +6,12 @@
   // A sheet from the bottom on phones, a dialog on desktop.
   import { radioKeys } from '$lib/radioKeys';
   import { addToPantry } from '$lib/addToPantry.svelte';
-  import { newChangeId } from '$lib/changeId';
-  import { createFood, getFood } from '$lib/client/foods';
+  import { getFood } from '$lib/client/foods';
   import type { Food, Place, Ref } from '$lib/client/types';
   import { addDays, pickedDateWords } from '$lib/dates';
   import type { PantryModel } from '$lib/pantry.svelte';
-  import { ApiError } from '$lib/api';
   import { amountExample } from '$lib/amountExample';
+  import { newIngredient } from '$lib/newIngredient.svelte';
   import FoodPicker from './FoodPicker.svelte';
   import Icon from './Icon.svelte';
 
@@ -84,25 +83,20 @@
       placeId =
         loaded.place?.id ?? places.find((p) => p.kind === 'cupboard')?.id ?? places[0]?.id ?? null;
     } catch {
-      problem = 'Couldn’t load that ingredient. Please try again.';
+      problem = 'Couldn’t load that ingredient. Try again.';
     } finally {
       loading = false;
     }
   }
 
+  /**
+   * "+ New ingredient": asks "How do you count it?" first, as Shopping and the recipe editor
+   * do; that sheet makes it (or finds the one already called that), then it’s picked here.
+   * The question opens on top of this sheet; Cancel there comes back here with nothing made.
+   */
   async function create(name: string) {
-    loading = true;
-    try {
-      const made = await createFood({ name }, newChangeId());
-      await choose(made.food);
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'name_taken') {
-        const id = (error.body as { food_id?: number } | null)?.food_id;
-        if (id) return void choose({ id, name });
-      }
-      loading = false;
-      problem = error instanceof ApiError ? error.detail : 'Couldn’t add that ingredient.';
-    }
+    const made = await newIngredient.ask(name);
+    if (made) await choose(made);
   }
 
   function amountChoices(f: Food) {
@@ -242,7 +236,7 @@
       {#if food}
         {#if food.staple}
           <p class="note" role="status">
-            {food.name} is a staple, so it isn't counted. Turn off Staple in the ingredient to count it.
+            {food.name} is a staple, so it isn’t counted. Turn off Staple in the ingredient to count it.
           </p>
         {:else}
           <section aria-labelledby="{uid}-much">

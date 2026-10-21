@@ -1,6 +1,6 @@
 # The word list: how Mealwright talks
 
-**Approved by cabledrawer on 19 Oct (section 14 is new on 21 Oct and waits for his OK where it says "proposed").** Written by Claude Code on 18 Oct from the spec and the screens as they are built (0.3). Every line says where it comes from. Where the built screens disagreed with each other or with the spec, cabledrawer ruled on all twelve on 19 Oct; the rulings are in section 11. cabledrawer approves any change to this list (spec: UX — CORE → Keeping the UI good, item 1). **Not all rulings are in the screens yet:** the built screen text was left as it is in this pull request. Rulings 1 to 4 ("item", the sign-in switch, curly apostrophes, error endings) are fixed on the screens in the 0.4 paper-cuts pull request, so until then a few built screens still differ from this list.
+**Approved by cabledrawer on 19 Oct (section 14 is new on 21 Oct and waits for his OK where it says "proposed").** Written by Claude Code on 18 Oct from the spec and the screens as they are built (0.3). Every line says where it comes from. Where the built screens disagreed with each other or with the spec, cabledrawer ruled on all twelve on 19 Oct; the rulings are in section 11. cabledrawer approves any change to this list (spec: UX — CORE → Keeping the UI good, item 1). Rulings 1 to 4 ("item", the sign-in switch, curly apostrophes, error endings) are on the screens from the 0.4 paper-cuts pull request. Some quotes in this list still show a straight apostrophe; on screen it is always the curly one (ruling 3).
 
 **Who uses this:** builders write on-screen text from it; the checker checks every pull request's on-screen text against it (`e2e/REVIEW.md`, "Keeping the UI good"). A test already scans the web app for the word "food" (`frontend/src/lib/plainWords.test.ts`).
 
@@ -90,13 +90,14 @@ Rules (all from what is built; the spec only fixes a few of them):
 
 Patterns in use:
 
-- **Couldn't + the verb + a way forward:** "Couldn’t load the pantry. Please try again." · "Couldn’t load your ingredients. Please try again." · "Couldn’t load this ingredient. Check your connection and try again." (`pantry.svelte.ts`, `ingredients.svelte.ts`, `foodEditor.svelte.ts`)
-- **Connection:** "Can't reach your Mealwright server. Check your connection." (`api.ts`). In an offline-capable place the offline wording of section 8 is used instead.
-- **Anything else:** "Something went wrong. Please try again." (`api.ts`)
-- **Asking for the right thing in a field:** say what to type, with an example: "Please enter your name." · "Please choose a username." · "Use at least 10 characters." · "Use up to 50 lowercase letters, numbers, dots, dashes or underscores." · "Give the size a name, like tub or packet." · "Try something like ½ packet or 250 g." · "Use g, kg or one of its sizes, like packet." (`setup/+page.svelte`, `IngredientEditor.svelte`, `amountEdit.ts`)
+- **Couldn’t + the verb + a way forward:** "Couldn’t load the pantry. Try again." · "Couldn’t load your ingredients. Try again." · "Couldn’t load this ingredient. Check your connection and try again." (`pantry.svelte.ts`, `ingredients.svelte.ts`, `foodEditor.svelte.ts`)
+- **A problem toast:** "Couldn’t save. Try again." (ruling 4's own example) · "Couldn’t undo. Try again." · "Couldn’t add that shop. Try again." · "Couldn’t add it. Try again." (`save.ts`, `undo.svelte.ts`, `IngredientEditor.svelte`, `NewIngredient.svelte`; proposed, for cabledrawer: the old wording with a dash, made two sentences by ruling 4)
+- **Connection:** "Can’t reach your Mealwright server. Check your connection." (`api.ts`). In an offline-capable place the offline wording of section 8 is used instead.
+- **Anything else:** "Something went wrong. Try again." (`api.ts`)
+- **Asking for the right thing in a field:** say what to type, with an example: "Enter your name." · "Choose a username." · "Use at least 10 characters." · "Use up to 50 lowercase letters, numbers, dots, dashes or underscores." · "Give the size a name, like tub or packet." · "Try something like ½ packet or 250 g." · "Use g, kg or one of its sizes, like packet." (`setup/+page.svelte`, `IngredientEditor.svelte`, `amountEdit.ts`)
 - **Never a raw status code or a stack trace**; logs stay on the server and never hold what people cook, buy or type (spec section 7, Logs).
 
-(Section 11, ruling 4: two short sentences, no dash, no "Please". The built messages above still use the old shapes until the 0.4 paper-cuts pull request.)
+(Section 11, ruling 4: two short sentences, no dash, no "Please".) The server's own field messages follow it too: "Type a name." · "Type the shop’s name." · "Give the weight in grams." · "Enter your name." · "Too many tries. Wait 5 minutes." (proposed, for cabledrawer: the old wording without "Please"). "Please sign in again." on the sign-in page (section 9) is left as it is: it is the reason the page shows, not an error (proposed, for cabledrawer).
 
 ## 8. Offline and connection wording
 
@@ -106,7 +107,7 @@ All from spec principle 16 and "Offline shopping-list sync" (cabledrawer 17 to 1
 - **Bar, phone:** "Offline — 3 changes waiting" (singular "1 change waiting"), with "Try now". **Desktop:** "Offline", with "Try now", and under it "3 changes waiting. They'll save when you're back." In the collapsed sidebar a small dot that is also the "Try now" button.
 - **Back:** the toast "Back online — all saved" (short, goes by itself).
 - **Shopping subtitle:** "12 to buy · saved" when connected; offline "12 to buy · offline, saving on this phone" (on a computer "…on this computer"); extra lists "Extra list · 5 · offline".
-- **A screen that needs the server:** "You’re offline." then "Pantry needs your Mealwright server — your shopping list works offline." (naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you're back online."
+- **A screen that needs the server:** "You’re offline." then "Pantry needs your Mealwright server. Your shopping list works offline." (ruling 4; naming Pantry, Ingredients or Settings), with a **Shopping** button. "+ Add to pantry" stays visible and says "Adding to the pantry needs your Mealwright server. Try again when you're back online."
 - **A phone that has never loaded the list:** "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
 - **"Changes", never "actions", "operations" or "mutations"; "waiting", never "queued" or "pending".**
 
@@ -114,12 +115,12 @@ All from spec principle 16 and "Offline shopping-list sync" (cabledrawer 17 to 1
 
 From spec "Sign in", "Sign-out warning", "Offline shopping-list sync" (cabledrawer 17 and 18 Oct); built in `sign-in/+page.svelte`, `setup/+page.svelte`, `settings/+page.svelte`, `offline/held.ts`.
 
-- Sign in page: "Welcome back", "Sign in to your household's kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Remember this phone" / "Remember this computer", with "for 30 days" in small text (section 11, ruling 2; the built page still says "Stay signed in for 30 days" until the 0.4 paper-cuts pull request), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household's admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
+- Sign in page: "Welcome back", "Sign in to your household's kitchen", fields **Username**, **Password** (with **Show** / **Hide**), the switch "Remember this phone" / "Remember this computer", with "for 30 days" in small text (section 11, ruling 2), button **Sign in** ("Signing in…" while it works), "Forgot your password? Ask your household's admin to reset it." (no email reset: nothing leaves the server), "Your own server · nothing is sent anywhere else".
 - First run: "Welcome! First, your account", "You're the first person here, so you'll be the admin…", button **Create account**; "No default password and no account with us. This login lives only on your server."
 - Password turned off by the admin: only the single-sign-on button and "Trouble signing in? Ask your household's admin."
 - **Plain http:// connection:** "This connection isn't secure" with "Signing in needs a secure connection. Open Mealwright at its https:// address, through your reverse proxy." (refused) or the warning "This connection isn't secure. Passwords travel unencrypted. Use only for testing on a network you trust." (allowed) (spec section 7).
 - **Sign out with nothing waiting:** just signs out. **With changes waiting:** "3 changes haven't been sent yet. If you sign out now, they're lost." (1: "1 change hasn't been sent yet. If you sign out now, it's lost.") Buttons: **Try sending now · Stay signed in · Sign out and lose them**.
-- **Can't check what's waiting:** "This phone couldn't check for changes waiting to be sent. Nothing has been deleted." Buttons: Try again · Stay signed in · Sign out anyway — anything waiting on this phone may be lost.
+- **Can't check what's waiting:** "This phone couldn't check for changes waiting to be sent. Nothing has been deleted." Buttons: Try again · Stay signed in · Sign out anyway. Anything waiting on this phone may be lost (proposed, for cabledrawer: ruling 4 took out the dash).
 - **Another login on a phone holding changes:** "Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." If someone else signs in anyway: "Wren's 3 changes haven't been sent yet. If you carry on, they're lost." Buttons: Sign in as Wren instead · Carry on and lose them. After being signed out for this: "You were signed out because Wren's 3 changes are waiting on this phone. Sign in as Wren to send them." (1 change: "…Wren's change is waiting… to send it.")
 - **A phone that can't delete its offline copy:** "This phone couldn't delete its offline copy of the household. Nobody can sign in on it until that's done. Close other Mealwright tabs or restart the browser, then Try again."
 - **Expired session:** "Please sign in again." with the number of changes kept: "Please sign in again. Your 3 changes are kept on this phone."
@@ -134,7 +135,7 @@ From spec "Sign in", "Sign-out warning", "Offline shopping-list sync" (cabledraw
 
 ## 11. Decisions on the differences (cabledrawer 19 Oct)
 
-cabledrawer accepted all twelve recommendations on 19 Oct. **Built screen text is not changed in this pull request:** rulings 1 to 4 are fixed on the screens in the 0.4 paper-cuts pull request; the rest already match what is built.
+cabledrawer accepted all twelve recommendations on 19 Oct. Rulings 1 to 4 are on the screens from the 0.4 paper-cuts pull request; the rest already match what is built.
 
 1. **"item(s)".** "Item" is only for lines on a shopping list ("Add an item…", "Cleared 2 ticked items", "ticked items still go to the pantry"). The Pantry count says "ingredients" ("17 ingredients · 3 use soon"). "Items" is removed from the checker's rejected list in `e2e/REVIEW.md` and noted there as allowed on the shopping list.
 2. **The sign-in switch.** It reads "Remember this phone" or "Remember this computer", with "for 30 days" in small text. "Stay signed in" is only the name of the sign-out warning's button.
@@ -165,7 +166,7 @@ Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Reci
 - **Empty:** the heading "No recipes yet" and "Recipes you add will show here." (no button until the editor).
 - **Nothing found:** "No recipe matches “dal”." · "No recipe can be cooked with what is in stock right now." · "No recipes with that tag."
 - **Loading and failing:** "Loading…" · "Couldn’t load your recipes. Try again." with the button "Try again" · "Couldn’t load more recipes. Try again." · the button "Show more" after 50.
-- **Offline:** "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as Pantry and Ingredients).
+- **Offline:** "You’re offline." and "Recipes needs your Mealwright server. Your shopping list works offline." (as Pantry and Ingredients).
 
 ---
 
@@ -182,7 +183,7 @@ Written by Claude Code on 20 Oct from the mockups `Recipes-Phone` and `Dark-Reci
 - **Amounts on screen:** the − / + scale amounts on screen only, whole servings 1 to 99; spoons and cups in quarters (¼ ½ ¾), counts and packets in halves, g and ml whole numbers (cabledrawer 19 Oct, question 26). Kilograms and litres to two decimals (new; the lead's note, for cabledrawer to confirm).
 - **"1 missing" line:** under the ingredients, "1 missing" (or "3 missing") and the button "Add to the list". It counts ingredients that are not in stock and not already on the shopping list (as the mockup does), once each. When nothing is left to add the line is not shown at all, and the page never says "all in stock" (so a recipe using a recipe that isn't checked can't claim it). The toast says "Sambar powder added to the shopping list" for one, "3 ingredients added to the shopping list" for several, each with Undo; Undo says "Undone: 3 ingredients added to the shopping list".
 - **Method:** the heading "Method", steps numbered through the headings. **Tags** as small chips. **Source:** "Source: Amma’s" (new; "From: <site>" comes with import in 0.5).
-- **States:** "Loading…" · "Couldn’t load this recipe. Try again." with "Try again" · "Recipe not found" with "This recipe isn’t here any more. It may have been deleted." (new) · offline: "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." · a recipe with only a name: "Nothing written down yet." (new).
+- **States:** "Loading…" · "Couldn’t load this recipe. Try again." with "Try again" · "Recipe not found" with "This recipe isn’t here any more. It may have been deleted." (new) · offline: "You’re offline." and "Recipes needs your Mealwright server. Your shopping list works offline." · a recipe with only a name: "Nothing written down yet." (new).
 - **The photo** (0.4, photos PR): a screen reader hears "Photo of Sambar" (the recipe's name; proposed, for cabledrawer; the editor says "Cover for this recipe"). A recipe with no photo, or a photo that can't be fetched, has no box and says nothing. In All recipes the photo is decorative (the row already says the name), so it has no words.
 - **Not on this screen yet** (hidden, not stubbed): "Plan it" (0.6), "Start cooking" and "Cook once, eat for…" (0.7). "Edit" (top right) came with the editor, PR 5, and Delete is inside the editor (section 17).
 
@@ -241,7 +242,7 @@ Written by Claude Code on 20 Oct from the mockups `Desktop-Recipe` and `Dark-Rec
 
 - **The three panes:** the sidebar, then All recipes (title "Recipes", the count above it, search, the filter row and the rows as in section 12, no Ingredients button because the sidebar has it), then the recipe (section 13). The open recipe's row is marked. Screen readers hear the panes as "Recipe list" and "Recipe".
 - **No recipe open (`/recipes` on a computer):** the heading "Choose a recipe" and "Pick one from the list to read it here." (new, proposed; an empty pane rather than the first recipe: cabledrawer 20 Oct). With no recipes at all the reading pane says nothing: the list already says "No recipes yet".
-- **Offline:** one note for both panes: the title "Recipes", "You’re offline." and "Recipes needs your Mealwright server — your shopping list works offline." (as section 12).
+- **Offline:** one note for both panes: the title "Recipes", "You’re offline." and "Recipes needs your Mealwright server. Your shopping list works offline." (as section 12).
 - **Where the three panes fit (cabledrawer 20 Oct):** from 1024 px wide with the sidebar open, or 848 px with it collapsed. Narrower (a tablet held upright), Recipes shows one page at a time with the sidebar, as before; under 768 px it is the phone's layout.
 - **Not on these screens yet** (hidden, not stubbed): "+ New recipe" and Edit (the editor), "Import a recipe" (0.5), "Drafts · 3 unfinished imports" in the list (the sidebar's Drafts entry is hidden too, cabledrawer 20 Oct; done in PR 7), "Plan it", "Start cooking", "Cook once, eat for…", the photo.
 

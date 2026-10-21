@@ -166,7 +166,7 @@ async function signIn(baseURL: string): Promise<APIRequestContext> {
     data: { username: ADMIN.username, password: ADMIN.password },
   });
   if (!session.ok()) {
-    throw new Error(`Couldn't sign in as ${ADMIN.username}: ${session.status()} ${await session.text()}`);
+    throw new Error(`Couldn’t sign in as ${ADMIN.username}: ${session.status()} ${await session.text()}`);
   }
   return api;
 }

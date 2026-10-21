@@ -21,7 +21,7 @@ import { undoHistory, type UndoEntry } from './undo.svelte';
 
 export { worthRetrying };
 
-export const COULDNT_SAVE = 'Couldn’t save — try again';
+export const COULDNT_SAVE = 'Couldn’t save. Try again.';
 
 /** How many questions one change may ask before giving up (a guard against loops). */
 const MAX_QUESTIONS = 3;

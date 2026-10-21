@@ -200,7 +200,7 @@
       {:else}
         <form class="form" onsubmit={typeLeft}>
           <label>
-            What's left{baseUnit === 'count' ? '' : ` (${baseUnit})`}
+            What’s left{baseUnit === 'count' ? '' : ` (${baseUnit})`}
             <input name="left" inputmode="decimal" data-first />
           </label>
           <span class="buttons"><button type="submit" class="main">Save</button></span>

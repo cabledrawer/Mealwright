@@ -104,7 +104,7 @@ AisleName = Literal[
 def _name(value: str) -> str:
     value = clean_name(value)
     if not value:
-        raise ValueError("Please type a name.")
+        raise ValueError("Type a name.")
     return value
 
 
@@ -697,7 +697,7 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
         with FoodEdit(kitchen, [food.id]) as edit:
             if field_name == "name":
                 if body.name is None:
-                    raise Problem(422, "name_needed", "Please type a name.")
+                    raise Problem(422, "name_needed", "Type a name.")
                 new_name = _name(body.name)
                 owner = name_owner(kitchen, new_name, except_id=food.id)
                 if owner is not None:
@@ -712,7 +712,7 @@ def edit_food(food_id: int, body: FoodPatch, kitchen: Here, response: Response) 
                 summary = f"Renamed {name} to {new_name}"
             elif field_name == "counted_as":
                 if body.counted_as is None:
-                    raise Problem(422, "counted_as_needed", "Choose how it's counted.")
+                    raise Problem(422, "counted_as_needed", "Choose how it’s counted.")
                 if body.counted_as == food.counted_as:
                     return None
                 edit.extra["lot_amounts"] = _change_counted_as(
@@ -1040,7 +1040,7 @@ def add_stand_in(food_id: int, body: NewStandIn, kitchen: Here, response: Respon
         food = find(kitchen, food_id)
         other = find(kitchen, body.food_id)
         if other.id == food.id:
-            raise Problem(422, "same_food", "An ingredient can't stand in for itself.")
+            raise Problem(422, "same_food", "An ingredient can’t stand in for itself.")
         pairs = [(food.id, other.id)] + ([(other.id, food.id)] if body.both_ways else [])
         missing = [p for p in pairs if kitchen.db.get(FoodStandIn, p) is None]
         if not missing:
@@ -1094,7 +1094,7 @@ def not_the_same(food_id: int, body: NotSame, kitchen: Here) -> None:
     food = find(kitchen, food_id)
     other = find(kitchen, body.food_id)
     if food.id == other.id:
-        raise Problem(422, "same_food", "That's the same ingredient.")
+        raise Problem(422, "same_food", "That’s the same ingredient.")
     pair = (min(food.id, other.id), max(food.id, other.id))
     if kitchen.db.get(FoodNotSame, pair) is None:
         kitchen.db.add(
@@ -1231,7 +1231,7 @@ def merge(food_id: int, body: Merge, kitchen: Here, response: Response) -> FoodW
         gone = find(kitchen, food_id)
         into = find(kitchen, body.into_id)
         if gone.id == into.id:
-            raise Problem(422, "same_food", "That's the same ingredient.")
+            raise Problem(422, "same_food", "That’s the same ingredient.")
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
             edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
             ops = shopping.move_items(kitchen, gone.id, into.id, edit.batch)

@@ -66,7 +66,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
 
-const FALLBACK = 'Something went wrong. Please try again.';
+const FALLBACK = 'Something went wrong. Try again.';
 
 /** The server's reason, as a sentence a person can read. */
 export function detailOf(body: unknown): string {
@@ -114,7 +114,7 @@ export async function api<T>(
   // Signed out while offline: end that session on the server before anything else is sent.
   if (!(await endPendingSignOut(doFetch))) {
     network.failed();
-    throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
+    throw new ApiError(0, 'Can’t reach your Mealwright server. Check your connection.');
   }
   const headers: Record<string, string> = {};
   // A file (a recipe photo) goes as it is; everything else is JSON.
@@ -133,7 +133,7 @@ export async function api<T>(
     });
   } catch {
     network.failed();
-    throw new ApiError(0, "Can't reach your Mealwright server. Check your connection.");
+    throw new ApiError(0, 'Can’t reach your Mealwright server. Check your connection.');
   }
   // Any answer from our server means it is there. But 502, 503 and 504 come from the
   // reverse proxy when it can't reach Mealwright (spec UX principle 16).

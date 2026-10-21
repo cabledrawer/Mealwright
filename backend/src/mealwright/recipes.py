@@ -507,7 +507,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     data = change.undo_data or {}
     recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
     if recipe is None or recipe.household_id != kitchen.household_id:
-        raise Problem(status.HTTP_410_GONE, "too_old", "That's too long ago to undo.")
+        raise Problem(status.HTTP_410_GONE, "too_old", "That’s too long ago to undo.")
     # While it was deleted, recipes that use it (or ones it uses) may have been changed so
     # that bringing it back would make a loop: the same check as a save, with the same words.
     picks = []

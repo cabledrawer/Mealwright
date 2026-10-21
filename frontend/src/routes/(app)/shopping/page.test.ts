@@ -409,7 +409,7 @@ describe('the Shopping page', () => {
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent(
-        "Your shopping list isn't on this computer yet. It'll be here after you've opened it once while connected."
+        'Your shopping list isn’t on this computer yet. It’ll be here after you’ve opened it once while connected.'
       );
   });
 
@@ -420,7 +420,7 @@ describe('the Shopping page', () => {
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent(
-        "Your shopping list isn't on this phone yet. It'll be here after you've opened it once while connected."
+        'Your shopping list isn’t on this phone yet. It’ll be here after you’ve opened it once while connected.'
       );
   });
 

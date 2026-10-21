@@ -75,29 +75,29 @@ describe('changes held on this phone', () => {
     expect(keptText(3)).toBe('Please sign in again. Your 3 changes are kept on this phone.');
     expect(keptText(1)).toBe('Please sign in again. Your 1 change is kept on this phone.');
     expect(waitingForText('Wren', 3)).toBe(
-      "Wren's 3 changes are waiting on this phone. Sign in as Wren to send them."
+      'Wren’s 3 changes are waiting on this phone. Sign in as Wren to send them.'
     );
     expect(waitingForText('Wren', 1)).toBe(
-      "Wren's 1 change is waiting on this phone. Sign in as Wren to send it."
+      'Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.'
     );
     // With the sidebar, it's this computer (by layout).
     expect(keptText(2, 'computer')).toBe(
       'Please sign in again. Your 2 changes are kept on this computer.'
     );
     expect(waitingForText('Wren', 1, 'computer')).toBe(
-      "Wren's 1 change is waiting on this computer. Sign in as Wren to send it."
+      'Wren’s 1 change is waiting on this computer. Sign in as Wren to send it.'
     );
     expect(loseOthersText('Wren', 3)).toBe(
-      "Wren's 3 changes haven't been sent yet. If you carry on, they're lost."
+      'Wren’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
     );
     expect(loseOthersText('Wren', 1)).toBe(
-      "Wren's 1 change hasn't been sent yet. If you carry on, it's lost."
+      'Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.'
     );
     expect(loseOnSignOutText(3)).toBe(
-      "3 changes haven't been sent yet. If you sign out now, they're lost."
+      '3 changes haven’t been sent yet. If you sign out now, they’re lost.'
     );
     expect(loseOnSignOutText(1)).toBe(
-      "1 change hasn't been sent yet. If you sign out now, it's lost."
+      '1 change hasn’t been sent yet. If you sign out now, it’s lost.'
     );
   });
 
@@ -142,10 +142,10 @@ describe('a phone database that can’t be read', () => {
 
   it('says so, and that nothing has been deleted', () => {
     expect(cantCheckText()).toBe(
-      "This phone couldn't check for changes waiting to be sent. Nothing has been deleted."
+      'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.'
     );
     expect(cantCheckText('computer')).toBe(
-      "This computer couldn't check for changes waiting to be sent. Nothing has been deleted."
+      'This computer couldn’t check for changes waiting to be sent. Nothing has been deleted.'
     );
   });
 });

@@ -301,7 +301,7 @@ class NewList(BaseModel):
 
 
 def _blank() -> str:
-    raise ValueError("Please type a name.")
+    raise ValueError("Type a name.")
 
 
 class RenameList(BaseModel):
