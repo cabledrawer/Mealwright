@@ -334,3 +334,75 @@ test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?";
     await otherContext.close();
   }
 });
+
+// Opening on no signal, or one so weak requests hang (cabledrawer 20 Oct, hand test: the app was
+// blank for 30–40 s, then Shopping said "Loading…" for 42 s). "About a second" is allowed
+// 1.5 s here, for a busy test machine; measured, it is under 0.1 s offline and about 0.8 s
+// with every request hanging (the start waits half a second for the server).
+const ABOUT_A_SECOND = 1500;
+
+/** Open the app at Today, then tap Shopping: how long each took to show. */
+async function openToday(page: Page, row: string) {
+  const today = page.getByRole('heading', { name: 'Today', level: 1 });
+  const opened = Date.now();
+  await page.goto('/', { waitUntil: 'commit' });
+  await today.waitFor({ timeout: 60_000 });
+  const todayMs = Date.now() - opened;
+  const tapped = Date.now();
+  await page
+    .getByRole('navigation')
+    .last()
+    .getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping' })
+    .click();
+  await page.getByRole('checkbox', { name: `Tick ${row}` }).waitFor({ timeout: 60_000 });
+  return { todayMs, listMs: Date.now() - tapped };
+}
+
+test('opening offline shows Today, then the saved list, each within about a second', async ({ page, context }) => {
+  const first = `Ghee ${tag()}`;
+  await signIn(page);
+  await ingredient(page, first);
+  await start(page);
+  await context.setOffline(true);
+  const { todayMs, listMs } = await openToday(page, first);
+  expect(todayMs).toBeLessThan(ABOUT_A_SECOND);
+  expect(listMs).toBeLessThan(ABOUT_A_SECOND);
+  await expect(page.getByText('Loading…')).toHaveCount(0);
+  await context.setOffline(false);
+});
+
+test('a slow network doesn’t hold the saved list back, and the list updates when the answers come', async ({ page }) => {
+  test.setTimeout(120_000);
+  const t = tag();
+  const [first, second] = [`Ghee ${t}`, `Jaggery ${t}`];
+  await signIn(page);
+  await ingredient(page, first);
+  await start(page);
+  // Every request to the server is held for 20 s (page.request below isn't).
+  let release!: () => void;
+  const released = new Promise<void>((done) => (release = done));
+  await page.route(/\/api\//, async (route) => {
+    await released;
+    await route.continue().catch(() => undefined);
+  });
+  let releasedAt = 0;
+  const holding = setTimeout(() => {
+    releasedAt = Date.now();
+    release();
+  }, 20_000);
+  try {
+    const { todayMs, listMs } = await openToday(page, first);
+    expect(todayMs).toBeLessThan(ABOUT_A_SECOND);
+    expect(listMs).toBeLessThan(ABOUT_A_SECOND);
+    await expect(page.getByText('Loading…')).toHaveCount(0);
+    // Added on another device meanwhile: it shows once the held answers arrive.
+    await ingredient(page, second);
+    await expect(page.getByRole('checkbox', { name: `Tick ${second}` })).toBeVisible({ timeout: 60_000 });
+    expect(releasedAt).toBeGreaterThan(0);
+    await expect(page.getByRole('checkbox', { name: `Tick ${first}` })).toBeVisible();
+  } finally {
+    clearTimeout(holding);
+    release();
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
