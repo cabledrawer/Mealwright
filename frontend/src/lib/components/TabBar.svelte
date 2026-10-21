@@ -45,6 +45,12 @@
     text-decoration: none;
   }
 
+  /* A little room either side of each label: at 200% text the widest columns shrink to
+     their labels, and without it "Pantry" and "Recipes" touch. */
+  span {
+    padding-inline: var(--space-1);
+  }
+
   a:hover {
     color: var(--color-text);
   }

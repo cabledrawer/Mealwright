@@ -144,6 +144,39 @@ test('on phones every button and link is at least 44 px', async ({ page }) => {
   }
 });
 
+test('phones: at 200% text every tab label is whole, on one line, with a gap to the next', async ({ page }) => {
+  test.skip(!isPhone(page), 'the bottom tabs are a phone thing');
+  await page.goto('/pantry');
+  await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  const tabs = page.getByRole('navigation', { name: 'Main' });
+  await expect(tabs.getByRole('link', { name: 'Recipes' })).toBeVisible();
+  const labels = await tabs.locator('a span').evaluateAll((spans) =>
+    spans.map((span) => {
+      const range = document.createRange();
+      range.selectNodeContents(span);
+      const { left, right } = range.getBoundingClientRect();
+      const link = span.closest('a')!.getBoundingClientRect();
+      return {
+        text: span.textContent,
+        left,
+        right,
+        lines: range.getClientRects().length,
+        inLink: left >= link.left && right <= link.right,
+      };
+    }),
+  );
+  expect(labels.map((l) => l.text)).toEqual(['Today', 'Plan', 'Shop', 'Pantry', 'Recipes']);
+  const width = page.viewportSize()!.width;
+  for (const [i, label] of labels.entries()) {
+    expect(label.lines, label.text!).toBe(1);
+    expect(label.inLink, label.text!).toBe(true);
+    expect(label.left, label.text!).toBeGreaterThanOrEqual(0);
+    expect(label.right, label.text!).toBeLessThanOrEqual(width);
+    // At least 4 px between one label and the next, so "Pantry" and "Recipes" never touch.
+    if (i > 0) expect(label.left - labels[i - 1]!.right, label.text!).toBeGreaterThanOrEqual(4);
+  }
+});
+
 test('the page header stays put on phones while the page scrolls', async ({ page }) => {
   test.skip(!isPhone(page), 'phone layout only');
   await page.goto('/');
