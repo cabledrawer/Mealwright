@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './clock.ts';
+import { test, expect, testNow, type Page } from './clock.ts';
 import { isPhone } from './a11y.ts';
 import { ADMIN } from './servers.ts';
 
@@ -296,6 +296,7 @@ test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?";
   await settleCards(page); // so the only card is this test's
   const foodId = await toorDal(page, name);
   const otherContext = await browser.newContext();
+  await otherContext.clock.install({ time: testNow() });
   const other = await otherContext.newPage();
   try {
     await signIn(other);

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './clock.ts';
+import { test, expect, testNow, type Page } from './clock.ts';
 import { checkPage, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // The recipe editor (0.4): New recipe and Edit recipe, against the real server. Runs in the
@@ -620,6 +620,7 @@ test('the editor passes the accessibility checks in both themes, new and filled 
 
 test('a very long name wraps, and text at 200% still fits', async ({ browser }, info) => {
   const context = await browser.newContext({ ...info.project.use, bypassCSP: true });
+  await context.clock.install({ time: testNow() });
   const page = await context.newPage();
   try {
     const long = 'Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder and a lot more words after that';
