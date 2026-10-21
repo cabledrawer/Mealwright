@@ -33,14 +33,24 @@ describe('pickRecipes', () => {
 });
 
 describe('recipeSearch', () => {
-  it('asks for the A-to-Z list once and answers every search from it', async () => {
+  it('asks the server with q and keeps only the names that match', async () => {
+    // The server also finds Sambar for "powder" (its line uses Sambar powder): not offered.
     const requests = fakeApi({
-      'GET /recipes?limit=500': [200, { total: 4, recipes: ALL, next: null }]
+      'GET /recipes?q=powder&limit=100': [
+        200,
+        { total: 2, recipes: [brief(1, 'Sambar'), brief(3, 'Sambar powder')], next: null }
+      ]
     });
     const search = recipeSearch();
-    expect((await search('ras')).map((r) => r.name)).toEqual(['Rasam']);
     expect((await search('powder')).map((r) => r.name)).toEqual(['Sambar powder']);
-    expect(requests).toHaveLength(1);
+    expect(requests.map((r) => r.url)).toEqual(['/recipes?q=powder&limit=100']);
+    vi.unstubAllGlobals();
+  });
+
+  it('asks nothing for nothing', async () => {
+    const requests = fakeApi({});
+    expect(await recipeSearch()('  ')).toEqual([]);
+    expect(requests).toHaveLength(0);
     vi.unstubAllGlobals();
   });
 });

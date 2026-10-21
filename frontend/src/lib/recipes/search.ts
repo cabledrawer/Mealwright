@@ -1,7 +1,7 @@
 // Searching recipes for the "Pick an ingredient" list, which offers recipes as well as
-// ingredients. This is the one small function to change when `GET /recipes?q=` arrives
-// (the recipe list pull request): until then it takes the plain A-to-Z list (one request
-// for up to 500 recipes, asked for once per editor) and filters it here.
+// ingredients. The server's search (`GET /recipes?q=`) also looks in tags and ingredient names,
+// so "dal" would find Sambar; the picker only offers recipes whose name has what was typed, so
+// the server's answer is filtered by name here.
 
 import { listRecipes, type RecipeBrief } from '$lib/client/recipes';
 
@@ -23,16 +23,11 @@ export function pickRecipes(all: RecipeBrief[], query: string, limit = 6): Recip
   return found.slice(0, limit);
 }
 
-/** Asks for the recipes once and answers every search from that list. */
+/** Asks the server for each search, then keeps the recipes whose names match. */
 export function recipeSearch(): (query: string) => Promise<RecipeBrief[]> {
-  let all: Promise<RecipeBrief[]> | null = null;
   return async (query) => {
-    all ??= listRecipes({ limit: 500 }).then((list) => list.recipes);
-    try {
-      return pickRecipes(await all, query);
-    } catch (error) {
-      all = null; // try again next time
-      throw error;
-    }
+    if (!query.trim()) return [];
+    const list = await listRecipes({ q: query, limit: 100 });
+    return pickRecipes(list.recipes, query);
   };
 }
