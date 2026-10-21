@@ -37,6 +37,12 @@ Work towards 0.4.0 (recipes).
 
 ### Changed
 
+- The recipe page: a recipe that says what it makes but not how many it serves now gets − and + too, in whole multiples (Makes 200 g, then 400 g, 600 g; never below 1×), and its amounts scale the same way.
+- The menu no longer shows a Drafts entry under Recipes.
+- Shopping: the amount box has an "Edit ingredient" link to that row's ingredient (on a phone and a computer). It's hidden offline, like the other ways into the ingredient editor.
+- The recipe editor: the "Makes" box's hint says "What it makes, like dosas". On a computer, Save and Cancel are wider, as in the mockup.
+- Add to pantry's "+ New ingredient" now asks "How do you count it?", the same as Shopping and the recipe editor.
+- Words on screen: the Pantry count says "ingredients"; the sign-in checkbox says "Remember this phone" (or "Remember this computer"), with "for 30 days" in small text below, and does the same as before; apostrophes on screen are curly everywhere, with a test that fails on a straight one; error messages are two short sentences, with no dash and no "Please".
 - API: an ID, cursor or version too big for the database is now refused (422 `bad_number`) where the request is read, in the path, the query or the body, instead of by catching the database's error afterwards. Any other number overflow is now a plain server error, so a bug shows as one.
 - The browser code size check in `./check` now measures each page (its JavaScript and CSS, the code it shares with other pages included, gzip-compressed) and fails when the largest page is over the limit, now 144 KiB. It prints the largest page, its size and the limit; the total of the whole app is printed for information and is not checked. The size script has its own tests on a made-up build.
 - Shopping rows (cabledrawer's hand test, 20 Oct): only the square ticks a row. Tapping a row's name or its amount opens the amount box instead. The amount looks tappable, like a button. The box holds the real amount so you can edit it, with − and + beside it, a choice of unit and "Remove from list".
@@ -49,6 +55,9 @@ Work towards 0.4.0 (recipes).
 
 ### Fixed
 
+- The recipe editor: a new recipe is never saved twice after an answer is lost, even when you edit it before "Try again", and the edit is kept. "Try again" is greyed out while offline, like Save, and a double click on Save sends one request.
+- On a phone at 200% text, the bottom tabs' labels no longer touch each other.
+- Ingredients on a phone: the title no longer breaks inside the word next to "+ New ingredient".
 - Opening the app offline or on a weak signal shows Today and the saved shopping list at once (cabledrawer 20 Oct, hand test). In 0.3.0 a signal where requests hang rather than fail held a blank screen for about 30 seconds, then "Loading…" on Shopping for up to 75 seconds when changes were waiting. Now the app waits at most half a second for the server, opens as the person last signed in on this device, and tries the network in the background; the list updates when the server answers. Waiting changes still start sending as the app opens, and are sent once, not three times. If the server then says the sign-in has run out, it goes to sign in as usual; if it names another login, that login is signed out again and goes to the sign-in page (nothing is wiped while the screen is up), where the usual warning or wipe follows.
 
 - After a slow or offline start, once the server can be reached again (live updates connect, or the connection comes back), the app asks it again who is signed in, and acts as a normal start would: the same login carries on, and nobody or a different login goes to the sign-in page.
