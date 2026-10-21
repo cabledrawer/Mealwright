@@ -51,6 +51,32 @@ test('Ingredients opens from Recipes and passes the accessibility checks', async
   await checkPage(page);
 });
 
+test('the Ingredients title never breaks inside a word, with New ingredient beside it', async ({
+  page,
+}) => {
+  await page.goto('/recipes/ingredients');
+  const title = page.getByRole('heading', { level: 1, name: 'Ingredients' });
+  await expect(title).toBeVisible();
+  // Each word of the title sits on one line (a word broken in two has two boxes).
+  const boxesPerWord = await title.evaluate((h1) => {
+    const text = h1.firstChild as Text;
+    return [...text.data.matchAll(/\S+/g)].map((match) => {
+      const range = document.createRange();
+      range.setStart(text, match.index);
+      range.setEnd(text, match.index + match[0].length);
+      return range.getClientRects().length;
+    });
+  });
+  expect(boxesPerWord).toEqual([1]);
+  // A phone shows the round +, a computer the words; nothing scrolls sideways.
+  const button = isPhone(page)
+    ? page.getByRole('button', { name: 'New ingredient', exact: true })
+    : page.getByRole('button', { name: '+ New ingredient' });
+  await expect(button).toBeVisible();
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
+});
+
 test('search finds a food by another name', async ({ page }) => {
   const food = await makeFood(page, 'Toor dal');
   const editor = await openEditor(page, food.name);

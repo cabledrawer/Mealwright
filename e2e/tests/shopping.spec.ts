@@ -232,7 +232,10 @@ test("Ingredients has a New ingredient button that asks How do you count it?", a
 }) => {
   const name = `Sumac ${tag()}`;
   await page.goto("/recipes/ingredients");
-  await page.getByRole("button", { name: "+ New ingredient" }).click();
+  // A phone shows a round + (named "New ingredient"), a computer the words.
+  await page
+    .getByRole("button", isPhone(page) ? { name: "New ingredient", exact: true } : { name: "+ New ingredient" })
+    .click();
   const dialog = page.getByRole("dialog", { name: "How do you count it?" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
   await dialog.getByRole("radio", { name: /One by one/ }).click();

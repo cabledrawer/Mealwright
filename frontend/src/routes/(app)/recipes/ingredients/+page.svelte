@@ -207,7 +207,19 @@
 >
   {#snippet actions()}
     {#if !network.offline}
-      <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+      <!-- A phone shows the round + as Pantry does: the words beside the title squeezed it
+           until "Ingredients" broke inside the word at 390 px. -->
+      {#if desktop}
+        <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+      {:else}
+        <button
+          type="button"
+          class="new-round"
+          aria-label="New ingredient"
+          title="New ingredient"
+          onclick={() => void makeNew()}><Icon name="plus" size={20} stroke={2.6} /></button
+        >
+      {/if}
     {/if}
   {/snippet}
 </PageHeader>
@@ -377,6 +389,19 @@
 </dialog>
 
 <style>
+  .new-round {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    cursor: pointer;
+  }
+
   .new {
     min-height: var(--touch-target);
     padding: 0 18px;

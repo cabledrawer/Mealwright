@@ -199,7 +199,11 @@ describe('the Ingredients page', () => {
 
   it('New ingredient asks How do you count it?, makes it and opens it', async () => {
     requests.length = 0;
-    await page.getByRole('button', { name: '+ New ingredient' }).click();
+    // A phone shows the round + (the words would squeeze the title); a computer the words.
+    await expect
+      .element(page.getByRole('button', { name: '+ New ingredient' }))
+      .not.toBeInTheDocument();
+    await page.getByRole('button', { name: 'New ingredient', exact: true }).click();
     await expect.element(page.getByRole('heading', { name: 'How do you count it?' })).toBeVisible();
     await page.getByRole('textbox', { name: 'Name' }).fill('Tahini');
     await page.getByRole('radio', { name: /One by one/ }).click();
@@ -211,6 +215,14 @@ describe('the Ingredients page', () => {
         counted_as: 'count'
       })
     );
+  });
+
+  it('a computer shows the words “+ New ingredient”, not the round +', async () => {
+    await page.viewport(1300, 900);
+    await expect.element(page.getByRole('button', { name: '+ New ingredient' })).toBeVisible();
+    expect(
+      page.getByRole('button', { name: 'New ingredient', exact: true }).elements()
+    ).toHaveLength(0);
   });
 
   /** Desktop: the one-line bar above the editor, and what it opens. */
