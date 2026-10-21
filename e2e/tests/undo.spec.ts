@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './clock.ts';
 import { isPhone } from './a11y.ts';
 
 // Ctrl+Z / Cmd+Z (spec, History and undo): undoes your own last change, except in a

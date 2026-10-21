@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // The recipe page (0.4, PR 3b), against the real server: what it shows, where each ingredient

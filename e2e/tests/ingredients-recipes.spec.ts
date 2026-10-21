@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // Ingredients and the recipes that use them (0.4, PR 6), against the real server: "Used in N

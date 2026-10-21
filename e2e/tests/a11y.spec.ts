@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from './clock.ts';
 import { checkPage, setAccountTheme } from './a11y.ts';
 
 // Accessibility of every page so far (spec "UX — CORE": WCAG AA in both themes, 44 px

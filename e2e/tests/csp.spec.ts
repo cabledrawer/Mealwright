@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './clock.ts';
 
 // Spec section 7 and the 0.1 "Done when" list: a test proves the Content Security
 // Policy blocks an external script. The test page is served at Mealwright's own

@@ -3,7 +3,7 @@
 // ./check's "image: no gallery" step does the same search inside the Docker image.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './clock.ts';
 
 const FRONTEND = join(import.meta.dirname, '..', '..', 'frontend');
 const PAGE = join(FRONTEND, 'src', 'routes', 'dev', 'gallery', 'Gallery.svelte');

@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, setAccountTheme } from './a11y.ts';
 
 // Recipes on a computer (0.4, PR 4): the three panes (sidebar · All recipes · the recipe being

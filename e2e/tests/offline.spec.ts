@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { isPhone } from './a11y.ts';
 import { ADMIN } from './servers.ts';
 

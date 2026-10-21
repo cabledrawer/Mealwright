@@ -1,5 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
+import { FIXED_MOMENT } from './tests/clock.ts';
 import { AUTH_FILE, PORTS, local } from './tests/servers.ts';
+
+// Every test runs on one fixed date and time (tests/clock.ts). Worked out once, here in the
+// main process, so the servers (serve.mjs) and every worker get the same shift.
+process.env.E2E_CLOCK_SHIFT_MS ??= String(FIXED_MOMENT - Date.now());
 
 // Lets the tests see the service worker's own requests (test-only; Playwright hides them
 // by default).

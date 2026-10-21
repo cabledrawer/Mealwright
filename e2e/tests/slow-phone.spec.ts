@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page, type Route } from './clock.ts';
 
 // Speed is checked, not assumed (spec "Keeping the UI good", item 5). On a simulated slow
 // phone (the CPU four times slower, and a slow mobile network), the common actions show

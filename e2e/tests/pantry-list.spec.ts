@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { isPhone } from './a11y.ts';
 
 // Tap a staple, and "+ List" on a running-low row (0.3, PR 6b; cabledrawer 18 Oct): both add to

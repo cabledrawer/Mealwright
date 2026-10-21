@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // The Pantry (0.2), against the real server, on phone and desktop. Each test makes its

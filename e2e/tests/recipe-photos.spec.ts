@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 import { photoPng, uploadPhoto, type Shape } from '../review/photos.ts';
 

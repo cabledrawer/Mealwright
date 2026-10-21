@@ -20,6 +20,13 @@ const build = spawnSync('npm', ['--prefix', '../frontend', 'run', '-s', 'build']
 });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
+// With E2E_CLOCK_SHIFT_MS (the browser tests, playwright.config.ts) each server's clock is moved
+// to the tests' fixed date and time by a test-only launcher that isn't in the app or the image
+// (backend/scripts/e2e_server.py). Without it (review/screens.ts) they run on the real time.
+const start = process.env.E2E_CLOCK_SHIFT_MS
+  ? ['../backend/scripts/e2e_server.py']
+  : ['-m', 'mealwright'];
+
 const children = [];
 const stop = () => {
   for (const child of children) child.kill('SIGTERM');
@@ -46,7 +53,7 @@ async function ready(port) {
 }
 
 for (const { name, port, plainHttp } of servers) {
-  const child = spawn('uv', ['run', '--frozen', '--project', '../backend', 'python', '-m', 'mealwright'], {
+  const child = spawn('uv', ['run', '--frozen', '--project', '../backend', 'python', ...start], {
     stdio: 'inherit',
     env: {
       ...process.env,

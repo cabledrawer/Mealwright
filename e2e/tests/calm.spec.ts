@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, testNow, type Page } from './clock.ts';
 
 // Calm motion (spec "Keeping the UI good", item 7): animations are small, and turn off
 // when the device asks for reduced motion. Runs on the sign-in page (no saved session),
@@ -33,6 +33,7 @@ async function motion(page: Page) {
 
 test('with reduced motion, nothing slides, fades or loops', async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: 'reduce' });
+  await context.clock.install({ time: testNow() });
   const result = await motion(await context.newPage());
   await context.close();
   // 0.01 ms: over at once, but "transitionend" and "animationend" still fire.
@@ -49,6 +50,7 @@ test('with reduced motion, nothing slides, fades or loops', async ({ browser }) 
 
 test('without that request, the small animations are there', async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: 'no-preference' });
+  await context.clock.install({ time: testNow() });
   const result = await motion(await context.newPage());
   await context.close();
   expect(result.knobTransition).toBe('0.15s');

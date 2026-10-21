@@ -1,4 +1,4 @@
-import { test, expect, request, type Page } from '@playwright/test';
+import { test, expect, request, testNow, type Page } from './clock.ts';
 import { ADMIN, PORTS, insecure, local } from './servers.ts';
 
 // Signing in, first-run setup, signing out, and the plain http:// rules (spec
@@ -208,6 +208,7 @@ test.describe('signed in', () => {
 
     // Another browser, which has never seen Mealwright, signs in and gets Dark.
     const other = await browser.newContext({ baseURL: local(PORTS.main), colorScheme: 'light' });
+    await other.clock.install({ time: testNow() });
     const second = await other.newPage();
     await second.goto('/sign-in');
     await expect(second.locator('html')).toHaveAttribute('data-theme', 'light');

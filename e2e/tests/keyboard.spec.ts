@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './clock.ts';
 
 // Keyboard-only use (spec "Keeping the UI good", item 7): on every built desktop screen,
 // Tab reaches everything you can click, and you can always see where you are. Each test

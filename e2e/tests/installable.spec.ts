@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { setAccountTheme } from './a11y.ts';
 
 // The installable app (0.3, PR 5): manifest, icons, theme colour and the service worker

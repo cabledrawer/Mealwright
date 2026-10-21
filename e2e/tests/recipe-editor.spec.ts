@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { checkPage, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // The recipe editor (0.4): New recipe and Edit recipe, against the real server. Runs in the

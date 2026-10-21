@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './clock.ts';
 import { checkPage } from './a11y.ts';
 
 // The app shell (0.1): the five pages and Settings, the bottom tabs on phones and the
