@@ -19,15 +19,18 @@ from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
     KEY_ONLY_KINDS,
+    NOTE_KINDS,
     UNDO_MESSAGES,
     Shortfall,
     Tally,
     UndoResult,
     already_undone,
     as_utc,
+    can_undo,
     commit,
     foods_in,
     record,
+    record_back,
     replayed,
     too_old,
     undo_foods,
@@ -55,7 +58,7 @@ STOCK_KINDS = (
 )
 
 # Changes to ingredients, shown in Ingredients → Recent changes.
-INGREDIENT_KINDS = ("food_created", "food_edited", "food_removed", "merged", "split")
+INGREDIENT_KINDS = ("food_created", "food_edited", "food_removed", "food_back", "merged", "split")
 
 
 class LineOut(BaseModel):
@@ -200,7 +203,11 @@ def list_changes(
             | ((Change.kind == "undo") & Change.undoes_change_id.in_(of_area))
         )
     if mine:
-        query = query.where(Change.login_id == kitchen.login.id, Change.kind != "undo")
+        query = query.where(
+            Change.login_id == kitchen.login.id,
+            Change.kind != "undo",
+            Change.kind.not_in(NOTE_KINDS),
+        )
     rows = list(kitchen.db.scalars(query.order_by(Change.id.desc()).limit(limit + 1)))
     page = rows[:limit]
     view = Pantry(kitchen)
@@ -264,6 +271,8 @@ def _bring_back(
             food.removed_at = None
             revived.append(food)
     kitchen.db.flush()
+    for food in revived:
+        record_back(kitchen, food)
     sentences = []
     for food in revived:
         stock = lots_of(kitchen, [food.id])
@@ -430,6 +439,9 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             raise already_undone()
         if utcnow() >= undo_until(kitchen, change):
             raise too_old()
+        if not can_undo(kitchen, change):
+            # "Lemon is back in Ingredients", or a removal of Lemon that no longer stands.
+            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         from mealwright.ticks import pantry_undo
 
         if change.kind == "recipe_removed":

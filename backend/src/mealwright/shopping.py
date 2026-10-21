@@ -28,7 +28,7 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import add_size, find, name_owner, usual_size
-from mealwright.history import Tally, diff, record, snapshot
+from mealwright.history import Tally, diff, record, record_back, snapshot
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -807,6 +807,7 @@ def _bring_back(act: Act, food: Food) -> dict[str, Any]:
     before = snapshot(kitchen, [food.id])
     food.removed_at = None
     kitchen.db.flush()
+    record_back(kitchen, food)
     bump_foods(kitchen, [food.id], act.batch)
     act.message = f"{food.name} is back in Ingredients."
     return diff(before, snapshot(kitchen, [food.id]))

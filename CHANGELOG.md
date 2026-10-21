@@ -55,6 +55,7 @@ Work towards 0.4.0 (recipes).
 - Docs: the Shopping rows decisions are in spec section 6 and `docs/dev/words.md` section 14; the later items are in `docs/BUILD-PLAN.md` under 0.5, 0.7 and 0.8; the hand-test mockups (`ShopRows-*`, `PantryPlaces-Phone`) are in `docs/mockups/`.
 
 ### Fixed
+- Ingredients → Recent changes: when a removed ingredient comes back through an Undo in Pantry or an offline phone adding it, a line says so ("Lemon is back in Ingredients", with no Undo), and the old "Removed … from Ingredients" line loses its Undo. Only the newest removal of an ingredient has Undo, and only while it is still removed.
 
 - The recipe editor: a new recipe is never saved twice after an answer is lost, even when you edit it before "Try again", and the edit is kept. "Try again" is greyed out while offline, like Save, and a double click on Save sends one request.
 - On a phone at 200% text, the bottom tabs' labels no longer touch each other.

@@ -141,14 +141,60 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
 # nothing to undo, and they are not listed in Recent changes.
 KEY_ONLY_KINDS = ("recipe_created", "recipe_saved")
 
+# Changes that are only there to be read in Recent changes, with no Undo of their own: a
+# removed ingredient that came back ("Lemon is back in Ingredients").
+NOTE_KINDS = ("food_back",)
+
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:
     return (
         change.kind != "undo"
         and change.kind not in KEY_ONLY_KINDS
+        and change.kind not in NOTE_KINDS
         and change.undone_by_change_id is None
         and utcnow() < undo_until(kitchen, change)
+        and (change.kind != "food_removed" or _removal_stands(kitchen, change))
     )
+
+
+def _removal_stands(kitchen: Kitchen, change: Change) -> bool:
+    """A "Removed Lemon from Ingredients" keeps its Undo only while Lemon is still removed,
+    and only the newest removal of it: once Lemon is back (an Undo that put stock back into
+    it, or an offline add) that removal no longer stands. Worked out when it is read."""
+    food = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
+    if food is None or food.household_id != kitchen.household_id or food.removed_at is None:
+        return False
+    newer = kitchen.db.scalar(
+        select(Change.id).where(
+            Change.household_id == kitchen.household_id,
+            Change.kind == "food_removed",
+            Change.food_id == food.id,
+            Change.id > change.id,
+        )
+    )
+    return newer is None
+
+
+def record_back(kitchen: Kitchen, food: Food) -> Change:
+    """A removed ingredient came back by a way other than undoing its removal (an Undo that
+    put stock back into it, or an offline add): Ingredients' Recent changes says so. It has
+    no Undo, and never takes the request's Idempotency-Key, which belongs to the change that
+    brought it back."""
+    change = Change(
+        household_id=kitchen.household_id,
+        idempotency_key=None,
+        request=kitchen.request[:200],
+        kind="food_back",
+        login_id=kitchen.login.id,
+        login_name=kitchen.login.name,
+        food_id=food.id,
+        at=utcnow(),
+        summary=f"{food.name} is back in Ingredients"[:300],
+        undo_data=None,
+    )
+    kitchen.db.add(change)
+    kitchen.db.flush()
+    return change
 
 
 # --- Recipes changed behind the editor's back ---------------------------------------------------

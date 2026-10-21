@@ -171,6 +171,40 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
   await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeInViewport();
 });
 
+test('an ingredient brought back by a Pantry Undo says so in Recent changes, and its removal loses its Undo', async ({
+  page,
+}) => {
+  const food = await makeFood(page, 'Lemon');
+  const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+  const stocked = await page.request.post('/api/v1/stock', {
+    data: { food_id: food.id, amount: { amount: 100, unit: 'g' } },
+    headers: key(),
+  });
+  expect(stocked.status(), await stocked.text()).toBe(201);
+  const lot = ((await stocked.json()) as { groups: { lots: { id: number }[] }[] }).groups[0].lots[0];
+  const used = await page.request.post(`/api/v1/stock/${lot.id}/used`, { headers: key() });
+  expect(used.ok(), await used.text()).toBe(true);
+  const usedId = ((await used.json()) as { change: { id: number } }).change.id;
+  const removed = await page.request.delete(`/api/v1/foods/${food.id}`, { headers: key() });
+  expect(removed.ok(), await removed.text()).toBe(true);
+  // Undo "Used 100 g" in Pantry: the stock goes back, so the ingredient comes back.
+  const undone = await page.request.post(`/api/v1/changes/${usedId}/undo`, { headers: key() });
+  expect(undone.ok(), await undone.text()).toBe(true);
+
+  await page.goto('/recipes/ingredients');
+  if (isPhone(page)) await page.getByRole('button', { name: 'Recent changes' }).click();
+  else await page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ }).click();
+  const recent = isPhone(page)
+    ? page.getByRole('dialog', { name: 'Recent changes' })
+    : page.getByRole('region', { name: 'Recent changes' });
+  await expect(recent.getByText(`${food.name} is back in Ingredients`)).toBeVisible();
+  await expect(recent.getByText(`Removed ${food.name} from Ingredients`)).toBeVisible();
+  // Neither line has an Undo: the "back" line never does, and the removal no longer stands.
+  await expect(recent.getByRole('button', { name: `Undo: ${food.name} is back in Ingredients` })).toHaveCount(0);
+  await expect(recent.getByRole('button', { name: `Undo: Removed ${food.name} from Ingredients` })).toHaveCount(0);
+  await checkPage(page);
+});
+
 test('Recent changes lists ingredient changes, with Undo', async ({ page }) => {
   const food = await makeFood(page, 'Moringa');
   const edited = await page.request.patch(`/api/v1/foods/${food.id}`, {
