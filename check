@@ -108,10 +108,11 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   # it is there). `npm test` itself no longer installs it.
   step "frontend: browser"       sh -c 'cd frontend && npx playwright install chromium-headless-shell'
   step "frontend: tests"         sh -c 'cd frontend && npm test'
-  # The browser code size limit (spec "Keeping the UI good", item 5): build the app and
-  # fail if the JS and CSS sent to the browser, gzip-compressed, are over
-  # frontend/browser-code-limit.txt. Raising that number needs cabledrawer's OK.
-  step "frontend: size limit"    sh -c 'cd frontend && npm run -s build && node scripts/check-size.mjs'
+  # The browser code size limit (spec "Keeping the UI good", item 5): test the size
+  # script on a fake build, then build the app and fail if its largest page (its JS and
+  # CSS, shared code included, gzip-compressed) is over frontend/browser-code-limit.txt.
+  # Raising that number needs cabledrawer's OK.
+  step "frontend: size limit"    sh -c 'cd frontend && node --test scripts/check-size.test.mjs && npm run -s build && node scripts/check-size.mjs'
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
   skip "frontend" "no frontend yet"

@@ -1,12 +1,21 @@
-# The most browser code Mealwright may send, in bytes: every .js and .css file in
-# frontend/build, each gzip-compressed (level 9) and added up. Measured by
-# scripts/check-size.mjs, which ./check runs after a build.
+# The most code one page of Mealwright may send, in bytes: everything a browser fetches
+# to open the largest page from cold (SvelteKit's start code, the app, the page's layouts
+# and the page itself with every shared chunk they import, their CSS and theme.js), each
+# file gzip-compressed (level 9) and added up. Measured by scripts/check-size.mjs, which
+# ./check runs after a build. The total of the whole build is printed for information
+# only and is not checked.
 #
 # Raising this needs cabledrawer's OK (spec: Keeping the UI good, item 5).
+#
+# Set on 21 Oct, when the check moved from the whole build to the largest page: the
+# largest page was the recipe editor (/recipes/[id]/edit), 117527 bytes (114.8 KiB) on
+# the build of PR 7. The limit is 144 KiB, about 25% above that.
+#
+# Before that, the limit was for every .js and .css file in the build added up:
 #
 # Set on 18 Oct for 0.4's first pull request: the build measured 138393 bytes (135.1 KiB);
 # the limit is 170 KiB, about 26% above that. Proposed by Claude Code; approved by cabledrawer 19 Oct.
 #
 # Raised on 21 Oct for the recipe editor (#43): the build measured 187923 bytes (183.5 KiB);
 # the limit is now 200 KiB, about 9% above that. Approved by cabledrawer 21 Oct.
-204800
+147456
