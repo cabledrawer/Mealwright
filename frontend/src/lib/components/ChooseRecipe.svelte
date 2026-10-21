@@ -1,6 +1,6 @@
 <script lang="ts">
   // The reading pane when no recipe is open (desktop Recipes, at /recipes): a calm line, no
-  // button. Words proposed for cabledrawer (docs/dev/words.md, section 14).
+  // button. Words proposed for cabledrawer (docs/dev/words.md, section 15).
   import Icon from './Icon.svelte';
 </script>
 
