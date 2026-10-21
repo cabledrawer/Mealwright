@@ -4,7 +4,7 @@ Every table belongs to a household (`household_id`), so more than one household 
 install stays possible later. The household table's own `id` is that household_id.
 """
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import (
@@ -26,9 +26,16 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from mealwright.db import Base
 
+# How far the server's clock is moved: for the browser tests only, so they run on one fixed
+# date and time (backend/scripts/e2e_server.py sets it before the server starts). No setting,
+# file or environment variable reads it or changes it, and that script is not installed or in
+# the image, so in a real install it is always zero (tests/test_test_clock.py).
+TEST_CLOCK_SHIFT = timedelta(0)
+
 
 def utcnow() -> datetime:
-    return datetime.now(UTC)
+    """Now, in UTC: every time the server stores or compares (moved only in browser tests)."""
+    return datetime.now(UTC) + TEST_CLOCK_SHIFT
 
 
 class Household(Base):

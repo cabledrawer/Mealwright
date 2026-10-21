@@ -30,7 +30,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.config import Settings
-from mealwright.models import Login, Session
+from mealwright.models import Login, Session, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))
 
 
 def now() -> datetime:
-    return datetime.now(UTC)
+    return utcnow()
 
 
 def _as_utc(moment: datetime) -> datetime:

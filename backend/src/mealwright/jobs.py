@@ -33,7 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright.logs import DailyLogFile, tidy_once
-from mealwright.models import Household
+from mealwright.models import Household, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def thin_history(factory: sessionmaker[Session], now: datetime | None = None) ->
     so a big backlog never holds start-up up) and then every hour. Never raises."""
     from mealwright.history import thin, tidy_lists  # imported here: history needs the API
 
-    now = now or datetime.now(UTC)
+    now = now or utcnow()
     with factory() as db:
         try:
             households = list(db.scalars(select(Household)))
@@ -75,7 +75,7 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
     from mealwright.history import purge_removed  # imported here: history needs the API
     from mealwright.recipes import drop_waiting_photos, purge_removed_recipes
 
-    now = now or datetime.now(UTC)
+    now = now or utcnow()
     with factory() as db:
         try:
             households = list(db.scalars(select(Household)))
