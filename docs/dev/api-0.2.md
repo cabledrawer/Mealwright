@@ -8,7 +8,7 @@ Written 17 Oct 2026 as the contract between the backend and the web app for mile
 - Everything is scoped to the signed-in login's household. An id from another household is a 404.
 - Anyone in the household may read and change foods and stock. Only admins may change household settings.
 - **Dates and times.** Use-by dates are plain local dates (`"2026-10-20"`). Moments are UTC ISO 8601 (`"2026-10-17T18:04:11Z"`). Wherever "today" matters the server also returns the derived value (`days_left`, `use_soon`, `today`) worked out in the household's time zone, so clients never need time-zone maths.
-- **Amounts in JSON** are plain numbers in the food's base unit (g, ml or count), at most 3 decimal places (`750`, `1.5`, `0.25`). Anything finer is rounded by the server.
+- **Amounts in JSON** are plain numbers in the food's base unit (g, ml or count), at most 3 decimal places (`750`, `1.5`, `0.25`). Anything finer is rounded by the server. An amount sent as text instead (`"1.5"`) is at most 20 characters; longer text is refused like any other text that isn't a number (422, `Input should be a valid decimal`, or `bad_action` in a queued change). This holds for every amount the API reads: amounts, sizes, weights, what's left, How much?, queued changes and nutrition.
 - **Amounts people type** use an `AmountIn` object (section 4.3): `{"amount": 2, "unit": "packet"}`, `{"amount": 250, "unit": "g"}`, or `{"amount": 1, "size_id": 12}`.
 
 ### 1.1 Errors
@@ -204,7 +204,7 @@ Same unit family → fixed maths. Volume ↔ weight → the food's weight per ml
 { "amount": 1, "unit": "cup", "answers": [ { "kind": "weight_per_ml", "food_id": 7, "grams": 200, "remember": true } ] }
 ```
 
-`amount` > 0. `unit` or `size_id`, not both. `answers` carries ask-once replies (4.4).
+`amount` > 0, sent as a number (as text, at most 20 characters: see section 1). `unit` or `size_id`, not both. `answers` carries ask-once replies (4.4).
 
 ### 4.4 How the server signals "ask once"
 
