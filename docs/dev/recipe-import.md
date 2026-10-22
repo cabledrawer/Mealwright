@@ -49,7 +49,7 @@ Nothing is looked up, read or sent until all of these pass, in this order:
    shrinks it and removes hidden data, the same as an upload. The user agent is just
    "Mealwright"; no cookies are sent.
 8. **Time.** Each hop has at most the gate's 15 seconds in all, and the whole fetch, every
-   redirect included, at most 30 (`page_fetch.MAX_FETCH_SECONDS`; proposed, for cabledrawer). A
+   redirect included, at most 30 (`page_fetch.MAX_FETCH_SECONDS`; decided by cabledrawer, see spec). A
    watchdog closes the connection when the time runs out, so a site that sends one byte at a
    time can't hold it open: a socket's own timeout only counts the wait for each byte.
 
@@ -81,7 +81,7 @@ usual form; a /32 or /128 range is stored as its one address, so "192.168.1.5/32
   ("::ffff:192.168.1.0/120"), IPv4-compatible, NAT64 (64:ff9b::/96 and the local
   64:ff9b:1::/48), 6to4 (2002::/16) and Teredo (2001::/32). Write IPv4 ranges as IPv4;
 - the same entry twice;
-- a 101st entry: a list holds at most 100 (`MAX_ENTRIES`; proposed, for cabledrawer).
+- a 101st entry: a list holds at most 100 (`MAX_ENTRIES`; decided by cabledrawer, see spec).
 
 A listed name opens every address that name has (except the always-blocked ones). A listed
 address or range opens those addresses, whatever name reaches them. One household's list
@@ -128,8 +128,9 @@ Where it looks:
 - **Photo:** the recipe's image (a string, a list, or an `ImageObject`), else `og:image`;
   relative addresses are made absolute against `<base href>` or the page address.
 - **Yield:** "Serves 4", "4 servings" or a bare number give Serves; anything else ("12
-  cookies") gives Makes. A range takes its first number. A bare number that equals the
-  Makes amount next to it (`["24", "24 cookies"]`) is the Makes, not Serves.
+  cookies") gives Makes. A range takes its first number ("Serves 4–6" is Serves 4; decided
+  by cabledrawer, see spec). A bare number that equals the Makes amount next to it
+  (`["24", "24 cookies"]`) is the Makes, not Serves.
 - **Nutrition:** the first number in each value; kJ becomes kcal, mg and µg become grams.
 - **Ingredient headings:** a line with no digits that ends in ":" and is up to 60 characters
   ("For the dressing:") becomes a heading.

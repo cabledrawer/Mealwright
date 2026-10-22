@@ -69,7 +69,7 @@ _CARRIES_IPV4 = (_MAPPED, _COMPATIBLE, _NAT64, _NAT64_LOCAL, _SIXTOFOUR, _TEREDO
 WIDEST = {4: 8, 6: 32}
 
 MAX_NAME = 253  # the longest host name DNS allows
-MAX_ENTRIES = 100  # on one household's list (proposed, for cabledrawer)
+MAX_ENTRIES = 100  # on one household's list (decided by cabledrawer; see spec)
 _LABEL = re.compile(r"^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$")
 
 # Words the screens show (docs/dev/words.md section 18; proposed, for cabledrawer).

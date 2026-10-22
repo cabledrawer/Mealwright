@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_REDIRECTS = 5
 # The whole fetch, redirects included, must finish within this; each hop also has the
-# gate's own 15 seconds (proposed, for cabledrawer).
+# gate's own 15 seconds (decided by cabledrawer; see spec).
 MAX_FETCH_SECONDS = 30
 NORMAL_PORTS = frozenset({80, 443})
 PAGE_TYPES = frozenset({"text/html", "application/xhtml+xml"})

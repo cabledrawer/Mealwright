@@ -344,4 +344,4 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - Always blocked: That can’t be added: this server itself (localhost), link-local and cloud “metadata” addresses are always blocked.
   - Too wide: That range is too wide. Add a smaller one, like 192.168.1.0/24.
   - Twice: That’s already on the list.
-  - A full list (100 entries; the limit is proposed, for cabledrawer): The list is full: it holds up to 100 entries. Remove one first.
+  - A full list (the limit of 100 is decided by cabledrawer, see spec; these words are proposed, for cabledrawer): The list is full: it holds up to 100 entries. Remove one first.
