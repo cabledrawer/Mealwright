@@ -66,7 +66,7 @@ UNIT_ALIASES = {
 MAKES_UNITS = ("g", "kg", "ml", "l")
 MAX_AMOUNT_MILLI = 1_000_000_000  # 1,000,000 of a unit, as in the pantry
 
-_GLYPHS = {
+GLYPHS = {
     "¼": Fraction(1, 4),
     "½": Fraction(1, 2),
     "¾": Fraction(3, 4),
@@ -98,17 +98,17 @@ BAD_AMOUNT = "Type an amount like 200, 1.5, ½ or 1½, or leave it empty."
 
 
 _DECIMAL = re.compile(r"^(\d+)(?:\.(\d+))?$")
-_GLYPH_AMOUNT = re.compile(rf"^(?:(\d+)\s*)?([{''.join(_GLYPHS)}])$")
+_GLYPH_AMOUNT = re.compile(rf"^(?:(\d+)\s*)?([{''.join(GLYPHS)}])$")
 _SLASH_AMOUNT = re.compile(r"^(?:(\d+)\s+)?(\d+)\s*/\s*(\d+)$")
 
 
-def _fraction_of(text: str) -> Fraction:
+def fraction_of(text: str) -> Fraction:
     """200, 1.5, ½, 1½, 1 ½, 1/2 or 1 1/2 as an exact fraction (ValueError otherwise)."""
     text = text.strip().replace("\u2044", "/").replace("\u2215", "/")
     if found := _DECIMAL.match(text):
         return Fraction(Decimal(text))
     if found := _GLYPH_AMOUNT.match(text):
-        return Fraction(int(found[1] or 0)) + _GLYPHS[found[2]]
+        return Fraction(int(found[1] or 0)) + GLYPHS[found[2]]
     if (found := _SLASH_AMOUNT.match(text)) and int(found[3]) > 0:
         return Fraction(int(found[1] or 0)) + Fraction(int(found[2]), int(found[3]))
     raise ValueError(BAD_AMOUNT)
@@ -132,7 +132,7 @@ def parse_amount(value: Any) -> int | None:
             raise ValueError(BAD_AMOUNT)
         if not value.strip():
             return None
-        fraction = _fraction_of(value)
+        fraction = fraction_of(value)
     else:
         raise ValueError(BAD_AMOUNT)
     milli = int(fraction * 1000 + Fraction(1, 2))  # halves round up
