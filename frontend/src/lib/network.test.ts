@@ -96,6 +96,24 @@ describe('when the connection comes back', () => {
     expect(network.backAgain).toBe(0);
   });
 
+  it('counts the browser coming back once, after an ordinary failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}'))
+    );
+    const stop = network.start(() => {});
+    try {
+      network.failed(); // gone offline
+      window.dispatchEvent(new Event('online'));
+      await vi.waitFor(() => expect(network.backAgain).toBe(1));
+      await vi.advanceTimersByTimeAsync(100);
+      expect(network.backAgain).toBe(1);
+    } finally {
+      stop();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('counts the browser coming back, even when an answer while offline already cleared the failure', async () => {
     vi.stubGlobal(
       'fetch',
