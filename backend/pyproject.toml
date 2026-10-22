@@ -61,3 +61,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+# Each test's temporary folder is removed as soon as the test ends, and the run's own folder
+# in /tmp goes with them (tests/test_tmp_cleanup.py proves it). Without this pytest keeps the
+# last three runs' folders, which on 22 Oct filled 2.8 GB of /tmp.
+tmp_path_retention_policy = "none"

@@ -45,6 +45,15 @@ OSV_SCANNER="ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11
 TRIVY="aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"                     # 0.75.0
 rm -rf "$ROOT/.check" && mkdir -p "$LOGS"
 
+# The backend tests and the browser tests run with a private temp folder (their TMPDIR), made
+# here and removed when ./check ends, even if it is stopped. So a test run never fills /tmp,
+# and the "nothing left in /tmp" step below looks only at this run's own folder, never at
+# other runs on the machine (cabledrawer 22 Oct).
+RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mealwright-check-XXXXXX")"
+trap 'rm -rf "$RUN_TMP"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 names=() results=() notes=() times=()
 
 record() { names+=("$1"); results+=("$2"); notes+=("$3"); times+=("$4"); }
@@ -88,7 +97,7 @@ if need uv; then
   step "backend: ruff format"    backend uv run --frozen ruff format --check .
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
-  step "backend: pytest"         backend uv run --frozen pytest -q
+  step "backend: pytest"         backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
   step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py
 else
@@ -126,10 +135,25 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell'
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
-  step "browser: tests"          sh -c 'cd e2e && npx playwright test'
+  step "browser: tests"          env TMPDIR="$RUN_TMP" sh -c 'cd e2e && npx playwright test'
 else
   skip "browser tests" "none yet"
 fi
+
+# --- Nothing left behind -----------------------------------------------------
+# The browser tests' throwaway app folders (mealwright-e2e-*) and pytest's own run folders
+# (pytest-of-<user>/pytest-<n>) must be gone once the tests have ended, whether they passed
+# or failed (cabledrawer 22 Oct: on 22 Oct leftovers filled /tmp with 6.9 GB).
+left_in_tmp() {
+  local found
+  found="$(find "$RUN_TMP" -mindepth 1 \( -name 'mealwright-e2e-*' -o -regex '.*/pytest-of-[^/]*/pytest-[0-9]+' \) -prune -print)"
+  if [[ -n "$found" ]]; then
+    echo "These were left behind by the tests:"
+    echo "$found"
+    return 1
+  fi
+}
+step "tests: nothing left"     left_in_tmp
 
 # --- Security scanners -------------------------------------------------------
 # These send package names and versions to vulnerability databases (pip-audit,

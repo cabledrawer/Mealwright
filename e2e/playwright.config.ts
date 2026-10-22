@@ -98,5 +98,8 @@ export default defineConfig({
     url: `${local(PORTS.main)}/api/v1/version`,
     reuseExistingServer: false,
     timeout: 180_000,
+    // Stop serve.mjs politely at the end of the run, so it can stop the servers and remove its
+    // throwaway data folder. Playwright's default is to kill it outright, which skips that.
+    gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
   },
 });

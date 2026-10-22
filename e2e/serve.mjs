@@ -3,7 +3,7 @@
 // tests/servers.ts). The backend works out the CSP hashes of the built page at start-up,
 // so it starts after the build. Stops them all when Playwright stops this script.
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -27,18 +27,38 @@ const start = process.env.E2E_CLOCK_SHIFT_MS
   ? ['../backend/scripts/e2e_server.py']
   : ['-m', 'mealwright'];
 
+// One throwaway folder for the whole run, with a data folder per server inside it. It is
+// removed when the servers have stopped, so a run never leaves its data behind in /tmp
+// (cabledrawer 22 Oct). playwright.config.ts asks Playwright to stop this script with SIGTERM and
+// wait, because Playwright's default is to kill it outright, which skips this clean-up.
+const scratch = mkdtempSync(join(tmpdir(), 'mealwright-e2e-'));
+
 const children = [];
-const stop = () => {
-  for (const child of children) child.kill('SIGTERM');
-};
-process.on('SIGTERM', () => {
-  stop();
-  process.exit(0);
-});
-process.on('SIGINT', () => {
-  stop();
-  process.exit(0);
-});
+let stopping = false;
+/** Stop every server, wait for them to end, remove the scratch folder, then exit. */
+function shutdown(code) {
+  if (stopping) return;
+  stopping = true;
+  const ended = children.map(
+    (child) =>
+      new Promise((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) return resolve();
+        child.once('exit', resolve);
+        child.kill('SIGTERM');
+      }),
+  );
+  // A server that won't stop is killed after a few seconds, so the clean-up still happens.
+  const killer = setTimeout(() => {
+    for (const child of children) child.kill('SIGKILL');
+  }, 5000);
+  Promise.all(ended).then(() => {
+    clearTimeout(killer);
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    process.exit(code);
+  });
+}
+process.on('SIGTERM', () => shutdown(0));
+process.on('SIGINT', () => shutdown(0));
 
 async function ready(port) {
   for (let i = 0; i < 600; i++) {
@@ -53,11 +73,14 @@ async function ready(port) {
 }
 
 for (const { name, port, plainHttp } of servers) {
+  if (stopping) break; // stopped while the others were still starting
+  const dataDir = join(scratch, name);
+  mkdirSync(dataDir);
   const child = spawn('uv', ['run', '--frozen', '--project', '../backend', 'python', ...start], {
     stdio: 'inherit',
     env: {
       ...process.env,
-      MEALWRIGHT_DATA_DIR: mkdtempSync(join(tmpdir(), `mealwright-e2e-${name}-`)),
+      MEALWRIGHT_DATA_DIR: dataDir,
       MEALWRIGHT_HOST: '127.0.0.1',
       MEALWRIGHT_PORT: String(port),
       MEALWRIGHT_FRONTEND_DIR: '../frontend/build',
@@ -65,9 +88,9 @@ for (const { name, port, plainHttp } of servers) {
     },
   });
   child.on('exit', (code) => {
+    if (stopping) return;
     console.error(`Mealwright server "${name}" stopped (${code}).`);
-    stop();
-    process.exit(1);
+    shutdown(1);
   });
   children.push(child);
   await ready(port);
