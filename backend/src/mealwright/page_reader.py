@@ -44,6 +44,7 @@ MAX_NUTRIENT = Decimal(100_000)
 MAX_HEADING = 60  # an ingredient line this short, ending in ":", is a section name
 MAX_DEPTH = 256  # elements nested deeper than this are read as if they were siblings
 MAX_NODES = 200_000  # elements and runs of text kept from one page (a real one has ~10,000)
+MAX_START_TAG = 65_536  # characters in one start tag; a longer one is skipped whole
 NUTRIENTS = ("kcal", "protein", "carbs", "fat", "fibre")
 
 
@@ -115,6 +116,26 @@ class _Page:
 
 _NO_ATTRS: dict[str, str] = {}  # shared, never changed
 
+# Where a start tag ends: the standard parser's own pattern (html.parser.locatetagend, Python
+# 3.14), copied because it isn't public.
+_TAG_END = re.compile(
+    r"""
+  [a-zA-Z][^\t\n\r\f />]*           # tag name
+  [\t\n\r\f /]*                     # optional whitespace before attribute name
+  (?:(?<=['"\t\n\r\f /])[^\t\n\r\f />][^\t\n\r\f /=>]*  # attribute name
+    (?:[\t\n\r\f ]*=[\t\n\r\f ]*    # value indicator
+      (?:'[^']*'                    # LITA-enclosed value
+        |"[^"]*"                    # LIT-enclosed value
+        |(?!['"])[^>\t\n\r\f ]*     # bare value
+       )
+     )?
+    [\t\n\r\f /]*                   # possibly followed by a space
+   )*
+   >?
+""",
+    re.VERBOSE,
+)
+
 
 class _TreeBuilder(HTMLParser):
     """The page as a tree of elements and text, for microdata and the page's title. Past
@@ -130,6 +151,25 @@ class _TreeBuilder(HTMLParser):
         self._raw = False  # inside <script> or <style>: not page text
         self._overflow = 0  # elements opened past MAX_DEPTH, not on the stack
         self._room = MAX_NODES
+
+    def check_for_whole_start_tag(self, i: int) -> int:
+        # The standard check, looking no further than MAX_START_TAG characters. Unbounded, its
+        # pattern keeps ~100 bytes of memory per attribute it passes, so one endless tag of tiny
+        # attributes (`<a x='<a x='...`) would cost 100 times the page's size.
+        rawdata = self.rawdata
+        match = _TAG_END.match(rawdata, i + 1, i + MAX_START_TAG)
+        if match and rawdata[match.end() - 1] == ">":
+            return match.end()
+        return -1
+
+    def parse_starttag(self, i: int) -> int:
+        edge = i + MAX_START_TAG
+        if len(self.rawdata) > edge and self.check_for_whole_start_tag(i) < 0:
+            # Longer than any real tag (a real one is a few thousand characters at most): skip
+            # it whole, unread, to the next ">".
+            end = self.rawdata.find(">", edge)
+            return -1 if end < 0 else end + 1
+        return super().parse_starttag(i)
 
     def _node(self, tag: str, attrs: list[tuple[str, str | None]]) -> _Node | None:
         if self._room <= 0:
@@ -458,7 +498,7 @@ def _build(recipe: _Recipe, page: _Page) -> PageRecipe | None:
 
 # --- Text ----------------------------------------------------------------------------------
 
-_TAG = re.compile(r"<[A-Za-z/!][^>]*>")
+_TAG = re.compile(r"<[A-Za-z/!][^<>]*>")  # never runs across another "<": linear time
 _WHITESPACE_BREAKS = "\t\r\x0b\x0c\x85\u2028\u2029"
 
 

@@ -8,8 +8,11 @@ space, a soft hyphen, a byte-order mark, a line separator, a joiner); keep them 
 editing.
 """
 
+import html.parser
 import json
 import re
+import time
+import tracemalloc
 from dataclasses import FrozenInstanceError
 from decimal import Decimal
 from pathlib import Path
@@ -1061,3 +1064,58 @@ def test_a_huge_page_still_gives_its_json_ld(monkeypatch: pytest.MonkeyPatch) ->
     )
     assert read_page(micro, URL) is not None
     assert read_page(padding + micro, URL) is None
+
+
+FIVE_MB = 5 * 1024 * 1024
+
+
+def test_a_5_mb_name_of_half_tags_is_read_in_linear_time() -> None:
+    """2.6 million "<a" with no ">": the old tag pattern started a scan to the end of the text
+    at every "<", taking over an hour; read in about a second now."""
+    name = "<a" * (FIVE_MB // 2)
+    start = time.monotonic()
+    found_ = read(name=name)
+    assert time.monotonic() - start < 5
+    assert found_.name.startswith("<a<a")
+
+
+def test_one_endless_start_tag_takes_little_memory_or_time() -> None:
+    """5 MB of `<a x='` is one start tag of 900,000 attributes. The standard parser used
+    506 MB finding where it ends; it now looks no further than MAX_START_TAG."""
+    html = "<a x='" * (FIVE_MB // 6)
+    tracemalloc.start()
+    try:
+        start = time.monotonic()
+        assert read_page(html, URL) is None
+        took = time.monotonic() - start
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert took < 2
+    assert peak < 50_000_000
+    # The same with an end: many tiny attributes, then ">" past the limit.
+    assert read_page(html + ">" + json_ld(recipe(name="After")), URL) is not None
+
+
+def test_a_start_tag_longer_than_the_limit_is_skipped_and_the_page_still_read() -> None:
+    picture = '<img alt="a > b" src="data:image/png;base64,' + "A" * 100_000 + '">'
+    micro = (
+        '<div itemscope itemtype="http://schema.org/Recipe"><b itemprop="name">Micro</b>'
+        '<i itemprop="recipeIngredient">1 cup</i></div>'
+    )
+    found_ = read_page("<html><body>" + picture + micro + "</body></html>", URL)
+    assert found_ is not None
+    assert found_.name == "Micro"
+    # A long tag that is itself part of the recipe is lost, not misread.
+    long_name = '<b itemprop="name" title="' + "x" * 70_000 + '">Long</b>'
+    micro_long = micro.replace('<b itemprop="name">Micro</b>', long_name)
+    found_ = read_page(micro_long, URL)
+    assert found_ is not None
+    assert found_.name != "Long"
+
+
+def test_the_tag_end_pattern_is_the_standard_parsers() -> None:
+    """A copy of html.parser's own pattern; this says so if Python's ever changes."""
+    standard = getattr(html.parser, "locatetagend")  # noqa: B009 (not in the type stubs)
+    assert page_reader._TAG_END.pattern == standard.pattern
+    assert page_reader._TAG_END.flags == standard.flags
