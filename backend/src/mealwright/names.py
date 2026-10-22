@@ -114,6 +114,34 @@ def has_hidden(value: str, newlines: bool = False) -> bool:
     return False
 
 
+def without_hidden(value: str) -> str:
+    """The text with hidden characters taken out, for pasted text, where refusing would only
+    annoy. The same characters `has_hidden` finds go (the joiners and flag emoji stay).
+    Windows and old Mac line breaks, and the Unicode line and paragraph separators, become
+    plain line breaks; a tab becomes a space; other control characters are dropped."""
+    kept: list[str] = []
+    index = 0
+    while index < len(value):
+        char = value[index]
+        end = _flag_end(value, index)
+        if end > index:
+            kept.append(value[index:end])
+            index = end
+            continue
+        index += 1
+        if char == "\r":
+            if value[index : index + 1] == "\n":
+                index += 1
+            kept.append("\n")
+        elif char in "\n\u2028\u2029\x0b\x0c\x85":
+            kept.append("\n")
+        elif char == "\t":
+            kept.append(" ")
+        elif char in _JOINERS or unicodedata.category(char) not in ("Cc", "Cf", "Cs", "Zl", "Zp"):
+            kept.append(char)
+    return "".join(kept)
+
+
 HIDDEN_ONE_LINE = "That has a tab, a line break or a hidden character in it. Take it out."
 HIDDEN_TEXT = "That has a hidden character in it. Take it out."
 
