@@ -49,8 +49,13 @@ async function offlineThenBack(page: Page) {
   await page.context().setOffline(false);
 }
 
+/** How long a photo may take to come back after the connection does: if the app's first check
+ *  fails, it asks again only every 5 seconds (CHECK_EVERY_MS), so the usual 5 s is too short. */
+const BACK_MS = 15_000;
+
 /** Wait until the picture has really loaded: its natural size is known. */
-const loaded = (img: Locator) => expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+const loaded = (img: Locator, timeout?: number) =>
+  expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), { timeout }).toBe(true);
 
 test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
@@ -128,8 +133,8 @@ test('All recipes: a photo that failed while offline loads once the connection c
   await expect(link.locator('img')).toHaveCount(0);
   await offlineThenBack(page);
   const img = link.locator('img');
-  await expect(img).toHaveCount(1);
-  await loaded(img);
+  await expect(img).toHaveCount(1, { timeout: BACK_MS });
+  await loaded(img, BACK_MS);
   const box = (await img.boundingBox())!;
   expect([box.width, box.height]).toEqual([52, 52]);
 });
@@ -247,7 +252,7 @@ test('the recipe page: a photo that failed while offline loads once the connecti
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expect(reader(page).locator('.frame')).toHaveCount(0);
   await offlineThenBack(page);
-  await loaded(reader(page).getByRole('img', { name: `Photo of ${name}` }));
+  await loaded(reader(page).getByRole('img', { name: `Photo of ${name}` }), BACK_MS);
   await checkPage(page);
 });
 
