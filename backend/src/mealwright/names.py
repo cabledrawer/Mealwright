@@ -142,6 +142,31 @@ def without_hidden(value: str) -> str:
     return "".join(kept)
 
 
+def cut_text(value: str, limit: int) -> str:
+    """The text cut to at most `limit` characters without splitting what belongs together:
+    a flag emoji (its tag characters are refused if left on their own), a letter and the
+    marks on it, or the parts of a joined sequence. Backs off to before the broken piece."""
+    if len(value) <= limit:
+        return value
+    cut = limit
+    while cut > 0:
+        # Inside a flag? Back off to where it starts.
+        flag = value.rfind(chr(_FLAG), 0, cut)
+        if flag >= 0 and flag < cut < _flag_end(value, flag):
+            cut = flag
+            continue
+        # The next character belongs to the one before it (a mark, a joiner, a variation selector).
+        after = value[cut]
+        if after in _JOINERS or unicodedata.category(after) in ("Mn", "Mc", "Me"):
+            cut -= 1
+            continue
+        if value[cut - 1] in _JOINERS:
+            cut -= 1
+            continue
+        break
+    return value[:cut]
+
+
 HIDDEN_ONE_LINE = "That has a tab, a line break or a hidden character in it. Take it out."
 HIDDEN_TEXT = "That has a hidden character in it. Take it out."
 

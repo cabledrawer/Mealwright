@@ -14,12 +14,12 @@ import re
 from dataclasses import dataclass
 
 from mealwright.api.v1.recipe_schemas import GLYPHS, MAX_LINES, MAX_STEP_CHARS, MAX_STEPS
-from mealwright.ingredient_reader import read_line
-from mealwright.names import without_hidden
+from mealwright.ingredient_reader import BULLETS, read_line
+from mealwright.names import cut_text, without_hidden
 
 MAX_PASTED_CHARS = 100_000
 MAX_TITLE_CHARS = 200  # a recipe's name
-MAX_LINE_WORDS = 200  # an ingredient line's words
+MAX_LINE_CHARS = 200  # the most characters in an ingredient line's words
 
 PASTED_TOO_LONG = (
     "That text is longer than 100,000 characters. Paste just the recipe: its title, "
@@ -88,7 +88,6 @@ def _heading(line: str) -> str | None:
 
 # --- Lines that look like what ---------------------------------------------------------------
 
-_BULLETS = " \t•*-▢☐□◦▪·✓✔○●■►"
 _NUMBERED = re.compile(r"\s*(?:step\s*)?\d{1,3}\s*(?:[.):]|[-\u2013]\s)\s*\S", re.IGNORECASE)
 _STEP_NUMBER = re.compile(r"(?:step\s*)?\d{1,3}\s*(?:[.):]|[-\u2013]\s)\s*", re.IGNORECASE)
 _DECIMAL_START = re.compile(r"\d+\s*[.):]\s*\d")  # 1.5 cups, 1) 2 onions: not a step number
@@ -103,7 +102,7 @@ _ARTICLE_START = re.compile(r"(?:a|an)\s+(?:pinch|handful|few|little|bit|sprig|b
 def _looks_like_amount(line: str) -> bool:
     """Does the line read like an ingredient with an amount ("2 onions, chopped")? Not a
     numbered step ("1. Heat oil"), not a time or temperature ("20 minutes", "180°C")."""
-    text = line.lstrip(_BULLETS)
+    text = line.lstrip(BULLETS)
     if not text or len(text) > 150 or _TIME.search(text):
         return False
     if _is_numbered_step(text):
@@ -118,14 +117,19 @@ def _looks_like_amount(line: str) -> bool:
     return len(text.split()) <= 7 and not text.endswith(".")
 
 
+def _step_number(line: str) -> int | None:
+    found = re.match(r"(?:step\s*)?(\d{1,3})", line.lstrip(BULLETS), re.IGNORECASE)
+    return int(found[1]) if found else None
+
+
 def _is_numbered_step(line: str) -> bool:
-    text = line.lstrip(_BULLETS)
+    text = line.lstrip(BULLETS)
     return bool(_NUMBERED.match(text)) and not _DECIMAL_START.match(text)
 
 
 def _short_text(line: str) -> bool:
     """Short enough to be a bare ingredient ("Salt", "Curry leaves") among other ingredients."""
-    text = line.lstrip(_BULLETS)
+    text = line.lstrip(BULLETS)
     return 0 < len(text) <= 50 and len(text.split()) <= 6 and not text.endswith((".", "!", "?"))
 
 
@@ -145,23 +149,23 @@ def _step_texts(lines: list[str]) -> list[str]:
             carrying = False
             continue
         if _is_numbered_step(text):
-            steps.append(_STEP_NUMBER.sub("", text.lstrip(_BULLETS), count=1).strip())
+            steps.append(_STEP_NUMBER.sub("", text.lstrip(BULLETS), count=1).strip())
             carrying = True
         elif numbered and carrying and steps:
             if len(steps[-1]) < MAX_STEP_CHARS:  # (and no quadratic copying of a huge step)
                 steps[-1] = f"{steps[-1]} {text}"
         else:
-            steps.append(text.lstrip(_BULLETS))
+            steps.append(text.lstrip(BULLETS))
             carrying = False
-    return [step[:MAX_STEP_CHARS].rstrip() for step in steps if step]
+    return [cut_text(step, MAX_STEP_CHARS).rstrip() for step in steps if step]
 
 
 def _ingredient_texts(lines: list[str]) -> list[str]:
     found = []
     for line in lines:
-        text = line.strip().lstrip(_BULLETS).strip()
+        text = line.strip().lstrip(BULLETS).strip()
         if text:
-            found.append(text[:MAX_LINE_WORDS].rstrip())
+            found.append(cut_text(text, MAX_LINE_CHARS).rstrip())
     return found
 
 
@@ -209,7 +213,7 @@ def _title(lines: list[str]) -> str:
         if text:
             if _looks_like_amount(text) or _is_numbered_step(text):
                 return ""
-            return " ".join(text.split())[:MAX_TITLE_CHARS].rstrip()
+            return cut_text(" ".join(text.split()), MAX_TITLE_CHARS).rstrip()
     return ""
 
 
@@ -223,6 +227,7 @@ def read_pasted(text: str) -> PastedRecipe:
     sections: dict[str, list[str]] = {"start": [], "ingredients": [], "method": []}
     current = "start"
     seen: set[str] = set()
+    last_step: int | None = None
     for line in lines:
         kind = _heading(line)
         if kind is not None and (kind == "other" or kind not in seen):
@@ -237,6 +242,13 @@ def read_pasted(text: str) -> PastedRecipe:
             if current == "other":
                 sections.setdefault("other", [])
             continue
+        number = _step_number(line) if _is_numbered_step(line) else None
+        # A left-out part ("Tips") in the middle of the method ends where the numbered steps
+        # carry on (the next number); only a trailing part is dropped.
+        if current == "other" and last_step is not None and number == last_step + 1:
+            current = "method"
+        if current == "method" and number is not None:
+            last_step = number
         sections.setdefault(current, []).append(line)
 
     if "ingredients" in seen or "method" in seen:

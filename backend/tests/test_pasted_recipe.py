@@ -387,3 +387,72 @@ def test_without_hidden_keeps_flags_and_joiners_and_drops_the_rest() -> None:
     assert clean == f"a‍b{scotland}cd e\nf\ng"
     assert not has_hidden(clean, newlines=True)
     assert without_hidden("plain") == "plain"
+
+
+# --- Cutting without breaking anything (round 1) -------------------------------------------------
+
+SCOTLAND = "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f"
+
+
+def test_a_cut_never_splits_a_flag_emoji() -> None:
+    from mealwright.names import has_hidden
+
+    for length in range(190, 205):
+        line = "1 g " + "x" * (length - 4) + SCOTLAND
+        recipe = read_pasted(f"Dal\nIngredients\n{line}")
+        got = recipe.ingredients[0]
+        assert len(got) <= 200
+        assert not has_hidden(got), length  # no stray tag characters left over
+        assert got.endswith(SCOTLAND) or SCOTLAND[0] not in got
+    title = read_pasted("x" * 198 + SCOTLAND + "\nIngredients\n1 onion").name
+    assert len(title) <= 200 and not has_hidden(title)
+    step = read_pasted("Dal\nIngredients\n1 onion\nMethod\n" + "x" * 4998 + SCOTLAND).steps[0]
+    assert len(step) <= 5000 and not has_hidden(step)
+
+
+def test_cut_text_keeps_letters_with_their_marks_and_joined_sequences() -> None:
+    from mealwright.names import cut_text
+
+    assert cut_text("abc", 5) == "abc"
+    assert cut_text("abcdef", 3) == "abc"
+    assert cut_text("abéf", 3) == "ab"  # the accent stays with its letter
+    assert cut_text("ab‍cd", 3) == "a"  # b, the joiner and c belong together
+    assert cut_text("ab‍cd", 4) == "ab‍c"
+    assert cut_text(SCOTLAND + "ab", 3) == ""
+    assert cut_text("a" + SCOTLAND + "ab", 3) == "a"
+    assert cut_text("a" + SCOTLAND, len(SCOTLAND) + 1) == "a" + SCOTLAND
+
+
+def test_the_limit_names_are_characters() -> None:
+    from mealwright import pasted_recipe
+
+    assert pasted_recipe.MAX_LINE_CHARS == 200
+    assert not hasattr(pasted_recipe, "MAX_LINE_WORDS")
+
+
+# --- A Tips or Notes heading in the middle of the method (round 1) ------------------------------
+
+
+def test_a_tips_heading_in_the_middle_does_not_drop_the_steps_after_it() -> None:
+    recipe = read_pasted(
+        "Dal\nIngredients\n1 onion\nMethod\n1. Cook the dal.\nTips\nSoak it first.\n"
+        "2. Add the onions and serve.\n3. Eat."
+    )
+    assert recipe.steps == ("Cook the dal.", "Add the onions and serve.", "Eat.")
+
+
+def test_a_trailing_notes_part_is_still_dropped() -> None:
+    recipe = read_pasted(
+        "Dal\nIngredients\n1 onion\nMethod\n1. Cook the dal.\n2. Serve.\nNotes\nKeeps well.\n"
+        "1. Soak first."
+    )
+    # The notes' own list starts again at 1, so it is not the method carrying on.
+    assert recipe.steps == ("Cook the dal.", "Serve.")
+
+
+def test_notes_between_steps_with_a_wrapped_line() -> None:
+    recipe = read_pasted(
+        "Dal\nIngredients\n1 onion\nMethod\n1. Cook the dal\nuntil soft.\nNotes\nSoak first.\n"
+        "2. Serve."
+    )
+    assert recipe.steps == ("Cook the dal until soft.", "Serve.")
