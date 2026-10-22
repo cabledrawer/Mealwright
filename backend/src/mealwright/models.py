@@ -77,6 +77,44 @@ class OutboundSwitch(Base):
     )
 
 
+class OwnNetworkEntry(Base):
+    """One entry on "Your own network" (Settings → Privacy, under Outside connections): a
+    place on the household's own network that Mealwright may visit, such as a home wiki.
+    Everything else on a private, internal or loopback address is blocked (spec section 7;
+    `mealwright.own_network`). It starts empty. Recipe import uses it from 0.5, and
+    notifications and single sign-on from 0.8.
+
+    `kind` is "name" (a host name, lower case), "address" (one IP address) or "range" (a
+    CIDR range), and `value` is the tidied text. The server itself (`localhost`), link-local
+    and cloud "metadata" addresses stay blocked even if listed.
+
+    Stored with the household, like the Privacy switches: with one household per install
+    it covers the whole server. From the spec (section 6, "Recipe import, decided for 0.5"):
+    "If more than one household per install ever arrives, this list becomes a server-level
+    setting that only the server's admin can change, so one household's admin can never
+    open the server's own network for everyone."
+    """
+
+    __tablename__ = "own_network_entry"
+    __table_args__ = (
+        UniqueConstraint("household_id", "value"),
+        CheckConstraint("kind IN ('name', 'address', 'range')", name="kind_known"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(10))
+    value: Mapped[str] = mapped_column(String(260))  # a host name is at most 253 characters
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    added_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    added_by_name: Mapped[str] = mapped_column(String(100), default="")
+
+
 class Login(Base):
     """Someone who can sign in. Separate from member profiles (0.8), which can exist
     without a login (spec section 3)."""

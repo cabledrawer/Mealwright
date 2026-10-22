@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, column, insert, inspect, text
 from sqlalchemy import table as sql_table
@@ -619,7 +620,7 @@ def test_photo_uploads_migration_keeps_a_recipe_database_and_goes_back(tmp_path:
     assert columns["recipe_id"]["nullable"] is False
     migrate.upgrade(engine)
     assert _photos(engine) == before
-    assert migrate_head(engine) == PHOTO_UPLOADS
+    assert migrate_head(engine) == newest_migration()
     with engine.connect() as connection:
         sql = connection.exec_driver_sql(
             "SELECT sql FROM sqlite_master WHERE name = 'recipe_photo'"
@@ -627,6 +628,10 @@ def test_photo_uploads_migration_keeps_a_recipe_database_and_goes_back(tmp_path:
         indexes = {i["name"] for i in inspect(engine).get_indexes("recipe_photo")}
     assert "AUTOINCREMENT" in sql
     assert "ix_recipe_photo_household_id" in indexes
+
+
+def newest_migration() -> str:
+    return str(ScriptDirectory.from_config(migrate.alembic_config()).get_current_head())
 
 
 def migrate_head(engine: Engine) -> str:
