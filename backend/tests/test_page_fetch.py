@@ -1,6 +1,7 @@
 """Fetching recipe pages and photos safely (spec section 6, "Recipe import, decided for 0.5",
 and section 7). Name look-ups and connections are faked: nothing here goes online."""
 
+import contextlib
 import logging
 import shutil
 import socket
@@ -17,7 +18,7 @@ import photo_kit
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from mealwright import migrate, outbound
+from mealwright import migrate, outbound, page_fetch
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.limits import MAX_PHOTO_BYTES
 from mealwright.models import Household, OwnNetworkEntry
@@ -68,7 +69,9 @@ class FakeTLS:
     def __init__(self) -> None:
         self.names: list[str | None] = []
 
-    def wrap_socket(self, sock: socket.socket, server_hostname: str | None = None) -> Any:
+    def wrap_socket(
+        self, sock: socket.socket, server_hostname: str | None = None, **_options: object
+    ) -> Any:
         self.names.append(server_hostname)
         return sock
 
@@ -251,6 +254,15 @@ def test_the_pinned_request_checks_the_switch_too(
     assert net.lookups == [] and net.connections == []
 
 
+def test_the_pinned_request_refuses_port_0(gate: OutboundGate, net: FakeNet) -> None:
+    net.page(PUBLIC, port=80)
+    with pytest.raises(OutboundBlocked):
+        gate.get_pinned(
+            1, Connection.RECIPE_IMPORT, "http://recipes.example:0/", ip_address(PUBLIC)
+        )
+    assert net.connections == []
+
+
 # --- An ordinary page ----------------------------------------------------------------------
 
 
@@ -321,6 +333,8 @@ def test_international_names_and_paths_are_encoded(gate: OutboundGate, net: Fake
         "https://user@recipes.example/",
         "http://[fe80::1%25eth0]/",
         "https://recipes.example:99999/",
+        "https://recipes.example:0/",  # port 0 is never a site's port (not "the usual one")
+        "http://recipes.example:00/",
         "https://recipes.example:port/",
         "http://2130706433/",  # 127.0.0.1 written as one number
         "http://127.1/",
@@ -351,7 +365,9 @@ def test_a_server_that_refuses(gate: OutboundGate, net: FakeNet) -> None:
 def test_a_tls_problem(
     gate: OutboundGate, net: FakeNet, tls: FakeTLS, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def bad_certificate(sock: socket.socket, server_hostname: str | None = None) -> Any:
+    def bad_certificate(
+        sock: socket.socket, server_hostname: str | None = None, **_options: object
+    ) -> Any:
         raise ssl.SSLCertVerificationError("certificate verify failed: Hostname mismatch")
 
     monkeypatch.setattr(tls, "wrap_socket", bad_certificate)
@@ -410,6 +426,158 @@ def test_a_site_that_trickles_still_runs_out_of_time(
     started = time.monotonic()
     assert refused(gate, "https://drip.example/") is Problem.TIMEOUT
     assert time.monotonic() - started < 1.5
+
+
+def _dripping(
+    net: FakeNet, monkeypatch: pytest.MonkeyPatch, send: Callable[[socket.socket], None]
+) -> None:
+    """The site reads the request, then answers with `send` (which may take its time)."""
+
+    def serve(server: socket.socket, site: Site, address: str, port: int) -> None:
+        with server:
+            data = b""
+            while b"\r\n\r\n" not in data:
+                data += server.recv(65536)
+            with contextlib.suppress(OSError):  # the gate cut the connection
+                send(server)
+
+    net.dns["drip.example"] = [PUBLIC]
+    net.page(PUBLIC)
+    monkeypatch.setattr(net, "_serve", serve)
+
+
+def _drip(server: socket.socket, byte: bytes, times: int = 40) -> None:
+    for _ in range(times):  # a byte every 0.1 s: no single wait is long
+        server.sendall(byte)
+        time.sleep(0.1)
+
+
+def _runs_out_of_time(gate: OutboundGate, link: str = "https://drip.example/") -> None:
+    started = time.monotonic()
+    assert refused(gate, link) is Problem.TIMEOUT
+    assert time.monotonic() - started < 1.5  # the limit is 0.5 s; the drip takes 4 s
+
+
+def test_headers_that_trickle_run_out_of_time(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.5)
+
+    def send(server: socket.socket) -> None:
+        server.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+        _drip(server, b"x")
+        server.sendall(b"\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nok")
+
+    _dripping(net, monkeypatch, send)
+    _runs_out_of_time(gate)
+
+
+def test_a_status_line_that_trickles_runs_out_of_time(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.5)
+
+    def send(server: socket.socket) -> None:
+        server.sendall(b"HTTP/1.1 200 ")
+        _drip(server, b"O")
+        server.sendall(b"K\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nok")
+
+    _dripping(net, monkeypatch, send)
+    _runs_out_of_time(gate)
+
+
+def test_a_chunk_size_line_that_trickles_runs_out_of_time(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.5)
+
+    def send(server: socket.socket) -> None:
+        server.sendall(
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\n\r\n"
+        )
+        _drip(server, b"0")  # a chunk-size line that never ends
+        server.sendall(b"2\r\nok\r\n0\r\n\r\n")
+
+    _dripping(net, monkeypatch, send)
+    _runs_out_of_time(gate)
+
+
+def test_a_body_that_trickles_byte_by_byte_runs_out_of_time(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.5)
+
+    def send(server: socket.socket) -> None:
+        server.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 100\r\n\r\n")
+        _drip(server, b"x")
+
+    _dripping(net, monkeypatch, send)
+    _runs_out_of_time(gate)
+
+
+def test_a_tls_handshake_that_trickles_runs_out_of_time(
+    sessions: sessionmaker[Session], net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the real TLS code: the site starts a handshake record and never finishes it."""
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.5)
+    real = OutboundGate(sessions)  # the real TLS context
+
+    def serve(server: socket.socket, site: Site, address: str, port: int) -> None:
+        with server, contextlib.suppress(OSError):
+            server.recv(65536)  # the ClientHello
+            server.sendall(b"\x16\x03\x03\x40\x00")  # a 16 KB handshake record is coming
+            _drip(server, b"\x00")
+
+    net.dns["drip.example"] = [PUBLIC]
+    net.page(PUBLIC)
+    monkeypatch.setattr(net, "_serve", serve)
+    _runs_out_of_time(real)
+
+
+def test_the_whole_fetch_has_a_time_limit_across_redirects(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each hop is quick enough on its own, but together they take too long."""
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0.5)
+    hops: list[str] = []
+
+    def site(request: Request) -> Reply:
+        hops.append(request.line)
+        if len(hops) <= 5:
+            return Reply(
+                status=302, headers={"Location": f"/hop{len(hops)}"}, body=b"moved", pause=0.2
+            )
+        return Reply()
+
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC, site)
+    started = time.monotonic()
+    assert refused(gate, "https://recipes.example/") is Problem.TIMEOUT
+    assert time.monotonic() - started < 1.0
+    assert len(hops) < 6
+
+
+def test_a_fetch_that_has_run_out_of_time_looks_nothing_up(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0)
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC)
+    assert refused(gate, "https://recipes.example/") is Problem.TIMEOUT
+    assert net.lookups == [] and net.connections == []
+
+
+def test_a_quick_answer_isnt_cut_later(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The watchdog stops with the request: nothing is cut after it has finished."""
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.2)
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC)
+    for _ in range(3):
+        assert fetch_page(gate, 1, "https://recipes.example/").html == PAGE.decode()
+    time.sleep(0.3)
+    assert threading.active_count() < 20
 
 
 # --- Sizes and kinds -----------------------------------------------------------------------

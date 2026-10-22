@@ -20,7 +20,8 @@ at most 5) is checked in full before anything is sent:
 
 Pages: up to 5 MB, `text/html` or `application/xhtml+xml` only. Photos: up to 15 MB, image
 types only, then cleaned like an upload (`photos.clean`, which also refuses more than 50
-megapixels). Each hop must finish within the gate's 15 seconds.
+megapixels). Each hop must finish within the gate's 15 seconds, and the whole fetch,
+redirects included, within 30; the gate cuts the connection when time runs out.
 
 Log lines name only the connection ("recipe import") and the kind of problem, never the
 page's address or host: a site name shows what someone was cooking (spec section 7, Logs).
@@ -30,6 +31,7 @@ import codecs
 import contextlib
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -55,6 +57,9 @@ log = logging.getLogger(__name__)
 # The page limits (spec section 6, "Recipe import, decided for 0.5").
 MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_REDIRECTS = 5
+# The whole fetch, redirects included, must finish within this; each hop also has the
+# gate's own 15 seconds (proposed, for cabledrawer).
+MAX_FETCH_SECONDS = 30
 NORMAL_PORTS = frozenset({80, 443})
 PAGE_TYPES = frozenset({"text/html", "application/xhtml+xml"})
 _REDIRECTS = frozenset({301, 302, 303, 307, 308})
@@ -205,12 +210,13 @@ def _fetch(
         gate.check_switch(household_id, kinds.connection)
     except OutboundBlocked:
         raise FetchRefused(kinds.switched_off) from None
+    deadline = time.monotonic() + MAX_FETCH_SECONDS
     with gate.sessions() as db:
         listed = own_network.load(db, household_id)
     try:
         for hop in range(MAX_REDIRECTS + 1):
             url = _tidy(url)
-            response = _one_hop(gate, household_id, url, kinds, listed)
+            response = _one_hop(gate, household_id, url, kinds, listed, deadline)
             if response.status not in _REDIRECTS:
                 if not 200 <= response.status < 300:
                     raise FetchRefused(Problem.SITE_ERROR)
@@ -230,11 +236,18 @@ def _fetch(
 
 
 def _one_hop(
-    gate: OutboundGate, household_id: int, url: str, kinds: _Kinds, listed: OwnNetwork
+    gate: OutboundGate,
+    household_id: int,
+    url: str,
+    kinds: _Kinds,
+    listed: OwnNetwork,
+    deadline: float,
 ) -> OutboundResponse:
     parts = urlsplit(url)
     host = parts.hostname or ""
-    port = parts.port or (443 if parts.scheme == "https" else 80)
+    port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
+    if time.monotonic() >= deadline:
+        raise FetchRefused(Problem.TIMEOUT)
     addresses = _checked_addresses(gate, household_id, kinds, host, port, listed)
     if port not in NORMAL_PORTS and not (
         listed.lists_name(host) or all(listed.lists_address(a) for a in addresses)
@@ -249,6 +262,7 @@ def _one_hop(
                 address,
                 max_bytes=kinds.max_bytes,
                 accept=kinds.accept,
+                deadline=deadline,
             )
         except ResponseTooLarge:
             raise FetchRefused(kinds.too_big) from None
@@ -317,6 +331,7 @@ def _tidy(url: str) -> str:
         or parts.username is not None
         or parts.password is not None
         or "%" in host  # an IPv6 zone ("fe80::1%eth0") or an encoded name
+        or port == 0
     ):
         raise FetchRefused(Problem.BAD_LINK)
     try:

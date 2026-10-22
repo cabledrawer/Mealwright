@@ -29,11 +29,12 @@ import logging
 import socket
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -189,10 +190,53 @@ class _PinnedHTTPS(http.client.HTTPSConnection):
     def connect(self) -> None:
         plain = _open_socket(self._address, self.port, self.timeout)
         try:
-            self.sock = self.raw = self._tls.wrap_socket(plain, server_hostname=self.host)
+            wrapped = self._tls.wrap_socket(
+                plain, server_hostname=self.host, do_handshake_on_connect=False
+            )
         except BaseException:
             plain.close()
             raise
+        # The socket is known before the handshake, so the watchdog can cut a handshake
+        # that trickles too.
+        self.sock = self.raw = wrapped
+        if isinstance(wrapped, ssl.SSLSocket):
+            wrapped.do_handshake()
+
+
+class _Watchdog:
+    """Cuts the connection when the time limit is reached, wherever the request has got to
+    (connecting, the TLS handshake, the status line, the headers, a chunk-size line or the
+    body). A socket timeout only limits each wait, so without this a site sending a byte
+    every few seconds could hold a request for as long as it liked."""
+
+    def __init__(self, pinned: _PinnedHTTP | _PinnedHTTPS, seconds: float) -> None:
+        self._pinned = pinned
+        self._lock = threading.Lock()
+        self._done = False
+        self.expired = False
+        self._timer = threading.Timer(seconds, self._cut)
+        self._timer.daemon = True
+
+    def __enter__(self) -> _Watchdog:
+        self._timer.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._timer.cancel()
+        with self._lock:
+            self._done = True  # the connection is about to be closed: never cut it after
+
+    def _cut(self) -> None:
+        with self._lock:
+            if self._done:
+                return
+            self.expired = True
+            raw = self._pinned.raw
+            if raw is not None:
+                with suppress(OSError):
+                    # The plain socket's own shutdown wakes a read that is waiting, even
+                    # inside TLS (SSLSocket.shutdown would try to unwrap it first).
+                    socket.socket.shutdown(raw, socket.SHUT_RDWR)
 
 
 class OutboundGate:
@@ -294,28 +338,44 @@ class OutboundGate:
         *,
         max_bytes: int = MAX_RESPONSE_BYTES,
         accept: Callable[[str], bool] | None = None,
+        deadline: float | None = None,
     ) -> OutboundResponse:
         """GET `url` from exactly `address`, which the caller has already checked. The Host
         header and the TLS name stay the URL's host name. Redirects are handed back, not
         followed. `accept`, if given, is asked about a successful answer's content type
         ("text/html"; "" if there's none) before its body is read: False raises
-        WrongContentType. Reading stops past `max_bytes` (ResponseTooLarge). The whole
-        answer must arrive within the gate's time limit. A connection that fails raises
-        OutboundFailed, which never carries the library's own message."""
+        WrongContentType. Reading stops past `max_bytes` (ResponseTooLarge).
+
+        Everything (connecting, the TLS handshake, the headers and the whole body) must
+        finish within the gate's time limit, or by `deadline` (a `time.monotonic()` value,
+        for a caller's limit across several requests) if that comes first. Otherwise the
+        connection is cut and OutboundFailed("timeout") is raised. A connection that fails
+        raises OutboundFailed, which never carries the library's own message."""
         self.check_switch(household_id, connection)
         parts = urlsplit(url)
         host = parts.hostname
         if parts.scheme not in {"http", "https"} or not host:
             raise OutboundBlocked("only http and https addresses are allowed")
-        port = parts.port or (443 if parts.scheme == "https" else 80)
+        port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
         selector = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        if port == 0:
+            raise OutboundBlocked("port 0 can't be used")
+        own = time.monotonic() + TIMEOUT_SECONDS
+        deadline = own if deadline is None else min(own, deadline)
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise OutboundFailed("timeout")
         pinned: _PinnedHTTP | _PinnedHTTPS
         if parts.scheme == "https":
-            pinned = _PinnedHTTPS(host, port, str(address), TIMEOUT_SECONDS, self._tls)
+            pinned = _PinnedHTTPS(host, port, str(address), left, self._tls)
         else:
-            pinned = _PinnedHTTP(host, port, str(address), TIMEOUT_SECONDS)
-        deadline = time.monotonic() + TIMEOUT_SECONDS
-        with _gate_open():
+            pinned = _PinnedHTTP(host, port, str(address), left)
+        with _gate_open(), _Watchdog(pinned, left) as watchdog:
+
+            def failed(kind: str) -> OutboundFailed:
+                # A cut connection fails in many ways; they all mean time ran out.
+                return OutboundFailed("timeout" if watchdog.expired else kind)
+
             try:
                 pinned.request("GET", selector, headers={"User-Agent": USER_AGENT})
                 response = pinned.getresponse()
@@ -329,17 +389,21 @@ class OutboundGate:
                     if not accept(kind):
                         raise WrongContentType("the answer isn't the kind asked for")
                 body = _read(response, pinned.raw, max_bytes, deadline)
+                if watchdog.expired:
+                    raise TimeoutError  # cut: the body may be only part of the answer
                 return OutboundResponse(status=response.status, headers=headers, body=body, url=url)
             except OutboundBlocked:
+                if watchdog.expired:
+                    raise failed("timeout") from None
                 raise
             except TimeoutError:
-                raise OutboundFailed("timeout") from None
+                raise failed("timeout") from None
             except ssl.SSLError, ssl.CertificateError:
-                raise OutboundFailed("tls") from None
+                raise failed("tls") from None
             except http.client.HTTPException, ValueError:
-                raise OutboundFailed("bad_answer") from None
+                raise failed("bad_answer") from None
             except OSError:
-                raise OutboundFailed("unreachable") from None
+                raise failed("unreachable") from None
             finally:
                 pinned.close()
 
