@@ -752,7 +752,9 @@ _NUTRITION_KEYS = {
     "fat": "fatContent",
     "fibre": "fiberContent",
 }
-_AMOUNT = re.compile(r"(\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:[.,](\d+))?\s*([a-zA-Zµμ]*)")
+_AMOUNT = re.compile(
+    r"(\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:[.,](\d+))?(?:[eE]([+-]?\d+))?\s*([a-zA-Zµμ]*)"
+)
 
 
 def _nutrition(recipe: _Recipe) -> dict[str, Decimal | None]:
@@ -770,22 +772,26 @@ def _nutrition(recipe: _Recipe) -> dict[str, Decimal | None]:
 
 
 def _nutrient(value: object, energy: bool) -> Decimal | None:
-    """The first number in "250 kcal", "12.5 g", "1,200 kcal" or 12. Kilojoules become
-    kilocalories, milligrams grams. Unknown is None, never 0."""
+    """The first number in "250 kcal", "12.5 g", "1,200 kcal", "1.5e2 kcal" or 12. Kilojoules
+    become kilocalories, milligrams grams. Unknown is None, never 0."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        text = str(value)
+        amount = Decimal(str(value))  # str(1e300) is "1e+300": never read as text
+        unit = ""
+        if not amount.is_finite():
+            return None
     elif isinstance(value, str):
-        text = _one_line(value)
+        match = _AMOUNT.search(_one_line(value))
+        if not match:
+            return None
+        whole, fraction, power = match.group(1).replace(",", ""), match.group(2), match.group(3)
+        if power and len(power.lstrip("+-")) > 2:
+            return None  # "1e300": far too big or too small to be real
+        amount = Decimal((f"{whole}.{fraction}" if fraction else whole) + f"e{power or 0}")
+        unit = match.group(4).lower()
     else:
         return None
-    match = _AMOUNT.search(text)
-    if not match:
-        return None
-    whole, fraction, unit = match.group(1).replace(",", ""), match.group(2), match.group(3)
-    amount = Decimal(f"{whole}.{fraction}" if fraction else whole)
-    unit = unit.lower()
     if energy and unit == "kj":
         amount /= Decimal("4.184")
     elif not energy and unit in {"mg"}:

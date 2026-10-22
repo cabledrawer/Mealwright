@@ -600,6 +600,19 @@ def facts(**values: object) -> dict[str, object]:
         ("", None),
         ("n/a", None),
         ("200000 kcal", None),  # over 100,000
+        ("1.5e2", Decimal(150)),  # an exponent is part of the number, not a unit
+        ("1.5E2 kcal", Decimal(150)),
+        ("2e-1 kcal", Decimal("0.2")),
+        ("1e300", None),  # never 1, with "e" taken as a unit
+        ("1e300 kcal", None),
+        ("1e-300", None),
+        ("1e99999999999", None),
+        (1.5e2, Decimal(150)),
+        (1e300, None),  # str() gives "1e+300"
+        (1e-05, Decimal(0)),  # "1e-05"
+        (float("inf"), None),
+        (float("nan"), None),
+        ("3 eggs", Decimal(3)),  # an "e" with no number after it is not an exponent
         (None, None),
         (True, None),
     ],
