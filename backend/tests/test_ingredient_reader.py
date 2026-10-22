@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from mealwright.ingredient_reader import MAX_LINE_CHARS, ReadLine, read_line
+from mealwright.ingredient_reader import MAX_LINE_CHARS, ReadLine, read_line, working_text
 
 D = Decimal
 
@@ -100,6 +100,25 @@ def test_ranges_with_units_and_fractions() -> None:
     assert amount_of("200g-300g flour") == (D(300), "g")
     assert amount_of("1 to 1½ cups rice") == (D("1.5"), "cup")
     assert amount_of("1 1/2 - 2 cups rice") == (D(2), "cup")
+
+
+def test_a_range_across_two_units_keeps_the_bigger_side_with_its_unit() -> None:
+    assert amount_of("200g-1kg flour") == (D(1), "kg")
+    assert amount_of("750 ml-1 l stock") == (D(1), "l")
+    assert amount_of("500g - 1kg chicken") == (D(1), "kg")
+    assert amount_of("1 kg - 500 g potatoes") == (D(1), "kg")  # the first side is the bigger
+    assert amount_of("1 l to 500 ml stock") == (D(1), "l")
+    assert amount_of("2 tbsp - 1 cup milk") == (D(1), "cup")
+    assert amount_of("1 cup - 500 ml milk") == (D(500), "ml")
+    assert amount_of("100 g - 2 kg flour") == (D(2), "kg")
+    # Units that can't be compared (weight and volume): the second side, as written.
+    assert amount_of("100 g - 2 ml flour") == (D(2), "ml")
+
+
+def test_pack_multiples_are_read_once_so_a_long_chain_cannot_go_deep() -> None:
+    line = read_line("1x" * 499 + "1 flour")
+    assert line.readable is not None  # no RecursionError
+    assert read_line("2 x 3 x 400g tins flour").amount is not None
 
 
 # --- Units -----------------------------------------------------------------------------------
@@ -226,6 +245,26 @@ def test_pack_multiples() -> None:
     assert read_line("2 x 3 onions").amount == D(2)  # no unit: not a pack multiple
 
 
+@pytest.mark.parametrize(
+    ("text", "amount", "unit", "name", "note"),
+    [
+        ("1 cup flour (125g)", D(125), "g", "flour", None),
+        ("1 cup rice (about 200 g)", D(200), "g", "rice", None),
+        ("2 tbsp oil (30 ml), plus extra", D(30), "ml", "oil", "plus extra"),
+        ("1 cup flour (sifted) (125g)", D(125), "g", "flour", "sifted"),
+        ("8 oz spinach (225g)", D(225), "g", "spinach", None),
+        ("200 g flour (1 cup)", D(200), "g", "flour", "1 cup"),  # already metric: kept
+        ("2 onions (300 g)", D(2), None, "onions", "300 g"),  # a count is not a second unit
+        ("1 cup flour (125g of it)", D(1), "cup", "flour", "125g of it"),
+    ],
+)
+def test_a_bracket_after_the_name_with_only_a_metric_amount_is_the_amount(
+    text: str, amount: Decimal, unit: str | None, name: str, note: str | None
+) -> None:
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name, line.note) == (amount, unit, name, note)
+
+
 def test_a_count_with_its_weight_in_brackets() -> None:
     line = read_line("1 (400 g) can chickpeas, drained")
     assert (line.amount, line.unit, line.size_word) == (D(400), "g", "can")
@@ -262,6 +301,25 @@ def test_a_size_word_is_kept_and_does_not_count_by_itself(
     assert (line.amount, line.unit, line.size_word, line.name) == (amount, None, word, name)
     assert not line.counts
     assert line.readable
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "unit", "word", "name"),
+    [
+        ("a 400g tin chopped tomatoes", D(400), "g", "tin", "chopped tomatoes"),
+        ("an 800 g tin chopped tomatoes", D(800), "g", "tin", "chopped tomatoes"),
+        ("one 400g tin chickpeas", D(400), "g", "tin", "chickpeas"),
+        ("a 14 oz (400 g) can beans", D(400), "g", "can", "beans"),
+        ("a cup of rice", D(1), "cup", None, "rice"),
+        ("a 2 cm piece ginger", None, None, "piece", "ginger"),
+        ("a large onion", D(1), None, None, "onion"),
+    ],
+)
+def test_a_measure_after_a_or_one_is_read_before_falling_back_to_one(
+    text: str, amount: Decimal | None, unit: str | None, word: str | None, name: str
+) -> None:
+    line = read_line(text)
+    assert (line.amount, line.unit, line.size_word, line.name) == (amount, unit, word, name)
 
 
 def test_a_few_is_kept_and_has_no_amount() -> None:
@@ -510,22 +568,60 @@ def test_never_raises_on_line_like_text(text: str) -> None:
     st.sampled_from(["", " ", "\n"]),
 )
 def test_the_words_are_kept_exactly(parts: list[str], joiner: str) -> None:
-    text = joiner.join(parts)
-    assert read_line(text).text == text
+    given_text = joiner.join(parts)
+    line = read_line("".join(given_text))  # a copy, so this compares text, not the same object
+    assert line.text == given_text
+    # And what it found comes from those words: nothing is made up.
+    if line.readable:
+        seen = set(working_text(given_text)) | set(" ,.")
+        assert set(line.name) <= seen
+        assert all(set(other) <= seen for other in line.other_names)
+        assert set(line.name_as_written) <= seen
 
 
-@settings(max_examples=300, deadline=None)
-@given(st.integers(0, 999), st.integers(0, 999), st.sampled_from(["-", " - ", " to ", "–", " or "]))
-def test_the_higher_number_of_a_range_is_never_the_lower(low: int, high: int, joiner: str) -> None:
-    line = read_line(f"{low}{joiner}{high} green chillies")
-    if max(low, high) == 0:
-        assert line.amount is None
-    else:
-        assert line.amount == D(max(low, high))
-    if line.amount is not None:
-        assert line.amount >= D(min(low, high))
-        assert line.amount >= D(low)
-        assert line.amount >= D(high)
+NUMBERS = st.one_of(
+    st.integers(1, 999).map(str),
+    st.sampled_from(["½", "¼", "¾", "⅓", "1½", "2 1/2", "1/2", "0.5", "1,5", "12.25"]),
+)
+SIDE_UNITS = st.sampled_from(["", "g", " g", "kg", " kg", "ml", " ml", "l", " l", " tsp", " cup"])
+SEPARATORS = ["-", " - ", " to ", "\u2013", " or "]
+
+
+def _base(number: str, unit: str) -> Decimal:
+    """The size of a range side in g or ml (a cup is 250), for checking the answer."""
+    amount = read_line(f"{number}{unit} x").amount
+    assert amount is not None
+    sizes = {"g": 1, "kg": 1000, "ml": 1, "l": 1000, "tsp": 5, "cup": 250, "": 1}
+    return amount * sizes[unit.strip()]
+
+
+@settings(max_examples=500, deadline=None)
+@given(NUMBERS, SIDE_UNITS, NUMBERS, SIDE_UNITS, st.sampled_from(SEPARATORS))
+def test_the_higher_side_of_a_range_wins_whatever_its_units(
+    low: str, low_unit: str, high: str, high_unit: str, joiner: str
+) -> None:
+    line = read_line(f"{low}{low_unit}{joiner}{high}{high_unit} flour")
+    assert line.text.endswith("flour")
+    if line.amount is None:
+        return
+    assert line.amount > 0
+    sides = []
+    for number, unit in ((low, low_unit), (high, high_unit)):
+        single = read_line(f"{number}{unit} flour")
+        if single.amount is not None:
+            sides.append((single.amount, single.unit))
+    if not sides:
+        return
+    families = {"g": "w", "kg": "w", "ml": "v", "l": "v", "tsp": "v", "tbsp": "v", "cup": "v"}
+    sizes = {"g": 1, "kg": 1000, "ml": 1, "l": 1000, "tsp": 5, "tbsp": 15, "cup": 250}
+    if len(sides) == 2 and all(unit in sizes for _, unit in sides):
+        if families[sides[0][1] or "g"] == families[sides[1][1] or "g"]:
+            # Both sides have a unit of the same kind: the answer is the bigger side.
+            bases = [amount * sizes[unit or "g"] for amount, unit in sides]
+            answer = line.amount * sizes[line.unit or "g"]
+            assert abs(answer - max(bases)) <= max(bases) / 500 + 1
+    elif len(sides) == 2:
+        assert line.amount >= min(amount for amount, _ in sides)
 
 
 @settings(max_examples=300, deadline=None)
@@ -535,3 +631,14 @@ def test_the_higher_number_of_a_range_is_never_the_lower(low: int, high: int, jo
 def test_the_amount_is_never_negative(number: int, unit: str) -> None:
     line = read_line(f"{number}{unit} flour")
     assert line.amount is None or line.amount > 0
+    line = read_line(f"\u2212{abs(number)}{unit} flour")  # a minus sign
+    assert line.amount is None or line.amount > 0
+
+
+@settings(max_examples=500, deadline=None)
+@given(st.text(max_size=300))
+def test_the_amount_is_always_in_range_for_any_text(text: str) -> None:
+    line = read_line(text)
+    if line.amount is not None:
+        assert 0 < line.amount <= 1_000_000
+        assert line.readable

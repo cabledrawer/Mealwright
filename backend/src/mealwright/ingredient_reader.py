@@ -20,15 +20,14 @@ What it reads without asking:
 """
 
 import re
-import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 
-from mealwright.amounts import MAX_AMOUNT, CountedAs
+from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, CountedAs, unit_family, unit_size
 from mealwright.api.v1.recipe_schemas import GLYPHS, UNIT_ALIASES, fraction_of
-from mealwright.names import singular
+from mealwright.names import singular, without_hidden
 
 # The longest line read. Anything longer isn't an ingredient line.
 MAX_LINE_CHARS = 1000
@@ -146,7 +145,7 @@ _LEAD = re.compile(
     r"level|generous|circa|up\s+to|~)\s*)+",
     re.IGNORECASE,
 )
-_BULLETS = "•*-▢☐□◦▪·✓✔○●■►▪ \t"
+BULLETS = "•*-▢☐□◦▪·✓✔○●■►▪ \t"
 _NO_AMOUNT = re.compile(
     r"\b(?:(?:or|and|adjust)\s+)?(?:to\s+taste|as\s+(?:needed|required|desired|per\s+taste)"
     r"|if\s+(?:needed|desired|you\s+like)"
@@ -280,26 +279,45 @@ class _Measure:
         return self.unit in METRIC
 
 
-def _measure(text: str, start: int) -> _Measure | None:
-    """A number with its unit, a range, or a pack multiple, at `start`."""
+def _base_size(value: Fraction, unit: str | None) -> tuple[str, Fraction] | None:
+    """A measure in g or ml, with which of the two it is, for comparing two sides of a
+    range. None when it can't be compared (no unit, a pinch, another system's unit). A cup
+    counts as the default cup: only the order of the two sides matters here."""
+    if unit is None or unit == "pinch":
+        return None
+    family = unit_family(unit)
+    if family is None:
+        return None
+    return family, value * Fraction(unit_size(unit, DEFAULT_CUP_ML))
+
+
+def _measure(text: str, start: int, allow_multiple: bool = True) -> _Measure | None:
+    """A number with its unit, a range, or a pack multiple, at `start`. Only one multiple
+    ("2 x 400g") is read, so "1x1x1x..." can't make the reader call itself deeper and deeper."""
     first = _number(text, start)
     if first is None:
         return None
     value, at = first
     unit, other, end = _unit(text, at)
-    multiple = _TIMES.match(text, at) if unit is None and other is None else None
+    multiple = _TIMES.match(text, at) if allow_multiple and unit is None and other is None else None
     if multiple is not None:  # 2 x 400g
-        inner = _measure(text, multiple.end())
+        inner = _measure(text, multiple.end(), allow_multiple=False)
         if inner is not None and (inner.unit or inner.other):
             return _Measure(value * inner.value, inner.unit, inner.other, start, inner.end)
     separator = _RANGE.match(text, end)
-    if separator is not None:  # 2-3, 2 to 3, 200g-300g
+    if separator is not None:  # 2-3, 2 to 3, 200g-300g, 200g-1kg
         second = _number(text, separator.end())
         if second is not None:
             top, after = second
             unit2, other2, end2 = _unit(text, after)
             if unit2 or other2:
-                return _Measure(max(value, top), unit2, other2, start, end2)
+                # Two different units: the bigger side wins, with its own unit.
+                low, high = _base_size(value, unit), _base_size(top, unit2)
+                if low is not None and high is not None and low[0] == high[0]:
+                    if low[1] > high[1]:
+                        return _Measure(value, unit, other, start, end2)
+                    return _Measure(top, unit2, other2, start, end2)
+                return _Measure(top, unit2, other2, start, end2)  # can't compare: the second
             return _Measure(max(value, top), unit, other, start, after)
     return _Measure(value, unit, other, start, end)
 
@@ -325,24 +343,26 @@ def _second_measure(text: str, start: int) -> _Measure | None:
     return None
 
 
+_ABOUT = re.compile(r"(?:about|approx\.?|approximately|~)\s*", re.IGNORECASE)
+
+
+def _bracket_metric(inside: str) -> _Measure | None:
+    """The bracket's text if it is nothing but a metric measure ("125g", "about 200 g")."""
+    at = _ABOUT.match(inside)
+    found = _measure(inside, at.end() if at else 0)
+    if found is not None and found.metric and not inside[found.end :].strip():
+        return found
+    return None
+
+
 # --- The text around the amount ---------------------------------------------------------------
 
 
 def working_text(text: str) -> str:
-    """The text with anything invisible turned into a space or taken out, dashes and
+    """The text with hidden characters taken out (`names.without_hidden`), dashes and
     fraction slashes made plain, and the spaces tidied."""
-    pieces: list[str] = []
-    for char in text.translate(_DASHES).translate(_SLASHES):
-        category = unicodedata.category(char)
-        if char in "‌‍":
-            pieces.append(char)
-        elif category in ("Cc", "Zl", "Zp", "Zs") or char.isspace():
-            pieces.append(" ")
-        elif category in ("Cf", "Cs", "Co", "Cn"):
-            continue
-        else:
-            pieces.append(char)
-    return " ".join("".join(pieces).split()).lstrip(_BULLETS)
+    plain = without_hidden(text.translate(_DASHES).translate(_SLASHES))
+    return " ".join(plain.split()).lstrip(BULLETS)
 
 
 def _clean_token(token: str) -> str:
@@ -457,7 +477,7 @@ def _alternatives(parts: Iterable[str]) -> list[str]:
 
 def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     """Read one ingredient line. Never raises. `size_words` are extra size words to know
-    (the household's own, from `Kitchen.size_words`); the built-in list is `SIZE_WORDS`."""
+    (the household's own, from `KnownIngredients.size_words`); the built-in list is `SIZE_WORDS`."""
     work = working_text(text)
     if not work or len(work) > MAX_LINE_CHARS:
         return _unreadable(text)
@@ -478,6 +498,11 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     passed: list[str] = []
 
     measure = _measure(work, start)
+    if measure is None:  # "a 400g tin", "one 14 oz can"
+        article = _ARTICLE.match(work, start)
+        after = _measure(work, article.end()) if article else None
+        if after is not None and (after.unit or after.other):
+            measure = after
     if measure is not None:
         amount, unit, other, position = measure.value, measure.unit, measure.other, measure.end
         second = _second_measure(work, position)
@@ -519,6 +544,15 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
 
     rest, inside = _brackets(rest)
     names: list[str] = []
+    for part in list(inside):
+        # "1 cup flour (125g)": a bracket holding only a metric measure is the amount when the
+        # line's own unit isn't metric (the metric one wins).
+        if amount is not None and unit not in METRIC and unit != "pinch" and (unit or other):
+            metric = _bracket_metric(part)
+            if metric is not None:
+                amount, unit, other = metric.value, metric.unit, None
+                inside.remove(part)
+                continue
     for part in inside:
         groups = [piece.split() for piece in re.split(r"[,/;]", part)]
         words = [word for group in groups for word in group]
