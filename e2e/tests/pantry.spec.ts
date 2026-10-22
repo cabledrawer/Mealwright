@@ -192,15 +192,13 @@ test('+ Staple makes a new ingredient, with no stock', async ({ page }) => {
 
 test('the pack lines open the pack menu, with the choices for a full pack', async ({ page }) => {
   const food = await stocked(page, 'Cheese', 3);
-  await page.goto('/pantry');
-  await page
-    .getByRole('button', { name: new RegExp(`^${food.name}`) })
-    .first()
-    .click();
+  // Not a plain click on the row: on desktop a place shows only its first 8 rows, and by now
+  // the earlier tests have filled the Fridge with rows that come before this one.
+  await openRow(page, food.name);
   const pack = page.getByRole('list', { name: `Packets of ${food.name}` }).getByRole('button');
   await expect(pack).toHaveCount(1);
-  const box = (await pack.boundingBox())!;
-  expect(box.height).toBeGreaterThanOrEqual(44);
+  // Wait for the opened row to settle at its full height, then check it.
+  await expect.poll(async () => (await pack.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
   await pack.click();
   const menu = page.getByRole('dialog', { name: new RegExp(food.name) });
   await expect(menu.getByRole('radio', { name: 'Full' })).toHaveAttribute('aria-checked', 'true');
@@ -326,6 +324,9 @@ async function openRow(page: Page, name: string) {
   // fill the Fridge, so find the row by name first.
   if (!isPhone(page)) {
     await page.getByRole('searchbox', { name: 'Find in pantry' }).fill(name);
+    // The list is replaced by the search results a moment later. Wait for them, or the click
+    // below lands on a row that is about to be thrown away and the row closes again.
+    await expect(page.getByRole('list', { name: 'Found in the pantry' })).toBeVisible();
   }
   await page
     .getByRole('button', { name: new RegExp(`^${name}`) })

@@ -47,8 +47,26 @@ export type AxeOptions = {
   disableRules?: string[];
 };
 
+/**
+ * Wait until every fade, slide and colour change that will end has ended, so a scan never sees
+ * a page half-way through one (on a busy machine a 180 ms fade can still be running when the
+ * scan starts, and its half-faded colours fail the contrast rule). Animations that never end
+ * (a spinner) are left alone.
+ */
+export async function waitForAnimations(page: Page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
+}
+
 /** Run axe with the WCAG 2 A and AA rules and fail with a readable list of problems. */
 export async function expectNoAxeViolations(page: Page, label: string, options: AxeOptions = {}) {
+  await waitForAnimations(page);
   let builder = new AxeBuilder({ page }).withTags(WCAG_AA_TAGS);
   for (const selector of options.exclude ?? []) builder = builder.exclude(selector);
   if (options.disableRules?.length) builder = builder.disableRules(options.disableRules);

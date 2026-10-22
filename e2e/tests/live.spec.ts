@@ -42,7 +42,10 @@ async function open(page: Page, path: string) {
   await page.goto(path);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await hello;
-  await page.waitForTimeout(500);
+  // Nothing may still be on its way: an answer that reaches the app after the connection is cut
+  // counts as "connected" and cancels the offline bar before it shows. (A fixed half-second was
+  // not always long enough on a busy machine.)
+  await page.waitForLoadState('networkidle');
 }
 
 test.beforeEach(async ({ page }) => {
@@ -200,8 +203,7 @@ test.describe('the connection bar', () => {
     await open(page, '/shopping');
     await context.setOffline(true);
     await expect(bar(page)).toBeVisible({ timeout: 10_000 });
-    for (const theme of THEMES) await inTheme(page, theme);
-    await checkPage(page);
+    await checkPage(page); // both themes
     // 44 px targets are checked by checkPage on the phone; on desktop check Try now itself.
     const box = await bar(page).getByRole('button', { name: 'Try now' }).boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44 - 0.5);

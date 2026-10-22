@@ -1,11 +1,5 @@
 import { test, expect, type Page } from "./clock.ts";
-import {
-  checkPage,
-  inTheme,
-  isPhone,
-  setAccountTheme,
-  THEMES,
-} from "./a11y.ts";
+import { checkPage, isPhone, setAccountTheme } from "./a11y.ts";
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
 // desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
@@ -87,10 +81,7 @@ test("Shopping shows the list by shop and aisle, and passes the accessibility ch
   await expect(
     page.getByRole("heading", { level: 3, name: "Other" }).first(),
   ).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
 });
 
 test("the list picker makes, renames and removes an extra list, with Undo", async ({
@@ -164,10 +155,7 @@ test("a typed name that is not an ingredient asks How do you count it?, with pac
   await expect(
     dialog.getByRole("radio", { name: /By weight/ }),
   ).toHaveAttribute("aria-checked", "true");
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
 
   await dialog.getByRole("button", { name: "+ Add a size" }).click();
   await dialog.getByRole("textbox", { name: "Name" }).fill("jar");
@@ -310,12 +298,9 @@ test("the list picker open and the amount editor open pass the accessibility che
   await page.goto("/shopping");
   await page.getByRole("button", { name: /^This week/ }).click();
   await expect(page.getByRole("group", { name: "Lists" })).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    // The open menu lies over the top rows of the list; axe would count a row it half covers as
-    // a too-small target. The rows are checked in the other tests.
-    await checkPage(page, { exclude: [".aisles"] });
-  }
+  // The open menu lies over the top rows of the list; axe would count a row it half covers as
+  // a too-small target. The rows are checked in the other tests.
+  await checkPage(page, { exclude: [".aisles"] }); // both themes
   // Escape closes it and puts focus back on the picker button.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("group", { name: "Lists" })).toHaveCount(0);
@@ -325,10 +310,7 @@ test("the list picker open and the amount editor open pass the accessibility che
   await expect(
     page.getByRole("form", { name: `Change ${name}` }),
   ).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
 });
 
 test("removing a line from the list keeps keyboard focus in the list", async ({
@@ -671,10 +653,7 @@ test("ticked states pass the accessibility checks in both themes", async ({
   } else {
     await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
   }
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   // The trolley open, with its ticked row.
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
@@ -683,17 +662,11 @@ test("ticked states pass the accessibility checks in both themes", async ({
   await expect(
     row.getByRole("button", { name: "Different pack?" }),
   ).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   // The Different pack? sheet.
   await row.getByRole("button", { name: "Different pack?" }).click();
   await expect(row.getByText("What did you buy?")).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   // The "Did you buy 2?" card.
   await act(
     page,
@@ -704,10 +677,7 @@ test("ticked states pass the accessibility checks in both themes", async ({
   await expect(
     page.getByRole("region", { name: "Did you buy 2?" }).first(),
   ).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
 });
 
 test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
@@ -885,10 +855,7 @@ test("a ticked row says where it went: with an amount, with none, and a staple",
   for (const n of [withAmount, bare, staple]) {
     await expect(row(n)).not.toContainText("→");
   }
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   // The line's own Undo takes the tick back out of the pantry.
   await row(withAmount)
     .getByRole("button", { name: `Undo ticking ${withAmount}` })
@@ -936,10 +903,7 @@ test("removing asks first: Keep it keeps the line; Remove takes it off, with Und
   });
   await expect(ask).toBeVisible();
   await expect(ask.getByText("Nothing goes into the pantry.")).toBeVisible();
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   await ask.getByRole("button", { name: "Keep it" }).click();
   // Keep it leaves the amount box open on the same line.
   await expect(page.getByRole("form", { name: `Change ${name}` })).toBeVisible();
@@ -1036,10 +1000,7 @@ test("phone: swiping a row left shows a red Remove, which asks first; a swipe al
   });
   await expect(red).toBeVisible();
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  for (const theme of THEMES) {
-    await inTheme(page, theme);
-    await checkPage(page);
-  }
+  await checkPage(page); // both themes
   await red.click();
   const ask = page.getByRole("alertdialog", {
     name: `Remove ${name} from the shopping list?`,
