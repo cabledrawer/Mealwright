@@ -9,6 +9,12 @@ Two parts:
   that connection's switch is on. It sends no cookies, never follows redirects by itself
   (callers check each hop, e.g. for SSRF in recipe import), and its user agent is just
   "Mealwright", with no version or anything about the install (spec section 7).
+- `OutboundGate.look_up()` and `OutboundGate.get_pinned()` are the two halves of a request
+  whose address the caller checks first (recipe import, `mealwright.page_fetch`): look the
+  name up, check every address, then connect to exactly the address that was checked,
+  while the Host header and the TLS name (SNI and the certificate check) stay the host
+  name. So a name can't pass the check with a public address and then be fetched from a
+  private one (DNS rebinding).
 - `install_network_guard()` adds a Python audit hook that refuses every network
   connection, UDP send or DNS lookup made *outside* the gate, by our code or by any
   library. It's installed when the app starts and for the whole test suite.
@@ -17,13 +23,16 @@ This is the only module allowed to import networking modules; a test checks that
 """
 
 import contextvars
+import http.client
 import ipaddress
 import logging
 import socket
+import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
@@ -66,6 +75,24 @@ LABELS = {
 
 class OutboundBlocked(PermissionError):
     """An outgoing connection was refused."""
+
+
+class ResponseTooLarge(OutboundBlocked):
+    """The answer was bigger than the caller allows; reading stopped there."""
+
+
+class WrongContentType(OutboundBlocked):
+    """The answer isn't the kind the caller asked for; its body wasn't read."""
+
+
+class OutboundFailed(Exception):
+    """A connection that was allowed didn't work. `kind` says how, in a word ("timeout",
+    "unreachable", "tls" or "bad_answer"); nothing else is kept, because the library's own
+    message can name the host."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(kind)
+        self.kind = kind
 
 
 @dataclass(frozen=True)
@@ -124,9 +151,55 @@ class _NoRedirects(urllib.request.HTTPRedirectHandler):
         return None  # hand the 3xx back to the caller
 
 
+def _lookup(host: str, port: int) -> list[str]:
+    """Every address a name has (only ever called inside the gate)."""
+    found = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
+    return [str(info[4][0]) for info in found]
+
+
+def _open_socket(address: str, port: int, timeout: float | None) -> socket.socket:
+    """A TCP connection to exactly this address (only ever called inside the gate)."""
+    return socket.create_connection((address, port), timeout=timeout)
+
+
+class _PinnedHTTP(http.client.HTTPConnection):
+    """Plain HTTP to one checked address; the Host header is still the host name."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: float) -> None:
+        super().__init__(host, port, timeout=timeout)
+        self._address = address
+        self.raw: socket.socket | None = None
+
+    def connect(self) -> None:
+        self.sock = self.raw = _open_socket(self._address, self.port, self.timeout)
+
+
+class _PinnedHTTPS(http.client.HTTPSConnection):
+    """HTTPS to one checked address; the Host header, SNI and certificate check all use
+    the host name."""
+
+    def __init__(
+        self, host: str, port: int, address: str, timeout: float, tls: ssl.SSLContext
+    ) -> None:
+        super().__init__(host, port, timeout=timeout, context=tls)
+        self._address = address
+        self._tls = tls
+        self.raw: socket.socket | None = None
+
+    def connect(self) -> None:
+        plain = _open_socket(self._address, self.port, self.timeout)
+        try:
+            self.sock = self.raw = self._tls.wrap_socket(plain, server_hostname=self.host)
+        except BaseException:
+            plain.close()
+            raise
+
+
 class OutboundGate:
-    def __init__(self, sessions: sessionmaker[Session]) -> None:
+    def __init__(self, sessions: sessionmaker[Session], tls: ssl.SSLContext | None = None) -> None:
         self._sessions = sessions
+        # Certificates are checked against the host name, with the system's trusted list.
+        self._tls = tls if tls is not None else ssl.create_default_context()
         # No proxies from the environment, no cookies, no automatic redirects.
         self._opener = urllib.request.OpenerDirector()
         for handler in (
@@ -139,9 +212,21 @@ class OutboundGate:
         ):
             self._opener.add_handler(handler)
 
+    @property
+    def sessions(self) -> sessionmaker[Session]:
+        """The database, for callers that check the household's own network list."""
+        return self._sessions
+
     def is_allowed(self, household_id: int, connection: Connection) -> bool:
         with self._sessions() as session:
             return switches(session, household_id)[connection]
+
+    def check_switch(self, household_id: int, connection: Connection) -> None:
+        """Raise OutboundBlocked (and log it) unless the connection's switch is on."""
+        if not self.is_allowed(household_id, connection):
+            # Log the switch only, never the address or site (see LABELS).
+            log.warning("Blocked outgoing connection: %s is switched off", LABELS[connection])
+            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings → Privacy")
 
     def request(
         self,
@@ -154,10 +239,7 @@ class OutboundGate:
         body: bytes | None = None,
         max_bytes: int = MAX_RESPONSE_BYTES,
     ) -> OutboundResponse:
-        if not self.is_allowed(household_id, connection):
-            # Log the switch only, never the address or site (see LABELS).
-            log.warning("Blocked outgoing connection: %s is switched off", LABELS[connection])
-            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings → Privacy")
+        self.check_switch(household_id, connection)
         if urlsplit(url).scheme not in {"http", "https"}:
             raise OutboundBlocked("only http and https addresses are allowed")
 
@@ -174,13 +256,119 @@ class OutboundGate:
             with response:
                 data = response.read(max_bytes + 1)
                 if len(data) > max_bytes:
-                    raise OutboundBlocked(f"response is larger than {max_bytes} bytes")
+                    raise ResponseTooLarge(f"response is larger than {max_bytes} bytes")
                 return OutboundResponse(
                     status=response.status,
                     headers=dict(response.headers.items()),
                     body=data,
                     url=url,
                 )
+
+    def look_up(
+        self, household_id: int, connection: Connection, host: str, port: int
+    ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+        """Every address a host name has, in the resolver's order, without repeats. Only if
+        the connection's switch is on; nothing is looked up otherwise."""
+        self.check_switch(household_id, connection)
+        with _gate_open():
+            try:
+                found = _lookup(host, port)
+            except OSError, UnicodeError:
+                raise OutboundFailed("unreachable") from None
+        addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+        for text in found:
+            try:
+                address = ipaddress.ip_address(text)
+            except ValueError:
+                continue
+            if address not in addresses:
+                addresses.append(address)
+        return addresses
+
+    def get_pinned(
+        self,
+        household_id: int,
+        connection: Connection,
+        url: str,
+        address: ipaddress.IPv4Address | ipaddress.IPv6Address,
+        *,
+        max_bytes: int = MAX_RESPONSE_BYTES,
+        accept: Callable[[str], bool] | None = None,
+    ) -> OutboundResponse:
+        """GET `url` from exactly `address`, which the caller has already checked. The Host
+        header and the TLS name stay the URL's host name. Redirects are handed back, not
+        followed. `accept`, if given, is asked about a successful answer's content type
+        ("text/html"; "" if there's none) before its body is read: False raises
+        WrongContentType. Reading stops past `max_bytes` (ResponseTooLarge). The whole
+        answer must arrive within the gate's time limit. A connection that fails raises
+        OutboundFailed, which never carries the library's own message."""
+        self.check_switch(household_id, connection)
+        parts = urlsplit(url)
+        host = parts.hostname
+        if parts.scheme not in {"http", "https"} or not host:
+            raise OutboundBlocked("only http and https addresses are allowed")
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        selector = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        pinned: _PinnedHTTP | _PinnedHTTPS
+        if parts.scheme == "https":
+            pinned = _PinnedHTTPS(host, port, str(address), TIMEOUT_SECONDS, self._tls)
+        else:
+            pinned = _PinnedHTTP(host, port, str(address), TIMEOUT_SECONDS)
+        deadline = time.monotonic() + TIMEOUT_SECONDS
+        with _gate_open():
+            try:
+                pinned.request("GET", selector, headers={"User-Agent": USER_AGENT})
+                response = pinned.getresponse()
+                headers = dict(response.headers.items())
+                if accept is not None and 200 <= response.status < 300:
+                    kind = (
+                        response.headers.get_content_type()
+                        if response.headers.get("Content-Type")
+                        else ""
+                    )
+                    if not accept(kind):
+                        raise WrongContentType("the answer isn't the kind asked for")
+                body = _read(response, pinned.raw, max_bytes, deadline)
+                return OutboundResponse(status=response.status, headers=headers, body=body, url=url)
+            except OutboundBlocked:
+                raise
+            except TimeoutError:
+                raise OutboundFailed("timeout") from None
+            except ssl.SSLError, ssl.CertificateError:
+                raise OutboundFailed("tls") from None
+            except http.client.HTTPException, ValueError:
+                raise OutboundFailed("bad_answer") from None
+            except OSError:
+                raise OutboundFailed("unreachable") from None
+            finally:
+                pinned.close()
+
+
+def _read(
+    response: http.client.HTTPResponse,
+    raw: socket.socket | None,
+    max_bytes: int,
+    deadline: float,
+) -> bytes:
+    """The body, up to `max_bytes`, read before `deadline`."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError
+        if response.isclosed():
+            return b"".join(chunks)  # the whole answer has arrived
+        if raw is not None:
+            # Each read may only wait for what's left of the time limit.
+            raw.settimeout(min(left, TIMEOUT_SECONDS))
+        chunk = response.read1(64 * 1024)
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > max_bytes:
+            raise ResponseTooLarge(f"response is larger than {max_bytes} bytes")
+        chunks.append(chunk)
 
 
 # --- The network guard ---------------------------------------------------------------
