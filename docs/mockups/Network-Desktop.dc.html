@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Settings, Privacy and Your own network (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+</style>
+</helmet>
+<div style="min-height: 900px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-wrap: wrap">
+
+<aside aria-label="Sidebar (collapsed)" style="flex: 0 0 72px; background: {{ c.bar }}; border-right: 1px solid {{ c.edge }}; padding: 18px 10px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" aria-hidden="true" style="width: 40px; height: 40px; display: block; flex: none">
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 10px">
+<a href="Desktop-Today.dc.html" aria-label="Today" title="Today" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></a>
+<a href="Desktop-Plan.dc.html" aria-label="Plan" title="Plan" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+<a href="Desktop-Shop.dc.html" aria-label="Shopping" title="Shopping" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg></a>
+<a href="Desktop-Pantry.dc.html" aria-label="Pantry" title="Pantry" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg></a>
+<a href="Desktop-Recipe.dc.html" aria-label="Recipes" title="Recipes" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg></a>
+</nav>
+<a href="Settings-Desktop.dc.html" aria-current="page" aria-label="Tess · Settings" title="Settings" style="margin-top: auto; width: 36px; height: 36px; border-radius: 18px; background: {{ c.gBg }}; color: {{ c.gInk }}; box-shadow: 0 0 0 3px {{ c.green }}; text-decoration: none; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px">T</a>
+</aside>
+
+<nav aria-label="Settings sections" style="flex: 0 0 220px; padding: 22px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid {{ c.edge }}">
+<h1 style="margin: 0 0 12px 12px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em">Settings</h1>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Appearance</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Amounts</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Household</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Shops &amp; places</a>
+<a href="Network-Desktop.dc.html" aria-current="true" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; text-decoration: none; color: {{ c.gInk }}; background: {{ c.gBg }}">Privacy</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Sign-in</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Your data</a>
+<a href="Settings-Desktop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">About</a>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px; box-sizing: border-box; display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start">
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<div style="background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px"><b style="font-size: 15px">Nothing leaves this server unless you switch it on</b><span style="font-size: 13px">Each outside connection is listed here, off until you turn it on.</span></div>
+<section aria-label="Outside connections" style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; padding: 0 6px">OUTSIDE CONNECTIONS</span>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 2px 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 0; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Recipe import from links</span><span style="font-size: 12px; color: {{ c.muted }}">Visits a website only when you paste its link</span></span><button role="switch" aria-checked="true" aria-label="Recipe import from links" style="width: 46px; height: 28px; border: none; border-radius: 14px; background: #2E7D5B; position: relative; padding: 0; flex: none"><span style="position: absolute; top: 2px; left: 20px; width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF"></span></button></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 0; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Download recipe photos</span><span style="font-size: 12px; color: {{ c.muted }}">The recipe's main photo, kept on this server. Off: imports come without a photo.</span></span><button role="switch" aria-checked="false" aria-label="Download recipe photos" style="width: 46px; height: 28px; border: none; border-radius: 14px; background: {{ c.track }}; position: relative; padding: 0; flex: none"><span style="position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF"></span></button></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 0"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Check for updates daily · 0.8</span><span style="font-size: 12px; color: {{ c.muted }}">Asks GitHub once a day · sends nothing about you · admins only</span></span><button role="switch" aria-checked="false" aria-label="Check for updates daily" style="width: 46px; height: 28px; border: none; border-radius: 14px; background: {{ c.track }}; position: relative; padding: 0; flex: none"><span style="position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF"></span></button></div>
+</div>
+<span style="font-size: 12px; color: {{ c.muted }}; padding: 0 6px">Imports: pages up to 5 MB, web pages only, up to 5 redirects, each address checked again.</span>
+</section>
+</div>
+
+<section aria-label="Your own network" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; justify-content: space-between; align-items: center; padding: 0 6px"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}">YOUR OWN NETWORK</span><span style="font-size: 11px; font-weight: 800; color: {{ c.soft }}; background: {{ c.chip }}; border-radius: 999px; padding: 3px 8px">Admins only · whole server</span></span>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-size: 14px; line-height: 1.5; color: {{ c.soft }}">Links to your own network (your router, other home servers, this server) are blocked, to keep them safe. Add the ones Mealwright may visit, like a home wiki. The same list is used for notifications and single sign-on later.</span>
+<sc-if value="{{ hasItems }}" hint-placeholder-val="{{ true }}">
+<ul aria-label="Allowed on your own network" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<li style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; font-size: 15px; font-weight: 700">wiki.home.example</span><span style="font-size: 12px; color: {{ c.muted }}">A name · added by Tess, 22 Oct</span><button style="border: none; background: transparent; color: {{ c.red }}; padding: 8px 10px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Remove</button></li>
+<li style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-top: 1px solid {{ c.line }}; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; font-size: 15px; font-weight: 700">192.168.1.0/24</span><span style="font-size: 12px; color: {{ c.muted }}">A range · 256 addresses</span><button style="border: none; background: transparent; color: {{ c.red }}; padding: 8px 10px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Remove</button></li>
+</ul>
+</sc-if>
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 14px; color: {{ c.muted }}; border: 1px dashed {{ c.input }}; border-radius: 14px; padding: 16px; text-align: center">Nothing added yet. Every address on your own network is blocked.</span>
+</sc-if>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700">Add a name or address
+<span style="display: flex; gap: 8px"><input type="text" placeholder="e.g. wiki.home.lan, 192.168.1.20 or 192.168.1.0/24" style="flex: 1; min-width: 0; min-height: 44px; border: 1px solid {{ c.input }}; border-radius: 12px; background: {{ c.field }}; color: {{ c.ink }}; padding: 0 12px; font: 500 15px 'Plus Jakarta Sans', sans-serif"><button style="border: none; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 999px; padding: 0 20px; min-height: 44px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Add</button></span></label>
+<span style="font-size: 12px; color: {{ c.soft }}; background: {{ c.chip }}; border-radius: 12px; padding: 10px 12px; line-height: 1.45"><b>Always blocked, even if listed:</b> this server itself (localhost) and cloud “metadata” addresses.</span>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["list","empty"],"default":"list"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',field:'#FFFFFF',ink:'#17201C',muted:'#5B655F',soft:'#3F4843',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',chip:'#F1F3F0',track:'#D3D8D3',green:'#2E7D5B',gInk:'#1F5C42',gBg:'#E4F1EA',red:'#9C320B',btn:'#17201C',btnInk:'#FFFFFF'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',field:'#1B221F',ink:'#E9EEEB',muted:'#A3AFA8',soft:'#C9D2CD',line:'#26302B',edge:'#2A332E',input:'#39433D',chip:'#252E29',track:'#39433D',green:'#6FCF9E',gInk:'#8FE0B5',gBg:'#1F3A2D',red:'#FF9B76',btn:'#E9EEEB',btnInk:'#111614'};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = this.props.show ?? 'list';
+return { c: c, hasItems: show === 'list', isEmpty: show === 'empty' };
+}
+}
+</script>
+</body>
+</html>

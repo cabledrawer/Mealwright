@@ -182,9 +182,10 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
   - Two photo deletes whose failure still logs the full error, which names the file's path and the household's folder number: the hourly tidy-up's sweep of leftover files that have no photo record (`sweep_files`, called from `drop_waiting_photos`; the error reaches the `log.exception` in `jobs.py`), and the clean-up after an upload fails part-way (`remove_files` in the `finally` of the upload in `api/v1/photos.py`, and `write()`'s own clean-up in `photos.py`), whose error reaches the server's own error log. Log only the kind of error, as deleting after a saved change already does (found by the 0.4.0 release review; cabledrawer 22 Oct: "The two log lines that still record a file's location go on the 0.5 small fixes.").
   - Undo's remaining restore steps check the household themselves, as `_restore_recipe_line` and `_restore_recipe_home` already do: `_restore_field`, `_restore_name`, `_restore_size`, `_restore_stand_in`, `_restore_conversion` and `_restore_lot` in `backend/src/mealwright/history.py`. They can't be reached from another household today, because what they put back comes only from the household's own Undo record (found by the 0.4.0 release review). cabledrawer 22 Oct: "The household check on the remaining Undo steps (_restore_field, _name, _size, _stand_in, _conversion, _lot) goes on the 0.5 small fixes too."
   - With the source links: bring back the recipe editor's hint under Source, "A web address shows as a link you can open yourself. Mealwright never visits it." (cabledrawer 21 Oct: "hide the “A web address shows as a link you can open yourself” hint until 0.5, when links arrive").
-  - For the 0.5 kickoff: swiping is under-used on the phone; cabledrawer's helper chat will bring him ideas then. Nothing to build until he has decided.
+  - Phone swipes (cabledrawer 21 Oct, decided at the 0.5 kickoff): see spec "Layout decisions", "Phone swipes". Shopping's move to another shop or list is a new offline "move" change with a full review (cabledrawer 22 Oct).
+  - From the friction log (cabledrawer 21 Oct, "fix now in 0.5" if the 0.4.0 hand test still shows them; cabledrawer 22 Oct: "fix all three"): Pantry search as one list across places, each result with its place and "also called thuvaram paruppu"; the Ctrl+Z toast saying what was undone, not just "Undone"; "Today" with a capital on Use soon ("Lemon · Today").
 
-**Done when:** a test suite of saved real-world recipe pages (stored as files, never fetched in tests) parses correctly; SSRF tests cover private IPs, DNS rebinding and redirects; with the Privacy switch off, import is refused.
+**Done when:** a test suite of structure-only test pages (the layout of 8 commonly used recipe sites and the awkward shapes, with our own made-up text and no photos; never fetched in tests) parses correctly (cabledrawer 21 Oct: this replaces "saved real-world recipe pages", see spec section 6, "Recipe import, decided for 0.5"); the real-recipe check has run on ~80 real recipes (10 per site × 8) and its report is with cabledrawer; SSRF tests cover private IPs, DNS rebinding and redirects; with the Privacy switch off, import is refused.
 
 ---
 
@@ -200,6 +201,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Tub use-by defaults (3 days fridge, 3 months freezer), editable.
 - Shopping list generation: plan − stock − staples, with "can use instead" stand-ins counted; plan-made items keyed by food + shop; hand edits never overwritten; staples check card (Got it / dismiss).
 - Today (`Main`, `Desktop-Today`): tubs left / use soon / to buy, eating today, use soon, next cook, "Did you cook <meal>?" card (Cooked it · Didn't · Move it), first-day empty state.
+
+- **Recipe import, from the 0.5 real-recipe check (cabledrawer 21 Oct):** "testing is 10 different recipies from each of the sites - if fails or fiddly modify in 0.6.0 and try again fails agin - switch in 0.7.0". Fix what the 0.5 check and cabledrawer's 0.5.0 hand test found, then run the check script on all 80 again.
 
 **Done when:** a week can be planned by drag (desktop) and long-press (phone); a batch cook spreads tubs correctly, skips filled meals and lets you place them by hand; regenerating the list never duplicates items or overwrites hand edits (tested).
 
@@ -219,6 +222,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **From cabledrawer's hand test (cabledrawer 20 Oct):**
   - A restock date for each staple: a date line on restocked chips, in the ingredient editor, and a column on Ingredients. The words "Restocked · staples aren’t counted" are already on the Shopping rows (0.4).
   - Ready choices in the "How much?" sheet for a new ingredient (nothing to choose from yet when an ingredient has no sizes).
+
+- **Recipe import (cabledrawer 21 Oct):** if pages still fail or are fiddly after 0.6's fixes and second run, page reading switches to recipe-scrapers (the one page-reading module is swapped; the review screen and the ingredient reader stay). New libraries need cabledrawer's OK and the licence check then.
 
 **Done when:** the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end.
 

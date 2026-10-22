@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Shopping, move to another shop or list (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+</style>
+</helmet>
+<div style="min-height: 900px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-wrap: wrap; position: relative">
+
+<aside aria-label="Sidebar (collapsed)" style="flex: 0 0 72px; background: {{ c.bar }}; border-right: 1px solid {{ c.edge }}; padding: 18px 10px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" aria-hidden="true" style="width: 40px; height: 40px; display: block; flex: none">
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 10px">
+<a href="Desktop-Today.dc.html" aria-label="Today" title="Today" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></a>
+<a href="Desktop-Plan.dc.html" aria-label="Plan" title="Plan" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+<a href="ShopMove-Desktop.dc.html" aria-label="Shopping" aria-current="page" title="Shopping" style="width: 48px; height: 48px; border-radius: 14px; background: {{ c.gBg }}; color: {{ c.gInk }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg></a>
+<a href="Desktop-Pantry.dc.html" aria-label="Pantry" title="Pantry" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg></a>
+<a href="Desktop-Recipe.dc.html" aria-label="Recipes" title="Recipes" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg></a>
+</nav>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 24px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; max-width: 980px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: {{ c.muted }}; font-weight: 500">6 to buy · saved</span><h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Shopping</h1></div>
+
+<section aria-label="Spice Bazaar" style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 800">Spice Bazaar</h2>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 0 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px"><button role="checkbox" aria-checked="false" aria-label="Tick Toor dal" style="width: 24px; height: 24px; border: 2px solid {{ c.muted }}; border-radius: 7px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 15px; font-weight: 600">Toor dal</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600">500 g</span><button aria-label="More for Toor dal" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; color: {{ c.muted }}; font: 800 18px 'Plus Jakarta Sans', sans-serif">⋯</button></div>
+</div>
+</section>
+
+<section aria-label="Any shop" style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 17px; font-weight: 800">Any shop</h2>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 0 16px">
+<div style="position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><button role="checkbox" aria-checked="false" aria-label="Tick Coriander" style="width: 24px; height: 24px; border: 2px solid {{ c.muted }}; border-radius: 7px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 15px; font-weight: 600">Coriander</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600">2 bunches</span><button aria-label="More for Coriander" aria-expanded="true" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: {{ c.chip }}; color: {{ c.ink }}; font: 800 18px 'Plus Jakarta Sans', sans-serif">⋯</button>
+
+<div role="menu" aria-label="Coriander" style="position: absolute; right: 0; top: 52px; z-index: 2; width: 250px; background: {{ c.card }}; border: 1px solid {{ c.line }}; border-radius: 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18); padding: 6px; display: flex; flex-direction: column">
+<button role="menuitem" style="border: none; background: transparent; color: {{ c.ink }}; text-align: left; border-radius: 10px; padding: 10px 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif">Change amount</button>
+<button role="menuitem" aria-expanded="true" style="border: none; background: {{ c.chip }}; color: {{ c.ink }}; text-align: left; border-radius: 10px; padding: 10px 12px; font: 700 14px 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: space-between">Move to<span aria-hidden="true">›</span></button>
+<button role="menuitem" style="border: none; background: transparent; color: {{ c.red }}; text-align: left; border-radius: 10px; padding: 10px 12px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Remove from list…</button>
+</div>
+<div role="menu" aria-label="Move Coriander to" style="position: absolute; right: 258px; top: 52px; z-index: 2; width: 240px; background: {{ c.card }}; border: 1px solid {{ c.line }}; border-radius: 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18); padding: 6px; display: flex; flex-direction: column">
+<span style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; padding: 8px 12px 4px">ANOTHER SHOP</span>
+<button role="menuitemradio" aria-checked="false" style="border: none; background: transparent; color: {{ c.ink }}; text-align: left; border-radius: 10px; padding: 9px 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif">Tesco</button>
+<button role="menuitemradio" aria-checked="false" style="border: none; background: {{ c.bBg }}; color: {{ c.bInk }}; text-align: left; border-radius: 10px; padding: 9px 12px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Lidl</button>
+<button role="menuitemradio" aria-checked="false" style="border: none; background: transparent; color: {{ c.ink }}; text-align: left; border-radius: 10px; padding: 9px 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif">Spice Bazaar</button>
+<button role="menuitemradio" aria-checked="true" style="border: none; background: transparent; color: {{ c.muted }}; text-align: left; border-radius: 10px; padding: 9px 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: space-between">Any shop<span>✓ now</span></button>
+<span style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; padding: 8px 12px 4px; border-top: 1px solid {{ c.line }}; margin-top: 4px">ANOTHER LIST</span>
+<button role="menuitem" style="border: none; background: transparent; color: {{ c.ink }}; text-align: left; border-radius: 10px; padding: 9px 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: space-between">Diwali party<span style="color: {{ c.muted }}; font-size: 12px">Extra list</span></button>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><button role="checkbox" aria-checked="false" aria-label="Tick Onion" style="width: 24px; height: 24px; border: 2px solid {{ c.muted }}; border-radius: 7px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 15px; font-weight: 600">Onion</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600">4</span><button aria-label="More for Onion" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; color: {{ c.muted }}; font: 800 18px 'Plus Jakarta Sans', sans-serif">⋯</button></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><button role="checkbox" aria-checked="false" aria-label="Tick Green chillies" style="width: 24px; height: 24px; border: 2px solid {{ c.muted }}; border-radius: 7px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 15px; font-weight: 600">Green chillies</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600">10</span><button aria-label="More for Green chillies" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; color: {{ c.muted }}; font: 800 18px 'Plus Jakarta Sans', sans-serif">⋯</button></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px"><button role="checkbox" aria-checked="false" aria-label="Tick Milk" style="width: 24px; height: 24px; border: 2px solid {{ c.muted }}; border-radius: 7px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 15px; font-weight: 600">Milk</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 5px 12px; font-size: 14px; font-weight: 600">2 L</span><button aria-label="More for Milk" style="width: 36px; height: 36px; border: none; border-radius: 10px; background: transparent; color: {{ c.muted }}; font: 800 18px 'Plus Jakarta Sans', sans-serif">⋯</button></div>
+</div>
+</section>
+<span style="font-size: 12px; color: {{ c.muted }}">On a computer, Move to sits in each row's ⋯ menu (no swipe). Moving shows a toast with Undo, and Ctrl+Z works too.</span>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',soft:'#3F4843',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',chip:'#F1F3F0',gInk:'#1F5C42',gBg:'#E4F1EA',bBg:'#E3EDF7',bInk:'#1D4570',red:'#9C320B'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',soft:'#C9D2CD',line:'#26302B',edge:'#2A332E',input:'#39433D',chip:'#252E29',gInk:'#8FE0B5',gBg:'#1F3A2D',bBg:'#1C2E40',bInk:'#B9D5F2',red:'#FF9B76'};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+return { c: c };
+}
+}
+</script>
+</body>
+</html>

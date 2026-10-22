@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Import a recipe (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,600&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<sc-if value="{{ isStartish }}" hint-placeholder-val="{{ true }}">
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; background: {{ c.bar }}; border-bottom: 1px solid {{ c.edge }}">
+<a href="Recipes-Phone.dc.html" style="color: {{ c.green }}; font-size: 15px; font-weight: 700; text-decoration: none; min-height: 44px; display: flex; align-items: center">Cancel</a>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 800">Import a recipe</span><span style="font-size: 12px; color: {{ c.muted }}; font-weight: 600">Step 1 of 3</span></span>
+<span style="width: 52px"></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 14px">
+<label style="display: flex; flex-direction: column; gap: 8px; font-size: 15px; font-weight: 800">Paste a link or the recipe's text
+<textarea aria-label="Link or recipe text" style="min-height: 120px; resize: none; border: 2px solid {{ c.green }}; border-radius: 16px; background: {{ c.field }}; color: {{ c.ink }}; padding: 14px; font: 500 16px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box">https://www.example.com/sambar</textarea></label>
+
+<sc-if value="{{ isOn }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: {{ c.gInk }}; background: {{ c.gBg }}; border-radius: 12px; padding: 10px 12px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>A link · your server visits this page once</span>
+<button onClick="{{ toAlready }}" style="border: none; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 54px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Read the recipe</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isOff }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="background: {{ c.aRow }}; border: 1px solid {{ c.aEdge }}; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 16px; font-weight: 800; color: {{ c.aInk }}">Importing from links is switched off</span>
+<span style="font-size: 14px; line-height: 1.45; color: {{ c.soft }}">Nothing was fetched. Switch it on in Settings → Privacy, or paste the recipe's text instead — pasted text never goes online.</span>
+<span style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Network-Phone.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; min-height: 46px; padding: 0 16px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center">Open Settings</a>
+<button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 14px; min-height: 46px; padding: 0 16px; font: 700 15px 'Plus Jakarta Sans', sans-serif">Paste text instead</button>
+</span>
+</div>
+</sc-if>
+
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}">HOW IT WORKS</span>
+<span style="font-size: 14px; line-height: 1.45"><b>A link:</b> your Mealwright server reads the page and shows you what it found. Nothing is saved until you choose.</span>
+<span style="font-size: 14px; line-height: 1.45"><b>Pasted text:</b> the title, ingredients and method, copied from anywhere. Nothing goes online.</span>
+</div>
+<span style="font-size: 13px; color: {{ c.muted }}; line-height: 1.45; padding: 0 4px">Recipe photos: not downloaded. <a href="Network-Phone.dc.html" style="color: {{ c.green }}; font-weight: 700">Change in Settings → Privacy</a></span>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReview }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; background: {{ c.bar }}; border-bottom: 1px solid {{ c.edge }}">
+<button onClick="{{ askLeave }}" style="border: none; background: transparent; padding: 0; color: {{ c.green }}; font: 700 15px 'Plus Jakarta Sans', sans-serif; min-height: 44px; display: flex; align-items: center; cursor: pointer">Cancel</button>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 800">Check before saving</span><span style="font-size: 12px; color: {{ c.muted }}; font-weight: 600">Step 2 of 3</span></span>
+<span style="width: 52px"></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 10px; display: flex; gap: 12px; align-items: center">
+<span role="img" aria-label="No photo" style="width: 72px; height: 72px; border-radius: 12px; border: 2px dashed {{ c.input }}; box-sizing: border-box; color: {{ c.muted }}; flex: none; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"></rect><circle cx="12" cy="13" r="3.5"></circle><path d="M8 6l1.5-2h5L16 6"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-family: 'Newsreader', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.1">Sambar</span>
+<span style="font-size: 13px; color: {{ c.muted }}">Serves 4 · 50 min · <button style="border: none; background: transparent; color: {{ c.green }}; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0">Edit</button></span>
+<span style="font-size: 12px; color: {{ c.gInk }}; font-weight: 700">Nutrition found · 320 kcal per serving</span>
+</span>
+</div>
+<span style="font-size: 13px; color: {{ c.muted }}; line-height: 1.4; margin-top: -4px; padding: 0 4px"><b style="color: {{ c.ink }}">Photo not downloaded</b> — photo downloads are off. <a href="Network-Phone.dc.html" style="color: {{ c.green }}; font-weight: 700">Settings → Privacy</a>. You can add your own photo later.</span>
+
+<div style="display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; font-weight: 700">
+<span style="background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 999px; padding: 5px 10px">5 matched</span>
+<span style="background: {{ c.aBg }}; color: {{ c.aText }}; border-radius: 999px; padding: 5px 10px">1 to confirm</span>
+<span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 5px 10px">1 needs you</span>
+<span style="background: {{ c.chip }}; color: {{ c.soft }}; border-radius: 999px; padding: 5px 10px">2 staples</span>
+</div>
+
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 2px 14px">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 12px; color: {{ c.muted }}">1 cup (200 g) thuvaram paruppu</span><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 15px"><b>200 g</b> Toor dal <span style="font-size: 12px; color: {{ c.muted }}">· also called thuvaram paruppu</span></span><span style="font-size: 12px; color: {{ c.gInk }}; font-weight: 700; white-space: nowrap">✓ Cupboard</span></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 12px; color: {{ c.muted }}">2–3 green chillies, slit</span><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 15px"><b>3</b> green chillies <span style="font-size: 12px; color: {{ c.muted }}">· the higher number</span></span><span style="font-size: 12px; color: {{ c.gInk }}; font-weight: 700; white-space: nowrap">✓ Fridge</span></span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; margin: 0 -14px; background: {{ c.aRow }}; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 12px; color: {{ c.muted }}">1 red onion, sliced</span><span style="font-size: 15px"><b>1</b> red onion</span><span style="display: flex; gap: 6px; flex-wrap: wrap"><button style="border: none; background: {{ c.aBg }}; color: {{ c.aInk }}; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Same as “Onions”</button><button style="border: 1px solid {{ c.aEdge }}; background: transparent; color: {{ c.aInk }}; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">New ingredient</button></span><span style="font-size: 12px; color: {{ c.muted }}">“Same as” adds “red onion” as another name for Onions when you save.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; margin: 0 -14px; background: {{ c.rRow }}; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 12px; color: {{ c.muted }}">¼ tsp asafoetida</span><span style="font-size: 15px; color: {{ c.red }}; font-weight: 700">Not in your ingredients</span><span style="display: flex; gap: 6px; flex-wrap: wrap"><button style="border: none; background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Pick an ingredient</button><button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">New ingredient</button><button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 13px 'Plus Jakarta Sans', sans-serif">Treat as staple</button></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 12px; color: {{ c.muted }}">a sprig of curry leaves</span><span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-size: 15px">Curry leaves <span style="font-size: 12px; color: {{ c.muted }}">· a sprig · not counted</span></span><span style="font-size: 12px; color: {{ c.gInk }}; font-weight: 700; white-space: nowrap">✓ Fridge</span></span></div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 0"><span style="font-size: 12px; color: {{ c.muted }}">salt to taste</span><span style="display: flex; justify-content: space-between"><span style="font-size: 15px">Salt <span style="font-size: 12px; color: {{ c.muted }}">· to taste</span></span><span style="font-size: 12px; color: {{ c.soft }}; font-weight: 700">Staple</span></span></div>
+</div>
+<span style="font-size: 12px; color: {{ c.muted }}; text-align: center">+ 3 more matched · Method: 6 steps found</span>
+</div>
+
+<div style="padding: 10px 16px 28px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid {{ c.edge }}; background: {{ c.bar }}">
+<span style="font-size: 12px; color: {{ c.muted }}; text-align: center">Nothing is saved until you choose.</span>
+<a href="Recipe.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save recipe</a>
+</div>
+</sc-if>
+
+<sc-if value="{{ already }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: {{ c.scrim }}; display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ closeAlready }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="You already have this recipe" style="background: {{ c.card }}; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: {{ c.input }}; align-self: center"></span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">You already have this recipe</h2>
+<div style="display: flex; gap: 12px; align-items: center; background: {{ c.bg }}; border-radius: 16px; padding: 10px">
+<span role="img" aria-label="Recipe photo" style="width: 56px; height: 56px; border-radius: 12px; background: {{ c.photo }}; flex: none"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 600">Sambar</span><span style="font-size: 13px; color: {{ c.muted }}">Imported 3 Oct from www.example.com</span></span>
+</div>
+<a href="Recipe.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Open it</a>
+<button onClick="{{ toReview }}" style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 16px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Import again as a copy</button>
+<button onClick="{{ closeAlready }}" style="border: none; background: transparent; color: {{ c.green }}; min-height: 44px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Cancel</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ leave }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: {{ c.scrim }}; display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ stay }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="Save as a draft?" style="background: {{ c.card }}; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 12px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: {{ c.input }}; align-self: center"></span>
+<h2 style="margin: 0; font-size: 22px; font-weight: 800">Save as a draft?</h2>
+<p style="margin: 0; font-size: 15px; color: {{ c.soft }}; line-height: 1.5">You haven't finished checking Sambar. A draft keeps your choices so far for 15 days, in Recipes → Drafts. Anyone in your household can carry on.</p>
+<a href="Drafts05-Phone.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font-size: 16px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save draft</a>
+<button onClick="{{ stay }}" style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 16px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Keep checking</button>
+<a href="Recipes-Phone.dc.html" style="color: {{ c.red }}; min-height: 44px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Discard</a>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["start","off","already","review"],"default":"start"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',field:'#FFFFFF',ink:'#17201C',muted:'#5B655F',soft:'#3F4843',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',chip:'#F1F3F0',green:'#2E7D5B',gInk:'#1F5C42',gBg:'#E4F1EA',red:'#9C320B',rBg:'#FDE8E2',rRow:'#FFF6F2',aInk:'#4F3500',aText:'#6E4A00',aBg:'#FDF1D8',aRow:'#FFFBF2',aEdge:'#E9C98A',btn:'#17201C',btnInk:'#FFFFFF',scrim:'rgba(23, 32, 28, 0.45)',photo:'#EFE6D4'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',field:'#1B221F',ink:'#E9EEEB',muted:'#A3AFA8',soft:'#C9D2CD',line:'#26302B',edge:'#2A332E',input:'#39433D',chip:'#252E29',green:'#6FCF9E',gInk:'#8FE0B5',gBg:'#1F3A2D',red:'#FF9B76',rBg:'#3A2019',rRow:'#2E1C16',aInk:'#F3D58C',aText:'#F3C766',aBg:'#3A2E14',aRow:'#2A2414',aEdge:'#6B5526',btn:'#E9EEEB',btnInk:'#111614',scrim:'rgba(0, 0, 0, 0.55)',photo:'#34302A'};
+const s = this.state || {};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = s.show ?? (this.props.show ?? 'start');
+const set = (o) => () => this.setState(o);
+return {
+c: c,
+isStartish: show !== 'review', isOn: show === 'start' || show === 'already', isOff: show === 'off',
+isReview: show === 'review', already: show === 'already',
+leave: !!s.leave,
+toAlready: set({ show: 'already' }), closeAlready: set({ show: 'start' }), toReview: set({ show: 'review' }),
+askLeave: set({ leave: true }), stay: set({ leave: false })
+};
+}
+}
+</script>
+</body>
+</html>

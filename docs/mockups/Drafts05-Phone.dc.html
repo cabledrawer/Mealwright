@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Drafts (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 52px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+<a href="Recipes-Phone.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 4px; color: {{ c.green }}; font-size: 15px; font-weight: 700; text-decoration: none; min-height: 40px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Recipes</a>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 4px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Drafts</h1>
+<span style="font-size: 14px; color: {{ c.muted }}; font-weight: 500">Imports your household hasn't finished · kept for 15 days</span>
+</div>
+
+<div style="position: relative; border-radius: 20px; overflow: hidden">
+<sc-if value="{{ right }}" hint-placeholder-val="{{ false }}"><a href="Import05-Phone.dc.html" style="position: absolute; top: 0; left: 0; bottom: 0; width: 118px; background: {{ c.swipeG }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 700; text-decoration: none"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Carry on</a></sc-if>
+<article style="position: relative; transform: translateX({{ shift1 }}); background: {{ c.card }}; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 17px; font-weight: 800">Chettinad kuzhambu</span><span style="font-size: 13px; color: {{ c.muted }}">From bbcgoodfood.com · started by Tess</span></span>
+<span style="font-size: 12px; font-weight: 700; color: {{ c.muted }}; white-space: nowrap; padding-top: 3px">13 days left</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><div style="width: 67%; height: 6px; background: {{ c.green }}"></div></div>
+<span style="font-size: 13px; color: {{ c.muted }}">6 of 9 ingredients checked · 3 need you</span>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px">
+<a href="Import05-Phone.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; min-height: 46px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Carry on</a>
+<button onClick="{{ del }}" style="border: none; background: {{ c.chip }}; color: {{ c.ink }}; border-radius: 14px; min-height: 46px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button>
+</div>
+</article>
+</div>
+
+<sc-if value="{{ showDosa }}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; border-radius: 20px; overflow: hidden">
+<sc-if value="{{ left }}" hint-placeholder-val="{{ false }}"><button onClick="{{ del }}" style="position: absolute; top: 0; right: 0; bottom: 0; width: 118px; border: none; background: {{ c.swipeR }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font: 700 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Delete</button></sc-if>
+<article style="position: relative; transform: translateX({{ shift2 }}); background: {{ c.card }}; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 17px; font-weight: 800">Rava dosa</span><span style="font-size: 13px; color: {{ c.muted }}">Pasted text · started by Wren</span></span>
+<span style="font-size: 12px; font-weight: 700; color: {{ c.muted }}; white-space: nowrap; padding-top: 3px">15 days left</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><div style="width: 20%; height: 6px; background: {{ c.green }}"></div></div>
+<span style="font-size: 13px; color: {{ c.muted }}">2 of 10 ingredients checked</span>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px">
+<a href="Import05-Phone.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; min-height: 46px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Carry on</a>
+<button onClick="{{ del }}" style="border: none; background: {{ c.chip }}; color: {{ c.ink }}; border-radius: 14px; min-height: 46px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button>
+</div>
+</article>
+</div>
+</sc-if>
+
+<article style="background: {{ c.card }}; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 17px; font-weight: 800">Aloo paratha</span><span style="font-size: 13px; color: {{ c.muted }}">From www.example.com · started by Wren</span></span>
+<span style="font-size: 12px; font-weight: 800; color: {{ c.red }}; white-space: nowrap; padding-top: 3px">3 days left</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><div style="width: 100%; height: 6px; background: {{ c.green }}"></div></div>
+<span style="font-size: 13px; color: {{ c.gInk }}; font-weight: 700">All checked · ready to save</span>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px">
+<a href="Recipe.dc.html" style="background: {{ c.green }}; color: {{ c.onGreen }}; border-radius: 14px; min-height: 46px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save recipe</a>
+<button onClick="{{ del }}" style="border: none; background: {{ c.chip }}; color: {{ c.ink }}; border-radius: 14px; min-height: 46px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button>
+</div>
+</article>
+
+<span style="font-size: 13px; color: {{ c.muted }}; text-align: center; padding: 4px 12px; line-height: 1.45">Swipe right to carry on, left to delete — the buttons do the same. Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.</span>
+</div>
+
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 100px; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2)">Deleted the Rava dosa draft<button onClick="{{ undo }}" style="border: none; background: transparent; color: {{ c.btnInk }}; padding: 10px 14px; min-height: 44px; font: 800 14px 'Plus Jakarta Sans', sans-serif; text-decoration: underline; cursor: pointer">Undo</button></div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: {{ c.bar }}; border-top: 1px solid {{ c.edge }}; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Shop.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Phone-Pantry.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Recipes-Phone.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.green }}; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["list","right","left","deleted"],"default":"list"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',edge:'#E3E6E2',chip:'#F1F3F0',green:'#2E7D5B',onGreen:'#FFFFFF',gInk:'#1F5C42',red:'#9C320B',btn:'#17201C',btnInk:'#FFFFFF',swipeG:'#2E7D5B',swipeR:'#B3261E'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',edge:'#2A332E',chip:'#252E29',green:'#6FCF9E',onGreen:'#111614',gInk:'#8FE0B5',red:'#FF9B76',btn:'#E9EEEB',btnInk:'#111614',swipeG:'#2E7D5B',swipeR:'#C8442F'};
+const s = this.state || {};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = s.show ?? (this.props.show ?? 'list');
+const set = (o) => () => this.setState(o);
+return {
+c: c,
+right: show === 'right', left: show === 'left', deleted: show === 'deleted', showDosa: show !== 'deleted',
+shift1: show === 'right' ? '118px' : '0px', shift2: show === 'left' ? '-118px' : '0px',
+del: set({ show: 'deleted' }), undo: set({ show: 'list' })
+};
+}
+}
+</script>
+</body>
+</html>

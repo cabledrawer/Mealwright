@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Shopping, move to another shop or list (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 30px 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: {{ c.muted }}; font-weight: 500">6 to buy · saved</span><h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Shopping</h1></div>
+<span style="width: 44px; height: 44px; border-radius: 22px; background: {{ c.gBg }}; color: {{ c.gInk }}; display: flex; align-items: center; justify-content: center; font-weight: 800">K</span>
+</div>
+<label style="display: flex; align-items: center; border: 1px solid {{ c.input }}; background: {{ c.field }}; border-radius: 14px; padding: 0 14px; min-height: 48px; box-sizing: border-box"><input type="text" placeholder="Add an item…" aria-label="Add an item" style="border: none; background: transparent; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}; flex: 1; min-width: 0; outline: none"></label>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 800">Spice Bazaar</h2>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 0 14px">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 2px"><button role="checkbox" aria-checked="false" aria-label="Tick Toor dal" style="width: 28px; height: 28px; flex: none; border: 2px solid {{ c.muted }}; border-radius: 8px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 16px; font-weight: 600">Toor dal</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600">500 g</span></div>
+</div>
+</div>
+
+<sc-if value="{{ moved }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 800">Lidl</h2>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 0 14px; box-shadow: 0 0 0 2px {{ c.blue }}">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 2px"><button role="checkbox" aria-checked="false" aria-label="Tick Coriander" style="width: 28px; height: 28px; flex: none; border: 2px solid {{ c.muted }}; border-radius: 8px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 16px; font-weight: 600">Coriander</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600">2 bunches</span></div>
+</div>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 4px 0 0; font-size: 18px; font-weight: 800">Any shop</h2>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 0 14px">
+<sc-if value="{{ notMoved }}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; overflow: hidden; border-bottom: 1px solid {{ c.line }}; margin: 0 -14px">
+<button onClick="{{ openPicker }}" style="position: absolute; top: 0; left: 0; bottom: 0; width: 104px; border: none; background: {{ c.swipeB }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h12M12 6l6 6-6 6"></path></svg>Move…</button>
+<div style="position: relative; transform: translateX(104px); background: {{ c.card }}; display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 16px"><button role="checkbox" aria-checked="false" aria-label="Tick Coriander" style="width: 28px; height: 28px; flex: none; border: 2px solid {{ c.muted }}; border-radius: 8px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 16px; font-weight: 600">Coriander</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600">2 bunches</span></div>
+</div>
+</sc-if>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid {{ c.line }}; padding: 0 2px"><button role="checkbox" aria-checked="false" aria-label="Tick Onion" style="width: 28px; height: 28px; flex: none; border: 2px solid {{ c.muted }}; border-radius: 8px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 16px; font-weight: 600">Onion</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600">4</span></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 2px"><button role="checkbox" aria-checked="false" aria-label="Tick Green chillies" style="width: 28px; height: 28px; flex: none; border: 2px solid {{ c.muted }}; border-radius: 8px; background: transparent; padding: 0"></button><span style="flex: 1; font-size: 16px; font-weight: 600">Green chillies</span><span style="border: 1px solid {{ c.input }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600">10</span></div>
+</div>
+</div>
+<span style="font-size: 12px; color: {{ c.muted }}; line-height: 1.45">Swipe right: Move to another shop or list. Swipe left: Remove (asks first). A swipe never ticks. The same choices are in the amount box.</span>
+</div>
+
+<sc-if value="{{ moved }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 100px; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2)">Moved Coriander to Lidl<button onClick="{{ undo }}" style="border: none; background: transparent; color: {{ c.btnInk }}; padding: 10px 14px; min-height: 44px; font: 800 14px 'Plus Jakarta Sans', sans-serif; text-decoration: underline; cursor: pointer">Undo</button></div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: {{ c.bar }}; border-top: 1px solid {{ c.edge }}; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="ShopMove-Phone.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.green }}; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="PantrySwipe-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+<sc-if value="{{ picker }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: {{ c.scrim }}; display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ closePicker }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="Move Coriander to" style="background: {{ c.card }}; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 10px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: {{ c.input }}; align-self: center"></span>
+<span style="font-size: 20px; font-weight: 800">Move Coriander to…</span>
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; padding-top: 4px">ANOTHER SHOP</span>
+<div role="radiogroup" aria-label="Shop" style="display: flex; flex-direction: column; border: 1px solid {{ c.line }}; border-radius: 16px; overflow: hidden">
+<button role="radio" aria-checked="false" style="border: none; border-bottom: 1px solid {{ c.line }}; background: transparent; color: {{ c.ink }}; min-height: 52px; padding: 0 16px; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif">Tesco</button>
+<button onClick="{{ doMove }}" role="radio" aria-checked="false" style="border: none; border-bottom: 1px solid {{ c.line }}; background: transparent; color: {{ c.ink }}; min-height: 52px; padding: 0 16px; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Lidl</button>
+<button role="radio" aria-checked="false" style="border: none; border-bottom: 1px solid {{ c.line }}; background: transparent; color: {{ c.ink }}; min-height: 52px; padding: 0 16px; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif">Spice Bazaar</button>
+<button role="radio" aria-checked="true" style="border: none; background: {{ c.gBg }}; color: {{ c.gInk }}; min-height: 52px; padding: 0 16px; text-align: left; font: 700 16px 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: space-between">Any shop<span style="font-size: 13px">now</span></button>
+</div>
+<span style="font-size: 12px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; padding-top: 4px">ANOTHER LIST</span>
+<div style="display: flex; flex-direction: column; border: 1px solid {{ c.line }}; border-radius: 16px; overflow: hidden">
+<button style="border: none; background: transparent; color: {{ c.ink }}; min-height: 52px; padding: 0 16px; text-align: left; font: 600 16px 'Plus Jakarta Sans', sans-serif; display: flex; align-items: center; justify-content: space-between">Diwali party<span style="font-size: 13px; color: {{ c.muted }}">Extra list · 5</span></button>
+</div>
+<button onClick="{{ closePicker }}" style="border: none; background: transparent; color: {{ c.green }}; min-height: 44px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Cancel</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["swipe","picker","moved"],"default":"swipe"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',field:'#FFFFFF',ink:'#17201C',muted:'#5B655F',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',green:'#2E7D5B',gInk:'#1F5C42',gBg:'#E4F1EA',blue:'#2B5C8A',btn:'#17201C',btnInk:'#FFFFFF',swipeB:'#2B5C8A',scrim:'rgba(23, 32, 28, 0.45)'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',field:'#1B221F',ink:'#E9EEEB',muted:'#A3AFA8',line:'#26302B',edge:'#2A332E',input:'#39433D',green:'#6FCF9E',gInk:'#8FE0B5',gBg:'#1F3A2D',blue:'#8DB8E6',btn:'#E9EEEB',btnInk:'#111614',swipeB:'#2B5C8A',scrim:'rgba(0, 0, 0, 0.55)'};
+const s = this.state || {};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = s.show ?? (this.props.show ?? 'swipe');
+const set = (o) => () => this.setState(o);
+return {
+c: c, moved: show === 'moved', notMoved: show !== 'moved', picker: show === 'picker',
+openPicker: set({ show: 'picker' }), closePicker: set({ show: 'swipe' }), doMove: set({ show: 'moved' }), undo: set({ show: 'swipe' })
+};
+}
+}
+</script>
+</body>
+</html>

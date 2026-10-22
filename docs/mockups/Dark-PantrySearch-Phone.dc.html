@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – 7 · Pantry search as one list · phone · dark</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,500;6..72,600&amp;display=swap">
+<style>
+html,body{overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+body{margin:0;background:#111614}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; overflow: hidden; background: #111614"><dc-import name="PantrySwipe-Phone" show="search" theme="dark" hint-size="390px,844px"></dc-import></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

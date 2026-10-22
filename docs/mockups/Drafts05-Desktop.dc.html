@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Drafts (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+</style>
+</helmet>
+<div style="min-height: 900px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-wrap: wrap; position: relative">
+
+<aside aria-label="Sidebar" style="flex: 0 0 240px; background: {{ c.bar }}; border-right: 1px solid {{ c.edge }}; padding: 20px 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; align-items: center; gap: 10px; padding: 0 8px 16px"><img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" aria-hidden="true" style="width: 34px; height: 34px; display: block"><span style="font-size: 18px; font-weight: 800">Mealwright</span></span>
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Desktop-Today.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Today</a>
+<a href="Desktop-Plan.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Plan</a>
+<a href="Desktop-Shop.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Shopping</a>
+<a href="Desktop-Pantry.dc.html" style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Pantry</a>
+<span style="border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 700; color: {{ c.ink }}">Recipes</span>
+<a href="Desktop-Recipe.dc.html" style="border-radius: 12px; padding: 8px 12px 8px 26px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">All recipes</a>
+<a href="Drafts05-Desktop.dc.html" aria-current="page" style="border-radius: 12px; padding: 8px 12px 8px 26px; font-size: 14px; font-weight: 700; text-decoration: none; color: {{ c.gInk }}; background: {{ c.gBg }}; display: flex; justify-content: space-between">Drafts<span>3</span></a>
+<a href="Ingredients-Desktop.dc.html" style="border-radius: 12px; padding: 8px 12px 8px 26px; font-size: 14px; font-weight: 600; text-decoration: none; color: {{ c.soft }}">Ingredients</a>
+</nav>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 26px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 13px; color: {{ c.muted }}; font-weight: 600"><a href="Desktop-Recipe.dc.html" style="color: {{ c.green }}">Recipes</a> › Drafts</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Drafts</h1>
+<span style="font-size: 14px; color: {{ c.muted }}">Imports your household hasn't finished · kept for 15 days, then deleted quietly</span>
+</div>
+<a href="Import05-Desktop.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 999px; padding: 12px 20px; font-size: 14px; font-weight: 700; text-decoration: none">Import a recipe</a>
+</div>
+
+<div role="table" aria-label="Drafts" style="background: {{ c.card }}; border-radius: 20px; padding: 6px 18px; display: flex; flex-direction: column">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) 220px; gap: 12px; align-items: center; padding: 12px 0; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}">
+<span role="columnheader">RECIPE</span><span role="columnheader">FROM</span><span role="columnheader">STARTED BY</span><span role="columnheader">CHECKED</span><span role="columnheader">LEFT</span><span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Actions</span></span>
+</div>
+
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) 220px; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid {{ c.line }}; font-size: 14px">
+<span role="cell" style="font-size: 16px; font-weight: 800">Chettinad kuzhambu</span>
+<span role="cell" style="color: {{ c.soft }}">bbcgoodfood.com</span>
+<span role="cell" style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 13px; background: {{ c.gBg }}; color: {{ c.gInk }}; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">T</span>Tess</span>
+<span role="cell" style="display: flex; flex-direction: column; gap: 4px"><span aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><span style="display: block; width: 67%; height: 6px; background: {{ c.green }}"></span></span><span style="font-size: 12px; color: {{ c.muted }}">6 of 9 · 3 need you</span></span>
+<span role="cell" style="color: {{ c.muted }}; font-weight: 700">13 days</span>
+<span role="cell" style="display: flex; gap: 6px; justify-content: flex-end"><a href="Import05-Desktop.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700; text-decoration: none">Carry on</a><button onClick="{{ del }}" style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 999px; padding: 9px 14px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button></span>
+</div>
+
+<sc-if value="{{ showDosa }}" hint-placeholder-val="{{ true }}">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) 220px; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid {{ c.line }}; font-size: 14px">
+<span role="cell" style="font-size: 16px; font-weight: 800">Rava dosa</span>
+<span role="cell" style="color: {{ c.soft }}">Pasted text</span>
+<span role="cell" style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 13px; background: {{ c.pBg }}; color: {{ c.pInk }}; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">W</span>Wren</span>
+<span role="cell" style="display: flex; flex-direction: column; gap: 4px"><span aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><span style="display: block; width: 20%; height: 6px; background: {{ c.green }}"></span></span><span style="font-size: 12px; color: {{ c.muted }}">2 of 10</span></span>
+<span role="cell" style="color: {{ c.muted }}; font-weight: 700">15 days</span>
+<span role="cell" style="display: flex; gap: 6px; justify-content: flex-end"><a href="Import05-Desktop.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700; text-decoration: none">Carry on</a><button onClick="{{ del }}" style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 999px; padding: 9px 14px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button></span>
+</div>
+</sc-if>
+
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.8fr) 220px; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid {{ c.line }}; font-size: 14px">
+<span role="cell" style="font-size: 16px; font-weight: 800">Aloo paratha</span>
+<span role="cell" style="color: {{ c.soft }}">www.example.com</span>
+<span role="cell" style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 13px; background: {{ c.pBg }}; color: {{ c.pInk }}; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center">W</span>Wren</span>
+<span role="cell" style="display: flex; flex-direction: column; gap: 4px"><span aria-hidden="true" style="height: 6px; border-radius: 3px; background: {{ c.edge }}; overflow: hidden"><span style="display: block; width: 100%; height: 6px; background: {{ c.green }}"></span></span><span style="font-size: 12px; color: {{ c.gInk }}; font-weight: 700">All checked · ready to save</span></span>
+<span role="cell" style="color: {{ c.red }}; font-weight: 800">3 days</span>
+<span role="cell" style="display: flex; gap: 6px; justify-content: flex-end"><a href="Desktop-Recipe.dc.html" style="background: {{ c.green }}; color: {{ c.onGreen }}; border-radius: 999px; padding: 9px 16px; font-size: 13px; font-weight: 700; text-decoration: none">Save recipe</a><button onClick="{{ del }}" style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 999px; padding: 9px 14px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Delete</button></span>
+</div>
+</div>
+<span style="font-size: 13px; color: {{ c.muted }}">Anyone in your household can carry on with a draft. Nothing here is in your recipes or ingredients until it's saved.</span>
+</main>
+
+<sc-if value="{{ deleted }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; padding: 6px 6px 6px 18px; display: flex; align-items: center; gap: 18px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2)">Deleted the Rava dosa draft<button onClick="{{ undo }}" style="border: none; background: transparent; color: {{ c.btnInk }}; padding: 10px 14px; font: 800 14px 'Plus Jakarta Sans', sans-serif; text-decoration: underline; cursor: pointer">Undo · Ctrl+Z</button></div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["list","deleted"],"default":"list"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',soft:'#3F4843',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',green:'#2E7D5B',onGreen:'#FFFFFF',gInk:'#1F5C42',gBg:'#E4F1EA',pBg:'#EDE7F6',pInk:'#4A2F7A',red:'#9C320B',btn:'#17201C',btnInk:'#FFFFFF'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',soft:'#C9D2CD',line:'#26302B',edge:'#2A332E',input:'#39433D',green:'#6FCF9E',onGreen:'#111614',gInk:'#8FE0B5',gBg:'#1F3A2D',pBg:'#2E2640',pInk:'#CDBDF0',red:'#FF9B76',btn:'#E9EEEB',btnInk:'#111614'};
+const s = this.state || {};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = s.show ?? (this.props.show ?? 'list');
+const set = (o) => () => this.setState(o);
+return { c: c, deleted: show === 'deleted', showDosa: show !== 'deleted', del: set({ show: 'deleted' }), undo: set({ show: 'list' }) };
+}
+}
+</script>
+</body>
+</html>

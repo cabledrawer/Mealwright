@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Pantry search as one list (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+</style>
+</helmet>
+<div style="min-height: 900px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-wrap: wrap">
+
+<aside aria-label="Sidebar (collapsed)" style="flex: 0 0 72px; background: {{ c.bar }}; border-right: 1px solid {{ c.edge }}; padding: 18px 10px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 12px">
+<img src="/_blob/027f0543a3fb80ee025ea74a3ad8b842" alt="" aria-hidden="true" style="width: 40px; height: 40px; display: block; flex: none">
+<nav aria-label="Main" style="display: flex; flex-direction: column; gap: 6px; align-items: center; margin-top: 10px">
+<a href="Desktop-Today.dc.html" aria-label="Today" title="Today" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></a>
+<a href="Desktop-Plan.dc.html" aria-label="Plan" title="Plan" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></a>
+<a href="Desktop-Shop.dc.html" aria-label="Shopping" title="Shopping" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg></a>
+<a href="Desktop-Pantry.dc.html" aria-label="Pantry" aria-current="page" title="Pantry" style="width: 48px; height: 48px; border-radius: 14px; background: {{ c.gBg }}; color: {{ c.gInk }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg></a>
+<a href="Desktop-Recipe.dc.html" aria-label="Recipes" title="Recipes" style="width: 48px; height: 48px; border-radius: 14px; color: {{ c.soft }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg></a>
+</nav>
+</aside>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 24px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: {{ c.muted }}; font-weight: 500">17 items · 3 use soon</span><h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1></div>
+<label style="flex: 0 1 460px; display: flex; align-items: center; gap: 8px; border: 2px solid {{ c.green }}; background: {{ c.field }}; border-radius: 14px; padding: 0 6px 0 14px; min-height: 46px; box-sizing: border-box"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ c.muted }}" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" value="paruppu" aria-label="Search pantry" style="border: none; background: transparent; font: 500 15px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}; flex: 1; min-width: 0; outline: none"><a href="Desktop-Pantry.dc.html" style="color: {{ c.green }}; font-size: 14px; font-weight: 700; padding: 8px 10px">Clear · Esc</a></label>
+</div>
+
+<section aria-label="Search results" style="background: {{ c.card }}; border-radius: 20px; padding: 8px 20px; display: flex; flex-direction: column">
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; padding: 10px 0">3 found · in every place · the places' columns come back when you clear the search</span>
+<div role="table" aria-label="Results">
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1.2fr) 160px; gap: 14px; align-items: center; padding: 10px 0; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; color: {{ c.muted }}; border-top: 1px solid {{ c.line }}"><span role="columnheader">INGREDIENT</span><span role="columnheader">MATCHED</span><span role="columnheader">HOW MUCH</span><span role="columnheader">PLACE</span></div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1.2fr) 160px; gap: 14px; align-items: center; min-height: 60px; border-top: 1px solid {{ c.line }}; font-size: 14px"><span role="cell" style="font-size: 16px; font-weight: 700">Toor dal</span><span role="cell" style="color: {{ c.muted }}">also called <b style="color: {{ c.ink }}">thuvaram paruppu</b></span><span role="cell">1½ packets · about 750 g</span><span role="cell"><span style="background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Cupboard</span></span></div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1.2fr) 160px; gap: 14px; align-items: center; min-height: 60px; border-top: 1px solid {{ c.line }}; font-size: 14px"><span role="cell" style="font-size: 16px; font-weight: 700">Moong dal</span><span role="cell" style="color: {{ c.muted }}">also called <b style="color: {{ c.ink }}">pasi paruppu</b></span><span role="cell">400 g</span><span role="cell"><span style="background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Cupboard</span></span></div>
+<div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 1.2fr) 160px; gap: 14px; align-items: center; min-height: 60px; border-top: 1px solid {{ c.line }}; font-size: 14px"><span role="cell" style="font-size: 16px; font-weight: 700">Paruppu usili</span><span role="cell" style="color: {{ c.muted }}">name</span><span role="cell">2 tubs left · use by 14 Jan</span><span role="cell"><span style="background: {{ c.bBg }}; color: {{ c.bInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Freezer</span></span></div>
+</div>
+</section>
+<span style="font-size: 12px; color: {{ c.muted }}">Paper cut for 0.5 if the 0.4.0 hand test still shows it: one list while searching, with the place and the other name that matched.</span>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',field:'#FFFFFF',ink:'#17201C',muted:'#5B655F',soft:'#3F4843',line:'#E8EBE7',edge:'#E3E6E2',green:'#2E7D5B',gInk:'#1F5C42',gBg:'#E4F1EA',bBg:'#E3EDF7',bInk:'#1D4570'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',field:'#1B221F',ink:'#E9EEEB',muted:'#A3AFA8',soft:'#C9D2CD',line:'#26302B',edge:'#2A332E',green:'#6FCF9E',gInk:'#8FE0B5',gBg:'#1F3A2D',bBg:'#1C2E40',bInk:'#B9D5F2'};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+return { c: c };
+}
+}
+</script>
+</body>
+</html>

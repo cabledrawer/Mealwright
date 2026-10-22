@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Pantry swipes and search (0.5)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden; position: relative">
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 30px 16px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; padding: 0 4px">
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; color: {{ c.muted }}; font-weight: 500">{{ countLine }}</span><h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1></div>
+<span style="display: flex; gap: 8px"><button aria-label="Add to pantry" style="width: 44px; height: 44px; border: none; border-radius: 22px; background: {{ c.btn }}; color: {{ c.btnInk }}; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 0"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button><span style="width: 44px; height: 44px; border-radius: 22px; background: {{ c.gBg }}; color: {{ c.gInk }}; display: flex; align-items: center; justify-content: center; font-weight: 800">K</span></span>
+</div>
+
+<label style="display: flex; align-items: center; gap: 8px; border: {{ searchBorder }}; background: {{ c.field }}; border-radius: 14px; padding: 0 6px 0 14px; min-height: 48px; box-sizing: border-box"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ c.muted }}" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><input type="search" value="{{ query }}" placeholder="Search pantry…" aria-label="Search pantry" style="border: none; background: transparent; font: 500 16px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}; flex: 1; min-width: 0; outline: none"><sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clear }}" style="border: none; background: transparent; color: {{ c.green }}; font: 700 14px 'Plus Jakarta Sans', sans-serif; min-height: 40px; padding: 0 8px; cursor: pointer">Clear</button></sc-if></label>
+
+<sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; padding: 0 4px">3 found · in every place</span>
+<section aria-label="Search results" style="background: {{ c.card }}; border-radius: 20px; padding: 4px 16px">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 72px; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 700">Toor dal</span><span style="font-size: 13px; color: {{ c.muted }}">also called <b style="color: {{ c.ink }}">thuvaram paruppu</b> · 1½ packets · about 750 g</span></span><span style="flex: none; display: flex; align-items: center; gap: 6px; background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Cupboard</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 72px; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 700">Moong dal</span><span style="font-size: 13px; color: {{ c.muted }}">also called <b style="color: {{ c.ink }}">pasi paruppu</b> · 400 g</span></span><span style="flex: none; background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Cupboard</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 72px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px"><span style="font-size: 16px; font-weight: 700"><b>Paruppu</b> usili</span><span style="font-size: 13px; color: {{ c.muted }}">2 tubs left · use by 14 Jan</span></span><span style="flex: none; background: {{ c.bBg }}; color: {{ c.bInk }}; border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 800">Freezer</span></div>
+</section>
+<span style="font-size: 12px; color: {{ c.muted }}; padding: 0 4px; line-height: 1.45">One list while you search, whatever place you were looking at. The place is on every result.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ notSearch }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<nav aria-label="Jump to a place" style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px"><a href="#fridge" style="flex: none; border: 1px solid {{ c.input }}; background: {{ c.card }}; color: {{ c.ink }}; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; text-decoration: none">Fridge · 6</a><a href="#freezer" style="flex: none; border: 1px solid {{ c.input }}; background: {{ c.card }}; color: {{ c.ink }}; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; text-decoration: none">Freezer · 3</a><a href="#cupboard" style="flex: none; border: 1px solid {{ c.input }}; background: {{ c.card }}; color: {{ c.ink }}; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; text-decoration: none">Cupboard · 7</a><a href="#spice" style="flex: none; border: 1px solid {{ c.input }}; background: {{ c.card }}; color: {{ c.ink }}; border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; text-decoration: none">Spice rack · 1</a></nav>
+
+<sc-if value="{{ useSoonShort }}" hint-placeholder-val="{{ true }}">
+<div style="background: {{ c.usBg }}; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 16px; font-weight: 800; color: {{ c.usInk }}">Use soon · 3</span><span style="font-size: 15px">Spinach · Today, Coriander · Tomorrow, Paneer · Mon</span></div>
+</sc-if>
+<sc-if value="{{ isUseSoon }}" hint-placeholder-val="{{ false }}">
+<section aria-label="Use soon" style="background: {{ c.usBg }}; border-radius: 20px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 16px; font-weight: 800; color: {{ c.usInk }}; padding: 4px 4px 2px">Use soon · 3</span>
+<div style="position: relative; overflow: hidden; border-radius: 14px">
+<button onClick="{{ openUsed }}" style="position: absolute; top: 0; left: 0; bottom: 0; width: 104px; border: none; background: {{ c.swipeG }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>Used…</button>
+<div style="position: relative; transform: translateX(104px); background: {{ c.card }}; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 12px"><span style="flex: 1; font-size: 15px; font-weight: 700">Spinach <span style="font-weight: 500; color: {{ c.muted }}">· Fridge · 200 g</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700">Today</span></div>
+</div>
+<div style="background: {{ c.card }}; border-radius: 14px; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 12px"><span style="flex: 1; font-size: 15px; font-weight: 700">Coriander <span style="font-weight: 500; color: {{ c.muted }}">· Fridge · 1 bunch</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700">Tomorrow</span></div>
+<div style="background: {{ c.card }}; border-radius: 14px; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 12px"><span style="flex: 1; font-size: 15px; font-weight: 700">Paneer <span style="font-weight: 500; color: {{ c.muted }}">· Fridge · 400 g</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 700">Mon</span></div>
+</section>
+</sc-if>
+
+<section id="fridge" aria-label="Fridge" style="background: {{ c.card }}; border-radius: 20px; padding: 6px 16px 4px; overflow: hidden">
+<h2 style="margin: 0; display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 2px solid {{ c.line }}; font-size: 19px; font-weight: 800"><span style="width: 34px; height: 34px; border-radius: 10px; background: {{ c.gBg }}; color: {{ c.gInk }}; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"></rect><path d="M6 10h12M9 6v2M9 13v3"></path></svg></span><span style="flex: 1">Fridge</span><span style="font-size: 14px; font-weight: 700; color: {{ c.muted }}">{{ fridgeCount }}</span></h2>
+
+<div style="position: relative; margin: 0 -16px; border-bottom: 1px solid {{ c.line }}; overflow: hidden">
+<sc-if value="{{ spinachSwiped }}" hint-placeholder-val="{{ true }}"><button onClick="{{ openUsed }}" style="position: absolute; top: 0; left: 0; bottom: 0; width: 104px; border: none; background: {{ c.swipeG }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg>Used…</button></sc-if>
+<div style="position: relative; transform: translateX({{ spinachShift }}); background: {{ c.card }}; display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Spinach</span><span style="font-size: 14px; color: {{ c.muted }}">200 g</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 700">Today</span></div>
+</div>
+
+<sc-if value="{{ showCoriander }}" hint-placeholder-val="{{ true }}">
+<div style="position: relative; margin: 0 -16px; border-bottom: 1px solid {{ c.line }}; overflow: hidden">
+<sc-if value="{{ corianderSwiped }}" hint-placeholder-val="{{ false }}"><button onClick="{{ doBin }}" style="position: absolute; top: 0; right: 0; bottom: 0; width: 104px; border: none; background: {{ c.swipeR }}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 700 13px 'Plus Jakarta Sans', sans-serif; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"></path></svg>Binned</button></sc-if>
+<div style="position: relative; transform: translateX({{ corianderShift }}); background: {{ c.card }}; display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 16px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Coriander</span><span style="font-size: 14px; color: {{ c.muted }}">1 bunch</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 700">Tomorrow</span></div>
+</div>
+</sc-if>
+
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Paneer</span><span style="font-size: 14px; color: {{ c.muted }}">2 packs · 400 g · tap for dates</span></span><span style="background: {{ c.rBg }}; color: {{ c.red }}; border-radius: 999px; padding: 4px 12px; font-size: 14px; font-weight: 700">Mon</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px; border-bottom: 1px solid {{ c.line }}"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Milk</span><span style="font-size: 14px; color: {{ c.muted }}">1½ bottles · about 1.5 L</span></span><span style="font-size: 14px; color: {{ c.muted }}">Tue</span></div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 60px"><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Green chillies</span><span style="font-size: 14px; color: {{ c.muted }}">8</span></span><span style="font-size: 14px; color: {{ c.muted }}">bought 20 Oct</span></div>
+</section>
+<span style="font-size: 12px; color: {{ c.muted }}; padding: 0 4px; line-height: 1.45">Swipe right: Used… · swipe left: Binned. Tap a row for everything else (To freezer, Move to, Change use-by).</span>
+</div>
+</sc-if>
+</div>
+
+<sc-if value="{{ binned }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 16px; right: 16px; bottom: 100px; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 14px; padding: 6px 6px 6px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.2)">Binned 1 bunch Coriander<button onClick="{{ undo }}" style="border: none; background: transparent; color: {{ c.btnInk }}; padding: 10px 14px; min-height: 44px; font: 800 14px 'Plus Jakarta Sans', sans-serif; text-decoration: underline; cursor: pointer">Undo</button></div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: {{ c.bar }}; border-top: 1px solid {{ c.edge }}; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Plan.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Shop.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="PantrySwipe-Phone.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.green }}; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: {{ c.muted }}; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+<sc-if value="{{ usedSheet }}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; background: {{ c.scrim }}; display: flex; flex-direction: column; justify-content: flex-end">
+<button onClick="{{ closeUsed }}" aria-label="Close" style="flex: 1; border: none; background: transparent; padding: 0; cursor: pointer"></button>
+<div role="dialog" aria-label="How much Spinach did you use?" style="background: {{ c.card }}; border-radius: 28px 28px 0 0; padding: 10px 20px 30px; display: flex; flex-direction: column; gap: 14px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: {{ c.input }}; align-self: center"></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 20px; font-weight: 800">How much Spinach did you use?</span><span style="font-size: 14px; color: {{ c.muted }}">Fridge · 200 g · use by Today</span></span>
+<div role="group" aria-label="Quick amounts" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 14px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif">¼</button>
+<button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 14px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif">½</button>
+<button style="border: 1px solid {{ c.input }}; background: transparent; color: {{ c.ink }}; border-radius: 14px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif">¾</button>
+<button style="border: 2px solid {{ c.green }}; background: {{ c.gBg }}; color: {{ c.gInk }}; border-radius: 14px; min-height: 52px; font: 800 16px 'Plus Jakarta Sans', sans-serif">All</button>
+</div>
+<label style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700">Or exactly<input type="text" inputmode="decimal" placeholder="e.g. 150" style="flex: 1; min-width: 0; min-height: 48px; border: 1px solid {{ c.input }}; border-radius: 12px; background: {{ c.field }}; color: {{ c.ink }}; padding: 0 12px; font: 600 16px 'Plus Jakarta Sans', sans-serif">g</label>
+<button onClick="{{ closeUsed }}" style="border: none; background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font: 700 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Used all 200 g</button>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"show":{"editor":"enum","options":["used-swipe","used-sheet","bin-swipe","binned","use-soon","search"],"default":"used-swipe"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',field:'#FFFFFF',ink:'#17201C',muted:'#5B655F',line:'#E8EBE7',edge:'#E3E6E2',input:'#D3D8D3',green:'#2E7D5B',gInk:'#1F5C42',gBg:'#E4F1EA',bBg:'#E3EDF7',bInk:'#1D4570',red:'#9C320B',rBg:'#FDE8E2',usBg:'#FCE9E2',usInk:'#7A2A0B',btn:'#17201C',btnInk:'#FFFFFF',swipeG:'#2E7D5B',swipeR:'#B3261E',scrim:'rgba(23, 32, 28, 0.45)'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',field:'#1B221F',ink:'#E9EEEB',muted:'#A3AFA8',line:'#26302B',edge:'#2A332E',input:'#39433D',green:'#6FCF9E',gInk:'#8FE0B5',gBg:'#1F3A2D',bBg:'#1C2E40',bInk:'#B9D5F2',red:'#FF9B76',rBg:'#3A2019',usBg:'#3A2019',usInk:'#FFB59A',btn:'#E9EEEB',btnInk:'#111614',swipeG:'#2E7D5B',swipeR:'#C8442F',scrim:'rgba(0, 0, 0, 0.55)'};
+const s = this.state || {};
+const c = (this.props.theme ?? 'light') === 'dark' ? D : L;
+const show = s.show ?? (this.props.show ?? 'used-swipe');
+const set = (o) => () => this.setState(o);
+const search = show === 'search';
+const binned = show === 'binned';
+return {
+c: c,
+isSearch: search, notSearch: !search, query: search ? 'paruppu' : '',
+searchBorder: search ? ('2px solid ' + c.green) : ('1px solid ' + c.input),
+countLine: binned ? '16 items · 2 use soon' : '17 items · 3 use soon',
+fridgeCount: binned ? '5 items' : '6 items',
+isUseSoon: show === 'use-soon', useSoonShort: show !== 'use-soon',
+spinachSwiped: show === 'used-swipe' || show === 'used-sheet', spinachShift: (show === 'used-swipe' || show === 'used-sheet') ? '104px' : '0px',
+showCoriander: !binned, corianderSwiped: show === 'bin-swipe', corianderShift: show === 'bin-swipe' ? '-104px' : '0px',
+binned: binned, usedSheet: show === 'used-sheet',
+openUsed: set({ show: 'used-sheet' }), closeUsed: set({ show: 'used-swipe' }),
+doBin: set({ show: 'binned' }), undo: set({ show: 'bin-swipe' }), clear: set({ show: 'used-swipe' })
+};
+}
+}
+</script>
+</body>
+</html>
