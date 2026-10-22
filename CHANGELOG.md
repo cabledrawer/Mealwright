@@ -4,6 +4,9 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+- Tests: the browser tests that timed out only in a full `./check` (Pantry's open-pack test, the offline-bar test on phone and desktop, Shopping's ticked-states accessibility test) no longer do: each state is scanned once per theme instead of four times, and the tests wait for what they need instead of a fixed pause. See `docs/dev/browser-tests.md`.
+- Tests: every test run now removes its own folders in `/tmp` (the browser tests' app folders and pytest's run folders), and `./check` has a step, "tests: nothing left", that fails if any are left behind.
+
 ## [0.4.0] - 2026-10-22
 
 The recipes milestone: recipes you type in yourself, with photos, on a phone and a computer (three panes, like Notes), each saying what is in the pantry; recipes that use other recipes; Ingredients showing which recipes use each ingredient. Also a faster start offline or on a weak signal, clearer Shopping rows, and security fixes. Not published; for testing on cabledrawer's homelab.
