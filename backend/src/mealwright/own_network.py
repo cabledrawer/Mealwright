@@ -8,14 +8,15 @@ home servers or this server itself (SSRF).
 
 - **Needs listing:** private, loopback, link-local, unique-local, shared (CGNAT,
   100.64.0.0/10), multicast, unspecified and reserved addresses, and IPv6 addresses that
-  carry one of these as an IPv4 address inside them (IPv4-mapped, IPv4-compatible, NAT64,
-  6to4, Teredo).
+  carry one of these as an IPv4 address inside them (IPv4-mapped, IPv4-compatible, NAT64
+  and local NAT64, 6to4, Teredo).
 - **Always blocked, even if listed:** this server itself (`localhost` by name, 127.0.0.0/8,
   ::1, and 0.0.0.0/8 and ::, which reach this server too), link-local (169.254.0.0/16 and
   fe80::/10) and the cloud "metadata" addresses (169.254.169.254 is link-local;
   100.100.100.200 and fd00:ec2::254).
 
-An entry is a host name, one address or a range (CIDR). A listed name opens every address
+An entry is a host name, one address or a range (CIDR); a /32 or /128 range is one address.
+A list holds at most MAX_ENTRIES. A listed name opens every address
 that name has (except the always-blocked ones); a listed address or range opens those
 addresses, whatever name reaches them. Ports other than 80 and 443 are allowed only for
 listed places (`mealwright.page_fetch`).
@@ -28,7 +29,7 @@ import re
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from mealwright.models import Login, OwnNetworkEntry
@@ -48,10 +49,17 @@ ALWAYS_BLOCKED: tuple[IPNetwork, ...] = (
     IPv6Network("fd00:ec2::254/128"),  # a cloud metadata address
 )
 
-# IPv6 blocks that carry an IPv4 address in their last 32 bits.
+# IPv6 blocks that carry an IPv4 address in their last 32 bits. Local NAT64 (RFC 8215) is
+# read the same way, as a /96 inside it usually is; the whole block needs listing anyway, as
+# it isn't public.
 _COMPATIBLE = IPv6Network("::/96")
 _NAT64 = IPv6Network("64:ff9b::/96")
+_NAT64_LOCAL = IPv6Network("64:ff9b:1::/48")
 _MAPPED = IPv6Network("::ffff:0:0/96")
+_SIXTOFOUR = IPv6Network("2002::/16")
+_TEREDO = IPv6Network("2001::/32")
+# No range may be listed in these: write IPv4 ranges as IPv4.
+_CARRIES_IPV4 = (_MAPPED, _COMPATIBLE, _NAT64, _NAT64_LOCAL, _SIXTOFOUR, _TEREDO)
 
 # The widest range that can be listed: 10.0.0.0/8 for IPv4, and a /32 for IPv6 (more than
 # any home or small office is given). Anything wider is refused. A range that holds an
@@ -61,6 +69,7 @@ _MAPPED = IPv6Network("::ffff:0:0/96")
 WIDEST = {4: 8, 6: 32}
 
 MAX_NAME = 253  # the longest host name DNS allows
+MAX_ENTRIES = 100  # on one household's list (proposed, for cabledrawer)
 _LABEL = re.compile(r"^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$")
 
 # Words the screens show (docs/dev/words.md section 18; proposed, for cabledrawer).
@@ -73,6 +82,7 @@ NEVER = (
 )
 TOO_WIDE = "That range is too wide. Add a smaller one, like 192.168.1.0/24."
 ALREADY = "That’s already on the list."
+FULL = "The list is full: it holds up to 100 entries. Remove one first."
 
 
 # --- Addresses --------------------------------------------------------------------------
@@ -88,7 +98,7 @@ def plain(address: IPAddress) -> IPAddress:
 def _inside(address: IPv6Address) -> list[IPv4Address]:
     """The IPv4 addresses an IPv6 address carries inside it, if any."""
     found: list[IPv4Address] = []
-    if address in _COMPATIBLE or address in _NAT64:
+    if address in _COMPATIBLE or address in _NAT64 or address in _NAT64_LOCAL:
         found.append(IPv4Address(int(address) & 0xFFFF_FFFF))
     if address.sixtofour is not None:
         found.append(address.sixtofour)
@@ -189,7 +199,13 @@ def tidy(text: str) -> tuple[str, str]:
     if not text or len(text) > MAX_NAME or "%" in text or any(c.isspace() for c in text):
         raise ValueError(BAD_ENTRY)
     if "/" in text:
-        return "range", str(_range(text))
+        try:
+            network = ipaddress.ip_network(text, strict=False)
+        except ValueError:
+            raise ValueError(BAD_ENTRY) from None
+        if network.num_addresses > 1:
+            return "range", str(_range(network))
+        text = str(network.network_address)  # "192.168.1.5/32" is the one address
     try:
         address = plain(ipaddress.ip_address(text))
     except ValueError:
@@ -206,19 +222,14 @@ def tidy(text: str) -> tuple[str, str]:
     return "name", name
 
 
-def _range(text: str) -> IPNetwork:
-    try:
-        network = ipaddress.ip_network(text, strict=False)
-    except ValueError:
-        raise ValueError(BAD_ENTRY) from None
+def _range(network: IPNetwork) -> IPNetwork:
     if any(network.version == n.version and network.overlaps(n) for n in ALWAYS_BLOCKED):
         raise ValueError(NEVER)
     if network.prefixlen < WIDEST[network.version]:
         raise ValueError(TOO_WIDE)
-    if isinstance(network, IPv6Network) and (
-        network.overlaps(_MAPPED) or network.overlaps(_COMPATIBLE) or network.overlaps(_NAT64)
-    ):
-        # Write IPv4 ranges as IPv4: "192.168.1.0/24", not "::ffff:192.168.1.0/120".
+    if isinstance(network, IPv6Network) and any(network.overlaps(n) for n in _CARRIES_IPV4):
+        # Write IPv4 ranges as IPv4: "192.168.1.0/24", not "::ffff:192.168.1.0/120" or a
+        # 6to4, Teredo or NAT64 range, which would open IPv4 addresses inside them.
         raise ValueError(BAD_ENTRY)
     return network
 
@@ -236,6 +247,13 @@ def add(
     )
     if taken is not None:
         raise ValueError(ALREADY)
+    held = db.scalar(
+        select(func.count())
+        .select_from(OwnNetworkEntry)
+        .where(OwnNetworkEntry.household_id == household_id)
+    )
+    if (held or 0) >= MAX_ENTRIES:
+        raise ValueError(FULL)
     entry = OwnNetworkEntry(
         household_id=household_id,
         kind=kind,

@@ -14,6 +14,8 @@ from mealwright.models import Household, Login, OwnNetworkEntry
 from mealwright.own_network import (
     ALREADY,
     BAD_ENTRY,
+    FULL,
+    MAX_ENTRIES,
     NEVER,
     TOO_WIDE,
     always_blocked,
@@ -65,6 +67,8 @@ NEEDS_LISTING = [
     "::ffff:10.0.0.1",
     "::192.168.1.20",  # IPv4-compatible private
     "64:ff9b::c0a8:114",  # NAT64 of 192.168.1.20
+    "64:ff9b:1::c0a8:114",  # local NAT64 of 192.168.1.20
+    "64:ff9b:1::5db8:d822",  # local NAT64 of a public address: local, so still listed
     "2002:c0a8:114::1",  # 6to4 of 192.168.1.20
     "2001:db8::1",  # documentation
 ]
@@ -86,6 +90,8 @@ ALWAYS = [
     "::127.0.0.1",  # IPv4-compatible
     "64:ff9b::7f00:1",  # NAT64 of 127.0.0.1
     "64:ff9b::a9fe:a9fe",  # NAT64 of 169.254.169.254
+    "64:ff9b:1::7f00:1",  # local NAT64 of 127.0.0.1
+    "64:ff9b:1::a9fe:a9fe",  # local NAT64 of 169.254.169.254
     "2002:7f00:1::",  # 6to4 of 127.0.0.1
 ]
 
@@ -126,7 +132,10 @@ def test_this_server_link_local_and_metadata_are_always_blocked(address: str) ->
         ("100.64.0.0/11", "range", "100.64.0.0/11"),
         ("FD12:3456:789A::/48", "range", "fd12:3456:789a::/48"),
         ("2001:db8::/32", "range", "2001:db8::/32"),
-        ("192.168.1.20/32", "range", "192.168.1.20/32"),
+        ("192.168.1.20/32", "address", "192.168.1.20"),  # one address, however it's written
+        ("FD12::1/128", "address", "fd12::1"),
+        ("::ffff:192.168.1.20/128", "address", "192.168.1.20"),
+        ("192.168.1.20/31", "range", "192.168.1.20/31"),
         ("203.0.113.7", "address", "203.0.113.7"),  # a public address, for an odd port
     ],
 )
@@ -150,6 +159,17 @@ def test_entries_are_tidied(typed: str, kind: str, value: str) -> None:
         ("fd12::1%eth0", BAD_ENTRY),
         ("::ffff:192.168.1.0/120", BAD_ENTRY),  # write IPv4 ranges as IPv4
         ("64:ff9b::/96", BAD_ENTRY),
+        ("64:ff9b::/120", BAD_ENTRY),  # part of NAT64
+        ("64:ff9b:1::/48", BAD_ENTRY),  # local NAT64
+        ("64:ff9b:1::/96", BAD_ENTRY),
+        ("2002:c0a8:114::/48", BAD_ENTRY),  # 6to4 (of 192.168.1.20)
+        ("2002::/32", BAD_ENTRY),
+        ("2001::/32", BAD_ENTRY),  # Teredo
+        ("2001:0:4136:e378::/64", BAD_ENTRY),
+        ("2002::/16", TOO_WIDE),
+        ("127.0.0.1/32", NEVER),
+        ("::1/128", NEVER),
+        ("192.168.1.20/33", BAD_ENTRY),
         ("localhost", NEVER),
         ("LOCALHOST.", NEVER),
         ("wiki.localhost", NEVER),
@@ -204,6 +224,10 @@ def test_add_list_and_remove(sessions: sessionmaker[Session]) -> None:
             own_network.add(db, 1, "wiki.home.example.")
         with pytest.raises(ValueError, match=ALREADY):
             own_network.add(db, 1, "192.168.1.7/24")
+        own_network.add(db, 1, "192.168.2.5")
+        with pytest.raises(ValueError, match=ALREADY):
+            own_network.add(db, 1, "192.168.2.5/32")
+        own_network.remove(db, 1, own_network.entries(db, 1)[-1].id)
 
         listed = own_network.load(db, 1)
         assert listed.lists_name("WIKI.home.example.")
@@ -216,6 +240,24 @@ def test_add_list_and_remove(sessions: sessionmaker[Session]) -> None:
         db.commit()
         assert [e.value for e in own_network.entries(db, 1)] == ["192.168.1.0/24"]
         assert not own_network.remove(db, 1, wiki.id)
+
+
+def test_a_list_holds_at_most_100_entries(sessions: sessionmaker[Session]) -> None:
+    assert MAX_ENTRIES == 100
+    with sessions() as db:
+        for n in range(MAX_ENTRIES):
+            own_network.add(db, 1, f"10.0.{n}.1")
+        db.commit()
+        with pytest.raises(ValueError) as refused:
+            own_network.add(db, 1, "nas.lan")
+        assert str(refused.value) == FULL
+        with pytest.raises(ValueError, match=ALREADY):  # said first: it's the more useful
+            own_network.add(db, 1, "10.0.0.1")
+        own_network.add(db, 2, "nas.lan")  # another household's list is its own
+        own_network.remove(db, 1, own_network.entries(db, 1)[0].id)
+        own_network.add(db, 1, "nas.lan")
+        db.commit()
+        assert len(own_network.entries(db, 1)) == MAX_ENTRIES
 
 
 def test_lists_belong_to_their_household(sessions: sessionmaker[Session]) -> None:
