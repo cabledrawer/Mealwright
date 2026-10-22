@@ -311,3 +311,18 @@ Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `New
 ## 18. Not covered yet (for later versions of this list)
 
 Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).
+
+## 18. Recipe import, Drafts, Privacy and swipes (0.5)
+
+Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*`, `Network-*`, `PantrySwipe-Phone`, `ShopMove-*`) and cabledrawer's 0.5 kickoff. **Every line here is "proposed, for cabledrawer"** until he approves it; the 0.5 builders add their own lines, marked the same way. Words cabledrawer decided himself are marked with his date.
+
+- **New ingredient**, never "New food" (proposed, for cabledrawer; the old Import mockups said "New food"; section 1 already says "ingredient").
+- **A line that needs you** offers: Pick an ingredient · New ingredient · Treat as staple (proposed, for cabledrawer; "Treat as staple" does what cabledrawer decided on 22 Oct, question 5).
+- **To confirm:** Same as “Onions” · New ingredient (mockup; "Same as Onions" is cabledrawer's own wording, 21 Oct).
+- **The photo switch:** Download recipe photos · "The recipe's main photo, kept on this server. Off: imports come without a photo." (proposed, for cabledrawer; the spec's switch name was "recipe photos").
+- **Import switched off:** Importing from links is switched off (cabledrawer 21 Oct).
+- **Not a web page:** This link isn't a web page. (cabledrawer 21 Oct)
+- **No photo:** Photo not downloaded (cabledrawer 21 Oct).
+- **The same link twice:** You already have this recipe · Open it · Import again as a copy (cabledrawer 21 Oct).
+- **A draft in the list:** From bbcgoodfood.com · started by Tess · 12 days left (cabledrawer 21 Oct).
+- **Toasts with Undo:** Deleted the Rava dosa draft · Undo · Moved Coriander to Lidl · Undo · Binned 1 bunch Coriander · Undo (proposed, for cabledrawer).
