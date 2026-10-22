@@ -890,6 +890,31 @@ def test_steps_by_reference() -> None:
     assert found_.steps == lines("Boil.")
 
 
+def test_a_section_that_lists_itself_is_walked_quickly() -> None:
+    """A nameless section listing itself 50 times, 8 deep, is 50**8 visits unchecked."""
+    loop = {"@id": "#loop", "@type": "HowToSection", "itemListElement": [{"@id": "#loop"}] * 50}
+    html = json_ld({"@graph": [recipe(recipeInstructions=[step("Boil."), {"@id": "#loop"}]), loop]})
+    start = time.monotonic()
+    found_ = read_page(html, URL)
+    assert time.monotonic() - start < 1
+    assert found_ is not None
+    assert found_.steps == lines("Boil.")
+
+
+def test_sections_that_list_each_other_many_times_are_walked_quickly() -> None:
+    """Nine nameless sections, each listing the next 50 times: no loop, but 50**8 visits."""
+    chain = [
+        {"@id": f"#s{n}", "@type": "HowToSection", "itemListElement": [{"@id": f"#s{n + 1}"}] * 50}
+        for n in range(9)
+    ]
+    html = json_ld({"@graph": [recipe(recipeInstructions=[step("Boil."), {"@id": "#s0"}]), *chain]})
+    start = time.monotonic()
+    found_ = read_page(html, URL)
+    assert time.monotonic() - start < 1
+    assert found_ is not None
+    assert found_.steps == lines("Boil.")
+
+
 @pytest.mark.parametrize(("count", "cut"), [(100, False), (101, True), (300, True)])
 def test_at_most_100_steps(count: int, cut: bool) -> None:
     found_ = read(recipeInstructions=[step(f"Step {n}.") for n in range(1, count + 1)])

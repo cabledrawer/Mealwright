@@ -31,6 +31,7 @@ from mealwright import names
 # The recipe editor's limits (api/v1/recipe_schemas.py and spec section 6).
 MAX_LINES = 200  # ingredient lines and headings together
 MAX_STEPS = 100  # steps and headings together
+MAX_STEP_WORK = 10_000  # parts of a method looked at, counting repeats (a real one: ~200)
 MAX_TAGS = 20
 MAX_TAG_CHARS = 40
 MAX_NAME = 200
@@ -587,16 +588,23 @@ def _ingredients(recipe: _Recipe) -> list[PageLine]:
 
 def _steps(recipe: _Recipe) -> list[PageLine]:
     steps: list[PageLine] = []
+    work = [MAX_STEP_WORK]
     for value in recipe.values("recipeInstructions"):
-        _add_steps(recipe, value, steps, 0)
+        _add_steps(recipe, value, steps, 0, work)
         if len(steps) > MAX_STEPS:
             break
     return steps
 
 
-def _add_steps(recipe: _Recipe, value: object, steps: list[PageLine], depth: int) -> None:
-    if len(steps) > MAX_STEPS or depth > 8:
+def _add_steps(
+    recipe: _Recipe, value: object, steps: list[PageLine], depth: int, work: list[int]
+) -> None:
+    """`work` counts down the parts looked at. A section can list itself, or another
+    section many times, by reference; without a limit, a few nameless ones would be walked
+    billions of times while adding no step."""
+    if len(steps) > MAX_STEPS or depth > 8 or work[0] <= 0:
         return
+    work[0] -= 1
     if isinstance(value, str):
         steps.extend(PageLine(text) for text in _lines(value))
         return
@@ -604,12 +612,13 @@ def _add_steps(recipe: _Recipe, value: object, steps: list[PageLine], depth: int
         return
     kinds = _types(value)
     children = recipe.flat(value.get("itemListElement"))
+    work[0] -= len(children)
     if "HowToSection" in kinds or ("HowToStep" not in kinds and children):
         heading = _one_line(_field(value, "name") or "")
         if heading:
             steps.append(PageLine(heading, heading=True))
         for child in children:
-            _add_steps(recipe, recipe.follow(child), steps, depth + 1)
+            _add_steps(recipe, recipe.follow(child), steps, depth + 1, work)
         return
     text = _one_line(_field(value, "text", "name") or "")
     if text:
