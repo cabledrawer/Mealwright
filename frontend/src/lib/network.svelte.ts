@@ -117,7 +117,7 @@ class Network {
   /** Start watching the browser's own online/offline word. Returns a function that stops. */
   start(reconnect: () => void): () => void {
     this.#reconnect = reconnect;
-    const onOnline = () => void this.#check();
+    const onOnline = () => void this.#check(false, true);
     const onOffline = () => this.failed();
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -130,8 +130,9 @@ class Network {
     };
   }
 
-  /** Ask our server. Reconnect the stream if we were offline (or `always`). */
-  async #check(always = false): Promise<void> {
+  /** Ask our server. Reconnect the stream if we were offline (or `always`). `online`: the
+   *  browser has just said the connection is back. */
+  async #check(always = false, online = false): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
     try {
       // Signed out while offline: the server session ends before anything else is sent.
@@ -145,6 +146,10 @@ class Network {
       this.failed();
       return;
     }
+    // An answer that came in while we were offline (a late live-stream hello, say) may already
+    // have cleared the failure, and then succeeded() doesn't count this: the browser being back
+    // still does, so a photo that failed meanwhile tries again.
+    if (online && this.#failingSince === null && !this.offline) this.backAgain++;
     this.succeeded();
     if (was || always) this.#reconnect?.();
   }
