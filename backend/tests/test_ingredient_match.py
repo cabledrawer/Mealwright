@@ -550,3 +550,84 @@ def test_matching_never_raises(db: Session, pantry: dict[str, Food], text: str) 
         assert result.counts
         assert result.amount_base >= 0
     assert result.new_ingredient.name is not None
+
+
+# --- Overlapping households, and a big kitchen ---------------------------------------------------
+
+
+def test_two_households_with_the_same_names_each_get_their_own(db: Session) -> None:
+    mine = add_food(
+        db,
+        "Onions",
+        household=1,
+        counted_as="count",
+        others=("pyaaz", "vengayam"),
+        sizes=(("bag", "bags", 1_000_000),),
+    )
+    theirs = add_food(
+        db,
+        "Onions",
+        household=2,
+        counted_as="count",
+        staple=True,
+        others=("pyaaz", "kanda"),
+        sizes=(("net", "nets", 3_000_000),),
+    )
+    one = match(db, "2 bags onions", household=1)
+    two = match(db, "2 bags onions", household=2)
+    assert (one.label, one.food_id) == ("matched", mine.id)
+    assert (two.label, two.food_id) == ("staple", theirs.id)  # theirs is a staple
+    assert one.counts and not two.counts
+    assert one.size_id is not None
+    size = db.get(FoodSize, one.size_id)
+    assert size is not None and size.food_id == mine.id and size.household_id == 1
+    assert two.size_id is None  # theirs has no bag
+    # A shared other name finds each household's own ingredient.
+    assert match(db, "1 pyaaz", household=1).food_id == mine.id
+    assert match(db, "1 pyaaz", household=2).food_id == theirs.id
+    # Names only one of them has.
+    assert match(db, "1 vengayam", household=1).food_id == mine.id
+    assert match(db, "1 vengayam", household=2).label == "needs_you"
+    assert match(db, "1 kanda", household=2).food_id == theirs.id
+    assert match(db, "1 kanda", household=1).label == "needs_you"
+    # And a net is theirs alone.
+    assert match(db, "1 net onions", household=2).size_id is not None
+    assert match(db, "1 net onions", household=1).size_id is None
+    # A close match stays inside the household too.
+    assert match(db, "1 red onion", household=1).food_id == mine.id
+    assert match(db, "1 red onion", household=2).food_id == theirs.id
+
+
+def test_a_big_kitchen_is_matched_quickly(db: Session) -> None:
+    import time
+
+    words = ["red", "green", "dried", "whole", "split", "black", "white", "yellow"]
+    kinds = ["lentil", "bean", "pepper", "powder", "seed", "flour", "oil", "leaf", "root", "nut"]
+    foods = [
+        Food(household_id=1, name=f"{words[i % 8]} {kinds[i % 10]} {i}", counted_as="weight")
+        for i in range(2000)
+    ]
+    db.add_all(foods)
+    db.flush()
+    db.add_all(FoodName(household_id=1, food_id=f.id, name=f"other {f.name}") for f in foods[::10])
+    db.commit()
+    kitchen = kitchen_of(db, 1)
+    assert len(kitchen.foods) == 2000
+    lines = [
+        read_line(text)
+        for n in range(40)
+        for text in (
+            f"2 tbsp red lentil {n}",
+            f"1 cup tasty green bean {n}",
+            f"{n + 1} cloves garlic",
+            f"1 kg yellow root {n * 7}",
+            "a pinch of dried pepper",
+        )
+    ]
+    assert len(lines) == 200
+    started = time.perf_counter()
+    results = [match_line(kitchen, line) for line in lines]
+    elapsed = time.perf_counter() - started
+    assert elapsed < 1.0, f"200 lines against 2,000 ingredients took {elapsed:.1f} s"
+    assert results[0].label == "to_confirm" or results[0].label == "matched"
+    assert results[2].label == "needs_you"

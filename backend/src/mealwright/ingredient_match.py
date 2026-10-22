@@ -101,6 +101,27 @@ class KnownIngredients:
         return found
 
     @cached_property
+    def name_words(self) -> tuple[tuple[frozenset[str], KitchenFood], ...]:
+        """The key words of every name and other name, worked out once (a big household
+        would otherwise spend its time re-reading every name for every line)."""
+        found = []
+        for food in self.foods:
+            for name in (food.name, *food.other_names):
+                words = _words(_key(name))
+                if words:
+                    found.append((words, food))
+        return tuple(found)
+
+    @cached_property
+    def word_index(self) -> dict[str, tuple[int, ...]]:
+        """Each key word → which `name_words` entries hold it."""
+        index: dict[str, list[int]] = {}
+        for position, (words, _food) in enumerate(self.name_words):
+            for word in words:
+                index.setdefault(word, []).append(position)
+        return {word: tuple(positions) for word, positions in index.items()}
+
+    @cached_property
     def size_words(self) -> tuple[str, ...]:
         """Every size name the household uses, for `read_line(text, size_words=...)`."""
         words: dict[str, None] = {}
@@ -270,21 +291,22 @@ def _closest(
     kitchen: KnownIngredients, candidates: list[tuple[str, str]]
 ) -> tuple[KitchenFood, str] | None:
     """A food whose name, or other name, has all its words inside the line's name, or the
-    other way round ("red onion" and "onion"). The best share of words wins; the line's
+    other way round ("red onion" and "onion"). The best share of the words wins; the line's
     more specific name beats a more specific food; the oldest food breaks a tie."""
     best: tuple[tuple[float, int, int], KitchenFood, str] | None = None
     for key, shown in candidates:
         line = _words(key)
-        for food in kitchen.foods:
-            for name in (food.name, *food.other_names):
-                theirs = _words(_key(name))
-                # An equal set is the same words in another order ("dal toor").
-                if not theirs or not (theirs <= line or line <= theirs):
-                    continue
-                share = len(theirs & line) / len(theirs | line)
-                score = (share, 1 if theirs <= line else 0, -food.id)
-                if best is None or score > best[0]:
-                    best = (score, food, shown)
+        # Only a name that shares a word with the line can be inside it or hold it.
+        wanted = {index for word in line for index in kitchen.word_index.get(word, ())}
+        for index in wanted:
+            theirs, food = kitchen.name_words[index]
+            # An equal set is the same words in another order ("dal toor").
+            if not (theirs <= line or line <= theirs):
+                continue
+            share = len(theirs & line) / len(theirs | line)
+            score = (share, 1 if theirs <= line else 0, -food.id)
+            if best is None or score > best[0]:
+                best = (score, food, shown)
     return (best[1], best[2]) if best else None
 
 
