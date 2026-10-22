@@ -7,6 +7,14 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - Tests: the browser tests that timed out only in a full `./check` (Pantry's open-pack test, the offline-bar test on phone and desktop, Shopping's ticked-states accessibility test) no longer do: each state is scanned once per theme instead of four times, and the tests wait for what they need instead of a fixed pause. The recipe page keyboard test also waits for the "Add to the list" bar before it checks, so it no longer fails when two things say "1 missing" at different moments. See `docs/dev/browser-tests.md`.
 - Tests: every test run now removes its own folders in `/tmp` (the browser tests' app folders and pytest's run folders), and `./check` has a step, "tests: nothing left", that fails if any are left behind.
 
+### Added
+
+- **Recipe import, behind the scenes (0.5 PR 2).** Three pieces of the server that the Import screens will use. Nothing shows on a screen yet, nothing goes online, and the database is unchanged.
+  - **An ingredient line reader.** It turns a line such as "2 onions, finely chopped" into an amount, a unit, a name and a note. It reads every number form (½, 1½, 1 1/2, 1/2, 0.5, 1,5), takes the higher number of a range, takes the metric amount when a line gives two units (a cup alone stays a cup), reads UK packets ("1 x 400g tin chopped tomatoes"), and keeps size words ("1 sprig", "a handful") and "to taste" lines as lines that never count. A line it can't read is a result, not an error.
+  - **Matching against your ingredients.** Each line is Matched (by name or another name, ignoring case, plurals and prep words), To confirm (a close match such as "red onion" for Onions), Needs you, or Staple. A size word counts only when the ingredient has that size, and a cup is your household's own cup. It also works out the first guess for a new ingredient. Nothing is written until Save.
+  - **Pasted recipe text.** It finds the title, ingredients and method from common headings (or by the look of the lines), strips hidden characters, keeps at most 200 lines and 100 steps, and refuses more than 100,000 characters.
+  - Notes for developers are in `docs/dev/ingredient-reader.md`.
+
 ## [0.4.0] - 2026-10-22
 
 The recipes milestone: recipes you type in yourself, with photos, on a phone and a computer (three panes, like Notes), each saying what is in the pantry; recipes that use other recipes; Ingredients showing which recipes use each ingredient. Also a faster start offline or on a weak signal, clearer Shopping rows, and security fixes. Not published; for testing on cabledrawer's homelab.
