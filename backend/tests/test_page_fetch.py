@@ -699,6 +699,43 @@ def test_the_page_is_decoded_by_its_charset(
     assert fetch_page(gate, 1, "https://recipes.example/").html == text
 
 
+@pytest.mark.parametrize(
+    "charset",
+    [
+        "zlib",
+        "base64",
+        "rot13",
+        "hex",
+        "uu",
+        "bz2",
+        "quopri",
+        "idna",
+        "punycode",
+        "unicode_escape",
+        "raw_unicode_escape",
+        "utf-7",
+        "undefined",
+        "no-such-charset",
+    ],
+)
+@pytest.mark.parametrize("where", ["header", "meta"])
+def test_a_charset_that_isnt_a_text_encoding_is_read_as_utf_8(
+    gate: OutboundGate, net: FakeNet, charset: str, where: str
+) -> None:
+    """Never an error past FetchRefused, and nothing is unpacked: the bytes are UTF-8."""
+    body = "<p>naïve \\u0041 +AGE- eJw=</p>".encode() + b"\xff\x00"
+    if where == "header":
+        headers = {"Content-Type": f"text/html; charset={charset}"}
+    else:
+        headers = {"Content-Type": "text/html"}
+        body = f'<meta charset="{charset}">'.encode() + body
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC, Reply(headers=headers, body=body))
+    assert fetch_page(gate, 1, "https://recipes.example/").html == body.decode(
+        "utf-8", errors="replace"
+    )
+
+
 # --- Addresses that are blocked ------------------------------------------------------------
 
 OWN_NETWORK = [

@@ -28,7 +28,6 @@ page's address or host: a site name shows what someone was cooking (spec section
 """
 
 import codecs
-import contextlib
 import logging
 import re
 import time
@@ -371,10 +370,36 @@ def _decode(response: OutboundResponse) -> str:
     if found is None:
         meta = _META_CHARSET.search(body[:4096])
         found = meta.group(1).decode("ascii") if meta else None
-    encoding = "utf-8"
-    if found:
-        with contextlib.suppress(LookupError):
-            encoding = codecs.lookup(found).name
-    if encoding in {"utf-16", "utf-16-le", "utf-16-be", "utf-32"}:
-        encoding = "utf-8"  # a page that says so in ASCII is ASCII-compatible
-    return body.decode(encoding, errors="replace")
+    encoding = _text_codec(found) if found else "utf-8"
+    try:
+        return body.decode(encoding, errors="replace")
+    except LookupError, UnicodeError, ValueError:  # pragma: no cover (text codecs replace)
+        return body.decode("utf-8", errors="replace")
+
+
+# Codecs Python calls text encodings that still aren't a page's character set: they turn
+# the bytes into something else (or can't replace a bad byte), so they're read as UTF-8.
+_NOT_A_CHARSET = frozenset(
+    {
+        "idna",
+        "punycode",
+        "raw-unicode-escape",
+        "unicode-escape",
+        "undefined",
+        "utf-7",
+    }
+)
+
+
+def _text_codec(name: str) -> str:
+    """The codec for a charset the site named: a real text encoding only. Anything else
+    (zlib, base64, rot13, uu, idna, an unknown name) is read as UTF-8."""
+    try:
+        info = codecs.lookup(name)
+    except LookupError:
+        return "utf-8"
+    if not getattr(info, "_is_text_encoding", True) or info.name in _NOT_A_CHARSET:
+        return "utf-8"
+    if info.name in {"utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le", "utf-32-be"}:
+        return "utf-8"  # a page that says so in ASCII is ASCII-compatible
+    return info.name
