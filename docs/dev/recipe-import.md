@@ -29,13 +29,13 @@ Nothing is looked up, read or sent until all of these pass, in this order:
    - **Always blocked, even if listed:** this server itself (127.0.0.0/8, ::1, and 0.0.0.0/8
      and ::, which also reach it), link-local (169.254.0.0/16, fe80::/10) and the cloud
      "metadata" addresses (169.254.169.254, 100.100.100.200, fd00:ec2::254). IPv6 forms that
-     carry one of these inside them (IPv4-mapped, IPv4-compatible, NAT64, 6to4, Teredo) are
-     blocked too.
+     carry one of these inside them (IPv4-mapped, IPv4-compatible, NAT64 and local NAT64
+     64:ff9b:1::/48, 6to4, Teredo) are blocked too.
    - **Needs listing:** anything that isn't an ordinary public address (private, shared
      100.64.0.0/10, unique-local, multicast, reserved and the like, in either form) is
      refused unless the household's list holds the name or that address.
 4. **The port.** 80 and 443 only, unless the list holds the name or every one of its
-   addresses.
+   addresses. Port 0 is never a link.
 5. **Pinned.** The request goes to exactly the address that was checked
    (`OutboundGate.get_pinned`), while the Host header and the TLS name (SNI and the
    certificate check) stay the host name. So a name can't pass the check with a public
@@ -46,11 +46,17 @@ Nothing is looked up, read or sent until all of these pass, in this order:
 7. **The answer.** Pages: `text/html` or `application/xhtml+xml` only ("This link isn't a web
    page."), and reading stops past 5 MB. Photos: any `image/` type, reading stops past
    15 MB, then `photos.clean` decides what it really is, refuses more than 50 megapixels,
-   shrinks it and removes hidden data, the same as an upload. Each hop has the gate's 15
-   seconds. The user agent is just "Mealwright"; no cookies are sent.
+   shrinks it and removes hidden data, the same as an upload. The user agent is just
+   "Mealwright"; no cookies are sent.
+8. **Time.** Each hop has at most the gate's 15 seconds in all, and the whole fetch, every
+   redirect included, at most 30 (`page_fetch.MAX_FETCH_SECONDS`; proposed, for cabledrawer). A
+   watchdog closes the connection when the time runs out, so a site that sends one byte at a
+   time can't hold it open: a socket's own timeout only counts the wait for each byte.
 
 A page's text is decoded with the charset the site names (in the header, else in the page's
-first 4 KB), else UTF-8; bytes that don't fit are replaced, never refused.
+first 4 KB), else UTF-8; bytes that don't fit are replaced, never refused. Only real text
+charsets count: a name Python knows but that isn't one (zlib, base64, rot13, idna, utf-7,
+UTF-16 and UTF-32, which an HTML page can't be sent in), or an unknown name, means UTF-8.
 
 A refusal raises `FetchRefused`, with `problem` (a `Problem` code the API will send) and
 `message` (the sentence a screen shows; see words.md section 18). Log lines name only the
@@ -64,14 +70,18 @@ site name shows what someone was cooking.
 One table, `own_network_entry`, owned by the household like the Privacy switches. Each
 entry is a host name, one address, or a range (CIDR), with who added it and when. It starts
 empty. `own_network.add()` tidies an entry (lower-case name, the address or range in its
-usual form) and refuses:
+usual form; a /32 or /128 range is stored as its one address, so "192.168.1.5/32" and
+"192.168.1.5" are the same entry) and refuses:
 
 - anything always blocked, or a range that holds an always-blocked address. So the whole of
   100.64.0.0/10 (it holds 100.100.100.200) or fd00::/8 (it holds fd00:ec2::254) can't be
   listed: list the part in use, such as 100.64.0.0/11 or fd12:3456:789a::/48;
 - ranges wider than /8 (IPv4) or /32 (IPv6);
-- IPv4 ranges written in IPv6 form ("::ffff:192.168.1.0/120"): write them as IPv4;
-- the same entry twice.
+- IPv6 ranges that carry IPv4 addresses inside them, or any part of one: IPv4-mapped
+  ("::ffff:192.168.1.0/120"), IPv4-compatible, NAT64 (64:ff9b::/96 and the local
+  64:ff9b:1::/48), 6to4 (2002::/16) and Teredo (2001::/32). Write IPv4 ranges as IPv4;
+- the same entry twice;
+- a 101st entry: a list holds at most 100 (`MAX_ENTRIES`; proposed, for cabledrawer).
 
 A listed name opens every address that name has (except the always-blocked ones). A listed
 address or range opens those addresses, whatever name reaches them. One household's list
@@ -136,8 +146,12 @@ Where it looks:
 A page is anyone's text, so the reader has limits of its own: elements nested deeper than 256
 are read as siblings, at most 200,000 elements and text runs are kept from one page (a real
 page has about 10,000), JSON-LD is searched to a depth of 64 and microdata to 16, and lists
-inside lists are flattened to a depth of 4. A 5 MB page built to be awkward reads in about 2
-to 3 seconds, with under 100 MB of memory at its peak.
+inside lists are flattened to a depth of 4. A start tag longer than 65,536 characters is
+skipped whole (the standard parser would hold about 100 bytes of memory for each byte of
+one), and a method is walked through at most 10,000 parts, counting repeats, so sections
+that list themselves can't make it endless. The worst 5 MB page found so far (one JSON-LD
+field of 2.6 million "<a" or "< x ") reads in about 1 second, with under 50 MB of memory at
+its peak (as Python counts it).
 
 ## Swapping the reader
 
