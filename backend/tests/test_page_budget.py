@@ -101,13 +101,13 @@ def realistic_big_page() -> str:
 
 
 def slow_page() -> str:
-    """10 MB of plain valid tags, about 5 seconds' reading (twice the slowest 5 MB page)."""
+    """10 MB of plain valid tags: twice the slowest 5 MB page found, so twice its time."""
     return "<p>x</p>" * (2 * FIVE_MB // 8)
 
 
 def greedy_page() -> str:
-    """15 MB of words with one emoji in one ingredient, about 500 MB to read (every string
-    then takes 4 bytes a character)."""
+    """15 MB of words with one emoji in one ingredient: three times the greediest 5 MB page
+    found (177 MB), since the emoji makes every character take 4 bytes."""
     words = "😀" + ("word " * (3 * FIVE_MB // 5))
     return (
         '<script type="application/ld+json">{"@type":"Recipe","name":"Dal",'
