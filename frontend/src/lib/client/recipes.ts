@@ -131,6 +131,16 @@ export interface PhotoOut {
   list_url: string;
 }
 
+/** Where an imported recipe came from (null for one that wasn't imported from a link). The
+ * server never visits `url` again; opening it is the person's own click. */
+export interface RecipeSource {
+  url: string;
+  /** The address without "www.": "bbcgoodfood.com". */
+  site: string;
+  imported_at: string;
+  author: string | null;
+}
+
 export interface Recipe {
   id: number;
   name: string;
@@ -145,6 +155,8 @@ export interface Recipe {
   lines: RecipeLine[];
   steps: RecipeStep[];
   source_note: string | null;
+  /** Set for a recipe imported from a link. Older answers may leave it out. */
+  source?: RecipeSource | null;
   /** The cover photo; null when there is none. */
   photo: PhotoOut | null;
   version: number;

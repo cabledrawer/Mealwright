@@ -595,11 +595,13 @@
             maxlength="500"
             placeholder="Amma’s, a book, or a web address"
             aria-invalid={errors.source ? true : undefined}
+            aria-describedby="{uid}-source-hint"
             bind:value={draft.source}
           />
           {#if errors.source}<span class="mw-error">{errors.source}</span>{/if}
-          <!-- The hint "A web address shows as a link you can open yourself. Mealwright never
-               visits it." comes back in 0.5, with the links (cabledrawer 21 Oct). -->
+          <p class="mw-hint" id="{uid}-source-hint">
+            A web address shows as a link you can open yourself. Mealwright never visits it.
+          </p>
         </div>
 
         {#if editing}

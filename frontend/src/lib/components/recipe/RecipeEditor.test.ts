@@ -71,6 +71,21 @@ describe('a new recipe', () => {
     expect('photo_id' in body).toBe(false);
   });
 
+  it('says under Source that a web address is a link you open yourself', async () => {
+    fakeApi({});
+    open();
+    const source = page.getByRole('textbox', { name: /Source/ });
+    await expect
+      .element(
+        page.getByText(
+          'A web address shows as a link you can open yourself. Mealwright never visits it.'
+        )
+      )
+      .toBeVisible();
+    // The hint is read out with the box.
+    await expect.element(source).toHaveAccessibleDescription(/Mealwright never visits it/);
+  });
+
   it('Cancel with a typed name closes at once, with "Changes not saved" and Undo', async () => {
     fakeApi({});
     open();

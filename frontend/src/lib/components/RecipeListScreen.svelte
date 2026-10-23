@@ -141,9 +141,14 @@
 <svelte:document onvisibilitychange={onVisible} />
 
 {#snippet newRecipe()}
-  <a class="new" href={resolve('/recipes/new')}
-    ><Icon name="plus" size={20} stroke={2.4} />New recipe</a
-  >
+  <div class="starts">
+    <a class="new" href={resolve('/recipes/new')}
+      ><Icon name="plus" size={20} stroke={2.4} />New recipe</a
+    >
+    <a class="import" href={resolve('/recipes/import')}
+      ><Icon name="link" size={20} stroke={2.2} />Import a recipe</a
+    >
+  </div>
 {/snippet}
 
 {#snippet found()}
@@ -253,6 +258,38 @@
   }
 
   .more a:hover {
+    background: var(--color-fill);
+    color: var(--color-text);
+  }
+
+  /* New recipe and Import a recipe: two buttons, side by side when there is room. */
+  .starts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .starts > a {
+    flex: 1 1 11rem;
+  }
+
+  .import {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 52px;
+    padding: 0 18px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-field);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .import:hover {
     background: var(--color-fill);
     color: var(--color-text);
   }

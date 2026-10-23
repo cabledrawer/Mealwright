@@ -25,7 +25,9 @@
     | 'photo'
     | 'info'
     | 'alert'
-    | 'cloud-off';
+    | 'cloud-off'
+    | 'link'
+    | 'note';
 </script>
 
 <script lang="ts">
@@ -108,6 +110,12 @@
     <path d="M3 3l18 18" />
     <path d="M8.5 8.6A5 5 0 0 0 6 18h11" />
     <path d="M10.7 6.2A6 6 0 0 1 18 11a4 4 0 0 1 2.5 6.3" />
+  {:else if name === 'link'}
+    <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+    <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+  {:else if name === 'note'}
+    <path d="M6 3h9l4 4v14H6z" />
+    <path d="M9 12h7M9 16h5" />
   {:else if name === 'search'}
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />

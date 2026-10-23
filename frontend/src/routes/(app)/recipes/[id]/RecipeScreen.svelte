@@ -8,8 +8,9 @@
   // Edit, at the top on the right, opens the editor (Delete is in the editor). The photo is
   // above the name on a phone and beside the nutrition figures in the desktop's reading pane;
   // a recipe without one has no box. Hidden until they
-  // work, not stubbed: Plan it (0.6), Start cooking and Cook once (0.7), and "From:
-  // <site>" (imports, 0.5; a typed-in recipe's source note is shown as typed).
+  // work, not stubbed: Plan it (0.6) and Start cooking and Cook once (0.7). "From: <site> ·
+  // by <author>" shows for an imported recipe (0.5); a typed-in recipe's source note is shown as
+  // typed, as a link if it is a web address.
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -31,6 +32,9 @@
   import { RecipeView, stepGroups } from '$lib/recipePage.svelte';
   import { markFor, toAdd } from '$lib/recipeStock';
   import { ScreenAwake } from '$lib/screenAwake.svelte';
+
+  /** A source note that is just a web address shows as a link (the person opens it). */
+  const webAddress = (note: string) => /^https?:\/\/\S+$/i.test(note);
 
   let { id }: { id: number } = $props();
 
@@ -235,8 +239,30 @@
         </ul>
       {/if}
 
+      {#if recipe.source}
+        <!-- Imported from a link: the site, and the author the page named. Opening the link is
+             the person's own click; the server never visits it again. -->
+        <p class="source">
+          From:
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the recipe's own site, opened by the person -->
+          <a href={recipe.source.url} target="_blank" rel="noopener noreferrer"
+            >{recipe.source.site}</a
+          >{#if recipe.source.author}{' · by '}{recipe.source.author}{/if}
+        </p>
+      {/if}
+
       {#if recipe.source_note}
-        <p class="source">Source: {recipe.source_note}</p>
+        <p class="source">
+          Source:
+          {#if webAddress(recipe.source_note)}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a web address the person typed, opened by them -->
+            <a href={recipe.source_note} target="_blank" rel="noopener noreferrer"
+              >{recipe.source_note}</a
+            >
+          {:else}
+            {recipe.source_note}
+          {/if}
+        </p>
       {/if}
     </article>
   {:else if view.gone}
@@ -524,6 +550,11 @@
     color: var(--color-text-muted);
     font-size: var(--text-base);
     overflow-wrap: anywhere;
+  }
+
+  .source a {
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
   }
 
   .loading {

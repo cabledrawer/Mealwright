@@ -6,7 +6,14 @@
 import type { Change } from './client/types';
 
 /** Kinds whose summary always starts with a verb. */
-const VERB_KINDS = new Set(['food_created', 'food_removed', 'merged', 'split', 'undo']);
+const VERB_KINDS = new Set([
+  'food_created',
+  'food_removed',
+  'merged',
+  'split',
+  'undo',
+  'recipe_imported'
+]);
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */
 const EDIT_TAIL =

@@ -28,8 +28,11 @@
 
   // Pantry's "Recipes for these" arrives with ?filter=use-soon, which starts the list on "Use soon".
   const list = new RecipeList(filterFromSearch(page.url.searchParams));
+  // Import a recipe is a page of its own, full width (mockups Import05-Desktop), not a pane.
   const panes = $derived(
-    recipePanes.fits && isCurrentRecipesPage(RECIPES_PAGES[0]!, page.url.pathname)
+    recipePanes.fits &&
+      isCurrentRecipesPage(RECIPES_PAGES[0]!, page.url.pathname) &&
+      page.route.id !== '/(app)/recipes/import'
   );
   const currentId = $derived(page.params.id === undefined ? null : Number(page.params.id));
   /** New recipe or Edit recipe is open in the reading pane. */

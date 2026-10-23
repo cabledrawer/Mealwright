@@ -172,6 +172,46 @@ describe('the recipe page', () => {
     }
   });
 
+  it('says where an imported recipe came from: the site as a link, and the author', async () => {
+    await open({
+      source_note: null,
+      source: {
+        url: 'https://www.kitchen.example/recipes/sambar',
+        site: 'kitchen.example',
+        imported_at: '2026-10-03T10:00:00Z',
+        author: 'Meena Raman'
+      }
+    });
+    await expect.element(page.getByText('From: kitchen.example · by Meena Raman')).toBeVisible();
+    // Opening it is the person's own click: a plain link, nothing the page fetches.
+    const link = page.getByRole('link', { name: 'kitchen.example' });
+    await expect
+      .element(link)
+      .toHaveAttribute('href', 'https://www.kitchen.example/recipes/sambar');
+    await expect.element(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('leaves the author out when the page named none, and says nothing for a typed-in recipe', async () => {
+    await open({
+      source: {
+        url: 'https://kitchen.example/x',
+        site: 'kitchen.example',
+        imported_at: '2026-10-03T10:00:00Z',
+        author: null
+      }
+    });
+    await expect.element(page.getByText('From: kitchen.example', { exact: true })).toBeVisible();
+    expect(document.body.textContent).not.toContain(' · by ');
+  });
+
+  it('shows a source note that is a web address as a link, and any other note as typed', async () => {
+    await open({ source_note: 'https://wiki.example/sambar' });
+    await expect
+      .element(page.getByRole('link', { name: 'https://wiki.example/sambar' }))
+      .toHaveAttribute('href', 'https://wiki.example/sambar');
+    expect(document.body.textContent).not.toContain('From:');
+  });
+
   it('says nutrition is unknown, in one line, when none was typed', async () => {
     await open({ nutrition: { kcal: null, protein: null, carbs: null, fat: null, fibre: null } });
     await expect.element(page.getByText('Nutrition unknown')).toBeVisible();
