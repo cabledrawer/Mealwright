@@ -256,6 +256,21 @@ def test_a_member_sees_the_list_but_cannot_change_it(
         ("x" * 300, 422, "bad_entry", own_network.BAD_ENTRY),
         ("localhost", 422, "always_blocked", own_network.NEVER),
         ("app.localhost", 422, "always_blocked", own_network.NEVER),
+        # Written so the international-name mapping makes them "localhost" (review of PR 57).
+        (
+            "\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54",
+            422,
+            "always_blocked",
+            own_network.NEVER,
+        ),
+        (
+            "app.\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54",
+            422,
+            "always_blocked",
+            own_network.NEVER,
+        ),
+        ("localhost\u200b", 422, "always_blocked", own_network.NEVER),
+        ("local\u00adhost", 422, "always_blocked", own_network.NEVER),
         ("127.0.0.1", 422, "always_blocked", own_network.NEVER),
         ("::1", 422, "always_blocked", own_network.NEVER),
         ("169.254.169.254", 422, "always_blocked", own_network.NEVER),

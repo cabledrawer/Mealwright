@@ -219,6 +219,10 @@ def tidy(text: str) -> tuple[str, str]:
     name = name_key(text)
     if name is None:
         raise ValueError(BAD_ENTRY)
+    # After the international-name mapping, which folds full-width letters and drops soft
+    # hyphens and zero-width spaces: a name written that way can still mean localhost.
+    if is_localhost(name):
+        raise ValueError(NEVER)
     return "name", name
 
 

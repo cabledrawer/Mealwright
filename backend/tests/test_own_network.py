@@ -173,6 +173,11 @@ def test_entries_are_tidied(typed: str, kind: str, value: str) -> None:
         ("localhost", NEVER),
         ("LOCALHOST.", NEVER),
         ("wiki.localhost", NEVER),
+        # The same names written so that the international-name mapping makes them these.
+        ("\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54", NEVER),  # full-width
+        ("app.\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54", NEVER),
+        ("localhost\u200b", NEVER),  # a zero-width space after it
+        ("local\u00adhost", NEVER),  # a soft hyphen inside it
         ("127.0.0.1", NEVER),
         ("::1", NEVER),
         ("0.0.0.0", NEVER),  # noqa: S104
