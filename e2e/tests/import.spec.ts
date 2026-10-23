@@ -157,6 +157,9 @@ test('a slow page says Reading… and nothing else can be sent meanwhile', async
 test('offline, the box says it needs the server and nothing is sent', async ({ page, context }) => {
   await page.goto('/recipes/import');
   await box(page).fill('https://bananaleaf.example/sambar/');
+  // Let the page go quiet first: an answer that arrives after the connection is cut would count
+  // as connected (docs/dev/browser-tests.md).
+  await page.waitForLoadState('networkidle');
   await context.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(page.getByText(/Importing needs your Mealwright server/)).toBeVisible({ timeout: 10000 });
@@ -250,10 +253,11 @@ test('You already have this recipe: Open it, or Import again as a copy', async (
 test('pasted text, end to end: the review, Save, the recipe, and one Undo that takes it all back', async ({ page }) => {
   const dal = unique('Red lentils');
   const hing = unique('Hing');
+  const masala = unique('Garam masala');
   const title = unique('Dal tadka');
   await page.goto('/recipes/import');
   await box(page).fill(
-    `${title}\nIngredients\n1 cup ${dal}\n¼ tsp ${hing}\nsalt to taste\nMethod\n1. Boil the lentils.\n2. Fry the tadka.\nTips\nServe hot.\n`,
+    `${title}\nIngredients\n1 cup ${dal}\n¼ tsp ${hing}\n1 tsp ${masala}\nMethod\n1. Boil the lentils.\n2. Fry the tadka.\nTips\nServe hot.\n`,
   );
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
@@ -275,7 +279,7 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   const foods = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(hing)}`)).json()) as Json;
   expect(foods.foods.map((f: Json) => f.name.toLowerCase())).toContain(hing.toLowerCase());
   const changes = (await (await page.request.get('/api/v1/changes?area=ingredients&limit=10')).json()) as Json;
-  expect(changes.changes.filter((c: Json) => c.kind === 'recipe_imported')).toHaveLength(1);
+  expect(changes.changes.filter((c: Json) => c.kind === 'recipe_imported' && c.summary.includes(title))).toHaveLength(1);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${id}`)).status()).toBe(404);
