@@ -537,7 +537,7 @@ MILLION_DIGITS = "1" * 1_000_001
     "time_",
     [
         "1" * 5_000_000,  # a bare number: 214 s before the 20-character limit
-        "PT" + MILLION_DIGITS + "M",  # 8.6 s, and one digit more overflowed
+        "PT" + MILLION_DIGITS + "M",  # decimal.Overflow (a digit fewer took 8.6 s)
         "P" + MILLION_DIGITS + "W",  # decimal.Overflow out of read_page
         "PT1." + MILLION_DIGITS + "H",
         "1" * 21,
@@ -563,8 +563,9 @@ def test_real_times_are_read_as_before_the_number_limit() -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("calories", MILLION_DIGITS + " kJ"),  # decimal.Overflow before the limit
-        ("proteinContent", MILLION_DIGITS + " mg"),
+        # decimal.Overflow before the limit (1,000,001 digits were still converted)
+        ("calories", "1" * 1_000_030 + " kJ"),
+        ("proteinContent", "1" * 1_000_030 + " mg"),
         ("calories", "1." + MILLION_DIGITS + " kcal"),
         ("calories", "1e" + MILLION_DIGITS),
         ("calories", "1" * 21 + " kcal"),
