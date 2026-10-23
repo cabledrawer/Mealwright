@@ -326,7 +326,7 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
 - **The same link twice:** You already have this recipe · Open it · Import again as a copy (cabledrawer 21 Oct).
 - **A draft in the list:** From bbcgoodfood.com · started by Tess · 12 days left (cabledrawer 21 Oct).
 - **Toasts with Undo:** Deleted the Rava dosa draft · Undo · Moved Coriander to Lidl · Undo · Binned 1 bunch Coriander · Undo (proposed, for cabledrawer).
-- **Pasted text too long** (0.5 PR 2; proposed, for cabledrawer): That text is longer than 100,000 characters. Paste just the recipe: its title, ingredients and method. (The sentence is in `backend/src/mealwright/pasted_recipe.py`, `PASTED_TOO_LONG`.)
+- **Pasted text too long** (0.5 PR 2; approved by cabledrawer 23 Oct): That text is longer than 100,000 characters. Paste just the recipe: its title, ingredients and method. (The sentence is in `backend/src/mealwright/pasted_recipe.py`, `PASTED_TOO_LONG`.)
 - **Fetching a recipe page** (0.5 PR 1, `page_fetch.MESSAGES`; kept by cabledrawer 23 Oct, question 16; “switched off”, “not a web page” and “Photo not downloaded” are the lines above):
   - Not a link: That doesn’t look like a web link. Check it, or paste the recipe’s text.
   - Always blocked: Mealwright never opens links to this server itself or to cloud “metadata” addresses.
