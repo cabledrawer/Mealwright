@@ -20,8 +20,9 @@ at most 5) is checked in full before anything is sent:
 
 Pages: up to 5 MB, `text/html` or `application/xhtml+xml` only. Photos: up to 15 MB, image
 types only, then cleaned like an upload (`photos.clean`, which also refuses more than 50
-megapixels). Each hop must finish within the gate's 15 seconds, and the whole fetch,
-redirects included, within 30; the gate cuts the connection when time runs out.
+megapixels). Each connection (each address tried) must finish within the gate's 15
+seconds, and the whole fetch, redirects included, within 30; the gate cuts the connection
+when time runs out.
 
 Log lines name only the connection ("recipe import") and the kind of problem, never the
 page's address or host: a site name shows what someone was cooking (spec section 7, Logs).
@@ -56,8 +57,8 @@ log = logging.getLogger(__name__)
 # The page limits (spec section 6, "Recipe import, decided for 0.5").
 MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_REDIRECTS = 5
-# The whole fetch, redirects included, must finish within this; each hop also has the
-# gate's own 15 seconds (decided by cabledrawer; see spec).
+# The whole fetch, redirects included, must finish within this; each connection (each
+# address tried) also has the gate's own 15 seconds (decided by cabledrawer; see spec).
 MAX_FETCH_SECONDS = 30
 NORMAL_PORTS = frozenset({80, 443})
 PAGE_TYPES = frozenset({"text/html", "application/xhtml+xml"})
