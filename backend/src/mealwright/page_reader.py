@@ -43,6 +43,10 @@ MAX_SERVES = 99
 MAX_MAKES = Decimal(1_000_000)
 MAX_MAKES_UNIT = 30
 MAX_NUTRIENT = Decimal(100_000)
+# Characters in one number (a time, a yield, a nutrition value), like 0.4's amounts: turning
+# a longer digit string into a number takes time that grows with its square (a million
+# digits: 8 seconds), so it's refused before it's converted. A real one has a few digits.
+MAX_NUMBER_TEXT = 20
 MAX_HEADING = 60  # an ingredient line this short, ending in ":", is a section name
 MAX_DEPTH = 256  # elements nested deeper than this are read as if they were siblings
 MAX_NODES = 200_000  # elements and runs of text kept from one page (a real one has ~10,000)
@@ -50,6 +54,10 @@ MAX_START_TAG = 65_536  # characters in one start tag; a longer one is skipped w
 # Characters and elements read for microdata properties, for one whole page: the page's own
 # length, or this for a smaller page. A real page reads well under its length.
 MIN_MICRODATA_READ = 1_000_000
+# Objects and lists read from one page's JSON-LD, all its blocks together (a real recipe has
+# a few hundred). A block that would take the page past this is skipped before it's parsed:
+# parsed, 5 MB of `[{},{},…]` would take about 250 MB.
+MAX_JSON_CONTAINERS = 50_000
 NUTRIENTS = ("kcal", "protein", "carbs", "fat", "fibre")
 
 
@@ -324,7 +332,14 @@ def _types(item: _Item) -> set[str]:
 
 def _from_json_ld(page: _Page) -> _Recipe | None:
     blocks: list[object] = []
+    room = MAX_JSON_CONTAINERS
     for raw in page.json_ld:
+        # Counted in the text, before parsing: every "{" and "[" (even inside a string) is
+        # at most one object or list, and each one parsed costs about 50 times its text.
+        containers = raw.count("{") + raw.count("[")
+        if containers > room:
+            continue  # far more than any recipe needs: not read, and the others still are
+        room -= containers
         try:
             blocks.append(_normalised(json.loads(_JSON_WRAPPERS.sub("", raw), strict=False)))
         except ValueError, RecursionError:
@@ -694,7 +709,7 @@ def _add_steps(
 
 # --- Times ------------------------------------------------------------------------------------
 
-_NUMBER = r"(\d+(?:[.,]\d+)?)"
+_NUMBER = r"(\d{1,20}(?:[.,]\d{1,20})?)"  # longer digit runs don't match (MAX_NUMBER_TEXT)
 _DURATION = re.compile(
     rf"^P(?:{_NUMBER}W)?(?:{_NUMBER}D)?(?:T(?:{_NUMBER}H)?(?:{_NUMBER}M)?(?:{_NUMBER}S)?)?$",
     re.IGNORECASE,
@@ -712,10 +727,14 @@ def _minutes(value: object) -> int | None:
     elif isinstance(value, str):
         text = value.strip()
         if text.isdigit():
+            if len(text) > MAX_NUMBER_TEXT:
+                return None
             total = Decimal(text)
         else:
             match = _DURATION.match(text)
             if not match or not any(match.groups()) or text.upper().endswith("T"):
+                return None
+            if any(part and len(part) > MAX_NUMBER_TEXT for part in match.groups()):
                 return None
             total = sum(
                 (
@@ -755,7 +774,10 @@ def _first_minutes(recipe: _Recipe, key: str) -> int | None:
 
 _YIELD = re.compile(
     r"^(?:(serves|makes|yields?|for)\s*:?\s*)?(?:about\s+|approx\.?\s+)?"
-    r"(\d+(?:[.,]\d+)?)(?:\s*(?:-|\u2013|\u2014|to)\s*\d+(?:[.,]\d+)?)?\s*(.*)$",
+    # The number is at most 20 digits each side (MAX_NUMBER_TEXT) and a longer one doesn't
+    # match at all; a range's second number is never converted.
+    r"(\d{1,20}(?:[.,]\d{1,20})?)(?![.,]?\d)(?:\s*(?:-|\u2013|\u2014|to)\s*\d+(?:[.,]\d+)?)?"
+    r"\s*(.*)$",
     re.IGNORECASE,
 )
 _SERVINGS = frozenset(
@@ -779,6 +801,8 @@ def _yield(recipe: _Recipe) -> tuple[int | None, tuple[Decimal, str] | None]:
         if not match:
             continue
         prefix = (match.group(1) or "").lower()
+        if len(match.group(2)) > MAX_NUMBER_TEXT:
+            continue
         amount = Decimal(match.group(2).replace(",", "."))
         unit = re.split(r"[(\[]", match.group(3))[0].strip(" .,;:")
         first_word = unit.split(" ")[0].lower() if unit else ""
@@ -810,8 +834,11 @@ _NUTRITION_KEYS = {
     "fat": "fatContent",
     "fibre": "fiberContent",
 }
+# Each run of digits is matched to at most 20 (MAX_NUMBER_TEXT); `_nutrient` refuses a
+# number that carries on past that.
 _AMOUNT = re.compile(
-    r"(\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:[.,](\d+))?(?:[eE]([+-]?\d+))?\s*([a-zA-Zµμ]*)"
+    r"(\d{1,3}(?:,\d{3}){1,6}(?!\d)|\d{1,20})(?:[.,](\d{1,20}))?(?:[eE]([+-]?\d{1,20}))?"
+    r"\s*([a-zA-Zµμ]*)"
 )
 
 
@@ -840,9 +867,13 @@ def _nutrient(value: object, energy: bool) -> Decimal | None:
         if not amount.is_finite():
             return None
     elif isinstance(value, str):
-        match = _AMOUNT.search(_one_line(value))
+        text = _one_line(value)
+        match = _AMOUNT.search(text)
         if not match:
             return None
+        end = max(match.end(1), match.end(2), match.end(3))  # where the number ends
+        if end - match.start() > MAX_NUMBER_TEXT or text[end : end + 1].isdigit():
+            return None  # longer than any real amount: refused before it's converted
         whole, fraction, power = match.group(1).replace(",", ""), match.group(2), match.group(3)
         if power and len(power.lstrip("+-")) > 2:
             return None  # "1e300": far too big or too small to be real

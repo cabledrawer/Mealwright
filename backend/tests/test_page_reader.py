@@ -530,6 +530,78 @@ def test_infinite_and_huge_times() -> None:
     assert found_.total_minutes is None
 
 
+MILLION_DIGITS = "1" * 1_000_001
+
+
+@pytest.mark.parametrize(
+    "time_",
+    [
+        "1" * 5_000_000,  # a bare number: 214 s before the 20-character limit
+        "PT" + MILLION_DIGITS + "M",  # 8.6 s, and one digit more overflowed
+        "P" + MILLION_DIGITS + "W",  # decimal.Overflow out of read_page
+        "PT1." + MILLION_DIGITS + "H",
+        "1" * 21,
+        "PT" + "1" * 21 + "M",
+    ],
+)
+def test_a_very_long_number_in_a_time_is_refused_quickly(time_: str) -> None:
+    """Number text over 20 characters is refused before it's converted, like 0.4's amounts
+    (MAX_NUMBER_TEXT). Turning a long digit string into a number takes time that grows with
+    its square, and a big enough one overflowed."""
+    start = time.monotonic()
+    found_ = read(totalTime=time_)
+    assert time.monotonic() - start < 1
+    assert found_.total_minutes is None
+
+
+def test_real_times_are_read_as_before_the_number_limit() -> None:
+    assert read(totalTime="PT1H30M").total_minutes == 90
+    assert read(totalTime="0" * 18 + "45").total_minutes == 45  # 20 characters: read
+    assert read(totalTime="PT" + "0" * 18 + "45M").total_minutes == 45
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("calories", MILLION_DIGITS + " kJ"),  # decimal.Overflow before the limit
+        ("proteinContent", MILLION_DIGITS + " mg"),
+        ("calories", "1." + MILLION_DIGITS + " kcal"),
+        ("calories", "1e" + MILLION_DIGITS),
+        ("calories", "1" * 21 + " kcal"),
+        ("calories", "0" * 20 + "1 kcal"),  # never read as its first 20 digits
+        ("calories", "0." + "0" * 19 + "1 kcal"),  # 22 characters
+        ("fatContent", "1,000,000,000,000,000,000,000 g"),
+    ],
+)
+def test_a_very_long_number_in_nutrition_is_refused_quickly(field: str, value: str) -> None:
+    start = time.monotonic()
+    found_ = read(nutrition=facts(**{field: value}))
+    assert time.monotonic() - start < 1
+    assert found_.nutrition == NO_NUTRITION
+
+
+@pytest.mark.parametrize(
+    "value", ["1" * 5_000_000 + " servings", "4." + MILLION_DIGITS, "1" * 21 + " cookies"]
+)
+def test_a_very_long_number_in_a_yield_is_refused_quickly(value: str) -> None:
+    start = time.monotonic()
+    found_ = read(recipeYield=value)
+    assert time.monotonic() - start < 2
+    assert (found_.serves, found_.makes) == (None, None)
+
+
+def test_real_numbers_are_read_as_before_the_number_limit() -> None:
+    found_ = read(
+        recipeYield="4 servings",
+        nutrition=facts(calories="320 kcal", proteinContent="12.5 g", fatContent="1,200 mg"),
+    )
+    assert found_.serves == 4
+    assert found_.nutrition["kcal"] == Decimal(320)
+    assert found_.nutrition["protein"] == Decimal("12.5")
+    assert found_.nutrition["fat"] == Decimal("1.2")
+    assert read(recipeYield="Serves 4 to " + "6" * 30).serves == 4  # the range's end isn't read
+
+
 # --- Serves and Makes ------------------------------------------------------------------------
 
 
@@ -1334,6 +1406,35 @@ def test_one_endless_start_tag_takes_little_memory_or_time() -> None:
     assert peak < 50_000_000
     # The same with an end: many tiny attributes, then ">" past the limit.
     assert read_page(html + ">" + json_ld(recipe(name="After")), URL) is not None
+
+
+@pytest.mark.parametrize("unit", ["{},", "[],", '{"@id":"#n","a":1},'])
+def test_5_mb_of_tiny_json_objects_stays_near_the_pages_size_in_memory(unit: str) -> None:
+    """Each parsed object or list costs about 50 times its text: 5 MB of `[{},{},…]` took
+    247 MB. A block with more than MAX_JSON_CONTAINERS is skipped before it's parsed, and
+    the page's other blocks are still read."""
+    tiny = "[" + unit * (FIVE_MB // len(unit)) + "{}]"
+    html = f'<script type="application/ld+json">{tiny}</script>' + json_ld(recipe(name="Dal"))
+    tracemalloc.start()
+    try:
+        found_ = read_page(html, URL)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert found_ is not None
+    assert found_.name == "Dal"
+    assert peak < 2 * len(html)
+
+
+def test_json_ld_objects_are_counted_across_the_whole_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The limit is for all the page's blocks together, so many blocks just under it can't add
+    up to the same memory; a block that would take the page past it is skipped."""
+    monkeypatch.setattr(page_reader, "MAX_JSON_CONTAINERS", 10)
+    filler = {"@type": "Thing", "parts": [{}, {}, {}]}  # 5 objects and lists
+    assert read_page(json_ld(filler, filler, recipe(name="Late")), URL) is None
+    found_ = read_page(json_ld(filler, recipe(name="Fits")), URL)  # 5, then 4
+    assert found_ is not None
+    assert found_.name == "Fits"
 
 
 def test_a_start_tag_longer_than_the_limit_is_skipped_and_the_page_still_read() -> None:
