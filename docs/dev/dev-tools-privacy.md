@@ -17,6 +17,7 @@ Checked 17 Oct 2026, after Trivy turned out to send usage data by default (cable
 | **Vitest** (frontend tests, in Chromium) | 5.0.3 | nothing | — | No | None needed |
 | **ESLint, Prettier** (lint) | 10.11.0, 3.9.9 | nothing | — | No | None needed |
 | **svelte-check, TypeScript** | 4.7.6, 6.0.3 | nothing | — | No | None needed |
+| **import_check.py** (real-recipe check; dev only) | our own script, `backend/scripts/import_check.py` | contacts only the recipe sites in the list kept outside the repo | a normal page request with the app's user agent ("Mealwright"); no photos | No | run by hand, never in `./check`; not in the image |
 
 **Outside the project, for cabledrawer to switch off himself:** **Docker Desktop**, if you use it, sends usage statistics to Docker by default. To stop it: open Docker Desktop → **Settings → General** → switch off **"Send usage statistics"** → **Apply & restart**.
 

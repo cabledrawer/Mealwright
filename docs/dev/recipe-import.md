@@ -307,6 +307,50 @@ dependency, so it needs cabledrawer's OK first. To swap:
 Nothing else changes: `page_fetch` doesn't know about the reader, and the import code only
 sees `PageRecipe`.
 
+## The real-recipe check
+
+`backend/scripts/import_check.py` is a dev-only tool (spec section 6, "Real-recipe test"): it
+fetches the real pages on cabledrawer's list, reads them, and reports what the reader found. It is
+run by hand, never by `./check`, and is not in the Docker image (the image holds only the
+installed package and the web app; `tests/test_test_clock.py` and `tests/test_import_check.py`
+read the Dockerfile to prove it). It has no pass mark.
+
+```bash
+cd backend
+uv run python scripts/import_check.py
+# or, with other files:
+uv run python scripts/import_check.py --list /path/to/urls.md --report /path/to/report.md
+```
+
+- **The list** (default `import-check/urls.md` in the sync folder, which is `$MEALWRIGHT_SYNC_DIR` or `./repo-sync`, outside the repo; no
+  address is ever committed): `## ` headings are groups (sites), `- <address> — <note>` lines
+  are recipes. Blank lines and lines starting with `>` or `# ` are skipped quietly; any other
+  line is ignored and counted in the report.
+- **Fetching:** one address at a time, at most one request every 5 seconds per site (counted
+  from the end of the last one). Each goes through `page_fetch.fetch_page` with a real
+  `OutboundGate`, on a throwaway database where only "Recipe import from links" is on, so the
+  user agent, limits and address checks are the app's own. Redirects are followed by
+  `page_fetch` as in the app. The page is read with `page_budget.read_within_budget`, then each
+  ingredient line with `ingredient_reader.read_line`. **No photo is downloaded**; the report
+  says only whether the page names one.
+- **The report** (default `import-check-0.5.md` in the sync folder): a summary table
+  with one row per address (group, result, whether a title was found and its first 40
+  characters, ingredients read and not read, steps, photo named yes/no, the address); a count
+  line per group; then, per recipe, the ingredient lines the reader couldn't read and the
+  number or unit words that probably stopped it finding an amount. The result is one of read,
+  no recipe data, refused by the site, blocked or couldn't read, with the app's own problem
+  code beside it. No page text, HTML or photo address is written, and nothing of a page is
+  saved.
+- **What it leaves out:** a "what it read" column (JSON-LD or microdata), because `read_page`
+  doesn't say which it used and the check doesn't change the reader. The "words not known" list
+  is a guide: the reader doesn't report the words it didn't know, so the check lists the number
+  and the word after it on lines that start with a number but got no amount.
+- **One failure never stops the run:** each is a row. Ctrl-C stops it and writes what it has
+  so far, marked "Stopped early".
+
+`tests/test_import_check.py` tests it with made-up pages and a fake fetcher or fake network;
+it never goes online.
+
 ## The test pages
 
 `backend/tests/import_pages/` holds made-up pages for `tests/test_page_reader.py`. Each copies
