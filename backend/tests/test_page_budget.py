@@ -351,3 +351,88 @@ def test_a_page_with_no_recipe_reads_as_none_within_the_budget() -> None:
 def test_the_import_shows_the_budgets_sentence() -> None:
     assert MESSAGES[Problem.CANT_READ] == CANT_READ == PageUnreadable("time").message
     assert CANT_READ == "Couldn’t read that page. Paste the recipe’s text instead."
+
+
+# --- Two pages at a time (cabledrawer 23 Oct, question 22) ---------------------------------------
+
+
+def _holding_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    """Holds its place for `url` seconds, then answers."""
+    page_budget._prepare_child(cpu, memory)
+    time.sleep(float(url))
+    send.send(("read", None))
+    send.close()
+
+
+def _in_threads(count: int, hold: float, **options: float) -> list[object]:
+    """Read `count` pages at once, each holding its place for `hold` seconds; what each
+    gives back (None, or the error raised), with when it ended."""
+    results: list[object] = [None] * count
+    ended: list[float] = [0.0] * count
+
+    def one(index: int) -> None:
+        try:
+            read_within_budget("<p>x</p>", str(hold), **options)
+        except PageUnreadable as error:
+            results[index] = error
+        ended[index] = time.monotonic()
+
+    threads = [threading.Thread(target=one, args=(i,)) for i in range(count)]
+    began = time.monotonic()
+    for thread in threads:
+        thread.start()
+        time.sleep(0.05)  # in order: the third is the last to ask
+    for thread in threads:
+        thread.join()
+    results.append([end - began for end in ended])
+    return results
+
+
+def test_two_pages_are_read_at_once(child_as) -> None:  # type: ignore[no-untyped-def]
+    assert page_budget.MAX_AT_ONCE == 2
+    child_as(_holding_child)
+    *results, ends = _in_threads(2, 2.0)
+    assert results == [None, None]
+    # Both ran together: about 2.x seconds in all, not 4.
+    assert max(ends) < 3.8
+
+
+def test_a_third_page_waits_its_turn_and_then_runs(child_as) -> None:  # type: ignore[no-untyped-def]
+    child_as(_holding_child)
+    *results, ends = _in_threads(3, 1.5)
+    assert results == [None, None, None]
+    # The third could only start when one of the first two was done.
+    assert max(ends) > 3.0
+
+
+def test_a_third_page_whose_wait_would_pass_its_limit_is_told_mealwright_is_busy(
+    child_as, caplog: pytest.LogCaptureFixture
+) -> None:  # type: ignore[no-untyped-def]
+    child_as(_holding_child)
+    with caplog.at_level(logging.WARNING):
+        *results, ends = _in_threads(3, 3.0, wait_seconds=0.5)
+    assert results[:2] == [None, None]
+    busy = results[2]
+    assert isinstance(busy, page_budget.PageBusy)
+    assert (
+        busy.message
+        == page_budget.BUSY
+        == "Mealwright is busy reading another page. Try again in a moment."
+    )
+    assert MESSAGES[Problem.BUSY] == page_budget.BUSY
+    assert "busy with other pages" in caplog.text
+    assert ends[2] < 1.5  # it gave up at its wait, it didn't wait for the others
+
+
+def test_a_failed_or_over_budget_read_gives_its_place_back(child_as) -> None:  # type: ignore[no-untyped-def]
+    # Four reads that fail one after another, then two that need both places at once: if a
+    # failed read kept its place, the last two would be refused.
+    child_as(_crashing_child)
+    for _ in range(3):
+        with pytest.raises(PageUnreadable):
+            read_within_budget("<p>x</p>", URL)
+    with pytest.raises(PageUnreadable):
+        read_within_budget(slow_page(), URL, cpu_seconds=60, wall_seconds=0.3)
+    child_as(_holding_child)
+    *results, _ = _in_threads(2, 0.5, wait_seconds=0.2)
+    assert results == [None, None]

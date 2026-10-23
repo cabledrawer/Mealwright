@@ -89,6 +89,8 @@ class Problem(StrEnum):
     # Reading the page went over its time or memory budget (raised as
     # `page_budget.PageUnreadable`, which has the same sentence).
     CANT_READ = "cant_read"
+    # Two other pages are being read and the wait ran out (`page_budget.PageBusy`).
+    BUSY = "busy"
 
 
 # Words the screens show (docs/dev/words.md section 18). "Importing from links is switched
@@ -119,6 +121,7 @@ MESSAGES = {
     Problem.PHOTO_TOO_BIG: PHOTO_TOO_BIG,
     Problem.TOO_MANY_PIXELS: photos.TOO_MANY_PIXELS,
     Problem.CANT_READ: page_budget.CANT_READ,
+    Problem.BUSY: page_budget.BUSY,
 }
 
 # What a log line says about each problem (no address, no host).

@@ -22,6 +22,10 @@ reader's own loops couldn't do that: it can't stop one long call inside Python i
 - The child can't write a core file (`RLIMIT_CORE` 0), and it switches on the network guard
   (`outbound.install_network_guard`) before it reads anything: it starts fresh, so it doesn't
   have the server's guard, and even a bug in the reader couldn't open a connection.
+- **Two at a time** (cabledrawer 23 Oct, question 22): at most `MAX_AT_ONCE` pages are read at
+  once for the whole server (each child may use `MAX_MEMORY`). A third waits its turn; the
+  wait counts within the import's own 30 seconds, and a read that can't start in time raises
+  `PageBusy`. A place is always given back, however the read ends.
 - The child gets the page's text and address, and sends back the reader's result. It does no
   network and no database work.
 
@@ -35,6 +39,7 @@ import math
 import multiprocessing
 import resource
 import signal
+import threading
 import time
 from multiprocessing.connection import Connection
 
@@ -57,6 +62,15 @@ MAX_MEMORY = 384 * 1024 * 1024
 # cabledrawer 23 Oct). `page_fetch.MESSAGES` holds it too, under `Problem.CANT_READ`.
 CANT_READ = "Couldn’t read that page. Paste the recipe’s text instead."
 
+# At most this many pages are read at once, for the whole server (one process, so a plain
+# semaphore does it). Standard library only.
+MAX_AT_ONCE = 2
+# The longest a read waits for its turn: the import's own 30 seconds (the caller passes what is
+# left of them).
+MAX_WAIT_SECONDS = 30.0
+BUSY = "Mealwright is busy reading another page. Try again in a moment."
+_places = threading.BoundedSemaphore(MAX_AT_ONCE)
+
 # How long the parent waits for a child that has already answered to end by itself, before it
 # is killed. (It has nothing left to do but exit.)
 _EXIT_SECONDS = 2.0
@@ -75,6 +89,15 @@ class PageUnreadable(Exception):
         self.message = CANT_READ
 
 
+class PageBusy(PageUnreadable):
+    """Two other pages are being read and the wait for a place ran out. `message` is the
+    sentence a screen shows."""
+
+    def __init__(self) -> None:
+        super().__init__("busy")
+        self.message = BUSY
+
+
 def read_within_budget(
     html: str,
     url: str,
@@ -82,12 +105,31 @@ def read_within_budget(
     cpu_seconds: float | None = None,
     wall_seconds: float | None = None,
     memory: int | None = None,
+    wait_seconds: float | None = None,
 ) -> PageRecipe | None:
     """`page_reader.read_page(html, url)`, in a child process with a budget of `cpu_seconds`
     of processor time, `wall_seconds` by the clock and `memory` bytes (`MAX_CPU_SECONDS`,
     `MAX_WALL_SECONDS` and `MAX_MEMORY` unless a test changes them). Raises PageUnreadable if
     it goes over, or the child ends without a usable answer; anything else the reader raises
-    is raised here too."""
+    is raised here too. If two other pages are being read, it waits up to `wait_seconds`
+    (`MAX_WAIT_SECONDS`) for its turn, then raises PageBusy."""
+    wait = MAX_WAIT_SECONDS if wait_seconds is None else wait_seconds
+    if not _places.acquire(timeout=max(0.0, wait)):
+        log.warning("Couldn't read a page: %s, busy with other pages", _label())
+        raise PageBusy
+    try:
+        return _read(html, url, cpu_seconds, wall_seconds, memory)
+    finally:
+        _places.release()
+
+
+def _read(
+    html: str,
+    url: str,
+    cpu_seconds: float | None,
+    wall_seconds: float | None,
+    memory: int | None,
+) -> PageRecipe | None:
     cpu_seconds = MAX_CPU_SECONDS if cpu_seconds is None else cpu_seconds
     wall_seconds = MAX_WALL_SECONDS if wall_seconds is None else wall_seconds
     memory = MAX_MEMORY if memory is None else memory
@@ -144,13 +186,17 @@ _WORDS = {
 }
 
 
-def _over_budget(reason: str) -> PageUnreadable:
+def _label() -> str:
     # Here, not at the top: the child imports this module, and the gate's module would bring
     # the database code with it.
     from mealwright.outbound import LABELS, Connection
 
+    return LABELS[Connection.RECIPE_IMPORT]
+
+
+def _over_budget(reason: str) -> PageUnreadable:
     # The connection's plain label and the reason only, never the page's address.
-    log.warning("Couldn't read a page: %s, %s", LABELS[Connection.RECIPE_IMPORT], _WORDS[reason])
+    log.warning("Couldn't read a page: %s, %s", _label(), _WORDS[reason])
     return PageUnreadable(reason)
 
 

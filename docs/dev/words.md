@@ -338,6 +338,7 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - An error page: That site didn’t send the page. Check the link, or try again later.
   - Too big: That page is bigger than 5 MB.
   - Over the reading budget (0.5 PR 1; approved by cabledrawer 23 Oct; `page_budget.CANT_READ`): Couldn’t read that page. Paste the recipe’s text instead.
+  - Two other pages are being read and the wait ran out (0.5 PR 3; proposed, for cabledrawer; `page_budget.BUSY`): Mealwright is busy reading another page. Try again in a moment.
   - The photo’s own refusals (not a photo, bigger than 15 MB, more than 50 megapixels) reuse the upload sentences from 0.4.
 - **Adding to “Your own network”** (0.5 PR 1, `own_network`; the screen is 0.5 PR 4; kept by cabledrawer 23 Oct, question 16):
   - Not a name, address or range: Type a name (wiki.home.example), an address (192.168.1.20) or a range (192.168.1.0/24).
