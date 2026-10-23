@@ -4,7 +4,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
-- Tests: the browser tests that timed out only in a full `./check` (Pantry's open-pack test, the offline-bar test on phone and desktop, Shopping's ticked-states accessibility test) no longer do: each state is scanned once per theme instead of four times, and the tests wait for what they need instead of a fixed pause. See `docs/dev/browser-tests.md`.
+- Tests: the browser tests that timed out only in a full `./check` (Pantry's open-pack test, the offline-bar test on phone and desktop, Shopping's ticked-states accessibility test) no longer do: each state is scanned once per theme instead of four times, and the tests wait for what they need instead of a fixed pause. The recipe page keyboard test also waits for the "Add to the list" bar before it checks, so it no longer fails when two things say "1 missing" at different moments. See `docs/dev/browser-tests.md`.
 - Tests: every test run now removes its own folders in `/tmp` (the browser tests' app folders and pytest's run folders), and `./check` has a step, "tests: nothing left", that fails if any are left behind.
 
 ## [0.4.0] - 2026-10-22

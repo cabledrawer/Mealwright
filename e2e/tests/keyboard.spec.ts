@@ -202,11 +202,13 @@ test.describe('signed in', () => {
     });
     await page.goto(`/recipes/${recipe.id}`);
     await expect(page.getByRole('heading', { name: recipe.name, level: 1 })).toBeVisible();
-    // The page and its ingredient line both say "1 missing", and which of them has shown by the
-    // time this looks varies, so take the first (a locator that matches two fails at once).
-    await expect(
-      page.getByRole('region', { name: 'Recipe', exact: true }).getByText('1 missing').first(),
-    ).toBeVisible();
+    // Wait for the missing bar ("1 missing" and "Add to the list"). It is drawn from the same
+    // stock answer as the ingredient lines, so once it shows the page has settled. "1 missing"
+    // can also show in an ingredient line, but not always and not at the same moment (a count
+    // of 2 would be a wrong thing to wait for), so the text is matched with .first().
+    const recipeRegion = page.getByRole('region', { name: 'Recipe', exact: true });
+    await expect(recipeRegion.getByRole('button', { name: 'Add to the list' })).toBeVisible();
+    await expect(recipeRegion.getByText('1 missing').first()).toBeVisible();
     await checkKeyboard(page, 'The recipe page');
   });
 

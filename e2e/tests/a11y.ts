@@ -51,16 +51,21 @@ export type AxeOptions = {
  * Wait until every fade, slide and colour change that will end has ended, so a scan never sees
  * a page half-way through one (on a busy machine a 180 ms fade can still be running when the
  * scan starts, and its half-faded colours fail the contrast rule). Animations that never end
- * (a spinner) are left alone.
+ * (a spinner) are left alone, and the wait is cut off after 3 s.
  */
 export async function waitForAnimations(page: Page) {
+  // Wait at most 3 s (in the page), so a paused animation can't hold the test until its own
+  // timeout. The scan runs afterwards either way.
   await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-        .map((a) => a.finished.catch(() => undefined)),
-    ),
+    Promise.race([
+      Promise.all(
+        document
+          .getAnimations()
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+          .map((a) => a.finished.catch(() => undefined)),
+      ),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]),
   );
 }
 
