@@ -48,15 +48,22 @@ Nothing is looked up, read or sent until all of these pass, in this order:
    15 MB, then `photos.clean` decides what it really is, refuses more than 50 megapixels,
    shrinks it and removes hidden data, the same as an upload. The user agent is just
    "Mealwright"; no cookies are sent.
-8. **Time.** Each hop has at most the gate's 15 seconds in all, and the whole fetch, every
-   redirect included, at most 30 (`page_fetch.MAX_FETCH_SECONDS`; decided by cabledrawer, see spec). A
-   watchdog closes the connection when the time runs out, so a site that sends one byte at a
-   time can't hold it open: a socket's own timeout only counts the wait for each byte.
+8. **Time.** Each connection has at most the gate's 15 seconds in all. That is per address
+   tried, not per hop: if a name's first address can't be reached, the next one gets a fresh
+   15 seconds. The whole fetch, every redirect included, has at most 30
+   (`page_fetch.MAX_FETCH_SECONDS`; decided by cabledrawer, see spec). A watchdog closes the
+   connection when the time runs out, so a site that sends one byte at a time can't hold it
+   open: a socket's own timeout only counts the wait for each byte. The 30 seconds don't
+   cover the name look-up: a look-up can't be cut once it has started, so a slow one can run
+   past the 30 by its own length (the system resolver's own timeout bounds it). The time
+   left is checked before each look-up, so at most one look-up runs past, and nothing is
+   fetched after it.
 
 A page's text is decoded with the charset the site names (in the header, else in the page's
 first 4 KB), else UTF-8; bytes that don't fit are replaced, never refused. Only real text
-charsets count: a name Python knows but that isn't one (zlib, base64, rot13, idna, utf-7,
-UTF-16 and UTF-32, which an HTML page can't be sent in), or an unknown name, means UTF-8.
+charsets count: a name Python knows but that isn't one (zlib, base64, rot13, idna, utf-7),
+UTF-16 and UTF-32, or an unknown name, means UTF-8. A page can be sent in UTF-16 with a
+byte-order mark at the start; it is read as UTF-8 too, so no recipe is found in it.
 
 A refusal raises `FetchRefused`, with `problem` (a `Problem` code the API will send) and
 `message` (the sentence a screen shows; see words.md section 18). Log lines name only the
@@ -150,9 +157,13 @@ page has about 10,000), JSON-LD is searched to a depth of 64 and microdata to 16
 inside lists are flattened to a depth of 4. A start tag longer than 65,536 characters is
 skipped whole (the standard parser would hold about 100 bytes of memory for each byte of
 one), and a method is walked through at most 10,000 parts, counting repeats, so sections
-that list themselves can't make it endless. The worst 5 MB page found so far (one JSON-LD
-field of 2.6 million "<a" or "< x ") reads in about 1 second, with under 50 MB of memory at
-its peak (as Python counts it).
+that list themselves can't make it endless. An object referenced many times by `@id` is
+read once per field (and once in the whole method), so referencing one big text thousands of
+times costs no more than reading it once. The time grows in step with the page's size; the
+slowest 5 MB pages found so far are plain valid tags (about 1.7 million `<p>`), which take
+about 4 seconds in the page's body and about 6 seconds inside one JSON-LD field. One JSON-LD
+field of 2.6 million "<a" or "< x " takes under 2 seconds. Memory stays under 50 MB at its
+peak (as Python counts it).
 
 ## Swapping the reader
 
