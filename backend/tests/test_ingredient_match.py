@@ -631,3 +631,16 @@ def test_a_big_kitchen_is_matched_quickly(db: Session) -> None:
     assert elapsed < 1.0, f"200 lines against 2,000 ingredients took {elapsed:.1f} s"
     assert results[0].label == "to_confirm" or results[0].label == "matched"
     assert results[2].label == "needs_you"
+
+
+def test_an_amount_that_converts_past_the_most_an_amount_can_be_does_not_count(
+    db: Session, pantry: dict[str, Food]
+) -> None:
+    # 900,000 kg is fine as written (under 1,000,000) but is 900,000,000 g: past MAX_AMOUNT,
+    # so there is no amount in base units and the line doesn't count (0.5 PR 3).
+    for text in ("900000 kg milk", "900000 l milk"):
+        result = match(db, text)
+        assert result.amount_base is None, text
+        assert not result.counts, text
+    result = match(db, "900 kg milk")
+    assert result.counts

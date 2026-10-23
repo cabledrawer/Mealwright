@@ -22,7 +22,7 @@ from typing import Literal, cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.amounts import DEFAULT_CUP_ML, MILLI, CountedAs, unit_size
+from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, MILLI, CountedAs, unit_size
 from mealwright.household import cup_ml
 from mealwright.household import places as household_places
 from mealwright.ingredient_reader import COUNTED_AS, ReadLine, working_text
@@ -330,6 +330,15 @@ _BASE: dict[str, Literal["g", "ml", "count"]] = {
 def _in_base(
     amount: Decimal, unit: str | None, size: KitchenSize | None, food: KitchenFood | None, cup: int
 ) -> tuple[Decimal, Literal["g", "ml", "count"]] | None:
+    """The amount in g, ml or count, or None if there is none (a pinch), or if it comes to more
+    than the most an amount can be (900,000 kg is 900,000,000 g): such a line doesn't count."""
+    found = _in_base_unchecked(amount, unit, size, food, cup)
+    return found if found is not None and found[0] <= MAX_AMOUNT else None
+
+
+def _in_base_unchecked(
+    amount: Decimal, unit: str | None, size: KitchenSize | None, food: KitchenFood | None, cup: int
+) -> tuple[Decimal, Literal["g", "ml", "count"]] | None:
     if unit == "pinch":
         return None
     if unit is not None:
@@ -370,6 +379,7 @@ def match_line(kitchen: KnownIngredients, read: ReadLine) -> Match:
         if counts and read.amount
         else None
     )
+    counts = counts and (base is not None or not read.amount)
     return Match(
         read,
         label,
@@ -398,6 +408,7 @@ def _unmatched(
         if counts and read.amount
         else None
     )
+    counts = counts and (base is not None or not read.amount)
     return Match(
         read,
         label,

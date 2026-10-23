@@ -20,6 +20,7 @@ What it reads without asking:
 """
 
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
@@ -87,6 +88,14 @@ NOTE_HINTS = frozenset(
      "whole", "total", "each", "only", "the", "a", "an", "of", "in", "with", "from", "your",
      "any", "this", "that", "kind", "type", "sort", "brand", "at", "on", "it", "them", "is"}
 )  # fmt: skip
+
+# Ounces and pounds on their own convert exactly (cabledrawer 23 Oct, question 18): 1 oz is
+# 28.35 g and 1 lb is 453.6 g. Pints, fluid ounces and the rest stay in the note (UK and US
+# pints differ).
+OUNCES = frozenset({"oz", "ounce", "ounces"})
+POUNDS = frozenset({"lb", "lbs", "pound", "pounds"})
+GRAMS_PER_OUNCE = Fraction(2835, 100)
+GRAMS_PER_POUND = Fraction(4536, 10)
 
 # Units from other systems. They are not the recipe editor's units, so a line that has only
 # one of these gets no amount (the measure goes in the note).
@@ -184,6 +193,8 @@ class ReadLine:
       unit, or a plain count. A pinch, a size word, a few and "to taste" never do (a size
       word can count once matching finds the ingredient has that size).
     - `readable`: False for a line with no name left, or over 1,000 characters.
+    - `chosen`: the amount was picked from several numbers or units ("2-3", "1 cup (240 ml)",
+      "2 x 400g", "8 oz"), so the line is kept as written too.
     """
 
     text: str
@@ -196,6 +207,10 @@ class ReadLine:
     note: str | None
     counts: bool
     readable: bool
+    # The amount or unit was picked from several numbers or units in the text (a range, two
+    # units, a pack multiple, ounces or pounds turned into grams): the saved line keeps the
+    # text as written beside it.
+    chosen: bool = False
 
 
 def _unreadable(text: str) -> ReadLine:
@@ -273,6 +288,7 @@ class _Measure:
     other: str | None  # a unit from another system (oz…)
     start: int
     end: int
+    chosen: bool = False  # picked from several numbers or units (a range, a pack multiple)
 
     @property
     def metric(self) -> bool:
@@ -291,19 +307,43 @@ def _base_size(value: Fraction, unit: str | None) -> tuple[str, Fraction] | None
     return family, value * Fraction(unit_size(unit, DEFAULT_CUP_ML))
 
 
+MAX_FACTORS = 3  # "2 x 2 x 400g": at most this many numbers multiplied together
+
+
+def _multiple(text: str, value: Fraction, at: int) -> _Measure | None:
+    """A pack multiple after a plain number: "2 x 400g" (800 g), "2 x 2 x 400g" (1,600 g).
+    At most `MAX_FACTORS` numbers are multiplied, in a loop, so "1x1x1x..." can't make the
+    reader call itself deeper and deeper. None unless the numbers end in a unit ("2 x 3
+    onions" is not a pack multiple)."""
+    product = value
+    for _ in range(MAX_FACTORS - 1):
+        times = _TIMES.match(text, at)
+        if times is None:
+            return None
+        inner = _measure(text, times.end(), allow_multiple=False)
+        if inner is not None and (inner.unit or inner.other):
+            return _Measure(product * inner.value, inner.unit, inner.other, 0, inner.end, True)
+        plain = _number(text, times.end())
+        if plain is None:
+            return None
+        product *= plain[0]
+        at = plain[1]
+    return None
+
+
 def _measure(text: str, start: int, allow_multiple: bool = True) -> _Measure | None:
-    """A number with its unit, a range, or a pack multiple, at `start`. Only one multiple
-    ("2 x 400g") is read, so "1x1x1x..." can't make the reader call itself deeper and deeper."""
+    """A number with its unit, a range, or a pack multiple, at `start`."""
     first = _number(text, start)
     if first is None:
         return None
     value, at = first
     unit, other, end = _unit(text, at)
-    multiple = _TIMES.match(text, at) if allow_multiple and unit is None and other is None else None
-    if multiple is not None:  # 2 x 400g
-        inner = _measure(text, multiple.end(), allow_multiple=False)
-        if inner is not None and (inner.unit or inner.other):
-            return _Measure(value * inner.value, inner.unit, inner.other, start, inner.end)
+    if allow_multiple and unit is None and other is None:
+        multiple = _multiple(text, value, at)
+        if multiple is not None:  # 2 x 400g
+            return _Measure(
+                multiple.value, multiple.unit, multiple.other, start, multiple.end, True
+            )
     separator = _RANGE.match(text, end)
     if separator is not None:  # 2-3, 2 to 3, 200g-300g, 200g-1kg
         second = _number(text, separator.end())
@@ -311,14 +351,17 @@ def _measure(text: str, start: int, allow_multiple: bool = True) -> _Measure | N
             top, after = second
             unit2, other2, end2 = _unit(text, after)
             if unit2 or other2:
+                if unit is None and other is None:
+                    # "3-2 tbsp": only the second side has the unit; the higher number wins.
+                    return _Measure(max(value, top), unit2, other2, start, end2, True)
                 # Two different units: the bigger side wins, with its own unit.
                 low, high = _base_size(value, unit), _base_size(top, unit2)
                 if low is not None and high is not None and low[0] == high[0]:
                     if low[1] > high[1]:
-                        return _Measure(value, unit, other, start, end2)
-                    return _Measure(top, unit2, other2, start, end2)
-                return _Measure(top, unit2, other2, start, end2)  # can't compare: the second
-            return _Measure(max(value, top), unit, other, start, after)
+                        return _Measure(value, unit, other, start, end2, True)
+                    return _Measure(top, unit2, other2, start, end2, True)
+                return _Measure(top, unit2, other2, start, end2, True)  # can't compare: second
+            return _Measure(max(value, top), unit, other, start, after, True)
     return _Measure(value, unit, other, start, end)
 
 
@@ -333,13 +376,13 @@ def _second_measure(text: str, start: int) -> _Measure | None:
         if inner is not None and (inner.unit or inner.other):
             close = re.compile(r"\s*\)").match(text, inner.end)
             if close is not None:
-                return _Measure(inner.value, inner.unit, inner.other, start, close.end())
+                return _Measure(inner.value, inner.unit, inner.other, start, close.end(), True)
         return None
     slash = re.compile(r"\s*/\s*").match(text, start)
     if slash is not None:
         inner = _measure(text, slash.end())
         if inner is not None and (inner.unit or inner.other):
-            return _Measure(inner.value, inner.unit, inner.other, start, inner.end)
+            return _Measure(inner.value, inner.unit, inner.other, start, inner.end, True)
     return None
 
 
@@ -358,9 +401,17 @@ def _bracket_metric(inside: str) -> _Measure | None:
 # --- The text around the amount ---------------------------------------------------------------
 
 
+_CONTROLS = {code: " " for code in (*range(0x20), *range(0x7F, 0xA0))}
+_NOT_TEXT = ("Co", "Cn", "Cs")  # private use, unassigned, surrogates
+
+
 def working_text(text: str) -> str:
-    """The text with hidden characters taken out (`names.without_hidden`), dashes and
-    fraction slashes made plain, and the spaces tidied."""
+    """The text with control characters made into spaces (so "a\x1fb" stays two words) and
+    private-use, unassigned and surrogate characters dropped, then hidden characters taken out
+    (`names.without_hidden`), dashes and fraction slashes made plain, and the spaces tidied."""
+    text = text.translate(_CONTROLS)
+    if not text.isascii():
+        text = "".join(c for c in text if c.isascii() or unicodedata.category(c) not in _NOT_TEXT)
     plain = without_hidden(text.translate(_DASHES).translate(_SLASHES))
     return " ".join(plain.split()).lstrip(BULLETS)
 
@@ -478,6 +529,8 @@ def _alternatives(parts: Iterable[str]) -> list[str]:
 def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     """Read one ingredient line. Never raises. `size_words` are extra size words to know
     (the household's own, from `KnownIngredients.size_words`); the built-in list is `SIZE_WORDS`."""
+    if len(text) > 4 * MAX_LINE_CHARS:  # not an ingredient line (and not worth a character walk)
+        return _unreadable(text)
     work = working_text(text)
     if not work or len(work) > MAX_LINE_CHARS:
         return _unreadable(text)
@@ -492,6 +545,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     amount: Fraction | None = None
     unit: str | None = None
     other: str | None = None
+    second_used = False
     size_word: str | None = None
     quantity: str | None = None
     position = start
@@ -507,6 +561,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
         amount, unit, other, position = measure.value, measure.unit, measure.other, measure.end
         second = _second_measure(work, position)
         if second is not None:
+            second_used = True
             if second.metric and not measure.metric:
                 amount, unit, other = second.value, second.unit, None
             position = second.end
@@ -551,6 +606,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
             metric = _bracket_metric(part)
             if metric is not None:
                 amount, unit, other = metric.value, metric.unit, None
+                second_used = True
                 inside.remove(part)
                 continue
     for part in inside:
@@ -599,7 +655,11 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     name = _tidy(" ".join(kept))
     other_names = _alternatives(names)
 
-    if other is not None and amount is not None:  # 8 oz: not an amount we can use
+    chosen = measure is not None and measure.chosen
+    if other in OUNCES | POUNDS and amount is not None:  # 8 oz on its own: exactly 226.8 g
+        amount *= GRAMS_PER_OUNCE if other in OUNCES else GRAMS_PER_POUND
+        unit, other, chosen = "g", None, True
+    if other is not None and amount is not None:  # 8 pints: not an amount we can use
         notes.insert(0, f"{_trim(amount)} {other}")
         amount = None
         unit = None
@@ -627,6 +687,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
         note=note or None,
         counts=counts,
         readable=True,
+        chosen=chosen or second_used,
     )
 
 

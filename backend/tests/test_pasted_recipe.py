@@ -456,3 +456,12 @@ def test_notes_between_steps_with_a_wrapped_line() -> None:
         "2. Serve."
     )
     assert recipe.steps == ("Cook the dal until soft.", "Serve.")
+
+
+def test_a_step_of_only_combining_marks_is_kept_cut_not_dropped() -> None:
+    from mealwright.api.v1.recipe_schemas import MAX_STEP_CHARS
+
+    text = "Ingredients\n1 onion\nMethod\n" + "́" * (MAX_STEP_CHARS + 10)
+    steps = read_pasted(text).steps
+    assert len(steps) == 1
+    assert len(steps[0]) == MAX_STEP_CHARS

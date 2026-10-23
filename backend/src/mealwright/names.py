@@ -142,10 +142,20 @@ def without_hidden(value: str) -> str:
     return "".join(kept)
 
 
+_SKIN_TONES = range(0x1F3FB, 0x1F400)  # the five skin tone modifiers
+_INDICATORS = range(0x1F1E6, 0x1F200)  # regional indicators: two make a country flag
+
+
+def _is_indicator(char: str) -> bool:
+    return ord(char) in _INDICATORS
+
+
 def cut_text(value: str, limit: int) -> str:
     """The text cut to at most `limit` characters without splitting what belongs together:
-    a flag emoji (its tag characters are refused if left on their own), a letter and the
-    marks on it, or the parts of a joined sequence. Backs off to before the broken piece."""
+    a flag emoji (a country flag's two letters, or a black flag's tag characters, which are
+    refused if left on their own), a letter and the marks on it, a skin tone, or the parts of
+    a joined sequence. Backs off to before the broken piece. If that would leave nothing (a
+    text of only marks), it is cut at the limit instead, so a text is never cut to empty."""
     if len(value) <= limit:
         return value
     cut = limit
@@ -155,15 +165,31 @@ def cut_text(value: str, limit: int) -> str:
         if flag >= 0 and flag < cut < _flag_end(value, flag):
             cut = flag
             continue
-        # The next character belongs to the one before it (a mark, a joiner, a variation selector).
+        # Between the two letters of a country flag? (An odd number of indicators before the
+        # cut, and one after it.)
+        if _is_indicator(value[cut]) and _is_indicator(value[cut - 1]):
+            start = cut
+            while start > 0 and _is_indicator(value[start - 1]):
+                start -= 1
+            if (cut - start) % 2 == 1:
+                cut -= 1
+                continue
+        # The next character belongs to the one before it (a mark, a joiner, a variation
+        # selector, a skin tone).
         after = value[cut]
-        if after in _JOINERS or unicodedata.category(after) in ("Mn", "Mc", "Me"):
+        if (
+            after in _JOINERS
+            or ord(after) in _SKIN_TONES
+            or unicodedata.category(after) in ("Mn", "Mc", "Me")
+        ):
             cut -= 1
             continue
         if value[cut - 1] in _JOINERS:
             cut -= 1
             continue
         break
+    if cut == 0 and unicodedata.category(value[0]) in ("Mn", "Mc", "Me"):
+        return value[:limit]
     return value[:cut]
 
 

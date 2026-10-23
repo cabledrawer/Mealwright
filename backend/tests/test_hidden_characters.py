@@ -178,3 +178,30 @@ def test_flag_emoji_are_fine_and_tag_characters_anywhere_else_are_not() -> None:
         assert has_hidden(bad_text), bad_text.encode("unicode_escape")
         with pytest.raises(ValueError, match="hidden character"):
             one_line(bad_text)
+
+
+# --- cut_text keeps flags and skin tones whole (#55 round 2, L4) ---------------------------
+
+
+def test_cut_text_does_not_split_a_country_flag() -> None:
+    from mealwright.names import cut_text
+
+    india = "\U0001f1ee\U0001f1f3"
+    assert cut_text("ab" + india + "cd", 3) == "ab"  # not "ab" + the first letter
+    assert cut_text("ab" + india + "cd", 4) == "ab" + india
+    assert cut_text(india * 3, 3) == india  # two flags and a half: whole flags only
+
+
+def test_cut_text_does_not_split_a_skin_tone() -> None:
+    from mealwright.names import cut_text
+
+    thumbs = "\U0001f44d\U0001f3fd"
+    assert cut_text("ab" + thumbs, 3) == "ab"
+    assert cut_text("ab" + thumbs, 4) == "ab" + thumbs
+
+
+def test_cut_text_never_cuts_a_text_of_only_marks_to_empty() -> None:
+    from mealwright.names import cut_text
+
+    marks = "́" * 10
+    assert cut_text(marks, 4) == "́" * 4

@@ -187,16 +187,96 @@ def test_a_plain_count_has_no_unit() -> None:
     assert (line.amount, line.unit, line.size_word, line.counts) == (D(3), None, None, True)
 
 
-def test_other_systems_units_are_no_amount() -> None:
-    for text in ("8 oz spinach", "1 lb potatoes", "2 pints milk", "1 fl oz brandy"):
+def test_pints_and_the_like_are_no_amount() -> None:
+    for text in ("2 pints milk", "1 fl oz brandy", "3 quarts stock"):
         line = read_line(text)
         assert line.amount is None
         assert not line.counts
         assert line.note is not None
         assert line.readable
-    assert read_line("8 oz spinach").name == "spinach"
-    assert read_line("8 oz spinach").note == "8 oz"
+    assert read_line("2 pints milk").name == "milk"
+    assert read_line("2 pints milk").note == "2 pints"
     assert read_line("1 fl oz brandy").name == "brandy"
+
+
+@pytest.mark.parametrize(
+    ("text", "grams"),
+    [
+        ("1 oz butter", D("28.35")),
+        ("8 oz spinach", D("226.8")),
+        ("2 ounces cheese", D("56.7")),
+        ("½ oz yeast", D("14.175")),
+        ("1 lb potatoes", D("453.6")),
+        ("2 lbs potatoes", D("907.2")),
+        ("1½ pounds flour", D("680.4")),
+        ("1 pound flour", D("453.6")),
+    ],
+)
+def test_ounces_and_pounds_on_their_own_convert_exactly(text: str, grams: D) -> None:
+    # cabledrawer 23 Oct, question 18: 1 oz = 28.35 g, 1 lb = 453.6 g, so they count.
+    line = read_line(text)
+    assert (line.amount, line.unit) == (grams, "g")
+    assert line.counts
+    assert line.chosen  # the line is kept as written too
+    assert line.note is None
+
+
+def test_a_metric_amount_beside_ounces_still_wins() -> None:
+    assert amount_of("8 oz spinach (225g)") == (D(225), "g")
+    assert amount_of("200 g (7 oz) spinach") == (D(200), "g")
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "unit"),
+    [
+        ("3-2 tbsp oil", D(3), "tbsp"),
+        ("3 - 2 tbsp oil", D(3), "tbsp"),
+        ("3 to 2 cups rice", D(3), "cup"),
+        ("2-3 tbsp oil", D(3), "tbsp"),
+        ("5-1 g salt", D(5), "g"),
+    ],
+)
+def test_a_range_written_high_to_low_takes_the_higher_number(
+    text: str, amount: D, unit: str
+) -> None:
+    # cabledrawer 23 Oct, question 18: "3-2 tbsp" (written with an en dash) is 3 tbsp, not 2.
+    assert amount_of(text) == (amount, unit)
+
+
+def test_a_chain_of_pack_multiples_is_multiplied() -> None:
+    line = read_line("2 x 2 x 400g tins chopped tomatoes")
+    assert (line.amount, line.unit, line.size_word) == (D(1600), "g", "tins")
+    assert line.name == "chopped tomatoes"
+    assert read_line("2 × 3 × 15ml spoons oil").amount == D(90)
+    # At most three numbers are multiplied; the rest isn't a pack multiple.
+    assert read_line("2 x 2 x 2 x 400g tins").amount != D(3200)
+    assert read_line("2 x 3 x 400g tins flour").amount == D(2400)
+    assert read_line("2 x 3 onions").amount == D(2)  # still no unit: not a pack multiple
+
+
+def test_text_picked_from_several_numbers_is_marked_chosen() -> None:
+    for text in (
+        "2-3 green chillies",
+        "1 cup (240 ml) rice",
+        "2 x 400g tins tomatoes",
+        "8 oz spinach",
+    ):
+        assert read_line(text).chosen, text
+    for text in ("2 green chillies", "200 g rice", "1 cup flour", "salt to taste"):
+        assert not read_line(text).chosen, text
+
+
+def test_control_characters_are_spaces_and_private_use_characters_are_dropped() -> None:
+    # #55 round 2, L3: a control character between words used to join them ("2 cups" +
+    # U+001F + "rice" became "2 cupsrice"), and private-use or unassigned characters stayed.
+    for control in ("\x1c", "\x1d", "\x1e", "\x1f", "\x00", "\x07", "\x85"):
+        line = read_line(f"2 cups{control}basmati rice")
+        assert (line.amount, line.unit, line.name) == (D(2), "cup", "basmati rice"), control
+    assert read_line("200 g\ue000 dal").name == "dal"  # private use
+    assert read_line("200 g dal\U000f0000").name == "dal"  # private use, plane 15
+    assert read_line("200 g da\u0378l").name == "dal"  # unassigned
+    assert working_text("a\x1fb") == "a b"
+    assert working_text("a\ue000b") == "ab"
 
 
 # --- Two units -------------------------------------------------------------------------------
