@@ -202,8 +202,11 @@ test.describe('signed in', () => {
     });
     await page.goto(`/recipes/${recipe.id}`);
     await expect(page.getByRole('heading', { name: recipe.name, level: 1 })).toBeVisible();
-    // On a computer the list is beside it, and its rows say "1 missing" too.
-    await expect(page.getByRole('region', { name: 'Recipe', exact: true }).getByText('1 missing')).toBeVisible();
+    // The page and its ingredient line both say "1 missing", and which of them has shown by the
+    // time this looks varies, so take the first (a locator that matches two fails at once).
+    await expect(
+      page.getByRole('region', { name: 'Recipe', exact: true }).getByText('1 missing').first(),
+    ).toBeVisible();
     await checkKeyboard(page, 'The recipe page');
   });
 
