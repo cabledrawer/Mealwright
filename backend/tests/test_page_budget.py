@@ -163,8 +163,9 @@ def test_the_realistic_big_page_reads_normally_within_the_real_budget(
 
 
 def test_the_budget_has_a_floor_and_the_clock_is_the_wider_limit() -> None:
-    # The realistic big page needs about 2 s of processor time on a fast PC, perhaps 10 s on a
-    # Raspberry Pi 4 class board (docs/dev/recipe-import.md): the limit stays above that.
+    # The realistic big page needs 1.1 to 1.25 s of processor time on a fast PC (measured 23
+    # Oct), so perhaps 5 to 6 s on a Raspberry Pi 4 class board (an estimate, not measured;
+    # docs/dev/recipe-import.md): the limit stays more than twice that.
     assert page_budget.MAX_CPU_SECONDS >= 10
     assert page_budget.MAX_WALL_SECONDS > page_budget.MAX_CPU_SECONDS
     # And inside the import's 30 seconds (spec section 6).

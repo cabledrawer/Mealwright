@@ -233,7 +233,8 @@ def _prepare_child(cpu_seconds: float, memory: int) -> None:
     # in case something got in the way of the first.
     soft = math.ceil(cpu_seconds)
     _lower_limit(resource.RLIMIT_CPU, soft, soft + 2)
-    # Imported here: it brings the database code with it, which only this one needs.
+    # Imported here, after the limits are set: only the child uses it, and it needs nothing
+    # else of the server (no gate, no database code).
     from mealwright.network_guard import install_network_guard
 
     install_network_guard()
