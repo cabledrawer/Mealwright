@@ -1195,6 +1195,93 @@ def test_deeply_nested_microdata() -> None:
     assert found_.ingredients == lines("1 cup")
 
 
+# Microdata properties inside properties: an element's text includes the text of every
+# property inside it, so 250 nested ones would read the same text 250 times (1 MB took 107
+# seconds and 206 MB). The text read for the whole page is limited to the page's length.
+WORDS = "toor dal and rice " * 58_000  # about 1 MB
+ONE_LINE = " ".join(WORDS.split())
+SCOPE = '<div itemscope itemtype="https://schema.org/Recipe">'
+
+
+def nested_microdata(props: list[str], inner: str, before: str = "") -> str:
+    opens = "".join(f'<span itemprop="{props[n % len(props)]}">' for n in range(250))
+    return f"{SCOPE}{before}{opens}{inner}{'</span>' * 250}</div>"
+
+
+class _CountingSet(frozenset[str]):
+    """`_SKIP`, counting the elements `_text_of` walks (it asks of each one)."""
+
+    counts: dict[str, int]
+
+    def __contains__(self, tag: object) -> bool:
+        self.counts["elements"] += 1
+        if self.counts["elements"] > self.counts["limit"]:
+            pytest.fail("microdata text walked more elements than the page allows")
+        return super().__contains__(tag)
+
+
+@pytest.fixture
+def microdata_read(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """Counts the characters of microdata text read, and the elements walked for them, and
+    fails the test at once when either passes twice what the page allows (its length, or a
+    million for a small page). Without the limit, a nested page passes it at once."""
+    counts = {"chars": 0, "elements": 0, "limit": 0}
+    real = page_reader._text_of
+
+    def counting(node: Any, *args: Any) -> str:
+        text = real(node, *args)
+        counts["chars"] += len(text)
+        if counts["chars"] > counts["limit"]:
+            pytest.fail("microdata read more text than the page allows")
+        return text
+
+    monkeypatch.setattr(page_reader, "_text_of", counting)
+    skip = _CountingSet(page_reader._SKIP)
+    skip.counts = counts
+    monkeypatch.setattr(page_reader, "_SKIP", skip)
+    return counts
+
+
+def _read_nested(counts: dict[str, int], html: str, seconds: float = 2) -> PageRecipe:
+    counts["limit"] = 2 * max(len(html), 1_000_000)
+    start = time.monotonic()
+    found_ = read_page(html, URL)
+    assert time.monotonic() - start < seconds  # without the limit, minutes
+    assert found_ is not None
+    return found_
+
+
+def test_one_property_nested_250_deep_around_1_mb_is_read_once(
+    microdata_read: dict[str, int],
+) -> None:
+    found_ = _read_nested(microdata_read, nested_microdata(["recipeIngredient"], WORDS))
+    assert found_.ingredients[0] == PageLine(ONE_LINE)
+
+
+def test_different_properties_nested_250_deep_around_1_mb_are_read_once(
+    microdata_read: dict[str, int],
+) -> None:
+    props = ["name", "description", "recipeIngredient", "recipeInstructions", "author"]
+    before = '<li itemprop="recipeIngredient">2 cups rice</li>'
+    found_ = _read_nested(microdata_read, nested_microdata(props, WORDS, before))
+    assert found_.name == _cut_words(ONE_LINE, 200)
+    assert found_.ingredients[0] == PageLine("2 cups rice")
+
+
+def test_properties_nested_250_deep_around_100_000_elements_walk_them_a_few_times(
+    microdata_read: dict[str, int],
+) -> None:
+    before = '<li itemprop="recipeIngredient">2 cups rice</li>'
+    html = nested_microdata(["recipeIngredient"], "<i></i>" * 100_000, before)
+    found_ = _read_nested(microdata_read, html, seconds=5)  # about 0.7 s, counting each one
+    assert found_.ingredients == lines("2 cups rice")
+
+
+def _cut_words(text: str, limit: int) -> str:
+    cut = text[: limit - 1]
+    return cut[: cut.rfind(" ")] + "…"
+
+
 def test_the_result_is_frozen() -> None:
     found_ = read()
     with pytest.raises(FrozenInstanceError):

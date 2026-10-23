@@ -47,6 +47,9 @@ MAX_HEADING = 60  # an ingredient line this short, ending in ":", is a section n
 MAX_DEPTH = 256  # elements nested deeper than this are read as if they were siblings
 MAX_NODES = 200_000  # elements and runs of text kept from one page (a real one has ~10,000)
 MAX_START_TAG = 65_536  # characters in one start tag; a longer one is skipped whole
+# Characters and elements read for microdata properties, for one whole page: the page's own
+# length, or this for a smaller page. A real page reads well under its length.
+MIN_MICRODATA_READ = 1_000_000
 NUTRIENTS = ("kcal", "protein", "carbs", "fat", "fibre")
 
 
@@ -81,7 +84,7 @@ def read_page(html: str, url: str) -> PageRecipe | None:
     token = _tidied.set({})
     try:
         page = _parse(html, url)
-        recipe = _from_json_ld(page) or _from_microdata(page)
+        recipe = _from_json_ld(page) or _from_microdata(page, len(html))
         if recipe is None:
             return None
         return _build(recipe, page)
@@ -255,18 +258,29 @@ def _walk(node: _Node) -> Iterator[_Node]:
         pending.extend(c for c in reversed(current.children) if isinstance(c, _Node))
 
 
-def _text_of(node: _Node) -> str:
-    """An element's text, with a line break around each block (paragraphs, list items)."""
+def _text_of(node: _Node, budget: list[int] | None = None) -> str:
+    """An element's text, with a line break around each block (paragraphs, list items).
+    `budget`, if given, counts down the elements and characters read (a caller can share it
+    across calls); once it runs out, the text stops there."""
     parts: list[str] = []
 
     def add(current: _Node) -> None:
         if current.tag in _SKIP:
             return
+        if budget is not None:
+            if budget[0] <= 0:
+                return
+            budget[0] -= 1
         block = current.tag in _BLOCK
         if block:
             parts.append("\n")
         for child in current.children:
             if isinstance(child, str):
+                if budget is not None:
+                    if budget[0] <= 0:
+                        break
+                    child = child[: budget[0]]
+                    budget[0] -= len(child)
                 parts.append(child)
             else:
                 add(child)
@@ -352,7 +366,11 @@ _SRC_TAGS = frozenset({"audio", "embed", "iframe", "img", "source", "track", "vi
 _HREF_TAGS = frozenset({"a", "area", "link"})
 
 
-def _from_microdata(page: _Page) -> _Recipe | None:
+def _from_microdata(page: _Page, size: int) -> _Recipe | None:
+    """`size` is the page's length. An element's text includes the text of every property
+    inside it, so properties nested in properties would read the same text again at each
+    level (250 levels: 250 copies). The text read for the whole page is therefore limited
+    to its length (`MIN_MICRODATA_READ` for a small page); a real page stays well under."""
     scopes = [
         node
         for node in _walk(page.root)
@@ -361,7 +379,8 @@ def _from_microdata(page: _Page) -> _Recipe | None:
     ]
     if not scopes:
         return None
-    recipes = [_microdata_item(node, page.base) for node in scopes]
+    budget = [max(size, MIN_MICRODATA_READ)]
+    recipes = [_microdata_item(node, page.base, budget) for node in scopes]
     best = next(
         (r for r in recipes if r.get("recipeIngredient") or r.get("ingredients")),
         recipes[0],
@@ -369,7 +388,7 @@ def _from_microdata(page: _Page) -> _Recipe | None:
     return _Recipe(best, {})
 
 
-def _microdata_item(scope: _Node, base: str, depth: int = 0) -> _Item:
+def _microdata_item(scope: _Node, base: str, budget: list[int], depth: int = 0) -> _Item:
     """An itemscope as a JSON-LD-like object: {"@type": [...], "name": ["…"], …}."""
     found: dict[str, list[object]] = {}
     pending = [c for c in reversed(scope.children) if isinstance(c, _Node)]
@@ -380,9 +399,9 @@ def _microdata_item(scope: _Node, base: str, depth: int = 0) -> _Item:
         if props:
             value: object
             if nested and depth < 16:
-                value = _microdata_item(node, base, depth + 1)
+                value = _microdata_item(node, base, budget, depth + 1)
             else:
-                value = _microdata_value(node, base)
+                value = _microdata_value(node, base, budget)
             for prop in props:
                 found.setdefault(_short(prop), []).append(value)
         if not nested:  # a nested item's properties are its own
@@ -392,7 +411,7 @@ def _microdata_item(scope: _Node, base: str, depth: int = 0) -> _Item:
     return item
 
 
-def _microdata_value(node: _Node, base: str) -> str:
+def _microdata_value(node: _Node, base: str, budget: list[int]) -> str:
     attrs = node.attrs
     if node.tag == "meta":
         return attrs.get("content", "")
@@ -408,7 +427,7 @@ def _microdata_value(node: _Node, base: str) -> str:
         return attrs["datetime"]
     if "content" in attrs:  # not in the standard, but common on older pages
         return attrs["content"]
-    return _text_of(node)
+    return _text_of(node, budget)
 
 
 # --- From recipe data to PageRecipe ---------------------------------------------------------
