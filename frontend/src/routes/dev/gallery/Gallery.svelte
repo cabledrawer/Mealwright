@@ -33,6 +33,8 @@
   import NewIngredient from '$lib/components/NewIngredient.svelte';
   import OfflineNote from '$lib/components/OfflineNote.svelte';
   import PackPicks from '$lib/components/PackPicks.svelte';
+  import OutsideConnections from '$lib/components/privacy/OutsideConnections.svelte';
+  import OwnNetwork from '$lib/components/privacy/OwnNetwork.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import AmountBox from '$lib/components/shopping/AmountBox.svelte';
@@ -63,6 +65,7 @@
   import type { FoodRow } from '$lib/client/types';
   import { RecipeDraft, type DraftPhoto } from '$lib/recipes/draft.svelte';
   import type { Change } from '$lib/client/types';
+  import type { OwnNetworkEntry, SwitchName } from '$lib/client/privacy';
   import { network } from '$lib/network.svelte';
   import { newIngredient } from '$lib/newIngredient.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
@@ -108,6 +111,44 @@
     'alert',
     'cloud-off'
   ];
+
+  // --- Settings → Privacy -----------------------------------------------------------------
+  let importOn = $state(true);
+  let photosOn = $state(false);
+  const switchValues = (a: boolean, b: boolean): Record<SwitchName, boolean> => ({
+    recipe_import: a,
+    recipe_photos: b
+  });
+  const entry = (
+    id: number,
+    kind: OwnNetworkEntry['kind'],
+    value: string,
+    addresses: number | null = null,
+    added_by = 'Tess'
+  ): OwnNetworkEntry => ({ id, kind, value, addresses, added_by, added_on: '2026-10-22' });
+  const oneEntry = [entry(1, 'name', 'wiki.home.example')];
+  const someEntries = [
+    entry(1, 'name', 'wiki.home.example'),
+    entry(2, 'address', '192.168.1.20'),
+    entry(3, 'range', '192.168.1.0/24', 256),
+    entry(4, 'range', 'fd12:3456:789a::/48')
+  ];
+  const longEntries = [
+    entry(
+      1,
+      'name',
+      'a-very-long-name-for-a-wiki-on-the-home-server.in-the-spare-room.home.example.org',
+      null,
+      'Wilhelmina Featherstonehaugh-Montgomery'
+    ),
+    entry(2, 'range', '10.0.0.0/8', 16_777_216)
+  ];
+  const manyEntries = Array.from({ length: 12 }, (_, i) =>
+    entry(i + 1, 'name', `server${i + 1}.home.example`)
+  );
+  let networkText = $state('');
+  let networkTextSecond = $state('wiki.home.lan');
+  let networkTextThird = $state('localhost');
 
   // --- Switch, fields -----------------------------------------------------------------
   let on = $state(true);
@@ -719,6 +760,7 @@
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#recipe-editor">Recipe editor</a>
+    <a href="#privacy">Privacy</a>
     <a href="#icons">Icons</a>
   </nav>
 
@@ -793,6 +835,7 @@
       <OfflineNote screen="Ingredients" />
       <OfflineNote screen="Recipes" />
       <OfflineNote screen="Settings" />
+      <OfflineNote screen="Privacy" />
       <ConnectionNotice kind="plain-refused" />
       <ConnectionNotice kind="plain-allowed" />
     </div>
@@ -1276,6 +1319,109 @@
         onsave={() => (wrenOpen = false)}
       />
     {/if}
+  </section>
+
+  <section id="privacy">
+    <h2>Settings → Privacy: outside connections, your own network</h2>
+    <p class="note">
+      An admin changes them. A member sees them and a note saying why. Offline they show as last
+      loaded and can’t be changed.
+    </p>
+    <h3>Outside connections</h3>
+    <div class="grid">
+      <OutsideConnections
+        anchor="g-privacy-admin"
+        values={switchValues(importOn, photosOn)}
+        onchange={(name, on) => (name === 'recipe_import' ? (importOn = on) : (photosOn = on))}
+      />
+      <OutsideConnections
+        anchor="g-privacy-member"
+        values={switchValues(true, false)}
+        locked="member"
+        onchange={() => {}}
+      />
+      <OutsideConnections
+        anchor="g-privacy-offline"
+        values={switchValues(false, true)}
+        locked="offline"
+        onchange={() => {}}
+      />
+      <OutsideConnections
+        anchor="g-privacy-problem"
+        values={switchValues(false, false)}
+        problem="Couldn’t reach your Mealwright server. Nothing was changed."
+        onchange={() => {}}
+      />
+    </div>
+    <h3>Your own network</h3>
+    <div class="grid">
+      <OwnNetwork
+        anchor="g-network-empty"
+        entries={[]}
+        bind:value={networkText}
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-one"
+        entries={oneEntry}
+        bind:value={networkTextSecond}
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-some"
+        entries={someEntries}
+        value=""
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-long"
+        entries={longEntries}
+        value=""
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-many"
+        entries={manyEntries}
+        value=""
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-refused"
+        entries={oneEntry}
+        bind:value={networkTextThird}
+        problem="That can’t be added: this server itself (localhost), link-local and cloud “metadata” addresses are always blocked."
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-adding"
+        entries={oneEntry}
+        value="nas.home.lan"
+        adding
+        removeProblem="Couldn’t reach your Mealwright server. Nothing was changed."
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-member"
+        entries={someEntries}
+        locked="member"
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+      <OwnNetwork
+        anchor="g-network-offline"
+        entries={oneEntry}
+        locked="offline"
+        onadd={() => {}}
+        onremove={() => {}}
+      />
+    </div>
   </section>
 
   <section id="icons">

@@ -96,6 +96,28 @@ address or range opens those addresses, whatever name reaches them. One househol
 never opens another's fetches. If an install ever has more than one household, the list
 becomes a server-level setting (spec section 6); a comment on the table says so.
 
+### The API and the screen (0.5 PR 4)
+
+Settings → Privacy (`/settings/privacy`) uses `api/v1/privacy.py`. Everyone in the household
+can read; only an admin can change (a member gets 403 `admins_only`). Two places on the
+screen can be linked to: `/settings/privacy#outside-connections` (the import screen's "Photo
+not downloaded" and "switched off" links) and `/settings/privacy#your-own-network`.
+
+- `GET /privacy/switches` gives `{switches: [{connection, on}], can_change}` for
+  `recipe_import` and `recipe_photos` (the other connections arrive with 0.8). Both start off.
+- `PUT /privacy/switches/{connection}` with `{on}` (admins only). The outbound gate reads the
+  switch each time it is about to connect, so the next connection follows at once.
+- `GET /privacy/own-network` gives `{entries, limit, can_change}`, oldest first. An entry is
+  `{id, kind, value, addresses, added_by, added_on}`; `addresses` counts an IPv4 range.
+- `POST /privacy/own-network` with `{value}` (admins only) gives 201 and the entry. A refusal
+  carries `own_network`'s own sentence and a `code`: `bad_entry`, `always_blocked`,
+  `too_wide` (422); `already_listed`, `list_full` (409).
+- `DELETE /privacy/own-network/{id}` (admins only) gives 204; an entry of another household
+  is "not found", like one that doesn't exist.
+
+Log lines say only "Privacy: recipe import switched on" and "Your own network: added" or
+"removed", never an entry.
+
 ## What the reader gives back
 
 `read_page(html: str, url: str) -> PageRecipe | None`. `url` is where the page was in the end

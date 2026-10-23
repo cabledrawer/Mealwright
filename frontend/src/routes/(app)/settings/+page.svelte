@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import Button from '$lib/components/Button.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import OfflineNote from '$lib/components/OfflineNote.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
@@ -133,6 +134,19 @@
     </div>
   </section>
 
+  <section class="section" aria-labelledby="privacy">
+    <h2 id="privacy">Privacy</h2>
+    <div class="card">
+      <a class="row to" href={resolve('/settings/privacy')}>
+        <span class="who">
+          <span class="label">Outside connections</span>
+          <span class="detail">Recipe import, recipe photos and your own network</span>
+        </span>
+        <Icon name="back" size={18} stroke={2.4} />
+      </a>
+    </div>
+  </section>
+
   <section class="section" aria-labelledby="sign-in">
     <h2 id="sign-in">Sign-in</h2>
     <div class="card">
@@ -220,6 +234,18 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+  }
+
+  /* A row that opens another page: its arrow points on (the back icon, turned round). */
+  .to {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .to :global(svg) {
+    flex: none;
+    color: var(--color-text-muted);
+    transform: scaleX(-1);
   }
 
   .detail {

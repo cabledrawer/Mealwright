@@ -31,6 +31,7 @@ import { endSession } from '$lib/offline/signOut';
 import { wipeIfAnotherLogin } from '$lib/offline/wipe';
 import { wipePending } from '$lib/offline/wipePending.svelte';
 import { placesAndShops } from '$lib/placesAndShops.svelte';
+import { privacy } from '$lib/privacy.svelte';
 import { SETUP, session, signInPath } from '$lib/session.svelte';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { theme } from '$lib/theme.svelte';
@@ -133,6 +134,7 @@ async function turnAwayLate(me: Me, heading: string): Promise<never> {
   if (!wipePending()) turnAway(me.username);
   shoppingSync.forget();
   placesAndShops.forget();
+  privacy.forget();
   undoHistory.clear();
   toasts.dismiss();
   signIn(heading);

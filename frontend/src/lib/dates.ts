@@ -30,6 +30,11 @@ export function dateWords(iso: string | null, daysLeft: number | null): string {
   return dayMonth.format(noonUtc(iso));
 }
 
+/** A date as day and month: "22 Oct". */
+export function dayMonthWords(iso: string): string {
+  return dayMonth.format(noonUtc(iso));
+}
+
 /** A chosen date on a chip: "Sat 24 Oct". */
 export function pickedDateWords(iso: string): string {
   const date = noonUtc(iso);

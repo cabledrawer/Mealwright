@@ -19,6 +19,7 @@
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
+  import { privacy } from '$lib/privacy.svelte';
   import { session } from '$lib/session.svelte';
   import { shoppingSync } from '$lib/shopping/sync.svelte';
   import { signInPath } from '$lib/session.svelte';
@@ -66,6 +67,7 @@
       session.me = null;
       shoppingSync.forget();
       placesAndShops.forget();
+      privacy.forget();
       undoHistory.clear();
       toasts.dismiss();
       try {
