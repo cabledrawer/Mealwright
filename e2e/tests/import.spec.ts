@@ -13,6 +13,19 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 const unique = (name: string) => `${name} ${test.info().project.name.replace(/\D/g, '')}${Date.now() % 100000}`;
 
 const box = (page: Page) => page.getByLabel('Paste a link or the recipe’s text');
+const onPhone = () => test.info().project.name.startsWith('phone');
+/** The three steps: "Step N of 3" under the title on a phone, the numbered steps beside it on a computer. */
+async function expectStep(page: Page, step: 1 | 2, pasted = 'Link pasted') {
+  if (onPhone()) {
+    await expect(page.getByText(`Step ${step} of 3`, { exact: true })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Import steps' })).toHaveCount(0);
+    return;
+  }
+  const steps = page.getByRole('list', { name: 'Import steps' });
+  await expect(steps.getByRole('listitem')).toHaveText([step === 1 ? '1 · Paste' : `1 · ${pasted} ✓`, '2 · Check', '3 · Save']);
+  await expect(steps.locator('[aria-current="step"]')).toHaveText(step === 1 ? '1 · Paste' : '2 · Check');
+  await expect(page.getByText(/^Step \d of 3$/)).toHaveCount(0);
+}
 const read = (page: Page) => page.getByRole('button', { name: 'Read the recipe' });
 
 test.beforeEach(async ({ page }) => {
@@ -106,6 +119,7 @@ test('Recipes has an Import a recipe button that opens the box', async ({ page }
   await expect(page).toHaveURL(/\/recipes\/import$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import a recipe');
   await expect(read(page)).toBeDisabled();
+  await expectStep(page, 1);
   await expect(page.getByText('How it works')).toBeVisible();
   await checkPage(page);
 });
@@ -127,7 +141,7 @@ test('importing from links is switched off (as it starts), and pasted text still
   const alert = page.getByRole('alert');
   await expect(alert.getByText('Importing from links is switched off')).toBeVisible();
   await expect(alert.getByText(/Nothing was fetched/)).toBeVisible();
-  await expect(alert.getByRole('link', { name: 'Open Settings → Privacy' })).toHaveAttribute('href', '/settings/privacy');
+  await expect(alert.getByRole('link', { name: 'Open Settings', exact: true })).toHaveAttribute('href', '/settings/privacy');
   await checkPage(page);
   // Paste text instead: the box is emptied and focused.
   await alert.getByRole('button', { name: 'Paste text instead' }).click();
@@ -173,6 +187,7 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await box(page).fill('https://bananaleaf.example/sambar/');
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expectStep(page, 2);
   await expect(page.getByText('0 matched')).toBeVisible();
   await expect(page.getByText('1 to confirm')).toBeVisible();
   await expect(page.getByText('2 need you')).toBeVisible();
@@ -261,6 +276,7 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   );
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expectStep(page, 2, 'Text pasted');
   await expect(page.getByLabel('Name', { exact: true }).first()).toHaveValue(title);
   await expect(page.getByText('1 line after “Tips” was left out')).toBeVisible();
   // All three unknown lines need a choice (nothing here is in this kitchen yet).

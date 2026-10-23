@@ -76,7 +76,7 @@
           <p class="actions">
             {#if flow.problem.admin}
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-              <a class="button" href="/settings/privacy">Open Settings → Privacy</a>
+              <a class="button" href="/settings/privacy">Open Settings</a>
             {/if}
             <button type="button" class="ghost" onclick={() => void pasteInstead()}
               >Paste text instead</button

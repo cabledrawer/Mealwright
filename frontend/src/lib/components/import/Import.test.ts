@@ -152,7 +152,7 @@ describe('Import a recipe', () => {
       show(flow);
       await expect.element(page.getByText('Importing from links is switched off')).toBeVisible();
       await expect
-        .element(page.getByRole('link', { name: 'Open Settings → Privacy' }))
+        .element(page.getByRole('link', { name: 'Open Settings', exact: true }))
         .toBeVisible();
       await page.getByRole('button', { name: 'Paste text instead' }).click();
       expect(flow.text).toBe('');

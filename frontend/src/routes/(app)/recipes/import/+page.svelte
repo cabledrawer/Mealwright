@@ -4,6 +4,7 @@
   // only; leaving the page just leaves (the draft that keeps it for 15 days comes with Drafts).
   import AlreadySheet from '$lib/components/import/AlreadySheet.svelte';
   import ImportStart from '$lib/components/import/ImportStart.svelte';
+  import ImportSteps from '$lib/components/import/ImportSteps.svelte';
   import ReviewScreen from '$lib/components/import/ReviewScreen.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { ImportFlow } from '$lib/import.svelte';
@@ -19,15 +20,33 @@
   });
 </script>
 
+<!-- A phone says "Step 1 of 3" under the title; a computer has the three steps beside it
+     (mockups Import05-Phone, Import05-Desktop and their review screens). -->
 {#if flow.phase === 'review' && flow.review}
-  <PageHeader
-    title="Check before saving"
-    parent={{ href: '/recipes', label: 'Recipes' }}
-    subtitle="This is what Mealwright found. Nothing is saved until you choose."
-  />
+  {#if phone}
+    <PageHeader
+      title="Check before saving"
+      parent={{ href: '/recipes', label: 'Recipes' }}
+      subtitle="Step 2 of 3"
+    />
+  {:else}
+    <PageHeader title="Check before saving" parent={{ href: '/recipes', label: 'Recipes' }}>
+      {#snippet actions()}<ImportSteps step={2} pasted={flow.review?.source.kind} />{/snippet}
+    </PageHeader>
+  {/if}
   <ReviewScreen {flow} {phone} />
 {:else}
-  <PageHeader title="Import a recipe" parent={{ href: '/recipes', label: 'Recipes' }} />
+  {#if phone}
+    <PageHeader
+      title="Import a recipe"
+      parent={{ href: '/recipes', label: 'Recipes' }}
+      subtitle="Step 1 of 3"
+    />
+  {:else}
+    <PageHeader title="Import a recipe" parent={{ href: '/recipes', label: 'Recipes' }}>
+      {#snippet actions()}<ImportSteps step={1} />{/snippet}
+    </PageHeader>
+  {/if}
   <ImportStart {flow} />
 {/if}
 
