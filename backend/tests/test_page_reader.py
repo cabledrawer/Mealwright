@@ -1011,6 +1011,37 @@ def test_a_section_listing_itself_and_one_big_step_tidies_it_once(
     assert found_.steps == lines("Boil.")
 
 
+def test_one_big_text_used_by_eight_fields_is_tidied_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each different text is tidied once for the whole page, however many fields use it
+    (without that, once per field: a 4.5 MB text in eight fields took 16 seconds)."""
+    text = "<p>Stir.</p>" * 50_000  # 600 KB, tidied to 50,000 lines
+    count = [0]
+    real = page_reader._strip_hidden  # the last step of tidying, once for each text tidied
+
+    def counting(tidied: str) -> str:
+        if len(tidied) >= 100_000:
+            count[0] += 1
+            if count[0] > 1:
+                pytest.fail("the big text was tidied more than once")
+        return real(tidied)
+
+    monkeypatch.setattr(page_reader, "_strip_hidden", counting)
+    keys = ["name", "headline", "description", "author", "creator", "recipeCategory"]
+    keys += ["recipeCuisine", "recipeInstructions"]
+    fields = {key: {"@id": "#big"} for key in keys}
+    big = {"@id": "#big", "@type": "HowToStep", "name": text}
+    start = time.monotonic()
+    found_ = read_page(json_ld({"@graph": [recipe(**fields), big]}), URL)
+    assert time.monotonic() - start < 2  # about 0.3 s
+    assert count == [1]
+    assert found_ is not None
+    stirs = " ".join(["Stir."] * 50_000)
+    assert found_.name == "Stir. " * 32 + "Stir…"  # cut at 200, at a word
+    assert found_.description == found_.author == found_.name
+    assert found_.tags == ()  # longer than 40 characters
+    assert found_.steps == lines(stirs)
+
+
 @pytest.mark.parametrize(("count", "cut"), [(100, False), (101, True), (300, True)])
 def test_at_most_100_steps(count: int, cut: bool) -> None:
     found_ = read(recipeInstructions=[step(f"Step {n}.") for n in range(1, count + 1)])

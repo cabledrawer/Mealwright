@@ -20,6 +20,7 @@ servings, a tag over 40 characters), never guessed.
 import json
 import re
 from collections.abc import Iterator
+from contextvars import ContextVar
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from html import unescape
@@ -77,11 +78,15 @@ class PageRecipe:
 def read_page(html: str, url: str) -> PageRecipe | None:
     """The recipe on a page, or None if the page has no recipe data (the screen then offers
     to paste the recipe's text). `url` is where the page came from, for relative links."""
-    page = _parse(html, url)
-    recipe = _from_json_ld(page) or _from_microdata(page)
-    if recipe is None:
-        return None
-    return _build(recipe, page)
+    token = _tidied.set({})
+    try:
+        page = _parse(html, url)
+        recipe = _from_json_ld(page) or _from_microdata(page)
+        if recipe is None:
+            return None
+        return _build(recipe, page)
+    finally:
+        _tidied.reset(token)
 
 
 # --- The page as a tree -------------------------------------------------------------------
@@ -514,11 +519,27 @@ _TAG = re.compile(r"<[A-Za-z/!][^<>]*>")  # never runs across another "<": linea
 _WHITESPACE_BREAKS = "\t\r\x0b\x0c\x85\u2028\u2029"
 
 
+# The texts already tidied while reading one page, so each different text is tidied once,
+# however many fields use it: a page can point name, description, author, tags and method
+# all at one big text. Set by `read_page` for its own call only, so nothing is kept after it.
+_tidied: ContextVar[dict[str, str] | None] = ContextVar("_tidied", default=None)
+
+
 def _clean(value: object) -> str:
     """Text as shown on the page: entities decoded (sites often encode them twice), tags
     removed (with a line break around paragraphs and list items) and hidden characters
     taken out. Line breaks are kept; the caller decides what they mean."""
     text = value if isinstance(value, str) else str(value)
+    tidied = _tidied.get()
+    if tidied is None:
+        return _tidy(text)
+    done = tidied.get(text)
+    if done is None:
+        done = tidied[text] = _tidy(text)
+    return done
+
+
+def _tidy(text: str) -> str:
     for _ in range(2):
         if "&" not in text:
             break
