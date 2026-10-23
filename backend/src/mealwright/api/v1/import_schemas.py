@@ -146,13 +146,13 @@ class AlreadyImported(BaseModel):
 class ImportLinkIn(BaseModel):
     """How a line is tied to an ingredient when it is saved.
 
-    - `food`: an ingredient the household has (`food_id`). `learn` adds that name as another
+    - `ingredient`: an ingredient the household has (`food_id`). `learn` adds that name as another
       name of the ingredient ("Same as Onions" for "red onion").
     - `new`: a new ingredient (`name`, `counted_as`, `place_id`), made on Save.
     - `staple`: a new staple ingredient: the line never counts.
     A line with no link is saved with its words only ("not linked")."""
 
-    kind: Literal["food", "new", "staple"]
+    kind: Literal["ingredient", "new", "staple"]
     food_id: StoredInt | None = None
     learn: Annotated[str, Field(max_length=100)] | None = None
     name: Annotated[str, Field(max_length=100)] | None = None
@@ -168,7 +168,7 @@ class ImportLinkIn(BaseModel):
 
     @model_validator(mode="after")
     def _make_sense(self) -> ImportLinkIn:
-        if self.kind == "food" and self.food_id is None:
+        if self.kind == "ingredient" and self.food_id is None:
             raise ValueError("Pick an ingredient.")
         if self.kind in ("new", "staple") and not self.name:
             raise ValueError("Type a name for the new ingredient.")

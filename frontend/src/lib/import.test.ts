@@ -184,7 +184,7 @@ describe('the import flow', () => {
 
     it('links matched lines by themselves and counts the rest as unlinked', async () => {
       const flow = await reviewing();
-      expect(flow.linkOf(0)).toMatchObject({ kind: 'food', learn: false });
+      expect(flow.linkOf(0)).toMatchObject({ kind: 'ingredient', learn: false });
       expect(flow.linkOf(1)).toBeNull();
       expect(flow.unlinked).toBe(2);
     });
@@ -194,7 +194,7 @@ describe('the import flow', () => {
       flow.sameAs(1, { id: 2, name: 'Onions' });
       expect(flow.unlinked).toBe(1);
       expect(flow.body()!.lines[1]!.link).toEqual({
-        kind: 'food',
+        kind: 'ingredient',
         food_id: 2,
         learn: 'red onion'
       });

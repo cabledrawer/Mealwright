@@ -18,7 +18,7 @@ import { newChangeId } from './changeId';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
-  | { kind: 'food'; food: Ref; learn: boolean }
+  | { kind: 'ingredient'; food: Ref; learn: boolean }
   | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null };
 
 /** Why the box didn't give a review: the server's sentence, and what the screen offers. */
@@ -142,7 +142,7 @@ export class ImportFlow {
 
   /** "Same as Onions" on a line that is to confirm (its best guess) or one picked from the list. */
   sameAs(index: number, food: Ref): void {
-    this.choose(index, { kind: 'food', food, learn: true });
+    this.choose(index, { kind: 'ingredient', food, learn: true });
   }
 
   newIngredient(index: number, staple = false): void {
@@ -163,7 +163,7 @@ export class ImportFlow {
     if (chosen) return chosen;
     const line = this.review?.lines[index];
     if (line && (line.label === 'matched' || line.label === 'staple') && line.food) {
-      return { kind: 'food', food: line.food, learn: false };
+      return { kind: 'ingredient', food: line.food, learn: false };
     }
     return null;
   }
@@ -250,8 +250,8 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
   let sent: LineLink | null = null;
   if (line.kind === 'ingredient' && link) {
     sent =
-      link.kind === 'food'
-        ? { kind: 'food', food_id: link.food.id, learn: link.learn ? line.learn_name : null }
+      link.kind === 'ingredient'
+        ? { kind: 'ingredient', food_id: link.food.id, learn: link.learn ? line.learn_name : null }
         : {
             kind: link.kind,
             name: link.name,
@@ -264,7 +264,7 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
     words: line.words,
     amount: line.amount,
     unit: line.unit,
-    size_id: sent?.kind === 'food' ? (line.size?.id ?? null) : null,
+    size_id: sent?.kind === 'ingredient' ? (line.size?.id ?? null) : null,
     note: line.note,
     link: sent
   };

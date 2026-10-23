@@ -450,7 +450,7 @@ class PhotoOut(BaseModel):
 
 
 class SourceOut(BaseModel):
-    """Where an imported recipe came from (cabledrawer 22 Oct, question 1). The server never
+    """Where an imported recipe came from. The server never
     visits `url` again: opening it is the person's own click."""
 
     url: str

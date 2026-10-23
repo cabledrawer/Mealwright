@@ -77,7 +77,9 @@ describe('All recipes as the middle pane', () => {
     await expect
       .element(page.getByRole('link', { name: 'New recipe' }))
       .toHaveAttribute('href', '/recipes/new');
-    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|Import|Planned/);
+    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|Planned/);
+    // Import a recipe sits beside New recipe (0.5).
+    await expect.element(page.getByRole('link', { name: 'Import a recipe' })).toBeVisible();
     expect(document.querySelector('.page-header')).toBeNull();
     await expect.element(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
     await expect.element(page.getByRole('group', { name: 'Show' })).toBeVisible();

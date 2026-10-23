@@ -275,7 +275,7 @@ describe('Import a recipe', () => {
         )
         .toBeVisible();
       await page.getByRole('button', { name: 'Same as “Onions”' }).click();
-      expect(flow.choices[1]).toMatchObject({ kind: 'food', learn: true });
+      expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', learn: true });
       await expect
         .element(page.getByText('Adds “red onion” as another name for Onions when you save.'))
         .toBeVisible();

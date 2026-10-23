@@ -55,7 +55,7 @@
   }
 
   function edit(change: Partial<Extract<Choice, { kind: 'new' | 'staple' }>>) {
-    if (choice && choice.kind !== 'food') flow.choose(index, { ...choice, ...change });
+    if (choice && choice.kind !== 'ingredient') flow.choose(index, { ...choice, ...change });
   }
 
   const alsoCalled = $derived(
@@ -98,7 +98,7 @@
       <p class="read">
         <span class="what">
           {#if quantity}<b>{quantity}</b>{/if}
-          {#if choice.kind === 'food'}
+          {#if choice.kind === 'ingredient'}
             {choice.food.name}
             <span class="muted">· same as “{line.learn_name ?? line.words}”</span>
           {:else}
@@ -106,18 +106,18 @@
           {/if}
         </span>
         <span class="state">
-          {choice.kind === 'food'
+          {choice.kind === 'ingredient'
             ? 'Same as'
             : choice.kind === 'staple'
               ? 'New staple'
               : 'New ingredient'}
         </span>
       </p>
-      {#if choice.kind === 'food' && line.learn_name}
+      {#if choice.kind === 'ingredient' && line.learn_name}
         <p class="hint">
           Adds “{line.learn_name}” as another name for {choice.food.name} when you save.
         </p>
-      {:else if choice.kind !== 'food'}
+      {:else if choice.kind !== 'ingredient'}
         <div class="fields">
           <label class="field" for="{uid}-name">
             <span>Name</span>

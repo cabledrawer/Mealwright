@@ -587,7 +587,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
     existing: dict[int, Food] = {}
     for index, line in enumerate(body.lines):
         link = line.link
-        if line.kind == "heading" or link is None or link.kind != "food":
+        if line.kind == "heading" or link is None or link.kind != "ingredient":
             continue
         try:
             existing[link.food_id or 0] = find_food(kitchen, link.food_id or 0)
@@ -598,7 +598,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         made: dict[str, Food] = {}  # folded name → the ingredient made for it
         for index, line in enumerate(body.lines):
             link = line.link
-            if line.kind == "heading" or link is None or link.kind == "food":
+            if line.kind == "heading" or link is None or link.kind == "ingredient":
                 continue
             key = fold(link.name or "")
             if key in made:
@@ -631,7 +631,9 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             link = line.link
             food_id: int | None = None
             if line.kind != "heading" and link is not None:
-                food_id = link.food_id if link.kind == "food" else made[fold(link.name or "")].id
+                food_id = (
+                    link.food_id if link.kind == "ingredient" else made[fold(link.name or "")].id
+                )
             recipe_lines.append(
                 {
                     "kind": line.kind,
@@ -743,7 +745,7 @@ def _learn(
     learned = 0
     for line in body.lines:
         link = line.link
-        if line.kind == "heading" or link is None or link.kind != "food" or not link.learn:
+        if line.kind == "heading" or link is None or link.kind != "ingredient" or not link.learn:
             continue
         food = existing[link.food_id or 0]
         key = fold(link.learn)

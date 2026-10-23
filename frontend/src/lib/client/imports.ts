@@ -63,7 +63,7 @@ export interface ImportReview {
 
 /** How a line is tied to an ingredient when it is saved. */
 export type LineLink =
-  | { kind: 'food'; food_id: number; learn?: string | null }
+  | { kind: 'ingredient'; food_id: number; learn?: string | null }
   | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null };
 
 export interface SaveLine {

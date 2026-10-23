@@ -133,7 +133,7 @@ def to_save(
         if index in links:
             body["link"] = links[index]
         elif line["label"] in ("matched", "staple"):
-            body["link"] = {"kind": "food", "food_id": line["food"]["id"]}
+            body["link"] = {"kind": "ingredient", "food_id": line["food"]["id"]}
         lines.append(body)
     return {
         "name": shown["name"],
@@ -519,7 +519,7 @@ def test_save_makes_everything_in_one_go_with_one_undo(
     choices = {
         # "Same as Onions" for the red onion: learns "red onion"
         lines["1 red onion, sliced"]: {
-            "kind": "food",
+            "kind": "ingredient",
             "food_id": pantry["Onions"]["id"],
             "learn": "red onion",
         },
@@ -643,8 +643,8 @@ def test_a_name_another_ingredient_already_has_is_not_stolen_when_learning(
     shown = review(kitchen, "Dal\nIngredients\n1 red onion\n1 onion\nMethod\n1. Cook.\n")
     onions = pantry["Onions"]["id"]
     choices = {
-        0: {"kind": "food", "food_id": pantry["Toor dal"]["id"], "learn": "salt"},
-        1: {"kind": "food", "food_id": onions, "learn": "red onion"},
+        0: {"kind": "ingredient", "food_id": pantry["Toor dal"]["id"], "learn": "salt"},
+        1: {"kind": "ingredient", "food_id": onions, "learn": "red onion"},
     }
     saved = ok(save(kitchen, to_save(shown, choices)), 201)
     assert saved["learned"] == 1  # "salt" belongs to Salt; "red onion" went to Onions
@@ -727,7 +727,7 @@ def test_another_households_ingredients_places_and_photos_are_not_reachable(
     # The neighbour sees none of Tess's ingredients in the review.
     assert all(line["food"] is None or line["label"] != "matched" for line in mine["lines"][:1])
     assert mine["counts"]["matched"] == 0
-    foreign_food = {1: {"kind": "food", "food_id": pantry["Onions"]["id"]}}
+    foreign_food = {1: {"kind": "ingredient", "food_id": pantry["Onions"]["id"]}}
     response = save(neighbour, to_save(mine, foreign_food))
     assert response.status_code == 404 and response.json()["line"] == 1
     foreign_place = {1: {"kind": "new", "name": "Rice", "place_id": cupboard(kitchen)}}

@@ -105,7 +105,10 @@ describe('the All recipes page', () => {
       .element(page.getByRole('link', { name: 'New recipe' }))
       .toHaveAttribute('href', '/recipes/new');
     await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/Drafts|Import|Planned/);
+    expect(document.body.textContent).not.toMatch(/Drafts|Planned/);
+    await expect
+      .element(page.getByRole('link', { name: 'Import a recipe' }))
+      .toHaveAttribute('href', '/recipes/import');
   });
 
   it('each row opens its recipe', async () => {
@@ -240,7 +243,8 @@ describe('the All recipes page', () => {
     await expect
       .element(page.getByRole('link', { name: 'New recipe' }))
       .toHaveAttribute('href', '/recipes/new');
-    expect(document.body.textContent).not.toMatch(/Add a recipe|Import/);
+    expect(document.body.textContent).not.toMatch(/Add a recipe/);
+    await expect.element(page.getByRole('link', { name: 'Import a recipe' })).toBeVisible();
     expect(document.querySelectorAll('main button, button')).toHaveLength(0);
   });
 

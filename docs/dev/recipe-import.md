@@ -359,7 +359,7 @@ true` to import it again as a copy.
 **Save.** The body is the review's recipe as the screen has it (name, serves and minutes can be
 changed there), each line with its `link`:
 
-- `{"kind": "food", "food_id": 7, "learn": "red onion"}`: tie the line to an ingredient the household
+- `{"kind": "ingredient", "food_id": 7, "learn": "red onion"}`: tie the line to an ingredient the household
   has; `learn` adds that name as another name of the ingredient ("Same as Onions"). A name the
   ingredient or any other ingredient already has is skipped, never stolen.
 - `{"kind": "new", "name": "Hing", "counted_as": "weight", "place_id": 3}`: a new ingredient, made on
