@@ -41,7 +41,7 @@ class Web:
 
     def __init__(self) -> None:
         self.pages: dict[str, str | FetchRefused | Exception] = {}
-        self.photo: bytes | FetchRefused | None = None
+        self.photo: bytes | FetchRefused | Exception | None = None
         self.asked: list[str] = []
         self.photos_asked: list[str] = []
 
@@ -59,7 +59,7 @@ class Web:
         self.photos_asked.append(url)
         if self.photo is None:
             raise FetchRefused(Problem.CANT_REACH)
-        if isinstance(self.photo, FetchRefused):
+        if isinstance(self.photo, FetchRefused | Exception):
             raise self.photo
         return photos.clean(self.photo)
 
@@ -353,6 +353,70 @@ def test_a_refused_fetch_reaches_the_screen_as_its_sentence(
     assert response.json()["code"] == code
     assert response.json()["detail"].startswith(sentence)
     assert counts(links_on) == (0, 0, 0)
+
+
+def test_an_error_the_fetch_did_not_expect_is_a_sentence_and_the_log_has_no_address(
+    links_on: TestClient, web: Web, caplog: pytest.LogCaptureFixture
+) -> None:
+    web.pages[LINK] = ValueError("netloc 'secret-host.example' is not valid")
+    with caplog.at_level(logging.DEBUG):
+        response = start(links_on, LINK)
+    assert response.status_code == 422
+    assert response.json()["code"] == "cant_reach"
+    assert response.json()["detail"].startswith("Couldn’t reach that site.")
+    assert "secret-host" not in caplog.text and "bananaleaf" not in caplog.text
+    assert "recipe import, ValueError" in caplog.text
+    assert counts(links_on) == (0, 0, 0)
+
+
+def test_an_error_the_photo_download_did_not_expect_only_drops_the_photo(
+    links_on: TestClient, web: Web, caplog: pytest.LogCaptureFixture
+) -> None:
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = ValueError("netloc 'secret-host.example' is not valid")
+    with caplog.at_level(logging.DEBUG):
+        shown = review(links_on, LINK)
+    assert shown["name"].startswith("Vendakkai Poriyal")  # the import went on
+    assert shown["photo"]["state"] == "failed"
+    assert shown["photo"]["message"].startswith("Couldn’t reach that site.")
+    assert "secret-host" not in caplog.text and "bananaleaf" not in caplog.text
+    assert "recipe photos, ValueError" in caplog.text
+
+
+@pytest.mark.parametrize("bad", ["http://[abc", "http://secret\u2100host.example/"])
+def test_a_bad_redirect_on_the_page_or_the_photo_never_leaks_an_error_or_an_address(
+    links_on: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    bad: str,
+) -> None:
+    """The real fetch (the answers from the web are made here): a redirect to an address
+    Python can't take apart. The page: a sentence. The photo: only the photo is dropped."""
+    from mealwright.outbound import OutboundResponse
+
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    answers = {
+        "page": OutboundResponse(200, {"Content-Type": "text/html"}, page_text().encode(), LINK),
+        "redirect": OutboundResponse(302, {"Location": bad}, b"", LINK),
+    }
+
+    def hop(gate: Any, household: int, url: str, kinds: Any, *_: Any) -> OutboundResponse:
+        return (
+            answers["page"]
+            if kinds.connection is Connection.RECIPE_IMPORT and "poriyal" in url
+            else answers["redirect"]
+        )
+
+    monkeypatch.setattr(page_fetch, "_one_hop", hop)
+    with caplog.at_level(logging.DEBUG):
+        shown = review(links_on, LINK)
+        assert shown["photo"]["state"] == "failed"
+        redirect_only = OutboundResponse(302, {"Location": bad}, b"", LINK)
+        answers["page"] = redirect_only
+        response = start(links_on, LINK)
+    assert (response.status_code, response.json()["code"]) == (422, "bad_link")
+    assert "secret" not in caplog.text and "[abc" not in caplog.text
+    assert "bananaleaf" not in caplog.text
 
 
 def test_a_bad_link_never_reaches_the_web(links_on: TestClient, web: Web) -> None:

@@ -67,7 +67,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import cut_text, fold
-from mealwright.outbound import Connection, OutboundGate
+from mealwright.outbound import LABELS, Connection, OutboundGate
 from mealwright.page_budget import PageBusy, PageUnreadable, read_within_budget
 from mealwright.page_fetch import FetchRefused
 from mealwright.page_fetch import Problem as FetchProblem
@@ -202,6 +202,11 @@ def _from_link(
         fetched = page_fetch.fetch_page(gate, kitchen.household_id, tidy, seconds=left())
     except FetchRefused as refused:
         raise _problem(refused.problem, kitchen) from None
+    except Exception as error:  # anything the fetch didn't expect
+        # The connection's label and the kind of error only: the message and the traceback
+        # could hold the address.
+        log.warning("Couldn't fetch a page: %s, %s", LABELS[Connection.RECIPE_IMPORT], _kind(error))
+        raise _problem(FetchProblem.CANT_REACH, kitchen) from None
     if not again and fetched.url != tidy:
         _check_duplicate(kitchen, fetched.url)
     page = _read(kitchen, fetched.html, fetched.url, left)
@@ -217,7 +222,7 @@ def _from_link(
 def _read(kitchen: Kitchen, html: str, url: str, left: Left) -> PageRecipe | None:
     """Read a page within the work budget. Anything that goes wrong is the plain sentence,
     never a stack trace; the log has the connection's label and the kind of error only."""
-    label = "recipe import"
+    label = LABELS[Connection.RECIPE_IMPORT]
     try:
         return read_within_budget(html, url, wait_seconds=max(0.0, left()))
     except PageBusy:
@@ -231,12 +236,17 @@ def _read(kitchen: Kitchen, html: str, url: str, left: Left) -> PageRecipe | Non
             page_budget.CANT_READ,
         ) from None
     except Exception as error:  # anything the reader didn't expect
-        log.warning("Couldn't read a page: %s, %s", label, type(error).__name__)
+        log.warning("Couldn't read a page: %s, %s", label, _kind(error))
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             FetchProblem.CANT_READ.value,
             page_budget.CANT_READ,
         ) from None
+
+
+def _kind(error: Exception) -> str:
+    """The kind of an error for a log line: its type's name, never its message."""
+    return type(error).__name__
 
 
 def _site(url: str) -> str:
@@ -293,6 +303,11 @@ def _hold_photo(kitchen: Kitchen, gate: OutboundGate, url: str | None, left: Lef
         if refused.problem == FetchProblem.PHOTO_SWITCHED_OFF:
             return ReviewPhoto(state="off", message=refused.message)
         return ReviewPhoto(state="failed", message=refused.message)
+    except Exception as error:  # anything the download didn't expect: the photo only
+        log.warning(
+            "Couldn't fetch a photo: %s, %s", LABELS[Connection.RECIPE_PHOTOS], _kind(error)
+        )
+        return ReviewPhoto(state="failed", message=page_fetch.MESSAGES[FetchProblem.CANT_REACH])
     row = _store_waiting(kitchen, cleaned)
     if row is None:
         return ReviewPhoto(state="failed", message=photos.TOO_MANY_WAITING)
