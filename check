@@ -50,7 +50,25 @@ rm -rf "$ROOT/.check" && mkdir -p "$LOGS"
 # and the "nothing left in /tmp" step below looks only at this run's own folder, never at
 # other runs on the machine (cabledrawer 22 Oct).
 RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mealwright-check-XXXXXX")"
-trap 'rm -rf "$RUN_TMP"' EXIT
+
+# Each step runs in the background (as its own process group, via job control) while the
+# script waits for it. So a polite `kill <pid>` of ./check, or Ctrl-C, is handled at once:
+# it stops the running step and everything the step started, then removes the temp folder.
+set -m
+CHILD=""
+stop_child() {
+  [[ -n "$CHILD" ]] || return 0
+  kill -TERM -- "-$CHILD" 2>/dev/null
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do   # up to about 5 s to stop cleanly
+    kill -0 "$CHILD" 2>/dev/null || break
+    sleep 0.5
+  done
+  kill -KILL -- "-$CHILD" 2>/dev/null
+  CHILD=""
+}
+cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-*) rm -rf "$RUN_TMP" ;; esac; }
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -63,10 +81,14 @@ step() {
   local name="$1"; shift
   local log="$LOGS/${name// /-}.log" start=$SECONDS
   printf '%-28s ' "$name"
-  if (cd "$ROOT" && "$@") >"$log" 2>&1; then
+  (cd "$ROOT" && "$@") >"$log" 2>&1 &
+  CHILD=$!
+  if wait "$CHILD"; then
+    CHILD=""
     record "$name" PASS "" "$((SECONDS - start))s"
     echo "PASS"
   else
+    CHILD=""
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
     echo "FAIL"
     tail -n 40 "$log" | sed 's/^/    /'
@@ -146,6 +168,7 @@ fi
 # or failed (cabledrawer 22 Oct: on 22 Oct leftovers filled /tmp with 6.9 GB).
 left_in_tmp() {
   local found
+  [[ -d "$RUN_TMP" ]] || { echo "The run's temp folder is missing."; return 1; }
   found="$(find "$RUN_TMP" -mindepth 1 \( -name 'mealwright-e2e-*' -o -regex '.*/pytest-of-[^/]*/pytest-[0-9]+' \) -prune -print)"
   if [[ -n "$found" ]]; then
     echo "These were left behind by the tests:"
