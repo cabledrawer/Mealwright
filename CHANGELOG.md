@@ -6,6 +6,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - Tests: the browser tests that timed out only in a full `./check` (Pantry's open-pack test, the offline-bar test on phone and desktop, Shopping's ticked-states accessibility test) no longer do: each state is scanned once per theme instead of four times, and the tests wait for what they need instead of a fixed pause. The recipe page keyboard test also waits for the "Add to the list" bar before it checks, so it no longer fails when two things say "1 missing" at different moments. See `docs/dev/browser-tests.md`.
 - Tests: every test run now removes its own folders in `/tmp` (the browser tests' app folders and pytest's run folders), and `./check` has a step, "tests: nothing left", that fails if any are left behind.
+- Checks: `./check` no longer fails on two SvelteKit 2.x warnings that don't affect Mealwright (GHSA-27mw-82g8-phjj, about prerendered pages with `setHeaders`, and GHSA-pfhg-q3qv-9q6r, about form actions with `use:enhance`; Mealwright's screens are a static app with neither). They are named in `frontend/osv-scanner.toml` and stop being ignored on 23 Nov 2026, so `./check` fails on them again from then unless SvelteKit has been upgraded. No library or code changes.
 
 ### Added
 
