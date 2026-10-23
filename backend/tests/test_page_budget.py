@@ -436,3 +436,55 @@ def test_a_failed_or_over_budget_read_gives_its_place_back(child_as) -> None:  #
     child_as(_holding_child)
     *results, _ = _in_threads(2, 0.5, wait_seconds=0.2)
     assert results == [None, None]
+
+
+# --- The import's 30 seconds (cabledrawer 22 Oct, question 12) -----------------------------------
+
+
+def test_the_reads_clock_is_cut_to_what_the_import_has_left(
+    monkeypatch: pytest.MonkeyPatch, started: list[int]
+) -> None:
+    monkeypatch.setattr(page_budget, "MIN_READ_SECONDS", 0.2)
+    began = time.monotonic()
+    with pytest.raises(PageUnreadable) as over:
+        # Plenty of processor time and the usual 15 s clock; only the import's time is short.
+        read_within_budget(slow_page(), URL, cpu_seconds=60, within_seconds=1.0)
+    assert over.value.reason == "time"
+    assert time.monotonic() - began < 2.5  # not the 15 s clock
+    assert gone(started[0])
+
+
+def test_a_read_that_waited_for_a_place_and_has_too_little_time_left_is_told_busy(
+    child_as, monkeypatch: pytest.MonkeyPatch, started: list[int], caplog: pytest.LogCaptureFixture
+) -> None:  # type: ignore[no-untyped-def]
+    child_as(_holding_child)
+    monkeypatch.setattr(page_budget, "MIN_READ_SECONDS", 0.6)
+    holders = [
+        threading.Thread(target=read_within_budget, args=("<p>x</p>", "1.0")) for _ in range(2)
+    ]
+    for holder in holders:
+        holder.start()
+    time.sleep(0.2)  # both places are taken
+    began = time.monotonic()
+    with caplog.at_level(logging.WARNING), pytest.raises(page_budget.PageBusy):
+        # A place frees at about 1 s, which leaves under the 0.6 s a read needs.
+        read_within_budget("<p>x</p>", "0", within_seconds=1.3)
+    assert time.monotonic() - began < 1.6
+    assert "busy with other pages" in caplog.text
+    for holder in holders:
+        holder.join()
+    # And it gave nothing back twice: both places are still there for two reads at once.
+    *results, _ = _in_threads(2, 0.3, wait_seconds=0.5)
+    assert results == [None, None]
+    assert len(started) == 2 + 2  # the busy read never started a child
+
+
+def test_a_child_that_answered_is_not_given_more_time_than_the_import_has(
+    child_as, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    child_as(_lingering_child)
+    monkeypatch.setattr(page_budget, "_EXIT_SECONDS", 20.0)
+    monkeypatch.setattr(page_budget, "MIN_READ_SECONDS", 0.2)
+    began = time.monotonic()
+    assert read_within_budget("<p>x</p>", URL, within_seconds=1.5) is None
+    assert time.monotonic() - began < 3  # not the 20 s of waiting for it to end

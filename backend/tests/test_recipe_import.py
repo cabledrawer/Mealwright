@@ -486,8 +486,8 @@ def test_the_wait_for_a_place_counts_within_the_imports_30_seconds(
 ) -> None:
     seen: list[float] = []
 
-    def read(html: str, url: str, *, wait_seconds: float, **_: Any) -> Any:
-        seen.append(wait_seconds)
+    def read(html: str, url: str, *, within_seconds: float, **_: Any) -> Any:
+        seen.append(within_seconds)
         return page_reader.read_page(html, url)
 
     monkeypatch.setattr("mealwright.recipe_import.read_within_budget", read)
@@ -508,6 +508,111 @@ def test_the_fetch_is_given_what_is_left_of_the_30_seconds(
     monkeypatch.setattr(page_fetch, "fetch_page", fetch)
     review(links_on, LINK)
     assert given[0] is not None and 29 < given[0] <= 30
+
+
+class Clock:
+    """Stands in for the import's clock: time only passes when a test says so."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    clock = Clock()
+    monkeypatch.setattr("mealwright.recipe_import._now", clock)
+    return clock
+
+
+def test_a_fetch_that_uses_the_time_the_read_needs_ends_the_import_with_the_timeout_sentence(
+    links_on: TestClient, web: Web, monkeypatch: pytest.MonkeyPatch, clock: Clock
+) -> None:
+    real = web.fetch_page
+    read: list[object] = []
+
+    def slow(gate: Any, household_id: int, url: str, **options: Any) -> Any:
+        clock.now += 29  # the site took 29 of the 30 seconds
+        return real(gate, household_id, url)
+
+    def reader(html: str, url: str, **options: Any) -> Any:
+        read.append(options)
+        return page_reader.read_page(html, url)
+
+    monkeypatch.setattr(page_fetch, "fetch_page", slow)
+    monkeypatch.setattr("mealwright.recipe_import.read_within_budget", reader)
+    response = start(links_on, LINK)
+    assert (response.status_code, response.json()["code"]) == (422, "timeout")
+    assert response.json()["detail"].startswith("That site took too long to answer.")
+    assert read == []  # nothing was read
+    assert counts(links_on) == (0, 0, 0)
+
+
+def test_the_read_is_given_only_what_the_fetch_left_and_the_photo_only_what_the_read_left(
+    links_on: TestClient, web: Web, monkeypatch: pytest.MonkeyPatch, clock: Clock
+) -> None:
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = kit.png()
+    real = web.fetch_page
+    given: dict[str, float | None] = {}
+
+    def fetch(gate: Any, household_id: int, url: str, *, seconds: float | None = None) -> Any:
+        given["fetch"] = seconds
+        clock.now += 12
+        return real(gate, household_id, url)
+
+    def reader(html: str, url: str, *, within_seconds: float, **_: Any) -> Any:
+        given["read"] = within_seconds
+        clock.now += within_seconds + 1  # it uses all it has, and a little more
+        return page_reader.read_page(html, url)
+
+    monkeypatch.setattr(page_fetch, "fetch_page", fetch)
+    monkeypatch.setattr("mealwright.recipe_import.read_within_budget", reader)
+    shown = review(links_on, LINK)
+    assert given["fetch"] == 30
+    assert given["read"] == 18  # 30 - the fetch's 12
+    # No time left for the photo: it is not asked for, and the review says why.
+    assert web.photos_asked == []
+    assert shown["photo"]["state"] == "failed"
+    assert shown["photo"]["message"] == "That site took too long to answer. Try again later."
+
+
+def test_whatever_the_fetch_and_the_read_use_the_import_never_asks_for_more_than_30_seconds(
+    links_on: TestClient, web: Web, monkeypatch: pytest.MonkeyPatch, clock: Clock
+) -> None:
+    """A slow site then a slow reading place: every time the import hands out is within what
+    is left, so the total can't pass the 30 seconds."""
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = FetchRefused(Problem.CANT_REACH)
+    real_fetch, real_photo = web.fetch_page, web.download_photo
+    asked: list[tuple[str, float]] = []
+
+    def fetch(gate: Any, household_id: int, url: str, *, seconds: float | None = None) -> Any:
+        asked.append(("fetch", seconds or 0))
+        clock.now += 14
+        return real_fetch(gate, household_id, url)
+
+    def photo(gate: Any, household_id: int, url: str, *, seconds: float | None = None) -> Any:
+        asked.append(("photo", seconds or 0))
+        return real_photo(gate, household_id, url)
+
+    def reader(html: str, url: str, *, within_seconds: float, **_: Any) -> Any:
+        asked.append(("read", within_seconds))
+        clock.now += 10  # waiting and reading
+        return page_reader.read_page(html, url)
+
+    monkeypatch.setattr(page_fetch, "fetch_page", fetch)
+    monkeypatch.setattr(page_fetch, "download_photo", photo)
+    monkeypatch.setattr("mealwright.recipe_import.read_within_budget", reader)
+    review(links_on, LINK)
+    spent = 0.0
+    for what, seconds in asked:
+        assert seconds <= 30 - spent + 1e-6, what
+        spent += {"fetch": 14, "read": 10, "photo": 0}[what]
+    assert [what for what, _ in asked] == ["fetch", "read", "photo"]
+    assert asked[-1][1] == 6  # 30 - 14 - 10
 
 
 def test_the_real_budget_reads_the_page_in_a_child(links_on: TestClient) -> None:

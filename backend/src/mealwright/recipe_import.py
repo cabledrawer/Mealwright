@@ -158,6 +158,11 @@ def _from_page(page: PageRecipe) -> _Found:
     )
 
 
+def _now() -> float:
+    """The clock the import's 30 seconds run on (a test can stand in for it)."""
+    return time.monotonic()
+
+
 def start(kitchen: Kitchen, gate: OutboundGate, text: str, again: bool = False) -> ImportReview:
     """Read a link or pasted text and answer with the review. Raises Problem."""
     text = text.strip()
@@ -165,10 +170,10 @@ def start(kitchen: Kitchen, gate: OutboundGate, text: str, again: bool = False) 
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "nothing_given", NOTHING_GIVEN)
     # Nothing is held open while a page is fetched or read.
     kitchen.db.commit()
-    began = time.monotonic()
+    began = _now()
 
     def left() -> float:
-        return MAX_IMPORT_SECONDS - (time.monotonic() - began)
+        return MAX_IMPORT_SECONDS - (_now() - began)
 
     if looks_like_link(text):
         link = text if "://" in text else f"https://{text}"
@@ -209,6 +214,8 @@ def _from_link(
         raise _problem(FetchProblem.CANT_REACH, kitchen) from None
     if not again and fetched.url != tidy:
         _check_duplicate(kitchen, fetched.url)
+    if left() < page_budget.MIN_READ_SECONDS:  # the fetch used the time the read needs
+        raise _problem(FetchProblem.TIMEOUT, kitchen)
     page = _read(kitchen, fetched.html, fetched.url, left)
     if page is None:
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "no_recipe", NO_RECIPE_ON_PAGE)
@@ -224,7 +231,8 @@ def _read(kitchen: Kitchen, html: str, url: str, left: Left) -> PageRecipe | Non
     never a stack trace; the log has the connection's label and the kind of error only."""
     label = LABELS[Connection.RECIPE_IMPORT]
     try:
-        return read_within_budget(html, url, wait_seconds=max(0.0, left()))
+        # The wait for a place and the read both fit in what is left of the import's 30 seconds.
+        return read_within_budget(html, url, within_seconds=max(0.0, left()))
     except PageBusy:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT, FetchProblem.BUSY.value, page_budget.BUSY
@@ -297,6 +305,8 @@ def _hold_photo(kitchen: Kitchen, gate: OutboundGate, url: str | None, left: Lef
         )
     if url is None:
         return ReviewPhoto(state="none")
+    if left() <= 0:  # the page used all of the import's 30 seconds
+        return ReviewPhoto(state="failed", message=page_fetch.MESSAGES[FetchProblem.TIMEOUT])
     try:
         cleaned = page_fetch.download_photo(gate, kitchen.household_id, url, seconds=left())
     except FetchRefused as refused:

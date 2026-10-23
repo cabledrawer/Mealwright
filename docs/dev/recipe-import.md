@@ -217,7 +217,7 @@ process and stops it past any of these limits:
 | Limit | Value | Why |
 | --- | --- | --- |
 | Processor time (`MAX_CPU_SECONDS`) | 12 seconds, the child's own processor time (`RLIMIT_CPU`) | Counts the work a page needs, not how busy the machine is (a Raspberry Pi doing other things reads the same page in the same processor time). The realistic big test page needs about 1.2 seconds on a fast PC (measured 23 Oct, 6-core desktop processor: 1.1 to 1.25 s in all, 0.08 s of it to start the child), so perhaps 5 to 6 seconds on a Raspberry Pi 4 class board (an estimate, not measured). 12 is more than twice that. |
-| The clock (`MAX_WALL_SECONDS`) | 15 seconds from starting the child to its answer | The backstop for a child that is stuck rather than working, or a machine so busy that processor time runs slowly. Inside the import's 30 seconds. |
+| The clock (`MAX_WALL_SECONDS`) | 15 seconds from starting the child to its answer, or what is left of the import's 30 seconds when that is less | The backstop for a child that is stuck rather than working, or a machine so busy that processor time runs slowly. The import passes what it has left (`within_seconds`), so the fetch, the wait for a place and the read together never pass the 30 seconds. |
 | Memory (`MAX_MEMORY`) | 384 MB, all the child's memory, Python itself included | The realistic big test page needs 88 MB; Python alone is about 30 MB. |
 | At once (`MAX_AT_ONCE`) | 2 pages, for the whole server | cabledrawer 23 Oct, question 22: each child may use 384 MB, so a third waits its turn. |
 
@@ -243,9 +243,10 @@ How it works:
 - **Processor time:** before reading, the child limits its own processor time (`RLIMIT_CPU`, 12
   seconds; a hard limit 2 seconds later). The system ends it with SIGXCPU, and the import says
   the page couldn't be read.
-- **The clock:** the server waits at most 15 seconds for the answer, then kills the child and waits
-  for it to end, so no process is left behind. After an answer it waits at most 2 seconds for the
-  child to end by itself, then kills it.
+- **The clock:** the server waits at most 15 seconds for the answer (less if the import has less
+  left, see below), then kills the child and waits for it to end, so no process is left behind.
+  After an answer it waits at most 2 seconds (and no longer than the time left) for the child to
+  end by itself, then kills it.
 - **Memory:** before reading, the child limits its own memory (`RLIMIT_AS`) to 384 MB. Past it,
   Python raises MemoryError, and the child answers "memory" (or ends, if it can't).
 - **No core file** (`RLIMIT_CORE` 0), and **the network guard is switched on in the child**
@@ -255,6 +256,16 @@ How it works:
   read ends. A third read waits its turn; the wait counts within the import's own 30 seconds. If
   it can't start in time the import says "Mealwright is busy reading another page. Try again in a
   moment." (`page_budget.BUSY`).
+- **The import's 30 seconds:** one deadline, set when the import
+  starts, and every step is given only what is left of it. The fetch gets what is left (at most
+  30). If the fetch leaves less than `MIN_READ_SECONDS` (2 seconds; a typical page needs about
+  1.2 on a fast PC), the page isn't read and the answer is "That site took too long to answer.
+  Try again later." (`timeout`). The reader gets what is left as `within_seconds`: the wait for a
+  place and the read share it, the clock limit is cut to what is left once a place is free, and
+  if the wait left less than 2 seconds the answer is the busy sentence. With no time left after
+  the read, the photo isn't downloaded and the review says "Photo not downloaded" with the
+  timeout sentence. The one thing the clock doesn't time is shrinking a photo that has already
+  arrived; the photo's own limits (15 MB, 50 megapixels) keep that short.
 - Over any limit, `read_within_budget` raises `PageUnreadable` (`reason` "time", "memory" or
   "crash"); a result that is too big to send or can't be pickled, or a child that dies without
   answering (a crash), is "crash". The screen shows "Couldn’t read that page. Paste the recipe’s
@@ -335,16 +346,18 @@ and `steps_cut` (a page with more than 200 lines or 100 steps keeps the first on
 `steps_shortened` (steps over 5,000 characters, cut by the review) and `left_out` (the Notes and
 Tips of pasted text: "4 lines after “Tips” were left out"). **Nothing is saved** except a
 downloaded photo, which waits like an uploaded one until Save (the hourly tidy-up drops one no
-recipe took in 24 hours; at most 10 wait per household).
+recipe took in 24 hours; at most 10 wait per household). `makes` is in plain units (`{"amount":
+24, "unit": "cookies"}`, never thousandths), and Save takes it back the same way.
 
 A link with "Recipe import from links" off is refused with 403 `import_switched_off` ("Importing
 from links is switched off"; `admin` says whether the person can switch it on, and a member's
 sentence adds "An admin can switch it on."), before anything is looked up or fetched. Pasted text
 never goes online and works with the switch off. A link goes through `page_fetch` only, its page is
-read only with `page_budget.read_within_budget`, and the fetch, a wait for a place to read and the
-photo share the import's 30 seconds. Every refusal is 422 with a `code` and a sentence from
+read only with `page_budget.read_within_budget`, and the fetch, a wait for a place to read, the
+read and the photo share one 30-second deadline set when the import starts (see "The import's 30
+seconds" above). Every refusal is 422 with a `code` and a sentence from
 `words.md` section 18: `bad_link`, `always_blocked`, `own_network`, `odd_port`,
-`too_many_redirects`, `cant_reach`, `timeout`, `site_error`, `not_a_page`, `page_too_big`,
+`too_many_redirects`, `cant_reach` (also anything the fetch did not expect), `timeout`, `site_error`, `not_a_page`, `page_too_big`,
 `cant_read` (over a budget, a crash, or anything the reader did not expect: the log has the
 connection's label and the kind of error, never an address), `busy`, `no_recipe` (a page without a
 recipe, or text without one), `text_too_long`, `nothing_given`. The photo never stops an import:

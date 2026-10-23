@@ -26,6 +26,11 @@ reader's own loops couldn't do that: it can't stop one long call inside Python i
   once for the whole server (each child may use `MAX_MEMORY`). A third waits its turn; the
   wait counts within the import's own 30 seconds, and a read that can't start in time raises
   `PageBusy`. A place is always given back, however the read ends.
+- **The import's 30 seconds:** the caller says how long the
+  whole call may take (`within_seconds`, what the import has left after its fetch). The wait
+  for a place and the read share it: the clock limit is cut to what is left once a place is
+  free, a read with less than `MIN_READ_SECONDS` left isn't started (`PageBusy`: the wait used
+  it up), and a child that has answered is given no more time than is left to end.
 - The child gets the page's text and address, and sends back the reader's result. It does no
   network and no database work.
 
@@ -70,6 +75,9 @@ MAX_AT_ONCE = 2
 # left of them).
 MAX_WAIT_SECONDS = 30.0
 BUSY = "Mealwright is busy reading another page. Try again in a moment."
+# A read that starts with less time than this left would only be stopped by the clock: the
+# realistic big test page needs about 1.2 seconds of processor time on a fast PC.
+MIN_READ_SECONDS = 2.0
 _places = threading.BoundedSemaphore(MAX_AT_ONCE)
 
 # How long the parent waits for a child that has already answered to end by itself, before it
@@ -107,19 +115,34 @@ def read_within_budget(
     wall_seconds: float | None = None,
     memory: int | None = None,
     wait_seconds: float | None = None,
+    within_seconds: float | None = None,
 ) -> PageRecipe | None:
     """`page_reader.read_page(html, url)`, in a child process with a budget of `cpu_seconds`
     of processor time, `wall_seconds` by the clock and `memory` bytes (`MAX_CPU_SECONDS`,
     `MAX_WALL_SECONDS` and `MAX_MEMORY` unless a test changes them). Raises PageUnreadable if
     it goes over, or the child ends without a usable answer; anything else the reader raises
     is raised here too. If two other pages are being read, it waits up to `wait_seconds`
-    (`MAX_WAIT_SECONDS`) for its turn, then raises PageBusy."""
+    (`MAX_WAIT_SECONDS`) for its turn, then raises PageBusy. `within_seconds`: the most the
+    whole call (the wait and the read) may take, if the caller has a limit of its own (the
+    import's 30 seconds, less what it has already used): the wait and the clock limit are cut
+    to it, and a read with less than `MIN_READ_SECONDS` left once it has a place raises
+    PageBusy."""
+    began = time.monotonic()
     wait = MAX_WAIT_SECONDS if wait_seconds is None else wait_seconds
+    if within_seconds is not None:
+        wait = min(wait, within_seconds)
     if not _places.acquire(timeout=max(0.0, wait)):
         log.warning("Couldn't read a page: %s, busy with other pages", _label())
         raise PageBusy
     try:
-        return _read(html, url, cpu_seconds, wall_seconds, memory)
+        wall = MAX_WALL_SECONDS if wall_seconds is None else wall_seconds
+        if within_seconds is not None:
+            left = within_seconds - (time.monotonic() - began)
+            if left < MIN_READ_SECONDS:  # the wait took the time the read needs
+                log.warning("Couldn't read a page: %s, busy with other pages", _label())
+                raise PageBusy
+            wall = min(wall, left)
+        return _read(html, url, cpu_seconds, wall, memory)
     finally:
         _places.release()
 
@@ -157,7 +180,7 @@ def _read(
             if answer is not None:
                 # It has answered: it only has to end. A child that doesn't within a moment
                 # is killed like any other, so the server never waits on it for ever.
-                child.join(_EXIT_SECONDS)
+                child.join(max(0.0, min(_EXIT_SECONDS, deadline - time.monotonic())))
             if child.is_alive():
                 child.kill()  # out of time (a child that already ended is left as it is)
                 child.join()  # wait for it to end, so no process is left behind
