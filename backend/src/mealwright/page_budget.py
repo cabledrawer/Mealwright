@@ -175,6 +175,10 @@ def _read(
                 answer = receive.recv()
             except EOFError, OSError:
                 answer = None  # the child ended without answering
+            except Exception:
+                # What it sent can't be read back here (an exception that doesn't unpickle):
+                # a crash, like a result the child could not send.
+                answer = ("failed", None)
     finally:
         if child.pid is not None:  # it started
             if answer is not None:

@@ -243,6 +243,21 @@ def _unsendable_child(send: Connection, html: str, url: str, cpu: float, memory:
     page_budget._read_in_child(send, html, url, cpu, memory)
 
 
+class _Unreadable(Exception):
+    """An exception that pickles but can't be unpickled: its message is not its only argument."""
+
+    def __init__(self, message: str, more: str) -> None:
+        super().__init__(message)
+
+
+def _unpicklable_error_child(
+    send: Connection, html: str, url: str, cpu: float, memory: int
+) -> None:
+    page_budget._prepare_child(cpu, memory)
+    send.send(("raised", _Unreadable("sent", "back")))
+    send.close()
+
+
 def _lingering_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
     page_budget._prepare_child(cpu, memory)
     send.send(("read", None))
@@ -302,6 +317,18 @@ def test_a_result_that_cannot_be_sent_is_unreadable_not_a_runtime_error(
         read_within_budget("<p>x</p>", URL)
     assert refused.value.reason == "crash"
     assert caplog.messages == ["Couldn't read a page: recipe import, the reader stopped"]
+
+
+def test_an_error_from_the_child_that_cannot_be_unpickled_is_unreadable_not_that_error(
+    child_as, caplog: pytest.LogCaptureFixture, started: list[int]
+) -> None:  # type: ignore[no-untyped-def]
+    child_as(_unpicklable_error_child)
+    with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
+        read_within_budget("<p>x</p>", URL)
+    assert refused.value.reason == "crash"
+    assert refused.value.message == CANT_READ
+    assert caplog.messages == ["Couldn't read a page: recipe import, the reader stopped"]
+    assert gone(started[0])
 
 
 def test_a_child_that_answers_but_does_not_end_is_killed_after_a_moment(
