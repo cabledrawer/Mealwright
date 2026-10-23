@@ -203,6 +203,9 @@ def _from_link(
         raise _problem(FetchProblem.SWITCHED_OFF, kitchen) from None
     if not again:
         _check_duplicate(kitchen, tidy)
+    # The "already have it" check opened a read transaction: end it before the fetch, which can
+    # take 30 seconds (a connection kept idle in a transaction, on a database that has them).
+    kitchen.db.commit()
     try:
         fetched = page_fetch.fetch_page(gate, kitchen.household_id, tidy, seconds=left())
     except FetchRefused as refused:
@@ -214,6 +217,7 @@ def _from_link(
         raise _problem(FetchProblem.CANT_REACH, kitchen) from None
     if not again and fetched.url != tidy:
         _check_duplicate(kitchen, fetched.url)
+        kitchen.db.commit()  # and not held open while the page is read
     if left() < page_budget.MIN_READ_SECONDS:  # the fetch used the time the read needs
         raise _problem(FetchProblem.TIMEOUT, kitchen)
     page = _read(kitchen, fetched.html, fetched.url, left)

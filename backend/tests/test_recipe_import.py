@@ -615,6 +615,34 @@ def test_whatever_the_fetch_and_the_read_use_the_import_never_asks_for_more_than
     assert asked[-1][1] == 6  # 30 - 14 - 10
 
 
+def test_no_database_connection_is_held_open_while_the_page_is_fetched_read_or_the_photo_downloaded(
+    links_on: TestClient, web: Web, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = kit.png()
+    pool = links_on.app.state.sessionmaker.kw["bind"].pool  # type: ignore[attr-defined]
+    open_during: dict[str, int] = {}
+    fetch, photo = web.fetch_page, web.download_photo
+
+    def fetching(gate: Any, household_id: int, url: str, **options: Any) -> Any:
+        open_during["fetch"] = pool.checkedout()
+        return fetch(gate, household_id, url)
+
+    def reading(html: str, url: str, **_: Any) -> Any:
+        open_during["read"] = pool.checkedout()
+        return page_reader.read_page(html, url)
+
+    def downloading(gate: Any, household_id: int, url: str, **options: Any) -> Any:
+        open_during["photo"] = pool.checkedout()
+        return photo(gate, household_id, url)
+
+    monkeypatch.setattr(page_fetch, "fetch_page", fetching)
+    monkeypatch.setattr(page_fetch, "download_photo", downloading)
+    monkeypatch.setattr("mealwright.recipe_import.read_within_budget", reading)
+    review(links_on, LINK)
+    assert open_during == {"fetch": 0, "read": 0, "photo": 0}
+
+
 def test_the_real_budget_reads_the_page_in_a_child(links_on: TestClient) -> None:
     """One import through the real budget (a child process), with the fetch faked."""
     web = Web()
