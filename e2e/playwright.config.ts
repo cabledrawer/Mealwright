@@ -82,6 +82,9 @@ export default defineConfig({
     { name: 'desktop keyboard', testMatch: 'keyboard.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Speed on a simulated slow phone (0.4).
     { name: 'slow phone', testMatch: 'slow-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    // Settings → Privacy (0.5).
+    { name: 'phone 0.5 privacy', testMatch: 'privacy.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.5 privacy', testMatch: 'privacy.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
