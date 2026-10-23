@@ -38,7 +38,7 @@ from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
-from mealwright import own_network, photos
+from mealwright import own_network, page_budget, photos
 from mealwright.limits import MAX_PHOTO_BYTES, PHOTO_TOO_BIG
 from mealwright.outbound import (
     LABELS,
@@ -86,6 +86,9 @@ class Problem(StrEnum):
     NOT_A_PHOTO = "not_a_photo"
     PHOTO_TOO_BIG = "photo_too_big"
     TOO_MANY_PIXELS = "too_many_pixels"
+    # Reading the page went over its time or memory budget (raised as
+    # `page_budget.PageUnreadable`, which has the same sentence).
+    CANT_READ = "cant_read"
 
 
 # Words the screens show (docs/dev/words.md section 18). "Importing from links is switched
@@ -115,6 +118,7 @@ MESSAGES = {
     Problem.NOT_A_PHOTO: photos.NOT_A_PHOTO,
     Problem.PHOTO_TOO_BIG: PHOTO_TOO_BIG,
     Problem.TOO_MANY_PIXELS: photos.TOO_MANY_PIXELS,
+    Problem.CANT_READ: page_budget.CANT_READ,
 }
 
 # What a log line says about each problem (no address, no host).
