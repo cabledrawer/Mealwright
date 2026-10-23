@@ -4,6 +4,7 @@ checks again on every save."""
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sync_kit import ok
 from test_recipes import make, save
@@ -263,13 +264,21 @@ def test_undo_of_a_delete_cannot_make_a_loop(kitchen: TestClient) -> None:
     assert kitchen.get(f"{API}/recipes/{b['id']}").status_code == 200
 
 
-def test_the_loop_check_is_fast_in_a_big_household(kitchen: TestClient) -> None:
+def test_the_loop_check_is_fast_in_a_big_household(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """2,000 recipes, each using twenty earlier ones. The picker's list and a save both look
     at the whole web of recipes while the household's write lock is held, so they must be
-    quick: one search, not one per recipe."""
+    quick: one search, not one per recipe. The work is counted rather than timed (a busy
+    machine makes times vary): the database statements each call runs, the searches, and
+    the recipes each search visits. A version with a query or a search per recipe would
+    run thousands."""
     import random
-    import time
+    from collections import deque
 
+    from sqlalchemy import event
+
+    from mealwright import recipes as recipe_code
     from mealwright.models import Recipe, RecipeLine, utcnow
 
     rng = random.Random(7)  # noqa: S311 (a test graph, not a secret)
@@ -302,23 +311,54 @@ def test_the_loop_check_is_fast_in_a_big_household(kitchen: TestClient) -> None:
                     )
                 )
         db.commit()
-    lonely = count + 1  # nobody uses it: only itself is blocked
-    started = time.perf_counter()
-    blocked = ok(kitchen.get(f"{API}/recipes/{lonely}/cannot-use"))["recipes"]
-    assert [b["name"] for b in blocked] == [f"Recipe {lonely:04d}"]
-    assert time.perf_counter() - started < 1.0
-    # A recipe nearly everything reaches: lots of reasons, each from the same search.
-    started = time.perf_counter()
-    blocked = ok(kitchen.get(f"{API}/recipes/3/cannot-use"))["recipes"]
-    assert time.perf_counter() - started < 1.0
-    assert len(blocked) > 1000
-    by_id = {b["id"]: b for b in blocked}
-    middle = by_id[count]
-    assert middle["reason"].startswith(f"Recipe 0003 {CANT} use Recipe {count:04d}, because ")
-    assert middle["chain"][0] == f"Recipe {count:04d}" and middle["chain"][-1] == "Recipe 0003"
-    # A save that picks a recipe is checked against the same web, also quickly.
-    mine = ok(kitchen.get(f"{API}/recipes/{lonely}"))
-    started = time.perf_counter()
-    saved = save(kitchen, mine, lines=[{"words": "x", "recipe_id": i} for i in (10, 20, 30)])
-    assert saved.status_code == 200, saved.text
-    assert time.perf_counter() - started < 1.0
+
+    work = {"statements": 0, "searches": 0, "visited": 0}
+
+    def statement(*args: Any) -> None:
+        work["statements"] += 1
+
+    real_reaching = recipe_code.reaching
+
+    def search(graph: dict[int, set[int]], target: int) -> dict[int, int]:
+        work["searches"] += 1
+        return real_reaching(graph, target)
+
+    class Queue(deque[int]):  # the search's queue: each recipe taken from it is a visit
+        def popleft(self) -> int:
+            work["visited"] += 1
+            return super().popleft()
+
+    monkeypatch.setattr(recipe_code, "reaching", search)
+    monkeypatch.setattr(recipe_code, "deque", Queue)
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    event.listen(engine, "before_cursor_execute", statement)
+
+    def counted(call: Any) -> Any:
+        work.update(statements=0, searches=0, visited=0)
+        return call()
+
+    try:
+        lonely = count + 1  # nobody uses it: only itself is blocked
+        blocked = ok(counted(lambda: kitchen.get(f"{API}/recipes/{lonely}/cannot-use")))
+        assert [b["name"] for b in blocked["recipes"]] == [f"Recipe {lonely:04d}"]
+        assert work["searches"] == 1 and work["visited"] == 1
+        assert work["statements"] <= 10, work  # 7 today; one per recipe would be 2,000
+        # A recipe nearly everything reaches: lots of reasons, each from the same search.
+        blocked = ok(counted(lambda: kitchen.get(f"{API}/recipes/3/cannot-use")))["recipes"]
+        assert work["searches"] == 1
+        assert work["visited"] <= count + 1  # each recipe visited once at most
+        assert work["statements"] <= 10, work  # 7 today; one per recipe would be 2,000
+        assert len(blocked) > 1000
+        by_id = {b["id"]: b for b in blocked}
+        middle = by_id[count]
+        assert middle["reason"].startswith(f"Recipe 0003 {CANT} use Recipe {count:04d}, because ")
+        assert middle["chain"][0] == f"Recipe {count:04d}" and middle["chain"][-1] == "Recipe 0003"
+        # A save that picks a recipe is checked against the same web, also quickly.
+        mine = ok(kitchen.get(f"{API}/recipes/{lonely}"))
+        lines = [{"words": "x", "recipe_id": i} for i in (10, 20, 30)]
+        saved = counted(lambda: save(kitchen, mine, lines=lines))
+        assert saved.status_code == 200, saved.text
+        assert work["searches"] == 1 and work["visited"] == 1
+        assert work["statements"] <= 40, work  # 31 today, most of them the save itself
+    finally:
+        event.remove(engine, "before_cursor_execute", statement)
