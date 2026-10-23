@@ -12,7 +12,7 @@ or removed.
 
 import ipaddress
 import logging
-from datetime import datetime
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Response, status
@@ -23,7 +23,9 @@ from mealwright import own_network
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
-from mealwright.models import OwnNetworkEntry
+from mealwright.history import as_utc
+from mealwright.household import today
+from mealwright.models import Household, OwnNetworkEntry
 from mealwright.outbound import LABELS, Connection, set_switch
 from mealwright.outbound import switches as stored_switches
 from mealwright.shopping import lock_household
@@ -92,7 +94,8 @@ class EntryOut(BaseModel):
     # anything else: a name or one address, and an IPv6 range, which holds too many to count.
     addresses: int | None
     added_by: str
-    added_at: datetime
+    # The day it was added, in the household's time zone (like every date in the app).
+    added_on: date
 
 
 class OwnNetworkOut(BaseModel):
@@ -107,7 +110,7 @@ class EntryIn(BaseModel):
     value: str = Field(max_length=1000)
 
 
-def _entry(row: OwnNetworkEntry) -> EntryOut:
+def _entry(row: OwnNetworkEntry, household: Household) -> EntryOut:
     addresses: int | None = None
     if row.kind == "range":
         network = ipaddress.ip_network(row.value)
@@ -119,13 +122,16 @@ def _entry(row: OwnNetworkEntry) -> EntryOut:
         value=row.value,
         addresses=addresses,
         added_by=row.added_by_name,
-        added_at=row.added_at,
+        added_on=today(household, as_utc(row.added_at)),
     )
 
 
 def _list(kitchen: Here) -> OwnNetworkOut:
     return OwnNetworkOut(
-        entries=[_entry(e) for e in own_network.entries(kitchen.db, kitchen.household_id)],
+        entries=[
+            _entry(e, kitchen.household)
+            for e in own_network.entries(kitchen.db, kitchen.household_id)
+        ],
         limit=own_network.MAX_ENTRIES,
         can_change=kitchen.login.role == "admin",
     )
@@ -169,7 +175,7 @@ def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
         kitchen.db.rollback()
         raise _refused(own_network.ALREADY) from None
     log.info("Your own network: added")
-    return _entry(row)
+    return _entry(row, kitchen.household)
 
 
 @router.delete("/privacy/own-network/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

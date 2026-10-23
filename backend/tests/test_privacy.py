@@ -6,6 +6,7 @@ or changes another's, and a change reaches the outbound gate at once.
 
 import logging
 from collections.abc import Iterator
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +14,7 @@ from fastapi.testclient import TestClient
 from mealwright import own_network
 from mealwright.auth import hash_password
 from mealwright.household import add_default_places
-from mealwright.models import Household, Login
+from mealwright.models import Household, Login, OwnNetworkEntry
 from mealwright.outbound import Connection, OutboundBlocked, OutboundGate
 
 API = "/api/v1"
@@ -195,7 +196,7 @@ def test_an_admin_adds_a_name_an_address_and_a_range(kitchen: TestClient) -> Non
     assert first["value"] == "wiki.home.example"
     assert first["addresses"] is None
     assert first["added_by"] == "Tess"
-    assert first["added_at"]
+    assert len(first["added_on"]) == 10  # a date, like 2026-10-22
     address = kitchen.post(LIST, json={"value": "192.168.1.20"}).json()
     assert (address["kind"], address["value"], address["addresses"]) == (
         "address",
@@ -392,3 +393,14 @@ def test_the_log_never_holds_an_address(
         "Your own network: removed",
         "Privacy: recipe import switched on",
     ]
+
+
+def test_the_day_added_is_the_households_own_day(kitchen: TestClient) -> None:
+    entry = kitchen.post(LIST, json={"value": "wiki.home.example"}).json()
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.get(Household, 1).time_zone = "Pacific/Auckland"  # type: ignore[union-attr]
+        db.get(OwnNetworkEntry, entry["id"]).added_at = datetime(  # type: ignore[union-attr]
+            2026, 10, 22, 23, 30, tzinfo=UTC
+        )
+        db.commit()
+    assert kitchen.get(LIST).json()["entries"][0]["added_on"] == "2026-10-23"
