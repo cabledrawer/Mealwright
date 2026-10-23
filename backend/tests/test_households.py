@@ -94,9 +94,11 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         201,
     )
     recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
+    entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     return {
         "recipe_id": recipe["id"],
+        "entry_id": entry["id"],
         "photo_id": photo["id"],
         "copy": "large",
         "list_id": lists[0]["id"],
@@ -169,7 +171,13 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/{recipe_id}/stock"): None,
     ("GET", "/api/v1/recipes/photos/{photo_id}/{copy}"): None,
     ("DELETE", "/api/v1/recipes/photos/{photo_id}"): None,
+    ("DELETE", "/api/v1/privacy/own-network/{entry_id}"): None,
 }
+
+# Paths with a name in them, not an id: a switch is called "recipe_import", and the request
+# always changes the signed-in person's own household, so there is nothing of another
+# household's to point at. Its isolation is in test_privacy.py.
+NAMED_NOT_NUMBERED = {("PUT", "/api/v1/privacy/switches/{connection}")}
 
 
 def endpoints_with_ids(client: TestClient) -> set[tuple[str, str]]:
@@ -179,7 +187,7 @@ def endpoints_with_ids(client: TestClient) -> set[tuple[str, str]]:
         for path, methods in paths.items()
         if "{" in path
         for method in methods
-    }
+    } - NAMED_NOT_NUMBERED
     # DELETE of a list is tried on an extra list (the main list can't be removed).
     return found
 
