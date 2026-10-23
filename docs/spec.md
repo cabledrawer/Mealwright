@@ -637,6 +637,7 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 - **Security in the checker's review.** Any PR that touches sign-in, permissions, households, sync, imports, file uploads or the outbound gate gets a security section in the checker's verdict, and needs tests that try to get around it.
 - **A small security pass in every release PR.** The milestone's own changes are checked against the same checklist. The 0.9 checklist becomes a final confirmation rather than the first look.
 - **Monthly rescan of the running app (cabledrawer 18 Oct).** cabledrawer rescans the image running on his homelab with Trivy (pinned, telemetry and update check off) about once a month. No separate scan at install time, since `./check` already scanned that image. Steps in the Mealwright Manual, not the repo.
+- **Scanner warnings that don't affect Mealwright (cabledrawer 23 Oct, question 27).** `osv-scanner.toml` names only GHSA-27mw-82g8-phjj and GHSA-pfhg-q3qv-9q6r (two `@sveltejs/kit` 2.x warnings published 23 Oct 2026, fixed only in 3.0.0), with one line each on why they don't affect Mealwright: its screens are a static app (no SvelteKit server code, no prerendering, no setHeaders, no form actions or use:enhance). Both expire on 23 Nov 2026, so ./check fails on them again from then. No library or code changes (0.5 PR 0c). cabledrawer: "Later: the SvelteKit 3 upgrade as its own PR after 0.5 and before 23 Nov, brought to me first as a plan with every library it changes."
 
 **Bug reports and contributions (17 Oct):**
 
