@@ -15,10 +15,10 @@ Two parts:
   while the Host header and the TLS name (SNI and the certificate check) stay the host
   name. So a name can't pass the check with a public address and then be fetched from a
   private one (DNS rebinding).
-- `install_network_guard()` (it lives in `mealwright.network_guard`, a small module of its own, so
-  the page-reading child can switch it on without importing all of this) adds a Python audit hook that refuses every network
-  connection, UDP send or DNS lookup made *outside* the gate, by our code or by any
-  library. It's installed when the app starts and for the whole test suite.
+- `install_network_guard()` (it lives in `mealwright.network_guard`, a small module of its own,
+  so the page-reading child can switch it on without importing all of this) adds a Python audit
+  hook that refuses every network connection, UDP send or DNS lookup made *outside* the gate, by
+  our code or by any library. It's installed when the app starts and for the whole test suite.
 
 This is the only module allowed to import networking modules; a test checks that.
 """
