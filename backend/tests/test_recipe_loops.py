@@ -270,9 +270,9 @@ def test_the_loop_check_is_fast_in_a_big_household(
     """2,000 recipes, each using twenty earlier ones. The picker's list and a save both look
     at the whole web of recipes while the household's write lock is held, so they must be
     quick: one search, not one per recipe. The work is counted rather than timed (a busy
-    machine makes times vary): the database statements each call runs, the searches, and
-    the recipes each search visits. A version with a query or a search per recipe would
-    run thousands."""
+    machine makes times vary): the database statements each call runs, the searches, the
+    recipes each search visits, and its passes over (and lookups in) the web of recipes. A
+    version with a query, a search or a pass over the web per recipe would run thousands."""
     import random
     from collections import deque
 
@@ -312,10 +312,51 @@ def test_the_loop_check_is_fast_in_a_big_household(
                 )
         db.commit()
 
-    work = {"statements": 0, "searches": 0, "visited": 0}
+    work = {"statements": 0, "searches": 0, "visited": 0, "graph passes": 0, "graph lookups": 0}
 
     def statement(*args: Any) -> None:
         work["statements"] += 1
+
+    class Graph(dict[int, set[int]]):
+        """The web of recipes as the search gets it: each pass over it, and each lookup in
+        it, is counted. A search that rebuilt its index at every visit would make thousands
+        of passes, with no more queries, searches or visits."""
+
+        def _pass(self) -> None:
+            work["graph passes"] += 1
+
+        def items(self) -> Any:
+            self._pass()
+            return super().items()
+
+        def keys(self) -> Any:
+            self._pass()
+            return super().keys()
+
+        def values(self) -> Any:
+            self._pass()
+            return super().values()
+
+        def __iter__(self) -> Any:
+            self._pass()
+            return super().__iter__()
+
+        def __getitem__(self, key: int) -> set[int]:
+            work["graph lookups"] += 1
+            return super().__getitem__(key)
+
+        def get(self, key: int, default: Any = None) -> Any:
+            work["graph lookups"] += 1
+            return super().get(key, default)
+
+        def __contains__(self, key: object) -> bool:
+            work["graph lookups"] += 1
+            return super().__contains__(key)
+
+    real_graph = recipe_code.uses_graph
+
+    def graph(*args: Any, **kwargs: Any) -> dict[int, set[int]]:
+        return Graph(real_graph(*args, **kwargs))
 
     real_reaching = recipe_code.reaching
 
@@ -330,12 +371,17 @@ def test_the_loop_check_is_fast_in_a_big_household(
 
     monkeypatch.setattr(recipe_code, "reaching", search)
     monkeypatch.setattr(recipe_code, "deque", Queue)
+    monkeypatch.setattr(recipe_code, "uses_graph", graph)
     engine = kitchen.app.state.engine  # type: ignore[attr-defined]
     event.listen(engine, "before_cursor_execute", statement)
 
     def counted(call: Any) -> Any:
-        work.update(statements=0, searches=0, visited=0)
-        return call()
+        work.update(dict.fromkeys(work, 0))
+        result = call()
+        # One pass over the web of recipes per search, and at most one lookup per recipe.
+        assert work["graph passes"] <= work["searches"], work
+        assert work["graph lookups"] <= count + 1, work
+        return result
 
     try:
         lonely = count + 1  # nobody uses it: only itself is blocked
