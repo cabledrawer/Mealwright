@@ -12,6 +12,10 @@
   // pantry", the ingredient picker and the Shopping list's rows, pack sheet, list picker,
   // put-away panel and "Did you buy 2?" card. They get a place here when the gallery can
   // fake those answers.
+  import AlreadySheet from '$lib/components/import/AlreadySheet.svelte';
+  import ImportStart from '$lib/components/import/ImportStart.svelte';
+  import ReviewScreen from '$lib/components/import/ReviewScreen.svelte';
+  import { boxFlow, reviewFlow } from '$lib/testing/importSamples';
   import AskOnce from '$lib/components/AskOnce.svelte';
   import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
   import ConflictSheet from '$lib/components/recipe/ConflictSheet.svelte';
@@ -109,7 +113,9 @@
     'photo',
     'info',
     'alert',
-    'cloud-off'
+    'cloud-off',
+    'link',
+    'note'
   ];
 
   // --- Settings → Privacy -----------------------------------------------------------------
@@ -149,6 +155,7 @@
   let networkText = $state('');
   let networkTextSecond = $state('wiki.home.lan');
   let networkTextThird = $state('localhost');
+  let showAlready = $state(false);
 
   // --- Switch, fields -----------------------------------------------------------------
   let on = $state(true);
@@ -757,6 +764,7 @@
     <a href="#recipe-page">Recipe page</a>
     <a href="#recipe-panes">Desktop panes</a>
     <a href="#ingredient-recipes">Ingredients and recipes</a>
+    <a href="#import">Import a recipe</a>
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#recipe-editor">Recipe editor</a>
@@ -1173,6 +1181,60 @@
     </div>
   </section>
 
+  <section id="import">
+    <h2>Import a recipe: the box, the review, "You already have this recipe"</h2>
+    <p class="note">
+      The one box takes a link or pasted text. Importing from links switched off (an admin sees
+      Settings, a member is told an admin can switch it on), another refusal, and the box while
+      reading. The review has a line in each state: matched, staple, to confirm, needs you, a line
+      that couldn’t be read, a very long name and a heading. "Save & plan it" is not there until
+      0.6.
+    </p>
+    <div class="stack">
+      <div class="narrow"><ImportStart flow={boxFlow('')} /></div>
+      <div class="narrow"><ImportStart flow={boxFlow('https://kitchen.example/sambar')} /></div>
+      <div class="narrow">
+        <ImportStart
+          flow={boxFlow('https://kitchen.example/sambar', {
+            code: 'import_switched_off',
+            message: 'Importing from links is switched off',
+            switchedOff: true,
+            admin: true
+          })}
+        />
+      </div>
+      <div class="narrow">
+        <ImportStart
+          flow={boxFlow('https://kitchen.example/sambar', {
+            code: 'import_switched_off',
+            message: 'Importing from links is switched off. An admin can switch it on.',
+            switchedOff: true,
+            admin: false
+          })}
+        />
+      </div>
+      <div class="narrow">
+        <ImportStart
+          flow={boxFlow('https://kitchen.example/menu.pdf', {
+            code: 'not_a_page',
+            message: 'This link isn’t a web page.',
+            switchedOff: false,
+            admin: false
+          })}
+        />
+      </div>
+      <div class="narrow">
+        <ImportStart flow={boxFlow('Sambar\n1 cup toor dal', null, 'reading')} />
+      </div>
+      <div class="narrow"><ReviewScreen flow={reviewFlow()} phone /></div>
+      <div class="row">
+        <button type="button" class="demo" onclick={() => (showAlready = true)}
+          >You already have this recipe</button
+        >
+      </div>
+    </div>
+  </section>
+
   <section id="changes">
     <h2>Recent changes</h2>
     <div class="stack">
@@ -1433,6 +1495,19 @@
     </ul>
   </section>
 </div>
+
+{#if showAlready}
+  <AlreadySheet
+    already={{
+      recipe: { id: 1, name: 'Sambar' },
+      site: 'kitchen.example',
+      importedAt: '2026-10-03T10:00:00Z',
+      photo: null
+    }}
+    oncopy={() => (showAlready = false)}
+    onclose={() => (showAlready = false)}
+  />
+{/if}
 
 <!-- The dialogs and the toast, as the app has them in its layout. -->
 <AskOnce />

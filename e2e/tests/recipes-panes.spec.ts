@@ -68,7 +68,7 @@ test('/recipes shows the list beside a calm empty reading pane, and passes the a
   await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
   // Hidden in 0.4: not drawn, not stubbed.
   await expect(
-    page.getByRole('main').getByText(/Import a recipe|Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
+    page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
   ).toHaveCount(0);
   await checkPage(page);
 });
@@ -405,7 +405,9 @@ test('empty household: the list says No recipes yet, New recipe is there, and th
   await expect(list(page).getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(reading(page).getByText('Choose a recipe')).toHaveCount(0);
   await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
-  await expect(page.getByRole('main').getByText(/Add a recipe|Import/)).toHaveCount(0);
+  // Import a recipe is there since 0.5 (its own link, beside New recipe).
+  await expect(list(page).getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText(/Add a recipe/)).toHaveCount(0);
   await checkPage(page);
 });
 

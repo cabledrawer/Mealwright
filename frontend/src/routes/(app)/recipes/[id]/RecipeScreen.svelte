@@ -247,7 +247,7 @@
           <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the recipe's own site, opened by the person -->
           <a href={recipe.source.url} target="_blank" rel="noopener noreferrer"
             >{recipe.source.site}</a
-          >{#if recipe.source.author}{' · by '}{recipe.source.author}{/if}
+          >{#if recipe.source.author}{` · by ${recipe.source.author}`}{/if}
         </p>
       {/if}
 

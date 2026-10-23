@@ -340,6 +340,25 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - Over the reading budget (0.5 PR 1; approved by cabledrawer 23 Oct; `page_budget.CANT_READ`): Couldn’t read that page. Paste the recipe’s text instead.
   - Two other pages are being read and the wait ran out (0.5 PR 3; proposed, for cabledrawer; `page_budget.BUSY`): Mealwright is busy reading another page. Try again in a moment.
   - The photo’s own refusals (not a photo, bigger than 15 MB, more than 50 megapixels) reuse the upload sentences from 0.4.
+- **The import's own sentences** (0.5 PR 3; every line here is proposed, for cabledrawer; the switched-off, not-a-web-page, already-have-this, Photo not downloaded and Save lines are the ones above):
+  - Nothing in the box: Paste a link or the recipe’s text.
+  - A member, with the link switch off: Importing from links is switched off. An admin can switch it on.
+  - The switched-off card (admin): Nothing was fetched. Switch it on in Settings → Privacy, or paste the recipe’s text instead; pasted text never goes online. · Open Settings → Privacy · Paste text instead. (Member: Nothing was fetched. An admin can switch it on in Settings → Privacy. You can paste the recipe’s text instead; pasted text never goes online.)
+  - A page with no recipe: That page doesn’t have a recipe Mealwright can read. Paste the recipe’s text instead.
+  - Pasted text with no recipe: Mealwright couldn’t find a recipe in that text. Paste its title, ingredients and method.
+  - The box: Paste a link or the recipe’s text · A link · your server visits this page once · Pasted text · nothing goes online · Read the recipe · Reading… · How it works (from the mockup).
+  - Offline: Importing needs your Mealwright server. Try again when you’re back online.
+  - The review: Check before saving · This is what Mealwright found. Nothing is saved until you choose. · N matched · N to confirm · N needs you (1 needs you, 2 need you) · N staples · Not in your ingredients · Couldn’t read this line · Same as “Onions” · Pick an ingredient · Pick another · New ingredient · Treat as staple · Change · New staple · Name · How it’s counted (By weight, By volume, One by one) · Usually kept in (Nowhere in particular) · Save recipe (mockup) · Cancel.
+  - Under a choice: “Same as” adds “red onion” as another name for Onions when you save. · Adds “red onion” as another name for Onions when you save. · Made when you save. Nothing is added to the pantry. · Made a staple when you save. It never counts towards stock.
+  - Lines with no choice: 2 lines will be saved without an ingredient. You can link them in the recipe.
+  - Photo: Photo not downloaded — photo downloads are off. Settings → Privacy. You can add your own photo later. (When a download was refused: Photo not downloaded — and the reason from the lines above.)
+  - Left out (cabledrawer 23 Oct, question 17, the sentence proposed): 4 lines after “Tips” were left out. You can add them by hand. · 1 line after “Notes” was left out.
+  - Cuts: The page had more than 200 ingredient lines. The first 200 are here. · The page had more than 100 steps. The first 100 are here. · 1 step was shortened to 5,000 characters. (2 steps were shortened to 5,000 characters.)
+  - A line as written, kept in the note when the amount was picked from several: as written: 2-3 green chillies, slit
+  - A size word the ingredient has no size for: the note says "1 sprig" instead of an amount.
+  - The recipe page: From: bbcgoodfood.com · by Meena Raman · Source: (a typed web address shows as a link).
+  - The editor's Source hint (cabledrawer 21 Oct, the sentence): A web address shows as a link you can open yourself. Mealwright never visits it.
+  - Recent changes: Imported Sambar, with 2 new ingredients and 1 other name.
 - **Adding to “Your own network”** (0.5 PR 1, `own_network`; the screen is 0.5 PR 4; kept by cabledrawer 23 Oct, question 16):
   - Not a name, address or range: Type a name (wiki.home.example), an address (192.168.1.20) or a range (192.168.1.0/24).
   - Always blocked: That can’t be added: this server itself (localhost), link-local and cloud “metadata” addresses are always blocked.

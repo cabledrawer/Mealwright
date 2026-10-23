@@ -9,6 +9,7 @@
   import { network } from '$lib/network.svelte';
   import { OFFLINE_NOTE, type ImportFlow } from '$lib/import.svelte';
 
+  import '$lib/styles/fields.css';
   let { flow }: { flow: ImportFlow } = $props();
 
   const uid = $props.id();

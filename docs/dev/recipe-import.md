@@ -2,17 +2,19 @@
 
 How Mealwright fetches a recipe page (and its main photo) safely, and reads the recipe out of
 it. The rules come from spec section 6, "Recipe import, decided for 0.5", and section 7,
-"Recipe links on your own network". This is the server side only: the API addresses and
-screens that use it come later in 0.5.
+"Recipe links on your own network". The last section says how the import's API joins them to the
+screens.
 
-Four modules:
+Six modules:
 
 | Module | What it does |
 | --- | --- |
 | `mealwright.page_fetch` | `fetch_page()` and `download_photo()`: every check below, then the request through the outbound gate |
 | `mealwright.own_network` | the household's "Your own network" list (table `own_network_entry`), and which addresses need listing or are always blocked |
 | `mealwright.page_reader` | `read_page()`: a page's text in, a `PageRecipe` (or `None`) out; never goes online |
-| `mealwright.page_budget` | `read_within_budget()`: `read_page()` in a short-lived child process, stopped past its time or memory limit (below, "The work budget") |
+| `mealwright.page_budget` | `read_within_budget()`: `read_page()` in a short-lived child process, stopped past its processor-time, clock or memory limit, at most two at once (below, "The work budget") |
+| `mealwright.network_guard` | the audit hook that refuses connections made outside the gate; small on purpose, so the page-reading child can switch it on too |
+| `mealwright.recipe_import` | the import itself: the one box, the review, Save (last section) |
 
 ## How fetching is checked
 
@@ -124,8 +126,7 @@ Log lines say only "Privacy: recipe import switched on" and "Your own network: a
 (`FetchedPage.url`), used to make relative photo addresses absolute. `None` means no recipe:
 the page has no schema.org Recipe with ingredients or steps (the screen offers pasted text
 instead). The import must call it through `page_budget.read_within_budget(html, url)`,
-never directly, so that every page is read within the work budget (nothing calls either
-yet; the import's API comes later in 0.5).
+never directly, so that every page is read within the work budget (`recipe_import` does).
 
 ```python
 @dataclass(frozen=True)
@@ -199,8 +200,7 @@ object takes about 50 times its size in memory.
 The time grows in step with the page's size. Measured on 5 MB pages after these limits
 (without Python's memory counting, which slows it): the slowest found so far are plain valid
 tags (about 1.7 million `<p>`, or `x<i></i>` runs), in the page's body, in one JSON-LD field
-or in one text that eight fields use, which take about 2.5 seconds (3.6 on a busier
-machine). 250 nested microdata properties take about 1 second, and one JSON-LD field of 2.6
+or in one text that eight fields use, which take about 3.4 to 3.6 seconds on a fast PC. 250 nested microdata properties take about 1 second, and one JSON-LD field of 2.6
 million "<a" or "< x " under 2 seconds. Memory peaks at about 120 MB (as Python counts it;
 about 177 MB for the whole process, Python itself included): 5 MB of plain words with one
 emoji in one field, since the emoji makes every character of that text take 4 bytes. The
@@ -212,55 +212,70 @@ less.
 The limits above answer every slow or greedy page found so far. As a safety net for the ones
 nobody has found yet (spec section 6, "A work budget for each page"), the import reads each
 page with `page_budget.read_within_budget`, which runs `read_page` in a short-lived child
-process and stops it past either limit:
+process and stops it past any of these limits:
 
 | Limit | Value | Why |
 | --- | --- | --- |
-| Time (`MAX_SECONDS`) | 5 seconds, from starting the child to its answer | The realistic big test page takes about 1 second this way (0.8 to read, the rest to start the child) |
-| Memory (`MAX_MEMORY`) | 384 MB, all the child's memory, Python itself included | The realistic big test page needs 88 MB; Python alone is about 30 MB |
+| Processor time (`MAX_CPU_SECONDS`) | 12 seconds, the child's own processor time (`RLIMIT_CPU`) | Counts the work a page needs, not how busy the machine is (a Raspberry Pi doing other things reads the same page in the same processor time). The realistic big test page needs about 1.2 seconds on a fast PC (measured 23 Oct, 6-core desktop processor: 1.1 to 1.25 s in all, 0.08 s of it to start the child), so perhaps 5 to 6 seconds on a Raspberry Pi 4 class board (an estimate, not measured). 12 is more than twice that. |
+| The clock (`MAX_WALL_SECONDS`) | 15 seconds from starting the child to its answer | The backstop for a child that is stuck rather than working, or a machine so busy that processor time runs slowly. Inside the import's 30 seconds. |
+| Memory (`MAX_MEMORY`) | 384 MB, all the child's memory, Python itself included | The realistic big test page needs 88 MB; Python alone is about 30 MB. |
+| At once (`MAX_AT_ONCE`) | 2 pages, for the whole server | cabledrawer 23 Oct, question 22: each child may use 384 MB, so a third waits its turn. |
 
-The limits are about 5 and 4 times what the realistic big test page needs, and never less
-than 5 seconds and 256 MB (a test checks the floor). The realistic big test page is built in
+Before this (PR 1) the limit was 5 seconds of clock; the realistic page took 1.3 s on a fast PC, so a
+Raspberry Pi could have refused a real page (#54, round 5, item 24). The figures, measured on the
+fast PC: the realistic big page 1.1 to 1.25 s of processor time; the slowest known 5 MB page (about
+1.7 million `<p>`) 3.0 to 3.5 s; a tiny page 0.08 s; memory about 88 MB for the realistic page and
+177 MB for the greediest.
+
+The limits are never less than 10 seconds of processor time and 256 MB (a test checks the floor), and
+the clock is always the wider of the two time limits. The realistic big test page is built in
 `tests/test_page_budget.py`: 5 MB shaped like a big recipe blog post, with stylesheets and
 scripts in the head, a JSON-LD graph with a 200-ingredient, 100-step recipe, a long menu,
 3,000 paragraphs and thousands of comments. The largest page in `tests/import_pages/` is
-3.5 KB and takes under 0.1 second and 30 MB. The worst known pages (above) also fit: the
-slowest takes about 2.5 seconds this way, and the greediest about 1.2 seconds and 177 MB.
+3.5 KB and takes under 0.1 second and 30 MB.
 
 How it works:
 
 - The child is started with "spawn", a fresh Python, never "fork": the server has threads,
-  and a fork can copy a lock another thread holds. It imports only `page_reader` (no
-  network and no database code), gets the page's text and address, and sends back the
-  result through a pipe.
-- **Memory:** before reading, the child limits its own memory (`RLIMIT_AS`) to 384 MB.
-  Past it, Python raises MemoryError, and the child answers "memory" (or ends, if it can't).
-- **Time:** the server waits at most 5 seconds for the answer, then kills the child and
-  waits for it to end, so no process is left behind. The child also limits its own
-  processor time to 6 seconds, in case the server is stopped meanwhile.
-- Over either limit, `read_within_budget` raises `PageUnreadable` (`reason` "time" or
-  "memory"); the screen shows "Couldn’t read that page. Paste the recipe’s text instead."
-  (`page_fetch.Problem.CANT_READ`; proposed, for cabledrawer). The log line names only the
-  connection and the reason ("Couldn't read a page: recipe import, over its time limit"),
-  never the address. Anything else the reader raises is raised in the server as if it had
-  read the page itself.
-- Standard library only (`multiprocessing`, `resource`). `resource` is Unix only, like the
-  server's container.
+  and a fork can copy a lock another thread holds. It imports only `page_reader` and
+  `network_guard` (no gate and no database code), gets the page's text and address, and sends
+  back the result through a pipe.
+- **Processor time:** before reading, the child limits its own processor time (`RLIMIT_CPU`, 12
+  seconds; a hard limit 2 seconds later). The system ends it with SIGXCPU, and the import says
+  the page couldn't be read.
+- **The clock:** the server waits at most 15 seconds for the answer, then kills the child and waits
+  for it to end, so no process is left behind. After an answer it waits at most 2 seconds for the
+  child to end by itself, then kills it.
+- **Memory:** before reading, the child limits its own memory (`RLIMIT_AS`) to 384 MB. Past it,
+  Python raises MemoryError, and the child answers "memory" (or ends, if it can't).
+- **No core file** (`RLIMIT_CORE` 0), and **the network guard is switched on in the child**
+  (cabledrawer 23 Oct, defence in depth): it starts fresh, so it doesn't have the server's guard. A
+  test shows a connection from the child is refused.
+- **Two at a time:** a place is taken before the child starts and always given back, however the
+  read ends. A third read waits its turn; the wait counts within the import's own 30 seconds. If
+  it can't start in time the import says "Mealwright is busy reading another page. Try again in a
+  moment." (`page_budget.BUSY`).
+- Over any limit, `read_within_budget` raises `PageUnreadable` (`reason` "time", "memory" or
+  "crash"); a result that is too big to send or can't be pickled, or a child that dies without
+  answering (a crash), is "crash". The screen shows "Couldn’t read that page. Paste the recipe’s
+  text instead." (`page_fetch.Problem.CANT_READ`; approved by cabledrawer 23 Oct). The log line names
+  only the connection and the reason ("Couldn't read a page: recipe import, over its time limit"),
+  never the address. Anything else the reader raises is raised in the server as if it had read the
+  page itself, and the import turns it into the same sentence (below).
+- Standard library only (`multiprocessing`, `resource`, `threading`). `resource` is Unix only, like
+  the server's container.
 
 What it can't stop:
 
-- Each page being read has its own budget; there is no limit on how many pages are read at
-  once. Several imports at the same moment can each use up to 384 MB.
-- The server itself still holds the page's text (up to 5 MB, about 20 MB in Python at
-  worst) and a copy sent to the child, and decodes the page before the budget starts.
-- The memory limit counts all the child's memory, so it's a limit on the whole process,
-  not just the page; a much bigger Python could need it raised.
-- Starting the child also starts Python's own small helper process for multiprocessing
-  (the "resource tracker"), once, which stays while the server runs.
-- If the server is killed while a child is reading, the child stops at its own processor
-  limit (6 seconds) rather than at once.
-- The answer comes back from our own child as a pickled object; that's safe only because
-  nothing else can write to the pipe.
+- The server itself still holds the page's text (up to 5 MB, about 20 MB in Python at worst) and a
+  copy sent to the child, and decodes the page before the budget starts.
+- The memory limit counts all the child's memory, so it's a limit on the whole process, not just
+  the page; a much bigger Python could need it raised.
+- Starting the child also starts Python's own small helper process for multiprocessing (the
+  "resource tracker"), once, which stays while the server runs.
+- If the server is killed while a child is reading, the child stops at its own processor limit.
+- The answer comes back from our own child as a pickled object; that's safe only because nothing
+  else can write to the pipe.
 
 ## Swapping the reader
 
@@ -302,3 +317,69 @@ them, and the tests never go online. Real pages are never committed.
 
 The fetching tests (`tests/test_page_fetch.py`) fake every name look-up and connection, so
 they never go online either.
+
+## The import's API
+
+`POST /api/v1/recipes/import` (`recipe_import.start`) and `POST /api/v1/recipes/import/save`
+(`recipe_import.save`), both in the OpenAPI (`/api/v1/openapi.json`). The web app uses only these.
+
+**Start.** The body is `{"text": "...", "again": false}`. One box: a link (one word with no spaces
+that starts `http://`, `https://` or `www.`, or names another kind of address such as `ftp://`) or
+pasted text (anything else). Mealwright works out which. The answer is the review: the name,
+description, author, time, serves, makes, tags and nutrition; the photo (`state` `downloaded`,
+`off`, `none` or `failed`); every ingredient line as `written`, then what the saved line will hold
+(`words`, `amount`, `unit`, `size`, `note`), its `label` (`matched`, `to_confirm`, `needs_you` or
+`staple`), the ingredient it is (or the best guess), where it lives, whether it counts, the first
+guess for a new ingredient and the name "Same as" would learn; the steps; the counts; `lines_cut`
+and `steps_cut` (a page with more than 200 lines or 100 steps keeps the first ones),
+`steps_shortened` (steps over 5,000 characters, cut by the review) and `left_out` (the Notes and
+Tips of pasted text: "4 lines after “Tips” were left out"). **Nothing is saved** except a
+downloaded photo, which waits like an uploaded one until Save (the hourly tidy-up drops one no
+recipe took in 24 hours; at most 10 wait per household).
+
+A link with "Recipe import from links" off is refused with 403 `import_switched_off` ("Importing
+from links is switched off"; `admin` says whether the person can switch it on, and a member's
+sentence adds "An admin can switch it on."), before anything is looked up or fetched. Pasted text
+never goes online and works with the switch off. A link goes through `page_fetch` only, its page is
+read only with `page_budget.read_within_budget`, and the fetch, a wait for a place to read and the
+photo share the import's 30 seconds. Every refusal is 422 with a `code` and a sentence from
+`words.md` section 18: `bad_link`, `always_blocked`, `own_network`, `odd_port`,
+`too_many_redirects`, `cant_reach`, `timeout`, `site_error`, `not_a_page`, `page_too_big`,
+`cant_read` (over a budget, a crash, or anything the reader did not expect: the log has the
+connection's label and the kind of error, never an address), `busy`, `no_recipe` (a page without a
+recipe, or text without one), `text_too_long`, `nothing_given`. The photo never stops an import:
+if its switch is off the review says "Photo not downloaded" (`off`), and if the download is
+refused or fails it says why (`failed`).
+
+**The same link twice.** A link the household already has a recipe from (not a deleted one) answers
+409 `already_imported` with the recipe, the site, the date and the photo, before anything is fetched
+(and again after a redirect, if the address it ended on is one already imported). Send `again:
+true` to import it again as a copy.
+
+**Save.** The body is the review's recipe as the screen has it (name, serves and minutes can be
+changed there), each line with its `link`:
+
+- `{"kind": "food", "food_id": 7, "learn": "red onion"}`: tie the line to an ingredient the household
+  has; `learn` adds that name as another name of the ingredient ("Same as Onions"). A name the
+  ingredient or any other ingredient already has is skipped, never stolen.
+- `{"kind": "new", "name": "Hing", "counted_as": "weight", "place_id": 3}`: a new ingredient, made on
+  Save; nothing is added to the pantry. Two lines asking for the same name make it once; a name the
+  household already has is refused at that line (409 `name_taken`, `line`).
+- `{"kind": "staple", ...}`: a new staple ("Treat as staple"): the line never counts.
+- No `link`: the line is saved with its words only ("not linked"). The review says how many lines
+  that will be; the spec does not say Save must wait for every choice, so it does not.
+
+One transaction creates the recipe, the new ingredients, the staples and the learned names, and
+records **one** change, `recipe_imported`, in Ingredients → Recent changes (summary: "Imported
+Sambar, with 2 new ingredients and 1 other name"). Its Undo hides the recipe (like a deleted one:
+gone for good after 7 days, photo and all) and takes back the new ingredients and the names, as
+one. The server checks the recipe again as the editor's own save does (limits, units, the loops
+guard, the household of every id): an ingredient, place, size or photo of another household is a
+404 at its line. The recipe keeps its web address, import date and author (`recipe.source` in the
+recipe's answer; the address must be `http` or `https`). A retry with the same `Idempotency-Key`
+saves once.
+
+**The screens.** `/recipes/import`: the box (`ImportStart`), "You already have this recipe"
+(`AlreadySheet`) and the review (`ReviewScreen`, `ReviewLineRow`). Online only: offline, the box
+says it needs the server, and nothing is queued. Leaving the review just leaves for now ("Save as
+a draft?" comes with Drafts). "Save & plan it" is hidden until 0.6.

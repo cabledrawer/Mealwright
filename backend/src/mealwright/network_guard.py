@@ -1,0 +1,86 @@
+"""The network guard: refuse network connections and DNS lookups made outside the outbound
+gate (spec section 7, "Runtime guard").
+
+A Python audit hook that sees every `socket.connect`, UDP send and DNS lookup, by our code or by
+any library, and refuses it unless the gate itself is connecting (`gate_open()`). Audit hooks
+can't be removed, so `install_network_guard()` installs it once per process. It covers
+Python-level networking (the socket module, which urllib, httpx, asyncio and most libraries
+use). C libraries with their own networking aren't covered.
+
+This module is small and imports no networking module and no database code on purpose: the
+page-reading child process switches the guard on too (`page_budget`), and importing the whole
+gate there would cost it about two thirds of a second of processor time on every page. It never
+imports `socket` itself: a socket's family is read from the object the hook is given.
+`mealwright.outbound` re-exports `install_network_guard`.
+"""
+
+import contextvars
+import ipaddress
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
+
+
+class OutboundBlocked(PermissionError):
+    """An outgoing connection was refused."""
+
+
+# True only while the gate itself is connecting. The network guard checks it.
+inside_gate: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "mealwright_inside_gate", default=False
+)
+
+
+@contextmanager
+def gate_open() -> Iterator[None]:
+    token = inside_gate.set(True)
+    try:
+        yield
+    finally:
+        inside_gate.reset(token)
+
+
+# --- The network guard ---------------------------------------------------------------
+
+_guard_installed = False
+
+
+def install_network_guard() -> None:
+    """Refuse network connections and DNS lookups made outside the gate.
+
+    Audit hooks can't be removed, so this is installed once per process. It covers
+    Python-level networking (the socket module, which urllib, httpx, asyncio and
+    most libraries use). C libraries with their own networking aren't covered.
+    """
+    global _guard_installed
+    if not _guard_installed:
+        sys.addaudithook(_audit)
+        _guard_installed = True
+
+
+def _audit(event: str, args: tuple[Any, ...]) -> None:
+    if not event.startswith("socket.") or inside_gate.get():
+        return
+    if event in {"socket.connect", "socket.sendto", "socket.sendmsg"}:
+        sock = args[0]
+        if getattr(getattr(sock, "family", None), "name", None) == "AF_UNIX":
+            return
+        raise OutboundBlocked(f"network connection outside the outbound gate ({event})")
+    if event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyname_ex"}:
+        if not _is_local_name(args[0] if args else None):
+            raise OutboundBlocked(f"DNS lookup outside the outbound gate ({event})")
+    elif event == "socket.gethostbyaddr":
+        raise OutboundBlocked("reverse DNS lookup outside the outbound gate")
+
+
+def _is_local_name(host: object) -> bool:
+    """Lookups that never leave the machine: no host, an IP literal, or localhost."""
+    if host is None or host in {"", b"", "localhost", b"localhost"}:
+        return True
+    text = host.decode() if isinstance(host, bytes) else str(host)
+    try:
+        ipaddress.ip_address(text.strip("[]").split("%")[0])
+    except ValueError:
+        return False
+    return True

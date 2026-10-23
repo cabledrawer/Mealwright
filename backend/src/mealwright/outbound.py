@@ -15,26 +15,25 @@ Two parts:
   while the Host header and the TLS name (SNI and the certificate check) stay the host
   name. So a name can't pass the check with a public address and then be fetched from a
   private one (DNS rebinding).
-- `install_network_guard()` adds a Python audit hook that refuses every network
+- `install_network_guard()` (it lives in `mealwright.network_guard`, a small module of its own, so
+  the page-reading child can switch it on without importing all of this) adds a Python audit hook that refuses every network
   connection, UDP send or DNS lookup made *outside* the gate, by our code or by any
   library. It's installed when the app starts and for the whole test suite.
 
 This is the only module allowed to import networking modules; a test checks that.
 """
 
-import contextvars
 import http.client
 import ipaddress
 import logging
 import socket
 import ssl
-import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager, suppress
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -44,6 +43,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright.models import Household, OutboundSwitch
+from mealwright.network_guard import OutboundBlocked as OutboundBlocked  # (re-exported)
+from mealwright.network_guard import gate_open
+from mealwright.network_guard import install_network_guard as install_network_guard
 
 log = logging.getLogger(__name__)
 
@@ -74,10 +76,6 @@ LABELS = {
 }
 
 
-class OutboundBlocked(PermissionError):
-    """An outgoing connection was refused."""
-
-
 class ResponseTooLarge(OutboundBlocked):
     """The answer was bigger than the caller allows; reading stopped there."""
 
@@ -102,21 +100,6 @@ class OutboundResponse:
     headers: dict[str, str]
     body: bytes
     url: str
-
-
-# True only while the gate itself is connecting. The network guard checks it.
-_inside_gate: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "mealwright_inside_gate", default=False
-)
-
-
-@contextmanager
-def _gate_open() -> Iterator[None]:
-    token = _inside_gate.set(True)
-    try:
-        yield
-    finally:
-        _inside_gate.reset(token)
 
 
 # --- Privacy switches ----------------------------------------------------------
@@ -306,7 +289,7 @@ class OutboundGate:
             request.add_header(name, value)
         request.add_header("User-Agent", USER_AGENT)
 
-        with _gate_open():
+        with gate_open():
             try:
                 response = self._opener.open(request, timeout=TIMEOUT_SECONDS)
             except urllib.error.HTTPError as error:  # 3xx (not followed), 4xx, 5xx
@@ -328,7 +311,7 @@ class OutboundGate:
         """Every address a host name has, in the resolver's order, without repeats. Only if
         the connection's switch is on; nothing is looked up otherwise."""
         self.check_switch(household_id, connection)
-        with _gate_open():
+        with gate_open():
             try:
                 found = _lookup(host, port)
             except OSError, UnicodeError:
@@ -384,7 +367,7 @@ class OutboundGate:
             pinned = _PinnedHTTPS(host, port, str(address), left, self._tls)
         else:
             pinned = _PinnedHTTP(host, port, str(address), left)
-        with _gate_open(), _Watchdog(pinned, left) as watchdog:
+        with gate_open(), _Watchdog(pinned, left) as watchdog:
 
             def failed(kind: str) -> OutboundFailed:
                 # A cut connection fails in many ways; they all mean time ran out.
@@ -447,48 +430,3 @@ def _read(
         if total > max_bytes:
             raise ResponseTooLarge(f"response is larger than {max_bytes} bytes")
         chunks.append(chunk)
-
-
-# --- The network guard ---------------------------------------------------------------
-
-_guard_installed = False
-
-
-def install_network_guard() -> None:
-    """Refuse network connections and DNS lookups made outside the gate.
-
-    Audit hooks can't be removed, so this is installed once per process. It covers
-    Python-level networking (the socket module, which urllib, httpx, asyncio and
-    most libraries use). C libraries with their own networking aren't covered.
-    """
-    global _guard_installed
-    if not _guard_installed:
-        sys.addaudithook(_audit)
-        _guard_installed = True
-
-
-def _audit(event: str, args: tuple[Any, ...]) -> None:
-    if not event.startswith("socket.") or _inside_gate.get():
-        return
-    if event in {"socket.connect", "socket.sendto", "socket.sendmsg"}:
-        sock = args[0]
-        if getattr(sock, "family", None) == socket.AF_UNIX:
-            return
-        raise OutboundBlocked(f"network connection outside the outbound gate ({event})")
-    if event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyname_ex"}:
-        if not _is_local_name(args[0] if args else None):
-            raise OutboundBlocked(f"DNS lookup outside the outbound gate ({event})")
-    elif event == "socket.gethostbyaddr":
-        raise OutboundBlocked("reverse DNS lookup outside the outbound gate")
-
-
-def _is_local_name(host: object) -> bool:
-    """Lookups that never leave the machine: no host, an IP literal, or localhost."""
-    if host is None or host in {"", b"", "localhost", b"localhost"}:
-        return True
-    text = host.decode() if isinstance(host, bytes) else str(host)
-    try:
-        ipaddress.ip_address(text.strip("[]").split("%")[0])
-    except ValueError:
-        return False
-    return True

@@ -13,6 +13,7 @@
   import Icon from '$lib/components/Icon.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
 
+  import '$lib/styles/fields.css';
   let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
 
   const review = $derived(flow.review!);
@@ -259,6 +260,11 @@
     font: var(--weight-semibold) 1.375rem var(--font-reading);
   }
 
+  /* Boxes are 16 px or more, so a phone doesn't zoom in on them. */
+  .two input {
+    font-size: 1rem;
+  }
+
   .two {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -323,8 +329,8 @@
   }
 
   .count.bad {
-    background: var(--color-badge-warn);
-    color: var(--color-danger-text);
+    background: var(--color-warning);
+    color: var(--color-warning-text);
   }
 
   .lines,
@@ -398,7 +404,7 @@
   }
 
   .error {
-    color: var(--color-danger-text);
+    color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
   }

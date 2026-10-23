@@ -16,6 +16,7 @@
   import type { Choice, ImportFlow } from '$lib/import.svelte';
   import { placesAndShops } from '$lib/placesAndShops.svelte';
 
+  import '$lib/styles/fields.css';
   let {
     flow,
     index,
@@ -283,7 +284,7 @@
   }
 
   .bad {
-    color: var(--color-danger-text);
+    color: var(--color-warning-text);
     font-weight: var(--weight-bold);
   }
 
@@ -345,8 +346,13 @@
     font-weight: var(--weight-bold);
   }
 
+  /* Boxes are 16 px or more, so a phone doesn't zoom in on them. */
+  .field :is(input, select) {
+    font-size: 1rem;
+  }
+
   .error {
-    color: var(--color-danger-text);
+    color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
   }

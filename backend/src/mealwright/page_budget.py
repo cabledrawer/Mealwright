@@ -20,7 +20,7 @@ reader's own loops couldn't do that: it can't stop one long call inside Python i
   the process has, Python itself included) to `MAX_MEMORY`. Past it, Python raises
   MemoryError and the child stops.
 - The child can't write a core file (`RLIMIT_CORE` 0), and it switches on the network guard
-  (`outbound.install_network_guard`) before it reads anything: it starts fresh, so it doesn't
+  (`network_guard.install_network_guard`) before it reads anything: it starts fresh, so it doesn't
   have the server's guard, and even a bug in the reader couldn't open a connection.
 - **Two at a time** (cabledrawer 23 Oct, question 22): at most `MAX_AT_ONCE` pages are read at
   once for the whole server (each child may use `MAX_MEMORY`). A third waits its turn; the
@@ -50,10 +50,11 @@ log = logging.getLogger(__name__)
 
 # The budget for one page (docs/dev/recipe-import.md, "The work budget"). The realistic big
 # test page (5 MB, shaped like a real recipe blog with its scripts, menus, comments and a
-# 200-ingredient recipe: tests/test_page_budget.py) needs about 2 seconds of processor time
-# and 88 MB of memory in all, Python itself included, on a fast PC. A Raspberry Pi 4 class
-# board is perhaps 4 to 5 times slower per second of processor time, so about 10 seconds
-# there: the processor limit is set above that, and the clock limit above the processor limit.
+# 200-ingredient recipe: tests/test_page_budget.py) needs about 1.2 seconds of processor time
+# (0.1 of it to start the child) and 88 MB of memory in all, Python itself included, on a fast
+# PC (measured 23 Oct). A Raspberry Pi 4 class board is perhaps 4 to 5 times slower, so
+# 5 to 6 seconds there (an estimate, not measured): the processor limit is set above twice
+# that, and the clock limit above the processor limit.
 MAX_CPU_SECONDS = 12.0
 MAX_WALL_SECONDS = 15.0
 MAX_MEMORY = 384 * 1024 * 1024
@@ -210,7 +211,7 @@ def _prepare_child(cpu_seconds: float, memory: int) -> None:
     soft = math.ceil(cpu_seconds)
     _lower_limit(resource.RLIMIT_CPU, soft, soft + 2)
     # Imported here: it brings the database code with it, which only this one needs.
-    from mealwright.outbound import install_network_guard
+    from mealwright.network_guard import install_network_guard
 
     install_network_guard()
 

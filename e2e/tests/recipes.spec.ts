@@ -74,8 +74,9 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   await expect(page.locator('li a')).toHaveCount(3);
   await expect(page.locator('li button')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
-  // Not built yet, so not there: Drafts (nothing to import yet), Import.
-  await expect(page.getByRole('main').getByText(/Drafts|Import a recipe|Planned/)).toHaveCount(0);
+  // Not built yet, so not there: Drafts (comes with PR 5), Planned. Import a recipe is (0.5).
+  await expect(page.getByRole('main').getByText(/Drafts|Planned/)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
   await checkPage(page);
 });
 
@@ -321,7 +322,8 @@ test('empty: says No recipes yet, with New recipe to add one', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(page.getByText('Recipes you add will show here.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
-  await expect(page.getByText(/Add a recipe|Import/)).toHaveCount(0);
+  await expect(page.getByText(/Add a recipe/)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
   await expect(page.getByRole('searchbox')).toHaveCount(0);
   await checkPage(page);
 });
