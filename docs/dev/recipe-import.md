@@ -159,11 +159,16 @@ skipped whole (the standard parser would hold about 100 bytes of memory for each
 one), and a method is walked through at most 10,000 parts, counting repeats, so sections
 that list themselves can't make it endless. An object referenced many times by `@id` is
 read once per field (and once in the whole method), so referencing one big text thousands of
-times costs no more than reading it once. The time grows in step with the page's size; the
-slowest 5 MB pages found so far are plain valid tags (about 1.7 million `<p>`), which take
-about 4 seconds in the page's body and about 6 seconds inside one JSON-LD field. One JSON-LD
-field of 2.6 million "<a" or "< x " takes under 2 seconds. Memory stays under 50 MB at its
-peak (as Python counts it).
+times costs no more than reading it once, and each different text is tidied once per page,
+however many fields use it. In microdata, an element's text includes every property inside
+it, so properties nested in properties would read the same text again at each level; the
+text read for microdata is limited to the page's length (or a million characters and
+elements, for a smaller page). The time grows in step with the page's size; the slowest 5 MB
+pages found so far are plain valid tags (about 1.7 million `<p>`), which take about 4
+seconds (up to about 6 on a busy machine), in the page's body, in one JSON-LD field, or in
+one text that eight fields use. 250 nested microdata properties around 5 MB take about 1
+second. One JSON-LD field of 2.6 million "<a" or "< x " takes under 2 seconds. Memory stays
+under 80 MB at its peak (as Python counts it); the most is 5 MB of plain words in one field.
 
 ## Swapping the reader
 
