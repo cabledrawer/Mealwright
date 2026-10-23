@@ -250,7 +250,12 @@ def _fetch(
                 raise FetchRefused(Problem.SITE_ERROR)
             if hop == MAX_REDIRECTS:
                 raise FetchRefused(Problem.TOO_MANY_REDIRECTS)
-            url = urljoin(url, location.strip())
+            try:
+                url = urljoin(url, location.strip())
+            except ValueError:
+                # An address Python can't take apart (a broken [IPv6] literal, characters
+                # that are invalid once normalised): a bad link, never an uncaught error.
+                raise FetchRefused(Problem.BAD_LINK) from None
     except FetchRefused as refused:
         if refused.problem in _LOGGED:
             # The connection's label and the kind of problem only, never the address.

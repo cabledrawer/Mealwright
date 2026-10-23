@@ -960,6 +960,34 @@ def test_five_redirects_are_followed_and_a_sixth_is_refused(
     assert len(net.connections) == 6  # the 6th redirect isn't followed
 
 
+@pytest.mark.parametrize("to", ["http://[abc", "http://[::1/x", "http://[::1]:99999999/"])
+def test_a_redirect_to_an_address_that_cannot_be_used_is_refused_as_a_bad_link(
+    gate: OutboundGate, net: FakeNet, to: str
+) -> None:
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC, redirect(to))
+    assert refused(gate, "https://recipes.example/") is Problem.BAD_LINK
+    with pytest.raises(FetchRefused) as caught:
+        download_photo(gate, 1, "https://recipes.example/photo.jpg")
+    assert caught.value.problem is Problem.BAD_LINK
+
+
+def test_a_redirect_address_python_cannot_split_is_a_bad_link_and_not_in_the_log(
+    gate: OutboundGate, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A Location with a character that is invalid once normalised (NFKC): `urlsplit` raises
+    ValueError. (Over real HTTP the header's bytes are Latin-1 text, so this is built here.)"""
+    secret = "http://secret℀host.example/"
+
+    def hop(*_args: object, **_kwargs: object) -> outbound.OutboundResponse:
+        return outbound.OutboundResponse(302, {"Location": secret}, b"", "")
+
+    monkeypatch.setattr(page_fetch, "_one_hop", hop)
+    with caplog.at_level(logging.DEBUG):
+        assert refused(gate, "https://recipes.example/") is Problem.BAD_LINK
+    assert "secret" not in caplog.text
+
+
 def test_a_redirect_without_an_address(gate: OutboundGate, net: FakeNet) -> None:
     net.dns["recipes.example"] = [PUBLIC]
     net.page(PUBLIC, Reply(status=302, headers={}))
