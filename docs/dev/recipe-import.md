@@ -349,6 +349,17 @@ downloaded photo, which waits like an uploaded one until Save (the hourly tidy-u
 recipe took in 24 hours; at most 10 wait per household). `makes` is in plain units (`{"amount":
 24, "unit": "cookies"}`, never thousandths), and Save takes it back the same way.
 
+**Threads.** The import is an ordinary (not async) endpoint, so each import holds one of the
+server's worker threads for its whole length, up to 30 seconds: the fetch, any wait for a place to
+read, the read and the photo. The server has the library's usual 40 worker threads, shared by every
+request, not only imports. Two pages are read at a time, so the others wait for a place in their
+thread; only an unusual number of imports at once (about 40 within the same 30 seconds) uses the
+threads up. Then new requests of any kind wait in line for a thread to come free (they aren't
+refused, and nothing is lost); each import ends within its 30 seconds, so the line moves. There is
+no cap on waiting imports: it would be new scope, and a household of the size this is made for
+doesn't get near it. A cancelled request doesn't stop its thread, which finishes its 30 seconds at
+most and gives its place back.
+
 A link with "Recipe import from links" off is refused with 403 `import_switched_off` ("Importing
 from links is switched off"; `admin` says whether the person can switch it on, and a member's
 sentence adds "An admin can switch it on."), before anything is looked up or fetched. Pasted text
