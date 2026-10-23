@@ -116,6 +116,15 @@ describe('Settings → Privacy', () => {
     }
   });
 
+  it('names what is always blocked, link-local included (cabledrawer 23 Oct, question 26)', async () => {
+    open();
+    await expect.element(page.getByRole('switch', { name: IMPORT })).toBeVisible();
+    const note = document.querySelector('.blocked');
+    expect(note?.textContent).toBe(
+      'Always blocked, even if listed: this server itself (localhost), link-local and cloud “metadata” addresses.'
+    );
+  });
+
   it('has the two places the import screen links to', async () => {
     open();
     await expect.element(page.getByRole('switch', { name: IMPORT })).toBeVisible();

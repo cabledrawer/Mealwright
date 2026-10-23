@@ -43,7 +43,9 @@ export const NETWORK_INTRO =
 export const NETWORK_EMPTY = 'Nothing added yet. Every address on your own network is blocked.';
 export const NETWORK_HELP =
   'Each entry is a name, one address, or a range like 192.168.1.0/24. The same list is used for notifications and single sign-on later.';
-export const NETWORK_BLOCKED = 'this server itself (localhost) and cloud “metadata” addresses.';
+/** cabledrawer 23 Oct, question 26: link-local is named too, as the refusal sentence names it. */
+export const NETWORK_BLOCKED =
+  'this server itself (localhost), link-local and cloud “metadata” addresses.';
 
 /** "A name · added by Tess, 22 Oct"; "A range · 256 addresses · added by Tess, 22 Oct". */
 export function entryWords(entry: OwnNetworkEntry): string {
