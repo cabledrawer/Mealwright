@@ -608,6 +608,23 @@ def test_a_link_import_keeps_its_address_date_and_author(links_on: TestClient, w
     assert recipe["source_note"] is None
 
 
+def test_makes_is_in_plain_units_in_the_review_and_saves_as_the_same_number(
+    links_on: TestClient, web: Web
+) -> None:
+    """A page that says "24 cookies": the review says 24 (not 24000), and so does the saved
+    recipe, which the screen's Save sends back as it was shown."""
+    web.pages[LINK] = page_text("tasty_recipes.html")
+    shown = review(links_on, LINK)
+    assert shown["makes"] == {"amount": 24, "unit": "cookies"}
+    saved = ok(save(links_on, to_save(shown)), 201)
+    recipe = ok(links_on.get(f"{API}/recipes/{saved['recipe']['id']}"))
+    assert (recipe["makes"]["amount"], recipe["makes"]["unit"]) == (24, "cookies")
+    # A fraction and a metric unit are kept the same way.
+    litres = ok(save(links_on, {**to_save(shown), "makes": {"amount": 1.5, "unit": "litres"}}), 201)
+    recipe = ok(links_on.get(f"{API}/recipes/{litres['recipe']['id']}"))
+    assert (recipe["makes"]["amount"], recipe["makes"]["unit"]) == (1.5, "l")
+
+
 def test_the_address_kept_is_a_web_address_only(links_on: TestClient, web: Web) -> None:
     body = to_save(review(links_on, PASTED))
     for bad in ("javascript:alert(1)", "ftp://x.example/y", "file:///etc/passwd"):

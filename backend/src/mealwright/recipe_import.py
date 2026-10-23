@@ -34,6 +34,7 @@ from mealwright.api.v1.import_schemas import (
     NewIngredientOut,
     ReviewCounts,
     ReviewLine,
+    ReviewMakes,
     ReviewPhoto,
     ReviewSource,
     ReviewStep,
@@ -414,13 +415,18 @@ def _review(
     )
 
 
-def _makes(makes: tuple[Decimal, str] | None) -> MakesIn | None:
+def _makes(makes: tuple[Decimal, str] | None) -> ReviewMakes | None:
+    """What the page says it makes, in plain units. `MakesIn` checks it as Save will (and
+    reads the amount in thousandths), so it is turned back into units here."""
     if makes is None:
         return None
     try:
-        return MakesIn.model_validate({"amount": makes[0], "unit": makes[1]})
+        checked = MakesIn.model_validate({"amount": makes[0], "unit": makes[1]})
     except ValidationError:
         return None  # left out, never guessed
+    if checked.amount is None:
+        return None
+    return ReviewMakes(amount=checked.amount / 1000, unit=checked.unit)
 
 
 def _nutrition(values: dict[str, Decimal | None]) -> NutritionIn:

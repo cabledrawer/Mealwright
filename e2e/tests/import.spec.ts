@@ -290,7 +290,7 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
 test('a link import keeps where it came from: From: site · by author on the recipe page', async ({ page }) => {
   const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
   const title = unique('Sambar');
-  await answer(page, 200, review({ name: title }, names));
+  await answer(page, 200, review({ name: title, makes: { amount: 24, unit: 'cookies' } }, names));
   await page.goto('/recipes/import');
   await box(page).fill('https://bananaleaf.example/sambar/');
   await read(page).click();
@@ -300,6 +300,9 @@ test('a link import keeps where it came from: From: site · by author on the rec
   await page.getByRole('button', { name: 'Treat as staple' }).first().click();
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  // Makes is saved as it was shown: 24 cookies, not 24000.
+  const saved = (await (await page.request.get(`/api/v1/recipes/${page.url().split('/').pop()}`)).json()) as Json;
+  expect([saved.makes.amount, saved.makes.unit]).toEqual([24, 'cookies']);
   await expect(page.getByText('From: bananaleaf.example · by Meena Raman')).toBeVisible();
   await expect(page.getByRole('link', { name: 'bananaleaf.example' })).toHaveAttribute(
     'href',

@@ -69,6 +69,14 @@ class ReviewLine(BaseModel):
     learn_name: str | None  # what "Same as …" adds as another name of the ingredient
 
 
+class ReviewMakes(BaseModel):
+    """What the recipe makes, in plain units (24 cookies is 24), as the recipe shows it. Save
+    takes the same two fields back (as `MakesIn`, which reads the amount like any other)."""
+
+    amount: float
+    unit: str
+
+
 class ReviewCounts(BaseModel):
     matched: int
     to_confirm: int
@@ -118,7 +126,7 @@ class ImportReview(BaseModel):
     author: str | None
     time_minutes: int | None
     serves: int | None
-    makes: MakesIn | None
+    makes: ReviewMakes | None
     tags: list[str]
     nutrition: NutritionIn
     photo: ReviewPhoto

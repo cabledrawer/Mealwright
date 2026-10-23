@@ -229,6 +229,16 @@ describe('the import flow', () => {
       expect(body.lines[3]).toMatchObject({ kind: 'heading', link: null });
     });
 
+    it('sends Makes back in the units the review showed it in (24 cookies stays 24)', async () => {
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      fakeApi({
+        'POST /recipes/import': [200, { ...REVIEW, makes: { amount: 24, unit: 'cookies' } }]
+      });
+      await flow.read();
+      expect(flow.body()!.makes).toEqual({ amount: 24, unit: 'cookies' });
+    });
+
     it('saves once, with one change ID, and keeps the server’s sentence on a refusal', async () => {
       const flow = await reviewing();
       const requests = fakeApi({
