@@ -193,6 +193,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 0.6.0 Meal plan, batch cooks and Today
 
+**First step: the SvelteKit 3 upgrade (cabledrawer 24 Oct).** "SvelteKit 3: the first step of 0.6.0, right after I tag v0.5.0, as its own PR, brought to me first as a plan with every library it changes; the scanner exceptions expire 23 Nov 2026 as a backstop." The two exceptions are in `frontend/osv-scanner.toml` (spec section 8, cabledrawer 23 Oct, question 27).
+
 **Spec:** section 2 (Meal plan, Shopping list), section 6 (Plan and batch cooks), UX "Meal planner interactions", Layout decisions (Plan, Month, Meals, Today, Cook once, Plan phone long-press).
 
 **Build:**

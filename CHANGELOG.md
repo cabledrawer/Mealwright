@@ -20,15 +20,6 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Ounces and pounds count (cabledrawer 23 Oct).** "8 oz spinach" is 226.8 g and "1 lb potatoes" is 453.6 g (1 oz = 28.35 g, 1 lb = 453.6 g); pints and fluid ounces stay in the note. "3–2 tbsp" is 3 tbsp (the higher number), and "2 x 2 x 400g" is 1,600 g.
 - **At most two recipe pages are read at once** for the whole server (cabledrawer 23 Oct); a third waits its turn, within the import's 30 seconds, and otherwise says "Mealwright is busy reading another page. Try again in a moment."
 
-### Changed
-
-- **The time limit for reading a page** counts the reading process's own processor time (12 seconds) with a 15-second clock backstop, instead of 5 seconds of clock: the realistic big test page needs about 1.2 seconds of processor time on a fast PC, perhaps 5 to 6 seconds on a Raspberry Pi 4 class board (an estimate), which the old limit could have refused. The reading process also can't write a core file, and it switches on the network guard itself (it starts fresh, so it doesn't have the server's). The guard now lives in its own small module (`network_guard.py`), so the reading process starts in 0.1 second instead of 0.9. A result that can't be sent back, or a reading process that dies, is "crash" in the log, not "memory", and a process that answered but doesn't end is killed after 2 seconds.
-
-### Fixed
-
-- A page whose total time was a superscript or circled digit ("²", "①") raised an error instead of being read as no time.
-- A control character between words (U+001C to U+001F) joined them, and private-use or unassigned characters stayed in an ingredient line; a cut no longer splits a country flag or a skin tone, and a text of only combining marks is cut at the limit, not to nothing. An amount that converts to more than 1,000,000 g or ml no longer counts.
-
 - **Recipe import, behind the scenes (0.5 PR 2).** Three pieces of the server that the Import screens will use. Nothing shows on a screen yet, nothing goes online, and the database is unchanged.
   - **An ingredient line reader.** It turns a line such as "2 onions, finely chopped" into an amount, a unit, a name and a note. It reads every number form (½, 1½, 1 1/2, 1/2, 0.5, 1,5), takes the higher number of a range, takes the metric amount when a line gives two units (a cup alone stays a cup), reads UK packets ("1 x 400g tin chopped tomatoes"), and keeps size words ("1 sprig", "a handful") as lines that count only if the ingredient has that size. Lines with no amount, such as "salt to taste", never count. A line it can't read is a result, not an error.
   - **Matching against your ingredients.** Each line is Matched (by name or another name, ignoring case, plurals and prep words), To confirm (a close match such as "red onion" for Onions), Needs you, or Staple. A size word counts only when the ingredient has that size, and a cup is your household's own cup. It also works out the first guess for a new ingredient. Nothing is written until Save.
@@ -39,6 +30,15 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **This server itself, link-local and cloud "metadata" addresses are never visited**, whatever the settings.
 - **The "Your own network" list, on the server** (the screen comes later in 0.5): addresses on your home network (your router, a home wiki) are refused unless an admin puts their name, address or range on this list, which also opens other ports for them. It starts empty, belongs to the household like the Privacy switches, and refuses anything always blocked, ranges that are too wide, and more than 100 entries. This adds one database table; nothing existing is rewritten.
 - **The page reader** reads the recipe data most recipe sites include for search engines (schema.org JSON-LD, and microdata on older pages), with Python's own tools and no new libraries: the name, a short description (cut at 200 characters), total time, Serves or Makes, nutrition per serving, the ingredients and method with their section names as headings, the category and cuisine as tags (never the page's keywords), the main photo and the author. Up to 200 ingredient lines and 100 steps are kept, and the import knows when a page had more. Hidden characters are taken out of the page's text; Tamil and Hindi names keep the joiners they need. Tested on made-up pages shaped like eight kinds of recipe site; no real page is stored in the repo. A page that tries to make the reader slow or greedy (very long numbers, thousands of tiny JSON objects, and the like) is cut short, and as a safety net for anything not yet thought of, each page is read in a separate short-lived process with a time limit and a memory limit (384 MB): past either, the import says "Couldn’t read that page. Paste the recipe’s text instead." (The time limit is now counted in the child's own processor time, 12 seconds, with a 15-second clock backstop; see the 0.5 PR 3 entry.)
+
+### Changed
+
+- **The time limit for reading a page** counts the reading process's own processor time (12 seconds) with a 15-second clock backstop, instead of 5 seconds of clock: the realistic big test page needs about 1.2 seconds of processor time on a fast PC, perhaps 5 to 6 seconds on a Raspberry Pi 4 class board (an estimate), which the old limit could have refused. The reading process also can't write a core file, and it switches on the network guard itself (it starts fresh, so it doesn't have the server's). The guard now lives in its own small module (`network_guard.py`), so the reading process starts in 0.1 second instead of 0.9. A result that can't be sent back, or a reading process that dies, is "crash" in the log, not "memory", and a process that answered but doesn't end is killed after 2 seconds.
+
+### Fixed
+
+- A page whose total time was a superscript or circled digit ("²", "①") raised an error instead of being read as no time.
+- A control character between words (U+001C to U+001F) joined them, and private-use or unassigned characters stayed in an ingredient line; a cut no longer splits a country flag or a skin tone, and a text of only combining marks is cut at the limit, not to nothing. An amount that converts to more than 1,000,000 g or ml no longer counts.
 
 ## [0.4.0] - 2026-10-22
 
