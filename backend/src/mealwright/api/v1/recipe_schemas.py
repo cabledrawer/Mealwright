@@ -449,6 +449,16 @@ class PhotoOut(BaseModel):
     list_url: str
 
 
+class SourceOut(BaseModel):
+    """Where an imported recipe came from (cabledrawer 22 Oct, question 1). The server never
+    visits `url` again: opening it is the person's own click."""
+
+    url: str
+    site: str  # the address without "www.": "bbcgoodfood.com"
+    imported_at: datetime
+    author: str | None
+
+
 class RecipeOut(BaseModel):
     id: int
     name: str
@@ -463,6 +473,7 @@ class RecipeOut(BaseModel):
     lines: list[RecipeLineOut]
     steps: list[RecipeStepOut]
     source_note: str | None
+    source: SourceOut | None  # null for a recipe that wasn't imported from a link
     photo: PhotoOut | None
     used_by: list[Ref]  # recipes that use this one as an ingredient
     version: int

@@ -11,7 +11,8 @@ removed", and Undo brings the link back by itself.
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal, cast
+from typing import Any, Literal, cast
+from urllib.parse import urlsplit
 
 from fastapi import status
 from sqlalchemy import delete, func, select, update
@@ -29,13 +30,14 @@ from mealwright.api.v1.recipe_schemas import (
     RecipeOut,
     RecipeStepOut,
     SizeRef,
+    SourceOut,
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
 from mealwright.foods import make_food, name_owner, name_taken
 from mealwright.foods import visible as food_visible
-from mealwright.history import as_utc, bump_recipes, bump_recipes_by, record
+from mealwright.history import Tally, as_utc, bump_recipes, bump_recipes_by, record
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -258,9 +260,12 @@ def _resolve(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> list[_R
     return resolved
 
 
-def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
+def save(
+    kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn, *, remember_key: bool = True
+) -> Recipe:
     """Create the recipe, or replace everything in it (the caller holds the household's
-    lock, and has checked the version). Adds 1 to the version."""
+    lock, and has checked the version). Adds 1 to the version. `remember_key`: record the
+    request's Idempotency-Key here (an import records its own change, which takes it)."""
     db = kitchen.db
     resolved = _resolve(kitchen, recipe, body)
     check_loops(
@@ -302,7 +307,7 @@ def save(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> Recipe:
     # Remember the request's Idempotency-Key, the way every other write does, so a retry is
     # recognised. Only when there is one. First, so the made-ahead ingredient's own change
     # below carries no key.
-    if kitchen.idempotency_key is not None:
+    if remember_key and kitchen.idempotency_key is not None:
         kitchen.key_once = True
         record(
             kitchen,
@@ -541,6 +546,23 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     return undo
 
 
+def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> None:
+    """Undo of an import takes the recipe back: it is hidden like a deleted one (and deleted
+    for good after the undo window, photo and all). Its new ingredients and other names are
+    taken back by the same Undo (`undo_foods`)."""
+    recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
+    if (
+        recipe is None
+        or recipe.household_id != kitchen.household_id
+        or recipe.removed_at is not None
+    ):
+        tally.skipped += 1  # already deleted, or gone
+        return
+    recipe.removed_at = utcnow()
+    bump_recipes_by(kitchen, _users_of(kitchen, recipe.id))
+    tally.done += 1
+
+
 def purge_removed_recipes(db: DbSession, household: Household, now: datetime | None = None) -> int:
     """Delete recipes removed longer ago than the undo window, entirely (a little past it,
     so a delete can't vanish while its Undo is still offered). Lines of other recipes that
@@ -709,6 +731,23 @@ def tags_of(kitchen: Kitchen, recipe_ids: list[int]) -> dict[int, list[str]]:
     return found
 
 
+def site_of(url: str) -> str:
+    """The web address's site, as shown: "https://www.bbcgoodfood.com/x" → "bbcgoodfood.com"."""
+    host = urlsplit(url).hostname or ""
+    return host.removeprefix("www.")
+
+
+def source_out(recipe: Recipe) -> SourceOut | None:
+    if recipe.source_url is None:
+        return None
+    return SourceOut(
+        url=recipe.source_url,
+        site=site_of(recipe.source_url),
+        imported_at=as_utc(recipe.imported_at or recipe.created_at),
+        author=recipe.source_author,
+    )
+
+
 def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
     db = kitchen.db
     rows = list(
@@ -806,6 +845,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         lines=lines,
         steps=steps,
         source_note=recipe.source_note,
+        source=source_out(recipe),
         photo=photo_out(db, recipe.id),
         used_by=sorted((Ref(id=i, name=n) for i, n in used_by), key=lambda r: (fold(r.name), r.id)),
         version=recipe.version,

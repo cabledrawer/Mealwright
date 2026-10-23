@@ -639,3 +639,39 @@ def migrate_head(engine: Engine) -> str:
         return str(
             connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
         )
+
+
+OWN_NETWORK = "63a26f6309e7"  # 0.5's fetching pull request: the migration just before the source
+
+
+def test_recipe_source_migration_keeps_recipes_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.5 PR 3: a recipe gets its web address, import date and author (all empty for the
+    recipes already there); going back drops them and keeps the recipes; again forward works."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)  # upgraded to the newest
+    wanted = {"source_url", "imported_at", "source_author"}
+    assert wanted <= {c["name"] for c in inspect(engine).get_columns("recipe")}
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "UPDATE recipe SET source_url = 'https://kitchen.example/dal',"
+            " source_author = 'A cook', imported_at = '2026-10-23' WHERE id = 1"
+        )
+    migrate.downgrade(engine, OWN_NETWORK)
+    assert not wanted & {c["name"] for c in inspect(engine).get_columns("recipe")}
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one() == 2
+        sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'recipe'"
+        ).scalar_one()
+    assert "AUTOINCREMENT" in sql
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    with engine.connect() as connection:
+        rows = connection.exec_driver_sql(
+            "SELECT source_url, imported_at, source_author FROM recipe"
+        ).all()
+        sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'recipe'"
+        ).scalar_one()
+    assert [tuple(r) for r in rows] == [(None, None, None)] * 2
+    assert "AUTOINCREMENT" in sql

@@ -465,3 +465,29 @@ def test_a_step_of_only_combining_marks_is_kept_cut_not_dropped() -> None:
     steps = read_pasted(text).steps
     assert len(steps) == 1
     assert len(steps[0]) == MAX_STEP_CHARS
+
+
+def test_notes_and_tips_left_out_are_counted_for_the_review_screen() -> None:
+    # cabledrawer 23 Oct, question 17: "4 lines after “Tips” were left out".
+    text = (
+        "Dal\nIngredients\n1 onion\nMethod\nChop it.\nCook it.\n"
+        "Tips\nUse more salt.\nServe hot.\n\nLeftovers keep.\nFreeze it.\n"
+    )
+    found = read_pasted(text)
+    assert [(left.heading, left.lines) for left in found.left_out] == [("Tips", 4)]
+    assert found.steps == ("Chop it.", "Cook it.")
+
+
+def test_nothing_left_out_says_nothing() -> None:
+    assert read_pasted("Dal\nIngredients\n1 onion\nMethod\nChop it.\n").left_out == ()
+    # A heading with nothing under it left nothing out.
+    assert read_pasted("Dal\nIngredients\n1 onion\nMethod\nChop it.\nNotes\n").left_out == ()
+
+
+def test_each_part_left_out_is_counted_on_its_own() -> None:
+    text = "Dal\nIngredients\n1 onion\nNotes\nOne.\nTwo.\nMethod\nChop it.\nStorage\nThree.\n"
+    found = read_pasted(text)
+    assert [(left.heading, left.lines) for left in found.left_out] == [
+        ("Notes", 2),
+        ("Storage", 1),
+    ]

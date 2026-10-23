@@ -187,16 +187,27 @@ _PHOTO = _Kinds(
 )
 
 
-def fetch_page(gate: OutboundGate, household_id: int, url: str) -> FetchedPage:
-    """The recipe page at `url`, as text. Raises FetchRefused."""
-    final_url, response = _fetch(gate, household_id, url, _PAGE)
+def tidy_link(url: str) -> str:
+    """The link as it's requested and compared (see `_tidy`). Raises FetchRefused (BAD_LINK)."""
+    return _tidy(url)
+
+
+def fetch_page(
+    gate: OutboundGate, household_id: int, url: str, *, seconds: float | None = None
+) -> FetchedPage:
+    """The recipe page at `url`, as text. Raises FetchRefused. `seconds`: the time the whole
+    fetch may take, if less than `MAX_FETCH_SECONDS` (the import has 30 seconds in all)."""
+    final_url, response = _fetch(gate, household_id, url, _PAGE, seconds)
     return FetchedPage(url=final_url, html=_decode(response))
 
 
-def download_photo(gate: OutboundGate, household_id: int, url: str) -> photos.Cleaned:
+def download_photo(
+    gate: OutboundGate, household_id: int, url: str, *, seconds: float | None = None
+) -> photos.Cleaned:
     """The recipe's main photo, shrunk and cleaned like an upload. It isn't stored here.
-    Raises FetchRefused ("Photo not downloaded" while the photo switch is off)."""
-    _, response = _fetch(gate, household_id, url, _PHOTO)
+    Raises FetchRefused ("Photo not downloaded" while the photo switch is off). `seconds`:
+    as for `fetch_page`."""
+    _, response = _fetch(gate, household_id, url, _PHOTO, seconds)
     try:
         return photos.clean(response.body)
     except photos.NotAPhoto:
@@ -209,7 +220,11 @@ def download_photo(gate: OutboundGate, household_id: int, url: str) -> photos.Cl
 
 
 def _fetch(
-    gate: OutboundGate, household_id: int, url: str, kinds: _Kinds
+    gate: OutboundGate,
+    household_id: int,
+    url: str,
+    kinds: _Kinds,
+    seconds: float | None = None,
 ) -> tuple[str, OutboundResponse]:
     label = LABELS[kinds.connection]
     # The switch first: while it's off, nothing is looked up, read or sent.
@@ -217,7 +232,9 @@ def _fetch(
         gate.check_switch(household_id, kinds.connection)
     except OutboundBlocked:
         raise FetchRefused(kinds.switched_off) from None
-    deadline = time.monotonic() + MAX_FETCH_SECONDS
+    deadline = time.monotonic() + (
+        MAX_FETCH_SECONDS if seconds is None else min(MAX_FETCH_SECONDS, seconds)
+    )
     with gate.sessions() as db:
         listed = own_network.load(db, household_id)
     try:

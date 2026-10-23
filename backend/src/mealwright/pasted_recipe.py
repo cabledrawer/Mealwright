@@ -35,6 +35,16 @@ class PastedTooLong(ValueError):
 
 
 @dataclass(frozen=True)
+class LeftOut:
+    """A part of the pasted text that was left out for being a note or a tip: its heading as
+    written ("Tips") and how many lines were under it (cabledrawer 23 Oct, question 17). The review
+    screen says so, so the lines can be added by hand."""
+
+    heading: str
+    lines: int
+
+
+@dataclass(frozen=True)
 class PastedRecipe:
     """What was found in pasted text.
 
@@ -43,6 +53,7 @@ class PastedRecipe:
     - `steps`: the method steps, numbers taken off, up to 100.
     - `lines_cut`, `steps_cut`: how many ingredient lines / steps were left out for being
       over the limits (the review screen says so).
+    - `left_out`: the Notes, Tips and similar parts left out, each with its line count.
     """
 
     name: str
@@ -50,6 +61,7 @@ class PastedRecipe:
     steps: tuple[str, ...]
     lines_cut: int
     steps_cut: int
+    left_out: tuple[LeftOut, ...] = ()
 
 
 # --- Headings ---------------------------------------------------------------------------------
@@ -225,6 +237,8 @@ def read_pasted(text: str) -> PastedRecipe:
     lines = [line.strip() for line in without_hidden(text).split("\n")]
 
     sections: dict[str, list[str]] = {"start": [], "ingredients": [], "method": []}
+    left_headings: list[str] = []  # each part left out, and how many lines it had
+    left_lines: list[int] = []
     current = "start"
     seen: set[str] = set()
     last_step: int | None = None
@@ -241,6 +255,8 @@ def read_pasted(text: str) -> PastedRecipe:
             )
             if current == "other":
                 sections.setdefault("other", [])
+                left_headings.append(line.strip(_DECORATION).strip())
+                left_lines.append(0)
             continue
         number = _step_number(line) if _is_numbered_step(line) else None
         # A left-out part ("Tips") in the middle of the method ends where the numbered steps
@@ -250,6 +266,8 @@ def read_pasted(text: str) -> PastedRecipe:
         if current == "method" and number is not None:
             last_step = number
         sections.setdefault(current, []).append(line)
+        if current == "other" and line and left_lines:
+            left_lines[-1] += 1
 
     if "ingredients" in seen or "method" in seen:
         name = _title(sections["start"])
@@ -276,6 +294,11 @@ def read_pasted(text: str) -> PastedRecipe:
         steps=tuple(step_lines[:MAX_STEPS]),
         lines_cut=max(0, len(ingredient_lines) - MAX_LINES),
         steps_cut=max(0, len(step_lines) - MAX_STEPS),
+        left_out=tuple(
+            LeftOut(heading, count)
+            for heading, count in zip(left_headings, left_lines, strict=True)
+            if count
+        ),
     )
 
 

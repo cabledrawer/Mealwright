@@ -59,7 +59,15 @@ STOCK_KINDS = (
 )
 
 # Changes to ingredients, shown in Ingredients → Recent changes.
-INGREDIENT_KINDS = ("food_created", "food_edited", "food_removed", "food_back", "merged", "split")
+INGREDIENT_KINDS = (
+    "food_created",
+    "food_edited",
+    "food_removed",
+    "food_back",
+    "merged",
+    "split",
+    "recipe_imported",
+)
 
 
 class LineOut(BaseModel):
@@ -377,6 +385,8 @@ def undo_change(
             shopping.bump_foods(kitchen, touched_foods, batch)
     if data.get("lot_amounts"):
         undo_lot_amounts(kitchen, data["lot_amounts"])
+    if change.kind == "recipe_imported":
+        recipes.undo_import(kitchen, data, tally)
     if tally.done:
         undo_merge_record(kitchen, data)
     result = tally.result

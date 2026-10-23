@@ -681,6 +681,12 @@ class Recipe(Base):
     fibre_milli: Mapped[int | None] = mapped_column(BigInteger)
     # Plain text ("Amma's", a book title). The server never visits it.
     source_note: Mapped[str | None] = mapped_column(String(500))
+    # An imported recipe keeps where it came from (cabledrawer 22 Oct, question 1): the web address
+    # it was read from, the day it was imported and the author's name from the page. The server
+    # never visits the address again; opening it is the person's own click.
+    source_url: Mapped[str | None] = mapped_column(String(2000))
+    imported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_author: Mapped[str | None] = mapped_column(String(200))
     # Starts at 1; every save adds 1 (two people editing: the second save is stopped).
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
