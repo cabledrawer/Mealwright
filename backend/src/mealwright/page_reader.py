@@ -726,7 +726,8 @@ def _minutes(value: object) -> int | None:
         total = Decimal(str(value))
     elif isinstance(value, str):
         text = value.strip()
-        if text.isdigit():
+        # ASCII digits only: "²" or "①" pass isdigit() but Decimal() refuses them.
+        if text.isascii() and text.isdigit():
             if len(text) > MAX_NUMBER_TEXT:
                 return None
             total = Decimal(text)

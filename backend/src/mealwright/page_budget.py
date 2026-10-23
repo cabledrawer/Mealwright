@@ -4,25 +4,32 @@ page").
 The reader has limits of its own for every slow or greedy page found so far (long numbers,
 deep nesting, repeated references and more; see `page_reader`). This is the safety net for
 the ones nobody has found yet: `read_within_budget` reads the page in a short-lived child
-process, and stops it if it takes longer than `MAX_SECONDS` or needs more than `MAX_MEMORY`.
-A check inside the reader's own loops couldn't do that: it can't stop one long call inside
-Python itself (one `json.loads` or `int()` on a huge text), but a process can be stopped
-whatever it's doing.
+process, and stops it if it uses more than `MAX_CPU_SECONDS` of processor time, takes longer
+than `MAX_WALL_SECONDS` by the clock, or needs more than `MAX_MEMORY`. A check inside the
+reader's own loops couldn't do that: it can't stop one long call inside Python itself (one
+`json.loads` or `int()` on a huge text), but a process can be stopped whatever it's doing.
 
-- **Time:** the server waits at most `MAX_SECONDS` from the start (starting the child
-  included), then kills the child and waits for it to end, so no process is left behind.
-  The child also limits its own processor time to a second or two more, in case the server
-  itself is stopped meanwhile.
+- **Processor time** is the main limit (the child limits its own, `RLIMIT_CPU`; the system
+  ends it when it is used up). It counts the work the page needs, not how busy the machine is:
+  a Raspberry Pi that is also doing other things reads the same page in the same processor
+  time, even if it takes longer by the clock.
+- **The clock** is the backstop: the server waits at most `MAX_WALL_SECONDS` from the start
+  (starting the child included), then kills the child and waits for it to end, so no process
+  is left behind. It catches a child that is stuck rather than working.
 - **Memory:** before it reads, the child limits its own memory (`RLIMIT_AS`, all the memory
   the process has, Python itself included) to `MAX_MEMORY`. Past it, Python raises
   MemoryError and the child stops.
-- The child gets the page's text and address, and sends back the reader's result. It does
-  no network and no database work: it imports only `page_reader`.
+- The child can't write a core file (`RLIMIT_CORE` 0), and it switches on the network guard
+  (`outbound.install_network_guard`) before it reads anything: it starts fresh, so it doesn't
+  have the server's guard, and even a bug in the reader couldn't open a connection.
+- The child gets the page's text and address, and sends back the reader's result. It does no
+  network and no database work.
 
 It's started with "spawn" (a fresh Python), never "fork": the server has threads, and a
 fork can copy a lock another thread holds. Standard library only.
 """
 
+import contextlib
 import logging
 import math
 import multiprocessing
@@ -38,22 +45,29 @@ log = logging.getLogger(__name__)
 
 # The budget for one page (docs/dev/recipe-import.md, "The work budget"). The realistic big
 # test page (5 MB, shaped like a real recipe blog with its scripts, menus, comments and a
-# 200-ingredient recipe: tests/test_page_budget.py) takes about 1 second in the child,
-# starting it included, and 88 MB of memory in all, Python itself included; these are about
-# 5 and 4 times that, and never less than 5 seconds and 256 MB.
-MAX_SECONDS = 5.0
+# 200-ingredient recipe: tests/test_page_budget.py) needs about 2 seconds of processor time
+# and 88 MB of memory in all, Python itself included, on a fast PC. A Raspberry Pi 4 class
+# board is perhaps 4 to 5 times slower per second of processor time, so about 10 seconds
+# there: the processor limit is set above that, and the clock limit above the processor limit.
+MAX_CPU_SECONDS = 12.0
+MAX_WALL_SECONDS = 15.0
 MAX_MEMORY = 384 * 1024 * 1024
 
-# The sentence a screen shows (docs/dev/words.md, "Fetching a recipe page"; proposed, for
-# cabledrawer). `page_fetch.MESSAGES` holds it too, under `Problem.CANT_READ`.
+# The sentence a screen shows (docs/dev/words.md, "Fetching a recipe page"; approved by
+# cabledrawer 23 Oct). `page_fetch.MESSAGES` holds it too, under `Problem.CANT_READ`.
 CANT_READ = "Couldn’t read that page. Paste the recipe’s text instead."
+
+# How long the parent waits for a child that has already answered to end by itself, before it
+# is killed. (It has nothing left to do but exit.)
+_EXIT_SECONDS = 2.0
 
 _spawn = multiprocessing.get_context("spawn")
 
 
 class PageUnreadable(Exception):
-    """Reading a page went over its budget. `reason` is "time" or "memory"; `message` is
-    the sentence a screen shows."""
+    """Reading a page went over its budget or failed. `reason` is "time", "memory" or "crash"
+    (the child ended without an answer, or its answer couldn't be sent); `message` is the
+    sentence a screen shows."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(CANT_READ)
@@ -62,18 +76,26 @@ class PageUnreadable(Exception):
 
 
 def read_within_budget(
-    html: str, url: str, *, seconds: float | None = None, memory: int | None = None
+    html: str,
+    url: str,
+    *,
+    cpu_seconds: float | None = None,
+    wall_seconds: float | None = None,
+    memory: int | None = None,
 ) -> PageRecipe | None:
-    """`page_reader.read_page(html, url)`, in a child process with a budget of `seconds`
-    and `memory` bytes (`MAX_SECONDS` and `MAX_MEMORY` unless a test lowers them). Raises
-    PageUnreadable if it goes over; anything else the reader raises is raised here too."""
-    seconds = MAX_SECONDS if seconds is None else seconds
+    """`page_reader.read_page(html, url)`, in a child process with a budget of `cpu_seconds`
+    of processor time, `wall_seconds` by the clock and `memory` bytes (`MAX_CPU_SECONDS`,
+    `MAX_WALL_SECONDS` and `MAX_MEMORY` unless a test changes them). Raises PageUnreadable if
+    it goes over, or the child ends without a usable answer; anything else the reader raises
+    is raised here too."""
+    cpu_seconds = MAX_CPU_SECONDS if cpu_seconds is None else cpu_seconds
+    wall_seconds = MAX_WALL_SECONDS if wall_seconds is None else wall_seconds
     memory = MAX_MEMORY if memory is None else memory
-    deadline = time.monotonic() + seconds
+    deadline = time.monotonic() + wall_seconds
     receive, send = _spawn.Pipe(duplex=False)
     child = _spawn.Process(
         target=_read_in_child,
-        args=(send, html, url, seconds, memory),
+        args=(send, html, url, cpu_seconds, memory),
         name="page reader",
         daemon=True,
     )
@@ -85,28 +107,41 @@ def read_within_budget(
         if receive.poll(max(0.0, deadline - time.monotonic())):
             try:
                 answer = receive.recv()
-            except EOFError:
+            except EOFError, OSError:
                 answer = None  # the child ended without answering
     finally:
         if child.pid is not None:  # it started
-            if answer is None:
+            if answer is not None:
+                # It has answered: it only has to end. A child that doesn't within a moment
+                # is killed like any other, so the server never waits on it for ever.
+                child.join(_EXIT_SECONDS)
+            if child.is_alive():
                 child.kill()  # out of time (a child that already ended is left as it is)
-            child.join()  # wait for it to end, so no process is left behind
+                child.join()  # wait for it to end, so no process is left behind
             exitcode = child.exitcode
             child.close()
         receive.close()
         send.close()
     if answer is None:
-        # Out of time, or ended by the system. Ended by its processor-time limit is time too;
-        # any other end (MemoryError before it could answer, say) is memory.
+        # Out of time by the clock, or ended by the system. Ended by the processor-time limit
+        # (SIGXCPU, or SIGKILL after it) is time too; any other end is a crash.
         over_time = exitcode in {-signal.SIGKILL, -signal.SIGXCPU}
-        raise _over_budget("time" if over_time else "memory")
+        raise _over_budget("time" if over_time else "crash")
     kind, value = answer
     if kind == "memory":
         raise _over_budget("memory")
+    if kind == "failed":  # the result couldn't be sent back
+        raise _over_budget("crash")
     if kind == "raised":
-        raise value if isinstance(value, BaseException) else RuntimeError(str(value))
+        raise value if isinstance(value, BaseException) else _over_budget("crash")
     return value if isinstance(value, PageRecipe) else None
+
+
+_WORDS = {
+    "time": "over its time limit",
+    "memory": "over its memory limit",
+    "crash": "the reader stopped",
+}
 
 
 def _over_budget(reason: str) -> PageUnreadable:
@@ -115,16 +150,28 @@ def _over_budget(reason: str) -> PageUnreadable:
     from mealwright.outbound import LABELS, Connection
 
     # The connection's plain label and the reason only, never the page's address.
-    log.warning(
-        "Couldn't read a page: %s, over its %s limit", LABELS[Connection.RECIPE_IMPORT], reason
-    )
+    log.warning("Couldn't read a page: %s, %s", LABELS[Connection.RECIPE_IMPORT], _WORDS[reason])
     return PageUnreadable(reason)
 
 
-def _read_in_child(send: Connection, html: str, url: str, seconds: float, memory: int) -> None:
-    """The child process: set its own limits, read the page, send the result back."""
+def _prepare_child(cpu_seconds: float, memory: int) -> None:
+    """What the child does before it touches the page: no core file, its own memory and
+    processor-time limits, and the network guard."""
+    _lower_limit(resource.RLIMIT_CORE, 0)
     _lower_limit(resource.RLIMIT_AS, memory)
-    _lower_limit(resource.RLIMIT_CPU, math.ceil(seconds) + 1)
+    # The soft limit ends the child with SIGXCPU; the hard one, 2 seconds later, with SIGKILL
+    # in case something got in the way of the first.
+    soft = math.ceil(cpu_seconds)
+    _lower_limit(resource.RLIMIT_CPU, soft, soft + 2)
+    # Imported here: it brings the database code with it, which only this one needs.
+    from mealwright.outbound import install_network_guard
+
+    install_network_guard()
+
+
+def _read_in_child(send: Connection, html: str, url: str, cpu_seconds: float, memory: int) -> None:
+    """The child process: set its own limits, read the page, send the result back."""
+    _prepare_child(cpu_seconds, memory)
     answer: tuple[str, object]
     try:
         answer = ("read", page_reader.read_page(html, url))
@@ -135,14 +182,17 @@ def _read_in_child(send: Connection, html: str, url: str, seconds: float, memory
     del html
     try:
         send.send(answer)
-    except Exception as error:  # an error that can't be sent as it is
-        send.send(("raised", f"{type(error).__name__} while reading a page"))
+    except Exception:  # a result too big to send, or one that can't be pickled
+        # If this fails too, the server has gone or the pipe is broken: nothing more to do.
+        with contextlib.suppress(Exception):
+            send.send(("failed", None))
     send.close()
 
 
-def _lower_limit(kind: int, limit: int) -> None:
+def _lower_limit(kind: int, soft: int, hard: int | None = None) -> None:
     """Lower a resource limit (never raise it past what the system already allows)."""
-    _, hard = resource.getrlimit(kind)
-    if hard != resource.RLIM_INFINITY:
-        limit = min(limit, hard)
-    resource.setrlimit(kind, (limit, hard if kind == resource.RLIMIT_CPU else limit))
+    hard = soft if hard is None else hard
+    _, allowed = resource.getrlimit(kind)
+    if allowed != resource.RLIM_INFINITY:
+        soft, hard = min(soft, allowed), min(hard, allowed)
+    resource.setrlimit(kind, (soft, hard))

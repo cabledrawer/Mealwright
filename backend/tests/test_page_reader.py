@@ -514,6 +514,12 @@ def test_author(author: object, expected: str | None) -> None:
         ({"totalTime": 25}, 25),
         ({"totalTime": True}, None),
         ({"totalTime": ["PT15M"]}, 15),
+        # Digits that aren't 0-9 pass str.isdigit() but Decimal() refuses them (#54, round 5,
+        # item 23): read as no time, never an error.
+        ({"totalTime": "²"}, None),
+        ({"totalTime": "①"}, None),
+        ({"totalTime": "٣"}, None),
+        ({"totalTime": "³0"}, None),
         ({}, None),
     ],
 )

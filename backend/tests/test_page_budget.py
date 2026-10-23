@@ -8,13 +8,19 @@ import json
 import logging
 import multiprocessing
 import os
+import resource
+import signal
+import socket
+import threading
 import time
 from collections.abc import Iterator
+from multiprocessing.connection import Connection
 from pathlib import Path
 
 import pytest
 
-from mealwright import page_budget
+from mealwright import page_budget, page_reader
+from mealwright.outbound import OutboundBlocked
 from mealwright.page_budget import CANT_READ, PageUnreadable, read_within_budget
 from mealwright.page_fetch import MESSAGES, Problem
 from mealwright.page_reader import read_page
@@ -150,31 +156,56 @@ def test_the_realistic_big_page_reads_normally_within_the_real_budget(
     assert (expected.name, len(expected.ingredients), len(expected.steps)) == ("Big dal", 200, 100)
     began = time.monotonic()
     assert read_within_budget(html, URL) == expected
-    # Well within the budget, and read in a child that has ended.
-    assert time.monotonic() - began < page_budget.MAX_SECONDS / 2
+    # Well within the clock's limit, and read in a child that has ended.
+    assert time.monotonic() - began < page_budget.MAX_WALL_SECONDS / 2
     assert len(started) == 1
     assert gone(started[0])
 
 
-def test_the_budget_has_a_floor() -> None:
-    assert page_budget.MAX_SECONDS >= 5
+def test_the_budget_has_a_floor_and_the_clock_is_the_wider_limit() -> None:
+    # The realistic big page needs about 2 s of processor time on a fast PC, perhaps 10 s on a
+    # Raspberry Pi 4 class board (docs/dev/recipe-import.md): the limit stays above that.
+    assert page_budget.MAX_CPU_SECONDS >= 10
+    assert page_budget.MAX_WALL_SECONDS > page_budget.MAX_CPU_SECONDS
+    # And inside the import's 30 seconds (spec section 6).
+    assert page_budget.MAX_WALL_SECONDS <= 20
     assert page_budget.MAX_MEMORY >= 256 * MB
 
 
-def test_a_page_that_would_run_long_is_stopped_at_its_time_limit(
+def test_a_page_that_uses_too_much_processor_time_is_stopped_at_its_processor_limit(
     started: list[int], caplog: pytest.LogCaptureFixture
 ) -> None:
+    # The clock's limit is far away, so only the processor limit can stop it. 10 MB of plain
+    # tags needs about 7 s of processor time on a fast PC; the limit is 1.
     html = slow_page()
     began = time.monotonic()
     with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
-        read_within_budget(html, URL, seconds=1.0)
-    assert time.monotonic() - began < 3
+        read_within_budget(html, URL, cpu_seconds=1.0, wall_seconds=60)
+    assert time.monotonic() - began < 5
     assert refused.value.reason == "time"
     assert refused.value.message == CANT_READ
     # The connection's plain label and the reason, never the address.
     assert caplog.messages == ["Couldn't read a page: recipe import, over its time limit"]
     assert "kitchen.example" not in caplog.text
     assert len(started) == 1
+    assert gone(started[0])
+
+
+def test_the_clock_stops_a_child_that_the_processor_limit_would_not(
+    started: list[int], caplog: pytest.LogCaptureFixture
+) -> None:
+    # The processor limit is far away (60 s; the page needs about 7), so only the clock and
+    # the kill can stop it. Without `child.kill()` the parent would wait for the child to
+    # finish by itself, about 7 s, so the bound is far under that.
+    html = slow_page()
+    began = time.monotonic()
+    with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
+        read_within_budget(html, URL, cpu_seconds=60, wall_seconds=0.5)
+    assert time.monotonic() - began < 1.8
+    assert refused.value.reason == "time"
+    assert caplog.messages == ["Couldn't read a page: recipe import, over its time limit"]
+    assert len(started) == 1
+    assert gone(started[0])
 
 
 def test_a_page_that_would_use_too_much_memory_is_stopped_at_its_memory_limit(
@@ -182,7 +213,7 @@ def test_a_page_that_would_use_too_much_memory_is_stopped_at_its_memory_limit(
 ) -> None:
     html = greedy_page()
     with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
-        read_within_budget(html, URL, seconds=60, memory=256 * MB)
+        read_within_budget(html, URL, cpu_seconds=60, wall_seconds=60, memory=256 * MB)
     assert refused.value.reason == "memory"
     assert caplog.messages == ["Couldn't read a page: recipe import, over its memory limit"]
     assert "kitchen.example" not in caplog.text
@@ -190,9 +221,124 @@ def test_a_page_that_would_use_too_much_memory_is_stopped_at_its_memory_limit(
     assert gone(started[0])
 
 
+# --- Children that behave badly in other ways (#54, round 5, item 26) ------------------------
+# Each is a stand-in for `_read_in_child`, defined here so the spawned child can find it again
+# (it gets this test file's folder on its path from the parent).
+
+
+def _crashing_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    page_budget._prepare_child(cpu, memory)
+    os.kill(os.getpid(), signal.SIGSEGV)
+
+
+def _silent_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    page_budget._prepare_child(cpu, memory)
+    os._exit(3)
+
+
+def _unsendable_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    # A result that can't be pickled: the real child code must say "failed", not crash.
+    page_reader.read_page = lambda html, url: threading.Lock()  # type: ignore[assignment,return-value]
+    page_budget._read_in_child(send, html, url, cpu, memory)
+
+
+def _lingering_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    page_budget._prepare_child(cpu, memory)
+    send.send(("read", None))
+    send.close()
+    time.sleep(30)  # answered, but doesn't end
+
+
+def _limits_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    page_budget._prepare_child(cpu, memory)
+    send.send(
+        (
+            "raised",
+            ValueError(
+                f"core={resource.getrlimit(resource.RLIMIT_CORE)}"
+                f" cpu={resource.getrlimit(resource.RLIMIT_CPU)}"
+            ),
+        )
+    )
+
+
+def _connecting_child(send: Connection, html: str, url: str, cpu: float, memory: int) -> None:
+    page_budget._prepare_child(cpu, memory)
+    try:
+        socket.create_connection(("127.0.0.1", int(url)), timeout=2)
+    except Exception as error:
+        send.send(("raised", error))
+    else:
+        send.send(("read", None))
+
+
+@pytest.fixture
+def child_as(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
+    def use(target: object) -> None:
+        monkeypatch.setattr(page_budget, "_read_in_child", target)
+
+    return use
+
+
+@pytest.mark.parametrize("target", [_crashing_child, _silent_child])
+def test_a_child_that_dies_without_answering_is_a_crash_not_memory(
+    child_as, target: object, caplog: pytest.LogCaptureFixture, started: list[int]
+) -> None:
+    child_as(target)
+    with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
+        read_within_budget("<p>x</p>", URL)
+    assert refused.value.reason == "crash"
+    assert refused.value.message == CANT_READ
+    assert caplog.messages == ["Couldn't read a page: recipe import, the reader stopped"]
+    assert gone(started[0])
+
+
+def test_a_result_that_cannot_be_sent_is_unreadable_not_a_runtime_error(
+    child_as, caplog: pytest.LogCaptureFixture
+) -> None:
+    child_as(_unsendable_child)
+    with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
+        read_within_budget("<p>x</p>", URL)
+    assert refused.value.reason == "crash"
+    assert caplog.messages == ["Couldn't read a page: recipe import, the reader stopped"]
+
+
+def test_a_child_that_answers_but_does_not_end_is_killed_after_a_moment(
+    child_as, monkeypatch: pytest.MonkeyPatch, started: list[int]
+) -> None:
+    child_as(_lingering_child)
+    monkeypatch.setattr(page_budget, "_EXIT_SECONDS", 0.5)
+    began = time.monotonic()
+    assert read_within_budget("<p>x</p>", URL) is None
+    # Without the wait's limit, the parent would sit there for the child's 30 seconds.
+    assert time.monotonic() - began < 3
+    assert gone(started[0])
+
+
+def test_the_child_cannot_write_a_core_file(child_as) -> None:
+    child_as(_limits_child)
+    with pytest.raises(ValueError, match=r"core=\(0, 0\)"):
+        read_within_budget("<p>x</p>", URL)
+
+
+def test_a_connection_from_the_child_is_refused_by_the_network_guard(child_as) -> None:
+    # The child starts fresh, so it has only the guard it switches on itself. A listening
+    # socket here would see a connection if the guard let one through.
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = listener.getsockname()[1]
+        listener.settimeout(0.1)
+        child_as(_connecting_child)
+        with pytest.raises(OutboundBlocked):
+            read_within_budget("<p>x</p>", str(port))
+        with pytest.raises(TimeoutError):  # nothing ever arrived
+            listener.accept()
+
+
 def test_a_stopped_child_leaves_no_process_behind(started: list[int]) -> None:
     with pytest.raises(PageUnreadable):
-        read_within_budget(slow_page(), URL, seconds=0.5)
+        read_within_budget(slow_page(), URL, cpu_seconds=60, wall_seconds=0.5)
     assert len(started) == 1
     assert gone(started[0])
     assert started[0] not in {child.pid for child in multiprocessing.active_children()}
