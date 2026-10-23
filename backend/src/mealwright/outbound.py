@@ -170,9 +170,11 @@ class _PinnedHTTP(http.client.HTTPConnection):
         super().__init__(host, port, timeout=timeout)
         self._address = address
         self.raw: socket.socket | None = None
+        self.cut = False  # set by the watchdog when time runs out
 
     def connect(self) -> None:
         self.sock = self.raw = _open_socket(self._address, self.port, self.timeout)
+        _stop_if_cut(self)
 
 
 class _PinnedHTTPS(http.client.HTTPSConnection):
@@ -186,6 +188,7 @@ class _PinnedHTTPS(http.client.HTTPSConnection):
         self._address = address
         self._tls = tls
         self.raw: socket.socket | None = None
+        self.cut = False  # set by the watchdog when time runs out
 
     def connect(self) -> None:
         plain = _open_socket(self._address, self.port, self.timeout)
@@ -199,8 +202,18 @@ class _PinnedHTTPS(http.client.HTTPSConnection):
         # The socket is known before the handshake, so the watchdog can cut a handshake
         # that trickles too.
         self.sock = self.raw = wrapped
+        _stop_if_cut(self)
         if isinstance(wrapped, ssl.SSLSocket):
             wrapped.do_handshake()
+
+
+def _stop_if_cut(pinned: _PinnedHTTP | _PinnedHTTPS) -> None:
+    """Called once the socket is stored. If the watchdog fired while connecting, it found
+    no socket to cut, so the request stops here instead of carrying on without a limit.
+    The watchdog sets `cut` before it looks for the socket and the socket is stored before
+    `cut` is read, so one of the two always sees the other."""
+    if pinned.cut:
+        raise TimeoutError
 
 
 class _Watchdog:
@@ -231,6 +244,7 @@ class _Watchdog:
             if self._done:
                 return
             self.expired = True
+            self._pinned.cut = True  # before looking for the socket: see _stop_if_cut
             raw = self._pinned.raw
             if raw is not None:
                 with suppress(OSError):

@@ -534,6 +534,33 @@ def test_a_tls_handshake_that_trickles_runs_out_of_time(
     _runs_out_of_time(real)
 
 
+@pytest.mark.parametrize("link", ["https://drip.example/", "http://drip.example/"])
+def test_a_connection_made_after_the_time_limit_stops_at_once(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch, link: str
+) -> None:
+    """The watchdog fires while connecting, before there's a socket to cut: the request
+    still stops, rather than letting the headers trickle in for as long as they like."""
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.2)
+
+    def send(server: socket.socket) -> None:
+        server.sendall(b"HTTP/1.1 200 OK\r\nX-Slow: ")
+        _drip(server, b"x")
+        server.sendall(b"\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nok")
+
+    _dripping(net, monkeypatch, send)
+    net.page(PUBLIC, port=80)
+    quick = net.open_socket
+
+    def slow_connect(address: str, port: int, timeout: float | None) -> socket.socket:
+        time.sleep(0.5)  # the watchdog fires at 0.2 s, while this is still connecting
+        return quick(address, port, timeout)
+
+    monkeypatch.setattr(outbound, "_open_socket", slow_connect)
+    started = time.monotonic()
+    assert refused(gate, link) is Problem.TIMEOUT
+    assert time.monotonic() - started < 1.5  # the drip takes 4 s
+
+
 def test_the_whole_fetch_has_a_time_limit_across_redirects(
     gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
 ) -> None:
