@@ -928,6 +928,89 @@ def test_sections_that_list_each_other_many_times_are_walked_quickly() -> None:
     assert found_.steps == lines("Boil.")
 
 
+# One big object referenced many times: its text is tidied once, not once per reference,
+# so the work grows with the page's size, not with references times size.
+BIG = "<i></i>" * 30_000  # 210 KB of markup that tidies to nothing
+BIG_OBJECT = {"@id": "#big", "@type": "HowToStep", "name": BIG, "text": BIG}
+BIG_REFS = [{"@id": "#big"}] * 1_000
+
+
+@pytest.fixture
+def big_tidied(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Counts how often the big text is tidied, and fails the test at once the second
+    time (without the fix it would be tidied 1,000 times or more, taking minutes)."""
+    count = [0]
+    real = page_reader._clean
+
+    def counting(value: object) -> str:
+        if isinstance(value, str) and len(value) >= len(BIG):
+            count[0] += 1
+            if count[0] > 1:
+                pytest.fail("the big text was tidied more than once")
+        return real(value)
+
+    monkeypatch.setattr(page_reader, "_clean", counting)
+    return count
+
+
+def _read_big(*graph: object, **fields: Any) -> PageRecipe:
+    start = time.monotonic()
+    found_ = read_page(json_ld({"@graph": [recipe(**fields), *graph, BIG_OBJECT]}), URL)
+    assert time.monotonic() - start < 2  # about 0.1 s; without the fix, minutes
+    assert found_ is not None
+    return found_
+
+
+@pytest.mark.parametrize(
+    "key", ["name", "description", "author", "recipeCategory", "recipeIngredient"]
+)
+def test_one_big_object_referenced_1000_times_is_tidied_once(
+    big_tidied: list[int], key: str
+) -> None:
+    found_ = _read_big(**{key: BIG_REFS})
+    assert big_tidied == [1]
+    assert found_.name == ("" if key == "name" else "Toor dal")
+    assert found_.description is None and found_.author is None and found_.tags == ()
+    assert found_.ingredients == (() if key == "recipeIngredient" else lines("200 g toor dal"))
+
+
+def test_a_method_listing_one_big_step_1000_times_tidies_it_once(big_tidied: list[int]) -> None:
+    found_ = _read_big(recipeInstructions=[step("Boil."), *BIG_REFS])
+    assert big_tidied == [1]
+    assert found_.steps == lines("Boil.")
+
+
+def test_a_chain_of_sections_reaching_one_big_step_tidies_it_once(
+    big_tidied: list[int],
+) -> None:
+    """Each section lists the next 1,000 times; the last lists the big step 1,000 times."""
+    chain = [
+        {
+            "@id": f"#s{n}",
+            "@type": "HowToSection",
+            "itemListElement": [{"@id": f"#s{n + 1}"}] * 1000,
+        }
+        for n in range(5)
+    ]
+    last = {"@id": "#s5", "@type": "HowToSection", "itemListElement": [*BIG_REFS, step("Boil.")]}
+    found_ = _read_big(*chain, last, recipeInstructions=[{"@id": "#s0"}])
+    assert big_tidied == [1]
+    assert found_.steps == lines("Boil.")
+
+
+def test_a_section_listing_itself_and_one_big_step_tidies_it_once(
+    big_tidied: list[int],
+) -> None:
+    loop = {
+        "@id": "#loop",
+        "@type": "HowToSection",
+        "itemListElement": [{"@id": "#big"}, {"@id": "#loop"}] * 500,
+    }
+    found_ = _read_big(loop, recipeInstructions=[step("Boil."), {"@id": "#loop"}])
+    assert big_tidied == [1]
+    assert found_.steps == lines("Boil.")
+
+
 @pytest.mark.parametrize(("count", "cut"), [(100, False), (101, True), (300, True)])
 def test_at_most_100_steps(count: int, cut: bool) -> None:
     found_ = read(recipeInstructions=[step(f"Step {n}.") for n in range(1, count + 1)])

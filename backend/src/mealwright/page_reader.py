@@ -418,23 +418,34 @@ class _Recipe:
 
     def values(self, *keys: str) -> list[object]:
         found: list[object] = []
+        seen: set[int] = set()
         for key in keys:
-            found.extend(self.flat(self.item.get(key)))
+            found.extend(self.flat(self.item.get(key), seen=seen))
         return found
 
-    def flat(self, value: object, depth: int = 0) -> list[object]:
+    def flat(self, value: object, depth: int = 0, seen: set[int] | None = None) -> list[object]:
         """A value as a list, with nested lists opened (a few deep) and references
-        followed."""
+        followed. A referenced object is given once, however often it's referenced:
+        `seen` holds the ones already given (a caller can share it across calls). Without
+        that, a page could reference one big object thousands of times, and its text would
+        be tidied again each time (the work would grow with references times size, not with
+        the page's size)."""
         if value is None:
             return []
-        if not isinstance(value, list):
-            return [self.follow(value)]
+        if seen is None:
+            seen = set()
         out: list[object] = []
-        for v in value:
-            if not isinstance(v, list):
-                out.append(self.follow(v))
-            elif depth < 4:
-                out.extend(self.flat(v, depth + 1))
+        for v in value if isinstance(value, list) else [value]:
+            if isinstance(v, list):
+                if depth < 4:
+                    out.extend(self.flat(v, depth + 1, seen))
+                continue
+            target = self.follow(v)
+            if target is not v:  # a reference
+                if id(target) in seen:
+                    continue
+                seen.add(id(target))
+            out.append(target)
         return out
 
     def follow(self, value: object) -> object:
@@ -589,19 +600,26 @@ def _ingredients(recipe: _Recipe) -> list[PageLine]:
 def _steps(recipe: _Recipe) -> list[PageLine]:
     steps: list[PageLine] = []
     work = [MAX_STEP_WORK]
-    for value in recipe.values("recipeInstructions"):
-        _add_steps(recipe, value, steps, 0, work)
+    seen: set[int] = set()  # referenced parts already walked: each is walked once
+    for value in recipe.flat(recipe.item.get("recipeInstructions"), seen=seen):
+        _add_steps(recipe, value, steps, 0, work, seen)
         if len(steps) > MAX_STEPS:
             break
     return steps
 
 
 def _add_steps(
-    recipe: _Recipe, value: object, steps: list[PageLine], depth: int, work: list[int]
+    recipe: _Recipe,
+    value: object,
+    steps: list[PageLine],
+    depth: int,
+    work: list[int],
+    seen: set[int],
 ) -> None:
     """`work` counts down the parts looked at. A section can list itself, or another
     section many times, by reference; without a limit, a few nameless ones would be walked
-    billions of times while adding no step."""
+    billions of times while adding no step. `seen` (see `_Recipe.flat`) means a part
+    referenced many times, anywhere in the method, is walked only once."""
     if len(steps) > MAX_STEPS or depth > 8 or work[0] <= 0:
         return
     work[0] -= 1
@@ -611,14 +629,14 @@ def _add_steps(
     if not isinstance(value, dict):
         return
     kinds = _types(value)
-    children = recipe.flat(value.get("itemListElement"))
+    children = recipe.flat(value.get("itemListElement"), seen=seen)
     work[0] -= len(children)
     if "HowToSection" in kinds or ("HowToStep" not in kinds and children):
         heading = _one_line(_field(value, "name") or "")
         if heading:
             steps.append(PageLine(heading, heading=True))
         for child in children:
-            _add_steps(recipe, recipe.follow(child), steps, depth + 1, work)
+            _add_steps(recipe, recipe.follow(child), steps, depth + 1, work, seen)
         return
     text = _one_line(_field(value, "text", "name") or "")
     if text:
