@@ -5,13 +5,14 @@ it. The rules come from spec section 6, "Recipe import, decided for 0.5", and se
 "Recipe links on your own network". This is the server side only: the API addresses and
 screens that use it come later in 0.5.
 
-Three modules:
+Four modules:
 
 | Module | What it does |
 | --- | --- |
 | `mealwright.page_fetch` | `fetch_page()` and `download_photo()`: every check below, then the request through the outbound gate |
 | `mealwright.own_network` | the household's "Your own network" list (table `own_network_entry`), and which addresses need listing or are always blocked |
 | `mealwright.page_reader` | `read_page()`: a page's text in, a `PageRecipe` (or `None`) out; never goes online |
+| `mealwright.page_budget` | `read_within_budget()`: `read_page()` in a short-lived child process, stopped past its time or memory limit (below, "The work budget") |
 
 ## How fetching is checked
 
@@ -100,7 +101,9 @@ becomes a server-level setting (spec section 6); a comment on the table says so.
 `read_page(html: str, url: str) -> PageRecipe | None`. `url` is where the page was in the end
 (`FetchedPage.url`), used to make relative photo addresses absolute. `None` means no recipe:
 the page has no schema.org Recipe with ingredients or steps (the screen offers pasted text
-instead).
+instead). The import must call it through `page_budget.read_within_budget(html, url)`,
+never directly, so that every page is read within the work budget (nothing calls either
+yet; the import's API comes later in 0.5).
 
 ```python
 @dataclass(frozen=True)
@@ -163,12 +166,79 @@ times costs no more than reading it once, and each different text is tidied once
 however many fields use it. In microdata, an element's text includes every property inside
 it, so properties nested in properties would read the same text again at each level; the
 text read for microdata is limited to the page's length (or a million characters and
-elements, for a smaller page). The time grows in step with the page's size; the slowest 5 MB
-pages found so far are plain valid tags (about 1.7 million `<p>`), which take about 4
-seconds (up to about 6 on a busy machine), in the page's body, in one JSON-LD field, or in
-one text that eight fields use. 250 nested microdata properties around 5 MB take about 1
-second. One JSON-LD field of 2.6 million "<a" or "< x " takes under 2 seconds. Memory stays
-under 80 MB at its peak (as Python counts it); the most is 5 MB of plain words in one field.
+elements, for a smaller page). A number longer than 20 characters in a time, a yield or a
+nutrition value is left out before it's converted: converting a long run of digits takes
+time that grows with the square of its length (a million digits took 8.6 seconds), and a
+real one is a few characters. A JSON-LD block is
+skipped, unread, if it would take the page's blocks past 50,000 objects and lists in all
+(counted as `{` and `[`, before parsing; a real recipe has a few hundred): read, each tiny
+object takes about 50 times its size in memory.
+
+The time grows in step with the page's size. Measured on 5 MB pages after these limits
+(without Python's memory counting, which slows it): the slowest found so far are plain valid
+tags (about 1.7 million `<p>`, or `x<i></i>` runs), in the page's body, in one JSON-LD field
+or in one text that eight fields use, which take about 2.5 seconds (3.6 on a busier
+machine). 250 nested microdata properties take about 1 second, and one JSON-LD field of 2.6
+million "<a" or "< x " under 2 seconds. Memory peaks at about 120 MB (as Python counts it;
+about 177 MB for the whole process, Python itself included): 5 MB of plain words with one
+emoji in one field, since the emoji makes every character of that text take 4 bytes. The
+same words without the emoji take about 70 MB, and the other pages tried about 60 MB or
+less.
+
+### The work budget
+
+The limits above answer every slow or greedy page found so far. As a safety net for the ones
+nobody has found yet (spec section 6, "A work budget for each page"), the import reads each
+page with `page_budget.read_within_budget`, which runs `read_page` in a short-lived child
+process and stops it past either limit:
+
+| Limit | Value | Why |
+| --- | --- | --- |
+| Time (`MAX_SECONDS`) | 5 seconds, from starting the child to its answer | The realistic big test page takes about 1 second this way (0.8 to read, the rest to start the child) |
+| Memory (`MAX_MEMORY`) | 384 MB, all the child's memory, Python itself included | The realistic big test page needs 88 MB; Python alone is about 30 MB |
+
+The limits are about 5 and 4 times what the realistic big test page needs, and never less
+than 5 seconds and 256 MB (a test checks the floor). The realistic big test page is built in
+`tests/test_page_budget.py`: 5 MB shaped like a big recipe blog post, with stylesheets and
+scripts in the head, a JSON-LD graph with a 200-ingredient, 100-step recipe, a long menu,
+3,000 paragraphs and thousands of comments. The largest page in `tests/import_pages/` is
+3.5 KB and takes under 0.1 second and 30 MB. The worst known pages (above) also fit: the
+slowest takes about 2.5 seconds this way, and the greediest about 1.2 seconds and 177 MB.
+
+How it works:
+
+- The child is started with "spawn", a fresh Python, never "fork": the server has threads,
+  and a fork can copy a lock another thread holds. It imports only `page_reader` (no
+  network and no database code), gets the page's text and address, and sends back the
+  result through a pipe.
+- **Memory:** before reading, the child limits its own memory (`RLIMIT_AS`) to 384 MB.
+  Past it, Python raises MemoryError, and the child answers "memory" (or ends, if it can't).
+- **Time:** the server waits at most 5 seconds for the answer, then kills the child and
+  waits for it to end, so no process is left behind. The child also limits its own
+  processor time to 6 seconds, in case the server is stopped meanwhile.
+- Over either limit, `read_within_budget` raises `PageUnreadable` (`reason` "time" or
+  "memory"); the screen shows "Couldn’t read that page. Paste the recipe’s text instead."
+  (`page_fetch.Problem.CANT_READ`; proposed, for cabledrawer). The log line names only the
+  connection and the reason ("Couldn't read a page: recipe import, over its time limit"),
+  never the address. Anything else the reader raises is raised in the server as if it had
+  read the page itself.
+- Standard library only (`multiprocessing`, `resource`). `resource` is Unix only, like the
+  server's container.
+
+What it can't stop:
+
+- Each page being read has its own budget; there is no limit on how many pages are read at
+  once. Several imports at the same moment can each use up to 384 MB.
+- The server itself still holds the page's text (up to 5 MB, about 20 MB in Python at
+  worst) and a copy sent to the child, and decodes the page before the budget starts.
+- The memory limit counts all the child's memory, so it's a limit on the whole process,
+  not just the page; a much bigger Python could need it raised.
+- Starting the child also starts Python's own small helper process for multiprocessing
+  (the "resource tracker"), once, which stays while the server runs.
+- If the server is killed while a child is reading, the child stops at its own processor
+  limit (6 seconds) rather than at once.
+- The answer comes back from our own child as a pickled object; that's safe only because
+  nothing else can write to the pipe.
 
 ## Swapping the reader
 
