@@ -32,6 +32,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FilterChips from '$lib/components/FilterChips.svelte';
   import Icon, { type Name } from '$lib/components/Icon.svelte';
+  import SwipeRow from '$lib/components/SwipeRow.svelte';
   import LotMenu from '$lib/components/LotMenu.svelte';
   import Logo from '$lib/components/Logo.svelte';
   import NewIngredient from '$lib/components/NewIngredient.svelte';
@@ -115,7 +116,8 @@
     'alert',
     'cloud-off',
     'link',
-    'note'
+    'note',
+    'arrow-right'
   ];
 
   // --- Settings → Privacy -----------------------------------------------------------------
@@ -989,6 +991,68 @@
     {/if}
   </section>
 
+  <section id="swipe-row">
+    <h2>Swipe row: right action, left action, one side only</h2>
+    <p class="note">
+      On a phone a finger slides the row; the button it shows does the thing, and a swipe alone does
+      nothing. On a computer the row is not swipeable: the same choices are buttons and menus in the
+      row. Drafts (PR 5) use this with right = carry on reviewing, left = delete.
+    </p>
+    <h3>Both sides: right shows Used… (green), left shows Binned (red)</h3>
+    <div class="swipes">
+      {#each [null, 'right', 'left'] as const as start (start)}
+        <SwipeRow
+          open={start}
+          right={{
+            label: 'Used…',
+            describe: 'Spinach',
+            icon: 'check',
+            tone: 'used',
+            run: () => {}
+          }}
+          left={{
+            label: 'Binned',
+            describe: 'Spinach',
+            icon: 'trash',
+            tone: 'danger',
+            run: () => {}
+          }}
+        >
+          <div class="swipe-demo"><b>Spinach</b><span>Fridge · 200 g</span></div>
+        </SwipeRow>
+      {/each}
+    </div>
+    <h3>One side: Move… (blue), and a very long name</h3>
+    <div class="swipes">
+      <SwipeRow
+        open="right"
+        right={{
+          label: 'Move…',
+          describe: 'Coriander',
+          icon: 'arrow-right',
+          tone: 'move',
+          run: () => {}
+        }}
+      >
+        <div class="swipe-demo"><b>Coriander</b><span>2 bunches</span></div>
+      </SwipeRow>
+      <SwipeRow
+        left={{
+          label: 'Remove',
+          describe: 'from the list',
+          icon: 'trash',
+          tone: 'danger',
+          run: () => {}
+        }}
+      >
+        <div class="swipe-demo">
+          <b>Extra virgin cold-pressed olive oil from the little shop round the corner</b>
+          <span>1 bottle</span>
+        </div>
+      </SwipeRow>
+    </div>
+  </section>
+
   <section id="recipes">
     <h2>Recipe rows, filter row, empty list</h2>
     <p class="note">
@@ -1609,6 +1673,28 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-4);
+  }
+
+  .swipes {
+    display: flex;
+    flex-direction: column;
+    max-width: 420px;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+
+  .swipe-demo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-height: 60px;
+    padding: var(--space-3) var(--space-8);
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .swipe-demo span {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
   }
 
   .shop-rows {

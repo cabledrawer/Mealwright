@@ -8,11 +8,12 @@
   import { tick as afterUpdate, untrack } from 'svelte';
   import { keepFocus } from '$lib/focusNear';
   import { radioKeys } from '$lib/radioKeys';
-  import { swipeToReveal } from '$lib/swipe';
+  import type { Side } from '$lib/swipe';
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
   import type { Note } from '$lib/shopping/types';
   import type { ViewItem } from '$lib/shopping/view';
   import Icon from '../Icon.svelte';
+  import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';
   import PackSheet from './PackSheet.svelte';
   import PutAwayLine from './PutAwayLine.svelte';
@@ -60,21 +61,11 @@
   });
 
   // --- Swipe (phone) -------------------------------------------------------------------------------
-  const REVEAL = 104;
-  let revealed = $state(untrack(() => swiped));
-  let drag = $state<number | null>(null);
+  let open = $state<Side>(untrack(() => (swiped ? 'left' : null)));
   const swipeable = $derived(model.device === 'phone' && !trolley && !editing);
-  const offset = $derived(drag ?? (revealed ? -REVEAL : 0));
-
-  $effect(() => {
-    if (!swipeable) {
-      revealed = false;
-      drag = null;
-    }
-  });
 
   function openBox() {
-    revealed = false;
+    open = null;
     editing = true;
   }
 
@@ -89,7 +80,7 @@
 
   function ask() {
     opener = document.activeElement;
-    revealed = false;
+    open = null;
     asking = true;
   }
 
@@ -115,109 +106,93 @@
   {#if editing && !trolley}
     <AmountBox {model} {view} onclose={() => void closeBox()} onremove={ask} />
   {:else}
-    <div class="swipe">
-      {#if swipeable && offset < 0}
-        <button type="button" class="swipe-remove" onclick={ask}>
-          <Icon name="trash" size={20} stroke={2.2} />Remove<span class="visually-hidden">
-            {food.name} from the list</span
+    <SwipeRow
+      bleed={14}
+      enabled={swipeable}
+      bind:open
+      left={{
+        label: 'Remove',
+        describe: `${food.name} from the list`,
+        icon: 'trash',
+        tone: 'danger',
+        run: ask
+      }}
+    >
+      <div class="line">
+        <label class="tick">
+          <input
+            type="checkbox"
+            checked={trolley}
+            aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
+            onchange={(event) => {
+              const back = keepFocus(event.currentTarget);
+              void (trolley ? model.untick(item) : model.tick(item));
+              back();
+            }}
+          />
+          <span class="box" aria-hidden="true">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
+            >
+          </span>
+        </label>
+        {#if trolley}
+          <span class="what">
+            <span class="top">
+              <span class="name">{food.name}</span>
+              {#if item.display}<span class="bought">{item.display}</span>{/if}
+            </span>
+            {#if planned}<span class="sub">{planned}</span>{/if}
+            {#if putAway}
+              <PutAwayLine
+                state={putAway}
+                name={food.name}
+                changing={placing}
+                onchange={() => (model.placing = placing ? null : item.id)}
+                onadd={(button) => {
+                  packButton = button;
+                  packOpen = true;
+                }}
+                onundo={() => void model.undoTick(item)}
+              />
+            {/if}
+          </span>
+        {:else}
+          <button
+            type="button"
+            class="name"
+            bind:this={nameButton}
+            aria-expanded={editing}
+            onclick={openBox}>{food.name}</button
           >
-        </button>
-      {/if}
-      <div
-        class="slide"
-        class:dragging={drag !== null}
-        style:transform={offset ? `translateX(${offset}px)` : undefined}
-        use:swipeToReveal={{
-          width: REVEAL,
-          open: revealed,
-          enabled: swipeable,
-          ondrag: (value) => (drag = value),
-          onsettle: (open) => (revealed = open)
-        }}
-        onclickcapture={(event) => {
-          // A swiped row closes on the next tap, whatever it lands on.
-          if (!revealed) return;
-          event.stopPropagation();
-          event.preventDefault();
-          revealed = false;
-        }}
-      >
-        <div class="line">
-          <label class="tick">
-            <input
-              type="checkbox"
-              checked={trolley}
-              aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
-              onchange={(event) => {
-                const back = keepFocus(event.currentTarget);
-                void (trolley ? model.untick(item) : model.tick(item));
-                back();
-              }}
-            />
-            <span class="box" aria-hidden="true">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="3.2"
-                stroke-linecap="round"
-                stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
-              >
-            </span>
-          </label>
-          {#if trolley}
-            <span class="what">
-              <span class="top">
-                <span class="name">{food.name}</span>
-                {#if item.display}<span class="bought">{item.display}</span>{/if}
-              </span>
-              {#if planned}<span class="sub">{planned}</span>{/if}
-              {#if putAway}
-                <PutAwayLine
-                  state={putAway}
-                  name={food.name}
-                  changing={placing}
-                  onchange={() => (model.placing = placing ? null : item.id)}
-                  onadd={(button) => {
-                    packButton = button;
-                    packOpen = true;
-                  }}
-                  onundo={() => void model.undoTick(item)}
-                />
-              {/if}
-            </span>
-          {:else}
-            <button
-              type="button"
-              class="name"
-              bind:this={nameButton}
-              aria-expanded={editing}
-              onclick={openBox}>{food.name}</button
-            >
-            <button
-              type="button"
-              class="amount"
-              aria-expanded={editing}
-              aria-label={item.display
-                ? `Change amount: ${food.name}, ${item.display}`
-                : `Add amount for ${food.name}`}
-              onclick={openBox}
-            >
-              {item.display ?? 'Add amount'}
-              {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
-            </button>
-            <button
-              type="button"
-              class="bin"
-              aria-label="Remove {food.name} from the list"
-              onclick={ask}><Icon name="trash" size={20} stroke={2.2} /></button
-            >
-          {/if}
-        </div>
+          <button
+            type="button"
+            class="amount"
+            aria-expanded={editing}
+            aria-label={item.display
+              ? `Change amount: ${food.name}, ${item.display}`
+              : `Add amount for ${food.name}`}
+            onclick={openBox}
+          >
+            {item.display ?? 'Add amount'}
+            {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
+          </button>
+          <button
+            type="button"
+            class="bin"
+            aria-label="Remove {food.name} from the list"
+            onclick={ask}><Icon name="trash" size={20} stroke={2.2} /></button
+          >
+        {/if}
       </div>
-    </div>
+    </SwipeRow>
   {/if}
 
   {#if placing && trolley}
@@ -284,60 +259,19 @@
     border-bottom: none;
   }
 
-  /* The row slides over a red Remove; the card's own padding is given back to the row. */
-  .swipe {
-    position: relative;
-    margin: 0 -14px;
-    overflow: hidden;
-  }
-
-  .item:first-child .swipe {
+  /* The card's rounded corners, given to the swipe area inside the first and last row. */
+  .item:first-child :global(.swipe) {
     border-top-left-radius: var(--radius-xl);
     border-top-right-radius: var(--radius-xl);
   }
 
-  .item:last-child .swipe {
+  .item:last-child :global(.swipe) {
     border-bottom-left-radius: var(--radius-xl);
     border-bottom-right-radius: var(--radius-xl);
   }
 
-  .swipe-remove {
-    position: absolute;
-    inset: 0 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    width: 104px;
-    padding: 0;
-    border: none;
-    background: var(--color-danger);
-    color: var(--color-danger-text);
-    font: var(--weight-bold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .slide {
-    position: relative;
-    padding: 0 14px;
-    background: var(--color-surface);
-    /* Sideways belongs to the swipe; up and down still scroll the page. */
-    touch-action: pan-y;
-    transition: transform 0.18s ease;
-  }
-
-  .highlight .slide {
+  .highlight :global(.slide) {
     background: var(--color-accent-soft);
-  }
-
-  .slide.dragging {
-    transition: none;
-  }
-
-  .visually-hidden {
-    position: absolute;
-    left: -9999px;
   }
 
   .line {

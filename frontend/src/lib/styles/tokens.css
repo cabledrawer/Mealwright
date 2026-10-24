@@ -68,6 +68,10 @@
   /* A button that removes something: white on this red passes AA (mockups ShopRows-*). */
   --color-danger: #b3261e;
   --color-danger-text: #ffffff;
+  /* The buttons a swipe reveals (mockups PantrySwipe-Phone, ShopMove-Phone); white on each passes AA. */
+  --color-swipe-used: #2e7d5b;
+  --color-swipe-move: #2b5c8a;
+  --color-swipe-text: #ffffff;
   --radius-field: 14px;
   --radius-button: 16px;
 
@@ -228,6 +232,9 @@
   --color-warning-text: #ff9b76;
   --color-danger: #c8442f;
   --color-danger-text: #ffffff;
+  --color-swipe-used: #2e7d5b;
+  --color-swipe-move: #2b5c8a;
+  --color-swipe-text: #ffffff;
 
   --color-switch-off: #39433d;
   --color-switch-on: #6fcf9e;

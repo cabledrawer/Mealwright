@@ -27,7 +27,8 @@
     | 'alert'
     | 'cloud-off'
     | 'link'
-    | 'note';
+    | 'note'
+    | 'arrow-right';
 </script>
 
 <script lang="ts">
@@ -116,6 +117,8 @@
   {:else if name === 'note'}
     <path d="M6 3h9l4 4v14H6z" />
     <path d="M9 12h7M9 16h5" />
+  {:else if name === 'arrow-right'}
+    <path d="M4 12h12M12 6l6 6-6 6" />
   {:else if name === 'search'}
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />

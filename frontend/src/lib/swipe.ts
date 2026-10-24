@@ -1,28 +1,39 @@
-// Swipe a row to the left to show a button behind it (Shopping: a red "Remove", cabledrawer
-// 20 Oct). Touch and pen only; a mouse has its own button, and keyboards and screen readers
-// use the amount box. A swipe alone never does anything: it only shows the button, and
-// tapping that asks first.
+// Swipe a row sideways to show a button behind it (Shopping's red Remove, cabledrawer 20 Oct;
+// Pantry's Used… and Binned and Shopping's Move…, cabledrawer 21 Oct). Touch and pen only; a mouse
+// has its own buttons, and keyboards and screen readers use the same choices elsewhere in the
+// row (see SwipeRow.svelte). A swipe alone never does anything: it only shows the button.
 //
-//   <div use:swipeToReveal={{ width: 104, open, enabled, ondrag, onsettle }}>
+//   <div use:swipeToReveal={{ toLeft, toRight, open, enabled, ondrag, onsettle }}>
 //
-// `ondrag` gets the row's offset in pixels (0 to -width) while a finger is moving it, and
-// null when it lets go; `onsettle` says whether the button should now stay shown. The row
-// itself does the drawing from those two, so nothing moves under reduced motion unless
+// `toLeft` is how far the row may slide left (to show a button on its right edge), `toRight`
+// how far it may slide right (a button on its left edge); 0 turns that side off. `ondrag` gets
+// the row's offset in pixels (negative = left) while a finger is moving it, and null when it
+// lets go; `onsettle` says which button should now stay shown ('left' = the row is slid left).
+// The row itself does the drawing from those two, so nothing moves under reduced motion unless
 // the finger moves it.
 
+export type Side = 'left' | 'right' | null;
+
 export interface SwipeOptions {
-  /** How far the row slides to show the button, in pixels. */
-  width: number;
-  /** Is the button showing now? */
-  open: boolean;
+  /** How far the row slides left, in pixels (0: no swipe left). */
+  toLeft: number;
+  /** How far the row slides right, in pixels (0: no swipe right). */
+  toRight: number;
+  /** Which button is showing now? */
+  open: Side;
   /** Off on a computer layout. */
   enabled: boolean;
   ondrag: (offset: number | null) => void;
-  onsettle: (open: boolean) => void;
+  onsettle: (open: Side) => void;
 }
 
 /** A move this far sideways (and more sideways than up or down) starts a swipe. */
 const START_PX = 10;
+
+/** Where the row rests for a side. */
+export function restOffset(open: Side, toLeft: number, toRight: number): number {
+  return open === 'left' ? -toLeft : open === 'right' ? toRight : 0;
+}
 
 export function swipeToReveal(node: HTMLElement, options: SwipeOptions) {
   let current = options;
@@ -35,7 +46,7 @@ export function swipeToReveal(node: HTMLElement, options: SwipeOptions) {
   let pointer = -1;
   let swallowClick = false;
 
-  const clamp = (value: number) => Math.min(0, Math.max(-current.width, value));
+  const clamp = (value: number) => Math.min(current.toRight, Math.max(-current.toLeft, value));
 
   function down(event: PointerEvent) {
     if (!current.enabled || event.pointerType === 'mouse' || !event.isPrimary) return;
@@ -43,7 +54,7 @@ export function swipeToReveal(node: HTMLElement, options: SwipeOptions) {
     swiping = false;
     startX = event.clientX;
     startY = event.clientY;
-    from = current.open ? -current.width : 0;
+    from = restOffset(current.open, current.toLeft, current.toRight);
     offset = from;
     pointer = event.pointerId;
   }
@@ -78,7 +89,9 @@ export function swipeToReveal(node: HTMLElement, options: SwipeOptions) {
     swallowClick = true;
     setTimeout(() => (swallowClick = false), 400);
     current.ondrag(null);
-    current.onsettle(offset < -current.width / 2);
+    if (current.toLeft && offset < -current.toLeft / 2) current.onsettle('left');
+    else if (current.toRight && offset > current.toRight / 2) current.onsettle('right');
+    else current.onsettle(null);
   }
 
   function click(event: MouseEvent) {
