@@ -285,12 +285,15 @@ test.describe('theme', () => {
 test.describe('desktop sidebar', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'desktop layout only');
 
-  test('Recipes’ tree is All recipes and Ingredients, with no Drafts in 0.4', async ({ page }) => {
+  test('Recipes’ tree is All recipes, Drafts and Ingredients (Drafts is back with import, 0.5)', async ({ page }) => {
     await page.goto('/recipes/ingredients');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
-    await expect(sidebar.getByRole('link', { name: 'Ingredients', exact: true })).toBeVisible();
-    await expect(sidebar.getByRole('link', { name: 'All recipes', exact: true })).toBeVisible();
-    await expect(sidebar.getByText('Drafts')).toHaveCount(0);
+    await expect(sidebar.getByRole('group', { name: 'Recipes' }).getByRole('link')).toHaveText([
+      'All recipes',
+      /^Drafts\s*\d*$/,
+      'Ingredients',
+    ]);
+    await expect(sidebar.getByRole('link', { name: /^Drafts/ })).toHaveAttribute('href', '/recipes/drafts');
   });
 
   test('collapses to icons, and is remembered', async ({ page }) => {
@@ -328,8 +331,7 @@ test.describe('desktop sidebar', () => {
     await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
     await icon.click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    // No Drafts in 0.4: drafts come with import (0.5).
-    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Ingredients']);
+    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Drafts', 'Ingredients']);
     await expect(menu.getByRole('menuitem', { name: 'Ingredients' })).toHaveAttribute(
       'aria-current',
       'page',

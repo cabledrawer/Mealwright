@@ -21,6 +21,7 @@
     shortProgress
   } from '$lib/draftWords';
   import { drafts } from '$lib/drafts.svelte';
+  import { kitchen } from '$lib/freshness.svelte';
   import { saveFromDraft } from '$lib/import.draftSave';
   import { initial } from '$lib/session.svelte';
   import { network } from '$lib/network.svelte';
@@ -44,6 +45,16 @@
     const again = network.backAgain;
     if (again !== seen) {
       seen = again;
+      void drafts.load();
+    }
+  });
+  // An Undo done from the keyboard after a reload (Ctrl+Z finds the delete on the server) says
+  // something changed: the list is fetched again.
+  let changes = kitchen.version;
+  $effect(() => {
+    const now = kitchen.version;
+    if (now !== changes) {
+      changes = now;
       void drafts.load();
     }
   });
@@ -86,7 +97,7 @@
     <button
       type="button"
       class="save"
-      disabled={saving !== null}
+      disabled={saving !== null || network.offline}
       onclick={() => void saveNow(draft)}
       aria-label="Save recipe {draft.name}"
     >
@@ -98,6 +109,7 @@
     type="button"
     class="delete"
     aria-label="Delete {draft.name}"
+    disabled={network.offline}
     onclick={() => void drafts.remove(draft)}>Delete</button
   >
 {/snippet}

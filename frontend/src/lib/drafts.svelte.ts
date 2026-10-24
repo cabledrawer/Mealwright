@@ -10,7 +10,8 @@ import { ApiError, cantReach, forgetWhenSessionEnds } from './api';
 import { serverUndo } from './client/changes';
 import { deleteDraft, listDrafts, type DraftBrief } from './client/drafts';
 import { newChangeId } from './changeId';
-import { undoHistory } from './undo.svelte';
+import { toasts } from './toast.svelte';
+import { undoHistory, type UndoEntry } from './undo.svelte';
 
 export const NO_DRAFTS_OFFLINE =
   'Drafts are kept on your Mealwright server. They’ll show again when you’re back online.';
@@ -56,25 +57,29 @@ class Drafts {
     }
   }
 
-  /** Delete a draft: gone from the list at once; the toast's Undo (or Ctrl+Z) brings it back. */
+  /** Delete a draft: gone from the list at once, and the toast's Undo (or Ctrl+Z) is there at once
+   *  too: it waits for the delete to finish, so it works even if pressed straight away. */
   async remove(draft: DraftBrief): Promise<void> {
     const generation = this.#generation;
     this.deleteProblem = null;
     const before = this.drafts;
     this.drafts = this.drafts.filter((d) => d.id !== draft.id);
+    const deleting = deleteDraft(draft.id, newChangeId());
+    const entry: UndoEntry = {
+      label: `Deleted the ${draft.name} draft`,
+      undo: async () => {
+        const { change } = await deleting;
+        const message = await serverUndo(change.id)();
+        await this.load();
+        return message;
+      }
+    };
+    const toast = undoHistory.record(entry);
     try {
-      const { change } = await deleteDraft(draft.id, newChangeId());
-      if (generation !== this.#generation) return;
-      const undo = serverUndo(change.id);
-      undoHistory.record({
-        label: `Deleted the ${draft.name} draft`,
-        undo: async () => {
-          const message = await undo();
-          await this.load();
-          return message;
-        }
-      });
+      await deleting;
     } catch (error) {
+      undoHistory.forget(entry);
+      if (toast !== undefined) toasts.dismiss(toast);
       if (generation !== this.#generation) return;
       // Someone else deleted it first: it is gone, which is what was wanted.
       if (error instanceof ApiError && error.status === 404) return;

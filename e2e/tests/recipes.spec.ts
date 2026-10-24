@@ -74,8 +74,10 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   await expect(page.locator('li a')).toHaveCount(3);
   await expect(page.locator('li button')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
-  // Not built yet, so not there: Drafts (comes with PR 5), Planned. Import a recipe is (0.5).
-  await expect(page.getByRole('main').getByText(/Drafts|Planned/)).toHaveCount(0);
+  // Not built yet, so not there: Planned. Import a recipe is (0.5), and so is Drafts: the phone has
+  // its button at the top of this page, a computer has it in the sidebar.
+  await expect(page.getByRole('main').getByText(/Planned/)).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('link', { name: /^Drafts/ })).toHaveCount(isPhone(page) ? 1 : 0);
   await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
   await checkPage(page);
 });

@@ -153,6 +153,34 @@ describe('the Drafts screen', () => {
       await expect.element(page.getByText('Rava dosa')).toBeVisible();
     });
 
+    it('Undo pressed at once, before the delete has answered, still brings the draft back', async () => {
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const sent: string[] = [];
+      await open({ 'GET /recipes/drafts': list(THREE) });
+      await expect.element(page.getByText('Rava dosa')).toBeVisible();
+      vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+        const route = `${init.method ?? 'GET'} ${String(input).replace('/api/v1', '')}`;
+        sent.push(route);
+        if (route === 'DELETE /recipes/drafts/2') await held; // the server hasn't answered yet
+        const body =
+          route === 'GET /recipes/drafts'
+            ? { drafts: THREE, count: 3 }
+            : route.startsWith('DELETE')
+              ? { change: changeOf(40, 'Deleted the Rava dosa draft') }
+              : { result: 'done', message: 'back', change: changeOf(41, 'x') };
+        return new Response(JSON.stringify(body), { status: 200 });
+      });
+      await page.getByRole('button', { name: 'Delete Rava dosa' }).click();
+      await expect.element(page.getByText('Rava dosa')).not.toBeInTheDocument();
+      expect(undoHistory.size).toBe(1); // there is something to undo before the answer comes
+      const undone = undoHistory.undoLast();
+      release();
+      expect(await undone).toBe(true);
+      expect(sent).toContain('POST /changes/40/undo');
+      await expect.element(page.getByText('Rava dosa')).toBeVisible();
+    });
+
     it('puts a draft back and says so when the delete did not go through', async () => {
       await open({
         'GET /recipes/drafts': list(THREE),
@@ -362,6 +390,11 @@ describe('the Drafts screen', () => {
       flushSync();
       await expect.element(page.getByText(/This is as it was when you last looked/)).toBeVisible();
       await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      // It can't be changed until the connection is back.
+      await expect.element(page.getByRole('button', { name: 'Delete Rava dosa' })).toBeDisabled();
+      await expect
+        .element(page.getByRole('button', { name: 'Save recipe Aloo paratha' }))
+        .toBeDisabled();
     });
   });
 });

@@ -15,6 +15,7 @@ Six modules:
 | `mealwright.page_budget` | `read_within_budget()`: `read_page()` in a short-lived child process, stopped past its processor-time, clock or memory limit, at most two at once (below, "The work budget") |
 | `mealwright.network_guard` | the audit hook that refuses connections made outside the gate; small on purpose, so the page-reading child can switch it on too |
 | `mealwright.recipe_import` | the import itself: the one box, the review, Save (last section) |
+| `mealwright.drafts` | drafts: an import left unfinished, kept for 15 days (the section after the API) |
 
 ## How fetching is checked
 
@@ -449,5 +450,90 @@ saves once.
 
 **The screens.** `/recipes/import`: the box (`ImportStart`), "You already have this recipe"
 (`AlreadySheet`) and the review (`ReviewScreen`, `ReviewLineRow`). Online only: offline, the box
-says it needs the server, and nothing is queued. Leaving the review just leaves for now ("Save as
-a draft?" comes with Drafts). "Save & plan it" is hidden until 0.6.
+says it needs the server, and nothing is queued. Leaving the review without saving asks "Save as a
+draft?" (below). "Save & plan it" is hidden until 0.6.
+
+## Drafts (0.5 PR 5)
+
+An import left unfinished, kept so the household can carry on (spec section 6, "Drafts (cabledrawer 21
+Oct)", "Drafts: how long they last (cabledrawer 22 Oct, question 8)" and "Size limits (cabledrawer 22 Oct,
+question 9)"). `mealwright.drafts`, `api/v1/drafts.py`, table `import_draft`, and
+`recipe_photo.draft_id`; one migration (`d7a4c2e81f56`, tested up, down and up).
+
+**What a draft keeps.** The box's text (the link or the pasted text, up to 100,000 characters),
+the review exactly as the server sent it (`review`), every choice so far (`choices`: the Name,
+Serves and Minutes boxes as typed, `null` for "as read", and a choice for each line the person has
+settled: Same as an ingredient, New ingredient, Treat as staple), who started it and when, when it
+was last changed, and, through `recipe_photo.draft_id`, the downloaded photo. The server checks the
+shape and the size (at most 200 lines, 100 steps of 5,000 characters, 20 tags, 2 MB of review) and
+that a photo is the household's own; **Save checks everything again**, so a draft is only a place to
+carry on from. The server rebuilds the list's words from it: the ingredient lines, and how many are
+tied to an ingredient (matched or staple lines, and any line with a choice), kept in
+`lines_total` and `lines_checked` ("6 of 9 ingredients checked · 3 need you").
+
+**Nothing in a draft touches Ingredients.** Keeping, changing, reading, deleting, undoing and
+tidying a draft makes no ingredient, staple or other name and writes no Recent changes entry
+(`test_drafts.py`, `test_nothing_in_a_draft_touches_ingredients_until_save`). The new ingredients,
+staples and learned names it holds are made on Save, as for any import.
+
+**The API** (all under `/api/v1`, all for the signed-in household only; another household's draft
+is a plain 404):
+
+| | |
+| --- | --- |
+| `GET /recipes/drafts` | the household's drafts, the one changed last first: name, where from, who started it, `days_left`, `lines_total`, `lines_checked` |
+| `POST /recipes/drafts` | keep a review as a draft (`text`, `review`, `choices`); 201. At 50 drafts: 409 `too_many_drafts`, "You have 50 drafts. Finish or delete one first." A retry with the same `Idempotency-Key` makes no second draft |
+| `GET /recipes/drafts/{id}` | carry on: the text, the review and the choices. Opening changes nothing |
+| `PUT /recipes/drafts/{id}` | replace what it keeps (the same body); counts as a change |
+| `DELETE /recipes/drafts/{id}` | hide it at once; the answer has the change whose Undo (`POST /changes/{id}/undo`) brings it back |
+| `POST /recipes/import/save` with `draft_id` | Save as always (one transaction, one `recipe_imported` change, one Undo), and the draft is removed in the same transaction; its photo becomes the recipe's |
+
+**The 15 days** count from the last change (`updated_at`): a draft that someone changes does not
+vanish, and the days left grow back to 15. **Looking** at a draft (opening it, listing) is not a
+change. A draft past its 15 days is no longer listed, can't be opened or saved from, and doesn't
+count towards the 50, even before the hourly tidy-up (`jobs.purge_removed_ingredients`, which
+calls `drafts.purge`) deletes it, with its photo, quietly. **Delete** hides a draft at once
+(`removed_at`) and records `draft_removed` (not in Recent changes; found by Ctrl+Z through the
+server's list of your own changes, like a deleted recipe). It is kept hidden for the undo window
+(7 days, plus an hour so an offered Undo can't vanish), then deleted for good with its photo. **Undo**
+brings it back counted as just changed (its 15 days start again, so it isn't back for a moment and
+then gone). At 50 drafts an Undo is refused with the same sentence as keeping a 51st: no old draft
+is ever deleted to make room.
+
+**Two people at once.** The spec doesn't say, so the last save wins: `PUT` replaces the draft whole
+and neither person is told. Both can still carry on and Save; whoever Saves first makes the recipe
+(the draft goes), and the other's Save is then a plain 404 "That draft isn’t here any more." with
+the recipe already in Recipes.
+
+**The photo.** A downloaded photo is a waiting photo (24 hours) until a draft takes it:
+`recipe_photo.draft_id` makes it the draft's. A draft's photo is not deleted after 24 hours and
+**does not count towards the 10 that can wait** (spec, "Size limits"); it can't be attached to a
+recipe by the editor, taken by another draft or deleted on its own; it is shown only while its
+draft is there to see; it goes with the draft (the files once the delete is committed), and on Save
+it becomes the recipe's. If the photo has already been deleted when the draft is kept (a review
+left open for more than a day), the draft is kept without it and the review says "Photo not
+downloaded — The photo wasn’t kept."
+
+**Ingredients that changed since.** A draft can wait 15 days. When it is opened, an ingredient that
+was renamed shows its new name, one that was merged into another shows that one, and one that was
+removed is no longer offered: a line that was tied to it goes back to "needs you", and a choice
+that pointed at it is dropped (`drafts.freshen`; what is stored is not rewritten by looking). Save
+would refuse them anyway, line by line. A *new* ingredient made since by someone else is not
+picked up by lines that were read before it existed; "Pick an ingredient" finds it.
+
+**Logs** never hold a draft's link or text (`test_logs_never_hold_a_drafts_link_or_text`): nothing
+here logs anything but a count of how many old drafts the hourly tidy-up deleted.
+
+**The screens.** Leaving the review without saving (Cancel, the back link, a tab, the browser's
+Back) asks "Save as a draft?" with the mockup's words (`LeaveSheet`, guarded in `ReviewScreen` by
+`beforeNavigate`). Closing or reloading the tab can't be asked about. Save draft goes to Drafts when
+the person was going to Recipes, and otherwise where they were going. A draft that was opened and
+left alone just leaves; one that was changed asks again in other words (proposed, for cabledrawer:
+"Save your changes?", "Discard changes"). `/recipes/drafts` is the Drafts screen (`DraftsScreen`:
+cards on a phone, a table on a computer), `/recipes/drafts/{id}` carries on (`ImportFlow.load`).
+Each row has a visible Carry on and Delete; a draft whose ingredients are all checked also has
+Save recipe (as the mockup has it), which makes the recipe exactly as Save on the review does.
+Online only: offline, Drafts shows what it last had, says it can't be changed, and the Delete and
+Save recipe buttons are off. The numbers beside Drafts in the sidebar and on the phone's All recipes
+page are asked for once when the app opens, when the connection comes back and after a change made
+here; another person's drafts show on the next look at Drafts. There are no swipes yet (0.5 PR 7).

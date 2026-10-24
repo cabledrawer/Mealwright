@@ -66,7 +66,7 @@ test('/recipes shows the list beside a calm empty reading pane, and passes the a
     'page',
   );
   await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
-  // Hidden in 0.4: not drawn, not stubbed.
+  // Hidden until they work: not drawn, not stubbed (Drafts is in the sidebar, not in the panes).
   await expect(
     page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
   ).toHaveCount(0);
