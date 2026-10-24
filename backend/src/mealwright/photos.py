@@ -251,7 +251,7 @@ def write(store: Path, household_id: int, key: str, cleaned: Cleaned) -> int:
             written.append(path)
     except BaseException:
         for path in written:
-            path.unlink(missing_ok=True)
+            delete_quietly(path)
         raise
     return len(cleaned.large) + len(cleaned.small)
 
@@ -265,8 +265,20 @@ def _write_one(folder: Path, path: Path, data: bytes) -> None:
             os.fsync(out.fileno())
         os.replace(temp, path)
     except BaseException:
-        Path(temp).unlink(missing_ok=True)
+        delete_quietly(Path(temp))
         raise
+
+
+def delete_quietly(path: Path) -> None:
+    """Delete a file when cleaning up after an error. If it can't be deleted, only the kind
+    of error is logged (its text carries the file's path), and the error that started the
+    clean-up is the one that goes on, not this one. The hourly tidy-up deletes what's left."""
+    try:
+        path.unlink(missing_ok=True)
+    except OSError as e:
+        log.warning(
+            "Couldn't delete a photo's file (will try again within the hour): %s", type(e).__name__
+        )
 
 
 def remove_files(store: Path, household_id: int, key: str) -> None:
@@ -327,7 +339,15 @@ def sweep_files(store: Path, household_id: int, known: set[str], now: float | No
             continue
         if match is not None and match.group(1) in known:
             continue
-        if entry.stat().st_mtime < cutoff:
-            entry.unlink(missing_ok=True)
-            gone += 1
+        try:
+            if entry.stat().st_mtime < cutoff:
+                entry.unlink(missing_ok=True)
+                gone += 1
+        except OSError as e:
+            # One file that won't go doesn't stop the rest. Only the kind of error is logged:
+            # its text carries the file's path and the household's folder number.
+            log.warning(
+                "Couldn't delete a photo's file (will try again within the hour): %s",
+                type(e).__name__,
+            )
     return gone

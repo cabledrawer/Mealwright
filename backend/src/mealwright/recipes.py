@@ -639,6 +639,7 @@ def drop_waiting_photos(db: DbSession, household: Household, now: datetime | Non
     from datetime import timedelta
 
     from mealwright.photos import WAITING_HOURS, store_of, sweep_files
+    from mealwright.photos import log as photos_log
     from mealwright.shopping import lock_db
 
     now = now or utcnow()
@@ -660,7 +661,15 @@ def drop_waiting_photos(db: DbSession, household: Household, now: datetime | Non
         db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.household_id == household.id))
     )
     db.commit()
-    sweep_files(store_of(db), household.id, known, now.timestamp())
+    try:
+        sweep_files(store_of(db), household.id, known, now.timestamp())
+    except OSError as e:
+        # The folder couldn't be read. The error's text carries its path, so only the kind of
+        # error is logged; the next hourly run tries again.
+        photos_log.warning(
+            "Couldn't sweep the photo files with no record (will try again within the hour): %s",
+            type(e).__name__,
+        )
     return len(old)
 
 

@@ -1079,3 +1079,111 @@ def test_recipe_rows_and_photo_records_stay_in_step(kitchen: TestClient) -> None
         found = db.scalars(select(RecipePhoto)).all()
         assert [(p.recipe_id, p.household_id) for p in found] == [(recipe["id"], 1)]
         assert db.get(Recipe, recipe["id"]) is not None
+
+
+# --- Cleaning up after an error never logs a file's path (0.4.0 release review) -------------
+
+
+def _refuse_every_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(self: Path, missing_ok: bool = False) -> None:
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+
+
+def _nothing_names_a_file(text: str, *where: object) -> None:
+    for secret in where:
+        assert str(secret) not in text, text
+    assert "Permission denied" not in text and "Traceback" not in text, text
+
+
+def test_the_hourly_sweep_logs_the_kind_of_error_not_the_path(
+    kitchen: TestClient, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = store(kitchen) / "1"
+    folder.mkdir(parents=True, exist_ok=True)
+    leftover = folder / f"{'a' * 32}.jpg"
+    other = folder / f"{'c' * 32}-list.jpg"
+    for path in (leftover, other):
+        path.write_bytes(b"x")
+        old = time.time() - 3 * 24 * 3600
+        os.utime(path, (old, old))
+    _refuse_every_delete(monkeypatch)
+    with caplog.at_level("DEBUG"):
+        jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    monkeypatch.undo()
+    assert leftover.exists() and other.exists()  # it did fail, for each, and went on to the next
+    assert caplog.text.count("Couldn't delete a photo's file") == 2
+    assert "PermissionError" in caplog.text
+    _nothing_names_a_file(caplog.text, leftover, other, leftover.name, folder, store(kitchen))
+    assert (
+        "Couldn't tidy removed ingredients" not in caplog.text
+    )  # no error reached the job's catch-all
+
+
+def test_a_folder_the_sweep_cannot_read_logs_the_kind_of_error_not_the_path(
+    kitchen: TestClient, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = store(kitchen) / "1"
+    folder.mkdir(parents=True, exist_ok=True)
+
+    def unreadable(self: Path) -> Iterator[Path]:
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "iterdir", unreadable)
+    with caplog.at_level("DEBUG"):
+        jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    monkeypatch.undo()
+    assert "Couldn't sweep the photo files" in caplog.text and "PermissionError" in caplog.text
+    _nothing_names_a_file(caplog.text, folder, store(kitchen))
+    assert "Couldn't tidy removed ingredients" not in caplog.text
+
+
+def test_a_failed_upload_whose_clean_up_fails_logs_the_kind_of_error_not_the_path(
+    kitchen: TestClient, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import mealwright.api.v1.photos as route
+
+    real = route.lock_household
+    locks: list[int] = []
+
+    def second_breaks(*args: Any, **kwargs: Any) -> None:
+        locks.append(1)
+        if len(locks) == 2:  # after the files are written
+            raise RuntimeError("the database went away")
+        real(*args, **kwargs)
+
+    monkeypatch.setattr(route, "lock_household", second_breaks)
+    _refuse_every_delete(monkeypatch)
+    with caplog.at_level("DEBUG"), pytest.raises(RuntimeError, match="the database went away"):
+        kit.upload(kitchen, kit.jpeg())
+    monkeypatch.undo()
+    # The error that started it is the one that goes on; the clean-up's is only counted.
+    assert "Couldn't delete a photo's files" in caplog.text and "PermissionError" in caplog.text
+    _nothing_names_a_file(caplog.text, store(kitchen), "Permission denied")
+    assert not re.search(r"[0-9a-f]{32}", caplog.text)  # no photo's file key either
+
+
+def test_a_write_that_fails_part_way_logs_the_kind_of_error_when_it_cannot_clean_up(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cleaned = photos.clean(kit.jpeg(40, 30))
+    real = photos._write_one
+    calls: list[Path] = []
+
+    def second_fails(folder: Path, path: Path, data: bytes) -> None:
+        calls.append(path)
+        if len(calls) == 2:
+            raise OSError(28, "No space left on device")
+        real(folder, path, data)
+
+    monkeypatch.setattr(photos, "_write_one", second_fails)
+    first = photos.paths(tmp_path, 1, "a" * 32)[0]
+    with caplog.at_level("DEBUG"):
+        _refuse_every_delete(monkeypatch)
+        with pytest.raises(OSError, match="No space left"):  # not the clean-up's error
+            photos.write(tmp_path, 1, "a" * 32, cleaned)
+    monkeypatch.undo()
+    assert first.exists()  # it could not be deleted
+    assert "PermissionError" in caplog.text
+    _nothing_names_a_file(caplog.text, first, first.name, tmp_path)

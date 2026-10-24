@@ -170,7 +170,15 @@ def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
         if held:
             _give_back(place)
         if key is not None and not saved:
-            photos.remove_files(store, kitchen.household_id, key)
+            try:
+                photos.remove_files(store, kitchen.household_id, key)
+            except OSError as e:
+                # Only the kind of error is logged (its text carries the file's path); the
+                # hourly tidy-up deletes what's left. The error that got us here goes on.
+                photos.log.warning(
+                    "Couldn't delete a photo's files (will try again within the hour): %s",
+                    type(e).__name__,
+                )
     return photo_view(photo)
 
 
