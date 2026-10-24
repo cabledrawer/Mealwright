@@ -25,6 +25,31 @@ from mealwright.models import Household, Login
 API = "/api/v1"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
 
+# The smallest review a draft can keep (a draft's request body is a whole review).
+DRAFT_BODY: dict[str, Any] = {
+    "text": "Dal\n1 cup toor dal",
+    "review": {
+        "source": {"kind": "text", "url": None, "site": None},
+        "name": "Dal",
+        "description": None,
+        "author": None,
+        "time_minutes": None,
+        "serves": None,
+        "makes": None,
+        "tags": [],
+        "nutrition": {},
+        "photo": {"state": "none", "photo": None, "message": None},
+        "lines": [],
+        "steps": [],
+        "counts": {"matched": 0, "to_confirm": 0, "needs_you": 0, "staple": 0},
+        "lines_cut": False,
+        "steps_cut": False,
+        "steps_shortened": 0,
+        "left_out": [],
+    },
+    "choices": {},
+}
+
 
 @pytest.fixture
 def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
@@ -96,7 +121,9 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
     entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
+    draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
     return {
+        "draft_id": draft["id"],
         "recipe_id": recipe["id"],
         "entry_id": entry["id"],
         "photo_id": photo["id"],
@@ -172,6 +199,9 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/photos/{photo_id}/{copy}"): None,
     ("DELETE", "/api/v1/recipes/photos/{photo_id}"): None,
     ("DELETE", "/api/v1/privacy/own-network/{entry_id}"): None,
+    ("GET", "/api/v1/recipes/drafts/{draft_id}"): None,
+    ("PUT", "/api/v1/recipes/drafts/{draft_id}"): DRAFT_BODY,
+    ("DELETE", "/api/v1/recipes/drafts/{draft_id}"): None,
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request

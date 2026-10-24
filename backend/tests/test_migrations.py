@@ -683,3 +683,69 @@ def test_recipe_source_migration_keeps_recipes_and_goes_back_and_forward(tmp_pat
         ).scalar_one()
     assert [tuple(r) for r in rows] == [(None, None, None)] * 2
     assert "AUTOINCREMENT" in sql
+
+
+RECIPE_SOURCE = "5b2e9d41a7c3"  # 0.5 PR 3's migration: the one just before the drafts
+
+
+def test_drafts_migration_keeps_recipes_and_photos_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.5 PR 5: a drafts table and `recipe_photo.draft_id` (empty for every photo already
+    there). Going back drops both, deletes the photo records the drafts held, and keeps the
+    recipes and their photos; forward again works, with the id rule and the index kept."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)  # upgraded to the newest
+    assert "import_draft" in inspect(engine).get_table_names()
+    assert "draft_id" in {c["name"] for c in inspect(engine).get_columns("recipe_photo")}
+    with engine.begin() as connection:
+        assert connection.exec_driver_sql("SELECT draft_id FROM recipe_photo").all() == [
+            (None,),
+            (None,),
+        ]
+        connection.exec_driver_sql(
+            "INSERT INTO import_draft (id, household_id, source_kind, source_text, name, review,"
+            " choices, lines_total, lines_checked, started_by_name, created_at, updated_at)"
+            " VALUES (1, 1, 'text', 'Sambar', 'Sambar', '{}', '{}', 0, 0, 'User', '2026-10-24',"
+            " '2026-10-24')"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO recipe_photo (household_id, recipe_id, draft_id, file_key, width,"
+            " height, list_width, list_height, bytes, added_at, added_by_name) VALUES (1, NULL,"
+            " 1, 'kept', 10, 10, 10, 10, 1, '2026-10-24', '')"
+        )
+        # A draft only has a known kind of source.
+        with pytest.raises(IntegrityError):
+            connection.exec_driver_sql(
+                "INSERT INTO import_draft (household_id, source_kind, source_text, name, review,"
+                " choices, lines_total, lines_checked, started_by_name, created_at, updated_at)"
+                " VALUES (1, 'fax', 'x', 'x', '{}', '{}', 0, 0, '', '2026-10-24', '2026-10-24')"
+            )
+
+    migrate.downgrade(engine, RECIPE_SOURCE)
+    assert "import_draft" not in inspect(engine).get_table_names()
+    assert "draft_id" not in {c["name"] for c in inspect(engine).get_columns("recipe_photo")}
+    assert [r[0] for r in _photo_keys(engine)] == ["abc", "abc"]  # the draft's photo record is gone
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one() == 2
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    with engine.connect() as connection:
+        sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'recipe_photo'"
+        ).scalar_one()
+        drafts_sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'import_draft'"
+        ).scalar_one()
+        assert connection.exec_driver_sql("SELECT draft_id FROM recipe_photo").all() == [
+            (None,),
+            (None,),
+        ]
+    indexes = {i["name"] for i in inspect(engine).get_indexes("recipe_photo")}
+    assert "AUTOINCREMENT" in sql and "AUTOINCREMENT" in drafts_sql
+    assert {"ix_recipe_photo_draft_id", "ix_recipe_photo_household_id"} <= indexes
+
+
+def _photo_keys(engine: Engine) -> list[tuple[str]]:
+    with engine.connect() as connection:
+        return [tuple(r) for r in connection.exec_driver_sql("SELECT file_key FROM recipe_photo")]

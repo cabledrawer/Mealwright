@@ -371,6 +371,13 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("ImportLinkIn", "place_id"): "test_recipe_import",
     ("ImportLineIn", "size_id"): "test_recipe_import",
     ("ImportSave", "photo_id"): "test_recipe_import",
+    # Drafts: test_drafts.py, test_another_household_can_not_..._a_draft and
+    # test_ids_inside_a_drafts_review_and_choices_give_nothing_of_another_household.
+    ("ImportSave", "draft_id"): "test_drafts",
+    ("DraftChoice", "place_id"): "test_drafts",
+    ("Ref", "id"): "test_drafts",
+    ("SizeRef", "id"): "test_drafts",
+    ("PhotoOut", "id"): "test_drafts",
     # Plain shopping endpoints: here.
     ("NewItem", "id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
     ("AmountOrNone", "size_id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",

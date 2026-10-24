@@ -137,9 +137,9 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
     return as_utc(change.at) + undo_window(kitchen.household)
 
 
-# Changes that only remember a request's Idempotency-Key (a recipe made or saved): there is
-# nothing to undo, and they are not listed in Recent changes.
-KEY_ONLY_KINDS = ("recipe_created", "recipe_saved")
+# Changes that only remember a request's Idempotency-Key (a recipe made or saved, a draft
+# kept): there is nothing to undo, and they are not listed in Recent changes.
+KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved")
 
 # Changes that are only there to be read in Recent changes, with no Undo of their own: a
 # removed ingredient that came back ("Lemon is back in Ingredients").

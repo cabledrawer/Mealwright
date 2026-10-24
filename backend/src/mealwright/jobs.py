@@ -18,6 +18,9 @@ Every job is added in `scheduler()`, in one place:
   for good, recipe photos with them (their files too). Photos uploaded but not saved on any
   recipe within 24 hours are deleted, and so are photo files with no record that are older
   than that (cabledrawer 20 Oct).
+- **Drafts** (spec section 6, "Drafts"): in the same run, a draft 15 days past its last change
+  is deleted quietly, and a deleted draft once its undo window has passed, photo and all
+  (cabledrawer 21 and 22 Oct). Nothing is logged about a draft except how many went.
 
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
@@ -72,6 +75,7 @@ def thin_history(factory: sessionmaker[Session], now: datetime | None = None) ->
 def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | None = None) -> None:
     """Delete ingredients removed longer ago than the undo window. Runs straight after
     start-up and then every hour. Never raises."""
+    from mealwright.drafts import purge as purge_drafts
     from mealwright.history import purge_removed  # imported here: history needs the API
     from mealwright.recipes import drop_waiting_photos, purge_removed_recipes
 
@@ -93,6 +97,9 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 dropped = drop_waiting_photos(db, household, now)
                 if dropped:
                     log.info("Deleted %d photos that were never saved on a recipe", dropped)
+                old_drafts = purge_drafts(db, household, now)
+                if old_drafts:
+                    log.info("Deleted %d old drafts", old_drafts)
             except Exception:
                 db.rollback()
                 log.exception("Couldn't tidy removed ingredients (will try again within the hour)")

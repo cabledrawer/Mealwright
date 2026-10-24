@@ -23,7 +23,7 @@ from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from mealwright import page_budget, page_fetch, photos
+from mealwright import drafts, page_budget, page_fetch, photos
 from mealwright.aisles import DEFAULT_AISLE
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -343,6 +343,7 @@ def _store_waiting(kitchen: Kitchen, cleaned: Cleaned) -> RecipePhoto | None:
             .where(
                 RecipePhoto.household_id == kitchen.household_id,
                 RecipePhoto.recipe_id.is_(None),
+                RecipePhoto.draft_id.is_(None),  # drafts' photos don't count (cabledrawer 22 Oct)
             )
         )
         or 0
@@ -617,6 +618,9 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
 
     db = kitchen.db
     source = _source(body.source_url)
+    # Saving from a draft: it must be this household's, there to see (else a plain 404, before
+    # anything is made).
+    draft = drafts.find(kitchen, body.draft_id) if body.draft_id is not None else None
 
     # What the lines link to, checked before anything is made.
     existing: dict[int, Food] = {}
@@ -704,11 +708,19 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             )
         except ValidationError as invalid:
             raise _invalid(invalid) from None
+        if draft is not None and body.photo_id is not None:
+            # The draft's photo becomes the recipe's (nothing else takes a draft's photo).
+            kept = db.get(RecipePhoto, body.photo_id)
+            if kept is not None and kept.draft_id == draft.id:
+                kept.draft_id = None
+                db.flush()
         recipe = recipes.save(kitchen, None, recipe_in, remember_key=False)
         recipe.source_url = source
         recipe.imported_at = utcnow()
         recipe.source_author = _author(body.source_author)
         db.flush()
+        if draft is not None:
+            drafts.delete_for_good(db, [draft.id])  # it is a recipe now
         edit.extra["recipe_id"] = recipe.id
         new_foods = list(made.values())
         change = edit.record("recipe_imported", _summary(recipe, new_foods, learned), None)

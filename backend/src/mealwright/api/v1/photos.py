@@ -18,7 +18,7 @@ from mealwright.api.v1.recipe_schemas import PhotoOut
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.limits import MAX_PHOTO_BYTES
-from mealwright.models import Recipe, RecipePhoto, utcnow
+from mealwright.models import ImportDraft, Recipe, RecipePhoto, utcnow
 from mealwright.recipes import delete_photo, photo_view
 from mealwright.shopping import lock_household
 
@@ -55,6 +55,7 @@ def _waiting(kitchen: Kitchen) -> int:
             .where(
                 RecipePhoto.household_id == kitchen.household_id,
                 RecipePhoto.recipe_id.is_(None),
+                RecipePhoto.draft_id.is_(None),  # drafts' photos don't count (cabledrawer 22 Oct)
             )
         )
         or 0
@@ -188,6 +189,10 @@ def photo_file(photo_id: StoredInt, copy: Literal["large", "list"], kitchen: Her
         recipe = kitchen.db.get(Recipe, photo.recipe_id)
         if recipe is None or recipe.removed_at is not None:
             raise not_found("That photo")
+    if photo.draft_id is not None:  # a draft's photo, while the draft is there to see
+        draft = kitchen.db.get(ImportDraft, photo.draft_id)
+        if draft is None or draft.removed_at is not None:
+            raise not_found("That photo")
     large, small = photos.paths(photos.store_of(kitchen.db), photo.household_id, photo.file_key)
     path = large if copy == "large" else small
     if not path.is_file():
@@ -208,6 +213,12 @@ def delete_unsaved_photo(photo_id: StoredInt, kitchen: Here) -> Response:
     # Agreed by cabledrawer, 20 Oct (spec section 6, Photos).
     lock_household(kitchen)
     photo = _own(kitchen, photo_id)
+    if photo.draft_id is not None:  # proposed, for cabledrawer
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "photo_in_use",
+            "That photo is on a draft. Delete the draft, or save the recipe.",
+        )
     if photo.recipe_id is not None:
         # The wording: cabledrawer 20 Oct.
         raise Problem(

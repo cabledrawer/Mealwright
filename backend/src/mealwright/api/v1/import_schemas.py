@@ -210,8 +210,11 @@ class ImportSave(BaseModel):
     # Where it came from: the web address (a link import only) and the page's author.
     source_url: Annotated[str, Field(max_length=2000)] | None = None
     source_author: Annotated[str, Field(max_length=200)] | None = None
-    # The waiting photo the review holds (`photo.photo.id`).
+    # The waiting photo the review holds (`photo.photo.id`), or the photo the draft is keeping.
     photo_id: StoredInt | None = None
+    # Saving from a draft: its id. The draft is deleted in the same transaction, and its photo
+    # (`photo_id`) becomes the recipe's.
+    draft_id: StoredInt | None = None
 
 
 class ImportSaved(BaseModel):

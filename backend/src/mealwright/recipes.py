@@ -349,7 +349,12 @@ def _save_photo(kitchen: Kitchen, recipe: Recipe, photo_id: int | None) -> None:
     new = None
     if photo_id is not None:
         new = db.get(RecipePhoto, photo_id)
-        if new is None or new.household_id != kitchen.household_id or new.recipe_id is not None:
+        if (
+            new is None
+            or new.household_id != kitchen.household_id
+            or new.recipe_id is not None
+            or new.draft_id is not None  # a draft's photo: only saving that draft takes it
+        ):
             raise not_found("That photo")
     if current is not None:
         delete_photo(db, current)
@@ -620,6 +625,7 @@ def drop_waiting_photos(db: DbSession, household: Household, now: datetime | Non
             select(RecipePhoto).where(
                 RecipePhoto.household_id == household.id,
                 RecipePhoto.recipe_id.is_(None),
+                RecipePhoto.draft_id.is_(None),  # a draft's photo goes with the draft
                 RecipePhoto.added_at < now - timedelta(hours=WAITING_HOURS),
             )
         )

@@ -19,6 +19,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     text,
 )
@@ -804,6 +805,12 @@ class RecipePhoto(Base):
     recipe_id: Mapped[int | None] = mapped_column(
         ForeignKey("recipe.id", ondelete="CASCADE"), unique=True
     )
+    # A downloaded photo that an import draft is keeping (cabledrawer 21 Oct): it is the draft's,
+    # not a waiting upload, so it isn't deleted after 24 hours and doesn't count towards the
+    # 10 waiting. It goes when the draft goes, or becomes the recipe's when the draft is saved.
+    draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_draft.id", ondelete="SET NULL"), index=True
+    )
     # A random name; the files are `photos/<household_id>/<file_key>.jpg` and
     # `<file_key>-list.jpg` in the data folder.
     file_key: Mapped[str] = mapped_column(String(64))
@@ -815,3 +822,48 @@ class RecipePhoto(Base):
     bytes: Mapped[int] = mapped_column(Integer)  # both files together
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     added_by_name: Mapped[str] = mapped_column(String(100), default="")
+
+
+class ImportDraft(Base):
+    """An import left unfinished (spec section 6, "Drafts (cabledrawer 21 Oct)"). It belongs to the
+    household, like a recipe, and anyone in it can carry on. It keeps the link or pasted text,
+    what Mealwright read (`review`), every choice so far (`choices`) and, through
+    `recipe_photo.draft_id`, the downloaded photo. Nothing in a draft touches Ingredients: the
+    new ingredients, staples and other names it holds are only made when the recipe is saved.
+
+    It is deleted quietly 15 days after its last change (`updated_at`). A deleted draft is
+    hidden (`removed_at`) for the undo window (7 days), then deleted for good with its photo."""
+
+    __tablename__ = "import_draft"
+    __table_args__ = (
+        CheckConstraint("source_kind IN ('link', 'text')", name="source_kind_known"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    # "link" or "text", and what was typed in the box (up to 100,000 characters).
+    source_kind: Mapped[str] = mapped_column(String(8))
+    source_text: Mapped[str] = mapped_column(Text)
+    # "bbcgoodfood.com", for the list. Null for pasted text.
+    site: Mapped[str | None] = mapped_column(String(253))
+    # The recipe's name as it is now in the review's Name box.
+    name: Mapped[str] = mapped_column(String(200))
+    # What Mealwright read (the import review, as the screen was sent it) and the choices made on
+    # it so far: both are only what the screen needs to carry on. Save checks everything again.
+    review: Mapped[dict[str, Any]] = mapped_column(JSON)
+    choices: Mapped[dict[str, Any]] = mapped_column(JSON)
+    # The ingredient lines, and how many of them are tied to an ingredient (matched or chosen),
+    # worked out when the draft is saved, for the list ("6 of 9 ingredients checked").
+    lines_total: Mapped[int] = mapped_column(Integer, default=0)
+    lines_checked: Mapped[int] = mapped_column(Integer, default=0)
+    started_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    started_by_name: Mapped[str] = mapped_column(String(100), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # The last time anyone changed it: the 15 days count from here.
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
