@@ -173,6 +173,23 @@ def test_entries_are_tidied(typed: str, kind: str, value: str) -> None:
         ("localhost", NEVER),
         ("LOCALHOST.", NEVER),
         ("wiki.localhost", NEVER),
+        # The other names systems give this machine, and the cloud metadata name (follow-up from
+        # the 0.5 PR 4 review).
+        ("localhost.localdomain", NEVER),
+        ("LocalHost.LocalDomain.", NEVER),
+        ("ip6-localhost", NEVER),
+        ("ip6-loopback", NEVER),
+        ("localhost6", NEVER),
+        ("metadata.google.internal", NEVER),
+        ("Metadata.Google.Internal.", NEVER),
+        # An address written the old way, which a system's lookup still reads as 127.0.0.1.
+        ("0x7f000001", NEVER),
+        ("0X7F.0.0.1", NEVER),
+        ("0177.0.0.1", NEVER),
+        ("0x7f.1", NEVER),
+        ("0xa9fea9fe", NEVER),  # 169.254.169.254, the usual metadata address
+        ("0xc0a80001", BAD_ENTRY),  # 192.168.0.1: write it as 192.168.0.1
+        ("09.1.1.1", BAD_ENTRY),
         # The same names written so that the international-name mapping makes them these.
         ("\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54", NEVER),  # full-width
         ("app.\uff4c\uff4f\uff43\uff41\uff4c\uff48\uff4f\uff53\uff54", NEVER),
@@ -354,3 +371,10 @@ def test_migration_adds_the_table_and_goes_back(tmp_path: Path) -> None:
 
     migrate.upgrade(engine)
     assert "own_network_entry" in inspect(engine).get_table_names()
+
+
+def test_the_fetch_refuses_the_same_names() -> None:
+    for name in ("localhost.localdomain", "ip6-localhost", "metadata.google.internal"):
+        assert own_network.is_localhost(name)
+    assert not own_network.is_localhost("wiki.home.example")
+    assert not own_network.is_localhost("mylocalhost.example")

@@ -145,10 +145,53 @@ def name_key(host: str) -> str | None:
     return name
 
 
+# Names the usual systems give to this machine, and the cloud "metadata" service's name: never
+# visited, never added to the list, however they are written (cabledrawer 23 Oct, question 26).
+_NEVER_NAMES = frozenset(
+    {
+        "localhost.localdomain",
+        "localhost6",
+        "localhost6.localdomain6",
+        "ip6-localhost",
+        "ip6-loopback",
+        "metadata.google.internal",
+    }
+)
+
+
 def is_localhost(host: str) -> bool:
-    """`localhost`, or a name under it (RFC 6761: always this machine)."""
+    """`localhost` or a name under it (RFC 6761: always this machine), the other names systems
+    give this machine, and the cloud "metadata" name."""
     name = host.strip().lower().removesuffix(".")
-    return name == "localhost" or name.endswith(".localhost")
+    return name == "localhost" or name.endswith(".localhost") or name in _NEVER_NAMES
+
+
+_NUMBER = re.compile(r"^(0[xX][0-9a-fA-F]*|[0-9]+)$")
+
+
+def old_style_address(text: str) -> IPv4Address | None:
+    """An IPv4 address written the old way a system's own lookup still reads, such as
+    `0x7f000001`, `0177.0.0.1` or `0x7f.1`. None if it isn't written that way (plain decimal
+    forms such as `2130706433` are not names or addresses Mealwright takes, see `name_key`)."""
+    parts = text.strip().removesuffix(".").split(".")
+    if not 1 <= len(parts) <= 4 or not all(_NUMBER.match(part) for part in parts):
+        return None
+    if not any(part[:2].lower() == "0x" or (len(part) > 1 and part[0] == "0") for part in parts):
+        return None  # plain decimal: not read as an address here
+    try:
+        numbers = [
+            int(part, 16) if part[:2].lower() == "0x" else int(part, 8 if part[0] == "0" else 10)
+            for part in parts
+        ]
+    except ValueError:
+        return None  # "09" is not octal
+    *head, last = numbers
+    if any(n > 255 for n in head) or last >= 256 ** (4 - len(head)):
+        return None
+    value = last
+    for position, n in enumerate(head):
+        value += n << (8 * (3 - position))
+    return IPv4Address(value)
 
 
 # --- The list ------------------------------------------------------------------------------
@@ -216,6 +259,10 @@ def tidy(text: str) -> tuple[str, str]:
         return "address", str(address)
     if is_localhost(text):
         raise ValueError(NEVER)
+    old = old_style_address(text)
+    if old is not None:
+        # "0x7f000001" is 127.0.0.1 to a system's lookup: the address is what counts.
+        raise ValueError(NEVER if always_blocked(old) else BAD_ENTRY)
     name = name_key(text)
     if name is None:
         raise ValueError(BAD_ENTRY)
