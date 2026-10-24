@@ -407,6 +407,96 @@ describe('the Pantry page', () => {
     });
   });
 
+  describe('phone swipes (cabledrawer 21 Oct)', () => {
+    /** A finger sliding sideways over a row: down, two moves, up. */
+    function swipe(slide: Element, dx: number) {
+      const base = { pointerId: 9, pointerType: 'touch', isPrimary: true, bubbles: true };
+      const at = (x: number) => ({ ...base, clientX: x, clientY: 300 });
+      slide.dispatchEvent(new PointerEvent('pointerdown', at(200)));
+      slide.dispatchEvent(new PointerEvent('pointermove', at(200 + dx / 2)));
+      slide.dispatchEvent(new PointerEvent('pointermove', at(200 + dx)));
+      slide.dispatchEvent(new PointerEvent('pointerup', at(200 + dx)));
+      flushSync();
+    }
+    const slideOf = async (row: ReturnType<typeof page.getByRole>) => {
+      await expect.element(row).toBeVisible();
+      return row.element().closest('.slide') as HTMLElement;
+    };
+    const spinachRow = () => page.getByRole('button', { name: /^Spinach\b/ }).first();
+
+    it('swipe right shows Used…, which opens How much?; a swipe alone changes nothing', async () => {
+      await render(390);
+      swipe(await slideOf(spinachRow()), 110);
+      const used = page.getByRole('button', { name: 'Used… Spinach' });
+      await expect.element(used).toBeVisible();
+      expect(requests.some((r) => r.method === 'POST')).toBe(false);
+      await used.click();
+      await expect
+        .element(page.getByRole('dialog', { name: 'How much Spinach did you use?' }))
+        .toBeVisible();
+      await page.getByRole('button', { name: /^Used all/ }).click();
+      await vi.waitFor(() =>
+        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)).toBeDefined()
+      );
+      await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
+    });
+
+    it('How much? takes a quarter or an exact amount, for the whole ingredient in that place', async () => {
+      routes({ 'POST /foods/20/used': written('Used 50 g Spinach') });
+      await render(390);
+      swipe(await slideOf(spinachRow()), 110);
+      await page.getByRole('button', { name: 'Used… Spinach' }).click();
+      const sheet = page.getByRole('dialog', { name: 'How much Spinach did you use?' });
+      await expect.element(sheet.getByRole('button', { name: '¼' })).toBeVisible();
+      await sheet.getByRole('textbox').fill('50');
+      await sheet.getByRole('button', { name: 'Used', exact: true }).click();
+      await vi.waitFor(() => {
+        const sent = requests.find((r) => r.path === '/foods/20/used');
+        expect(sent?.body).toMatchObject({ amount: { amount: 50, unit: 'g' }, place_id: 1 });
+      });
+    });
+
+    it('swipe left shows Binned, which bins at once with an Undo toast and asks nothing', async () => {
+      routes({ [`POST /stock/${sample.spinach.id}/binned`]: written('Binned 200 g Spinach') });
+      await render(390);
+      swipe(await slideOf(spinachRow()), -110);
+      const binned = page.getByRole('button', { name: 'Binned Spinach' });
+      await expect.element(binned).toBeVisible();
+      expect(requests.some((r) => r.method === 'POST')).toBe(false);
+      await binned.click();
+      expect(page.getByRole('alertdialog').elements()).toEqual([]);
+      await vi.waitFor(() =>
+        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/binned`)).toBeDefined()
+      );
+      await vi.waitFor(() => expect(toasts.current?.message).toBe('Binned 200 g Spinach'));
+      expect(toasts.current?.action?.label).toBe('Undo');
+    });
+
+    it('a Use soon item swipes the same way', async () => {
+      await render(390);
+      const soon = page.getByRole('region', { name: 'Use soon' });
+      const name = soon.getByRole('button', { name: /^Spinach/ });
+      swipe(await slideOf(name), 110);
+      await expect.element(soon.getByRole('button', { name: 'Used… Spinach' })).toBeVisible();
+      swipe(await slideOf(name), -220);
+      await expect.element(soon.getByRole('button', { name: 'Binned Spinach' })).toBeVisible();
+    });
+
+    it('computer: rows do not swipe, and the pack menu still has Used and Binned', async () => {
+      await render(1300);
+      expect(document.querySelector('.slide')).toBeNull();
+      await page
+        .getByRole('button', { name: /^Spinach/ })
+        .first()
+        .click();
+      await page
+        .getByRole('button', { name: /^200 g/ })
+        .first()
+        .click();
+      await expect.element(page.getByRole('button', { name: 'Binned' }).first()).toBeVisible();
+    });
+  });
+
   it('Used takes it off at once, saves with a change ID, and offers Undo', async () => {
     await render(1300);
     const side = page.getByRole('complementary', { name: /Use soon/ });

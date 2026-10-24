@@ -33,6 +33,7 @@
   import FilterChips from '$lib/components/FilterChips.svelte';
   import Icon, { type Name } from '$lib/components/Icon.svelte';
   import SwipeRow from '$lib/components/SwipeRow.svelte';
+  import UsedSheet from '$lib/components/UsedSheet.svelte';
   import LotMenu from '$lib/components/LotMenu.svelte';
   import Logo from '$lib/components/Logo.svelte';
   import NewIngredient from '$lib/components/NewIngredient.svelte';
@@ -119,6 +120,8 @@
     'note',
     'arrow-right'
   ];
+
+  let usedSheet = $state<'weight' | 'count' | null>(null);
 
   // --- Settings → Privacy -----------------------------------------------------------------
   let importOn = $state(true);
@@ -1022,6 +1025,11 @@
         </SwipeRow>
       {/each}
     </div>
+    <h3>“How much did you use?”, which Used… opens</h3>
+    <p class="inline">
+      <Button onclick={() => (usedSheet = 'weight')}>Weight</Button>
+      <Button onclick={() => (usedSheet = 'count')}>Count</Button>
+    </p>
     <h3>One side: Move… (blue), and a very long name</h3>
     <div class="swipes">
       <SwipeRow
@@ -1564,6 +1572,19 @@
     </ul>
   </section>
 </div>
+
+<UsedSheet
+  open={usedSheet !== null}
+  name={usedSheet === 'count' ? 'Eggs' : 'Spinach'}
+  detail={usedSheet === 'count' ? 'Fridge · 9 left' : 'Fridge · 200 g · use by Today'}
+  countedAs={usedSheet === 'count' ? 'count' : 'weight'}
+  total={usedSheet === 'count' ? 9 : 200}
+  allWords={usedSheet === 'count' ? '9' : '200 g'}
+  onall={() => (usedSheet = null)}
+  onpart={() => (usedSheet = null)}
+  onleft={() => (usedSheet = null)}
+  onclose={() => (usedSheet = null)}
+/>
 
 {#if showAlready}
   <AlreadySheet

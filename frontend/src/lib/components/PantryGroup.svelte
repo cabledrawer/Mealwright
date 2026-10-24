@@ -12,6 +12,8 @@
   import Icon from './Icon.svelte';
   import LotMenu from './LotMenu.svelte';
   import PackPicks from './PackPicks.svelte';
+  import SwipeRow from './SwipeRow.svelte';
+  import UsedSheet from './UsedSheet.svelte';
   import { pickFor } from '$lib/picks';
 
   let {
@@ -21,7 +23,8 @@
     model,
     shopping,
     showPlace = false,
-    also = null
+    also = null,
+    swipes = false
   }: {
     group: Group;
     place: Place;
@@ -33,6 +36,8 @@
     showPlace?: boolean;
     /** In search results: "also called thuvaram paruppu". */
     also?: string | null;
+    /** A phone: swipe right for Used…, left for Binned (the pack menu has both as buttons). */
+    swipes?: boolean;
   } = $props();
 
   const uid = $props.id();
@@ -55,6 +60,33 @@
   const baseUnit = $derived(
     group.food.counted_as === 'weight' ? 'g' : group.food.counted_as === 'volume' ? 'ml' : 'count'
   );
+
+  // --- Swipes (phone) ------------------------------------------------------------------------------
+  let usedOpen = $state(false);
+  let swiped = $state<'left' | 'right' | null>(null);
+  /** Binned takes the packet that goes first: the soonest use-by (the list is oldest first). */
+  const first = $derived(group.lots[0]);
+  const detail = $derived(
+    [place.name, group.stock.display, group.use_by ? useByWords(group.use_by, group.days_left) : '']
+      .filter(Boolean)
+      .join(' · ')
+  );
+
+  function usedAll() {
+    usedOpen = false;
+    if (single) void model.used(single.id, name);
+    else void model.leftOf(group.food.id, name, { amount: 0, unit: baseUnit }, place.id);
+  }
+
+  function usedPart(amount: number) {
+    usedOpen = false;
+    void model.usedSome(group.food.id, name, { amount, unit: baseUnit }, place.id);
+  }
+
+  function leftNow(amount: number) {
+    usedOpen = false;
+    void model.leftOf(group.food.id, name, { amount, unit: 'count' }, place.id);
+  }
 
   function openMenu(lot: Lot, event: MouseEvent, start: 'actions' | 'grams' = 'actions') {
     anchor = event.currentTarget as HTMLElement;
@@ -96,47 +128,73 @@
 </script>
 
 <li class="group">
-  <div class="head">
-    <button
-      type="button"
-      class="row"
-      aria-expanded={open}
-      aria-controls="{uid}-more"
-      onclick={() => (open = !open)}
-    >
-      <span class="what">
-        <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
-        {#if also}<span class="also">{also}</span>{/if}
-        <span class="amount" class:low={group.running_low}>
-          {amountWords}
-          {#if group.lots_count > 1 && group.dates_count > 1}
-            <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
-          {/if}
-        </span>
-        <!-- Desktop columns are narrow: the date goes under the amount there. -->
-        {#if date}
-          <span class="date under" class:soon={group.use_soon}>{date}</span>
-        {/if}
-      </span>
-      {#if date}
-        <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
-      {/if}
-      <span class="chevron" class:flipped={open}
-        ><Icon name="chevron-down" size={16} stroke={2.4} /></span
-      >
-    </button>
-    {#if group.running_low}
+  {#snippet headRow()}
+    <div class="head">
       <button
         type="button"
-        class="to-list"
-        class:listed
-        aria-label={listLabel(name, listed)}
-        onclick={() => void shopping.tap(group.food)}
+        class="row"
+        aria-expanded={open}
+        aria-controls="{uid}-more"
+        onclick={() => (open = !open)}
       >
-        {#if listed}<Icon name="check" size={14} stroke={3} />{/if}+ List
+        <span class="what">
+          <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
+          {#if also}<span class="also">{also}</span>{/if}
+          <span class="amount" class:low={group.running_low}>
+            {amountWords}
+            {#if group.lots_count > 1 && group.dates_count > 1}
+              <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
+            {/if}
+          </span>
+          <!-- Desktop columns are narrow: the date goes under the amount there. -->
+          {#if date}
+            <span class="date under" class:soon={group.use_soon}>{date}</span>
+          {/if}
+        </span>
+        {#if date}
+          <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
+        {/if}
+        <span class="chevron" class:flipped={open}
+          ><Icon name="chevron-down" size={16} stroke={2.4} /></span
+        >
       </button>
-    {/if}
-  </div>
+      {#if group.running_low}
+        <button
+          type="button"
+          class="to-list"
+          class:listed
+          aria-label={listLabel(name, listed)}
+          onclick={() => void shopping.tap(group.food)}
+        >
+          {#if listed}<Icon name="check" size={14} stroke={3} />{/if}+ List
+        </button>
+      {/if}
+    </div>
+  {/snippet}
+  {#if swipes && !open && first}
+    <SwipeRow
+      bleed={14}
+      bind:open={swiped}
+      right={{
+        label: 'Used…',
+        describe: name,
+        icon: 'check',
+        tone: 'used',
+        run: () => (usedOpen = true)
+      }}
+      left={{
+        label: 'Binned',
+        describe: name,
+        icon: 'trash',
+        tone: 'danger',
+        run: () => void model.binned(first.id, name)
+      }}
+    >
+      {@render headRow()}
+    </SwipeRow>
+  {:else}
+    {@render headRow()}
+  {/if}
 
   {#if open}
     <div class="more" id="{uid}-more">
@@ -207,6 +265,21 @@
         Edit {name}
       </button>
     </div>
+  {/if}
+
+  {#if swipes}
+    <UsedSheet
+      open={usedOpen}
+      {name}
+      {detail}
+      countedAs={group.food.counted_as}
+      total={group.stock.amount}
+      allWords={group.stock.short ?? group.stock.display}
+      onall={usedAll}
+      onpart={usedPart}
+      onleft={leftNow}
+      onclose={() => (usedOpen = false)}
+    />
   {/if}
 
   <LotMenu

@@ -21,6 +21,8 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PantryGroup from '$lib/components/PantryGroup.svelte';
   import PlaceTabs from '$lib/components/PlaceTabs.svelte';
+  import SwipeRow from '$lib/components/SwipeRow.svelte';
+  import UsedSheet from '$lib/components/UsedSheet.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
   import { compactDateWords, dateWords } from '$lib/dates';
   import { kitchen } from '$lib/freshness.svelte';
@@ -44,6 +46,11 @@
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);
   });
+
+  /** The Use soon item whose "How much?" is open, and which ones are swiped open. */
+  let usedFor = $state<UseSoonLot | null>(null);
+  let usedOpen = $state(false);
+  const soonSwiped = $state<Record<number, 'left' | 'right' | null>>({});
 
   let tab = $state('all');
   let addingStaple = $state(false);
@@ -176,6 +183,28 @@
     addToPantry.show();
   }
 
+  /** What the Use soon item is counted in, from the group it sits in (else by weight). */
+  const usedGroup = $derived(
+    usedFor
+      ? places
+          .find((p) => p.id === usedFor?.place.id)
+          ?.groups.find((g) => g.food.id === usedFor?.food.id)
+      : undefined
+  );
+  const usedCounted = $derived(usedGroup?.food.counted_as ?? 'weight');
+  const usedUnit = $derived(
+    usedCounted === 'weight' ? 'g' : usedCounted === 'volume' ? 'ml' : 'count'
+  );
+
+  function openUsed(lot: UseSoonLot) {
+    usedFor = lot;
+    usedOpen = true;
+  }
+
+  function usedDone() {
+    usedOpen = false;
+  }
+
   function newStaple(name: string) {
     addingStaple = false;
     void model.newStaple(name);
@@ -202,31 +231,54 @@
   {/snippet}
 </PageHeader>
 
+{#snippet useSoonRow(lot: UseSoonLot, compact: boolean)}
+  {@const words = lotWords(lot)}
+  <button type="button" class="soon-name" onclick={() => ingredientEditor.open(lot.food.id)}
+    >{lot.food.name} · {compact ? words.compactDate : words.what}</button
+  >
+  <span class="soon-actions">
+    <button type="button" class="pill" onclick={() => void model.used(lot.id, lot.food.name)}
+      >Used</button
+    >
+    <button type="button" class="pill" onclick={() => void model.binned(lot.id, lot.food.name)}
+      >Binned</button
+    >
+    {#if lot.place.kind !== 'freezer'}
+      <button type="button" class="pill" onclick={() => void model.toFreezer(lot.id, lot.food.name)}
+        >To freezer</button
+      >
+    {/if}
+  </span>
+{/snippet}
+
 {#snippet useSoonRows(lots: UseSoonLot[], compact: boolean)}
   <ul class="soon-list">
     {#each lots as lot (lot.id)}
-      {@const words = lotWords(lot)}
-      <li>
-        <button type="button" class="soon-name" onclick={() => ingredientEditor.open(lot.food.id)}
-          >{lot.food.name} · {compact ? words.compactDate : words.what}</button
-        >
-        <span class="soon-actions">
-          <button type="button" class="pill" onclick={() => void model.used(lot.id, lot.food.name)}
-            >Used</button
+      <li class:swipe-li={compact && phone}>
+        {#if compact && phone}
+          <SwipeRow
+            bleed={0}
+            bind:open={() => soonSwiped[lot.id] ?? null, (side) => (soonSwiped[lot.id] = side)}
+            right={{
+              label: 'Used…',
+              describe: lot.food.name,
+              icon: 'check',
+              tone: 'used',
+              run: () => openUsed(lot)
+            }}
+            left={{
+              label: 'Binned',
+              describe: lot.food.name,
+              icon: 'trash',
+              tone: 'danger',
+              run: () => void model.binned(lot.id, lot.food.name)
+            }}
           >
-          <button
-            type="button"
-            class="pill"
-            onclick={() => void model.binned(lot.id, lot.food.name)}>Binned</button
-          >
-          {#if lot.place.kind !== 'freezer'}
-            <button
-              type="button"
-              class="pill"
-              onclick={() => void model.toFreezer(lot.id, lot.food.name)}>To freezer</button
-            >
-          {/if}
-        </span>
+            <div class="soon-line">{@render useSoonRow(lot, compact)}</div>
+          </SwipeRow>
+        {:else}
+          {@render useSoonRow(lot, compact)}
+        {/if}
       </li>
     {/each}
   </ul>
@@ -248,7 +300,7 @@
     {#if groups.length}
       <ul class="groups">
         {#each visible as group (group.food.id)}
-          <PantryGroup {group} {place} {places} {model} {shopping} />
+          <PantryGroup {group} {place} {places} {model} {shopping} swipes={phone} />
         {/each}
       </ul>
       {#if visible.length < groups.length}
@@ -287,6 +339,7 @@
             {shopping}
             showPlace
             also={item.also}
+            swipes={phone}
           />
         {/each}
       </ul>
@@ -466,6 +519,33 @@
       </section>
     </aside>
   </div>
+{/if}
+
+{#if usedFor}
+  {@const lot = usedFor}
+  <UsedSheet
+    open={usedOpen}
+    name={lot.food.name}
+    detail={[lot.place.name, lot.stock.display, dateWords(lot.use_by, lot.days_left)]
+      .filter(Boolean)
+      .join(' · ')}
+    countedAs={usedCounted}
+    total={lot.stock.amount}
+    allWords={lot.stock.short ?? lot.stock.display}
+    onall={() => {
+      usedDone();
+      void model.used(lot.id, lot.food.name);
+    }}
+    onpart={(amount) => {
+      usedDone();
+      void model.usedSome(lot.food.id, lot.food.name, { amount, unit: usedUnit }, lot.place.id);
+    }}
+    onleft={(amount) => {
+      usedDone();
+      void model.leftOf(lot.food.id, lot.food.name, { amount, unit: 'count' }, lot.place.id);
+    }}
+    onclose={usedDone}
+  />
 {/if}
 
 <AddToPantry {model} {places} today={pantry?.today ?? new Date().toISOString().slice(0, 10)} />
@@ -656,6 +736,24 @@
     align-items: center;
     gap: var(--space-3);
     min-height: var(--touch-target);
+  }
+
+  /* A swipeable Use soon item is a small white card of its own (mockup PantrySwipe-Phone). */
+  .soon-list li.swipe-li {
+    display: block;
+    margin-bottom: var(--space-3);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .soon-line {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 54px;
+    padding: 0 12px;
   }
 
   .soon-name {
