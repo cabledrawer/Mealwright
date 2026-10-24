@@ -38,6 +38,7 @@ from mealwright.drafts import PHOTO_GONE, TOO_MANY, purge
 from mealwright.household import add_default_places
 from mealwright.models import (
     Change,
+    Food,
     Household,
     ImportDraft,
     Login,
@@ -46,6 +47,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.outbound import Connection
+from mealwright.recipes import delete_photo
 
 API = "/api/v1"
 ANY_PHOTO = {
@@ -783,14 +785,149 @@ def test_a_draft_that_was_deleted_or_ran_out_cannot_be_saved_from(
         assert session.scalar(select(func.count()).select_from(Recipe)) == 0
 
 
-def test_undo_of_the_save_takes_the_recipe_back_but_the_draft_stays_gone(
-    kitchen: TestClient, pantry: dict[str, Any], web: Web
+def saved_from_a_draft_with_choices(client: TestClient) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A link draft with a photo and every kind of choice, 9 days old, saved as a recipe with
+    one new ingredient. Returns (the draft as it was, what Save answered)."""
+    shown = review(client, LINK)
+    draft = kept(client, shown, text_=LINK, choices=choices_for(shown, cupboard(client)))
+    age(client, draft["id"], days=9)
+    before = ok(client.get(f"{API}/recipes/drafts/{draft['id']}"))
+    assert before["days_left"] == 6
+    new = {3: {"kind": "new", "name": "Asafoetida", "counted_as": "volume"}}
+    body = {**to_save(shown, new), "draft_id": draft["id"]}
+    return before, ok(save(client, body), 201)
+
+
+def test_undo_of_a_save_from_a_draft_brings_the_draft_back_with_its_choices_and_photo(
+    photos_on: TestClient, pantry: dict[str, Any]
 ) -> None:
-    shown = review(kitchen, PASTED)
-    draft = kept(kitchen, shown)
-    saved = ok(save(kitchen, {**to_save(shown), "draft_id": draft["id"]}), 201)
-    ok(kitchen.post(f"{API}/changes/{saved['change']['id']}/undo"))
-    assert listed(kitchen) == []
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    photo_id = before["review"]["photo"]["photo"]["id"]
+    recipe_id = saved["recipe"]["id"]
+    assert listed(photos_on) == []
+    undone = ok(photos_on.post(f"{API}/changes/{saved['change']['id']}/undo"))
+    assert undone["result"] == "done"
+    assert f"The {before['name']} draft is back in Drafts." in undone["message"]
+    # The draft is back as it was: same place in the list, text, review and every choice.
+    [back] = listed(photos_on)
+    assert back["id"] == before["id"] and back["days_left"] == 15  # the 15 days start again
+    assert (back["name"], back["started_by"]) == (before["name"], before["started_by"])
+    assert back["started_at"] == before["started_at"]
+    assert (back["lines_total"], back["lines_checked"]) == (
+        before["lines_total"],
+        before["lines_checked"],
+    )
+    got = ok(photos_on.get(f"{API}/recipes/drafts/{before['id']}"))
+    assert (got["text"], got["review"], got["choices"]) == (
+        before["text"],
+        before["review"],
+        before["choices"],
+    )
+    # Its photo moved back from the recipe: the same file, and the draft's again.
+    assert photos_on.get(got["review"]["photo"]["photo"]["url"]).status_code == 200
+    assert photo_files(photos_on, photo_id) == (True, True)
+    with db(photos_on) as session:
+        row = session.get(RecipePhoto, photo_id)
+        assert row is not None and (row.draft_id, row.recipe_id) == (before["id"], None)
+        # The recipe and its new ingredient are gone (hidden, as for any import's Undo).
+        recipe = session.get(Recipe, recipe_id)
+        assert recipe is not None and recipe.removed_at is not None
+        asafoetida = session.scalar(select(Food).where(Food.name == "Asafoetida"))
+        assert asafoetida is not None and asafoetida.removed_at is not None
+    assert photos_on.get(f"{API}/recipes/{recipe_id}").status_code == 404
+    # An Undo that has been done can't be done twice, and the draft can be carried on and saved.
+    assert photos_on.post(f"{API}/changes/{saved['change']['id']}/undo").status_code == 409
+    again = {**to_save(got["review"]), "draft_id": before["id"]}
+    ok(save(photos_on, again), 201)
+    assert listed(photos_on) == []
+
+
+def test_undo_of_a_save_from_a_draft_at_50_drafts_is_refused_and_nothing_changes(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    photo_id = before["review"]["photo"]["photo"]["id"]
+    shown = review(photos_on, PASTED)
+    ids = [kept(photos_on, shown)["id"] for _ in range(50)]
+    with db(photos_on) as session:
+        taken = (counts(photos_on), session.get(RecipePhoto, photo_id))
+        assert taken[1] is not None and taken[1].recipe_id == saved["recipe"]["id"]
+    refused = photos_on.post(f"{API}/changes/{saved['change']['id']}/undo")
+    assert refused.status_code == 409 and refused.json()["detail"] == TOO_MANY
+    assert len(listed(photos_on)) == 50
+    # Nothing is half undone: the recipe, its ingredient and its photo all stand.
+    assert counts(photos_on) == taken[0]
+    assert photos_on.get(f"{API}/recipes/{saved['recipe']['id']}").status_code == 200
+    with db(photos_on) as session:
+        row = session.get(RecipePhoto, photo_id)
+        assert row is not None and row.recipe_id == saved["recipe"]["id"] and row.draft_id is None
+        asafoetida = session.scalar(select(Food).where(Food.name == "Asafoetida"))
+        assert asafoetida is not None and asafoetida.removed_at is None
+        change = session.get(Change, saved["change"]["id"])
+        assert change is not None and change.undone_by_change_id is None
+    # With room made, the same Undo goes through.
+    ok(photos_on.delete(f"{API}/recipes/drafts/{ids[0]}"))
+    ok(photos_on.post(f"{API}/changes/{saved['change']['id']}/undo"))
+    assert before["id"] in [d["id"] for d in listed(photos_on)]
+
+
+def test_undo_of_a_save_from_a_draft_after_the_photo_was_changed_brings_it_back_without(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    """The recipe's photo was removed (or replaced) after the Save: that file is not the draft's
+    to take back, so the draft returns with "The photo wasn’t kept." and nothing else lost."""
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    photo_id = before["review"]["photo"]["photo"]["id"]
+    assert photo_files(photos_on, photo_id) == (True, True)
+    with db(photos_on) as session:
+        row = session.get(RecipePhoto, photo_id)
+        assert row is not None
+        delete_photo(session, row)
+        session.commit()
+    ok(photos_on.post(f"{API}/changes/{saved['change']['id']}/undo"))
+    got = ok(photos_on.get(f"{API}/recipes/drafts/{before['id']}"))
+    assert got["review"]["photo"] == {"state": "failed", "photo": None, "message": PHOTO_GONE}
+    assert got["choices"] == before["choices"] and got["text"] == before["text"]
+
+
+def test_undo_of_a_save_from_a_draft_stays_inside_the_household(
+    photos_on: TestClient, neighbour: TestClient, pantry: dict[str, Any]
+) -> None:
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    photo_id = before["review"]["photo"]["photo"]["id"]
+    snapshot = rows_of_household_1(photos_on)
+    # The neighbour can't undo it, and a change of theirs that names our recipe, draft and photo
+    # brings nothing back and moves nothing.
+    assert neighbour.post(f"{API}/changes/{saved['change']['id']}/undo").status_code == 404
+    with db(photos_on) as session:
+        theirs = session.scalar(select(Login.id).where(Login.household_id == 2))
+        forged = Change(
+            household_id=2,
+            kind="recipe_imported",
+            request="POST /api/v1/recipes/import/save",
+            login_id=theirs,
+            login_name="Neighbour",
+            at=utcnow(),
+            summary="Imported Sambar",
+            undo_data={
+                "recipe_id": saved["recipe"]["id"],
+                "draft": {
+                    **before,
+                    "source_kind": "link",
+                    "source_text": before["text"],
+                    "photo_id": photo_id,
+                    "created_at": before["started_at"],
+                    "started_by_login_id": 1,
+                    "started_by_name": "Tess",
+                },
+            },
+        )
+        session.add(forged)
+        session.commit()
+        forged_id = forged.id
+    ok(neighbour.post(f"{API}/changes/{forged_id}/undo"))
+    assert listed(neighbour) == []
+    assert rows_of_household_1(photos_on) == snapshot
 
 
 # --- Stale ingredients --------------------------------------------------------------------

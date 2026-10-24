@@ -551,21 +551,44 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     return undo
 
 
-def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> None:
-    """Undo of an import takes the recipe back: it is hidden like a deleted one (and deleted
-    for good after the undo window, photo and all). Its new ingredients and other names are
-    taken back by the same Undo (`undo_foods`)."""
+def _import_to_undo(kitchen: Kitchen, data: dict[str, Any]) -> Recipe | None:
+    """The recipe an import's Undo would take back: this household's, and still there."""
     recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
     if (
         recipe is None
         or recipe.household_id != kitchen.household_id
         or recipe.removed_at is not None
     ):
+        return None
+    return recipe
+
+
+def check_import_undo(kitchen: Kitchen, data: dict[str, Any]) -> None:
+    """Before an Undo of a Save from a draft does anything: if it would bring the draft back
+    and the household already has 50 drafts, refuse the whole Undo (nothing is half undone)."""
+    from mealwright import drafts
+
+    if data.get("draft") and _import_to_undo(kitchen, data) is not None:
+        drafts.make_room(kitchen)
+
+
+def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> str | None:
+    """Undo of an import takes the recipe back: it is hidden like a deleted one (and deleted
+    for good after the undo window, photo and all). Its new ingredients and other names are
+    taken back by the same Undo (`undo_foods`). If the recipe was saved from a draft, the draft
+    comes back too, with its choices and photo (cabledrawer 24 Oct, question 36); returns the
+    sentence that says so."""
+    from mealwright import drafts
+
+    recipe = _import_to_undo(kitchen, data)
+    if recipe is None:
         tally.skipped += 1  # already deleted, or gone
-        return
+        return None
     recipe.removed_at = utcnow()
     bump_recipes_by(kitchen, _users_of(kitchen, recipe.id))
     tally.done += 1
+    saved = data.get("draft")
+    return drafts.bring_back(kitchen, recipe.id, saved) if saved else None
 
 
 def purge_removed_recipes(db: DbSession, household: Household, now: datetime | None = None) -> int:

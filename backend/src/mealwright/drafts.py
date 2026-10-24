@@ -43,7 +43,7 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc, record
 from mealwright.household import undo_window
-from mealwright.models import Change, Food, Household, ImportDraft, RecipePhoto, utcnow
+from mealwright.models import Change, Food, Household, ImportDraft, Login, RecipePhoto, utcnow
 from mealwright.photos import delete_after_commit
 
 DRAFT_DAYS = 15
@@ -381,6 +381,81 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     change.undone_by_change_id = undo.id
     kitchen.db.flush()
     return undo
+
+
+def snapshot(draft: ImportDraft, photo_id: int | None) -> dict[str, Any]:
+    """Everything of a draft that Save is about to delete, kept in the Save's own change record
+    so that Undo can bring the draft back as it was (cabledrawer 24 Oct, question 36). The photo is
+    only its id: the file moves to the recipe on Save and back to the draft on Undo."""
+    return {
+        "id": draft.id,
+        "source_kind": draft.source_kind,
+        "source_text": draft.source_text,
+        "site": draft.site,
+        "name": draft.name,
+        "review": draft.review,
+        "choices": draft.choices,
+        "lines_total": draft.lines_total,
+        "lines_checked": draft.lines_checked,
+        "started_by_login_id": draft.started_by_login_id,
+        "started_by_name": draft.started_by_name,
+        "created_at": as_utc(draft.created_at).isoformat(),
+        "photo_id": photo_id,
+    }
+
+
+def make_room(kitchen: Kitchen) -> None:
+    """Bringing a draft back never makes a 51st: refused with the same sentence as keeping one."""
+    if count(kitchen.db, kitchen.household_id) >= MAX_DRAFTS:
+        raise _too_many()
+
+
+def bring_back(kitchen: Kitchen, recipe_id: int, saved: dict[str, Any]) -> str:
+    """Undo of a Save from a draft: the draft is made again from its snapshot, counted as just
+    changed (its 15 days start again), and its photo moves back from the recipe. Only this
+    household's own photo, the one that is still the recipe's, is taken back: if the recipe's
+    photo was changed or removed since, the draft comes back without it and says so. The caller
+    has checked the recipe is this household's and `make_room`. Returns the Undo's sentence."""
+    db = kitchen.db
+    login_id = saved.get("started_by_login_id")
+    if login_id is not None:
+        login = db.get(Login, login_id)
+        if login is None or login.household_id != kitchen.household_id:
+            login_id = None
+    review = ImportReview.model_validate(saved["review"])
+    photo = db.get(RecipePhoto, saved["photo_id"]) if saved.get("photo_id") else None
+    if photo is not None and (
+        photo.household_id != kitchen.household_id or photo.recipe_id != recipe_id
+    ):
+        photo = None
+    if photo is None and review.photo.state == "downloaded":
+        review = review.model_copy(
+            update={"photo": ReviewPhoto(state="failed", message=PHOTO_GONE)}
+        )
+    draft_id = saved.get("id")
+    draft = ImportDraft(
+        id=draft_id if db.get(ImportDraft, draft_id or 0) is None else None,
+        household_id=kitchen.household_id,
+        source_kind=saved["source_kind"],
+        source_text=saved["source_text"],
+        site=saved.get("site"),
+        name=saved["name"],
+        review=review.model_dump(mode="json"),
+        choices=saved["choices"],
+        lines_total=saved.get("lines_total", 0),
+        lines_checked=saved.get("lines_checked", 0),
+        started_by_login_id=login_id,
+        started_by_name=saved.get("started_by_name", ""),
+        created_at=datetime.fromisoformat(saved["created_at"]),
+        updated_at=utcnow(),
+    )
+    db.add(draft)
+    db.flush()
+    if photo is not None:
+        photo.recipe_id = None
+        photo.draft_id = draft.id
+        db.flush()
+    return f"The {draft.name} draft is back in Drafts."
 
 
 def delete_for_good(db: DbSession, ids: list[int]) -> None:

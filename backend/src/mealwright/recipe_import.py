@@ -708,11 +708,13 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             )
         except ValidationError as invalid:
             raise _invalid(invalid) from None
+        taken: int | None = None  # the draft's photo that becomes the recipe's
         if draft is not None and body.photo_id is not None:
             # The draft's photo becomes the recipe's (nothing else takes a draft's photo).
             kept = db.get(RecipePhoto, body.photo_id)
             if kept is not None and kept.draft_id == draft.id:
                 kept.draft_id = None
+                taken = kept.id
                 db.flush()
         recipe = recipes.save(kitchen, None, recipe_in, remember_key=False)
         recipe.source_url = source
@@ -720,6 +722,9 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         recipe.source_author = _author(body.source_author)
         db.flush()
         if draft is not None:
+            # What Undo needs to bring the draft back (cabledrawer 24 Oct, question 36): kept in
+            # this change's own record, so there is nothing else to store.
+            edit.extra["draft"] = drafts.snapshot(draft, taken)
             drafts.delete_for_good(db, [draft.id])  # it is a recipe now
         edit.extra["recipe_id"] = recipe.id
         new_foods = list(made.values())

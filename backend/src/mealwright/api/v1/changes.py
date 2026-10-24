@@ -366,6 +366,8 @@ def undo_change(
     `undo` change. `action` is the Undo's action ID; the household's lock is `batch`'s."""
     tally = Tally()
     data = change.undo_data or {}
+    if change.kind == "recipe_imported":
+        recipes.check_import_undo(kitchen, data)  # at 50 drafts: refused before anything is done
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.
@@ -385,8 +387,9 @@ def undo_change(
             shopping.bump_foods(kitchen, touched_foods, batch)
     if data.get("lot_amounts"):
         undo_lot_amounts(kitchen, data["lot_amounts"])
+    draft_back = None
     if change.kind == "recipe_imported":
-        recipes.undo_import(kitchen, data, tally)
+        draft_back = recipes.undo_import(kitchen, data, tally)
     if tally.done:
         undo_merge_record(kitchen, data)
     result = tally.result
@@ -394,6 +397,8 @@ def undo_change(
     message = _message(kitchen, result, short)
     if back:
         message = back if result == "done" else f"{back} {message}"
+    if draft_back:
+        message = f"{message} {draft_back}"
     undo = record(
         kitchen,
         "undo",
