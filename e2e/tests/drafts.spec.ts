@@ -130,7 +130,7 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${title} (mine)`);
   expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(0);
   // The recipe's Undo takes the recipe and its new ingredients back, as for any import, and
-  // because it was saved from a draft, the draft comes back too (cabledrawer 24 Oct, question 36).
+  // because it was saved from a draft, the draft comes back too (spec section 6, question 36).
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
   await page.goto('/recipes/drafts');

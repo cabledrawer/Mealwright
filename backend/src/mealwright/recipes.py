@@ -576,7 +576,7 @@ def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> str | N
     """Undo of an import takes the recipe back: it is hidden like a deleted one (and deleted
     for good after the undo window, photo and all). Its new ingredients and other names are
     taken back by the same Undo (`undo_foods`). If the recipe was saved from a draft, the draft
-    comes back too, with its choices and photo (cabledrawer 24 Oct, question 36); returns the
+    comes back too, with its choices and photo (spec section 6, question 36); returns the
     sentence that says so."""
     from mealwright import drafts
 

@@ -502,8 +502,7 @@ brings it back counted as just changed (its 15 days start again, so it isn't bac
 then gone). At 50 drafts an Undo is refused with the same sentence as keeping a 51st: no old draft
 is ever deleted to make room.
 
-**Undo of a Save from a draft** (cabledrawer 24 Oct, question 36: "Undo after saving a recipe from a draft
-brings the draft back too, with its choices and photo."). The Save keeps what it deletes in its own
+**Undo of a Save from a draft** (spec section 6, question 36). The Save keeps what it deletes in its own
 change record (`undo_data.draft`: the box's text, what was read, every choice, the name and who
 started it, and the id of the photo it took), so nothing new is stored in the database and there is
 no migration. Undo takes the recipe back as for any import (hidden, with its new ingredients and

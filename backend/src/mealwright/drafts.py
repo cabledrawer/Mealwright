@@ -54,7 +54,7 @@ from mealwright.photos import delete_after_commit
 DRAFT_DAYS = 15
 MAX_DRAFTS = 50
 
-# cabledrawer 22 Oct, question 9.
+# Spec section 6, question 9.
 TOO_MANY = "You have 50 drafts. Finish or delete one first."
 # The photo was a waiting upload that has since been deleted (it waits 24 hours), or isn't this
 # household's: the draft is kept without it. Proposed, for cabledrawer.
@@ -390,7 +390,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
 
 def snapshot(draft: ImportDraft, photo_id: int | None) -> dict[str, Any]:
     """Everything of a draft that Save is about to delete, kept in the Save's own change record
-    so that Undo can bring the draft back as it was (cabledrawer 24 Oct, question 36). The photo is
+    so that Undo can bring the draft back as it was (spec section 6, question 36). The photo is
     only its id: the file moves to the recipe on Save and back to the draft on Undo."""
     return {
         "id": draft.id,

@@ -722,7 +722,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         recipe.source_author = _author(body.source_author)
         db.flush()
         if draft is not None:
-            # What Undo needs to bring the draft back (cabledrawer 24 Oct, question 36): kept in
+            # What Undo needs to bring the draft back (spec section 6, question 36): kept in
             # this change's own record, so there is nothing else to store.
             edit.extra["draft"] = drafts.snapshot(draft, taken)
             drafts.delete_for_good(db, [draft.id])  # it is a recipe now
