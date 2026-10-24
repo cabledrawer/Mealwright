@@ -3,14 +3,15 @@
   // versions, spec section 6 "One box"): one box that takes a link or pasted recipe text, and
   // Mealwright works out which. A link needs "Recipe import from links" to be on; pasted text
   // never goes online. Online only: offline, the box says it needs the server and nothing is
-  // queued.
+  // queued. Under "How it works", a note says photos aren't downloaded while that switch is
+  // off (`photosOff`: true only when the server has said so, never on a guess).
   import { tick } from 'svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { network } from '$lib/network.svelte';
   import { OFFLINE_NOTE, type ImportFlow } from '$lib/import.svelte';
 
   import '$lib/styles/fields.css';
-  let { flow }: { flow: ImportFlow } = $props();
+  let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
 
   const uid = $props.id();
   let box = $state<HTMLTextAreaElement>();
@@ -113,6 +114,14 @@
       <b>Pasted text:</b> the title, ingredients and method, copied from anywhere. Nothing goes online.
     </p>
   </aside>
+
+  {#if photosOff}
+    <p class="photos">
+      Recipe photos: not downloaded.
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
+      <a href="/settings/privacy">Change in Settings → Privacy</a>
+    </p>
+  {/if}
 </form>
 
 <style>
@@ -257,6 +266,18 @@
     background: var(--color-surface);
     font-size: var(--text-md);
     line-height: 1.45;
+  }
+
+  .photos {
+    padding: 0 var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    line-height: 1.45;
+  }
+
+  .photos a {
+    color: var(--color-accent);
+    font-weight: var(--weight-bold);
   }
 
   .overline {

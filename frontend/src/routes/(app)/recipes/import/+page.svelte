@@ -8,8 +8,25 @@
   import ReviewScreen from '$lib/components/import/ReviewScreen.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { ImportFlow } from '$lib/import.svelte';
+  import { network } from '$lib/network.svelte';
+  import { privacy } from '$lib/privacy.svelte';
+  import { onMount } from 'svelte';
 
   const flow = new ImportFlow();
+
+  // The box's note about photos needs to know whether that switch is on. It reads it through
+  // Settings → Privacy's own client; if that can't be had, the box shows no note.
+  onMount(() => {
+    void privacy.load();
+  });
+  let seen = network.backAgain;
+  $effect(() => {
+    const again = network.backAgain;
+    if (again !== seen) {
+      seen = again;
+      void privacy.load();
+    }
+  });
   let phone = $state(matchMedia('(max-width: 767px)').matches);
 
   $effect(() => {
@@ -47,7 +64,7 @@
       {#snippet actions()}<ImportSteps step={1} />{/snippet}
     </PageHeader>
   {/if}
-  <ImportStart {flow} />
+  <ImportStart {flow} photosOff={privacy.photosOff} />
 {/if}
 
 {#if flow.already}

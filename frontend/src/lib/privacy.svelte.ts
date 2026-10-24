@@ -61,6 +61,15 @@ class Privacy {
   /** Goes up each time it's forgotten, so an answer to an earlier login is dropped. */
   #generation = 0;
 
+  /**
+   * True only when the server has said photo downloads are off. While the answer is still
+   * coming, or couldn't be had (offline, an error), the state isn't known and this is false:
+   * a screen that says "photos: not downloaded" must never say it on a guess.
+   */
+  get photosOff(): boolean {
+    return this.loaded && !this.loading && this.problem === null && !this.switches.recipe_photos;
+  }
+
   /** Fetch both (again, if already loaded: what's shown stays until the answer). */
   async load(): Promise<void> {
     const generation = this.#generation;

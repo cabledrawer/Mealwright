@@ -1186,13 +1186,18 @@
     <p class="note">
       The one box takes a link or pasted text. Importing from links switched off (an admin sees
       Settings, a member is told an admin can switch it on), another refusal, and the box while
-      reading. The review has a line in each state: matched, staple, to confirm, needs you, a line
-      that couldn’t be read, a very long name and a heading. "Save & plan it" is not there until
-      0.6.
+      reading. While "Download recipe photos" is off, a note under "How it works" says photos aren’t
+      downloaded and links to Settings → Privacy (the second box; it is left out while the switch is
+      on or isn’t known). The review has a line in each state: matched, staple, to confirm, needs
+      you, a line that couldn’t be read, a very long name and a heading. "Save & plan it" is not
+      there until 0.6.
     </p>
     <div class="stack">
       <div class="narrow"><ImportStart flow={boxFlow('')} /></div>
       <div class="narrow"><ImportStart flow={boxFlow('https://kitchen.example/sambar')} /></div>
+      <div class="narrow">
+        <ImportStart flow={boxFlow('https://kitchen.example/sambar')} photosOff />
+      </div>
       <div class="narrow">
         <ImportStart
           flow={boxFlow('https://kitchen.example/sambar', {

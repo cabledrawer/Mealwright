@@ -121,7 +121,45 @@ test('Recipes has an Import a recipe button that opens the box', async ({ page }
   await expect(read(page)).toBeDisabled();
   await expectStep(page, 1);
   await expect(page.getByText('How it works')).toBeVisible();
+  // Photo downloads start off, so the box says so (and checkPage scans it in both themes).
+  await expect(page.getByText('Recipe photos: not downloaded.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Change in Settings → Privacy' })).toHaveAttribute('href', '/settings/privacy');
   await checkPage(page);
+});
+
+/** The server's answer to GET /privacy/switches, made up in the browser. */
+const photoSwitch = (page: Page, on: boolean) =>
+  page.route('**/api/v1/privacy/switches', (route: Route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        switches: [
+          { connection: 'recipe_import', on: false },
+          { connection: 'recipe_photos', on },
+        ],
+        can_change: true,
+      }),
+    }),
+  );
+
+test('the box says nothing about photos while "Download recipe photos" is on', async ({ page }) => {
+  await photoSwitch(page, true);
+  const answered = page.waitForResponse('**/api/v1/privacy/switches');
+  await page.goto('/recipes/import');
+  await answered;
+  await expect(page.getByText('How it works')).toBeVisible();
+  await expect(page.getByText('Recipe photos: not downloaded.')).toHaveCount(0);
+  await checkPage(page);
+});
+
+test('the box says nothing about photos when the switch can’t be read', async ({ page }) => {
+  await page.route('**/api/v1/privacy/switches', (route: Route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"Something went wrong."}' }));
+  const answered = page.waitForResponse('**/api/v1/privacy/switches');
+  await page.goto('/recipes/import');
+  await answered;
+  await expect(page.getByText('How it works')).toBeVisible();
+  await expect(page.getByText('Recipe photos: not downloaded.')).toHaveCount(0);
 });
 
 test('the box says whether it thinks it is a link or pasted text', async ({ page }) => {
