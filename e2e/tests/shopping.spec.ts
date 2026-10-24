@@ -1146,3 +1146,39 @@ test("desktop: Move to… sits in the row's ⋯ menu, moves to another list, and
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
 });
+
+test("the Move picker at 200% text: nothing scrolls sideways and it passes the accessibility checks in both themes", async ({
+  page,
+}) => {
+  const name = `Large move ${tag()} with a rather long ingredient name`;
+  await onList(page, name);
+  await call(page, "POST", "/shopping/lists", { name: `Party ${tag()}` });
+  await aShop(page, `Lidl ${tag()}`);
+  await page.goto("/shopping");
+  await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  if (isPhone(page)) {
+    await swipeRight(page, name);
+    await page
+      .getByRole("button", { name: new RegExp(`^Move… ${name}`) })
+      .click();
+  } else {
+    await page.getByRole("button", { name: `More for ${name}` }).click();
+    await page.getByRole("menuitem", { name: "Move to…" }).click();
+  }
+  const picker = page.getByRole("dialog", { name: `Move ${name} to…` });
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole("button", { name: "Cancel" })).toBeVisible();
+  await checkPage(page); // both themes
+  // Every choice stays inside the window.
+  const inside = await picker.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return (
+      box.left >= 0 &&
+      box.right <= innerWidth &&
+      box.top >= 0 &&
+      box.bottom <= innerHeight
+    );
+  });
+  expect(inside).toBe(true);
+});
