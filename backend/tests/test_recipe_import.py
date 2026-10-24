@@ -383,6 +383,42 @@ def test_an_error_the_photo_download_did_not_expect_only_drops_the_photo(
     assert "recipe photos, ValueError" in caplog.text
 
 
+def test_a_photo_whose_commit_fails_and_whose_files_cannot_be_deleted_still_shows_the_first_error(
+    links_on: TestClient,
+    web: Web,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """0.5 PR 7 review L2: the clean-up after a failed commit can't hide the error that started
+    it, and its own failure logs only the kind of error, never a path."""
+    from sqlalchemy.orm import Session
+
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = kit.png()
+    written: list[bool] = []
+    real_write, real_commit = photos.write, Session.commit
+
+    def write(*args: Any, **kwargs: Any) -> int:
+        written.append(True)
+        return real_write(*args, **kwargs)
+
+    def commit(self: Session) -> None:
+        if written:
+            raise RuntimeError("the disk is full")
+        real_commit(self)
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        raise PermissionError(f"cannot delete {self}")
+
+    monkeypatch.setattr(photos, "write", write)
+    monkeypatch.setattr(Session, "commit", commit)
+    monkeypatch.setattr(Path, "unlink", unlink)
+    with caplog.at_level(logging.DEBUG), pytest.raises(RuntimeError, match="the disk is full"):
+        review(links_on, LINK)
+    assert "PermissionError" in caplog.text
+    assert "cannot delete" not in caplog.text and ".jpg" not in caplog.text
+
+
 @pytest.mark.parametrize("bad", ["http://[abc", "http://secret\u2100host.example/"])
 def test_a_bad_redirect_on_the_page_or_the_photo_never_leaks_an_error_or_an_address(
     links_on: TestClient,

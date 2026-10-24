@@ -370,7 +370,8 @@ def _store_waiting(kitchen: Kitchen, cleaned: Cleaned) -> RecipePhoto | None:
     try:
         kitchen.db.commit()
     except Exception:
-        photos.remove_files(store, kitchen.household_id, key)
+        for path in photos.paths(store, kitchen.household_id, key):
+            photos.delete_quietly(path)
         raise
     return row
 
