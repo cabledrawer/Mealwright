@@ -202,6 +202,26 @@ def entries_for(*addresses: str) -> list[object]:
     return [check.Entry(i, "G", a, "") for i, a in enumerate(addresses, start=1)]
 
 
+def test_www_and_the_bare_host_are_the_same_site() -> None:
+    assert check.site_of("https://www.Example.com/a") == check.site_of("https://example.com/b")
+    assert check.site_of("https://www.example.com/a") == "example.com"
+    assert check.site_of("https://wwwx.example.com/a") != check.site_of("https://example.com/a")
+    fake = FakeClock()
+    asked: list[tuple[str, float]] = []
+
+    def fetch(address: str) -> FetchedPage:
+        asked.append((address, fake.now))
+        return page("dotdash.html")
+
+    check.run_check(
+        entries_for("https://www.example.com/1", "https://example.com/2"),
+        fetch,
+        page_reader.read_page,
+        check.Spacer(fake.clock, fake.sleep),
+    )
+    assert fake.slept == [pytest.approx(5.0)]  # the second waited for the first
+
+
 def test_one_request_every_five_seconds_per_site() -> None:
     fake = FakeClock()
     asked: list[tuple[str, float]] = []

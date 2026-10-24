@@ -224,6 +224,13 @@ def _short(text: str) -> str:
 # --- The run: one at a time, spaced per site ----------------------------------------------------
 
 
+def site_of(address: str) -> str:
+    """The key for "one site": the host in lower case, with a leading "www." dropped, so
+    www.example.com and example.com are one site and share the 5-second gap (#60)."""
+    host = (urlsplit(address).hostname or "").lower()
+    return host.removeprefix("www.")
+
+
 class Spacer:
     """At most one request every `gap` seconds to one site: waits (with the injected `sleep`)
     until `gap` seconds after the last request to that site ended."""
@@ -269,7 +276,7 @@ def run_check(
     run = Run(tuple(entries))
     try:
         for entry in entries:
-            site = (urlsplit(entry.address).hostname or "").lower()
+            site = site_of(entry.address)
             spacer.wait(site)
             try:
                 outcome = check_one(entry, fetch, read)
