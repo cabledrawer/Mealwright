@@ -84,6 +84,7 @@ class Theirs:
     food_id: int
     item_id: str  # an item on their own list
     tick_id: str  # their own standing tick of it
+    loose_id: str  # another item of theirs, never ticked (so a move gets as far as its IDs)
 
 
 @pytest.fixture
@@ -131,7 +132,10 @@ def theirs(kitchen: TestClient, mine: Mine) -> Iterator[Theirs]:
         send(other, action("add", list_id=main, item_id=item, food_id=ghee), device=PHONE_N)
         ticked = one(other, "tick", 0, PHONE_N, item_id=item)
         assert ticked["status"] == "applied"
-        yield Theirs(other, main, ghee, item, ticked["id"])
+        dal = ok(other.post(f"{API}/foods", json={"name": "Masoor"}), 201)["food"]["id"]
+        loose = new_id()
+        send(other, action("add", list_id=main, item_id=loose, food_id=dal), device=PHONE_N)
+        yield Theirs(other, main, ghee, item, ticked["id"], loose)
 
 
 def links_across_households(kitchen: TestClient) -> list[str]:
@@ -172,6 +176,7 @@ def attacks(mine: Mine, theirs: Theirs) -> list[dict[str, Any]]:
     """Each sync action kind, with household 1's IDs in each ID field it has."""
     s = mine.s
     item, own_item, own_list = s.items["Onions"], theirs.item_id, theirs.main
+    loose = theirs.loose_id
     food, size, shop = s.foods["Toor dal"], s.sizes["Toor dal"], s.shops["Supermarket"]
     place = s.places["Fridge"]
     return [
@@ -188,8 +193,9 @@ def attacks(mine: Mine, theirs: Theirs) -> list[dict[str, Any]]:
         action("set_amount", item_id=own_item, amount=500, size_id=size),
         action("delete", item_id=item),
         action("move", item_id=item, list_id=own_list, shop_id=None),
-        action("move", item_id=own_item, list_id=s.main, shop_id=None),
-        action("move", item_id=own_item, list_id=own_list, shop_id=shop),
+        action("move", item_id=loose, list_id=s.main, shop_id=None),
+        action("move", item_id=loose, list_id=mine.extra_list, shop_id=None),
+        action("move", item_id=loose, list_id=own_list, shop_id=shop),
         action("tick", item_id=item),
         action("untick", item_id=item, tick_ids=[]),
         action("untick", item_id=own_item, tick_ids=[mine.tick_id]),
@@ -224,7 +230,8 @@ def test_the_sync_batch_never_reaches_the_other_household(mine: Mine, theirs: Th
         for sent, result in zip(tried[start : start + 20], answer["results"], strict=True):
             # An ID of theirs in an optional field (a size, a shop) is just dropped, and the
             # rest of the change applies to household 2's own item.
-            dropped = "size_id" in sent or "shop_id" in sent
+            # A move is not given this allowance: a forged list or shop is "gone".
+            dropped = sent["kind"] != "move" and ("size_id" in sent or "shop_id" in sent)
             allowed = {"refused", "ignored"} | ({"applied", "merged"} if dropped else set())
             assert result["status"] in allowed, (sent, result)
             assert result["repeat"] is False
@@ -279,7 +286,7 @@ def test_the_changes_feed_shows_only_their_own(mine: Mine, theirs: Theirs) -> No
         feed = changes(theirs.client, 0, device)
         assert leaks(feed) == [], device
         assert [row["id"] for row in feed["lists"]] == [theirs.main]
-        assert {row["id"] for row in feed["items"]} == {theirs.item_id}
+        assert {row["id"] for row in feed["items"]} == {theirs.item_id, theirs.loose_id}
         assert feed["notes"] == [] and feed["questions"] == []
         assert feed["cursor"] <= changes(theirs.client)["cursor"]
     # Household 1's (higher) cursor tells them nothing either.
