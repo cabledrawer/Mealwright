@@ -977,6 +977,7 @@
         model={shopModel}
         view={rows.toorDal}
         onclose={() => {}}
+        onmove={() => {}}
         onremove={() => (asking = true)}
       />
     </div>

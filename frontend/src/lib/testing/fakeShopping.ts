@@ -118,6 +118,8 @@ export function sampleCopy(): ShoppingCopy {
 export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeApi>[0] = {}) {
   const actions: Record<string, unknown>[] = [];
   const done = new Map<string, Record<string, unknown>>();
+  /** Where a moved line was, for the Undo of its move. */
+  const was = new Map<string, [string, number | null]>();
   const gone = (id: string, by = 'Wren') => {
     const row = copy.items.find((i) => i.id === id);
     if (!row) return;
@@ -175,6 +177,13 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
       case 'delete':
         gone(String(action.item_id), 'Tess');
         break;
+      case 'move':
+        if (item) {
+          was.set(String(action.id), [item.list_id, item.shop_id]);
+          item.list_id = String(action.list_id);
+          item.shop_id = action.shop_id as number | null;
+        }
+        break;
       case 'clear_ticked':
         for (const id of action.item_ids as string[]) gone(id, 'Tess');
         break;
@@ -188,6 +197,11 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
       case 'undo': {
         const before = done.get(String(action.undoes));
         if (before?.kind === 'add') gone(String(before.item_id), 'Tess');
+        if (before?.kind === 'move') {
+          const back = was.get(String(before.id));
+          const moved = copy.items.find((i) => i.id === before.item_id);
+          if (back && moved) [moved.list_id, moved.shop_id] = back as [string, number | null];
+        }
         if (before?.kind === 'remove_list') {
           copy.lists.forEach((l) => l.id === before.list_id && (l.removed = false));
         }

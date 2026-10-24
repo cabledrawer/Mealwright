@@ -38,6 +38,8 @@ export type ActionFields =
     }
   | { kind: 'set_amount'; item_id: string; amount: number; size_id?: number | null }
   | { kind: 'delete'; item_id: string }
+  /** Move an unticked line to a shop (null = Any shop) on a list (sync protocol 4.2, M-1 to M-8). */
+  | { kind: 'move'; item_id: string; list_id: string; shop_id: number | null }
   | { kind: 'tick'; item_id: string }
   | { kind: 'untick'; item_id: string; tick_ids: string[] }
   | { kind: 'put_away'; item_id: string; place_id: number; tick_ids: string[]; use_by?: string }

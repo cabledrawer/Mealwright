@@ -41,6 +41,8 @@ describe('the Shopping page', () => {
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
   }
 
+  const row = (id: string) => copy.items.find((i) => i.id === id);
+
   /** A ticked row's "Change" opens the places and "Different pack?". */
   async function openChange(name: string) {
     await page.getByRole('button', { name: `Change where ${name} went` }).click();
@@ -1042,12 +1044,126 @@ describe('the Shopping page', () => {
       expect(server.actions).toEqual([]);
     });
 
-    it('computer: a bin asks the same question', async () => {
+    it('computer: the ⋯ menu has Change amount, Move to… and Remove from list…, which asks', async () => {
       await render(1300);
-      await page.getByRole('button', { name: 'Remove Yoghurt from the list' }).click();
+      await page.getByRole('button', { name: 'More for Yoghurt' }).click();
+      const items = page
+        .getByRole('menuitem')
+        .elements()
+        .map((e) => e.textContent);
+      expect(items).toEqual(['Change amount', 'Move to…', 'Remove from list…']);
+      await page.getByRole('menuitem', { name: 'Remove from list…' }).click();
       await expect
         .element(page.getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' }))
         .toBeVisible();
+    });
+
+    it('computer: Escape closes the ⋯ menu and gives the focus back to its button', async () => {
+      await render(1300);
+      const more = page.getByRole('button', { name: 'More for Yoghurt' });
+      await more.click();
+      await expect.element(page.getByRole('menuitem', { name: 'Change amount' })).toHaveFocus();
+      await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+      await expect.element(page.getByRole('menuitem', { name: 'Remove from list…' })).toHaveFocus();
+      await userEvent.keyboard('{Escape}');
+      expect(page.getByRole('menu').elements()).toEqual([]);
+      await expect.element(more).toHaveFocus();
+    });
+
+    describe('moving a line (cabledrawer 22 Oct, question 3)', () => {
+      const moves = () => server.actions.filter((a) => a.kind === 'move');
+
+      it('phone: swipe right shows a blue Move…, which opens the picker; a swipe alone moves nothing', async () => {
+        await render(390);
+        swipe(slideOf('Yoghurt'), 110);
+        const blue = page.getByRole('button', { name: /^Move… Yoghurt/ });
+        await expect.element(blue).toBeVisible();
+        expect(server.actions).toEqual([]);
+        await blue.click();
+        const sheet = page.getByRole('dialog', { name: 'Move Yoghurt to…' });
+        await expect.element(sheet).toBeVisible();
+        // Where it is now is marked; the other shops and Any shop are the choices.
+        await expect
+          .element(sheet.getByRole('radio', { name: /Supermarket/ }))
+          .toHaveAttribute('aria-checked', 'true');
+        expect(
+          sheet
+            .getByRole('radio')
+            .elements()
+            .map((e) => e.textContent?.trim())
+        ).toEqual(['Supermarketnow', 'Indian grocer', 'Any shop']);
+        await expect
+          .element(sheet.getByRole('button', { name: /Party on Saturday/ }))
+          .toBeVisible();
+        expect(server.actions).toEqual([]);
+      });
+
+      it('choosing a shop moves the line there, never ticks it, and the toast says so with Undo', async () => {
+        await render(390);
+        swipe(slideOf('Yoghurt'), 110);
+        await page.getByRole('button', { name: /^Move… Yoghurt/ }).click();
+        await page.getByRole('radio', { name: 'Indian grocer' }).click();
+        await vi.waitFor(() => expect(moves()).toHaveLength(1));
+        expect(moves()[0]).toMatchObject({
+          kind: 'move',
+          item_id: 'i-yoghurt',
+          list_id: 'main',
+          shop_id: 2
+        });
+        expect(server.actions.some((a) => a.kind === 'tick')).toBe(false);
+        expect(row('i-yoghurt')).toMatchObject({ shop_id: 2 });
+        const toast = page
+          .getByRole('status')
+          .filter({ hasText: 'Moved Yoghurt to Indian grocer' });
+        await expect.element(toast).toBeVisible();
+        await toast.getByRole('button', { name: 'Undo' }).click();
+        await vi.waitFor(() =>
+          expect(server.actions.some((a) => a.kind === 'undo' && a.undoes === moves()[0]!.id)).toBe(
+            true
+          )
+        );
+      });
+
+      it('choosing another list keeps the shop', async () => {
+        await render(390);
+        swipe(slideOf('Yoghurt'), 110);
+        await page.getByRole('button', { name: /^Move… Yoghurt/ }).click();
+        await page.getByRole('button', { name: /Party on Saturday/ }).click();
+        await vi.waitFor(() => expect(moves()).toHaveLength(1));
+        expect(moves()[0]).toMatchObject({ list_id: 'party', shop_id: 1 });
+        await expect
+          .element(
+            page.getByRole('status').filter({ hasText: 'Moved Yoghurt to Party on Saturday' })
+          )
+          .toBeVisible();
+      });
+
+      it('phone: a keyboard or screen reader reaches Move to… in the amount box', async () => {
+        await render(390);
+        await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+        await page.getByRole('button', { name: 'Move to…' }).click();
+        await expect.element(page.getByRole('dialog', { name: 'Move Yoghurt to…' })).toBeVisible();
+        await page.getByRole('radio', { name: 'Any shop' }).click();
+        await vi.waitFor(() => expect(moves()).toHaveLength(1));
+        expect(moves()[0]).toMatchObject({ shop_id: null });
+      });
+
+      it('computer: Move to… in the ⋯ menu opens the same choices; Esc leaves it as it was', async () => {
+        await render(1300);
+        await page.getByRole('button', { name: 'More for Yoghurt' }).click();
+        await page.getByRole('menuitem', { name: 'Move to…' }).click();
+        const sheet = page.getByRole('dialog', { name: 'Move Yoghurt to…' });
+        await expect.element(sheet).toBeVisible();
+        await userEvent.keyboard('{Escape}');
+        expect(page.getByRole('dialog').elements()).toEqual([]);
+        expect(server.actions).toEqual([]);
+      });
+
+      it('a ticked line has no Move…', async () => {
+        await render(390);
+        await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+        expect(page.getByRole('button', { name: /Move…/ }).elements()).toEqual([]);
+      });
     });
 
     it('a staple says “restocked” in the toast and on its row, and has no Change', async () => {

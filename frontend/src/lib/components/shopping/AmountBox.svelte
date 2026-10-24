@@ -26,7 +26,8 @@
     model,
     view,
     onclose,
-    onremove
+    onremove,
+    onmove
   }: {
     model: ShoppingModel;
     view: ViewItem;
@@ -34,6 +35,8 @@
     onclose: () => void;
     /** "Remove from list": the row asks "are you sure?". */
     onremove: () => void;
+    /** "Move to…": the shop and list choices (a keyboard and a screen reader reach them here). */
+    onmove: () => void;
   } = $props();
 
   const uid = $props.id();
@@ -176,6 +179,9 @@
   <span class="hint" id="{uid}-hint">The box holds the real amount: edit it, or use − / +.</span>
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
   <div class="foot">
+    <button type="button" class="move" onclick={onmove}>
+      <Icon name="arrow-right" size={20} stroke={2.2} />Move to…
+    </button>
     <button type="button" class="remove" onclick={onremove}>
       <Icon name="trash" size={20} stroke={2.2} />Remove from list
     </button>
@@ -298,6 +304,19 @@
     background: transparent;
     color: var(--color-accent);
     font: var(--weight-bold) var(--text-sm) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .move {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-lg) var(--font-ui);
     cursor: pointer;
   }
 

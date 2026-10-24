@@ -15,9 +15,11 @@
   import Icon from '../Icon.svelte';
   import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';
+  import MovePicker from './MovePicker.svelte';
   import PackSheet from './PackSheet.svelte';
   import PutAwayLine from './PutAwayLine.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
+  import RowMenu from './RowMenu.svelte';
 
   let {
     model,
@@ -78,10 +80,29 @@
   // Where the focus was when the question opened, so Keep it can give it back.
   let opener: Element | null = null;
 
-  function ask() {
-    opener = document.activeElement;
+  function ask(from?: Element) {
+    opener = from ?? document.activeElement;
     open = null;
     asking = true;
+  }
+
+  // "Move to…": a sheet on a phone (swipe right, or the amount box), a small menu by the ⋯ button
+  // on a computer. Never ticks the line.
+  let moving = $state(false);
+  let moveFrom = $state<HTMLElement | null>(null);
+
+  function openMove(from?: HTMLElement) {
+    moveFrom = from ?? (document.activeElement as HTMLElement | null);
+    open = null;
+    moving = true;
+  }
+
+  function moveTo(to: { shopId: number | null } | { listId: string }) {
+    editing = false;
+    void model.move(item, {
+      listId: 'listId' in to ? to.listId : item.list_id,
+      shopId: 'shopId' in to ? to.shopId : item.shop_id
+    });
   }
 
   async function keep() {
@@ -104,7 +125,13 @@
 
 <li class="item" class:trolley class:highlight>
   {#if editing && !trolley}
-    <AmountBox {model} {view} onclose={() => void closeBox()} onremove={ask} />
+    <AmountBox
+      {model}
+      {view}
+      onclose={() => void closeBox()}
+      onremove={() => ask()}
+      onmove={() => openMove()}
+    />
   {:else}
     <SwipeRow
       bleed={14}
@@ -115,7 +142,14 @@
         describe: `${food.name} from the list`,
         icon: 'trash',
         tone: 'danger',
-        run: ask
+        run: () => ask()
+      }}
+      right={{
+        label: 'Move…',
+        describe: `${food.name} to another shop or list`,
+        icon: 'arrow-right',
+        tone: 'move',
+        run: () => openMove()
       }}
     >
       <div class="line">
@@ -184,12 +218,16 @@
             {item.display ?? 'Add amount'}
             {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
           </button>
-          <button
-            type="button"
-            class="bin"
-            aria-label="Remove {food.name} from the list"
-            onclick={ask}><Icon name="trash" size={20} stroke={2.2} /></button
-          >
+          {#if model.device === 'computer'}
+            <RowMenu
+              name={food.name}
+              items={[
+                { label: 'Change amount', run: () => openBox() },
+                { label: 'Move to…', run: (from) => openMove(from) },
+                { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
+              ]}
+            />
+          {/if}
         {/if}
       </div>
     </SwipeRow>
@@ -242,6 +280,17 @@
       >
     </p>
   {/each}
+
+  {#if moving || moveFrom}
+    <MovePicker
+      open={moving}
+      name={food.name}
+      {...model.movePlaces(item)}
+      anchor={model.device === 'computer' ? moveFrom : null}
+      onpick={moveTo}
+      onclose={() => (moving = false)}
+    />
+  {/if}
 
   {#if asking}
     <RemoveConfirm name={food.name} onremove={remove} onkeep={() => void keep()} />
@@ -396,34 +445,6 @@
 
   .amount :global(svg) {
     color: var(--color-text-muted);
-  }
-
-  /* A bin for the pointer, on computers that can hover: it shows over the row or when the
-     keyboard reaches it. On a phone the swipe does it; on a touch tablet the amount box. */
-  .bin {
-    display: none;
-    flex: none;
-    place-items: center;
-    width: var(--touch-target);
-    height: var(--touch-target);
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-warning-text);
-    cursor: pointer;
-  }
-
-  @media (hover: hover) and (pointer: fine) and (min-width: 768px) {
-    .bin {
-      display: grid;
-      opacity: 0;
-    }
-
-    .item:hover .bin,
-    .item:focus-within .bin {
-      opacity: 1;
-    }
   }
 
   .places {

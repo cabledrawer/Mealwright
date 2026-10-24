@@ -90,6 +90,9 @@ export function applyLocal(
         if (item) item.deleted = true;
         break;
       }
+      case 'move':
+        move(action);
+        break;
       case 'tick': {
         const item = itemOf(action.item_id);
         // A second tick of a ticked line does nothing (the server says already_ticked).
@@ -156,6 +159,40 @@ export function applyLocal(
 
   function foodOf(id: number): ShopFood | undefined {
     return out.foods.find((f) => f.id === id);
+  }
+
+  /**
+   * A move, as the server does it (sync protocol 6.1): only an unticked line moves, to a list
+   * that is there; if the ingredient is already on an unticked line at the new place, the amounts
+   * add up and this line goes. Nothing happens to a line that is already there.
+   */
+  function move(action: Extract<Action, { kind: 'move' }>): void {
+    const item = itemOf(action.item_id);
+    const list = out.lists.find((l) => l.id === action.list_id && !l.removed);
+    if (!item || item.deleted || !list || item.ticks.some((t) => t.standing)) return;
+    if (item.list_id === action.list_id && item.shop_id === action.shop_id) return;
+    const line = out.items.find(
+      (i) =>
+        i.id !== item.id &&
+        i.list_id === action.list_id &&
+        i.food_id === item.food_id &&
+        i.shop_id === action.shop_id &&
+        !i.deleted &&
+        !i.merged_into_id &&
+        !i.ticks.some((t) => t.standing)
+    );
+    if (!line) {
+      item.list_id = action.list_id;
+      item.shop_id = action.shop_id;
+      return;
+    }
+    if (item.amount !== null) {
+      if (line.amount === null) line.size_id = item.size_id;
+      line.amount = (line.amount ?? 0) + item.amount;
+      line.hand_edited = true;
+      line.display = localDisplay(line.amount, line.size_id, foodOf(line.food_id));
+    }
+    item.deleted = true;
   }
 
   function add(action: Extract<Action, { kind: 'add' }>): void {

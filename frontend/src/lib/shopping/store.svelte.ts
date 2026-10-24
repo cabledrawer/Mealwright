@@ -22,7 +22,7 @@ import { searchCopy } from './search';
 import { putAwayState, type PutAway } from './putAway';
 import { sendAction, shoppingSync } from './sync.svelte';
 import type { FoodSize, ListItem, ShopFood, Tick } from './types';
-import { groupByShop, listCounts, standingTicks, subtitle } from './view';
+import { ANY_SHOP, groupByShop, listCounts, standingTicks, subtitle } from './view';
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
 export interface Ticked {
@@ -540,6 +540,49 @@ export class ShoppingModel {
       { kind: 'delete', item_id: item.id },
       {
         label: `Removed ${name}`
+      }
+    );
+  }
+
+  /** Where a line could go: every shop (and Any shop), then the other lists. */
+  movePlaces(item: ListItem) {
+    const shops = [...this.copy.shops]
+      .sort((a, b) => a.position - b.position || a.id - b.id)
+      .map((s) => ({ id: s.id as number | null, name: s.name }));
+    return {
+      shops: [...shops, { id: null, name: ANY_SHOP }].map((s) => ({
+        ...s,
+        now:
+          s.id ===
+          (item.shop_id !== null && shops.some((x) => x.id === item.shop_id) ? item.shop_id : null)
+      })),
+      lists: this.lists
+        .filter((l) => l.id !== item.list_id)
+        .map((l) => ({ id: l.id, name: l.name, main: l.main, toBuy: this.countsOf(l.id).toBuy }))
+    };
+  }
+
+  /**
+   * Move a line to another shop (the same list) or another list (the same shop), never ticking
+   * it (cabledrawer 22 Oct, question 3). Works offline, like any change; Undo puts it back.
+   */
+  move(item: ListItem, to: { listId: string; shopId: number | null }) {
+    const name = this.food(item.food_id)?.name ?? 'Ingredient';
+    const list = this.copy.lists.find((l) => l.id === to.listId);
+    const where =
+      to.listId !== item.list_id
+        ? (list?.name ?? 'the list')
+        : to.shopId === null
+          ? ANY_SHOP
+          : (this.copy.shops.find((s) => s.id === to.shopId)?.name ?? ANY_SHOP);
+    return this.#act(
+      { kind: 'move', item_id: item.id, list_id: to.listId, shop_id: to.shopId },
+      {
+        label: `Moved ${name} to ${where}`,
+        // Not moved (ticked meanwhile, a list or shop that has gone): say why, in the server's words.
+        saved: (result) => {
+          if (result.status === 'ignored' && result.message) toasts.show(result.message);
+        }
       }
     );
   }

@@ -132,7 +132,9 @@ test("the main list can be renamed but not removed", async ({ page }) => {
   await page.getByRole("button", { name: /^This week/ }).click();
   await page.getByRole("button", { name: /^This week options/ }).click();
   await expect(page.getByRole("button", { name: "Rename" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove", exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Remove", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("a typed name that is not an ingredient asks How do you count it?, with packet sizes up front", async ({
@@ -232,7 +234,9 @@ test("the amount box’s Edit ingredient saves the box and opens the ingredient 
   await page.keyboard.press("Escape");
   await expect(editor).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 750`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 750`),
+    }),
   ).toBeVisible();
 
   await context.setOffline(true);
@@ -240,8 +244,12 @@ test("the amount box’s Edit ingredient saves the box and opens the ingredient 
     page.getByTestId(isPhone(page) ? "connection-phone" : "connection-desktop"),
   ).toContainText("Offline");
   await page.getByRole("button", { name, exact: true }).click();
-  await expect(box.getByRole("button", { name: "Remove from list" })).toBeVisible();
-  await expect(box.getByRole("button", { name: "Edit ingredient" })).toHaveCount(0);
+  await expect(
+    box.getByRole("button", { name: "Remove from list" }),
+  ).toBeVisible();
+  await expect(
+    box.getByRole("button", { name: "Edit ingredient" }),
+  ).toHaveCount(0);
   await context.setOffline(false);
 });
 
@@ -252,7 +260,12 @@ test("Ingredients has a New ingredient button that asks How do you count it?", a
   await page.goto("/recipes/ingredients");
   // A phone shows a round + (named "New ingredient"), a computer the words.
   await page
-    .getByRole("button", isPhone(page) ? { name: "New ingredient", exact: true } : { name: "+ New ingredient" })
+    .getByRole(
+      "button",
+      isPhone(page)
+        ? { name: "New ingredient", exact: true }
+        : { name: "+ New ingredient" },
+    )
     .click();
   const dialog = page.getByRole("dialog", { name: "How do you count it?" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
@@ -331,7 +344,9 @@ test("removing a line from the list keeps keyboard focus in the list", async ({
   await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
   await ask.getByRole("button", { name: "Keep it" }).click();
   // Keep it leaves the amount box open on the same line.
-  await expect(page.getByRole("form", { name: `Change ${first}` })).toBeVisible();
+  await expect(
+    page.getByRole("form", { name: `Change ${first}` }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Remove from list" }).click();
   await ask.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(
@@ -906,7 +921,9 @@ test("removing asks first: Keep it keeps the line; Remove takes it off, with Und
   await checkPage(page); // both themes
   await ask.getByRole("button", { name: "Keep it" }).click();
   // Keep it leaves the amount box open on the same line.
-  await expect(page.getByRole("form", { name: `Change ${name}` })).toBeVisible();
+  await expect(
+    page.getByRole("form", { name: `Change ${name}` }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Remove from list" }).click();
   await ask.getByRole("button", { name: "Remove", exact: true }).click();
   await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
@@ -934,15 +951,22 @@ test("desktop: a keyboard alone opens the amount box, saves it, and answers the 
       name: new RegExp(`^Change amount: ${name}, 750`),
     }),
   ).toBeVisible();
-  // Focus is back on the name; Tab reaches the amount, then the bin that shows with focus.
+  // Focus is back on the name; Tab reaches the amount, then the ⋯ button.
   await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
-  const bin = page.getByRole("button", {
-    name: `Remove ${name} from the list`,
-  });
-  await expect(bin).toBeFocused();
-  await expect(bin).toBeVisible();
+  const more = page.getByRole("button", { name: `More for ${name}` });
+  await expect(more).toBeFocused();
+  await expect(more).toBeVisible();
+  // Enter opens its menu on Change amount; the arrow keys reach Remove from list….
+  const removeItem = page.getByRole("menuitem", { name: "Remove from list…" });
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("menuitem", { name: "Change amount" }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(removeItem).toBeFocused();
   await page.keyboard.press("Enter");
   const ask = page.getByRole("alertdialog", {
     name: `Remove ${name} from the shopping list?`,
@@ -957,8 +981,11 @@ test("desktop: a keyboard alone opens the amount box, saves it, and answers the 
   await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(ask).toHaveCount(0);
-  await expect(bin).toBeFocused();
+  await expect(more).toBeFocused();
   // Enter on Remove removes it.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
@@ -1029,4 +1056,93 @@ test("phone: the row is a pill, the box is big enough to tap, and nothing sidewa
     page.getByRole("form", { name: `Change ${name}` }),
   ).toBeVisible();
   await checkPage(page);
+});
+
+/** A finger sliding right over a row, for real: touch events through the browser. */
+async function swipeRight(page: Page, name: string) {
+  const row = page
+    .getByRole("button", { name, exact: true })
+    .locator("xpath=ancestor::div[contains(@class,'slide')]");
+  await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  const box = (await row.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const from = box.x + 40;
+  const cdp = await page.context().newCDPSession(page);
+  const send = (type: "touchStart" | "touchMove" | "touchEnd", x?: number) =>
+    cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: x === undefined ? [] : [{ x, y }],
+    });
+  await send("touchStart", from);
+  for (let i = 1; i <= 8; i++) await send("touchMove", from + i * 14);
+  await send("touchEnd");
+  await cdp.detach();
+}
+
+async function aShop(page: Page, name: string) {
+  const made = await call(page, "POST", "/shops", { name });
+  return made.id as number;
+}
+
+test("phone: swiping a row right shows a blue Move…, which moves it to another shop without ticking it", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone swipe");
+  const name = `Moving ${tag()}`;
+  const shop = `Lidl ${tag()}`;
+  await onList(page, name);
+  await aShop(page, shop);
+  await page.goto("/shopping");
+  await swipeRight(page, name);
+  const blue = page.getByRole("button", { name: new RegExp(`^Move… ${name}`) });
+  await expect(blue).toBeVisible();
+  await checkPage(page); // both themes
+  await blue.click();
+  const sheet = page.getByRole("dialog", { name: `Move ${name} to…` });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("radio", { name: /Any shop/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await checkPage(page);
+  await sheet.getByRole("radio", { name: shop }).click();
+  // It is under the new shop's heading, not ticked, and the toast offers Undo.
+  await expect(
+    page.getByRole("heading", { name: shop, level: 2 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: `Tick ${name}` }),
+  ).not.toBeChecked();
+  const toast = page
+    .getByRole("status")
+    .filter({ hasText: `Moved ${name} to ${shop}` });
+  await expect(toast).toBeVisible();
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("heading", { name: shop, level: 2 })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("desktop: Move to… sits in the row's ⋯ menu, moves to another list, and Ctrl+Z takes it back", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the computer layout");
+  const name = `Moving ${tag()}`;
+  const other = `Party ${tag()}`;
+  await onList(page, name);
+  await call(page, "POST", "/shopping/lists", { name: other });
+  await page.goto("/shopping");
+  await page.getByRole("button", { name: `More for ${name}` }).click();
+  await page.getByRole("menuitem", { name: "Move to…" }).click();
+  const menu = page.getByRole("dialog", { name: `Move ${name} to…` });
+  await expect(menu).toBeVisible();
+  await checkPage(page); // both themes
+  await menu.getByRole("button", { name: new RegExp(other) }).click();
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("status").filter({ hasText: `Moved ${name} to ${other}` }),
+  ).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
 });

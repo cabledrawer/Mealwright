@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { food, item, tess, sampleCopy } from '$lib/testing/fakeShopping';
+import { food, item, tess, sampleCopy, tick } from '$lib/testing/fakeShopping';
 import type { Action, ActionFields } from './actions';
 import { applyLocal, localDisplay } from './applyLocal';
 import type { ShoppingCopy } from './types';
@@ -301,5 +301,68 @@ describe('localDisplay', () => {
     expect(localDisplay(1, null, eggs)).toBe('1 egg');
     expect(localDisplay(null, 80, eggs)).toBeNull();
     expect(localDisplay(400, null, food(1, 'Rice', 'other'))).toBe('400 g');
+  });
+});
+
+describe('applyLocal: a move (sync protocol 6.1)', () => {
+  const move = (itemId: string, listId: string, shopId: number | null) =>
+    act({ kind: 'move', item_id: itemId, list_id: listId, shop_id: shopId });
+
+  it('moves an unticked line to another shop, or another list with its shop', () => {
+    const shown = applyLocal(
+      sampleCopy(),
+      [move('i-onions', 'main', 2), move('i-yoghurt', 'party', 1)],
+      me
+    );
+    expect(row(shown, 'i-onions')).toMatchObject({ list_id: 'main', shop_id: 2 });
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ list_id: 'party', shop_id: 1 });
+  });
+
+  it('Any shop is a shop of null', () => {
+    const shown = applyLocal(sampleCopy(), [move('i-onions', 'main', null)], me);
+    expect(row(shown, 'i-onions')!.shop_id).toBeNull();
+  });
+
+  it('never moves a ticked line, a removed line, one to a removed list, or one that is there', () => {
+    const copy = sampleCopy();
+    copy.lists.push({ id: 'old', name: 'Old', main: false, position: 2, removed: true });
+    copy.items.find((i) => i.id === 'i-yoghurt')!.deleted = true;
+    const shown = applyLocal(
+      copy,
+      [
+        move('i-coriander', 'main', 2), // ticked
+        move('i-yoghurt', 'main', 2), // removed
+        move('i-onions', 'old', 1), // a list that has gone
+        move('i-onions', 'main', 1) // already there
+      ],
+      me
+    );
+    expect(row(shown, 'i-coriander')!.shop_id).toBe(1);
+    expect(row(shown, 'i-yoghurt')!.shop_id).toBe(1);
+    expect(row(shown, 'i-onions')).toMatchObject({ list_id: 'main', shop_id: 1 });
+  });
+
+  it('a line moving to where the ingredient already is adds up and takes this line off', () => {
+    const copy = sampleCopy();
+    copy.items.push(item('i-onions-2', 1, { shop_id: 2, amount: 3, display: '3' }));
+    const shown = applyLocal(copy, [move('i-onions', 'main', 2)], me);
+    expect(row(shown, 'i-onions')!.deleted).toBe(true);
+    expect(row(shown, 'i-onions-2')).toMatchObject({ amount: 8, display: '8', hand_edited: true });
+  });
+
+  it('a ticked line there is not joined', () => {
+    const copy = sampleCopy();
+    copy.items.push(
+      item('i-onions-2', 1, { shop_id: 2, ticks: [tick('t-on', { bought: null })], amount: 3 })
+    );
+    const shown = applyLocal(copy, [move('i-onions', 'main', 2)], me);
+    expect(row(shown, 'i-onions')).toMatchObject({ deleted: false, shop_id: 2 });
+    expect(row(shown, 'i-onions-2')!.amount).toBe(3);
+  });
+
+  it('a move waiting with its Undo is not shown', () => {
+    const m = move('i-onions', 'main', 2);
+    const shown = applyLocal(sampleCopy(), [m, act({ kind: 'undo', undoes: m.id })], me);
+    expect(row(shown, 'i-onions')!.shop_id).toBe(1);
   });
 });
