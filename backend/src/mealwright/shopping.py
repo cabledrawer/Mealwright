@@ -19,7 +19,7 @@ from datetime import datetime
 from typing import Any, TypeIs
 
 from fastapi import status
-from sqlalchemy import func, select, text, update
+from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.aisles import DEFAULT_AISLE
@@ -59,6 +59,7 @@ LIST_KINDS = (
     "item_amount",
     "item_deleted",
     "item_place",
+    "item_moved",
 )
 
 LOCKED = "mealwright.household_locked"
@@ -1077,8 +1078,10 @@ def _last_amount_action(kitchen: Kitchen, item_id: str) -> SyncAction | None:
         .where(
             SyncAction.household_id == kitchen.household_id,
             SyncAction.item_id == item_id,
-            SyncAction.kind == "set_amount",
-            SyncAction.status == "applied",
+            or_(
+                and_(SyncAction.kind == "set_amount", SyncAction.status == "applied"),
+                and_(SyncAction.kind == "move", SyncAction.status == "merged"),
+            ),
             SyncAction.undone_by_action_id.is_(None),
         )
         .order_by(SyncAction.seq.desc())
@@ -1092,11 +1095,12 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
     if removal is None or act.plain:
         return
     me = act.kitchen.login.id
+    taken = "moved" if removal.kind == "move" else "removed"  # a move can merge a line away
     note(
         act,
         "N4",
         me,
-        f"{who(removal.login_id, removal.login_name, me)} had removed {food.name},"
+        f"{who(removal.login_id, removal.login_name, me)} had {taken} {food.name},"
         " so your change wasn’t kept.",
         list_id=item.list_id,
         item_id=item.id,
@@ -1251,6 +1255,151 @@ def delete_item(act: Act) -> None:
     )
     if food is not None:
         _lost_to_delete(act, item, food)
+
+
+def _where_to(kitchen: Kitchen, list_id: str, shop_id: int | None, moved_list: bool) -> str:
+    """The words for where a line went: the list when the list changed, else the shop."""
+    if moved_list:
+        found = get_list(kitchen, list_id)
+        return found.name if found else "the list"
+    shop = get_shop(kitchen, shop_id) if shop_id is not None else None
+    return shop.name if shop else "Any shop"
+
+
+def _ticked_first(act: Act, item: ListItem, food: Food) -> None:
+    """N10: a move that came after someone's tick is not made (only unticked lines move)."""
+    kitchen = act.kitchen
+    tick = kitchen.db.scalar(
+        select(ListTick)
+        .where(
+            ListTick.household_id == kitchen.household_id,
+            ListTick.item_id == item.id,
+            ListTick.reversed_at.is_(None),
+        )
+        .order_by(ListTick.ticked_at)
+        .limit(1)
+    )
+    if tick is None or tick.device_id == act.device_id or act.plain:
+        return
+    me = kitchen.login.id
+    note(
+        act,
+        "N10",
+        me,
+        f"{who(tick.login_id, tick.login_name, me)} had ticked {food.name}, so it wasn’t moved.",
+        list_id=item.list_id,
+        item_id=item.id,
+        food_id=food.id,
+    )
+
+
+def _last_move(kitchen: Kitchen, item_id: str) -> SyncAction | None:
+    return kitchen.db.scalar(
+        select(SyncAction)
+        .where(
+            SyncAction.household_id == kitchen.household_id,
+            SyncAction.item_id == item_id,
+            SyncAction.kind == "move",
+            SyncAction.status == "applied",
+            SyncAction.undone_by_action_id.is_(None),
+        )
+        .order_by(SyncAction.seq.desc())
+        .limit(1)
+    )
+
+
+def move_item(act: Act) -> None:
+    """Move an unticked line to another shop or list (docs/dev/sync-protocol.md 4.2, rules
+    M-1 to M-7). If the ingredient is already on the other shop or list, the amounts add up
+    and the moved line is taken off (its tombstone says the move did it). Anyone can Undo."""
+    kitchen, payload = act.kitchen, act.payload
+    item = get_item(kitchen, payload["item_id"])
+    if item is None:
+        act.ignore("gone")
+        return
+    act.item_id, act.list_id, act.food_id = item.id, item.list_id, item.food_id
+    food = kitchen.db.get(Food, item.food_id)
+    if food is None or not food_is_shown(kitchen, item.food_id):
+        act.ignore("gone")
+        return
+    act.out["item"] = item
+    if item.deleted_at is not None:
+        act.ignore("deleted")
+        _edit_against_delete(act, item, food)
+        return
+    target = get_list(kitchen, payload["list_id"])
+    if target is None or target.removed_at is not None:
+        act.ignore("gone", f"That list was removed, so {food.name} wasn’t moved.")
+        return
+    shop_id: int | None = payload["shop_id"]
+    if shop_id is not None and get_shop(kitchen, shop_id) is None:
+        act.ignore("gone", f"That shop was removed, so {food.name} wasn’t moved.")
+        return
+    if standing_ticks(kitchen, [item.id]):
+        act.ignore("ticked")
+        _ticked_first(act, item, food)
+        return
+    if (item.list_id, item.shop_id) == (target.id, shop_id):
+        act.ignore("no_change")
+        return
+    source = get_list(kitchen, item.list_id)
+    if source is not None:
+        in_removed_list(act, source)
+    moved_list = item.list_id != target.id
+    where = _where_to(kitchen, target.id, shop_id, moved_list)
+    overwritten = _last_move(kitchen, item.id)
+    line = matching_line(kitchen, target.id, item.food_id, shop_id)
+    act.list_id = target.id
+    if line is not None and line.id != item.id:
+        ops: list[dict[str, Any]] = []
+        before = _amount_state(line)
+        if item.amount_milli is not None:
+            had = line.amount_milli
+            try:
+                line.amount_milli = checked((had or 0) + item.amount_milli)
+            except TooBig as err:
+                raise Refused("too_big", "That amount is too big.") from err
+            if had is None:
+                line.size_id = item.size_id
+            line.hand_edited = True
+            line.version = act.seq
+            ops.append(
+                {"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}
+            )
+        tombstone(kitchen, item, act.seq, act.id)
+        ops.append({"op": "item_deleted", "item_ids": [item.id]})
+        kitchen.db.flush()
+        act.status = "merged"
+        act.item_id = line.id
+        act.out["item"] = line
+        act.done("item_moved", f"Moved {food.name} to {where}", ops, food.id)
+        return
+    old = [item.list_id, item.shop_id]
+    item.list_id, item.shop_id = target.id, shop_id
+    item.version = act.seq
+    kitchen.db.flush()
+    act.done(
+        "item_moved",
+        f"Moved {food.name} to {where}",
+        [{"op": "item_moved", "item_id": item.id, "old": old, "new": [target.id, shop_id]}],
+        food.id,
+    )
+    if (
+        overwritten is not None
+        and overwritten.device_id != act.device_id
+        and unseen(act, overwritten)
+    ):
+        me = kitchen.login.id
+        note(
+            act,
+            "N10",
+            overwritten.login_id,
+            f"{who(me, kitchen.login.name, overwritten.login_id)} moved {food.name} to {where}",
+            list_id=target.id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
 
 
 def standing_ticks(kitchen: Kitchen, item_ids: Iterable[str]) -> set[str]:
@@ -1431,6 +1580,25 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
                 at_old = [tick.bought_milli, tick.bought_size_id] == op["old"]
                 tally.done += at_old
                 tally.skipped += not at_old
+        elif kind == "item_moved":
+            item = db.get(ListItem, op["item_id"])
+            back = get_list(kitchen, op["old"][0])
+            if (
+                not _same(item, kitchen)
+                or item.deleted_at is not None
+                or item.ticked_at is not None  # only unticked lines move (rule M-1)
+                or back is None
+                or back.removed_at is not None
+            ):
+                tally.skipped += 1
+            elif [item.list_id, item.shop_id] == op["new"]:
+                item.list_id, item.shop_id = op["old"]
+                item.version = seq
+                tally.done += 1
+            elif [item.list_id, item.shop_id] == op["old"]:
+                tally.done += 1
+            else:
+                tally.skipped += 1
         elif kind == "item_deleted":
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)

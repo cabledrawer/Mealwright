@@ -242,14 +242,16 @@ def tick(act: Act) -> None:
         return
     _ask(act, item, row)
     remover = _remover(act, item)
-    if remover is not None and remover.kind == "delete":
-        # N1 (L-9). A cleared item gets none: the card, if any, explains it (L-19).
+    if remover is not None and remover.kind in ("delete", "move"):
+        # N1 (L-9). A cleared item gets none: the card, if any, explains it (L-19). A move
+        # that added this line to one already there takes it off the same way (M-3).
         me = kitchen.login.id
+        taken = "moved" if remover.kind == "move" else "removed"
         shopping.note(
             act,
             "N1",
             me,
-            f"{who(remover.login_id, remover.login_name, me)} had removed this."
+            f"{who(remover.login_id, remover.login_name, me)} had {taken} this."
             " Your tick still went into the pantry.",
             list_id=item.list_id,
             item_id=item.id,
@@ -498,7 +500,8 @@ def untick(act: Act) -> None:
             act,
             "N5",
             me,
-            f"{who(remover.login_id, remover.login_name, me)} had removed this, so it isn’t"
+            f"{who(remover.login_id, remover.login_name, me)} had"
+            f" {'moved' if remover.kind == 'move' else 'removed'} this, so it isn’t"
             " back on the list. Your untick took it out of the pantry.",
             list_id=item.list_id,
             item_id=item.id,

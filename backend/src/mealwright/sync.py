@@ -153,6 +153,15 @@ class Delete(ActionBase):
     item_id: RowId
 
 
+class MoveLine(ActionBase):
+    """Move an unticked line to a shop (`null` = Any shop) on a list (sync protocol 4.2)."""
+
+    kind: Literal["move"]
+    item_id: RowId
+    list_id: RowId
+    shop_id: RowNumber | None
+
+
 class Tick(ActionBase):
     kind: Literal["tick"]
     item_id: RowId
@@ -210,6 +219,7 @@ Action = Annotated[
     | Add
     | SetAmount
     | Delete
+    | MoveLine
     | Tick
     | Untick
     | PutAway
@@ -470,6 +480,7 @@ HANDLERS: dict[str, Callable[[Act], None]] = {
     "add": shopping.add_item,
     "set_amount": shopping.set_amount,
     "delete": shopping.delete_item,
+    "move": shopping.move_item,
     "clear_ticked": shopping.clear_ticked,
     "dismiss_note": shopping.dismiss_note,
     "undo": undo,
