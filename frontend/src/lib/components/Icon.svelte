@@ -28,7 +28,11 @@
     | 'cloud-off'
     | 'link'
     | 'note'
-    | 'arrow-right';
+    | 'arrow-right'
+    | 'place-fridge'
+    | 'place-freezer'
+    | 'place-cupboard'
+    | 'place-spice';
 </script>
 
 <script lang="ts">
@@ -117,6 +121,16 @@
   {:else if name === 'note'}
     <path d="M6 3h9l4 4v14H6z" />
     <path d="M9 12h7M9 16h5" />
+  {:else if name === 'place-fridge'}
+    <rect x="6" y="3" width="12" height="18" rx="2" />
+    <path d="M6 10h12M9 6v2M9 13v3" />
+  {:else if name === 'place-freezer'}
+    <path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9" />
+  {:else if name === 'place-cupboard'}
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <path d="M12 4v16M10 11v2M14 11v2" />
+  {:else if name === 'place-spice'}
+    <path d="M9 3h6v3H9zM8 6h8l1 3v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9z" />
   {:else if name === 'arrow-right'}
     <path d="M4 12h12M12 6l6 6-6 6" />
   {:else if name === 'search'}

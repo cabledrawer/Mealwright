@@ -239,6 +239,61 @@ describe('the Pantry page', () => {
     }
   });
 
+  it('phone: a card per place with its icon and count, an empty place folded to one line, and jump chips', async () => {
+    await render(390);
+    // Jump chips: the places that have something, with their counts; no sideways scrolling.
+    const jump = page.getByRole('navigation', { name: 'Jump to a place' });
+    await expect.element(jump).toBeVisible();
+    const chips = jump
+      .getByRole('button')
+      .elements()
+      .map((e) => e.textContent?.trim());
+    expect(chips).toEqual(['Fridge · 3', 'Freezer · 1', 'Cupboard · 2']);
+    // A card each, with the place's name and how many ingredients.
+    for (const [name, count] of [
+      ['Fridge', '3 ingredients'],
+      ['Freezer', '1 ingredient'],
+      ['Cupboard', '2 ingredients']
+    ] as const) {
+      const heading = page.getByRole('heading', { name, level: 2 });
+      await expect.element(heading).toBeVisible();
+      expect(heading.element().closest('.place-card')).not.toBeNull();
+      expect(heading.element().closest('.place-head')!.textContent).toContain(count);
+    }
+    expect(document.querySelectorAll('.place-card')).toHaveLength(3);
+    // The empty Spice rack is one folded line, not a card with "Nothing in the Spice rack".
+    expect(document.body.textContent).not.toContain('Nothing in the Spice rack');
+    expect(document.querySelector('.folded')!.textContent).toMatch(/Spice rack\s*empty/);
+    // A chip goes to its card and puts the focus on its heading.
+    await jump.getByRole('button', { name: 'Cupboard · 2' }).click();
+    await expect.element(page.getByRole('heading', { name: 'Cupboard', level: 2 })).toHaveFocus();
+    expect((jump.element() as HTMLElement).scrollWidth).toBeLessThanOrEqual(
+      (jump.element() as HTMLElement).clientWidth
+    );
+  });
+
+  it('phone: one place’s own tab shows just its card, with the plain message if it is empty', async () => {
+    await render(390);
+    const tabs = page.getByRole('tablist', { name: 'Where' });
+    await tabs.getByRole('tab', { name: 'Fridge' }).click();
+    await expect.element(page.getByRole('button', { name: /^Spinach/ }).first()).toBeVisible();
+    expect(page.getByRole('heading', { name: 'Fridge', level: 2 }).elements()).toHaveLength(1);
+    expect(page.getByRole('navigation', { name: 'Jump to a place' }).elements()).toEqual([]);
+    expect(page.getByRole('heading', { name: 'Cupboard', level: 2 }).elements()).toEqual([]);
+  });
+
+  it('a row with no use-by says when it was bought, and a dated row says its date', async () => {
+    await render(1300);
+    // Toor dal and Basmati rice have no use-by: the stock went in on Mon 12 Oct, five days ago.
+    await expect.element(page.getByText('bought Mon').first()).toBeVisible();
+    expect(document.body.textContent).not.toContain('bought Tomorrow');
+    const spinach = page
+      .getByRole('button', { name: /^Spinach/ })
+      .first()
+      .element();
+    expect(spinach.textContent).not.toContain('bought');
+  });
+
   it('phone: tabs All · Fridge · Freezer · Cupboard · More, with Use soon under More', async () => {
     await render(390);
     const tabs = page.getByRole('tablist', { name: 'Where' });

@@ -25,6 +25,7 @@
   import UsedSheet from '$lib/components/UsedSheet.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
   import { compactDateWords, dateWords } from '$lib/dates';
+  import type { Name as IconName } from '$lib/components/Icon.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
@@ -59,6 +60,25 @@
   /** Place columns showing every food, not just the first few (desktop). */
   let expanded = $state<Record<number, boolean>>({});
   const FIRST = 8;
+  /** Phone, All: a place's card shows this many rows, then "+ 3 more in the Cupboard". */
+  const PHONE_FIRST = 6;
+
+  /** A place's icon (mockup PantryPlaces-Phone): the fridge, the freezer, the spice rack, else a cupboard. */
+  function placeIcon(place: { kind: string; name: string }): IconName {
+    if (place.kind === 'fridge') return 'place-fridge';
+    if (place.kind === 'freezer') return 'place-freezer';
+    return /spice/i.test(place.name) ? 'place-spice' : 'place-cupboard';
+  }
+
+  /** The jump chips and the places' cards use these anchors. */
+  const placeAnchor = (id: number) => `${uid}-place-card-${id}`;
+
+  function jumpTo(id: number) {
+    const card = document.getElementById(placeAnchor(id));
+    card?.scrollIntoView({ block: 'start' });
+    card?.querySelector<HTMLElement>('h2')?.setAttribute('tabindex', '-1');
+    card?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+  }
 
   // Fetch again after any change, a new filter, or coming back to the tab (stock
   // changes elsewhere arrive below).
@@ -289,18 +309,29 @@
   <a class="recipes-for" href="{resolve('/recipes')}?filter=use-soon">{words}</a>
 {/snippet}
 
-{#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null)}
+{#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null, icon = false)}
   {@const groups = place.groups}
   {@const visible = limit && !expanded[place.id] ? groups.slice(0, limit) : groups}
   <section class="place" aria-labelledby="{uid}-place-{place.id}">
-    <div class="place-head" class:visually-hidden={!heading}>
+    <div class="place-head" class:visually-hidden={!heading} class:with-icon={icon}>
+      {#if icon}<span class="place-icon" aria-hidden="true"
+          ><Icon name={placeIcon(place)} size={20} stroke={2} /></span
+        >{/if}
       <h2 id="{uid}-place-{place.id}">{place.name}</h2>
       <span class="count">{place.items} {place.items === 1 ? 'ingredient' : 'ingredients'}</span>
     </div>
     {#if groups.length}
       <ul class="groups">
         {#each visible as group (group.food.id)}
-          <PantryGroup {group} {place} {places} {model} {shopping} swipes={phone} />
+          <PantryGroup
+            {group}
+            {place}
+            {places}
+            {model}
+            {shopping}
+            swipes={phone}
+            today={pantry?.today}
+          />
         {/each}
       </ul>
       {#if visible.length < groups.length}
@@ -308,7 +339,9 @@
           type="button"
           class="show-all"
           onclick={() => (expanded = { ...expanded, [place.id]: true })}
-          >Show all {groups.length}</button
+          >{icon
+            ? `+ ${groups.length - visible.length} more in the ${place.name}`
+            : `Show all ${groups.length}`}</button
         >
       {/if}
     {:else}
@@ -340,6 +373,7 @@
             showPlace
             also={item.also}
             swipes={phone}
+            today={pantry?.today}
           />
         {/each}
       </ul>
@@ -417,6 +451,16 @@
         <p class="empty card">Nothing needs using up soon.</p>
       {/if}
     {:else}
+      {#if tab === 'all' && places.filter((p) => p.groups.length).length > 1}
+        <!-- Jump chips (mockup PantryPlaces-Phone): straight to a place's card. -->
+        <nav class="jump" aria-label="Jump to a place">
+          {#each places.filter((p) => p.groups.length) as place (place.id)}
+            <button type="button" onclick={() => jumpTo(place.id)}
+              >{place.name} · {place.items}</button
+            >
+          {/each}
+        </nav>
+      {/if}
       {#if tab === 'all' && model.useSoon.length}
         <section class="soon-card" aria-labelledby="{uid}-soon">
           <h2 id="{uid}-soon" class="soon-title">Use soon</h2>
@@ -438,11 +482,22 @@
           >
         </div>
       {:else}
-        <div class="card">
-          {#each phonePlaces as place (place.id)}
-            {@render placeCard(place, tab === 'all', null)}
-          {/each}
-        </div>
+        {#each phonePlaces as place (place.id)}
+          {#if tab === 'all' && place.groups.length === 0}
+            <!-- An empty place folds to one line. -->
+            <p class="folded">
+              <span class="place-icon quiet" aria-hidden="true"
+                ><Icon name={placeIcon(place)} size={20} stroke={2} /></span
+              >
+              <span class="folded-name">{place.name}</span>
+              <span class="count">empty</span>
+            </p>
+          {:else}
+            <div class="card place-card" id={placeAnchor(place.id)}>
+              {@render placeCard(place, tab === 'all', tab === 'all' ? PHONE_FIRST : null, true)}
+            </div>
+          {/if}
+        {/each}
       {/if}
       {@render staples(false)}
     {/if}
@@ -608,6 +663,77 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  /* A card per place on the phone (mockup PantryPlaces-Phone): an icon, the name, the count. */
+  .place-head.with-icon {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: var(--space-3) 0;
+    border-bottom: 2px solid var(--color-divider);
+  }
+
+  .place-head.with-icon h2 {
+    flex: 1;
+    font-size: var(--text-3xl);
+  }
+
+  .place-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+  }
+
+  .place-icon.quiet {
+    background: var(--color-fill);
+    color: var(--color-text-muted);
+  }
+
+  .place-card :global(.group:first-child) {
+    border-top: none;
+  }
+
+  .folded {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+  }
+
+  .folded-name {
+    flex: 1;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+  }
+
+  /* Nothing scrolls sideways (UX principle 14): the chips wrap to a second line instead. */
+  .jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .jump button {
+    flex: none;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
+    cursor: pointer;
   }
 
   .place + .place {
