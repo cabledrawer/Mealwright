@@ -97,12 +97,26 @@ def age(client: TestClient, draft_id: int, **by: float) -> None:
         session.commit()
 
 
+_KEYS: dict[int, tuple[int, str]] = {}
+
+
+@pytest.fixture(autouse=True)
+def _forget_keys() -> None:
+    _KEYS.clear()
+
+
 def photo_files(client: TestClient, photo_id: int) -> tuple[bool, bool]:
+    """Whether the photo's large and list files are on the disk. Asked while its record is
+    there, it remembers which files they are, so that after the record is gone it still checks
+    the files themselves, not just the record."""
     with db(client) as session:
         photo = session.get(RecipePhoto, photo_id)
-        if photo is None:
-            return (False, False)
-        large, small = photos.paths(photos.store_of(session), photo.household_id, photo.file_key)
+        if photo is not None:
+            _KEYS[photo_id] = (photo.household_id, photo.file_key)
+        if photo_id not in _KEYS:
+            raise AssertionError("ask about the photo while it is still there, first")
+        household_id, key = _KEYS[photo_id]
+        large, small = photos.paths(photos.store_of(session), household_id, key)
         return (large.is_file(), small.is_file())
 
 
@@ -320,6 +334,7 @@ def test_a_draft_past_its_15_days_is_gone_and_the_hourly_tidy_up_deletes_it_with
 
 def test_the_scheduler_job_does_the_tidy_up(photos_on: TestClient) -> None:
     draft, shown = draft_photo(photos_on)
+    assert photo_files(photos_on, shown["photo"]["photo"]["id"]) == (True, True)
     age(photos_on, draft["id"], days=16)
     jobs.purge_removed_ingredients(photos_on.app.state.sessionmaker)  # type: ignore[attr-defined]
     with db(photos_on) as session:
@@ -373,6 +388,7 @@ def test_a_deleted_draft_and_its_photo_go_for_good_after_7_days(photos_on: TestC
     draft, shown = draft_photo(photos_on)
     gone = ok(photos_on.delete(f"{API}/recipes/drafts/{draft['id']}"))
     photo_id = shown["photo"]["photo"]["id"]
+    assert photo_files(photos_on, photo_id) == (True, True)
     with db(photos_on) as session:
         household = session.get(Household, 1)
         assert household is not None
@@ -517,6 +533,7 @@ def test_a_draft_photo_is_not_deleted_after_24_hours_but_a_waiting_one_is(
 
     _draft, shown = draft_photo(photos_on)
     waiting = ok(photos_on.post(f"{API}/recipes/photos", content=kit.jpeg()), 201)
+    assert photo_files(photos_on, waiting["id"]) == (True, True)
     with db(photos_on) as session:
         session.execute(update(RecipePhoto).values(added_at=utcnow() - timedelta(hours=30)))
         session.commit()
@@ -557,8 +574,9 @@ def test_changing_the_photo_in_a_draft_lets_go_of_the_old_one(photos_on: TestCli
     old = shown["photo"]["photo"]["id"]
     second = review(photos_on, LINK, again=True)
     new = second["photo"]["photo"]["id"]
+    assert photo_files(photos_on, old) == (True, True)
     ok(put(photos_on, draft["id"], second, text_=LINK))
-    assert photo_files(photos_on, old) == (False, False)
+    assert photo_files(photos_on, old) == (False, False)  # the old one's files are gone too
     assert photo_files(photos_on, new) == (True, True)
     ok(
         put(
@@ -746,6 +764,7 @@ def test_another_household_can_not_read_change_carry_on_delete_undo_or_save_from
     photo = shown["photo"]["photo"]
     second = kept(photos_on, review(photos_on, LINK, again=True), text_=LINK)
     gone = ok(photos_on.delete(f"{API}/recipes/drafts/{second['id']}"))
+    waiting = review(photos_on, LINK, again=True)["photo"]["photo"]  # no draft has it
     before = rows_of_household_1(photos_on)
     mine_id = mine["id"]
 
@@ -762,9 +781,18 @@ def test_another_household_can_not_read_change_carry_on_delete_undo_or_save_from
     # Their own Save can't take my draft's photo, with or without my draft's id.
     for extra in ({}, {"draft_id": mine_id}):
         assert save(neighbour, {**to_save(shown), **extra}).status_code == 404
-    # And a draft of theirs can't pick up my photo either.
+    # And a draft of theirs can't pick up my photo either: neither the one my draft keeps, nor a
+    # waiting one that no draft has yet.
     theirs = kept(neighbour, shown, text_=LINK)
     assert theirs["review"]["photo"] == {"state": "failed", "photo": None, "message": PHOTO_GONE}
+    grabbed = kept(
+        neighbour, {**shown, "photo": {"state": "downloaded", "photo": waiting}}, text_=LINK
+    )
+    assert grabbed["review"]["photo"]["state"] == "failed"
+    with db(photos_on) as session:
+        row = session.get(RecipePhoto, waiting["id"])
+        assert row is not None and row.draft_id is None and row.household_id == 1
+    ok(neighbour.delete(f"{API}/recipes/drafts/{grabbed['id']}"))
     assert [d["id"] for d in listed(neighbour)] == [theirs["id"]]
     assert [d["id"] for d in listed(photos_on)] == [mine_id]  # theirs isn't mine
     assert photos_on.get(f"{API}/recipes/drafts/{theirs['id']}").status_code == 404
@@ -810,6 +838,35 @@ def test_ids_inside_a_drafts_review_and_choices_give_nothing_of_another_househol
         assert refused.status_code == 404, refused.text
     assert counts(kitchen) == before
     assert len(listed(kitchen)) == 1
+
+
+def test_an_undo_record_pointing_at_another_households_draft_brings_nothing_back(
+    kitchen: TestClient, neighbour: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """Only household 2's own Undo can bring back household 2's deleted draft, even if a change
+    of household 1 were made to name it."""
+    theirs = kept(neighbour, review(kitchen, PASTED))
+    ok(neighbour.delete(f"{API}/recipes/drafts/{theirs['id']}"))
+    with db(kitchen) as session:
+        forged = Change(
+            household_id=1,
+            kind="draft_removed",
+            request="DELETE /api/v1/recipes/drafts/1",
+            login_id=1,
+            login_name="Tess",
+            at=utcnow(),
+            summary="Deleted the draft",
+            undo_data={"draft_id": theirs["id"]},
+        )
+        session.add(forged)
+        session.commit()
+        forged_id = forged.id
+    refused = kitchen.post(f"{API}/changes/{forged_id}/undo")
+    assert refused.status_code == 410
+    assert listed(neighbour) == []  # still deleted: nothing came back
+    with db(kitchen) as session:
+        stays = session.get(ImportDraft, theirs["id"])
+        assert stays is not None and stays.removed_at is not None
 
 
 def test_the_tidy_up_of_one_household_leaves_the_other_alone(
