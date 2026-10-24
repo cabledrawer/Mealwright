@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -302,7 +303,14 @@ def test_upgrading_a_0_2_0_database_keeps_everything_and_old_changes_read_as_bef
         assert new[newest] == [(f"1{NB}pack · 200{NB}g", f"2{NB}packs · 400{NB}g")]
         assert {key: value for key, value in new.items() if key != newest} == old
 
-        # Undoing an old change still reverses just its own lines.
+        # Undoing an old change still reverses just its own lines. The made-up 0.2.0 changes
+        # are dated 17 Oct and Undo reaches back only a week, so move change 1 to now first.
+        with app.app.state.sessionmaker() as session:  # type: ignore[attr-defined]
+            session.execute(
+                text("UPDATE change SET at = :now WHERE id = 1"),
+                {"now": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")},
+            )
+            session.commit()
         undone = app.post("/api/v1/changes/1/undo")
         assert undone.status_code == 200, undone.text
         assert app.get("/api/v1/foods/1").json()["stock"]["amount"] == 200.0  # the new pack stays
