@@ -277,7 +277,7 @@ def _one_hop(
     port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
     if time.monotonic() >= deadline:
         raise FetchRefused(Problem.TIMEOUT)
-    addresses = _checked_addresses(gate, household_id, kinds, host, port, listed)
+    addresses = _checked_addresses(gate, household_id, kinds, host, port, listed, deadline)
     if port not in NORMAL_PORTS and not (
         listed.lists_name(host) or all(listed.lists_address(a) for a in addresses)
     ):
@@ -315,8 +315,10 @@ def _checked_addresses(
     host: str,
     port: int,
     listed: OwnNetwork,
+    deadline: float,
 ) -> list[_Address]:
-    """Every address `host` has, after checking each one. Raises FetchRefused."""
+    """Every address `host` has, after checking each one. Raises FetchRefused. The name
+    look-up waits at most until `deadline` (the import's own time limit)."""
     try:
         literal: _Address | None = ip_address(host)
     except ValueError:
@@ -327,11 +329,13 @@ def _checked_addresses(
         if own_network.is_localhost(host):
             raise FetchRefused(Problem.ALWAYS_BLOCKED)
         try:
-            addresses = gate.look_up(household_id, kinds.connection, host, port)
+            addresses = gate.look_up(household_id, kinds.connection, host, port, deadline=deadline)
         except OutboundBlocked:
             raise FetchRefused(kinds.switched_off) from None  # switched off meanwhile
-        except OutboundFailed:
-            raise FetchRefused(Problem.CANT_REACH) from None
+        except OutboundFailed as problem:
+            raise FetchRefused(
+                Problem.TIMEOUT if problem.kind == "timeout" else Problem.CANT_REACH
+            ) from None
         if not addresses:
             raise FetchRefused(Problem.CANT_REACH)
     name_listed = literal is None and listed.lists_name(host)

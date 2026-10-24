@@ -1361,3 +1361,86 @@ def test_a_failed_look_up_is_still_unreachable(
     with pytest.raises(outbound.OutboundFailed) as caught:
         gate.look_up(1, Connection.RECIPE_IMPORT, "nowhere.example", 443)
     assert caught.value.kind == "unreachable"
+
+
+def test_an_import_whose_look_up_hangs_ends_within_its_time(
+    gate: OutboundGate, stuck: StuckResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The import has 30 seconds in all; here a short stand-in, so the test is quick. The
+    gate's own 15 seconds per step are far longer than the import's time left."""
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0.4)
+    started = time.monotonic()
+    assert refused(gate, "https://slow.example/sambar") is Problem.TIMEOUT
+    assert 0.3 < time.monotonic() - started < 1.5
+    assert stuck.asked == ["slow.example"]
+
+
+def test_a_photo_look_up_that_hangs_ends_within_its_time(
+    gate: OutboundGate, stuck: StuckResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0.4)
+    started = time.monotonic()
+    with pytest.raises(FetchRefused) as caught:
+        download_photo(gate, 1, "https://slow.example/sambar.jpg")
+    assert caught.value.problem is Problem.TIMEOUT
+    assert time.monotonic() - started < 1.5
+
+
+def test_a_look_up_gets_only_what_the_import_has_left(
+    gate: OutboundGate, stuck: StuckResolver
+) -> None:
+    """`seconds` (what the caller has left of the import) is passed on to the look-up."""
+    started = time.monotonic()
+    with pytest.raises(FetchRefused) as caught:
+        fetch_page(gate, 1, "https://slow.example/sambar", seconds=0.3)
+    assert caught.value.problem is Problem.TIMEOUT
+    assert time.monotonic() - started < 1.0
+
+
+def test_a_redirects_look_up_is_timed_too(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first hop answers; the name the redirect points to never does."""
+    resolver = StuckResolver()
+
+    def lookup(host: str, port: int) -> list[str]:
+        return net.lookup(host, port) if host == "first.example" else resolver.lookup(host, port)
+
+    monkeypatch.setattr(outbound, "_lookup", lookup)
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0.5)
+    net.dns["first.example"] = [PUBLIC]
+    net.page(PUBLIC, redirect("https://second.example/sambar"))
+    started = time.monotonic()
+    try:
+        assert refused(gate, "https://first.example/") is Problem.TIMEOUT
+        assert time.monotonic() - started < 1.5
+        assert resolver.asked == ["second.example"]
+    finally:
+        resolver.release.set()
+
+
+def test_a_quick_look_up_still_fetches_within_the_time(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 5)
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC)
+    assert fetch_page(gate, 1, "https://recipes.example/").html
+
+
+def test_a_stuck_look_up_logs_no_name_or_address(
+    gate: OutboundGate,
+    stuck: StuckResolver,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(page_fetch, "MAX_FETCH_SECONDS", 0.3)
+    with caplog.at_level(logging.DEBUG):
+        assert refused(gate, "https://secret-sambar.example/grandmas-sambar") is Problem.TIMEOUT
+    stuck.release.set()
+    for thread in threading.enumerate():
+        if thread.name == "name-look-up":
+            thread.join(2)
+    for record in caplog.records:
+        line = record.getMessage()
+        assert "sambar" not in line and "example" not in line and PUBLIC not in line
