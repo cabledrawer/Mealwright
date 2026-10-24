@@ -390,6 +390,10 @@ def undo_change(
     draft_back = None
     if change.kind == "recipe_imported":
         draft_back = recipes.undo_import(kitchen, data, tally)
+        if "draft" in data:
+            # The draft is back (or can't be): the Save's copy of it is no use now, so the
+            # change keeps only the rest (it is undone, so nothing reads the copy again).
+            change.undo_data = {key: value for key, value in data.items() if key != "draft"}
     if tally.done:
         undo_merge_record(kitchen, data)
     result = tally.result

@@ -518,8 +518,14 @@ copy goes with the recipe). Details that are mine, **proposed, for cabledrawer**
   draft's to take back: the draft comes back without it, saying "The photo wasn’t kept." (the
   sentence a draft already uses). Nothing else is lost.
 - **If the recipe is already deleted** (so the Undo has nothing to take back), no draft is made.
-- The record holds the draft's review and choices (at most 2 MB, counted as stored) and its text
-  (at most 100,000 characters) for as long as the change is kept; the Undo window is 7 days.
+- **When the copy goes.** The record holds the draft's review and choices (at most 2 MB, counted as
+  stored) and its text (at most 100,000 characters), but only until the Save's Undo is used or its
+  undo window (7 days by default; the household's own setting) has passed, whichever comes first.
+  Then only that copy (`undo_data.draft`) is dropped: an Undo drops it in the same transaction, and
+  the hourly tidy-up (`drafts.purge`, through `drop_save_copies`) drops it for a Save past its
+  window. The rest of the change stays for as long as changes are kept (12 months by default),
+  Recent changes still shows it as before, and an Undo of a Save past its window is still refused
+  as "too long ago".
 - Only this household's recipe and photo are looked at; a record naming another household's recipe
   or photo does nothing.
 

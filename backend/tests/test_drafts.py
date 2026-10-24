@@ -930,6 +930,128 @@ def test_undo_of_a_save_from_a_draft_stays_inside_the_household(
     assert rows_of_household_1(photos_on) == snapshot
 
 
+def copy_of_draft(client: TestClient, change_id: int) -> tuple[bool, dict[str, Any]]:
+    """Whether a change still holds the Save's copy of the draft, and the rest of what it holds."""
+    with db(client) as session:
+        change = session.get(Change, change_id)
+        assert change is not None
+        data = dict(change.undo_data or {})
+    return "draft" in data, data
+
+
+def date_change(client: TestClient, change_id: int, days: float) -> None:
+    with db(client) as session:
+        session.execute(
+            update(Change).where(Change.id == change_id).values(at=utcnow() - timedelta(days=days))
+        )
+        session.commit()
+
+
+def test_once_undone_a_save_from_a_draft_keeps_no_copy_of_the_draft(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    change_id = saved["change"]["id"]
+    has_copy, data = copy_of_draft(photos_on, change_id)
+    assert has_copy and data["recipe_id"] == saved["recipe"]["id"]
+    ok(photos_on.post(f"{API}/changes/{change_id}/undo"))
+    has_copy, data = copy_of_draft(photos_on, change_id)
+    assert not has_copy
+    assert data["recipe_id"] == saved["recipe"]["id"] and data["foods"]  # the rest stays
+    with db(photos_on) as session:
+        change = session.get(Change, change_id)
+        assert change is not None and change.summary == saved["change"]["summary"]
+    # Recent changes still lists it, and the draft is still back.
+    assert change_id in [c["id"] for c in ok(photos_on.get(f"{API}/changes"))["changes"]]
+    assert [d["id"] for d in listed(photos_on)] == [before["id"]]
+
+
+def test_the_tidy_up_drops_the_copy_of_a_draft_once_the_saves_undo_window_has_passed(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    _, saved = saved_from_a_draft_with_choices(photos_on)
+    change_id = saved["change"]["id"]
+    date_change(photos_on, change_id, days=6.5)
+    with db(photos_on) as session:
+        household = session.get(Household, 1)
+        assert household is not None
+        purge(session, household)
+    assert copy_of_draft(photos_on, change_id)[0]  # still inside its 7 days: kept
+    date_change(photos_on, change_id, days=7.1)
+    with db(photos_on) as session:
+        household = session.get(Household, 1)
+        assert household is not None
+        purge(session, household)
+    has_copy, data = copy_of_draft(photos_on, change_id)
+    assert not has_copy and data["recipe_id"] == saved["recipe"]["id"] and data["foods"]
+    # Its Undo answers as it always did for a Save that old, and Recent changes still shows it.
+    assert photos_on.post(f"{API}/changes/{change_id}/undo").status_code == 410
+    assert change_id in [c["id"] for c in ok(photos_on.get(f"{API}/changes"))["changes"]]
+
+
+def test_the_tidy_up_uses_the_households_own_undo_window(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    _, saved = saved_from_a_draft_with_choices(photos_on)
+    change_id = saved["change"]["id"]
+    date_change(photos_on, change_id, days=2)
+    with db(photos_on) as session:
+        household = session.get(Household, 1)
+        assert household is not None
+        household.undo_days = 1
+        session.commit()
+        purge(session, household)
+    assert not copy_of_draft(photos_on, change_id)[0]
+
+
+def test_a_save_still_inside_its_window_keeps_its_copy_and_its_undo_works(
+    photos_on: TestClient, pantry: dict[str, Any]
+) -> None:
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    change_id = saved["change"]["id"]
+    date_change(photos_on, change_id, days=6.9)
+    with db(photos_on) as session:
+        household = session.get(Household, 1)
+        assert household is not None
+        purge(session, household)
+    assert copy_of_draft(photos_on, change_id)[0]
+    ok(photos_on.post(f"{API}/changes/{change_id}/undo"))
+    assert [d["id"] for d in listed(photos_on)] == [before["id"]]
+
+
+def test_the_tidy_up_leaves_another_households_changes_alone(
+    photos_on: TestClient, neighbour: TestClient, pantry: dict[str, Any]
+) -> None:
+    before, saved = saved_from_a_draft_with_choices(photos_on)
+    with db(photos_on) as session:
+        theirs = session.scalar(select(Login.id).where(Login.household_id == 2))
+        old = Change(
+            household_id=2,
+            kind="recipe_imported",
+            request="POST /api/v1/recipes/import/save",
+            login_id=theirs,
+            login_name="Neighbour",
+            at=utcnow() - timedelta(days=30),
+            summary="Imported Sambar",
+            undo_data={"recipe_id": 1, "draft": {"source_text": before["text"]}},
+        )
+        session.add(old)
+        session.commit()
+        old_id = old.id
+    date_change(photos_on, saved["change"]["id"], days=8)
+    with db(photos_on) as session:
+        household = session.get(Household, 1)
+        assert household is not None
+        purge(session, household)
+    assert not copy_of_draft(photos_on, saved["change"]["id"])[0]  # ours is dropped
+    assert copy_of_draft(photos_on, old_id)[0]  # theirs is not touched by our tidy-up
+    with db(photos_on) as session:
+        theirs_household = session.get(Household, 2)
+        assert theirs_household is not None
+        purge(session, theirs_household)
+    assert not copy_of_draft(photos_on, old_id)[0]  # their own tidy-up does it
+
+
 # --- Stale ingredients --------------------------------------------------------------------
 
 

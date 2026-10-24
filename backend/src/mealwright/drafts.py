@@ -16,7 +16,9 @@ the new ingredients and learned names it holds are only made when the recipe is 
   passed. Undo brings it back as if it had just been changed.
 - **Saving a recipe from a draft** deletes the draft, but its Save keeps a copy in its own change
   record (`snapshot`), so that Undo of the Save brings the draft back (`bring_back`): the same
-  id, its choices and photo, its 15 days started again (cabledrawer 24 Oct, question 36).
+  id, its choices and photo, its 15 days started again (spec section 6, question 36). The
+  copy is dropped as soon as that Undo is used, or by the hourly tidy-up once the Save's undo
+  window has passed (`drop_save_copies`); the rest of the change stays.
 - **50 drafts** at most per household. At 50 nothing is deleted to make room (cabledrawer 22 Oct,
   question 9): the answer is a plain sentence.
 - **Two people at once:** the last save wins. A draft is only a place to carry on from, and
@@ -502,5 +504,26 @@ def purge(db: DbSession, household: Household, now: datetime | None = None) -> i
         )
     )
     delete_for_good(db, ids)
+    drop_save_copies(db, household, now)
     db.commit()
     return len(ids)
+
+
+def drop_save_copies(db: DbSession, household: Household, now: datetime) -> int:
+    """Drop the draft copy that a Save from a draft keeps in its change, once the Save's undo
+    window has passed (its Undo is then refused, so the copy has no use). Only the copy goes:
+    the rest of the change stays. The caller holds the lock and commits. Returns how many."""
+    dropped = 0
+    for change in db.scalars(
+        select(Change).where(
+            Change.household_id == household.id,
+            Change.kind == "recipe_imported",
+            Change.at < now - undo_window(household),
+            Change.undo_data.is_not(None),
+        )
+    ):
+        data = change.undo_data or {}
+        if "draft" in data:
+            change.undo_data = {key: value for key, value in data.items() if key != "draft"}
+            dropped += 1
+    return dropped
