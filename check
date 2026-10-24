@@ -67,7 +67,7 @@ stop_child() {
   kill -KILL -- "-$CHILD" 2>/dev/null
   CHILD=""
 }
-cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-*) rm -rf "$RUN_TMP" ;; esac; }
+cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -81,7 +81,7 @@ step() {
   local name="$1"; shift
   local log="$LOGS/${name// /-}.log" start=$SECONDS
   printf '%-28s ' "$name"
-  (cd "$ROOT" && "$@") >"$log" 2>&1 &
+  (cd "$ROOT" && "$@") </dev/null >"$log" 2>&1 &   # no step reads the terminal
   CHILD=$!
   if wait "$CHILD"; then
     CHILD=""

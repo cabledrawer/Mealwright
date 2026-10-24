@@ -106,12 +106,23 @@ describe('Settings → Privacy', () => {
   });
 
   it('copes with a link whose # part is not valid text', async () => {
+    // Without the fix, the jump throws inside the page's load: an unhandled rejection.
+    const unhandled: unknown[] = [];
+    const heard = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      unhandled.push(event.reason);
+    };
+    window.addEventListener('unhandledrejection', heard);
     history.replaceState(null, '', '#%E0');
     try {
       open();
       await expect.element(page.getByRole('switch', { name: IMPORT })).toBeVisible();
-      await new Promise((done) => setTimeout(done, 50)); // the jump runs after the load
+      await new Promise((done) => setTimeout(done, 100)); // the jump runs after the load
+      expect(unhandled).toEqual([]);
+      // The page is still all there.
+      await expect.element(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
     } finally {
+      window.removeEventListener('unhandledrejection', heard);
       history.replaceState(null, '', location.pathname + location.search);
     }
   });
