@@ -597,6 +597,26 @@ def test_the_photo_belongs_to_the_draft_and_does_not_count_towards_the_10_waitin
     assert photos_on.get(photo["url"]).status_code == 200  # the draft shows it
 
 
+def test_a_download_is_still_allowed_when_drafts_hold_photos_and_9_others_wait(
+    photos_on: TestClient,
+) -> None:
+    """The draft-photo exclusion in the download's own count (recipe_import._store_waiting):
+    with drafts holding photos, 9 waiting ones leave room for one more download, then none."""
+    for _ in range(3):  # three drafts, each holding a downloaded photo
+        draft_photo(photos_on)
+        photos_on.post(f"{API}/recipes/photos", content=kit.jpeg())  # one waiting each time...
+    # ...which is 3 waiting; add 6 more to make 9.
+    for _ in range(6):
+        assert photos_on.post(f"{API}/recipes/photos", content=kit.jpeg()).status_code == 201
+    assert len(listed(photos_on)) == 3
+    one_more = review(photos_on, LINK, again=True)
+    assert one_more["photo"]["state"] == "downloaded"  # the 10th waiting one
+    full = review(photos_on, LINK, again=True)
+    assert (
+        full["photo"]["state"] == "failed" and full["photo"]["message"] == photos.TOO_MANY_WAITING
+    )
+
+
 def test_a_draft_photo_is_not_deleted_after_24_hours_but_a_waiting_one_is(
     photos_on: TestClient,
 ) -> None:
