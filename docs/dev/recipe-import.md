@@ -58,13 +58,13 @@ Nothing is looked up, read or sent until all of these pass, in this order:
    (`page_fetch.MAX_FETCH_SECONDS`; decided by cabledrawer, see spec). A watchdog closes the
    connection when the time runs out, so a site that sends one byte at a time can't hold it
    open: a socket's own timeout only counts the wait for each byte. The name look-up is timed
-   too (cabledrawer 24 Oct, question 40: "the look-up waits at most the time the import has
-   left"): every `look_up` is given the import's deadline, and past it the answer is the
-   same `timeout`. A look-up can't be cut once it has started, so `OutboundGate.look_up` runs
-   it on a daemon worker thread (inside the gate) and stops waiting for it; a late answer is
-   thrown away, and the thread itself ends when the system resolver's own limit does. With no
-   time left nothing is looked up. (Proposed, for cabledrawer: one import leaves at most two such
-   threads behind, its page's and its photo's, because a timeout on the page ends the import.)
+   too (spec section 6, question 40): every `look_up` is given the import's deadline, and
+   past it the answer is the same `timeout`. A look-up can't be cut once it has started, so
+   `OutboundGate.look_up` runs it on a daemon worker thread (inside the gate) and stops
+   waiting for it; a late answer is thrown away, and the thread itself ends when the system
+   resolver's own limit does. With no time left nothing is looked up. (Proposed, for
+   cabledrawer: one import leaves at most two such threads behind, its page's and its photo's,
+   because a timeout on the page ends the import.)
 
 A page's text is decoded with the charset the site names (in the header, else in the page's
 first 4 KB), else UTF-8; bytes that don't fit are replaced, never refused. Only real text
@@ -268,10 +268,11 @@ How it works:
   place and the read share it, the clock limit is cut to what is left once a place is free, and
   if the wait left less than 2 seconds the answer is the busy sentence. With no time left after
   the read, the photo isn't downloaded and the review says "Photo not downloaded" with the
-  timeout sentence. The name look-up is timed like every other step. Two things are not: shrinking a photo that
-  has already arrived (the photo's own limits, 15 MB and 50 megapixels, keep that short), and a
-  stuck look-up's worker thread, which can finish in the background after the import has
-  given up on it (proposed, for cabledrawer; the fetch section above says more).
+  timeout sentence. The name look-up is timed like every other step. Two things are not:
+  shrinking a photo that has already arrived (the photo's own limits, 15 MB and 50
+  megapixels, keep that short), and a stuck look-up's worker thread, which can finish in the
+  background after the import has given up on it (proposed, for cabledrawer; the fetch section
+  above says more).
 - Over any limit, `read_within_budget` raises `PageUnreadable` (`reason` "time", "memory" or
   "crash"); a result that is too big to send or can't be pickled, or a child that dies without
   answering (a crash), is "crash". The screen shows "Couldn’t read that page. Paste the recipe’s
@@ -405,12 +406,12 @@ read, the read and the photo. The server has the library's usual 40 worker threa
 request, not only imports. Two pages are read at a time, so the others wait for a place in their
 thread; only an unusual number of imports at once (about 40 within the same 30 seconds) uses the
 threads up. Then new requests of any kind wait in line for a thread to come free (they aren't
-refused, and nothing is lost); each import ends within its 30 seconds (the fetch, the name look-up, the wait for a place and
-the read are all timed; shrinking a photo that has arrived is the one step that isn't, and its
-limits keep it short), so the line moves. A stuck name look-up also keeps a small background
-thread of its own until the system resolver gives up; that thread isn't one of the server's
-40 worker threads (proposed, for cabledrawer). There is
-no cap on waiting imports: it would be new scope, and a household of the size this is made for
+refused, and nothing is lost); each import ends within its 30 seconds (the fetch, the name
+look-up, the wait for a place and the read are all timed; shrinking a photo that has arrived
+is the one step that isn't, and its limits keep it short), so the line moves. A stuck name
+look-up also keeps a small background thread of its own until the system resolver gives up;
+that thread isn't one of the server's 40 worker threads (proposed, for cabledrawer). There is no
+cap on waiting imports: it would be new scope, and a household of the size this is made for
 doesn't get near it. A cancelled request doesn't stop its thread, which finishes its 30 seconds at
 most and gives its place back.
 

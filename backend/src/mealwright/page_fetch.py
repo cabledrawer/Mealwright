@@ -23,7 +23,7 @@ types only, then cleaned like an upload (`photos.clean`, which also refuses more
 megapixels). Each connection (each address tried) must finish within the gate's 15
 seconds, and the whole fetch, redirects included, within 30; the gate cuts the connection
 when time runs out. The name look-up is timed too: it waits at most the time the import
-has left (cabledrawer 24 Oct, question 40).
+has left (spec section 6, question 40).
 
 Log lines name only the connection ("recipe import") and the kind of problem, never the
 page's address or host: a site name shows what someone was cooking (spec section 7, Logs).
