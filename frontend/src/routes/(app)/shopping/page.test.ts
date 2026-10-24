@@ -1247,6 +1247,16 @@ describe('the Shopping page', () => {
         expect((await readQueue())[0]!.action).toMatchObject({ item_id: 'i-yoghurt', shop_id: 2 });
         await vi.waitFor(() => expect(network.waiting).toBe(1));
         expect(offlineText('phone', network.waiting).title).toBe('Offline — 1 change waiting');
+        // The row itself moved on this phone, not only the toast (0.5 PR 7 review R1): the last
+        // shop heading above Yoghurt is now Indian grocer.
+        await vi.waitFor(() => {
+          const row = page.getByRole('button', { name: 'Yoghurt', exact: true }).element();
+          const above = page
+            .getByRole('heading', { level: 2 })
+            .elements()
+            .filter((h) => h.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING);
+          expect(above.at(-1)?.textContent).toContain('Indian grocer');
+        });
       });
 
       it('a ticked line has no Move…', async () => {
