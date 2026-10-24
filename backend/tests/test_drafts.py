@@ -286,12 +286,34 @@ def test_a_drafts_choices_have_a_size_limit_too(
     # the review plus these is over it.
     from mealwright.api.v1 import draft_schemas
 
-    size = len(draft_schemas.ImportReview.model_validate(shown).model_dump_json())
-    nothing = len(draft_schemas.DraftChoices().model_dump_json())
+    size = draft_schemas.stored_size(draft_schemas.ImportReview.model_validate(shown))
+    nothing = draft_schemas.stored_size(draft_schemas.DraftChoices())
     monkeypatch.setattr(draft_schemas, "MAX_REVIEW_BYTES", size + nothing + 20)
     assert keep(kitchen, shown, key="alone").status_code == 201
     assert keep(kitchen, shown, choices=ok_choices).status_code == 422
     assert len(listed(kitchen)) == 2
+
+
+def test_the_size_cap_counts_a_draft_as_it_is_stored_not_in_characters(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """The review and choices are stored as JSON with every non-ASCII character escaped (an
+    emoji is 1 character, 4 bytes sent and 12 stored), so the 2 MB cap counts the stored form.
+    A review of 100 steps of 5,000 emoji is 500,000 characters but about 6 MB stored."""
+    shown = review(kitchen, PASTED)
+    heavy = {**shown, "steps": [{"kind": "step", "text": "\U0001f600" * 5_000}] * 100}
+    refused = keep(kitchen, heavy)
+    assert refused.status_code == 422, refused.text[:200]
+    assert listed(kitchen) == []
+    # A real-sized draft with names that aren't ASCII still saves, and comes back as it was.
+    names = {
+        **shown,
+        "name": "Thuvaram paruppu \U0001f600",
+        "steps": [{"kind": "step", "text": "Fry the jalape\u00f1o in the ghee."}],
+    }
+    kept_ = kept(kitchen, names, choices={"name": "Jalape\u00f1o dal"})
+    assert kept_["name"] == "Jalape\u00f1o dal"
+    assert len(listed(kitchen)) == 1
 
 
 def test_a_nameless_draft_is_still_listed_and_a_review_that_is_too_big_is_refused(

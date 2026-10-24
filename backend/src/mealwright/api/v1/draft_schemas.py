@@ -1,5 +1,6 @@
 """JSON shapes for import drafts (docs/dev/recipe-import.md, "Drafts")."""
 
+import json
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -14,10 +15,17 @@ from mealwright.names import clean_name
 # What the box can hold: pasted text is refused over 100,000 characters (docs/dev/recipe-import.md),
 # and a link is far shorter.
 MAX_SOURCE_CHARS = 100_000
-# The review as a draft keeps it, with the choices made on it. The real biggest review (200
-# lines, 100 steps of 5,000 characters) is about 0.7 MB; this leaves room and stops anything
-# larger being stored.
+# The review as a draft keeps it, with the choices made on it, counted as it is stored. The
+# real biggest review (200 lines, 100 steps of 5,000 characters) is about 0.7 MB; this leaves
+# room and stops anything larger being stored.
 MAX_REVIEW_BYTES = 2_000_000
+
+
+def stored_size(model: BaseModel) -> int:
+    """How much the database holds for this: the draft's columns are JSON written with
+    `json.dumps` and its default `ensure_ascii=True`, so an emoji is 12 characters there
+    (1 as typed). Counting characters of `model_dump_json()` would let about 12 MB through."""
+    return len(json.dumps(model.model_dump(mode="json")))
 
 
 _STORED = TypeAdapter(StoredInt)
@@ -106,8 +114,7 @@ class DraftIn(BaseModel):
             or len(review.steps) > MAX_STEPS
             or len(review.tags) > MAX_TAGS
             or any(len(step.text) > MAX_STEP_CHARS for step in review.steps)
-            or len(review.model_dump_json()) + len(self.choices.model_dump_json())
-            > MAX_REVIEW_BYTES
+            or stored_size(review) + stored_size(self.choices) > MAX_REVIEW_BYTES
         ):
             raise ValueError("That review is bigger than a recipe can be.")
         for index in self.choices.lines:
