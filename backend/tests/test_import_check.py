@@ -169,14 +169,14 @@ def test_an_unexpected_failure_is_a_row_naming_only_the_error_class() -> None:
 
 
 def test_lines_the_reader_cant_read_and_number_words_it_doesnt_know() -> None:
-    lines = ["2 tbsp", "2 onions", "12 oz flour", "two eggs", "salt"]
+    lines = ["2 tbsp", "2 onions", "1 pint milk", "two eggs", "salt"]
     outcome = check.check_one(
         entry(), fetcher({"https://a.example/one": recipe_page(lines)}), page_reader.read_page
     )
     assert outcome.kind == check.READ
     assert outcome.unread_lines == ("2 tbsp",)
     assert outcome.ingredients_read == 4
-    assert outcome.unknown_words == ("2", "tbsp", "12", "oz", "two")
+    assert outcome.unknown_words == ("2", "tbsp", "1", "pint", "two")
 
 
 # --- The run: spacing, failures, Ctrl-C ----------------------------------------------------------
