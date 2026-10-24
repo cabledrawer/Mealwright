@@ -563,7 +563,7 @@ picked up by lines that were read before it existed; "Pick an ingredient" finds 
 here logs anything but a count of how many old drafts the hourly tidy-up deleted.
 
 **The screens.** Leaving the review without saving (Cancel, the back link, a tab, the browser's
-Back) asks "Save as a draft?" with the mockup's words (`LeaveSheet`, guarded in `ReviewScreen` by
+Back) asks "Save as draft?" with the mockup's words (`LeaveSheet`, guarded in `ReviewScreen` by
 `beforeNavigate`). Closing or reloading the tab can't be asked about. Save draft goes to Drafts when
 the person was going to Recipes, and otherwise where they were going. A draft that was opened and
 left alone just leaves; one that was changed asks again in other words (proposed, for cabledrawer:

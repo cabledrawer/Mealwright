@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
-// Drafts (0.5): "Save as a draft?" on leaving the review, the Drafts screen, carrying on, Delete
+// Drafts (0.5): "Save as draft?" on leaving the review, the Drafts screen, carrying on, Delete
 // with Undo (and Ctrl+Z), and saving from a draft. Runs in "phone 0.5 drafts" and "desktop 0.5
 // drafts", signed in as the test admin, against the real server: the pasted text never goes
 // online. A test makes its own drafts with a name of its own and deletes them again, so the
@@ -29,7 +29,7 @@ async function reviewOf(page: Page, title: string, hing: string, masala: string)
 /** Leave the review for the Recipes list and keep it as a draft: it lands on Drafts. */
 async function keepDraft(page: Page) {
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('dialog', { name: 'Save as a draft?' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
 }
@@ -65,14 +65,14 @@ const brief = (id: number, over: Json = {}): Json => ({
   ...over,
 });
 
-test('leaving the review asks “Save as a draft?”; Save draft keeps it and lands on Drafts', async ({ page }) => {
+test('leaving the review asks “Save as draft?”; Save draft keeps it and lands on Drafts', async ({ page }) => {
   const title = unique('Dal tadka');
   const hing = unique('Hing');
   const masala = unique('Garam masala');
   await reviewOf(page, title, hing, masala);
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Save as a draft?' });
+  const dialog = page.getByRole('dialog', { name: 'Save as draft?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(`You haven’t finished checking ${title}.`);
   await expect(dialog).toContainText('A draft keeps your choices so far for 15 days, in Recipes → Drafts. Anyone in your household can carry on.');
@@ -99,7 +99,7 @@ test('Discard leaves without keeping anything', async ({ page }) => {
   const title = unique('Rava dosa');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await page.getByRole('dialog', { name: 'Save as a draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page).toHaveURL(/\/recipes$/);
   expect(await draftsNamed(page, title)).toHaveLength(0);
 });
@@ -290,7 +290,7 @@ test('a draft in the dark theme passes the accessibility scan, on the review and
   const title = unique('Pongal');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('dialog', { name: 'Save as a draft?' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await inTheme(page, 'dark');
   await checkPage(page, { themes: ['dark'] });
 });

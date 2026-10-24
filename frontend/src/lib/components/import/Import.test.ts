@@ -336,7 +336,7 @@ describe('Import a recipe', () => {
     });
   });
 
-  describe('leaving without saving: “Save as a draft?”', () => {
+  describe('leaving without saving: “Save as draft?”', () => {
     const KEPT: DraftOut = {
       id: 7,
       name: 'Sambar',
@@ -389,7 +389,7 @@ describe('Import a recipe', () => {
       await reviewing();
       const cancel = leaveFor('/recipes');
       expect(cancel).toHaveBeenCalled();
-      const dialog = page.getByRole('dialog', { name: 'Save as a draft?' });
+      const dialog = page.getByRole('dialog', { name: 'Save as draft?' });
       await expect.element(dialog).toBeVisible();
       await expect
         .element(

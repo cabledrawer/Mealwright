@@ -1,7 +1,7 @@
 <script lang="ts">
   // Import a recipe (spec section 6, "Recipe import, decided for 0.5"): the one box, then the
   // review, then Save. Everything the server reads is shown before anything is saved. Online
-  // only; leaving the review without saving asks "Save as a draft?" (ReviewScreen).
+  // only; leaving the review without saving asks "Save as draft?" (ReviewScreen).
   import AlreadySheet from '$lib/components/import/AlreadySheet.svelte';
   import ImportStart from '$lib/components/import/ImportStart.svelte';
   import ImportSteps from '$lib/components/import/ImportSteps.svelte';

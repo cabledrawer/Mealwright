@@ -33,7 +33,7 @@ def list_drafts(kitchen: Here) -> DraftList:
     responses={409: {"description": "`too_many_drafts`: the household has 50 drafts."}},
 )
 def create_draft(body: DraftIn, kitchen: Here, response: Response) -> DraftOut:
-    """Keep a review as a draft ("Save as a draft?"): send the text from the box, the review
+    """Keep a review as a draft ("Save as draft?"): send the text from the box, the review
     as the server sent it and the choices so far. The review's downloaded photo becomes the
     draft's. Nothing in Ingredients changes. At 50 drafts this answers 409 `too_many_drafts`
     ("You have 50 drafts. Finish or delete one first."), and no old draft is deleted to make

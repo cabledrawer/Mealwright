@@ -68,7 +68,7 @@ export default defineConfig({
     // Import a recipe: the box, the review, Save and Undo (0.5).
     { name: 'phone 0.5 import', testMatch: 'import.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.5 import', testMatch: 'import.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
-    // Drafts: "Save as a draft?", the Drafts screen, carrying on, Delete and Undo (0.5).
+    // Drafts: "Save as draft?", the Drafts screen, carrying on, Delete and Undo (0.5).
     { name: 'phone 0.5 drafts', testMatch: 'drafts.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.5 drafts', testMatch: 'drafts.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).

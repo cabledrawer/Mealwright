@@ -1,5 +1,5 @@
 <script lang="ts">
-  // "Save as a draft?" (mockups Import05-Phone and Import05-Desktop, the leave sheet; spec "Import
+  // "Save as draft?" (mockups Import05-Phone and Import05-Desktop, the leave sheet; spec "Import
   // drafts", cabledrawer 17 Oct): asked when leaving the review without saving. Save draft · Keep
   // checking · Discard. A sheet on a phone, a dialog on a computer. For a draft that was opened
   // and then changed, the same three choices are worded for that (proposed, for cabledrawer): the
@@ -37,7 +37,7 @@
     };
   });
 
-  const title = $derived(again ? 'Save your changes?' : 'Save as a draft?');
+  const title = $derived(again ? 'Save your changes?' : 'Save as draft?');
   const words = $derived(name.trim() || 'this recipe');
 </script>
 
