@@ -14,8 +14,9 @@ from mealwright.names import clean_name
 # What the box can hold: pasted text is refused over 100,000 characters (docs/dev/recipe-import.md),
 # and a link is far shorter.
 MAX_SOURCE_CHARS = 100_000
-# The review as a draft keeps it. The real biggest review (200 lines, 100 steps of 5,000
-# characters) is about 0.7 MB; this leaves room and stops anything larger being stored.
+# The review as a draft keeps it, with the choices made on it. The real biggest review (200
+# lines, 100 steps of 5,000 characters) is about 0.7 MB; this leaves room and stops anything
+# larger being stored.
 MAX_REVIEW_BYTES = 2_000_000
 
 
@@ -105,7 +106,8 @@ class DraftIn(BaseModel):
             or len(review.steps) > MAX_STEPS
             or len(review.tags) > MAX_TAGS
             or any(len(step.text) > MAX_STEP_CHARS for step in review.steps)
-            or len(review.model_dump_json()) > MAX_REVIEW_BYTES
+            or len(review.model_dump_json()) + len(self.choices.model_dump_json())
+            > MAX_REVIEW_BYTES
         ):
             raise ValueError("That review is bigger than a recipe can be.")
         for index in self.choices.lines:

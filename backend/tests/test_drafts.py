@@ -270,6 +270,30 @@ def test_a_number_too_big_for_the_database_is_refused_anywhere_in_a_draft(
     assert listed(kitchen) == []
 
 
+def test_a_drafts_choices_have_a_size_limit_too(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The choices are stored with the draft, so they are bounded: an ingredient's name in
+    them is at most 200 characters, and they count towards the same cap as the review."""
+    shown = review(kitchen, PASTED)
+    food = {"id": 1, "name": "x" * 200}
+    ok_choices = {"lines": {"2": {"kind": "ingredient", "food": food}}}
+    assert keep(kitchen, shown, choices=ok_choices, key="fits").status_code == 201
+    long = {"lines": {"2": {"kind": "ingredient", "food": {"id": 1, "name": "x" * 3_000_000}}}}
+    refused = keep(kitchen, shown, choices=long)
+    assert refused.status_code == 422, refused.text[:200]
+    # Choices that are each allowed still count: with the cap just above the review alone,
+    # the review plus these is over it.
+    from mealwright.api.v1 import draft_schemas
+
+    size = len(draft_schemas.ImportReview.model_validate(shown).model_dump_json())
+    nothing = len(draft_schemas.DraftChoices().model_dump_json())
+    monkeypatch.setattr(draft_schemas, "MAX_REVIEW_BYTES", size + nothing + 20)
+    assert keep(kitchen, shown, key="alone").status_code == 201
+    assert keep(kitchen, shown, choices=ok_choices).status_code == 422
+    assert len(listed(kitchen)) == 2
+
+
 def test_a_nameless_draft_is_still_listed_and_a_review_that_is_too_big_is_refused(
     kitchen: TestClient, pantry: dict[str, Any], web: Web
 ) -> None:

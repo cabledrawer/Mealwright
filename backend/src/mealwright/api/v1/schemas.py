@@ -39,7 +39,8 @@ ItemGrams = Annotated[Decimal, Field(gt=0, le=50_000, max_digits=9, decimal_plac
 
 class Ref(BaseModel):
     id: int
-    name: str
+    # 200 is the longest a recipe's name can be; an ingredient's, a shop's, a place's are shorter.
+    name: Annotated[str, Field(max_length=200)]
 
 
 class Who(BaseModel):
