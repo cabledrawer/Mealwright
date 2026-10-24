@@ -5,7 +5,7 @@
   // its menu (LotMenu: Used · Binned · To freezer · Move to… · Change use-by date…, and
   // the ¼ · ½ · ¾ · Full picks for an open one).
   import type { Group, Lot, Place } from '$lib/client/types';
-  import { dateWords, useByWords } from '$lib/dates';
+  import { boughtWords, dateWords, useByWords } from '$lib/dates';
   import { ingredientEditor } from '$lib/ingredientEditor.svelte';
   import type { PantryModel } from '$lib/pantry.svelte';
   import { listLabel, type PantryList } from '$lib/pantryList.svelte';
@@ -24,7 +24,8 @@
     shopping,
     showPlace = false,
     also = null,
-    swipes = false
+    swipes = false,
+    today = ''
   }: {
     group: Group;
     place: Place;
@@ -38,6 +39,8 @@
     also?: string | null;
     /** A phone: swipe right for Used…, left for Binned (the pack menu has both as buttons). */
     swipes?: boolean;
+    /** The household's today: a row with no use-by says when it was bought. */
+    today?: string;
   } = $props();
 
   const uid = $props.id();
@@ -49,7 +52,13 @@
 
   const name = $derived(group.food.name);
   const single = $derived(group.lots.length === 1 ? group.lots[0] : undefined);
-  const date = $derived(dateWords(group.use_by, group.days_left));
+  /** The soonest use-by; with none, "bought 20 Oct" (when the oldest packet went in). */
+  const bought = $derived(
+    !group.use_by && today && group.lots[0]?.added_on
+      ? boughtWords(group.lots[0].added_on, today)
+      : ''
+  );
+  const date = $derived(dateWords(group.use_by, group.days_left) || bought);
   /** "½ tub · about 250 g · open · running low". */
   const amountWords = $derived(
     [group.stock.display, single?.open ? 'open' : '', group.running_low ? 'running low' : '']

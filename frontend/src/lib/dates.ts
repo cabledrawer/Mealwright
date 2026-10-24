@@ -56,6 +56,11 @@ export function useByWords(iso: string | null, daysLeft: number | null): string 
   return `use by ${words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words}`;
 }
 
+/** "bought today", "bought yesterday", "bought Mon", "bought 20 Oct": on a row with no use-by (0.5). */
+export function boughtWords(iso: string, today: string): string {
+  return addedWords(iso, today).replace(/^added/, 'bought');
+}
+
 /** "added today", "added Mon", "added 3 Oct", from the household's today. */
 export function addedWords(iso: string, today: string): string {
   const days = Math.round((noonUtc(today).getTime() - noonUtc(iso).getTime()) / 86_400_000);

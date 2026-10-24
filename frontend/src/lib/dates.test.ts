@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addDays,
   addedWords,
+  boughtWords,
   compactDateWords,
   dateWords,
   pickedDateWords,
@@ -53,5 +54,14 @@ describe('use-by dates in plain words', () => {
     expect(addedWords('2026-10-17', '2026-10-17')).toBe('added today');
     expect(addedWords('2026-10-16', '2026-10-17')).toBe('added yesterday');
     expect(addedWords('2026-10-03', '2026-10-17')).toBe('added 3 Oct');
+  });
+});
+
+describe('boughtWords (a pantry row with no use-by, cabledrawer 20 Oct)', () => {
+  it('says when the stock went in, in the words of the mockup', () => {
+    expect(boughtWords('2026-10-20', '2026-10-24')).toBe('bought Tue');
+    expect(boughtWords('2026-10-24', '2026-10-24')).toBe('bought today');
+    expect(boughtWords('2026-10-23', '2026-10-24')).toBe('bought yesterday');
+    expect(boughtWords('2026-10-03', '2026-10-24')).toBe('bought 3 Oct');
   });
 });
