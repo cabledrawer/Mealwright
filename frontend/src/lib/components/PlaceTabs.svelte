@@ -8,7 +8,8 @@
 </script>
 
 <script lang="ts">
-  // The phone Pantry's tabs (lead's ruling, 17 Oct), as a pill segmented control, in
+  // The phone Pantry's tabs (lead's ruling, 17 Oct; the Pantry stopped using them in 0.5,
+  // cabledrawer 24 Oct, question 37: only the gallery shows them now), as a pill segmented control, in
   // the order given. Tabs that don't fit go under "More", so nothing scrolls sideways
   // (spec "Decided for 0.2", Places on screen).
   import Icon from './Icon.svelte';

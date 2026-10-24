@@ -1,8 +1,8 @@
 <script lang="ts">
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
   // lead's rulings of 17 Oct):
-  //   phone: search; tabs All · every place (More if they don't fit) · Use soon; staples;
-  //          Recent changes at the bottom (last 3, with Undo);
+  //   phone: search; jump chips; Use soon; a card per place (no place tabs, cabledrawer 24 Oct);
+  //          staples; Recent changes at the bottom (last 3, with Undo);
   //   desktop: search, filters, the places as 4 columns or 2 × 2, and a side panel with
   //            Use soon, Staples and Recent changes.
   // Tapping a staple, and "+ List" on a running-low row, add to the main shopping list
@@ -20,7 +20,6 @@
   import OfflineNote from '$lib/components/OfflineNote.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PantryGroup from '$lib/components/PantryGroup.svelte';
-  import PlaceTabs from '$lib/components/PlaceTabs.svelte';
   import SwipeRow from '$lib/components/SwipeRow.svelte';
   import UsedSheet from '$lib/components/UsedSheet.svelte';
   import RecentChanges from '$lib/components/RecentChanges.svelte';
@@ -53,7 +52,8 @@
   let usedOpen = $state(false);
   const soonSwiped = $state<Record<number, 'left' | 'right' | null>>({});
 
-  let tab = $state('all');
+  /** Phone: the Use soon card shows every item, not just the first. */
+  let soonAll = $state(false);
   let addingStaple = $state(false);
   /** Phone: Recent changes beyond the last 3. */
   let moreChanges = $state(false);
@@ -146,7 +146,7 @@
 
   const pantry = $derived(model.pantry);
   const places = $derived(pantry?.places ?? []);
-  /** While there's a search: one list of what it found, whatever tab or column is showing. */
+  /** While there's a search: one list of what it found, whatever column or card is showing. */
   const searching = $derived(model.searched !== '');
   const found = $derived(searching ? searchResults(places, model.matches) : []);
   const summary = $derived(
@@ -158,19 +158,6 @@
           .filter(Boolean)
           .join(' · ')
       : undefined
-  );
-
-  // Phone tabs, in order. Pinned tabs always show; the others, from the end, go under
-  // "More" when they don't fit. cabledrawer (17 Oct): All · Fridge · Freezer · Cupboard ·
-  // More, with Use soon under More (the All tab already shows the Use soon card).
-  const tabs = $derived([
-    { id: 'all', label: 'All', pinned: true },
-    ...places.map((p) => ({ id: `place-${p.id}`, label: p.name })),
-    { id: 'use-soon', label: 'Use soon', pinned: false }
-  ]);
-
-  const phonePlaces = $derived(
-    tab === 'all' ? places : places.filter((p) => `place-${p.id}` === tab)
   );
 
   const FILTERS: { value: PantryFilter; label: () => string }[] = [
@@ -434,24 +421,11 @@
   <p class="loading">Loading…</p>
 {:else if phone}
   <div class="phone-search">{@render searchBox('Search pantry')}</div>
-  {#if !searching}
-    <PlaceTabs {tabs} bind:selected={tab} panelId="{uid}-panel" />
-  {/if}
-
-  <div class="phone-panel" id="{uid}-panel" role={searching ? undefined : 'tabpanel'}>
+  <div class="phone-panel">
     {#if searching}
       {@render results()}
-    {:else if tab === 'use-soon'}
-      {#if model.useSoon.length}
-        <section class="soon-card" aria-label="Use soon">
-          {@render useSoonRows(model.useSoon, true)}
-          {@render recipesFor('Recipes that use them →')}
-        </section>
-      {:else}
-        <p class="empty card">Nothing needs using up soon.</p>
-      {/if}
     {:else}
-      {#if tab === 'all' && places.filter((p) => p.groups.length).length > 1}
+      {#if places.filter((p) => p.groups.length).length > 1}
         <!-- Jump chips (mockup PantryPlaces-Phone): straight to a place's card. -->
         <nav class="jump" aria-label="Jump to a place">
           {#each places.filter((p) => p.groups.length) as place (place.id)}
@@ -461,19 +435,23 @@
           {/each}
         </nav>
       {/if}
-      {#if tab === 'all' && model.useSoon.length}
+      {#if model.useSoon.length}
         <section class="soon-card" aria-labelledby="{uid}-soon">
           <h2 id="{uid}-soon" class="soon-title">Use soon</h2>
-          {@render useSoonRows(model.useSoon.slice(0, 1), true)}
+          {@render useSoonRows(soonAll ? model.useSoon : model.useSoon.slice(0, 1), true)}
           {#if model.useSoon.length > 1}
-            <button type="button" class="soon-more" onclick={() => (tab = 'use-soon')}
-              >{model.useSoon.length - 1} more →</button
+            <button
+              type="button"
+              class="soon-more"
+              aria-expanded={soonAll}
+              onclick={() => (soonAll = !soonAll)}
+              >{soonAll ? 'Show fewer' : `${model.useSoon.length - 1} more →`}</button
             >
           {/if}
           {@render recipesFor('Recipes that use them →')}
         </section>
       {/if}
-      {#if pantry.counts.items === 0 && tab === 'all'}
+      {#if pantry.counts.items === 0}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
@@ -482,8 +460,8 @@
           >
         </div>
       {:else}
-        {#each phonePlaces as place (place.id)}
-          {#if tab === 'all' && place.groups.length === 0}
+        {#each places as place (place.id)}
+          {#if place.groups.length === 0}
             <!-- An empty place folds to one line. -->
             <p class="folded">
               <span class="place-icon quiet" aria-hidden="true"
@@ -494,7 +472,7 @@
             </p>
           {:else}
             <div class="card place-card" id={placeAnchor(place.id)}>
-              {@render placeCard(place, tab === 'all', tab === 'all' ? PHONE_FIRST : null, true)}
+              {@render placeCard(place, true, PHONE_FIRST, true)}
             </div>
           {/if}
         {/each}
@@ -781,10 +759,6 @@
     padding: var(--space-6) 0;
     color: var(--color-text-muted);
     font-size: var(--text-md);
-  }
-
-  .empty.card {
-    padding: var(--space-7);
   }
 
   .show-all,

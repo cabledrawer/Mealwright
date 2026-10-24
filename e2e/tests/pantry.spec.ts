@@ -23,17 +23,22 @@ async function api(
   return response.json();
 }
 
-/** A food sold in packets, with stock in the fridge. */
-async function stocked(page: Page, name: string, useByDays: number | null = 1) {
+/** A food sold in packets, with stock in the fridge (or another place). */
+async function stocked(
+  page: Page,
+  name: string,
+  useByDays: number | null = 1,
+  placeName = "Fridge",
+) {
   const unique = `${name} ${test.info().project.name.replace(/\W/g, "")} ${Date.now()}`;
   const places = (await (await page.request.get("/api/v1/places")).json()) as {
     id: number;
     name: string;
   }[];
-  const fridge = places.find((p) => p.name === "Fridge")!.id;
+  const where = places.find((p) => p.name === placeName)!.id;
   const { food } = await api(page, "POST", "/foods", {
     name: unique,
-    place_id: fridge,
+    place_id: where,
   });
   await api(page, "POST", `/foods/${food.id}/sizes`, {
     name: "pack",
@@ -45,6 +50,7 @@ async function stocked(page: Page, name: string, useByDays: number | null = 1) {
   const added = await api(page, "POST", "/stock", {
     food_id: food.id,
     amount: { amount: 1, unit: "pack" },
+    place_id: where,
     ...(useByDays === null ? {} : { use_by: useBy.toISOString().slice(0, 10) }),
   });
   return {
@@ -72,16 +78,17 @@ test("the Pantry shows what is where, and passes the accessibility checks", asyn
   page,
 }) => {
   const food = await stocked(page, "Paneer");
+  // A second place with something in it, so the phone has jump chips.
+  await stocked(page, "Lentils", null, "Cupboard");
   await page.goto("/pantry");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pantry");
   if (isPhone(page)) {
-    await expect(page.getByRole("tab", { name: "All" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    // cabledrawer (17 Oct): All · Fridge · Freezer · Cupboard · More (Use soon is under More).
-    await expect(page.getByRole("tab", { name: "Cupboard" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: /More/ })).toBeVisible();
+    // cabledrawer 24 Oct, question 37: no place tabs on a phone; a card per place and jump chips.
+    await expect(
+      page.getByRole("navigation", { name: "Jump to a place" }),
+    ).toBeVisible();
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByRole("tab")).toHaveCount(0);
   } else {
     for (const place of ["Fridge", "Freezer", "Cupboard", "Spice rack"]) {
       await expect(
@@ -89,10 +96,51 @@ test("the Pantry shows what is where, and passes the accessibility checks", asyn
       ).toBeVisible();
     }
   }
+  await checkPage(page);
+  // With a full household the new row can be behind "+ N more", so find it by searching.
+  await findRow(page, food.name);
   await expect(
     page.getByRole("button", { name: new RegExp(`^${food.name}`) }).first(),
   ).toBeVisible();
-  await checkPage(page);
+});
+
+test("phone: no place tabs; every place has a card or a chip, and both lead to its ingredients", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone Pantry");
+  await stocked(page, "Frozen peas", null, "Freezer");
+  await stocked(page, "Lentils", null, "Cupboard");
+  await page.goto("/pantry");
+  await expect(
+    page.getByRole("navigation", { name: "Jump to a place" }),
+  ).toBeVisible();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+    name: string;
+  }[];
+  const chips = page
+    .getByRole("navigation", { name: "Jump to a place" })
+    .getByRole("button");
+  for (const { name } of places) {
+    // A card with its heading, or (when empty) one folded line saying so.
+    const card = page.locator(".place-card h2, .folded-name").filter({
+      hasText: new RegExp(`^${name}$`),
+    });
+    await expect(card, `${name} is on screen`).toHaveCount(1);
+    if (
+      await page
+        .locator(".place-card h2")
+        .filter({ hasText: new RegExp(`^${name}$`) })
+        .count()
+    ) {
+      // A place with ingredients also has its chip, which goes to the card.
+      const chip = chips.filter({ hasText: new RegExp(`^${name} · \\d+$`) });
+      await expect(chip, `${name} has a chip`).toHaveCount(1);
+      await chip.click();
+      await expect(page.getByRole("heading", { name, level: 2 })).toBeFocused();
+    }
+  }
 });
 
 test("each place’s count stays on one line, apart from its name, at 100% and 200% text", async ({
@@ -135,17 +183,33 @@ test("each place’s count stays on one line, apart from its name, at 100% and 2
   ).toBe(true);
 });
 
+test("phone: the Pantry cards and chips pass the accessibility checks at 200% text, both themes", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone Pantry");
+  await stocked(page, "Paneer");
+  await stocked(page, "Lentils", null, "Cupboard");
+  await page.goto("/pantry");
+  await expect(
+    page.getByRole("navigation", { name: "Jump to a place" }),
+  ).toBeVisible();
+  await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+  // Both themes, and the 44 px targets and no sideways scroll, with the text doubled.
+  await checkPage(page);
+});
+
 test("Used from Use soon takes it out, and Undo puts it back", async ({
   page,
 }) => {
   const food = await stocked(page, "Spinach", 0);
   await page.goto("/pantry");
   if (isPhone(page)) {
-    await page.getByRole("tab", { name: /More/ }).click();
-    await page
-      .getByRole("list", { name: "More" })
-      .getByRole("button", { name: "Use soon" })
-      .click();
+    // The Use soon card shows one item; "N more →" opens the rest in the same card.
+    await expect(
+      page.getByRole("heading", { name: "Use soon", level: 2 }),
+    ).toBeVisible();
+    const more = page.getByRole("button", { name: /^\d+ more →$/ });
+    if (await more.count()) await more.click();
   }
   const row = page
     .getByRole("listitem")
@@ -416,18 +480,27 @@ const amountLeft = async (page: Page, foodId: number) => {
     );
 };
 
-async function openRow(page: Page, name: string) {
+/**
+ * Find a row the way a person does with a full pantry: by searching for it. A place shows
+ * only its first few rows (a phone card six, with "+ N more in the Fridge"), and other tests
+ * fill the household, so a new row can be behind "more". The search is one list across places.
+ */
+async function findRow(page: Page, name: string) {
   await page.goto("/pantry");
-  // On desktop a place shows only its first few rows ("Show all 23"), and earlier tests
-  // fill the Fridge, so find the row by name first.
-  if (!isPhone(page)) {
-    await page.getByRole("searchbox", { name: "Find in pantry" }).fill(name);
-    // The list is replaced by the search results a moment later. Wait for them, or the click
-    // below lands on a row that is about to be thrown away and the row closes again.
-    await expect(
-      page.getByRole("list", { name: "Found in the pantry" }),
-    ).toBeVisible();
-  }
+  await page
+    .getByRole("searchbox", {
+      name: isPhone(page) ? "Search pantry" : "Find in pantry",
+    })
+    .fill(name);
+  // The list is replaced by the search results a moment later. Wait for them, or the click
+  // that follows lands on a row that is about to be thrown away and the row closes again.
+  await expect(
+    page.getByRole("list", { name: "Found in the pantry" }),
+  ).toBeVisible();
+}
+
+async function openRow(page: Page, name: string) {
+  await findRow(page, name);
   await page
     .getByRole("button", { name: new RegExp(`^${name}`) })
     .first()
@@ -584,7 +657,7 @@ test("phone: swipe right is Used…, swipe left is Binned with an Undo toast and
 }) => {
   test.skip(!isPhone(page), "the phone swipes");
   const food = await stocked(page, "Swipe spinach", null);
-  await page.goto("/pantry");
+  await findRow(page, food.name);
   await swipeRow(page, food.name, 110);
   const used = page.getByRole("button", { name: `Used… ${food.name}` });
   await expect(used).toBeVisible();
@@ -606,4 +679,49 @@ test("phone: swipe right is Used…, swipe left is Binned with an Undo toast and
   expect(await lotsOf(page, food.id)).toBe(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
   await expect.poll(() => lotsOf(page, food.id)).toBe(1);
+});
+
+test("phone: a row behind “+ N more” in a place’s card opens its marks and swipes like any other", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone cards");
+  // More than six in the Fridge, so at least one is behind "+ N more in the Fridge".
+  const made: { id: number; name: string }[] = [];
+  for (let i = 0; i < 7; i++)
+    made.push(await stocked(page, `Card row ${i}`, null));
+  const openFridge = async () => {
+    await page.goto("/pantry");
+    const fridge = page.locator(".place-card").filter({
+      has: page.getByRole("heading", { name: "Fridge", level: 2 }),
+    });
+    await expect(fridge).toBeVisible();
+    const hidden = [];
+    for (const food of made) {
+      const shown = await fridge
+        .getByRole("button", { name: new RegExp(`^${food.name}`) })
+        .count();
+      if (!shown) hidden.push(food);
+    }
+    expect(hidden.length).toBeGreaterThan(0);
+    await fridge
+      .getByRole("button", { name: /^\+ \d+ more in the Fridge$/ })
+      .click();
+    return hidden[0]!;
+  };
+
+  let food = await openFridge();
+  await page
+    .getByRole("button", { name: new RegExp(`^${food.name}`) })
+    .first()
+    .click();
+  const marks = page.getByRole("radiogroup", { name: /How much is left/ });
+  await expect(marks.getByRole("radio")).toHaveCount(4);
+  await marks.getByRole("radio", { name: "½ left" }).click();
+  await expect.poll(() => amountLeft(page, food.id)).toBe(100);
+
+  food = await openFridge();
+  await swipeRow(page, food.name, 110);
+  await expect(
+    page.getByRole("button", { name: `Used… ${food.name}` }),
+  ).toBeVisible();
 });

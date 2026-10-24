@@ -131,14 +131,22 @@ describe('the Pantry page', () => {
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
 
-  it('phone: the Use soon card links to the recipes that use them, from All and from Use soon', async () => {
+  it('phone: the Use soon card links to the recipes that use them, also when opened to every item', async () => {
     await render(390);
     const link = page.getByRole('link', { name: 'Recipes that use them →' });
     await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
     expect(page.getByText('Recipes for these').elements()).toHaveLength(0);
-    // “1 more →” opens the Use soon tab, which has the same link.
+    // “1 more →” shows the rest of the items in the same card: one card, one link.
+    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(1);
     await page.getByRole('button', { name: /\d+ more →/ }).click();
+    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(2);
     await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
+    expect(page.getByRole('link', { name: 'Recipes that use them →' }).elements()).toHaveLength(1);
+    await expect
+      .element(page.getByRole('button', { name: 'Show fewer' }))
+      .toHaveAttribute('aria-expanded', 'true');
+    await page.getByRole('button', { name: 'Show fewer' }).click();
+    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(1);
   });
 
   it('no link to recipes when nothing needs using up soon', async () => {
@@ -272,14 +280,49 @@ describe('the Pantry page', () => {
     );
   });
 
-  it('phone: one place’s own tab shows just its card, with the plain message if it is empty', async () => {
+  it('phone: there are no place tabs; every place has a card or a folded line, and every non-empty place a chip', async () => {
+    // Two more places, as a household can add: one with an ingredient, one empty.
+    const cupboard = sample.pantry.places.find((p) => p.name === 'Cupboard')!;
+    const extra = structuredClone(cupboard.groups[0]!);
+    extra.food = { ...extra.food, id: 90, name: 'Garden hose' };
+    sample.pantry.places.push(
+      { id: 5, name: 'Garage', kind: 'cupboard', items: 1, groups: [extra] },
+      { id: 6, name: 'Cellar', kind: 'cupboard', items: 0, groups: [] }
+    );
     await render(390);
-    const tabs = page.getByRole('tablist', { name: 'Where' });
-    await tabs.getByRole('tab', { name: 'Fridge' }).click();
-    await expect.element(page.getByRole('button', { name: /^Spinach/ }).first()).toBeVisible();
-    expect(page.getByRole('heading', { name: 'Fridge', level: 2 }).elements()).toHaveLength(1);
-    expect(page.getByRole('navigation', { name: 'Jump to a place' }).elements()).toEqual([]);
-    expect(page.getByRole('heading', { name: 'Cupboard', level: 2 }).elements()).toEqual([]);
+    expect(page.getByRole('tablist').elements()).toHaveLength(0);
+    expect(page.getByRole('tab').elements()).toHaveLength(0);
+    expect(page.getByRole('tabpanel').elements()).toHaveLength(0);
+    expect(page.getByRole('combobox', { name: 'Where' }).elements()).toHaveLength(0);
+    await expect.element(page.getByRole('navigation', { name: 'Jump to a place' })).toBeVisible();
+    const chips = page
+      .getByRole('navigation', { name: 'Jump to a place' })
+      .getByRole('button')
+      .elements()
+      .map((e) => e.textContent?.trim());
+    for (const place of sample.pantry.places) {
+      const heading = page.getByRole('heading', { name: place.name, level: 2 });
+      if (place.groups.length) {
+        // A place with ingredients has a card and a jump chip.
+        await expect.element(heading).toBeVisible();
+        expect(heading.element().closest('.place-card'), place.name).not.toBeNull();
+        expect(chips).toContain(`${place.name} · ${place.items}`);
+      } else {
+        // An empty place is one folded line, so it is still on screen.
+        expect(
+          [...document.querySelectorAll('.folded')].some((e) =>
+            e.textContent?.includes(place.name)
+          ),
+          place.name
+        ).toBe(true);
+      }
+    }
+    // The chip for an added place goes to its card.
+    await page
+      .getByRole('navigation', { name: 'Jump to a place' })
+      .getByRole('button', { name: 'Garage · 1' })
+      .click();
+    await expect.element(page.getByRole('heading', { name: 'Garage', level: 2 })).toHaveFocus();
   });
 
   it('a row with no use-by says when it was bought, and a dated row says its date', async () => {
@@ -292,27 +335,6 @@ describe('the Pantry page', () => {
       .first()
       .element();
     expect(spinach.textContent).not.toContain('bought');
-  });
-
-  it('phone: tabs All · Fridge · Freezer · Cupboard · More, with Use soon under More', async () => {
-    await render(390);
-    const tabs = page.getByRole('tablist', { name: 'Where' });
-    await expect
-      .element(tabs.getByRole('tab', { name: 'All' }))
-      .toHaveAttribute('aria-selected', 'true');
-    const names = (await tabs.getByRole('tab').all()).map((t) => t.element().textContent?.trim());
-    expect(names).toEqual(['All', 'Fridge', 'Freezer', 'Cupboard', 'More']);
-    const box = (tabs.element() as HTMLElement).getBoundingClientRect();
-    expect(box.right).toBeLessThanOrEqual(390);
-    // More holds Spice rack and Use soon.
-    await tabs.getByRole('tab', { name: /More/ }).click();
-    const more = page.getByRole('list', { name: 'More' });
-    await expect.element(more.getByRole('button', { name: 'Spice rack' })).toBeVisible();
-    await more.getByRole('button', { name: 'Use soon' }).click();
-    await expect
-      .element(tabs.getByRole('tab', { name: /Use soon/ }))
-      .toHaveAttribute('aria-selected', 'true');
-    await expect.element(page.getByRole('button', { name: /Spinach · Today/ })).toBeVisible();
   });
 
   describe('searching the pantry', () => {
@@ -381,7 +403,7 @@ describe('the Pantry page', () => {
       expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
     });
 
-    it('phone: the same one list, instead of the tabs, and nothing sideways', async () => {
+    it('phone: the same one list, instead of the place cards, and nothing sideways', async () => {
       searchRoutes('thuvaram', [7, 20], { 7: 'thuvaram paruppu' });
       await render(1300);
       await search().fill('thuvaram');
@@ -392,24 +414,24 @@ describe('the Pantry page', () => {
       await expect.element(list.getByRole('button', { name: /Toor dal · Cupboard/ })).toBeVisible();
       await expect.element(list.getByRole('button', { name: /Spinach · Fridge/ })).toBeVisible();
       await expect.element(list.getByText('also called thuvaram paruppu')).toBeVisible();
-      expect(page.getByRole('tablist').elements()).toHaveLength(0);
+      expect(page.getByRole('navigation', { name: 'Jump to a place' }).elements()).toHaveLength(0);
       expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
       const box = (list.element() as HTMLElement).getBoundingClientRect();
       expect(box.right).toBeLessThanOrEqual(390);
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
     });
 
-    describe('phone: the search field above the tabs', () => {
+    describe('phone: the search field above the place cards', () => {
       const phoneSearch = () => page.getByRole('searchbox', { name: 'Search pantry' });
 
-      it('is above the place tabs and has the accessible name "Search pantry"', async () => {
+      it('is above the jump chips and has the accessible name "Search pantry"', async () => {
         routes();
         await render(390);
         await expect.element(phoneSearch()).toBeVisible();
-        await expect.element(page.getByRole('tablist')).toBeVisible();
+        const chips = page.getByRole('navigation', { name: 'Jump to a place' });
+        await expect.element(chips).toBeVisible();
         const field = phoneSearch().element().getBoundingClientRect();
-        const tabs = page.getByRole('tablist').element().getBoundingClientRect();
-        expect(field.bottom).toBeLessThanOrEqual(tabs.top);
+        expect(field.bottom).toBeLessThanOrEqual(chips.element().getBoundingClientRect().top);
         // One search field, not two.
         expect(page.getByRole('searchbox').elements()).toHaveLength(1);
         expect(page.getByRole('searchbox', { name: 'Find in pantry' }).elements()).toHaveLength(0);
@@ -431,11 +453,15 @@ describe('the Pantry page', () => {
         // Only the match by another name says "also called".
         await expect.element(list.getByText('also called thuvaram paruppu')).toBeVisible();
         expect(page.getByText(/also called/).elements()).toHaveLength(1);
-        expect(page.getByRole('tablist').elements()).toHaveLength(0);
+        expect(page.getByRole('navigation', { name: 'Jump to a place' }).elements()).toHaveLength(
+          0
+        );
         // The field stays, so the search can be changed or cleared.
         await expect.element(phoneSearch()).toHaveValue('thuvaram');
         await phoneSearch().fill('');
-        await expect.element(page.getByRole('tablist')).toBeVisible();
+        await expect
+          .element(page.getByRole('navigation', { name: 'Jump to a place' }))
+          .toBeVisible();
         expect(page.getByRole('list', { name: 'Found in the pantry' }).elements()).toHaveLength(0);
       });
 
