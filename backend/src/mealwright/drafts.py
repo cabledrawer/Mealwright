@@ -79,6 +79,18 @@ def _live(household_id: int, now: datetime) -> list[Any]:
     ]
 
 
+def is_live(kitchen: Kitchen, draft_id: int) -> bool:
+    """Whether the draft is there to see (the same test as `find`, without raising)."""
+    return (
+        kitchen.db.scalar(
+            select(ImportDraft.id).where(
+                ImportDraft.id == draft_id, *_live(kitchen.household_id, utcnow())
+            )
+        )
+        is not None
+    )
+
+
 def find(kitchen: Kitchen, draft_id: int) -> ImportDraft:
     """A draft in this household that is there to see (else 404, whoever it belongs to)."""
     draft = kitchen.db.scalar(

@@ -16,9 +16,10 @@ from mealwright import photos
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import PhotoOut
 from mealwright.auth import SameOrigin
+from mealwright.drafts import is_live
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.limits import MAX_PHOTO_BYTES
-from mealwright.models import ImportDraft, Recipe, RecipePhoto, utcnow
+from mealwright.models import Recipe, RecipePhoto, utcnow
 from mealwright.recipes import delete_photo, photo_view
 from mealwright.shopping import lock_household
 
@@ -189,10 +190,9 @@ def photo_file(photo_id: StoredInt, copy: Literal["large", "list"], kitchen: Her
         recipe = kitchen.db.get(Recipe, photo.recipe_id)
         if recipe is None or recipe.removed_at is not None:
             raise not_found("That photo")
-    if photo.draft_id is not None:  # a draft's photo, while the draft is there to see
-        draft = kitchen.db.get(ImportDraft, photo.draft_id)
-        if draft is None or draft.removed_at is not None:
-            raise not_found("That photo")
+    # A draft's photo, while the draft is there to see (not gone, deleted or past its 15 days).
+    if photo.draft_id is not None and not is_live(kitchen, photo.draft_id):
+        raise not_found("That photo")
     large, small = photos.paths(photos.store_of(kitchen.db), photo.household_id, photo.file_key)
     path = large if copy == "large" else small
     if not path.is_file():

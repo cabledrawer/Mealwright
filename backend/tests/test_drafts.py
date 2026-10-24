@@ -412,6 +412,20 @@ def test_a_draft_that_is_still_inside_its_days_is_not_touched_by_the_tidy_up(
     assert photo_files(photos_on, shown["photo"]["photo"]["id"]) == (True, True)
 
 
+def test_the_photo_of_a_draft_past_its_15_days_is_gone_before_the_tidy_up_too(
+    photos_on: TestClient,
+) -> None:
+    draft, shown = draft_photo(photos_on)
+    photo = shown["photo"]["photo"]
+    assert photos_on.get(photo["url"]).status_code == 200
+    age(photos_on, draft["id"], days=14, hours=23)
+    assert photos_on.get(photo["url"]).status_code == 200
+    age(photos_on, draft["id"], days=15, hours=1)  # out of time; the hourly job hasn't run
+    assert photos_on.get(photo["url"]).status_code == 404
+    assert photos_on.get(photo["list_url"]).status_code == 404
+    assert photo_files(photos_on, photo["id"]) == (True, True)  # still on disk, just not shown
+
+
 # --- Deleting and Undo --------------------------------------------------------------------
 
 
