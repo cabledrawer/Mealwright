@@ -502,6 +502,11 @@ brings it back counted as just changed (its 15 days start again, so it isn't bac
 then gone). At 50 drafts an Undo is refused with the same sentence as keeping a 51st: no old draft
 is ever deleted to make room.
 
+**Undo of a Save from a draft** (proposed, for cabledrawer; he has been asked, question 36). As built,
+Undo takes the recipe back (it is hidden like any recipe whose import is undone) but the draft
+stays gone: it is not brought back. Nothing is left half-done and no photo file is left behind. If
+cabledrawer wants the draft back too, this is the place to change.
+
 **Two people at once.** The spec doesn't say, so the last save wins: `PUT` replaces the draft whole
 and neither person is told. Both can still carry on and Save; whoever Saves first makes the recipe
 (the draft goes), and the other's Save is then a plain 404 "That draft isn’t here any more." with
