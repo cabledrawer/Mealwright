@@ -144,6 +144,7 @@ test('changing a draft and leaving asks to save the draft over; the days start a
   const dialog = page.getByRole('dialog', { name: 'Save your changes?' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+  await checkPage(page);
   await dialog.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
@@ -159,6 +160,10 @@ test('Delete hides the draft at once and a toast offers Undo; Undo and Ctrl+Z br
   await page.getByRole('button', { name: `Delete ${title}` }).click();
   await expect(page.getByText(title, { exact: true })).toHaveCount(0);
   await expect(page.getByText(`Deleted the ${title} draft`)).toBeVisible();
+  // The toast waits while the pointer is on it, so the scan (both themes) sees it.
+  await page.getByText(`Deleted the ${title} draft`).hover();
+  await checkPage(page);
+  await page.mouse.move(0, 0);
   expect(await draftsNamed(page, title)).toHaveLength(0);
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
@@ -226,6 +231,7 @@ test('long names and text at 200% never scroll sideways', async ({ page }) => {
   await expectNoSidewaysScroll(page);
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
   await expectNoSidewaysScroll(page);
+  await checkPage(page); // long names at 200%, both themes
   await page.evaluate(() => (document.documentElement.style.fontSize = ''));
 });
 
@@ -235,6 +241,14 @@ test('no drafts: the empty state, in both themes', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'No drafts' })).toBeVisible();
   await expect(page.getByText('When you import a recipe and leave before saving it, it waits here for 15 days.')).toBeVisible();
   await checkPage(page);
+});
+
+test('a draft that is not there any more says so, with a way back to Drafts', async ({ page }) => {
+  await page.goto('/recipes/drafts/987654321');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Draft');
+  await expect(page.getByRole('alert')).toContainText('That draft isn’t here any more.');
+  await expect(page.getByRole('link', { name: 'Back to Drafts' })).toBeVisible();
+  await checkPage(page); // the draft-gone page, both themes
 });
 
 test('a list that cannot be had says so, with Try again', async ({ page }) => {
@@ -257,6 +271,12 @@ test('offline, Drafts shows what it last had and cannot be changed', async ({ pa
   await expect(page.getByText(/This is as it was when you last looked, and it can’t be changed until you’re\s+back online/)).toBeVisible({ timeout: 10000 });
   await expect(page.getByText(title)).toBeVisible();
   await expect(page.getByRole('button', { name: `Delete ${title}` })).toBeDisabled();
+  await checkPage(page); // the offline list, both themes
+  // Carrying on needs the server: the draft's own page says so.
+  await page.getByRole('link', { name: `Carry on ${title}` }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Draft');
+  await expect(page.getByText('Drafts needs your Mealwright server.')).toBeVisible();
+  await checkPage(page); // the offline page, both themes
   await context.setOffline(false);
   await deleteDrafts(page, title);
 });
