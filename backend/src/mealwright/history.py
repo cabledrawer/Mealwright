@@ -444,9 +444,18 @@ def _name_taken(kitchen: Kitchen, name: str, food_id: int) -> bool:
     return False
 
 
+def _mine_food(kitchen: Kitchen, food_id: int | None) -> Food | None:
+    """An ingredient of this household, else None. An Undo record is the household's own, but
+    every restore step checks for itself, as `_restore_recipe_line` does."""
+    if food_id is None:
+        return None
+    food = kitchen.db.get(Food, food_id)
+    return food if food is not None and food.household_id == kitchen.household_id else None
+
+
 def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
     food_id_text, name = key.split(":")
-    food = kitchen.db.get(Food, int(food_id_text))
+    food = _mine_food(kitchen, int(food_id_text))
     if food is None:
         return False
     if name == "exists":  # the food didn't exist before the change: take it away again
@@ -471,10 +480,14 @@ def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
 def _restore_name(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
     db = kitchen.db
     row = db.get(FoodName, int(key))
+    if row is not None and row.household_id != kitchen.household_id:
+        return False
     if value is None:
         if row is not None:
             db.delete(row)
         return True
+    if _mine_food(kitchen, value["food_id"]) is None:
+        return False
     folded = fold(value["name"])
     clash = any(
         fold(other.name) == folded and other.id != int(key)
@@ -499,10 +512,14 @@ def _restore_name(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> b
 def _restore_size(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
     db = kitchen.db
     size = db.get(FoodSize, int(key))
+    if size is not None and size.household_id != kitchen.household_id:
+        return False
     if value is None:
         if size is not None:
             db.delete(size)
         return True
+    if "food_id" in value and _mine_food(kitchen, value["food_id"]) is None:
+        return False
     if size is None:
         size = FoodSize(id=int(key), household_id=kitchen.household_id)
         db.add(size)
@@ -515,6 +532,12 @@ def _restore_stand_in(kitchen: Kitchen, key: str, present: bool | None) -> bool:
     food_id, stand_in_id = (int(part) for part in key.split(":"))
     db = kitchen.db
     link = db.get(FoodStandIn, (food_id, stand_in_id))
+    if link is not None and link.household_id != kitchen.household_id:
+        return False
+    if present and (
+        _mine_food(kitchen, food_id) is None or _mine_food(kitchen, stand_in_id) is None
+    ):
+        return False
     if not present:
         if link is not None:
             db.delete(link)
@@ -529,6 +552,8 @@ def _restore_stand_in(kitchen: Kitchen, key: str, present: bool | None) -> bool:
 def _restore_conversion(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
     food_id_text, kind = key.split(":")
     db = kitchen.db
+    if _mine_food(kitchen, int(food_id_text)) is None:
+        return False
     row = db.scalar(
         select(FoodConversion).where(
             FoodConversion.food_id == int(food_id_text), FoodConversion.kind == kind
@@ -550,8 +575,14 @@ def _restore_conversion(kitchen: Kitchen, key: str, value: dict[str, Any] | None
 
 def _restore_lot(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
     lot = kitchen.db.get(StockLot, int(key))
+    if lot is not None and lot.household_id != kitchen.household_id:
+        return False
     if lot is None or value is None:
         return value is None
+    food = _mine_food(kitchen, value["food_id"])
+    size = kitchen.db.get(FoodSize, value["size_id"]) if value["size_id"] else None
+    if food is None or (size is not None and size.household_id != kitchen.household_id):
+        return False
     lot.food_id, lot.size_id = value["food_id"], value["size_id"]
     return True
 

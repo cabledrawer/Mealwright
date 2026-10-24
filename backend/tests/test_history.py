@@ -11,7 +11,22 @@ from sqlalchemy import select, update
 from mealwright import history
 from mealwright.api.v1.context import Kitchen
 from mealwright.auth import hash_password
-from mealwright.models import Change, Household, Login, Recipe, RecipeLine, utcnow
+from mealwright.household import add_default_places
+from mealwright.models import (
+    Change,
+    Food,
+    FoodConversion,
+    FoodName,
+    FoodSize,
+    FoodStandIn,
+    Household,
+    Login,
+    Place,
+    Recipe,
+    RecipeLine,
+    StockLot,
+    utcnow,
+)
 
 API = "/api/v1"
 
@@ -282,3 +297,98 @@ def test_an_undo_record_pointing_at_another_households_recipe_changes_nothing(
         assert theirs is not None
         assert theirs.homemade_food_id is None and theirs.version == 1
         assert db.get(RecipeLine, line_id).food_id is None  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize("restore", ["field", "names", "sizes", "stand_ins", "conversions", "lots"])
+def test_an_undo_record_pointing_at_another_households_ingredient_changes_nothing(
+    kitchen: TestClient, restore: str
+) -> None:
+    """Every restore step checks the household itself (found by the 0.4.0 release review):
+    a record that names a row of another household, or sends one of mine to it, puts nothing
+    back and changes nothing."""
+    mine = add(kitchen, "Toor dal")["food"]["id"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(Household(id=2, name="Next door"))
+        db.flush()
+        add_default_places(db, 2)
+        theirs = Food(household_id=2, name="Ghee", counted_as="weight")
+        other = Food(household_id=2, name="Butter", counted_as="weight")
+        db.add_all([theirs, other])
+        db.flush()
+        name = FoodName(household_id=2, food_id=theirs.id, name="clarified butter")
+        size = FoodSize(
+            household_id=2, food_id=theirs.id, name="jar", plural="jars", amount_milli=500_000
+        )
+        link = FoodStandIn(household_id=2, food_id=theirs.id, stand_in_id=other.id)
+        conversion = FoodConversion(
+            household_id=2,
+            food_id=theirs.id,
+            kind="cup",
+            value_milli=240_000,
+            answered_by_name="Them",
+        )
+        place = db.scalars(select(Place).where(Place.household_id == 2)).first()
+        assert place is not None
+        lot = StockLot(household_id=2, food_id=theirs.id, place_id=place.id, amount_milli=1000)
+        db.add_all([name, size, link, conversion, lot])
+        db.commit()
+        asking = Kitchen(
+            db=db,
+            login=db.scalars(select(Login)).one(),
+            household=db.get(Household, 1),  # type: ignore[arg-type]
+            idempotency_key=None,
+            request="POST /api/v1/changes/1/undo",
+        )
+        step = history._RESTORE
+        if restore == "field":
+            for field, value in (("exists", None), ("removed", True), ("name", "Hacked")):
+                assert history._restore_field(asking, f"{theirs.id}:{field}", value) is False
+            their_food = db.get(Food, theirs.id)
+            assert their_food is not None
+            assert their_food.name == "Ghee" and their_food.removed_at is None
+        elif restore == "names":
+            assert step["names"](asking, str(name.id), None) is False  # delete theirs
+            assert step["names"](asking, str(name.id), {"food_id": mine, "name": "x"}) is False
+            assert (
+                step["names"](asking, "9999", {"food_id": theirs.id, "name": "mine now"}) is False
+            )
+            assert db.get(FoodName, name.id) is not None
+            assert db.scalars(select(FoodName).where(FoodName.food_id == mine)).first() is None
+        elif restore == "sizes":
+            assert step["sizes"](asking, str(size.id), None) is False
+            assert step["sizes"](asking, str(size.id), {"food_id": mine, "name": "hack"}) is False
+            fields = {
+                "food_id": theirs.id,
+                "name": "jar",
+                "plural": "jars",
+                "amount_milli": 1,
+                "usual": False,
+                "added_when_shopping": False,
+                "position": 0,
+            }
+            assert step["sizes"](asking, "9998", fields) is False  # one of mine from theirs
+            assert db.get(FoodSize, size.id) is not None and db.get(FoodSize, 9998) is None
+        elif restore == "stand_ins":
+            assert step["stand_ins"](asking, f"{theirs.id}:{other.id}", False) is False
+            assert step["stand_ins"](asking, f"{mine}:{theirs.id}", True) is False
+            assert db.get(FoodStandIn, (theirs.id, other.id)) is not None
+            assert db.get(FoodStandIn, (mine, theirs.id)) is None
+        elif restore == "conversions":
+            assert step["conversions"](asking, f"{theirs.id}:cup", None) is False
+            changed = {"value_milli": 1, "answered_by_name": "Me"}
+            assert step["conversions"](asking, f"{theirs.id}:cup", changed) is False
+            assert step["conversions"](asking, f"{theirs.id}:tbsp", changed) is False
+            row = db.scalars(select(FoodConversion).where(FoodConversion.food_id == theirs.id))
+            assert [(r.kind, r.value_milli) for r in row] == [("cup", 240_000)]
+        else:
+            put = {"food_id": mine, "size_id": None}
+            assert step["lots"](asking, str(lot.id), put) is False  # theirs, sent to mine
+            assert step["lots"](asking, str(lot.id), None) is False
+            mine_lot = StockLot(household_id=1, food_id=mine, place_id=1, amount_milli=1000)
+            db.add(mine_lot)
+            db.flush()
+            there = {"food_id": theirs.id, "size_id": size.id}
+            assert step["lots"](asking, str(mine_lot.id), there) is False  # mine, sent to theirs
+            assert mine_lot.food_id == mine
+            assert db.get(StockLot, lot.id).food_id == theirs.id  # type: ignore[union-attr]
+        db.rollback()
