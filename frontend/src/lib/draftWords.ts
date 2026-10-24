@@ -56,5 +56,3 @@ export function shortProgress(draft: DraftBrief): string {
 export function progressShare(draft: DraftBrief): number {
   return draft.lines_total === 0 ? 0 : Math.round((draft.lines_checked / draft.lines_total) * 100);
 }
-
-export const TOO_MANY_DRAFTS = 'You have 50 drafts. Finish or delete one first.';

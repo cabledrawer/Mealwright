@@ -13,8 +13,6 @@ import { newChangeId } from './changeId';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
-export const NO_DRAFTS_OFFLINE =
-  'Drafts are kept on your Mealwright server. They’ll show again when you’re back online.';
 const COULDNT_LOAD = 'Couldn’t load your drafts. Try again.';
 const COULDNT_DELETE = 'Couldn’t delete that draft. Try again.';
 
