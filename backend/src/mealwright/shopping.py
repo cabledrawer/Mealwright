@@ -1048,7 +1048,15 @@ def _join(
     act.done(
         "item_added",
         f"Added {food.name} to {shopping_list.name} (joined the line already there)",
-        [{"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}],
+        [
+            {
+                "op": "item_amount",
+                "item_id": line.id,
+                "old": before,
+                "new": _amount_state(line),
+                "joined": True,  # Undo leaves the line alone once it is ticked (rule M-1)
+            }
+        ],
         food.id,
         **extra,
     )

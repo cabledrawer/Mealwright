@@ -160,6 +160,44 @@ def test_sy68_undo_of_a_join_leaves_it_alone_once_the_joined_line_is_ticked(
     assert result["message"] == "Nothing to put back: it has all changed again since."
 
 
+def test_sy68_undo_of_an_add_that_joined_leaves_it_alone_once_the_joined_line_is_ticked(
+    kitchen: TestClient,
+) -> None:
+    """The older add-join Undo, the same shape as a move's join (0.5 PR 7 review F1)."""
+    s = s0(kitchen)
+    grocer = s.shops["Indian grocer"]
+    first = new_id()
+    send(
+        kitchen,
+        action(
+            "add",
+            list_id=s.main,
+            item_id=first,
+            food_id=s.foods["Milk"],
+            amount=1000,
+            shop_id=grocer,
+        ),
+    )
+    second = one(
+        kitchen,
+        "add",
+        s.c0 + 1,
+        list_id=s.main,
+        item_id=new_id(),
+        food_id=s.foods["Milk"],
+        amount=2000,
+        shop_id=grocer,
+    )
+    assert second["status"] == "merged"
+    assert one(kitchen, "tick", s.c0 + 2, item_id=first)["status"] == "applied"
+    result = _undo(kitchen, second["id"])
+    # The 3 L were bought, so the line stays 3 L and says so.
+    joined = next(r for r in _live(kitchen, s, "Milk") if r["id"] == first)
+    assert joined["amount"] == 3000
+    assert result["status"] == "applied"
+    assert result["message"] == "Nothing to put back: it has all changed again since."
+
+
 def test_sy68_a_blank_line_there_and_the_moved_amount_add_up(kitchen: TestClient) -> None:
     s = s0(kitchen)
     grocer = s.shops["Indian grocer"]
