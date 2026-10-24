@@ -131,6 +131,35 @@ def test_sy68_move_adds_up_with_the_line_already_there(kitchen: TestClient) -> N
     assert _where(kitchen, s.items["Milk"]) == (s.main, s.shops["Supermarket"])
 
 
+def test_sy68_undo_of_a_join_leaves_it_alone_once_the_joined_line_is_ticked(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    grocer = s.shops["Indian grocer"]
+    extra = new_id()
+    send(
+        kitchen,
+        action(
+            "add",
+            list_id=s.main,
+            item_id=extra,
+            food_id=s.foods["Milk"],
+            amount=1000,
+            shop_id=grocer,
+        ),
+    )
+    moved = _move(kitchen, s, "Milk", grocer, seen=s.c0 + 1)
+    assert moved["status"] == "merged"
+    assert one(kitchen, "tick", s.c0 + 3, item_id=extra)["status"] == "applied"
+    result = _undo(kitchen, moved["id"])
+    # Nothing is put back: the 3 L were bought, so no 2 L is asked for again.
+    (line,) = _live(kitchen, s, "Milk")
+    assert line["id"] == extra and line["amount"] == 3000
+    assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
+    assert result["status"] == "applied"
+    assert result["message"] == "Nothing to put back: it has all changed again since."
+
+
 def test_sy68_a_blank_line_there_and_the_moved_amount_add_up(kitchen: TestClient) -> None:
     s = s0(kitchen)
     grocer = s.shops["Indian grocer"]

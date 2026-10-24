@@ -1364,10 +1364,16 @@ def move_item(act: Act) -> None:
             line.hand_edited = True
             line.version = act.seq
             ops.append(
-                {"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}
+                {
+                    "op": "item_amount",
+                    "item_id": line.id,
+                    "old": before,
+                    "new": _amount_state(line),
+                    "joined": True,
+                }
             )
         tombstone(kitchen, item, act.seq, act.id)
-        ops.append({"op": "item_deleted", "item_ids": [item.id]})
+        ops.append({"op": "item_deleted", "item_ids": [item.id], "joined_into": line.id})
         kitchen.db.flush()
         act.status = "merged"
         act.item_id = line.id
@@ -1486,6 +1492,10 @@ def _same[T: (ShoppingList, ListItem)](row: T | None, kitchen: Kitchen) -> TypeI
     return row is not None and row.household_id == kitchen.household_id
 
 
+def _ticked_since(kitchen: Kitchen, item: ListItem) -> bool:
+    return item.ticked_at is not None or bool(standing_ticks(kitchen, [item.id]))
+
+
 def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, action: str) -> int:
     """Reverse a list change's list part. Each part is put back only if it still looks the
     way the change left it (like food changes). Rows touched get the Undo's counter number,
@@ -1533,6 +1543,9 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
             item = db.get(ListItem, op["item_id"])
             if not _same(item, kitchen) or item.deleted_at:
                 tally.skipped += 1
+                continue
+            if op.get("joined") and _ticked_since(kitchen, item):
+                tally.skipped += 1  # the line a move joined was bought since (rule M-1)
                 continue
             if _amount_state(item) == op["new"]:
                 item.amount_milli, item.size_id = op["old"]
@@ -1600,6 +1613,10 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
             else:
                 tally.skipped += 1
         elif kind == "item_deleted":
+            joined = db.get(ListItem, op["joined_into"]) if op.get("joined_into") else None
+            if joined is not None and _ticked_since(kitchen, joined):
+                tally.skipped += len(op["item_ids"])  # its amount was bought: stay joined
+                continue
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)
                 if not _same(item, kitchen):
