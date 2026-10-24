@@ -129,9 +129,14 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${title} (mine)`);
   expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(0);
-  // The recipe's Undo takes the recipe and its new ingredients back, as for any import.
+  // The recipe's Undo takes the recipe and its new ingredients back, as for any import, and
+  // because it was saved from a draft, the draft comes back too (cabledrawer 24 Oct, question 36).
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
+  await page.goto('/recipes/drafts');
+  await expect(page.getByRole('link', { name: `Carry on ${title} (mine)` })).toBeVisible();
+  expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(1);
+  await deleteDrafts(page, `${title} (mine)`);
 });
 
 test('changing a draft and leaving asks to save the draft over; the days start again', async ({ page }) => {

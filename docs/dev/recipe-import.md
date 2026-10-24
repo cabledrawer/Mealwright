@@ -502,10 +502,26 @@ brings it back counted as just changed (its 15 days start again, so it isn't bac
 then gone). At 50 drafts an Undo is refused with the same sentence as keeping a 51st: no old draft
 is ever deleted to make room.
 
-**Undo of a Save from a draft** (proposed, for cabledrawer; he has been asked, question 36). As built,
-Undo takes the recipe back (it is hidden like any recipe whose import is undone) but the draft
-stays gone: it is not brought back. Nothing is left half-done and no photo file is left behind. If
-cabledrawer wants the draft back too, this is the place to change.
+**Undo of a Save from a draft** (cabledrawer 24 Oct, question 36: "Undo after saving a recipe from a draft
+brings the draft back too, with its choices and photo."). The Save keeps what it deletes in its own
+change record (`undo_data.draft`: the box's text, what was read, every choice, the name and who
+started it, and the id of the photo it took), so nothing new is stored in the database and there is
+no migration. Undo takes the recipe back as for any import (hidden, with its new ingredients and
+other names), then makes the draft again **with the same id**, counted as just changed (its 15 days
+start again), and moves the photo back from the recipe to the draft (the same file; the recipe's
+copy goes with the recipe). Details that are mine, **proposed, for cabledrawer**:
+
+- **At 50 drafts the whole Undo is refused** with the 50-drafts sentence ("You have 50 drafts.
+  Finish or delete one first."), checked before anything is done, so nothing is half undone and
+  there are never 51. Make room, and the same Undo works.
+- **If the recipe's photo was removed or replaced after the Save**, that file is no longer the
+  draft's to take back: the draft comes back without it, saying "The photo wasn’t kept." (the
+  sentence a draft already uses). Nothing else is lost.
+- **If the recipe is already deleted** (so the Undo has nothing to take back), no draft is made.
+- The record holds the draft's review and choices (at most 2 MB, counted as stored) and its text
+  (at most 100,000 characters) for as long as the change is kept; the Undo window is 7 days.
+- Only this household's recipe and photo are looked at; a record naming another household's recipe
+  or photo does nothing.
 
 **Two people at once.** The spec doesn't say, so the last save wins: `PUT` replaces the draft whole
 and neither person is told. Both can still carry on and Save; whoever Saves first makes the recipe

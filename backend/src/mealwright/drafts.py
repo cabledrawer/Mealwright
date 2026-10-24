@@ -14,6 +14,9 @@ the new ingredients and learned names it holds are only made when the recipe is 
 - **Deleting** hides a draft at once and records `draft_removed` in the change log (a Toast
   Undo, or Ctrl+Z). It is deleted for good, with its photo, once the undo window (7 days) has
   passed. Undo brings it back as if it had just been changed.
+- **Saving a recipe from a draft** deletes the draft, but its Save keeps a copy in its own change
+  record (`snapshot`), so that Undo of the Save brings the draft back (`bring_back`): the same
+  id, its choices and photo, its 15 days started again (cabledrawer 24 Oct, question 36).
 - **50 drafts** at most per household. At 50 nothing is deleted to make room (cabledrawer 22 Oct,
   question 9): the answer is a plain sentence.
 - **Two people at once:** the last save wins. A draft is only a place to carry on from, and

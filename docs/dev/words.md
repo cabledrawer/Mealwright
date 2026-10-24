@@ -395,4 +395,5 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - A draft whose photo was deleted before it was kept: Photo not downloaded — The photo wasn’t kept. (the draft’s own sentence is “The photo wasn’t kept.”) · A draft’s photo can’t be deleted on its own: That photo is on a draft. Delete the draft, or save the recipe.
   - A draft with an empty Name box is listed as: Untitled recipe.
   - A draft that is too big to keep (the server’s sentence, 422; it replaces “That review is bigger than a recipe can be.”, which was wrong when the choices pushed it over): That draft is too big to keep. (proposed, for cabledrawer)
+  - Undo of a Save from a draft (cabledrawer 24 Oct, question 36; the sentences are proposed, for cabledrawer): the toast is the usual Undone: Imported Sambar. The server’s own answer adds the sentence the draft’s delete already uses: The Sambar draft is back in Drafts. At 50 drafts the Undo is refused with You have 50 drafts. Finish or delete one first. (the existing sentence). If the recipe’s photo was changed since, the draft comes back with The photo wasn’t kept. (the existing sentence).
 
