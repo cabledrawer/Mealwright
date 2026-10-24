@@ -264,7 +264,12 @@ describe('Import a recipe', () => {
       await expect
         .element(page.getByText(/1 cup \(200 g\) thuvaram paruppu/).first())
         .toBeVisible();
-      await expect.element(page.getByText('Photo not downloaded')).toBeVisible();
+      await expect
+        .element(page.getByText(/^Photo not downloaded\. Photo downloads are off in Settings/))
+        .toBeVisible();
+      await expect
+        .element(page.getByText(/Settings → Privacy\. You can add your own photo later\.$/))
+        .toBeVisible();
       await expect.element(page.getByRole('link', { name: 'Settings → Privacy' })).toBeVisible();
       await expect.element(page.getByText('Nothing is saved until you choose.')).toBeVisible();
       await expect

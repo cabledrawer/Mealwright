@@ -99,7 +99,7 @@
             id={box}
             type="text"
             bind:value
-            placeholder="e.g. wiki.home.lan or 192.168.1.20"
+            placeholder="for example wiki.home.lan or 192.168.1.20"
             autocomplete="off"
             autocapitalize="none"
             spellcheck="false"

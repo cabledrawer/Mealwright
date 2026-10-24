@@ -229,7 +229,7 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await expect(page.getByText('0 matched')).toBeVisible();
   await expect(page.getByText('1 to confirm')).toBeVisible();
   await expect(page.getByText('2 need you')).toBeVisible();
-  await expect(page.getByText('Photo not downloaded', { exact: true })).toBeVisible();
+  await expect(page.getByText('Photo not downloaded.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Settings → Privacy' })).toBeVisible();
   await expect(page.getByText('Nothing is saved until you choose.').first()).toBeVisible();
   await expect(page.getByText('4 lines after “Tips” were left out. You can add them by hand.')).toBeVisible();

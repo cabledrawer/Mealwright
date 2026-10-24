@@ -135,12 +135,12 @@
 
   {#if review.photo.state === 'off' || review.photo.state === 'failed'}
     <p class="photo-note">
-      <b>Photo not downloaded</b>
       {#if review.photo.state === 'off'}
-        — photo downloads are off.
+        <b>Photo not downloaded.</b> Photo downloads are off in
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
         <a href="/settings/privacy">Settings → Privacy</a>. You can add your own photo later.
       {:else}
+        <b>Photo not downloaded</b>
         — {review.photo.message} You can add your own photo later.
       {/if}
     </p>

@@ -41,8 +41,7 @@ export const LEARN_IMPORT_LIMITS =
 export const NETWORK_INTRO =
   'Links to your own network (your router, other home servers, this server) are blocked, to keep them safe. Add the ones Mealwright may visit, like a home wiki.';
 export const NETWORK_EMPTY = 'Nothing added yet. Every address on your own network is blocked.';
-export const NETWORK_HELP =
-  'Each entry is a name, one address, or a range like 192.168.1.0/24. The same list is used for notifications and single sign-on later.';
+export const NETWORK_HELP = 'Each entry is a name, one address, or a range like 192.168.1.0/24.';
 /** cabledrawer 23 Oct, question 26: link-local is named too, as the refusal sentence names it. */
 export const NETWORK_BLOCKED =
   'this server itself (localhost), link-local and cloud “metadata” addresses.';

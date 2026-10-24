@@ -238,6 +238,21 @@ describe('Settings → Privacy', () => {
       await expect.element(toggle).not.toBeChecked();
     });
 
+    it('the help line and the example say “for example”, with no word about later features', async () => {
+      open({ 'GET /privacy/own-network': list([]) });
+      await expect
+        .element(
+          page.getByText('Each entry is a name, one address, or a range like 192.168.1.0/24.', {
+            exact: true
+          })
+        )
+        .toBeVisible();
+      await expect
+        .element(page.getByPlaceholder('for example wiki.home.lan or 192.168.1.20'))
+        .toBeVisible();
+      expect(document.body.textContent).not.toContain('single sign-on');
+    });
+
     it('lists what is on it, in plain words', async () => {
       open({
         'GET /privacy/own-network': list([
