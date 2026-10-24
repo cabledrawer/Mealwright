@@ -9,6 +9,7 @@ where the client only shows the message.
 from typing import Annotated, Any
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import AfterValidator
 
@@ -63,6 +64,17 @@ def install(app: FastAPI) -> None:
             "code": "too_big",
         }
         return JSONResponse(body, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
+    @app.exception_handler(RequestValidationError)
+    async def _invalid(_request: Request, error: RequestValidationError) -> JSONResponse:
+        # FastAPI's own answer repeats what was sent back (`input`), which fails to be written
+        # when it holds a lone surrogate such as "\ud800": a 500 instead of the 422. Where the
+        # mistake is and what it is stay; the echo goes.
+        shown = [
+            {key: value for key, value in one.items() if key not in ("input", "ctx")}
+            for one in error.errors()
+        ]
+        return JSONResponse({"detail": shown}, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
 
     @app.exception_handler(Problem)
     async def _problem(_request: Request, problem: Problem) -> JSONResponse:
