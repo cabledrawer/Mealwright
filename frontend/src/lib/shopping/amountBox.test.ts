@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EditFood } from './amountEdit';
-import { readDraft, startDraft, stepDraft, switchUnit, unitChoices } from './amountBox';
+import { baseFrom, readDraft, startDraft, stepDraft, switchUnit, unitChoices } from './amountBox';
 import type { FoodSize } from './types';
 
 const packet: FoodSize = { id: 12, name: 'packet', plural: 'packets', amount: 500, usual: true };
@@ -141,5 +141,20 @@ describe('stepDraft', () => {
   });
   it('starts from nothing with the first step', () => {
     expect(stepDraft({ text: '', unit: 'g' }, 1, choices, dalFood).text).toBe('50');
+  });
+});
+
+describe('baseFrom: what was typed, as a base amount', () => {
+  it('1.005 kg is 1005 g, not 1004.9999999999999 (the old "Other…" bug)', () => {
+    expect(Number('1.005') * 1000).not.toBe(1005); // the trap
+    expect(baseFrom('1.005', 1000)).toBe(1005);
+    expect(baseFrom('1,005', 1000)).toBe(1005);
+  });
+
+  it('keeps three decimals and no more', () => {
+    expect(baseFrom('0.1', 1)).toBe(0.1);
+    expect(baseFrom('2.3456', 1)).toBe(2.346);
+    expect(baseFrom('0.575', 1000)).toBe(575);
+    expect(baseFrom('1.1', 500)).toBe(550);
   });
 });

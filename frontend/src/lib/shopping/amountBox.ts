@@ -47,6 +47,14 @@ export function unitChoices(food: Pick<ShopFood, 'counted_as'>, sizes: FoodSize[
   return out;
 }
 
+/**
+ * What was typed (in kg, L or a size) as a base amount, at most three decimals: 1.005 kg is
+ * 1005 g, not 1004.9999999999999, which the server refuses (found in 0.4.0, fixed in 0.5).
+ */
+export function baseFrom(typed: string, factor: number): number {
+  return Math.round(Number(typed.replace(',', '.')) * factor * 1000) / 1000;
+}
+
 /** A number as people write it: no trailing zeros, at most three decimals. */
 export const numberText = (n: number): string => String(Math.round(n * 1000) / 1000);
 

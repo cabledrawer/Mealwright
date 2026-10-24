@@ -501,6 +501,21 @@ describe('the Shopping page', () => {
     );
   });
 
+  it('Different pack? → Other… sends 1005 for 1.005 kg, not 1004.9999999999999', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+    await openChange('Paneer');
+    await page.getByRole('button', { name: 'Different pack?' }).click();
+    await page.getByRole('radio', { name: 'Other…' }).click();
+    await page.getByRole('textbox', { name: 'How many packs' }).fill('1');
+    await page.getByRole('textbox', { name: 'Size of one' }).fill('1.005');
+    await page.getByRole('combobox', { name: 'Unit' }).selectOptions('kg');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 1005 })
+    );
+  });
+
   it('an item with no amount says so once ticked, and Add amount opens How much?', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
     await render(1300);

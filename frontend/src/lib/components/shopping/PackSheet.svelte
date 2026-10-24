@@ -2,6 +2,7 @@
   // "Different pack?" (mockup Shop): "What did you buy?" with the planned pack, one pack of
   // the planned amount, the ingredient's own sizes, and Other…; "Pantry gets 1 pack · 400 g."
   // and Done. The same panel, titled "How much?", for an item with no amount (spec L303).
+  import { baseFrom } from '$lib/shopping/amountBox';
   import { baseText, packText, pantryGets, unitsFor } from '$lib/shopping/format';
   import type { ShoppingModel } from '$lib/shopping/store.svelte';
   import type { FoodSize, ListItem, ShopFood, Tick } from '$lib/shopping/types';
@@ -80,7 +81,7 @@
   const other = $derived.by(() => {
     const count = Math.floor(Number(otherCount));
     const unit = units.find((u) => u.name === otherUnit) ?? units[0]!;
-    const amount = Number(otherAmount.replace(',', '.')) * unit.factor;
+    const amount = baseFrom(otherAmount, unit.factor);
     return count >= 1 && count <= 99 && amount > 0 ? { count, pack: amount } : null;
   });
 
