@@ -35,7 +35,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 409 | `key_reused` | an `Idempotency-Key` was reused for a different request |
 | 410 | `too_old` | Undo after the undo window |
 | 413 | `body_too_big` | a request body over 4 MiB, on any endpoint, signed in or not (security audit, 0.4) |
-| 422 | — | validation; FastAPI's default list form, as in 0.1 (the web app's `detailOf` already reads it) |
+| 422 | — | validation: a list of `{type, loc, msg}` (FastAPI's list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app's `detailOf` reads `msg` only |
 
 `detail` is always a plain-English sentence the web app can show as is. On screen it's always "ingredient", never "food" (cabledrawer 17 Oct): every `detail`, change summary, undo message, ask-once question and display text says "ingredient". "Food" stays the word in field names, codes and paths (`food_id`, `/foods`). A test scans the code for sentences that say "food".
 

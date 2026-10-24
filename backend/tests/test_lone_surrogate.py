@@ -50,3 +50,41 @@ def test_a_lone_surrogate_in_a_synced_action_is_refused_not_a_500(kitchen: TestC
     assert LONE in raw and s.main
     answer = post(kitchen, "/shopping/actions", raw)
     assert answer.status_code < 500, answer.text
+
+
+@pytest.mark.parametrize("field", ["id", "kind", "list_id", "item_id", "extra"])
+def test_a_lone_surrogate_anywhere_in_a_synced_action_is_refused_cleanly(
+    kitchen: TestClient, field: str
+) -> None:
+    """S1: the refusal used to repeat a sent id, and writing the surrogate back was a 500."""
+    one = action("create_list", list_id=new_id(), name="X")
+    one[field] = "@@"
+    body = {
+        "protocol": 1,
+        "device_id": new_id(),
+        "login_id": login_id(kitchen),
+        "since": 0,
+        "sent_at": now(),
+        "actions": [one],
+    }
+    raw = json.dumps(body).replace("@@", LONE)
+    answer = post(kitchen, "/shopping/actions", raw)
+    assert answer.status_code == 200, answer.text
+    (result,) = answer.json()["results"]
+    assert result["status"] == "refused" or result["status"] == "applied"
+    assert "\ud800" not in answer.text
+
+
+def test_a_lone_surrogate_in_a_query_or_path_is_not_a_500(kitchen: TestClient) -> None:
+    for url in ("/foods?search=%ED%A0%80", "/foods/%ED%A0%80", "/changes?since=%ED%A0%80"):
+        assert kitchen.get(f"{API}{url}").status_code < 500, url
+
+
+def test_an_ordinary_422_never_repeats_what_was_sent(client: TestClient) -> None:
+    """S2: a too-short password is refused without the password in the answer."""
+    secret = "tiny-pw"
+    answer = client.post(f"{API}/setup", json={"name": "K", "username": "k", "password": secret})
+    assert answer.status_code == 422
+    assert secret not in answer.text
+    for item in answer.json()["detail"]:
+        assert set(item) == {"type", "loc", "msg"}

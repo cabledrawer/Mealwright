@@ -493,6 +493,14 @@ def _handlers() -> dict[str, Callable[[Act], None]]:
     return {**HANDLERS, **ticks.HANDLERS}
 
 
+def _writable(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 # --- A batch (4.1) -------------------------------------------------------------------------------
 
 
@@ -505,7 +513,9 @@ def apply_batch(
     results = []
     for raw in actions:
         given = raw.get("id") if isinstance(raw, dict) else None
-        action_id = given if isinstance(given, str) else ""
+        # Repeated back only if it can be written as UTF-8 (a lone surrogate can't: it would
+        # turn the refusal into a 500).
+        action_id = given if isinstance(given, str) and _writable(given) else ""
         try:
             action = ACTION.validate_python(raw)
         except ValidationError as err:
