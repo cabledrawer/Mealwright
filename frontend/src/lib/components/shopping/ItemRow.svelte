@@ -98,11 +98,14 @@
   }
 
   function moveTo(to: { shopId: number | null } | { listId: string }) {
+    // The row leaves this spot: note its neighbour (or the shop's heading) to give focus to.
+    const back = keepFocus(nameButton ?? moveFrom ?? document.body);
     editing = false;
     void model.move(item, {
       listId: 'listId' in to ? to.listId : item.list_id,
       shopId: 'shopId' in to ? to.shopId : item.shop_id
     });
+    back();
   }
 
   async function keep() {
@@ -286,7 +289,8 @@
       open={moving}
       name={food.name}
       {...model.movePlaces(item)}
-      anchor={model.device === 'computer' ? moveFrom : null}
+      anchor={moveFrom}
+      fallback={nameButton ?? null}
       onpick={moveTo}
       onclose={() => (moving = false)}
     />

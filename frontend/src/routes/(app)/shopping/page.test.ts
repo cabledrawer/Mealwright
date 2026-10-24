@@ -10,7 +10,7 @@ import { addToQueue, readQueue, saveCopy } from '$lib/offline/store';
 import { applyChanges } from '$lib/shopping/load';
 import { ingredientEditor } from '$lib/ingredientEditor.svelte';
 import { session } from '$lib/session.svelte';
-import { network } from '$lib/network.svelte';
+import { network, offlineText } from '$lib/network.svelte';
 import { newIngredient } from '$lib/newIngredient.svelte';
 import type { ShoppingCopy } from '$lib/shopping/types';
 import { toasts } from '$lib/toast.svelte';
@@ -1172,6 +1172,81 @@ describe('the Shopping page', () => {
         await userEvent.keyboard('{Escape}');
         expect(page.getByRole('dialog').elements()).toEqual([]);
         expect(server.actions).toEqual([]);
+      });
+
+      it('phone: Cancel and Esc give the focus back to the Move to… button, not the page', async () => {
+        await render(390);
+        await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+        const open = page.getByRole('button', { name: 'Move to…' });
+        await open.click();
+        await page.getByRole('button', { name: 'Cancel' }).click();
+        await expect.element(open).toHaveFocus();
+        await open.click();
+        await userEvent.keyboard('{Escape}');
+        expect(page.getByRole('dialog').elements()).toEqual([]);
+        await expect.element(open).toHaveFocus();
+      });
+
+      it('phone: Esc after a swipe puts the focus back on the row’s Move…', async () => {
+        await render(390);
+        swipe(slideOf('Yoghurt'), 110);
+        const blue = page.getByRole('button', { name: /^Move… Yoghurt/ });
+        await blue.click();
+        await userEvent.keyboard('{Escape}');
+        await vi.waitFor(() => expect(document.activeElement).not.toBe(document.body));
+        expect(document.activeElement?.closest('li')?.textContent).toContain('Yoghurt');
+      });
+
+      it('after a pick the row has gone, so the focus goes to a neighbour in the shop or its heading', async () => {
+        await render(1300);
+        await page.getByRole('button', { name: 'More for Yoghurt' }).click();
+        await page.getByRole('menuitem', { name: 'Move to…' }).click();
+        await page.getByRole('radio', { name: 'Indian grocer' }).click();
+        await vi.waitFor(() => expect(moves()).toHaveLength(1));
+        await vi.waitFor(() => {
+          const here = document.activeElement;
+          expect(here).not.toBe(document.body);
+          const ok = here?.matches('.tick input') || here?.matches('h2');
+          expect(ok).toBe(true);
+          expect(here?.isConnected).toBe(true);
+        });
+      });
+
+      it('phone: after a pick from the amount box the focus is not lost either', async () => {
+        await render(390);
+        await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+        await page.getByRole('button', { name: 'Move to…' }).click();
+        await page.getByRole('radio', { name: 'Any shop' }).click();
+        await vi.waitFor(() => expect(moves()).toHaveLength(1));
+        await vi.waitFor(() => {
+          expect(document.activeElement).not.toBe(document.body);
+          expect(document.activeElement?.isConnected).toBe(true);
+        });
+      });
+
+      it('computer: Esc gives the focus back to the row’s ⋯ button', async () => {
+        await render(1300);
+        const more = page.getByRole('button', { name: 'More for Yoghurt' });
+        await more.click();
+        await page.getByRole('menuitem', { name: 'Move to…' }).click();
+        await userEvent.keyboard('{Escape}');
+        await expect.element(more).toHaveFocus();
+      });
+
+      it('offline: the move shows at once, is queued, and is counted in the offline bar', async () => {
+        await openOffline(390);
+        await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
+        await page.getByRole('button', { name: 'Move to…' }).click();
+        await page.getByRole('radio', { name: 'Indian grocer' }).click();
+        await expect
+          .element(page.getByRole('status').filter({ hasText: 'Moved Yoghurt to Indian grocer' }))
+          .toBeVisible();
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action.kind)).toEqual(['move'])
+        );
+        expect((await readQueue())[0]!.action).toMatchObject({ item_id: 'i-yoghurt', shop_id: 2 });
+        await vi.waitFor(() => expect(network.waiting).toBe(1));
+        expect(offlineText('phone', network.waiting).title).toBe('Offline — 1 change waiting');
       });
 
       it('a ticked line has no Move…', async () => {

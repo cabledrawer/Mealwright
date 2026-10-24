@@ -13,6 +13,7 @@
     shops,
     lists,
     anchor = null,
+    fallback = null,
     onpick,
     onclose
   }: {
@@ -25,6 +26,8 @@
     lists: { id: string; name: string; main: boolean; toBuy: number }[];
     /** The row's button, which a computer's menu sits by and focus goes back to. */
     anchor?: HTMLElement | null;
+    /** Where focus goes on Cancel or Esc if the anchor has gone or can't take it (the row). */
+    fallback?: HTMLElement | null;
     onpick: (to: { shopId: number | null } | { listId: string }) => void;
     onclose: () => void;
   } = $props();
@@ -61,7 +64,10 @@
 
   function close() {
     onclose();
-    queueMicrotask(() => anchor?.focus());
+    queueMicrotask(() => {
+      const back = anchor?.isConnected && anchor.offsetParent !== null ? anchor : fallback;
+      back?.focus();
+    });
   }
 
   function pick(to: { shopId: number | null } | { listId: string }) {
