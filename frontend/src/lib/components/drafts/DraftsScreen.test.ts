@@ -119,7 +119,7 @@ describe('the Drafts screen', () => {
       await expect
         .element(page.getByRole('button', { name: 'Save recipe Aloo paratha' }))
         .toBeVisible();
-      // No swipes yet: the buttons are all there is.
+      // A swipe shows a button only when swiped: none of its buttons is there until then.
       expect(document.body.textContent).not.toMatch(/[Ss]wipe/);
     });
 
@@ -179,6 +179,58 @@ describe('the Drafts screen', () => {
       expect(await undone).toBe(true);
       expect(sent).toContain('POST /changes/40/undo');
       await expect.element(page.getByText('Rava dosa')).toBeVisible();
+    });
+
+    /** A finger sliding sideways over a card: down, two moves, up. */
+    function swipe(slide: Element, dx: number) {
+      const base = { pointerId: 9, pointerType: 'touch', isPrimary: true, bubbles: true };
+      const at = (x: number) => ({ ...base, clientX: x, clientY: 300 });
+      slide.dispatchEvent(new PointerEvent('pointerdown', at(200)));
+      slide.dispatchEvent(new PointerEvent('pointermove', at(200 + dx / 2)));
+      slide.dispatchEvent(new PointerEvent('pointermove', at(200 + dx)));
+      slide.dispatchEvent(new PointerEvent('pointerup', at(200 + dx)));
+      flushSync();
+    }
+    const slideOf = (name: string) =>
+      page.getByText(name, { exact: true }).first().element().closest('.slide') as HTMLElement;
+
+    it('swipe right shows Carry on, which opens the draft; a swipe alone goes nowhere', async () => {
+      await open({ 'GET /recipes/drafts': list(THREE) });
+      await expect.element(page.getByText('Rava dosa')).toBeVisible();
+      swipe(slideOf('Rava dosa'), 110);
+      const carry = page.getByRole('button', { name: 'Carry on Rava dosa' });
+      await expect.element(carry).toBeVisible();
+      expect(nav.goto).not.toHaveBeenCalled();
+      await carry.click();
+      expect(nav.goto).toHaveBeenCalledWith('/recipes/drafts/2');
+    });
+
+    it('swipe left shows Delete, which deletes at once with an Undo toast and asks nothing', async () => {
+      const requests = await open({
+        'GET /recipes/drafts': list(THREE),
+        'DELETE /recipes/drafts/2': [200, { change: changeOf(40, 'Deleted the Rava dosa draft') }]
+      });
+      await expect.element(page.getByText('Rava dosa')).toBeVisible();
+      swipe(slideOf('Rava dosa'), -110);
+      expect(requests.some((r) => r.method === 'DELETE')).toBe(false);
+      await page.getByRole('button', { name: 'Delete Rava dosa' }).first().click();
+      await expect.element(page.getByText('Rava dosa')).not.toBeInTheDocument();
+      expect(requests.some((r) => r.method === 'DELETE' && r.path === '/recipes/drafts/2')).toBe(
+        true
+      );
+      expect(toasts.current?.message).toBe('Deleted the Rava dosa draft');
+      expect(toasts.current?.action?.label).toBe('Undo');
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
+    });
+
+    it('offline there is no swipe-to-delete, as Delete is off too', async () => {
+      await open({ 'GET /recipes/drafts': list(THREE) });
+      await expect.element(page.getByText('Rava dosa')).toBeVisible();
+      network.offline = true;
+      flushSync();
+      swipe(slideOf('Rava dosa'), -110);
+      expect(page.getByRole('button', { name: 'Delete Rava dosa' }).elements()).toHaveLength(1);
+      await expect.element(page.getByRole('button', { name: 'Delete Rava dosa' })).toBeDisabled();
     });
 
     it('puts a draft back and says so when the delete did not go through', async () => {

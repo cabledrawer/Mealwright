@@ -3,8 +3,10 @@
   // imports your household hasn't finished, kept for 15 days. Each says where it came from, who
   // started it, how many days it has left and how far the checking has got, with visible
   // buttons: Carry on (or Save recipe, when every ingredient is checked) and Delete. Delete
-  // hides the draft at once and a toast offers Undo (and Ctrl+Z does the same). Swipes on a
-  // phone come later; the buttons do the same. A phone has cards, a computer a table.
+  // hides the draft at once and a toast offers Undo (and Ctrl+Z does the same). On a phone each
+  // card also swipes (cabledrawer 21 Oct): right = Carry on, left = Delete (with the same Undo toast,
+  // no asking); each is shown as a button first, and the card's own buttons do the same. A phone
+  // has cards, a computer a table (no swipes).
   // Online only: drafts are kept on the server.
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -25,9 +27,11 @@
   import { saveFromDraft } from '$lib/import.draftSave';
   import { initial } from '$lib/session.svelte';
   import { network } from '$lib/network.svelte';
+  import type { Side } from '$lib/swipe';
   import EmptyState from '../EmptyState.svelte';
   import OfflineNote from '../OfflineNote.svelte';
   import PageHeader from '../PageHeader.svelte';
+  import SwipeRow from '../SwipeRow.svelte';
 
   let phone = $state(matchMedia('(max-width: 767px)').matches);
   $effect(() => {
@@ -76,6 +80,9 @@
     void drafts.load();
     await goto(resolve('/(app)/recipes/[id]', { id: String(done.recipeId) }));
   }
+
+  /** Which cards are swiped open, and to which side. */
+  let swiped = $state<Record<number, Side>>({});
 
   const here = (draft: DraftBrief) =>
     resolve('/(app)/recipes/drafts/[id]', { id: String(draft.id) });
@@ -141,27 +148,47 @@
     <ul class="cards" aria-label="Drafts">
       {#each drafts.drafts as draft (draft.id)}
         <li>
-          <article class="card" class:ready={allChecked(draft)}>
-            <div class="head">
-              <span class="what">
-                <span class="name">{draft.name}</span>
-                <span class="source">{phoneSource(draft)}</span>
-              </span>
-              <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
-                >{daysWords(draft.days_left)}</span
-              >
-            </div>
-            <div class="progress">
-              <div class="bar" aria-hidden="true">
-                <div class="fill" style:width="{progressShare(draft)}%"></div>
+          <SwipeRow
+            bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
+            right={{
+              label: 'Carry on',
+              describe: draft.name,
+              icon: 'arrow-right',
+              tone: 'move',
+              run: () => void goto(here(draft))
+            }}
+            left={network.offline
+              ? undefined
+              : {
+                  label: 'Delete',
+                  describe: draft.name,
+                  icon: 'trash',
+                  tone: 'danger',
+                  run: () => void drafts.remove(draft)
+                }}
+          >
+            <article class="card" class:ready={allChecked(draft)}>
+              <div class="head">
+                <span class="what">
+                  <span class="name">{draft.name}</span>
+                  <span class="source">{phoneSource(draft)}</span>
+                </span>
+                <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
+                  >{daysWords(draft.days_left)}</span
+                >
               </div>
-              <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
-            </div>
-            <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
-            {#if problems[draft.id]}<p class="failed-line" role="alert">
-                {problems[draft.id]}
-              </p>{/if}
-          </article>
+              <div class="progress">
+                <div class="bar" aria-hidden="true">
+                  <div class="fill" style:width="{progressShare(draft)}%"></div>
+                </div>
+                <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
+              </div>
+              <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
+              {#if problems[draft.id]}<p class="failed-line" role="alert">
+                  {problems[draft.id]}
+                </p>{/if}
+            </article>
+          </SwipeRow>
         </li>
       {/each}
     </ul>
@@ -293,6 +320,11 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .cards li {
+    border-radius: var(--radius-2xl);
+    overflow: hidden;
   }
 
   .card {
