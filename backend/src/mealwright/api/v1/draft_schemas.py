@@ -53,9 +53,10 @@ class DraftChoices(BaseModel):
     is kept too) and a choice for each line the person has settled. A line with no entry here
     has no choice yet (a matched line needs none)."""
 
-    name: Annotated[str, Field(max_length=200)] = ""
-    serves: Annotated[str, Field(max_length=10)] = ""
-    minutes: Annotated[str, Field(max_length=10)] = ""
+    # null: left as read (the review's own).
+    name: Annotated[str, Field(max_length=200)] | None = None
+    serves: Annotated[str, Field(max_length=10)] | None = None
+    minutes: Annotated[str, Field(max_length=10)] | None = None
     # The line's place in the review → its choice. (JSON keys are text; the screen's are numbers.)
     lines: dict[int, DraftChoice] = Field(default_factory=dict, max_length=MAX_LINES)
 

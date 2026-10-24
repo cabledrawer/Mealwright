@@ -3,14 +3,19 @@
   // their dark versions; spec "Import review" and "The labels"): the recipe's name, serves and
   // time, whether its photo came, the counts, every ingredient line as written → how it was
   // read → what's in your kitchen, and Save. "Nothing is saved until you choose." Save & plan
-  // it stays hidden until 0.6 (cabledrawer 21 Oct). Leaving without saving just leaves for now:
-  // "Save as a draft?" comes with Drafts.
-  import { goto } from '$app/navigation';
+  // it stays hidden until 0.6 (cabledrawer 21 Oct).
+  //
+  // Leaving without saving (Cancel, the back link, a tab, the browser's Back) asks "Save as a
+  // draft?" (mockup Import05-*, the leave sheet; spec "Import drafts"): Save draft · Keep
+  // checking · Discard. A draft that was opened and not changed just leaves. Closing or
+  // reloading the tab can't be asked about, so that leaves as it always did.
+  import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { changesToast } from '$lib/import.save';
   import { leftOutWords, type ImportFlow } from '$lib/import.svelte';
   import { network } from '$lib/network.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
 
   import '$lib/styles/fields.css';
@@ -29,6 +34,41 @@
 
   function leave() {
     void goto(resolve('/recipes'));
+  }
+
+  // --- Leaving without saving -------------------------------------------------------------
+  let asking = $state(false);
+  /** Where the person was going when the question came up. */
+  let target: URL | null = null;
+  /** The question was answered: this leave goes through. */
+  let allowed = false;
+
+  beforeNavigate((navigation) => {
+    if (allowed || flow.saved || !flow.unkept || !navigation.to) return;
+    if (navigation.willUnload) return; // closing the tab: the browser's own, nothing to ask
+    navigation.cancel();
+    target = navigation.to.url;
+    flow.draftProblem = null;
+    asking = true;
+  });
+
+  async function goOn(url: URL) {
+    allowed = true;
+    asking = false;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- the address the person was already going to
+    await goto(url);
+    allowed = false;
+  }
+
+  async function keep() {
+    if (!(await flow.keepAsDraft()) || !target) return;
+    // Leaving through Cancel or the back link lands on the Drafts list (the mockup's Save draft).
+    const toRecipes = target.pathname === resolve('/recipes') && target.search === '';
+    await goOn(toRecipes ? new URL(resolve('/recipes/drafts'), target) : target);
+  }
+
+  function discard() {
+    if (target) void goOn(target);
   }
 </script>
 
@@ -195,6 +235,18 @@
     <p class="muted" role="status">You’re offline. Save when you’re back online.</p>
   {/if}
 </div>
+
+{#if asking}
+  <LeaveSheet
+    name={flow.name}
+    again={flow.draftId !== null}
+    busy={flow.keeping}
+    problem={flow.draftProblem}
+    onsave={() => void keep()}
+    onstay={() => (asking = false)}
+    ondiscard={discard}
+  />
+{/if}
 
 <style>
   .review {

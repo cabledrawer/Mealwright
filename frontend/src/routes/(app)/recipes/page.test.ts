@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { RecipePage, RecipeRow } from '$lib/client/recipes';
+import { drafts } from '$lib/drafts.svelte';
 import { network } from '$lib/network.svelte';
 import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
 import Recipes from './+page.svelte';
@@ -96,8 +97,11 @@ describe('the All recipes page', () => {
     await expect.element(page.getByText('1 recipe', { exact: true })).toBeVisible();
   });
 
-  it('has the Ingredients button and New recipe, and no Drafts button yet', async () => {
+  it('has the Drafts and Ingredients buttons and New recipe', async () => {
     open();
+    await expect
+      .element(page.getByRole('link', { name: 'Drafts' }))
+      .toHaveAttribute('href', '/recipes/drafts');
     await expect
       .element(page.getByRole('link', { name: 'Ingredients' }))
       .toHaveAttribute('href', '/recipes/ingredients');
@@ -105,10 +109,31 @@ describe('the All recipes page', () => {
       .element(page.getByRole('link', { name: 'New recipe' }))
       .toHaveAttribute('href', '/recipes/new');
     await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/Drafts|Planned/);
+    expect(document.body.textContent).not.toMatch(/Planned/);
     await expect
       .element(page.getByRole('link', { name: 'Import a recipe' }))
       .toHaveAttribute('href', '/recipes/import');
+  });
+
+  it('shows how many drafts there are on the Drafts button, and no number for none', async () => {
+    open();
+    await expect.element(page.getByRole('link', { name: 'Drafts', exact: true })).toBeVisible();
+    drafts.loaded = true;
+    drafts.drafts = [1, 2, 3].map((id) => ({
+      id,
+      name: `Draft ${id}`,
+      source: { kind: 'text' as const, site: null },
+      started_by: 'Wren',
+      started_at: '2026-10-20T10:00:00Z',
+      updated_at: '2026-10-22T10:00:00Z',
+      expires_at: '2026-11-06T10:00:00Z',
+      days_left: 13,
+      lines_total: 3,
+      lines_checked: 1
+    }));
+    flushSync();
+    await expect.element(page.getByRole('link', { name: 'Drafts 3' })).toBeVisible();
+    drafts.forget();
   });
 
   it('each row opens its recipe', async () => {

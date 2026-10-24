@@ -13,7 +13,7 @@ import ImportPage from './+page.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
 
 const switches = (photos: boolean): [number, PrivacySwitches] => [
   200,

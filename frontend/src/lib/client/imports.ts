@@ -89,6 +89,8 @@ export interface SaveBody {
   source_url: string | null;
   source_author: string | null;
   photo_id: number | null;
+  /** Saving from a draft: its id. The draft is removed in the same save. */
+  draft_id?: number | null;
 }
 
 export interface Saved {

@@ -4,7 +4,9 @@
   // server in 0.3; the shopping list works from the phone's copy, so point there.
   import { resolve } from '$app/paths';
 
-  let { screen }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Settings' | 'Privacy' } =
+  let {
+    screen
+  }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' } =
     $props();
 </script>
 

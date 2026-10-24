@@ -3,6 +3,8 @@
 // until Save, and nothing is queued: it needs the server (spec: online only).
 
 import { ApiError, cantReach } from './api';
+import { changeDraft, keepDraft, type DraftBody, type DraftOut } from './client/drafts';
+import { drafts } from './drafts.svelte';
 import {
   saveImport,
   startImport,
@@ -41,6 +43,9 @@ export interface Already {
 
 export const OFFLINE_NOTE =
   'Importing needs your Mealwright server. Try again when you’re back online.';
+/** Keeping a draft didn't reach the server (proposed, for cabledrawer). */
+export const DRAFT_OFFLINE =
+  'Saving a draft needs your Mealwright server. Try again when you’re back online.';
 const COULDNT = 'Couldn’t read that. Try again.';
 
 export class ImportFlow {
@@ -60,7 +65,17 @@ export class ImportFlow {
   /** Chosen on purpose: the Save went through once. */
   saved = $state<Saved | null>(null);
 
+  /** The draft this review is kept in, once it has been kept as one (or was opened from one). */
+  draftId = $state<number | null>(null);
+  /** Keeping the draft is on its way. */
+  keeping = $state(false);
+  /** Keeping the draft didn't work: the server's sentence ("You have 50 drafts. …"). */
+  draftProblem = $state<string | null>(null);
+
   #saveKey = newChangeId();
+  #draftKey = newChangeId();
+  /** The boxes and choices as they were when the draft was last kept or opened. */
+  #kept = '';
 
   get isLink(): boolean {
     return (
@@ -119,8 +134,85 @@ export class ImportFlow {
     this.serves = review.serves === null ? '' : String(review.serves);
     this.minutes = review.time_minutes === null ? '' : String(review.time_minutes);
     this.saveProblem = null;
+    this.draftId = null;
+    this.draftProblem = null;
     this.#saveKey = newChangeId();
+    this.#draftKey = newChangeId();
     this.phase = 'review';
+  }
+
+  // --- Drafts ---------------------------------------------------------------------------------
+
+  /** Carry on from a draft: the review as it was kept, with every choice made so far. */
+  load(draft: DraftOut): void {
+    this.text = draft.text;
+    this.show(draft.review);
+    const kept = draft.choices;
+    if (kept.name !== null) this.name = kept.name;
+    if (kept.serves !== null) this.serves = kept.serves;
+    if (kept.minutes !== null) this.minutes = kept.minutes;
+    const choices: Record<number, Choice> = {};
+    for (const [index, choice] of Object.entries(kept.lines)) choices[Number(index)] = choice;
+    this.choices = choices;
+    this.draftId = draft.id;
+    this.#kept = this.#state();
+  }
+
+  /** The boxes and choices, in one piece, to tell whether anything changed since. */
+  #state(): string {
+    const lines = Object.keys(this.choices)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((index) => [index, this.choices[index]]);
+    return JSON.stringify([this.name, this.serves, this.minutes, lines]);
+  }
+
+  /** A draft this was opened from, changed since it was last kept: leaving asks. A review not
+   *  kept as a draft yet always asks. */
+  get unkept(): boolean {
+    return this.draftId === null || this.#state() !== this.#kept;
+  }
+
+  /** What a draft keeps: the box, the review as read and the choices so far. */
+  draftBody(): DraftBody | null {
+    const review = this.review;
+    if (!review) return null;
+    const lines: DraftBody['choices']['lines'] = {};
+    for (const [index, choice] of Object.entries(this.choices)) lines[index] = choice;
+    return {
+      text: this.text.trim(),
+      review,
+      choices: { name: this.name, serves: this.serves, minutes: this.minutes, lines }
+    };
+  }
+
+  /** Keep this review as a draft (the first time), or save over the draft it was opened from.
+   *  True when it is kept; otherwise `draftProblem` says why. */
+  async keepAsDraft(): Promise<boolean> {
+    const body = this.draftBody();
+    if (!body || this.keeping) return false;
+    this.keeping = true;
+    this.draftProblem = null;
+    try {
+      const kept =
+        this.draftId === null
+          ? await keepDraft(body, this.#draftKey)
+          : await changeDraft(this.draftId, body);
+      this.draftId = kept.id;
+      this.#kept = this.#state();
+      void drafts.load();
+      return true;
+    } catch (error) {
+      this.draftProblem =
+        error instanceof ApiError
+          ? cantReach(error)
+            ? DRAFT_OFFLINE
+            : error.detail
+          : 'Couldn’t keep the draft. Try again.';
+      return false;
+    } finally {
+      this.keeping = false;
+    }
   }
 
   /** Back to the box, keeping what was typed (Paste text instead, Cancel on a sheet). */
@@ -195,7 +287,8 @@ export class ImportFlow {
       steps: review.steps,
       source_url: review.source.url,
       source_author: review.author,
-      photo_id: review.photo.photo?.id ?? null
+      photo_id: review.photo.photo?.id ?? null,
+      draft_id: this.draftId
     };
   }
 
@@ -224,6 +317,7 @@ export class ImportFlow {
     this.saveProblem = null;
     try {
       this.saved = await saveImport(body, this.#saveKey);
+      if (this.draftId !== null) void drafts.load(); // the draft is a recipe now
       return this.saved;
     } catch (error) {
       if (error instanceof ApiError) {

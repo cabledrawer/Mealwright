@@ -11,9 +11,9 @@
   // alive while recipes open beside it, so the search, the filter and the scroll stay.
   //
   // Each row opens the recipe page; "New recipe" opens the editor (under the search on a phone,
-  // under the title in the pane, as the mockups have it). Hidden until they work, not stubbed:
-  // the Drafts button (drafts only come from 0.5's import; agreed by cabledrawer 20 Oct), "Planned
-  // Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
+  // under the title in the pane, as the mockups have it). The phone's Drafts button (with the
+  // number of drafts, as the mockup has it) is back with 0.5's import. Hidden until it works,
+  // not stubbed: "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
@@ -24,6 +24,7 @@
   import OfflineNote from './OfflineNote.svelte';
   import PageHeader from './PageHeader.svelte';
   import RecipeListRow from './RecipeListRow.svelte';
+  import { drafts } from '$lib/drafts.svelte';
   import { kitchen } from '$lib/freshness.svelte';
   import { live } from '$lib/live.svelte';
   import { network } from '$lib/network.svelte';
@@ -227,9 +228,12 @@
   {#if network.offline}
     <OfflineNote screen="Recipes" />
   {:else}
-    <!-- Phone: the Ingredients button sits at the top of All recipes. Desktop has it in the
-         sidebar, under Recipes. -->
+    <!-- Phone: the Drafts and Ingredients buttons sit at the top of All recipes. Desktop has
+         them in the sidebar, under Recipes. -->
     <nav class="more" aria-label="Recipes">
+      <a href={resolve('/recipes/drafts')}
+        >Drafts{#if drafts.count}<span class="drafts-count">{drafts.count}</span>{/if}</a
+      >
       <a href={resolve('/recipes/ingredients')}>Ingredients</a>
     </nav>
     {@render found()}
@@ -255,6 +259,16 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     text-decoration: none;
+  }
+
+  .drafts-count {
+    margin-left: var(--space-3);
+    padding: 1px 7px;
+    border-radius: var(--radius-full);
+    background: var(--color-tub-chip);
+    color: var(--color-tub-chip-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-extrabold);
   }
 
   .more a:hover {

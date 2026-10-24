@@ -44,13 +44,13 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
     expect(menu().elements()).toHaveLength(0);
   });
 
-  it('Enter opens it: All recipes and Ingredients (no Drafts yet), with the current page marked', async () => {
+  it('Enter opens it: All recipes, Drafts and Ingredients, with the current page marked', async () => {
     const { icon, menu } = render('/recipes/ingredients');
     (icon.element() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     await expect.element(menu()).toBeVisible();
     await expect.element(icon).toHaveAttribute('aria-expanded', 'true');
-    expect(names()).toEqual(['All recipes', 'Ingredients']);
+    expect(names()).toEqual(['All recipes', 'Drafts', 'Ingredients']);
     const ingredients = page.getByRole('menuitem', { name: 'Ingredients' });
     await expect.element(ingredients).toHaveAttribute('aria-current', 'page');
     expect(
@@ -79,12 +79,14 @@ describe('the collapsed sidebar’s Recipes pop-out', () => {
       .toHaveAttribute('aria-current', 'page');
   });
 
-  it('the arrow keys move between them, round the ends; Home and End jump', async () => {
+  it('the arrow keys move between the three, round the ends; Home and End jump', async () => {
     const { icon } = render('/recipes');
     (icon.element() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
     const item = (name: string) => page.getByRole('menuitem', { name });
     await expect.element(item('All recipes')).toHaveFocus();
+    await userEvent.keyboard('{ArrowDown}');
+    await expect.element(item('Drafts')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');
     await expect.element(item('Ingredients')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');

@@ -13,6 +13,7 @@
   import NewIngredient from '$lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '$lib/client/changes';
   import { settleHousehold } from '$lib/client/household';
+  import { drafts } from '$lib/drafts.svelte';
   import { askAgain } from '$lib/offline/opening';
   import { onWipedElsewhere } from '$lib/offline/otherTabs';
   import { askToKeepDataHere } from '$lib/offline/persist';
@@ -68,6 +69,7 @@
       shoppingSync.forget();
       placesAndShops.forget();
       privacy.forget();
+      drafts.forget();
       undoHistory.clear();
       toasts.dismiss();
       try {

@@ -240,7 +240,7 @@ def _progress(review: ImportReview, choices: DraftChoices) -> tuple[int, int]:
 
 
 def _name_of(review: ImportReview, choices: DraftChoices) -> str:
-    return (choices.name.strip() or review.name.strip() or NO_NAME)[:200]
+    return ((choices.name or "").strip() or review.name.strip() or NO_NAME)[:200]
 
 
 def _hold_photo(kitchen: Kitchen, draft: ImportDraft, review: ImportReview) -> ImportReview:

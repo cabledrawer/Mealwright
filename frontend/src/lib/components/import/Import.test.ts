@@ -1,8 +1,10 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import type { DraftOut } from '$lib/client/drafts';
 import type { ImportReview } from '$lib/client/imports';
 import { ImportFlow } from '$lib/import.svelte';
+import { drafts } from '$lib/drafts.svelte';
 import { network } from '$lib/network.svelte';
 import { placesAndShops } from '$lib/placesAndShops.svelte';
 import { fakeApi, PLACES, SHOPS } from '$lib/testing/fakeApi';
@@ -12,7 +14,17 @@ import ReviewScreen from './ReviewScreen.svelte';
 import '$lib/styles/tokens.css';
 import '$lib/styles/base.css';
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+// The page's own guard against leaving (beforeNavigate) is kept here so a test can leave.
+const nav = vi.hoisted(() => ({
+  goto: vi.fn(),
+  guard: null as null | ((navigation: unknown) => void)
+}));
+vi.mock('$app/navigation', () => ({
+  goto: nav.goto,
+  beforeNavigate: (guard: (navigation: unknown) => void) => {
+    nav.guard = guard;
+  }
+}));
 
 const REVIEW: ImportReview = {
   source: { kind: 'link', url: 'https://kitchen.example/dal', site: 'kitchen.example' },
@@ -321,6 +333,175 @@ describe('Import a recipe', () => {
       await expect
         .element(page.getByText('There’s already an ingredient called Onions.').first())
         .toBeVisible();
+    });
+  });
+
+  describe('leaving without saving: “Save as a draft?”', () => {
+    const KEPT: DraftOut = {
+      id: 7,
+      name: 'Sambar',
+      source: { kind: 'link', site: 'kitchen.example' },
+      started_by: 'Tess',
+      started_at: '2026-10-24T10:00:00Z',
+      updated_at: '2026-10-24T10:00:00Z',
+      expires_at: '2026-11-08T10:00:00Z',
+      days_left: 15,
+      lines_total: 3,
+      lines_checked: 1,
+      text: 'https://kitchen.example/dal',
+      review: REVIEW,
+      choices: { name: 'Sambar', serves: '4', minutes: '50', lines: {} }
+    };
+
+    beforeEach(() => {
+      nav.goto.mockReset();
+      nav.guard = null;
+      drafts.forget();
+    });
+
+    /** Someone clicks away: the page's guard is asked, and says whether it stopped them. */
+    function leaveFor(path: string, extra: Record<string, unknown> = {}) {
+      const cancel = vi.fn();
+      nav.guard?.({
+        to: { url: new URL(path, location.href) },
+        cancel,
+        willUnload: false,
+        ...extra
+      });
+      flushSync();
+      return cancel;
+    }
+
+    async function reviewing() {
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      fakeApi({
+        'POST /recipes/import': [200, REVIEW],
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS]
+      });
+      await flow.read();
+      show(flow, ReviewScreen);
+      return flow;
+    }
+
+    it('stops the leaving and asks, in the mockup’s words, with the three choices', async () => {
+      await reviewing();
+      const cancel = leaveFor('/recipes');
+      expect(cancel).toHaveBeenCalled();
+      const dialog = page.getByRole('dialog', { name: 'Save as a draft?' });
+      await expect.element(dialog).toBeVisible();
+      await expect
+        .element(
+          page.getByText(
+            'You haven’t finished checking Sambar. A draft keeps your choices so far for 15 days, in Recipes → Drafts. Anyone in your household can carry on.'
+          )
+        )
+        .toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Save draft' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Keep checking' })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Discard', exact: true }))
+        .toBeVisible();
+    });
+
+    it('Cancel leaves for Recipes, which asks', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      expect(nav.goto).toHaveBeenCalledWith('/recipes');
+    });
+
+    it('Save draft keeps it on the server and goes to Drafts', async () => {
+      await reviewing();
+      const requests = fakeApi({
+        'POST /recipes/drafts': [201, KEPT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      leaveFor('/recipes');
+      await page.getByRole('button', { name: 'Save draft' }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(requests[0]!.method + ' ' + requests[0]!.path).toBe('POST /recipes/drafts');
+      expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes\/drafts$/);
+    });
+
+    it('Save draft from another tab goes where the person was going', async () => {
+      await reviewing();
+      fakeApi({
+        'POST /recipes/drafts': [201, KEPT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      leaveFor('/pantry');
+      await page.getByRole('button', { name: 'Save draft' }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/pantry$/);
+    });
+
+    it('says why it can’t keep another draft, and stays', async () => {
+      await reviewing();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      leaveFor('/recipes');
+      await page.getByRole('button', { name: 'Save draft' }).click();
+      await expect
+        .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
+        .toBeVisible();
+      expect(nav.goto).not.toHaveBeenCalled();
+      // Discard is still there, and keeping checking too.
+      await page.getByRole('button', { name: 'Keep checking' }).click();
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
+    });
+
+    it('Keep checking stays; Discard leaves without keeping anything', async () => {
+      const flow = await reviewing();
+      const requests = fakeApi({});
+      leaveFor('/recipes');
+      await page.getByRole('button', { name: 'Keep checking' }).click();
+      expect(nav.goto).not.toHaveBeenCalled();
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
+      leaveFor('/recipes');
+      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
+      expect(requests).toHaveLength(0);
+      expect(flow.draftId).toBeNull();
+    });
+
+    it('does not ask after Save, or when the tab is closed or reloaded', async () => {
+      const flow = await reviewing();
+      expect(leaveFor('/recipes', { willUnload: true })).not.toHaveBeenCalled();
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
+      flow.saved = {
+        recipe: { id: 1, name: 'Sambar' },
+        change: { id: 1 } as never,
+        new_ingredients: [],
+        learned: 0
+      };
+      expect(leaveFor('/recipes/1')).not.toHaveBeenCalled();
+    });
+
+    it('a draft opened and left alone just leaves; one that was changed asks in its own words', async () => {
+      const flow = new ImportFlow();
+      flow.load(KEPT);
+      fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] });
+      show(flow, ReviewScreen);
+      expect(leaveFor('/recipes/drafts')).not.toHaveBeenCalled();
+      flow.minutes = '40';
+      const cancel = leaveFor('/recipes/drafts');
+      expect(cancel).toHaveBeenCalled();
+      await expect.element(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+      // Saving it saves over the same draft.
+      const requests = fakeApi({
+        'PUT /recipes/drafts/7': [200, KEPT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      await page.getByRole('button', { name: 'Save draft' }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(requests[0]!.method + ' ' + requests[0]!.path).toBe('PUT /recipes/drafts/7');
     });
   });
 });

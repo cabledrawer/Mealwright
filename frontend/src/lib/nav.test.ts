@@ -28,6 +28,9 @@ describe('isCurrentRecipesPage', () => {
       ['/recipes', 'All recipes'],
       ['/recipes/12', 'All recipes'],
       ['/recipes/new', 'All recipes'],
+      ['/recipes/import', 'All recipes'],
+      ['/recipes/drafts', 'Drafts'],
+      ['/recipes/drafts/12', 'Drafts'],
       ['/recipes/ingredients', 'Ingredients']
     ] as const) {
       const current = RECIPES_PAGES.filter((p) => isCurrentRecipesPage(p, path));
@@ -41,9 +44,10 @@ describe('isCurrentRecipesPage', () => {
   it('marks none elsewhere', () => {
     expect(RECIPES_PAGES.some((p) => isCurrentRecipesPage(p, '/pantry'))).toBe(false);
     expect(isCurrentRecipesPage(sub('Ingredients'), '/recipes/ingredientsx')).toBe(false);
+    expect(isCurrentRecipesPage(sub('Drafts'), '/recipes/draftsx')).toBe(false);
   });
 
-  it('has no Drafts entry in 0.4 (drafts come with import)', () => {
-    expect(RECIPES_PAGES.map((p) => p.label)).toEqual(['All recipes', 'Ingredients']);
+  it('lists All recipes · Drafts · Ingredients (Drafts came back with import in 0.5)', () => {
+    expect(RECIPES_PAGES.map((p) => p.label)).toEqual(['All recipes', 'Drafts', 'Ingredients']);
   });
 });

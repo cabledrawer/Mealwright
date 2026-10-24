@@ -27,6 +27,7 @@ import {
   type Answer,
   type LateAnswer
 } from '$lib/offline/opening';
+import { drafts } from '$lib/drafts.svelte';
 import { endSession } from '$lib/offline/signOut';
 import { wipeIfAnotherLogin } from '$lib/offline/wipe';
 import { wipePending } from '$lib/offline/wipePending.svelte';
@@ -135,6 +136,7 @@ async function turnAwayLate(me: Me, heading: string): Promise<never> {
   shoppingSync.forget();
   placesAndShops.forget();
   privacy.forget();
+  drafts.forget();
   undoHistory.clear();
   toasts.dismiss();
   signIn(heading);

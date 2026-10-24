@@ -1,11 +1,13 @@
 <script lang="ts">
   // The desktop and tablet sidebar. Expanded: logo, the five pages (Recipes as a
-  // tree: All recipes · Ingredients; Drafts waits for import, 0.5), the theme switch and
-  // Settings. Collapsed: icons only, with tooltips (Recipes opens a small pop-out with its pages), a
+  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed: icons only, with tooltips (Recipes opens a small pop-out with its pages), a
   // single theme button, and a button to expand it again. Not shown on phones (they get
   // the bottom tabs).
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { onMount } from 'svelte';
+  import { drafts } from '$lib/drafts.svelte';
+  import { network } from '$lib/network.svelte';
   import { PAGES, RECIPES_PAGES, isCurrent, isCurrentRecipesPage } from '$lib/nav';
   import { initial, session } from '$lib/session.svelte';
   import { sidebar } from '$lib/sidebar.svelte';
@@ -16,6 +18,22 @@
   import ThemeSwitch from './ThemeSwitch.svelte';
 
   const settingsCurrent = $derived(page.url.pathname.startsWith('/settings'));
+
+  // The number beside Drafts (mockup Drafts05-Desktop). It is asked for once when the app opens
+  // and again when the connection comes back; changes made here update it at once. Another
+  // person's drafts show on the next look at Drafts. Offline, or if the server can't say, there
+  // is no number rather than a guess.
+  let seen = network.backAgain;
+  onMount(() => {
+    if (!network.offline) void drafts.load();
+  });
+  $effect(() => {
+    const again = network.backAgain;
+    if (again !== seen) {
+      seen = again;
+      void drafts.load();
+    }
+  });
 </script>
 
 <aside class="sidebar" class:collapsed={sidebar.collapsed} aria-label="Sidebar">
@@ -64,7 +82,9 @@
             <a
               href={resolve(sub.href)}
               aria-current={isCurrentRecipesPage(sub, page.url.pathname) ? 'page' : undefined}
-              >{sub.label}</a
+              >{sub.label}{#if sub.href === '/recipes/drafts' && drafts.count}<span class="count"
+                  >{drafts.count}</span
+                >{/if}</a
             >
           {/each}
         </div>
@@ -201,6 +221,14 @@
     border-radius: 10px;
     color: var(--color-text-soft);
     font-size: var(--text-base);
+  }
+
+  .tree a:has(.count) {
+    justify-content: space-between;
+  }
+
+  .count {
+    font-weight: var(--weight-bold);
   }
 
   .foot {

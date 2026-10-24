@@ -18,6 +18,7 @@
 // after its session ran out keeps the copy, the waiting changes and the device ID (11.5).
 
 import { placesAndShops } from '$lib/placesAndShops.svelte';
+import { drafts } from '$lib/drafts.svelte';
 import { privacy } from '$lib/privacy.svelte';
 import { shoppingSync } from '$lib/shopping/sync.svelte';
 import { forgetDeviceId, rememberedLogin, storedLoginId } from './device';
@@ -70,6 +71,7 @@ export async function wipeNow(): Promise<boolean> {
   shoppingSync.forget();
   placesAndShops.forget();
   privacy.forget();
+  drafts.forget();
   forgetDeviceId();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deleted = await Promise.race([

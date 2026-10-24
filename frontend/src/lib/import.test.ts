@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImportReview, ReviewLine } from '$lib/client/imports';
 import { network } from '$lib/network.svelte';
 import { fakeApi } from '$lib/testing/fakeApi';
-import { ImportFlow, leftOutWords } from './import.svelte';
+import type { DraftOut } from './client/drafts';
+import { DRAFT_OFFLINE, ImportFlow, leftOutWords } from './import.svelte';
 
 const line = (over: Partial<ReviewLine>): ReviewLine => ({
   kind: 'ingredient',
@@ -281,5 +282,130 @@ describe('the import flow', () => {
   it('words the lines left out', () => {
     expect(leftOutWords('Tips', 4)).toBe('4 lines after “Tips” were left out');
     expect(leftOutWords('Notes', 1)).toBe('1 line after “Notes” was left out');
+  });
+
+  describe('drafts', () => {
+    const DRAFT: DraftOut = {
+      id: 5,
+      name: 'My sambar',
+      source: { kind: 'link', site: 'kitchen.example' },
+      started_by: 'Wren',
+      started_at: '2026-10-20T10:00:00Z',
+      updated_at: '2026-10-21T10:00:00Z',
+      expires_at: '2026-11-05T10:00:00Z',
+      days_left: 12,
+      lines_total: 3,
+      lines_checked: 2,
+      text: 'https://kitchen.example/dal',
+      review: REVIEW,
+      choices: {
+        name: 'My sambar',
+        serves: '6',
+        minutes: null,
+        lines: {
+          '1': { kind: 'ingredient', food: { id: 2, name: 'Onions' }, learn: true },
+          '2': { kind: 'staple', name: 'Hing', counted_as: 'volume', place_id: null }
+        }
+      }
+    };
+
+    async function reviewing() {
+      fakeApi({ 'POST /recipes/import': [200, REVIEW] });
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      await flow.read();
+      return flow;
+    }
+
+    it('keeps the review as a draft once, then saves over the same draft', async () => {
+      const flow = await reviewing();
+      flow.name = 'My sambar';
+      flow.sameAs(1, { id: 2, name: 'Onions' });
+      expect(flow.unkept).toBe(true); // not kept yet: leaving always asks
+      const requests = fakeApi({
+        'POST /recipes/drafts': [201, DRAFT],
+        'PUT /recipes/drafts/5': [200, DRAFT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      expect(await flow.keepAsDraft()).toBe(true);
+      expect(flow.draftId).toBe(5);
+      expect(flow.unkept).toBe(false);
+      const sent = requests[0]!.body as { text: string; review: { name: string }; choices: object };
+      expect(requests[0]!.method + ' ' + requests[0]!.path).toBe('POST /recipes/drafts');
+      expect(sent.text).toBe('https://kitchen.example/dal');
+      expect(sent.review.name).toBe('Sambar');
+      expect(sent.choices).toMatchObject({
+        name: 'My sambar',
+        serves: '4',
+        minutes: '50',
+        lines: { '1': { kind: 'ingredient', food: { id: 2 }, learn: true } }
+      });
+      // A change after that is not kept yet, and saves over the draft (a PUT), not a new one.
+      flow.minutes = '30';
+      expect(flow.unkept).toBe(true);
+      expect(await flow.keepAsDraft()).toBe(true);
+      expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+      expect(
+        requests.filter((r) => r.method === 'POST' && r.path === '/recipes/drafts')
+      ).toHaveLength(1);
+    });
+
+    it('opens a draft with every choice made so far, and nothing changed', () => {
+      const flow = new ImportFlow();
+      flow.load(DRAFT);
+      expect(flow.phase).toBe('review');
+      expect(flow.draftId).toBe(5);
+      expect(flow.text).toBe('https://kitchen.example/dal');
+      expect(flow.name).toBe('My sambar');
+      expect(flow.serves).toBe('6');
+      expect(flow.minutes).toBe('50'); // left as read
+      expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', learn: true });
+      expect(flow.choices[2]).toMatchObject({ kind: 'staple', name: 'Hing' });
+      expect(flow.unlinked).toBe(0);
+      expect(flow.unkept).toBe(false);
+      flow.choose(2, null);
+      expect(flow.unkept).toBe(true);
+      flow.choose(2, DRAFT.choices.lines['2']!);
+      expect(flow.unkept).toBe(false); // back as it was: nothing to keep
+    });
+
+    it('says the server’s sentence when it can’t keep one, and keeps nothing', async () => {
+      const flow = await reviewing();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      expect(await flow.keepAsDraft()).toBe(false);
+      expect(flow.draftProblem).toBe('You have 50 drafts. Finish or delete one first.');
+      expect(flow.draftId).toBeNull();
+      expect(flow.unkept).toBe(true);
+    });
+
+    it('says it needs the server when there is no connection', async () => {
+      const flow = await reviewing();
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')));
+      expect(await flow.keepAsDraft()).toBe(false);
+      expect(flow.draftProblem).toBe(DRAFT_OFFLINE);
+    });
+
+    it('saves from a draft by sending its id, and the same change ID on a retry', async () => {
+      const flow = new ImportFlow();
+      flow.load(DRAFT);
+      const requests = fakeApi({
+        'POST /recipes/import/save': [409, { detail: 'No.', code: 'name_taken', line: 1 }],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      await flow.save();
+      await flow.save();
+      expect((requests[0]!.body as Record<string, unknown>).draft_id).toBe(5);
+      expect(requests[0]!.headers['idempotency-key']).toBe(requests[1]!.headers['idempotency-key']);
+    });
+
+    it('sends no draft id when it was never kept', async () => {
+      const flow = await reviewing();
+      expect(flow.body()?.draft_id).toBeNull();
+    });
   });
 });
