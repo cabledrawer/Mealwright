@@ -188,6 +188,8 @@ def test_entries_are_tidied(typed: str, kind: str, value: str) -> None:
         ("0177.0.0.1", NEVER),
         ("0x7f.1", NEVER),
         ("0xa9fea9fe", NEVER),  # 169.254.169.254, the usual metadata address
+        ("0x", NEVER),  # a bare 0x reads as 0, so 0.0.0.0
+        ("0x.0x.0x.0x", NEVER),
         ("0xc0a80001", BAD_ENTRY),  # 192.168.0.1: write it as 192.168.0.1
         ("09.1.1.1", BAD_ENTRY),
         # The same names written so that the international-name mapping makes them these.

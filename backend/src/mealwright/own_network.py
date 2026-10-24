@@ -180,7 +180,9 @@ def old_style_address(text: str) -> IPv4Address | None:
         return None  # plain decimal: not read as an address here
     try:
         numbers = [
-            int(part, 16) if part[:2].lower() == "0x" else int(part, 8 if part[0] == "0" else 10)
+            0 if part.lower() == "0x" else int(part, 16)  # a bare "0x" reads as 0
+            if part[:2].lower() == "0x"
+            else int(part, 8 if part[0] == "0" else 10)
             for part in parts
         ]
     except ValueError:
