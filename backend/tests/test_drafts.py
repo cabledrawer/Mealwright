@@ -295,7 +295,9 @@ def test_a_drafts_choices_have_a_size_limit_too(
     nothing = draft_schemas.stored_size(draft_schemas.DraftChoices())
     monkeypatch.setattr(draft_schemas, "MAX_REVIEW_BYTES", size + nothing + 20)
     assert keep(kitchen, shown, key="alone").status_code == 201
-    assert keep(kitchen, shown, choices=ok_choices).status_code == 422
+    pushed = keep(kitchen, shown, choices=ok_choices)
+    assert pushed.status_code == 422
+    assert "That draft is too big to keep." in pushed.text  # not "bigger than a recipe"
     assert len(listed(kitchen)) == 2
 
 
@@ -309,6 +311,7 @@ def test_the_size_cap_counts_a_draft_as_it_is_stored_not_in_characters(
     heavy = {**shown, "steps": [{"kind": "step", "text": "\U0001f600" * 5_000}] * 100}
     refused = keep(kitchen, heavy)
     assert refused.status_code == 422, refused.text[:200]
+    assert "That draft is too big to keep." in refused.text
     assert listed(kitchen) == []
     # A real-sized draft with names that aren't ASCII still saves, and comes back as it was.
     names = {

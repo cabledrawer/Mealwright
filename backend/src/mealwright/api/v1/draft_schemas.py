@@ -116,7 +116,7 @@ class DraftIn(BaseModel):
             or any(len(step.text) > MAX_STEP_CHARS for step in review.steps)
             or stored_size(review) + stored_size(self.choices) > MAX_REVIEW_BYTES
         ):
-            raise ValueError("That review is bigger than a recipe can be.")
+            raise ValueError("That draft is too big to keep.")
         for index in self.choices.lines:
             if not 0 <= index < len(review.lines) or review.lines[index].kind != "ingredient":
                 raise ValueError("A choice is for a line that isn’t there.")

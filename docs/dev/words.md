@@ -394,4 +394,5 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - Save recipe from the list with a line that still needs a choice: That draft has ingredients that still need you. Carry on to finish it.
   - A draft whose photo was deleted before it was kept: Photo not downloaded — The photo wasn’t kept. (the draft’s own sentence is “The photo wasn’t kept.”) · A draft’s photo can’t be deleted on its own: That photo is on a draft. Delete the draft, or save the recipe.
   - A draft with an empty Name box is listed as: Untitled recipe.
+  - A draft that is too big to keep (the server’s sentence, 422; it replaces “That review is bigger than a recipe can be.”, which was wrong when the choices pushed it over): That draft is too big to keep. (proposed, for cabledrawer)
 
