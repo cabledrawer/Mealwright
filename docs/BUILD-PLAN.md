@@ -207,6 +207,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Today (`Main`, `Desktop-Today`): tubs left / use soon / to buy, eating today, use soon, next cook, "Did you cook <meal>?" card (Cooked it · Didn't · Move it), first-day empty state.
 
 - **Recipe import, from the 0.5 real-recipe check (cabledrawer 21 Oct):** "testing is 10 different recipies from each of the sites - if fails or fiddly modify in 0.6.0 and try again fails agin - switch in 0.7.0". Fix what the 0.5 check and cabledrawer's 0.5.0 hand test found, then run the check script on all 80 again.
+- **Pints (cabledrawer 24 Oct):** read "pint" as a UK pint (568 ml) on UK sites and in pasted text; on US sites (for example Allrecipes) pints stay in the note, as in 0.5. How the app tells a UK site from a US one is decided when 0.6 is planned (spec section 6, "Reading choices, kept"). Nothing changes in 0.5.
 
 **Done when:** a week can be planned by drag (desktop) and long-press (phone); a batch cook spreads tubs correctly, skips filled meals and lets you place them by hand; regenerating the list never duplicates items or overwrites hand edits (tested).
 
