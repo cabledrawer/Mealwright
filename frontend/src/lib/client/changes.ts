@@ -27,6 +27,17 @@ export function listChanges(
 export const undoChange = (id: number, idempotencyKey: string) =>
   api<UndoResult>('POST', `/changes/${id}/undo`, undefined, { idempotencyKey });
 
+const afterUndoOf = new Map<string, (() => void)[]>();
+
+/**
+ * Run `then` after any successful Undo of a change of this kind, however it was started
+ * (a toast, Ctrl+Z, a Recent changes list). A screen's store registers itself here for the
+ * changes that reach into it: the Drafts list for an import, whose Undo can bring a draft back.
+ */
+export function onUndoOf(kind: string, then: () => void): void {
+  afterUndoOf.set(kind, [...(afterUndoOf.get(kind) ?? []), then]);
+}
+
 /**
  * How to undo a change on the server, for an Undo button. The undo has its own ID, made
  * once, so pressing Try again never undoes twice. Shows the server's message when it
@@ -41,6 +52,7 @@ export function serverUndo(
   return async () => {
     const result = await undoChange(changeId, idempotencyKey);
     kitchen.changed({ elsewhere: true });
+    for (const then of afterUndoOf.get(result.undone?.kind ?? '') ?? []) then();
     after?.(result);
     return result.result === 'done' && !result.brought_back?.length ? undefined : result.message;
   };

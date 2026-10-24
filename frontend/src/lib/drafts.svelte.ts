@@ -7,7 +7,7 @@
 // way of signing out, so none of it carries over to whoever signs in next.
 
 import { ApiError, cantReach, forgetWhenSessionEnds } from './api';
-import { serverUndo } from './client/changes';
+import { onUndoOf, serverUndo } from './client/changes';
 import { deleteDraft, listDrafts, type DraftBrief } from './client/drafts';
 import { newChangeId } from './changeId';
 import { toasts } from './toast.svelte';
@@ -100,3 +100,9 @@ class Drafts {
 
 export const drafts = new Drafts();
 forgetWhenSessionEnds(() => drafts.forget());
+
+// An Undo of a Save can bring a draft back, however the Undo was started (the toast, Ctrl+Z
+// after a reload, or Recent changes): then the list and the sidebar's count are fetched again.
+onUndoOf('recipe_imported', () => {
+  if (drafts.loaded) void drafts.load();
+});
