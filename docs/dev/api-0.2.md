@@ -438,7 +438,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 
 ### 6.4 Stock (the Pantry screen)
 
-**`GET /api/v1/pantry?filter=all&q=thuvaram`** — `filter`: `all` · `use_soon` · `running_low` · `staples`. `q` (from 0.2.1) searches by any name, other names too, with the same matching as `GET /foods?q=`; each place's `items` then counts only what is found, while `counts` stay for the whole pantry. One call gives the whole screen (phone tabs and desktop columns use the same data).
+**`GET /api/v1/pantry?filter=all&q=thuvaram`** — `filter`: `all` · `use_soon` · `running_low` · `staples`. `q` (from 0.2.1) searches by any name, other names too, with the same matching as `GET /foods?q=`; each place's `items` then counts only what is found, while `counts` stay for the whole pantry. One call gives the whole screen (the phone cards and the desktop columns use the same data).
 
 ```json
 {
