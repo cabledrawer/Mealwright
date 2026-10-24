@@ -274,14 +274,19 @@ def test_a_drafts_choices_have_a_size_limit_too(
     kitchen: TestClient, pantry: dict[str, Any], web: Web, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The choices are stored with the draft, so they are bounded: an ingredient's name in
-    them is at most 200 characters, and they count towards the same cap as the review."""
+    them is at most 200 characters (201 is refused, 200 saves), and they count towards the
+    same cap as the review."""
     shown = review(kitchen, PASTED)
     food = {"id": 1, "name": "x" * 200}
     ok_choices = {"lines": {"2": {"kind": "ingredient", "food": food}}}
     assert keep(kitchen, shown, choices=ok_choices, key="fits").status_code == 201
-    long = {"lines": {"2": {"kind": "ingredient", "food": {"id": 1, "name": "x" * 3_000_000}}}}
+    # The name's own limit: 201 characters is refused, with the total cap far away.
+    long = {"lines": {"2": {"kind": "ingredient", "food": {"id": 1, "name": "x" * 201}}}}
     refused = keep(kitchen, shown, choices=long)
     assert refused.status_code == 422, refused.text[:200]
+    # And a huge name is refused too (by the name limit, before the total is counted).
+    huge = {"lines": {"2": {"kind": "ingredient", "food": {"id": 1, "name": "x" * 3_000_000}}}}
+    assert keep(kitchen, shown, choices=huge).status_code == 422
     # Choices that are each allowed still count: with the cap just above the review alone,
     # the review plus these is over it.
     from mealwright.api.v1 import draft_schemas
