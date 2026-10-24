@@ -48,6 +48,15 @@ from mealwright.models import (
 from mealwright.outbound import Connection
 
 API = "/api/v1"
+ANY_PHOTO = {
+    "id": 1,
+    "width": 10,
+    "height": 10,
+    "url": "/x",
+    "list_width": 5,
+    "list_height": 5,
+    "list_url": "/y",
+}
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
 
 
@@ -235,6 +244,30 @@ def test_a_second_try_with_the_same_change_id_keeps_one_draft(
     assert len(listed(kitchen)) == 1
     other = keep(kitchen, shown, key="keep-2")
     assert other.status_code == 201 and len(listed(kitchen)) == 2
+
+
+def test_a_number_too_big_for_the_database_is_refused_anywhere_in_a_draft(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """A review's ids and counts, and the ids in the choices, are looked up or stored: a huge
+    one is 422 `bad_number`, never a server error (test_big_numbers.py checks every review
+    field from the OpenAPI; this is the choices, which it doesn't walk)."""
+    shown = review(kitchen, PASTED)
+    quiet = TestClient(kitchen.app, base_url="https://testserver", raise_server_exceptions=False)
+    quiet.cookies = kitchen.cookies
+    huge = 10**30
+    food = {"id": huge, "name": "Onions"}
+    for choices in (
+        {"lines": {"2": {"kind": "ingredient", "food": food}}},
+        {"lines": {"3": {"kind": "new", "name": "Hing", "place_id": huge}}},
+        {"lines": {str(huge): {"kind": "new", "name": "Hing"}}},
+    ):
+        response = keep(quiet, shown, choices=choices)
+        assert response.status_code == 422, (choices, response.text)
+    shown["photo"] = {"state": "downloaded", "photo": {**ANY_PHOTO, "id": huge}, "message": None}
+    response = keep(quiet, shown)
+    assert response.status_code == 422 and response.json()["code"] == "bad_number"
+    assert listed(kitchen) == []
 
 
 def test_a_nameless_draft_is_still_listed_and_a_review_that_is_too_big_is_refused(

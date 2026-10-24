@@ -1,9 +1,9 @@
 """JSON shapes for import drafts (docs/dev/recipe-import.md, "Drafts")."""
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
 
 from mealwright.api.v1.import_schemas import CountedAs, ImportReview
 from mealwright.api.v1.recipe_schemas import MAX_LINES, MAX_STEP_CHARS, MAX_STEPS, MAX_TAGS
@@ -17,6 +17,27 @@ MAX_SOURCE_CHARS = 100_000
 # The review as a draft keeps it. The real biggest review (200 lines, 100 steps of 5,000
 # characters) is about 0.7 MB; this leaves room and stops anything larger being stored.
 MAX_REVIEW_BYTES = 2_000_000
+
+
+_STORED = TypeAdapter(StoredInt)
+
+
+def _numbers_fit(data: Any) -> None:
+    """Every whole number anywhere in the request fits what the database stores. A draft keeps
+    a whole review, whose numbers (an ingredient's id, a photo's id, the counts) are looked up
+    or stored, so each one is checked where the request is read, as `StoredInt` does for a
+    plain field: too big is 422 `bad_number`, never an error from the database."""
+    stack = [data]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, bool):
+            continue
+        if isinstance(item, int):
+            _STORED.validate_python(item)
+        elif isinstance(item, dict):
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
 
 
 class DraftChoice(BaseModel):
@@ -69,6 +90,12 @@ class DraftIn(BaseModel):
     text: Annotated[str, Field(min_length=1, max_length=MAX_SOURCE_CHARS)]
     review: ImportReview
     choices: DraftChoices = Field(default_factory=DraftChoices)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _numbers(cls, data: Any) -> Any:
+        _numbers_fit(data)
+        return data
 
     @model_validator(mode="after")
     def _fits(self) -> DraftIn:

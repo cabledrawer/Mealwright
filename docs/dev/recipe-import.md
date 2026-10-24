@@ -466,7 +466,9 @@ Serves and Minutes boxes as typed, `null` for "as read", and a choice for each l
 settled: Same as an ingredient, New ingredient, Treat as staple), who started it and when, when it
 was last changed, and, through `recipe_photo.draft_id`, the downloaded photo. The server checks the
 shape and the size (at most 200 lines, 100 steps of 5,000 characters, 20 tags, 2 MB of review) and
-that a photo is the household's own; **Save checks everything again**, so a draft is only a place to
+that a photo is the household's own, and that every whole number in the request fits what the
+database stores (too big is 422 `bad_number`, like any other number in the API); **Save checks
+everything again**, so a draft is only a place to
 carry on from. The server rebuilds the list's words from it: the ingredient lines, and how many are
 tied to an ingredient (matched or staple lines, and any line with a choice), kept in
 `lines_total` and `lines_checked` ("6 of 9 ingredients checked · 3 need you").
