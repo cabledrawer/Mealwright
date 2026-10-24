@@ -141,6 +141,43 @@ def _lookup(host: str, port: int) -> list[str]:
     return [str(info[4][0]) for info in found]
 
 
+def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
+    """`_lookup(host, port)`, waited for at most `seconds` (OutboundFailed("timeout") after).
+
+    `getaddrinfo` can't be cut short, so it runs on a worker thread and, if it is still
+    going when time is up, we stop waiting for it and throw its answer away when it comes.
+    That thread isn't killed: the system resolver's own limit ends it (a few seconds to a
+    minute or so, depending on the machine's settings), and it holds nothing but the name.
+    It is a daemon thread, so it never keeps the server from stopping. Worst case, one
+    import leaves two such threads behind (its page and its photo; a timeout on the page
+    ends the import), and they pile up only as fast as imports are started while the
+    resolver is stuck.
+
+    The worker opens the gate itself: the guard's "inside the gate" flag is per thread
+    context, and a new thread doesn't inherit the caller's."""
+    done = threading.Event()
+    outcome: list[list[str] | Exception] = []
+
+    def work() -> None:
+        try:
+            with gate_open():
+                outcome.append(_lookup(host, port))
+        except Exception as error:  # handed to the waiting caller (thrown away if late)
+            outcome.append(error)
+        finally:
+            done.set()
+
+    threading.Thread(target=work, name="name-look-up", daemon=True).start()
+    if not done.wait(seconds):
+        raise OutboundFailed("timeout")
+    answer = outcome[0]
+    if isinstance(answer, OSError | UnicodeError):
+        raise OutboundFailed("unreachable") from None
+    if isinstance(answer, Exception):
+        raise answer
+    return answer
+
+
 def _open_socket(address: str, port: int, timeout: float | None) -> socket.socket:
     """A TCP connection to exactly this address (only ever called inside the gate)."""
     return socket.create_connection((address, port), timeout=timeout)
@@ -306,16 +343,27 @@ class OutboundGate:
                 )
 
     def look_up(
-        self, household_id: int, connection: Connection, host: str, port: int
+        self,
+        household_id: int,
+        connection: Connection,
+        host: str,
+        port: int,
+        *,
+        deadline: float | None = None,
     ) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
         """Every address a host name has, in the resolver's order, without repeats. Only if
-        the connection's switch is on; nothing is looked up otherwise."""
+        the connection's switch is on; nothing is looked up otherwise.
+
+        The look-up waits at most the gate's time limit, or until `deadline` (a
+        `time.monotonic()` value, for a caller's limit across several steps) if that comes
+        first; past it, OutboundFailed("timeout"). With no time left, nothing is looked up."""
         self.check_switch(household_id, connection)
-        with gate_open():
-            try:
-                found = _lookup(host, port)
-            except OSError, UnicodeError:
-                raise OutboundFailed("unreachable") from None
+        own = time.monotonic() + TIMEOUT_SECONDS
+        deadline = own if deadline is None else min(own, deadline)
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise OutboundFailed("timeout")
+        found = _look_up_within(host, port, left)
         addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
         for text in found:
             try:

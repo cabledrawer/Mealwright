@@ -8,7 +8,7 @@ import socket
 import ssl
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from ipaddress import ip_address
 from pathlib import Path
@@ -18,7 +18,7 @@ import photo_kit
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from mealwright import migrate, outbound, page_fetch
+from mealwright import migrate, network_guard, outbound, page_fetch
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.limits import MAX_PHOTO_BYTES
 from mealwright.models import Household, OwnNetworkEntry
@@ -1266,3 +1266,98 @@ def test_a_photo_gets_the_same_address_checks(
     with pytest.raises(FetchRefused) as caught:
         download_photo(gate, 1, link)
     assert caught.value.problem is problem
+
+
+# --- The name look-up counts towards the time too ------------------------------------------
+
+
+class StuckResolver:
+    """A name look-up that never answers until the test lets it go."""
+
+    def __init__(self) -> None:
+        self.release = threading.Event()
+        self.asked: list[str] = []
+
+    def lookup(self, host: str, port: int) -> list[str]:
+        self.asked.append(host)
+        self.release.wait(30)  # the test lets go at the end; this is only a safety net
+        return [PUBLIC]
+
+
+@pytest.fixture
+def stuck(monkeypatch: pytest.MonkeyPatch) -> Iterator[StuckResolver]:
+    resolver = StuckResolver()
+    monkeypatch.setattr(outbound, "_lookup", resolver.lookup)
+    yield resolver
+    resolver.release.set()  # a late answer is thrown away
+
+
+def test_a_look_up_waits_at_most_the_time_left(gate: OutboundGate, stuck: StuckResolver) -> None:
+    started = time.monotonic()
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(
+            1, Connection.RECIPE_IMPORT, "slow.example", 443, deadline=time.monotonic() + 0.3
+        )
+    assert caught.value.kind == "timeout"
+    assert 0.25 < time.monotonic() - started < 1.0
+    assert stuck.asked == ["slow.example"]
+
+
+def test_a_look_up_with_no_time_left_looks_nothing_up(
+    gate: OutboundGate, stuck: StuckResolver
+) -> None:
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(
+            1, Connection.RECIPE_IMPORT, "slow.example", 443, deadline=time.monotonic() - 1
+        )
+    assert caught.value.kind == "timeout"
+    assert stuck.asked == []
+
+
+def test_a_look_up_without_a_deadline_has_the_gates_own_limit(
+    gate: OutboundGate, stuck: StuckResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(outbound, "TIMEOUT_SECONDS", 0.3)
+    started = time.monotonic()
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(1, Connection.RECIPE_IMPORT, "slow.example", 443)
+    assert caught.value.kind == "timeout"
+    assert time.monotonic() - started < 1.0
+
+
+def test_a_late_answer_is_thrown_away(gate: OutboundGate, stuck: StuckResolver) -> None:
+    with pytest.raises(outbound.OutboundFailed):
+        gate.look_up(
+            1, Connection.RECIPE_IMPORT, "slow.example", 443, deadline=time.monotonic() + 0.1
+        )
+    stuck.release.set()  # the worker finishes now; nobody is waiting, and nothing breaks
+    for thread in threading.enumerate():
+        if thread.name == "name-look-up":
+            thread.join(2)
+    assert not any(t.name == "name-look-up" for t in threading.enumerate())
+
+
+def test_a_quick_look_up_still_works_and_runs_inside_the_gate(
+    gate: OutboundGate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[bool] = []
+
+    def lookup(host: str, port: int) -> list[str]:
+        seen.append(network_guard.inside_gate.get())  # the worker's own thread
+        return [PUBLIC, PUBLIC, PUBLIC_6]
+
+    monkeypatch.setattr(outbound, "_lookup", lookup)
+    found = gate.look_up(
+        1, Connection.RECIPE_IMPORT, "recipes.example", 443, deadline=time.monotonic() + 5
+    )
+    assert found == [ip_address(PUBLIC), ip_address(PUBLIC_6)]
+    assert seen == [True]
+    assert not network_guard.inside_gate.get()  # and the caller's gate is still shut
+
+
+def test_a_failed_look_up_is_still_unreachable(
+    gate: OutboundGate, net: FakeNet, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(1, Connection.RECIPE_IMPORT, "nowhere.example", 443)
+    assert caught.value.kind == "unreachable"
