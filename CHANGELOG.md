@@ -40,6 +40,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - A page whose total time was a superscript or circled digit ("²", "①") raised an error instead of being read as no time.
 - A control character between words (U+001C to U+001F) joined them, and private-use or unassigned characters stayed in an ingredient line; a cut no longer splits a country flag or a skin tone, and a text of only combining marks is cut at the limit, not to nothing. An amount that converts to more than 1,000,000 g or ml no longer counts.
+- The real-recipe check script stopped before reading any page when run on its own: an import loop that the tests hid, because they load the app first. Its first real run (24 Oct) fetched every page but read none. A test now starts the script in a fresh Python, both as a person runs it and as the page reader's own process loads it.
 
 ## [0.4.0] - 2026-10-22
 

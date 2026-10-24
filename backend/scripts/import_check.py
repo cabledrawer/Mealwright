@@ -39,6 +39,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# The app's API package first: `ingredient_reader` reaches into it and it reaches back, so
+# loading `ingredient_reader` first stops on an import loop (the app itself always loads
+# the API first). The page reader's own process loads this script again, so it matters there
+# too.
+import mealwright.api.v1  # noqa: F401
 from mealwright import migrate, page_budget
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.ingredient_reader import ReadLine, read_line

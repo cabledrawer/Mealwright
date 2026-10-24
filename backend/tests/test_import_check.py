@@ -7,6 +7,7 @@ Nothing goes online, and no real address appears.
 import importlib.util
 import json
 import socket
+import subprocess
 import sys
 import threading
 from collections.abc import Callable
@@ -454,3 +455,29 @@ def test_the_script_is_not_in_the_image() -> None:
     final_stage = dockerfile.rsplit("\nFROM ", 1)[1]
     assert "scripts" not in final_stage
     assert "import_check" not in final_stage
+
+
+@pytest.mark.parametrize(
+    "start",
+    [
+        # The way it is run: `uv run python scripts/import_check.py`.
+        ["{script}", "--help"],
+        # The way the page reader's own process loads it (`multiprocessing`'s spawn reads the
+        # main script again under this name before it reads a page).
+        ["-c", "import runpy; runpy.run_path({script!r}, run_name='__mp_main__')"],
+    ],
+)
+def test_the_script_starts_in_a_fresh_python(start: list[str]) -> None:
+    """The tests above load the script after pytest has loaded the app, which hid an import
+    loop: on its own, the script stopped before reading any page (24 Oct)."""
+    script = str(BACKEND / "scripts" / "import_check.py")
+    args = [part.format(script=script) for part in start]
+    done = subprocess.run(  # noqa: S603
+        [sys.executable, *args],
+        cwd=BACKEND,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
