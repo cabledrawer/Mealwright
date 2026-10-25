@@ -73,6 +73,13 @@ describe('amounts scaled on screen (question 26)', () => {
     expect(lineAmount(line({ amount: 1, amount_text: '1', unit: 'kg' }), 1.25)).toBe(`1.25${NB}kg`);
     expect(lineAmount(line({ amount: 1, amount_text: '1', unit: 'l' }), 3)).toBe(`3${NB}l`);
   });
+
+  it('kilograms and litres typed as a fraction keep to quarters where they can (0.5.1)', () => {
+    const half = line({ amount: 1.5, amount_text: '1½', unit: 'kg' });
+    expect(lineAmount(half, 1.5)).toBe(`2¼${NB}kg`);
+    expect(lineAmount(half, 1 / 3)).toBe(`½${NB}kg`);
+    expect(lineAmount(half, 0.7)).toBe(`1.05${NB}kg`);
+  });
 });
 
 describe('makes, nutrition and the scale', () => {
@@ -80,6 +87,8 @@ describe('makes, nutrition and the scale', () => {
     const makes = { amount: 1.5, amount_text: '1½', unit: 'l' };
     expect(makesAmount(makes, 1)).toBe(`1½${NB}litres`);
     expect(makesAmount(makes, 2)).toBe(`3${NB}litres`);
+    // Serves 4 → 6: "2¼ litres", the same style as the "1½" typed (0.5.1).
+    expect(makesAmount(makes, 1.5)).toBe(`2¼${NB}litres`);
     expect(makesAmount({ amount: 12, amount_text: '12', unit: 'dosas' }, 0.5)).toBe(`6${NB}dosas`);
   });
 

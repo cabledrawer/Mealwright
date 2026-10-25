@@ -1,8 +1,10 @@
 // Amounts on the recipe page, scaled on screen only (cabledrawer 19 Oct, question 26): whole
 // servings 1 to 99, and the saved recipe never changes. Spoons and cups show in quarters
 // (¼ ½ ¾), counts in halves (the spec: counts to the nearest half), grams and millilitres as
-// whole numbers. Kilograms and litres to two decimals is the builder's choice, for cabledrawer.
-// At the recipe's own servings the amount is shown exactly as it was typed.
+// whole numbers. Kilograms and litres to two decimals is the builder's choice, for cabledrawer;
+// when the amount was typed as a fraction ("1½ litres") they keep to quarters where they can
+// ("2¼ litres", not "2.25 litres", 0.5.1). At the recipe's own servings the amount is shown
+// exactly as it was typed.
 
 import type { RecipeLine } from './client/recipes';
 
@@ -24,14 +26,19 @@ export function quarters(value: number): string {
 
 const nearest = (value: number, step: number) => Math.max(step, Math.round(value / step) * step);
 
+/** Typed with a fraction: "1½", "1 1/2", "¾". */
+const FRACTION = /[¼½¾]|\d\/\d/;
+
 /** The scaled number for a unit: what to show, and the value it stands for. */
-function scaled(value: number, unit: string | null): { text: string; value: number } {
+function scaled(value: number, unit: string | null, typed = ''): { text: string; value: number } {
   if (unit === 'g' || unit === 'ml') {
     const whole = Math.max(1, Math.round(value));
     return { text: String(whole), value: whole };
   }
   if (unit === 'kg' || unit === 'l') {
     const two = Math.round(value * 100) / 100;
+    if (FRACTION.test(typed) && Number.isInteger(two * 4))
+      return { text: quarters(two), value: two };
     return { text: String(two), value: two };
   }
   // Spoons and cups in quarters; a count, a pinch or a packet in halves.
@@ -63,7 +70,7 @@ export function lineAmount(line: RecipeLine, factor: number): string | null {
   const now =
     factor === 1
       ? { text: line.amount_text, value: line.amount }
-      : scaled(line.amount * factor, line.size ? null : line.unit);
+      : scaled(line.amount * factor, line.size ? null : line.unit, line.amount_text);
   const words = unitWords(line, now.value);
   return words ? `${now.text}${NBSP}${words}` : now.text;
 }
@@ -77,7 +84,7 @@ export function makesAmount(
   const now =
     factor === 1
       ? { text: makes.amount_text, value: makes.amount }
-      : scaled(makes.amount * factor, known ? makes.unit : null);
+      : scaled(makes.amount * factor, known ? makes.unit : null, makes.amount_text);
   const unit = makes.unit === 'l' ? (now.value === 1 ? 'litre' : 'litres') : makes.unit;
   return `${now.text}${NBSP}${unit}`;
 }
