@@ -78,9 +78,9 @@ test('opens from All recipes, says where each ingredient is, and passes the acce
   await expect(reader(page).getByText('Lentil & vegetable stew · 50 min')).toBeVisible();
   const lines = page.getByRole('region', { name: 'Ingredients' });
   await expect(lines.getByRole('button', { name: /thuvaram paruppu/ })).toContainText('Cupboard');
-  await expect(lines.getByRole('button', { name: /salt/ })).toContainText('Staple');
-  await expect(lines.getByRole('button', { name: /paneer/ })).toContainText('Not enough');
-  await expect(lines.getByRole('button', { name: /ghee/ })).toContainText('Missing');
+  await expect(lines.getByRole('button', { name: /salt/i })).toContainText('Staple');
+  await expect(lines.getByRole('button', { name: /paneer/i })).toContainText('Not enough');
+  await expect(lines.getByRole('button', { name: /ghee/i })).toContainText('Missing');
   await expect(lines.getByText('a handful of coriander')).toBeVisible();
   await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
   await expect(reader(page).getByText('Rinse the dal.')).toBeVisible();
@@ -134,8 +134,8 @@ test('"2 missing · Add to the list" adds both with one Undo, and the lines say 
   await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Add to the list' }).click();
   await expect(page.getByText('2 ingredients added to the shopping list')).toBeVisible();
-  await expect(page.getByRole('button', { name: /paneer/ })).toContainText('On list');
-  await expect(page.getByRole('button', { name: /ghee/ })).toContainText('On list');
+  await expect(page.getByRole('button', { name: /paneer/i })).toContainText('On list');
+  await expect(page.getByRole('button', { name: /ghee/i })).toContainText('On list');
   // Nothing left to add: the line is gone, and nothing says "all in stock".
   await expect(reader(page).getByText(/missing/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add to the list' })).toHaveCount(0);

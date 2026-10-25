@@ -399,10 +399,11 @@ class SizeRef(BaseModel):
     plural: str
 
 
+# 0.5.1, spec section 6 (25 Oct): the screens show the full name for a linked line.
 class LineFoodRef(Ref):
     """The ingredient a line is linked to, with its other names, so a screen can tell that
     words like "thu" are only the start of one ("thuvaram paruppu") and show the ingredient's
-    own name instead (cabledrawer 25 Oct, 0.5.1)."""
+    own name instead."""
 
     other_names: list[str]
 
