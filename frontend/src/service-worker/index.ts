@@ -50,6 +50,12 @@ worker.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   const kind = handling(request, url, worker.location.origin, KNOWN);
   if (kind === 'network') return; // no respondWith: the browser goes to the network as usual
+  if (kind === 'version') {
+    // SvelteKit's own "is there a new version?" check: this version, so it finds nothing new.
+    // Nothing is fetched, kept or reloaded; a new version still arrives only as a new worker.
+    event.respondWith(Response.json({ version }, { headers: { 'cache-control': 'no-store' } }));
+    return;
+  }
 
   event.respondWith(
     (async () => {

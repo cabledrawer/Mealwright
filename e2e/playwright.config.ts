@@ -74,6 +74,8 @@ export default defineConfig({
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    // SvelteKit 3's own version check stays out of sight; updates wait for the worker (0.6).
+    { name: 'desktop 0.6 version check', testMatch: 'version-check.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // The offline queue end to end (0.3, PR 6). No saved session: each test signs in its own,
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
