@@ -4,6 +4,18 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+Towards 0.6.0.
+
+### Changed
+
+- **SvelteKit 3 (0.6, step 1):** the web app now runs on SvelteKit 3.0.1, which fixes the two scanner warnings that had been set aside until 23 Nov (GHSA-27mw-82g8-phjj and GHSA-pfhg-q3qv-9q6r), so both exceptions are gone. Nothing looks or behaves differently: every address and screen is the same, and a new version of the app still waits until every window of the old one is closed. Libraries: `@sveltejs/kit` 3.0.1, `@sveltejs/adapter-static` 4.0.0 and `eslint-plugin-svelte` 3.23.1, with `cookie` 2.0.1 underneath (the `cookie` override is gone); `kleur`, `set-cookie-parser` and `@types/cookie` are no longer installed; no other library changed.
+- **Signing in:** an old or mistyped "go back to where you were" address no longer leaves you on the Sign in page after a good sign-in; you land on Today.
+- **Updates:** SvelteKit 3 checks for a new version when the window gets focus. The app's service worker answers that check itself, so the server is not asked, and with no connection nothing shows, fails or reloads.
+
+### Tests
+
+- New tests for the sign-in fallback, for the service worker's list of files and its answer to the version check, and in the browser for focus and tab changes (online and offline) and for a new worker waiting.
+
 ## [0.5.1] - 2026-10-25
 
 A bug-fix release for 0.5.0, from cabledrawer's friction log. No database change: install it over 0.5.0 as usual (a backup first is still a good habit).
