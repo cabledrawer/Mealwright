@@ -134,5 +134,7 @@ describe('use soon words', () => {
 
   it('keeps a name that starts with capitals as it is', () => {
     expect(useSoonWords(soon(['TVP'], 0, '2026-10-20'))).toBe('Uses TVP (today)');
+    // A name with a capital further in is left as written, not "toor Dal" (0.5.1).
+    expect(useSoonWords(soon(['Toor Dal'], 6, '2026-10-26'))).toBe('Uses Toor Dal (Mon)');
   });
 });
