@@ -379,7 +379,7 @@ test('opening offline shows Today, then the saved list, each within about a seco
 });
 
 test('a slow network doesn’t hold the saved list back, and the list updates when the answers come', async ({ page }) => {
-  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit page.route doesn't see a page's requests once the service worker controls it (measured 25 Oct); the iPhone hand test covers Safari");
   test.setTimeout(90_000);
   const t = tag();
   const [first, second] = [`Ghee ${t}`, `Jaggery ${t}`];

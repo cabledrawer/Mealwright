@@ -15,7 +15,7 @@ Towards 0.6.0.
 ### Tests
 
 - New tests for the sign-in fallback, for the service worker's list of files and its answer to the version check, and in the browser for focus and tab changes (online and offline) and for a new worker waiting.
-- The offline, service-worker and page-shell browser tests also run on WebKit (Safari's engine). Seven tests that use Playwright's offline switch are skipped there, because on WebKit that switch fails requests before the service worker sees them; offline Safari is checked by hand on an iPhone.
+- The offline, service-worker and page-shell browser tests also run on WebKit (Safari's engine). Seven tests are skipped there because of limits in Playwright's WebKit, not in the app: in six, its offline switch fails requests before the service worker sees them; in one (a slow network), it can't hold back requests once the service worker is in charge. Offline Safari is checked by hand on an iPhone.
 
 ## [0.5.1] - 2026-10-25
 
