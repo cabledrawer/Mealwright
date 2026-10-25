@@ -1110,7 +1110,10 @@
     text-transform: none;
   }
 
+  /* Room above and below each row, so one row's 44 px buttons don't nearly touch the next
+     row's (cabledrawer 24 Oct: "they almost clash into the ones above and below them"; 0.5.1). */
   .side-card .soon-list li {
+    padding: var(--space-3) 0;
     border-top: 1px solid var(--color-divider);
   }
 

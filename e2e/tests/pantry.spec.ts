@@ -725,3 +725,34 @@ test("phone: a row behind “+ N more” in a place’s card opens its marks and
     page.getByRole("button", { name: `Used… ${food.name}` }),
   ).toBeVisible();
 });
+
+test("Use soon rows have room between their buttons, and the + sits in the middle of its circle (0.5.1)", async ({
+  page,
+}) => {
+  for (const n of ["Gap lemon", "Gap milk", "Gap paneer"]) await stocked(page, n, 1);
+  await page.goto("/pantry");
+  await expect(page.getByRole("button", { name: /^Gap paneer/ }).first()).toBeVisible();
+  const more = page.getByRole("button", { name: /^\d+ more/ });
+  if (isPhone(page)) {
+    await more.click();
+    const plus = await page.getByRole("button", { name: "Add to pantry" }).evaluate((b) => {
+      const box = b.getBoundingClientRect();
+      const icon = b.querySelector("svg")!.getBoundingClientRect();
+      return Math.abs((box.top + box.bottom) / 2 - (icon.top + icon.bottom) / 2);
+    });
+    expect(plus).toBeLessThan(1);
+  }
+  const gaps = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll(".soon-list > li")].filter(
+      (li) => (li as HTMLElement).offsetParent,
+    );
+    const boxes = rows.map((li) =>
+      [...li.querySelectorAll(".soon-actions .pill")].map((b) => b.getBoundingClientRect()),
+    );
+    return boxes
+      .slice(1)
+      .map((row, i) => Math.min(...row.map((r) => r.top)) - Math.max(...boxes[i]!.map((r) => r.bottom)));
+  });
+  expect(gaps.length).toBeGreaterThanOrEqual(2);
+  for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(8);
+});
