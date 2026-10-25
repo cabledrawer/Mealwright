@@ -9,7 +9,7 @@
   // (0.3, PantryList). "Recipes for these" (desktop) and "Recipes that use them →" (phone) open
   // All recipes on its "Use soon" filter (0.4). Waiting for later milestones (spec "Decided for
   // 0.2"): tubs (0.6).
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import { addToPantry } from '$lib/addToPantry.svelte';
@@ -293,7 +293,7 @@
 
 <!-- Opens All recipes on its "Use soon" filter: the recipes that use what is about to go off. -->
 {#snippet recipesFor(words: string)}
-  <a class="recipes-for" href="{resolve('/recipes')}?filter=use-soon">{words}</a>
+  <a class="recipes-for" href="{resolve('/(app)/recipes')}?filter=use-soon">{words}</a>
 {/snippet}
 
 {#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null, icon = false)}
@@ -406,7 +406,9 @@
         {/if}
       </li>
     </ul>
-    <a class="edit-staples" href="{resolve('/recipes/ingredients')}?filter=staples">Edit staples</a>
+    <a class="edit-staples" href="{resolve('/(app)/recipes/ingredients')}?filter=staples"
+      >Edit staples</a
+    >
   </section>
 {/snippet}
 

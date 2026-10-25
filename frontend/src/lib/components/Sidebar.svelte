@@ -8,7 +8,7 @@
   import { onMount } from 'svelte';
   import { drafts } from '$lib/drafts.svelte';
   import { network } from '$lib/network.svelte';
-  import { PAGES, RECIPES_PAGES, isCurrent, isCurrentRecipesPage } from '$lib/nav';
+  import { PAGES, RECIPES_PAGES, appRoute, isCurrent, isCurrentRecipesPage } from '$lib/nav';
   import { initial, session } from '$lib/session.svelte';
   import { sidebar } from '$lib/sidebar.svelte';
   import ConnectionStatus from './ConnectionStatus.svelte';
@@ -38,7 +38,7 @@
 
 <aside class="sidebar" class:collapsed={sidebar.collapsed} aria-label="Sidebar">
   <div class="top">
-    <a class="brand" href={resolve('/')} aria-label="Mealwright, Today">
+    <a class="brand" href={resolve('/(app)')} aria-label="Mealwright, Today">
       <Logo size={sidebar.collapsed ? 40 : 32} />
       {#if !sidebar.collapsed}<span class="wordmark">Mealwright</span>{/if}
     </a>
@@ -65,7 +65,7 @@
         <RecipesPopout pathname={page.url.pathname} {current} />
       {:else}
         <a
-          href={resolve(item.href)}
+          href={resolve(appRoute(item.href))}
           class:section={tree && current}
           aria-current={current && !tree ? 'page' : undefined}
           aria-label={sidebar.collapsed ? item.label : undefined}
@@ -80,7 +80,7 @@
         <div class="tree" role="group" aria-label="Recipes">
           {#each RECIPES_PAGES as sub (sub.href)}
             <a
-              href={resolve(sub.href)}
+              href={resolve(appRoute(sub.href))}
               aria-current={isCurrentRecipesPage(sub, page.url.pathname) ? 'page' : undefined}
               >{sub.label}{#if sub.href === '/recipes/drafts' && drafts.count}<span class="count"
                   >{drafts.count}</span
@@ -97,7 +97,7 @@
     <ThemeSwitch variant={sidebar.collapsed ? 'cycle' : 'sidebar'} />
     <a
       class="settings"
-      href={resolve('/settings')}
+      href={resolve('/(app)/settings')}
       aria-current={settingsCurrent ? 'page' : undefined}
       aria-label={`${session.me?.name ?? 'You'} · Settings`}
       title="Settings"

@@ -45,11 +45,11 @@
   {#if phone}
     <PageHeader
       title="Import a recipe"
-      parent={{ href: '/recipes', label: 'Recipes' }}
+      parent={{ href: '/(app)/recipes', label: 'Recipes' }}
       subtitle="Step 1 of 3"
     />
   {:else}
-    <PageHeader title="Import a recipe" parent={{ href: '/recipes', label: 'Recipes' }}>
+    <PageHeader title="Import a recipe" parent={{ href: '/(app)/recipes', label: 'Recipes' }}>
       {#snippet actions()}<ImportSteps step={1} />{/snippet}
     </PageHeader>
   {/if}

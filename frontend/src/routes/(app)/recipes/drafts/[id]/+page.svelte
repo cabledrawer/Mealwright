@@ -60,16 +60,16 @@
 </script>
 
 {#if phase === 'ready' && flow.review}
-  <ReviewPage {flow} {phone} parent={{ href: '/recipes/drafts', label: 'Drafts' }} />
+  <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
 {:else}
-  <PageHeader title="Draft" parent={{ href: '/recipes/drafts', label: 'Drafts' }} />
+  <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}
     <p class="note" aria-busy="true">Loading…</p>
   {:else if phase === 'problem' && network.offline}
     <OfflineNote screen="Drafts" />
   {:else if phase === 'gone'}
     <p class="note" role="alert">{problem}</p>
-    <a class="back" href={resolve('/recipes/drafts')}>Back to Drafts</a>
+    <a class="back" href={resolve('/(app)/recipes/drafts')}>Back to Drafts</a>
   {:else}
     <div class="failed" role="alert">
       <p>{problem || 'Couldn’t reach your Mealwright server. Try again.'}</p>

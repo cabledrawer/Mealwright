@@ -5,7 +5,7 @@
   // Down move between the pages (Home and End jump); Esc closes it and puts focus back
   // on the icon; clicking elsewhere, or Tab-ing away, closes it too.
   import { resolve } from '$app/paths';
-  import { RECIPES_PAGES, isCurrentRecipesPage } from '$lib/nav';
+  import { RECIPES_PAGES, appRoute, isCurrentRecipesPage } from '$lib/nav';
   import Icon from './Icon.svelte';
 
   let { pathname, current }: { pathname: string; current: boolean } = $props();
@@ -128,7 +128,7 @@
       {#each RECIPES_PAGES as sub (sub.href)}
         {@const here = isCurrentRecipesPage(sub, pathname)}
         <a
-          href={resolve(sub.href)}
+          href={resolve(appRoute(sub.href))}
           role="menuitem"
           tabindex="-1"
           aria-current={here ? 'page' : undefined}

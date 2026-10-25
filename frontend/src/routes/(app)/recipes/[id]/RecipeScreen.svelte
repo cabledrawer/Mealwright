@@ -133,10 +133,11 @@
 
 <div class="page" class:panes bind:this={root}>
   <div class="top">
-    <a class="back" href={resolve('/recipes')}><Icon name="back" size={18} stroke={2.4} />Recipes</a
+    <a class="back" href={resolve('/(app)/recipes')}
+      ><Icon name="back" size={18} stroke={2.4} />Recipes</a
     >
     <nav class="crumbs" aria-label="Breadcrumb">
-      <a href={resolve('/recipes')}>Recipes</a>
+      <a href={resolve('/(app)/recipes')}>Recipes</a>
       <span class="sep" aria-hidden="true">›</span>
       <span aria-current="page">{recipe ? recipe.name : ''}</span>
     </nav>

@@ -27,7 +27,7 @@
   let { children }: { children: Snippet } = $props();
 
   // Pantry's "Recipes for these" arrives with ?filter=use-soon, which starts the list on "Use soon".
-  const list = new RecipeList(filterFromSearch(page.url.searchParams));
+  const list = new RecipeList(filterFromSearch(new URLSearchParams(page.url.search)));
   // Import a recipe is a page of its own, full width (mockups Import05-Desktop), not a pane.
   const panes = $derived(
     recipePanes.fits &&

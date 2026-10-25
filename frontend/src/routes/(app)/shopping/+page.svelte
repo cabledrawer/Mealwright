@@ -5,7 +5,7 @@
   // goes through sendAction (lib/shopping/actions.ts). Docs: docs/dev/sync-protocol.md section 13.
   // Hidden until 0.6: the list built from the plan, and the staples check card.
   import { untrack } from 'svelte';
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import AddBox from '$lib/components/shopping/AddBox.svelte';
   import DoubleTickCard from '$lib/components/shopping/DoubleTickCard.svelte';
   import ItemRow from '$lib/components/shopping/ItemRow.svelte';

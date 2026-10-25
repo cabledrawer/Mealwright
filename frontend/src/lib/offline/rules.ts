@@ -1,4 +1,4 @@
-// What the service worker (src/service-worker.ts) may touch. Kept apart from the worker
+// What the service worker (src/service-worker/index.ts) may touch. Kept apart from the worker
 // itself so it can be tested.
 //
 // The rule in one line: the worker keeps only the app's own files (the code, fonts, icons),
@@ -12,6 +12,21 @@ export const SHELL = '/index.html';
 export const CACHE_PREFIX = 'mealwright-app-';
 
 export const cacheName = (version: string) => `${CACHE_PREFIX}${version}`;
+
+/**
+ * The addresses of the app's own files, from SvelteKit's manifest (`immutable`: the files
+ * Vite builds; `assets`: the files in `static/`). Each becomes an absolute address (a
+ * leading `/`; the app has no base path), de-duplicated, in the order given.
+ */
+export function appFiles(
+  immutable: readonly { path: string }[],
+  assets: readonly { path: string }[]
+): string[] {
+  const all = [...immutable, ...assets].map((file) =>
+    file.path.startsWith('/') ? file.path : `/${file.path}`
+  );
+  return [...new Set(all)];
+}
 
 /** True for any address under /api (the API, including /api/v1/events). */
 export function isApi(pathname: string): boolean {

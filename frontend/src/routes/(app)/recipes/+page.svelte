@@ -8,7 +8,7 @@
   import { RecipeList, filterFromSearch } from '$lib/recipes.svelte';
 
   // Pantry's "Recipes for these" arrives with ?filter=use-soon, which starts the list on "Use soon".
-  const list = new RecipeList(filterFromSearch(page.url.searchParams));
+  const list = new RecipeList(filterFromSearch(new URLSearchParams(page.url.search)));
 </script>
 
 {#if !recipePanes.fits}

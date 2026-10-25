@@ -3,7 +3,7 @@ import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+import { svelteOptions } from './vite.config.ts';
 
 export default ts.config(
   js.configs.recommended,
@@ -21,7 +21,8 @@ export default ts.config(
         projectService: true,
         extraFileExtensions: ['.svelte'],
         parser: ts.parser,
-        svelteConfig
+        // The Svelte config now lives in vite.config.ts (SvelteKit 3): same options, read here.
+        svelteConfig: { compilerOptions: svelteOptions.compilerOptions, kit: svelteOptions }
       }
     }
   },

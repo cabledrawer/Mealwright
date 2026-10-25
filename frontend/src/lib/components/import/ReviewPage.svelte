@@ -2,7 +2,7 @@
   // The review's page: its header (a phone says "Step 2 of 3" under the title; a computer has the
   // three steps beside it, mockups Import05-Phone and Import05-Desktop) and the review itself.
   // Used by Import a recipe, and by a draft being carried on.
-  import type { Pathname } from '$app/types';
+  import type { ComponentProps } from 'svelte';
   import type { ImportFlow } from '$lib/import.svelte';
   import PageHeader from '../PageHeader.svelte';
   import ImportSteps from './ImportSteps.svelte';
@@ -11,12 +11,12 @@
   let {
     flow,
     phone,
-    parent = { href: '/recipes', label: 'Recipes' }
+    parent = { href: '/(app)/recipes', label: 'Recipes' }
   }: {
     flow: ImportFlow;
     phone: boolean;
     /** The page above this one: Recipes, or Drafts for a draft. */
-    parent?: { href: Pathname; label: string };
+    parent?: ComponentProps<typeof PageHeader>['parent'];
   } = $props();
 </script>
 

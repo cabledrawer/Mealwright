@@ -75,9 +75,9 @@
     if (search === page.url.search) return;
     // Quietly: this page again, in the same history step, with no scroll and no focus move.
     const id = page.params.id;
-    const here = id ? resolve('/(app)/recipes/[id]', { id }) : resolve('/recipes');
+    const here = id ? resolve('/(app)/recipes/[id]', { id }) : resolve('/(app)/recipes');
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- here is resolve()'s answer, plus this page's own ?filter=
-    goto(here + search, { replaceState: true, keepFocus: true, noScroll: true }).catch(() => {
+    goto(here + search, { replace: true, reset: false }).catch(() => {
       // No router (a component test): the address stays as it is.
     });
   }
@@ -143,10 +143,10 @@
 
 {#snippet newRecipe()}
   <div class="starts">
-    <a class="new" href={resolve('/recipes/new')}
+    <a class="new" href={resolve('/(app)/recipes/new')}
       ><Icon name="plus" size={20} stroke={2.4} />New recipe</a
     >
-    <a class="import" href={resolve('/recipes/import')}
+    <a class="import" href={resolve('/(app)/recipes/import')}
       ><Icon name="link" size={20} stroke={2.2} />Import a recipe</a
     >
   </div>
@@ -231,10 +231,10 @@
     <!-- Phone: the Drafts and Ingredients buttons sit at the top of All recipes. Desktop has
          them in the sidebar, under Recipes. -->
     <nav class="more" aria-label="Recipes">
-      <a href={resolve('/recipes/drafts')}
+      <a href={resolve('/(app)/recipes/drafts')}
         >Drafts{#if drafts.count}<span class="drafts-count">{drafts.count}</span>{/if}</a
       >
-      <a href={resolve('/recipes/ingredients')}>Ingredients</a>
+      <a href={resolve('/(app)/recipes/ingredients')}>Ingredients</a>
     </nav>
     {@render found()}
   {/if}

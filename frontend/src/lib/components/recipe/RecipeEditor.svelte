@@ -335,12 +335,12 @@
       <p>Opening the recipe…</p>
     {:else if loading === 'missing'}
       <p>That recipe isn’t here any more.</p>
-      <a class="mw-pill" href={resolve('/recipes')}>All recipes</a>
+      <a class="mw-pill" href={resolve('/(app)/recipes')}>All recipes</a>
     {:else}
       <p>Couldn’t load this recipe. Check your connection and try again.</p>
       <span class="choices">
         <button type="button" class="mw-pill" onclick={() => void open()}>Try again</button>
-        <a class="mw-pill" href={resolve('/recipes')}>All recipes</a>
+        <a class="mw-pill" href={resolve('/(app)/recipes')}>All recipes</a>
       </span>
     {/if}
   </section>

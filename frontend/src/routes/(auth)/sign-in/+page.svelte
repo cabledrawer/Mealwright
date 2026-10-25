@@ -289,7 +289,7 @@
       theme.adopt(me.theme);
       const next = safeNext(page.url.searchParams.get('next'));
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- safeNext only returns pages of this app
-      await goto(next, { replaceState: true, invalidateAll: true });
+      await goto(next, { replace: true, refreshAll: true });
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;

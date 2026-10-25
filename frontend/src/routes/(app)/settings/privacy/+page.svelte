@@ -54,7 +54,7 @@
   }
 </script>
 
-<PageHeader title="Privacy" parent={{ href: '/settings', label: 'Settings' }} />
+<PageHeader title="Privacy" parent={{ href: '/(app)/settings', label: 'Settings' }} />
 
 {#if !privacy.loaded}
   {#if network.offline}

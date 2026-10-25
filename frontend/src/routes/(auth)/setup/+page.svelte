@@ -52,7 +52,7 @@
       const me = await createAdmin(name.trim(), username.trim().toLowerCase(), password);
       session.me = me;
       theme.adopt(me.theme);
-      await goto(resolve('/'), { replaceState: true, invalidateAll: true });
+      await goto(resolve('/(app)'), { replace: true, refreshAll: true });
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;

@@ -77,7 +77,7 @@
       } catch {
         // Storage blocked: nothing kept there.
       }
-      void goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
+      void goto(resolve('/(auth)/sign-in'), { replace: true, refreshAll: true });
     });
     return () => {
       stopListening();
@@ -104,7 +104,7 @@
       // the sign-in page by itself, without "come back to this page".
       if (!session.me) return;
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- signInPath is always /sign-in plus a checked page
-      void goto(signInPath(location.pathname + location.search), { invalidateAll: true });
+      void goto(signInPath(location.pathname + location.search), { refreshAll: true });
     });
     // Theme changes follow the person to their other devices. Optimistic: the theme
     // changes straight away, and an ended session is handled above.

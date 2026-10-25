@@ -108,8 +108,8 @@ describe('signing out', () => {
     await button('Sign out').click();
     await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
     expect(navigation.goto).toHaveBeenCalledWith('/sign-in', {
-      replaceState: true,
-      invalidateAll: true
+      replace: true,
+      refreshAll: true
     });
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /session']);
     expect(await exists()).toBe(false);
@@ -289,8 +289,8 @@ describe('signing out', () => {
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       mend();
       expect(navigation.goto).toHaveBeenCalledWith('/sign-in', {
-        replaceState: true,
-        invalidateAll: true
+        replace: true,
+        refreshAll: true
       });
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['DELETE /session']);
       expect(await exists()).toBe(false);

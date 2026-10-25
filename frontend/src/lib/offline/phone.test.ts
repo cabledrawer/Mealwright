@@ -116,7 +116,7 @@ describe('FE-4 (part 2): an update never takes over mid-shop', () => {
 
   it('nothing calls skipWaiting() or clients.claim()', () => {
     const app = Object.entries(sources).filter(([path]) => !path.endsWith('.test.ts'));
-    expect(app.some(([path]) => path === '/src/service-worker.ts')).toBe(true);
+    expect(app.some(([path]) => path === '/src/service-worker/index.ts')).toBe(true);
     const callers = app
       .filter(([, text]) => /\bskipWaiting\s*\(|\bclaim\s*\(/.test(code(text)))
       .map(([path]) => path);

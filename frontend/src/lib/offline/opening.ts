@@ -60,7 +60,7 @@ export function inTime(asked: Promise<Answer>): Promise<Answer | null> {
 /** How a late answer is acted on: +layout.ts runs again. (Loaded when needed, so the tests,
  * which put their own here, never load the app's navigation.) */
 export const restart = {
-  rerun: async (): Promise<void> => (await import('$app/navigation')).invalidateAll()
+  rerun: async (): Promise<void> => (await import('$app/navigation')).refreshAll()
 };
 
 /** A late answer, and the login the app had opened as from this device. */

@@ -33,7 +33,7 @@
   }
 
   function leave() {
-    void goto(resolve('/recipes'));
+    void goto(resolve('/(app)/recipes'));
   }
 
   // --- Leaving without saving -------------------------------------------------------------
@@ -63,8 +63,8 @@
   async function keep() {
     if (!(await flow.keepAsDraft()) || !target) return;
     // Leaving through Cancel or the back link lands on the Drafts list (the mockup's Save draft).
-    const toRecipes = target.pathname === resolve('/recipes') && target.search === '';
-    await goOn(toRecipes ? new URL(resolve('/recipes/drafts'), target) : target);
+    const toRecipes = target.pathname === resolve('/(app)/recipes') && target.search === '';
+    await goOn(toRecipes ? new URL(resolve('/(app)/recipes/drafts'), target) : target);
   }
 
   function discard() {

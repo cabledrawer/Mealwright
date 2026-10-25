@@ -2,14 +2,14 @@
   // Bottom tabs on phones: the five pages, always in reach of a thumb.
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { PAGES, isCurrent } from '$lib/nav';
+  import { PAGES, appRoute, isCurrent } from '$lib/nav';
   import Icon from './Icon.svelte';
 </script>
 
 <nav class="tabbar" aria-label="Main">
   {#each PAGES as item (item.href)}
     <a
-      href={resolve(item.href)}
+      href={resolve(appRoute(item.href))}
       aria-current={isCurrent(item, page.url.pathname) ? 'page' : undefined}
     >
       <Icon name={item.icon} />

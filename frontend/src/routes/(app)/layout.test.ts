@@ -336,7 +336,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
   const begin = async (): Promise<void> => {
     await open();
   };
-  /** The layout running again for a late answer (in the app: invalidateAll). */
+  /** The layout running again for a late answer (in the app: refreshAll). */
   let reruns: Promise<void>[];
   let releases: (() => void)[];
 

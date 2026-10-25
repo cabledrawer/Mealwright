@@ -93,9 +93,9 @@
   );
 </script>
 
-<PageHeader title="Drafts" parent={{ href: '/recipes', label: 'Recipes' }} {subtitle}>
+<PageHeader title="Drafts" parent={{ href: '/(app)/recipes', label: 'Recipes' }} {subtitle}>
   {#snippet actions()}
-    {#if !phone}<a class="import" href={resolve('/recipes/import')}>Import a recipe</a>{/if}
+    {#if !phone}<a class="import" href={resolve('/(app)/recipes/import')}>Import a recipe</a>{/if}
   {/snippet}
 </PageHeader>
 

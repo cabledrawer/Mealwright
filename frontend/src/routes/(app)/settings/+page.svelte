@@ -101,7 +101,7 @@
     const result = await signOutHere(choice);
     if (result === 'signed-out') {
       left = 0;
-      await goto(resolve('/sign-in'), { replaceState: true, invalidateAll: true });
+      await goto(resolve('/(auth)/sign-in'), { replace: true, refreshAll: true });
       return;
     }
     // Take the warning away first, so it's put back (and read out) as new.
@@ -137,7 +137,7 @@
   <section class="section" aria-labelledby="privacy">
     <h2 id="privacy">Privacy</h2>
     <div class="card">
-      <a class="row to" href={resolve('/settings/privacy')}>
+      <a class="row to" href={resolve('/(app)/settings/privacy')}>
         <span class="who">
           <span class="label">Outside connections</span>
           <span class="detail">Recipe import, recipe photos and your own network</span>

@@ -9,7 +9,7 @@ export const NEW_RECIPE = '/recipes/new';
 export const recipePage = (id: number) => `/recipes/${id}`;
 export const editPage = (id: number) => `/recipes/${id}/edit`;
 
-export function go(path: string, options: { replaceState?: boolean } = {}): Promise<void> {
+export function go(path: string, options: { replace?: boolean } = {}): Promise<void> {
   // eslint-disable-next-line svelte/no-navigation-without-resolve -- the paths above are this app's own
   return goto(path, options);
 }

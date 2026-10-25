@@ -1337,7 +1337,7 @@
       <PageHeader title="Pantry" overline="Saturday 17 October" subtitle="6 ingredients" />
       <PageHeader
         title="Ingredients"
-        parent={{ href: '/recipes', label: 'Recipes' }}
+        parent={{ href: '/(app)/recipes', label: 'Recipes' }}
         subtitle="Everything you can put in a recipe"
       >
         {#snippet actions()}<Button>+ New ingredient</Button>{/snippet}

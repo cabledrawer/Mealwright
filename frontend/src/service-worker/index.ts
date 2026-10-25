@@ -1,8 +1,3 @@
-/// <reference types="@sveltejs/kit" />
-/// <reference no-default-lib="true"/>
-/// <reference lib="esnext" />
-/// <reference lib="webworker" />
-
 // The app's service worker (sync protocol 11.6). Written by hand, no library.
 //
 // What it does: keeps the app's own files (code, fonts, icons: `build` and `files`) and the
@@ -17,13 +12,15 @@
 // PR 6's offline queue lives in IndexedDB, not here; the new version sends the old one's
 // queue before showing the list (sync protocol 11.6).
 
-import { build, files, version } from '$service-worker';
-import { CACHE_PREFIX, SHELL, cacheName, handling } from '$lib/offline/rules';
-
-const worker = self as unknown as ServiceWorkerGlobalScope;
+import { self as worker } from '$app/service-worker';
+import { version } from '$app/env';
+import { assets, immutable } from '$app/manifest';
+import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '$lib/offline/rules';
 
 const CACHE = cacheName(version);
-const ASSETS = [...build, ...files];
+// `immutable` is what the old `build` was (the files Vite builds); `assets` is what the old
+// `files` was (the files in static/).
+const ASSETS = appFiles(immutable, assets);
 const KNOWN = new Set(ASSETS);
 
 worker.addEventListener('install', (event) => {

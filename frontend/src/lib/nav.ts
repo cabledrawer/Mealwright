@@ -51,3 +51,10 @@ export function isCurrentRecipesPage(sub: RecipesPage, pathname: string): boolea
     !RECIPES_PAGES.some((other) => other.href !== '/recipes' && under(other.href))
   );
 }
+
+/** A page's address (`/recipes`) as SvelteKit's route id (`/(app)/recipes`) for resolve(). */
+export type AppRoute<H extends string> = H extends '/' ? '/(app)' : `/(app)${H}`;
+
+export function appRoute<H extends Page['href'] | RecipesPage['href']>(href: H): AppRoute<H> {
+  return (href === '/' ? '/(app)' : `/(app)${href}`) as AppRoute<H>;
+}

@@ -5,7 +5,6 @@
   // On phones it stays put while the page scrolls under it (UX principle 14), and holds
   // the round button to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
-  import type { Pathname } from '$app/types';
   import type { Snippet } from 'svelte';
   import { initial, session } from '$lib/session.svelte';
   import Icon from './Icon.svelte';
@@ -21,7 +20,10 @@
     overline?: string;
     subtitle?: string;
     /** The page this one sits under. */
-    parent?: { href: Pathname; label: string };
+    parent?: {
+      href: '/(app)/recipes' | '/(app)/recipes/drafts' | '/(app)/settings';
+      label: string;
+    };
     /** The page's main button(s), beside the title ("+ Add to pantry"). */
     actions?: Snippet;
   } = $props();
@@ -50,7 +52,7 @@
   {#if actions}<div class="actions">{@render actions()}</div>{/if}
   <a
     class="settings"
-    href={resolve('/settings')}
+    href={resolve('/(app)/settings')}
     aria-label="{session.me?.name ?? 'You'} · Settings"
     title="Settings"
   >

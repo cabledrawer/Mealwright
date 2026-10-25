@@ -5,7 +5,7 @@
   // screen reader), and "Not in any recipe · 9" is a filter beside Staples (spec "Ingredients
   // screen", cabledrawer 17 Oct; 0.4). On a Maybe-the-same row the Merge button takes the place of
   // the count, as in the mockups.
-  import { browser } from '$app/environment';
+  import { browser } from '$app/env';
   import { page } from '$app/state';
   import { tick } from 'svelte';
   import { serverUndo } from '$lib/client/changes';
@@ -211,7 +211,7 @@
 
 <PageHeader
   title="Ingredients"
-  parent={{ href: '/recipes', label: 'Recipes' }}
+  parent={{ href: '/(app)/recipes', label: 'Recipes' }}
   subtitle={list.loaded && !list.problem
     ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
