@@ -217,6 +217,30 @@ test("changing the amount of a line", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("tapping the name opens the amount box without ticking, and − / + step the real amount (checked for 0.5.1)", async ({
+  page,
+}) => {
+  const name = `Oats ${tag()}`;
+  const foodId = await onList(page, name, 500);
+  await page.goto("/shopping");
+  await page.getByRole("button", { name, exact: true }).click();
+  const box = page.getByRole("form", { name: `Change ${name}` });
+  const amount = box.getByRole("textbox", { name: "Amount" });
+  await expect(amount).toHaveValue("500");
+  await box.getByRole("button", { name: "More" }).click();
+  await expect(amount).toHaveValue("550");
+  await box.getByRole("button", { name: "Less" }).click();
+  await box.getByRole("button", { name: "Less" }).click();
+  await expect(amount).toHaveValue("450");
+  await box.getByRole("button", { name: "Done" }).click();
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 450`) }),
+  ).toBeVisible();
+  // Still not ticked, and nothing went into the pantry.
+  await expect(page.getByRole("checkbox", { name: `Tick ${name}` })).not.toBeChecked();
+  expect(await stockOf(page, foodId)).toEqual({});
+});
+
 test("the amount box’s Edit ingredient saves the box and opens the ingredient editor; offline it isn’t there", async ({
   page,
   context,
