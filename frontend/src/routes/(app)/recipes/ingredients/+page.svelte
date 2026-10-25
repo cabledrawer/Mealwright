@@ -7,7 +7,7 @@
   // the count, as in the mockups.
   import { browser } from '$app/environment';
   import { page } from '$app/state';
-  import { tick, untrack } from 'svelte';
+  import { tick } from 'svelte';
   import { serverUndo } from '$lib/client/changes';
   import { mergeFood } from '$lib/client/foods';
   import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
@@ -84,8 +84,9 @@
   });
 
   // Ingredients needs the server (spec section 6, "Opening the app offline"): offline it
-  // shows a note pointing to Shopping, and fetches again once the connection is back. A load
-  // that failed in a short drop (no offline note yet) tries again then too (0.5.1).
+  // shows a note pointing to Shopping, and fetches again once the connection is back. After a
+  // short drop (no offline note yet) it fetches again too, whether its load has failed already
+  // or is still on its way and about to (0.5.1): the new load takes the old one's place.
   let wasOffline = false;
   let back = network.backAgain;
   $effect(() => {
@@ -95,8 +96,7 @@
     }
     const again = network.backAgain !== back;
     back = network.backAgain;
-    const failed = untrack(() => list.problem !== null || recent.problem !== null);
-    if (wasOffline || (again && failed)) {
+    if (wasOffline || again) {
       wasOffline = false;
       void list.load();
       void recent.load();

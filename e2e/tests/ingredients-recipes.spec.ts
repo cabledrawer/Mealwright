@@ -259,9 +259,59 @@ test('Ingredients still works when the list cannot be loaded', async ({ page }) 
 
 test('Ingredients loads again by itself when a short drop is over (0.5.1)', async ({ page }) => {
   let dropped = 0;
-  await page.route('**/api/v1/foods?**', (route) => (dropped++ === 0 ? route.abort('internetdisconnected') : route.continue()));
+  let firstDropped!: () => void;
+  const first = new Promise<void>((done) => (firstDropped = done));
+  await page.route('**/api/v1/foods?**', async (route) => {
+    if (dropped++ > 0) return route.continue();
+    await route.abort('internetdisconnected');
+    firstDropped();
+  });
   await page.goto('/recipes/ingredients');
-  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible({ timeout: 15_000 });
+  await first;
+  // The browser says the connection is back (no waiting for the next check of the server).
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible();
   expect(dropped).toBeGreaterThan(1);
   await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t' })).toHaveCount(0);
+});
+
+test('Ingredients loads again when its load fails just after the connection is back (0.5.1)', async ({ page }) => {
+  // The first load is still on its way when the connection comes back, and fails after. Its
+  // failure is never shown: the load that started when the connection came back takes its place.
+  // (Before, "Couldn’t load your ingredients" stayed up until the next check of the server.)
+  await page.addInitScript(() => {
+    const seen = window as unknown as { sawProblem: boolean };
+    seen.sawProblem = false;
+    new MutationObserver(() => {
+      if (document.body?.textContent?.includes('Couldn’t load your ingredients')) seen.sawProblem = true;
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  let asked = 0;
+  let firstAsked!: () => void;
+  let release!: () => void;
+  const first = new Promise<void>((done) => (firstAsked = done));
+  const held = new Promise<void>((done) => (release = done));
+  await page.route('**/api/v1/foods?**', async (route) => {
+    if (asked++ > 0) return route.continue();
+    firstAsked();
+    await held;
+    await route.abort('internetdisconnected');
+  });
+  await page.goto('/recipes/ingredients');
+  await first;
+  const checked = page.waitForResponse('**/api/v1/version');
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('offline'));
+    window.dispatchEvent(new Event('online'));
+  });
+  await checked;
+  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible();
+  // The first load fails only now, after the second one has answered.
+  const failed = page.waitForEvent('requestfailed', (r) => r.url().includes('/api/v1/foods?'));
+  release();
+  await failed;
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  expect(asked).toBeGreaterThan(1);
+  expect(await page.evaluate(() => (window as unknown as { sawProblem: boolean }).sawProblem)).toBe(false);
+  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible();
 });
