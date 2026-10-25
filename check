@@ -4,8 +4,17 @@
 #
 #   ./check
 #
-# Each step's full output goes to .check/logs/<step>.log. The script fails if any
-# step fails or isn't set up yet, and ends with a pass/fail summary.
+# It prints only the failures and a short summary (cabledrawer 25 Oct, 0.6 setup). Everything
+# else goes to files:
+#   .check/summary.md   the summary table to paste into the pull request
+#   .check/check.log    the whole run, as it would have been printed
+#   .check/logs/<step>.log   each step's full output
+# The script fails if any step fails or isn't set up yet.
+#
+# The scanners (pip-audit, Bandit, osv-scanner, Trivy) run only when the branch changes a
+# library, a lock file, the Dockerfile, the scanner settings or this script, compared with
+# origin/main, which a release PR always does (it changes the version in
+# backend/pyproject.toml). cabledrawer 25 Oct, answer 16. CHECK_SCANNERS=1 runs them anyway.
 #
 #   ./check --fast
 #
@@ -44,6 +53,24 @@ BANDIT="bandit==1.9.4"
 OSV_SCANNER="ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa"   # v2.6.0
 TRIVY="aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"                     # 0.75.0
 rm -rf "$ROOT/.check" && mkdir -p "$LOGS"
+
+# Everything printed goes to the full log; show() also puts a line on the screen (fd 3).
+FULL="$ROOT/.check/check.log"
+exec 3>&1 >"$FULL" 2>&1
+show() { printf '%s\n' "$@"; printf '%s\n' "$@" >&3; }
+
+# Why the scanners run on this branch, or nothing when they don't (see the top of this file).
+scanners_reason() {
+  if [[ "${CHECK_SCANNERS:-}" == 1 ]]; then echo "CHECK_SCANNERS=1"; return; fi
+  local base
+  base="$(git -C "$ROOT" merge-base HEAD origin/main 2>/dev/null)" || { echo "no origin/main to compare with"; return; }
+  { git -C "$ROOT" diff --name-only "$base" HEAD; git -C "$ROOT" diff --name-only HEAD
+    git -C "$ROOT" ls-files --others --exclude-standard; } |
+    grep -xE 'backend/(pyproject\.toml|uv\.lock)|(frontend|e2e)/package(-lock)?\.json|frontend/osv-scanner\.toml|Dockerfile|check' >/dev/null &&
+    echo "the branch changes a library, a lock file, the Dockerfile or the scanner settings"
+}
+SCANNERS_WHY="$(scanners_reason)"
+NO_SCAN="no library, lock file or Dockerfile change"
 
 # The backend tests and the browser tests run with a private temp folder (their TMPDIR), made
 # here and removed when ./check ends, even if it is stopped. So a test run never fills /tmp,
@@ -91,7 +118,8 @@ step() {
     CHILD=""
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
     echo "FAIL"
-    tail -n 40 "$log" | sed 's/^/    /'
+    printf '%-28s FAIL\n' "$name" >&3
+    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
   fi
 }
 
@@ -103,11 +131,14 @@ need() { command -v "$1" >/dev/null 2>&1; }
 backend() { (cd backend && "$@"); }
 
 if ((FAST)); then
-  echo "*** FAST RUN: not valid for a pull request. Only a full ./check is. ***"
-  echo
+  show "*** FAST RUN: not valid for a pull request. Only a full ./check is. ***" ""
 fi
-echo "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
-echo
+show "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
+if ((!FAST)); then
+  show "Scanners: ${SCANNERS_WHY:-skipped ($NO_SCAN)}."
+fi
+show "Only failures are shown here; the whole run is in .check/check.log." ""
+
 
 # --- Backend -----------------------------------------------------------------
 if need uv; then
@@ -123,7 +154,7 @@ if need uv; then
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
   step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py
 else
-  record "backend" FAIL "uv is not installed" "-"; echo "backend                      FAIL (uv is not installed)"
+  record "backend" FAIL "uv is not installed" "-"; show "backend                      FAIL (uv is not installed)"
 fi
 
 # --- Frontend ----------------------------------------------------------------
@@ -192,6 +223,9 @@ pip_audit() {
 
 if ((FAST)); then
   skip "scanners" "fast run"
+elif [[ -z "$SCANNERS_WHY" ]]; then
+  skip "pip-audit" "$NO_SCAN"
+  skip "bandit" "$NO_SCAN"
 elif need uv; then
   step "pip-audit"               pip_audit
   step "bandit"                  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$BANDIT" -q -r backend/src backend/scripts
@@ -200,6 +234,8 @@ else
 fi
 if ((FAST)); then
   :
+elif [[ -z "$SCANNERS_WHY" ]]; then
+  skip "osv-scanner" "$NO_SCAN"
 elif need docker; then
   # Every lock file in the repo; the repo is mounted read-only.
   lockfiles=(--lockfile /src/backend/uv.lock)
@@ -234,12 +270,17 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
   # item 3): its marker text must not be anywhere in the web app inside the image.
   step "image: no gallery"       no_gallery_in_image
   # Trivy reads an exported copy of the image and gets no access to Docker itself.
+  if [[ -z "$SCANNERS_WHY" ]]; then
+    skip "image: export" "only needed for Trivy"
+    skip "image: trivy" "$NO_SCAN"
+  else
   step "image: export"           docker save "$IMAGE" -o "$ROOT/.check/image.tar"
   step "image: trivy"            docker run --rm -v "$ROOT/.check:/scan:ro" \
                                    -v mealwright-trivy-cache:/root/.cache/trivy "$TRIVY" \
                                    image --input /scan/image.tar --scanners vuln \
                                    --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
                                    --disable-telemetry --skip-version-check
+  fi
 else
   skip "image" "no Dockerfile yet"
 fi
@@ -255,31 +296,44 @@ for r in "${results[@]}"; do
   esac
 done
 
-echo
-if ((FAST)); then
-  echo "## ./check summary (FAST RUN: not valid for a pull request)"
-  echo
-  echo "**This was a FAST run (\`./check --fast\`). It skipped installs, browser tests, scanners and the image. Only a full \`./check\` counts for a pull request.**"
-else
-  echo "## ./check summary"
-fi
-echo
-echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
-echo
-echo "| Step | Result | Time | Note |"
-echo "|---|---|---|---|"
-for i in "${!names[@]}"; do
-  echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
-done
-echo
-if ((fail == 0 && missing == 0)); then
+# The full table goes to .check/summary.md (to paste into the pull request) and the full log.
+# The screen gets the steps that didn't pass, the result, and where the files are.
+SUMMARY="$ROOT/.check/summary.md"
+{
   if ((FAST)); then
-    echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
+    echo "## ./check summary (FAST RUN: not valid for a pull request)"
+    echo
+    echo "**This was a FAST run (\`./check --fast\`). It skipped installs, browser tests, scanners and the image. Only a full \`./check\` counts for a pull request.**"
   else
-    echo "**RESULT: PASS** ($pass passed, $skipped skipped as not applicable yet)"
+    echo "## ./check summary"
   fi
-  exit 0
-fi
-echo "**RESULT: FAIL** ($fail failed, $missing not set up, $pass passed, $skipped skipped)"
-if ((FAST)); then echo "FAST RUN: not valid for a pull request."; fi
-exit 1
+  echo
+  echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
+  echo
+  echo "| Step | Result | Time | Note |"
+  echo "|---|---|---|---|"
+  for i in "${!names[@]}"; do
+    echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
+  done
+  echo
+  if ((fail == 0 && missing == 0)); then
+    if ((FAST)); then
+      echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
+    else
+      echo "**RESULT: PASS** ($pass passed, $skipped skipped)"
+    fi
+  else
+    echo "**RESULT: FAIL** ($fail failed, $missing not set up, $pass passed, $skipped skipped)"
+    if ((FAST)); then echo "FAST RUN: not valid for a pull request."; fi
+  fi
+} >"$SUMMARY"
+echo
+cat "$SUMMARY"
+
+show ""
+for i in "${!names[@]}"; do
+  [[ "${results[$i]}" == PASS ]] || show "$(printf '%-28s %s%s' "${names[$i]}" "${results[$i]}" "${notes[$i]:+ (${notes[$i]})}")"
+done
+show "$(grep -m1 '^\*\*RESULT' "$SUMMARY")"
+show "Summary to paste: .check/summary.md · whole run: .check/check.log · each step: .check/logs/"
+((fail == 0 && missing == 0))
