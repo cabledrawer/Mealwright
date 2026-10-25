@@ -327,6 +327,9 @@ test.describe('desktop sidebar', () => {
     await page.goto('/recipes/ingredients');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
+    // Wait for the sidebar to finish collapsing: the pop-out is placed beside the icon where it
+    // is when the pop-out opens, so opening it mid-collapse can leave it in the wrong place.
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(72);
     const icon = sidebar.getByRole('button', { name: 'Recipes' });
     await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
     await icon.click();

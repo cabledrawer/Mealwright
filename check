@@ -185,7 +185,7 @@ fi
 if ((FAST)); then
   skip "browser tests" "fast run"
 elif [[ -f "$ROOT/e2e/package.json" ]]; then
-  step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell'
+  step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
   step "browser: tests"          env TMPDIR="$RUN_TMP" sh -c 'cd e2e && npx playwright test'

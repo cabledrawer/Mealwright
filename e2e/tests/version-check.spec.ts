@@ -97,6 +97,7 @@ test('the window getting focus with no connection: the same bar as before, no to
   page,
   context,
 }) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
   await underWorker(page);
   await context.setOffline(true);
   // The app finds out it is offline by itself (after about three seconds); let that settle,
@@ -120,6 +121,7 @@ test('the version check is answered by the worker with the same answer online, o
   page,
   context,
 }) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
   await underWorker(page);
   const ask = () =>
     page.evaluate(async () => {

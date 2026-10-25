@@ -103,6 +103,7 @@ test('offline, the app’s own files still load but the API is never answered fr
   page,
   context,
 }) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
   await underWorker(page);
   await context.setOffline(true);
   const result = await page.evaluate(async () => {

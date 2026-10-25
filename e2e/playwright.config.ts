@@ -31,6 +31,13 @@ const desktop = {
   launchOptions,
 };
 
+// Safari's engine, on a desktop-sized window (the phone layout is covered on Chromium).
+const webkit = {
+  browserName: 'webkit' as const,
+  viewport: { width: 1280, height: 900 },
+  launchOptions: { args: [] as string[] },
+};
+
 export default defineConfig({
   testDir: './tests',
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
@@ -76,6 +83,11 @@ export default defineConfig({
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
     // SvelteKit 3's own version check stays out of sight; updates wait for the worker (0.6).
     { name: 'desktop 0.6 version check', testMatch: 'version-check.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // Safari's engine (WebKit), only where it matters most: the offline queue and the service
+    // worker (offline.spec, installable.spec, version-check.spec) and the page shell with its
+    // strict CSP (shell.spec). Everything else runs on Chromium only, to keep ./check quick (0.6).
+    { name: 'webkit offline', testMatch: 'offline.spec.ts', use: webkit },
+    { name: 'webkit worker', testMatch: /(installable|version-check|shell)\.spec\.ts/, use: { ...webkit, storageState: AUTH_FILE } },
     // The offline queue end to end (0.3, PR 6). No saved session: each test signs in its own,
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
