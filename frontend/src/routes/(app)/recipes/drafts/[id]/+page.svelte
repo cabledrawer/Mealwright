@@ -5,13 +5,13 @@
   // Online only: a draft is on the server.
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
-  import { ApiError, cantReach } from '$lib/api';
-  import { getDraft } from '$lib/client/drafts';
-  import ReviewPage from '$lib/components/import/ReviewPage.svelte';
-  import OfflineNote from '$lib/components/OfflineNote.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
-  import { ImportFlow } from '$lib/import.svelte';
-  import { network } from '$lib/network.svelte';
+  import { ApiError, cantReach } from '#lib/api.js';
+  import { getDraft } from '#lib/client/drafts.js';
+  import ReviewPage from '#lib/components/import/ReviewPage.svelte';
+  import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
+  import { ImportFlow } from '#lib/import.svelte.js';
+  import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();

@@ -2,7 +2,7 @@
   // "Ask once" (askOnce.svelte.ts): the server needs a figure it doesn't know, e.g.
   // "About how much does 1 cup of toor dal weigh?". Suggested answer filled in, and a
   // "Remember for next time" switch, on by default. A modal dialog: Escape = Not now.
-  import { askOnce } from '$lib/askOnce.svelte';
+  import { askOnce } from '#lib/askOnce.svelte.js';
   import Switch from './Switch.svelte';
 
   const uid = $props.id();

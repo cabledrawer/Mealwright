@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { kitchen } from '$lib/freshness.svelte';
+import { kitchen } from '#lib/freshness.svelte.js';
 import { lastOwnChange, serverUndo, undoToast } from './changes';
 import type { UndoResult } from './types';
 import { listFoods, patchFood } from './foods';

@@ -1,18 +1,18 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { network } from '$lib/network.svelte';
-import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import { network } from '#lib/network.svelte.js';
+import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import RecipeEditor from './RecipeEditor.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const navigation = vi.hoisted(() => ({ go: vi.fn(async () => {}), beforeNavigate: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: navigation.beforeNavigate }));
-vi.mock('$lib/recipes/paths', async (original) => ({
-  ...(await original<typeof import('$lib/recipes/paths')>()),
+vi.mock('#lib/recipes/paths.js', async (original) => ({
+  ...(await original<typeof import('#lib/recipes/paths.js')>()),
   go: navigation.go
 }));
 

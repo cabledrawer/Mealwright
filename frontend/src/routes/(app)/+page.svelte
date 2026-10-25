@@ -1,6 +1,6 @@
 <script lang="ts">
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
+  import EmptyState from '#lib/components/EmptyState.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
 
   // "Saturday 17 October", in the browser's own language settings.
   const today = new Intl.DateTimeFormat(undefined, {

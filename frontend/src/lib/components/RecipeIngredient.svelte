@@ -7,9 +7,9 @@
   // ingredient editor; a line that uses another recipe opens that recipe; a line linked to
   // nothing is plain text.
   import { resolve } from '$app/paths';
-  import type { RecipeLine } from '$lib/client/recipes';
-  import type { Mark } from '$lib/recipeStock';
-  import { linkedWords } from '$lib/recipes/linkedWords';
+  import type { RecipeLine } from '#lib/client/recipes.js';
+  import type { Mark } from '#lib/recipeStock.js';
+  import { linkedWords } from '#lib/recipes/linkedWords.js';
 
   let {
     line,

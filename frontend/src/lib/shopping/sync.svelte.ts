@@ -18,10 +18,10 @@
 // by the server's answers. On a reset (`reset: true`) only the copy and its cursor are thrown
 // away: the queue is kept and sent after the fresh copy has arrived (11.1).
 
-import { api, ApiError } from '$lib/api';
-import { serverListsHeld } from '$lib/offline/confirmed';
-import { deviceId } from '$lib/offline/device';
-import type { QueueEntry } from '$lib/offline/phone';
+import { api, ApiError } from '#lib/api.js';
+import { serverListsHeld } from '#lib/offline/confirmed.js';
+import { deviceId } from '#lib/offline/device.js';
+import type { QueueEntry } from '#lib/offline/phone.js';
 import {
   addToQueue,
   clearCopy,
@@ -31,10 +31,10 @@ import {
   nowIso,
   readQueue,
   saveCopy
-} from '$lib/offline/store';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { toasts } from '$lib/toast.svelte';
+} from '#lib/offline/store.js';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
 import { setSendContext, type Action, type ActionResult } from './actions';
 import { applyChanges } from './load';
 import type { ChangesAnswer, ShoppingCopy } from './types';

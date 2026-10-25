@@ -3,7 +3,7 @@
 // answer with [status, body] or a function of the request.
 
 import { vi } from 'vitest';
-import type { Food, FoodRow } from '$lib/client/types';
+import type { Food, FoodRow } from '#lib/client/types.js';
 
 export interface FakeRequest {
   method: string;

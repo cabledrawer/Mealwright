@@ -4,7 +4,7 @@
 // the name starts with it, the name contains it, another name starts with it, another name
 // contains it; then by name. Like the server, it leaves out removed and merged ingredients.
 
-import type { FoodRow } from '$lib/client/types';
+import type { FoodRow } from '#lib/client/types.js';
 import type { ShoppingCopy } from './types';
 
 /** Lower case without accents: "Jalapeño" → "jalapeno" (as the server's fold). */

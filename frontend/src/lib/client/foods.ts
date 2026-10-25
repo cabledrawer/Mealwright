@@ -1,6 +1,6 @@
 // Foods, places and shops (contract 6.2 and 6.3).
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type {
   Answer,
   Food,

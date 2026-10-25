@@ -1,8 +1,8 @@
 <script lang="ts">
   // Pick another food by typing any of its names: "Can use instead", "Merge with…".
   // Suggestions come from the server's search; Escape or leaving it empty closes it.
-  import { listFoods } from '$lib/client/foods';
-  import type { FoodRow, Ref } from '$lib/client/types';
+  import { listFoods } from '#lib/client/foods.js';
+  import type { FoodRow, Ref } from '#lib/client/types.js';
 
   let {
     label,

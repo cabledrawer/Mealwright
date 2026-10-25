@@ -2,7 +2,7 @@
   // "Keep screen awake" (mockup Recipe; cabledrawer 19 Oct, question 32): the one Switch, off every
   // time the page opens. Not drawn at all where the browser can't do it.
   import { untrack } from 'svelte';
-  import type { ScreenAwake } from '$lib/screenAwake.svelte';
+  import type { ScreenAwake } from '#lib/screenAwake.svelte.js';
   import Icon from './Icon.svelte';
   import Switch from './Switch.svelte';
 

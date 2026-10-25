@@ -1,9 +1,9 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import { drafts } from '$lib/drafts.svelte';
-import { network } from '$lib/network.svelte';
-import { fakeApi } from '$lib/testing/fakeApi';
+import { drafts } from '#lib/drafts.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import Sidebar from './Sidebar.svelte';
 import '../styles/tokens.css';
 import '../styles/base.css';

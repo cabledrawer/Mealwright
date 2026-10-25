@@ -4,12 +4,12 @@
   // onboarding (Amounts, Household, Shops) comes in 0.8.
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ApiError, createAdmin } from '$lib/api';
-  import Button from '$lib/components/Button.svelte';
-  import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
-  import TextField from '$lib/components/TextField.svelte';
-  import { connection, session } from '$lib/session.svelte';
-  import { theme } from '$lib/theme.svelte';
+  import { ApiError, createAdmin } from '#lib/api.js';
+  import Button from '#lib/components/Button.svelte';
+  import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
+  import TextField from '#lib/components/TextField.svelte';
+  import { connection, session } from '#lib/session.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();

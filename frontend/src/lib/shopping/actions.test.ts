@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '$lib/api';
-import { fakeApi } from '$lib/testing/fakeApi';
-import { sampleCopy } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
-import { session } from '$lib/session.svelte';
+import { ApiError } from '#lib/api.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
+import { sampleCopy } from '#lib/testing/fakeShopping.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
+import { session } from '#lib/session.svelte.js';
 import { deviceId, makeAction, setSendContext } from './actions';
 import { sendAction, shoppingSync } from './sync.svelte';
 

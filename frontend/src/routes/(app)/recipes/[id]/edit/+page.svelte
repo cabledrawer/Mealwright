@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import RecipeEditor from '$lib/components/recipe/RecipeEditor.svelte';
+  import RecipeEditor from '#lib/components/recipe/RecipeEditor.svelte';
 
   const id = $derived(Number(page.params.id));
 </script>

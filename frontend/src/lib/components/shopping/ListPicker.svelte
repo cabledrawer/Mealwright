@@ -1,7 +1,7 @@
 <script lang="ts">
   // The list picker under the title: This week (main list) · extra lists · + New list
   // (mockup Shop). Each list's "⋯" has Rename, and Remove for extra lists (Undo in the toast).
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
 
   let { model }: { model: ShoppingModel } = $props();
 

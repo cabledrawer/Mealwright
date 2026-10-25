@@ -4,7 +4,7 @@
   // Weight and volume only get the quarters; a count ingredient (eggs) asks "How many left?".
   // A phone sheet: a real modal dialog, Esc closes it, and the focus goes back where it came from.
   import { tick } from 'svelte';
-  import type { CountedAs } from '$lib/client/types';
+  import type { CountedAs } from '#lib/client/types.js';
 
   let {
     open,

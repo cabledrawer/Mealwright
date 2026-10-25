@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { food, item, tess, sampleCopy, tick } from '$lib/testing/fakeShopping';
+import { food, item, tess, sampleCopy, tick } from '#lib/testing/fakeShopping.js';
 import type { Action, ActionFields } from './actions';
 import { applyLocal, localDisplay } from './applyLocal';
 import type { ShoppingCopy } from './types';

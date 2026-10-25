@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import '$lib/styles/tokens.css';
+import '#lib/styles/tokens.css';
 import Switch from './Switch.svelte';
 
 let component: ReturnType<typeof mount> | null = null;

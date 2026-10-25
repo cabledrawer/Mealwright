@@ -4,7 +4,7 @@
   // (on a computer it opens in the reading pane). A long list is folded behind "+ 2 more" so an
   // ingredient used in thirty recipes doesn't take over the editor. With none, it says so calmly.
   import { resolve } from '$app/paths';
-  import type { Ref } from '$lib/client/types';
+  import type { Ref } from '#lib/client/types.js';
 
   let {
     recipes,

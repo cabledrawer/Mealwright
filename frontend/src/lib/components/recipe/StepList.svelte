@@ -1,7 +1,7 @@
 <script lang="ts">
   // The method (cabledrawer 19 Oct, questions 4 and 5): plain text steps, one box each, numbered by
   // themselves, with optional headings. Up to 100, headings included. Reordered like the lines.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import { tick } from 'svelte';
   import Icon from '../Icon.svelte';
   import {
@@ -10,10 +10,10 @@
     type DraftStep,
     type Errors,
     type RecipeDraft
-  } from '$lib/recipes/draft.svelte';
-  import { autosize } from '$lib/recipes/autosize';
-  import { move, reorder } from '$lib/recipes/reorder';
-  import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
+  } from '#lib/recipes/draft.svelte.js';
+  import { autosize } from '#lib/recipes/autosize.js';
+  import { move, reorder } from '#lib/recipes/reorder.js';
+  import { undoHistory, type UndoEntry } from '#lib/undo.svelte.js';
 
   let {
     draft,

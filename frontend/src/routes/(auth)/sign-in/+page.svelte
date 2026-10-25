@@ -16,12 +16,12 @@
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { ApiError, signIn } from '$lib/api';
-  import Button from '$lib/components/Button.svelte';
-  import ConnectionNotice from '$lib/components/ConnectionNotice.svelte';
-  import Switch from '$lib/components/Switch.svelte';
-  import TextField from '$lib/components/TextField.svelte';
-  import { rememberedLogin } from '$lib/offline/device';
+  import { ApiError, signIn } from '#lib/api.js';
+  import Button from '#lib/components/Button.svelte';
+  import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
+  import Switch from '#lib/components/Switch.svelte';
+  import TextField from '#lib/components/TextField.svelte';
+  import { rememberedLogin } from '#lib/offline/device.js';
   import {
     cantCheckText,
     heldChanges,
@@ -37,13 +37,13 @@
     wipeFailedText,
     type Held,
     type Unreadable
-  } from '$lib/offline/held';
-  import { endSession } from '$lib/offline/signOut';
-  import { signOutState } from '$lib/offline/unfinished.svelte';
-  import { wipeDevice, wipeIfAnotherLogin } from '$lib/offline/wipe';
-  import { heardWipe, wipeFailed, wipeState } from '$lib/offline/wipePending.svelte';
-  import { connection, safeNext, session } from '$lib/session.svelte';
-  import { theme } from '$lib/theme.svelte';
+  } from '#lib/offline/held.js';
+  import { endSession } from '#lib/offline/signOut.js';
+  import { signOutState } from '#lib/offline/unfinished.svelte.js';
+  import { wipeDevice, wipeIfAnotherLogin } from '#lib/offline/wipe.js';
+  import { heardWipe, wipeFailed, wipeState } from '#lib/offline/wipePending.svelte.js';
+  import { connection, safeNext, session } from '#lib/session.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();

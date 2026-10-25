@@ -13,10 +13,10 @@
 // different login never wipes while the screen is up: that login is turned away to the
 // sign-in page instead (turnAwayLate).
 import { isRedirect, redirect } from '@sveltejs/kit';
-import { cantReach, type Me } from '$lib/api';
-import { holdServerLists, releaseServerLists } from '$lib/offline/confirmed';
-import { lastSignedIn, startDevice, type SignedIn } from '$lib/offline/device';
-import { turnAway } from '$lib/offline/held';
+import { cantReach, type Me } from '#lib/api.js';
+import { holdServerLists, releaseServerLists } from '#lib/offline/confirmed.js';
+import { lastSignedIn, startDevice, type SignedIn } from '#lib/offline/device.js';
+import { turnAway } from '#lib/offline/held.js';
 import {
   answeredLate,
   askServer,
@@ -26,18 +26,18 @@ import {
   takeLateAnswer,
   type Answer,
   type LateAnswer
-} from '$lib/offline/opening';
-import { drafts } from '$lib/drafts.svelte';
-import { endSession } from '$lib/offline/signOut';
-import { wipeIfAnotherLogin } from '$lib/offline/wipe';
-import { wipePending } from '$lib/offline/wipePending.svelte';
-import { placesAndShops } from '$lib/placesAndShops.svelte';
-import { privacy } from '$lib/privacy.svelte';
-import { SETUP, session, signInPath } from '$lib/session.svelte';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { theme } from '$lib/theme.svelte';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+} from '#lib/offline/opening.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { endSession } from '#lib/offline/signOut.js';
+import { wipeIfAnotherLogin } from '#lib/offline/wipe.js';
+import { wipePending } from '#lib/offline/wipePending.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { privacy } from '#lib/privacy.svelte.js';
+import { SETUP, session, signInPath } from '#lib/session.svelte.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
+import { theme } from '#lib/theme.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = async ({ fetch, url, untrack }) => {

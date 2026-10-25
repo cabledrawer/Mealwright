@@ -6,12 +6,12 @@
   // In the trolley: a status line that says where the tick went (PutAwayLine), with "Change"
   // for the place and "Different pack?" there. Notes for the item sit underneath.
   import { tick as afterUpdate, untrack } from 'svelte';
-  import { keepFocus } from '$lib/focusNear';
-  import { radioKeys } from '$lib/radioKeys';
-  import type { Side } from '$lib/swipe';
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
-  import type { Note } from '$lib/shopping/types';
-  import type { ViewItem } from '$lib/shopping/view';
+  import { keepFocus } from '#lib/focusNear.js';
+  import { radioKeys } from '#lib/radioKeys.js';
+  import type { Side } from '#lib/swipe.js';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import type { Note } from '#lib/shopping/types.js';
+  import type { ViewItem } from '#lib/shopping/view.js';
   import Icon from '../Icon.svelte';
   import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';

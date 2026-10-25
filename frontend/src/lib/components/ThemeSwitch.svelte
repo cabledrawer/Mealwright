@@ -4,7 +4,7 @@
   //   pill:    three buttons, in Settings (and the phone's way in)
   //   cycle:   one button that steps through the three, for the collapsed sidebar
   import Icon from './Icon.svelte';
-  import { THEME_CHOICES, THEME_HINTS, THEME_LABELS, nextTheme, theme } from '$lib/theme.svelte';
+  import { THEME_CHOICES, THEME_HINTS, THEME_LABELS, nextTheme, theme } from '#lib/theme.svelte.js';
 
   let { variant = 'sidebar' }: { variant?: 'sidebar' | 'pill' | 'cycle' } = $props();
 

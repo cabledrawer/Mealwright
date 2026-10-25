@@ -6,17 +6,17 @@
   // Hidden until 0.6: the list built from the plan, and the staples check card.
   import { untrack } from 'svelte';
   import { browser } from '$app/env';
-  import AddBox from '$lib/components/shopping/AddBox.svelte';
-  import DoubleTickCard from '$lib/components/shopping/DoubleTickCard.svelte';
-  import ItemRow from '$lib/components/shopping/ItemRow.svelte';
-  import ListPicker from '$lib/components/shopping/ListPicker.svelte';
-  import PutAwayPanel from '$lib/components/shopping/PutAwayPanel.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
-  import { keepFocus } from '$lib/focusNear';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { live } from '$lib/live.svelte';
-  import { ShoppingModel } from '$lib/shopping/store.svelte';
+  import AddBox from '#lib/components/shopping/AddBox.svelte';
+  import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
+  import ItemRow from '#lib/components/shopping/ItemRow.svelte';
+  import ListPicker from '#lib/components/shopping/ListPicker.svelte';
+  import PutAwayPanel from '#lib/components/shopping/PutAwayPanel.svelte';
+  import EmptyState from '#lib/components/EmptyState.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
+  import { keepFocus } from '#lib/focusNear.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { live } from '#lib/live.svelte.js';
+  import { ShoppingModel } from '#lib/shopping/store.svelte.js';
 
   const model = new ShoppingModel();
   const uid = $props.id();

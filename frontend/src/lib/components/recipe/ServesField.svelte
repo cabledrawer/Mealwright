@@ -1,7 +1,7 @@
 <script lang="ts">
   // Serves: a − / + stepper from 1 to 99 that starts at 4 on a new recipe, and can be cleared
   // (for a batter or a powder: cabledrawer 19 Oct, questions 17 and 42).
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
 
   let { serves = $bindable(), error }: { serves: number | null; error?: string } = $props();
 

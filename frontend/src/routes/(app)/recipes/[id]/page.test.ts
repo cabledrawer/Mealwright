@@ -1,18 +1,18 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import Toast from '$lib/components/Toast.svelte';
-import type { Recipe, RecipeLine, RecipeStock } from '$lib/client/recipes';
-import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { fakeShopping, ME, sampleCopy } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import Toast from '#lib/components/Toast.svelte';
+import type { Recipe, RecipeLine, RecipeStock } from '#lib/client/recipes.js';
+import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { fakeShopping, ME, sampleCopy } from '#lib/testing/fakeShopping.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import RecipeScreen from './RecipeScreen.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const NB = ' ';
 

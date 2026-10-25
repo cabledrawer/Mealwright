@@ -15,7 +15,7 @@
 import { self as worker } from '$app/service-worker';
 import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
-import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '$lib/offline/rules';
+import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '#lib/offline/rules.js';
 
 const CACHE = cacheName(version);
 // `immutable` is what the old `build` was (the files Vite builds); `assets` is what the old

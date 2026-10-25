@@ -12,7 +12,7 @@
 // change still there, and sends it (section 11.6, FE-4).
 
 import { deleteDB, openDB, type IDBPDatabase } from 'idb';
-import type { Action } from '$lib/shopping/actions';
+import type { Action } from '#lib/shopping/actions.js';
 import { wipePending } from './wipePending.svelte';
 
 export const DB_NAME = 'mealwright';

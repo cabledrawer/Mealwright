@@ -5,7 +5,7 @@
   // Down move between the pages (Home and End jump); Esc closes it and puts focus back
   // on the icon; clicking elsewhere, or Tab-ing away, closes it too.
   import { resolve } from '$app/paths';
-  import { RECIPES_PAGES, appRoute, isCurrentRecipesPage } from '$lib/nav';
+  import { RECIPES_PAGES, appRoute, isCurrentRecipesPage } from '#lib/nav.js';
   import Icon from './Icon.svelte';
 
   let { pathname, current }: { pathname: string; current: boolean } = $props();

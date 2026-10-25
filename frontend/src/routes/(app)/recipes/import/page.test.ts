@@ -5,13 +5,13 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { PrivacySwitches } from '$lib/client/privacy';
-import { network } from '$lib/network.svelte';
-import { privacy } from '$lib/privacy.svelte';
-import { fakeApi } from '$lib/testing/fakeApi';
+import type { PrivacySwitches } from '#lib/client/privacy.js';
+import { network } from '#lib/network.svelte.js';
+import { privacy } from '#lib/privacy.svelte.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import ImportPage from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
 

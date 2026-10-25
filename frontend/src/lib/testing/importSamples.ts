@@ -2,8 +2,8 @@
 // state (matched, staple, to confirm, needs you, unreadable, a very long name), and the flows
 // the import screens show in each of their states.
 
-import type { ImportReview, ReviewLine } from '$lib/client/imports';
-import { ImportFlow } from '$lib/import.svelte';
+import type { ImportReview, ReviewLine } from '#lib/client/imports.js';
+import { ImportFlow } from '#lib/import.svelte.js';
 
 const base: ReviewLine = {
   kind: 'ingredient',

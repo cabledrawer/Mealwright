@@ -29,7 +29,7 @@
 // or the connection comes back: (app)/+layout.svelte), it is asked again (askAgain), with the
 // lists held back meanwhile, and its answer is acted on exactly as a late answer is above.
 
-import { ApiError, cantReach, getMe, getSetup, type Me, type SetupState } from '$lib/api';
+import { ApiError, cantReach, getMe, getSetup, type Me, type SetupState } from '#lib/api.js';
 import { holdServerLists, releaseServerLists } from './confirmed';
 
 /** How long the start waits for the server before opening from this device. */

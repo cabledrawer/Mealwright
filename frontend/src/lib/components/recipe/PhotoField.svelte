@@ -3,9 +3,9 @@
   // Picking uploads at once; the editor keeps the upload's id for Save. On a phone the
   // browser's own picker offers "Take photo" or the photo library: Mealwright never asks
   // for the camera itself.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import Icon from '../Icon.svelte';
-  import type { DraftPhoto } from '$lib/recipes/draft.svelte';
+  import type { DraftPhoto } from '#lib/recipes/draft.svelte.js';
 
   let {
     photo,

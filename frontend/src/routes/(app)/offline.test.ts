@@ -1,17 +1,17 @@
 import { flushSync, mount, unmount, type Component } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import { addToPantry } from '$lib/addToPantry.svelte';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { toasts } from '$lib/toast.svelte';
-import { ME } from '$lib/testing/fakeShopping';
+import { addToPantry } from '#lib/addToPantry.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import Ingredients from './recipes/ingredients/+page.svelte';
 import Pantry from './pantry/+page.svelte';
 import Recipes from './recipes/+page.svelte';
 import Settings from './settings/+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 // Pantry, Ingredients and Settings need the server in 0.3 (spec section 6, "Opening the app
 // offline", cabledrawer 18 Oct): offline they say so and point to Shopping.

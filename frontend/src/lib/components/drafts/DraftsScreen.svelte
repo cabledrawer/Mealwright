@@ -11,7 +11,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
-  import type { DraftBrief } from '$lib/client/drafts';
+  import type { DraftBrief } from '#lib/client/drafts.js';
   import {
     RUNNING_OUT,
     allChecked,
@@ -21,13 +21,13 @@
     progressShare,
     progressWords,
     shortProgress
-  } from '$lib/draftWords';
-  import { drafts } from '$lib/drafts.svelte';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { saveFromDraft } from '$lib/import.draftSave';
-  import { initial } from '$lib/session.svelte';
-  import { network } from '$lib/network.svelte';
-  import type { Side } from '$lib/swipe';
+  } from '#lib/draftWords.js';
+  import { drafts } from '#lib/drafts.svelte.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { saveFromDraft } from '#lib/import.draftSave.js';
+  import { initial } from '#lib/session.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import type { Side } from '#lib/swipe.js';
   import EmptyState from '../EmptyState.svelte';
   import OfflineNote from '../OfflineNote.svelte';
   import PageHeader from '../PageHeader.svelte';

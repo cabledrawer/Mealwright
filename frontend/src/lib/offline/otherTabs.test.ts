@@ -3,7 +3,7 @@
 
 import { deleteDB } from 'idb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
 import { deviceId, loadDeviceId, startDevice } from './device';
 import { getMeta, openPhone, phoneDatabaseName, setMeta } from './phone';
 import { onWipedElsewhere, tellOtherTabs, WIPED } from './otherTabs';

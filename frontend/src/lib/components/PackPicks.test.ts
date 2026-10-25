@@ -1,9 +1,9 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import '$lib/styles/tokens.css';
-import type { Lot } from '$lib/client/types';
-import type { PantryModel } from '$lib/pantry.svelte';
+import '#lib/styles/tokens.css';
+import type { Lot } from '#lib/client/types.js';
+import type { PantryModel } from '#lib/pantry.svelte.js';
 import PackPicks from './PackPicks.svelte';
 
 let component: ReturnType<typeof mount> | null = null;

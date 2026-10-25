@@ -26,7 +26,7 @@
   // too (Pantry: the pack menu and the Use soon pills; Shopping: the amount box). Under
   // "reduce motion" nothing slides on its own: the row only moves under the finger.
   import { untrack, type Snippet } from 'svelte';
-  import { restOffset, swipeToReveal, type Side } from '$lib/swipe';
+  import { restOffset, swipeToReveal, type Side } from '#lib/swipe.js';
   import Icon from './Icon.svelte';
 
   const WIDTH = 104;

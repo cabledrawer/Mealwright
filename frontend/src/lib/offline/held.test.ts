@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { breakPhone, dropPhone, freshPhone } from '$lib/testing/phone';
+import { breakPhone, dropPhone, freshPhone } from '#lib/testing/phone.js';
 import { storedLoginId } from './device';
 import {
   cantCheckText,

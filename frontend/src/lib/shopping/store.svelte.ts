@@ -4,17 +4,17 @@
 // while it can't be sent, and goes only if the server refuses it (UX principle 8). Undo is
 // in the toast (principle 6).
 
-import { ApiError, cantReach } from '$lib/api';
-import { kitchen } from '$lib/freshness.svelte';
-import { network } from '$lib/network.svelte';
-import { newChangeId } from '$lib/changeId';
-import { getFood, listFoods } from '$lib/client/foods';
-import type { FoodRow } from '$lib/client/types';
-import type { Chosen } from '$lib/newIngredient.svelte';
-import { COULDNT_SAVE, type Outcome } from '$lib/save';
-import { session } from '$lib/session.svelte';
-import { toasts } from '$lib/toast.svelte';
-import { COULDNT_UNDO, undoHistory, undoneWords, type UndoEntry } from '$lib/undo.svelte';
+import { ApiError, cantReach } from '#lib/api.js';
+import { kitchen } from '#lib/freshness.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { newChangeId } from '#lib/changeId.js';
+import { getFood, listFoods } from '#lib/client/foods.js';
+import type { FoodRow } from '#lib/client/types.js';
+import type { Chosen } from '#lib/newIngredient.svelte.js';
+import { COULDNT_SAVE, type Outcome } from '#lib/save.js';
+import { session } from '#lib/session.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { COULDNT_UNDO, undoHistory, undoneWords, type UndoEntry } from '#lib/undo.svelte.js';
 import { makeAction, type ActionFields, type ActionResult } from './actions';
 import { applyLocal } from './applyLocal';
 import { EMPTY_COPY } from './load';

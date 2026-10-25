@@ -3,7 +3,7 @@
   // three steps beside it, mockups Import05-Phone and Import05-Desktop) and the review itself.
   // Used by Import a recipe, and by a draft being carried on.
   import type { ComponentProps } from 'svelte';
-  import type { ImportFlow } from '$lib/import.svelte';
+  import type { ImportFlow } from '#lib/import.svelte.js';
   import PageHeader from '../PageHeader.svelte';
   import ImportSteps from './ImportSteps.svelte';
   import ReviewScreen from './ReviewScreen.svelte';

@@ -7,8 +7,8 @@
   // (the one All recipes shows) fills the box instead (0.5.1: cabledrawer saw a photo in All recipes
   // but none here). It tries again when the connection comes back (network.backAgain). Only ever
   // our own server's address.
-  import type { PhotoOut } from '$lib/client/recipes';
-  import { network } from '$lib/network.svelte';
+  import type { PhotoOut } from '#lib/client/recipes.js';
+  import { network } from '#lib/network.svelte.js';
 
   let {
     photo,

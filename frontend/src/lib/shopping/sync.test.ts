@@ -1,15 +1,15 @@
 // The sender (sync-protocol 11.3) against a pretend server, one test per case.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { network } from '$lib/network.svelte';
-import { deviceId, loadDeviceId } from '$lib/offline/device';
-import { phoneDatabaseName } from '$lib/offline/phone';
-import { addToQueue, readQueue } from '$lib/offline/store';
-import { wipeDevice } from '$lib/offline/wipe';
-import { session } from '$lib/session.svelte';
-import { ME, fakeShopping, sampleCopy } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
-import { toasts } from '$lib/toast.svelte';
+import { network } from '#lib/network.svelte.js';
+import { deviceId, loadDeviceId } from '#lib/offline/device.js';
+import { phoneDatabaseName } from '#lib/offline/phone.js';
+import { addToQueue, readQueue } from '#lib/offline/store.js';
+import { wipeDevice } from '#lib/offline/wipe.js';
+import { session } from '#lib/session.svelte.js';
+import { ME, fakeShopping, sampleCopy } from '#lib/testing/fakeShopping.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
+import { toasts } from '#lib/toast.svelte.js';
 import { makeAction, type Action } from './actions';
 import { COULDNT_SEND, retryDelay, sendAction, shoppingSync, TIMING } from './sync.svelte';
 

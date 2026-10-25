@@ -4,7 +4,7 @@
   // computer. The server answered before fetching anything, so nothing was visited.
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
-  import type { Already } from '$lib/import.svelte';
+  import type { Already } from '#lib/import.svelte.js';
 
   let {
     already,

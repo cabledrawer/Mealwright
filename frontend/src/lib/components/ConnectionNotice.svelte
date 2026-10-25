@@ -5,7 +5,7 @@
   //   - if the admin hasn't allowed it, say so before anyone types a password
   //     (the page hides its form);
   //   - if the admin has allowed it for testing, show a clear warning.
-  import type { Connection } from '$lib/session.svelte';
+  import type { Connection } from '#lib/session.svelte.js';
 
   let { kind }: { kind: Connection } = $props();
 </script>

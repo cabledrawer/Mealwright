@@ -4,14 +4,14 @@
 // before any other request).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, getMe } from '$lib/api';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { makeAction } from '$lib/shopping/actions';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
-import { ME } from '$lib/testing/fakeShopping';
-import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
+import { api, getMe } from '#lib/api.js';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { makeAction } from '#lib/shopping/actions.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
+import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { ME } from '#lib/testing/fakeShopping.js';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '#lib/testing/phone.js';
 import { UNREADABLE } from './held';
 import { addToQueue, dropFromQueue, readQueue } from './store';
 import { phoneDatabaseName, setMeta } from './phone';

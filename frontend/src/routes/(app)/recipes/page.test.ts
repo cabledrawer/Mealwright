@@ -1,13 +1,13 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { RecipePage, RecipeRow } from '$lib/client/recipes';
-import { drafts } from '$lib/drafts.svelte';
-import { network } from '$lib/network.svelte';
-import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
+import type { RecipePage, RecipeRow } from '#lib/client/recipes.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import Recipes from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const row = (id: number, name: string, extra: Partial<RecipeRow> = {}): RecipeRow => ({
   id,

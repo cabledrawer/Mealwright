@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyChanges, EMPTY_COPY } from './load';
 import type { ChangesAnswer } from './types';
-import { item, sampleCopy } from '$lib/testing/fakeShopping';
+import { item, sampleCopy } from '#lib/testing/fakeShopping.js';
 
 const answer = (extra: Partial<ChangesAnswer>): ChangesAnswer => {
   const copy = sampleCopy();

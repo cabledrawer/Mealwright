@@ -16,13 +16,13 @@
   // the one offline note for the whole area is not shown while editing.
   import type { Snippet } from 'svelte';
   import { page } from '$app/state';
-  import ChooseRecipe from '$lib/components/ChooseRecipe.svelte';
-  import OfflineNote from '$lib/components/OfflineNote.svelte';
-  import RecipeListScreen from '$lib/components/RecipeListScreen.svelte';
-  import { RECIPES_PAGES, isCurrentRecipesPage } from '$lib/nav';
-  import { network } from '$lib/network.svelte';
-  import { recipePanes } from '$lib/recipePanes.svelte';
-  import { RecipeList, filterFromSearch } from '$lib/recipes.svelte';
+  import ChooseRecipe from '#lib/components/ChooseRecipe.svelte';
+  import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import RecipeListScreen from '#lib/components/RecipeListScreen.svelte';
+  import { RECIPES_PAGES, isCurrentRecipesPage } from '#lib/nav.js';
+  import { network } from '#lib/network.svelte.js';
+  import { recipePanes } from '#lib/recipePanes.svelte.js';
+  import { RecipeList, filterFromSearch } from '#lib/recipes.svelte.js';
 
   let { children }: { children: Snippet } = $props();
 

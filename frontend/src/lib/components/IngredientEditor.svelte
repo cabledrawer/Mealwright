@@ -8,13 +8,13 @@
   // page, and "Remove from Ingredients" says so before it is pressed (spec "Removing an
   // ingredient", cabledrawer 19 Oct: the recipes don't block it; their lines keep their words
   // and show "not linked").
-  import { MAX_AMOUNT_TEXT, MAX_TYPED_AMOUNT, parseAmount } from '$lib/amountText';
-  import type { CountedAs, Food, Ref } from '$lib/client/types';
-  import { canRemove } from '$lib/canRemove';
-  import { FoodModel } from '$lib/foodEditor.svelte';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { placesAndShops } from '$lib/placesAndShops.svelte';
-  import { toasts } from '$lib/toast.svelte';
+  import { MAX_AMOUNT_TEXT, MAX_TYPED_AMOUNT, parseAmount } from '#lib/amountText.js';
+  import type { CountedAs, Food, Ref } from '#lib/client/types.js';
+  import { canRemove } from '#lib/canRemove.js';
+  import { FoodModel } from '#lib/foodEditor.svelte.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import FoodPicker from './FoodPicker.svelte';
   import Icon from './Icon.svelte';
   import RemoveIngredient from './RemoveIngredient.svelte';

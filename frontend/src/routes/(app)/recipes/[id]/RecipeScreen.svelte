@@ -13,25 +13,25 @@
   // typed, as a link if it is a web address.
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import KeepAwake from '$lib/components/KeepAwake.svelte';
-  import MissingBar from '$lib/components/MissingBar.svelte';
-  import NutritionStrip from '$lib/components/NutritionStrip.svelte';
-  import OfflineNote from '$lib/components/OfflineNote.svelte';
-  import RecipePhoto from '$lib/components/RecipePhoto.svelte';
-  import RecipeIngredient from '$lib/components/RecipeIngredient.svelte';
-  import ServingsStepper from '$lib/components/ServingsStepper.svelte';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-  import { live } from '$lib/live.svelte';
-  import { network } from '$lib/network.svelte';
-  import { PantryList } from '$lib/pantryList.svelte';
-  import { recipePanes } from '$lib/recipePanes.svelte';
-  import { lineAmount, makesAmount } from '$lib/recipeAmounts';
-  import { RecipeView, stepGroups } from '$lib/recipePage.svelte';
-  import { markFor, toAdd } from '$lib/recipeStock';
-  import { ScreenAwake } from '$lib/screenAwake.svelte';
+  import EmptyState from '#lib/components/EmptyState.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import KeepAwake from '#lib/components/KeepAwake.svelte';
+  import MissingBar from '#lib/components/MissingBar.svelte';
+  import NutritionStrip from '#lib/components/NutritionStrip.svelte';
+  import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import RecipePhoto from '#lib/components/RecipePhoto.svelte';
+  import RecipeIngredient from '#lib/components/RecipeIngredient.svelte';
+  import ServingsStepper from '#lib/components/ServingsStepper.svelte';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+  import { live } from '#lib/live.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { PantryList } from '#lib/pantryList.svelte.js';
+  import { recipePanes } from '#lib/recipePanes.svelte.js';
+  import { lineAmount, makesAmount } from '#lib/recipeAmounts.js';
+  import { RecipeView, stepGroups } from '#lib/recipePage.svelte.js';
+  import { markFor, toAdd } from '#lib/recipeStock.js';
+  import { ScreenAwake } from '#lib/screenAwake.svelte.js';
 
   /** A source note that is just a web address shows as a link (the person opens it). */
   const webAddress = (note: string) => /^https?:\/\/\S+$/i.test(note);

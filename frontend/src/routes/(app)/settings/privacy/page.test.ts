@@ -4,15 +4,15 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import type { OwnNetworkEntry, OwnNetworkList, PrivacySwitches } from '$lib/client/privacy';
-import { network } from '$lib/network.svelte';
-import { privacy } from '$lib/privacy.svelte';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
-import { fakeApi, type FakeRequest } from '$lib/testing/fakeApi';
+import type { OwnNetworkEntry, OwnNetworkList, PrivacySwitches } from '#lib/client/privacy.js';
+import { network } from '#lib/network.svelte.js';
+import { privacy } from '#lib/privacy.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
+import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import Privacy from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const entry = (
   id: number,

@@ -5,9 +5,9 @@
   // made for this square at 3×). A photo that can't be fetched (offline, deleted) leaves the
   // plain square, and tries again when the connection comes back. The whole row opens the recipe.
   import { resolve } from '$app/paths';
-  import type { RecipeRow } from '$lib/client/recipes';
-  import { network } from '$lib/network.svelte';
-  import { recipeParts } from '$lib/recipeLine';
+  import type { RecipeRow } from '#lib/client/recipes.js';
+  import { network } from '#lib/network.svelte.js';
+  import { recipeParts } from '#lib/recipeLine.js';
 
   let {
     recipe,

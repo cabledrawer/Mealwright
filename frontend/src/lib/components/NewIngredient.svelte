@@ -3,10 +3,10 @@
   // Don't count it, with the bundled table's guess first. Packet sizes can be added right
   // here, so they don't have to be added afterwards in the editor. A modal dialog:
   // Escape = Cancel.
-  import { api, ApiError } from '$lib/api';
-  import type { CountedAs } from '$lib/client/types';
-  import { newIngredient, type HowCounted, type NewSize } from '$lib/newIngredient.svelte';
-  import { radioKeys } from '$lib/radioKeys';
+  import { api, ApiError } from '#lib/api.js';
+  import type { CountedAs } from '#lib/client/types.js';
+  import { newIngredient, type HowCounted, type NewSize } from '#lib/newIngredient.svelte.js';
+  import { radioKeys } from '#lib/radioKeys.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;

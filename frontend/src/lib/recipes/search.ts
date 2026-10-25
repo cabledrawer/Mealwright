@@ -3,7 +3,7 @@
 // so "dal" would find Sambar; the picker only offers recipes whose name has what was typed, so
 // the server's answer is filtered by name here.
 
-import { listRecipes, type RecipeBrief } from '$lib/client/recipes';
+import { listRecipes, type RecipeBrief } from '#lib/client/recipes.js';
 
 /** Lower case, no accents, so "Rasam" finds "rasam" and "Pâté" finds "pate". */
 export function fold(text: string): string {

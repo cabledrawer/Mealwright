@@ -1,10 +1,10 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { FoodRow } from '$lib/client/types';
+import type { FoodRow } from '#lib/client/types.js';
 import IngredientPicker from './IngredientPicker.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 let component: ReturnType<typeof mount> | null = null;
 afterEach(() => {

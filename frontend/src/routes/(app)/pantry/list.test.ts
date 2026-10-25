@@ -1,18 +1,18 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import Toast from '$lib/components/Toast.svelte';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
-import { fakeShopping, ME, sampleCopy } from '$lib/testing/fakeShopping';
-import { samplePantry } from '$lib/testing/fakePantry';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import Toast from '#lib/components/Toast.svelte';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
+import { fakeShopping, ME, sampleCopy } from '#lib/testing/fakeShopping.js';
+import { samplePantry } from '#lib/testing/fakePantry.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import Pantry from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 // Tap a staple, and "+ List" on a running-low row, add to the main shopping list through
 // Shopping's own add action and waiting list (spec, cabledrawer 18 Oct, 0.3).

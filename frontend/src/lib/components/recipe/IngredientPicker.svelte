@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { Ref } from '$lib/client/types';
+  import type { Ref } from '#lib/client/types.js';
 
   export type Pick =
     { kind: 'ingredient'; food: Ref; otherNames?: string[] } | { kind: 'recipe'; recipe: Ref };
@@ -11,10 +11,10 @@
   // and a name nobody has used offers "+ New ingredient", which opens the same "How do you
   // count it?" as Shopping. A recipe that would make a loop is greyed out with the reason.
   // Where the results go (a sheet on a phone, under the line on a computer) is the caller's.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import Icon from '../Icon.svelte';
-  import type { Blocked, RecipeBrief } from '$lib/client/recipes';
-  import type { FoodRow } from '$lib/client/types';
+  import type { Blocked, RecipeBrief } from '#lib/client/recipes.js';
+  import type { FoodRow } from '#lib/client/types.js';
 
   let {
     query,

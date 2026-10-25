@@ -1,11 +1,11 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
-import type { PhotoOut, RecipeRow } from '$lib/client/recipes';
-import { network } from '$lib/network.svelte';
+import type { PhotoOut, RecipeRow } from '#lib/client/recipes.js';
+import { network } from '#lib/network.svelte.js';
 import RecipeListRow from './RecipeListRow.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 /** A 2 × 2 pixel PNG, so a photo really loads in the test. */
 const DISH =

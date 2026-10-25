@@ -6,7 +6,7 @@
   //
   // While a modal dialog is open (the ingredient sheet), everything outside it can't be
   // clicked, so the toast moves into that dialog and back out when it closes.
-  import { toasts } from '$lib/toast.svelte';
+  import { toasts } from '#lib/toast.svelte.js';
 
   let home: HTMLElement;
   let region: HTMLElement;

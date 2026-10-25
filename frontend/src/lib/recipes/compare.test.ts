@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LineOut, RecipeOut } from '$lib/client/recipes';
+import type { LineOut, RecipeOut } from '#lib/client/recipes.js';
 import { compareLines, compareSteps, otherChanges, quantityOf } from './compare';
 
 const line = (

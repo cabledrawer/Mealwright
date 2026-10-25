@@ -24,11 +24,11 @@
   import OfflineNote from './OfflineNote.svelte';
   import PageHeader from './PageHeader.svelte';
   import RecipeListRow from './RecipeListRow.svelte';
-  import { drafts } from '$lib/drafts.svelte';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { live } from '$lib/live.svelte';
-  import { network } from '$lib/network.svelte';
-  import { RecipeList, searchOf, type RecipeFilter } from '$lib/recipes.svelte';
+  import { drafts } from '#lib/drafts.svelte.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { live } from '#lib/live.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { RecipeList, searchOf, type RecipeFilter } from '#lib/recipes.svelte.js';
 
   let {
     pane = false,

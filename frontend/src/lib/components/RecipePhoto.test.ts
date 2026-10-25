@@ -1,11 +1,11 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
-import type { PhotoOut } from '$lib/client/recipes';
-import { network } from '$lib/network.svelte';
+import type { PhotoOut } from '#lib/client/recipes.js';
+import { network } from '#lib/network.svelte.js';
 import RecipePhoto from './RecipePhoto.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const DISH =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGN4VqcERAwQCgAtxgYZHCtf2QAAAABJRU5ErkJggg==';

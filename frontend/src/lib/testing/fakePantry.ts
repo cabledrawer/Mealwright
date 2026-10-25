@@ -1,6 +1,6 @@
 // For tests only: a small pantry, as GET /pantry would answer (contract 6.4).
 
-import type { Group, Lot, Pantry, UseSoonLot } from '$lib/client/types';
+import type { Group, Lot, Pantry, UseSoonLot } from '#lib/client/types.js';
 
 let next = 500;
 

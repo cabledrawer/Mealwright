@@ -4,7 +4,7 @@
   // you leave it. Buttons are 44 px, a little larger than the mockup's 36 px (touch targets).
   // A recipe with Makes and no Serves gets the same − / + in whole multiples, from 1× to 99×:
   // "− Makes 400 g +" (spec, recipe page; words.md section 13).
-  import { MAX_SERVES, MIN_SERVES } from '$lib/recipeAmounts';
+  import { MAX_SERVES, MIN_SERVES } from '#lib/recipeAmounts.js';
 
   let {
     value,

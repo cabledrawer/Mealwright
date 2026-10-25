@@ -6,11 +6,11 @@
   // queued. Under "How it works", a note says photos aren't downloaded while that switch is
   // off (`photosOff`: true only when the server has said so, never on a guess).
   import { tick } from 'svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import { network } from '$lib/network.svelte';
-  import { OFFLINE_NOTE, type ImportFlow } from '$lib/import.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import { network } from '#lib/network.svelte.js';
+  import { OFFLINE_NOTE, type ImportFlow } from '#lib/import.svelte.js';
 
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
 
   const uid = $props.id();

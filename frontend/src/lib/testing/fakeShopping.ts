@@ -2,7 +2,7 @@
 // (sync-protocol 5.5), which keeps the actions it is sent.
 
 import { fakeApi, PLACES, type FakeRequest } from './fakeApi';
-import type { ListItem, ShopFood, ShoppingCopy, Tick } from '$lib/shopping/types';
+import type { ListItem, ShopFood, ShoppingCopy, Tick } from '#lib/shopping/types.js';
 
 export const ME = {
   id: 1,

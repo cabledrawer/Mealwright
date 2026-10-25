@@ -2,9 +2,9 @@
 // write is one of these, and goes through ONE function, sendAction(action) in sync.svelte.ts:
 // into the offline queue first, then to POST /shopping/actions in batches (section 11.3).
 
-import { newChangeId } from '$lib/changeId';
-import { deviceId } from '$lib/offline/device';
-import type { Change } from '$lib/client/types';
+import { newChangeId } from '#lib/changeId.js';
+import { deviceId } from '#lib/offline/device.js';
+import type { Change } from '#lib/client/types.js';
 import type { ChangesAnswer } from './types';
 
 export interface ActionBase {

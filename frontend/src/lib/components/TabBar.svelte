@@ -2,7 +2,7 @@
   // Bottom tabs on phones: the five pages, always in reach of a thumb.
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { PAGES, appRoute, isCurrent } from '$lib/nav';
+  import { PAGES, appRoute, isCurrent } from '#lib/nav.js';
   import Icon from './Icon.svelte';
 </script>
 

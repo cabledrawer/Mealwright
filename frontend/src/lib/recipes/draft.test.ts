@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '$lib/api';
-import type { LineOut, RecipeOut } from '$lib/client/recipes';
-import { toasts } from '$lib/toast.svelte';
+import { ApiError } from '#lib/api.js';
+import type { LineOut, RecipeOut } from '#lib/client/recipes.js';
+import { toasts } from '#lib/toast.svelte.js';
 import { blankLine, blankStep, RecipeDraft, releaseWhenToastGoes } from './draft.svelte';
 
 const photo = {

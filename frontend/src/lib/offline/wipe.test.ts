@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '$lib/testing/phone';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
+import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '#lib/testing/phone.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import {
   deviceId,
   lastSignedIn,

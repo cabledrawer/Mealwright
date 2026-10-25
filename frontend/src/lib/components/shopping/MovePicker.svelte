@@ -5,7 +5,7 @@
   // the row on a computer. A real modal dialog: focus stays inside, Esc closes it, and focus
   // goes back to where it was opened from.
   import { tick } from 'svelte';
-  import { radioKeys } from '$lib/radioKeys';
+  import { radioKeys } from '#lib/radioKeys.js';
 
   let {
     open,

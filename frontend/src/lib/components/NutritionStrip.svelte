@@ -2,7 +2,7 @@
   // Nutrition per serving as five small figures (mockup Recipe). A figure nobody has typed is
   // "unknown", never 0 (cabledrawer 19 Oct); a recipe with none at all says so in one line.
   // It is per serving, so it does not change when the servings are scaled.
-  import { gramsText, kcalText } from '$lib/recipeAmounts';
+  import { gramsText, kcalText } from '#lib/recipeAmounts.js';
 
   let {
     nutrition

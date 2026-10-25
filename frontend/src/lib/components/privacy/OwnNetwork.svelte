@@ -3,7 +3,7 @@
   // visit (spec section 6, "Recipe import, decided for 0.5"). Each is a name, one address
   // or a range. Only an admin changes the list; a member sees it. Taking one off is
   // at once, with Undo; adding one answers in the server's own sentence if it won't do.
-  import type { OwnNetworkEntry } from '$lib/client/privacy';
+  import type { OwnNetworkEntry } from '#lib/client/privacy.js';
   import {
     entryWords,
     MEMBER_NOTE,
@@ -14,7 +14,7 @@
     OFFLINE_NOTE,
     OWN_NETWORK_ANCHOR,
     type Locked
-  } from '$lib/privacyWords';
+  } from '#lib/privacyWords.js';
   import Icon from '../Icon.svelte';
 
   let {

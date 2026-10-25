@@ -2,7 +2,7 @@
 // API"): the review, and Save. Online only: nothing here is queued. The server does the
 // reading; the screen only shows it and sends the choices back.
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type { Change, CountedAs, Ref } from './types';
 import type { Nutrition, PhotoOut, SizeRef } from './recipes';
 

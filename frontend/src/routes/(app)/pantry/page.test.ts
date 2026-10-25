@@ -1,15 +1,15 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { addToPantry } from '$lib/addToPantry.svelte';
-import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '$lib/testing/fakeApi';
-import { samplePantry } from '$lib/testing/fakePantry';
-import { toasts } from '$lib/toast.svelte';
-import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
-import NewIngredient from '$lib/components/NewIngredient.svelte';
+import { addToPantry } from '#lib/addToPantry.svelte.js';
+import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { samplePantry } from '#lib/testing/fakePantry.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
+import NewIngredient from '#lib/components/NewIngredient.svelte';
 import Pantry from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const UUID = /^[0-9a-f-]{36}$/;
 const written = (summary: string) =>

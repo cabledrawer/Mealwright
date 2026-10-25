@@ -2,21 +2,21 @@
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import OfflineNote from '$lib/components/OfflineNote.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
-  import ThemeSwitch from '$lib/components/ThemeSwitch.svelte';
-  import { network } from '$lib/network.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
+  import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
+  import { network } from '#lib/network.svelte.js';
   import {
     cantCheckText,
     loseOnSignOutText,
     STILL_CANT_REACH,
     UNREADABLE,
     type Unreadable
-  } from '$lib/offline/held';
-  import { signOutHere, trySending, type Waiting } from '$lib/offline/signOut';
-  import { session } from '$lib/session.svelte';
+  } from '#lib/offline/held.js';
+  import { signOutHere, trySending, type Waiting } from '#lib/offline/signOut.js';
+  import { session } from '#lib/session.svelte.js';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);

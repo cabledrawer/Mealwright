@@ -1,6 +1,6 @@
 // Stock: the Pantry screen and every change to what's in it (contract 6.4).
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type { AmountIn, Answer, Pantry, PantryFilter, StockWrite, UseSoonLot } from './types';
 
 const key = (idempotencyKey: string) => ({ idempotencyKey });

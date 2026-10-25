@@ -7,8 +7,8 @@
   // ingredient editor. Hidden offline, like the recipe page's Edit (the editor needs the
   // server), and for an ingredient still being made (no server ID yet).
   import { untrack } from 'svelte';
-  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-  import { network } from '$lib/network.svelte';
+  import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+  import { network } from '#lib/network.svelte.js';
   import {
     readDraft,
     startDraft,
@@ -16,10 +16,10 @@
     switchUnit,
     unitChoices,
     type Draft
-  } from '$lib/shopping/amountBox';
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
-  import type { FoodSize } from '$lib/shopping/types';
-  import type { ViewItem } from '$lib/shopping/view';
+  } from '#lib/shopping/amountBox.js';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import type { FoodSize } from '#lib/shopping/types.js';
+  import type { ViewItem } from '#lib/shopping/view.js';
   import Icon from '../Icon.svelte';
 
   let {

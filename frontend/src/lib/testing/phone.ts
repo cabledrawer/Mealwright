@@ -2,10 +2,10 @@
 // shares one origin (so one IndexedDB), so each test gets a database of its own name.
 
 import { vi } from 'vitest';
-import { forgetDeviceId } from '$lib/offline/device';
-import { closePhone, deletePhone, usePhoneDatabase } from '$lib/offline/phone';
-import { WIPE_PENDING_KEY, wipeState } from '$lib/offline/wipePending.svelte';
-import { shoppingSync, TIMING } from '$lib/shopping/sync.svelte';
+import { forgetDeviceId } from '#lib/offline/device.js';
+import { closePhone, deletePhone, usePhoneDatabase } from '#lib/offline/phone.js';
+import { WIPE_PENDING_KEY, wipeState } from '#lib/offline/wipePending.svelte.js';
+import { shoppingSync, TIMING } from '#lib/shopping/sync.svelte.js';
 
 export function freshPhone(): void {
   shoppingSync.forget();

@@ -3,7 +3,7 @@
   // Oct, editor brief). Nothing changes until Save; Cancel with changes closes at once with
   // "Changes not saved" and Undo. Recipes are online only in 0.4: offline, the editor keeps
   // what was typed and Save waits.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import { onMount, tick } from 'svelte';
   import { beforeNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -15,10 +15,10 @@
   import ServesField from './ServesField.svelte';
   import StepList from './StepList.svelte';
   import TagsField from './TagsField.svelte';
-  import { ApiError, worthRetrying } from '$lib/api';
-  import { newChangeId } from '$lib/changeId';
-  import { serverUndo } from '$lib/client/changes';
-  import { listFoods } from '$lib/client/foods';
+  import { ApiError, worthRetrying } from '#lib/api.js';
+  import { newChangeId } from '#lib/changeId.js';
+  import { serverUndo } from '#lib/client/changes.js';
+  import { listFoods } from '#lib/client/foods.js';
   import {
     cannotUse,
     createRecipe,
@@ -29,22 +29,22 @@
     type Blocked,
     type RecipeIn,
     type RecipeOut
-  } from '$lib/client/recipes';
-  import { kitchen } from '$lib/freshness.svelte';
-  import { network } from '$lib/network.svelte';
-  import { autosize } from '$lib/recipes/autosize';
+  } from '#lib/client/recipes.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { autosize } from '#lib/recipes/autosize.js';
   import {
     COUNT,
     NUTRIENTS,
     RecipeDraft,
     releaseWhenToastGoes,
     type Errors
-  } from '$lib/recipes/draft.svelte';
-  import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '$lib/recipes/paths';
-  import { fold, recipeSearch } from '$lib/recipes/search';
-  import { takeKept, editorKey, keep, reopen } from '$lib/recipes/stash';
-  import { toasts } from '$lib/toast.svelte';
-  import { undoHistory } from '$lib/undo.svelte';
+  } from '#lib/recipes/draft.svelte.js';
+  import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '#lib/recipes/paths.js';
+  import { fold, recipeSearch } from '#lib/recipes/search.js';
+  import { takeKept, editorKey, keep, reopen } from '#lib/recipes/stash.js';
+  import { toasts } from '#lib/toast.svelte.js';
+  import { undoHistory } from '#lib/undo.svelte.js';
 
   let { recipeId = null }: { recipeId?: number | null } = $props();
 

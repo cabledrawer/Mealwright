@@ -2,7 +2,7 @@
   // "Outside connections": one switch for each kind of connection Mealwright may make
   // (spec section 7). All start off. Only an admin changes them; a member sees them
   // and a note saying why. Offline they show as last loaded and can't be changed.
-  import type { SwitchName } from '$lib/client/privacy';
+  import type { SwitchName } from '#lib/client/privacy.js';
   import {
     LEARN_IMPORT_LIMITS,
     MEMBER_NOTE,
@@ -11,7 +11,7 @@
     SWITCH_ORDER,
     SWITCH_WORDS,
     type Locked
-  } from '$lib/privacyWords';
+  } from '#lib/privacyWords.js';
   import Switch from '../Switch.svelte';
 
   let {

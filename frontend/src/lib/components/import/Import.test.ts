@@ -1,18 +1,18 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { DraftOut } from '$lib/client/drafts';
-import type { ImportReview } from '$lib/client/imports';
-import { ImportFlow } from '$lib/import.svelte';
-import { drafts } from '$lib/drafts.svelte';
-import { network } from '$lib/network.svelte';
-import { placesAndShops } from '$lib/placesAndShops.svelte';
-import { fakeApi, PLACES, SHOPS } from '$lib/testing/fakeApi';
+import type { DraftOut } from '#lib/client/drafts.js';
+import type { ImportReview } from '#lib/client/imports.js';
+import { ImportFlow } from '#lib/import.svelte.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
 import AlreadySheet from './AlreadySheet.svelte';
 import ImportStart from './ImportStart.svelte';
 import ReviewScreen from './ReviewScreen.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 // The page's own guard against leaving (beforeNavigate) is kept here so a test can leave.
 const nav = vi.hoisted(() => ({

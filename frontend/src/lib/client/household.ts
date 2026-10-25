@@ -1,6 +1,6 @@
 // The household's settings (contract 6.3).
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type { Household } from './types';
 
 export const getHousehold = () => api<Household>('GET', '/household');

@@ -7,13 +7,13 @@
   // Everyone in the household sees it; only an admin changes it. Offline it shows what was
   // last loaded, and can't be changed.
   import { onMount, tick } from 'svelte';
-  import OfflineNote from '$lib/components/OfflineNote.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
-  import OutsideConnections from '$lib/components/privacy/OutsideConnections.svelte';
-  import OwnNetwork from '$lib/components/privacy/OwnNetwork.svelte';
-  import { network } from '$lib/network.svelte';
-  import { privacy } from '$lib/privacy.svelte';
-  import { LEAD, type Locked } from '$lib/privacyWords';
+  import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
+  import OutsideConnections from '#lib/components/privacy/OutsideConnections.svelte';
+  import OwnNetwork from '#lib/components/privacy/OwnNetwork.svelte';
+  import { network } from '#lib/network.svelte.js';
+  import { privacy } from '#lib/privacy.svelte.js';
+  import { LEAD, type Locked } from '#lib/privacyWords.js';
 
   let text = $state('');
 

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyChanges } from '$lib/shopping/load';
-import type { ChangesAnswer } from '$lib/shopping/types';
-import { sampleCopy } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { applyChanges } from '#lib/shopping/load.js';
+import type { ChangesAnswer } from '#lib/shopping/types.js';
+import { sampleCopy } from '#lib/testing/fakeShopping.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
 import { addToQueue, clearCopy, loadCopy, readQueue, saveCopy } from './store';
 
 const answer = (extra: Partial<ChangesAnswer> = {}): ChangesAnswer => ({

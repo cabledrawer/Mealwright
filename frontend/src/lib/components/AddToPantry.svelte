@@ -4,14 +4,14 @@
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
   // which opens the device's own date picker and then shows the date it chose).
   // A sheet from the bottom on phones, a dialog on desktop.
-  import { radioKeys } from '$lib/radioKeys';
-  import { addToPantry } from '$lib/addToPantry.svelte';
-  import { getFood } from '$lib/client/foods';
-  import type { Food, Place, Ref } from '$lib/client/types';
-  import { addDays, pickedDateWords } from '$lib/dates';
-  import type { PantryModel } from '$lib/pantry.svelte';
-  import { amountExample } from '$lib/amountExample';
-  import { newIngredient } from '$lib/newIngredient.svelte';
+  import { radioKeys } from '#lib/radioKeys.js';
+  import { addToPantry } from '#lib/addToPantry.svelte.js';
+  import { getFood } from '#lib/client/foods.js';
+  import type { Food, Place, Ref } from '#lib/client/types.js';
+  import { addDays, pickedDateWords } from '#lib/dates.js';
+  import type { PantryModel } from '#lib/pantry.svelte.js';
+  import { amountExample } from '#lib/amountExample.js';
+  import { newIngredient } from '#lib/newIngredient.svelte.js';
   import FoodPicker from './FoodPicker.svelte';
   import Icon from './Icon.svelte';
 

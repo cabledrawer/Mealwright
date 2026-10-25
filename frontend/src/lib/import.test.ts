@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ImportReview, ReviewLine } from '$lib/client/imports';
-import { network } from '$lib/network.svelte';
-import { fakeApi } from '$lib/testing/fakeApi';
+import type { ImportReview, ReviewLine } from '#lib/client/imports.js';
+import { network } from '#lib/network.svelte.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import type { DraftOut } from './client/drafts';
 import { DRAFT_OFFLINE, ImportFlow, leftOutWords } from './import.svelte';
 

@@ -1,8 +1,8 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { askOnce } from '$lib/askOnce.svelte';
-import type { Ask } from '$lib/client/types';
+import { askOnce } from '#lib/askOnce.svelte.js';
+import type { Ask } from '#lib/client/types.js';
 import AskOnce from './AskOnce.svelte';
 import '../styles/tokens.css';
 import '../styles/base.css';

@@ -1,11 +1,11 @@
 <script lang="ts">
   // "Add an item…" (mockup Shop): type a name; matching ingredients are offered, and a name
   // nobody has used offers + New ingredient: "tahini", which asks How do you count it?.
-  import Icon from '$lib/components/Icon.svelte';
-  import type { FoodRow } from '$lib/client/types';
-  import { newIngredient } from '$lib/newIngredient.svelte';
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
-  import { toasts } from '$lib/toast.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import type { FoodRow } from '#lib/client/types.js';
+  import { newIngredient } from '#lib/newIngredient.svelte.js';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   let {
     model,

@@ -1,15 +1,15 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { DraftBrief, DraftOut } from '$lib/client/drafts';
-import { drafts } from '$lib/drafts.svelte';
-import { network } from '$lib/network.svelte';
-import { fakeApi, changeOf } from '$lib/testing/fakeApi';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
+import type { DraftBrief, DraftOut } from '#lib/client/drafts.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { fakeApi, changeOf } from '#lib/testing/fakeApi.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import DraftsScreen from './DraftsScreen.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 const nav = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock('$app/navigation', () => ({ goto: nav.goto, beforeNavigate: vi.fn() }));

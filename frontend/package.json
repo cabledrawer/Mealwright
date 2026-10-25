@@ -4,6 +4,10 @@
   "description": "The Mealwright web app (SvelteKit, static build served by the backend).",
   "license": "AGPL-3.0-only",
   "type": "module",
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
+  },
   "scripts": {
     "dev": "vite dev --port 5173 --strictPort",
     "build": "vite build",

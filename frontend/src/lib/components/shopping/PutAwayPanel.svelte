@@ -3,7 +3,7 @@
   // amount go straight into the pantry, and every ticked row says where it went; here you can
   // also choose where the last one went, or Undo last tick. The phone has the toast
   // ("Coriander → Fridge · Change · Undo") instead.
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
 
   let { model }: { model: ShoppingModel } = $props();
   const uid = $props.id();

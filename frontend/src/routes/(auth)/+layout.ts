@@ -6,9 +6,9 @@
 // So does it when signing out couldn't be finished: the old session would only send this
 // browser back into the app, to be signed out again, round and round.
 import { redirect } from '@sveltejs/kit';
-import { cantReach, getMe, getSetup, type SetupState } from '$lib/api';
-import { signOutState } from '$lib/offline/unfinished.svelte';
-import { SETUP, SIGN_IN, safeNext, session } from '$lib/session.svelte';
+import { cantReach, getMe, getSetup, type SetupState } from '#lib/api.js';
+import { signOutState } from '#lib/offline/unfinished.svelte.js';
+import { SETUP, SIGN_IN, safeNext, session } from '#lib/session.svelte.js';
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = async ({ fetch, url }) => {

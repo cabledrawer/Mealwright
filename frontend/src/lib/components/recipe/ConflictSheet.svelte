@@ -3,8 +3,8 @@
   // saved it, in a sheet over the editor (not a new tab: the installed app has none). Closing
   // brings you back to your own edit, untouched. Nothing here can be edited.
   import { onMount } from 'svelte';
-  import type { RecipeOut } from '$lib/client/recipes';
-  import { compareLines, compareSteps, otherChanges } from '$lib/recipes/compare';
+  import type { RecipeOut } from '#lib/client/recipes.js';
+  import { compareLines, compareSteps, otherChanges } from '#lib/recipes/compare.js';
 
   let {
     who,

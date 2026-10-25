@@ -2,14 +2,14 @@
   // Import a recipe (spec section 6, "Recipe import, decided for 0.5"): the one box, then the
   // review, then Save. Everything the server reads is shown before anything is saved. Online
   // only; leaving the review without saving asks "Save as draft?" (ReviewScreen).
-  import AlreadySheet from '$lib/components/import/AlreadySheet.svelte';
-  import ImportStart from '$lib/components/import/ImportStart.svelte';
-  import ImportSteps from '$lib/components/import/ImportSteps.svelte';
-  import ReviewPage from '$lib/components/import/ReviewPage.svelte';
-  import PageHeader from '$lib/components/PageHeader.svelte';
-  import { ImportFlow } from '$lib/import.svelte';
-  import { network } from '$lib/network.svelte';
-  import { privacy } from '$lib/privacy.svelte';
+  import AlreadySheet from '#lib/components/import/AlreadySheet.svelte';
+  import ImportStart from '#lib/components/import/ImportStart.svelte';
+  import ImportSteps from '#lib/components/import/ImportSteps.svelte';
+  import ReviewPage from '#lib/components/import/ReviewPage.svelte';
+  import PageHeader from '#lib/components/PageHeader.svelte';
+  import { ImportFlow } from '#lib/import.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { privacy } from '#lib/privacy.svelte.js';
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();

@@ -2,11 +2,11 @@
   // "Different pack?" (mockup Shop): "What did you buy?" with the planned pack, one pack of
   // the planned amount, the ingredient's own sizes, and Other…; "Pantry gets 1 pack · 400 g."
   // and Done. The same panel, titled "How much?", for an item with no amount (spec L303).
-  import { baseFrom } from '$lib/shopping/amountBox';
-  import { baseText, packText, pantryGets, unitsFor } from '$lib/shopping/format';
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
-  import type { FoodSize, ListItem, ShopFood, Tick } from '$lib/shopping/types';
-  import { radioKeys } from '$lib/radioKeys';
+  import { baseFrom } from '#lib/shopping/amountBox.js';
+  import { baseText, packText, pantryGets, unitsFor } from '#lib/shopping/format.js';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import type { FoodSize, ListItem, ShopFood, Tick } from '#lib/shopping/types.js';
+  import { radioKeys } from '#lib/radioKeys.js';
 
   let {
     model,

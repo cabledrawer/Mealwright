@@ -11,14 +11,14 @@
   // reloading the tab can't be asked about, so that leaves as it always did.
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { changesToast } from '$lib/import.save';
-  import { leftOutWords, type ImportFlow } from '$lib/import.svelte';
-  import { network } from '$lib/network.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { changesToast } from '#lib/import.save.js';
+  import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import Icon from '#lib/components/Icon.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
 
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
 
   const review = $derived(flow.review!);

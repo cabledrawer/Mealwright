@@ -4,8 +4,8 @@
 // hasn't answered yet stays in the queue, and the screen shows it on top (11.2). Rows the
 // answer didn't touch are the same objects as before, so only the changed ones are written.
 
-import type { Action } from '$lib/shopping/actions';
-import type { Removed, ShoppingCopy } from '$lib/shopping/types';
+import type { Action } from '#lib/shopping/actions.js';
+import type { Removed, ShoppingCopy } from '#lib/shopping/types.js';
 import {
   ALL_COPY_STORES,
   COPY_STORES,

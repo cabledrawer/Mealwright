@@ -1,7 +1,7 @@
 // Drafts: imports left unfinished, kept for 15 days (docs/dev/recipe-import.md, "Drafts").
 // Online only, like the import: nothing here is queued.
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type { Change, CountedAs, Ref } from './types';
 import type { ImportReview } from './imports';
 

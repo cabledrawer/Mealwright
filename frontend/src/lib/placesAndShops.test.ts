@@ -2,17 +2,17 @@
 // so the next login sees none of the last one's, without a reload (#47).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, sessionEnded } from '$lib/api';
-import { network } from '$lib/network.svelte';
-import { signOutHere } from '$lib/offline/signOut';
-import { addToQueue } from '$lib/offline/store';
-import { setMeta } from '$lib/offline/phone';
-import { SIGN_OUT_PENDING_KEY } from '$lib/offline/signOutPending';
-import { session } from '$lib/session.svelte';
-import { makeAction } from '$lib/shopping/actions';
-import { fakeApi } from '$lib/testing/fakeApi';
-import { ME } from '$lib/testing/fakeShopping';
-import { dropPhone, freshPhone } from '$lib/testing/phone';
+import { api, sessionEnded } from '#lib/api.js';
+import { network } from '#lib/network.svelte.js';
+import { signOutHere } from '#lib/offline/signOut.js';
+import { addToQueue } from '#lib/offline/store.js';
+import { setMeta } from '#lib/offline/phone.js';
+import { SIGN_OUT_PENDING_KEY } from '#lib/offline/signOutPending.js';
+import { session } from '#lib/session.svelte.js';
+import { makeAction } from '#lib/shopping/actions.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
+import { ME } from '#lib/testing/fakeShopping.js';
+import { dropPhone, freshPhone } from '#lib/testing/phone.js';
 import { placesAndShops } from './placesAndShops.svelte';
 
 type Routes = Parameters<typeof fakeApi>[0];

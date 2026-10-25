@@ -1,10 +1,17 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-import { PLACES, SHOPS, changeOf, fakeApi, toorDal, type FakeRequest } from '$lib/testing/fakeApi';
-import { toasts } from '$lib/toast.svelte';
-import { handleUndoKey, undoHistory } from '$lib/undo.svelte';
+import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+import {
+  PLACES,
+  SHOPS,
+  changeOf,
+  fakeApi,
+  toorDal,
+  type FakeRequest
+} from '#lib/testing/fakeApi.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
 import IngredientSheet from './IngredientSheet.svelte';
 import '../styles/tokens.css';
 import '../styles/base.css';

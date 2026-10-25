@@ -5,7 +5,7 @@
   // links them again. A recipe's own made-ahead ingredient can't be removed while Made ahead is
   // on, and the editor says why, with the recipe's name as a link.
   import { resolve } from '$app/paths';
-  import type { Ref } from '$lib/client/types';
+  import type { Ref } from '#lib/client/types.js';
 
   let {
     usedIn,

@@ -39,9 +39,6 @@ export const svelteOptions = {
   adapter: adapter({ pages: 'build', assets: 'build', fallback: 'index.html', strict: true }),
   // Absolute paths, so files load correctly on any page the fallback serves.
   paths: { relative: false },
-  // SvelteKit 3 no longer makes $lib. Kept for this commit only; the next one moves
-  // every import to #lib and removes this.
-  alias: { $lib: 'src/lib', '$lib/*': 'src/lib/*' },
   // No hourly check for a new version: updates come through our service worker
   // (cabledrawer, 25 Oct 2026).
   version: { pollInterval: 0 },

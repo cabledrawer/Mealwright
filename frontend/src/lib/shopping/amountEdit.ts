@@ -2,7 +2,7 @@
 // base amount (g, ml or items) with an optional size, using only conversions a phone can
 // do offline: kg and L, and the ingredient's own sizes (sync-protocol 4.3).
 
-import { parseAmount } from '$lib/amountText';
+import { parseAmount } from '#lib/amountText.js';
 
 export interface EditFood {
   counted_as: 'weight' | 'volume' | 'count';

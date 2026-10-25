@@ -5,10 +5,10 @@
 // sign-out. Offline, the wipe happens at once and a "sign-out pending" flag makes the app end
 // the server session first thing when it's back (signOutPending.ts).
 
-import { ApiError, signOut } from '$lib/api';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
+import { ApiError, signOut } from '#lib/api.js';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import { storedWaiting, UNREADABLE, type Unreadable } from './held';
 import { endPendingSignOut, markSignOutPending, signOutPending } from './signOutPending';
 import { signOutState } from './unfinished.svelte';

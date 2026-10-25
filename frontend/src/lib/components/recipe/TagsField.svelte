@@ -1,9 +1,9 @@
 <script lang="ts">
   // Tags (cabledrawer 19 Oct, questions 9 and 40): chips. Typing shows tags the household already
   // uses; Enter or a comma adds one; × takes it off. A new tag is just typed. No tag screen.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import Icon from '../Icon.svelte';
-  import { MAX_TAG_CHARS, MAX_TAGS } from '$lib/recipes/draft.svelte';
+  import { MAX_TAG_CHARS, MAX_TAGS } from '#lib/recipes/draft.svelte.js';
 
   let {
     tags = $bindable(),

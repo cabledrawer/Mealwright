@@ -4,7 +4,7 @@
   //   "In the Fridge · 2 L"  Change  Undo           (an amount went into the pantry)
   //   "Not in the pantry yet. No amount."  Add amount  (nothing went in)
   //   "Restocked · staples aren’t counted"  Undo     (a staple)
-  import { putAwayWords, type PutAway } from '$lib/shopping/putAway';
+  import { putAwayWords, type PutAway } from '#lib/shopping/putAway.js';
 
   let {
     state,

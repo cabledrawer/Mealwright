@@ -3,10 +3,10 @@
   // changes, each with what it did per ingredient (the server's totals) and Undo while
   // it's within the undo window. Anyone can undo anyone's
   // change. The verb comes first, in bold ("Used 200 g spinach").
-  import { totalWords } from '$lib/changeTotals';
-  import { startsWithVerb } from '$lib/changeVerb';
-  import type { Change } from '$lib/client/types';
-  import { session } from '$lib/session.svelte';
+  import { totalWords } from '#lib/changeTotals.js';
+  import { startsWithVerb } from '#lib/changeVerb.js';
+  import type { Change } from '#lib/client/types.js';
+  import { session } from '#lib/session.svelte.js';
 
   let {
     changes,

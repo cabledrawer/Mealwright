@@ -9,15 +9,15 @@ import {
   rowOf,
   toorDal,
   type FakeRequest
-} from '$lib/testing/fakeApi';
-import { kitchen } from '$lib/freshness.svelte';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory } from '$lib/undo.svelte';
-import NewIngredient from '$lib/components/NewIngredient.svelte';
-import { newIngredient } from '$lib/newIngredient.svelte';
+} from '#lib/testing/fakeApi.js';
+import { kitchen } from '#lib/freshness.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
+import NewIngredient from '#lib/components/NewIngredient.svelte';
+import { newIngredient } from '#lib/newIngredient.svelte.js';
 import Ingredients from './+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 // The page's address: "Edit staples" on Pantry opens it with ?filter=staples.
 const route = vi.hoisted(() => ({ search: '' }));

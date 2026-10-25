@@ -1,7 +1,7 @@
 // Recipes (docs/dev/api-0.4-recipes.md): the All recipes list, one recipe, and the editor's
 // saving, loop guard, tags and photos. Online only in 0.4: nothing here touches the offline queue.
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import type { Change, Ref, Who } from './types';
 
 /** What the pantry says about a recipe's ingredients. */

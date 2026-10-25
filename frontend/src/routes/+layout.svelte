@@ -1,12 +1,12 @@
 <script lang="ts">
   import '@fontsource-variable/plus-jakarta-sans';
   import '@fontsource-variable/newsreader';
-  import '$lib/styles/tokens.css';
-  import '$lib/styles/base.css';
+  import '#lib/styles/tokens.css';
+  import '#lib/styles/base.css';
 
   import type { Snippet } from 'svelte';
-  import { endPendingSignOutWhenOnline } from '$lib/offline/signOutPending';
-  import { theme } from '$lib/theme.svelte';
+  import { endPendingSignOutWhenOnline } from '#lib/offline/signOutPending.js';
+  import { theme } from '#lib/theme.svelte.js';
 
   let { children }: { children: Snippet } = $props();
 

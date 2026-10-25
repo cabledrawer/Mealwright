@@ -2,11 +2,11 @@
   // The ¼ · ½ · ¾ · Full marks for one packet: a radio group, shared by the packet's
   // menu (LotMenu) and the opened Pantry row (PantryGroup, single-packet foods).
   // Tapping one saves at once (model.setLeft, with Undo in the toast).
-  import { ApiError } from '$lib/api';
-  import type { Lot } from '$lib/client/types';
-  import type { PantryModel } from '$lib/pantry.svelte';
-  import { PICKS, pickFor } from '$lib/picks';
-  import { radioKeys } from '$lib/radioKeys';
+  import { ApiError } from '#lib/api.js';
+  import type { Lot } from '#lib/client/types.js';
+  import type { PantryModel } from '#lib/pantry.svelte.js';
+  import { PICKS, pickFor } from '#lib/picks.js';
+  import { radioKeys } from '#lib/radioKeys.js';
 
   let {
     lot,

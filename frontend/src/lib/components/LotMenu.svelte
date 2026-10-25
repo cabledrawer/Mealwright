@@ -5,10 +5,10 @@
   // bottom on phones. A real modal dialog: focus stays inside, Esc closes it, and focus
   // goes back to the packet's row.
   import { tick } from 'svelte';
-  import type { Lot, Place } from '$lib/client/types';
-  import { useByWords } from '$lib/dates';
-  import type { PantryModel } from '$lib/pantry.svelte';
-  import { pickFor } from '$lib/picks';
+  import type { Lot, Place } from '#lib/client/types.js';
+  import { useByWords } from '#lib/dates.js';
+  import type { PantryModel } from '#lib/pantry.svelte.js';
+  import { pickFor } from '#lib/picks.js';
   import PackPicks from './PackPicks.svelte';
 
   let {

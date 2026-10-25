@@ -2,7 +2,7 @@
   // Shows the ingredient editor when something asks for it (ingredientEditor.open):
   // a sheet from the bottom on phones, a panel on the right on desktop. A real modal
   // dialog, so focus stays inside, Escape closes it, and focus goes back afterwards.
-  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
+  import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import IngredientEditor from './IngredientEditor.svelte';
 
   let dialog: HTMLDialogElement;

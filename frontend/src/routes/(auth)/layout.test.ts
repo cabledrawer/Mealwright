@@ -2,9 +2,9 @@
 // offline (docs/dev/sync-protocol.md section 12).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { network } from '$lib/network.svelte';
-import { session } from '$lib/session.svelte';
-import { fakeApi } from '$lib/testing/fakeApi';
+import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import { load } from './+layout';
 
 type LoadEvent = Parameters<typeof load>[0];

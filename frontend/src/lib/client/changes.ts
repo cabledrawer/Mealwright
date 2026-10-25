@@ -1,10 +1,10 @@
 // Recent changes and Undo (contract 6.5).
 
-import { ApiError, api } from '$lib/api';
-import { newChangeId } from '$lib/changeId';
-import { kitchen } from '$lib/freshness.svelte';
-import { toasts } from '$lib/toast.svelte';
-import type { UndoEntry } from '$lib/undo.svelte';
+import { ApiError, api } from '#lib/api.js';
+import { newChangeId } from '#lib/changeId.js';
+import { kitchen } from '#lib/freshness.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import type { UndoEntry } from '#lib/undo.svelte.js';
 import type { Change, UndoResult } from './types';
 
 export interface ChangeList {

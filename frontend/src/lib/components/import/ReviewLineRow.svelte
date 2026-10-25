@@ -9,14 +9,14 @@
   //
   // A choice shows what it will do, can be changed right here, and is only made when Save is
   // pressed (the new ingredient, the staple and the other name it learns).
-  import FoodPicker from '$lib/components/FoodPicker.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import type { ReviewLine } from '$lib/client/imports';
-  import type { CountedAs, Ref } from '$lib/client/types';
-  import type { Choice, ImportFlow } from '$lib/import.svelte';
-  import { placesAndShops } from '$lib/placesAndShops.svelte';
+  import FoodPicker from '#lib/components/FoodPicker.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import type { ReviewLine } from '#lib/client/imports.js';
+  import type { CountedAs, Ref } from '#lib/client/types.js';
+  import type { Choice, ImportFlow } from '#lib/import.svelte.js';
+  import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   let {
     flow,
     index,

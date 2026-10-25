@@ -12,8 +12,8 @@
 
 import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
-import { toasts } from '$lib/toast.svelte';
-import { undoHistory, undoneWords, type UndoEntry } from '$lib/undo.svelte';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory, undoneWords, type UndoEntry } from '#lib/undo.svelte.js';
 import { ShoppingModel } from './shopping/store.svelte';
 
 export class PantryList {

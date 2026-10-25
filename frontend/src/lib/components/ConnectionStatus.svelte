@@ -6,7 +6,7 @@
   //   dot:     the collapsed sidebar: a small dot that is also the Try now button.
   // Nothing shows while connected, or for a blip (network.svelte.ts). The live region is
   // always on the page, so screen readers hear "Offline" when it appears.
-  import { network, offlineText } from '$lib/network.svelte';
+  import { network, offlineText } from '#lib/network.svelte.js';
 
   let { layout }: { layout: 'phone' | 'desktop' | 'dot' } = $props();
 

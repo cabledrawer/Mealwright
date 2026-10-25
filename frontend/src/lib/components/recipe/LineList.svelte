@@ -3,15 +3,15 @@
   // separate boxes for amount, unit, ingredient and note; the ingredient box is the line's own
   // words, and the picker (a sheet on a phone, under the line on a computer) links them to an
   // ingredient or to another recipe. Lines are dragged by the handle, or moved with Alt+↑ / Alt+↓.
-  import '$lib/styles/fields.css';
+  import '#lib/styles/fields.css';
   import { tick, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import Icon from '../Icon.svelte';
   import IngredientPicker, { type Pick } from './IngredientPicker.svelte';
-  import { getFood } from '$lib/client/foods';
-  import type { Blocked, RecipeBrief } from '$lib/client/recipes';
-  import type { FoodRow } from '$lib/client/types';
-  import { newIngredient } from '$lib/newIngredient.svelte';
+  import { getFood } from '#lib/client/foods.js';
+  import type { Blocked, RecipeBrief } from '#lib/client/recipes.js';
+  import type { FoodRow } from '#lib/client/types.js';
+  import { newIngredient } from '#lib/newIngredient.svelte.js';
   import {
     blankLine,
     LINE_UNITS,
@@ -19,10 +19,10 @@
     type DraftLine,
     type Errors,
     type RecipeDraft
-  } from '$lib/recipes/draft.svelte';
-  import { linkedWords } from '$lib/recipes/linkedWords';
-  import { move, reorder } from '$lib/recipes/reorder';
-  import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
+  } from '#lib/recipes/draft.svelte.js';
+  import { linkedWords } from '#lib/recipes/linkedWords.js';
+  import { move, reorder } from '#lib/recipes/reorder.js';
+  import { undoHistory, type UndoEntry } from '#lib/undo.svelte.js';
 
   let {
     draft,

@@ -3,7 +3,7 @@
 // copy's cursor, which applyChanges() merges in. The same function takes the `changes` that
 // come back with a batch of actions.
 
-import { api } from '$lib/api';
+import { api } from '#lib/api.js';
 import { deviceId } from './actions';
 import type { ChangesAnswer, ShoppingCopy, Tombstone } from './types';
 

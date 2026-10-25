@@ -2,7 +2,7 @@
   // Sign in and first-run setup: the logo, one card, and the reminder that everything
   // stays on the household's own server (from the SignIn-* mockups).
   import type { Snippet } from 'svelte';
-  import Logo from '$lib/components/Logo.svelte';
+  import Logo from '#lib/components/Logo.svelte';
 
   let { children }: { children: Snippet } = $props();
 </script>

@@ -6,11 +6,11 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { onMount } from 'svelte';
-  import { drafts } from '$lib/drafts.svelte';
-  import { network } from '$lib/network.svelte';
-  import { PAGES, RECIPES_PAGES, appRoute, isCurrent, isCurrentRecipesPage } from '$lib/nav';
-  import { initial, session } from '$lib/session.svelte';
-  import { sidebar } from '$lib/sidebar.svelte';
+  import { drafts } from '#lib/drafts.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { PAGES, RECIPES_PAGES, appRoute, isCurrent, isCurrentRecipesPage } from '#lib/nav.js';
+  import { initial, session } from '#lib/session.svelte.js';
+  import { sidebar } from '#lib/sidebar.svelte.js';
   import ConnectionStatus from './ConnectionStatus.svelte';
   import Icon from './Icon.svelte';
   import Logo from './Logo.svelte';

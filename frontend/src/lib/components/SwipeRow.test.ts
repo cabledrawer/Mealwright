@@ -1,7 +1,7 @@
 import { createRawSnippet, flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
-import '$lib/styles/tokens.css';
+import '#lib/styles/tokens.css';
 import SwipeRow, { type SwipeAction } from './SwipeRow.svelte';
 
 let component: ReturnType<typeof mount> | null = null;

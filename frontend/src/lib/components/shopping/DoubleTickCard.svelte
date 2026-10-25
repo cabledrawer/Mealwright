@@ -1,8 +1,8 @@
 <script lang="ts">
   // "Did you buy 2?" (mockup Shop): a card, never a pop-up. The first answer settles it for
   // everyone. The words come from the server (sync-protocol section 8).
-  import type { ShoppingModel } from '$lib/shopping/store.svelte';
-  import type { Question } from '$lib/shopping/types';
+  import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import type { Question } from '#lib/shopping/types.js';
 
   let { model, question }: { model: ShoppingModel; question: Question } = $props();
   const uid = $props.id();

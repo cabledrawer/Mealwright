@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fakeApi } from '$lib/testing/fakeApi';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import { addStock, getPantry, moveLot, setLeft, setUseBy, toFreezer, usedLot } from './stock';
 
 afterEach(() => vi.unstubAllGlobals());

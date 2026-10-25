@@ -6,7 +6,7 @@
   // the round button to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
   import type { Snippet } from 'svelte';
-  import { initial, session } from '$lib/session.svelte';
+  import { initial, session } from '#lib/session.svelte.js';
   import Icon from './Icon.svelte';
 
   let {

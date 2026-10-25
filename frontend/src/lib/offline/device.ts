@@ -6,7 +6,7 @@
 // `meta` with the same value (so the server still sees the same device), and the old
 // localStorage key is cleared (cabledrawer 18 Oct).
 
-import { newChangeId } from '$lib/changeId';
+import { newChangeId } from '#lib/changeId.js';
 import {
   getMeta,
   phoneExists,

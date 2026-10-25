@@ -4,17 +4,17 @@
   // each packet ("1 pack · 200 g · use by Mon"), oldest first; tapping a packet opens
   // its menu (LotMenu: Used · Binned · To freezer · Move to… · Change use-by date…, and
   // the ¼ · ½ · ¾ · Full picks for an open one).
-  import type { Group, Lot, Place } from '$lib/client/types';
-  import { boughtWords, dateWords, useByWords } from '$lib/dates';
-  import { ingredientEditor } from '$lib/ingredientEditor.svelte';
-  import type { PantryModel } from '$lib/pantry.svelte';
-  import { listLabel, type PantryList } from '$lib/pantryList.svelte';
+  import type { Group, Lot, Place } from '#lib/client/types.js';
+  import { boughtWords, dateWords, useByWords } from '#lib/dates.js';
+  import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+  import type { PantryModel } from '#lib/pantry.svelte.js';
+  import { listLabel, type PantryList } from '#lib/pantryList.svelte.js';
   import Icon from './Icon.svelte';
   import LotMenu from './LotMenu.svelte';
   import PackPicks from './PackPicks.svelte';
   import SwipeRow from './SwipeRow.svelte';
   import UsedSheet from './UsedSheet.svelte';
-  import { pickFor } from '$lib/picks';
+  import { pickFor } from '#lib/picks.js';
 
   let {
     group,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RecipeBrief } from '$lib/client/recipes';
-import { fakeApi } from '$lib/testing/fakeApi';
+import type { RecipeBrief } from '#lib/client/recipes.js';
+import { fakeApi } from '#lib/testing/fakeApi.js';
 import { fold, pickRecipes, recipeSearch } from './search';
 
 const brief = (id: number, name: string): RecipeBrief => ({

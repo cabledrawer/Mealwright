@@ -1,7 +1,7 @@
 // The add box offline: the phone's copy searched by any name, as the server would (11.1).
 
 import { describe, expect, it } from 'vitest';
-import { food, sampleCopy } from '$lib/testing/fakeShopping';
+import { food, sampleCopy } from '#lib/testing/fakeShopping.js';
 import { fold, searchCopy } from './search';
 
 const copy = () => {

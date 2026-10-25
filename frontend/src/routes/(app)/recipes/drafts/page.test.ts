@@ -1,14 +1,14 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { DraftOut } from '$lib/client/drafts';
-import type { ImportReview } from '$lib/client/imports';
-import { drafts } from '$lib/drafts.svelte';
-import { network } from '$lib/network.svelte';
-import { PLACES, SHOPS, fakeApi } from '$lib/testing/fakeApi';
+import type { DraftOut } from '#lib/client/drafts.js';
+import type { ImportReview } from '#lib/client/imports.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { network } from '#lib/network.svelte.js';
+import { PLACES, SHOPS, fakeApi } from '#lib/testing/fakeApi.js';
 import DraftPage from './[id]/+page.svelte';
-import '$lib/styles/tokens.css';
-import '$lib/styles/base.css';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/state', () => ({ page: { params: { id: '7' }, url: new URL('http://x/') } }));

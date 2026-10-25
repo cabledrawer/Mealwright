@@ -2,7 +2,7 @@
 // question 27): this is a copy of the recipe, changed freely, then sent whole.
 
 import { untrack } from 'svelte';
-import { ApiError } from '$lib/api';
+import { ApiError } from '#lib/api.js';
 import {
   deletePhoto,
   uploadPhoto,
@@ -12,10 +12,10 @@ import {
   type PhotoOut,
   type RecipeIn,
   type RecipeOut
-} from '$lib/client/recipes';
-import type { Ref } from '$lib/client/types';
+} from '#lib/client/recipes.js';
+import type { Ref } from '#lib/client/types.js';
 import { linkedWords } from './linkedWords';
-import { toasts } from '$lib/toast.svelte';
+import { toasts } from '#lib/toast.svelte.js';
 
 export const MAX_LINES = 200;
 export const MAX_STEPS = 100;

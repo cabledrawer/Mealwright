@@ -17,10 +17,10 @@
 // and a new device ID (cabledrawer 18 Oct, sync-protocol 11.8). The same login signing back in
 // after its session ran out keeps the copy, the waiting changes and the device ID (11.5).
 
-import { placesAndShops } from '$lib/placesAndShops.svelte';
-import { drafts } from '$lib/drafts.svelte';
-import { privacy } from '$lib/privacy.svelte';
-import { shoppingSync } from '$lib/shopping/sync.svelte';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { drafts } from '#lib/drafts.svelte.js';
+import { privacy } from '#lib/privacy.svelte.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import { forgetDeviceId, rememberedLogin, storedLoginId } from './device';
 import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';
 import { tellOtherTabs } from './otherTabs';
