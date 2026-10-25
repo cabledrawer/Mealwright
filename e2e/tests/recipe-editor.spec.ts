@@ -582,6 +582,25 @@ test('Delete recipe goes at once, with Undo', async ({ page }) => {
   expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(200);
 });
 
+test('Delete from Edit, reached from the recipe page, lands on All recipes, not another recipe (0.5.1)', async ({ page }) => {
+  // cabledrawer 22 Oct (0.4.0): after Delete the app showed Egg Bhurji, a recipe he had opened before.
+  const before = await makeRecipe(page, { name: unique('Egg Bhurji') });
+  const name = unique('Doomed');
+  const recipe = await makeRecipe(page, { name });
+  await page.goto('/recipes');
+  await page.getByRole('link', { name: new RegExp(before.name) }).first().click();
+  await expect(page).toHaveURL(`/recipes/${before.id}`);
+  if (isPhone(page)) await page.goto('/recipes');
+  await page.getByRole('link', { name: new RegExp(name) }).first().click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}`);
+  await page.getByRole('link', { name: 'Edit', exact: true }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`);
+  await page.getByRole('button', { name: 'Delete recipe' }).click();
+  await expect(page.getByText(`Deleted ${name}`)).toBeVisible();
+  await expect(page).toHaveURL('/recipes');
+  await expect(page.getByRole('heading', { name: before.name, level: 1 })).toHaveCount(0);
+});
+
 test('Ctrl+S saves on a computer', async ({ page }) => {
   test.skip(isPhone(page), 'a keyboard shortcut');
   await page.goto('/recipes/new');
