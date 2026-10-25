@@ -91,7 +91,7 @@ Rules (all from what is built; the spec only fixes a few of them):
 
 Patterns in use:
 
-- **Couldn’t + the verb + a way forward:** "Couldn’t load the pantry. Try again." · "Couldn’t load your ingredients. Try again." · "Couldn’t load this ingredient. Check your connection and try again." (`pantry.svelte.ts`, `ingredients.svelte.ts`, `foodEditor.svelte.ts`)
+- **Couldn’t + the verb + a way forward:** "Couldn’t load the pantry. Try again." · "Couldn’t load your ingredients." with a **Try again** button beside it (0.5.1; the same for "Couldn’t load the recent changes.") · "Couldn’t load this ingredient. Check your connection and try again." (`pantry.svelte.ts`, `ingredients.svelte.ts`, `foodEditor.svelte.ts`)
 - **A problem toast:** "Couldn’t save. Try again." (ruling 4's own example) · "Couldn’t undo. Try again." · "Couldn’t add that shop. Try again." · "Couldn’t add it. Try again." (`save.ts`, `undo.svelte.ts`, `IngredientEditor.svelte`, `NewIngredient.svelte`; proposed, for cabledrawer: the old wording with a dash, made two sentences by ruling 4)
 - **Connection:** "Can’t reach your Mealwright server. Check your connection." (`api.ts`). In an offline-capable place the offline wording of section 8 is used instead.
 - **Anything else:** "Something went wrong. Try again." (`api.ts`)

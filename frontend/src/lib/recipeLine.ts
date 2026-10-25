@@ -31,7 +31,7 @@ function lowerFirst(name: string): string {
   // "Spinach" → "spinach", "Toor dal" → "toor dal". A name with another capital in it ("Toor
   // Dal", "TVP", "Greek yoghurt from M&S") is left as it is written, never half lowered
   // ("toor Dal", 0.5.1).
-  return /^[A-Z][^A-Z]*$/.test(name) ? name[0]!.toLowerCase() + name.slice(1) : name;
+  return /^[A-Z][^A-Z]+$/.test(name) ? name[0]!.toLowerCase() + name.slice(1) : name;
 }
 
 /** "Uses spinach (today)", "Uses spinach and paneer (tomorrow)", "Uses spinach and 2 more (Mon)". */
