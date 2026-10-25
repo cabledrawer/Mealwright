@@ -160,6 +160,29 @@ def test_a_whole_recipe_round_trips(kitchen: TestClient) -> None:
     assert [s["kind"] for s in recipe["steps"]] == ["heading", "step", "step"]
 
 
+def test_a_linked_line_sends_its_ingredients_other_names(kitchen: TestClient) -> None:
+    # So the screen can show "thu" as Toor Dal (cabledrawer 25 Oct); the words stay as saved.
+    toor = food(kitchen, "Toor Dal")
+    for other in ("thuvaram paruppu", "arhar dal"):
+        ok(kitchen.post(f"{API}/foods/{toor['id']}/other-names", json={"name": other}), 201)
+    salt = food(kitchen, "Salt")
+    recipe = make(
+        kitchen,
+        lines=[
+            {"words": "thu", "amount": 100, "unit": "g", "food_id": toor["id"]},
+            {"words": "salt", "food_id": salt["id"]},
+            {"words": "tamarind"},
+        ],
+    )
+    lines = ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["lines"]
+    assert [line["words"] for line in lines] == ["thu", "salt", "tamarind"]
+    assert [line["food"] for line in lines] == [
+        {"id": toor["id"], "name": "Toor Dal", "other_names": ["arhar dal", "thuvaram paruppu"]},
+        {"id": salt["id"], "name": "Salt", "other_names": []},
+        None,
+    ]
+
+
 def test_the_list_is_a_to_z_and_pages(kitchen: TestClient) -> None:
     for name in ["sambar", "Dosa", "Éclair", "Rasam", "Aloo"]:
         make(kitchen, name, tags=["Quick"] if name == "Rasam" else [])

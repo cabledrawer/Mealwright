@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
+    LineFoodRef,
     MakesOut,
     NutritionOut,
     PhotoOut,
@@ -42,6 +43,7 @@ from mealwright.household import undo_window
 from mealwright.models import (
     Change,
     Food,
+    FoodName,
     FoodSize,
     Household,
     Recipe,
@@ -801,6 +803,13 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             select(Food).where(Food.id.in_({r.food_id for r in rows if r.food_id}))
         )
     }
+    other_names: dict[int, list[str]] = {}
+    for name in db.scalars(
+        select(FoodName)
+        .where(FoodName.food_id.in_(foods.keys()))
+        .order_by(FoodName.name, FoodName.id)
+    ):
+        other_names.setdefault(name.food_id, []).append(name.name)
     subs = {
         sub.id: sub
         for sub in db.scalars(
@@ -838,7 +847,13 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
                 amount_text=amount_text(row.amount_milli),
                 unit=row.unit,
                 size=SizeRef(id=size.id, name=size.name, plural=size.plural) if size else None,
-                food=Ref(id=food.id, name=food.name) if food else None,
+                food=(
+                    LineFoodRef(
+                        id=food.id, name=food.name, other_names=other_names.get(food.id, [])
+                    )
+                    if food
+                    else None
+                ),
                 recipe=Ref(id=sub.id, name=sub.name) if sub else None,
                 link=link,
                 note=row.note,

@@ -2,6 +2,7 @@
 // opened, so the sheet can highlight what they changed. Nothing here is editable.
 
 import type { LineOut, RecipeOut } from '$lib/client/recipes';
+import { linkedWords } from './linkedWords';
 
 export interface ShownLine {
   /** "300 g" (empty for a line with no amount). */
@@ -34,7 +35,7 @@ const shown = (
   was: string | null = null
 ): ShownLine => ({
   quantity: quantityOf(line),
-  words: line.words,
+  words: linkedWords(line.words, line.food),
   note: line.note ?? '',
   heading: line.kind === 'heading',
   status,

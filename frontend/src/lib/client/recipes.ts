@@ -100,7 +100,8 @@ export interface RecipeLine {
   /** g, kg, ml, l, tsp, tbsp, cup or pinch; null is a count (or a size). */
   unit: string | null;
   size: SizeRef | null;
-  food: Ref | null;
+  /** With its other names, so words like "thu" can show as its name (cabledrawer 25 Oct). */
+  food: (Ref & { other_names: string[] }) | null;
   recipe: Ref | null;
   /** recipe_removed: the recipe it used was deleted; none: not linked. Null for a heading. */
   link: 'ingredient' | 'recipe' | 'recipe_removed' | 'none' | null;

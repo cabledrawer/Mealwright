@@ -20,6 +20,7 @@
     type Errors,
     type RecipeDraft
   } from '$lib/recipes/draft.svelte';
+  import { linkedWords } from '$lib/recipes/linkedWords';
   import { move, reorder } from '$lib/recipes/reorder';
   import { undoHistory, type UndoEntry } from '$lib/undo.svelte';
 
@@ -146,9 +147,12 @@
     line.recipeRemoved = false;
     // A size belongs to its ingredient; a recipe has none.
     if (sized) line.unit = '';
-    // The words stay as typed (cabledrawer 19 Oct, question 14); an empty box takes the name.
+    // The words stay as typed (cabledrawer 19 Oct, question 14); an empty box takes the name, and
+    // only the start of the ingredient's name ("thu") becomes all of it (cabledrawer 25 Oct).
     if (!line.words.trim())
       line.words = (choice.kind === 'ingredient' ? choice.food : choice.recipe).name;
+    else if (choice.kind === 'ingredient')
+      line.words = linkedWords(line.words, { ...choice.food, other_names: choice.otherNames });
     close();
   }
 

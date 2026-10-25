@@ -14,6 +14,7 @@ import {
   type RecipeOut
 } from '$lib/client/recipes';
 import type { Ref } from '$lib/client/types';
+import { linkedWords } from './linkedWords';
 import { toasts } from '$lib/toast.svelte';
 
 export const MAX_LINES = 200;
@@ -105,7 +106,8 @@ function lineFrom(line: LineOut): DraftLine {
     key: nextKey('l'),
     id: line.id,
     kind: line.kind,
-    words: line.words,
+    // A line saved as "thu" and linked to Toor Dal opens as "Toor Dal" (cabledrawer 25 Oct).
+    words: linkedWords(line.words, line.food),
     amount: line.amount_text ?? '',
     unit,
     food: line.food,

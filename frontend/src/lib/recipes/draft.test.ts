@@ -51,7 +51,7 @@ function recipe(over: Partial<RecipeOut> = {}): RecipeOut {
         amount: 1.5,
         amount_text: '1½',
         unit: 'cup',
-        food: { id: 7, name: 'Toor dal' },
+        food: { id: 7, name: 'Toor dal', other_names: [] },
         link: 'ingredient',
         note: 'rinsed'
       }),
@@ -61,7 +61,7 @@ function recipe(over: Partial<RecipeOut> = {}): RecipeOut {
         amount: 1,
         amount_text: '1',
         size: { id: 12, name: 'packet', plural: 'packets' },
-        food: { id: 7, name: 'Toor dal' },
+        food: { id: 7, name: 'Toor dal', other_names: [] },
         link: 'ingredient'
       }),
       line({

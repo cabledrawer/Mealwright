@@ -399,6 +399,14 @@ class SizeRef(BaseModel):
     plural: str
 
 
+class LineFoodRef(Ref):
+    """The ingredient a line is linked to, with its other names, so a screen can tell that
+    words like "thu" are only the start of one ("thuvaram paruppu") and show the ingredient's
+    own name instead (cabledrawer 25 Oct, 0.5.1)."""
+
+    other_names: list[str]
+
+
 class RecipeLineOut(BaseModel):
     id: int
     kind: Literal["ingredient", "heading"]
@@ -407,7 +415,7 @@ class RecipeLineOut(BaseModel):
     amount_text: str | None  # "1½"
     unit: str | None  # g, kg, ml, l, tsp, tbsp, cup, pinch; null: a count (or a size)
     size: SizeRef | None
-    food: Ref | None
+    food: LineFoodRef | None
     recipe: Ref | None
     # ingredient · recipe · recipe_removed (the recipe was deleted; Undo puts the link back)
     # · none (not linked: pick an ingredient). Null for a heading.

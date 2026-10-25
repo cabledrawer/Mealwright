@@ -1,7 +1,8 @@
 <script lang="ts" module>
   import type { Ref } from '$lib/client/types';
 
-  export type Pick = { kind: 'ingredient'; food: Ref } | { kind: 'recipe'; recipe: Ref };
+  export type Pick =
+    { kind: 'ingredient'; food: Ref; otherNames?: string[] } | { kind: 'recipe'; recipe: Ref };
 </script>
 
 <script lang="ts">
@@ -111,7 +112,12 @@
           <button
             type="button"
             class="item"
-            onclick={() => onpick({ kind: 'ingredient', food: { id: food.id, name: food.name } })}
+            onclick={() =>
+              onpick({
+                kind: 'ingredient',
+                food: { id: food.id, name: food.name },
+                otherNames: food.other_names
+              })}
           >
             <span class="name">{food.name}</span>
             {#if food.matched_name && food.matched_name !== food.name}

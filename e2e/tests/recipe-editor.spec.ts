@@ -94,8 +94,8 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   await page.getByLabel('protein g').fill('14,5');
   await page.getByLabel('Source').fill('Amma’s');
 
-  // A new recipe starts with one empty line and one empty step. The words stay as typed,
-  // linked to the ingredient found by another name.
+  // A new recipe starts with one empty line and one empty step. "thuvaram" is only the start of
+  // another name ("thuvaram paruppu"), so picking fills in the ingredient's name (cabledrawer 25 Oct).
   await pickIngredient(page, 1, 'thuvaram', toor.name);
   await page.getByLabel('Amount for ingredient 1').fill('1½');
   await page.getByLabel('Unit for ingredient 1').selectOption('cup');
@@ -129,7 +129,7 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   });
   expect(recipe.lines.map((l: Json) => [l.kind, l.words, l.amount_text, l.unit, l.food?.id ?? null, l.note])).toEqual([
     ['heading', 'For the dal', null, null, null, null],
-    ['ingredient', 'thuvaram', '1½', 'cup', toor.id, 'rinsed'],
+    ['ingredient', toor.name, '1½', 'cup', toor.id, 'rinsed'],
     ['ingredient', 'salt to taste', null, null, null, null],
   ]);
   expect(recipe.steps.map((s: Json) => s.text)).toEqual(['Boil the dal.', 'Add the tamarind.']);
@@ -139,7 +139,8 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue(name);
   await expect(page.getByLabel('Time')).toHaveValue('50');
   await expect(page.getByLabel('Amount for ingredient 2')).toHaveValue('1½');
-  await expect(page.getByText('Linked to')).toContainText(toor.name);
+  // The words are the ingredient's own name, so "Linked to" has nothing to add.
+  await expect(page.getByText('Linked to')).toHaveCount(0);
   await expect(page.getByText('Not linked')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Step 2', exact: true })).toHaveValue('Add the tamarind.');
   await expect(page.getByRole('button', { name: 'Delete recipe' })).toBeVisible();
@@ -173,6 +174,41 @@ async function pickIngredient(page: Page, n: number, typed: string, name: string
       .click();
   }
 }
+
+test('a line linked from the start of a name shows the full name; words typed in full stay (cabledrawer 25 Oct)', async ({ page }) => {
+  const toor = await makeFood(page, unique('Toor Dal'), 'thuvaram paruppu');
+  const coriander = await makeFood(page, unique('Coriander'));
+  // Saved the 0.5.0 way: the words as typed, linked to the ingredient picked.
+  const recipe = await makeRecipe(page, {
+    name: unique('Rasam'),
+    lines: [
+      { words: 'thu', amount: 100, unit: 'g', food_id: toor.id },
+      { words: 'fresh coriander', food_id: coriander.id },
+      { words: 'tamarind' },
+    ],
+  });
+
+  await page.goto(`/recipes/${recipe.id}`);
+  const lines = page.locator('.main');
+  await expect(lines.filter({ hasText: 'g ' + toor.name })).toHaveCount(1);
+  await expect(lines.filter({ hasText: /\bthu\b/ })).toHaveCount(0);
+  await expect(lines.filter({ hasText: 'fresh coriander' })).toHaveCount(1);
+  await expect(page.getByText(coriander.name, { exact: true })).toBeVisible();
+  await expect(lines.filter({ hasText: 'tamarind' })).toHaveCount(1);
+
+  // The editor opens with the full name, so Cancel with nothing else changed just closes.
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  if (isPhone(page)) {
+    await expect(page.getByRole('button', { name: `Ingredient 1: ${toor.name}` })).toBeVisible();
+  } else {
+    await expect(page.getByLabel('Ingredient 1', { exact: true })).toHaveValue(toor.name);
+    await expect(page.getByLabel('Ingredient 2', { exact: true })).toHaveValue('fresh coriander');
+  }
+  await expect(page.getByText('Linked to')).toContainText(coriander.name);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}`);
+  await expect(page.getByText('Changes not saved')).toHaveCount(0);
+});
 
 test('Cancel with nothing changed just closes, with no toast', async ({ page }) => {
   await page.goto('/recipes/new');

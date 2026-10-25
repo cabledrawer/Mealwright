@@ -427,13 +427,16 @@
   const NB = '\u00a0';
   const ingredientRows: { line: RecipeLine; amount: string | null; mark: Mark | null }[] = [
     {
-      line: ingredient(1, { food: { id: 5, name: 'Toor dal' }, words: 'Toor dal' }),
+      line: ingredient(1, {
+        food: { id: 5, name: 'Toor dal', other_names: [] },
+        words: 'Toor dal'
+      }),
       amount: `200${NB}g`,
       mark: { kind: 'in', label: 'Cupboard' }
     },
     {
       line: ingredient(2, {
-        food: { id: 5, name: 'Toor dal' },
+        food: { id: 5, name: 'Toor dal', other_names: [] },
         words: 'thuvaram paruppu',
         note: 'rinsed'
       }),
@@ -441,22 +444,25 @@
       mark: { kind: 'in', label: 'Freezer' }
     },
     {
-      line: ingredient(3, { food: { id: 6, name: 'Onions' }, words: 'shallots' }),
+      line: ingredient(3, { food: { id: 6, name: 'Onions', other_names: [] }, words: 'shallots' }),
       amount: '10',
       mark: { kind: 'list', label: 'On list' }
     },
     {
-      line: ingredient(4, { food: { id: 7, name: 'Sambar powder' }, words: 'sambar powder' }),
+      line: ingredient(4, {
+        food: { id: 7, name: 'Sambar powder', other_names: [] },
+        words: 'sambar powder'
+      }),
       amount: `2${NB}tbsp`,
       mark: { kind: 'staple', label: 'Staple' }
     },
     {
-      line: ingredient(5, { food: { id: 8, name: 'Paneer' }, words: 'paneer' }),
+      line: ingredient(5, { food: { id: 8, name: 'Paneer', other_names: [] }, words: 'paneer' }),
       amount: `400${NB}g`,
       mark: { kind: 'short', label: 'Not enough' }
     },
     {
-      line: ingredient(6, { food: { id: 9, name: 'Ghee' }, words: 'ghee' }),
+      line: ingredient(6, { food: { id: 9, name: 'Ghee', other_names: [] }, words: 'ghee' }),
       amount: `1${NB}tbsp`,
       mark: { kind: 'missing', label: null }
     },
@@ -477,7 +483,11 @@
     },
     {
       line: ingredient(10, {
-        food: { id: 10, name: 'Organic stone-ground whole wheat flour from the Saturday market' },
+        food: {
+          id: 10,
+          name: 'Organic stone-ground whole wheat flour from the Saturday market',
+          other_names: []
+        },
         words: 'பச்சைப் பயறு (பாசிப்பயறு) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது',
         note: 'soaked overnight and drained very well'
       }),

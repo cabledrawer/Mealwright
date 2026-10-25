@@ -39,7 +39,7 @@ const lines: RecipeLine[] = [
     amount: 200,
     amount_text: '200',
     unit: 'g',
-    food: { id: 5, name: 'Toor dal' },
+    food: { id: 5, name: 'Toor dal', other_names: [] },
     link: 'ingredient',
     note: 'rinsed'
   }),
@@ -48,14 +48,14 @@ const lines: RecipeLine[] = [
     amount: 2,
     amount_text: '2',
     unit: 'tbsp',
-    food: { id: 7, name: 'Tahini' },
+    food: { id: 7, name: 'Tahini', other_names: [] },
     link: 'ingredient'
   }),
   line(4, {
     words: 'shallots',
     amount: 10,
     amount_text: '10',
-    food: { id: 2, name: 'Coriander' },
+    food: { id: 2, name: 'Coriander', other_names: [] },
     link: 'ingredient'
   }),
   line(5, {

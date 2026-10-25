@@ -14,7 +14,12 @@ afterEach(() => {
 });
 
 const food = (id: number, name: string, matched_name: string | null = null): FoodRow =>
-  ({ id, name, matched_name, other_names: [] }) as unknown as FoodRow;
+  ({
+    id,
+    name,
+    matched_name,
+    other_names: matched_name ? [matched_name] : []
+  }) as unknown as FoodRow;
 const brief = (id: number, name: string) => ({
   id,
   name,
@@ -48,7 +53,7 @@ describe('IngredientPicker', () => {
     await page.getByRole('button', { name: /^Toor dal/ }).click();
     await page.getByRole('button', { name: /^Sambar powder/ }).click();
     expect(picked).toEqual([
-      { kind: 'ingredient', food: { id: 7, name: 'Toor dal' } },
+      { kind: 'ingredient', food: { id: 7, name: 'Toor dal' }, otherNames: ['thuvaram paruppu'] },
       { kind: 'recipe', recipe: { id: 3, name: 'Sambar powder' } }
     ]);
   });

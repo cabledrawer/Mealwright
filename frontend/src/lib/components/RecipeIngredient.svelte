@@ -2,12 +2,14 @@
   // One ingredient line on the recipe page (mockups Recipe and Dark-Phone-Recipe): a dot, the
   // amount in bold and the line's own words, and at the end where it is ("Cupboard", "On
   // list", "Staple"). The ingredient's own name shows in small text only when it differs from
-  // the words (cabledrawer 19 Oct, question 14). A line linked to an ingredient opens the
+  // the words (cabledrawer 19 Oct, question 14); words that are only the start of its name ("thu")
+  // show as the name itself ("Toor Dal", cabledrawer 25 Oct). A line linked to an ingredient opens the
   // ingredient editor; a line that uses another recipe opens that recipe; a line linked to
   // nothing is plain text.
   import { resolve } from '$app/paths';
   import type { RecipeLine } from '$lib/client/recipes';
   import type { Mark } from '$lib/recipeStock';
+  import { linkedWords } from '$lib/recipes/linkedWords';
 
   let {
     line,
@@ -25,10 +27,11 @@
 
   /** Between the bold amount and the words (a plain space). */
   const SPACE = ' ';
+  const words = $derived(linkedWords(line.words, line.food));
   const ownName = $derived(line.food?.name ?? line.recipe?.name ?? null);
   /** The name in small text: only when it is not what the line already says. */
   const smallName = $derived(
-    ownName && ownName.trim().toLowerCase() !== line.words.trim().toLowerCase() ? ownName : null
+    ownName && ownName.trim().toLowerCase() !== words.trim().toLowerCase() ? ownName : null
   );
   /** A link that has gone: the line keeps its words, and says why it opens nothing. */
   const gone = $derived(
@@ -41,7 +44,7 @@
   <span class="dot {mark?.kind ?? 'none'}" aria-hidden="true"></span>
   <span class="text">
     <span class="main"
-      >{#if amount}<b>{amount}</b>{SPACE}{/if}{line.words}{#if line.note}<span class="note"
+      >{#if amount}<b>{amount}</b>{SPACE}{/if}{words}{#if line.note}<span class="note"
           >, {line.note}</span
         >{/if}</span
     >
