@@ -354,8 +354,11 @@ def page(
 def stock_of(kitchen: Kitchen, recipe: Recipe, servings: int | None = None) -> RecipeStock:
     """Where each ingredient of one recipe is, for the recipe page: the same rules as the
     list's hints (this file's docstring), line by line. Only lines that count are answered
-    (a line with no amount, a heading, an unlinked line, or a recipe that isn't checked has no
-    state). Several lines for one ingredient share its state. Read-only, a fixed number of
+    (a heading, an unlinked line, or a recipe that isn't checked has no state). Several lines
+    for one ingredient share its state. A line with no amount still never counts, but it gets
+    a mark when there is one to give (0.5.1, cabledrawer's hand test: "salt to taste" showed no
+    "Staple"): `staple`, or `in_stock` with its place when there is any stock, as when amounts
+    can't be compared (Q22); otherwise it is left out, never "missing". Read-only, a fixed number of
     queries, limited to the signed-in household. The amounts needed are those for `servings`
     (cabledrawer, 19 Oct, Q22: enough for the recipe at the chosen servings); left out, the
     recipe's own Serves, and with no Serves set `servings` is ignored."""
@@ -393,10 +396,17 @@ def stock_of(kitchen: Kitchen, recipe: Recipe, servings: int | None = None) -> R
         return places[best[0]].name
 
     answered: list[LineStock] = []
-    for line, food in counted:
+    for line in lines:
+        food = _ingredient_of(line, foods, recipes)
+        if food is None:
+            continue
         state: Literal["in_stock", "staple", "short", "missing"]
         if food.staple:
             state = "staple"
+        elif line.amount_milli is None and food.id not in needs:
+            if stock.total.get(food.id, 0) <= 0:
+                continue
+            state = "in_stock"
         elif stock.has_enough(food, needs[food.id]):
             state = "in_stock"
         else:

@@ -193,7 +193,7 @@ A household can have at most 10 uploads that aren't on a recipe (cabledrawer 20 
 
 - `state`: `in_stock` (enough, or any when the amounts can't be compared), `staple` (assumed in stock), `short` (some in the pantry, not enough), `missing` (none). `place` is where most of it is (the first of equal places in their order), only for `in_stock`.
 - `food` is the pantry ingredient the line is checked against: the linked ingredient, or a made-ahead recipe's own ingredient.
-- Lines that don't count are left out: headings, lines with no amount, lines linked to nothing, lines using a recipe that isn't checked. Several lines for one ingredient are added up and share its state.
+- Lines that don't count are left out: headings, lines linked to nothing, lines using a recipe that isn't checked. Several lines for one ingredient are added up and share its state. **A line with no amount (0.5.1)** still never counts (`counted` and `missing` leave it out), but it gets a mark when there is one: `staple`, or `in_stock` with its place when there is any stock (as when amounts can't be compared, Q22), or the state of another line for the same ingredient that does count; with none of those it is left out, never `missing`. (cabledrawer's hand test: "salt to taste" linked to the Salt staple showed no "Staple".)
 - `counted`, `missing` and `stock_unchecked` are exactly the list's hint for this recipe (a test compares them). The screen never says "all in stock" when `stock_unchecked` is `true`.
 - "On list" is not here: the page reads the shopping list's own copy, so it follows waiting changes and live updates.
 - A fixed number of queries however many recipes and lines there are (tested).

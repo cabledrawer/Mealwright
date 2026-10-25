@@ -96,6 +96,39 @@ def test_headings_lines_without_an_amount_and_unlinked_lines_have_no_state(
     }
 
 
+def test_a_line_without_an_amount_gets_a_mark_but_never_counts(kitchen: TestClient) -> None:
+    """0.5.1 (cabledrawer's hand test): "salt to taste" linked to the Salt staple showed no "Staple".
+    A line with no amount still never counts towards stock (cabledrawer 19 Oct, question 13)."""
+    salt = food(kitchen, "Zorba salt", staple=True)
+    lemon = food(kitchen, "Zorba lemon")
+    dal = food(kitchen, "Zorba dal")
+    gone = food(kitchen, "Zorba gone")
+    stock(kitchen, lemon["id"], 100, "g", place_id=place_id(kitchen, "Fridge"))
+    stock(kitchen, dal["id"], 50, "g")
+    recipe = make(
+        kitchen,
+        "Marks",
+        lines=[
+            {"words": "salt to taste", "food_id": salt["id"]},
+            {"words": "a squeeze of lemon", "food_id": lemon["id"]},
+            {"words": "gone to taste", "food_id": gone["id"]},
+            line(dal["id"], 200, "g"),
+            {"words": "more dal", "food_id": dal["id"]},
+        ],
+    )
+    ids = [found["id"] for found in recipe["lines"]]
+    answer = stock_of(kitchen, recipe)
+    assert states(kitchen, recipe) == {
+        ids[0]: ("staple", None),
+        ids[1]: ("in_stock", "Fridge"),
+        ids[3]: ("short", None),
+        ids[4]: ("short", None),  # shares the counted line's state
+    }
+    # Only the dal line counts, exactly as in the list's hint.
+    assert (answer["counted"], answer["missing"]) == (1, 1)
+    assert row(kitchen, "Marks")["stock"] == {"counted": 1, "missing": 1, "can_cook_now": False}
+
+
 def test_two_lines_for_one_ingredient_are_added_up_and_share_its_state(
     kitchen: TestClient,
 ) -> None:
