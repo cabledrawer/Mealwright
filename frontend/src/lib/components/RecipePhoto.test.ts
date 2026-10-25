@@ -75,6 +75,17 @@ describe('the recipe page photo', () => {
     await expect.poll(() => document.querySelector('.frame')).toBeNull();
   });
 
+  it('shows the list copy when only the large copy can’t be fetched', async () => {
+    open({ photo: photo({ url: '/api/v1/recipes/photos/404/large', list_url: DISH }) });
+    await expect.poll(() => document.querySelector('img')?.getAttribute('src')).toBe(DISH);
+    const img = document.querySelector('img')!;
+    expect(img.getAttribute('alt')).toBe('Photo of Sambar');
+    expect(img.getAttribute('width')).toBe('208');
+    expect(img.getAttribute('height')).toBe('156');
+    await expect.poll(() => img.complete && img.naturalWidth).toBe(2);
+    expect(document.querySelector('.frame')!.getBoundingClientRect().height).toBe(170);
+  });
+
   it('tries a failed photo again when the connection comes back', async () => {
     const missing = '/api/v1/recipes/photos/404/large';
     open({ photo: photo({ url: missing }) });

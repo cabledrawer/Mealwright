@@ -235,7 +235,7 @@ test('the recipe page: no photo means no box, and the nutrition figures take the
 test('the recipe page: a photo that can’t be fetched leaves no box and no broken-image icon', async ({ page }) => {
   const name = unique('Gone');
   const { recipe } = await recipeWith(page, name, 'dish');
-  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  await page.route('**/api/v1/recipes/photos/*/*', (route) => route.abort());
   await page.goto(`/recipes/${recipe.id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expect(reader(page).getByRole('region', { name: 'Nutrition per serving' })).toBeVisible();
@@ -247,12 +247,29 @@ test('the recipe page: a photo that can’t be fetched leaves no box and no brok
 test('the recipe page: a photo that failed while offline loads once the connection comes back', async ({ page }) => {
   const name = unique('Back');
   const { recipe } = await recipeWith(page, name, 'dish');
-  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  await page.route('**/api/v1/recipes/photos/*/*', (route) => route.abort());
   await page.goto(`/recipes/${recipe.id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expect(reader(page).locator('.frame')).toHaveCount(0);
   await offlineThenBack(page);
-  await loaded(reader(page).getByRole('img', { name: `Photo of ${name}` }), BACK_MS);
+  const img = reader(page).getByRole('img', { name: `Photo of ${name}` });
+  await loaded(img, BACK_MS);
+  await expect(img).toHaveAttribute('src', /\/large$/);
+  await checkPage(page);
+});
+
+test('the recipe page: if only the large copy can’t be fetched, the list copy fills the box (0.5.1)', async ({ page }) => {
+  const name = unique('Small');
+  const { recipe, photo } = await recipeWith(page, name, 'dish');
+  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  await page.goto(`/recipes/${recipe.id}`);
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  const img = reader(page).getByRole('img', { name: `Photo of ${name}` });
+  await expect(img).toHaveAttribute('src', photo!.list_url);
+  await loaded(img);
+  const box = (await reader(page).locator('.frame').boundingBox())!;
+  const imgBox = (await img.boundingBox())!;
+  expect([imgBox.width, imgBox.height]).toEqual([box.width, box.height]);
   await checkPage(page);
 });
 

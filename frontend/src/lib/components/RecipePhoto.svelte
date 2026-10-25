@@ -3,8 +3,10 @@
   // under the top row; Desktop-Recipe and Dark-Recipe: a box beside the nutrition figures).
   // It is the large copy (`url`), cropped to fill the box and never stretched. A recipe with no
   // photo has no box at all, and neither has one whose photo can't be fetched (offline, or
-  // deleted meanwhile): never a broken-image icon. It tries again when the connection comes
-  // back (network.backAgain). Only ever our own server's address.
+  // deleted meanwhile): never a broken-image icon. If only the large copy fails, the list copy
+  // (the one All recipes shows) fills the box instead (0.5.1: cabledrawer saw a photo in All recipes
+  // but none here). It tries again when the connection comes back (network.backAgain). Only ever
+  // our own server's address.
   import type { PhotoOut } from '$lib/client/recipes';
   import { network } from '$lib/network.svelte';
 
@@ -20,12 +22,22 @@
     beside?: boolean;
   } = $props();
 
-  // The address of a photo that failed, and when: another photo (a new id) gets its own go, and
-  // the same one tries again once the connection comes back.
-  let failed = $state<{ url: string; back: number } | null>(null);
-  const shown = $derived(
-    photo && (photo.url !== failed?.url || network.backAgain !== failed.back) ? photo : null
-  );
+  // The addresses that failed, and when: another photo (a new id) gets its own go, and the same
+  // one tries again once the connection comes back.
+  let failed = $state<{ urls: string[]; back: number }>({ urls: [], back: 0 });
+  const gone = (url: string) => network.backAgain === failed.back && failed.urls.includes(url);
+  const shown = $derived.by(() => {
+    if (!photo) return null;
+    if (!gone(photo.url)) return { url: photo.url, width: photo.width, height: photo.height };
+    if (!gone(photo.list_url))
+      return { url: photo.list_url, width: photo.list_width, height: photo.list_height };
+    return null;
+  });
+
+  function fail(url: string) {
+    const urls = network.backAgain === failed.back ? failed.urls : [];
+    failed = { urls: [...urls, url], back: network.backAgain };
+  }
 </script>
 
 {#if shown}
@@ -36,7 +48,7 @@
       width={shown.width}
       height={shown.height}
       decoding="async"
-      onerror={() => (failed = { url: shown.url, back: network.backAgain })}
+      onerror={() => fail(shown.url)}
     />
   </div>
 {/if}
