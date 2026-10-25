@@ -247,5 +247,21 @@ test('Ingredients still works when the list cannot be loaded', async ({ page }) 
   await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t load your ingredients.' })).toBeVisible();
   // The filter is still there, and no count is made up.
   await expect(page.getByRole('button', { name: 'Not in any recipe' })).toBeVisible();
+  // No made-up "0 ingredients" while the list can't be loaded, and Try again is a button (0.5.1).
+  await expect(page.getByText(/\d+ ingredients? ·/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Try again' }).first()).toBeVisible();
   await checkPage(page);
+  await page.unroute('**/api/v1/foods?**');
+  await page.getByRole('button', { name: 'Try again' }).first().click();
+  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t load your ingredients.' })).toHaveCount(0);
+});
+
+test('Ingredients loads again by itself when a short drop is over (0.5.1)', async ({ page }) => {
+  let dropped = 0;
+  await page.route('**/api/v1/foods?**', (route) => (dropped++ === 0 ? route.abort('internetdisconnected') : route.continue()));
+  await page.goto('/recipes/ingredients');
+  await expect(page.getByText(/\d+ ingredients? ·/)).toBeVisible({ timeout: 15_000 });
+  expect(dropped).toBeGreaterThan(1);
+  await expect(page.getByRole('alert').filter({ hasText: 'Couldn’t' })).toHaveCount(0);
 });

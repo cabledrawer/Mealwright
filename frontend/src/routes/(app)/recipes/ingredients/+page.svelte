@@ -7,7 +7,7 @@
   // the count, as in the mockups.
   import { browser } from '$app/environment';
   import { page } from '$app/state';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { serverUndo } from '$lib/client/changes';
   import { mergeFood } from '$lib/client/foods';
   import type { FoodFilter, FoodRow, FoodWrite } from '$lib/client/types';
@@ -84,11 +84,19 @@
   });
 
   // Ingredients needs the server (spec section 6, "Opening the app offline"): offline it
-  // shows a note pointing to Shopping, and fetches again once the connection is back.
+  // shows a note pointing to Shopping, and fetches again once the connection is back. A load
+  // that failed in a short drop (no offline note yet) tries again then too (0.5.1).
   let wasOffline = false;
+  let back = network.backAgain;
   $effect(() => {
-    if (network.offline) wasOffline = true;
-    else if (wasOffline) {
+    if (network.offline) {
+      wasOffline = true;
+      return;
+    }
+    const again = network.backAgain !== back;
+    back = network.backAgain;
+    const failed = untrack(() => list.problem !== null || recent.problem !== null);
+    if (wasOffline || (again && failed)) {
       wasOffline = false;
       void list.load();
       void recent.load();
@@ -185,7 +193,10 @@
 
 {#snippet changesList()}
   {#if recent.problem && !recent.changes.length}
-    <p class="none" role="alert">{recent.problem}</p>
+    <div class="none" role="alert">
+      <p>{recent.problem}</p>
+      <button type="button" class="again" onclick={() => void recent.load()}>Try again</button>
+    </div>
   {:else}
     <RecentChanges
       changes={recent.changes}
@@ -201,7 +212,7 @@
 <PageHeader
   title="Ingredients"
   parent={{ href: '/recipes', label: 'Recipes' }}
-  subtitle={list.loaded
+  subtitle={list.loaded && !list.problem
     ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
 >
@@ -306,7 +317,10 @@
             <button type="button" class="more" onclick={() => void list.more()}>Show more</button>
           {/if}
         {:else if list.problem}
-          <p class="nothing" role="alert">{list.problem}</p>
+          <div class="nothing" role="alert">
+            <p>{list.problem}</p>
+            <button type="button" class="again" onclick={() => void list.load()}>Try again</button>
+          </div>
         {:else if !list.loaded}
           <p class="nothing">Loading…</p>
         {:else if list.query.trim()}
@@ -620,6 +634,18 @@
     color: var(--color-text-muted);
     font-size: var(--text-base);
     text-align: center;
+  }
+
+  /* "Try again" after a load that failed: a real button, not more grey words (0.5.1). */
+  .again {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .more {

@@ -40,7 +40,7 @@ export class IngredientsList {
       this.problem =
         error instanceof ApiError && error.status === 0
           ? error.detail
-          : 'Couldn’t load your ingredients. Try again.';
+          : 'Couldn’t load your ingredients.';
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }

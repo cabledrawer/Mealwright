@@ -34,7 +34,7 @@ export class IngredientChanges {
       this.problem =
         error instanceof ApiError && error.status === 0
           ? error.detail
-          : 'Couldn’t load the recent changes. Try again.';
+          : 'Couldn’t load the recent changes.';
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }
