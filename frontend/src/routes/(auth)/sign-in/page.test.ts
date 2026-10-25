@@ -1,6 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
+import { page as appPage } from '$app/state';
 import { startDevice } from '#lib/offline/device.js';
 import { turnAway } from '#lib/offline/held.js';
 import { getMeta, phoneDatabaseName, setMeta } from '#lib/offline/phone.js';
@@ -14,7 +15,9 @@ import SignIn from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
-const navigation = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
+const navigation = vi.hoisted(() => ({
+  goto: vi.fn<(address?: string, options?: object) => Promise<void>>(async () => {})
+}));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => ({ page: { url: new URL('http://mealwright.test/sign-in') } }));
 
@@ -1004,6 +1007,73 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       );
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(fetching).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('where "next" points (SvelteKit 3 refuses an address that is not one of the app’s pages)', () => {
+    const headingFor = (next: string) =>
+      ((appPage as unknown as { url: URL }).url = new URL(
+        `http://mealwright.test/sign-in?next=${encodeURIComponent(next)}`
+      ));
+
+    afterEach(() => {
+      (appPage as unknown as { url: URL }).url = new URL('http://mealwright.test/sign-in');
+      navigation.goto.mockReset();
+      navigation.goto.mockImplementation(async () => {});
+    });
+
+    it('an ordinary "next" is gone to, with nothing else tried', async () => {
+      headingFor('/pantry');
+      await wrensPhone(0);
+      show();
+      await fillIn('wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      expect(navigation.goto).toHaveBeenCalledTimes(1);
+      expect(navigation.goto).toHaveBeenCalledWith('/pantry', { replace: true, refreshAll: true });
+    });
+
+    it('a "next" the router refuses falls back to Today: no error, signed in, not left on Sign in', async () => {
+      headingFor('/an/old/address');
+      navigation.goto.mockImplementation(async (address?: string) => {
+        if (address === '/an/old/address') throw new Error('Not a route: /an/old/address');
+      });
+      const unhandled = vi.fn();
+      window.addEventListener('unhandledrejection', unhandled);
+      await wrensPhone(0);
+      show();
+      await fillIn('wren');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalledTimes(2));
+      expect(navigation.goto).toHaveBeenLastCalledWith('/', { replace: true, refreshAll: true });
+      await new Promise((done) => setTimeout(done, 50));
+      expect(unhandled).not.toHaveBeenCalled();
+      window.removeEventListener('unhandledrejection', unhandled);
+      // No "wrong password" message either: the sign-in itself worked.
+      expect(document.body.textContent).not.toContain('Wrong');
+    });
+
+    it('an odd "next" (another site, the API, a doubled slash) is never tried at all: Today', async () => {
+      for (const odd of [
+        'https://evil.example/x',
+        '/api/v1/session',
+        '//evil.example',
+        '/\\evil'
+      ]) {
+        navigation.goto.mockClear();
+        headingFor(odd);
+        await wrensPhone(0);
+        show();
+        await fillIn('wren');
+        await page.getByRole('button', { name: 'Sign in' }).click();
+        await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+        expect(navigation.goto).toHaveBeenCalledTimes(1);
+        expect(navigation.goto).toHaveBeenCalledWith('/', { replace: true, refreshAll: true });
+        for (const component of mounted.splice(0)) unmount(component);
+        document.body.innerHTML = '';
+        await dropPhone();
+        freshPhone();
+      }
     });
   });
 });

@@ -15,6 +15,7 @@
   // nothing is said about it unless it fails.
   import { tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { ApiError, signIn } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
@@ -288,8 +289,14 @@
       session.me = me;
       theme.adopt(me.theme);
       const next = safeNext(page.url.searchParams.get('next'));
-      // eslint-disable-next-line svelte/no-navigation-without-resolve -- safeNext only returns pages of this app
-      await goto(next, { replace: true, refreshAll: true });
+      try {
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- safeNext only returns pages of this app
+        await goto(next, { replace: true, refreshAll: true });
+      } catch {
+        // SvelteKit 3 refuses an address that isn't one of the app's pages (an old or mistyped
+        // "next"). Signed in all the same: go to Today rather than stay on this page.
+        await goto(resolve('/(app)'), { replace: true, refreshAll: true });
+      }
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;
