@@ -2,6 +2,29 @@
 
 Written 17 Oct 2026 as the contract between the backend and the web app for milestone 0.2. It covers both backend pull requests: **foods-and-units** (foods, sizes, other names, stand-ins, merge, places, shops, conversions) and **stock-history-undo** (stock, Use soon, Recent changes, Undo, thinning). The spec (`docs/spec.md`) wins wherever this file disagrees with it. Generated OpenAPI (`/api/v1/openapi.json`) is the exact reference once built; this file is the plan.
 
+
+## On one page (read this, then grep)
+
+Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this page, then only the sections your pull request needs (`grep -n '^##' docs/dev/api-0.2.md`). This page only repeats what is below; where they differ, the section wins.
+
+- **Rules for every endpoint (§1):** everything under `/api/v1`, signed in, same-origin for browser writes, `snake_case`; scoped to the household (another household's id is a 404); errors are `{detail, code}` with a plain sentence the screen shows as it is (§1.1).
+- **Retries (§1.2):** writes may carry an `Idempotency-Key`; the same key again changes nothing and returns the original change. From 0.3 the sync queue sends the same IDs in the body.
+- **Amounts (§2, §4):** stored as whole thousandths of the base unit (g, ml or count) in `amount_milli`; JSON carries plain numbers with at most 3 decimals, and finer is refused, not rounded. People's amounts come in as `AmountIn` (§4.3); a missing conversion is asked once (§4.4).
+- **Display (§5):** the server sends the as-sold wording ready made (`display`, "1½ packets · about 750 g"), with no-break spaces; screens never rebuild it.
+- **Tables (§3):** household settings, places and shops, foods (ingredients on screen) with sizes and other names, stock (lots), and the change log behind Undo; migrations in order in §3.7.
+- **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5.
+- **Words:** the API says "food"; screens say "ingredient" (`docs/dev/words.md`).
+
+| § | What |
+|---|---|
+| 1 | conventions, errors, retries |
+| 2 | storing amounts |
+| 3 | data model and migrations |
+| 4 | units, conversions, `AmountIn`, "ask once" |
+| 5 | as-sold display and rounding |
+| 6 | endpoints |
+| 7 | the lead's decisions on the open points (17 Oct) |
+
 ## 1. Conventions
 
 - Everything is under `/api/v1`, needs a signed-in session (cookie), and follows the existing rules: writes from a browser must pass the same-origin check; JSON field names are `snake_case`.

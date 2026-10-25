@@ -17,6 +17,19 @@ Six modules:
 | `mealwright.recipe_import` | the import itself: the one box, the review, Save (last section) |
 | `mealwright.drafts` | drafts: an import left unfinished, kept for 15 days (the section after the API) |
 
+
+## On one page (read this, then grep)
+
+Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this page and the module table above, then only the sections your pull request needs (`grep -n '^##' docs/dev/recipe-import.md`). This page only repeats what is below; where they differ, the section wins.
+
+- **Fetching (How fetching is checked):** nothing is looked up or sent unless the Privacy switch is on ("Recipe import from links", "Download recipe photos"; both start off). Then the link (http/https only), the name and **every** address it has (this server, link-local and cloud metadata addresses always blocked; private addresses only if on the household's "Your own network" list), the port (80/443 unless listed), a request pinned to the checked address, at most 5 redirects each checked again, size limits (5 MB page, 15 MB photo), and 15 s per connection, 30 s in all. Everything goes through the outbound gate.
+- **Logs** name only the connection and the kind of problem, never the page's address.
+- **Reading (What the reader gives back, Hostile pages):** `read_page` turns a page into a `PageRecipe` (or `None`) and never goes online. It is always called through `page_budget.read_within_budget`, a child process with processor-time, clock and memory limits (The work budget).
+- **Photos** are cleaned like an upload (type checked, at most 50 megapixels, shrunk, hidden data removed) and stored locally, never hotlinked.
+- **The API (The import's API):** `POST /api/v1/recipes/import` takes one box (a link or pasted text) and returns the review; `POST /api/v1/recipes/import/save` saves it.
+- **Drafts:** an unfinished import, kept for 15 days (Drafts).
+- **Tests:** The real-recipe check and The test pages.
+
 ## How fetching is checked
 
 Nothing is looked up, read or sent until all of these pass, in this order:

@@ -4,9 +4,16 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 
 ## Read first
 
-- `docs/BUILD-PLAN.md`: what to build, in which order. Work one milestone at a time and stop for cabledrawer's OK at the end of each.
+- `docs/BUILD-PLAN.md`: what to build, in which order. Read only "How to use this plan", "Order and why" and the current milestone (find them with `grep -n '^#' docs/BUILD-PLAN.md`) (cabledrawer 25 Oct). Work one milestone at a time and stop for cabledrawer's OK at the end of each.
 - `docs/spec.md`: the source of truth for every product decision. Don't read it all: read the sections the current milestone in BUILD-PLAN names (find them with `grep -n '^#' docs/spec.md`). If code and spec disagree, the spec wins. If neither covers something, ask cabledrawer, then record his answer in the spec, credited to him.
-- `docs/mockups/`: the intended look, exported from the design canvas. Read the markup for exact colours, sizes, wording and layout. Visual reference only, not code to copy.
+- `docs/mockups/`: the intended look, exported from the design canvas. Read only the screens the PR touches. Read their markup for exact colours, sizes, wording and layout. Visual reference only, not code to copy.
+- Long docs (cabledrawer 25 Oct): `docs/dev/words.md`, `sync-protocol.md`, `api-0.2.md` and `recipe-import.md` start with a one-page summary. Read that, then grep for what the PR needs; don't read them whole. `docs/dev/progress-archive.md` is grep-only. `CHANGELOG.md` is appended to, never read whole.
+
+## Helpers, skills and hooks (cabledrawer 25 Oct)
+
+- Saved helper types in `.claude/agents/`: `checker` (Sonnet), `security-checker` (Opus, high effort) and `builder` (Sonnet). Each has its model and tools fixed.
+- Skills in `.claude/skills/`: `checker-brief` (how to brief a checker), `security-review` (the security pass), `pr-open` (check, push, open a PR) and `release-pr` (a version's release PR). Follow them instead of writing those steps out each time.
+- A hook formats and lints each file Claude edits (ruff for `backend/`, Prettier and ESLint for `frontend/`), offline, and reports lint problems back to fix.
 
 ## The ethos (never break these)
 
@@ -31,7 +38,7 @@ The UX rules for the screens live in `frontend/CLAUDE.md` (loaded when you work 
 
 - API-first: the web app uses only the public, versioned `/api/v1` (OpenAPI). No private endpoints. The offline sync protocol is part of the API.
 - Every table has `household_id`. Every schema change is an Alembic migration.
-- Tests for every feature. Run `./check` before every PR (lint, types, tests, outbound-gate test, licence allow list, scanners, image checks) and paste its summary into the PR description. It must pass.
+- Tests for every feature. Run `./check` before every PR (lint, types, tests, outbound-gate test, licence allow list, scanners, image checks) and paste its summary (`.check/summary.md`) into the PR description. It must pass. It prints only failures; the whole run is in `.check/check.log`. The scanners run only when the PR changes a library, a lock file or the Dockerfile, and always on a release PR (`CHECK_SCANNERS=1` forces them; cabledrawer 25 Oct).
 - Dependencies must be AGPL-compatible (MIT, MIT-0, BSD, Apache-2.0, ISC, LGPL, GPL-3.0, AGPL, PSF-2.0, MPL-2.0, BlueOak-1.0.0), plus OFL-1.1 for fonts only (cabledrawer 17 Oct) and MIT-CMU for Pillow only, matched exactly by name and licence text (cabledrawer 19 and 20 Oct). Reject MPL-2.0 packages marked "Incompatible With Secondary Licenses". No GPL-2.0-only. Ask before adding a new dependency. Pick versions released at least two weeks earlier. **Security fixes (cabledrawer 20 Oct):** "a version that fixes a published security warning may skip the two-week age rule, if the PR names the warning (ID and severity) and no other library changes."
 - Commits are small, and each builds and passes. **cabledrawer is the author and signs off every commit** (cabledrawer 17 Oct): the repo's git identity is set to him, so always commit with `git commit -s --trailer "Assisted-by: Claude Code"`. Never change the git identity and never add a `Signed-off-by` for Claude. Also note AI help in PR descriptions. Helpers sign off for cabledrawer under this permission (cabledrawer 21 Oct): the one rule `Bash(git commit -s --trailer "Assisted-by: Claude Code" *)` in the uncommitted `.claude/settings.local.json`.
 - Versions: 0.N.0 per milestone while building (not published). From 1.0.0: MAJOR.MINOR.PATCH per spec section 8. Update `CHANGELOG.md` with each version.

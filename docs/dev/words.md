@@ -6,6 +6,41 @@
 
 **Where it comes from:** `spec` = `docs/spec.md` (section or heading named); `api` = `docs/dev/api-0.2.md`; `sync` = `docs/dev/sync-protocol.md`; `review` = `e2e/REVIEW.md`; a path like `frontend/src/lib/network.svelte.ts` is the built wording.
 
+
+## The list on one page (read this, then grep)
+
+Added 25 Oct at cabledrawer's request, so checkers and builders don't read the whole list: read this page, then find the PR's own words with `grep -n -i '<word>' docs/dev/words.md`, and the section you need with `grep -n '^## ' docs/dev/words.md`. This page only repeats the rules below; where they differ, the section wins.
+
+**The rules that apply to every screen:**
+
+1. **Plain words, never database words.** Say ingredient (never food), cupboard/fridge/freezer (never location), use soon (never expiring), amount (never quantity), the way it's sold: packet, tub, dozen (never units), other names (never aliases), waiting changes (never queue or sync). "Item" only for shopping-list lines. Section 1.
+2. **Buttons** are a verb in sentence case, no full stop; "+" starts one that adds something new; Undo is always "Undo"; "Try again" (repeat), "Try now" (reconnect) and "Try sending now" (send waiting changes) stay different. Section 5, ruling 8.
+3. **Toasts** say what happened, in the past tense, with Undo; after Undo: "Undone: " and the change's own words, capital kept. Section 6.
+4. **Errors** are two short sentences, what happened then what to do: "Couldn’t save. Try again." No dash, no "Please", no codes. Section 7, ruling 4.
+5. **No "Are you sure?"** except signing out with unsent changes and removing a shopping-list line. Clashes are a quiet note with Undo ("Wren ticked this too"). Section 1.
+6. **Curly apostrophes** (’) on screen; a no-break space between a number and its unit ("750 g"); fractions ¼ ½ ¾; "about" for a best guess. Ruling 3, section 4.
+7. **Dates:** Today, Tomorrow, a weekday for the next 6 days, then "12 Nov"; "use by Mon"; the household's time zone. Section 4.
+8. **Offline:** "Offline — 3 changes waiting" with "Try now", then "Back online — all saved". Section 8.
+9. **"this phone" / "this computer"** follows the layout (bottom tabs or sidebar), not the device. Section 10.
+10. **Empty states:** a short title, one sentence on how things get there, and the button. Ruling 10.
+
+**Where each screen's words are:**
+
+| Section | What |
+|---|---|
+| 1 | words we use and never use; the rejected list |
+| 2–3 | screen names; places, shops, lists, aisles |
+| 4 | amounts and dates |
+| 5–7 | buttons, toasts and Undo, error messages |
+| 8–10 | offline, signing in and out, phone and computer |
+| 11 | cabledrawer's 12 rulings (19 Oct) |
+| 12–13 | All recipes, the recipe page |
+| 14 | shopping rows |
+| 15–17 | recipes on a computer, Ingredients and recipes, the recipe editor |
+| 18 | recipe import, Drafts, Privacy and swipes (0.5) |
+
+A line marked "proposed, for cabledrawer" still waits for his OK.
+
 ---
 
 ## 1. Words we use, and words we never use
