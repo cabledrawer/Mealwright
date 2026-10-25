@@ -4,6 +4,23 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-25
+
+A bug-fix release for 0.5.0, from cabledrawer's friction log. No database change: install it over 0.5.0 as usual (a backup first is still a good habit).
+
+### Fixed
+
+- **Recipe page photo:** if the large copy of a recipe's photo can't be fetched, the page shows the small copy that All recipes uses, in the same rounded box, instead of no photo at all. It tries the large copy again when the connection comes back. (The large copy loaded in every test here, so a hand test on the server should check it.)
+- **Recipe page, a line with no amount:** "Salt" with no amount now shows **Staple** when it is a staple, or its place ("Cupboard") when it is in stock. Such a line still never counts towards "all in stock" or "2 missing".
+- **All recipes:** "Uses Toor Dal (Sat)" keeps a name with a capital further in as it is written, instead of half lowering it to "toor Dal". "Uses spinach (today)" is unchanged.
+- **Recipe page, scaling:** litres and kilograms typed as a fraction keep to quarters when scaled: "Makes 1½ litres" at Serves 4 is "2¼ litres" at Serves 6, not "2.25 litres". Amounts typed as decimals stay decimals.
+- **Ingredients:** when the list can't be loaded, the header no longer says "0 ingredients", **Try again** is a real button (here and under Recent changes), and the list loads again by itself once the connection is back, even after a short drop that never showed the offline bar.
+- **Pantry on a computer:** the Use soon rows have room between them, so one row's Used · Binned · To freezer buttons no longer nearly touch the next row's.
+
+### Tests
+
+- New tests for Delete from Edit (reached from the recipe page, it lands on All recipes), for Shopping's amount box (tapping the name opens it without ticking; − and + step the real amount) and for the checks above.
+
 ## [0.5.0] - 2026-10-24
 
 The recipe-import milestone: paste a link or a recipe's text and check it before it is saved, on a phone or a computer; Settings → Privacy, where the outside connections are switched on (both start off); Drafts for imports you haven't finished; swipes on a phone (Pantry, Use soon, Shopping, Drafts); and a "your own network" list for links to places on your home network. Also paper cuts and security fixes. Not published; for testing on cabledrawer's homelab.
