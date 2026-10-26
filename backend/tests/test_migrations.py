@@ -749,3 +749,48 @@ def test_drafts_migration_keeps_recipes_and_photos_and_goes_back_and_forward(
 def _photo_keys(engine: Engine) -> list[tuple[str]]:
     with engine.connect() as connection:
         return [tuple(r) for r in connection.exec_driver_sql("SELECT file_key FROM recipe_photo")]
+
+
+DRAFTS = "d7a4c2e81f56"  # 0.5 PR 5's migration: the one just before the plan tables
+PLAN_TABLES = ("meal_slot", "meal", "meal_item", "batch_cook", "tub")
+PLAN_COLUMNS = {"tub_fridge_days", "tub_freezer_months", "plan_ahead_days", "week_starts_on"}
+
+
+def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.6 PR 2: upgrading a 0.5.1 database keeps its rows, gives every household the default
+    slots and the plan settings; going back drops the plan and keeps the rest; forward again
+    gives the same slots."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)  # two households with a recipe each, upgraded to the newest
+    migrate.downgrade(engine, DRAFTS)
+    assert not set(PLAN_TABLES) & set(inspect(engine).get_table_names())
+    assert not PLAN_COLUMNS & {c["name"] for c in inspect(engine).get_columns("household")}
+    with engine.connect() as connection:
+        before = connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one()
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert set(PLAN_TABLES) <= set(inspect(engine).get_table_names())
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe").scalar_one() == before
+        assert connection.exec_driver_sql("SELECT count(*) FROM food").scalar_one() == 2
+        slots = connection.exec_driver_sql(
+            "SELECT household_id, name, position, enabled FROM meal_slot ORDER BY 1, 3"
+        ).all()
+        settings = connection.exec_driver_sql(
+            "SELECT tub_fridge_days, tub_freezer_months, plan_ahead_days, week_starts_on"
+            " FROM household"
+        ).all()
+        sql = connection.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE name = 'meal'"
+        ).scalar_one()
+    names = [("Breakfast", 0, 1), ("Lunch", 1, 1), ("Snack", 2, 0), ("Dinner", 3, 1)]
+    assert [tuple(s) for s in slots] == [(h, *n) for h in (1, 2) for n in names]
+    assert [tuple(s) for s in settings] == [(3, 3, 7, 1)] * 2
+    assert "AUTOINCREMENT" in sql
+    # And once more round, from the full database.
+    migrate.downgrade(engine, DRAFTS)
+    migrate.upgrade(engine)
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM meal_slot").scalar_one() == 8

@@ -102,7 +102,7 @@ All tables have `household_id` (FK to `household.id`, `ON DELETE CASCADE`, index
 | `history_months` | int | 12 | full history kept, then thinned |
 | `use_soon_days` | int | 2 | use-by today … today + 2 |
 
-Kept as columns on `household` (its `id` is the household_id), not a separate table: one row per household either way. Tub life defaults come in 0.6, the "Who's this?" picker in 0.8.
+Kept as columns on `household` (its `id` is the household_id), not a separate table: one row per household either way. Plan settings (0.6): `tub_fridge_days` 3, `tub_freezer_months` 3, `plan_ahead_days` 7 (how far ahead the shopping list looks, never asked each time), `week_starts_on` 1 (1 Monday ... 7 Sunday). The "Who's this?" picker in 0.8.
 
 ### 3.2 Places and shops
 
@@ -455,9 +455,16 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 - `GET /api/v1/places` → `[{ "id": 1, "name": "Fridge", "kind": "fridge" }, …]` in order. (Renaming and adding: Settings, 0.8.)
 - `GET /api/v1/shops` → `[{ "id": 1, "name": "Tesco" }, …]`.
 - `POST /api/v1/shops` `{ "name": "Lidl" }` → `201` with the new shop, or `200` with the existing one if the name is already used (ignoring case), so "+ Shop" never makes duplicates. Not logged as a change.
-- `GET /api/v1/household` → `{ "name": "Home", "time_zone": null, "cup_ml": null, "cup_ml_used": 250, "undo_days": 7, "history_months": 12, "use_soon_days": 2, "today": "2026-10-17" }`.
+- `GET /api/v1/household` → `{ "name": "Home", "time_zone": null, "cup_ml": null, "cup_ml_used": 250, "undo_days": 7, "history_months": 12, "use_soon_days": 2, "tub_fridge_days": 3, "tub_freezer_months": 3, "plan_ahead_days": 7, "week_starts_on": 1, "today": "2026-10-17" }`.
 - `POST /api/v1/household/from-browser` (admins only, else `403 admins_only`) `{ "time_zone": "Europe/London", "cup_ml": 250 }`. Each value is stored **only while the household has none** (cabledrawer 17 Oct, spec section 6): once set it is never changed silently, so an admin opening the app from abroad changes nothing. Always answers `200` with the settings as stored (the household shape above). A zone that isn't `UTC` or an Area/City name from `zoneinfo` (so not `localtime`, `Factory` or `posixrules`) or cup not 240/250 → `422`. Changing them on purpose comes with Settings (0.8), on a separate endpoint the web app never calls automatically.
 - **After sign-in:** if `time_zone` or `cup_ml` is null and the login is an admin, the web app sends `{ "time_zone": <Intl.DateTimeFormat().resolvedOptions().timeZone>, "cup_ml": <240 if navigator.language is en-US, else 250> }`. Existing 0.1 installs fill it in on the first admin visit after updating. Members never send it. Never location.
+
+### 6.3a The plan (0.6, read only)
+
+Tables (all with `household_id`; links between them are composite keys, so they can't reach into another household): `meal_slot` (`name`, `position`, `enabled`), `meal` (`day`, `slot_id`, `status` planned · cooked · didnt · moved; one per day and slot), `meal_item` (`meal_id`, `position`, exactly one of `recipe_id` / `tub_id` / `food_id`, `servings` only with a recipe), `batch_cook` (`recipe_id`, `recipe_name`, `cooked_on`, `tub_count`, `pattern` lunches · lunch_dinner · dinners · pick, `prep_note`, `colour`) and `tub` (`batch_id`, `amount_quarters` 0 to 4, `place_id`, `member_login_id`, `use_by`). Default slots: Breakfast, Lunch, Snack (off), Dinner. Deleting: a slot with meals can't be deleted (hide it); a recipe, ingredient or tub deleted for good takes its meal item (the meal stays); a batch cook outlives its recipe, by `recipe_name`; deleting a batch removes its tubs.
+
+- `GET /api/v1/meal-slots` → `[{ "id": 1, "name": "Breakfast", "position": 0, "enabled": true }, …]`, hidden ones too.
+- `GET /api/v1/plan?from=2026-11-02&to=2026-11-08` → `{ "start", "end", "meals": [{ "id", "date", "slot_id", "status", "items": [{ "id", "position", "kind": "recipe"|"tub"|"ingredient", "recipe": {"id","name","removed"}|null, "tub_id", "ingredient": {"id","name"}|null, "servings" }] }], "batch_cooks": […], "tubs": […] }`. Batch cooks and tubs are the ones the meals in the range use. More than 62 days → `422 range_too_long`; `to` before `from` → `422 bad_range`.
 
 ### 6.4 Stock (the Pantry screen)
 

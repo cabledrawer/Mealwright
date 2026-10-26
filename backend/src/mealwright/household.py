@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.amounts import DEFAULT_CUP_ML
-from mealwright.models import DEFAULT_PLACES, Household, Place, utcnow
+from mealwright.models import DEFAULT_PLACES, DEFAULT_SLOTS, Household, MealSlot, Place, utcnow
 
 UTC_ZONE = ZoneInfo("UTC")
 
@@ -64,5 +64,21 @@ def places(db: DbSession, household_id: int) -> list[Place]:
             select(Place)
             .where(Place.household_id == household_id)
             .order_by(Place.position, Place.id)
+        )
+    )
+
+
+def add_default_slots(db: DbSession, household_id: int) -> None:
+    """Breakfast, Lunch, Snack (off) and Dinner (renameable and reorderable from 0.6)."""
+    for position, (name, enabled) in enumerate(DEFAULT_SLOTS):
+        db.add(MealSlot(household_id=household_id, name=name, position=position, enabled=enabled))
+
+
+def meal_slots(db: DbSession, household_id: int) -> list[MealSlot]:
+    return list(
+        db.scalars(
+            select(MealSlot)
+            .where(MealSlot.household_id == household_id)
+            .order_by(MealSlot.position, MealSlot.id)
         )
     )

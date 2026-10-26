@@ -25,7 +25,7 @@ from mealwright.auth import (
     peek_session,
     start_session,
 )
-from mealwright.household import add_default_places
+from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
 from mealwright.shopping import ensure_main_list
@@ -125,6 +125,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
         db.add(household)
         db.flush()
         add_default_places(db, household.id)
+        add_default_slots(db, household.id)
         ensure_main_list(db, household.id, body.name)
         db.add(login)
         db.flush()

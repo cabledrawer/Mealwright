@@ -53,6 +53,14 @@ class Household(Base):
     undo_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     history_months: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
     use_soon_days: Mapped[int] = mapped_column(Integer, default=2, server_default="2")
+    # Plan settings (0.6; docs/dev/api-0.2.md section 3.1). Tub life: how long a new tub keeps
+    # in the fridge (days) or the freezer (months). Plan ahead: how many days the shopping
+    # list looks forward, never asked each time (cabledrawer, 0.6 answer 8). Week start: 1 is
+    # Monday ... 7 is Sunday (cabledrawer, 0.6 answer 7).
+    tub_fridge_days: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    tub_freezer_months: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    plan_ahead_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    week_starts_on: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     # The shopping-list counter (docs/dev/sync-protocol.md 3.7): the number of the last
     # recorded list change, and the highest version whose rows the tidy-up has deleted.
     list_seq: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
@@ -867,3 +875,183 @@ class ImportDraft(Base):
     # The last time anyone changed it: the 15 days count from here.
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- Plan and cooking (0.6) --------------------------------------------------------------------
+# Links between the plan tables are checked by the database to stay inside one household
+# (composite keys on (household_id, id)). Links to recipes, ingredients, places and logins are
+# plain keys like everywhere else; the server checks the household when it writes them.
+
+# Breakfast, Lunch, Snack (off) and Dinner, in that order (cabledrawer, 0.6 answer 7).
+DEFAULT_SLOTS = (
+    ("Breakfast", True),
+    ("Lunch", True),
+    ("Snack", False),
+    ("Dinner", True),
+)
+
+MEAL_STATUSES = ("planned", "cooked", "didnt", "moved")
+SPREAD_PATTERNS = ("lunches", "lunch_dinner", "dinners", "pick")
+
+
+class MealSlot(Base):
+    """Breakfast, Lunch, Dinner...: a row of the plan. Hiding one (`enabled` off) keeps its
+    meals. Deleting a slot that still has meals is refused by the database."""
+
+    __tablename__ = "meal_slot"
+    __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_meal_slot_household_id_id"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(40))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
+
+
+class Meal(Base):
+    """What's planned for one date and slot (one meal per date and slot)."""
+
+    __tablename__ = "meal"
+    __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_meal_household_id_id"),
+        UniqueConstraint("household_id", "day", "slot_id", name="uq_meal_household_id_day_slot_id"),
+        CheckConstraint("status IN ('planned', 'cooked', 'didnt', 'moved')", name="status_known"),
+        # No ON DELETE action: a slot with meals can't be deleted (hide it instead).
+        ForeignKeyConstraint(
+            ["household_id", "slot_id"],
+            ["meal_slot.household_id", "meal_slot.id"],
+            name="fk_meal_household_id_meal_slot",
+        ),
+        Index("ix_meal_household_id_day", "household_id", "day"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    day: Mapped[date] = mapped_column(Date)
+    slot_id: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(10), default="planned", server_default="planned")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BatchCook(Base):
+    """One "Cook once, eat for..." session: a recipe cooked on a day into several tubs."""
+
+    __tablename__ = "batch_cook"
+    __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_batch_cook_household_id_id"),
+        CheckConstraint(
+            "pattern IN ('lunches', 'lunch_dinner', 'dinners', 'pick')", name="pattern_known"
+        ),
+        CheckConstraint("tub_count >= 1 AND tub_count <= 99", name="tub_count_range"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    # Proposed, for cabledrawer: if the recipe is deleted for good the batch (and the tubs in the
+    # freezer) stay, and read by the name kept here.
+    recipe_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe.id", ondelete="SET NULL"), index=True
+    )
+    recipe_name: Mapped[str] = mapped_column(String(200))
+    cooked_on: Mapped[date] = mapped_column(Date)
+    tub_count: Mapped[int] = mapped_column(Integer)
+    pattern: Mapped[str] = mapped_column(String(14), default="pick", server_default="pick")
+    prep_note: Mapped[str | None] = mapped_column(String(500))
+    # A palette name from the design ("green", "amber"...). Null: none chosen.
+    colour: Mapped[str | None] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Tub(Base):
+    """One tub made by a batch cook. In a place (fridge, freezer), or put into a meal (a
+    meal item points at it), or neither ("tubs left"). `amount_quarters` is what's left:
+    4 is a full tub, 0 is eaten."""
+
+    __tablename__ = "tub"
+    __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_tub_household_id_id"),
+        CheckConstraint("amount_quarters >= 0 AND amount_quarters <= 4", name="quarters_range"),
+        ForeignKeyConstraint(
+            ["household_id", "batch_id"],
+            ["batch_cook.household_id", "batch_cook.id"],
+            ondelete="CASCADE",
+            name="fk_tub_household_id_batch_cook",
+        ),
+        Index("ix_tub_household_id_batch_id", "household_id", "batch_id"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    batch_id: Mapped[int] = mapped_column(Integer)
+    amount_quarters: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
+    place_id: Mapped[int | None] = mapped_column(ForeignKey("place.id", ondelete="SET NULL"))
+    # Proposed, for cabledrawer: whose tub it is, by sign-in, until member profiles arrive (0.8).
+    member_login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
+    use_by: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MealItem(Base):
+    """One thing in a meal: a recipe, a tub or a plain ingredient ("Fruit"), exactly one.
+    Proposed, for cabledrawer: if the recipe or ingredient is deleted for good, its item goes
+    (the meal stays, maybe empty); a removed recipe that can still be undone keeps its item."""
+
+    __tablename__ = "meal_item"
+    __table_args__ = (
+        CheckConstraint(
+            "(CASE WHEN recipe_id IS NULL THEN 0 ELSE 1 END)"
+            " + (CASE WHEN tub_id IS NULL THEN 0 ELSE 1 END)"
+            " + (CASE WHEN food_id IS NULL THEN 0 ELSE 1 END) = 1",
+            name="one_of",
+        ),
+        CheckConstraint(
+            "servings IS NULL OR (recipe_id IS NOT NULL AND servings >= 1 AND servings <= 99)",
+            name="servings_range",
+        ),
+        ForeignKeyConstraint(
+            ["household_id", "meal_id"],
+            ["meal.household_id", "meal.id"],
+            ondelete="CASCADE",
+            name="fk_meal_item_household_id_meal",
+        ),
+        ForeignKeyConstraint(
+            ["household_id", "tub_id"],
+            ["tub.household_id", "tub.id"],
+            ondelete="CASCADE",
+            name="fk_meal_item_household_id_tub",
+        ),
+        Index("ix_meal_item_household_id_meal_id", "household_id", "meal_id", "position"),
+        # A tub sits in one meal at a time.
+        Index("uq_meal_item_tub_id", "tub_id", unique=True),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    meal_id: Mapped[int] = mapped_column(Integer)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    recipe_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe.id", ondelete="CASCADE"), index=True
+    )
+    tub_id: Mapped[int | None] = mapped_column(Integer)
+    food_id: Mapped[int | None] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), index=True
+    )
+    # How many people the recipe is for. Null: its own "serves".
+    servings: Mapped[int | None] = mapped_column(Integer)

@@ -6,6 +6,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 Towards 0.6.0.
 
+### Added
+
+- **Plan data model (0.6, step 2; no screens yet):** the database now holds the meal plan: meal slots, meals (one per date and slot, status planned / cooked / didn't / moved), meal items (a recipe, a tub or a plain ingredient), batch cooks and tubs. Every household gets Breakfast, Lunch, Snack (off) and Dinner, and so do existing ones when they update. Household settings gain tub life (3 days in the fridge, 3 months in the freezer), how many days ahead the shopping list looks (7) and the first day of the week (Monday). Read-only for now: `GET /api/v1/meal-slots`, `GET /api/v1/plan?from=…&to=…` (at most 62 days) and the new settings on `GET /api/v1/household`. Going back to the older version drops the plan; recipes, ingredients and stock are kept.
+
 ### Changed
 
 - **SvelteKit 3 (0.6, step 1):** the web app now runs on SvelteKit 3.0.1, which fixes the two scanner warnings that had been set aside until 23 Nov (GHSA-27mw-82g8-phjj and GHSA-pfhg-q3qv-9q6r), so both exceptions are gone. Nothing looks or behaves differently: every address and screen is the same, and a new version of the app still waits until every window of the old one is closed. Libraries: `@sveltejs/kit` 3.0.1, `@sveltejs/adapter-static` 4.0.0 and `eslint-plugin-svelte` 3.23.1, with `cookie` 2.0.1 underneath (the `cookie` override is gone); `kleur`, `set-cookie-parser` and `@types/cookie` are no longer installed; no other library changed.

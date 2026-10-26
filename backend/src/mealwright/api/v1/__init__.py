@@ -12,6 +12,7 @@ from mealwright.api.v1 import (
     kitchen,
     pantry,
     photos,
+    plan,
     privacy,
     recipes,
     shopping,
@@ -25,6 +26,7 @@ router.include_router(account.router)
 router.include_router(kitchen.router)
 router.include_router(foods.router)
 router.include_router(pantry.router)
+router.include_router(plan.router)
 router.include_router(imports.router)
 router.include_router(drafts.router)
 router.include_router(recipes.router)

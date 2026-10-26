@@ -92,6 +92,10 @@ class HouseholdOut(BaseModel):
     undo_days: int
     history_months: int
     use_soon_days: int
+    tub_fridge_days: int
+    tub_freezer_months: int
+    plan_ahead_days: int
+    week_starts_on: int
     today: date
 
 
@@ -119,6 +123,10 @@ def _household(kitchen: Here) -> HouseholdOut:
         undo_days=household.undo_days,
         history_months=household.history_months,
         use_soon_days=household.use_soon_days,
+        tub_fridge_days=household.tub_fridge_days,
+        tub_freezer_months=household.tub_freezer_months,
+        plan_ahead_days=household.plan_ahead_days,
+        week_starts_on=household.week_starts_on,
         today=today(household),
     )
 
