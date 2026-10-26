@@ -66,6 +66,7 @@
         <button
           type="button"
           class="totals"
+          class:can
           disabled={actions.readonly}
           use:pressable={{
             carry: can ? () => actions.carryMeal(meal) : null,
@@ -171,8 +172,9 @@
     overflow: hidden;
   }
 
+  /* A finger can still scroll the page; it picks a card up only after a long press. */
   .card.can {
-    touch-action: none;
+    touch-action: pan-y;
     cursor: grab;
   }
 
@@ -225,7 +227,10 @@
     font-weight: var(--weight-bold);
     text-align: left;
     cursor: pointer;
-    touch-action: none;
+  }
+
+  .totals.can {
+    touch-action: pan-y;
   }
 
   .plus {

@@ -116,36 +116,82 @@ describe('pressable', () => {
     expect(dropped).not.toHaveBeenCalled();
   });
 
-  it('a finger moved a little is still a press; one that moves a lot carries', () => {
-    const { card, dropped } = setup({ carry: true });
+  it('a finger that moves before the long press is scrolling: nothing is picked up', () => {
+    vi.useFakeTimers();
+    const { card, opened, dropped } = setup({ carry: true });
     pointer(card, 'pointerdown', 10, 10, 'touch');
-    pointer(window, 'pointermove', 12, 11, 'touch');
+    pointer(window, 'pointermove', 250, 20, 'touch'); // a swipe
     expect(drag.active).toBe(false);
-    pointer(window, 'pointermove', 250, 20, 'touch');
-    expect(drag.active).toBe(true);
+    vi.advanceTimersByTime(LONG_PRESS_MS + 50); // and the timer is gone with it
+    expect(drag.active).toBe(false);
     pointer(window, 'pointerup', 250, 20, 'touch');
-    expect(dropped).toHaveBeenCalledWith('2026-10-20', 4, 'move');
+    expect(dropped).not.toHaveBeenCalled();
+    expect(opened).not.toHaveBeenCalled();
   });
 
-  it('a held finger opens the menu, once, and the click after it is not a second press', () => {
+  it('a finger held still is picked up, then follows and drops', () => {
     vi.useFakeTimers();
-    const { card, opened } = setup({ carry: true });
+    const { card, opened, dropped } = setup({ carry: true });
+    pointer(card, 'pointerdown', 10, 10, 'touch');
+    vi.advanceTimersByTime(LONG_PRESS_MS + 50);
+    expect(drag.active).toBe(true);
+    pointer(window, 'pointermove', 250, 20, 'touch');
+    expect(drag.over?.mode).toBe('move');
+    pointer(window, 'pointerup', 250, 20, 'touch');
+    expect(dropped).toHaveBeenCalledWith('2026-10-20', 4, 'move');
+    card.click();
+    expect(opened).not.toHaveBeenCalled();
+  });
+
+  it('while a finger carries something the page may not scroll; otherwise it may', () => {
+    vi.useFakeTimers();
+    const { card } = setup({ carry: true });
+    pointer(card, 'pointerdown', 10, 10, 'touch');
+    const early = new Event('touchmove', { cancelable: true });
+    window.dispatchEvent(early);
+    expect(early.defaultPrevented).toBe(false);
+    vi.advanceTimersByTime(LONG_PRESS_MS + 50);
+    const carrying = new Event('touchmove', { cancelable: true });
+    window.dispatchEvent(carrying);
+    expect(carrying.defaultPrevented).toBe(true);
+    pointer(window, 'pointerup', 10, 10, 'touch');
+    const after = new Event('touchmove', { cancelable: true });
+    window.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+
+  it('the browser taking the touch to scroll puts a picked-up card back', () => {
+    vi.useFakeTimers();
+    const { card, dropped } = setup({ carry: true });
+    pointer(card, 'pointerdown', 10, 10, 'touch');
+    vi.advanceTimersByTime(LONG_PRESS_MS + 50);
+    pointer(window, 'pointercancel', 10, 10, 'touch');
+    expect(drag.active).toBe(false);
+    expect(dropped).not.toHaveBeenCalled();
+  });
+
+  it('a finger held and let go in the same place opens the menu once', () => {
+    vi.useFakeTimers();
+    const { card, opened, dropped } = setup({ carry: true });
+    pointer(card, 'pointerdown', 10, 10, 'touch');
+    vi.advanceTimersByTime(LONG_PRESS_MS + 50);
+    pointer(window, 'pointerup', 10, 10, 'touch');
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(dropped).not.toHaveBeenCalled();
+    expect(drag.active).toBe(false);
+    card.click();
+    expect(opened).toHaveBeenCalledTimes(1);
+  });
+
+  it('a held finger on something that cannot be carried opens the menu, once', () => {
+    vi.useFakeTimers();
+    const { card, opened } = setup({ carry: false });
     pointer(card, 'pointerdown', 10, 10, 'touch');
     vi.advanceTimersByTime(LONG_PRESS_MS + 50);
     expect(opened).toHaveBeenCalledTimes(1);
     pointer(window, 'pointerup', 10, 10, 'touch');
     card.click();
     expect(opened).toHaveBeenCalledTimes(1);
-  });
-
-  it('a finger that moves off before half a second is not a long press', () => {
-    vi.useFakeTimers();
-    const { card, opened } = setup({ carry: false });
-    pointer(card, 'pointerdown', 10, 10, 'touch');
-    pointer(window, 'pointermove', 60, 10, 'touch'); // scrolling, on a phone
-    vi.advanceTimersByTime(LONG_PRESS_MS + 50);
-    expect(opened).not.toHaveBeenCalled();
-    expect(drag.active).toBe(false);
   });
 
   it('a card that cannot be carried (the phone, offline) is not picked up by a mouse either', () => {

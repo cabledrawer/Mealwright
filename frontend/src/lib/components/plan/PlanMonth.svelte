@@ -73,6 +73,7 @@
               type="button"
               class="chip"
               class:batch={colour !== null}
+              class:can
               style:--soft={colour ? `var(--batch-${colour}-soft)` : undefined}
               style:--soft-text={colour ? `var(--batch-${colour}-soft-text)` : undefined}
               disabled={actions.readonly}
@@ -273,11 +274,14 @@
     font-weight: var(--weight-bold);
     text-align: left;
     cursor: pointer;
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
     min-width: 0;
+  }
+
+  .chip.can {
+    touch-action: pan-y;
   }
 
   .chip-name {

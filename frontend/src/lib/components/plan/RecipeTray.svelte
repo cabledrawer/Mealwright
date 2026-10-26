@@ -234,10 +234,14 @@
     font: inherit;
     text-align: left;
     cursor: grab;
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+  }
+
+  /* The strip scrolls sideways with a finger; a recipe is picked up only after a long press. */
+  .recipe:not(:disabled) {
+    touch-action: pan-x pan-y;
   }
 
   .recipe:disabled {

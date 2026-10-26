@@ -93,7 +93,8 @@ async function mouseDrag(page: Page, from: Locator, to: Locator, options: { alt?
   if (options.alt) await page.keyboard.up('Alt');
 }
 
-/** Drag with a finger: touch pointer events from the element to the place, moved a step at a time. */
+/** Drag with a finger: touch pointer events. It is held still for the long press first, as a real
+ *  finger would be to pick something up, then moved a step at a time. */
 async function fingerDrag(from: Locator, to: Locator) {
   const a = await centre(from);
   const b = await centre(to, 0.2);
@@ -104,6 +105,7 @@ async function fingerDrag(from: Locator, to: Locator) {
           new PointerEvent(type, { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0 }),
         );
       fire(el, 'pointerdown', p.a.x, p.a.y);
+      await new Promise((r) => setTimeout(r, 700));
       for (let i = 1; i <= 12; i++) {
         fire(window, 'pointermove', p.a.x + ((p.b.x - p.a.x) * i) / 12, p.a.y + ((p.b.y - p.a.y) * i) / 12);
         await new Promise((r) => setTimeout(r, 16));
@@ -392,6 +394,80 @@ test.describe('on a computer', () => {
     await expect(page.getByText('You’re offline. Plan changes when you’re back online.').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('button', { name: /^Add to / }).first()).toBeDisabled();
     await context.setOffline(false);
+  });
+});
+
+// Real touch scrolling, which only Chrome can do from a test (CDP's touch scroll gesture). WebKit
+// is covered by what lets it scroll: the cards' touch-action (checked in the test after this
+// one on every browser) and the synthetic-event test above, where a finger that moves before the
+// long press plans and moves nothing.
+test.describe('a finger on a computer-sized screen', () => {
+  test.use({ hasTouch: true });
+  test.beforeEach(({ page }) => {
+    test.skip(isPhone(page), 'the computer’s layout');
+  });
+
+  test('cards let a finger scroll: touch-action allows panning, and the strip and page do scroll', async ({ page, browserName }) => {
+    const { today, slot } = await setup(page);
+    const stampNow = stamp();
+    for (let i = 0; i < 9; i++) await makeRecipe(page, `Swipe ${stampNow} ${i}`);
+    const day = inWeek(today, 8);
+    const name = `Swiped ${stampNow}`;
+    await planned(page, await makeRecipe(page, name), day, slot.Dinner);
+    await openWeekOf(page, today, day);
+    const strip = page.getByRole('list', { name: 'Recipes to plan' });
+    await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(`Swipe ${stampNow}`);
+    const trayCard = strip.getByRole('button').first();
+    await expect(trayCard).toBeVisible();
+    const card = cell(page, day, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first();
+
+    // On every browser: nothing that scrolls is switched off.
+    const panning = (l: Locator) => l.evaluate((el) => getComputedStyle(el).touchAction);
+    expect(await panning(trayCard)).toBe('pan-x pan-y');
+    expect(await panning(card)).toBe('pan-y');
+    expect(await panning(cell(page, day, slot.Dinner).getByRole('button', { name: /^1 recipe/ }))).toBe('pan-y');
+
+    // A swipe before the long press (synthetic touch events) plans and moves nothing.
+    await trayCard.evaluate(async (el) => {
+      const r = el.getBoundingClientRect();
+      const fire = (t: EventTarget, type: string, x: number) =>
+        t.dispatchEvent(new PointerEvent(type, { pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: r.top + 10, bubbles: true, cancelable: true, button: 0 }));
+      fire(el, 'pointerdown', r.left + 20);
+      for (let i = 1; i <= 8; i++) fire(window, 'pointermove', r.left + 20 + i * 40);
+      fire(window, 'pointerup', r.left + 340);
+    });
+    await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0);
+
+    test.skip(browserName !== 'chromium', 'Real touch scrolling needs Chrome’s DevTools protocol; WebKit has the checks above');
+    const client = await page.context().newCDPSession(page);
+    // A finger drawn across the screen, as the browser itself sees it (real touch events, so it
+    // scrolls or doesn't exactly as it would for a person).
+    const swipe = async (from: { x: number; y: number }, dx: number, dy: number) => {
+      const at = (i: number) => [{ x: from.x + (dx * i) / 10, y: from.y + (dy * i) / 10 }];
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) });
+      for (let i = 1; i <= 10; i++) {
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(i) });
+        await page.waitForTimeout(16);
+      }
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+
+    // Sideways on a tray card: the strip scrolls, nothing is planned.
+    const before = await strip.evaluate((el) => el.scrollLeft);
+    await swipe(await centre(trayCard), -300, 0);
+    await expect.poll(() => strip.evaluate((el) => el.scrollLeft)).toBeGreaterThan(before);
+    await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0);
+
+    // Up on a meal card, in a short window: the page (or the week grid) scrolls, and the meal stays.
+    await page.setViewportSize({ width: 1280, height: 420 });
+    await card.scrollIntoViewIfNeeded();
+    const scrolled = () =>
+      page.evaluate(() => (document.scrollingElement?.scrollTop ?? 0) + (document.querySelector('.week')?.scrollTop ?? 0));
+    const top = await scrolled();
+    await swipe(await centre(card), 0, -150);
+    await expect.poll(scrolled).not.toBe(top);
+    await expect(cell(page, day, slot.Dinner)).toContainText(name);
+    await expect(page.getByRole('status').filter({ hasText: /Moved|Copied|Leftovers/ })).toHaveCount(0);
   });
 });
 

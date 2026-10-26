@@ -144,7 +144,6 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-    touch-action: pan-y;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;

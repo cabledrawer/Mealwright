@@ -106,13 +106,19 @@ export interface PressOptions {
 
 /**
  * Make an element draggable and openable. Use it on a <button>: a click or Enter calls
- * `open`, a drag carries it, a held finger calls `open` too.
+ * `open`.
+ *   - A mouse picks it up by moving a little.
+ *   - A finger never drags at once, so a swipe scrolls the page (or the tray) as usual. Held
+ *     still for half a second it is picked up, if it can be carried (a computer or iPad), and
+ *     then follows the finger; let go without moving and the menu opens instead. A thing that
+ *     can't be carried (the phone) opens its menu after the half second.
  */
 export function pressable(node: HTMLElement, options: PressOptions) {
   let current = options;
   let down: { id: number; x: number; y: number; touch: boolean } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let dragging = false;
+  let travelled = false;
   let swallowClick = false;
 
   const stopTimer = () => {
@@ -122,17 +128,20 @@ export function pressable(node: HTMLElement, options: PressOptions) {
 
   function onMove(event: PointerEvent) {
     if (!down || event.pointerId !== down.id) return;
+    const far = Math.hypot(event.clientX - down.x, event.clientY - down.y) > DRAG_AFTER_PX;
     if (dragging) {
+      if (far) travelled = true;
       drag.look(event.clientX, event.clientY, event.altKey);
       return;
     }
-    const far = Math.hypot(event.clientX - down.x, event.clientY - down.y) > DRAG_AFTER_PX;
     if (!far) return;
     stopTimer();
-    if (!current.carry) {
+    if (down.touch || !current.carry) {
+      // A finger that moves before the long press is scrolling: leave it to the browser.
       end();
       return;
     }
+    travelled = true;
     dragging = true;
     drag.begin(current.carry(), event.clientX, event.clientY, event.altKey);
   }
@@ -140,15 +149,20 @@ export function pressable(node: HTMLElement, options: PressOptions) {
   function onUp(event: PointerEvent) {
     if (!down || event.pointerId !== down.id) return;
     const was = dragging;
-    if (was) drag.finish();
+    const still = was && down.touch && !travelled;
+    if (still) drag.cancel();
+    else if (was) drag.finish();
     end();
     // A drop is not a click.
     swallowClick = was || swallowClick;
     if (was) setTimeout(() => (swallowClick = false), 0);
+    // Picked up with a finger and let go in the same place: that was a long press, so the menu.
+    if (still) current.open();
   }
 
   function onCancel(event: PointerEvent) {
     if (!down || event.pointerId !== down.id) return;
+    // The browser took the touch to scroll.
     drag.cancel();
     end();
   }
@@ -161,15 +175,24 @@ export function pressable(node: HTMLElement, options: PressOptions) {
     if (dragging && event.key === 'Alt') drag.alt = event.type === 'keydown';
   }
 
+  // While a finger is carrying something the page must not scroll under it. The listener is
+  // added with the touch (not when the drag starts), because a browser only honours
+  // preventDefault from a listener that was there before the scrolling decision.
+  function onTouchMove(event: TouchEvent) {
+    if (dragging && event.cancelable) event.preventDefault();
+  }
+
   function end() {
     stopTimer();
     dragging = false;
+    travelled = false;
     down = null;
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onCancel);
     window.removeEventListener('keydown', onKey);
     window.removeEventListener('keyup', onKey);
+    window.removeEventListener('touchmove', onTouchMove);
   }
 
   function onDown(event: PointerEvent) {
@@ -184,11 +207,18 @@ export function pressable(node: HTMLElement, options: PressOptions) {
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     if (touch) {
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
       timer = setTimeout(() => {
         timer = null;
         swallowClick = true;
-        end();
-        current.open();
+        if (current.carry && down) {
+          dragging = true;
+          travelled = false;
+          drag.begin(current.carry(), down.x, down.y, false);
+        } else {
+          end();
+          current.open();
+        }
       }, LONG_PRESS_MS);
     }
   }
