@@ -112,6 +112,8 @@ class PlanTubOut(BaseModel):
     amount_quarters: int
     number: int  # "tub 2 of 4": 2 (its place among its batch's tubs, in the order made)
     place_id: int | None
+    # Fridge, freezer or cupboard, for the place above (null: no place, or not the household's).
+    place_kind: Literal["fridge", "freezer", "cupboard"] | None = None
     member_login_id: int | None
     use_by: date
 
@@ -172,21 +174,22 @@ def get_plan(
             select(Food).where(Food.household_id == household_id, Food.id.in_(food_ids))
         )
     }
+    # Which batches matter, as a subquery (never a list of ids, so the number of batches and tubs
+    # can't push a query over SQLite's 32,766 values; see batches.MOST_TUBS_IN_BATCH).
+    batch_ids = select(BatchCook.id).where(
+        BatchCook.household_id == household_id,
+        or_(
+            BatchCook.id.in_(
+                select(Tub.batch_id).where(Tub.household_id == household_id, Tub.id.in_(tub_ids))
+            ),
+            BatchCook.cook_meal_id.in_(select(Meal.id).where(*in_range)),
+            and_(BatchCook.cooked_on >= start, BatchCook.cooked_on <= end),
+        ),
+    )
     batches = list(
         db.scalars(
             select(BatchCook)
-            .where(
-                BatchCook.household_id == household_id,
-                or_(
-                    BatchCook.id.in_(
-                        select(Tub.batch_id).where(
-                            Tub.household_id == household_id, Tub.id.in_(tub_ids)
-                        )
-                    ),
-                    BatchCook.cook_meal_id.in_(select(Meal.id).where(*in_range)),
-                    and_(BatchCook.cooked_on >= start, BatchCook.cooked_on <= end),
-                ),
-            )
+            .where(BatchCook.household_id == household_id, BatchCook.id.in_(batch_ids))
             .order_by(BatchCook.id)
         )
     )
@@ -195,7 +198,7 @@ def get_plan(
             select(Tub)
             .where(
                 Tub.household_id == household_id,
-                or_(Tub.id.in_(tub_ids), Tub.batch_id.in_([b.id for b in batches])),
+                or_(Tub.id.in_(tub_ids), Tub.batch_id.in_(batch_ids)),
             )
             .order_by(Tub.id)
         )
@@ -206,23 +209,38 @@ def get_plan(
         db.scalars(
             select(Recipe.id).where(
                 Recipe.household_id == household_id,
-                Recipe.id.in_({b.recipe_id for b in batches if b.recipe_id}),
+                Recipe.id.in_(
+                    select(BatchCook.recipe_id).where(
+                        BatchCook.household_id == household_id, BatchCook.id.in_(batch_ids)
+                    )
+                ),
             )
         )
     )
-    mine_places = set(
-        db.scalars(
-            select(Place.id).where(
+    mine_places = {
+        p.id: p.kind
+        for p in db.scalars(
+            select(Place).where(
                 Place.household_id == household_id,
-                Place.id.in_({t.place_id for t in tubs if t.place_id}),
+                Place.id.in_(
+                    select(Tub.place_id).where(
+                        Tub.household_id == household_id,
+                        or_(Tub.id.in_(tub_ids), Tub.batch_id.in_(batch_ids)),
+                    )
+                ),
             )
         )
-    )
+    }
     mine_logins = set(
         db.scalars(
             select(Login.id).where(
                 Login.household_id == household_id,
-                Login.id.in_({t.member_login_id for t in tubs if t.member_login_id}),
+                Login.id.in_(
+                    select(Tub.member_login_id).where(
+                        Tub.household_id == household_id,
+                        or_(Tub.id.in_(tub_ids), Tub.batch_id.in_(batch_ids)),
+                    )
+                ),
             )
         )
     )
@@ -327,6 +345,7 @@ def get_plan(
                 amount_quarters=t.amount_quarters,
                 number=number.get(t.id, 1),
                 place_id=t.place_id if t.place_id in mine_places else None,
+                place_kind=mine_places.get(t.place_id) if t.place_id else None,  # type: ignore[arg-type]
                 member_login_id=t.member_login_id if t.member_login_id in mine_logins else None,
                 use_by=t.use_by,
             )
@@ -345,6 +364,8 @@ class PlanWrite(BaseModel):
     change: ChangeOut | None  # null when nothing needed changing (a switch already that way)
     meal_id: int | None = None
     item_id: int | None = None
+    # Cook once (PR 4): the batch cook that was made.
+    batch_id: int | None = None
 
 
 def _written(kitchen: Kitchen, change: Change | None) -> PlanWrite:
@@ -352,7 +373,10 @@ def _written(kitchen: Kitchen, change: Change | None) -> PlanWrite:
         return PlanWrite(change=None)
     data = change.undo_data or {}
     return PlanWrite(
-        change=change_out(kitchen, change), meal_id=data.get("meal_id"), item_id=data.get("item_id")
+        change=change_out(kitchen, change),
+        meal_id=data.get("meal_id"),
+        item_id=data.get("item_id"),
+        batch_id=data.get("batch_id"),
     )
 
 

@@ -147,7 +147,9 @@ def _item_name(kitchen: Kitchen, item: MealItem) -> str:
         return food.name if food else "an ingredient"
     if item.kind != "tub" and item.name:
         return item.name  # deleted for good: the meal kept its name (cabledrawer 26 Oct)
-    return "a tub"
+    tub = kitchen.db.get(Tub, item.tub_id) if item.tub_id is not None else None
+    batch = kitchen.db.get(BatchCook, tub.batch_id) if tub is not None else None
+    return f"{batch.recipe_name} tub" if batch else "a tub"
 
 
 def _meal_name(kitchen: Kitchen, meal: Meal) -> str:
@@ -290,6 +292,19 @@ def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str,
     steps.append({"op": "add_item", "item": clone.id})
 
 
+def _leftovers_of(
+    kitchen: Kitchen, item: MealItem, source: Meal, meal: Meal, steps: list[dict[str, Any]]
+) -> None:
+    """ "Leftovers here" (cabledrawer 26 Oct, PR 4): a recipe becomes a tub of its batch cook, an
+    ingredient is copied. A tub is never copied (the callers leave tubs out)."""
+    if item.kind == "recipe":
+        from mealwright import batches
+
+        batches.leftover_tub(kitchen, source, item, meal, steps)
+    else:
+        _copy_of(kitchen, item, meal, steps)
+
+
 def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, Any]]) -> None:
     steps.append(
         {"op": "move_item", "item": item.id, "from_meal": item.meal_id, "position": item.position}
@@ -300,9 +315,9 @@ def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, A
 
 
 def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode) -> Change:
-    """Move a whole meal, or copy it ("leftovers" copies the recipes and ingredients for now:
-    real leftover tubs come with Cook once; cabledrawer 26 Oct). Onto a filled meal, the
-    items go in alongside."""
+    """Move a whole meal, or copy it. "Leftovers" makes a tub of each recipe in it (from the
+    batch cook cooked for this meal, made if there is none) and copies its ingredients.
+    Onto a filled meal, the items go in alongside."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     _planned(meal)
@@ -351,6 +366,8 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
     for item in items:
         if mode == "move":
             _bring(kitchen, item, target, steps)
+        elif mode == "leftovers":
+            _leftovers_of(kitchen, item, source, target, steps)
         else:
             _copy_of(kitchen, item, target, steps)
     if mode == "move":
@@ -395,6 +412,8 @@ def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: M
         _bring(kitchen, item, target, steps)
         if not items_of(kitchen, source):
             _drop_meal(kitchen, source, steps)
+    elif mode == "leftovers":
+        _leftovers_of(kitchen, item, source, target, steps)
     else:
         _copy_of(kitchen, item, target, steps)
     where_to = _where(kitchen, day, slot_id)
@@ -538,7 +557,9 @@ def _undo_step(
         slot.enabled = step["enabled"]
         db.flush()
         return True
-    return False  # pragma: no cover (every step this module writes is handled above)
+    from mealwright import batches
+
+    return batches.undo_step(kitchen, step, remap)
 
 
 def undo(kitchen: Kitchen, change: Change) -> Change:
