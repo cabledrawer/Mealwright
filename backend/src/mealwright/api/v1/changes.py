@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import drafts, recipes, shopping
+from mealwright import drafts, plan, recipes, shopping
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -480,6 +480,8 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             undone = recipes.undo_removal(kitchen, change)
         elif change.kind == "draft_removed":
             undone = drafts.undo_removal(kitchen, change)
+        elif change.kind.startswith("plan_"):
+            undone = plan.undo(kitchen, change)
         else:
             undone = pantry_undo(kitchen, change, batch)
         batch.finish()

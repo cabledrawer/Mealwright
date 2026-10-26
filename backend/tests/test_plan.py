@@ -2,7 +2,6 @@
 settings, the plan for a date range, the range cap, the one-of rule on meal items, links that
 cannot cross households, and what happens to meals when things are deleted."""
 
-from collections.abc import Iterator
 from datetime import date
 
 import pytest
@@ -11,13 +10,10 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from mealwright.auth import hash_password
-from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import (
     BatchCook,
     Food,
     Household,
-    Login,
     Meal,
     MealItem,
     MealSlot,
@@ -121,7 +117,15 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
     assert (meal["id"], meal["date"], meal["status"]) == (ids["meal"], "2026-11-02", "planned")
     kinds = [(i["kind"], i["servings"]) for i in meal["items"]]
     assert kinds == [("recipe", 2), ("tub", None), ("ingredient", None)]
-    assert meal["items"][0]["recipe"] == {"id": ids["recipe"], "name": "Sambar", "removed": False}
+    assert meal["items"][0]["recipe"] == {
+        "id": ids["recipe"],
+        "name": "Sambar",
+        "removed": False,
+        # What a meal card shows (PR 3): none of it is known for this bare recipe.
+        "photo_url": None,
+        "time_minutes": None,
+        "kcal": None,
+    }
     assert meal["items"][2]["ingredient"] == {
         "id": ids["food"],
         "name": "Banana",
@@ -155,29 +159,6 @@ def test_the_plan_needs_signing_in(client: TestClient) -> None:
         == 401
     )
     assert client.get(f"{API}/meal-slots").status_code == 401
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    with db_of(kitchen) as db:
-        db.add(Household(id=2, name="Next door"))
-        db.flush()
-        add_default_places(db, 2)
-        add_default_slots(db, 2)
-        db.add(
-            Login(
-                household_id=2,
-                username="neighbour",
-                name="Neighbour",
-                password_hash=hash_password("next door's own password"),
-                role="admin",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        body = {"username": "neighbour", "password": "next door's own password"}
-        assert other.post(f"{API}/session", json=body).status_code == 200
-        yield other
 
 
 def test_another_household_cannot_read_my_plan(kitchen: TestClient, neighbour: TestClient) -> None:
