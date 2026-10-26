@@ -122,7 +122,11 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
     kinds = [(i["kind"], i["servings"]) for i in meal["items"]]
     assert kinds == [("recipe", 2), ("tub", None), ("ingredient", None)]
     assert meal["items"][0]["recipe"] == {"id": ids["recipe"], "name": "Sambar", "removed": False}
-    assert meal["items"][2]["ingredient"] == {"id": ids["food"], "name": "Banana"}
+    assert meal["items"][2]["ingredient"] == {
+        "id": ids["food"],
+        "name": "Banana",
+        "removed": False,
+    }
     assert [b["id"] for b in plan["batch_cooks"]] == [ids["batch"]]
     assert plan["batch_cooks"][0]["pattern"] == "dinners"
     [tub] = plan["tubs"]
@@ -302,3 +306,185 @@ def test_removing_a_household_removes_its_plan(kitchen: TestClient, neighbour: T
             query = f"SELECT count(*) FROM {table} WHERE household_id = 1"  # noqa: S608
             count = db.execute(text(query)).scalar_one()
             assert count == 0
+
+
+# --- Round 1 fixes ---------------------------------------------------------------------------
+
+
+def test_the_plan_shows_a_batch_cooked_for_a_meal_or_on_a_day_in_range(
+    kitchen: TestClient,
+) -> None:
+    ids = plan_one_day(kitchen)
+    slots = slot_ids(kitchen)
+    with db_of(kitchen) as db:
+        cook = Meal(household_id=1, day=date(2026, 11, 20), slot_id=slots["Dinner"])
+        db.add(cook)
+        db.flush()
+        # Cooked for a meal in range, on a day outside it, with no tub in any meal.
+        linked = BatchCook(
+            household_id=1,
+            recipe_name="Rasam",
+            cooked_on=date(2026, 12, 1),
+            tub_count=1,
+            cook_meal_id=ids["meal"],
+        )
+        # Cooked on a day in range, linked to nothing.
+        on_day = BatchCook(
+            household_id=1, recipe_name="Kootu", cooked_on=date(2026, 11, 4), tub_count=1
+        )
+        outside = BatchCook(
+            household_id=1,
+            recipe_name="Elsewhere",
+            cooked_on=date(2026, 12, 2),
+            tub_count=1,
+            cook_meal_id=cook.id,
+        )
+        db.add_all([linked, on_day, outside])
+        db.flush()
+        db.add(Tub(household_id=1, batch_id=on_day.id, use_by=DAY))
+        db.commit()
+        linked_id, on_day_id = linked.id, on_day.id
+    plan = kitchen.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-08"}).json()
+    by_id = {b["id"]: b for b in plan["batch_cooks"]}
+    assert set(by_id) == {ids["batch"], linked_id, on_day_id}
+    assert by_id[linked_id]["cook_meal_id"] == ids["meal"]
+    assert by_id[on_day_id]["cook_meal_id"] is None
+    assert {t["batch_id"] for t in plan["tubs"]} == {ids["batch"], on_day_id}
+
+
+def test_a_batch_can_only_point_at_a_meal_of_its_own_household(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    ids = plan_one_day(kitchen)
+    with db_of(kitchen) as db:
+        db.add(
+            BatchCook(
+                household_id=2,
+                recipe_name="Theirs",
+                cooked_on=DAY,
+                tub_count=1,
+                cook_meal_id=ids["meal"],
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.commit()
+
+
+def test_deleting_a_meal_clears_the_batch_link_and_the_database_refuses_otherwise(
+    kitchen: TestClient,
+) -> None:
+    from mealwright.plan import delete_meal
+
+    ids = plan_one_day(kitchen)
+    with db_of(kitchen) as db:
+        db.get(BatchCook, ids["batch"]).cook_meal_id = ids["meal"]  # type: ignore[union-attr]
+        db.commit()
+    with db_of(kitchen) as db, pytest.raises(IntegrityError):
+        db.execute(text("DELETE FROM meal WHERE id = :i"), {"i": ids["meal"]})
+    with db_of(kitchen) as db:
+        delete_meal(db, db.get(Meal, ids["meal"]))  # type: ignore[arg-type]
+        db.commit()
+        batch = db.get(BatchCook, ids["batch"])
+        assert batch is not None and batch.cook_meal_id is None and batch.household_id == 1
+        assert db.get(Meal, ids["meal"]) is None
+        assert list(db.scalars(select(MealItem))) == []
+
+
+def test_the_plan_hides_links_that_reach_into_another_household(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    """A planted row in household 2 pointing at household 1's recipe, place and login: the
+    plan never shows those ids to household 2."""
+    slots = slot_ids(kitchen, 2)
+    with db_of(kitchen) as db:
+        recipe = add_recipe(db, 1, "Mine alone")
+        mine_place = (
+            db.execute(text("SELECT id FROM place WHERE household_id = 1")).scalars().first()
+        )
+        mine_login = (
+            db.execute(text("SELECT id FROM login WHERE household_id = 1")).scalars().first()
+        )
+        batch = BatchCook(
+            household_id=2, recipe_id=recipe.id, recipe_name="Theirs", cooked_on=DAY, tub_count=1
+        )
+        db.add(batch)
+        db.flush()
+        tub = Tub(
+            household_id=2,
+            batch_id=batch.id,
+            use_by=DAY,
+            place_id=mine_place,
+            member_login_id=mine_login,
+        )
+        meal = Meal(household_id=2, day=DAY, slot_id=slots["Dinner"])
+        db.add_all([tub, meal])
+        db.flush()
+        db.add(MealItem(household_id=2, meal_id=meal.id, position=0, tub_id=tub.id))
+        db.commit()
+    plan = neighbour.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-02"}).json()
+    assert plan["batch_cooks"][0]["recipe_id"] is None
+    assert plan["tubs"][0]["place_id"] is None
+    assert plan["tubs"][0]["member_login_id"] is None
+
+
+def test_an_ingredient_item_says_when_it_is_removed(kitchen: TestClient) -> None:
+    ids = plan_one_day(kitchen)
+    from mealwright.models import utcnow
+
+    with db_of(kitchen) as db:
+        db.get(Food, ids["food"]).removed_at = utcnow()  # type: ignore[union-attr]
+        db.commit()
+    plan = kitchen.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-02"}).json()
+    assert plan["meals"][0]["items"][2]["ingredient"]["removed"] is True
+
+
+def _food_of_item(client: TestClient, item_id: int) -> int | None:
+    with db_of(client) as db:
+        return db.get(MealItem, item_id).food_id  # type: ignore[union-attr, no-any-return]
+
+
+def test_merging_ingredients_moves_planned_meals_and_undo_and_split_move_them_back(
+    kitchen: TestClient,
+) -> None:
+    ids = plan_one_day(kitchen)  # Banana is in the meal
+    with db_of(kitchen) as db:
+        item = db.scalars(select(MealItem).where(MealItem.food_id == ids["food"])).one()
+        item_id = item.id
+        plantain = add_food(db, 1, "Plantain")
+        db.commit()
+        plantain_id = plantain.id
+    merged = kitchen.post(f"{API}/foods/{ids['food']}/merge", json={"into_id": plantain_id}).json()
+    assert _food_of_item(kitchen, item_id) == plantain_id
+    undo = kitchen.post(f"{API}/changes/{merged['change']['id']}/undo").json()
+    assert undo["result"] == "done"
+    assert _food_of_item(kitchen, item_id) == ids["food"]
+    # And "make it its own ingredient again".
+    merged = kitchen.post(f"{API}/foods/{ids['food']}/merge", json={"into_id": plantain_id}).json()
+    assert _food_of_item(kitchen, item_id) == plantain_id
+    name_id = merged["food"]["other_names"][0]["id"]
+    split = kitchen.post(f"{API}/foods/{plantain_id}/split", json={"other_name_id": name_id})
+    assert split.status_code == 201
+    assert _food_of_item(kitchen, item_id) == ids["food"]
+
+
+def test_the_real_purge_jobs_take_planned_items_with_them(kitchen: TestClient) -> None:
+    from datetime import timedelta
+
+    from mealwright.history import purge_removed
+    from mealwright.models import utcnow
+    from mealwright.recipes import purge_removed_recipes
+
+    ids = plan_one_day(kitchen)
+    old = utcnow() - timedelta(days=30)
+    with db_of(kitchen) as db:
+        db.get(Recipe, ids["recipe"]).removed_at = old  # type: ignore[union-attr]
+        db.get(Food, ids["food"]).removed_at = old  # type: ignore[union-attr]
+        db.commit()
+        household = db.get(Household, 1)
+        assert purge_removed_recipes(db, household) == 1  # type: ignore[arg-type]
+        assert purge_removed(db, household, utcnow()) >= 1  # type: ignore[arg-type]
+        db.commit()
+        assert db.get(Meal, ids["meal"]) is not None
+        assert [i.tub_id for i in db.scalars(select(MealItem))] == [ids["tub"]]
+        batch = db.get(BatchCook, ids["batch"])
+        assert batch is not None and batch.recipe_id is None and batch.recipe_name == "Sambar"

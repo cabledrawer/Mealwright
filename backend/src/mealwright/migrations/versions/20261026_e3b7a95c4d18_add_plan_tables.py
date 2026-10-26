@@ -9,8 +9,8 @@ items, batch cooks, tubs, tub use-by defaults 3 days fridge / 3 months freezer).
 change: full review, upgrade/downgrade tests.").
 
 - New tables: `meal_slot`, `meal`, `batch_cook`, `tub` and `meal_item`. Each belongs to a
-  household. Links between them are composite keys that include `household_id`, so a link can
-  never reach into another household.
+  household. A batch cook can point at the meal it was cooked for. Links between them are
+  composite keys that include `household_id`, so a link can never reach into another household.
 - `household`: `tub_fridge_days` (3), `tub_freezer_months` (3), `plan_ahead_days` (7) and
   `week_starts_on` (1, Monday).
 - Every existing household gets its four slots: Breakfast, Lunch, Snack (off), Dinner.
@@ -112,6 +112,7 @@ def upgrade() -> None:
         _household_column(),
         sa.Column("recipe_id", sa.Integer(), nullable=True),
         sa.Column("recipe_name", sa.String(length=200), nullable=False),
+        sa.Column("cook_meal_id", sa.Integer(), nullable=True),
         sa.Column("cooked_on", sa.Date(), nullable=False),
         sa.Column("tub_count", sa.Integer(), nullable=False),
         sa.Column("pattern", sa.String(length=14), server_default="pick", nullable=False),
@@ -127,6 +128,11 @@ def upgrade() -> None:
         ),
         _household_key("batch_cook"),
         sa.ForeignKeyConstraint(
+            ["household_id", "cook_meal_id"],
+            ["meal.household_id", "meal.id"],
+            name="fk_batch_cook_household_id_meal",
+        ),
+        sa.ForeignKeyConstraint(
             ["recipe_id"],
             ["recipe.id"],
             name=op.f("fk_batch_cook_recipe_id_recipe"),
@@ -139,6 +145,7 @@ def upgrade() -> None:
     with op.batch_alter_table("batch_cook", schema=None) as batch_op:
         batch_op.create_index(batch_op.f("ix_batch_cook_household_id"), ["household_id"])
         batch_op.create_index(batch_op.f("ix_batch_cook_recipe_id"), ["recipe_id"])
+        batch_op.create_index(batch_op.f("ix_batch_cook_cook_meal_id"), ["cook_meal_id"])
 
     op.create_table(
         "tub",

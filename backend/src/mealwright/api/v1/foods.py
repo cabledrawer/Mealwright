@@ -73,6 +73,7 @@ from mealwright.models import (
     FoodNotSame,
     FoodSize,
     FoodStandIn,
+    MealItem,
     Place,
     Recipe,
     RecipeLine,
@@ -1197,6 +1198,13 @@ def merge_foods(
         recipe.homemade_food_id = into.id
         changed.add(recipe.id)
     bump_recipes_by(kitchen, changed)
+    # Plain ingredients in planned meals follow it too.
+    for item in db.scalars(
+        select(MealItem).where(
+            MealItem.household_id == kitchen.household_id, MealItem.food_id == gone.id
+        )
+    ):
+        item.food_id = into.id
     db.flush()
     for size_id in same_size:
         twin_size = db.get(FoodSize, size_id)
@@ -1296,6 +1304,24 @@ def _put_recipe_links_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, b
             bump_recipes_by(kitchen, [recipe.id])
 
 
+def _put_meal_items_back(kitchen: Kitchen, merge_row: FoodMerge, kept: Food, back: Food) -> None:
+    """Planned meals that held the old ingredient when it was merged go back to it. Items
+    that are no longer on the kept ingredient stay where they are."""
+    db = kitchen.db
+    merge_change = db.get(Change, merge_row.change_id) if merge_row.change_id else None
+    moved = ((merge_change.undo_data or {}).get("foods") or {}) if merge_change else {}
+    for key, (old, new) in moved.get("meal_items", {}).items():
+        if not (old and new and old["food_id"] == back.id and new["food_id"] == kept.id):
+            continue
+        item = db.get(MealItem, int(key))
+        if (
+            item is not None
+            and item.household_id == kitchen.household_id
+            and item.food_id == kept.id
+        ):
+            item.food_id = back.id
+
+
 @router.post("/foods/{food_id}/split", status_code=status.HTTP_201_CREATED)
 def split(food_id: StoredInt, body: Split, kitchen: Here, response: Response) -> FoodWrite:
     """Turn one of a food's other names back into its own food."""
@@ -1334,6 +1360,7 @@ def split(food_id: StoredInt, body: Split, kitchen: Here, response: Response) ->
                 earlier.split_at = utcnow()
                 edit.extra["split_merge_id"] = earlier.id
                 _put_recipe_links_back(kitchen, earlier, food, revived)
+                _put_meal_items_back(kitchen, earlier, food, revived)
             else:
                 new = Food(
                     household_id=kitchen.household_id,

@@ -40,6 +40,7 @@ from mealwright.models import (
     ListItem,
     ListNote,
     ListTick,
+    MealItem,
     Recipe,
     RecipeLine,
     ShoppingList,
@@ -290,6 +291,7 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
         "lots": {},
         "recipe_lines": {},
         "recipe_homes": {},
+        "meal_items": {},
     }
     for food in db.scalars(select(Food).where(Food.id.in_(ids))):
         # One entry per field, so undoing one field never touches another.
@@ -322,6 +324,9 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
         snap["recipe_lines"][str(line.id)] = {"food_id": line.food_id, "size_id": line.size_id}
     for recipe in db.scalars(select(Recipe).where(Recipe.homemade_food_id.in_(ids))):
         snap["recipe_homes"][str(recipe.id)] = {"food_id": recipe.homemade_food_id}
+    # Plain ingredients in planned meals (a merge moves them).
+    for item in db.scalars(select(MealItem).where(MealItem.food_id.in_(ids))):
+        snap["meal_items"][str(item.id)] = {"food_id": item.food_id}
     return snap
 
 
@@ -618,6 +623,16 @@ def _restore_recipe_home(kitchen: Kitchen, key: str, value: dict[str, Any] | Non
     return True
 
 
+def _restore_meal_item(kitchen: Kitchen, key: str, value: dict[str, Any] | None) -> bool:
+    item = kitchen.db.get(MealItem, int(key))
+    if item is None or item.household_id != kitchen.household_id or value is None:
+        return value is None
+    if _mine_food(kitchen, value["food_id"]) is None:
+        return False
+    item.food_id = value["food_id"]
+    return True
+
+
 _RESTORE: dict[str, Callable[[Kitchen, str, Any], bool]] = {
     "names": _restore_name,
     "sizes": _restore_size,
@@ -626,6 +641,7 @@ _RESTORE: dict[str, Callable[[Kitchen, str, Any], bool]] = {
     "lots": _restore_lot,
     "recipe_lines": _restore_recipe_line,
     "recipe_homes": _restore_recipe_home,
+    "meal_items": _restore_meal_item,
 }
 
 
@@ -671,6 +687,7 @@ def undo_foods(
         "lots",
         "recipe_lines",
         "recipe_homes",
+        "meal_items",
     ):
         for key, (old, new) in sorted(changes.get(collection, {}).items()):
             if (

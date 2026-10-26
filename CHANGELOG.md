@@ -8,7 +8,7 @@ Towards 0.6.0.
 
 ### Added
 
-- **Plan data model (0.6, step 2; no screens yet):** the database now holds the meal plan: meal slots, meals (one per date and slot, status planned / cooked / didn't / moved), meal items (a recipe, a tub or a plain ingredient), batch cooks and tubs. Every household gets Breakfast, Lunch, Snack (off) and Dinner, and so do existing ones when they update. Household settings gain tub life (3 days in the fridge, 3 months in the freezer), how many days ahead the shopping list looks (7) and the first day of the week (Monday). Read-only for now: `GET /api/v1/meal-slots`, `GET /api/v1/plan?from=…&to=…` (at most 62 days) and the new settings on `GET /api/v1/household`. Going back to the older version drops the plan; recipes, ingredients and stock are kept.
+- **Plan data model (0.6, step 2; no screens yet):** the database now holds the meal plan: meal slots, meals (one per date and slot, status planned / cooked / didn't / moved), meal items (a recipe, a tub or a plain ingredient), batch cooks and tubs. Every household gets Breakfast, Lunch, Snack (off) and Dinner, and so do existing ones when they update. Household settings gain tub life (3 days in the fridge, 3 months in the freezer), how many days ahead the shopping list looks (7) and the first day of the week (Monday). Read-only for now: `GET /api/v1/meal-slots`, `GET /api/v1/plan?from=…&to=…` (at most 62 days) and the new settings on `GET /api/v1/household`. A batch cook can point at the meal it was cooked for, and merging two ingredients moves planned meals across (Undo and Split move them back). Going back to the older version drops the plan; recipes, ingredients and stock are kept.
 
 ### Changed
 

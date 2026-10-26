@@ -1,4 +1,4 @@
-"""The meal plan, read only (0.6 PR 2; docs/dev/api-0.2.md section 6.7). Writing comes with
+"""The meal plan, read only (0.6 PR 2; docs/dev/api-0.2.md section 6.3a). Writing comes with
 the Plan screens."""
 
 from datetime import date, timedelta
@@ -6,14 +6,14 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.schemas import Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem
 from mealwright.household import meal_slots
-from mealwright.models import BatchCook, Food, Meal, MealItem, Recipe, Tub
+from mealwright.models import BatchCook, Food, Login, Meal, MealItem, Place, Recipe, Tub
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
 
@@ -43,13 +43,18 @@ class PlanRecipeRef(Ref):
     removed: bool
 
 
+class PlanIngredientRef(Ref):
+    # Removed, but still inside the undo window.
+    removed: bool
+
+
 class PlanItemOut(BaseModel):
     id: int
     position: int
     kind: Literal["recipe", "tub", "ingredient"]
     recipe: PlanRecipeRef | None
     tub_id: int | None
-    ingredient: Ref | None
+    ingredient: PlanIngredientRef | None
     servings: int | None
 
 
@@ -65,6 +70,7 @@ class PlanBatchOut(BaseModel):
     id: int
     recipe_id: int | None
     recipe_name: str
+    cook_meal_id: int | None
     cooked_on: date
     tub_count: int
     pattern: Literal["lunches", "lunch_dinner", "dinners", "pick"]
@@ -95,30 +101,29 @@ def get_plan(
     start: Annotated[date, Query(alias="from", description="First day, inclusive.")],
     end: Annotated[date, Query(alias="to", description="Last day, inclusive.")],
 ) -> PlanOut:
-    """The meals from one day to another, with their items, and the batch cooks and tubs the
-    meals use. At most 62 days at a time."""
+    """The meals from one day to another, with their items, and the batch cooks and tubs they
+    use: tubs in those meals, batches cooked for those meals or on those days, and the tubs
+    of those batches. At most 62 days at a time."""
     if end < start:
+        # Error texts: proposed, for cabledrawer.
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "bad_range", "“to” is before “from”.")
     if end - start > timedelta(days=MOST_DAYS - 1):
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "range_too_long",
-            f"Ask for at most {MOST_DAYS} days at a time.",
+            f"Ask for at most {MOST_DAYS} days at a time.",  # proposed, for cabledrawer
         )
     db, household_id = kitchen.db, kitchen.household_id
+    in_range = (Meal.household_id == household_id, Meal.day >= start, Meal.day <= end)
     meals = list(
-        db.scalars(
-            select(Meal)
-            .where(Meal.household_id == household_id, Meal.day >= start, Meal.day <= end)
-            .order_by(Meal.day, Meal.slot_id, Meal.id)
-        )
+        db.scalars(select(Meal).where(*in_range).order_by(Meal.day, Meal.slot_id, Meal.id))
     )
     items = list(
         db.scalars(
             select(MealItem)
             .where(
                 MealItem.household_id == household_id,
-                MealItem.meal_id.in_([m.id for m in meals]),
+                MealItem.meal_id.in_(select(Meal.id).where(*in_range)),
             )
             .order_by(MealItem.meal_id, MealItem.position, MealItem.id)
         )
@@ -138,21 +143,58 @@ def get_plan(
             select(Food).where(Food.household_id == household_id, Food.id.in_(food_ids))
         )
     }
-    tubs = list(
-        db.scalars(
-            select(Tub)
-            .where(Tub.household_id == household_id, Tub.id.in_(tub_ids))
-            .order_by(Tub.id)
-        )
-    )
     batches = list(
         db.scalars(
             select(BatchCook)
             .where(
                 BatchCook.household_id == household_id,
-                BatchCook.id.in_({t.batch_id for t in tubs}),
+                or_(
+                    BatchCook.id.in_(
+                        select(Tub.batch_id).where(
+                            Tub.household_id == household_id, Tub.id.in_(tub_ids)
+                        )
+                    ),
+                    BatchCook.cook_meal_id.in_(select(Meal.id).where(*in_range)),
+                    and_(BatchCook.cooked_on >= start, BatchCook.cooked_on <= end),
+                ),
             )
             .order_by(BatchCook.id)
+        )
+    )
+    tubs = list(
+        db.scalars(
+            select(Tub)
+            .where(
+                Tub.household_id == household_id,
+                or_(Tub.id.in_(tub_ids), Tub.batch_id.in_([b.id for b in batches])),
+            )
+            .order_by(Tub.id)
+        )
+    )
+    # Links to rows outside the household are never shown (they can't be made through the
+    # API, and the database doesn't stop a plain key reaching across).
+    mine_recipes = set(
+        db.scalars(
+            select(Recipe.id).where(
+                Recipe.household_id == household_id,
+                Recipe.id.in_({b.recipe_id for b in batches if b.recipe_id}),
+            )
+        )
+    )
+    mine_places = set(
+        db.scalars(
+            select(Place.id).where(
+                Place.household_id == household_id,
+                Place.id.in_({t.place_id for t in tubs if t.place_id}),
+            )
+        )
+    )
+    mine_logins = set(
+        db.scalars(
+            select(Login.id).where(
+                Login.household_id == household_id,
+                Login.id.in_({t.member_login_id for t in tubs if t.member_login_id}),
+            )
         )
     )
 
@@ -169,7 +211,11 @@ def get_plan(
             if recipe
             else None,
             tub_id=i.tub_id,
-            ingredient=Ref(id=food.id, name=food.name) if food else None,
+            ingredient=PlanIngredientRef(
+                id=food.id, name=food.name, removed=food.removed_at is not None
+            )
+            if food
+            else None,
             servings=i.servings,
         )
 
@@ -192,7 +238,8 @@ def get_plan(
         batch_cooks=[
             PlanBatchOut(
                 id=b.id,
-                recipe_id=b.recipe_id,
+                recipe_id=b.recipe_id if b.recipe_id in mine_recipes else None,
+                cook_meal_id=b.cook_meal_id,
                 recipe_name=b.recipe_name,
                 cooked_on=b.cooked_on,
                 tub_count=b.tub_count,
@@ -207,8 +254,8 @@ def get_plan(
                 id=t.id,
                 batch_id=t.batch_id,
                 amount_quarters=t.amount_quarters,
-                place_id=t.place_id,
-                member_login_id=t.member_login_id,
+                place_id=t.place_id if t.place_id in mine_places else None,
+                member_login_id=t.member_login_id if t.member_login_id in mine_logins else None,
                 use_by=t.use_by,
             )
             for t in tubs

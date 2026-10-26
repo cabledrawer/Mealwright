@@ -951,6 +951,14 @@ class BatchCook(Base):
             "pattern IN ('lunches', 'lunch_dinner', 'dinners', 'pick')", name="pattern_known"
         ),
         CheckConstraint("tub_count >= 1 AND tub_count <= 99", name="tub_count_range"),
+        # The meal it was cooked for (the cook-day meal). No ON DELETE action, because
+        # "set null" on a key that holds household_id would empty that too: the server clears
+        # the link first (`mealwright.plan.delete_meal`), and the database refuses otherwise.
+        ForeignKeyConstraint(
+            ["household_id", "cook_meal_id"],
+            ["meal.household_id", "meal.id"],
+            name="fk_batch_cook_household_id_meal",
+        ),
         {"sqlite_autoincrement": True},
     )
 
@@ -964,6 +972,7 @@ class BatchCook(Base):
         ForeignKey("recipe.id", ondelete="SET NULL"), index=True
     )
     recipe_name: Mapped[str] = mapped_column(String(200))
+    cook_meal_id: Mapped[int | None] = mapped_column(Integer, index=True)
     cooked_on: Mapped[date] = mapped_column(Date)
     tub_count: Mapped[int] = mapped_column(Integer)
     pattern: Mapped[str] = mapped_column(String(14), default="pick", server_default="pick")
