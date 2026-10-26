@@ -108,12 +108,14 @@ export class PlanModel {
 
   /** One week or one month back (-1) or forward (1). */
   step(direction: -1 | 1): void {
+    if (!this.anchor) return; // the household's today isn't here yet: nothing to step from
     if (this.view === 'week') this.anchor = addDays(this.anchor, 7 * direction);
     else this.anchor = direction === 1 ? nextMonth(this.anchor) : prevMonth(this.anchor);
     void this.load();
   }
 
   goToday(): void {
+    if (!this.today) return;
     this.anchor = this.today;
     void this.load();
   }

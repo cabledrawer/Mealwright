@@ -219,6 +219,23 @@ test.describe('on a computer', () => {
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
   });
 
+  test('the arrows and Today wait until the household’s today has come (a slow connection)', async ({ page }) => {
+    // The full ./check on ae14498: “Next week” pressed before the household came threw “Invalid time value”.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/v1/household', async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.goto('/plan');
+    await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeDisabled();
+    release();
+    await page.getByRole('button', { name: 'Next week' }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled();
+  });
+
   test('dropping a meal on a filled one puts it in alongside, with “2 recipes”', async ({ page }) => {
     const { today, slot } = await setup(page);
     const one = `Alpha ${stamp()}`;
