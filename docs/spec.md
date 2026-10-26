@@ -426,6 +426,23 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 
 **Data model:** meal status (planned / cooked / didn't / moved); a cooked record per meal or batch (a snapshot of the recipe as cooked plus its stock changes); tub use-by date; household defaults for fridge / freezer tub life.
 
+**Decided for the 0.6 plan data (cabledrawer 26 Oct):** cabledrawer accepted every choice in PR 71, with one change (the first bullet). In plain words:
+
+- **Deleted for good, kept by name (cabledrawer 26 Oct):** "When a recipe or ingredient is deleted for good, the meal keeps its name (as batch cooks do), so past meals still show what we ate." The meal item stays with the name the recipe or ingredient had when it went. A tub deleted for good takes its item; the meal stays. While a removed recipe is still inside its Undo window it stays on the plan, marked as removed.
+- **The plan is read at most 62 days at a time.**
+- **The week start is stored as a number,** 1 (Monday) to 7 (Sunday).
+- **A slot that has meals can't be deleted, only hidden.** Hidden slots keep their meals. Two slots may have the same name.
+- **Default slots:** Breakfast, Lunch, Snack (off) and Dinner. "Snack" is the word the mockups use.
+- **A batch cook keeps its tubs if its recipe is deleted for good,** and remembers the recipe's name. Deleting a batch removes its tubs.
+- **A tub's amount is counted in quarters,** from 0 to 4.
+- **A tub's "whose" points at a login** until member profiles arrive in 0.8, which will need a small migration then.
+- **A batch's colour is a short palette name.**
+- **Links inside the plan can't cross households:** the database refuses them, and the plan's writes check links to recipes, ingredients, places and logins.
+- **The plan doesn't block removing an ingredient.**
+- **A meal marked "moved" still holds its slot** for now; what "moved" means is decided with Today's "Move it" (0.6, step 6).
+- **The new error messages** in `docs/dev/api-0.2.md` section 6.3a.
+- **Split:** the tables and reading the plan came first (PR 71); writing to the plan, with Undo, comes with the Week and Month screens.
+
 ### Recipes (decided 17 Oct)
 
 - **Recipes inside recipes, v1.0 (cabledrawer 17 Oct):** a recipe can list another recipe as an ingredient (sambar → homemade sambar powder; dosa → dosa batter). Making the inner recipe puts it into the pantry like any food ("Dosa batter · 1.5 litres · fridge") and the outer recipe takes from it. If there's none, the app offers "Make batter first?". The shopping list works through the inner recipe's ingredients only when there's not enough of it made.
