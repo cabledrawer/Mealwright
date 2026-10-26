@@ -505,7 +505,8 @@ test.describe('on a phone', () => {
     const sheet = page.getByRole('dialog', { name });
     await expect(sheet).toBeVisible();
     for (const word of ['Move to…', 'Copy to…', 'Leftovers on…', 'Remove']) await expect(sheet.getByRole('button', { name: word })).toBeVisible();
-    await expect(sheet.getByRole('button', { name: /tub/i })).toHaveCount(0); // Whose tub? and To freezer come with Cook once
+    await expect(sheet.getByRole('button', { name: 'Cook once, eat for…' })).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /tub/i })).toHaveCount(0); // a recipe (not a tub) has no Whose tub? or To freezer
     await sheet.getByRole('button', { name: 'Copy to…' }).click();
     const to = addDays(day, 1);
     await sheet.getByRole('button', { name: dayName(to) }).click();

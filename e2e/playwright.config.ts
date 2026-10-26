@@ -82,6 +82,10 @@ export default defineConfig({
     { name: 'phone 0.6 plan', testMatch: 'plan.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 plan', testMatch: 'plan.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 plan', testMatch: 'plan.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Cook once, eat for…, tubs and Leftovers here (0.6, PR 4).
+    { name: 'phone 0.6 cook once', testMatch: 'plan-cook-once.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.6 cook once', testMatch: 'plan-cook-once.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.6 cook once', testMatch: 'plan-cook-once.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },

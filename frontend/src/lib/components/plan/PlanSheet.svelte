@@ -159,7 +159,9 @@
 
   function remove() {
     if (!target) return;
-    if (target.kind === 'meal') void model.removeMeal(target.meal.id);
+    // A tub on its own is taken out of its meal (it goes back to tubs left), not thrown away.
+    if (tubItem) void model.removeItem(tubItem.id);
+    else if (target.kind === 'meal') void model.removeMeal(target.meal.id);
     if (target.kind === 'item') void model.removeItem(target.item.id);
     onclose();
   }
