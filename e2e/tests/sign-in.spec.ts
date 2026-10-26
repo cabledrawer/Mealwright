@@ -224,6 +224,8 @@ test.describe('signed in', () => {
   }) => {
     await page.getByRole('link', { name: 'Plan', exact: true }).click();
     await expect(heading(page)).toHaveText('Plan');
+    // The plan loads after its heading shows; wait for it, so the click below is the next action.
+    await expect(page.getByRole('group', { name: 'Week plan' })).toBeVisible();
     await context.clearCookies(); // as if the session had expired
     await page
       .getByRole('complementary', { name: 'Sidebar' })

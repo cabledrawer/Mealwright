@@ -623,10 +623,14 @@ test('Delete from Edit, reached from the recipe page, lands on All recipes, not 
   const before = await makeRecipe(page, { name: unique('Egg Bhurji') });
   const name = unique('Doomed');
   const recipe = await makeRecipe(page, { name });
+  // Search for each, so other tests' recipes can't push them off the first page.
+  const search = page.getByRole('searchbox', { name: 'Search recipes' });
   await page.goto('/recipes');
+  await search.fill(before.name);
   await page.getByRole('link', { name: new RegExp(before.name) }).first().click();
   await expect(page).toHaveURL(`/recipes/${before.id}`);
   if (isPhone(page)) await page.goto('/recipes');
+  await search.fill(name);
   await page.getByRole('link', { name: new RegExp(name) }).first().click();
   await expect(page).toHaveURL(`/recipes/${recipe.id}`);
   await page.getByRole('link', { name: 'Edit', exact: true }).click();
