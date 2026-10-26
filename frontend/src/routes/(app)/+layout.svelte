@@ -215,10 +215,13 @@
       display: flex;
       align-items: flex-start;
     }
-    /* The sidebar (and its theme switch) stays put while the page scrolls. */
+    /* The sidebar (and its theme switch) stays put while the page scrolls. Being sticky makes it
+       a layer of its own, so it sits above the page: otherwise the Recipes pop-out, which opens
+       out over the page, would be painted under the page's rows (and a click would hit a row). */
     .sidebar-slot {
       position: sticky;
       top: 0;
+      z-index: 20;
       align-self: flex-start;
       height: 100dvh;
     }

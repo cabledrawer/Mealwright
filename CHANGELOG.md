@@ -12,8 +12,13 @@ Towards 0.6.0.
 - **Signing in:** an old or mistyped "go back to where you were" address no longer leaves you on the Sign in page after a good sign-in; you land on Today.
 - **Updates:** SvelteKit 3 checks for a new version when the window gets focus. The app's service worker answers that check itself, so the server is not asked, and with no connection nothing shows, fails or reloads.
 
+### Fixed
+
+- **Recipes pop-out:** with the sidebar collapsed, the Recipes menu (All recipes, Drafts, Ingredients) now always sits above the page. On a page full of rows, such as Ingredients, it used to be drawn under them, so clicking Drafts could open an ingredient instead. This was already in 0.5; the new Safari-engine tests found it.
+
 ### Tests
 
+- A browser test opens the Recipes pop-out over a full Ingredients list, on Chrome and WebKit, and checks Drafts opens Drafts.
 - New tests for the sign-in fallback, for the service worker's list of files and its answer to the version check, and in the browser for focus and tab changes (online and offline) and for a new worker waiting.
 - The offline, service-worker and page-shell browser tests also run on WebKit (Safari's engine). Seven tests are skipped there because of limits in Playwright's WebKit, not in the app: in six, its offline switch fails requests before the service worker sees them; in one (a slow network), it can't hold back requests once the service worker is in charge. Offline Safari is checked by hand on an iPhone.
 

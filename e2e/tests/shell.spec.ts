@@ -355,6 +355,41 @@ test.describe('desktop sidebar', () => {
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(72);
   });
 
+  test('collapsed, the Recipes pop-out sits above a page full of rows, so Drafts opens Drafts', async ({
+    page,
+  }) => {
+    // Enough ingredients that their rows lie under every item of the pop-out (0.6: the rows
+    // used to be painted over it, so a click on a menu item opened an ingredient).
+    const stamp = `${test.info().project.name} ${Date.now()}`;
+    for (let n = 1; n <= 12; n++) {
+      const made = await page.request.post('/api/v1/foods', {
+        data: { name: `Aaa pop-out ${n} ${stamp}`, counted_as: 'weight' },
+        headers: { 'idempotency-key': crypto.randomUUID() },
+      });
+      expect(made.status(), await made.text()).toBe(201);
+    }
+    await page.goto('/recipes/ingredients');
+    await expect(page.getByRole('button', { name: new RegExp(`^Aaa pop-out 12 ${stamp}`) })).toBeVisible();
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await sidebar.getByRole('button', { name: 'Recipes' }).click();
+    const menu = page.getByRole('menu', { name: 'Recipes' });
+    await expect(menu.getByRole('menuitem')).toHaveCount(3);
+
+    // Whatever is at the middle of each menu item is that item, not a row underneath.
+    for (const item of await menu.getByRole('menuitem').all()) {
+      const box = (await item.boundingBox())!;
+      const onTop = await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest('[role="menuitem"]')?.textContent?.trim() ?? null,
+        [box.x + box.width / 2, box.y + box.height / 2],
+      );
+      expect(onTop).toBe((await item.textContent())?.trim());
+    }
+
+    await menu.getByRole('menuitem', { name: 'Drafts' }).click();
+    await expect(page).toHaveURL('/recipes/drafts');
+  });
+
   test('collapsed, the theme is one button that steps through Auto, Light, Dark', async ({
     page,
   }) => {
