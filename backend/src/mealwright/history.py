@@ -1062,12 +1062,14 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     # Planned meals keep the ingredient's name as it is now (cabledrawer 26 Oct).
     db.execute(
         update(MealItem)
-        .where(MealItem.food_id.in_(ids))
+        .where(MealItem.food_id.in_(ids), MealItem.household_id == household.id)
         .values(
             name=select(Food.name).where(Food.id == MealItem.food_id).scalar_subquery(),
             food_id=None,
         )
     )
+    # A link from another household's meal was never valid: it goes, and takes no name with it.
+    db.execute(delete(MealItem).where(MealItem.food_id.in_(ids)))
     db.execute(
         update(RecipeLine)
         .where(RecipeLine.size_id.in_(select(FoodSize.id).where(FoodSize.food_id.in_(ids))))

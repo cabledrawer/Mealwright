@@ -266,6 +266,49 @@ def test_plan_links_cannot_cross_households(kitchen: TestClient, neighbour: Test
             db.commit()
 
 
+def test_a_kept_name_never_comes_from_or_shows_to_another_household(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    """cabledrawer 26 Oct: deleted names must never show to another household (PR 71 round 3)."""
+    from datetime import timedelta
+
+    from mealwright.history import purge_removed
+    from mealwright.models import utcnow
+    from mealwright.recipes import purge_removed_recipes
+
+    ids = plan_one_day(kitchen)
+    theirs = slot_ids(kitchen, 2)
+    with db_of(kitchen) as db:
+        # A bad link from next door's meal to my recipe and my ingredient: the database allows
+        # the single-column keys, but neither of my names is copied in.
+        meal = Meal(household_id=2, day=DAY, slot_id=theirs["Lunch"])
+        db.add(meal)
+        db.flush()
+        bad = [
+            MealItem(household_id=2, meal_id=meal.id, position=0, recipe_id=ids["recipe"]),
+            MealItem(household_id=2, meal_id=meal.id, position=1, food_id=ids["food"]),
+        ]
+        db.add_all(bad)
+        db.commit()
+        assert [i.name for i in bad] == [None, None]
+        old = utcnow() - timedelta(days=30)
+        db.get(Recipe, ids["recipe"]).removed_at = old  # type: ignore[union-attr]
+        db.get(Food, ids["food"]).removed_at = old  # type: ignore[union-attr]
+        db.commit()
+        household = db.get(Household, 1)
+        assert purge_removed_recipes(db, household) == 1  # type: ignore[arg-type]
+        assert purge_removed(db, household, utcnow()) >= 1  # type: ignore[arg-type]
+        db.commit()
+        # The bad links went, rather than carry my names next door.
+        assert db.scalars(select(MealItem).where(MealItem.household_id == 2)).all() == []
+    mine = kitchen.get(f"{API}/plan", params={"from": DAY.isoformat(), "to": DAY.isoformat()}).text
+    assert "Sambar" in mine and "Banana" in mine
+    next_door = neighbour.get(
+        f"{API}/plan", params={"from": DAY.isoformat(), "to": DAY.isoformat()}
+    ).text
+    assert "Sambar" not in next_door and "Banana" not in next_door
+
+
 def test_hiding_a_slot_keeps_its_meals_and_a_slot_with_meals_cannot_be_deleted(
     kitchen: TestClient,
 ) -> None:

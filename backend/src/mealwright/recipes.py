@@ -628,12 +628,14 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     # Its name as it is now (it may have been renamed since it was planned).
     db.execute(
         update(MealItem)
-        .where(MealItem.recipe_id.in_(ids))
+        .where(MealItem.recipe_id.in_(ids), MealItem.household_id == household.id)
         .values(
             name=select(Recipe.name).where(Recipe.id == MealItem.recipe_id).scalar_subquery(),
             recipe_id=None,
         )
     )
+    # A link from another household's meal was never valid: it goes, and takes no name with it.
+    db.execute(delete(MealItem).where(MealItem.recipe_id.in_(ids)))
     keys = list(db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.recipe_id.in_(ids))))
     if keys:
         delete_after_commit(db, household.id, keys)  # the files, once this is committed

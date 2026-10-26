@@ -1087,4 +1087,7 @@ def _meal_item_kind_and_name(_mapper: Any, connection: Any, item: MealItem) -> N
     if item.name is None and item.kind != "tub":
         table, key = (Recipe, item.recipe_id) if item.kind == "recipe" else (Food, item.food_id)
         if key is not None:
-            item.name = connection.execute(select(table.name).where(table.id == key)).scalar()
+            # Only this household's own recipe or ingredient: a bad link copies no one else's name.
+            item.name = connection.execute(
+                select(table.name).where(table.id == key, table.household_id == item.household_id)
+            ).scalar()
