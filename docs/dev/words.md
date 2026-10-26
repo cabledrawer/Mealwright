@@ -343,6 +343,21 @@ Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `New
 
 ---
 
+## 19. Plan: Week and Month (0.6 PR 3; every line here is proposed, for cabledrawer)
+
+Written by Claude Code on 26 Oct from the mockups `Plan`, `Desktop-Plan`, `Month-Desktop`, `Month-Phone` and the spec's "Meal planner interactions". cabledrawer's own words: Meals toggles, Week | Month, "2 recipes · 590 kcal" (spec, 17 Oct).
+
+- Header and bar: Plan · Previous week / Next week · Previous month / Next month · Today · Meals (Breakfast · Lunch · Snack · Dinner, a switch each) · Week · Month · Cook day · Its tubs · Fresh (only once there are batch cooks).
+- Days and cells: MON 12 … SUN 18 · SAT · TODAY · + Add (an empty meal on a computer) · + Add dinner (on a phone, the meal's own name in lower case) · "2 recipes · 590 kcal" · "1 ingredient" · "3 things · 80 kcal" (a mix of recipes and ingredients) · Tub 2 of 4 · COOK · Cook day (phone).
+- The menu (long-press or click or Enter): the meal's or thing's name, then "Mon 19 October · Dinner"; Move to… · Copy to… · Leftovers on… · Remove; then a week with ‹ › (Earlier week, Later week), a day and a meal to pick; Move here · Copy here · Plan leftovers here · Plan it here (a recipe from the tray) · Back. "Whose tub?" and "To freezer" wait for Cook once.
+- Drop zones while dragging: Move · Copy (Alt) · Leftovers here · Drop here (a recipe) · Drop a recipe (a day in Month).
+- Add: "Add to Dinner · Monday 19 October" · Find a recipe or an ingredient · Ingredient (beside a plain ingredient) · "Type to find an ingredient, such as Fruit." · "You have no recipes yet. Add one under Recipes." · Nothing matches. · Close.
+- Tray: Recipes · drag up onto a day · Find a recipe · All · Can cook now · Use soon · Collapse recipe tray / Open recipe tray · "Uses spinach" (a recipe that uses what is about to go off) · "You have no recipes yet. Add one under Recipes." · No recipes match.
+- Month side panel: Batches this month · No batch cooks this month. · Empty days ahead · Every day ahead has something planned. · +2 more.
+- States: Loading the plan… · Couldn’t load the plan. Try again. · "Nothing planned this week. Drag a recipe up from the tray, or press + Add." (computer) · "Nothing planned this week. Tap + Add on a day to plan a meal." (phone) · "All meals are switched off. Turn one on under Meals to plan it." · "You’re offline. Plan changes when you’re back online." (and the screen note "Plan needs your Mealwright server. Your shopping list works offline." when it was never loaded).
+- Toasts (the server's own sentence, with Undo): Planned Sambar for Dinner on Mon 19 Oct · Moved Sambar from Dinner on Mon 19 Oct to Lunch on Tue 20 Oct · Copied Sambar to Lunch on Tue 20 Oct · Planned leftovers of Sambar on Lunch on Tue 20 Oct · Removed Sambar from Dinner on Mon 19 Oct · Hid Snack in the plan · Showed Snack in the plan. After Undo: "Undone: " and the same words.
+- Refusals (server, 422/409): That day is too far from today to plan. · Dinner is switched off. Turn it on under Meals to plan it. · A meal holds at most 20 things. · That meal is already there. · Nothing in that meal can be copied. · A tub can only be in one meal at a time. · Pick a recipe or an ingredient to plan. · That meal has already been dealt with, so it can’t be changed here.
+
 ## 18. Not covered yet (for later versions of this list)
 
 Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

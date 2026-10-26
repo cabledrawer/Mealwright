@@ -78,6 +78,10 @@ export default defineConfig({
     // Drafts: "Save as draft?", the Drafts screen, carrying on, Delete and Undo (0.5).
     { name: 'phone 0.5 drafts', testMatch: 'drafts.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.5 drafts', testMatch: 'drafts.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // The Plan: week, month, drag, the menu, Undo (0.6).
+    { name: 'phone 0.6 plan', testMatch: 'plan.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.6 plan', testMatch: 'plan.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.6 plan', testMatch: 'plan.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
