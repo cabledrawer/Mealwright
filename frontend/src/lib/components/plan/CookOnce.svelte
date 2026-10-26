@@ -2,7 +2,7 @@
   // "Cook once, eat for…" (mockups CookOnce-Desktop, CookOnce-Phone and their dark twins): how many
   // tubs, which meals to spread them over, who is eating, whether tubs with no meal go to the
   // freezer, and a preview of where the tubs land. The server works the preview out. A tub is
-  // added to any meal with "+ Add a tub" (or "+ Add a tub too" when the meal has food), taken out
+  // added to any meal with "+ Add a tub" (or "+ Add a tub too" when the meal has something planned), taken out
   // with ✕, and moved by dragging it or by tapping it and then tapping the meal (the keyboard and
   // finger way). Online only, like the rest of the plan.
   import { untrack } from 'svelte';
@@ -256,7 +256,7 @@
                 <h4>{dayShort(day)} {dayOfMonth(day)}</h4>
                 {#each slotsFor(day) as slot (slot.id)}
                   {@const here = cook.tubsAt(day, slot.id)}
-                  {@const food = existing(day, slot.id)}
+                  {@const planned = existing(day, slot.id)}
                   {@const isCook = day === cook.cookDate && slot.id === cookSlot}
                   <div
                     class="cell"
@@ -271,8 +271,8 @@
                     {#if isCook}
                       <span class="cook" style:--c="var(--batch-{colour})">Cook · {name}</span>
                     {:else}
-                      {#if food && here.length === 0}
-                        <span class="has">{food} · already planned</span>
+                      {#if planned && here.length === 0}
+                        <span class="has">{planned} · already planned</span>
                       {/if}
                       {#each here as tub (tub.number)}
                         <span
@@ -310,13 +310,13 @@
                         disabled={actions.readonly || (moving === null && cook.nextFree === null)}
                         aria-label="{moving !== null
                           ? `Put tub ${moving} in`
-                          : food || here.length
+                          : planned || here.length
                             ? 'Add a tub too to'
                             : 'Add a tub to'} {slot.name} on {dayFull(day)}"
                         onclick={() => put(day, slot.id)}
                         >{moving !== null
                           ? 'Move it here'
-                          : food || here.length
+                          : planned || here.length
                             ? '+ Add a tub too'
                             : '+ Add a tub'}</button
                       >
@@ -332,8 +332,8 @@
           {#if cook.preview}
             <p class="foot" data-testid="cook-summary">
               {#if unplacedWords}{unplacedWords}.
-              {/if}The pattern skips meals that already have food; you can still add a tub to one
-              yourself.
+              {/if}The pattern skips meals that already have something planned; you can still add a
+              tub to one yourself.
               <strong>{cook.preview.placed} of {cook.count} placed.</strong>
             </p>
           {/if}

@@ -259,6 +259,8 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
     kitchen.db.flush()
     if not items_of(kitchen, meal):
         _drop_meal(kitchen, meal, steps)
+    if item.kind == "tub":  # a tub is not thrown away: it goes back to "tubs left"
+        return _finish(kitchen, "plan_removed", f"Put {name} back in tubs left from {where}", steps)
     return _finish(kitchen, "plan_removed", f"Removed {name} from {where}", steps)
 
 

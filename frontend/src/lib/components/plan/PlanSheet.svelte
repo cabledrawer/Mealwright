@@ -97,9 +97,10 @@
 
   function cookOnce() {
     if (!target || !cookable || (target.kind !== 'meal' && target.kind !== 'item')) return;
-    const meal = target.meal;
+    // Read both before closing: closing empties the target, and with it what is cookable.
+    const [meal, item] = [target.meal, cookable];
     onclose();
-    actions.openCookOnce(meal, cookable);
+    actions.openCookOnce(meal, item);
   }
 
   function whose(loginId: number | null) {

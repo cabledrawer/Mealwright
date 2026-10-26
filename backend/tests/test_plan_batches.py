@@ -409,7 +409,7 @@ def test_a_tub_left_can_be_placed_moved_and_sent_back_with_undo(
     # Taking it out of the meal sends it back to tubs left, and Undo puts it back.
     item = next(i for m in view(kitchen)["meals"] for i in m["items"] if i["tub_id"] == tub)
     out = kitchen.delete(f"{API}/plan/items/{item['id']}").json()
-    assert out["change"]["summary"].startswith("Removed Veg biryani tub from")
+    assert out["change"]["summary"].startswith("Put Veg biryani tub back in tubs left from")
     assert len(kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]) == 2
     assert undo(kitchen, out)["result"] == "done"
     assert where_tubs_are(kitchen, slots)[0] == (1, day(1), "Lunch")
