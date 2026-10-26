@@ -112,6 +112,20 @@ Hard rules (no exceptions):
 - Phone: long-press a meal → Move to… · Copy to… · Leftovers on… with a day picker.
 - Undo for every planner action.
 
+**Decided for the 0.6 Week and Month screens (cabledrawer 26 Oct):** cabledrawer accepted every choice in PR 3 ("20 items per meal, 12 slots, plan changes online only, cooked/not-cooked/moved meals locked, Leftovers copies until PR 4, slot settings later"). In plain words:
+
+- **Caps:** at most 20 things in a meal and 12 meal slots in a household.
+- **Plan changes need the server,** like the Pantry: there's no offline queue for the plan, and offline the plan's buttons are greyed out with the usual wording.
+- **A meal that was cooked, not cooked or moved is locked:** it can't be changed from the plan, and Undo leaves it alone.
+- **"Leftovers" copies the meal** until Cook once makes real tubs (0.6, step 4). A tub is never copied.
+- **Slot settings come later,** with the Settings screen for the plan: renaming and reordering slots, the first day of the week, and how far ahead the shopping list looks.
+- **Days:** a day more than 1 year back or 2 years ahead can't be planned, counted from the household's own today.
+- **A meal's kcal** is one serving of each recipe in it.
+- **Dropping a recipe on a Month day** puts it in the last empty meal that's switched on.
+- **The plain drop is Move** (Alt copies); Copy and Leftovers have their own drop zones.
+- **Tub actions wait for tubs** (0.6, step 4): "Whose tub?", "To freezer" and "Fill from freezer first".
+- **The new words** are in `docs/dev/words.md` section 19.
+
 ### Visual system used in the mockups (draft, easy to change)
 
 - **Light:** off-white ground, white rounded cards, near-black text, one green accent; saffron for tubs/leftovers; one colour per batch (solid on the cook day, light on its tubs).
