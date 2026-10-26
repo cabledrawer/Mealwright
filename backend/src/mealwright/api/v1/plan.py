@@ -36,7 +36,7 @@ from mealwright.shopping import lock_household
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
 
 # The longest range one call answers: two months covers the Month view with the days either
-# side of it. Proposed, for cabledrawer.
+# side of it (cabledrawer 26 Oct).
 MOST_DAYS = 62
 
 
@@ -90,7 +90,7 @@ class PlanMealOut(BaseModel):
     status: Literal["planned", "cooked", "didnt", "moved"]
     items: list[PlanItemOut]
     # One serving of each recipe and tub added up; null when none of them has kcal (PR 3;
-    # proposed, for cabledrawer).
+    # cabledrawer 26 Oct).
     kcal: int | None = None
 
 

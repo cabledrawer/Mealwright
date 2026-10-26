@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from test_plan import add_food, add_recipe, db_of, slot_ids
 
 from mealwright import plan as plan_module
@@ -32,7 +32,10 @@ def shape(client: TestClient) -> list[tuple[str, int, list[str]]]:
     """Every meal as (date, slot, its items' names), to compare before and after an Undo."""
     out = []
     for m in view(client)["meals"]:
-        names = [(i["recipe"] or i["ingredient"] or {"name": "tub"})["name"] for i in m["items"]]
+        names = [
+            (i["recipe"] or i["ingredient"] or {"name": i["kept_name"] or "tub"})["name"]
+            for i in m["items"]
+        ]
         out.append((m["date"], m["slot_id"], names))
     return sorted(out)
 
@@ -507,3 +510,28 @@ def test_undo_that_leaves_a_planned_meal_empty_removes_it(
     undo(kitchen, first)
     with db_of(kitchen) as db:
         assert db.scalar(select(func.count()).select_from(Meal)) == 0
+
+
+def test_a_thing_deleted_for_good_keeps_its_name_through_copy_remove_and_undo(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """cabledrawer 26 Oct: a recipe or ingredient deleted for good stays on the meal by name."""
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"], servings=2)
+    banana = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "ingredient_id": stuff["banana"]}
+    assert kitchen.post(f"{API}/plan/items", json=banana).status_code == 201
+    with db_of(kitchen) as db:
+        db.execute(text("DELETE FROM recipe WHERE id = :i"), {"i": stuff["sambar"]})
+        db.execute(text("DELETE FROM food WHERE id = :i"), {"i": stuff["banana"]})
+        db.commit()
+    assert shape(kitchen) == [(D1.isoformat(), slots["Dinner"], ["Sambar", "Banana"])]
+    body = {"date": D2.isoformat(), "slot_id": slots["Dinner"], "mode": "copy"}
+    copied = kitchen.post(f"{API}/plan/meals/{a['meal_id']}/move", json=body)
+    assert copied.status_code == 200, copied.text
+    assert shape(kitchen)[1] == (D2.isoformat(), slots["Dinner"], ["Sambar", "Banana"])
+    with db_of(kitchen) as db:
+        kinds = {(i.kind, i.servings) for i in db.scalars(select(MealItem))}
+        assert kinds == {("recipe", 2), ("ingredient", None)}
+    removed = kitchen.delete(f"{API}/plan/items/{a['item_id']}").json()
+    assert removed["change"]["summary"].startswith("Removed Sambar from")
+    assert undo(kitchen, removed)["result"] == "done"
+    assert shape(kitchen)[0] == (D1.isoformat(), slots["Dinner"], ["Sambar", "Banana"])

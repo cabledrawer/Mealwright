@@ -9,6 +9,7 @@ const item = (id: number, name: string, kcal: number | null = null): PlanItem =>
   recipe: { id, name, removed: false, photo_url: null, time_minutes: null, kcal },
   tub_id: null,
   ingredient: null,
+  kept_name: null,
   servings: null
 });
 const meal = (id: number, date: string, slot: number, items: PlanItem[]): PlanMeal => ({

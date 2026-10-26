@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanItem, PlanMeal } from './client/plan';
-import { batchColour, mealName, mealTotals, tubWords } from './planMeals';
+import { batchColour, itemName, mealName, mealTotals, tubWords } from './planMeals';
 
 const recipe = (id: number, name: string): PlanItem => ({
   id,
@@ -9,6 +9,7 @@ const recipe = (id: number, name: string): PlanItem => ({
   recipe: { id, name, removed: false, photo_url: null, time_minutes: null, kcal: null },
   tub_id: null,
   ingredient: null,
+  kept_name: null,
   servings: null
 });
 const fruit: PlanItem = {
@@ -18,6 +19,7 @@ const fruit: PlanItem = {
   recipe: null,
   tub_id: null,
   ingredient: { id: 1, name: 'Banana', removed: false },
+  kept_name: null,
   servings: null
 };
 const meal = (items: PlanItem[], kcal: number | null = null): PlanMeal => ({
@@ -40,6 +42,13 @@ describe('a meal card’s words', () => {
   it('says ingredients, or things when they are mixed', () => {
     expect(mealTotals(meal([fruit]))).toBe('1 ingredient');
     expect(mealTotals(meal([recipe(1, 'Dosa'), fruit], 230))).toBe('2 things · 230 kcal');
+  });
+
+  it('names a recipe or ingredient deleted for good by the name it kept', () => {
+    const gone = { ...recipe(4, 'Sambar'), recipe: null, kept_name: 'Sambar' };
+    const goneFruit = { ...fruit, ingredient: null, kept_name: 'Banana' };
+    expect([itemName(gone), itemName(goneFruit)]).toEqual(['Sambar', 'Banana']);
+    expect(mealName(meal([gone, goneFruit]))).toBe('Sambar and 1 more');
   });
 
   it('names a meal by its first thing', () => {

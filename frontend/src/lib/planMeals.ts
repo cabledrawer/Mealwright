@@ -7,6 +7,7 @@ import type { MealSlot, Plan, PlanItem, PlanMeal } from './client/plan';
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
   if (item.recipe) return item.recipe.name;
   if (item.ingredient) return item.ingredient.name;
+  if (item.kept_name) return item.kept_name; // deleted for good: past meals still say what it was
   const tub = plan?.tubs.find((t) => t.id === item.tub_id);
   const batch = plan?.batch_cooks.find((b) => b.id === tub?.batch_id);
   return batch ? `${batch.recipe_name} tub` : 'Tub';

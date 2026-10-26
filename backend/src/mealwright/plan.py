@@ -33,13 +33,13 @@ def delete_meal(db: DbSession, meal: Meal) -> None:
 # list of small steps, put back newest first. A step that no longer fits (a meal that has
 # since been filled, a recipe that is gone for good) is skipped and the Undo says "partly".
 
-# Hard caps, so a plan stays small. Proposed, for cabledrawer: about 20 items in a meal and about
+# Hard caps, so a plan stays small (cabledrawer 26 Oct): 20 items in a meal and
 # 12 meal slots (MOST_SLOTS, household.py, enforced where slots are made). GET /plan passes lists
 # of ids to the database, and SQLite takes at most 32,766 of them in one query: a 62-day range
 # with 12 slots of 20 items is at most 62 x 12 x 20 = 14,880, so these caps keep it well under
 # (do not raise them without changing how /plan reads).
 MOST_ITEMS_IN_MEAL = 20
-# How far from today a day may be. Proposed, for cabledrawer.
+# How far from today a day may be (cabledrawer 26 Oct).
 DAYS_BACK = 366
 DAYS_AHEAD = 731
 
@@ -89,7 +89,7 @@ def find_item(kitchen: Kitchen, item_id: int) -> MealItem:
 
 def _planned(meal: Meal) -> None:
     if meal.status != "planned":
-        # Cooked, skipped and moved meals are Today's (PR 6). Proposed, for cabledrawer.
+        # Cooked, skipped and moved meals are Today's (PR 6) and locked here (cabledrawer 26 Oct).
         raise Problem(
             status.HTTP_409_CONFLICT,
             "meal_done",
@@ -145,6 +145,8 @@ def _item_name(kitchen: Kitchen, item: MealItem) -> str:
     if item.food_id is not None:
         food = kitchen.db.get(Food, item.food_id)
         return food.name if food else "an ingredient"
+    if item.kind != "tub" and item.name:
+        return item.name  # deleted for good: the meal kept its name (cabledrawer 26 Oct)
     return "a tub"
 
 
@@ -165,6 +167,8 @@ def _snapshot_item(item: MealItem) -> dict[str, Any]:
         "id": item.id,
         "meal_id": item.meal_id,
         "position": item.position,
+        "kind": item.kind,
+        "name": item.name,
         "recipe_id": item.recipe_id,
         "tub_id": item.tub_id,
         "food_id": item.food_id,
@@ -274,6 +278,9 @@ def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str,
         household_id=kitchen.household_id,
         meal_id=meal.id,
         position=_end(kitchen, meal),
+        kind=item.kind,
+        # A linked item takes its recipe's or ingredient's name afresh; a kept name is copied.
+        name=None if item.recipe_id or item.food_id else item.name,
         recipe_id=item.recipe_id,
         food_id=item.food_id,
         servings=item.servings,
@@ -294,7 +301,7 @@ def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, A
 
 def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode) -> Change:
     """Move a whole meal, or copy it ("leftovers" copies the recipes and ingredients for now:
-    real leftover tubs come with Cook once; proposed, for cabledrawer). Onto a filled meal, the
+    real leftover tubs come with Cook once; cabledrawer 26 Oct). Onto a filled meal, the
     items go in alongside."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
@@ -493,6 +500,8 @@ def _undo_step(
                 household_id=kitchen.household_id,
                 meal_id=meal.id,
                 position=old["position"],
+                kind=old["kind"],
+                name=old["name"],
                 recipe_id=old["recipe_id"],
                 tub_id=old["tub_id"],
                 food_id=old["food_id"],

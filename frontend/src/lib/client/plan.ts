@@ -28,6 +28,8 @@ export interface PlanItem {
   recipe: PlanRecipe | null;
   tub_id: number | null;
   ingredient: (Ref & { removed: boolean }) | null;
+  /** The name of a recipe or ingredient deleted for good (recipe and ingredient are then null). */
+  kept_name: string | null;
   servings: number | null;
 }
 

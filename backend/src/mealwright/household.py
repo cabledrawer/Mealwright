@@ -70,7 +70,7 @@ def places(db: DbSession, household_id: int) -> list[Place]:
     )
 
 
-# At most this many meal slots a household can have. Proposed, for cabledrawer. GET /plan passes lists
+# At most this many meal slots a household can have (cabledrawer 26 Oct). GET /plan passes lists
 # of ids to the database, and SQLite takes at most 32,766 values in one query: a 62-day range
 # with 12 slots of 20 items is at most 62 x 12 x 20 = 14,880 (see MOST_ITEMS_IN_MEAL, plan.py).
 MOST_SLOTS = 12

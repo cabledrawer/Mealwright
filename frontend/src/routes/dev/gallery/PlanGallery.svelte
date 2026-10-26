@@ -19,6 +19,7 @@
     recipe: { id, name, removed: false, photo_url: null, time_minutes: minutes, kcal },
     tub_id: null,
     ingredient: null,
+    kept_name: null,
     servings: null
   });
   const plain = (id: number, name: string) => ({
@@ -28,6 +29,7 @@
     recipe: null,
     tub_id: null,
     ingredient: { id, name, removed: false },
+    kept_name: null,
     servings: null
   });
 
