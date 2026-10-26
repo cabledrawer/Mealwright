@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import UNDO_MESSAGES, Tally, as_utc, record
+from mealwright.household import today
 from mealwright.models import BatchCook, Change, Food, Meal, MealItem, MealSlot, Recipe, Tub
 
 
@@ -33,13 +34,11 @@ def delete_meal(db: DbSession, meal: Meal) -> None:
 # since been filled, a recipe that is gone for good) is skipped and the Undo says "partly".
 
 # Hard caps, so a plan stays small. Proposed, for cabledrawer: about 20 items in a meal and about
-# 12 slots. GET /plan passes lists of ids to the database as values, and SQLite takes at most
-# 32,766 of them in one query: a 62-day range with 12 slots of 20 items is at most
-# 62 x 12 x 20 = 14,880, so these caps keep it well under (do not raise them without
-# changing how /plan reads).
+# 12 meal slots (MOST_SLOTS, household.py, enforced where slots are made). GET /plan passes lists
+# of ids to the database, and SQLite takes at most 32,766 of them in one query: a 62-day range
+# with 12 slots of 20 items is at most 62 x 12 x 20 = 14,880, so these caps keep it well under
+# (do not raise them without changing how /plan reads).
 MOST_ITEMS_IN_MEAL = 20
-MOST_SLOTS = 12
-
 # How far from today a day may be. Proposed, for cabledrawer.
 DAYS_BACK = 366
 DAYS_AHEAD = 731
@@ -51,9 +50,9 @@ def _words_day(day: date) -> str:
     return f"{day:%a} {day.day} {day:%b}"
 
 
-def check_day(day: date) -> None:
-    today = date.today()
-    if day < today - timedelta(days=DAYS_BACK) or day > today + timedelta(days=DAYS_AHEAD):
+def check_day(kitchen: Kitchen, day: date) -> None:
+    now = today(kitchen.household)
+    if day < now - timedelta(days=DAYS_BACK) or day > now + timedelta(days=DAYS_AHEAD):
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "bad_day",
@@ -211,7 +210,7 @@ def add_item(
     servings: int | None,
 ) -> Change:
     """Plan a recipe or a plain ingredient. A filled meal gets it alongside."""
-    check_day(day)
+    check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     steps: list[dict[str, Any]] = []
     meal = meal_at(kitchen, day, slot_id)
@@ -297,7 +296,7 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
     """Move a whole meal, or copy it ("leftovers" copies the recipes and ingredients for now:
     real leftover tubs come with Cook once; proposed, for cabledrawer). Onto a filled meal, the
     items go in alongside."""
-    check_day(day)
+    check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     _planned(meal)
     if (meal.day, meal.slot_id) == (day, slot_id):
@@ -362,7 +361,7 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
 
 def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: Mode) -> Change:
     """Move one thing from a meal to another date and slot, or copy it."""
-    check_day(day)
+    check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     source = kitchen.db.get(Meal, item.meal_id)
     if source is None:  # pragma: no cover (the database keeps every item in a meal)
@@ -424,18 +423,28 @@ def _own(kitchen: Kitchen, model: Any, row_id: int | None) -> Any:
     return row if row is not None and row.household_id == kitchen.household_id else None
 
 
-def _undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> bool:
+def _open(kitchen: Kitchen, meal_id: int | None) -> Meal | None:
+    """A meal of this household that is still `planned`. Undo, like a write, leaves cooked,
+    skipped and moved meals alone (they are Today's, PR 6): such a step is skipped."""
+    meal = _own(kitchen, Meal, meal_id)
+    return meal if meal is not None and meal.status == "planned" else None
+
+
+def _undo_step(
+    kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int], touched: set[int]
+) -> bool:
     db = kitchen.db
     op = step["op"]
     if op == "add_item":
         item = _own(kitchen, MealItem, step["item"])
-        if item is None:
+        if item is None or _open(kitchen, item.meal_id) is None:
             return False
+        touched.add(item.meal_id)
         db.delete(item)
         db.flush()
         return True
     if op == "new_meal":
-        meal = _own(kitchen, Meal, remap.get(step["meal"], step["meal"]))
+        meal = _open(kitchen, remap.get(step["meal"], step["meal"]))
         if meal is None or items_of(kitchen, meal):
             return False
         delete_meal(db, meal)
@@ -446,6 +455,8 @@ def _undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) ->
         if _own(kitchen, MealSlot, old["slot_id"]) is None:
             return False
         meal = meal_at(kitchen, day, old["slot_id"])
+        if meal is not None and meal.status != "planned":
+            return False
         if meal is None:
             meal = Meal(
                 household_id=kitchen.household_id,
@@ -460,11 +471,12 @@ def _undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) ->
                 if batch is not None and batch.cook_meal_id is None:
                     batch.cook_meal_id = meal.id
         remap[old["id"]] = meal.id
+        touched.add(meal.id)
         db.flush()
         return True
     if op == "del_item":
         old = step["item"]
-        meal = _own(kitchen, Meal, remap.get(old["meal_id"], old["meal_id"]))
+        meal = _open(kitchen, remap.get(old["meal_id"], old["meal_id"]))
         if meal is None or len(items_of(kitchen, meal)) >= MOST_ITEMS_IN_MEAL:
             return False
         if old["recipe_id"] is not None and _own(kitchen, Recipe, old["recipe_id"]) is None:
@@ -490,7 +502,7 @@ def _undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) ->
         db.flush()
         return True
     if op == "move_meal":
-        meal = _own(kitchen, Meal, step["meal"])
+        meal = _open(kitchen, step["meal"])
         day = date.fromisoformat(step["from"][0])
         if meal is None or meal_at(kitchen, day, step["from"][1]) is not None:
             return False
@@ -501,9 +513,12 @@ def _undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) ->
         return True
     if op == "move_item":
         item = _own(kitchen, MealItem, step["item"])
-        meal = _own(kitchen, Meal, remap.get(step["from_meal"], step["from_meal"]))
+        meal = _open(kitchen, remap.get(step["from_meal"], step["from_meal"]))
         if item is None or meal is None or len(items_of(kitchen, meal)) >= MOST_ITEMS_IN_MEAL:
             return False
+        if _open(kitchen, item.meal_id) is None:
+            return False  # the item now sits in a meal that has been dealt with
+        touched.add(item.meal_id)
         item.meal_id, item.position = meal.id, step["position"]
         db.flush()
         return True
@@ -523,11 +538,17 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
     steps = (change.undo_data or {}).get("plan", [])
     tally = Tally()
     remap: dict[int, int] = {}
+    touched: set[int] = set()
     for step in reversed(steps):
-        if _undo_step(kitchen, step, remap):
+        if _undo_step(kitchen, step, remap, touched):
             tally.done += 1
         else:
             tally.skipped += 1
+    # A planned meal the Undo left with nothing in it goes (never a cooked one).
+    for meal_id in touched:
+        meal = _open(kitchen, meal_id)
+        if meal is not None and not items_of(kitchen, meal):
+            delete_meal(kitchen.db, meal)
     undone = record(
         kitchen,
         "undo",

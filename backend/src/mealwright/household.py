@@ -3,10 +3,12 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
+from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.amounts import DEFAULT_CUP_ML
+from mealwright.errors import Problem
 from mealwright.models import DEFAULT_PLACES, DEFAULT_SLOTS, Household, MealSlot, Place, utcnow
 
 UTC_ZONE = ZoneInfo("UTC")
@@ -68,10 +70,36 @@ def places(db: DbSession, household_id: int) -> list[Place]:
     )
 
 
+# At most this many meal slots a household can have. Proposed, for cabledrawer. GET /plan passes lists
+# of ids to the database, and SQLite takes at most 32,766 values in one query: a 62-day range
+# with 12 slots of 20 items is at most 62 x 12 x 20 = 14,880 (see MOST_ITEMS_IN_MEAL, plan.py).
+MOST_SLOTS = 12
+
+
+def add_slot(db: DbSession, household_id: int, name: str, enabled: bool = True) -> MealSlot:
+    """Make a meal slot (the later Settings screen uses this too). Refused past MOST_SLOTS."""
+    have = list(meal_slots(db, household_id))
+    if len(have) >= MOST_SLOTS:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "too_many_slots",
+            f"A household can have at most {MOST_SLOTS} meals.",  # proposed, for cabledrawer
+        )
+    slot = MealSlot(
+        household_id=household_id,
+        name=name,
+        position=(have[-1].position + 1) if have else 0,
+        enabled=enabled,
+    )
+    db.add(slot)
+    db.flush()
+    return slot
+
+
 def add_default_slots(db: DbSession, household_id: int) -> None:
     """Breakfast, Lunch, Snack (off) and Dinner (renameable and reorderable from 0.6)."""
-    for position, (name, enabled) in enumerate(DEFAULT_SLOTS):
-        db.add(MealSlot(household_id=household_id, name=name, position=position, enabled=enabled))
+    for name, enabled in DEFAULT_SLOTS:
+        add_slot(db, household_id, name, enabled)
 
 
 def meal_slots(db: DbSession, household_id: int) -> list[MealSlot]:

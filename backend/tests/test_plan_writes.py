@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from test_plan import add_food, add_recipe, db_of, slot_ids
 
 from mealwright import plan as plan_module
+from mealwright.household import MOST_SLOTS, add_slot
 from mealwright.models import BatchCook, Meal, MealItem
 
 API = "/api/v1"
@@ -282,7 +283,7 @@ def test_the_caps(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, i
 
 
 def test_the_caps_keep_a_full_range_under_sqlites_variable_limit() -> None:
-    assert 62 * plan_module.MOST_SLOTS * plan_module.MOST_ITEMS_IN_MEAL < 32_766
+    assert 62 * MOST_SLOTS * plan_module.MOST_ITEMS_IN_MEAL < 32_766
 
 
 def test_a_retry_with_the_same_key_plans_once(
@@ -421,3 +422,88 @@ def test_plan_changes_are_in_recent_changes_with_their_undo(
     assert latest["kind"] == "plan_added" and latest["can_undo"]
     assert kitchen.post(f"{API}/changes/{latest['id']}/undo").json()["result"] == "done"
     assert kitchen.post(f"{API}/changes/{latest['id']}/undo").status_code == 409
+
+
+def test_the_days_allowed_follow_the_households_today(
+    kitchen: TestClient,
+    stuff: dict[str, int],
+    slots: dict[str, int],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The household's own today (the one /plan uses), not the server's clock."""
+    monkeypatch.setattr(plan_module, "today", lambda _household: date(2040, 1, 1))
+    body = {"slot_id": slots["Dinner"], "recipe_id": stuff["sambar"]}
+    assert (
+        kitchen.post(f"{API}/plan/items", json={**body, "date": D1.isoformat()}).status_code == 422
+    )
+    assert kitchen.post(f"{API}/plan/items", json={**body, "date": "2040-01-03"}).status_code == 201
+
+
+def test_a_household_cannot_have_more_than_the_most_slots(kitchen: TestClient) -> None:
+    from mealwright.errors import Problem
+
+    with db_of(kitchen) as db:
+        for n in range(MOST_SLOTS - 4):  # the four every household starts with
+            add_slot(db, 1, f"Extra {n}")
+        with pytest.raises(Problem) as refused:
+            add_slot(db, 1, "One too many")
+        assert refused.value.status_code == 422 and refused.value.code == "too_many_slots"
+        assert "at most 12" in refused.value.detail
+        db.rollback()
+    assert len(kitchen.get(f"{API}/meal-slots").json()) == 4
+
+
+def _cook(kitchen: TestClient, meal_id: int) -> None:
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, meal_id)
+        assert meal is not None
+        meal.status = "cooked"
+        db.commit()
+
+
+def test_undo_of_a_removal_leaves_a_meal_that_was_cooked_since(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
+    gone = kitchen.delete(f"{API}/plan/items/{a['item_id']}").json()  # one of two
+    _cook(kitchen, a["meal_id"])
+    result = undo(kitchen, gone)
+    assert result["result"] == "nothing"
+    assert shape(kitchen) == [(D1.isoformat(), slots["Dinner"], ["Dosa"])]
+
+    # Removing the only thing takes the meal; a new meal planned and cooked there is left alone.
+    other = plan_recipe(kitchen, stuff["sambar"], D2, slots["Dinner"])
+    removed = kitchen.delete(f"{API}/plan/meals/{other['meal_id']}").json()
+    again = plan_recipe(kitchen, stuff["dosa"], D2, slots["Dinner"])
+    _cook(kitchen, again["meal_id"])
+    assert undo(kitchen, removed)["result"] == "nothing"
+    assert (D2.isoformat(), slots["Dinner"], ["Dosa"]) in shape(kitchen)
+
+
+def test_undo_of_planning_leaves_a_thing_that_moved_into_a_cooked_meal(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    planned = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
+    body = {"date": D2.isoformat(), "slot_id": slots["Dinner"]}
+    moved = kitchen.post(f"{API}/plan/items/{planned['item_id']}/move", json=body).json()
+    _cook(kitchen, moved["meal_id"])
+    result = undo(kitchen, planned)
+    assert result["result"] == "nothing"
+    assert shape(kitchen) == [(D2.isoformat(), slots["Dinner"], ["Sambar"])]
+    # Undoing the move itself can't put it back either, and leaves no empty meal behind.
+    assert undo(kitchen, moved)["result"] != "done"
+    assert shape(kitchen) == [(D2.isoformat(), slots["Dinner"], ["Sambar"])]
+
+
+def test_undo_that_leaves_a_planned_meal_empty_removes_it(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    first = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
+    # Take the item out by hand, so only an empty meal is left for the Undo to find.
+    with db_of(kitchen) as db:
+        db.delete(db.get(MealItem, first["item_id"]))
+        db.commit()
+    undo(kitchen, first)
+    with db_of(kitchen) as db:
+        assert db.scalar(select(func.count()).select_from(Meal)) == 0
