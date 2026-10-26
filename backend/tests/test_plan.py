@@ -298,8 +298,11 @@ def test_deleting_for_good_what_a_meal_holds(kitchen: TestClient) -> None:
 
 
 def test_removing_a_household_removes_its_plan(kitchen: TestClient, neighbour: TestClient) -> None:
-    plan_one_day(kitchen)
+    ids = plan_one_day(kitchen)
     with db_of(kitchen) as db:
+        # The batch points at its cook-day meal (no ON DELETE): removing the household still works.
+        db.get(BatchCook, ids["batch"]).cook_meal_id = ids["meal"]
+        db.commit()
         db.execute(text("DELETE FROM household WHERE id = 1"))
         db.commit()
         for table in ("meal_slot", "meal", "meal_item", "batch_cook", "tub"):
