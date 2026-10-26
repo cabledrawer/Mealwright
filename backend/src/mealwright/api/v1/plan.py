@@ -413,19 +413,19 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     return out
 
 
-@router.delete("/plan/items/{item_id}")
-def remove_plan_item(item_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
+@router.delete("/plan/items/{plan_item_id}")
+def remove_plan_item(plan_item_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """Take one thing out of a meal. A meal left empty goes too. Undo puts it back."""
     return _run(
-        kitchen, response, lambda: plan.remove_item(kitchen, plan.find_item(kitchen, item_id))
+        kitchen, response, lambda: plan.remove_item(kitchen, plan.find_item(kitchen, plan_item_id))
     )
 
 
-@router.delete("/plan/meals/{meal_id}")
-def remove_plan_meal(meal_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
+@router.delete("/plan/meals/{plan_meal_id}")
+def remove_plan_meal(plan_meal_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """Take a whole meal off the plan. Undo puts it back."""
     return _run(
-        kitchen, response, lambda: plan.remove_meal(kitchen, plan.find_meal(kitchen, meal_id))
+        kitchen, response, lambda: plan.remove_meal(kitchen, plan.find_meal(kitchen, plan_meal_id))
     )
 
 
@@ -439,9 +439,9 @@ class PlanMoveIn(BaseModel):
     )
 
 
-@router.post("/plan/items/{item_id}/move")
+@router.post("/plan/items/{plan_item_id}/move")
 def move_plan_item(
-    item_id: StoredInt, body: PlanMoveIn, kitchen: Here, response: Response
+    plan_item_id: StoredInt, body: PlanMoveIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Move or copy one thing to another date and slot. Onto a filled meal it goes in
     alongside."""
@@ -449,14 +449,14 @@ def move_plan_item(
         kitchen,
         response,
         lambda: plan.move_item(
-            kitchen, plan.find_item(kitchen, item_id), body.date, body.slot_id, body.mode
+            kitchen, plan.find_item(kitchen, plan_item_id), body.date, body.slot_id, body.mode
         ),
     )
 
 
-@router.post("/plan/meals/{meal_id}/move")
+@router.post("/plan/meals/{plan_meal_id}/move")
 def move_plan_meal(
-    meal_id: StoredInt, body: PlanMoveIn, kitchen: Here, response: Response
+    plan_meal_id: StoredInt, body: PlanMoveIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Move or copy a whole meal to another date and slot. Onto a filled meal its things go
     in alongside."""
@@ -464,7 +464,7 @@ def move_plan_meal(
         kitchen,
         response,
         lambda: plan.move_meal(
-            kitchen, plan.find_meal(kitchen, meal_id), body.date, body.slot_id, body.mode
+            kitchen, plan.find_meal(kitchen, plan_meal_id), body.date, body.slot_id, body.mode
         ),
     )
 
@@ -473,14 +473,16 @@ class SlotSwitchIn(BaseModel):
     enabled: bool
 
 
-@router.patch("/meal-slots/{slot_id}")
+@router.patch("/meal-slots/{plan_slot_id}")
 def switch_meal_slot(
-    slot_id: StoredInt, body: SlotSwitchIn, kitchen: Here, response: Response
+    plan_slot_id: StoredInt, body: SlotSwitchIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Turn a meal (Breakfast, Lunch…) on or off for the household. Its planned meals are
     kept while it is off."""
     return _run(
         kitchen,
         response,
-        lambda: plan.set_slot(kitchen, plan.find_slot(kitchen, slot_id, on=False), body.enabled),
+        lambda: plan.set_slot(
+            kitchen, plan.find_slot(kitchen, plan_slot_id, on=False), body.enabled
+        ),
     )

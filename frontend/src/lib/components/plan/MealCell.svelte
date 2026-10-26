@@ -207,6 +207,7 @@
 
   .foot {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
@@ -241,9 +242,11 @@
     cursor: pointer;
   }
 
+  /* The three zones sit at the foot of the place, so the rest of it is a plain drop (a move, or
+     a copy with Alt held). */
   .zones {
     position: absolute;
-    inset: var(--space-2);
+    inset: auto var(--space-2) var(--space-2) var(--space-2);
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -258,7 +261,8 @@
   }
 
   .zones span {
-    flex: 1;
+    flex: none;
+    min-height: 22px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -276,7 +280,12 @@
     opacity: 0.8;
   }
 
+  .zones.one {
+    inset: var(--space-2);
+  }
+
   .zones.one span {
+    flex: 1;
     justify-content: center;
   }
 </style>

@@ -140,11 +140,12 @@
     };
   }
 
-  const range = $derived(
-    model.view === 'week' && model.days[0]
+  const range = $derived.by(() => {
+    if (!model.anchor) return ''; // not loaded yet
+    return model.view === 'week' && model.days[0]
       ? weekWords(model.days[0], model.today.slice(0, 4))
-      : monthWords(model.anchor || model.today)
-  );
+      : monthWords(model.anchor);
+  });
   const empty = $derived(model.loaded && model.plan !== null && model.plan.meals.length === 0);
   const hasBatches = $derived((model.plan?.batch_cooks.length ?? 0) > 0);
 </script>

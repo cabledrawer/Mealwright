@@ -254,7 +254,7 @@
     background: var(--color-field);
     color: var(--color-text);
     font: inherit;
-    font-size: var(--text-lg);
+    font-size: 1rem; /* 16 px: a phone does not zoom into it */
   }
 
   .results {

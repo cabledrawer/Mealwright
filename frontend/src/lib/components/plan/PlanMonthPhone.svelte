@@ -63,8 +63,8 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: var(--space-2);
-    padding: var(--space-6);
+    gap: var(--space-2) 0;
+    padding: var(--space-6) var(--space-2);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
   }
@@ -92,8 +92,9 @@
     cursor: pointer;
   }
 
-  .day.out {
-    opacity: 0.5;
+  /* Days of the next or last month: quieter, but still readable. */
+  .day.out .num {
+    color: var(--color-text-muted);
   }
 
   .day.cook {

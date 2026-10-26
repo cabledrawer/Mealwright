@@ -388,6 +388,11 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("Ref", "id"): "test_drafts",
     ("SizeRef", "id"): "test_drafts",
     ("PhotoOut", "id"): "test_drafts",
+    # The plan (0.6 PR 3): test_plan_writes.py, test_another_households_ids_get_404_on_every_write.
+    ("PlanItemIn", "slot_id"): "test_plan_writes",
+    ("PlanItemIn", "recipe_id"): "test_plan_writes",
+    ("PlanItemIn", "ingredient_id"): "test_plan_writes",
+    ("PlanMoveIn", "slot_id"): "test_plan_writes",
     # Plain shopping endpoints: here.
     ("NewItem", "id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
     ("AmountOrNone", "size_id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",

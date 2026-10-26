@@ -85,6 +85,13 @@ describe('pressable', () => {
     pointer(window, 'pointerup', 250, 20, 'mouse', true);
     expect(dropped).toHaveBeenLastCalledWith('2026-10-20', 4, 'copy');
 
+    // The Move zone is the plain drop: Alt still copies there.
+    pointer(card, 'pointerdown', 10, 10);
+    pointer(window, 'pointermove', 40, 10);
+    pointer(window, 'pointermove', 250, 20, 'mouse', true);
+    expect(drag.over?.mode).toBe('copy');
+    pointer(window, 'pointerup', 250, 20, 'mouse', true);
+
     pointer(card, 'pointerdown', 10, 10);
     pointer(window, 'pointermove', 40, 10);
     pointer(window, 'pointermove', 250, 120);

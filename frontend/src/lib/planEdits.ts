@@ -8,7 +8,8 @@ import type { DropMode, Plan, PlanItem, PlanMeal } from './client/plan';
 let temp = 0;
 const tempId = () => --temp;
 
-const clone = (plan: Plan): Plan => structuredClone(plan);
+// JSON, not structuredClone: the plan on screen is a Svelte state proxy, which structuredClone refuses.
+const clone = (plan: Plan): Plan => JSON.parse(JSON.stringify(plan)) as Plan;
 
 const fresh = (plan: Plan, day: string, slotId: number): PlanMeal => {
   const meal: PlanMeal = {

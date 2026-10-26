@@ -10,6 +10,7 @@ the same afterwards.
 """
 
 from collections.abc import Iterator
+from datetime import date
 from typing import Any
 
 import photo_kit as kit
@@ -119,12 +120,23 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         201,
     )
     recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
+    slots = {s["name"]: s["id"] for s in ok(kitchen.get(f"{API}/meal-slots"))}
+    planned = ok(
+        kitchen.post(
+            f"{API}/plan/items",
+            json={"date": str(date.today()), "slot_id": slots["Dinner"], "recipe_id": recipe["id"]},
+        ),
+        201,
+    )
     entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
     return {
         "draft_id": draft["id"],
         "recipe_id": recipe["id"],
+        "plan_item_id": planned["item_id"],
+        "plan_meal_id": planned["meal_id"],
+        "plan_slot_id": slots["Dinner"],
         "entry_id": entry["id"],
         "photo_id": photo["id"],
         "copy": "large",
@@ -202,6 +214,12 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/drafts/{draft_id}"): None,
     ("PUT", "/api/v1/recipes/drafts/{draft_id}"): DRAFT_BODY,
     ("DELETE", "/api/v1/recipes/drafts/{draft_id}"): None,
+    # The plan (0.6 PR 3). Each is also tried in test_plan_writes.py, in both directions.
+    ("DELETE", "/api/v1/plan/items/{plan_item_id}"): None,
+    ("DELETE", "/api/v1/plan/meals/{plan_meal_id}"): None,
+    ("POST", "/api/v1/plan/items/{plan_item_id}/move"): {"date": "2030-01-01", "slot_id": 1},
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/move"): {"date": "2030-01-01", "slot_id": 1},
+    ("PATCH", "/api/v1/meal-slots/{plan_slot_id}"): {"enabled": True},
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request

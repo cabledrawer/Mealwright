@@ -94,7 +94,7 @@
             >
           {/if}
           {#if over && drag.carried}
-            <div class="zones" aria-hidden="true">
+            <div class="zones" class:one={!drag.carried.zones} aria-hidden="true">
               {#if drag.carried.zones}
                 <span data-drop-zone="move" class:on={drag.over?.mode === 'move'}>Move</span>
                 <span data-drop-zone="copy" class:on={drag.over?.mode === 'copy'}
@@ -203,8 +203,10 @@
     border-radius: var(--radius-md);
   }
 
-  .day.out {
-    opacity: 0.55;
+  /* Days of the next or last month: quieter, but still readable. */
+  .day.out .num {
+    color: var(--color-text-muted);
+    font-weight: var(--weight-bold);
   }
 
   .day.today {
@@ -296,9 +298,11 @@
     cursor: pointer;
   }
 
+  /* The three zones sit at the foot of the place, so the rest of it is a plain drop (a move, or
+     a copy with Alt held). */
   .zones {
     position: absolute;
-    inset: var(--space-2);
+    inset: auto var(--space-2) var(--space-2) var(--space-2);
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -312,7 +316,8 @@
   }
 
   .zones span {
-    flex: 1;
+    flex: none;
+    min-height: 22px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -323,6 +328,15 @@
   .zones span.on {
     background: var(--color-inverse);
     color: var(--color-inverse-text);
+  }
+
+  .zones.one {
+    inset: var(--space-2);
+  }
+
+  .zones.one span {
+    flex: 1;
+    justify-content: center;
   }
 
   .zones small {

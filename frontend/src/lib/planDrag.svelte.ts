@@ -70,7 +70,9 @@ class Drag {
       this.over = null;
       return;
     }
-    const mode: DropMode = zone ?? (alt && this.carried?.zones ? 'copy' : 'move');
+    // The Move zone is the plain drop (so Alt still copies there); Copy and Leftovers are explicit.
+    const plain: DropMode = alt && this.carried?.zones ? 'copy' : 'move';
+    const mode: DropMode = zone && zone !== 'move' ? zone : plain;
     this.over = { day, slot, mode };
   }
 
