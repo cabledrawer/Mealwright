@@ -4,7 +4,9 @@
   //   a meal or one thing in it: Move to… · Copy to… · Leftovers on… · Remove, then a day
   //   and a meal to pick; a recipe from the tray: the day and meal to plan it on;
   //   a day (Month): its meals.
-  // "Whose tub?" and "To freezer" come with Cook once (0.6 PR 4), which makes the tubs.
+  //   a tub (Cook once, PR 4): Whose tub? · Move to… · To freezer · Remove (back to tubs left); a
+  //   tub is never copied, so it has no Copy to… or Leftovers on…;
+  //   a planned recipe: also Cook once, eat for… (opens the sheet that makes the tubs).
   import type { DropMode } from '#lib/client/plan.js';
   import type { PlanActions, PlanTarget as Target } from '#lib/planActions.js';
   import {
@@ -16,7 +18,8 @@
     weekStart,
     weekWords
   } from '#lib/planDates.js';
-  import { itemName, mealName } from '#lib/planMeals.js';
+  import { cookBatchOfItem, itemName, mealName, tubOf, useByWords } from '#lib/planMeals.js';
+  import type { PlanItem } from '#lib/client/plan.js';
   import PlanDays from './PlanDays.svelte';
 
   let {
@@ -29,7 +32,7 @@
   let dialog: HTMLDialogElement;
 
   // Which step, and what has been picked so far.
-  let mode = $state<DropMode | 'plan' | null>(null);
+  let mode = $state<DropMode | 'plan' | 'whose' | null>(null);
   let weekOf = $state('');
   let day = $state<string | null>(null);
   let slotId = $state<number | null>(null);
@@ -37,7 +40,7 @@
   // A new target starts again at the first step. A recipe has only the one: where.
   $effect(() => {
     if (target === null) return;
-    mode = target.kind === 'recipe' ? 'plan' : null;
+    mode = target.kind === 'recipe' || target.kind === 'tubleft' ? 'plan' : null;
     day = null;
     slotId = null;
     const from =
@@ -58,14 +61,58 @@
     if (!target) return '';
     if (target.kind === 'day') return dayFull(target.day);
     if (target.kind === 'recipe') return target.recipe.name;
+    if (target.kind === 'tubleft') return `${target.tub.recipe_name} · tub ${target.tub.number}`;
     if (target.kind === 'item') return itemName(target.item, model.plan);
     return mealName(target.meal, model.plan);
   });
 
   const subheading = $derived.by(() => {
-    if (!target || target.kind === 'recipe' || target.kind === 'day') return '';
+    if (!target || target.kind === 'recipe' || target.kind === 'tubleft' || target.kind === 'day')
+      return '';
     return `${dayFull(target.meal.date)} · ${model.slotName(target.meal.slot_id)}`;
   });
+
+  /** The tub this menu is about: the item itself, or a meal that holds just the one tub. */
+  const tubItem = $derived.by((): PlanItem | null => {
+    if (!target) return null;
+    if (target.kind === 'item') return target.item.kind === 'tub' ? target.item : null;
+    if (target.kind === 'meal') {
+      const only = target.meal.items.length === 1 ? target.meal.items[0] : null;
+      return only?.kind === 'tub' ? only : null;
+    }
+    return null;
+  });
+  const tub = $derived(tubItem ? tubOf(model.plan, tubItem) : null);
+
+  /** The planned recipe Cook once can be made from, when the menu is about one. */
+  const cookable = $derived.by((): PlanItem | null => {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return null;
+    if (target.meal.status !== 'planned') return null;
+    const items =
+      target.kind === 'item' ? [target.item] : target.meal.items.filter((i) => i.kind === 'recipe');
+    const only = items.length === 1 ? items[0] : null;
+    if (!only || only.kind !== 'recipe' || !only.recipe || only.recipe.removed) return null;
+    return cookBatchOfItem(model.plan, target.meal, only) ? null : only;
+  });
+
+  function cookOnce() {
+    if (!target || !cookable || (target.kind !== 'meal' && target.kind !== 'item')) return;
+    const meal = target.meal;
+    onclose();
+    actions.openCookOnce(meal, cookable);
+  }
+
+  function whose(loginId: number | null) {
+    if (!tubItem || !tub) return;
+    void model.setWhose(tub.tub.id, itemName(tubItem, model.plan), loginId);
+    onclose();
+  }
+
+  function toFreezer() {
+    if (!tubItem || !tub) return;
+    void model.toFreezer(tub.tub.id, itemName(tubItem, model.plan));
+    onclose();
+  }
 
   const question = $derived(
     mode === 'move'
@@ -97,7 +144,9 @@
 
   function choose() {
     if (!target || !ready || day === null || slotId === null) return;
-    if (target.kind === 'recipe') {
+    if (target.kind === 'tubleft') {
+      void model.placeTub(target.tub.id, `${target.tub.recipe_name} tub`, day, slotId);
+    } else if (target.kind === 'recipe') {
       void model.add({ recipe: target.recipe }, day, slotId);
     } else if (target.kind === 'meal') {
       void model.drop({ meal: target.meal.id }, day, slotId, mode as DropMode);
@@ -145,18 +194,56 @@
         <PlanDays {actions} days={[target.day]} />
       {:else if mode === null}
         <div class="list">
+          {#if tub}
+            <p class="sub">
+              {tub.tub.place_kind === 'freezer' ? 'In the freezer' : 'In the fridge'} · {useByWords(
+                tub.tub.use_by,
+                model.today
+              )}
+            </p>
+            <button type="button" disabled={actions.readonly} onclick={() => (mode = 'whose')}
+              >Whose tub?</button
+            >
+          {/if}
+          {#if cookable}
+            <button type="button" disabled={actions.readonly} onclick={cookOnce}
+              >Cook once, eat for…</button
+            >
+          {/if}
           <button type="button" disabled={actions.readonly} onclick={() => (mode = 'move')}
             >Move to…</button
           >
-          <button type="button" disabled={actions.readonly} onclick={() => (mode = 'copy')}
-            >Copy to…</button
-          >
-          <button type="button" disabled={actions.readonly} onclick={() => (mode = 'leftovers')}
-            >Leftovers on…</button
-          >
+          {#if !tub}
+            <button type="button" disabled={actions.readonly} onclick={() => (mode = 'copy')}
+              >Copy to…</button
+            >
+            <button type="button" disabled={actions.readonly} onclick={() => (mode = 'leftovers')}
+              >Leftovers on…</button
+            >
+          {/if}
+          {#if tub && tub.tub.place_kind !== 'freezer'}
+            <button type="button" disabled={actions.readonly} onclick={toFreezer}>To freezer</button
+            >
+          {/if}
           <button type="button" class="remove" disabled={actions.readonly} onclick={remove}
-            >Remove</button
+            >{tub ? 'Back to tubs left' : 'Remove'}</button
           >
+        </div>
+      {:else if mode === 'whose'}
+        <h3>Whose tub?</h3>
+        <div class="list">
+          {#each model.people as person (person.login_id)}
+            <button
+              type="button"
+              disabled={actions.readonly}
+              aria-pressed={tub?.tub.member_login_id === person.login_id}
+              onclick={() => whose(person.login_id)}>{person.name}</button
+            >
+          {/each}
+          <button type="button" disabled={actions.readonly} onclick={() => whose(null)}
+            >Nobody in particular</button
+          >
+          <button type="button" class="back" onclick={() => (mode = null)}>Back</button>
         </div>
       {:else}
         <h3>{question}</h3>
@@ -199,7 +286,9 @@
           <button
             type="button"
             class="back"
-            onclick={() => (target?.kind === 'recipe' ? onclose() : (mode = null))}>Back</button
+            onclick={() =>
+              target?.kind === 'recipe' || target?.kind === 'tubleft' ? onclose() : (mode = null)}
+            >Back</button
           >
           <button type="button" class="go" disabled={!ready} onclick={choose}>{confirmWords}</button
           >

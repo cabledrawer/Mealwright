@@ -7,19 +7,29 @@ import { ApiError } from './api';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
 import {
+  editTub,
+  fillFromFreezer,
   getMealSlots,
+  getPeople,
   getPlan,
+  getTubsLeft,
+  makeBatch,
   movePlanItem,
   movePlanMeal,
+  placeTub,
   planItem,
   removePlanItem,
   removePlanMeal,
   switchMealSlot,
+  tubToFreezer,
+  type BatchBody,
   type DropMode,
   type MealSlot,
+  type Person,
   type Plan,
   type PlanMeal,
-  type PlanWrite
+  type PlanWrite,
+  type TubLeft
 } from './client/plan';
 import { kitchen } from './freshness.svelte';
 import {
@@ -52,6 +62,10 @@ export class PlanModel {
   startsOn = $state(1);
   slots = $state<MealSlot[]>([]);
   plan = $state<Plan | null>(null);
+  /** Tubs in no meal, soonest use-by first (the tray's "Tubs left"). */
+  tubsLeft = $state<TubLeft[]>([]);
+  /** Who can be eating (the household's logins until member profiles in 0.8). */
+  people = $state<Person[]>([]);
   loaded = $state(false);
   problem = $state<string | null>(null);
 
@@ -89,12 +103,27 @@ export class PlanModel {
       this.plan = plan;
       this.loaded = true;
       this.problem = null;
+      void this.#loadTubs();
     } catch (error) {
       if (asked !== this.#asked) return;
       this.problem =
         error instanceof ApiError && error.status === 0
           ? error.detail
           : 'Couldn’t load the plan. Try again.';
+    }
+  }
+
+  /** Tubs left and the people, beside the plan. A failure here leaves what is on screen. */
+  async #loadTubs(): Promise<void> {
+    try {
+      const [left, people] = await Promise.all([
+        getTubsLeft(),
+        this.people.length ? Promise.resolve(this.people) : getPeople()
+      ]);
+      this.tubsLeft = left.tubs;
+      this.people = people;
+    } catch {
+      // The plan itself is fine; the tray just keeps what it had.
     }
   }
 
@@ -193,8 +222,10 @@ export class PlanModel {
 
   removeItem(itemId: number) {
     const item = this.plan?.meals.flatMap((m) => m.items).find((i) => i.id === itemId);
+    const name = item ? itemName(item, this.plan) : 'it';
     return this.#send({
-      label: `Removed ${item ? itemName(item, this.plan) : 'it'}`,
+      // A tub is not thrown away: it goes back to "tubs left".
+      label: item?.kind === 'tub' ? `Put ${name} back in tubs left` : `Removed ${name}`,
       edit: (plan) => withoutItem(plan, itemId),
       send: (key) => removePlanItem(itemId, key)
     });
@@ -227,12 +258,66 @@ export class PlanModel {
     const to = { date: day, slot_id: slotId, mode };
     return this.#send({
       label: `${verb} ${name} ${mode === 'leftovers' ? 'on' : 'to'} ${this.slotName(slotId)}`,
-      edit: (plan) =>
-        'meal' in what
-          ? withMealDropped(plan, what.meal, day, slotId, mode)
-          : withItemDropped(plan, what.item, day, slotId, mode),
+      // Leftovers make a real tub on the server, so the screen waits for it.
+      edit:
+        mode === 'leftovers'
+          ? undefined
+          : (plan) =>
+              'meal' in what
+                ? withMealDropped(plan, what.meal, day, slotId, mode)
+                : withItemDropped(plan, what.item, day, slotId, mode),
       send: (key) =>
         'meal' in what ? movePlanMeal(what.meal, to, key) : movePlanItem(what.item, to, key)
+    });
+  }
+
+  // --- Cook once, eat for… and tubs --------------------------------------------------------
+
+  /** Make a batch cook from a planned recipe, with its tubs placed as the preview showed. */
+  cookOnce(itemId: number, recipeName: string, body: BatchBody) {
+    const word = body.tub_count === 1 ? 'tub' : 'tubs';
+    return this.#send({
+      label: `Cooked ${recipeName} once for ${body.tub_count} ${word}`,
+      send: (key) => makeBatch(itemId, body, key)
+    });
+  }
+
+  /** Put a tub in a meal (from tubs left, or moving one that is in a meal already). */
+  placeTub(tubId: number, name: string, day: string, slotId: number) {
+    return this.#send({
+      label: `Put ${name} in ${this.slotName(slotId)}`,
+      send: (key) => placeTub(tubId, { date: day, slot_id: slotId }, key)
+    });
+  }
+
+  /** "Whose tub?": a person's login id, or null for nobody in particular. */
+  setWhose(tubId: number, name: string, loginId: number | null) {
+    const who = this.people.find((p) => p.login_id === loginId)?.name;
+    return this.#send({
+      label: who ? `${name} is ${who}’s` : `${name} is nobody’s in particular`,
+      send: (key) => editTub(tubId, { member_login_id: loginId }, key)
+    });
+  }
+
+  setUseBy(tubId: number, name: string, useBy: string) {
+    return this.#send({
+      label: `Changed the use-by of ${name}`,
+      send: (key) => editTub(tubId, { use_by: useBy }, key)
+    });
+  }
+
+  toFreezer(tubId: number, name: string) {
+    return this.#send({
+      label: `${name} to the freezer`,
+      send: (key) => tubToFreezer(tubId, key)
+    });
+  }
+
+  /** Month's "Fill from freezer first": empty days in the range get a tub from the freezer. */
+  fillFromFreezer(from: string, to: string) {
+    return this.#send({
+      label: 'Filled empty days from the freezer',
+      send: (key) => fillFromFreezer(from, to, key)
     });
   }
 

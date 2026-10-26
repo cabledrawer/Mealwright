@@ -3,14 +3,15 @@
   //   computer / iPad: the week grid or the month, a recipe tray under it; drag by mouse or finger
   //     (Alt copies), and a menu on click, Enter or a held finger that does all of it;
   //   phone: the week as a list of days, the month as a dot grid; press and hold for the menu.
-  // Online only, like the Pantry: offline the plan can be read but not changed. Waiting for later
-  // pull requests of 0.6: Cook once (tubs, "Whose tub?", "To freezer", "Fill from freezer first").
+  // Online only, like the Pantry: offline the plan can be read but not changed. Cook once, eat for…
+  // (PR 4) makes tubs, which can be placed, moved, given to someone and frozen.
   import { browser } from '$app/env';
   import { onMount, untrack } from 'svelte';
-  import type { PlanMeal } from '#lib/client/plan.js';
+  import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import CookOnce from '#lib/components/plan/CookOnce.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
@@ -59,6 +60,7 @@
   }
 
   let sheet = $state<PlanTarget | null>(null);
+  let cooking = $state<{ meal: PlanMeal; item: PlanItem } | null>(null);
   let adding = $state<{ day: string; slotId: number | null } | null>(null);
   /** The day shown under the phone's Month. */
   let picked = $state('');
@@ -115,6 +117,7 @@
     },
     openMeal: (meal) => (sheet = { kind: 'meal', meal }),
     openItem: (meal, item) => (sheet = { kind: 'item', meal, item }),
+    openCookOnce: (meal, item) => (cooking = { meal, item }),
     add: (day, slotId) => (adding = { day, slotId }),
     openDay: (day) => (sheet = { kind: 'day', day }),
     carryMeal,
@@ -136,6 +139,17 @@
       drop: (day, slot) => {
         const to = slot ?? model.slotForDay(day);
         if (to !== null) void model.add({ recipe: { id: recipe.id, name: recipe.name } }, day, to);
+      }
+    };
+  }
+
+  function carryTub(tub: TubLeft): Carried {
+    return {
+      label: `${tub.recipe_name} tub ${tub.number}`,
+      zones: false,
+      drop: (day, slot) => {
+        const to = slot ?? model.slotForDay(day);
+        if (to !== null) void model.placeTub(tub.id, `${tub.recipe_name} tub`, day, to);
       }
     };
   }
@@ -267,6 +281,10 @@
           open={trayOpen}
           onopen={setTray}
           carry={carryRecipe}
+          tubs={model.tubsLeft}
+          today={model.today}
+          {carryTub}
+          onchooseTub={(tub) => (sheet = { kind: 'tubleft', tub })}
           onchoose={(recipe) =>
             (sheet = { kind: 'recipe', recipe: { id: recipe.id, name: recipe.name } })}
         />
@@ -276,6 +294,7 @@
 </div>
 
 <PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
+<CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
 
 {#if drag.carried}

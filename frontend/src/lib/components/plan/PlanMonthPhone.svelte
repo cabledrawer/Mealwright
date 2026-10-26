@@ -3,7 +3,7 @@
   // shows its meals underneath (the same rows as the week, with the long-press menu).
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
-  import { batchColour, batchOfMeal, cookedOn } from '#lib/planMeals.js';
+  import { cookedOn, mealColour } from '#lib/planMeals.js';
   import PlanDays from './PlanDays.svelte';
 
   let {
@@ -15,10 +15,8 @@
 
   const inMonth = (day: string) => day.slice(0, 7) === model.anchor.slice(0, 7);
   const dots = (day: string) => (model.plan?.meals.filter((m) => m.date === day) ?? []).slice(0, 4);
-  const colourOf = (meal: NonNullable<typeof model.plan>['meals'][number]) => {
-    const batch = batchOfMeal(model.plan, meal);
-    return batch === null ? null : batchColour(batch);
-  };
+  const colourOf = (meal: NonNullable<typeof model.plan>['meals'][number]) =>
+    mealColour(model.plan, meal);
 </script>
 
 <div class="phone-month">

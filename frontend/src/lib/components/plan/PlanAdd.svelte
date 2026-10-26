@@ -4,6 +4,8 @@
   // things gets it alongside. In Month, with no meal chosen, it asks which meal first.
   import { untrack } from 'svelte';
   import { listFoods } from '#lib/client/foods.js';
+  import type { TubLeft } from '#lib/client/plan.js';
+  import { useByWords } from '#lib/planMeals.js';
   import type { FoodRow } from '#lib/client/types.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
@@ -82,6 +84,12 @@
     onclose();
   }
 
+  function putTub(tub: TubLeft) {
+    if (!target || slotId === null || actions.readonly) return;
+    void model.placeTub(tub.id, `${tub.recipe_name} tub`, target.day, slotId);
+    onclose();
+  }
+
   function closeOnBackdrop(event: MouseEvent) {
     if (event.target === dialog) onclose();
   }
@@ -129,6 +137,29 @@
         <p class="note" role="status">You’re offline. Plan changes when you’re back online.</p>
       {/if}
       {#if problem}<p class="note problem" role="alert">{problem}</p>{/if}
+
+      {#if model.tubsLeft.length && !query.trim()}
+        <h3 class="group">Tubs left</h3>
+        <ul class="results" aria-label="Tubs left">
+          {#each model.tubsLeft.slice(0, 12) as tub (tub.id)}
+            <li>
+              <button
+                type="button"
+                disabled={slotId === null || actions.readonly}
+                onclick={() => putTub(tub)}
+              >
+                <span class="name">{tub.recipe_name} · tub {tub.number} of {tub.tub_count}</span>
+                <span class="meta"
+                  >{tub.place_kind === 'freezer' ? 'Freezer' : 'Fridge'} · {useByWords(
+                    tub.use_by,
+                    model.today
+                  )}</span
+                >
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
 
       <ul class="results" aria-label="Results">
         {#each recipes.recipes.slice(0, 12) as recipe (recipe.id)}
@@ -349,5 +380,11 @@
     .handle {
       display: none;
     }
+  }
+
+  .group {
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    color: var(--color-text-muted);
   }
 </style>

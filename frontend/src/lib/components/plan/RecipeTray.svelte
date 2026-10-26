@@ -2,7 +2,9 @@
   // The recipe tray (mockup Desktop-Plan): a slim strip under the plan, collapsible. Drag a recipe
   // up onto a day to plan it; or click it (or press Enter) to choose the day and meal from a
   // menu. Filters are the ones All recipes has: Can cook now, Use soon.
+  import type { TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
+  import { colourOfBatch, useByWords } from '#lib/planMeals.js';
   import type { Carried } from '#lib/planDrag.svelte.js';
   import { pressable } from '#lib/planDrag.svelte.js';
   import type { RecipeFilter, RecipeList } from '#lib/recipes.svelte.js';
@@ -13,7 +15,11 @@
     open,
     onopen,
     carry,
-    onchoose
+    onchoose,
+    tubs = [],
+    today = '',
+    carryTub,
+    onchooseTub
   }: {
     list: RecipeList;
     disabled: boolean;
@@ -21,6 +27,11 @@
     onopen: (open: boolean) => void;
     carry: (recipe: RecipeRow) => Carried;
     onchoose: (recipe: RecipeRow) => void;
+    /** Tubs in no meal ("Tubs left"): they can be dragged onto a meal like a recipe. */
+    tubs?: TubLeft[];
+    today?: string;
+    carryTub?: (tub: TubLeft) => Carried;
+    onchooseTub?: (tub: TubLeft) => void;
   } = $props();
 
   const FILTERS: { value: RecipeFilter; label: string }[] = [
@@ -91,6 +102,38 @@
           : 'No recipes match.'}
       </p>
     {:else}
+      {#if tubs.length && carryTub && onchooseTub}
+        <ul class="strip" aria-label="Tubs left">
+          <li class="label">Tubs left</li>
+          {#each tubs as tub (tub.id)}
+            {@const n = colourOfBatch({ id: tub.batch_id, colour: tub.colour })}
+            <li>
+              <button
+                type="button"
+                class="recipe tubleft"
+                {disabled}
+                style:--soft="var(--batch-{n}-soft)"
+                style:--soft-text="var(--batch-{n}-soft-text)"
+                use:pressable={{
+                  carry: disabled ? null : () => carryTub(tub),
+                  open: () => onchooseTub(tub)
+                }}
+                aria-label="{tub.recipe_name}, tub {tub.number} of {tub.tub_count}. Choose a meal for it"
+              >
+                <span class="text">
+                  <span class="name">{tub.recipe_name} · tub {tub.number}</span>
+                  <span class="meta"
+                    >{tub.place_kind === 'freezer' ? 'Freezer' : 'Fridge'} · {useByWords(
+                      tub.use_by,
+                      today
+                    )}</span
+                  >
+                </span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
       <ul class="strip" aria-label="Recipes to plan">
         {#each list.recipes as recipe (recipe.id)}
           <li>
@@ -287,5 +330,18 @@
   .none {
     color: var(--color-text-muted);
     font-size: var(--text-base);
+  }
+
+  .label {
+    align-self: center;
+    flex: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .tubleft {
+    background: var(--soft);
+    color: var(--soft-text);
   }
 </style>

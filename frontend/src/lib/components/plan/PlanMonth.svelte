@@ -7,7 +7,7 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
-  import { batchColour, batchOfMeal, cookedOn, itemName } from '#lib/planMeals.js';
+  import { colourOfBatch, cookBatchOf, cookedOn, itemName, mealColour } from '#lib/planMeals.js';
   import type { PlanMeal } from '#lib/client/plan.js';
 
   let { actions }: { actions: PlanActions } = $props();
@@ -19,9 +19,21 @@
   const mealsOn = (day: string): PlanMeal[] =>
     (model.plan?.meals.filter((m) => m.date === day) ?? []).sort((a, b) => a.slot_id - b.slot_id);
 
-  function colourOf(meal: PlanMeal): number | null {
-    const batch = batchOfMeal(model.plan, meal);
-    return batch === null ? null : batchColour(batch);
+  const colourOf = (meal: PlanMeal): number | null => mealColour(model.plan, meal);
+  /** The cook day of a batch is drawn solid; its tubs light (the design's batch colours). */
+  const solid = (meal: PlanMeal): boolean => cookBatchOf(model.plan, meal) !== null;
+
+  let fillNote = $state('');
+  /** "Fill from freezer first": empty days ahead get a tub from the freezer. */
+  async function fillFromFreezer() {
+    const first = model.days.find((d) => d >= model.today);
+    const last = model.days.at(-1);
+    if (!first || !last) return;
+    fillNote = '';
+    const outcome = await model.fillFromFreezer(first, last);
+    if (outcome.ok && outcome.value.change === null) {
+      fillNote = 'Nothing to fill: no empty days ahead, or no tubs in the freezer.';
+    }
   }
 
   /** Days from today on, in this month, with nothing planned. */
@@ -73,6 +85,8 @@
               type="button"
               class="chip"
               class:batch={colour !== null}
+              class:solid={solid(meal)}
+              style:--solid={colour ? `var(--batch-${colour})` : undefined}
               class:can
               style:--soft={colour ? `var(--batch-${colour}-soft)` : undefined}
               style:--soft-text={colour ? `var(--batch-${colour}-soft-text)` : undefined}
@@ -121,7 +135,7 @@
         <ul>
           {#each batches as batch (batch.id)}
             <li>
-              <span class="dot" style:background="var(--batch-{batchColour(batch.id)})"></span>
+              <span class="dot" style:background="var(--batch-{colourOfBatch(batch)})"></span>
               <span class="b-name">{batch.recipe_name}</span>
               <span class="b-when">{dayShort(batch.cooked_on)} {dayOfMonth(batch.cooked_on)}</span>
             </li>
@@ -133,6 +147,15 @@
     </section>
     <section>
       <h3>Empty days ahead</h3>
+      <button
+        type="button"
+        class="fill"
+        disabled={actions.readonly ||
+          emptyAhead.length === 0 ||
+          model.tubsLeft.every((t) => t.place_kind !== 'freezer')}
+        onclick={() => void fillFromFreezer()}>Fill from freezer first</button
+      >
+      {#if fillNote}<p class="none" role="status">{fillNote}</p>{/if}
       {#if emptyAhead.length}
         <ul class="empty">
           {#each emptyAhead as day (day)}
@@ -280,6 +303,11 @@
     min-width: 0;
   }
 
+  .chip.solid {
+    background: var(--solid);
+    color: #fff;
+  }
+
   .chip.can {
     touch-action: pan-y;
   }
@@ -416,6 +444,19 @@
     border-radius: var(--radius-full);
     background: none;
     color: var(--color-accent);
+    font: inherit;
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .fill {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
     font: inherit;
     font-size: var(--text-md);
     font-weight: var(--weight-bold);

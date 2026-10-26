@@ -7,7 +7,14 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
-  import { itemName, mealTotals, tubWords } from '#lib/planMeals.js';
+  import {
+    colourOfBatch,
+    cookBatchOfItem,
+    itemName,
+    mealTotals,
+    tubOf,
+    whoseTub
+  } from '#lib/planMeals.js';
 
   let { actions, day, slot }: { actions: PlanActions; day: string; slot: MealSlot } = $props();
 
@@ -16,8 +23,24 @@
   const over = $derived(drag.isOver(day, slot.id) ? drag.over : null);
   const can = $derived(actions.desktop && !actions.readonly);
 
+  /** A tub: "Tub 2 of 4 · Wren". */
+  function tubMeta(item: PlanItem): string {
+    const found = tubOf(model.plan, item);
+    if (!found) return 'Tub';
+    const who = whoseTub(found.tub, model.people);
+    return `Tub ${found.tub.number} of ${found.batch.tub_count}${who ? ` · ${who}` : ''}`;
+  }
+
+  /** The batch colour a card wears: light on a tub, solid on the day it was cooked. */
+  function colourOf(m: PlanMeal, item: PlanItem): { n: number; solid: boolean } | null {
+    const found = tubOf(model.plan, item);
+    if (found) return { n: colourOfBatch(found.batch), solid: false };
+    const cooked = cookBatchOfItem(model.plan, m, item);
+    return cooked ? { n: colourOfBatch(cooked), solid: true } : null;
+  }
+
   function meta(item: PlanItem): string {
-    if (item.kind === 'tub' && model.plan) return tubWords(item, model.plan) ?? 'Tub';
+    if (item.kind === 'tub') return tubMeta(item);
     const parts: string[] = [];
     if (item.recipe?.time_minutes) parts.push(`${item.recipe.time_minutes} min`);
     if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal`);
@@ -46,11 +69,18 @@
   {#if meal}
     <div class="meal" class:one={meal.items.length === 1}>
       {#each meal.items as item (item.id)}
+        {@const batch = colourOf(meal, item)}
+        {@const cooked = batch?.solid ? cookBatchOfItem(model.plan, meal, item) : null}
         <button
           type="button"
           class="card"
           class:can
           class:tub={item.kind === 'tub'}
+          class:batch={batch !== null}
+          class:solid={batch?.solid}
+          style:--soft={batch ? `var(--batch-${batch.n}-soft)` : undefined}
+          style:--soft-text={batch ? `var(--batch-${batch.n}-soft-text)` : undefined}
+          style:--solid={batch ? `var(--batch-${batch.n})` : undefined}
           disabled={actions.readonly}
           use:pressable={cardFor(meal, item)}
           aria-label="{itemName(item, model.plan)}, {where}. Open menu"
@@ -60,6 +90,12 @@
           {/if}
           <span class="name">{itemName(item, model.plan)}</span>
           {#if meta(item)}<span class="meta">{meta(item)}</span>{/if}
+          {#if cooked}
+            <span class="meta"
+              >{cooked.prep_note ??
+                `Cook once · ${cooked.tub_count} ${cooked.tub_count === 1 ? 'tub' : 'tubs'}`}</span
+            >
+          {/if}
         </button>
       {/each}
       <div class="foot">
@@ -203,7 +239,18 @@
     font-weight: var(--weight-medium);
   }
 
-  .card.tub .meta {
+  .card.batch {
+    background: var(--soft);
+    color: var(--soft-text);
+  }
+
+  .card.solid {
+    background: var(--solid);
+    color: #fff;
+  }
+
+  .card.tub .meta,
+  .card.batch .meta {
     color: inherit;
   }
 

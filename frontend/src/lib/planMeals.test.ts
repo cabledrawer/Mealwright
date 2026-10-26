@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanItem, PlanMeal } from './client/plan';
-import { batchColour, itemName, mealName, mealTotals, tubWords } from './planMeals';
+import {
+  batchColour,
+  colourOfBatch,
+  cookBatchOfItem,
+  itemName,
+  mealColour,
+  mealName,
+  mealTotals,
+  tubOf,
+  tubWords,
+  useByWords,
+  whoseTub
+} from './planMeals';
 
 const recipe = (id: number, name: string): PlanItem => ({
   id,
@@ -81,6 +93,7 @@ describe('a meal card’s words', () => {
           amount_quarters: 4,
           number: 2,
           place_id: null,
+          place_kind: null,
           member_login_id: null,
           use_by: '2026-10-21'
         }
@@ -95,5 +108,78 @@ describe('a meal card’s words', () => {
     expect(batchColour(1)).toBe(1);
     expect(batchColour(6)).toBe(6);
     expect(batchColour(7)).toBe(1);
+  });
+
+  it('names a batch colour from its palette name, or by its id when it has none', () => {
+    expect(colourOfBatch({ id: 9, colour: 'amber' })).toBe(2);
+    expect(colourOfBatch({ id: 9, colour: 'teal' })).toBe(6);
+    expect(colourOfBatch({ id: 9, colour: null })).toBe(batchColour(9));
+    expect(colourOfBatch({ id: 2, colour: 'not-a-colour' })).toBe(batchColour(2));
+  });
+
+  it('finds the tub and batch of a meal item, and the batch a recipe was cooked for', () => {
+    const batch = {
+      id: 3,
+      recipe_id: 1,
+      recipe_name: 'Chana masala',
+      cook_meal_id: 50,
+      cooked_on: '2026-10-18',
+      tub_count: 2,
+      pattern: 'pick' as const,
+      prep_note: null,
+      colour: 'green'
+    };
+    const tub = {
+      id: 7,
+      batch_id: 3,
+      amount_quarters: 4,
+      number: 1,
+      place_id: 1,
+      place_kind: 'fridge' as const,
+      member_login_id: 4,
+      use_by: '2026-10-21'
+    };
+    const plan: Plan = { start: '', end: '', meals: [], batch_cooks: [batch], tubs: [tub] };
+    const recipeItem: PlanItem = {
+      ...fruit,
+      kind: 'recipe',
+      ingredient: null,
+      recipe: {
+        id: 1,
+        name: 'Chana masala',
+        removed: false,
+        photo_url: null,
+        time_minutes: null,
+        kcal: null
+      }
+    };
+    const tubItem: PlanItem = { ...fruit, kind: 'tub', ingredient: null, tub_id: 7 };
+    const meal = (id: number): PlanMeal => ({
+      id,
+      date: '2026-10-18',
+      slot_id: 1,
+      status: 'planned',
+      items: [],
+      kcal: null
+    });
+    expect(tubOf(plan, tubItem)).toEqual({ tub, batch });
+    expect(tubOf(plan, fruit)).toBeNull();
+    expect(cookBatchOfItem(plan, meal(50), recipeItem)).toEqual(batch);
+    expect(cookBatchOfItem(plan, meal(51), recipeItem)).toBeNull();
+    expect(cookBatchOfItem(plan, meal(50), fruit)).toBeNull();
+    // A meal's colour: the batch's, whether it holds the tub or was the cook day.
+    expect(mealColour(plan, { ...meal(50) })).toBe(3);
+    expect(mealColour(plan, { ...meal(60), items: [tubItem] })).toBe(3);
+    expect(mealColour(plan, meal(61))).toBeNull();
+    expect(whoseTub(tub, [{ login_id: 4, name: 'Wren' }])).toBe('Wren');
+    expect(whoseTub(tub, [])).toBeNull();
+  });
+
+  it('says how long a tub keeps', () => {
+    expect(useByWords('2026-10-26', '2026-10-26')).toBe('use by today');
+    expect(useByWords('2026-10-27', '2026-10-26')).toBe('use by tomorrow');
+    expect(useByWords('2026-10-29', '2026-10-26')).toBe('3 days left');
+    expect(useByWords('2026-10-25', '2026-10-26')).toBe('use by yesterday');
+    expect(useByWords('2026-10-22', '2026-10-26')).toBe('4 days past use-by');
   });
 });

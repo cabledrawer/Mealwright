@@ -1,7 +1,7 @@
 // What a meal card says, worked out from the plan the server sent. Pure, so it is tested
 // on its own (planMeals.test.ts).
 
-import type { MealSlot, Plan, PlanItem, PlanMeal } from './client/plan';
+import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } from './client/plan';
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
@@ -70,8 +70,66 @@ export function batchOfMeal(plan: Plan | null, meal: PlanMeal): number | null {
   return null;
 }
 
+/** The tub a meal item is, and the batch it came from. */
+export function tubOf(
+  plan: Plan | null,
+  item: PlanItem
+): { tub: PlanTub; batch: PlanBatch } | null {
+  const tub = plan?.tubs.find((t) => t.id === item.tub_id);
+  const batch = plan?.batch_cooks.find((b) => b.id === tub?.batch_id);
+  return tub && batch ? { tub, batch } : null;
+}
+
+/** The batch cook that was cooked for this meal (its cook day), if any. */
+export const cookBatchOf = (plan: Plan | null, meal: PlanMeal): PlanBatch | null =>
+  plan?.batch_cooks.find((b) => b.cook_meal_id === meal.id) ?? null;
+
+/** The batch cook that a recipe item was cooked for (its meal is the batch's cook meal). */
+export const cookBatchOfItem = (
+  plan: Plan | null,
+  meal: PlanMeal,
+  item: PlanItem
+): PlanBatch | null =>
+  item.kind !== 'recipe'
+    ? null
+    : (plan?.batch_cooks.find(
+        (b) =>
+          b.cook_meal_id === meal.id &&
+          (item.recipe ? b.recipe_id === item.recipe.id : b.recipe_name === item.kept_name)
+      ) ?? null);
+
+/** The names of the batch colours, in the order of the design's tokens --batch-1 … --batch-6. */
+export const BATCH_PALETTE = ['purple', 'amber', 'green', 'blue', 'rose', 'teal'];
+
 /** How many batch colours the design has (tokens --batch-1 … --batch-6). */
 export const BATCH_COLOURS = 6;
 
 /** One colour per batch: the same batch always gets the same colour. */
 export const batchColour = (batchId: number) => ((batchId - 1) % BATCH_COLOURS) + 1;
+
+/** The design's colour number (1 to 6) for a batch: its palette name, else by its id. */
+export function colourOfBatch(batch: { id: number; colour: string | null }): number {
+  const at = batch.colour ? BATCH_PALETTE.indexOf(batch.colour) : -1;
+  return at >= 0 ? at + 1 : batchColour(batch.id);
+}
+
+/** The colour number of a meal that holds a tub or was cooked for a batch, else null. */
+export function mealColour(plan: Plan | null, meal: PlanMeal): number | null {
+  const id = batchOfMeal(plan, meal);
+  const batch =
+    (id === null ? cookBatchOf(plan, meal) : plan?.batch_cooks.find((b) => b.id === id)) ?? null;
+  return batch ? colourOfBatch(batch) : null;
+}
+
+/** Whose a tub is, in words: the person's name, or null when it is nobody's in particular. */
+export const whoseTub = (tub: PlanTub, people: Person[]): string | null =>
+  people.find((p) => p.login_id === tub.member_login_id)?.name ?? null;
+
+/** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. */
+export function useByWords(useBy: string, today: string): string {
+  const days = Math.round((Date.parse(useBy) - Date.parse(today)) / 86_400_000);
+  if (days === 0) return 'use by today';
+  if (days === 1) return 'use by tomorrow';
+  if (days < 0) return days === -1 ? 'use by yesterday' : `${-days} days past use-by`;
+  return `${days} days left`;
+}

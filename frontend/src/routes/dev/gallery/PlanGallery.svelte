@@ -99,6 +99,7 @@
     desktop: true,
     openMeal: (meal) => (target = { kind: 'meal', meal }),
     openItem: (meal, item) => (target = { kind: 'item', meal, item }),
+    openCookOnce: () => {},
     add: () => {},
     openDay: (day) => (target = { kind: 'day', day }),
     carryMeal: (meal) => ({ label: 'Meal', zones: true, drop: () => void meal }),

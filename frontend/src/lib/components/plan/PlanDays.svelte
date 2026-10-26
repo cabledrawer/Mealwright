@@ -2,13 +2,34 @@
   // Days as a list (mockup Plan, the phone): a card per day, a row per meal that is on. Press and
   // hold a meal (or tap it) for the menu: Move to… · Copy to… · Leftovers on… · Remove. Used for
   // the phone's week and for the day picked in the phone's Month.
+  import type { PlanMeal } from '#lib/client/plan.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { pressable } from '#lib/planDrag.svelte.js';
-  import { cookedOn, itemName, mealTotals } from '#lib/planMeals.js';
+  import {
+    cookBatchOf,
+    cookedOn,
+    itemName,
+    mealColour,
+    mealTotals,
+    tubOf,
+    whoseTub
+  } from '#lib/planMeals.js';
 
   let { actions, days }: { actions: PlanActions; days: string[] } = $props();
   const model = $derived(actions.model);
+
+  /** "Tub 2 of 4 · Wren" for a meal that holds tubs; the prep note on a cook day. */
+  function batchLine(meal: PlanMeal): string | null {
+    const tubs = meal.items.flatMap((i) => {
+      const found = tubOf(model.plan, i);
+      if (!found) return [];
+      const who = whoseTub(found.tub, model.people);
+      return [`Tub ${found.tub.number} of ${found.batch.tub_count}${who ? ` · ${who}` : ''}`];
+    });
+    if (tubs.length) return tubs.join(', ');
+    return cookBatchOf(model.plan, meal)?.prep_note ?? null;
+  }
 </script>
 
 <div class="days">
@@ -28,6 +49,11 @@
               <button
                 type="button"
                 class="meal"
+                class:batch={mealColour(model.plan, meal) !== null}
+                class:solid={cookBatchOf(model.plan, meal) !== null}
+                style:--soft={`var(--batch-${mealColour(model.plan, meal)}-soft)`}
+                style:--soft-text={`var(--batch-${mealColour(model.plan, meal)}-soft-text)`}
+                style:--solid={`var(--batch-${mealColour(model.plan, meal)})`}
                 disabled={actions.readonly}
                 use:pressable={{ carry: null, open: () => actions.openMeal(meal) }}
                 aria-label="{slot.name}: {meal.items
@@ -38,6 +64,7 @@
                   <span class="name"
                     >{meal.items.map((i) => itemName(i, model.plan)).join(' · ')}</span
                   >
+                  {#if batchLine(meal)}<span class="totals">{batchLine(meal)}</span>{/if}
                   {#if meal.items.length > 1 || meal.kcal !== null}
                     <span class="totals">{mealTotals(meal)}</span>
                   {/if}
@@ -126,6 +153,21 @@
   li {
     display: flex;
     gap: var(--space-3);
+  }
+
+  .meal.batch {
+    background: var(--soft);
+    color: var(--soft-text);
+  }
+
+  .meal.solid {
+    background: var(--solid);
+    color: #fff;
+  }
+
+  .meal.batch .totals,
+  .meal.batch .slot {
+    color: inherit;
   }
 
   .meal {
