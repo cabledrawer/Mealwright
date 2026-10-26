@@ -55,6 +55,9 @@ class PlanItemOut(BaseModel):
     recipe: PlanRecipeRef | None
     tub_id: int | None
     ingredient: PlanIngredientRef | None
+    # Set only when the recipe or ingredient was deleted for good (recipe and ingredient are
+    # then null): its name, so past meals still show what was eaten.
+    kept_name: str | None
     servings: int | None
 
 
@@ -204,7 +207,7 @@ def get_plan(
         return PlanItemOut(
             id=i.id,
             position=i.position,
-            kind="recipe" if i.recipe_id else "tub" if i.tub_id else "ingredient",
+            kind=i.kind,  # type: ignore[arg-type]
             recipe=PlanRecipeRef(
                 id=recipe.id, name=recipe.name, removed=recipe.removed_at is not None
             )
@@ -216,6 +219,7 @@ def get_plan(
             )
             if food
             else None,
+            kept_name=i.name if i.kind != "tub" and not (i.recipe_id or i.food_id) else None,
             servings=i.servings,
         )
 

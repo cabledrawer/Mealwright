@@ -46,6 +46,7 @@ from mealwright.models import (
     FoodName,
     FoodSize,
     Household,
+    MealItem,
     Recipe,
     RecipeLine,
     RecipePhoto,
@@ -596,7 +597,8 @@ def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> str | N
 def purge_removed_recipes(db: DbSession, household: Household, now: datetime | None = None) -> int:
     """Delete recipes removed longer ago than the undo window, entirely (a little past it,
     so a delete can't vanish while its Undo is still offered). Lines of other recipes that
-    used one lose the link and keep their words. Returns how many went."""
+    used one lose the link and keep their words; planned meals keep its name (cabledrawer 26 Oct).
+    Returns how many went."""
     from datetime import timedelta
 
     from mealwright.shopping import lock_db
@@ -622,6 +624,15 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     bump_recipes(db, household.id, users, None, "Mealwright")
     db.execute(
         update(RecipeLine).where(RecipeLine.sub_recipe_id.in_(ids)).values(sub_recipe_id=None)
+    )
+    # Its name as it is now (it may have been renamed since it was planned).
+    db.execute(
+        update(MealItem)
+        .where(MealItem.recipe_id.in_(ids))
+        .values(
+            name=select(Recipe.name).where(Recipe.id == MealItem.recipe_id).scalar_subquery(),
+            recipe_id=None,
+        )
     )
     keys = list(db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.recipe_id.in_(ids))))
     if keys:

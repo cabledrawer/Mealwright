@@ -191,18 +191,22 @@ def upgrade() -> None:
         _household_column(),
         sa.Column("meal_id", sa.Integer(), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
+        sa.Column("kind", sa.String(length=10), nullable=False),
         sa.Column("recipe_id", sa.Integer(), nullable=True),
         sa.Column("tub_id", sa.Integer(), nullable=True),
         sa.Column("food_id", sa.Integer(), nullable=True),
+        sa.Column("name", sa.String(length=200), nullable=True),
         sa.Column("servings", sa.Integer(), nullable=True),
         sa.CheckConstraint(
-            "(CASE WHEN recipe_id IS NULL THEN 0 ELSE 1 END)"
-            " + (CASE WHEN tub_id IS NULL THEN 0 ELSE 1 END)"
-            " + (CASE WHEN food_id IS NULL THEN 0 ELSE 1 END) = 1",
+            "(kind = 'recipe' AND tub_id IS NULL AND food_id IS NULL"
+            " AND (recipe_id IS NOT NULL OR name IS NOT NULL))"
+            " OR (kind = 'ingredient' AND recipe_id IS NULL AND tub_id IS NULL"
+            " AND (food_id IS NOT NULL OR name IS NOT NULL))"
+            " OR (kind = 'tub' AND tub_id IS NOT NULL AND recipe_id IS NULL AND food_id IS NULL)",
             name=op.f("ck_meal_item_one_of"),
         ),
         sa.CheckConstraint(
-            "servings IS NULL OR (recipe_id IS NOT NULL AND servings >= 1 AND servings <= 99)",
+            "servings IS NULL OR (kind = 'recipe' AND servings >= 1 AND servings <= 99)",
             name=op.f("ck_meal_item_servings_range"),
         ),
         _household_key("meal_item"),
@@ -222,10 +226,10 @@ def upgrade() -> None:
             ["recipe_id"],
             ["recipe.id"],
             name=op.f("fk_meal_item_recipe_id_recipe"),
-            ondelete="CASCADE",
+            ondelete="SET NULL",
         ),
         sa.ForeignKeyConstraint(
-            ["food_id"], ["food.id"], name=op.f("fk_meal_item_food_id_food"), ondelete="CASCADE"
+            ["food_id"], ["food.id"], name=op.f("fk_meal_item_food_id_food"), ondelete="SET NULL"
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_meal_item")),
         sqlite_autoincrement=True,

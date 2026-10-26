@@ -21,6 +21,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
+    select,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -1014,21 +1016,28 @@ class Tub(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+# Exactly one of recipe, tub or ingredient. A recipe or ingredient item whose recipe or
+# ingredient was deleted for good has no link left, only its kept name.
+MEAL_ITEM_ONE_OF = (
+    "(kind = 'recipe' AND tub_id IS NULL AND food_id IS NULL"
+    " AND (recipe_id IS NOT NULL OR name IS NOT NULL))"
+    " OR (kind = 'ingredient' AND recipe_id IS NULL AND tub_id IS NULL"
+    " AND (food_id IS NOT NULL OR name IS NOT NULL))"
+    " OR (kind = 'tub' AND tub_id IS NOT NULL AND recipe_id IS NULL AND food_id IS NULL)"
+)
+
+
 class MealItem(Base):
     """One thing in a meal: a recipe, a tub or a plain ingredient ("Fruit"), exactly one.
-    Proposed, for cabledrawer: if the recipe or ingredient is deleted for good, its item goes
-    (the meal stays, maybe empty); a removed recipe that can still be undone keeps its item."""
+    A recipe or ingredient deleted for good leaves its item with its name, so past meals still
+    show what was eaten (cabledrawer 26 Oct, as batch cooks keep theirs); a purged tub takes its
+    item. A removed recipe that can still be undone keeps its link."""
 
     __tablename__ = "meal_item"
     __table_args__ = (
+        CheckConstraint(MEAL_ITEM_ONE_OF, name="one_of"),
         CheckConstraint(
-            "(CASE WHEN recipe_id IS NULL THEN 0 ELSE 1 END)"
-            " + (CASE WHEN tub_id IS NULL THEN 0 ELSE 1 END)"
-            " + (CASE WHEN food_id IS NULL THEN 0 ELSE 1 END) = 1",
-            name="one_of",
-        ),
-        CheckConstraint(
-            "servings IS NULL OR (recipe_id IS NOT NULL AND servings >= 1 AND servings <= 99)",
+            "servings IS NULL OR (kind = 'recipe' AND servings >= 1 AND servings <= 99)",
             name="servings_range",
         ),
         ForeignKeyConstraint(
@@ -1055,12 +1064,27 @@ class MealItem(Base):
     )
     meal_id: Mapped[int] = mapped_column(Integer)
     position: Mapped[int] = mapped_column(Integer, default=0)
+    # recipe, tub or ingredient. Filled in from the link when left out.
+    kind: Mapped[str] = mapped_column(String(10))
     recipe_id: Mapped[int | None] = mapped_column(
-        ForeignKey("recipe.id", ondelete="CASCADE"), index=True
+        ForeignKey("recipe.id", ondelete="SET NULL"), index=True
     )
     tub_id: Mapped[int | None] = mapped_column(Integer)
     food_id: Mapped[int | None] = mapped_column(
-        ForeignKey("food.id", ondelete="CASCADE"), index=True
+        ForeignKey("food.id", ondelete="SET NULL"), index=True
     )
+    # The recipe's or ingredient's name, kept for when it is deleted for good. Shown only then.
+    name: Mapped[str | None] = mapped_column(String(200))
     # How many people the recipe is for. Null: its own "serves".
     servings: Mapped[int | None] = mapped_column(Integer)
+
+
+@event.listens_for(MealItem, "before_insert")
+def _meal_item_kind_and_name(_mapper: Any, connection: Any, item: MealItem) -> None:
+    """Fill in the kind from the link, and keep the recipe's or ingredient's name."""
+    if item.kind is None:
+        item.kind = "recipe" if item.recipe_id else "tub" if item.tub_id else "ingredient"
+    if item.name is None and item.kind != "tub":
+        table, key = (Recipe, item.recipe_id) if item.kind == "recipe" else (Food, item.food_id)
+        if key is not None:
+            item.name = connection.execute(select(table.name).where(table.id == key)).scalar()

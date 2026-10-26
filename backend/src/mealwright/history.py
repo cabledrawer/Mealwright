@@ -967,6 +967,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     - The history stays readable: every change keeps its sentence ("Used 200 g Toor dal",
       "Removed Toor dal from Ingredients") and who did it; only its link to the
       ingredient is cleared. Changes to other ingredients are untouched.
+    - Planned meals keep its name (cabledrawer 26 Oct), so past meals still show what was eaten.
     """
     from mealwright.shopping import lock_db, on_a_list
 
@@ -1058,6 +1059,15 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     behind |= set(db.scalars(select(Recipe.id).where(Recipe.homemade_food_id.in_(ids))))
     bump_recipes(db, household.id, behind, None, "Mealwright")
     db.execute(update(RecipeLine).where(RecipeLine.food_id.in_(ids)).values(food_id=None))
+    # Planned meals keep the ingredient's name as it is now (cabledrawer 26 Oct).
+    db.execute(
+        update(MealItem)
+        .where(MealItem.food_id.in_(ids))
+        .values(
+            name=select(Food.name).where(Food.id == MealItem.food_id).scalar_subquery(),
+            food_id=None,
+        )
+    )
     db.execute(
         update(RecipeLine)
         .where(RecipeLine.size_id.in_(select(FoodSize.id).where(FoodSize.food_id.in_(ids))))

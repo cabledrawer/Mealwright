@@ -213,6 +213,9 @@ def test_a_meal_item_holds_exactly_one_of_recipe_tub_or_ingredient(kitchen: Test
         {"recipe_id": ids["recipe"], "tub_id": ids["tub"]},
         {"servings": 2, "food_id": ids["food"]},  # servings belong to a recipe
         {"servings": 0, "recipe_id": ids["recipe"]},
+        {"kind": "tub", "name": "Sambar"},  # only a recipe or ingredient keeps a name
+        {"kind": "recipe", "food_id": ids["food"]},
+        {"kind": "salad", "name": "Sambar"},
     ):
         with db_of(kitchen) as db:
             db.add(MealItem(household_id=1, meal_id=ids["meal"], position=9, **fields))
@@ -280,8 +283,8 @@ def test_hiding_a_slot_keeps_its_meals_and_a_slot_with_meals_cannot_be_deleted(
 
 
 def test_deleting_for_good_what_a_meal_holds(kitchen: TestClient) -> None:
-    """Proposed, for cabledrawer: a recipe, ingredient or tub that is deleted for good takes its
-    item with it, and the meal stays. A batch cook outlives its recipe, by name."""
+    """cabledrawer 26 Oct: a recipe or ingredient deleted for good leaves its item with its name,
+    as a batch cook keeps its recipe's name; a tub deleted for good takes its item."""
     ids = plan_one_day(kitchen)
     with db_of(kitchen) as db:
         db.execute(text("DELETE FROM recipe WHERE id = :i"), {"i": ids["recipe"]})
@@ -290,11 +293,24 @@ def test_deleting_for_good_what_a_meal_holds(kitchen: TestClient) -> None:
         assert db.get(Meal, ids["meal"]) is not None
         batch = db.get(BatchCook, ids["batch"])
         assert batch is not None and batch.recipe_id is None and batch.recipe_name == "Sambar"
-        items = list(db.scalars(select(MealItem)))
-        assert [i.tub_id for i in items] == [ids["tub"]]
+        items = list(db.scalars(select(MealItem).order_by(MealItem.position)))
+        kept = [(i.kind, i.recipe_id, i.tub_id, i.food_id, i.name, i.servings) for i in items]
+        assert kept == [
+            ("recipe", None, None, None, "Sambar", 2),
+            ("tub", None, ids["tub"], None, None, None),
+            ("ingredient", None, None, None, "Banana", None),
+        ]
+    meal = kitchen.get(f"{API}/plan", params={"from": str(DAY), "to": str(DAY)}).json()["meals"][0]
+    assert [(i["kind"], i["recipe"], i["ingredient"], i["kept_name"]) for i in meal["items"]] == [
+        ("recipe", None, None, "Sambar"),
+        ("tub", None, None, None),
+        ("ingredient", None, None, "Banana"),
+    ]
+    with db_of(kitchen) as db:
         db.execute(text("DELETE FROM batch_cook WHERE id = :i"), {"i": ids["batch"]})
         db.commit()
-        assert list(db.scalars(select(Tub))) == [] and list(db.scalars(select(MealItem))) == []
+        assert list(db.scalars(select(Tub))) == []
+        assert [i.name for i in db.scalars(select(MealItem))] == ["Sambar", "Banana"]
 
 
 def test_removing_a_household_removes_its_plan(kitchen: TestClient, neighbour: TestClient) -> None:
@@ -470,7 +486,7 @@ def test_merging_ingredients_moves_planned_meals_and_undo_and_split_move_them_ba
     assert _food_of_item(kitchen, item_id) == ids["food"]
 
 
-def test_the_real_purge_jobs_take_planned_items_with_them(kitchen: TestClient) -> None:
+def test_the_real_purge_jobs_keep_planned_items_by_name(kitchen: TestClient) -> None:
     from datetime import timedelta
 
     from mealwright.history import purge_removed
@@ -480,7 +496,10 @@ def test_the_real_purge_jobs_take_planned_items_with_them(kitchen: TestClient) -
     ids = plan_one_day(kitchen)
     old = utcnow() - timedelta(days=30)
     with db_of(kitchen) as db:
+        # Renamed after it was planned: the meal keeps the name it had when it went.
+        db.get(Recipe, ids["recipe"]).name = "Drumstick sambar"  # type: ignore[union-attr]
         db.get(Recipe, ids["recipe"]).removed_at = old  # type: ignore[union-attr]
+        db.get(Food, ids["food"]).name = "Bananas"  # type: ignore[union-attr]
         db.get(Food, ids["food"]).removed_at = old  # type: ignore[union-attr]
         db.commit()
         household = db.get(Household, 1)
@@ -488,6 +507,11 @@ def test_the_real_purge_jobs_take_planned_items_with_them(kitchen: TestClient) -
         assert purge_removed(db, household, utcnow()) >= 1  # type: ignore[arg-type]
         db.commit()
         assert db.get(Meal, ids["meal"]) is not None
-        assert [i.tub_id for i in db.scalars(select(MealItem))] == [ids["tub"]]
+        items = db.scalars(select(MealItem).order_by(MealItem.position))
+        assert [(i.recipe_id, i.food_id, i.name) for i in items] == [
+            (None, None, "Drumstick sambar"),
+            (None, None, None),
+            (None, None, "Bananas"),
+        ]
         batch = db.get(BatchCook, ids["batch"])
         assert batch is not None and batch.recipe_id is None and batch.recipe_name == "Sambar"
