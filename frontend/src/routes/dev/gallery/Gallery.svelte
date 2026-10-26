@@ -12,6 +12,7 @@
   // pantry", the ingredient picker and the Shopping list's rows, pack sheet, list picker,
   // put-away panel and "Did you buy 2?" card. They get a place here when the gallery can
   // fake those answers.
+  import PlanGallery from './PlanGallery.svelte';
   import AlreadySheet from '#lib/components/import/AlreadySheet.svelte';
   import ImportStart from '#lib/components/import/ImportStart.svelte';
   import ReviewScreen from '#lib/components/import/ReviewScreen.svelte';
@@ -776,6 +777,7 @@
     <a href="#tabs">Tabs</a>
     <a href="#pantry">Pantry rows</a>
     <a href="#recipes">Recipes</a>
+    <a href="#plan">Plan</a>
     <a href="#recipe-page">Recipe page</a>
     <a href="#recipe-panes">Desktop panes</a>
     <a href="#ingredient-recipes">Ingredients and recipes</a>
@@ -1192,6 +1194,8 @@
       </div>
     </div>
   </section>
+
+  <PlanGallery />
 
   <section id="recipe-panes">
     <h2>Desktop Recipes: the list pane, the reading pane</h2>

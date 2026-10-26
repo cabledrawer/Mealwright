@@ -1,0 +1,210 @@
+<script lang="ts">
+  // Days as a list (mockup Plan, the phone): a card per day, a row per meal that is on. Press and
+  // hold a meal (or tap it) for the menu: Move to… · Copy to… · Leftovers on… · Remove. Used for
+  // the phone's week and for the day picked in the phone's Month.
+  import type { PlanActions } from '#lib/planActions.js';
+  import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
+  import { pressable } from '#lib/planDrag.svelte.js';
+  import { cookedOn, itemName, mealTotals } from '#lib/planMeals.js';
+
+  let { actions, days }: { actions: PlanActions; days: string[] } = $props();
+  const model = $derived(actions.model);
+</script>
+
+<div class="days">
+  {#each days as day (day)}
+    <section class="day" class:today={day === model.today} aria-label={dayFull(day)}>
+      <h3>
+        <span class="dow">{dayShort(day).toUpperCase()}</span>
+        <span class="num">{dayOfMonth(day)}</span>
+        {#if day === model.today}<span class="now">Today</span>{/if}
+        {#if cookedOn(model.plan, day).length}<span class="cook">Cook day</span>{/if}
+      </h3>
+      <ul>
+        {#each model.slotsOn as slot (slot.id)}
+          {@const meal = model.mealAt(day, slot.id)}
+          <li>
+            {#if meal}
+              <button
+                type="button"
+                class="meal"
+                disabled={actions.readonly}
+                use:pressable={{ carry: null, open: () => actions.openMeal(meal) }}
+                aria-label="{slot.name}: {meal.items
+                  .map((i) => itemName(i, model.plan))
+                  .join(', ')}. Open menu"
+              >
+                <span class="what">
+                  <span class="name"
+                    >{meal.items.map((i) => itemName(i, model.plan)).join(' · ')}</span
+                  >
+                  {#if meal.items.length > 1 || meal.kcal !== null}
+                    <span class="totals">{mealTotals(meal)}</span>
+                  {/if}
+                </span>
+                <span class="slot">{slot.name}</span>
+              </button>
+              <button
+                type="button"
+                class="plus"
+                disabled={actions.readonly}
+                aria-label="Add to {slot.name} on {dayFull(day)}"
+                onclick={() => actions.add(day, slot.id)}>+</button
+              >
+            {:else}
+              <button
+                type="button"
+                class="add"
+                disabled={actions.readonly}
+                onclick={() => actions.add(day, slot.id)}>+ Add {slot.name.toLowerCase()}</button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/each}
+</div>
+
+<style>
+  .days {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .day {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-6);
+    border-radius: var(--radius-2xl);
+    background: var(--color-surface);
+  }
+
+  .day.today {
+    outline: 2px solid var(--color-accent);
+  }
+
+  h3 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-4);
+  }
+
+  .dow {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-overline);
+  }
+
+  .num {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .now,
+  .cook {
+    padding: 1px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    gap: var(--space-3);
+  }
+
+  .meal {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: var(--space-4) var(--space-6);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-ground);
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .what {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .name {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    overflow-wrap: anywhere;
+  }
+
+  .totals,
+  .slot {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+  }
+
+  .slot {
+    flex: none;
+  }
+
+  .plus {
+    flex: none;
+    width: var(--touch-target);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font: inherit;
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-extrabold);
+    cursor: pointer;
+  }
+
+  .add {
+    flex: 1;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: 1px dashed var(--color-add-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .meal:disabled,
+  .add:disabled,
+  .plus:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+</style>

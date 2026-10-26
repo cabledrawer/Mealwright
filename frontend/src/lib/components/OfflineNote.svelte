@@ -6,7 +6,7 @@
 
   let {
     screen
-  }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' } =
+  }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' | 'Plan' } =
     $props();
 </script>
 

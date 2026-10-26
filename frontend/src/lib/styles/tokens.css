@@ -176,6 +176,28 @@
   --connection-bar-height: 48px; /* the phone's offline bar */
   --offline-offset: 0px; /* how far the offline bar lifts things above the bottom tabs */
   --tabbar-height: 62px; /* plus the device's safe area at the bottom */
+
+  /* One colour per batch cook in the Month view: the cook day is solid, its tubs a light tint
+     (mockups Month-Desktop and Month-Phone). Six, taken in turn. */
+  --batch-1: #5b3e96;
+  --batch-1-soft: #ede7f6;
+  --batch-1-soft-text: #4a2f7a;
+  --batch-2: #8a5a00;
+  --batch-2-soft: #fdf1d8;
+  --batch-2-soft-text: #6e4a00;
+  --batch-3: #1f5c42;
+  --batch-3-soft: #e4f1ea;
+  --batch-3-soft-text: #1f5c42;
+  --batch-4: #2b5c8a;
+  --batch-4-soft: #e1ecf6;
+  --batch-4-soft-text: #1f4568;
+  --batch-5: #9c2f55;
+  --batch-5-soft: #f8e3eb;
+  --batch-5-soft-text: #7a2342;
+  --batch-6: #1b6a70;
+  --batch-6-soft: #ddf0f1;
+  --batch-6-soft-text: #14505a;
+  --color-batch-on: #ffffff; /* text on a solid batch colour */
 }
 
 :root[data-offline] {
@@ -273,4 +295,23 @@
   --color-photo-text: #c9b994;
   --color-warning-border: #6b3424;
   --color-changed: #2e2714;
+
+  --batch-1: #7b5bb8;
+  --batch-1-soft: #2d2540;
+  --batch-1-soft-text: #d8c9f2;
+  --batch-2: #946200;
+  --batch-2-soft: #3a2e14;
+  --batch-2-soft-text: #f3c766;
+  --batch-3: #26775a;
+  --batch-3-soft: #1f3a2d;
+  --batch-3-soft-text: #8fe0b5;
+  --batch-4: #386fa6;
+  --batch-4-soft: #1f2f40;
+  --batch-4-soft-text: #a9cdee;
+  --batch-5: #b84a72;
+  --batch-5-soft: #3d2330;
+  --batch-5-soft-text: #f0b9cf;
+  --batch-6: #23777e;
+  --batch-6-soft: #1c3436;
+  --batch-6-soft-text: #a3dde1;
 }

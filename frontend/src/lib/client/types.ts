@@ -186,6 +186,9 @@ export interface Household {
   undo_days: number;
   history_months: number;
   use_soon_days: number;
+  /** 1 is Monday … 7 is Sunday. */
+  week_starts_on: number;
+  /** Today, in the household's own time zone ("2026-10-17"). */
   today: string;
 }
 
