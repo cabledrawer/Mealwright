@@ -239,7 +239,7 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "past_day",
-            "Pick today or a later day.",  # proposed, for cabledrawer
+            "Pick today or a later day.",  # cabledrawer 27 Oct
         )
     steps: list[dict[str, Any]] = []
     name, where_from = _meal_name(kitchen, meal), _where(kitchen, meal.day, meal.slot_id)

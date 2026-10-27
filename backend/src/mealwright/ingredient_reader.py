@@ -124,8 +124,8 @@ NUMBER_WORDS = {
     "seven": "7", "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12",
 }  # fmt: skip
 # Words after a number word that make it part of a name or a fraction, not a count: "five spice
-# powder", "half fat crème fraîche", "two thirds of a cup", "Ten Acre crisps" (proposed, for
-# cabledrawer). The one place to add more.
+# powder", "half fat crème fraîche", "two thirds of a cup", "Ten Acre crisps" (cabledrawer 27
+# Oct). The one place to add more.
 NOT_A_COUNT = frozenset(
     {"spice", "fat", "acre", "bean", "grain", "seed", "thirds", "third", "quarters", "quarter",
      "fifths", "eighths", "halves"}
