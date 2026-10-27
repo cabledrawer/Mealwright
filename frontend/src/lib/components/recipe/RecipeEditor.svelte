@@ -17,12 +17,10 @@
   import TagsField from './TagsField.svelte';
   import { ApiError, worthRetrying } from '#lib/api.js';
   import { newChangeId } from '#lib/changeId.js';
-  import { serverUndo } from '#lib/client/changes.js';
   import { listFoods } from '#lib/client/foods.js';
   import {
     cannotUse,
     createRecipe,
-    deleteRecipe,
     getRecipe,
     saveRecipe,
     suggestTags,
@@ -41,6 +39,7 @@
     type Errors
   } from '#lib/recipes/draft.svelte.js';
   import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '#lib/recipes/paths.js';
+  import { removeRecipe } from '#lib/recipes/remove.js';
   import { fold, recipeSearch } from '#lib/recipes/search.js';
   import { takeKept, editorKey, keep, reopen } from '#lib/recipes/stash.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -304,9 +303,7 @@
     if (!recipeId) return;
     leaving = true;
     try {
-      const { change } = await deleteRecipe(recipeId, newChangeId());
-      kitchen.changed();
-      undoHistory.record({ label: `Deleted ${name}`, undo: serverUndo(change.id) });
+      await removeRecipe(recipeId, name);
       void go(RECIPES);
     } catch (error) {
       leaving = false;

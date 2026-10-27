@@ -526,6 +526,23 @@ describe('the Shopping page', () => {
     await expect.element(page.getByText('How much?')).toBeVisible();
   });
 
+  it('How much? for a new ingredient offers ready-made sizes, and picking one sends it', async () => {
+    copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 1' }).click();
+    await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
+    await expect.element(page.getByText('How much?')).toBeVisible();
+    await expect.element(page.getByRole('radio', { name: '1 × 250 g' })).toBeVisible();
+    await expect.element(page.getByRole('radio', { name: '1 × 500 g' })).toBeVisible();
+    await expect.element(page.getByRole('radio', { name: '1 × 1 kg' })).toBeVisible();
+    await page.getByRole('radio', { name: '1 × 500 g' }).click();
+    await expect.element(page.getByText('Pantry gets 1 pack · 500 g.')).toBeVisible();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 500 })
+    );
+  });
+
   it('“Did you buy 2?” is a card with Yes, 2 and Just 1', async () => {
     copy.questions.push({
       id: 5,

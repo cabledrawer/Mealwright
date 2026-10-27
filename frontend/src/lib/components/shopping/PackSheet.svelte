@@ -23,6 +23,9 @@
     onclose: () => void;
   } = $props();
 
+  /** 250 g · 500 g · 1 kg, or 250 ml · 500 ml · 1 L (the base unit is g or ml). */
+  const READY_MADE = [250, 500, 1000];
+
   const uid = $props.id();
   let sizes = $state<FoodSize[]>([]);
   interface Choice {
@@ -75,6 +78,11 @@
       add(1, planned, size && planned === size.amount ? size.id : null);
     }
     for (const s of sizes) add(1, s.amount, s.id);
+    // A line with no amount and an ingredient that has no sizes yet (a new one): ready-made
+    // sizes to pick, so "How much?" isn't only a blank box. Whole things are counted in "Other…".
+    if (!planned && !sizes.length && food.counted_as !== 'count') {
+      for (const pack of READY_MADE) add(1, pack, null);
+    }
     return out;
   });
 

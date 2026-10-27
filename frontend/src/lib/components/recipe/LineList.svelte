@@ -1,8 +1,10 @@
 <script lang="ts">
   // The ingredient lines and headings (cabledrawer 19 Oct, questions 11 to 14, editor brief item 10):
   // separate boxes for amount, unit, ingredient and note; the ingredient box is the line's own
-  // words, and the picker (a sheet on a phone, under the line on a computer) links them to an
-  // ingredient or to another recipe. Lines are dragged by the handle, or moved with Alt+↑ / Alt+↓.
+  // words, and the pick-list that opens under it while you type (a combobox with a listbox,
+  // phone and computer alike; mockup RecipeLines) links them to an ingredient or to another
+  // recipe. Enter in the last box adds a line. Lines are dragged by the handle, or moved with
+  // Alt+↑ / Alt+↓.
   import '#lib/styles/fields.css';
   import { tick, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
@@ -41,13 +43,14 @@
   } = $props();
 
   const uid = $props.id();
-  /** The line whose picker is open. */
+  /** The line whose pick-list is open. */
   let active = $state<string | null>(null);
-  let sheet: HTMLDialogElement;
+  let picker = $state<{ key: (event: KeyboardEvent) => boolean }>();
+  /** The option the arrow keys are on, for aria-activedescendant. */
+  let activeOption = $state<string>();
   let root: HTMLElement;
   const removed: UndoEntry[] = [];
 
-  const activeLine = $derived(draft.lines.find((l) => l.key === active) ?? null);
   const count = $derived(draft.lines.filter((l) => l.kind === 'ingredient').length);
   const full = $derived(draft.lines.length >= MAX_LINES);
 
@@ -128,11 +131,11 @@
     if (key && refocus) void tick().then(() => focusWords(key));
   }
 
-  $effect(() => {
-    if (!sheet) return;
-    if (active && phone && !sheet.open) sheet.showModal();
-    else if ((!active || !phone) && sheet.open) sheet.close();
-  });
+  /** "Pick an ingredient" under an unlinked line: opens the list with the box ready to type in. */
+  function openAndFocus(line: DraftLine) {
+    open(line);
+    focusWords(line.key);
+  }
 
   function pick(line: DraftLine, choice: Pick) {
     const sized = line.unit.startsWith('size:');
@@ -171,17 +174,27 @@
     if (event.key === 'Escape' && active === line.key) {
       event.preventDefault();
       event.stopPropagation();
-      close();
-    } else if (event.key === 'ArrowDown') {
+      close(false);
+    } else if (active === line.key && picker?.key(event)) {
+      event.preventDefault();
+    } else if (event.key === 'ArrowDown' && line.words.trim()) {
       open(line);
-      void tick().then(() =>
-        root.querySelector<HTMLElement>(`[data-line="${line.key}"] .inline .item`)?.focus()
-      );
     }
   }
 
-  function backdrop(event: MouseEvent) {
-    if (event.target === sheet) close();
+  /** The list closes when focus leaves the box (options take no focus, so a pick isn't a leave). */
+  function leave(line: DraftLine, box: HTMLElement) {
+    // A moment's grace: a tap on an option can reach it after the box has lost focus.
+    setTimeout(() => {
+      if (active === line.key && document.activeElement !== box) close(false);
+    }, 200);
+  }
+
+  /** Enter in the last box of the last line adds a line, as the "+ Add line" button does. */
+  function noteKey(event: KeyboardEvent, index: number) {
+    if (event.key !== 'Enter' || event.isComposing || index !== draft.lines.length - 1) return;
+    event.preventDefault();
+    if (!full) void add('ingredient');
   }
 </script>
 
@@ -234,6 +247,7 @@
             maxlength="200"
             placeholder="e.g. For the tempering"
             bind:value={line.words}
+            onkeydown={(e) => noteKey(e, i)}
           />
         {:else}
           <div class="fields">
@@ -261,23 +275,20 @@
               {/each}
             </select>
 
-            {#if phone}
-              <button
-                type="button"
-                class="mw-input words"
-                data-words
-                aria-haspopup="dialog"
-                aria-label="Ingredient {i + 1}: {line.words || 'empty'}"
-                aria-describedby={lineError ? `${uid}-${line.key}-error` : undefined}
-                onclick={() => open(line)}
-              >
-                {#if line.words}{line.words}{:else}<span class="placeholder">Ingredient</span>{/if}
-              </button>
-            {:else}
+            <div class="words-wrap">
+              {#if line.food || line.recipe}
+                <span class="dot" aria-hidden="true"></span>
+              {/if}
               <input
                 class="mw-input words"
+                class:linked-box={!!(line.food || line.recipe)}
                 data-words
+                role="combobox"
                 aria-label="Ingredient {i + 1}"
+                aria-autocomplete="list"
+                aria-expanded={active === line.key}
+                aria-controls={active === line.key ? `${uid}-list` : undefined}
+                aria-activedescendant={active === line.key ? activeOption : undefined}
                 maxlength="200"
                 placeholder="Ingredient"
                 autocomplete="off"
@@ -285,10 +296,24 @@
                 aria-describedby={lineError ? `${uid}-${line.key}-error` : undefined}
                 bind:value={line.words}
                 oninput={() => open(line)}
-                onclick={() => open(line)}
                 onkeydown={(e) => wordsKey(e, line)}
+                onblur={(e) => leave(line, e.currentTarget)}
               />
-            {/if}
+              {#if active === line.key}
+                <div class="popup">
+                  <IngredientPicker
+                    id="{uid}-list"
+                    bind:this={picker}
+                    bind:activeId={activeOption}
+                    query={line.words}
+                    {search}
+                    {blocked}
+                    onpick={(choice) => pick(line, choice)}
+                    oncreate={(name) => void createIngredient(line, name)}
+                  />
+                </div>
+              {/if}
+            </div>
 
             <div class="meta">
               {#if line.recipe}
@@ -302,7 +327,9 @@
               {:else if line.words.trim() && !line.food}
                 <span class="unlinked">
                   Not linked
-                  <button type="button" onclick={() => open(line)}>Pick an ingredient</button>
+                  <button type="button" onclick={() => openAndFocus(line)}
+                    >Pick an ingredient</button
+                  >
                 </span>
               {/if}
             </div>
@@ -314,6 +341,7 @@
               placeholder={phone ? 'Note (optional), e.g. rinsed' : 'Note'}
               autocomplete="off"
               bind:value={line.note}
+              onkeydown={(e) => noteKey(e, i)}
             />
             {#if amountError}<p class="mw-error msg" id="{uid}-{line.key}-amount">
                 {amountError}
@@ -332,22 +360,6 @@
         >
           <Icon name="close" size={18} />
         </button>
-
-        {#if active === line.key && !phone && line.kind === 'ingredient'}
-          <div class="inline-row">
-            <div class="inline" role="group" aria-label="Pick an ingredient">
-              <IngredientPicker
-                query={line.words}
-                {search}
-                {blocked}
-                onpick={(choice) => pick(line, choice)}
-                oncreate={(name) => void createIngredient(line, name)}
-                onback={() => focusWords(line.key)}
-              />
-              <button type="button" class="mw-pill close" onclick={() => close()}>Close</button>
-            </div>
-          </div>
-        {/if}
       </li>
     {/each}
   </ol>
@@ -360,7 +372,7 @@
       disabled={full}
       onclick={() => void add('ingredient')}
     >
-      + Add ingredient
+      + Add line
     </button>
     <button type="button" class="mw-add" disabled={full} onclick={() => void add('heading')}
       >+ Add heading</button
@@ -369,44 +381,10 @@
   {#if full}<p class="mw-hint">
       A recipe can have up to {MAX_LINES} lines, headings included.
     </p>{/if}
+  <p class="mw-hint">
+    Pick a name from the list to link it (green dot). Enter on the last box adds a line.
+  </p>
 </section>
-
-<!-- Phone: the picker is a sheet from the bottom, with its own search box that edits the line's words. -->
-<dialog
-  bind:this={sheet}
-  class="sheet"
-  aria-label="Pick an ingredient"
-  oncancel={(e) => {
-    e.preventDefault();
-    close();
-  }}
-  onclick={backdrop}
->
-  {#if activeLine && phone}
-    <span class="grip" aria-hidden="true"></span>
-    <div class="sheet-title">
-      <h2>Pick an ingredient</h2>
-      <button type="button" class="done" onclick={() => close()}>Done</button>
-    </div>
-    <label class="search">
-      <Icon name="search" size={18} />
-      <input
-        type="search"
-        aria-label="Search ingredients and recipes"
-        autocomplete="off"
-        maxlength="200"
-        bind:value={activeLine.words}
-      />
-    </label>
-    <IngredientPicker
-      query={activeLine.words}
-      {search}
-      {blocked}
-      onpick={(choice) => pick(activeLine, choice)}
-      oncreate={(name) => void createIngredient(activeLine, name)}
-    />
-  {/if}
-</dialog>
 
 <style>
   .lines {
@@ -520,24 +498,6 @@
     padding: 0 var(--space-3);
   }
 
-  .words {
-    flex: 1 1 7rem;
-    min-width: 7rem;
-  }
-
-  button.words {
-    height: auto;
-    padding: var(--space-4) var(--space-5);
-    line-height: 1.25;
-    text-align: left;
-    overflow-wrap: anywhere;
-    cursor: text;
-  }
-
-  .placeholder {
-    color: var(--color-text-muted);
-  }
-
   .meta {
     flex: 1 1 100%;
     order: 4;
@@ -623,121 +583,45 @@
     display: none;
   }
 
-  /* The picker, under the line (computers). */
-  .inline-row {
-    flex: 1 1 100%;
+  /* The ingredient box, with the pick-list opening under it. */
+  .words-wrap {
+    position: relative;
+    flex: 1 1 7rem;
+    min-width: 7rem;
   }
 
-  .inline {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
-    max-width: 440px;
-    margin-left: 36px;
-    padding: var(--space-4);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-2xl);
+  .words-wrap .words {
+    width: 100%;
+  }
+
+  /* A line linked to an ingredient or a recipe: a green dot in the box (mockup RecipeLines). */
+  .dot {
+    position: absolute;
+    top: calc(var(--touch-target) / 2 - 4px);
+    left: var(--space-4);
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--color-accent);
+    pointer-events: none;
+  }
+
+  .linked-box {
+    padding-left: calc(var(--space-4) + 8px + var(--space-3));
+  }
+
+  .popup {
+    position: absolute;
+    top: calc(var(--touch-target) + var(--space-2));
+    right: 0;
+    z-index: 5;
+    width: min(24rem, calc(100vw - 4rem));
+    max-height: 60vh;
+    padding: var(--space-3);
+    overflow-y: auto;
+    border-radius: var(--radius-xl);
     background: var(--color-surface);
     box-shadow: var(--shadow-toast);
-  }
-
-  .inline > :global(.picker) {
-    width: 100%;
-  }
-
-  /* The picker, a sheet from the bottom (phones). */
-  .sheet {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: min(640px, calc(100dvh - 80px));
-    margin: 0;
-    padding: var(--space-5) var(--space-7) max(28px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  .sheet[open] {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
-  .sheet::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .sheet-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-5);
-    padding: var(--space-2) var(--space-2) var(--space-3);
-  }
-
-  .sheet-title h2 {
-    font-size: var(--text-3xl);
-  }
-
-  .done {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .search {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    min-height: 48px;
-    padding: 0 var(--space-6);
-    border: 2px solid var(--color-accent);
-    border-radius: var(--radius-lg);
-    background: var(--color-field);
-    color: var(--color-text-muted);
-  }
-
-  .search input {
-    flex: 1;
-    min-width: 0;
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-    font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  .search input::-webkit-search-cancel-button {
-    display: none;
-  }
-
-  .search input:focus-visible {
-    outline: none;
-  }
-
-  .search:focus-within {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
   }
 
   @media (min-width: 768px) {
@@ -759,7 +643,7 @@
 
     .amount,
     .unit,
-    .words,
+    .words-wrap,
     .note {
       grid-row: 1;
       min-width: 0;

@@ -5,7 +5,8 @@
   // servings (on screen only), "N missing · Add to the list", the method, tags and where it
   // came from. Online only, like Pantry and All recipes (question 33).
   //
-  // Edit, at the top on the right, opens the editor (Delete is in the editor). The photo is
+  // Edit, at the top on the right, opens the editor; the ⋯ beside it has Delete recipe (as the
+  // editor does; mockups RecipeDelete-*). The photo is
   // above the name on a phone and beside the nutrition figures in the desktop's reading pane;
   // a recipe without one has no box. Hidden until they
   // work, not stubbed: Plan it (0.6) and Start cooking and Cook once (0.7). "From: <site> ·
@@ -21,6 +22,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import RecipePhoto from '#lib/components/RecipePhoto.svelte';
   import RecipeIngredient from '#lib/components/RecipeIngredient.svelte';
+  import RowMenu from '#lib/components/shopping/RowMenu.svelte';
   import ServingsStepper from '#lib/components/ServingsStepper.svelte';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
@@ -28,6 +30,10 @@
   import { network } from '#lib/network.svelte.js';
   import { PantryList } from '#lib/pantryList.svelte.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
+  import { go, RECIPES } from '#lib/recipes/paths.js';
+  import { removeRecipe } from '#lib/recipes/remove.js';
+  import { toasts } from '#lib/toast.svelte.js';
+  import { ApiError } from '#lib/api.js';
   import { lineAmount, makesAmount } from '#lib/recipeAmounts.js';
   import { RecipeView, stepGroups } from '#lib/recipePage.svelte.js';
   import { markFor, toAdd } from '#lib/recipeStock.js';
@@ -126,6 +132,19 @@
   const makes = $derived(makesNow && !makesStepper ? `Makes ${makesNow}` : null);
   const empty = $derived(recipe !== null && !recipe.lines.length && !recipe.steps.length);
   const name = $derived(recipe?.name ?? 'Recipe');
+
+  /** Delete recipe: gone at once with "Deleted Sambar" and Undo, then the Recipes list. */
+  async function remove() {
+    if (!recipe) return;
+    try {
+      await removeRecipe(recipe.id, recipe.name);
+      void go(RECIPES);
+    } catch (error) {
+      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t delete. Try again.', {
+        tone: 'problem'
+      });
+    }
+  }
 </script>
 
 <svelte:document onvisibilitychange={onVisible} />
@@ -143,6 +162,10 @@
     </nav>
     {#if recipe && !network.offline}
       <a class="edit" href={resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}>Edit</a>
+      <RowMenu
+        name={recipe.name}
+        items={[{ label: 'Delete recipe', danger: true, divider: true, run: () => void remove() }]}
+      />
     {/if}
   </div>
 

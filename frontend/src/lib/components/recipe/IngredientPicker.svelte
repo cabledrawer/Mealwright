@@ -6,43 +6,55 @@
 </script>
 
 <script lang="ts">
-  // "Pick an ingredient" (mockups RecipeEditor-*, EditorState-picker): what is typed on the line
-  // finds ingredients (by any of their other names too: "thuvaram" finds Toor dal) and recipes,
-  // and a name nobody has used offers "+ New ingredient", which opens the same "How do you
-  // count it?" as Shopping. A recipe that would make a loop is greyed out with the reason.
-  // Where the results go (a sheet on a phone, under the line on a computer) is the caller's.
+  // The pick-list under a line's ingredient box (mockup RecipeLines): a listbox of what the
+  // typed words find, shown while the person types. Ingredients first, each with "also called …"
+  // and "in N recipes" (by any of their other names too: "thuvaram" finds Toor dal), then recipes,
+  // and last "+ New ingredient “dru”", which opens the same "How do you count it?" as Shopping.
+  // A recipe that would make a loop is greyed out with the reason.
+  //
+  // The box is a combobox and keeps the focus; its owner (LineList) hands the arrow keys and Enter
+  // to `key()`, and reads `activeId` for aria-activedescendant. Nothing is linked until an option
+  // is picked: typing alone never changes the person's words.
   import '#lib/styles/fields.css';
   import Icon from '../Icon.svelte';
   import type { Blocked, RecipeBrief } from '#lib/client/recipes.js';
   import type { FoodRow } from '#lib/client/types.js';
 
   let {
+    id,
     query,
     search,
     blocked = [],
+    activeId = $bindable(),
     onpick,
-    oncreate,
-    onback
+    oncreate
   }: {
+    /** The listbox's id, for the box's aria-controls. */
+    id: string;
     /** What is typed on the line. */
     query: string;
     search: (q: string) => Promise<{ foods: FoodRow[]; recipes: RecipeBrief[] }>;
     /** Recipes that can't be used here, and why (the loop guard). */
     blocked?: Blocked[];
+    /** The option the arrow keys are on (aria-activedescendant); undefined when none. */
+    activeId?: string | undefined;
     onpick: (pick: Pick) => void;
     oncreate: (name: string) => void;
-    /** ArrowUp from the first result: back to the box being typed in. */
-    onback?: () => void;
   } = $props();
 
-  const uid = $props.id();
+  type Option =
+    | { key: string; kind: 'ingredient'; food: FoodRow }
+    | { key: string; kind: 'recipe'; recipe: RecipeBrief; why: string | undefined }
+    | { key: string; kind: 'new' };
+
   let foods = $state<FoodRow[]>([]);
   let recipes = $state<RecipeBrief[]>([]);
   /** The text the results on show are for. */
   let answered = $state('');
   let failed = $state(false);
   let asked = 0;
-  let list: HTMLElement;
+  /** Which option the arrow keys are on; -1 is none. */
+  let at = $state(-1);
 
   const typed = $derived(query.trim());
   const reasons = $derived(new Map(blocked.map((b) => [b.id, b.reason])));
@@ -51,9 +63,27 @@
   );
   const current = $derived(answered === typed);
 
+  const options = $derived.by((): Option[] => {
+    const out: Option[] = foods.map((food) => ({ key: `f${food.id}`, kind: 'ingredient', food }));
+    for (const recipe of recipes) {
+      out.push({ key: `r${recipe.id}`, kind: 'recipe', recipe, why: reasons.get(recipe.id) });
+    }
+    if (typed && current && !exact) out.push({ key: 'new', kind: 'new' });
+    return out;
+  });
+  const firstRecipe = $derived(options.findIndex((o) => o.kind === 'recipe'));
+  const newAt = $derived(options.findIndex((o) => o.kind === 'new'));
+
+  const optionId = (key: string) => `${id}-${key}`;
+  $effect(() => {
+    const on = options[at];
+    activeId = on ? optionId(on.key) : undefined;
+  });
+
   $effect(() => {
     const q = typed;
     const mine = ++asked;
+    at = -1;
     if (!q) {
       foods = [];
       recipes = [];
@@ -69,6 +99,7 @@
           recipes = found.recipes;
           answered = q;
           failed = false;
+          at = -1;
         })
         .catch(() => {
           if (mine === asked) failed = true;
@@ -80,95 +111,121 @@
   const makes = (r: RecipeBrief) =>
     r.makes ? `recipe · makes ${r.makes.amount_text}\u00a0${r.makes.unit}` : 'recipe';
 
-  function keydown(event: KeyboardEvent) {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    const items = [...list.querySelectorAll<HTMLElement>('.item')];
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    const to = at + (event.key === 'ArrowDown' ? 1 : -1);
-    event.preventDefault();
-    if (to < 0) onback?.();
-    else items[Math.min(to, items.length - 1)]?.focus();
+  /** "also called murungakkai · in 2 recipes". */
+  function foodSub(food: FoodRow): string {
+    const parts: string[] = [];
+    const other =
+      food.matched_name && food.matched_name !== food.name
+        ? food.matched_name
+        : food.other_names[0];
+    if (other) parts.push(`also called ${other}`);
+    const n = food.used_in_recipes;
+    if (n !== undefined)
+      parts.push(n === 0 ? 'in no recipes' : `in ${n} ${n === 1 ? 'recipe' : 'recipes'}`);
+    return parts.join(' · ');
   }
+
+  function choose(option: Option) {
+    if (option.kind === 'ingredient') {
+      const { food } = option;
+      onpick({
+        kind: 'ingredient',
+        food: { id: food.id, name: food.name },
+        otherNames: food.other_names
+      });
+    } else if (option.kind === 'recipe') {
+      if (option.why) return;
+      onpick({ kind: 'recipe', recipe: { id: option.recipe.id, name: option.recipe.name } });
+    } else oncreate(typed);
+  }
+
+  /**
+   * The box's key presses: ↓ and ↑ move through the options, Enter picks the one they are on.
+   * Returns true when the key was used (so the box doesn't also act on it).
+   */
+  export function key(event: KeyboardEvent): boolean {
+    if (!options.length) return false;
+    if (event.key === 'ArrowDown') {
+      at = at + 1 >= options.length ? 0 : at + 1;
+    } else if (event.key === 'ArrowUp') {
+      at = at <= 0 ? options.length - 1 : at - 1;
+    } else if (event.key === 'Enter') {
+      const on = options[at];
+      if (!on) return false;
+      choose(on);
+    } else return false;
+    document.getElementById(activeId ?? '')?.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+
+  const count = $derived(foods.length + recipes.length);
 </script>
 
-<!-- Arrow keys move between the results. -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="picker" bind:this={list} onkeydown={keydown}>
-  <p class="mw-hint">Your words stay on the line. Other names count: “thuvaram” finds Toor dal.</p>
-
-  {#if !typed}
-    <p class="mw-hint">Type an ingredient or a recipe.</p>
-  {/if}
-
+<div class="picker">
   {#if failed}
     <p class="mw-error" role="alert">Couldn’t search. Try again.</p>
   {/if}
 
-  {#if foods.length}
-    <p class="group" id="{uid}-foods">Ingredients</p>
-    <ul aria-labelledby="{uid}-foods">
-      {#each foods as food (food.id)}
-        <li>
-          <button
-            type="button"
-            class="item"
-            onclick={() =>
-              onpick({
-                kind: 'ingredient',
-                food: { id: food.id, name: food.name },
-                otherNames: food.other_names
-              })}
-          >
-            <span class="name">{food.name}</span>
-            {#if food.matched_name && food.matched_name !== food.name}
-              <span class="sub">also called: {food.matched_name}</span>
-            {/if}
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
+  <!-- Mouse and touch picks; keyboards use the box's arrow keys, so options aren't tab stops. -->
+  <div class="list" role="listbox" {id} aria-label="Matching ingredients">
+    {#each options as option, i (option.key)}
+      {#if i === firstRecipe}
+        <p class="group" aria-hidden="true">Recipes</p>
+      {/if}
+      {#if i === newAt && i > 0}
+        <span class="rule" aria-hidden="true"></span>
+      {/if}
+      {#if option.kind === 'ingredient'}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+        <div
+          class="item"
+          role="option"
+          id={optionId(option.key)}
+          aria-selected={at === i}
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => choose(option)}
+        >
+          <span class="name">{option.food.name}</span>
+          {#if foodSub(option.food)}<span class="sub">{foodSub(option.food)}</span>{/if}
+        </div>
+      {:else if option.kind === 'recipe'}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+        <div
+          class="item recipe"
+          class:blocked={!!option.why}
+          role="option"
+          id={optionId(option.key)}
+          aria-selected={at === i}
+          aria-disabled={option.why ? 'true' : undefined}
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => choose(option)}
+        >
+          <span class="name"><Icon name="recipes" size={16} />{option.recipe.name}</span>
+          <span class="sub" class:why={!!option.why}>{option.why ?? makes(option.recipe)}</span>
+        </div>
+      {:else}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_interactive_supports_focus -->
+        <div
+          class="item new"
+          role="option"
+          id={optionId(option.key)}
+          aria-selected={at === i}
+          onmousedown={(e) => e.preventDefault()}
+          onclick={() => choose(option)}
+        >
+          + New ingredient “{typed}”
+        </div>
+      {/if}
+    {/each}
+  </div>
 
-  {#if recipes.length}
-    <p class="group" id="{uid}-recipes">Recipes</p>
-    <ul aria-labelledby="{uid}-recipes">
-      {#each recipes as recipe (recipe.id)}
-        {@const why = reasons.get(recipe.id)}
-        <li>
-          {#if why}
-            <button
-              type="button"
-              class="item blocked"
-              aria-disabled="true"
-              aria-describedby="{uid}-why-{recipe.id}"
-            >
-              <span class="name"><Icon name="recipes" size={16} />{recipe.name}</span>
-              <span class="sub why" id="{uid}-why-{recipe.id}">{why}</span>
-            </button>
-          {:else}
-            <button
-              type="button"
-              class="item recipe"
-              onclick={() =>
-                onpick({ kind: 'recipe', recipe: { id: recipe.id, name: recipe.name } })}
-            >
-              <span class="name"><Icon name="recipes" size={16} />{recipe.name}</span>
-              <span class="sub">{makes(recipe)}</span>
-            </button>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
-
-  {#if typed && current && !exact}
-    <button type="button" class="item new" onclick={() => oncreate(typed)}
-      >+ New ingredient “{typed}”</button
-    >
-    <p class="mw-hint">
-      A new ingredient opens “How do you count it?”, with packet sizes, as on Shopping.
-    </p>
-  {/if}
+  <p class="visually-hidden" role="status">
+    {#if current && typed}{count === 0
+        ? 'No matches'
+        : count === 1
+          ? '1 match'
+          : `${count} matches`}{/if}
+  </p>
 </div>
 
 <style>
@@ -178,8 +235,13 @@
     gap: var(--space-2);
   }
 
+  .list {
+    display: flex;
+    flex-direction: column;
+  }
+
   .group {
-    padding: var(--space-4) var(--space-2) 0;
+    padding: var(--space-4) var(--space-4) var(--space-1);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-extrabold);
@@ -187,22 +249,19 @@
     text-transform: uppercase;
   }
 
-  ul {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  .rule {
+    height: 1px;
+    margin: var(--space-2) var(--space-3);
+    background: var(--color-divider);
   }
 
   .item {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: var(--space-1);
-    width: 100%;
     min-height: var(--touch-target);
-    padding: var(--space-5) var(--space-4);
-    border: none;
+    padding: var(--space-3) var(--space-5);
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-text);
@@ -214,14 +273,10 @@
     background: var(--color-fill);
   }
 
-  .recipe {
+  .item[aria-selected='true'] {
     background: var(--color-accent-soft);
-    color: var(--color-text);
-  }
-
-  .recipe:hover {
-    background: var(--color-accent-soft);
-    filter: brightness(0.97);
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
   }
 
   .name {
@@ -258,11 +313,8 @@
   .new {
     flex-direction: row;
     align-items: center;
-    margin-top: var(--space-3);
-    border-top: 1px solid var(--color-divider);
-    border-radius: 0;
     color: var(--color-accent);
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
     font-weight: var(--weight-bold);
   }
 </style>

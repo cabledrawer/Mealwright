@@ -101,7 +101,7 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   await page.getByLabel('Unit for ingredient 1').selectOption('cup');
   await page.getByLabel('Note for ingredient 1').fill('rinsed');
   // A line with no amount is fine.
-  await page.getByRole('button', { name: '+ Add ingredient' }).click();
+  await page.getByRole('button', { name: '+ Add line' }).click();
   await typeWords(page, 2, 'salt to taste');
   // A heading, moved to the top with the keyboard.
   await page.getByRole('button', { name: '+ Add heading' }).first().click();
@@ -146,33 +146,21 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Delete recipe' })).toBeVisible();
 });
 
-/** Type the line's own words, linking nothing (on a phone the box opens the picker; Done closes it). */
+/** Type the line's own words, linking nothing (the pick-list opens; Escape shuts it). */
 async function typeWords(page: Page, n: number, text: string) {
-  if (isPhone(page)) {
-    await page.getByRole('button', { name: new RegExp(`^Ingredient ${n}:`) }).click();
-    const sheet = page.getByRole('dialog', { name: 'Pick an ingredient' });
-    await sheet.getByRole('searchbox').fill(text);
-    await sheet.getByRole('button', { name: 'Done' }).click();
-    await expect(sheet).toBeHidden();
-  } else {
-    await page.getByLabel(`Ingredient ${n}`, { exact: true }).fill(text);
-  }
+  const box = page.getByLabel(`Ingredient ${n}`, { exact: true });
+  await box.fill(text);
+  await box.press('Escape');
+  await expect(page.getByRole('listbox', { name: 'Matching ingredients' })).toBeHidden();
 }
 
-/** Type in the ingredient box of line `n` (1 is the first) and pick the result with `name`. */
+/** Type in the ingredient box of line `n` (1 is the first) and pick the option with `name`. */
 async function pickIngredient(page: Page, n: number, typed: string, name: string) {
-  if (isPhone(page)) {
-    await page.getByRole('button', { name: new RegExp(`^Ingredient ${n}:`) }).click();
-    const sheet = page.getByRole('dialog', { name: 'Pick an ingredient' });
-    await sheet.getByRole('searchbox').fill(typed);
-    await sheet.getByRole('button', { name: new RegExp(`^${name}`) }).click();
-  } else {
-    await page.getByLabel(`Ingredient ${n}`, { exact: true }).fill(typed);
-    await page
-      .getByRole('group', { name: 'Pick an ingredient' })
-      .getByRole('button', { name: new RegExp(`^${name}`) })
-      .click();
-  }
+  await page.getByLabel(`Ingredient ${n}`, { exact: true }).fill(typed);
+  await page
+    .getByRole('listbox', { name: 'Matching ingredients' })
+    .getByRole('option', { name: new RegExp(`^${name}`) })
+    .click();
 }
 
 test('a line linked from the start of a name shows the full name; words typed in full stay (cabledrawer 25 Oct)', async ({ page }) => {
@@ -198,12 +186,8 @@ test('a line linked from the start of a name shows the full name; words typed in
 
   // The editor opens with the full name, so Cancel with nothing else changed just closes.
   await page.goto(`/recipes/${recipe.id}/edit`);
-  if (isPhone(page)) {
-    await expect(page.getByRole('button', { name: `Ingredient 1: ${toor.name}` })).toBeVisible();
-  } else {
-    await expect(page.getByLabel('Ingredient 1', { exact: true })).toHaveValue(toor.name);
-    await expect(page.getByLabel('Ingredient 2', { exact: true })).toHaveValue('fresh coriander');
-  }
+  await expect(page.getByLabel('Ingredient 1', { exact: true })).toHaveValue(toor.name);
+  await expect(page.getByLabel('Ingredient 2', { exact: true })).toHaveValue('fresh coriander');
   await expect(page.getByText('Linked to')).toContainText(coriander.name);
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page).toHaveURL(`/recipes/${recipe.id}`);
@@ -283,35 +267,84 @@ test('a recipe can be an ingredient, and one that would make a loop is greyed ou
   });
   // Sambar powder can't use Sambar, because Sambar uses Sambar powder.
   await page.goto(`/recipes/${powder.id}/edit`);
-  await page.getByRole('button', { name: '+ Add ingredient' }).click();
+  await page.getByRole('button', { name: '+ Add line' }).click();
   const query = sambar.name.split(' ').slice(0, 2).join(' ');
-  if (isPhone(page)) {
-    await page.getByRole('button', { name: /^Ingredient 1:/ }).click();
-    await page.getByRole('dialog', { name: 'Pick an ingredient' }).getByRole('searchbox').fill(query);
-  } else {
-    await page.getByLabel('Ingredient 1', { exact: true }).fill(query);
-  }
-  const picker = isPhone(page)
-    ? page.getByRole('dialog', { name: 'Pick an ingredient' })
-    : page.getByRole('group', { name: 'Pick an ingredient' });
-  const blocked = picker.getByRole('button', { name: new RegExp(`^${sambar.name}`) });
+  await page.getByLabel('Ingredient 1', { exact: true }).fill(query);
+  const picker = page.getByRole('listbox', { name: 'Matching ingredients' });
+  const blocked = picker.getByRole('option', { name: new RegExp(`^${sambar.name}`) });
   await expect(blocked).toHaveAttribute('aria-disabled', 'true');
   await expect(picker.getByText(`can’t use ${sambar.name}, because ${sambar.name} uses ${powder.name}`)).toBeVisible();
   await blocked.click({ force: true }); // it says so (aria-disabled) but can be pressed: nothing happens
-  await expect(picker.getByRole('button', { name: new RegExp(`^${sambar.name}`) })).toBeVisible(); // still open: nothing picked
+  await expect(picker.getByRole('option', { name: new RegExp(`^${sambar.name}`) })).toBeVisible(); // still open: nothing picked
   await checkPage(page);
 
   // The recipe itself.
-  if (isPhone(page)) await picker.getByRole('searchbox').fill(powder.name);
-  else await page.getByLabel('Ingredient 1', { exact: true }).fill(powder.name);
+  await page.getByLabel('Ingredient 1', { exact: true }).fill(powder.name);
   await expect(picker.getByText('A recipe can’t use itself.')).toBeVisible();
+});
+
+test('the pick-list opens while you type: other names, recipe counts, keys, and + New ingredient last (0.6)', async ({ page }) => {
+  const drum = await makeFood(page, unique('Drumsticks'), 'murungakkai');
+  await makeRecipe(page, { name: unique('Drum curry'), lines: [{ words: 'drumsticks', food_id: drum.id }] });
+  const recipe = await makeRecipe(page, { name: unique('Pick list') });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
+  const box = page.getByLabel('Ingredient 1', { exact: true });
+  await expect(box).toHaveAttribute('role', 'combobox');
+  await expect(box).toHaveAttribute('aria-expanded', 'false');
+  const word = drum.name.split(' ')[0].slice(0, 5);
+  await box.fill(word);
+  await expect(box).toHaveAttribute('aria-expanded', 'true');
+  const list = page.getByRole('listbox', { name: 'Matching ingredients' });
+  const option = list.getByRole('option', { name: new RegExp(`^${drum.name}`) });
+  await expect(option).toContainText('also called murungakkai');
+  await expect(option).toContainText('in 1 recipe');
+  // + New ingredient is the last option.
+  await expect(list.getByRole('option').last()).toHaveText(`+ New ingredient “${word}”`);
+  // Typing alone links nothing; the arrow keys and Enter pick, and the line shows the full name.
+  await expect(page.getByText('Not linked')).toBeVisible();
+  await box.press('ArrowDown');
+  await expect(list.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+  await box.press('Enter');
+  await expect(box).toHaveValue(drum.name);
+  await expect(box).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByText('Not linked')).toHaveCount(0);
+  // Escape shuts the list and keeps the words.
+  await box.fill(`${drum.name} leaves`);
+  await expect(box).toHaveAttribute('aria-expanded', 'true');
+  await box.press('Escape');
+  await expect(box).toHaveAttribute('aria-expanded', 'false');
+  await expect(box).toHaveValue(`${drum.name} leaves`);
+  await checkPage(page);
+});
+
+test('Enter in the last box adds a new line, and the order is Amount, Unit, Ingredient, Note (0.6)', async ({ page }) => {
+  const recipe = await makeRecipe(page, { name: unique('Enter adds') });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
+  const boxes = page.locator('[data-line]').first().locator('input:visible, select:visible');
+  const labels = await boxes.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''));
+  expect(labels).toEqual([
+    'Amount for ingredient 1',
+    'Unit for ingredient 1',
+    'Ingredient 1',
+    'Note for ingredient 1',
+  ]);
+  await expect(page.locator('[data-line]')).toHaveCount(1);
+  await page.getByLabel('Note for ingredient 1').fill('rinsed');
+  await page.getByLabel('Note for ingredient 1').press('Enter');
+  await expect(page.locator('[data-line]')).toHaveCount(2);
+  await expect(page.getByLabel('Ingredient 2', { exact: true })).toBeFocused();
+  // Enter in a box that is not the last one adds nothing.
+  await page.getByLabel('Note for ingredient 1').press('Enter');
+  await expect(page.locator('[data-line]')).toHaveCount(2);
 });
 
 test('a recipe used as an ingredient is saved as a recipe line', async ({ page }) => {
   const powder = await makeRecipe(page, { name: unique('Podi'), serves: null });
   const outer = await makeRecipe(page, { name: unique('Outer') });
   await page.goto(`/recipes/${outer.id}/edit`);
-  await page.getByRole('button', { name: '+ Add ingredient' }).first().click();
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
   await pickIngredient(page, 1, powder.name, powder.name);
   await page.getByLabel('Amount for ingredient 1').fill('2');
   await page.getByLabel('Unit for ingredient 1').selectOption('tbsp');
@@ -325,15 +358,10 @@ test('a recipe used as an ingredient is saved as a recipe line', async ({ page }
 test('+ New ingredient opens "How do you count it?", then the line is linked', async ({ page }) => {
   const recipe = await makeRecipe(page, { name: unique('New ing') });
   await page.goto(`/recipes/${recipe.id}/edit`);
-  await page.getByRole('button', { name: '+ Add ingredient' }).first().click();
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
   const fresh = unique('Kokum');
-  if (isPhone(page)) {
-    await page.getByRole('button', { name: /^Ingredient 1:/ }).click();
-    await page.getByRole('dialog', { name: 'Pick an ingredient' }).getByRole('searchbox').fill(fresh);
-  } else {
-    await page.getByLabel('Ingredient 1', { exact: true }).fill(fresh);
-  }
-  await page.getByRole('button', { name: new RegExp(`^\\+ New ingredient “${fresh}”`) }).click();
+  await page.getByLabel('Ingredient 1', { exact: true }).fill(fresh);
+  await page.getByRole('option', { name: new RegExp(`^\\+ New ingredient “${fresh}”`) }).click();
   await expect(page.getByRole('heading', { name: 'How do you count it?' })).toBeVisible();
   await page.getByRole('radio', { name: /By weight/ }).check();
   await page.getByRole('button', { name: /^(Add|Save|Done|Make)/ }).last().click();
@@ -639,6 +667,21 @@ test('Delete from Edit, reached from the recipe page, lands on All recipes, not 
   await expect(page.getByText(`Deleted ${name}`)).toBeVisible();
   await expect(page).toHaveURL('/recipes');
   await expect(page.getByRole('heading', { name: before.name, level: 1 })).toHaveCount(0);
+});
+
+test('Delete recipe in the recipe page’s ⋯ menu: at once, "Deleted …" with Undo, on Recipes (0.6)', async ({ page }) => {
+  const name = unique('Doomed');
+  const recipe = await makeRecipe(page, { name });
+  await page.goto(`/recipes/${recipe.id}`);
+  await page.getByRole('button', { name: `More for ${name}` }).click();
+  await expect(page.getByRole('menuitem')).toHaveCount(1);
+  await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
+  await expect(page).toHaveURL('/recipes');
+  await expect(page.getByText(`Deleted ${name}`)).toBeVisible();
+  expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(404);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText(`Undone: Deleted ${name}`)).toBeVisible();
+  expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(200);
 });
 
 test('Ctrl+S saves on a computer', async ({ page }) => {

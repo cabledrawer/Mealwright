@@ -2,7 +2,7 @@
   // The ⋯ menu on a computer's shopping row (mockup ShopMove-Desktop): Change amount · Move to… ·
   // Remove from list…. A menu you open with the button, move through with the arrow keys, choose
   // from with Enter, and leave with Esc (focus goes back to the button). Each choice closes it
-  // and does the thing the row's own buttons do.
+  // and does the thing the row's own buttons do. The recipe page uses it too (Delete recipe).
   import { tick } from 'svelte';
 
   let {
@@ -11,7 +11,13 @@
   }: {
     /** The ingredient: "More for Coriander". */
     name: string;
-    items: { label: string; danger?: boolean; run: (opener: HTMLElement) => void }[];
+    items: {
+      label: string;
+      danger?: boolean;
+      /** A thin rule above this choice (not drawn when it is the first). */
+      divider?: boolean;
+      run: (opener: HTMLElement) => void;
+    }[];
   } = $props();
 
   const uid = $props.id();
@@ -76,7 +82,8 @@
   >
   {#if open}
     <div class="menu" id="{uid}-menu" role="menu" aria-label={name} bind:this={menu}>
-      {#each items as item (item.label)}
+      {#each items as item, i (item.label)}
+        {#if item.divider && i > 0}<span class="rule" aria-hidden="true"></span>{/if}
         <button
           type="button"
           role="menuitem"
@@ -150,7 +157,14 @@
   }
 
   .menu .danger {
+    background: var(--color-warning);
     color: var(--color-warning-text);
     font-weight: var(--weight-bold);
+  }
+
+  .rule {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--color-divider);
   }
 </style>

@@ -14,6 +14,12 @@ import RecipeScreen from './RecipeScreen.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
+const navigation = vi.hoisted(() => ({ go: vi.fn(async () => {}) }));
+vi.mock('#lib/recipes/paths.js', async (original) => ({
+  ...(await original<typeof import('#lib/recipes/paths.js')>()),
+  go: navigation.go
+}));
+
 const NB = ' ';
 
 const line = (id: number, extra: Partial<RecipeLine> = {}): RecipeLine => ({
@@ -136,6 +142,7 @@ describe('the recipe page', () => {
     toasts.dismiss();
     network.reset();
     ingredientEditor.close();
+    navigation.go.mockClear();
   });
 
   afterEach(async () => {
@@ -162,7 +169,7 @@ describe('the recipe page', () => {
     // Numbered through the headings: the tempering starts at 2.
     const lists = document.querySelectorAll('ol');
     expect([...lists].map((ol) => ol.getAttribute('start'))).toEqual(['1', '2']);
-    // Edit opens the editor (Delete is in there); the rest is not built yet, so not there.
+    // Edit opens the editor; Delete is in the ⋯ menu, shut here; the rest is not built yet.
     await expect
       .element(page.getByRole('link', { name: 'Edit', exact: true }))
       .toHaveAttribute('href', '/recipes/1/edit');
@@ -170,6 +177,75 @@ describe('the recipe page', () => {
     for (const hidden of ['Plan it', 'Start cooking', 'Cook once', 'Delete']) {
       expect(text).not.toContain(hidden);
     }
+  });
+
+  describe('the ⋯ menu: Delete recipe', () => {
+    const change = { id: 31, summary: 'Deleted Sambar' };
+
+    it('opens with Delete recipe in red and no choice for things not built yet', async () => {
+      await open();
+      const more = page.getByRole('button', { name: 'More for Sambar' });
+      await expect.element(more).toHaveAttribute('aria-expanded', 'false');
+      await more.click();
+      const items = page.getByRole('menuitem');
+      await expect.element(items).toHaveLength(1);
+      await expect.element(items.first()).toHaveTextContent('Delete recipe');
+      const menu = document.querySelector('[role="menu"]')!;
+      expect(menu.textContent).not.toContain('Cook mode');
+      // Red: the warning text colour.
+      const probe = document.body.appendChild(document.createElement('span'));
+      probe.style.color = 'var(--color-warning-text)';
+      expect(getComputedStyle(menu.querySelector('[role="menuitem"]')!).color).toBe(
+        getComputedStyle(probe).color
+      );
+    });
+
+    it('deletes at once with no question, says "Deleted Sambar" with Undo, and lands on Recipes', async () => {
+      await open({}, STOCK, { 'DELETE /recipes/1': [200, { change }] });
+      await page.getByRole('button', { name: 'More for Sambar' }).click();
+      await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
+      await vi.waitFor(() =>
+        expect(server.requests.some((r) => r.method === 'DELETE' && r.path === '/recipes/1')).toBe(
+          true
+        )
+      );
+      await expect.element(page.getByText('Deleted Sambar')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+      await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes'));
+    });
+
+    it('Undo asks the server to undo that change', async () => {
+      await open({}, STOCK, {
+        'DELETE /recipes/1': [200, { change }],
+        'POST /changes/31/undo': [
+          200,
+          {
+            result: 'done',
+            message: 'Undone.',
+            brought_back: [],
+            undone: { kind: 'recipe_deleted' }
+          }
+        ]
+      });
+      await page.getByRole('button', { name: 'More for Sambar' }).click();
+      await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await vi.waitFor(() =>
+        expect(
+          server.requests.some((r) => r.method === 'POST' && r.path === '/changes/31/undo')
+        ).toBe(true)
+      );
+    });
+
+    it('says so and stays when the server refuses', async () => {
+      await open({}, STOCK, {
+        'DELETE /recipes/1': [500, { detail: 'Something went wrong. Try again.' }]
+      });
+      await page.getByRole('button', { name: 'More for Sambar' }).click();
+      await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
+      await expect.element(page.getByText('Something went wrong. Try again.')).toBeVisible();
+      expect(navigation.go).not.toHaveBeenCalled();
+    });
   });
 
   it('says where an imported recipe came from: the site as a link, and the author', async () => {
