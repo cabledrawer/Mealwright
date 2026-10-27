@@ -382,6 +382,19 @@ Written by Claude Code on 27 Oct from the mockups `Shop`, `Desktop-Shop` and the
 - Offline (the card stays, its buttons are switched off): "You’re offline. Got it and + Add work when you’re back online."
 - Not shown: nothing planned, everything in stock, or every staple answered: the card is not there, and the line above says nothing about the plan.
 
+## 22. Today (0.6 PR 6; every line here is proposed, for cabledrawer)
+
+Written by Claude Code on 27 Oct from the mockups `Main`, `Desktop-Today`, `MoveIt-*`, `CookedMeal-*` and their dark twins. "Did you cook Sambar?", "Cooked it · Didn't · Move it", "Nothing changes in the pantry until you say." and "Your kitchen is ready" with its three steps are the spec's and the mockups' (cabledrawer 17 Oct).
+
+- Page: Today · the date ("Saturday 25 October") · + Import a recipe (computer) · tubs left · use soon · to buy · Eating today · Use soon · Find a recipe · Next cook · Sunday · Shop list · This week · Open plan · "2 meals" · "1 meal" · "Nothing planned".
+- Empty parts: "Nothing planned for today" with "Plan a meal and it shows here." and the button Plan a meal · "Nothing needs using up soon."
+- The card: "Yesterday · dinner" · "Fri 23 · lunch" · "Did you cook Sambar?" · Cooked it · Didn’t · Move it · "1 more meal to answer" · "3 more meals to answer".
+- Cooked it sheet: "Cooked Sambar" · "Made 4 portions · as planned" · "Your pantry isn’t changed by this yet." · Any left over? · "Optional · makes tubs for later" · None · 1 tub · 3 tubs · Fewer tubs · More tubs · Fridge · Freezer · "Use by Tue 27 Oct · 2 days left" · Change · Cancel · Cooked it.
+- Move it sheet: "Move Sambar to…" · "was yesterday dinner" · Quick picks · Today · Dinner · Tomorrow · Dinner · Or pick a day · Day · Meal · free · adds alongside (with the first thing there) · already done · was here · "You can undo a move." · Move to today · Move to tomorrow · Move to Wed 28 · Cancel.
+- Toasts (the server's sentence, with Undo): "Cooked Sambar (Dinner on Sat 24 Oct)" · "Cooked Sambar (…) and kept 2 tubs of leftovers" · "Didn’t cook Sambar (…)" · "Moved Sambar from Dinner on Sat 24 Oct to Lunch on Sun 25 Oct".
+- Offline: "You’re offline. Today changes when you’re back online. This is what was saved last time." (the screen note when never loaded: "Today needs your Mealwright server. Your shopping list works offline.").
+- Refusals (server): That meal has already been dealt with, so it can’t be changed here. · That meal hasn’t happened yet. · Only a recipe can have leftovers. · There’s no fridge in your places yet. · Sambar already has 11 tubs, and a batch holds at most 12.
+
 ## 18. Not covered yet (for later versions of this list)
 
 Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

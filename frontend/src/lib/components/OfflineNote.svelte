@@ -6,8 +6,10 @@
 
   let {
     screen
-  }: { screen: 'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' | 'Plan' } =
-    $props();
+  }: {
+    screen:
+      'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' | 'Plan' | 'Today';
+  } = $props();
 </script>
 
 <section class="offline" aria-labelledby="offline-note-title">
