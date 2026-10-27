@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Edit recipe · ingredient lines and pick-list (0.6)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: {{ lay.w }}; height: {{ lay.h }}; padding: 0 {{ lay.side }}; box-sizing: border-box; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid {{ c.edge }}">
+<a href="Recipe.dc.html" style="font-size: 15px; font-weight: 700; text-decoration: none; color: {{ c.green }}; min-height: 44px; display: flex; align-items: center">Cancel</a>
+<span style="font-size: 16px; font-weight: 800">Edit Sambar</span>
+<a href="Recipe.dc.html" style="font-size: 15px; font-weight: 800; text-decoration: none; color: {{ c.green }}; min-height: 44px; display: flex; align-items: center">Save</a>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em">Ingredients</span>
+<div style="display: grid; grid-template-columns: 56px 56px minmax(0, 1fr) 70px; gap: 6px; font-size: 11px; font-weight: 800; color: {{ c.muted }}; letter-spacing: 0.06em; padding: 0 2px"><span>AMOUNT</span><span>UNIT</span><span>INGREDIENT</span><span>NOTE</span></div>
+
+<div style="display: grid; grid-template-columns: 56px 56px minmax(0, 1fr) 70px; gap: 6px">
+<input aria-label="Amount, line 1" value="200" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<input aria-label="Unit, line 1" value="g" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<span style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; padding: 0 8px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{ c.green }}" aria-hidden="true"></span>Toor dal</span>
+<input aria-label="Note, line 1" value="washed" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.muted }}; padding: 0 8px; font: 500 13px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+</div>
+
+<div style="display: grid; grid-template-columns: 56px 56px minmax(0, 1fr) 70px; gap: 6px">
+<input aria-label="Amount, line 2" value="2" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<input aria-label="Unit, line 2" value="" placeholder="–" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<span style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; padding: 0 8px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{ c.green }}" aria-hidden="true"></span>Onions</span>
+<input aria-label="Note, line 2" value="sliced" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.muted }}; padding: 0 8px; font: 500 13px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+</div>
+
+<div style="position: relative">
+<div style="display: grid; grid-template-columns: 56px 56px minmax(0, 1fr) 70px; gap: 6px">
+<input aria-label="Amount, line 3" value="6" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<input aria-label="Unit, line 3" value="" placeholder="–" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 600 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<input aria-label="Ingredient, line 3" value="dru" aria-expanded="true" style="min-height: 44px; border: 2px solid {{ c.green }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.ink }}; padding: 0 8px; font: 700 14px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+<input aria-label="Note, line 3" value="" placeholder="note" style="min-height: 44px; border: 1px solid {{ c.edge }}; border-radius: 10px; background: {{ c.card }}; color: {{ c.muted }}; padding: 0 8px; font: 500 13px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; width: 100%">
+</div>
+<div role="listbox" aria-label="Matching ingredients" style="position: absolute; top: 50px; left: 62px; right: 0; z-index: 2; background: {{ c.menu }}; border-radius: 14px; box-shadow: 0 14px 36px rgba(0,0,0,0.22); padding: 6px; display: flex; flex-direction: column">
+<button role="option" aria-selected="true" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 52px; padding: 0 10px; border: none; border-radius: 10px; background: {{ c.selBg }}; color: {{ c.ink }}; font: 700 15px 'Plus Jakarta Sans', sans-serif; text-align: left">Drumsticks<span style="font-size: 12px; font-weight: 500; color: {{ c.muted }}">also called murungakkai · in 2 recipes</span></button>
+<button role="option" aria-selected="false" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 52px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: {{ c.ink }}; font: 700 15px 'Plus Jakarta Sans', sans-serif; text-align: left">Drumstick leaves<span style="font-size: 12px; font-weight: 500; color: {{ c.muted }}">in 1 recipe</span></button>
+<span style="height: 1px; background: {{ c.line }}; margin: 4px 6px"></span>
+<button role="option" aria-selected="false" style="min-height: 46px; padding: 0 10px; border: none; border-radius: 10px; background: transparent; color: {{ c.green }}; font: 700 14px 'Plus Jakarta Sans', sans-serif; text-align: left">+ New ingredient “dru”</button>
+</div>
+</div>
+
+<div style="height: 168px" aria-hidden="true"></div>
+<button style="align-self: flex-start; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px dashed {{ c.green }}; background: transparent; color: {{ c.green }}; font: 700 14px 'Plus Jakarta Sans', sans-serif">+ Add line</button>
+<span style="font-size: 12px; color: {{ c.muted }}">Typing a name you already have links it (green dot). Enter on the last box adds a new line.</span>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"layout":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',menu:'#FFFFFF',ink:'#17201C',muted:'#5B655F',edge:'#D3D8D3',line:'#E8EBE7',green:'#2E7D5B',selBg:'#E4F1EA'};
+const D = {bg:'#111614',card:'#1B221F',menu:'#222B27',ink:'#E9EEEB',muted:'#A3AFA8',edge:'#33403A',line:'#2A332E',green:'#6FCF9E',selBg:'#1F3A2D'};
+const lay = (this.props.layout ?? 'phone') === 'desktop' ? {w:'1440px',h:'900px',side:'calc(50% - 320px)'} : {w:'390px',h:'844px',side:'0px'};
+return { c: (this.props.theme ?? 'light') === 'dark' ? D : L, lay };
+}
+}
+</script>
+</body>
+</html>
