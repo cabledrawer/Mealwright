@@ -74,6 +74,8 @@
   function discard() {
     if (target) void goOn(target);
   }
+
+  const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
 <div class="review" class:phone>
@@ -142,8 +144,7 @@
       {#if review.photo.state === 'off'}
         <b>Photo not downloaded.</b> Photo downloads are off in
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-        <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}">Settings → Privacy</a>. You can add
-        your own photo later.
+        <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
       {:else}
         <b>Photo not downloaded</b>
         — {review.photo.message} You can add your own photo later.
