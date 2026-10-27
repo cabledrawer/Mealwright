@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Import review · US site, pints switch (0.6)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: {{ lay.w }}; height: {{ lay.h }}; padding: 0 {{ lay.side }}; box-sizing: border-box; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; background: {{ c.bar }}; border-bottom: 1px solid {{ c.edge }}">
+<a href="Import05-Phone.dc.html" style="font-size: 15px; font-weight: 700; text-decoration: none; color: {{ c.green }}; min-height: 44px; display: flex; align-items: center">Back</a>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 800">Import review</span><span style="font-size: 12px; color: {{ c.muted }}; font-weight: 600">allrecipes.com</span></span>
+<span style="width: 44px"></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Creamy rice pudding</span>
+
+<div style="background: {{ c.noteBg }}; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 800; color: {{ c.noteInk }}">This looks like a US recipe</span><span style="font-size: 13px; color: {{ c.noteInk }}">Read its pints as US pints (473 ml)</span></span>
+<button role="switch" aria-checked="true" aria-label="Read pints as US pints" style="width: 44px; height: 26px; border: none; border-radius: 13px; background: {{ c.green }}; position: relative; padding: 0; flex: 0 0 auto"><span style="position: absolute; top: 2px; left: 20px; width: 22px; height: 22px; border-radius: 11px; background: {{ c.knob }}"></span></button>
+</span>
+<span style="font-size: 12px; color: {{ c.noteMuted }}">For this recipe only. Your setting stays UK pints.</span>
+</div>
+
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em">Ingredients · 4</span>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 2px 14px">
+<div style="display: flex; flex-direction: column; justify-content: center; min-height: 60px; border-bottom: 1px solid {{ c.line }}; background: {{ c.hl }}; margin: 0 -14px; padding: 0 14px"><span style="font-size: 15px; font-weight: 700">946 ml whole milk</span><span style="font-size: 12px; color: {{ c.muted }}">Page says “2 pints milk” · US pints</span></div>
+<div style="display: flex; flex-direction: column; justify-content: center; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 15px; font-weight: 700">100 g pudding rice</span><span style="font-size: 12px; color: {{ c.muted }}">Page says “½ cup short-grain rice”</span></div>
+<div style="display: flex; flex-direction: column; justify-content: center; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><span style="font-size: 15px; font-weight: 700">50 g sugar</span><span style="font-size: 12px; color: {{ c.muted }}">Page says “¼ cup sugar”</span></div>
+<div style="display: flex; flex-direction: column; justify-content: center; min-height: 56px"><span style="font-size: 15px; font-weight: 700">1 tsp vanilla extract</span><span style="font-size: 12px; color: {{ c.muted }}">Linked · Vanilla extract</span></div>
+</div>
+<span style="font-size: 12px; color: {{ c.muted }}; padding: 0 4px">Switch it off and the milk reads 1.14 L (UK pints).</span>
+</div>
+
+<div style="padding: 10px 16px 28px; border-top: 1px solid {{ c.edge }}; background: {{ c.bar }}">
+<a href="Recipe.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Save</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"layout":{"editor":"enum","options":["phone","desktop"],"default":"phone"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',edge:'#E3E6E2',line:'#E8EBE7',green:'#2E7D5B',knob:'#FFFFFF',btn:'#17201C',btnInk:'#FFFFFF',noteBg:'#E6EEF8',noteInk:'#16365C',noteMuted:'#34557D',hl:'#F1F6FC'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',edge:'#2A332E',line:'#26302B',green:'#6FCF9E',knob:'#111614',btn:'#E9EEEB',btnInk:'#111614',noteBg:'#18273A',noteInk:'#D6E6FA',noteMuted:'#A9C2E0',hl:'#1A2430'};
+const lay = (this.props.layout ?? 'phone') === 'desktop' ? {w:'1440px',h:'900px',side:'calc(50% - 320px)'} : {w:'390px',h:'844px',side:'0px'};
+return { c: (this.props.theme ?? 'light') === 'dark' ? D : L, lay };
+}
+}
+</script>
+</body>
+</html>
