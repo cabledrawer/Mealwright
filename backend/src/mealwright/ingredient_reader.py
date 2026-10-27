@@ -487,8 +487,10 @@ def _names_something(bracket: str) -> bool:
     """Whether a bracket's first part can be a name: "ripe bananas, well mashed" can; a measure
     such as "about 1 lb" or "about 2 cups" can't (no digit, and no note word first)."""
     first = re.split(r"[,(]", bracket, maxsplit=1)[0].split()
-    return bool(first) and not any(c.isdigit() for c in " ".join(first)) and (
-        _clean_token(first[0]) not in NOTE_HINTS
+    return (
+        bool(first)
+        and not any(c.isdigit() for c in " ".join(first))
+        and (_clean_token(first[0]) not in NOTE_HINTS)
     )
 
 

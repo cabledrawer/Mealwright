@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.recipe_schemas import (
     MAX_LINES,
     MAX_STEPS,
@@ -17,7 +18,6 @@ from mealwright.api.v1.recipe_schemas import (
     RecipeStepIn,
     SizeRef,
 )
-from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name
