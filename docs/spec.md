@@ -457,6 +457,13 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 - **The new error messages** in `docs/dev/api-0.2.md` section 6.3a.
 - **Split:** the tables and reading the plan came first (PR 71); writing to the plan, with Undo, comes with the Week and Month screens.
 
+**Decided for Today (cabledrawer 27 Oct):** cabledrawer OK'd every choice in 0.6 PR 6 that was marked "proposed, for cabledrawer". In plain words:
+
+- **Cooked it** shows the portions and the optional "Any left over?" only. Taking the ingredients out of the pantry, and the full Cooked review, come in 0.7. "Any left over?" is about one recipe in the meal; a tub's use-by counts from the meal's day.
+- **Move it adds the food alongside** a meal that already has some, and keeps the old meal as the record: it is marked moved and still holds its slot (cabledrawer: "which is what I meant"). The items are copied to the new meal; a tub moves with them. A move goes to today or later, never to a past day.
+- **Waiting meals:** Today asks about planned meals from the last 7 days, one card at a time, newest first, with "N more". A meal can be answered on its day or after it, never before.
+- The rest as built: Use soon tubs are tubs in no meal; To buy comes from the list; the offline Today copy is kept on the device for the signed-in login only, and wiped on sign-out.
+
 ### Recipes (decided 17 Oct)
 
 - **Recipes inside recipes, v1.0 (cabledrawer 17 Oct):** a recipe can list another recipe as an ingredient (sambar → homemade sambar powder; dosa → dosa batter). Making the inner recipe puts it into the pantry like any food ("Dosa batter · 1.5 litres · fridge") and the outer recipe takes from it. If there's none, the app offers "Make batter first?". The shopping list works through the inner recipe's ingredients only when there's not enough of it made.
