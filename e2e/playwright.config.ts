@@ -94,6 +94,10 @@ export default defineConfig({
     { name: 'phone 0.6 today', testMatch: 'today.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 today', testMatch: 'today.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 today', testMatch: 'today.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Pints: the household's pint in Settings, and the review's US-recipe card (0.6, PR 7).
+    { name: 'phone 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },

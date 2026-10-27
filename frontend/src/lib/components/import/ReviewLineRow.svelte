@@ -25,6 +25,8 @@
   }: { flow: ImportFlow; index: number; line: ReviewLine; problem?: string | null } = $props();
 
   const uid = $props.id();
+  /** " · US pints" after a line that says pints: which pint it is read with. */
+  const pintWords = $derived(line.pint_ml ? ` · ${flow.pints === 'us' ? 'US' : 'UK'} pints` : '');
   let picking = $state(false);
   const choice = $derived(flow.choices[index] ?? null);
   const open = $derived(line.label === 'to_confirm' || line.label === 'needs_you');
@@ -72,8 +74,11 @@
     class="line"
     class:confirm={line.label === 'to_confirm' && !choice}
     class:needs={line.label === 'needs_you' && !choice}
+    class:pints={!!line.pint_ml && flow.offersPints}
   >
-    <p class="written"><span class="visually-hidden">As written: </span>{line.written}</p>
+    <p class="written">
+      <span class="visually-hidden">As written: </span>{line.written}{pintWords}
+    </p>
 
     {#if !open}
       <p class="read">
@@ -245,7 +250,8 @@
   }
 
   .line.confirm,
-  .line.needs {
+  .line.needs,
+  .line.pints {
     margin: 0 calc(-1 * var(--space-6));
     padding-right: var(--space-6);
     padding-left: var(--space-6);
@@ -257,6 +263,11 @@
 
   .line.needs {
     background: var(--color-warning);
+  }
+
+  /* A line the US-pints switch changes (mockup ImportPints-*). */
+  .line.pints:not(.confirm):not(.needs) {
+    background: var(--color-changed);
   }
 
   .written {

@@ -178,11 +178,16 @@ export interface UndoResult {
   brought_back: { id: number; name: string }[];
 }
 
+/** The household's pint (0.6 import pints). */
+export type Pints = 'uk' | 'us';
+
 export interface Household {
   name: string;
   time_zone: string | null;
   cup_ml: 240 | 250 | null;
   cup_ml_used: number;
+  /** Which pint a recipe's "pint" is: UK (568 ml) or US (473 ml). */
+  pints: Pints;
   undo_days: number;
   history_months: number;
   use_soon_days: number;

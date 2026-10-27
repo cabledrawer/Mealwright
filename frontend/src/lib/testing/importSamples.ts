@@ -139,11 +139,58 @@ export const SAMPLE_REVIEW: ImportReview = {
   left_out: [{ heading: 'Tips', lines: 4 }]
 };
 
+/** A US recipe site read for a UK household (mockup ImportPints-*): its pints are read as US
+ *  pints, and the card offers the switch back. */
+export const PINTS_REVIEW: ImportReview = {
+  ...SAMPLE_REVIEW,
+  source: { kind: 'link', url: 'https://www.allrecipes.com/recipe/1/x/', site: 'allrecipes.com' },
+  name: 'Creamy rice pudding',
+  description: null,
+  author: null,
+  time_minutes: null,
+  serves: null,
+  tags: [],
+  nutrition: { kcal: null, protein: null, carbs: null, fat: null, fibre: null },
+  lines: [
+    {
+      ...base,
+      written: '2 pints whole milk',
+      words: 'whole milk',
+      amount: 946,
+      amount_text: '946',
+      unit: 'ml',
+      note: 'as written: 2 pints whole milk',
+      food: { id: 7, name: 'Whole milk' },
+      place: 'Fridge',
+      matched_by: 'whole milk',
+      new_ingredient: guess('Whole milk', 'volume'),
+      learn_name: 'whole milk',
+      pint_ml: { uk_ml: 1136, us_ml: 946 }
+    },
+    {
+      ...base,
+      written: '1 tsp vanilla extract',
+      words: 'vanilla extract',
+      amount: 1,
+      amount_text: '1',
+      unit: 'tsp',
+      food: { id: 8, name: 'Vanilla extract' },
+      place: 'Cupboard',
+      new_ingredient: guess('Vanilla extract', 'volume'),
+      learn_name: 'vanilla extract'
+    }
+  ],
+  counts: { matched: 2, to_confirm: 0, needs_you: 0, staple: 0 },
+  left_out: [],
+  pints: { household: 'uk', us_site: true, reading: 'us' }
+};
+
 /** A flow showing the review (the places for "New ingredient" come from the page). */
 export function reviewFlow(over: Partial<ImportReview> = {}): ImportFlow {
   const flow = new ImportFlow();
   flow.text = 'https://kitchen.example/sambar';
   flow.review = { ...SAMPLE_REVIEW, ...over };
+  flow.pints = flow.review.pints?.reading ?? 'uk';
   flow.name = flow.review.name;
   flow.serves = String(flow.review.serves ?? '');
   flow.minutes = String(flow.review.time_minutes ?? '');

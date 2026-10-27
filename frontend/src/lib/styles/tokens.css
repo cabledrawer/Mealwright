@@ -63,6 +63,10 @@
   --color-label: #3f4843;
   --color-note: #e4f1ea; /* reassuring note: "This login lives only on your server" */
   --color-note-text: #1f5c42;
+  --color-info: #e6eef8; /* a plain-fact card: "This looks like a US recipe" (mockup ImportPints) */
+  --color-info-text: #16365c;
+  --color-info-muted: #34557d;
+  --color-changed: #f1f6fc; /* a line that the card's switch changes */
   --color-warning: #fde9e1; /* something needs attention, calmly */
   --color-warning-text: #9c320b;
   /* A button that removes something: white on this red passes AA (mockups ShopRows-*). */
@@ -256,6 +260,10 @@
   --color-label: #c9d2cd;
   --color-note: #1f3a2d;
   --color-note-text: #8fe0b5;
+  --color-info: #18273a;
+  --color-info-text: #d6e6fa;
+  --color-info-muted: #a9c2e0;
+  --color-changed: #1a2430;
   --color-warning: #3e2119;
   --color-warning-text: #ff9b76;
   --color-danger: #c8442f;

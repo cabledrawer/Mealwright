@@ -1,9 +1,12 @@
 // The household's settings (contract 6.3).
 
 import { api } from '#lib/api.js';
-import type { Household } from './types';
+import type { Household, Pints } from './types';
 
 export const getHousehold = () => api<Household>('GET', '/household');
+
+/** Settings: which pint a recipe's "pint" is (an admin only; the server refuses a member). */
+export const changePints = (pints: Pints) => api<Household>('PATCH', '/household', { pints });
 
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml

@@ -495,3 +495,13 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - When a move was not made, a toast with the server's sentence: That list was removed, so Coriander wasn’t moved. · That shop was removed, so Coriander wasn’t moved.
   - Quiet notes on the row (sync protocol section 8): Wren had ticked Coriander, so it wasn’t moved. (no Undo) · Wren moved Coriander to Lidl (Undo puts it back where you had it) · Tess had moved Coriander, so your change wasn’t kept. · Tess had moved this. Your tick still went into the pantry.
 
+## 23. Import fixes and pints (0.6 PR 7; every line here is proposed, for cabledrawer)
+
+Written by Claude Code on 27 Oct. The card's words are from the mockups `ImportPints-*` (cabledrawer 24 Oct: "looks good"); the Settings row is not drawn in any mockup.
+
+- The review's card: **This looks like a US recipe** · the switch **Read its pints as US pints (473 ml)** (on) · **For this recipe only. Your setting stays UK pints.**
+- Under a line that says pints: **2 pints whole milk · US pints** (or **· UK pints**).
+- The hint under the ingredients: **Switch it off and the whole milk reads 1.14 L (UK pints).** and **Switch it on and the whole milk reads 946 ml (US pints).**
+- Settings, a new section **Amounts**, the row **Read pints as US pints** with **A pint is 568 ml (UK). Switch on for 473 ml (US).** (off) or **A pint is 473 ml (US).** (on); for a member, **Only an admin can change this.** added; when it can't be saved, **Only the household’s admin can change this.** or **Couldn’t reach your Mealwright server. Nothing was changed.**
+- A site that said no to the page (401, 403 or 429): **That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.**
+

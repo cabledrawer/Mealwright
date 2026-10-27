@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
+  import Switch from '#lib/components/Switch.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
+  import { ApiError } from '#lib/api.js';
+  import { changePints, getHousehold } from '#lib/client/household.js';
+  import type { Pints } from '#lib/client/types.js';
   import { network } from '#lib/network.svelte.js';
   import {
     cantCheckText,
@@ -20,6 +24,35 @@
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
+
+  // --- Pints (0.6 import; the words are proposed, for cabledrawer) -----------------------------------
+  /** The household's pint, once the server has said (null until then, and when it can't). */
+  let pints = $state<Pints | null>(null);
+  let pintsProblem = $state<string | null>(null);
+  const admin = who?.role === 'admin';
+
+  onMount(() => {
+    getHousehold().then(
+      (household) => (pints = household.pints),
+      () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
+    );
+  });
+
+  /** The switch flips at once and is sent; if it can't be saved it flips back and says so. */
+  async function setPints(us: boolean) {
+    const before = pints;
+    pintsProblem = null;
+    pints = us ? 'us' : 'uk';
+    try {
+      pints = (await changePints(pints)).pints;
+    } catch (error) {
+      pints = before;
+      pintsProblem =
+        error instanceof ApiError && error.status !== 0
+          ? error.detail
+          : 'Couldn’t reach your Mealwright server. Nothing was changed.';
+    }
+  }
 
   let busy = $state(false);
   /** Changes not sent yet: the warning is showing. */
@@ -133,6 +166,32 @@
       </div>
     </div>
   </section>
+
+  {#if pints !== null && !network.offline}
+    <section class="section" aria-labelledby="amounts">
+      <h2 id="amounts">Amounts</h2>
+      <div class="card">
+        <div class="row">
+          <span class="who">
+            <span class="label" id="pints-label">Read pints as US pints</span>
+            <span class="detail" id="pints-detail">
+              {pints === 'us'
+                ? 'A pint is 473 ml (US).'
+                : 'A pint is 568 ml (UK). Switch on for 473 ml (US).'}
+              {#if !admin}Only an admin can change this.{/if}
+            </span>
+          </span>
+          <Switch
+            bind:checked={() => pints === 'us', (on) => void setPints(on)}
+            labelledby="pints-label"
+            describedby="pints-detail"
+            disabled={!admin}
+          />
+        </div>
+      </div>
+      {#if pintsProblem}<p class="warning-line" role="alert">{pintsProblem}</p>{/if}
+    </section>
+  {/if}
 
   <section class="section" aria-labelledby="privacy">
     <h2 id="privacy">Privacy</h2>
@@ -279,6 +338,15 @@
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     line-height: 1.45;
+  }
+
+  .warning-line {
+    padding: var(--space-5) 14px;
+    border-radius: var(--radius-field);
+    background: var(--color-warning);
+    color: var(--color-warning-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
   }
 
   .lose {

@@ -8,6 +8,7 @@ import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
+import { PINTS_REVIEW, reviewFlow } from '#lib/testing/importSamples.js';
 import AlreadySheet from './AlreadySheet.svelte';
 import ImportStart from './ImportStart.svelte';
 import ReviewScreen from './ReviewScreen.svelte';
@@ -338,6 +339,56 @@ describe('Import a recipe', () => {
       await expect
         .element(page.getByText('There’s already an ingredient called Onions.').first())
         .toBeVisible();
+    });
+  });
+
+  describe('a US recipe (pints)', () => {
+    beforeEach(() => fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] }));
+
+    it('says it looks like a US recipe, with the pints switch on, and reads US pints', async () => {
+      show(reviewFlow(PINTS_REVIEW), ReviewScreen);
+      await expect.element(page.getByText('This looks like a US recipe')).toBeVisible();
+      await expect
+        .element(page.getByRole('switch', { name: 'Read its pints as US pints (473 ml)' }))
+        .toBeChecked();
+      await expect
+        .element(page.getByText('For this recipe only. Your setting stays UK pints.'))
+        .toBeVisible();
+      await expect.element(page.getByText('946 ml')).toBeVisible();
+      await expect.element(page.getByText(/2 pints whole milk · US pints/)).toBeVisible();
+      await expect
+        .element(page.getByText('Switch it off and the whole milk reads 1.14 L (UK pints).'))
+        .toBeVisible();
+    });
+
+    it('re-reads the pint lines when the switch is turned off, and back on', async () => {
+      const flow = reviewFlow(PINTS_REVIEW);
+      show(flow, ReviewScreen);
+      await page.getByRole('switch', { name: 'Read its pints as US pints (473 ml)' }).click();
+      expect(flow.pints).toBe('uk');
+      await expect.element(page.getByText('1136 ml')).toBeVisible();
+      await expect.element(page.getByText(/2 pints whole milk · UK pints/)).toBeVisible();
+      await expect
+        .element(page.getByText('Switch it on and the whole milk reads 946 ml (US pints).'))
+        .toBeVisible();
+      await page.getByRole('switch', { name: 'Read its pints as US pints (473 ml)' }).click();
+      expect(flow.pints).toBe('us');
+      await expect.element(page.getByText('946 ml')).toBeVisible();
+    });
+
+    it('shows no card on a page that does not look American, or for a US household', async () => {
+      show(
+        reviewFlow({ ...PINTS_REVIEW, pints: { household: 'uk', us_site: false, reading: 'uk' } }),
+        ReviewScreen
+      );
+      expect(document.body.textContent).not.toContain('This looks like a US recipe');
+      unmount(component!);
+      component = null;
+      show(
+        reviewFlow({ ...PINTS_REVIEW, pints: { household: 'us', us_site: true, reading: 'us' } }),
+        ReviewScreen
+      );
+      expect(document.body.textContent).not.toContain('This looks like a US recipe');
     });
   });
 

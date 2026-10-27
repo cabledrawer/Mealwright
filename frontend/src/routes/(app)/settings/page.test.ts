@@ -352,3 +352,94 @@ describe('signing out', () => {
     });
   });
 });
+
+describe('the pint switch (Amounts)', () => {
+  const mounted: ReturnType<typeof mount>[] = [];
+  const household = (pints: 'uk' | 'us') => ({ name: 'Home', pints });
+
+  function open() {
+    const target = document.body.appendChild(document.createElement('div'));
+    mounted.push(mount(Settings, { target }));
+    flushSync();
+  }
+
+  beforeEach(() => {
+    session.me = { ...ME };
+    network.reset();
+  });
+
+  afterEach(() => {
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  const pints = () => page.getByRole('switch', { name: 'Read pints as US pints' });
+
+  it('shows UK pints as off, and sends the change when it is switched on', async () => {
+    const requests = fakeApi({
+      'GET /household': [200, household('uk')],
+      'PATCH /household': [200, household('us')]
+    });
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+    await expect.element(pints()).not.toBeChecked();
+    await expect
+      .element(page.getByText('A pint is 568 ml (UK). Switch on for 473 ml (US).'))
+      .toBeVisible();
+    await pints().click();
+    await expect.element(pints()).toBeChecked();
+    await expect.element(page.getByText('A pint is 473 ml (US).')).toBeVisible();
+    expect(requests.filter((r) => r.method === 'PATCH').map((r) => r.body)).toEqual([
+      { pints: 'us' }
+    ]);
+  });
+
+  it('shows US pints as on', async () => {
+    fakeApi({ 'GET /household': [200, household('us')] });
+    open();
+    await expect.element(pints()).toBeChecked();
+  });
+
+  it('puts the switch back and says why when the server will not take it', async () => {
+    fakeApi({
+      'GET /household': [200, household('uk')],
+      'PATCH /household': [403, { detail: 'Only the household’s admin can change this.' }]
+    });
+    open();
+    await pints().click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Only the household’s admin can change this.');
+    await expect.element(pints()).not.toBeChecked();
+  });
+
+  it('puts the switch back when the server can’t be reached', async () => {
+    const requests = fakeApi({ 'GET /household': [200, household('uk')] });
+    open();
+    await expect.element(pints()).toBeVisible();
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    await pints().click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Couldn’t reach your Mealwright server. Nothing was changed.');
+    await expect.element(pints()).not.toBeChecked();
+    expect(requests.filter((r) => r.method === 'PATCH')).toEqual([]);
+  });
+
+  it('is off for a member, who is told an admin can change it', async () => {
+    session.me = { ...ME, role: 'member' };
+    fakeApi({ 'GET /household': [200, household('uk')] });
+    open();
+    await expect.element(pints()).toBeDisabled();
+    await expect.element(page.getByText(/Only an admin can change this\./)).toBeVisible();
+  });
+
+  it('is not shown when the household can’t be read', async () => {
+    fakeApi({});
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Amounts');
+  });
+});

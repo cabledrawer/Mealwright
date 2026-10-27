@@ -15,6 +15,7 @@
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import Icon from '#lib/components/Icon.svelte';
+  import Switch from '#lib/components/Switch.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
 
@@ -23,6 +24,8 @@
 
   const review = $derived(flow.review!);
   const uid = $props.id();
+  const usPints = $derived(flow.pints === 'us');
+  const other = $derived(flow.otherPints);
   const ingredientCount = $derived(review.lines.filter((l) => l.kind === 'ingredient').length);
 
   async function save() {
@@ -146,6 +149,25 @@
     </p>
   {/if}
 
+  {#if flow.offersPints}
+    <!-- A US page: its pints are read as US pints, for this recipe only (mockup ImportPints-*;
+         words proposed, for cabledrawer). -->
+    <section class="pints" aria-labelledby="{uid}-pints">
+      <div class="pints-row">
+        <p class="pints-words">
+          <span class="pints-title">This looks like a US recipe</span>
+          <span id="{uid}-pints">Read its pints as US pints (473 ml)</span>
+        </p>
+        <Switch
+          checked={usPints}
+          labelledby="{uid}-pints"
+          onchange={(on) => (flow.pints = on ? 'us' : 'uk')}
+        />
+      </div>
+      <p class="pints-foot">For this recipe only. Your setting stays UK pints.</p>
+    </section>
+  {/if}
+
   <div class="counts" aria-label="What was found">
     <span class="count good">{review.counts.matched} matched</span>
     <span class="count warn">{review.counts.to_confirm} to confirm</span>
@@ -169,11 +191,17 @@
         <ReviewLineRow
           {flow}
           {index}
-          {line}
+          line={flow.withPints(line)}
           problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
         />
       {/each}
     </ul>
+    {#if flow.offersPints && other}
+      <p class="pints-hint">
+        Switch it {usPints ? 'off' : 'on'} and the {other.words} reads {other.reads}
+        ({other.kind === 'us' ? 'US' : 'UK'} pints).
+      </p>
+    {/if}
     {#if review.lines_cut}
       <p class="note">The page had more than 200 ingredient lines. The first 200 are here.</p>
     {/if}
@@ -353,6 +381,47 @@
   .photo-note a {
     color: var(--color-accent);
     font-weight: var(--weight-bold);
+  }
+
+  .pints {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5) 14px;
+    border-radius: var(--radius-xl);
+    background: var(--color-info);
+    color: var(--color-info-text);
+  }
+
+  .pints-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+
+  .pints-words {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    font-size: var(--text-sm);
+  }
+
+  .pints-title {
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .pints-foot {
+    color: var(--color-info-muted);
+    font-size: var(--text-sm);
+  }
+
+  .pints-hint {
+    padding: 0 var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .counts {

@@ -3,7 +3,8 @@ import type { ImportReview, ReviewLine } from '#lib/client/imports.js';
 import { network } from '#lib/network.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
 import type { DraftOut } from './client/drafts';
-import { DRAFT_OFFLINE, ImportFlow, leftOutWords } from './import.svelte';
+import { PINTS_REVIEW } from '#lib/testing/importSamples.js';
+import { amountWords, DRAFT_OFFLINE, ImportFlow, leftOutWords, volumeWords } from './import.svelte';
 
 const line = (over: Partial<ReviewLine>): ReviewLine => ({
   kind: 'ingredient',
@@ -407,5 +408,106 @@ describe('the import flow', () => {
       const flow = await reviewing();
       expect(flow.body()?.draft_id).toBeNull();
     });
+  });
+});
+
+describe('pints on a US recipe', () => {
+  beforeEach(() => network.reset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const milk = PINTS_REVIEW.lines[0]!;
+
+  async function read(review: ImportReview = PINTS_REVIEW): Promise<ImportFlow> {
+    fakeApi({ 'POST /recipes/import': [200, review] });
+    const flow = new ImportFlow();
+    flow.text = 'https://www.allrecipes.com/recipe/1/x/';
+    await flow.read();
+    return flow;
+  }
+
+  it('starts with the pint the server read the lines with', async () => {
+    const flow = await read();
+    expect(flow.pints).toBe('us');
+    expect(flow.offersPints).toBe(true);
+    const other = await read({
+      ...PINTS_REVIEW,
+      pints: { household: 'uk', us_site: false, reading: 'uk' }
+    });
+    expect(other.pints).toBe('uk');
+    expect(other.offersPints).toBe(false);
+  });
+
+  it('gives a pint line the amount for the pint chosen, and no other line', async () => {
+    const flow = await read();
+    expect(flow.withPints(milk)).toMatchObject({ amount: 946, amount_text: '946', unit: 'ml' });
+    flow.pints = 'uk';
+    expect(flow.withPints(milk)).toMatchObject({ amount: 1136, amount_text: '1136', unit: 'ml' });
+    const vanilla = PINTS_REVIEW.lines[1]!;
+    expect(flow.withPints(vanilla)).toBe(vanilla);
+  });
+
+  it('sends the chosen pint’s amount on Save', async () => {
+    const flow = await read();
+    flow.pints = 'uk';
+    const body = flow.body()!;
+    expect(body.lines[0]).toMatchObject({ amount: 1136, unit: 'ml' });
+    expect(body.lines[1]).toMatchObject({ amount: 1, unit: 'tsp' });
+    flow.pints = 'us';
+    expect(flow.body()!.lines[0]).toMatchObject({ amount: 946, unit: 'ml' });
+  });
+
+  it('says what the other pint would read, from the first pint line', async () => {
+    const flow = await read();
+    expect(flow.otherPints).toEqual({ words: 'whole milk', reads: '1.14 L', kind: 'uk' });
+    flow.pints = 'uk';
+    expect(flow.otherPints).toEqual({ words: 'whole milk', reads: '946 ml', kind: 'us' });
+    const none = await read({ ...PINTS_REVIEW, lines: [PINTS_REVIEW.lines[1]!] });
+    expect(none.otherPints).toBeNull();
+  });
+
+  it('keeps the switch in a draft only when it differs from how the review read', async () => {
+    const flow = await read();
+    expect(flow.draftBody()!.choices.pints).toBeNull();
+    flow.pints = 'uk';
+    expect(flow.draftBody()!.choices.pints).toBe('uk');
+  });
+
+  it('opens a draft with the switch as it was left, and a draft from before with the review’s', () => {
+    const draft = (pints: 'uk' | 'us' | undefined): DraftOut =>
+      ({
+        id: 1,
+        text: 'https://www.allrecipes.com/recipe/1/x/',
+        review: PINTS_REVIEW,
+        choices: { name: null, serves: null, minutes: null, pints, lines: {} }
+      }) as unknown as DraftOut;
+    const left = new ImportFlow();
+    left.load(draft('uk'));
+    expect(left.pints).toBe('uk');
+    const before = new ImportFlow();
+    before.load(draft(undefined));
+    expect(before.pints).toBe('us');
+  });
+
+  it('counts a change of pint as a change since the draft was kept', () => {
+    const flow = new ImportFlow();
+    flow.load({
+      id: 1,
+      text: 'x',
+      review: PINTS_REVIEW,
+      choices: { name: null, serves: null, minutes: null, lines: {} }
+    } as unknown as DraftOut);
+    expect(flow.unkept).toBe(false);
+    flow.pints = 'uk';
+    expect(flow.unkept).toBe(true);
+  });
+});
+
+describe('amounts in words', () => {
+  it('reads a number or a volume', () => {
+    expect(amountWords(946)).toBe('946');
+    expect(amountWords(189.3333)).toBe('189.333');
+    expect(volumeWords(284)).toBe('284 ml');
+    expect(volumeWords(1000)).toBe('1 L');
+    expect(volumeWords(1136)).toBe('1.14 L');
   });
 });

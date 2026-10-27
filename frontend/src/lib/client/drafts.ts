@@ -2,7 +2,7 @@
 // Online only, like the import: nothing here is queued.
 
 import { api } from '#lib/api.js';
-import type { Change, CountedAs, Ref } from './types';
+import type { Change, CountedAs, Pints, Ref } from './types';
 import type { ImportReview } from './imports';
 
 /** What one line was set to on the review, as a draft keeps it. */
@@ -15,6 +15,8 @@ export interface DraftChoices {
   name: string | null;
   serves: string | null;
   minutes: string | null;
+  /** The pints switch on a US recipe; null (or missing): as the review read it. */
+  pints?: Pints | null;
   /** The line's place in the review → its choice (JSON keys are text). */
   lines: Record<string, DraftChoice>;
 }

@@ -3,7 +3,7 @@
 // reading; the screen only shows it and sends the choices back.
 
 import { api } from '#lib/api.js';
-import type { Change, CountedAs, Ref } from './types';
+import type { Change, CountedAs, Pints, Ref } from './types';
 import type { Nutrition, PhotoOut, SizeRef } from './recipes';
 
 export type Label = 'matched' | 'to_confirm' | 'needs_you' | 'staple';
@@ -33,6 +33,16 @@ export interface ReviewLine {
   counts: boolean;
   new_ingredient: NewIngredient | null;
   learn_name: string | null;
+  /** Set when the line says pints: what it comes to in each kind of pint, in ml. */
+  pint_ml?: { uk_ml: number; us_ml: number } | null;
+}
+
+/** Pints on a review: the household's own, whether the page looks American, and the pint the
+ *  lines were read with (a US page is read with US pints while the household's are UK). */
+export interface ReviewPints {
+  household: Pints;
+  us_site: boolean;
+  reading: Pints;
 }
 
 export interface ReviewPhoto {
@@ -59,6 +69,8 @@ export interface ImportReview {
   steps_cut: boolean;
   steps_shortened: number;
   left_out: { heading: string; lines: number }[];
+  /** Always sent by the server; optional here so a review kept before 0.6 still fits. */
+  pints?: ReviewPints;
 }
 
 /** How a line is tied to an ingredient when it is saved. */

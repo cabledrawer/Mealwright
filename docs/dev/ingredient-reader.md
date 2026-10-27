@@ -95,3 +95,8 @@ PastedRecipe(name, ingredients: tuple[str, ...], steps: tuple[str, ...], lines_c
 ## 4. Text the reader cleans first (PR 3)
 
 `working_text` turns control characters (including U+001C to U+001F) into spaces, so "2 cups" + U+001F + "rice" stays two words; private-use, unassigned and surrogate characters are dropped; then hidden characters, dashes, fraction slashes and spaces are tidied. A text of more than 4,000 characters is not an ingredient line and isn't walked at all.
+
+## 0.6 additions (PR 7; proposed, for cabledrawer)
+
+`read_line(text, size_words=(), pint_ml=None)`. New in 0.6: number words at the start (`half`, `two` to `twelve`), a length (inch, cm, mm) stays in the note with no amount, a name held only in a bracket after a size word is read from it, a label at the start (`optional:`, `to serve:`, `for serving:`, `to garnish:`) is read past and kept first in the note, and with `pint_ml` a pint is an amount in ml (`ReadLine.pints` has the count). The full list and the reasons are in `recipe-import.md`, "Import fixes and pints (0.6 PR 7)".
+

@@ -15,7 +15,7 @@ import {
   type SaveBody,
   type SaveLine
 } from './client/imports';
-import type { CountedAs, Ref } from './client/types';
+import type { CountedAs, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
@@ -57,6 +57,9 @@ export class ImportFlow {
   review = $state<ImportReview | null>(null);
   choices = $state<Record<number, Choice>>({});
   /** The summary boxes the person can change on the review. */
+  /** The pint this recipe's pint lines are read with now: the review's own until the switch
+   *  on a US recipe is used (for this recipe only; the household's setting never changes). */
+  pints = $state<Pints>('uk');
   name = $state('');
   serves = $state('');
   minutes = $state('');
@@ -130,6 +133,7 @@ export class ImportFlow {
   private show(review: ImportReview): void {
     this.review = review;
     this.choices = {};
+    this.pints = review.pints?.reading ?? 'uk';
     this.name = review.name;
     this.serves = review.serves === null ? '' : String(review.serves);
     this.minutes = review.time_minutes === null ? '' : String(review.time_minutes);
@@ -151,6 +155,7 @@ export class ImportFlow {
     if (kept.name !== null) this.name = kept.name;
     if (kept.serves !== null) this.serves = kept.serves;
     if (kept.minutes !== null) this.minutes = kept.minutes;
+    if (kept.pints) this.pints = kept.pints;
     const choices: Record<number, Choice> = {};
     for (const [index, choice] of Object.entries(kept.lines)) choices[Number(index)] = choice;
     this.choices = choices;
@@ -164,7 +169,7 @@ export class ImportFlow {
       .map(Number)
       .sort((a, b) => a - b)
       .map((index) => [index, this.choices[index]]);
-    return JSON.stringify([this.name, this.serves, this.minutes, lines]);
+    return JSON.stringify([this.name, this.serves, this.minutes, this.pints, lines]);
   }
 
   /** A draft this was opened from, changed since it was last kept: leaving asks. A review not
@@ -182,7 +187,13 @@ export class ImportFlow {
     return {
       text: this.text.trim(),
       review,
-      choices: { name: this.name, serves: this.serves, minutes: this.minutes, lines }
+      choices: {
+        name: this.name,
+        serves: this.serves,
+        minutes: this.minutes,
+        pints: this.pints === (review.pints?.reading ?? 'uk') ? null : this.pints,
+        lines
+      }
     };
   }
 
@@ -220,6 +231,33 @@ export class ImportFlow {
     this.phase = 'start';
     this.review = null;
     this.already = null;
+  }
+
+  // --- Pints ----------------------------------------------------------------------------------
+
+  /** The card "This looks like a US recipe" shows: a US page, read for a UK household. */
+  get offersPints(): boolean {
+    const pints = this.review?.pints;
+    return !!pints && pints.us_site && pints.household === 'uk';
+  }
+
+  /** The line as it reads with the pint chosen now: a pint line takes the amount for that
+   *  pint (in ml); every other line is as it came. */
+  withPints(line: ReviewLine): ReviewLine {
+    if (!line.pint_ml) return line;
+    const ml = this.pints === 'us' ? line.pint_ml.us_ml : line.pint_ml.uk_ml;
+    if (line.amount === ml && line.unit === 'ml') return line;
+    return { ...line, amount: ml, amount_text: amountWords(ml), unit: 'ml' };
+  }
+
+  /** The first line that says pints, with what it reads as in the other pint: "Switch it off
+   *  and the milk reads 1.14 L (UK pints)." Null when no line says pints. */
+  get otherPints(): { words: string; reads: string; kind: Pints } | null {
+    const line = this.review?.lines.find((l) => l.kind === 'ingredient' && l.pint_ml);
+    if (!line?.pint_ml) return null;
+    const kind: Pints = this.pints === 'us' ? 'uk' : 'us';
+    const ml = kind === 'us' ? line.pint_ml.us_ml : line.pint_ml.uk_ml;
+    return { words: (line.food?.name ?? line.words).toLowerCase(), reads: volumeWords(ml), kind };
   }
 
   // --- The review's choices ---------------------------------------------------------------
@@ -283,7 +321,7 @@ export class ImportFlow {
       makes: review.makes,
       tags: review.tags,
       nutrition: review.nutrition,
-      lines: review.lines.map((line, i) => saveLine(line, this.linkOf(i))),
+      lines: review.lines.map((line, i) => saveLine(this.withPints(line), this.linkOf(i))),
       steps: review.steps,
       source_url: review.source.url,
       source_author: review.author,
@@ -338,6 +376,16 @@ export class ImportFlow {
 
 function problemOf(code: string, message: string): ImportProblem {
   return { code, message, switchedOff: false, admin: false };
+}
+
+/** 946 → "946", 189.333 → "189.333": a number as the review shows an amount. */
+export function amountWords(value: number): string {
+  return String(Math.round(value * 1000) / 1000);
+}
+
+/** A volume in ml in plain words: 946 → "946 ml", 1136 → "1.14 L". */
+export function volumeWords(ml: number): string {
+  return ml >= 1000 ? `${Math.round(ml / 10) / 100} L` : `${amountWords(ml)} ml`;
 }
 
 function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
