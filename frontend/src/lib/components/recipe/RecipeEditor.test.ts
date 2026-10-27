@@ -268,6 +268,21 @@ describe('the boxes', () => {
       .not.toBeInTheDocument();
   });
 
+  it('Enter on the last box adds a line once: a blank last line gets the focus instead of another', async () => {
+    fakeApi({});
+    open();
+    const boxes = () => document.querySelectorAll('[aria-label^="Ingredient "][data-words]').length;
+    await userEvent.click(page.getByRole('button', { name: '+ Add line' }));
+    const added = boxes();
+    expect(added).toBeGreaterThanOrEqual(1);
+    const note = page.getByRole('textbox', { name: `Note for ingredient ${added}` });
+    await userEvent.click(note);
+    await userEvent.keyboard('{Enter}{Enter}');
+    await userEvent.click(page.getByRole('button', { name: '+ Add line' }));
+    expect(boxes()).toBe(added);
+    await expect.element(page.getByRole('combobox', { name: `Ingredient ${added}` })).toHaveFocus();
+  });
+
   it('keeps Serves between 1 and 99, and can clear it', async () => {
     fakeApi({});
     open();

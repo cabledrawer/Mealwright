@@ -511,3 +511,21 @@ def test_sy73_undo_leaves_a_line_that_was_ticked_since(kitchen: TestClient) -> N
     result = _undo(kitchen, moved["id"])
     assert result["status"] == "applied"
     assert _where(kitchen, s.items["Paneer"])[1] == s.shops["Indian grocer"]
+
+
+@pytest.mark.parametrize(
+    ("done", "words"),
+    [
+        (1, "Put back what could be: the line it joined has been bought, so that part stays."),
+        (0, "Nothing to put back: the line it joined has been bought, so it stays as it is."),
+    ],
+    ids=["partly", "nothing"],
+)
+def test_undo_words_when_a_joined_line_was_bought(done: int, words: str) -> None:
+    """Both bought-join Undo sentences, and only when the flag is set (0.6 PR 8 review L2)."""
+    from mealwright.api.v1.changes import _message
+    from mealwright.history import Tally
+
+    tally = Tally(done=done, skipped=1, joined_bought=True)
+    assert _message(None, tally.result, [], tally.joined_bought) == words  # type: ignore[arg-type]
+    assert _message(None, tally.result, [], False) != words  # type: ignore[arg-type]

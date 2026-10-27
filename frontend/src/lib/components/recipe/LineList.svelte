@@ -83,7 +83,21 @@
 
   // --- Adding, taking out ----------------------------------------------------------------------
 
+  /** An ingredient line with nothing in it yet. */
+  const isBlank = (line: DraftLine | undefined) =>
+    !!line &&
+    line.kind === 'ingredient' &&
+    !line.words.trim() &&
+    !line.amount.trim() &&
+    !line.unit &&
+    !line.food &&
+    !line.recipe &&
+    !line.note.trim();
+
   async function add(kind: DraftLine['kind']) {
+    // A blank last line is used rather than piling up another one.
+    const last = draft.lines.at(-1);
+    if (kind === 'ingredient' && last && isBlank(last)) return focusWords(last.key);
     const line = blankLine(kind);
     draft.lines.push(line);
     await tick();
