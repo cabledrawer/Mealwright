@@ -17,6 +17,7 @@ from mealwright.api.v1.recipe_schemas import (
     RecipeStepIn,
     SizeRef,
 )
+from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name
@@ -49,8 +50,8 @@ class PintReading(BaseModel):
     """What a line that says pints comes to in each kind of pint, in ml (568 ml a UK pint, 473
     ml a US pint). The line's `amount` is one of them; the review's switch picks the other."""
 
-    uk_ml: float
-    us_ml: float
+    uk_ml: Annotated[float, Field(ge=0, le=MAX_AMOUNT, allow_inf_nan=False)]
+    us_ml: Annotated[float, Field(ge=0, le=MAX_AMOUNT, allow_inf_nan=False)]
 
 
 class ReviewPints(BaseModel):

@@ -123,9 +123,21 @@ NUMBER_WORDS = {
     "half": "1/2", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
     "seven": "7", "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12",
 }  # fmt: skip
+# Words after a number word that make it part of a name or a fraction, not a count: "five spice
+# powder", "half fat crème fraîche", "two thirds of a cup", "Ten Acre crisps" (proposed, for
+# cabledrawer). The one place to add more.
+NOT_A_COUNT = frozenset(
+    {"spice", "fat", "acre", "bean", "grain", "seed", "thirds", "third", "quarters", "quarter",
+     "fifths", "eighths", "halves"}
+)  # fmt: skip
 _NUMBER_WORD = re.compile(
-    r"(?P<word>" + "|".join(NUMBER_WORDS) + r")(?P<article>\s+(?:a|an))?(?=\s+(?!and\b)\S)",
+    r"(?P<word>" + "|".join(NUMBER_WORDS) + r")(?P<article>\s+(?:a|an))?"
+    r"(?=\s+(?!(?:and|" + "|".join(NOT_A_COUNT) + r")\b)\S)",
     re.IGNORECASE,
+)
+# A length straight after a number word ("Twelve 1 cm cubes"): not a pack multiple.
+_LENGTH_AFTER = re.compile(
+    r"[\d./ ]+\s*(?:" + "|".join(sorted(LENGTH_UNITS)) + r")\b", re.IGNORECASE
 )
 # A label that starts a line and says what the rest is for: "optional: 50g pecans".
 _LABEL = re.compile(
@@ -465,8 +477,19 @@ def _with_digits(work: str) -> str:
     if other is not None and other.group("word").lower() in NUMBER_WORDS:
         digits += f" {other.group('sep')} {NUMBER_WORDS[other.group('word').lower()]}"
         tail = tail[other.end() :].lstrip()
+    if tail[:1].isdigit() and _LENGTH_AFTER.match(tail):
+        return work  # "Twelve 1 cm cubes butter": left as it was
     joiner = " x " if tail[:1].isdigit() else " "
     return f"{work[:at]}{digits}{joiner}{tail}"
+
+
+def _names_something(bracket: str) -> bool:
+    """Whether a bracket's first part can be a name: "ripe bananas, well mashed" can; a measure
+    such as "about 1 lb" or "about 2 cups" can't (no digit, and no note word first)."""
+    first = re.split(r"[,(]", bracket, maxsplit=1)[0].split()
+    return bool(first) and not any(c.isdigit() for c in " ".join(first)) and (
+        _clean_token(first[0]) not in NOTE_HINTS
+    )
 
 
 def _clean_token(token: str) -> str:
@@ -661,7 +684,11 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     notes: list[str] = []
 
     rest, inside = _brackets(rest)
-    if inside and not any(c.isalpha() for c in " ".join(_strip_prep(rest.split(), PREP_WORDS)[0])):
+    if (
+        inside
+        and not any(c.isalpha() for c in " ".join(_strip_prep(rest.split(), PREP_WORDS)[0]))
+        and _names_something(inside[0])
+    ):
         # "3 large (ripe bananas, well mashed (about 1 1/2 cups))": the name is all in the
         # bracket. Its first part is read as the rest of the line, after the words before it.
         inner, nested = _brackets(inside.pop(0))

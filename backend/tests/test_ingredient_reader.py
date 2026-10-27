@@ -750,7 +750,18 @@ def test_number_words_at_the_start(text: str, amount: Decimal, unit: str | None,
 
 
 @pytest.mark.parametrize(
-    "text", ["half and half", "half-and-half cream", "twofold sauce", "Threefold ale", "two"]
+    "text",
+    [
+        "half and half",
+        "half-and-half cream",
+        "twofold sauce",
+        "Threefold ale",
+        "two",
+        "five spice powder",
+        "half fat crème fraîche",
+        "Two thirds of a cup milk",
+        "Ten Acre crisps",
+    ],
 )
 def test_a_number_word_that_is_part_of_a_name_is_left_alone(text: str) -> None:
     line = read_line(text)
@@ -787,6 +798,22 @@ def test_a_size_word_before_a_name_held_in_a_bracket() -> None:
     assert line.note is not None
     for kept in ("large", "ripe", "well mashed", "about 1 1/2 cups"):
         assert kept in line.note
+
+
+def test_a_name_that_starts_with_a_number_word_keeps_it() -> None:
+    line = read_line("five spice powder, 1 tsp")
+    assert (line.amount, line.name, line.note) == (None, "five spice powder", "1 tsp")
+
+
+@pytest.mark.parametrize("text", ["3 medium (about 1 lb)", "1 small (about 2 cups)"])
+def test_a_measure_in_a_bracket_is_never_the_name(text: str) -> None:
+    line = read_line(text)
+    assert (line.amount, line.name) == (read_line(text.split(" (")[0]).amount, "")
+
+
+def test_a_number_word_before_a_length_makes_no_note_of_it() -> None:
+    line = read_line("Twelve 1 cm cubes butter")
+    assert (line.amount, line.note, line.name) == (None, None, "Twelve 1 cm cubes butter")
 
 
 def test_a_bracket_after_a_name_is_still_a_note() -> None:

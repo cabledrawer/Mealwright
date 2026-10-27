@@ -267,3 +267,17 @@ def test_an_old_draft_without_pints_still_loads(kitchen: TestClient) -> None:
     old = ImportReview.model_validate(shown)
     assert old.pints.model_dump() == {"household": "uk", "us_site": False, "reading": "uk"}
     assert old.lines[0].pint_ml is None
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, 1e308])
+def test_a_draft_cannot_hold_an_impossible_pint(bad: float) -> None:
+    """A draft comes back from the phone: a pint reading in it is checked like any amount."""
+    from pydantic import ValidationError
+
+    from mealwright.api.v1.import_schemas import PintReading
+
+    with pytest.raises(ValidationError):
+        PintReading.model_validate({"uk_ml": bad, "us_ml": 946.0})
+    with pytest.raises(ValidationError):
+        PintReading.model_validate({"uk_ml": 1136.0, "us_ml": bad})
+    assert PintReading.model_validate({"uk_ml": 1136.0, "us_ml": 946.0}).uk_ml == 1136.0
