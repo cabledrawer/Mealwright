@@ -76,6 +76,11 @@ const PAIRS: Pair[] = [
   ['--color-warning-text', '--color-surface', 4.5], // a box's message
   ['--color-warning-text', '--color-ground', 4.5],
   ['--color-text', '--color-warning', 4.5], // the "Couldn't save" bar's button text
+  ['--color-check-title', '--color-check', 4.5], // the staples card
+  ['--color-check-text', '--color-check', 4.5],
+  ['--color-check-title', '--color-check-button', 4.5], // its "+ Add"
+  ['--color-check-border', '--color-check', 3], // Got it's edge (WCAG 1.4.11)
+  ['--color-text', '--color-check', 4.5], // the staple's name
   ['--color-tub-chip-text', '--color-surface', 4.5] // "Not linked"
 ];
 

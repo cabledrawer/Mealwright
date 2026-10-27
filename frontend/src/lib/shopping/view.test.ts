@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByShop, listCounts, subtitle, syncedWith } from './view';
+import { groupByShop, listCounts, planWords, subtitle, syncedWith } from './view';
 import type { ListItem, ShoppingCopy } from './types';
 
 const wren = { login_id: 2, name: 'Wren' };
@@ -115,6 +115,21 @@ describe('groupByShop', () => {
 });
 
 describe('subtitle', () => {
+  it('says the list was built from the plan, in the look-ahead’s words (docs/dev/words.md 21)', () => {
+    expect(subtitle(main, 12, [me, wren], 1, false, 'phone', planWords(7))).toBe(
+      '12 to buy · built from this week’s plan · synced with Wren'
+    );
+    expect(subtitle(main, 12, [me, wren], 1, true, 'computer', planWords(7))).toBe(
+      '12 to buy · built from this week’s plan · offline, saving on this computer'
+    );
+    expect(planWords(1)).toBe('today’s plan');
+    expect(planWords(10)).toBe('the plan for the next 10 days');
+    expect(planWords(null)).toBe('the plan');
+    // An extra list is never "built from the plan".
+    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, false, 'phone', planWords(7))).toBe(
+      'Extra list · 5 · ticked items still go to the pantry'
+    );
+  });
   const main = { id: 'L', name: 'This week', main: true, position: 0, removed: false };
   it('says who it is synced with', () => {
     expect(subtitle(main, 12, [me, wren], 1)).toBe('12 to buy · synced with Wren');

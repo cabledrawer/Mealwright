@@ -139,6 +139,15 @@ export function syncedWith(people: Person[], meId: number | null): string | null
   return `${others[0]!.name} and ${others.length - 1} others`;
 }
 
+/** "this week’s plan" for the usual 7 days, otherwise the number of days looked ahead; "the
+ * plan" while that isn't known (offline, before the server has answered). */
+export function planWords(days: number | null): string {
+  if (days === null) return 'the plan';
+  if (days === 7) return 'this week’s plan';
+  if (days === 1) return 'today’s plan';
+  return `the plan for the next ${days} days`;
+}
+
 /** The line above the title. */
 export function subtitle(
   list: ListRow,
@@ -147,7 +156,9 @@ export function subtitle(
   meId: number | null,
   offline = false,
   /** Where the changes are kept: "phone" with the bottom tabs, "computer" with the sidebar. */
-  device: 'phone' | 'computer' = 'phone'
+  device: 'phone' | 'computer' = 'phone',
+  /** `planWords(...)`, when the plan made some of the lines (docs/dev/words.md section 21). */
+  builtFrom: string | null = null
 ): string {
   // Offline, extra lists stay this short (cabledrawer 18 Oct, spec section 6).
   if (!list.main) {
@@ -155,7 +166,8 @@ export function subtitle(
       ? `Extra list · ${toBuy} · offline`
       : `Extra list · ${toBuy} · ticked items still go to the pantry`;
   }
-  const count = `${toBuy} to buy`;
+  const count =
+    builtFrom === null ? `${toBuy} to buy` : `${toBuy} to buy · built from ${builtFrom}`;
   // Changes made offline are kept in the phone's queue (sync-protocol 11.4).
   if (offline) return `${count} · offline, saving on this ${device}`;
   if (!people) return count;

@@ -723,7 +723,10 @@ describe('the Shopping page', () => {
       });
       // One request: no separate ingredient or size calls.
       expect(
-        server.requests.some((r) => r.method === 'POST' && r.path !== '/shopping/actions')
+        server.requests.some(
+          (r) =>
+            r.method === 'POST' && !['/shopping/actions', '/shopping/from-plan'].includes(r.path)
+        )
       ).toBe(false);
     });
 

@@ -22,7 +22,8 @@ import { searchCopy } from './search';
 import { putAwayState, type PutAway } from './putAway';
 import { sendAction, shoppingSync } from './sync.svelte';
 import type { FoodSize, ListItem, ShopFood, Tick } from './types';
-import { ANY_SHOP, groupByShop, listCounts, standingTicks, subtitle } from './view';
+import { ANY_SHOP, groupByShop, listCounts, planWords, standingTicks, subtitle } from './view';
+import { fromPlan, gotIt, notGotIt, type PlanCard, type Staple } from './plan';
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
 export interface Ticked {
@@ -87,6 +88,21 @@ export class ShoppingModel {
   readonly counts = $derived(
     this.list ? listCounts(this.copy, this.list) : { toBuy: 0, ticked: 0 }
   );
+  /** The list was built from the plan: the main list has lines the plan made. */
+  readonly builtFrom = $derived.by(() => {
+    const list = this.list;
+    if (!list?.main) return null;
+    const made = this.copy.items.some(
+      (i) => i.list_id === list.id && i.source === 'plan' && !i.deleted && !i.merged_into_id
+    );
+    return made ? planWords(this.planCard?.days ?? null) : null;
+  });
+  /** The staples card the server last gave (online only; held in memory, not on the phone). */
+  planCard = $state.raw<PlanCard | null>(null);
+  /** The staples to show: not the ones already on the list, which a "+ Add" has just put there. */
+  readonly staples = $derived(
+    (this.planCard?.staples ?? []).filter((s) => this.lineFor(s.food.id) === undefined)
+  );
   readonly subtitle = $derived(
     this.list
       ? subtitle(
@@ -95,7 +111,8 @@ export class ShoppingModel {
           this.copy.people,
           session.me?.id ?? null,
           network.offline,
-          this.device
+          this.device,
+          this.builtFrom
         )
       : ''
   );
@@ -151,6 +168,90 @@ export class ShoppingModel {
       }
     }
     this.loaded = true;
+  }
+
+  // --- The list from the plan ---------------------------------------------------------------
+
+  /** Opening Shopping: bring the list up to date with the plan and the pantry (the server does
+   * the sums; online only), and read the list. The list shows at once from this phone's copy;
+   * if the plan changed it, the new lines come down in a second read. */
+  async open(): Promise<void> {
+    const planned = this.refreshPlan();
+    await this.load();
+    if (await planned) await this.load();
+  }
+
+  /** Ask the server to update the list from the plan, and keep the staples card it gives.
+   * Offline, or when it can't answer, the card stays as it was. Says whether the list changed. */
+  async refreshPlan(): Promise<boolean> {
+    if (network.offline) return false;
+    try {
+      const card = await fromPlan();
+      this.planCard = card;
+      return card.changed;
+    } catch {
+      return false;
+    }
+  }
+
+  /** "Got it" on a staple: it leaves the card at once and stays away until the plan's use of it
+   * changes. Undo brings it back. */
+  async gotIt(staple: Staple): Promise<void> {
+    const before = this.planCard;
+    if (!before || network.offline) return;
+    this.planCard = {
+      ...before,
+      staples: before.staples.filter((s) => s.food.id !== staple.food.id)
+    };
+    try {
+      this.planCard = await gotIt(staple.food.id);
+    } catch (error) {
+      this.planCard = before;
+      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      return;
+    }
+    toasts.show(`${staple.food.name}: got it`, {
+      action: {
+        label: 'Undo',
+        run: () => void this.#putBack([staple], `${staple.food.name}: got it`)
+      }
+    });
+  }
+
+  /** The card's ✕: "Got it" for every staple on it, with one Undo. */
+  async gotAll(): Promise<void> {
+    const before = this.planCard;
+    const all = this.staples;
+    if (!before || !all.length || network.offline) return;
+    this.planCard = { ...before, staples: [] };
+    try {
+      for (const staple of all) this.planCard = await gotIt(staple.food.id);
+    } catch (error) {
+      void this.refreshPlan();
+      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      return;
+    }
+    const label = 'Staples check dismissed';
+    toasts.show(label, { action: { label: 'Undo', run: () => void this.#putBack(all, label) } });
+  }
+
+  async #putBack(staples: Staple[], label: string): Promise<void> {
+    try {
+      for (const staple of staples) this.planCard = await notGotIt(staple.food.id);
+      toasts.show(undoneWords(label));
+    } catch (error) {
+      toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+    }
+  }
+
+  /** "+ Add" on the card: the staple goes on the main list as an ordinary line, the same add
+   * as Shopping's add box, with the same Undo. */
+  async addStaple(staple: Staple): Promise<void> {
+    if (network.offline) return;
+    await this.add(
+      { id: staple.food.id, name: staple.food.name, staple: true },
+      `${staple.food.name} added`
+    );
   }
 
   select(listId: string): void {

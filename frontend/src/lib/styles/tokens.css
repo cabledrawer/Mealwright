@@ -125,6 +125,12 @@
   --color-photo-text: #6e5a33;
   --color-warning-border: #f2b9a6; /* the "Couldn't save" bar */
   --color-changed: #fff6e0; /* what someone else changed, in their version of a recipe */
+  /* Shopping's "Check you have these" card (mockups Shop, Dark-Shop) */
+  --color-check: #fdf1d8;
+  --color-check-title: #4f3500;
+  --color-check-text: #6e4a00;
+  --color-check-border: #e9c98a;
+  --color-check-button: #ffffff;
 
   /* Type */
   --font-ui: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
@@ -295,6 +301,11 @@
   --color-photo-text: #c9b994;
   --color-warning-border: #6b3424;
   --color-changed: #2e2714;
+  --color-check: #3a2e14;
+  --color-check-title: #f3d58c;
+  --color-check-text: #e6c47a;
+  --color-check-border: #6b5526;
+  --color-check-button: #4f3f1c;
 
   --batch-1: #7b5bb8;
   --batch-1-soft: #2d2540;

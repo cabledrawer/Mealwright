@@ -371,6 +371,17 @@ Written by Claude Code on 26 Oct from the mockups `CookOnce-Desktop`, `CookOnce-
 - Toasts (the screen's own words until the server answers, then the server's sentence, with Undo): Cooked Veg biryani once for 4 tubs (3 in the plan) · Put Veg biryani tub in Lunch · Veg biryani tub is Wren’s · Veg biryani tub is nobody’s in particular · Veg biryani tub: use by Thu 22 Oct · Veg biryani tub to the freezer · Put Veg biryani tub back in tubs left from Dinner on Sun 18 Oct · Filled 3 empty days with tubs from the freezer · Took Veg biryani’s tubs off the plan.
 - Refusals (server): A batch can have 1 to 12 tubs. · At most 10 batches can be cooked on one day. · Only a recipe that is still there can be cooked once for several meals. · Veg biryani already has tubs from this meal. Add or move them from the plan. · Veg biryani already has 12 tubs. · Say where each tub goes, or leave it to the pattern. · There’s no freezer in your places yet. · That tub is already in the freezer. · That tub has been eaten. · Say whose tub it is, or its use-by date. · Ask for 1 to 62 days at a time.
 
+## 21. The shopping list from the plan (0.6 PR 5; every line here is proposed, for cabledrawer)
+
+Written by Claude Code on 27 Oct from the mockups `Shop`, `Desktop-Shop` and their dark twins. "Check you have these", "Staples this week's recipes use", "Got it", "+ Add" and "built from this week's plan" are the mockups' words (the spec: "Got it / dismiss"); cabledrawer's kickoff answer 8 sets the look-ahead at 7 days by default.
+
+- The line above Shopping: "12 to buy · built from this week’s plan · synced with Wren" (offline: "12 to buy · built from this week’s plan · offline, saving on this phone"). It shows only when the plan made some of the lines on the main list. With another look-ahead the plan is named by its days: "built from today’s plan" (1 day) · "built from the plan for the next 10 days". Before the server has said how far it looks (offline, a moment after opening) it says "built from the plan".
+- The card: Check you have these · Staples this week’s recipes use (Staples today’s recipes use · Staples the next 10 days’ recipes use) · each staple's name with the recipes that use it under it ("Sambar and Dosa" · "Sambar, Dosa and Upma" · "Sambar, Dosa and 2 more") · Got it · + Add · Dismiss staples check (the ✕: Got it for every staple on the card).
+- For screen readers: "Got it, Turmeric" · "+ Add Turmeric" · "Dismiss staples check".
+- Toasts: "Turmeric: got it" with Undo (then "Undone: Turmeric: got it") · "Staples check dismissed" with Undo · "Turmeric added" with Undo (Shopping's own add).
+- Offline (the card stays, its buttons are switched off): "You’re offline. Got it and + Add work when you’re back online."
+- Not shown: nothing planned, everything in stock, or every staple answered: the card is not there, and the line above says nothing about the plan.
+
 ## 18. Not covered yet (for later versions of this list)
 
 Today (when built), Plan (0.6), cook mode, import review, onboarding beyond the first account, Settings sections not built, notifications (after 1.0), and any word an error from the server uses that the app doesn't build itself. Add each with its source when it is built (the gallery and this list change in the same pull request as the screen).

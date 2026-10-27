@@ -3,7 +3,8 @@
   // items folded into "In the trolley" at the end of each shop. Ticking puts the item into the
   // pantry (phone: a toast with Change and Undo; desktop: the Put away panel). Every change
   // goes through sendAction (lib/shopping/actions.ts). Docs: docs/dev/sync-protocol.md section 13.
-  // Hidden until 0.6: the list built from the plan, and the staples check card.
+  // The list is built from the plan on the server (docs/dev/api-0.2.md section 6.3b); the
+  // "Check you have these" card shows the staples the plan uses.
   import { untrack } from 'svelte';
   import { browser } from '$app/env';
   import AddBox from '#lib/components/shopping/AddBox.svelte';
@@ -11,6 +12,7 @@
   import ItemRow from '#lib/components/shopping/ItemRow.svelte';
   import ListPicker from '#lib/components/shopping/ListPicker.svelte';
   import PutAwayPanel from '#lib/components/shopping/PutAwayPanel.svelte';
+  import StaplesCard from '#lib/components/shopping/StaplesCard.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { keepFocus } from '#lib/focusNear.js';
@@ -41,7 +43,7 @@
     void kitchen.version;
     // Only kitchen.version is watched: load() reads and replaces the copy, which would
     // otherwise run this again for ever.
-    untrack(() => void model.load());
+    untrack(() => void model.open());
   });
 
   // Another phone or window changed the list: ask what changed since our own counter. Our
@@ -54,7 +56,7 @@
   });
 
   function onVisible() {
-    if (document.visibilityState === 'visible') void model.load();
+    if (document.visibilityState === 'visible') void model.open();
   }
 
   let tab = $state<string>('all');
@@ -126,6 +128,8 @@
         {/if}
         <AddBox {model} {desktop} onexisting={showLine} />
       </div>
+
+      <StaplesCard {model} />
 
       {#if !desktop}
         {#each model.cards as question (question.id)}
