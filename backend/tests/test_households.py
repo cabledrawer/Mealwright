@@ -209,6 +209,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/shopping/lists/{list_id}/clear-ticked"): {},
     ("PATCH", "/api/v1/shopping/items/{item_id}"): {"amount": {"amount": 3, "unit": "g"}},
     ("DELETE", "/api/v1/shopping/items/{item_id}"): None,
+    ("PUT", "/api/v1/shopping/staples/{food_id}/got-it"): None,
+    ("DELETE", "/api/v1/shopping/staples/{food_id}/got-it"): None,
     ("GET", "/api/v1/recipes/{recipe_id}"): None,
     ("PUT", "/api/v1/recipes/{recipe_id}"): {"name": "Mine now", "version": 1},
     ("DELETE", "/api/v1/recipes/{recipe_id}"): None,

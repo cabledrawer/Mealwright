@@ -129,7 +129,7 @@
   --color-check: #fdf1d8;
   --color-check-title: #4f3500;
   --color-check-text: #6e4a00;
-  --color-check-border: #e9c98a;
+  --color-check-border: #8a6a1f; /* mockup #e9c98a, darkened for 3:1 */
   --color-check-button: #ffffff;
 
   /* Type */
@@ -304,7 +304,7 @@
   --color-check: #3a2e14;
   --color-check-title: #f3d58c;
   --color-check-text: #e6c47a;
-  --color-check-border: #6b5526;
+  --color-check-border: #a88a45; /* mockup #6b5526, lightened for 3:1 */
   --color-check-button: #4f3f1c;
 
   --batch-1: #7b5bb8;
