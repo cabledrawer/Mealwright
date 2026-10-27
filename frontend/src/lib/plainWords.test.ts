@@ -187,6 +187,20 @@ describe('plain words', () => {
     expect(problems, problems.join('\n')).toEqual([]);
   });
 
+  // "for example", never "e.g." (cabledrawer 25 Oct: "leave it for the 0.6 sort"). The five older
+  // screens it named; the newer ones can follow when they are next touched.
+  const NO_EG = /\/(UsedSheet|AmountBox|StepList|PantryGroup|IngredientEditor)\.svelte$/;
+  it('says "for example", never "e.g.", on the five older screens', () => {
+    const problems: string[] = [];
+    for (const [path, source] of Object.entries(sources)) {
+      if (!NO_EG.test(path)) continue;
+      for (const text of visibleStrings(path, source)) {
+        if (/\be\.g\./i.test(text)) problems.push(`${path}: “${text}”`);
+      }
+    }
+    expect(problems, problems.join('\n')).toEqual([]);
+  });
+
   it('the apostrophe check catches a straight one in markup, attributes and code', () => {
     const svelte = (body: string) => visibleStrings('/x.svelte', body);
     const found = (texts: string[]) => texts.some((text) => STRAIGHT.test(text));

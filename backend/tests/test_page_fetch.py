@@ -1365,6 +1365,51 @@ def test_a_late_answer_is_thrown_away(gate: OutboundGate, stuck: StuckResolver) 
     assert not any(t.name == "name-look-up" for t in threading.enumerate())
 
 
+def test_past_sixteen_stuck_look_ups_a_new_one_times_out_at_once(
+    gate: OutboundGate, stuck: StuckResolver
+) -> None:
+    """The cap on stuck look-ups: 16 threads waiting on the resolver, then no more started."""
+    for number in range(outbound.MAX_STUCK_LOOK_UPS):
+        with pytest.raises(outbound.OutboundFailed) as caught:
+            gate.look_up(
+                1,
+                Connection.RECIPE_IMPORT,
+                f"slow{number}.example",
+                443,
+                deadline=time.monotonic() + 0.05,
+            )
+        assert caught.value.kind == "timeout"
+    asked = len(stuck.asked)
+    started = time.monotonic()
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(1, Connection.RECIPE_IMPORT, "one-more.example", 443)  # 15 s if not capped
+    assert caught.value.kind == "timeout"
+    assert time.monotonic() - started < 1
+    assert len(stuck.asked) == asked  # nothing was started for it
+    stuck.release.set()
+    for thread in threading.enumerate():
+        if thread.name == "name-look-up":
+            thread.join(2)
+    # Once they have finished, look-ups work again.
+    assert gate.look_up(1, Connection.RECIPE_IMPORT, "ok.example", 443) == [ip_address(PUBLIC)]
+
+
+def test_a_thread_that_cannot_start_is_unreachable_not_a_crash(
+    gate: OutboundGate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(self: threading.Thread) -> None:
+        raise RuntimeError("can't start new thread")
+
+    before = outbound._look_ups_running
+    with monkeypatch.context() as patched:
+        patched.setattr(threading.Thread, "start", refuse)
+        with pytest.raises(outbound.OutboundFailed) as caught:
+            gate.look_up(1, Connection.RECIPE_IMPORT, "recipes.example", 443)
+    assert caught.value.kind == "unreachable"
+    # The count wasn't left raised by the failed start.
+    assert outbound._look_ups_running == before
+
+
 def test_a_quick_look_up_still_works_and_runs_inside_the_gate(
     gate: OutboundGate, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -18,6 +18,7 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
+    JOINED_BOUGHT_MESSAGES,
     KEY_ONLY_KINDS,
     NOTE_KINDS,
     UNDO_MESSAGES,
@@ -258,7 +259,11 @@ def _plain(food: Food, milli: int) -> str:
     return exact_text(milli, food.counted_as)  # type: ignore[arg-type]
 
 
-def _message(kitchen: Kitchen, result: UndoResult, short: list[Shortfall]) -> str:
+def _message(
+    kitchen: Kitchen, result: UndoResult, short: list[Shortfall], joined_bought: bool = False
+) -> str:
+    if joined_bought and result in JOINED_BOUGHT_MESSAGES:
+        return JOINED_BOUGHT_MESSAGES[result]
     if result != "done" and len(short) == 1:
         food = kitchen.db.get(Food, short[0].food_id)
         if food is not None:
@@ -398,7 +403,7 @@ def undo_change(
         undo_merge_record(kitchen, data)
     result = tally.result
     back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
-    message = _message(kitchen, result, short)
+    message = _message(kitchen, result, short, tally.joined_bought)
     if back:
         message = back if result == "done" else f"{back} {message}"
     if draft_back:

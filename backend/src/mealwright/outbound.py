@@ -141,6 +141,14 @@ def _lookup(host: str, port: int) -> list[str]:
     return [str(info[4][0]) for info in found]
 
 
+# How many name look-ups may be stuck at once. A look-up that is still going when its time is up
+# keeps its thread until the resolver gives up, so a stuck resolver could pile threads up; past
+# this many, a new look-up gets the usual "took too long" answer at once and starts nothing.
+MAX_STUCK_LOOK_UPS = 16
+_look_ups_running = 0
+_look_ups_lock = threading.Lock()
+
+
 def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
     """`_lookup(host, port)`, waited for at most `seconds` (OutboundFailed("timeout") after).
 
@@ -153,21 +161,38 @@ def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
     ends the import), and they pile up only as fast as imports are started while the
     resolver is stuck.
 
+    At most `MAX_STUCK_LOOK_UPS` look-ups run at once; past that, OutboundFailed("timeout") at
+    once, the answer a look-up that never finishes gets anyway. If the system can't start
+    another thread, OutboundFailed("unreachable").
+
     The worker opens the gate itself: the guard's "inside the gate" flag is per thread
     context, and a new thread doesn't inherit the caller's."""
+    global _look_ups_running
     done = threading.Event()
     outcome: list[list[str] | Exception] = []
 
     def work() -> None:
+        global _look_ups_running
         try:
             with gate_open():
                 outcome.append(_lookup(host, port))
         except Exception as error:  # handed to the waiting caller (thrown away if late)
             outcome.append(error)
         finally:
+            with _look_ups_lock:
+                _look_ups_running -= 1
             done.set()
 
-    threading.Thread(target=work, name="name-look-up", daemon=True).start()
+    with _look_ups_lock:
+        if _look_ups_running >= MAX_STUCK_LOOK_UPS:
+            raise OutboundFailed("timeout")
+        _look_ups_running += 1
+    try:
+        threading.Thread(target=work, name="name-look-up", daemon=True).start()
+    except RuntimeError:  # no thread to be had: the same as not reaching the name
+        with _look_ups_lock:
+            _look_ups_running -= 1
+        raise OutboundFailed("unreachable") from None
     if not done.wait(seconds):
         raise OutboundFailed("timeout")
     answer = outcome[0]

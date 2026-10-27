@@ -426,6 +426,8 @@ class FoodEdit:
 class Tally:
     done: int = 0
     skipped: int = 0
+    # Something was left alone because the shopping line it joined has been bought since.
+    joined_bought: bool = False
 
     @property
     def result(self) -> UndoResult:
@@ -797,6 +799,14 @@ UNDO_MESSAGES: dict[UndoResult, str] = {
     "done": "Undone.",
     "partly": "Put back what could be: some of it has changed again since.",
     "nothing": "Nothing to put back: it has all changed again since.",
+}
+
+
+# What an Undo says when a line was left joined because the line it joined was bought since
+# (proposed, for cabledrawer).
+JOINED_BOUGHT_MESSAGES: dict[UndoResult, str] = {
+    "partly": "Put back what could be: the line it joined has been bought, so that part stays.",
+    "nothing": "Nothing to put back: the line it joined has been bought, so it stays as it is.",
 }
 
 

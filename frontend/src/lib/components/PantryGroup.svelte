@@ -251,7 +251,7 @@
               name="n"
               inputmode="numeric"
               maxlength="20"
-              placeholder="e.g. 3"
+              placeholder="for example 3"
               bind:value={typed}
             />
           </label>
@@ -263,7 +263,7 @@
               name="n"
               inputmode="decimal"
               maxlength="20"
-              placeholder="e.g. 200"
+              placeholder="for example 200"
               bind:value={typed}
             />
           </label>

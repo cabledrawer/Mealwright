@@ -157,7 +157,9 @@ def test_sy68_undo_of_a_join_leaves_it_alone_once_the_joined_line_is_ticked(
     assert line["id"] == extra and line["amount"] == 3000
     assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
     assert result["status"] == "applied"
-    assert result["message"] == "Nothing to put back: it has all changed again since."
+    assert result["message"] == (
+        "Nothing to put back: the line it joined has been bought, so it stays as it is."
+    )
 
 
 def test_sy68_undo_of_an_add_that_joined_leaves_it_alone_once_the_joined_line_is_ticked(
@@ -195,7 +197,9 @@ def test_sy68_undo_of_an_add_that_joined_leaves_it_alone_once_the_joined_line_is
     joined = next(r for r in _live(kitchen, s, "Milk") if r["id"] == first)
     assert joined["amount"] == 3000
     assert result["status"] == "applied"
-    assert result["message"] == "Nothing to put back: it has all changed again since."
+    assert result["message"] == (
+        "Nothing to put back: the line it joined has been bought, so it stays as it is."
+    )
 
 
 def test_sy68_a_blank_line_there_and_the_moved_amount_add_up(kitchen: TestClient) -> None:

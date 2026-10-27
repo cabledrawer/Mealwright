@@ -14,6 +14,7 @@
   import { changesToast } from '#lib/import.save.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
@@ -141,7 +142,8 @@
       {#if review.photo.state === 'off'}
         <b>Photo not downloaded.</b> Photo downloads are off in
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-        <a href="/settings/privacy">Settings → Privacy</a>. You can add your own photo later.
+        <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}">Settings → Privacy</a>. You can add
+        your own photo later.
       {:else}
         <b>Photo not downloaded</b>
         — {review.photo.message} You can add your own photo later.

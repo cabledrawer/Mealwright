@@ -57,7 +57,7 @@ describe('Import a recipe: the note about photos', () => {
     expect(privacy.photosOff).toBe(true);
     await expect
       .element(page.getByRole('link', { name: 'Change in Settings → Privacy' }))
-      .toHaveAttribute('href', '/settings/privacy');
+      .toHaveAttribute('href', '/settings/privacy#outside-connections');
   });
 
   it('says nothing about photos while the switch is on', async () => {

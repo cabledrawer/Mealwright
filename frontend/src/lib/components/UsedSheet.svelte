@@ -113,7 +113,7 @@
             <input
               inputmode="decimal"
               maxlength="20"
-              placeholder="e.g. {countedAs === 'count' ? 3 : round(total * 0.75)}"
+              placeholder="for example {countedAs === 'count' ? 3 : round(total * 0.75)}"
               data-first={countedAs === 'count' ? '' : undefined}
               bind:value={typed}
               aria-describedby={problem ? `${uid}-problem` : undefined}

@@ -8,6 +8,7 @@
   import { tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
+  import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import { OFFLINE_NOTE, type ImportFlow } from '#lib/import.svelte.js';
 
   import '#lib/styles/fields.css';
@@ -77,7 +78,9 @@
           <p class="actions">
             {#if flow.problem.admin}
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-              <a class="button" href="/settings/privacy">Open Settings</a>
+              <a class="button" href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
+                >Open Settings</a
+              >
             {/if}
             <button type="button" class="ghost" onclick={() => void pasteInstead()}
               >Paste text instead</button
@@ -119,7 +122,7 @@
     <p class="photos">
       Recipe photos: not downloaded.
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-      <a href="/settings/privacy">Change in Settings → Privacy</a>
+      <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}">Change in Settings → Privacy</a>
     </p>
   {/if}
 </form>

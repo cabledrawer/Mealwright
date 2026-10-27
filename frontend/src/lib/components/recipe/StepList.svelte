@@ -98,7 +98,7 @@
             aria-label="Method heading"
             data-words
             maxlength="200"
-            placeholder="e.g. The tempering"
+            placeholder="for example the tempering"
             bind:value={step.text}
           />
         {:else}

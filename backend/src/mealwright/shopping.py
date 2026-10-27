@@ -1563,6 +1563,7 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
                 continue
             if op.get("joined") and _ticked_since(kitchen, item):
                 tally.skipped += 1  # the line a move joined was bought since (rule M-1)
+                tally.joined_bought = True
                 continue
             if _amount_state(item) == op["new"]:
                 item.amount_milli, item.size_id = op["old"]
@@ -1633,6 +1634,7 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
             joined = db.get(ListItem, op["joined_into"]) if op.get("joined_into") else None
             if joined is not None and _ticked_since(kitchen, joined):
                 tally.skipped += len(op["item_ids"])  # its amount was bought: stay joined
+                tally.joined_bought = True
                 continue
             for item_id in op["item_ids"]:
                 item = db.get(ListItem, item_id)

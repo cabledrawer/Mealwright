@@ -159,7 +159,7 @@
       aria-label="Amount"
       aria-describedby="{uid}-hint{problem ? ` ${uid}-p` : ''}"
       aria-invalid={problem ? 'true' : undefined}
-      placeholder={item.amount ? undefined : 'e.g. 500'}
+      placeholder={item.amount ? undefined : 'for example 500'}
       oninput={() => (problem = null)}
       use:focusOnShow
     />

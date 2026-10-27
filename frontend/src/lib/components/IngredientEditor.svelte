@@ -493,7 +493,7 @@
           <input
             value={food.item_weight ? `${Math.round(food.item_weight.grams)} g` : ''}
             maxlength="20"
-            placeholder="e.g. 150 g"
+            placeholder="for example 150 g"
             onchange={setItemWeight}
             onkeydown={boxKeys(() => {})}
           />
@@ -504,7 +504,7 @@
           <input
             value={food.cup_weight ? `${Math.round(food.cup_weight.grams)} g` : ''}
             maxlength="20"
-            placeholder="e.g. 200 g"
+            placeholder="for example 200 g"
             onchange={setCupWeight}
             onkeydown={boxKeys(() => {})}
           />
@@ -515,7 +515,7 @@
         <input
           value={food.running_low_at?.short ?? food.running_low_at?.display ?? ''}
           maxlength={MAX_TYPED_AMOUNT}
-          placeholder="e.g. ½ packet"
+          placeholder="for example ½ packet"
           aria-invalid={lowProblem ? true : undefined}
           aria-describedby={lowProblem ? `${uid}-low` : undefined}
           onchange={setRunningLow}

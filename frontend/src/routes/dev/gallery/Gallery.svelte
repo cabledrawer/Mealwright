@@ -47,7 +47,6 @@
   import AmountBox from '#lib/components/shopping/AmountBox.svelte';
   import ItemRow from '#lib/components/shopping/ItemRow.svelte';
   import RemoveConfirm from '#lib/components/shopping/RemoveConfirm.svelte';
-  import PlaceTabs from '#lib/components/PlaceTabs.svelte';
   import RecentChanges from '#lib/components/RecentChanges.svelte';
   import RemoveIngredient from '#lib/components/RemoveIngredient.svelte';
   import UsedCount from '#lib/components/UsedCount.svelte';
@@ -172,17 +171,6 @@
   );
   let password = $state('kitchen-secret');
   let empty = $state('');
-
-  // --- Place tabs ---------------------------------------------------------------------
-  const places = [
-    { id: 'all', label: 'All', pinned: true },
-    { id: 'fridge', label: 'Fridge', pinned: true },
-    { id: 'freezer', label: 'Freezer' },
-    { id: 'cupboard', label: 'Cupboard' },
-    { id: 'spice', label: 'Spice rack' }
-  ];
-  let place = $state('fridge');
-  let few = $state('fridge');
 
   // --- The pantry rows, with stand-in models ----------------------------------------------
   const sample = samplePantry();
@@ -630,8 +618,14 @@
   let servesCleared = $state<number | null>(null);
   let tags = $state(['Batch-friendly', 'South Indian']);
   const suggest = async () => [{ name: 'Quick' }, { name: 'Kids' }];
-  const row = (id: number, name: string, matched: string | null = null) =>
-    ({ id, name, matched_name: matched, other_names: [] }) as unknown as FoodRow;
+  const row = (id: number, name: string, matched: string | null = null, used = 3) =>
+    ({
+      id,
+      name,
+      matched_name: matched,
+      other_names: matched ? [matched] : [],
+      used_in_recipes: used
+    }) as unknown as FoodRow;
   const searchEverything = async () => ({
     foods: [row(7, 'Toor dal', 'thuvaram paruppu'), row(8, 'Sambar onions', 'small onions')],
     recipes: [
@@ -774,7 +768,6 @@
     <a href="#cards">Cards and notices</a>
     <a href="#toast">Toast</a>
     <a href="#dialogs">Dialogs</a>
-    <a href="#tabs">Tabs</a>
     <a href="#pantry">Pantry rows</a>
     <a href="#recipes">Recipes</a>
     <a href="#plan">Plan</a>
@@ -899,25 +892,6 @@
       <button type="button" class="demo" onclick={() => void newIngredient.choose('Curry leaves')}
         >How do you count it?</button
       >
-    </div>
-  </section>
-
-  <section id="tabs">
-    <h2>Place tabs</h2>
-    <p class="note">Wide enough for all, and narrow enough that some go under More.</p>
-    <div class="stack">
-      <div class="narrow wide">
-        <PlaceTabs tabs={places} bind:selected={few} panelId="g-panel-1" />
-      </div>
-      <div class="narrow">
-        <PlaceTabs tabs={places} bind:selected={place} panelId="g-panel-2" />
-      </div>
-      <div class="narrow tight">
-        <PlaceTabs tabs={places} bind:selected={place} panelId="g-panel-3" />
-      </div>
-      <div id="g-panel-1" role="tabpanel" class="note">Selected: {few}, {place}</div>
-      <div id="g-panel-2" hidden></div>
-      <div id="g-panel-3" hidden></div>
     </div>
   </section>
 
@@ -1274,10 +1248,10 @@
       The one box takes a link or pasted text. Importing from links switched off (an admin sees
       Settings, a member is told an admin can switch it on), another refusal, and the box while
       reading. While "Download recipe photos" is off, a note under "How it works" says photos aren’t
-      downloaded and links to Settings → Privacy (the second box; it is left out while the switch is
-      on or isn’t known). The review has a line in each state: matched, staple, to confirm, needs
-      you, a line that couldn’t be read, a very long name and a heading. "Save & plan it" is not
-      there until 0.6.
+      downloaded and links to Settings → Privacy (the Outside connections box; it is left out while
+      the switch is on or isn’t known). The review has a line in each state: matched, staple, to
+      confirm, needs you, a line that couldn’t be read, a very long name and a heading. "Save & plan
+      it" is not there until 0.6.
     </p>
     <div class="stack">
       <div class="narrow"><ImportStart flow={boxFlow('')} /></div>
@@ -1402,7 +1376,7 @@
       <div class="row">
         <button type="button" class="mw-pill">Change photo</button>
         <button type="button" class="mw-pill" disabled>Disabled</button>
-        <button type="button" class="mw-add">+ Add ingredient</button>
+        <button type="button" class="mw-add">+ Add line</button>
         <button type="button" class="mw-icon" aria-label="Take out"
           ><Icon name="close" size={18} /></button
         >
@@ -1435,6 +1409,7 @@
     <h3>Pick an ingredient (a recipe that would make a loop is greyed out)</h3>
     <div class="narrow">
       <IngredientPicker
+        id="g-pick-list"
         query="sam"
         search={searchEverything}
         {blocked}
@@ -1445,8 +1420,8 @@
 
     <h3>Ingredient lines and method</h3>
     <label class="inline"
-      ><Switch bind:checked={phoneWide} label="Pick from a sheet" /> Pick from a sheet (phone) instead
-      of under the line</label
+      ><Switch bind:checked={phoneWide} label="Phone layout" /> Phone layout (the pick-list opens under
+      the box on both)</label
     >
     <div class="wide">
       <LineList
@@ -1757,17 +1732,6 @@
     max-width: 390px;
   }
 
-  .wide {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-9);
-    max-width: 900px;
-  }
-
-  .narrow.wide {
-    max-width: 520px;
-  }
-
   /* The computer's photo-beside-the-figures row (RecipeScreen's .facts). */
   .wide-facts {
     display: flex;
@@ -1783,10 +1747,6 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--space-7);
-  }
-
-  .narrow.tight {
-    max-width: 260px;
   }
 
   /* A box that holds fixed or sticky parts (the bars, the sidebar, the bottom tabs), so they
