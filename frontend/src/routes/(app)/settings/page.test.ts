@@ -442,4 +442,16 @@ describe('the pint switch (Amounts)', () => {
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
     expect(document.body.textContent).not.toContain('Amounts');
   });
+
+  it('shows once the connection comes back, when Settings was opened offline', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Amounts');
+    vi.unstubAllGlobals();
+    fakeApi({ 'GET /household': [200, household('uk')] });
+    network.backAgain++;
+    flushSync();
+    await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+  });
 });

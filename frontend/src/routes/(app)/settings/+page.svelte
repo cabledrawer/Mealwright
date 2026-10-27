@@ -31,11 +31,21 @@
   let pintsProblem = $state<string | null>(null);
   const admin = who?.role === 'admin';
 
-  onMount(() => {
+  function readPints() {
     getHousehold().then(
       (household) => (pints = household.pints),
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
     );
+  }
+  onMount(readPints);
+  // Opened offline: the row shows once the connection comes back.
+  let seen = network.backAgain;
+  $effect(() => {
+    const again = network.backAgain;
+    if (again !== seen) {
+      seen = again;
+      if (pints === null) readPints();
+    }
   });
 
   /** The switch flips at once and is sent; if it can't be saved it flips back and says so. */
