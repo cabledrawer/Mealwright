@@ -828,20 +828,20 @@ def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_pat
     assert migrate_head(engine) == newest_migration()
     assert _row_counts(engine, skip) == before
     columns = {c["name"] for c in inspect(engine).get_columns("staple_check")}
-    assert columns == {"food_id", "household_id", "need_key", "at"}
+    assert columns == {"food_id", "household_id", "item_ids", "at"}
     with engine.begin() as connection:
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
         food_id = connection.exec_driver_sql(
             "SELECT id FROM food WHERE household_id = 1 LIMIT 1"
         ).scalar_one()
         connection.exec_driver_sql(
-            "INSERT INTO staple_check (food_id, household_id, need_key, at)"
-            " VALUES (?, 1, 'abc', '2026-10-27 09:00:00')",
+            "INSERT INTO staple_check (food_id, household_id, item_ids, at)"
+            " VALUES (?, 1, '[1, 2]', '2026-10-27 09:00:00')",
             (food_id,),
         )
         with pytest.raises(IntegrityError):
             connection.exec_driver_sql(
-                "INSERT INTO staple_check (food_id, household_id, need_key, at)"
-                " VALUES (?, 1, 'def', '2026-10-27 09:00:00')",
+                "INSERT INTO staple_check (food_id, household_id, item_ids, at)"
+                " VALUES (?, 1, '[]', '2026-10-27 09:00:00')",
                 (food_id,),
             )

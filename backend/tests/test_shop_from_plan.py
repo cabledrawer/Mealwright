@@ -269,7 +269,9 @@ def test_a_meal_in_the_past_does_not_count(kitchen: TestClient, rice: dict[str, 
     assert plan_lines(kitchen) == []
 
 
-def test_a_batch_cook_is_worked_out_for_its_tubs(kitchen: TestClient, rice: dict[str, Any]) -> None:
+def test_a_batch_cook_is_worked_out_for_the_meal_plus_one_serving_per_tub(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
     sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
     cook = plan(kitchen, sambar, 1)
     assert amounts(kitchen) == {rice["id"]: 200}
@@ -280,8 +282,29 @@ def test_a_batch_cook_is_worked_out_for_its_tubs(kitchen: TestClient, rice: dict
         ),
         201,
     )
-    # Six tubs are six servings: 6/4 of 200 g. The tubs in the next meals add nothing.
-    assert amounts(kitchen) == {rice["id"]: 300}
+    # The four at the cook meal eat too, and six tubs are six more: 10/4 of 200 g. The tubs in
+    # the next meals add nothing.
+    assert amounts(kitchen) == {rice["id"]: 500}
+
+
+def test_leftovers_are_bought_for_on_top_of_the_meal(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
+    cook = plan(kitchen, sambar, 1)
+    slots = {m["name"]: m["id"] for m in ok(kitchen.get(f"{API}/meal-slots"))}
+    ok(
+        kitchen.post(
+            f"{API}/plan/items/{cook['item_id']}/move",
+            json={
+                "date": day(kitchen, 2).isoformat(),
+                "slot_id": slots["Lunch"],
+                "mode": "leftovers",
+            },
+        )
+    )
+    # Leftovers make a batch of one tub: a meal for 4 is bought for 5, not for 1.
+    assert amounts(kitchen) == {rice["id"]: 250}
 
 
 # --- Updating the list ---------------------------------------------------------------------------
@@ -682,3 +705,71 @@ def test_the_staples_card_and_got_it_stay_inside_the_household(
     assert [s["food"]["id"] for s in from_plan(kitchen)["staples"]] == [oil["id"]]
     with db(kitchen) as session:
         assert list(session.scalars(select(StapleCheck))) == []
+
+
+# --- Review round 1 ------------------------------------------------------------------------------
+
+
+def test_a_plan_line_moved_to_another_list_is_not_made_again_on_the_main_list(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    party = ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Party"}), 201)["shopping_list"][
+        "id"
+    ]
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"))
+    plan(kitchen, sambar)
+    item = plan_lines(kitchen)[0]["id"]
+    one(kitchen, "move", counter(kitchen), item_id=item, list_id=party, shop_id=None)
+    for n in (2, 3):  # the plan changes twice, and the list is opened
+        plan(kitchen, sambar, n)
+        from_plan(kitchen)
+    rows = plan_lines(kitchen)
+    assert [(r["id"], r["list_id"]) for r in rows] == [(item, party)]
+
+
+def test_a_plan_line_joined_onto_a_line_at_another_shop_is_not_made_again(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    shop = ok(kitchen.post(f"{API}/shops", json={"name": "Joined shop"}), 201)["id"]
+    main = main_id(kitchen)
+    typed = new_id()
+    send(
+        kitchen,
+        action("add", list_id=main, item_id=typed, food_id=rice["id"], amount=100, shop_id=shop),
+    )
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"))
+    plan(kitchen, sambar)
+    item = plan_lines(kitchen)[0]["id"]
+    moved = one(kitchen, "move", counter(kitchen), item_id=item, list_id=main, shop_id=shop)
+    assert moved["status"] == "merged"
+    plan(kitchen, sambar, 2)
+    from_plan(kitchen)
+    assert [r for r in changes(kitchen)["items"] if not r.get("deleted")] != []
+    assert plan_lines(kitchen) == []  # the plan line went into the typed one; no new one
+
+
+def test_got_it_stays_hidden_as_days_pass_and_comes_back_for_a_new_meal(
+    kitchen: TestClient,
+) -> None:
+    oil = new_food(kitchen, "Plan oil", staple=True)
+    stew = recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp"))
+    monday = plan(kitchen, stew, 0)
+    plan(kitchen, stew, 2)
+    ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))
+    # Tuesday: Monday's meal is behind us (the window starts today), nothing new is planned.
+    with db(kitchen) as session:
+        session.get(Meal, monday["meal_id"]).day = day(kitchen, -1)  # type: ignore[union-attr]
+        session.commit()
+    assert from_plan(kitchen)["staples"] == []
+    # A meal that was not planned then, and uses it: it asks again.
+    plan(kitchen, stew, 3)
+    assert [s["food"]["name"] for s in from_plan(kitchen)["staples"]] == ["Plan oil"]
+
+
+def test_a_staple_added_and_ticked_does_not_come_back_on_the_card(kitchen: TestClient) -> None:
+    oil = new_food(kitchen, "Plan oil", staple=True)
+    plan(kitchen, recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp")))
+    item = new_id()
+    send(kitchen, action("add", list_id=main_id(kitchen), item_id=item, food_id=oil["id"]))
+    one(kitchen, "tick", counter(kitchen), item_id=item)
+    assert from_plan(kitchen)["staples"] == []

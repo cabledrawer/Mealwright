@@ -83,7 +83,7 @@ class Line:
     size_id: int | None
 
 
-def _lines(kitchen: Kitchen, live: set[int], only: int | None = None) -> list[Line]:
+def _lines(kitchen: Kitchen, live: set[int], only: int | set[int] | None = None) -> list[Line]:
     """Every ingredient line (not headings) of the household's recipes, or of recipe `only`."""
     query = select(
         RecipeLine.id,
@@ -95,8 +95,10 @@ def _lines(kitchen: Kitchen, live: set[int], only: int | None = None) -> list[Li
         RecipeLine.unit,
         RecipeLine.size_id,
     ).where(RecipeLine.household_id == kitchen.household_id, RecipeLine.kind == "ingredient")
-    if only is not None:
+    if isinstance(only, int):
         query = query.where(RecipeLine.recipe_id == only)
+    elif only is not None:
+        query = query.where(RecipeLine.recipe_id.in_(only))
     return [Line(*row) for row in kitchen.db.execute(query) if row[1] in live]
 
 

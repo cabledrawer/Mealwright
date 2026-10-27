@@ -660,10 +660,9 @@ class DoubleTick(Base):
 
 class StapleCheck(Base):
     """A staple on Shopping's "Check you have these" card that someone tapped "Got it" for
-    (0.6 PR 5). It stays off the card while the plan's use of it is the same: `need_key` is a
-    short fingerprint of the planned meals that use it, so a meal added or taken off brings
-    the card back. Proposed, for cabledrawer: easiest to change later (a different fingerprint
-    needs no new table)."""
+    (0.6 PR 5). It stays off the card until a meal that uses it, and was not planned when "Got
+    it" was said, shows up: `item_ids` are the meal items that used it then (proposed, for
+    cabledrawer). Meals going or the days passing never bring it back."""
 
     __tablename__ = "staple_check"
 
@@ -673,7 +672,7 @@ class StapleCheck(Base):
     household_id: Mapped[int] = mapped_column(
         ForeignKey("household.id", ondelete="CASCADE"), index=True
     )
-    need_key: Mapped[str] = mapped_column(String(64))
+    item_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

@@ -145,14 +145,24 @@ describe('Shopping: the list from the plan', () => {
       .toBeVisible();
   });
 
-  it('the ✕ is Got it for every staple on the card, with one Undo', async () => {
-    await render(390);
+  it('the ✕ is Got it for every staple on the card, with one Undo, and the card stays away meanwhile', async () => {
+    const seen: boolean[] = [];
+    await render(390, {
+      'PUT /shopping/staples/9/got-it': () => {
+        // The second answer is being asked for: the card must not have come back for it.
+        flushSync();
+        seen.push(!!document.querySelector('[aria-label="Got it, Sunflower oil"]'));
+        card = { ...card, staples: [] };
+        return [200, structuredClone(card)];
+      }
+    });
     await page.getByRole('button', { name: 'Dismiss staples check' }).click();
     await expect
       .element(page.getByRole('heading', { name: 'Check you have these' }))
       .not.toBeInTheDocument();
     expect(asked('PUT', '/shopping/staples/8/got-it')).toHaveLength(1);
     expect(asked('PUT', '/shopping/staples/9/got-it')).toHaveLength(1);
+    expect(seen).toEqual([false]);
     await page
       .getByRole('status')
       .filter({ hasText: 'Staples check dismissed' })

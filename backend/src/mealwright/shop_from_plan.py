@@ -15,13 +15,15 @@ The choices below are the builder's, **proposed, for cabledrawer**, each easy to
 function each):
 
 - Servings: a recipe item is worked out for its servings (its own "serves" when none was
-  picked). A batch cook's cook meal is worked out for the batch's tub count, one serving
-  per tub (`servings_for`). Tubs and plain ingredients ("Fruit") need nothing bought: a tub is
-  already made, and a plain ingredient has no amount.
+  picked). A batch cook's cook meal is worked out for those servings plus one per tub: the
+  people eating at the cook meal eat too, and the tubs are extra (`servings_for`; a Leftovers
+  batch has one tub, so a meal for 4 buys for 5). Tubs and plain ingredients ("Fruit") need
+  nothing bought: a tub is already made, and a plain ingredient has no amount.
 - Inner recipes (a line that uses another recipe) add nothing, made ahead or not, as in the
   recipe stock hints (cabledrawer 20 Oct: "inner recipes are checked in a later version"). A
   made-ahead recipe is made, not bought.
-- Stock: everything in the pantry counts, in every place. A stand-in ("Can use instead")
+- Stock: everything in the pantry counts, in every place, and stock past its use-by date still
+  counts (the Pantry shows it; the person decides). A stand-in ("Can use instead")
   covers what the ingredient's own stock doesn't, if it is counted the same way (weight with
   weight, and so on); stock is shared out in order of ingredient, so one pack of red onions
   never covers two ingredients at once (`share_out`).
@@ -49,7 +51,6 @@ ingredient, shop = the ingredient's usual shop or Any shop).
   does nothing (no number taken) when nothing would change.
 """
 
-import hashlib
 import math
 import uuid
 from collections import defaultdict
@@ -57,7 +58,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 
 from mealwright.amounts import MILLI
 from mealwright.api.v1.context import Kitchen
@@ -107,9 +108,10 @@ class ToBuy:
 @dataclass
 class Worked:
     days: int
+    foods: dict[int, Food] = field(default_factory=dict)  # the household's shown ingredients
     to_buy: dict[int, ToBuy] = field(default_factory=dict)  # food id → what to buy
-    # staple id → (names of the recipes that use it, fingerprint of the meals that use it)
-    staples: dict[int, tuple[list[str], str]] = field(default_factory=dict)
+    # staple id → (names of the recipes that use it, ids of the meal items that use it)
+    staples: dict[int, tuple[list[str], set[int]]] = field(default_factory=dict)
 
 
 def base_amount(milli: int | None) -> int | float | None:
@@ -119,10 +121,14 @@ def base_amount(milli: int | None) -> int | float | None:
     return milli // MILLI if milli % MILLI == 0 else milli / MILLI
 
 
-def servings_for(item: MealItem, batch_tubs: int | None) -> int | None:
-    """How many servings a recipe item is worked out for: a batch cook's tub count (one
-    serving per tub), else the item's own, else None (the recipe's own "serves")."""
-    return batch_tubs if batch_tubs is not None else item.servings
+def servings_for(item: MealItem, recipe: Recipe, batch_tubs: int | None) -> int | None:
+    """How many servings a recipe item is worked out for: its own (else the recipe's "serves"),
+    plus one per tub when it is a batch cook's cook meal. None when the recipe has no "serves"
+    to scale from (amounts as written)."""
+    base = item.servings or recipe.serves
+    if base is None:
+        return None
+    return base + (batch_tubs or 0)
 
 
 def round_up(milli: int, counted_as: str) -> int:
@@ -183,7 +189,7 @@ def work_out(kitchen: Kitchen) -> Worked:
     first = today(household)
     days = household.plan_ahead_days
     last = first + timedelta(days=days - 1)
-    worked = Worked(days=days)
+    worked = Worked(days=days, foods=_foods(kitchen))
 
     rows = db.execute(
         select(MealItem, Meal.id)
@@ -215,10 +221,11 @@ def work_out(kitchen: Kitchen) -> Worked:
         if meal_id is not None and recipe_id is not None:
             tubs[(meal_id, recipe_id)] = count
     recipes = live_recipes(kitchen)
-    foods = _foods(kitchen)
+    foods = worked.foods
     stock = Stock(kitchen, foods)
     lines: dict[int, list[Line]] = defaultdict(list)
-    for line in _lines(kitchen, set(recipes)):
+    planned = {item.recipe_id for item, _ in rows if item.recipe_id in recipes}
+    for line in _lines(kitchen, set(recipes), only=planned):
         lines[line.recipe_id].append(line)
 
     needs: dict[int, Need] = defaultdict(Need)
@@ -228,7 +235,7 @@ def work_out(kitchen: Kitchen) -> Worked:
         recipe: Recipe | None = recipes.get(item.recipe_id or 0)
         if recipe is None:  # removed, or its Undo window is over
             continue
-        servings = servings_for(item, tubs.get((meal_id, recipe.id)))
+        servings = servings_for(item, recipe, tubs.get((meal_id, recipe.id)))
         # One recipe's lines for one ingredient, added up, then scaled to the servings.
         per_food: dict[int, Need] = defaultdict(Need)
         for line in lines.get(recipe.id, ()):
@@ -253,10 +260,7 @@ def work_out(kitchen: Kitchen) -> Worked:
             total.unknown = total.unknown or part.unknown
     worked.to_buy = share_out(foods, needs, stock, _stand_ins(kitchen))
     for food_id, names in staple_names.items():
-        key = hashlib.sha1(
-            ",".join(str(i) for i in sorted(staple_items[food_id])).encode(), usedforsecurity=False
-        ).hexdigest()
-        worked.staples[food_id] = (sorted(names), key)
+        worked.staples[food_id] = (sorted(names), set(staple_items[food_id]))
     return worked
 
 
@@ -304,11 +308,14 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
     items = list(
         db.scalars(
             select(ListItem)
-            .where(ListItem.household_id == kitchen.household_id, ListItem.list_id == main.id)
+            .where(
+                ListItem.household_id == kitchen.household_id,
+                or_(ListItem.list_id == main.id, ListItem.source == "plan"),
+            )
             .order_by(ListItem.added_at, ListItem.id)
         )
     )
-    foods = _foods(kitchen)
+    foods = worked.foods
     plan_live: dict[tuple[int, int | None], list[ListItem]] = defaultdict(list)
     plan_gone: dict[tuple[int, int | None], list[ListItem]] = defaultdict(list)
     covered: set[tuple[int, int | None]] = set()  # typed lines, which the plan never doubles
@@ -316,6 +323,12 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
     for item in items:
         key = (item.food_id, item.shop_id)
         if item.merged_into_id is not None:
+            continue
+        if item.list_id != main.id:
+            # A plan line a person moved to another list: the need is met there (a repeat of
+            # it on the main list would be a duplicate).
+            if _live(item):
+                covered_anywhere.add(item.food_id)
             continue
         if item.source == "plan":
             if _live(item):
@@ -326,6 +339,27 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
                 plan_gone[key].append(item)
         elif _live(item) and item.ticked_at is None:
             covered.add(key)
+
+    # A plan line a person moved onto a line at another shop joined it and was removed by the
+    # move: the need is met there.
+    covered_anywhere.update(
+        db.scalars(
+            select(ListItem.food_id)
+            .join(
+                SyncAction,
+                and_(
+                    SyncAction.household_id == ListItem.household_id,
+                    SyncAction.id == ListItem.deleted_action_id,
+                ),
+            )
+            .where(
+                ListItem.household_id == kitchen.household_id,
+                ListItem.source == "plan",
+                ListItem.deleted_at.is_not(None),
+                SyncAction.kind == "move",
+            )
+        )
+    )
 
     wanted: dict[tuple[int, int | None], ToBuy] = {}
     for buy in worked.to_buy.values():
@@ -426,10 +460,10 @@ def refresh(kitchen: Kitchen) -> Outcome:
             _apply(kitchen, main, edits, batch)
             changed = True
         batch.finish()
-    return Outcome(worked, changed, plan_count(kitchen, main))
+    return Outcome(worked, changed, plan_count(kitchen, main, worked.foods))
 
 
-def plan_count(kitchen: Kitchen, main: ShoppingList) -> int:
+def plan_count(kitchen: Kitchen, main: ShoppingList, foods: dict[int, Food]) -> int:
     """How many of the main list's lines the plan made (not removed)."""
     items = kitchen.db.scalars(
         select(ListItem).where(
@@ -440,7 +474,6 @@ def plan_count(kitchen: Kitchen, main: ShoppingList) -> int:
             ListItem.merged_into_id.is_(None),
         )
     )
-    foods = _foods(kitchen)
     return sum(1 for item in items if item.food_id in foods)
 
 
@@ -454,13 +487,14 @@ class Staple:
 
 
 def staples_card(kitchen: Kitchen, worked: Worked) -> list[Staple]:
-    """The staples the counted meals use, except those with "Got it" (for this same use) or
-    already on the list. A, B, C order."""
+    """The staples the counted meals use, except those with "Got it" (while every meal that
+    uses one was there when it was said) or already on the list (ticked or not). A, B, C
+    order."""
     db = kitchen.db
     if not worked.staples:
         return []
     got = {
-        row.food_id: row.need_key
+        row.food_id: set(row.item_ids)
         for row in db.scalars(
             select(StapleCheck).where(StapleCheck.household_id == kitchen.household_id)
         )
@@ -474,31 +508,31 @@ def staples_card(kitchen: Kitchen, worked: Worked) -> list[Staple]:
                 ShoppingList.main.is_(True),
                 ListItem.deleted_at.is_(None),
                 ListItem.merged_into_id.is_(None),
-                ListItem.ticked_at.is_(None),
             )
         )
     )
-    foods = _foods(kitchen)
+    foods = worked.foods
     out = [
         Staple(foods[food_id], names)
-        for food_id, (names, key) in worked.staples.items()
-        if food_id in foods and got.get(food_id) != key and food_id not in on_list
+        for food_id, (names, items) in worked.staples.items()
+        if food_id in foods and not items <= got.get(food_id, set()) and food_id not in on_list
     ]
     return sorted(out, key=lambda s: (fold(s.food.name), s.food.id))
 
 
 def got_it(kitchen: Kitchen, food: Food) -> None:
-    """Remember "Got it" for a staple, for the plan's use of it as it is now."""
+    """Remember "Got it" for a staple: the meal items that use it now. It comes back only when
+    a meal item that is not among them uses it (a meal added), not as days pass or meals go."""
     worked = work_out(kitchen)
     found = worked.staples.get(food.id)
-    key = found[1] if found else ""
+    ids = sorted(found[1]) if found else []
     row = kitchen.db.get(StapleCheck, food.id)
     if row is None:
         kitchen.db.add(
-            StapleCheck(food_id=food.id, household_id=kitchen.household_id, need_key=key)
+            StapleCheck(food_id=food.id, household_id=kitchen.household_id, item_ids=ids)
         )
     else:
-        row.need_key = key
+        row.item_ids = ids
         row.at = utcnow()
     kitchen.db.flush()
 

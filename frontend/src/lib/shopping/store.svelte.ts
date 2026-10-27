@@ -225,7 +225,10 @@ export class ShoppingModel {
     if (!before || !all.length || network.offline) return;
     this.planCard = { ...before, staples: [] };
     try {
-      for (const staple of all) this.planCard = await gotIt(staple.food.id);
+      // The card stays empty until the last answer (an early answer would list the rest again).
+      let last: PlanCard | null = null;
+      for (const staple of all) last = await gotIt(staple.food.id);
+      if (last) this.planCard = last;
     } catch (error) {
       void this.refreshPlan();
       toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
