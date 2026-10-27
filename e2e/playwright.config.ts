@@ -90,6 +90,10 @@ export default defineConfig({
     { name: 'phone 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Today: Did you cook…?, Cooked it, Didn't, Move it, the first-day state (0.6, PR 6).
+    { name: 'phone 0.6 today', testMatch: 'today.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.6 today', testMatch: 'today.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.6 today', testMatch: 'today.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
