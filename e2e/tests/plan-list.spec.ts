@@ -79,13 +79,19 @@ test('a planned recipe puts its ingredients on Shopping, and the lines follow th
     const riceId = await k.food(rice);
     const dalId = await k.food(dal);
     const sambar = await k.recipe(`Sambar ${tag}`, [line(riceId, 200), line(dalId, 100)]);
+    // The live stream has said hello and nothing is still on its way, so the plan's lines can
+    // only arrive live.
+    const hello = page.waitForResponse((r) => r.url().endsWith('/api/v1/events'));
     await page.goto('/shopping');
     await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
+    await hello;
+    await page.waitForLoadState('networkidle');
     await expect(amountButton(page, rice, '200')).toHaveCount(0);
 
     const first = await k.plan(sambar, 2);
     // Live: the lines arrive on the open screen, and the line above says where they came from.
-    await expect(amountButton(page, rice, '200 g')).toBeVisible();
+    // (A busy machine late in the full run, with a long shared list, can take over 5 seconds.)
+    await expect(amountButton(page, rice, '200 g')).toBeVisible({ timeout: 15_000 });
     await expect(amountButton(page, dal, '100 g')).toBeVisible();
     await expect(page.getByText(/to buy · built from this week’s plan/)).toBeVisible();
 

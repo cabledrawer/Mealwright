@@ -143,15 +143,17 @@ test.describe('the connection bar', () => {
   });
 
   test('the Shopping subtitle says offline while offline', async ({ page, context }) => {
+    // Other projects' planned meals may have put plan lines on the shared list (0.6): the
+    // subtitle then says so too.
     await open(page, '/shopping');
-    await expect(page.getByText(/^\d+ to buy · (synced with .+|saved)$/)).toBeVisible();
+    await expect(page.getByText(/^\d+ to buy(?: · built from .+)? · (synced with .+|saved)$/)).toBeVisible();
     await context.setOffline(true);
     const device = isPhone(page) ? 'phone' : 'computer';
     await expect(
-      page.getByText(new RegExp(`^\\d+ to buy · offline, saving on this ${device}$`)),
+      page.getByText(new RegExp(`^\\d+ to buy(?: · built from .+)? · offline, saving on this ${device}$`)),
     ).toBeVisible({ timeout: 10_000 });
     await context.setOffline(false);
-    await expect(page.getByText(/^\d+ to buy · (synced with .+|saved)$/)).toBeVisible({
+    await expect(page.getByText(/^\d+ to buy(?: · built from .+)? · (synced with .+|saved)$/)).toBeVisible({
       timeout: 10_000,
     });
   });
