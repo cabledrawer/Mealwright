@@ -14,6 +14,7 @@
   import { lastOwnChange } from '#lib/client/changes.js';
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
+  import { forgetToday } from '#lib/today.svelte.js';
   import { askAgain } from '#lib/offline/opening.js';
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
   import { askToKeepDataHere } from '#lib/offline/persist.js';
@@ -70,6 +71,7 @@
       placesAndShops.forget();
       privacy.forget();
       drafts.forget();
+      forgetToday();
       undoHistory.clear();
       toasts.dismiss();
       try {
