@@ -164,8 +164,8 @@ test('Check you have these: Got it stays hidden until the plan changes; + Add pu
     await card.getByRole('button', { name: `+ Add ${turmeric}` }).click();
     await expect(card.getByRole('button', { name: `Got it, ${turmeric}` })).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: `Tick ${turmeric}` })).toBeVisible();
+    await expect.poll(async () => (await listLines(page)).find((l) => l.name === turmeric)?.source).toBe('typed');
     const added = (await listLines(page)).find((l) => l.name === turmeric);
-    expect(added?.source).toBe('typed');
     if (added) k.mine(added.id);
 
     await checkPage(page); // the card passes the accessibility checks, both themes
