@@ -1366,9 +1366,10 @@ def test_a_late_answer_is_thrown_away(gate: OutboundGate, stuck: StuckResolver) 
 
 
 def test_past_sixteen_stuck_look_ups_a_new_one_times_out_at_once(
-    gate: OutboundGate, stuck: StuckResolver
+    gate: OutboundGate, stuck: StuckResolver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The cap on stuck look-ups: 16 threads waiting on the resolver, then no more started."""
+    monkeypatch.setattr(outbound, "MAX_STUCK_PER_HOUSEHOLD", outbound.MAX_STUCK_LOOK_UPS)
     for number in range(outbound.MAX_STUCK_LOOK_UPS):
         with pytest.raises(outbound.OutboundFailed) as caught:
             gate.look_up(
@@ -1392,6 +1393,54 @@ def test_past_sixteen_stuck_look_ups_a_new_one_times_out_at_once(
             thread.join(2)
     # Once they have finished, look-ups work again.
     assert gate.look_up(1, Connection.RECIPE_IMPORT, "ok.example", 443) == [ip_address(PUBLIC)]
+
+
+def test_one_household_cant_use_up_the_others_look_ups(
+    gate: OutboundGate, stuck: StuckResolver
+) -> None:
+    """Past 4 stuck look-ups, a household's next one times out at once; another household's
+    is still started (0.6 PR 8 security L1)."""
+    for number in range(outbound.MAX_STUCK_PER_HOUSEHOLD):
+        with pytest.raises(outbound.OutboundFailed):
+            gate.look_up(
+                1,
+                Connection.RECIPE_IMPORT,
+                f"slow{number}.example",
+                443,
+                deadline=time.monotonic() + 0.05,
+            )
+    asked = len(stuck.asked)
+    with pytest.raises(outbound.OutboundFailed) as caught:
+        gate.look_up(1, Connection.RECIPE_IMPORT, "one-more.example", 443)
+    assert caught.value.kind == "timeout"
+    assert len(stuck.asked) == asked  # nothing was started for household 1
+    with pytest.raises(outbound.OutboundFailed):
+        gate.look_up(
+            2, Connection.RECIPE_IMPORT, "next-door.example", 443, deadline=time.monotonic() + 0.05
+        )
+    assert stuck.asked[-1] == "next-door.example"  # household 2's was started
+    stuck.release.set()
+    for thread in threading.enumerate():
+        if thread.name == "name-look-up":
+            thread.join(2)
+    assert outbound._look_ups_running == 0 and outbound._look_ups_by_household == {}
+
+
+def test_a_thread_start_that_fails_otherwise_still_gives_its_place_back(
+    gate: OutboundGate, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not only RuntimeError: any failed start takes its count back (0.6 PR 8 security L2)."""
+
+    def refuse(self: threading.Thread) -> None:
+        raise MemoryError
+
+    before = outbound._look_ups_running
+    with monkeypatch.context() as patched:
+        patched.setattr(threading.Thread, "start", refuse)
+        with pytest.raises(MemoryError):
+            gate.look_up(1, Connection.RECIPE_IMPORT, "recipes.example", 443)
+    assert outbound._look_ups_running == before
+    assert 1 not in outbound._look_ups_by_household
 
 
 def test_a_thread_that_cannot_start_is_unreachable_not_a_crash(

@@ -1632,7 +1632,7 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
                 tally.skipped += 1
         elif kind == "item_deleted":
             joined = db.get(ListItem, op["joined_into"]) if op.get("joined_into") else None
-            if joined is not None and _ticked_since(kitchen, joined):
+            if _same(joined, kitchen) and _ticked_since(kitchen, joined):
                 tally.skipped += len(op["item_ids"])  # its amount was bought: stay joined
                 tally.joined_bought = True
                 continue

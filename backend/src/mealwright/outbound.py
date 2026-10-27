@@ -144,12 +144,27 @@ def _lookup(host: str, port: int) -> list[str]:
 # How many name look-ups may be stuck at once. A look-up that is still going when its time is up
 # keeps its thread until the resolver gives up, so a stuck resolver could pile threads up; past
 # this many, a new look-up gets the usual "took too long" answer at once and starts nothing.
+# One household may hold only a few of them, so it can't use up the others' (0.6 PR 8 security
+# L1).
 MAX_STUCK_LOOK_UPS = 16
+MAX_STUCK_PER_HOUSEHOLD = 4
 _look_ups_running = 0
+_look_ups_by_household: dict[int, int] = {}
 _look_ups_lock = threading.Lock()
 
 
-def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
+def _look_up_done(household_id: int) -> None:
+    """Take back one running look-up (called with `_look_ups_lock` held)."""
+    global _look_ups_running
+    _look_ups_running -= 1
+    left = _look_ups_by_household.get(household_id, 0) - 1
+    if left > 0:
+        _look_ups_by_household[household_id] = left
+    else:
+        _look_ups_by_household.pop(household_id, None)
+
+
+def _look_up_within(household_id: int, host: str, port: int, seconds: float) -> list[str]:
     """`_lookup(host, port)`, waited for at most `seconds` (OutboundFailed("timeout") after).
 
     `getaddrinfo` can't be cut short, so it runs on a worker thread and, if it is still
@@ -161,9 +176,10 @@ def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
     ends the import), and they pile up only as fast as imports are started while the
     resolver is stuck.
 
-    At most `MAX_STUCK_LOOK_UPS` look-ups run at once; past that, OutboundFailed("timeout") at
-    once, the answer a look-up that never finishes gets anyway. If the system can't start
-    another thread, OutboundFailed("unreachable").
+    At most `MAX_STUCK_LOOK_UPS` look-ups run at once, and at most `MAX_STUCK_PER_HOUSEHOLD`
+    for one household; past that, OutboundFailed("timeout") at once, the answer a look-up
+    that never finishes gets anyway. If the system can't start another thread,
+    OutboundFailed("unreachable"); any other failed start is raised as it is.
 
     The worker opens the gate itself: the guard's "inside the gate" flag is per thread
     context, and a new thread doesn't inherit the caller's."""
@@ -172,7 +188,6 @@ def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
     outcome: list[list[str] | Exception] = []
 
     def work() -> None:
-        global _look_ups_running
         try:
             with gate_open():
                 outcome.append(_lookup(host, port))
@@ -180,19 +195,23 @@ def _look_up_within(host: str, port: int, seconds: float) -> list[str]:
             outcome.append(error)
         finally:
             with _look_ups_lock:
-                _look_ups_running -= 1
+                _look_up_done(household_id)
             done.set()
 
     with _look_ups_lock:
-        if _look_ups_running >= MAX_STUCK_LOOK_UPS:
+        mine = _look_ups_by_household.get(household_id, 0)
+        if _look_ups_running >= MAX_STUCK_LOOK_UPS or mine >= MAX_STUCK_PER_HOUSEHOLD:
             raise OutboundFailed("timeout")
         _look_ups_running += 1
+        _look_ups_by_household[household_id] = mine + 1
     try:
         threading.Thread(target=work, name="name-look-up", daemon=True).start()
-    except RuntimeError:  # no thread to be had: the same as not reaching the name
+    except BaseException as error:  # never started: take it back, whatever went wrong (L2)
         with _look_ups_lock:
-            _look_ups_running -= 1
-        raise OutboundFailed("unreachable") from None
+            _look_up_done(household_id)
+        if isinstance(error, RuntimeError):  # no thread to be had: as not reaching the name
+            raise OutboundFailed("unreachable") from None
+        raise
     if not done.wait(seconds):
         raise OutboundFailed("timeout")
     answer = outcome[0]
@@ -388,7 +407,7 @@ class OutboundGate:
         left = deadline - time.monotonic()
         if left <= 0:
             raise OutboundFailed("timeout")
-        found = _look_up_within(host, port, left)
+        found = _look_up_within(household_id, host, port, left)
         addresses: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
         for text in found:
             try:
