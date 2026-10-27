@@ -32,6 +32,7 @@ from mealwright.models import (
 )
 from mealwright.plan import (
     DAYS_AHEAD,
+    DAYS_BACK,
     MOST_ITEMS_IN_MEAL,
     _drop_meal,
     _end,
@@ -676,8 +677,14 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
     """Month's "Fill from freezer first": every day in the range with nothing planned gets a
     tub from the freezer, oldest use-by first, in the last meal that is switched on (as a
     recipe dropped on a Month day does). None when there is nothing to fill or nothing to fill
-    it with."""
+    it with. Days too far from today to plan are left out (Month's grid runs into next
+    month)."""
     db = kitchen.db
+    now = today(kitchen.household)
+    first = max(first, now - timedelta(days=DAYS_BACK))
+    last = min(last, now + timedelta(days=DAYS_AHEAD))
+    if first > last:
+        return None
     slots = [s for s in meal_slots(db, kitchen.household_id) if s.enabled]
     if not slots:
         return None
@@ -695,6 +702,8 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
                 ~exists().where(MealItem.tub_id == Tub.id),
             )
             .order_by(Tub.use_by, Tub.id)
+            # One tub a day at most, so no more than that is ever needed.
+            .limit((last - first).days + 1)
         )
     )
     busy = {
@@ -764,7 +773,7 @@ def tubs_left(kitchen: Kitchen, limit: int) -> tuple[list[TubLeft], bool]:
             BatchCook,
             and_(BatchCook.id == Tub.batch_id, BatchCook.household_id == Tub.household_id),
         )
-        .outerjoin(Place, Place.id == Tub.place_id)
+        .outerjoin(Place, and_(Place.id == Tub.place_id, Place.household_id == Tub.household_id))
         .where(
             Tub.household_id == kitchen.household_id,
             Tub.amount_quarters > 0,
@@ -838,6 +847,8 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         old = step["batch"]
         if db.get(BatchCook, old["id"]) is not None:
             return False
+        # The day's cap holds for Undo too (delete, make another, then Undo would get round it).
+        _batches_that_day(kitchen, date.fromisoformat(old["cooked_on"]))
         cook_meal = _own(kitchen, Meal, remap.get(old["cook_meal_id"], old["cook_meal_id"]))
         db.add(
             BatchCook(

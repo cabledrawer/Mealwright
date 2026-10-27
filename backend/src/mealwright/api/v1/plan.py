@@ -159,9 +159,15 @@ def get_plan(
             .order_by(MealItem.meal_id, MealItem.position, MealItem.id)
         )
     )
-    recipe_ids = {i.recipe_id for i in items if i.recipe_id}
-    food_ids = {i.food_id for i in items if i.food_id}
-    tub_ids = {i.tub_id for i in items if i.tub_id}
+    # The ids the meals link to, as subqueries too (a list of them, used more than once, could
+    # push a query over SQLite's 32,766 values).
+    in_meals = (
+        MealItem.household_id == household_id,
+        MealItem.meal_id.in_(select(Meal.id).where(*in_range)),
+    )
+    recipe_ids = select(MealItem.recipe_id).where(*in_meals, MealItem.recipe_id.is_not(None))
+    food_ids = select(MealItem.food_id).where(*in_meals, MealItem.food_id.is_not(None))
+    tub_ids = select(MealItem.tub_id).where(*in_meals, MealItem.tub_id.is_not(None))
     recipes = {
         r.id: r
         for r in db.scalars(

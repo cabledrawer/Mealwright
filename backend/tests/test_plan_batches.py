@@ -14,8 +14,7 @@ from test_plan_writes import D1, D2, plan_recipe, shape, undo, view
 from mealwright import batches as batches_module
 from mealwright import plan as plan_module
 from mealwright.auth import hash_password
-from mealwright.household import MOST_SLOTS
-from mealwright.models import BatchCook, Household, Login, Meal, Tub
+from mealwright.models import BatchCook, Household, Login, Meal, MealItem, Tub
 
 API = "/api/v1"
 D3 = D1 + timedelta(days=2)
@@ -644,6 +643,24 @@ def test_a_batch_holds_at_most_the_most_tubs_and_a_day_the_most_batches(
     assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
 
 
+def test_undo_of_a_deleted_batch_keeps_to_the_days_cap(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    """Delete a batch, fill the day to the cap, then Undo: the day would have one too many."""
+    made = make(kitchen, cook["item_id"])
+    gone = kitchen.delete(f"{API}/plan/batches/{made['batch_id']}")
+    assert gone.status_code == 200, gone.text
+    with db_of(kitchen) as db:
+        for n in range(batches_module.MOST_BATCHES_A_DAY):
+            db.add(BatchCook(household_id=1, recipe_name=f"R{n}", cooked_on=D1, tub_count=1))
+        db.commit()
+    r = kitchen.post(f"{API}/changes/{gone.json()['change']['id']}/undo")
+    assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
+    with db_of(kitchen) as db:
+        on_d1 = db.scalar(select(func.count(BatchCook.id)).where(BatchCook.cooked_on == D1))
+    assert on_d1 == batches_module.MOST_BATCHES_A_DAY
+
+
 # --- Fill from freezer first ----------------------------------------------------------------------
 
 
@@ -668,32 +685,70 @@ def test_fill_from_freezer_puts_the_soonest_tub_on_each_empty_day_with_undo(
     assert bad.json()["code"] == "bad_range"
 
 
+def test_fill_from_freezer_leaves_out_days_too_far_ahead_to_plan(
+    kitchen: TestClient,
+    cook: dict[str, Any],
+    slots: dict[str, int],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Month's grid runs into next month: days past the last plannable one are skipped, not a
+    refusal of the whole fill."""
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick", extras_to_freezer=True)
+    # Today moves so that day 2 is the last day that can be planned.
+    now = D1 + timedelta(days=2) - timedelta(days=plan_module.DAYS_AHEAD)
+    monkeypatch.setattr(plan_module, "today", lambda _household: now)
+    monkeypatch.setattr(batches_module, "today", lambda _household: now)
+    filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(0), "to": day(3)})
+    assert filled.status_code == 200, filled.text
+    assert where_tubs_are(kitchen, slots) == [
+        (1, day(1), "Dinner"),
+        (2, day(2), "Dinner"),
+        (3, None, "freezer"),
+    ]
+
+
 # --- The plan under SQLite's limit ---------------------------------------------------------------
-
-
-def test_the_caps_keep_the_plan_reads_under_sqlites_variable_limit() -> None:
-    most_meals = 62 * MOST_SLOTS
-    tubs_in_meals = most_meals * plan_module.MOST_ITEMS_IN_MEAL
-    batches_for_meals = most_meals * plan_module.MOST_ITEMS_IN_MEAL  # one batch per recipe
-    batches_cooked = 62 * batches_module.MOST_BATCHES_A_DAY
-    assert tubs_in_meals < 32_766 and batches_for_meals < 32_766
-    assert batches_cooked < 32_766
-    assert tubs_in_meals + batches_for_meals + batches_cooked < 3 * 32_766
 
 
 def test_the_plan_asks_about_batches_and_tubs_with_subqueries_not_lists(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:
-    """With SQLite allowed only a few values per query, a week with many batches still reads."""
+    """With SQLite allowed only a few values per query, a week with many batches still reads,
+    and so does a meal holding many tubs, recipes and ingredients (none of their ids go in as a
+    list)."""
     make(kitchen, cook["item_id"])
     with db_of(kitchen) as db:
+        # Day 5's lunch: past the four tubs the batch above placed.
+        meal = Meal(household_id=1, day=D1 + timedelta(days=5), slot_id=slots["Lunch"])
+        db.add(meal)
+        db.flush()
+        position = 0
         for n in range(30):
             batch = BatchCook(
                 household_id=1, recipe_name=f"B{n}", cooked_on=D1, tub_count=12, pattern="pick"
             )
             db.add(batch)
             db.flush()
-            db.add_all([Tub(household_id=1, batch_id=batch.id, use_by=D2) for _ in range(12)])
+            batch_tubs = [Tub(household_id=1, batch_id=batch.id, use_by=D2) for _ in range(12)]
+            db.add_all(batch_tubs)
+            db.flush()
+            # Straight into the database, past the 20-a-meal cap, to go well over 60 ids.
+            if n < 6:
+                for tub in batch_tubs:
+                    db.add(
+                        MealItem(household_id=1, meal_id=meal.id, position=position, tub_id=tub.id)
+                    )
+                    position += 1
+        for n in range(70):
+            recipe = add_recipe(db, 1, f"R{n}")
+            food = add_food(db, 1, f"F{n}")
+            db.add(
+                MealItem(household_id=1, meal_id=meal.id, position=position, recipe_id=recipe.id)
+            )
+            db.add(
+                MealItem(household_id=1, meal_id=meal.id, position=position + 1, food_id=food.id)
+            )
+            position += 2
         db.commit()
     import sqlite3
 
@@ -711,6 +766,8 @@ def test_the_plan_asks_about_batches_and_tubs_with_subqueries_not_lists(
     finally:
         event.remove(engine, "checkout", small)
     assert len(plan["batch_cooks"]) == 31 and len(plan["tubs"]) == 4 + 360
+    lunch = next(m for m in plan["meals"] if m["date"] == day(5) and m["slot_id"] == slots["Lunch"])
+    assert len(lunch["items"]) == 72 + 140
 
 
 # --- Another household's ids ---------------------------------------------------------------------
