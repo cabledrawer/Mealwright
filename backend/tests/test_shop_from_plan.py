@@ -3,6 +3,7 @@ counted, plan-made items keyed by ingredient + shop, hand edits never overwritte
 card, and every change going through the sync counter and log (docs/dev/sync-protocol.md rule
 L-5, SY-44). The other household is in the two-household tests at the end."""
 
+import threading
 from datetime import date, timedelta
 from typing import Any
 
@@ -841,3 +842,47 @@ def test_a_huge_amount_goes_on_the_list_with_no_amount_instead_of_overflowing(
         assert all(
             (i.amount_milli or 0) <= 1_000_000_000 for i in session.scalars(select(ListItem))
         )
+
+
+@pytest.mark.parametrize("big_first", [False, True])
+def test_one_recipe_over_the_limit_leaves_the_ingredient_with_no_amount_in_either_order(
+    kitchen: TestClient, big_first: bool
+) -> None:
+    flour = new_food(kitchen, "Order flour")
+    small = recipe(kitchen, "Small bake", line(flour["id"], 100, "g"), serves=1)
+    huge = recipe(
+        kitchen,
+        "Huge bake",  # each line under the limit, the recipe's own total over it
+        line(flour["id"], 600, "kg"),
+        line(flour["id"], 600, "kg"),
+        serves=1,
+    )
+    first, second = (huge, small) if big_first else (small, huge)
+    plan(kitchen, first, 1)
+    plan(kitchen, second, 2)
+    assert amounts(kitchen)[flour["id"]] is None
+
+
+def test_two_phones_saying_got_it_at_once_both_get_an_answer(kitchen: TestClient) -> None:
+    salt = new_food(kitchen, "Race salt", staple=True)
+    plan(kitchen, recipe(kitchen, "Salty", line(salt["id"], 1, "tsp")), 1)
+    url = f"{API}/shopping/staples/{salt['id']}/got-it"
+    for _ in range(5):
+        ok(kitchen.delete(url))
+        start = threading.Barrier(2)
+        codes: list[int] = []
+
+        def say_it(start: threading.Barrier = start, codes: list[int] = codes) -> None:
+            other = TestClient(kitchen.app, base_url="https://testserver")
+            other.cookies.update(kitchen.cookies)
+            start.wait()
+            codes.append(other.put(url).status_code)
+
+        threads = [threading.Thread(target=say_it) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert codes == [200, 200]
+    with db(kitchen) as session:
+        assert len(list(session.scalars(select(StapleCheck)))) == 1

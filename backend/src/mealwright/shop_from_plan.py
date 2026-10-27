@@ -81,7 +81,13 @@ from mealwright.models import (
 from mealwright.names import fold
 from mealwright.recipe_list import Line, Stock, _foods, _lines, _scaled
 from mealwright.recipes import live_recipes
-from mealwright.shopping import Batch, ensure_main_list, payload_hash, server_action
+from mealwright.shopping import (
+    Batch,
+    ensure_main_list,
+    lock_household,
+    payload_hash,
+    server_action,
+)
 
 PLAN_KIND = "plan_update"  # the sync-log kind of a plan-driven change
 PLAN_NAME = "The plan"  # who made it, for "removed by …"
@@ -104,11 +110,15 @@ class Need:
         ingredient counts as "unknown" (listed with no amount), so a huge line can never put
         an impossible amount on the list or overflow the database."""
         if self.unknown_by_size or milli > MAX_MILLI or self.milli + milli > MAX_MILLI:
-            self.unknown_by_size = True
-            self.unknown = True
-            self.milli = 0
+            self.too_big()
         else:
             self.milli += milli
+
+    def too_big(self) -> None:
+        """Over the largest amount: listed with no amount, whatever else adds to it."""
+        self.unknown_by_size = True
+        self.unknown = True
+        self.milli = 0
 
 
 @dataclass
@@ -277,8 +287,8 @@ def work_out(kitchen: Kitchen) -> Worked:
             if part.unknown:
                 total.unknown = True
             if part.unknown_by_size:
-                total.unknown_by_size = True
-            if not part.unknown_by_size:
+                total.too_big()
+            else:
                 total.add(_scaled(part.milli, recipe, servings))
     worked.to_buy = share_out(foods, needs, stock, _stand_ins(kitchen))
     for food_id, names in staple_names.items():
@@ -545,7 +555,9 @@ def staples_card(kitchen: Kitchen, worked: Worked) -> list[Staple]:
 def got_it(kitchen: Kitchen, food: Food) -> Outcome:
     """Remember "Got it" for a staple: the meal items that use it now. It comes back only when
     a meal item that is not among them uses it (a meal added), not as days pass or meals go.
-    Works the plan out once; the list itself is not touched."""
+    Works the plan out once; the list itself is not touched. The household's lock first, so
+    two phones saying it at once don't both add the row."""
+    lock_household(kitchen)
     worked = work_out(kitchen)
     found = worked.staples.get(food.id)
     ids = sorted(found[1]) if found else []
@@ -563,6 +575,7 @@ def got_it(kitchen: Kitchen, food: Food) -> Outcome:
 
 def not_got_it(kitchen: Kitchen, food: Food) -> Outcome:
     """Undo of "Got it"."""
+    lock_household(kitchen)
     row = kitchen.db.get(StapleCheck, food.id)
     if row is not None and row.household_id == kitchen.household_id:
         kitchen.db.delete(row)
