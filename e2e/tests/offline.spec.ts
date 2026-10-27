@@ -70,14 +70,41 @@ async function signIn(page: Page) {
   expect(signedIn.ok()).toBe(true);
 }
 
-/** On Shopping, with the app under its worker and the live stream open. */
-async function start(page: Page) {
+/** The phone's saved copy of the list names `name` (it's written just after the screen shows it). */
+const savedCopyNames = (page: Page, name: string) =>
+  page.evaluate(
+    (name) =>
+      new Promise<boolean>((done) => {
+        const open = indexedDB.open('mealwright');
+        open.onerror = () => done(false);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('copy.foods')) return (db.close(), done(false));
+          const all = db.transaction('copy.foods').objectStore('copy.foods').getAll();
+          all.onerror = () => (db.close(), done(false));
+          all.onsuccess = () => (db.close(), done(JSON.stringify(all.result).includes(name)));
+        };
+      }),
+    name,
+  );
+
+/**
+ * On Shopping, with the app under its worker and the live stream open. With `row`: also with
+ * that row on the screen and in the phone's saved copy. Tests that then cut or slow the network
+ * need that, or on a busy machine the saved copy may not hold the row yet (27 Oct: Shopping
+ * then waited for the held server, 4.8 s).
+ */
+async function start(page: Page, row?: string) {
   await page.goto('/shopping');
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   const hello = page.waitForResponse((r) => r.url().endsWith('/api/v1/events'));
   await page.reload(); // the first page load is not under the worker; this one is
   await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
   await hello;
+  if (row) {
+    await expect(page.getByRole('checkbox', { name: `Tick ${row}` })).toBeVisible();
+    await expect.poll(() => savedCopyNames(page, row)).toBe(true);
+  }
   await page.waitForTimeout(500);
 }
 
@@ -369,7 +396,7 @@ test('opening offline shows Today, then the saved list, each within about a seco
   const first = `Ghee ${tag()}`;
   await signIn(page);
   await ingredient(page, first);
-  await start(page);
+  await start(page, first);
   await context.setOffline(true);
   const { todayMs, listMs } = await openToday(page, first);
   expect(todayMs).toBeLessThan(ABOUT_A_SECOND);
@@ -385,7 +412,7 @@ test('a slow network doesn’t hold the saved list back, and the list updates wh
   const [first, second] = [`Ghee ${t}`, `Jaggery ${t}`];
   await signIn(page);
   await ingredient(page, first);
-  await start(page);
+  await start(page, first);
   // Every request to the server is held for 5 s (page.request below isn't): long enough to
   // show the list isn't waiting for it.
   let release!: () => void;
