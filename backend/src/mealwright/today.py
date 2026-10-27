@@ -234,6 +234,13 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That meal is already there."
         )
+    if day < today(kitchen.household):
+        # A move is to today or later: a past day would only make another meal to answer.
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "past_day",
+            "Pick today or a later day.",  # proposed, for cabledrawer
+        )
     steps: list[dict[str, Any]] = []
     name, where_from = _meal_name(kitchen, meal), _where(kitchen, meal.day, meal.slot_id)
     items = items_of(kitchen, meal)

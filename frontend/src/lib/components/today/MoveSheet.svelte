@@ -7,6 +7,7 @@
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import type { TodayModel } from '#lib/today.svelte.js';
   import { dayInSentence, spotAt, spotWords, whenWords } from '#lib/todayWords.js';
+  import { untrack } from 'svelte';
 
   let {
     model,
@@ -24,10 +25,15 @@
   const days = $derived(today ? Array.from({ length: 7 }, (_, i) => addDays(today, i)) : []);
 
   // A new meal starts at the first quick pick that is somewhere else (today, else tomorrow).
+  // Only a different meal resets the pick: a fresh copy of Today (a live update) keeps it.
+  const mealId = $derived(waiting?.meal_id ?? null);
   $effect(() => {
-    if (!waiting || !today) return;
-    day = today;
-    slotId = waiting.slot_id;
+    if (mealId === null) return;
+    untrack(() => {
+      if (!waiting || !today) return;
+      day = today;
+      slotId = waiting.slot_id;
+    });
   });
 
   $effect(() => {

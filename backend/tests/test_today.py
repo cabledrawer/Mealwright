@@ -437,6 +437,9 @@ def test_move_it_refusals(
     assert answer(kitchen, meal, "moved", same, 422)["code"] == "same_place"
     far = {"date": str(ahead(kitchen, 5000)), "slot_id": slots["Dinner"]}
     assert answer(kitchen, meal, "moved", far, 422)["code"] == "bad_day"
+    # Not to a past day: that would only make another meal waiting for an answer.
+    past = {"date": str(ago(kitchen, 2)), "slot_id": slots["Dinner"]}
+    assert answer(kitchen, meal, "moved", past, 422)["code"] == "past_day"
     # A meal that is switched off.
     ok(kitchen.patch(f"{API}/meal-slots/{slots['Lunch']}", json={"enabled": False}))
     off = {"date": str(ahead(kitchen, 1)), "slot_id": slots["Lunch"]}
