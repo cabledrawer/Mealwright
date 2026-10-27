@@ -21,7 +21,7 @@ import json
 import re
 from collections.abc import Iterator
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from html import unescape
 from html.parser import HTMLParser
@@ -84,6 +84,10 @@ class PageRecipe:
     steps: tuple[PageLine, ...]  # ≤ 100 including headings
     lines_cut: bool  # the page had more than 200 ingredient lines; the rest were dropped
     steps_cut: bool  # the page had more than 100 steps; the rest were dropped
+    # The page's own language ("en-us", lower case, "_" made "-"), from <html lang>; None when
+    # it says none. Not part of what a recipe is, so it isn't compared (0.6: it only helps tell
+    # a US site from a UK one).
+    language: str | None = field(default=None, compare=False)
 
 
 def read_page(html: str, url: str) -> PageRecipe | None:
@@ -129,6 +133,7 @@ class _Page:
     base: str
     title: str
     og: dict[str, str]  # og:title, og:image
+    language: str | None = None  # <html lang>
 
 
 _NO_ATTRS: dict[str, str] = {}  # shared, never changed
@@ -243,8 +248,11 @@ def _parse(html: str, url: str) -> _Page:
     base = url
     title = ""
     og: dict[str, str] = {}
+    language = None
     for node in _walk(root):
-        if node.tag == "base" and base == url and node.attrs.get("href"):
+        if node.tag == "html" and language is None:
+            language = _language(node.attrs.get("lang") or node.attrs.get("xml:lang"))
+        elif node.tag == "base" and base == url and node.attrs.get("href"):
             joined = urljoin(url, node.attrs["href"].strip())
             if urlsplit(joined).scheme in {"http", "https"}:
                 base = joined
@@ -254,7 +262,13 @@ def _parse(html: str, url: str) -> _Page:
             key = (node.attrs.get("property") or node.attrs.get("name") or "").lower()
             if key in {"og:title", "og:image"} and key not in og:
                 og[key] = node.attrs.get("content", "")
-    return _Page(root, builder.json_ld, base, title, og)
+    return _Page(root, builder.json_ld, base, title, og, language)
+
+
+def _language(value: str | None) -> str | None:
+    """ "en_US" → "en-us"; nothing sensible (empty, over 35 characters, odd characters) → None."""
+    found = (value or "").strip().lower().replace("_", "-")
+    return found if re.fullmatch(r"[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}", found) else None
 
 
 def _walk(node: _Node) -> Iterator[_Node]:
@@ -544,6 +558,7 @@ def _build(recipe: _Recipe, page: _Page) -> PageRecipe | None:
         steps=tuple(steps[:MAX_STEPS]),
         lines_cut=len(ingredients) > MAX_LINES,
         steps_cut=len(steps) > MAX_STEPS,
+        language=page.language,
     )
 
 
@@ -848,8 +863,8 @@ def _nutrition(recipe: _Recipe) -> dict[str, Decimal | None]:
     facts = next((v for v in recipe.values("nutrition") if isinstance(v, dict)), None)
     if facts is None:
         return found
-    for key, field in _NUTRITION_KEYS.items():
-        for value in recipe.flat(facts.get(field)):
+    for key, fact in _NUTRITION_KEYS.items():
+        for value in recipe.flat(facts.get(fact)):
             amount = _nutrient(value, energy=key == "kcal")
             if amount is not None:
                 found[key] = amount

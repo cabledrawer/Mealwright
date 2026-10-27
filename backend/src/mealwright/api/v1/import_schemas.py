@@ -45,6 +45,28 @@ class NewIngredientOut(BaseModel):
     place: Ref | None  # the household's Cupboard, or null if it has none
 
 
+class PintReading(BaseModel):
+    """What a line that says pints comes to in each kind of pint, in ml (568 ml a UK pint, 473
+    ml a US pint). The line's `amount` is one of them; the review's switch picks the other."""
+
+    uk_ml: float
+    us_ml: float
+
+
+class ReviewPints(BaseModel):
+    """Pints on this review (0.6; spec "Reading choices, kept").
+
+    - `household`: the household's own pint ("uk" until Settings says otherwise).
+    - `us_site`: the page looks American (a listed site, or the page says en-US).
+    - `reading`: the pint the lines were read with. A US site is read with US pints when the
+      household's are UK (the review shows the switch for it); otherwise the household's own.
+    The screen shows the switch when `us_site` and `household` is "uk"."""
+
+    household: Literal["uk", "us"] = "uk"
+    us_site: bool = False
+    reading: Literal["uk", "us"] = "uk"
+
+
 class ReviewLine(BaseModel):
     """One ingredient line (or a heading) as written, as read, and what it is in the kitchen.
     `words`, `amount`, `unit`, `note` and `size` are what the saved line will hold; send them
@@ -67,6 +89,8 @@ class ReviewLine(BaseModel):
     counts: bool  # counts towards stock (staples and "to taste" never do)
     new_ingredient: NewIngredientOut | None
     learn_name: str | None  # what "Same as …" adds as another name of the ingredient
+    # null unless the line says pints: its amount in each kind of pint.
+    pint_ml: PintReading | None = None
 
 
 class ReviewMakes(BaseModel):
@@ -137,6 +161,7 @@ class ImportReview(BaseModel):
     steps_cut: bool  # the page had more than 100 steps: the first 100 are here
     steps_shortened: int  # steps cut to 5,000 characters
     left_out: list[LeftOutOut]
+    pints: ReviewPints = Field(default_factory=ReviewPints)
 
 
 class AlreadyImported(BaseModel):

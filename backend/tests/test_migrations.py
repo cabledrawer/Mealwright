@@ -845,3 +845,36 @@ def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_pat
                 " VALUES (?, 1, '[]', '2026-10-27 09:00:00')",
                 (food_id,),
             )
+
+
+STAPLE_MIGRATION = "a4c8e1f7b296"  # 0.6 PR 5's migration: the one just before household pints
+
+
+def test_household_pints_migration_adds_one_column_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.6 PR 7: every household starts on UK pints; going back drops only the column and
+    keeps every other row; going forward again puts every household back on UK pints."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"alembic_version"}
+    before = _row_counts(engine, skip)
+    with engine.connect() as connection:
+        households = connection.exec_driver_sql("SELECT count(*) FROM household").scalar_one()
+        found = connection.exec_driver_sql("SELECT pints FROM household").scalars().all()
+    assert found == ["uk"] * households
+    migrate.downgrade(engine, STAPLE_MIGRATION)
+    assert "pints" not in {c["name"] for c in inspect(engine).get_columns("household")}
+    assert migrate_head(engine) == STAPLE_MIGRATION
+    assert _row_counts(engine, skip) == before
+    with engine.begin() as connection:  # a household made while it was gone has none
+        connection.exec_driver_sql(
+            "INSERT INTO household (name, created_at) VALUES ('Next', 'now')"
+        )
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    column = next(c for c in inspect(engine).get_columns("household") if c["name"] == "pints")
+    assert not column["nullable"]
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT pints FROM household").scalars().all()
+    assert found == ["uk"] * (households + 1)

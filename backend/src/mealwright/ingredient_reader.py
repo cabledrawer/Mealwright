@@ -17,6 +17,14 @@ What it reads without asking:
 - Pack multiples: 2 x 400g tins is 800 g.
 - No real amount ("to taste", "as needed", "for garnish"): the phrase goes into the note.
   A number the line does have is still its amount.
+- Number words at the start ("half a lemon", "two onions", up to twelve) are read as numbers.
+  "a dozen" is not: it stays a size word.
+- A length ("1 inch ginger", "4 cm ginger") stays in the note with no amount: it can't be
+  compared with stock. `LENGTH_UNITS` is the one place to change that.
+- A size word before the name ("3 large (ripe bananas, ...)") is a descriptor and goes to the
+  note; a name held only in a bracket is taken out of it.
+- A label at the start of a line ("optional: 50g pecans", "to serve: limes") is read past; the
+  words go first in the note.
 """
 
 import re
@@ -89,6 +97,9 @@ NOTE_HINTS = frozenset(
      "any", "this", "that", "kind", "type", "sort", "brand", "at", "on", "it", "them", "is"}
 )  # fmt: skip
 
+# Pints, read only when the caller says how big a pint is (`read_line(pint_ml=...)`; see pints.py).
+PINTS = frozenset({"pint", "pints", "pt"})
+
 # Ounces and pounds on their own convert exactly (cabledrawer 23 Oct, question 18): 1 oz is
 # 28.35 g and 1 lb is 453.6 g. Pints, fluid ounces and the rest stay in the note (UK and US
 # pints differ).
@@ -103,6 +114,25 @@ OTHER_UNITS = frozenset(
     {"oz", "ounce", "ounces", "lb", "lbs", "pound", "pounds", "pint", "pints", "pt", "quart",
      "quarts", "qt", "gallon", "gallons", "gal", "inch", "inches", "cm", "mm", "fl"}
 )  # fmt: skip
+
+# Of those, the lengths: kept in the note with no amount, never counted ("1 inch ginger").
+LENGTH_UNITS = frozenset({"inch", "inches", "cm", "mm"})
+
+# Number words at the start of a line. "one" is left to the article rule ("one 14 oz can").
+NUMBER_WORDS = {
+    "half": "1/2", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+    "seven": "7", "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12",
+}  # fmt: skip
+_NUMBER_WORD = re.compile(
+    r"(?P<word>" + "|".join(NUMBER_WORDS) + r")(?P<article>\s+(?:a|an))?(?=\s+(?!and\b)\S)",
+    re.IGNORECASE,
+)
+# A label that starts a line and says what the rest is for: "optional: 50g pecans".
+_LABEL = re.compile(
+    r"(?P<label>optional|to\s+serve|for\s+serving|to\s+garnish|for\s+garnish(?:ing)?|garnish"
+    r"|for\s+the\s+(?:garnish|topping))\s*:\s*",
+    re.IGNORECASE,
+)
 
 _UNITS: dict[str, str] = {
     **UNIT_ALIASES,
@@ -211,6 +241,9 @@ class ReadLine:
     # units, a pack multiple, ounces or pounds turned into grams): the saved line keeps the
     # text as written beside it.
     chosen: bool = False
+    # How many pints the line says, when its amount was worked out from them (the amount is
+    # then in ml, for the pint size the caller gave). None for every other line.
+    pints: Fraction | None = None
 
 
 def _unreadable(text: str) -> ReadLine:
@@ -416,6 +449,26 @@ def working_text(text: str) -> str:
     return " ".join(plain.split()).lstrip(BULLETS)
 
 
+def _with_digits(work: str) -> str:
+    """A number word at the start ("half a lemon", "two onions", "two to three cloves") as
+    digits. "half a" loses its article. A number straight after ("two 400g tins") is a pack
+    multiple. Anything else is returned as it was."""
+    lead = _LEAD.match(work)
+    at = lead.end() if lead else 0
+    found = _NUMBER_WORD.match(work, at)
+    if found is None:
+        return work
+    digits = NUMBER_WORDS[found.group("word").lower()]
+    tail = work[found.end() :].lstrip()
+    # "two to three onions", "two or three": the second side too.
+    other = re.compile(r"(?P<sep>to|or|-)\s*(?P<word>[a-z]+)(?=\s)", re.IGNORECASE).match(tail)
+    if other is not None and other.group("word").lower() in NUMBER_WORDS:
+        digits += f" {other.group('sep')} {NUMBER_WORDS[other.group('word').lower()]}"
+        tail = tail[other.end() :].lstrip()
+    joiner = " x " if tail[:1].isdigit() else " "
+    return f"{work[:at]}{digits}{joiner}{tail}"
+
+
 def _clean_token(token: str) -> str:
     return token.strip(_EDGE_PUNCT).lower()
 
@@ -526,14 +579,24 @@ def _alternatives(parts: Iterable[str]) -> list[str]:
 # --- Reading a line ---------------------------------------------------------------------------
 
 
-def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
+def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = None) -> ReadLine:
     """Read one ingredient line. Never raises. `size_words` are extra size words to know
-    (the household's own, from `KnownIngredients.size_words`); the built-in list is `SIZE_WORDS`."""
+    (the household's own, from `KnownIngredients.size_words`); the built-in list is `SIZE_WORDS`.
+    `pint_ml`: the size of a pint to read "2 pints milk" with (568 or 473, see pints.py); without
+    it a pint stays in the note, as in 0.5."""
     if len(text) > 4 * MAX_LINE_CHARS:  # not an ingredient line (and not worth a character walk)
         return _unreadable(text)
     work = working_text(text)
     if not work or len(work) > MAX_LINE_CHARS:
         return _unreadable(text)
+    label = None
+    labelled = _LABEL.match(work)
+    if labelled is not None:  # "optional: 50g pecans": read the rest; the words stay in the note
+        label = " ".join(labelled.group("label").lower().split())
+        work = work[labelled.end() :]
+        if not work:
+            return _unreadable(text)
+    work = _with_digits(work)
     extra = frozenset(_clean_token(word) for word in size_words if word.strip())
 
     # Leading "about", "approx.", "scant"… only when a number follows.
@@ -598,6 +661,12 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     notes: list[str] = []
 
     rest, inside = _brackets(rest)
+    if inside and not any(c.isalpha() for c in " ".join(_strip_prep(rest.split(), PREP_WORDS)[0])):
+        # "3 large (ripe bananas, well mashed (about 1 1/2 cups))": the name is all in the
+        # bracket. Its first part is read as the rest of the line, after the words before it.
+        inner, nested = _brackets(inside.pop(0))
+        rest = f"{rest} {inner}"
+        inside = [*nested, *inside]
     names: list[str] = []
     for part in list(inside):
         # "1 cup flour (125g)": a bracket holding only a metric measure is the amount when the
@@ -656,11 +725,19 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     other_names = _alternatives(names)
 
     chosen = measure is not None and measure.chosen
+    pints = None
+    if pint_ml is not None and other in PINTS and amount is not None:  # 2 pints: 1,136 ml
+        pints = amount
+        amount *= pint_ml
+        unit, other, chosen = "ml", None, True
     if other in OUNCES | POUNDS and amount is not None:  # 8 oz on its own: exactly 226.8 g
         amount *= GRAMS_PER_OUNCE if other in OUNCES else GRAMS_PER_POUND
         unit, other, chosen = "g", None, True
     if other is not None and amount is not None:  # 8 pints: not an amount we can use
-        notes.insert(0, f"{_trim(amount)} {other}")
+        said = ""
+        if measure is not None and not measure.chosen and not second_used:
+            said = _tidy(work[measure.start : measure.end])  # as written ("⅓ inch")
+        notes.insert(0, said or f"{_trim(amount)} {other}")
         amount = None
         unit = None
     number = _decimal(amount) if amount is not None else None
@@ -669,7 +746,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
     if number is None:
         unit = None
 
-    note_parts = [" ".join([*passed, *removed]), *notes]
+    note_parts = [label or "", " ".join([*passed, *removed]), *notes]
     note = _cap(", ".join(dict.fromkeys(_tidy(p) for p in note_parts if _tidy(p))), MAX_NOTE_CHARS)
 
     readable = any(c.isalpha() for c in name)
@@ -688,6 +765,7 @@ def read_line(text: str, size_words: Iterable[str] = ()) -> ReadLine:
         counts=counts,
         readable=True,
         chosen=chosen or second_used,
+        pints=pints if number is not None else None,
     )
 
 

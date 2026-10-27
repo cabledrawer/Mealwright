@@ -23,7 +23,7 @@ from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from mealwright import drafts, page_budget, page_fetch, photos
+from mealwright import drafts, page_budget, page_fetch, photos, pints
 from mealwright.aisles import DEFAULT_AISLE
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -32,10 +32,12 @@ from mealwright.api.v1.import_schemas import (
     ImportSave,
     LeftOutOut,
     NewIngredientOut,
+    PintReading,
     ReviewCounts,
     ReviewLine,
     ReviewMakes,
     ReviewPhoto,
+    ReviewPints,
     ReviewSource,
     ReviewStep,
 )
@@ -138,6 +140,7 @@ class _Found:
     lines_cut: bool = False
     steps_cut: bool = False
     left_out: list[LeftOutOut] = field(default_factory=list)
+    language: str | None = None  # the page's own, for telling a US site
 
 
 def _from_page(page: PageRecipe) -> _Found:
@@ -155,6 +158,7 @@ def _from_page(page: PageRecipe) -> _Found:
         steps=[(line.text, line.heading) for line in page.steps],
         lines_cut=page.lines_cut,
         steps_cut=page.steps_cut,
+        language=page.language,
     )
 
 
@@ -409,10 +413,15 @@ def _review(
 ) -> ImportReview:
     ingredients = kitchen_of(kitchen.db, kitchen.household_id)
     places = _food_places(kitchen)
+    # Pints: the household's own, except on a US site, which is read with US pints (and the
+    # review offers the switch back) while the household's are UK.
+    household = pints.household_pints(kitchen.household.pints)
+    us_site = source.kind == "link" and pints.looks_american(source.url, found.language)
+    reading: pints.Pints = "us" if us_site else household
     lines: list[ReviewLine] = []
     counts = {"matched": 0, "to_confirm": 0, "needs_you": 0, "staple": 0}
     for text, heading in found.lines[:MAX_LINES]:
-        line = _line(ingredients, places, text, heading)
+        line = _line(ingredients, places, text, heading, pints.PINT_ML[reading])
         if line.label is not None:
             counts[line.label] += 1
         lines.append(line)
@@ -443,6 +452,7 @@ def _review(
         steps_cut=found.steps_cut,
         steps_shortened=shortened,
         left_out=found.left_out,
+        pints=ReviewPints(household=household, us_site=us_site, reading=reading),
     )
 
 
@@ -487,7 +497,11 @@ def _food_places(kitchen: Kitchen) -> dict[int, str]:
 
 
 def _line(
-    ingredients: KnownIngredients, places: dict[int, str], text: str, heading: bool
+    ingredients: KnownIngredients,
+    places: dict[int, str],
+    text: str,
+    heading: bool,
+    pint_ml: int = pints.PINT_ML[pints.DEFAULT_PINTS],
 ) -> ReviewLine:
     written = cut_text(text, MAX_WRITTEN).rstrip()
     if heading:
@@ -510,7 +524,7 @@ def _line(
             new_ingredient=None,
             learn_name=None,
         )
-    read = read_line(text, ingredients.size_words)
+    read = read_line(text, ingredients.size_words, pint_ml)
     match = match_line(ingredients, read)
     return _review_line(ingredients, places, written, read, match)
 
@@ -578,7 +592,16 @@ def _review_line(
         counts=match.counts and size_ok(read, size),
         new_ingredient=NewIngredientOut(name=guess.name, counted_as=guess.counted_as, place=place),
         learn_name=cut_text(learn, 100).rstrip() if learn else None,
+        pint_ml=_pint_ml(read) if amount_milli is not None else None,
     )
+
+
+def _pint_ml(read: ReadLine) -> PintReading | None:
+    """A line read from pints: what it comes to in UK and in US pints."""
+    if read.pints is None:
+        return None
+    uk, us = (float(read.pints * pints.PINT_ML[kind]) for kind in ("uk", "us"))
+    return PintReading(uk_ml=round(uk, 3), us_ml=round(us, 3))
 
 
 def size_ok(read: ReadLine, size: SizeRef | None) -> bool:

@@ -722,3 +722,119 @@ def test_the_amount_is_always_in_range_for_any_text(text: str) -> None:
     if line.amount is not None:
         assert 0 < line.amount <= 1_000_000
         assert line.readable
+
+
+# --- 0.6 fixes, from the real lines in the 0.5 report -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "unit", "name"),
+    [
+        ("half a lemon", D("0.5"), None, "lemon"),
+        ("Half an onion", D("0.5"), None, "onion"),
+        ("half a cup milk", D("0.5"), "cup", "milk"),
+        ("half cup rice", D("0.5"), "cup", "rice"),
+        ("about half a cup rice", D("0.5"), "cup", "rice"),
+        ("two onions", D(2), None, "onions"),
+        ("Three cloves garlic", D(3), None, "garlic"),
+        ("twelve eggs", D(12), None, "eggs"),
+        ("two 400g tins tomatoes", D(800), "g", "tomatoes"),
+        ("two to three green chillies", D(3), None, "green chillies"),
+        ("two or three limes", D(3), None, "limes"),
+    ],
+)
+def test_number_words_at_the_start(text: str, amount: Decimal, unit: str | None, name: str) -> None:
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name) == (amount, unit, name)
+    assert line.text == text
+
+
+@pytest.mark.parametrize(
+    "text", ["half and half", "half-and-half cream", "twofold sauce", "Threefold ale", "two"]
+)
+def test_a_number_word_that_is_part_of_a_name_is_left_alone(text: str) -> None:
+    line = read_line(text)
+    assert line.amount is None
+    assert line.name == text.strip()
+
+
+def test_a_dozen_stays_a_size_word() -> None:
+    line = read_line("a dozen eggs")
+    assert (line.amount, line.size_word, line.name) == (D(1), "dozen", "eggs")
+
+
+@pytest.mark.parametrize(
+    ("text", "name", "note"),
+    [
+        ("1 inch ginger", "ginger", "1 inch"),
+        ("4 cm ginger", "ginger", "4 cm"),
+        ("⅓ inch ginger, grated", "ginger", "⅓ inch, grated"),
+        ("½ inch piece ginger", "ginger", "½ inch"),
+        ("1-inch piece fresh ginger", "ginger", "fresh, 1-inch"),
+        ("2 cm piece turmeric", "turmeric", "2 cm"),
+    ],
+)
+def test_a_length_stays_in_the_note_and_is_no_amount(text: str, name: str, note: str) -> None:
+    line = read_line(text)
+    assert (line.amount, line.unit, line.counts) == (None, None, False)
+    assert line.size_word in (None, "piece")  # "piece" is kept as before, with no amount
+    assert (line.name, line.note) == (name, note)
+
+
+def test_a_size_word_before_a_name_held_in_a_bracket() -> None:
+    line = read_line("3 large (ripe bananas, well mashed (about 1 1/2 cups))")
+    assert (line.amount, line.unit, line.name, line.counts) == (D(3), None, "bananas", True)
+    assert line.note is not None
+    for kept in ("large", "ripe", "well mashed", "about 1 1/2 cups"):
+        assert kept in line.note
+
+
+def test_a_bracket_after_a_name_is_still_a_note() -> None:
+    line = read_line("2 large (ripe) avocados")
+    assert (line.amount, line.name, line.note) == (D(2), "avocados", "large, ripe")
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "unit", "name", "note"),
+    [
+        ("optional: 50g pecans", D(50), "g", "pecans", "optional"),
+        (
+            "Optional: 1 handful of Jerusalem artichokes",
+            D(1),
+            None,
+            "Jerusalem artichokes",
+            "optional",
+        ),
+        ("To serve: limes", None, None, "limes", "to serve"),
+        (
+            "For serving: limes, unsweetened coconut yogurt",
+            None,
+            None,
+            "limes",
+            "for serving, unsweetened coconut yogurt",
+        ),
+        ("To garnish: 2 tbsp chopped coriander", D(2), "tbsp", "coriander", "to garnish, chopped"),
+    ],
+)
+def test_a_label_at_the_start_is_read_past_and_kept_in_the_note(
+    text: str, amount: Decimal | None, unit: str | None, name: str, note: str
+) -> None:
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name, line.note) == (amount, unit, name, note)
+    assert line.readable
+    assert line.text == text
+
+
+def test_the_real_to_serve_line_is_read() -> None:
+    line = read_line(
+        "to serve: lots of pan-fried tofu cubes, toasted almonds, scallions,"
+        " chive flowers (optional)"
+    )
+    assert line.readable
+    assert line.name == "lots of pan-fried tofu cubes"
+    assert line.note is not None and line.note.startswith("to serve")
+
+
+def test_a_label_with_nothing_after_it_is_not_a_line() -> None:
+    assert not read_line("optional:").readable
+    assert not read_line("To serve: ").readable

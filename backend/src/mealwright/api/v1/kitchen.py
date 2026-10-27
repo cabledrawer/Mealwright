@@ -17,6 +17,7 @@ from mealwright.history import FoodEdit, commit, replayed
 from mealwright.household import cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Shop
 from mealwright.names import clean_name, fold
+from mealwright.pints import household_pints
 
 router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
 
@@ -89,6 +90,7 @@ class HouseholdOut(BaseModel):
     time_zone: str | None
     cup_ml: int | None
     cup_ml_used: int
+    pints: Literal["uk", "us"]
     undo_days: int
     history_months: int
     use_soon_days: int
@@ -120,6 +122,7 @@ def _household(kitchen: Here) -> HouseholdOut:
         time_zone=household.time_zone,
         cup_ml=household.cup_ml,
         cup_ml_used=cup_ml(household),
+        pints=household_pints(household.pints),
         undo_days=household.undo_days,
         history_months=household.history_months,
         use_soon_days=household.use_soon_days,
@@ -133,6 +136,24 @@ def _household(kitchen: Here) -> HouseholdOut:
 
 @router.get("/household")
 def get_household(kitchen: Here) -> HouseholdOut:
+    return _household(kitchen)
+
+
+class HouseholdChange(BaseModel):
+    """A setting changed on purpose (Settings). Only what is sent changes. Admins only."""
+
+    # Which pint a recipe's "pint" is: "uk" (568 ml) or "us" (473 ml) (0.6; proposed, for cabledrawer).
+    pints: Literal["uk", "us"] | None = None
+
+
+@router.patch("/household")
+def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
+    """Admins only. Changes the signed-in person's own household's settings: today the pint
+    (`pints`). Answers with the settings as stored."""
+    kitchen.admin_only()
+    if body.pints is not None:
+        kitchen.household.pints = body.pints
+    kitchen.db.commit()
     return _household(kitchen)
 
 

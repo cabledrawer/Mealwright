@@ -52,6 +52,8 @@ class Household(Base):
     time_zone: Mapped[str | None] = mapped_column(String(64))
     # 240 or 250 ml. Null: not chosen yet, 250 is used.
     cup_ml: Mapped[int | None] = mapped_column(Integer)
+    # Which pint a recipe's "pint" is: "uk" (568 ml) or "us" (473 ml). 0.6 import pints.
+    pints: Mapped[str] = mapped_column(String(2), default="uk", server_default="uk")
     undo_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     history_months: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
     use_soon_days: Mapped[int] = mapped_column(Integer, default=2, server_default="2")

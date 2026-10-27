@@ -87,6 +87,8 @@ class DraftChoices(BaseModel):
     name: Annotated[str, Field(max_length=200)] | None = None
     serves: Annotated[str, Field(max_length=10)] | None = None
     minutes: Annotated[str, Field(max_length=10)] | None = None
+    # The pints switch on a US recipe ("us" or "uk"); null: left as the review read it.
+    pints: Literal["uk", "us"] | None = None
     # The line's place in the review → its choice. (JSON keys are text; the screen's are numbers.)
     lines: dict[int, DraftChoice] = Field(default_factory=dict, max_length=MAX_LINES)
 
