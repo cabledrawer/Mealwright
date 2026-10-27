@@ -303,8 +303,11 @@ test('the pick-list opens while you type: other names, recipe counts, keys, and 
   await expect(list.getByRole('option').last()).toHaveText(`+ New ingredient “${word}”`);
   // Typing alone links nothing; the arrow keys and Enter pick, and the line shows the full name.
   await expect(page.getByText('Not linked')).toBeVisible();
-  await box.press('ArrowDown');
-  await expect(list.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+  // Other tests' drumsticks share the household, so walk down to this one.
+  const names = await list.getByRole('option').allTextContents();
+  const at = names.findIndex((n) => n.startsWith(drum.name));
+  for (let i = 0; i <= at; i++) await box.press('ArrowDown');
+  await expect(option).toHaveAttribute('aria-selected', 'true');
   await box.press('Enter');
   await expect(box).toHaveValue(drum.name);
   await expect(box).toHaveAttribute('aria-expanded', 'false');

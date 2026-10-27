@@ -274,7 +274,9 @@ test('keyboard: Tab goes nav, then list, then reading pane; rows are links; Ente
   // Tab goes on into the reading pane (the Keep screen awake switch or the servings), not back.
   await page.keyboard.press('Tab');
   expect(await paneOfFocus(page)).toBe(2);
-  // Shift+Tab goes back through Edit and the crumbs at the top of the recipe, then to the list.
+  // Shift+Tab goes back through the ⋯ menu, Edit and the crumbs at the top of the recipe, then to the list.
+  await page.keyboard.press('Shift+Tab');
+  await expect(reading(page).getByRole('button', { name: `More for ${two!.name}`, exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(reading(page).getByRole('link', { name: 'Edit', exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
