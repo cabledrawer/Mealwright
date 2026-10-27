@@ -201,10 +201,19 @@ def _drop_meal(kitchen: Kitchen, meal: Meal, steps: list[dict[str, Any]]) -> Non
     delete_meal(kitchen.db, meal)
 
 
+def list_follows_plan(kitchen: Kitchen) -> None:
+    """After a plan or batch write, the shopping list is brought up to date (0.6 PR 5)."""
+    from mealwright import shop_from_plan  # imported here: it needs the recipe and list code
+
+    shop_from_plan.refresh(kitchen)
+
+
 def _finish(
     kitchen: Kitchen, kind: str, summary: str, steps: list[dict[str, Any]], **extra: Any
 ) -> Change:
-    return record(kitchen, kind, summary, None, {"plan": steps, **extra})
+    change = record(kitchen, kind, summary, None, {"plan": steps, **extra})
+    list_follows_plan(kitchen)
+    return change
 
 
 def add_item(
@@ -596,4 +605,5 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
     undone.undoes_change_id = change.id
     change.undone_by_change_id = undone.id
     kitchen.db.flush()
+    list_follows_plan(kitchen)
     return undone

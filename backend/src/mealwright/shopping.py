@@ -1024,6 +1024,8 @@ def _join(
             raise Refused("too_big", "That amount is too big.") from err
         if line.size_id is None and line.amount_milli == amount_milli and size is not None:
             line.size_id = size.id
+    if line.source == "plan":
+        line.hand_edited = True  # typing beside a plan-made line is a hand edit (rule L-5)
     line.version = act.seq
     if act.payload.get("item_id"):
         # The phone's own ID for the item leads to the line it joined (sync protocol 3.2).
@@ -1390,6 +1392,8 @@ def move_item(act: Act) -> None:
         return
     old = [item.list_id, item.shop_id]
     item.list_id, item.shop_id = target.id, shop_id
+    if item.source == "plan":
+        item.hand_edited = True  # a plan-made line a person moved is theirs now (rule L-5)
     item.version = act.seq
     kitchen.db.flush()
     act.done(

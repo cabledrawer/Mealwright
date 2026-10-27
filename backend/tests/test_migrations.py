@@ -773,7 +773,7 @@ def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
     gives the same slots."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)  # two households with a recipe each, upgraded to the newest
-    skip = {*PLAN_TABLES, "alembic_version"}
+    skip = {*PLAN_TABLES, "staple_check", "alembic_version"}
     before = _row_counts(engine, skip)
     assert before["recipe"] == 2 and before["food"] == 2 and before["household"] == 2
     migrate.downgrade(engine, DRAFTS)
@@ -806,3 +806,42 @@ def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
     assert _row_counts(engine, skip) == before
     with engine.connect() as connection:
         assert connection.exec_driver_sql("SELECT count(*) FROM meal_slot").scalar_one() == 8
+
+
+PLAN_MIGRATION = "e3b7a95c4d18"  # 0.6 PR 2's migration: the one just before staple_check
+
+
+def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.6 PR 5: the "Got it" table is added empty; going back drops only it and keeps every
+    other row; going forward again adds it empty; a row goes when its ingredient or household
+    does, and one household's row can't be written twice for one ingredient."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"staple_check", "alembic_version"}
+    before = _row_counts(engine, skip)
+    assert "staple_check" in inspect(engine).get_table_names()
+    migrate.downgrade(engine, PLAN_MIGRATION)
+    assert "staple_check" not in inspect(engine).get_table_names()
+    assert migrate_head(engine) == PLAN_MIGRATION
+    assert _row_counts(engine, skip) == before
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    columns = {c["name"] for c in inspect(engine).get_columns("staple_check")}
+    assert columns == {"food_id", "household_id", "need_key", "at"}
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        food_id = connection.exec_driver_sql(
+            "SELECT id FROM food WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        connection.exec_driver_sql(
+            "INSERT INTO staple_check (food_id, household_id, need_key, at)"
+            " VALUES (?, 1, 'abc', '2026-10-27 09:00:00')",
+            (food_id,),
+        )
+        with pytest.raises(IntegrityError):
+            connection.exec_driver_sql(
+                "INSERT INTO staple_check (food_id, household_id, need_key, at)"
+                " VALUES (?, 1, 'def', '2026-10-27 09:00:00')",
+                (food_id,),
+            )

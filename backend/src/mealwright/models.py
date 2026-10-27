@@ -658,6 +658,25 @@ class DoubleTick(Base):
 # Undo can put a deleted recipe back with its old id and the lines that use it still point at it.
 
 
+class StapleCheck(Base):
+    """A staple on Shopping's "Check you have these" card that someone tapped "Got it" for
+    (0.6 PR 5). It stays off the card while the plan's use of it is the same: `need_key` is a
+    short fingerprint of the planned meals that use it, so a meal added or taken off brings
+    the card back. Proposed, for cabledrawer: easiest to change later (a different fingerprint
+    needs no new table)."""
+
+    __tablename__ = "staple_check"
+
+    food_id: Mapped[int] = mapped_column(
+        ForeignKey("food.id", ondelete="CASCADE"), primary_key=True
+    )
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    need_key: Mapped[str] = mapped_column(String(64))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Recipe(Base):
     __tablename__ = "recipe"
     __table_args__ = (
