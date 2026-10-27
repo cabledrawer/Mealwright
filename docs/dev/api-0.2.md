@@ -503,6 +503,24 @@ The main shopping list is built from the plan: plan minus pantry stock minus sta
 - "+ Add" on the card is the ordinary `add` action (a typed line); the card then leaves out any staple that has a live line on the main list.
 - **Database:** one new table, `staple_check` (`food_id` primary key, `household_id`, `item_ids` (JSON list), `at`; both links cascade). Migration `a4c8e1f7b296`.
 
+### 6.3c Today (0.6 PR 6)
+
+What Today shows, and the three answers to "Did you cook Sambar yesterday?". Online only, like the Plan (the web app keeps the last answer to show while offline, with the answer buttons switched off). "Today" is the household's local day. The rules are in `mealwright/today.py`; the builder's choices are marked "proposed, for cabledrawer" there.
+
+- `GET /api/v1/today` → `{ today, first_day, slots, plan, people, waiting, tubs_left, tubs_left_more, use_soon_lots, use_soon_tubs, next_cook }`.
+  - `slots`: the meals that are on, in order. `plan`: the same shape as `GET /plan`, from 7 days ago to 6 days ahead (a week from today; the meals, their items, and the batch cooks and tubs they use). `people`: as `GET /plan/people`.
+  - `waiting`: planned meals on days before today, back 7 days (`WAITING_DAYS`), in a slot that is on, newest first (later meals of a day first): `{ meal_id, date, slot_id, leftover_item_id, use_by_fridge, use_by_freezer }`. `leftover_item_id` is the meal's first recipe (what "Any left over?" is about), or null when the meal has no recipe. The two dates are the use-by a new tub would get, from the meal's day.
+  - `tubs_left`: as `GET /plan/tubs-left` (up to 200; `tubs_left_more` says there are more). `use_soon_lots`: as `GET /pantry/use-soon`. `use_soon_tubs`: the tubs left whose use-by is within the household's Use soon days.
+  - `next_cook`: the first batch cook from today on whose cook meal is still planned: `{ date, slot_id, meal_id, batch_id, recipe_name, tub_count }`, or null.
+  - `first_day`: true when the household has no recipe (not removed), nothing in the pantry and no meal ever planned. The web app then shows "Your kitchen is ready".
+  - The shopping list's "to buy" count and the "Did you buy 2?" cards come from the shopping list's own copy, as on Shopping.
+- `POST /api/v1/plan/meals/{plan_meal_id}/cooked`, body `{ "leftovers"?: { "count": 1 to 12, "place_kind": "fridge" | "freezer", "use_by"?: date, "item_id"?: id } }`. The meal becomes `cooked` and is locked. With `leftovers`, tubs are made of one recipe in the meal (`item_id`, else its first recipe) in the meal's own batch cook (made if there is none), in the fridge or freezer, with the given use-by or the household's tub life counted from the meal's day. They are in no meal, so they are "tubs left". **Nothing is taken from the pantry:** that is the "Cooked it" review in 0.7.
+- `POST /api/v1/plan/meals/{plan_meal_id}/didnt`: the meal becomes `didnt`. Nothing else; its ingredients leave the shopping list.
+- `POST /api/v1/plan/meals/{plan_meal_id}/moved`, body `{ "date", "slot_id" }`. The old meal becomes `moved` and keeps its slot. Its recipes and ingredients are copied to the new day and meal (a tub moves, since a tub is in one meal at a time); a meal there that already has food gets them alongside (at most 20 things). `meal_id` in the answer is the meal it went to.
+- All three answer like the other plan writes (`PlanWrite`: the `change` with its Undo, `meal_id`); a retry with the same `Idempotency-Key` answers from the first change. Kinds `plan_cooked`, `plan_didnt`, `plan_moveit`. Undo asks about the meal again (status back to `planned`) and takes back the tubs, or the things added to the other meal; the shopping list follows.
+- Refusals: `409 meal_done` (already answered), `422 not_yet` (the meal's day has not come), `422 no_recipe` (leftovers asked of a meal without a recipe, or of an ingredient), `422 batch_full` (a batch holds at most 12 tubs), `422 no_freezer` / `no_fridge`, `422 same_place`, `422 slot_off`, `422 meal_full`, `422 bad_day`; `404` for any id (meal, slot, item) that is not this household's.
+- No database change.
+
 ### 6.4 Stock (the Pantry screen)
 
 **`GET /api/v1/pantry?filter=all&q=thuvaram`** — `filter`: `all` · `use_soon` · `running_low` · `staples`. `q` (from 0.2.1) searches by any name, other names too, with the same matching as `GET /foods?q=`; each place's `items` then counts only what is found, while `counts` stay for the whole pantry. One call gives the whole screen (the phone cards and the desktop columns use the same data).

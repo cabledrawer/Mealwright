@@ -235,6 +235,10 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/place"): {"date": "2030-01-01", "slot_id": 1},
     ("PATCH", "/api/v1/plan/tubs/{plan_tub_id}"): {"use_by": "2030-01-01"},
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/freezer"): None,
+    # Today (0.6 PR 6). Also tried in test_today.py, in both directions.
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/cooked"): {},
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/didnt"): None,
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/moved"): {"date": "2030-01-01", "slot_id": 1},
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request

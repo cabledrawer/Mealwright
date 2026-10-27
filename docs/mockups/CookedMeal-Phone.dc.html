@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright – Cooked it · ordinary meal (0.6)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: {{ c.bg }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="padding: 52px 16px 10px; display: flex; justify-content: space-between; align-items: center; background: {{ c.bar }}; border-bottom: 1px solid {{ c.edge }}">
+<a href="Main.dc.html" style="font-size: 15px; font-weight: 700; text-decoration: none; color: {{ c.green }}; min-height: 44px; display: flex; align-items: center">Cancel</a>
+<span style="display: flex; flex-direction: column; align-items: center"><span style="font-size: 16px; font-weight: 800">Cooked Rasam</span><span style="font-size: 12px; color: {{ c.muted }}; font-weight: 600">Check what came out of the pantry</span></span>
+<span style="width: 52px"></span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 16px 20px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 800">Made 4 portions</span><span style="font-size: 12px; color: {{ c.muted }}">Sat dinner · as the recipe</span></span>
+<span role="group" aria-label="Portions made" style="display: flex; align-items: center; gap: 4px; background: {{ c.chip }}; border-radius: 999px; padding: 3px"><button aria-label="Fewer portions" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.stepBtn }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">−</button><b style="min-width: 24px; text-align: center">4</b><button aria-label="More portions" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.stepBtn }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">+</button></span>
+</div>
+
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em">Taken from the pantry · tap to change</span>
+<div style="background: {{ c.card }}; border-radius: 18px; padding: 2px 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 56px; border-bottom: 1px solid {{ c.line }}"><span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Toor dal</span><span style="font-size: 12px; color: {{ c.muted }}">Cupboard · 500 → 400 g</span></span><span style="display: flex; align-items: center; gap: 12px"><b style="font-size: 15px">−100 g</b><button role="switch" aria-checked="true" aria-label="Take toor dal from the pantry" style="width: 44px; height: 26px; border: none; border-radius: 13px; background: {{ c.green }}; position: relative; padding: 0; flex: 0 0 auto"><span style="position: absolute; top: 2px; left: 20px; width: 22px; height: 22px; border-radius: 11px; background: {{ c.knob }}"></span></button></span></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; margin: 0 -14px; background: {{ c.chip }}; border-bottom: 1px solid {{ c.line }}">
+<span style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Tomatoes</span><span style="font-size: 12px; color: {{ c.muted }}">Fridge · 6 → 4</span></span><button role="switch" aria-checked="true" aria-label="Take tomatoes from the pantry" style="width: 44px; height: 26px; border: none; border-radius: 13px; background: {{ c.green }}; position: relative; padding: 0; flex: 0 0 auto"><span style="position: absolute; top: 2px; left: 20px; width: 22px; height: 22px; border-radius: 11px; background: {{ c.knob }}"></span></button></span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<span style="font-size: 13px; color: {{ c.muted }}">Recipe says 3 · you used</span>
+<span style="display: flex; align-items: center; gap: 4px"><button aria-label="Fewer tomatoes" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.stepBtn }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">−</button><b style="min-width: 28px; text-align: center; font-size: 16px">2</b><button aria-label="More tomatoes" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.stepBtn }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">+</button></span>
+</span>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 56px"><span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Tamarind</span><span style="font-size: 12px; color: {{ c.muted }}">Cupboard · 150 → 135 g</span></span><span style="display: flex; align-items: center; gap: 12px"><b style="font-size: 15px">−15 g</b><button role="switch" aria-checked="true" aria-label="Take tamarind from the pantry" style="width: 44px; height: 26px; border: none; border-radius: 13px; background: {{ c.green }}; position: relative; padding: 0; flex: 0 0 auto"><span style="position: absolute; top: 2px; left: 20px; width: 22px; height: 22px; border-radius: 11px; background: {{ c.knob }}"></span></button></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em">Staples · not counted</span>
+<span style="display: flex; gap: 6px; flex-wrap: wrap"><span style="background: {{ c.card }}; border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600">Rasam powder</span><span style="background: {{ c.card }}; border-radius: 999px; padding: 5px 11px; font-size: 13px; font-weight: 600">Salt</span></span>
+</div>
+
+<div style="background: {{ c.tubBg }}; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; justify-content: space-between; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 800; color: {{ c.tubInk }}">Any left over?</span><span style="font-size: 12px; color: {{ c.tubMuted }}">Optional · makes tubs for later</span></span>
+<span role="group" aria-label="Leftover tubs" style="display: flex; align-items: center; gap: 4px; background: {{ c.card }}; border-radius: 999px; padding: 3px"><button aria-label="Fewer tubs" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.chip }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">−</button><b style="min-width: 40px; text-align: center; font-size: 14px">1 tub</b><button aria-label="More tubs" style="width: 34px; height: 34px; border: none; border-radius: 17px; background: {{ c.chip }}; font: 700 17px 'Plus Jakarta Sans', sans-serif; color: {{ c.ink }}">+</button></span>
+</span>
+<span role="group" aria-label="Where the tub goes" style="display: flex; gap: 6px">
+<button aria-pressed="true" style="flex: 1; min-height: 40px; border: 2px solid {{ c.green }}; background: {{ c.card }}; color: {{ c.ink }}; border-radius: 12px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Fridge</button>
+<button aria-pressed="false" style="flex: 1; min-height: 40px; border: 1px solid {{ c.tubEdge }}; background: transparent; color: {{ c.tubInk }}; border-radius: 12px; font: 600 14px 'Plus Jakarta Sans', sans-serif">Freezer</button>
+</span>
+<span style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: {{ c.tubInk }}"><span>Use by <b>Tue 27 Oct</b> · 3 days</span><button style="border: none; background: transparent; color: {{ c.green }}; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0; min-height: 32px">Change</button></span>
+</div>
+
+</div>
+
+<div style="padding: 10px 16px 28px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid {{ c.edge }}; background: {{ c.bar }}">
+<span style="font-size: 13px; color: {{ c.muted }}">3 ingredients updated · 1 tub → <b style="color: {{ c.ink }}">Fridge</b></span>
+<a href="Main.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 16px; min-height: 52px; font-size: 15px; font-weight: 700; text-decoration: none; display: flex; align-items: center; justify-content: center">Confirm · update pantry</a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',edge:'#E3E6E2',line:'#E8EBE7',chip:'#F1F3F0',stepBtn:'#FFFFFF',green:'#2E7D5B',knob:'#FFFFFF',btn:'#17201C',btnInk:'#FFFFFF',tubBg:'#FDF1D8',tubInk:'#4F3500',tubMuted:'#6E4A00',tubEdge:'#E9C98A'};
+const D = {bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',edge:'#2A332E',line:'#26302B',chip:'#252E29',stepBtn:'#3A4640',green:'#6FCF9E',knob:'#111614',btn:'#E9EEEB',btnInk:'#111614',tubBg:'#3A2E14',tubInk:'#F3E3BD',tubMuted:'#E6C47A',tubEdge:'#6B5526'};
+return { c: (this.props.theme ?? 'light') === 'dark' ? D : L };
+}
+}
+</script>
+</body>
+</html>

@@ -561,6 +561,15 @@ def _undo_step(
         item.meal_id, item.position = meal.id, step["position"]
         db.flush()
         return True
+    if op == "status":
+        # Today's answer (cooked, didn't, moved): the meal is asked about again, if it still
+        # carries the answer this change gave it (PR 6).
+        meal = _own(kitchen, Meal, step["meal"])
+        if meal is None or meal.status != step["to"]:
+            return False
+        meal.status = step["from"]
+        db.flush()
+        return True
     if op == "slot":
         slot = _own(kitchen, MealSlot, step["slot"])
         if slot is None:

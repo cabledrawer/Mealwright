@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop – Today · Move it (0.6)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden}
+</style>
+</helmet>
+<div style="min-height: 900px; background: {{ c.backdrop }}; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: {{ c.ink }}; display: flex; align-items: center; justify-content: center; padding: 40px 24px; box-sizing: border-box">
+
+<div role="dialog" aria-label="Move Sambar to" style="width: 100%; max-width: 640px; background: {{ c.bg }}; border-radius: 28px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; overflow: hidden">
+
+<div style="background: {{ c.bar }}; padding: 22px 28px; border-bottom: 1px solid {{ c.edge }}; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; color: {{ c.muted }}; font-weight: 600">Was Sat 24 Oct · Dinner · not cooked</span>
+<h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em">Move Sambar to…</h1>
+</div>
+
+<div style="padding: 22px 28px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em">Quick picks</span>
+<span style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<button aria-pressed="true" style="display: flex; justify-content: space-between; align-items: center; min-height: 56px; padding: 0 16px; border-radius: 14px; border: 2px solid {{ c.green }}; background: {{ c.selBg }}; color: {{ c.ink }}; font: 700 15px 'Plus Jakarta Sans', sans-serif"><span>Today · Dinner</span><span style="font-size: 12px; font-weight: 600; color: {{ c.muted }}">free</span></button>
+<button aria-pressed="false" style="display: flex; justify-content: space-between; align-items: center; min-height: 56px; padding: 0 16px; border-radius: 14px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 700 15px 'Plus Jakarta Sans', sans-serif"><span>Tomorrow · Dinner</span><span style="font-size: 12px; font-weight: 600; color: {{ c.muted }}">free</span></button>
+</span>
+
+<span style="font-size: 12px; font-weight: 700; color: {{ c.muted }}; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px">Or pick a day and meal</span>
+<div role="group" aria-label="Day" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px">
+<button aria-pressed="true" style="min-height: 56px; border-radius: 12px; border: 2px solid {{ c.green }}; background: {{ c.selBg }}; color: {{ c.ink }}; font: 700 13px/1.3 'Plus Jakarta Sans', sans-serif">Sun<br>25</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Mon<br>26</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Tue<br>27</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Wed<br>28</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Thu<br>29</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Fri<br>30</button>
+<button aria-pressed="false" style="min-height: 56px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 600 13px/1.3 'Plus Jakarta Sans', sans-serif">Sat<br>31</button>
+</div>
+<div role="group" aria-label="Meal" style="display: flex; flex-direction: column; gap: 6px">
+<button aria-pressed="false" style="display: flex; justify-content: space-between; align-items: center; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 700 14px 'Plus Jakarta Sans', sans-serif"><span>Breakfast</span><span style="font-size: 12px; font-weight: 600; color: {{ c.muted }}">free</span></button>
+<button aria-pressed="false" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid {{ c.edge }}; background: {{ c.card }}; color: {{ c.ink }}; font: 700 14px 'Plus Jakarta Sans', sans-serif"><span>Lunch</span><span style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: {{ c.muted }}"><span style="background: {{ c.tub }}; color: {{ c.tubInk }}; border-radius: 999px; padding: 2px 8px; font-weight: 700">Rasam · tub 2 of 3</span>adds alongside</span></button>
+<button aria-pressed="true" style="display: flex; justify-content: space-between; align-items: center; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 2px solid {{ c.green }}; background: {{ c.selBg }}; color: {{ c.ink }}; font: 700 14px 'Plus Jakarta Sans', sans-serif"><span>Dinner</span><span style="font-size: 12px; font-weight: 600; color: {{ c.muted }}">free</span></button>
+</div>
+</div>
+
+<div style="background: {{ c.bar }}; border-top: 1px solid {{ c.edge }}; padding: 16px 28px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<span style="font-size: 13px; color: {{ c.muted }}">You can undo a move.</span>
+<span style="display: flex; gap: 8px">
+<a href="Desktop-Today.dc.html" style="border: 1px solid {{ c.edge }}; color: {{ c.ink }}; border-radius: 999px; min-height: 44px; padding: 0 18px; font-size: 14px; font-weight: 700; text-decoration: none; display: flex; align-items: center">Cancel</a>
+<a href="Desktop-Today.dc.html" style="background: {{ c.btn }}; color: {{ c.btnInk }}; border-radius: 999px; min-height: 44px; padding: 0 20px; font-size: 14px; font-weight: 700; text-decoration: none; display: flex; align-items: center">Move to today</a>
+</span>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const L = {backdrop:'#C9CFCA',bg:'#F5F6F4',card:'#FFFFFF',bar:'#FFFFFF',ink:'#17201C',muted:'#5B655F',edge:'#D3D8D3',green:'#2E7D5B',selBg:'#E4F1EA',btn:'#17201C',btnInk:'#FFFFFF',tub:'#FDE7B8',tubInk:'#5C3D00'};
+const D = {backdrop:'#0A0D0C',bg:'#111614',card:'#1B221F',bar:'#161C19',ink:'#E9EEEB',muted:'#A3AFA8',edge:'#33403A',green:'#6FCF9E',selBg:'#1F3A2D',btn:'#E9EEEB',btnInk:'#111614',tub:'#4A3A16',tubInk:'#F3D58C'};
+return { c: (this.props.theme ?? 'light') === 'dark' ? D : L };
+}
+}
+</script>
+</body>
+</html>

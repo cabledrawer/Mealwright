@@ -399,6 +399,9 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("SpotIn", "slot_id"): "test_plan_batches",
     ("TubPlaceIn", "slot_id"): "test_plan_batches",
     ("TubEditIn", "member_login_id"): "test_plan_batches",
+    # Today (0.6 PR 6): test_today.py, test_another_households_ids_get_404_and_nothing_changes.
+    ("MovedIn", "slot_id"): "test_today",
+    ("LeftoversIn", "item_id"): "test_today",
     # Plain shopping endpoints: here.
     ("NewItem", "id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
     ("AmountOrNone", "size_id"): "test_the_plain_shopping_endpoints_take_none_of_their_ids",
