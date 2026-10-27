@@ -41,6 +41,19 @@ const backIntoView = async (page: Page) => {
   await page.waitForTimeout(1500);
 };
 
+const isWebKit = () => test.info().project.use.browserName === 'webkit';
+
+/**
+ * Ask for the version file from the page. The server answers it with "no-cache"; only our worker
+ * answers with "no-store", so that header proves the worker (and not the server) answered. On
+ * WebKit this is the proof, as request.serviceWorker() only exists on Chromium.
+ */
+const askVersion = (page: Page) =>
+  page.evaluate(async () => {
+    const r = await fetch('/_app/version.json');
+    return { status: r.status, body: await r.json(), cache: r.headers.get('cache-control') };
+  });
+
 /** Anything the person, or the console, would see. */
 function watch(page: Page) {
   const problems: string[] = [];
@@ -79,9 +92,12 @@ test('the tab coming back into view, online: nothing shows, nothing reloads, the
   await mark(page);
   const problems = watch(page);
   const serverAsked: string[] = [];
-  context.on('request', (r) => {
-    if (r.url().includes('/_app/version.json') && r.serviceWorker()) serverAsked.push(r.url());
-  });
+  // Chromium can say which requests came from the worker; WebKit can't (see askVersion).
+  if (!isWebKit()) {
+    context.on('request', (r) => {
+      if (r.url().includes('/_app/version.json') && r.serviceWorker()) serverAsked.push(r.url());
+    });
+  }
 
   await backIntoView(page);
 
@@ -90,6 +106,7 @@ test('the tab coming back into view, online: nothing shows, nothing reloads, the
   expect(await workerState(page)).toEqual(worker);
   expect(problems).toEqual([]);
   expect(serverAsked, 'the worker should answer the version check itself').toEqual([]);
+  expect((await askVersion(page)).cache, 'the worker answers it, with its own no-store').toBe('no-store');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
@@ -121,19 +138,17 @@ test('the version check is answered by the worker with the same answer online, o
   page,
   context,
 }) => {
-  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
   await underWorker(page);
-  const ask = () =>
-    page.evaluate(async () => {
-      const r = await fetch('/_app/version.json');
-      return { status: r.status, body: await r.json(), cache: r.headers.get('cache-control') };
-    });
-  const online = await ask();
+  const online = await askVersion(page);
   expect(online.status).toBe(200);
   expect(typeof online.body.version).toBe('string');
   expect(online.cache).toBe('no-store');
+  // The offline half: Playwright's WebKit offline switch blocks requests before the service
+  // worker sees them (proved 25 Oct), so only Chromium does it; the iPhone hand test covers
+  // offline Safari.
+  if (isWebKit()) return;
   await context.setOffline(true);
-  expect(await ask()).toEqual(online);
+  expect(await askVersion(page)).toEqual(online);
   await context.setOffline(false);
 });
 
