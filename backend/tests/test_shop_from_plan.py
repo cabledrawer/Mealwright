@@ -817,3 +817,27 @@ def test_a_plan_write_and_the_list_update_share_one_transaction_and_one_counter(
         written = plan(kitchen, recipe(kitchen, f"Pilau {n}", line(rice["id"], 50, "g")), 2 + n)
         undo(kitchen, written)
         assert counter(kitchen) == _max_action_seq(kitchen)
+
+
+def test_a_huge_amount_goes_on_the_list_with_no_amount_instead_of_overflowing(
+    kitchen: TestClient,
+) -> None:
+    flour = new_food(kitchen, "Plan flour")
+    sugar = new_food(kitchen, "Plan sugar")
+    # Each line is under the limit, together they are over: unknown, not 3,000,000 kg.
+    big = recipe(
+        kitchen,
+        "Big bake",
+        line(flour["id"], 600000, "kg"),
+        line(flour["id"], 600000, "kg"),
+        line(sugar["id"], 10, "g"),
+        serves=1,
+    )
+    plan(kitchen, big, 1, servings=99)  # a tenfold scale-up of a huge recipe, up to 99 servings
+    assert amounts(kitchen) == {flour["id"]: None, sugar["id"]: 990}
+    plan(kitchen, big, 2)
+    assert amounts(kitchen)[flour["id"]] is None
+    with db(kitchen) as session:
+        assert all(
+            (i.amount_milli or 0) <= 1_000_000_000 for i in session.scalars(select(ListItem))
+        )

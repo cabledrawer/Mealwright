@@ -56,8 +56,7 @@ def from_plan(kitchen: Here) -> FromPlanOut:
 def got_it(food_id: StoredInt, kitchen: Here) -> FromPlanOut:
     """ "Got it" on the staples card: the staple stays off the card until the plan's use of it
     changes. Saying it twice changes nothing more."""
-    shop_from_plan.got_it(kitchen, find(kitchen, food_id))
-    answer = _out(kitchen, shop_from_plan.refresh(kitchen))
+    answer = _out(kitchen, shop_from_plan.got_it(kitchen, find(kitchen, food_id)))
     kitchen.db.commit()
     return answer
 
@@ -65,7 +64,6 @@ def got_it(food_id: StoredInt, kitchen: Here) -> FromPlanOut:
 @router.delete("/shopping/staples/{food_id}/got-it")
 def not_got_it(food_id: StoredInt, kitchen: Here) -> FromPlanOut:
     """Undo of "Got it": the staple is on the card again."""
-    shop_from_plan.not_got_it(kitchen, find(kitchen, food_id))
-    answer = _out(kitchen, shop_from_plan.refresh(kitchen))
+    answer = _out(kitchen, shop_from_plan.not_got_it(kitchen, find(kitchen, food_id)))
     kitchen.db.commit()
     return answer

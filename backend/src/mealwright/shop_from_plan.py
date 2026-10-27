@@ -60,7 +60,7 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select
 
-from mealwright.amounts import MILLI
+from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Kitchen
 from mealwright.history import as_utc
 from mealwright.household import today
@@ -97,6 +97,18 @@ class Need:
 
     milli: int = 0
     unknown: bool = False
+    unknown_by_size: bool = False  # over the largest amount: only "unknown" is kept
+
+    def add(self, milli: int) -> None:
+        """Add an amount. Past the list's largest amount (1,000,000) the sum is dropped and the
+        ingredient counts as "unknown" (listed with no amount), so a huge line can never put
+        an impossible amount on the list or overflow the database."""
+        if self.unknown_by_size or milli > MAX_MILLI or self.milli + milli > MAX_MILLI:
+            self.unknown_by_size = True
+            self.unknown = True
+            self.milli = 0
+        else:
+            self.milli += milli
 
 
 @dataclass
@@ -134,7 +146,7 @@ def servings_for(item: MealItem, recipe: Recipe, batch_tubs: int | None) -> int 
 def round_up(milli: int, counted_as: str) -> int:
     """Whole grams or millilitres, or halves of an item, always upwards."""
     step = MILLI // 2 if counted_as == "count" else MILLI
-    return math.ceil(milli / step) * step
+    return min(math.ceil(milli / step) * step, MAX_MILLI)
 
 
 def _stand_ins(kitchen: Kitchen) -> dict[int, list[int]]:
@@ -230,37 +242,47 @@ def work_out(kitchen: Kitchen) -> Worked:
 
     needs: dict[int, Need] = defaultdict(Need)
     staple_names: dict[int, set[str]] = defaultdict(set)
-    staple_items: dict[int, list[int]] = defaultdict(list)
+    staple_items: dict[int, set[int]] = defaultdict(set)
+    # Each recipe is worked out once (its own amounts), then scaled for each meal that uses it.
+    once: dict[int, tuple[dict[int, Need], set[int]]] = {}
     for item, meal_id in rows:
         recipe: Recipe | None = recipes.get(item.recipe_id or 0)
         if recipe is None:  # removed, or its Undo window is over
             continue
+        if recipe.id not in once:
+            per_food: dict[int, Need] = defaultdict(Need)
+            uses_staples: set[int] = set()
+            for line in lines.get(recipe.id, ()):
+                if line.food_id is None:  # an inner recipe, or an unlinked line
+                    continue
+                food = foods.get(line.food_id)
+                if food is None:
+                    continue
+                if food.staple:
+                    uses_staples.add(food.id)
+                    continue
+                got = stock.need(line, food)
+                if got is None:
+                    per_food[food.id].unknown = True
+                else:
+                    per_food[food.id].add(got)
+            once[recipe.id] = (per_food, uses_staples)
+        per_food, uses_staples = once[recipe.id]
+        for food_id in uses_staples:
+            staple_names[food_id].add(recipe.name)
+            staple_items[food_id].add(item.id)
         servings = servings_for(item, recipe, tubs.get((meal_id, recipe.id)))
-        # One recipe's lines for one ingredient, added up, then scaled to the servings.
-        per_food: dict[int, Need] = defaultdict(Need)
-        for line in lines.get(recipe.id, ()):
-            if line.food_id is None:  # an inner recipe, or an unlinked line
-                continue
-            food = foods.get(line.food_id)
-            if food is None:
-                continue
-            if food.staple:
-                staple_names[food.id].add(recipe.name)
-                if item.id not in staple_items[food.id]:
-                    staple_items[food.id].append(item.id)
-                continue
-            got = stock.need(line, food)
-            if got is None:
-                per_food[food.id].unknown = True
-            else:
-                per_food[food.id].milli += got
         for food_id, part in per_food.items():
             total = needs[food_id]
-            total.milli += _scaled(part.milli, recipe, servings)
-            total.unknown = total.unknown or part.unknown
+            if part.unknown:
+                total.unknown = True
+            if part.unknown_by_size:
+                total.unknown_by_size = True
+            if not part.unknown_by_size:
+                total.add(_scaled(part.milli, recipe, servings))
     worked.to_buy = share_out(foods, needs, stock, _stand_ins(kitchen))
     for food_id, names in staple_names.items():
-        worked.staples[food_id] = (sorted(names), set(staple_items[food_id]))
+        worked.staples[food_id] = (sorted(names), staple_items[food_id])
     return worked
 
 
@@ -520,9 +542,10 @@ def staples_card(kitchen: Kitchen, worked: Worked) -> list[Staple]:
     return sorted(out, key=lambda s: (fold(s.food.name), s.food.id))
 
 
-def got_it(kitchen: Kitchen, food: Food) -> None:
+def got_it(kitchen: Kitchen, food: Food) -> Outcome:
     """Remember "Got it" for a staple: the meal items that use it now. It comes back only when
-    a meal item that is not among them uses it (a meal added), not as days pass or meals go."""
+    a meal item that is not among them uses it (a meal added), not as days pass or meals go.
+    Works the plan out once; the list itself is not touched."""
     worked = work_out(kitchen)
     found = worked.staples.get(food.id)
     ids = sorted(found[1]) if found else []
@@ -535,11 +558,18 @@ def got_it(kitchen: Kitchen, food: Food) -> None:
         row.item_ids = ids
         row.at = utcnow()
     kitchen.db.flush()
+    return _as_is(kitchen, worked)
 
 
-def not_got_it(kitchen: Kitchen, food: Food) -> None:
+def not_got_it(kitchen: Kitchen, food: Food) -> Outcome:
     """Undo of "Got it"."""
     row = kitchen.db.get(StapleCheck, food.id)
     if row is not None and row.household_id == kitchen.household_id:
         kitchen.db.delete(row)
         kitchen.db.flush()
+    return _as_is(kitchen, work_out(kitchen))
+
+
+def _as_is(kitchen: Kitchen, worked: Worked) -> Outcome:
+    main = ensure_main_list(kitchen.db, kitchen.household_id)
+    return Outcome(worked, False, plan_count(kitchen, main, worked.foods))
