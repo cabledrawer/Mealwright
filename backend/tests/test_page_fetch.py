@@ -31,6 +31,7 @@ from mealwright.outbound import (
 )
 from mealwright.page_fetch import (
     MAX_PAGE_BYTES,
+    MESSAGES,
     FetchRefused,
     Problem,
     download_photo,
@@ -986,6 +987,33 @@ def test_a_redirect_address_python_cannot_split_is_a_bad_link_and_not_in_the_log
     with caplog.at_level(logging.DEBUG):
         assert refused(gate, "https://recipes.example/") is Problem.BAD_LINK
     assert "secret" not in caplog.text
+
+
+@pytest.mark.parametrize("status", [401, 403, 429])
+def test_a_site_that_says_no_gets_its_own_plain_sentence(
+    gate: OutboundGate, net: FakeNet, status: int
+) -> None:
+    """Allrecipes refused the 0.5 check's request (#36). The request is not changed; the
+    sentence says what happened and the way on."""
+    net.dns["recipes.example"] = [PUBLIC]
+    net.page(PUBLIC, Reply(status=status))
+    with pytest.raises(FetchRefused) as caught:
+        fetch_page(gate, 1, "https://recipes.example/")
+    assert caught.value.problem is Problem.SITE_REFUSED
+    assert caught.value.message == (
+        "That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead."
+    )
+    assert caught.value.message == MESSAGES[Problem.SITE_REFUSED]
+
+
+def test_a_photo_the_site_says_no_to_is_still_just_not_sent(
+    gate: OutboundGate, net: FakeNet
+) -> None:
+    net.dns["images.recipes.example"] = [PUBLIC]
+    net.page(PUBLIC, Reply(status=403))
+    with pytest.raises(FetchRefused) as caught:
+        download_photo(gate, 1, "https://images.recipes.example/rasam.jpg")
+    assert caught.value.problem is Problem.SITE_ERROR
 
 
 def test_a_redirect_without_an_address(gate: OutboundGate, net: FakeNet) -> None:

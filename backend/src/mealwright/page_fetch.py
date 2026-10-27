@@ -82,6 +82,9 @@ class Problem(StrEnum):
     CANT_REACH = "cant_reach"
     TIMEOUT = "timeout"
     SITE_ERROR = "site_error"
+    # The site said no on purpose (401, 403 or 429), as some big recipe sites do to anything
+    # that isn't a web browser. The request is not changed to get round it (cabledrawer's to decide).
+    SITE_REFUSED = "site_refused"
     NOT_A_PAGE = "not_a_page"
     PAGE_TOO_BIG = "page_too_big"
     NOT_A_PHOTO = "not_a_photo"
@@ -116,6 +119,9 @@ MESSAGES = {
     Problem.CANT_REACH: "Couldn’t reach that site. Check the link, or try again later.",
     Problem.TIMEOUT: "That site took too long to answer. Try again later.",
     Problem.SITE_ERROR: "That site didn’t send the page. Check the link, or try again later.",
+    Problem.SITE_REFUSED: (
+        "That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead."
+    ),
     Problem.NOT_A_PAGE: "This link isn’t a web page.",
     Problem.PAGE_TOO_BIG: "That page is bigger than 5 MB.",
     Problem.NOT_A_PHOTO: photos.NOT_A_PHOTO,
@@ -188,6 +194,15 @@ _PHOTO = _Kinds(
 )
 
 
+_SAID_NO = frozenset({401, 403, 429})
+
+
+def _status_problem(status: int, kinds: _Kinds) -> Problem:
+    """Why a reply that wasn't a page (or photo) is refused. A page the site wouldn't give
+    says so, with the way on (paste the text); a photo, or any other error, is "didn't send"."""
+    return Problem.SITE_REFUSED if status in _SAID_NO and kinds is _PAGE else Problem.SITE_ERROR
+
+
 def tidy_link(url: str) -> str:
     """The link as it's requested and compared (see `_tidy`). Raises FetchRefused (BAD_LINK)."""
     return _tidy(url)
@@ -244,7 +259,7 @@ def _fetch(
             response = _one_hop(gate, household_id, url, kinds, listed, deadline)
             if response.status not in _REDIRECTS:
                 if not 200 <= response.status < 300:
-                    raise FetchRefused(Problem.SITE_ERROR)
+                    raise FetchRefused(_status_problem(response.status, kinds))
                 return url, response
             location = _header(response, "Location")
             if not location:
