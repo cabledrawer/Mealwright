@@ -89,8 +89,13 @@ test('Didn’t marks the meal not cooked', async ({ page }) => {
   await card(page).getByRole('button', { name: 'Didn’t' }).click();
   await expect(card(page)).toHaveCount(0);
   await expect(page.getByText(`Didn’t cook ${k.name}`)).toBeVisible();
-  const plan = await (await page.request.get(`/api/v1/plan?from=${addDays(k.today, -5)}&to=${addDays(k.today, -1)}`)).json();
-  expect(plan.meals.find((m: any) => m.id === k.meal).status).toBe('didnt');
+  // The card goes at once; the server's answer follows.
+  await expect
+    .poll(async () => {
+      const plan = await (await page.request.get(`/api/v1/plan?from=${addDays(k.today, -5)}&to=${addDays(k.today, -1)}`)).json();
+      return plan.meals.find((m: any) => m.id === k.meal).status;
+    })
+    .toBe('didnt');
 });
 
 test('Move it to tomorrow adds alongside a meal that has food', async ({ page }) => {
@@ -112,13 +117,20 @@ test('Move it to tomorrow adds alongside a meal that has food', async ({ page })
 
   await expect(card(page)).toHaveCount(0);
   await expect(page.getByText(new RegExp(`Moved ${k.name} from`))).toBeVisible();
-  const plan = await (await page.request.get(`/api/v1/plan?from=${tomorrow}&to=${tomorrow}`)).json();
-  const dinner = plan.meals.find((m: any) => m.slot_id === k.slot.Dinner);
-  const names = dinner.items.map((i: any) => i.recipe?.name);
-  expect(names).toContain(k.name);
-  expect(names).toContain(other);
-  const old = await (await page.request.get(`/api/v1/plan?from=${addDays(k.today, -5)}&to=${addDays(k.today, -1)}`)).json();
-  expect(old.meals.find((m: any) => m.id === k.meal).status).toBe('moved');
+  await expect
+    .poll(async () => {
+      const plan = await (await page.request.get(`/api/v1/plan?from=${tomorrow}&to=${tomorrow}`)).json();
+      const dinner = plan.meals.find((m: any) => m.slot_id === k.slot.Dinner);
+      const names = dinner.items.map((i: any) => i.recipe?.name);
+      return names.includes(k.name) && names.includes(other);
+    })
+    .toBe(true);
+  await expect
+    .poll(async () => {
+      const old = await (await page.request.get(`/api/v1/plan?from=${addDays(k.today, -5)}&to=${addDays(k.today, -1)}`)).json();
+      return old.meals.find((m: any) => m.id === k.meal).status;
+    })
+    .toBe('moved');
 });
 
 test('a household with nothing yet sees Your kitchen is ready', async ({ page }) => {

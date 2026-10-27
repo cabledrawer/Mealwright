@@ -1,7 +1,7 @@
 import { FIXED_DAY, FIXED_MOMENT, expect, test, type Page } from './clock.ts';
 import { PORTS, SHOTS_AUTH_FILE, local } from './servers.ts';
 
-// Saved screenshots (spec "Keeping the UI good", item 6): Pantry, Shopping, All recipes, the recipe page,
+// Saved screenshots (spec "Keeping the UI good", item 6): Today, Pantry, Shopping, All recipes, the recipe page,
 // Ingredients and the recipe editor (New recipe and Edit recipe), phone-light
 // (390 × 844) and desktop-dark (1440 × 900), both taken at two device pixels per screen pixel
 // (so the images are 780 × 1688 and 2880 × 1800), each compared with the approved image saved in
@@ -48,6 +48,16 @@ test('Pantry looks the way it was approved', async ({ page }) => {
   await expect(page.getByText('Toor dal').first()).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot('pantry.png', { scale: 'device' });
+});
+
+test('Today looks the way it was approved', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Today', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('did-you-cook')).toBeVisible();
+  await expect(page.getByTestId('today-stats').getByText('to buy')).toBeVisible();
+  await expect(page.getByTestId('today-stats').locator('.buy b')).not.toHaveText('–');
+  await settle(page);
+  await expect(page).toHaveScreenshot('today.png', { scale: 'device' });
 });
 
 test('Shopping looks the way it was approved', async ({ page }) => {

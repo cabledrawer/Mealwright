@@ -131,6 +131,18 @@ export async function seed(request: APIRequestContext) {
   for (const [name, amount, unit] of LIST) {
     await api.post(`/shopping/lists/${list}/items`, { food_id: await foodId(api, name), amount: { amount, unit } });
   }
+  // Today: yesterday's dinner was planned and not answered, so "Did you cook …?" shows. A past
+  // meal makes nothing for the shopping list, so the other saved screens are the same.
+  const { today } = (await api.get('/household')) as { today: string };
+  const { items: slots } = (await api.get('/meal-slots')) as { items: { id: number; name: string }[] };
+  const found = (await api.get('/recipes')) as { items?: { id: number }[]; recipes?: { id: number }[] };
+  const recipe = (found.items ?? found.recipes ?? [])[0];
+  const dinner = slots.find((slot) => slot.name === 'Dinner');
+  if (recipe && dinner) {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    await api.post('/plan/items', { date: d.toISOString().slice(0, 10), slot_id: dinner.id, recipe_id: recipe.id });
+  }
 }
 
 // --- Stress: many items and very long names ----------------------------------------------------
