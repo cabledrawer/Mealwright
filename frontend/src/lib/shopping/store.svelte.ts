@@ -172,13 +172,14 @@ export class ShoppingModel {
 
   // --- The list from the plan ---------------------------------------------------------------
 
-  /** Opening Shopping: bring the list up to date with the plan and the pantry (the server does
-   * the sums; online only), and read the list. The list shows at once from this phone's copy;
-   * if the plan changed it, the new lines come down in a second read. */
+  /** Opening Shopping: read the list, then bring it up to date with the plan and the pantry (the
+   * server does the sums; online only). The list shows at once from this phone's copy, online,
+   * slow or offline; the plan's update starts only once the list's own read is over, in the
+   * background, and never makes the list wait (cabledrawer 27 Oct). If the plan changed the list,
+   * the new lines come down in a second read. */
   async open(): Promise<void> {
-    const planned = this.refreshPlan();
     await this.load();
-    if (await planned) await this.load();
+    void this.refreshPlan().then((changed) => (changed ? this.load() : undefined));
   }
 
   /** Ask the server to update the list from the plan, and keep the staples card it gives.

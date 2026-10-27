@@ -228,6 +228,18 @@ describe('Shopping: the list from the plan', () => {
     expect(page.getByText(/built from/).elements()).toEqual([]);
   });
 
+  it('the plan update waits until the list has been read, so it never holds the list back', async () => {
+    // cabledrawer 27 Oct: the list shows at once, online, slow or offline; the plan's update runs
+    // afterwards, in the background.
+    await render(390);
+    await vi.waitFor(() => expect(asked('POST', '/shopping/from-plan').length).toBe(1));
+    const order = server.requests.map((r) => `${r.method} ${r.path}`);
+    expect(order.indexOf('GET /shopping/changes')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('POST /shopping/from-plan')).toBeGreaterThan(
+      order.indexOf('GET /shopping/changes')
+    );
+  });
+
   it('after the plan changed the list, Shopping reads the list again', async () => {
     card = { ...card, changed: true };
     await render(390);
