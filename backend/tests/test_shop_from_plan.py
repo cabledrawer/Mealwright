@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sync_kit import (
     action,
     changes,
@@ -773,3 +773,47 @@ def test_a_staple_added_and_ticked_does_not_come_back_on_the_card(kitchen: TestC
     send(kitchen, action("add", list_id=main_id(kitchen), item_id=item, food_id=oil["id"]))
     one(kitchen, "tick", counter(kitchen), item_id=item)
     assert from_plan(kitchen)["staples"] == []
+
+
+# --- Security pass round 1 -----------------------------------------------------------------------
+
+
+def _max_action_seq(kitchen: TestClient) -> int:
+    with db(kitchen) as session:
+        return int(session.scalar(select(func.max(SyncAction.seq))) or 0)
+
+
+def test_undoing_a_plan_write_keeps_the_list_counter_in_step_and_the_list_writable(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    written = plan(kitchen, recipe(kitchen, "Sambar", line(rice["id"], 200, "g")))
+    assert counter(kitchen) == _max_action_seq(kitchen)
+    undone = undo(kitchen, written)
+    assert undone is not None
+    assert plan_lines(kitchen) == []
+    # The counter is where the last logged action left it, not wound back (S-H1).
+    assert counter(kitchen) == _max_action_seq(kitchen)
+    assert counter(kitchen) >= 2  # the plan's update, then the Undo's
+    # And the next list write works (it used to fail with a 500, for ever).
+    milk = new_food(kitchen, "Plan milk")
+    ok(
+        kitchen.post(
+            f"{API}/shopping/lists/{main_id(kitchen)}/items", json={"food_id": milk["id"]}
+        ),
+        201,
+    )
+    assert counter(kitchen) == _max_action_seq(kitchen)
+
+
+def test_a_plan_write_and_the_list_update_share_one_transaction_and_one_counter(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    start = counter(kitchen)
+    plan(kitchen, recipe(kitchen, "Sambar", line(rice["id"], 200, "g")))
+    assert counter(kitchen) == start + 1 == _max_action_seq(kitchen)
+    # An Undo that also changes the list (here the plan's Undo) numbers its own and the list's
+    # changes without a clash, many times over.
+    for n in range(3):
+        written = plan(kitchen, recipe(kitchen, f"Pilau {n}", line(rice["id"], 50, "g")), 2 + n)
+        undo(kitchen, written)
+        assert counter(kitchen) == _max_action_seq(kitchen)

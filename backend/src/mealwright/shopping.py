@@ -208,7 +208,10 @@ class Batch:
             self.locked = True
 
     def take(self) -> int:
-        self.last += 1
+        # Another Batch in this same transaction (a plan Undo updates the list inside the
+        # Undo's own) may have used numbers since this one began: start from the household's
+        # counter as it stands, so a number is never used twice.
+        self.last = max(self.last, self.kitchen.household.list_seq) + 1
         self.taken.append(self.last)
         return self.last
 
@@ -222,7 +225,9 @@ class Batch:
         return self.taken[-1] if self.taken else self.take()
 
     def finish(self) -> None:
-        self.kitchen.household.list_seq = self.last
+        # Never lower the counter (an inner Batch may have raised it past this one).
+        household = self.kitchen.household
+        household.list_seq = max(self.last, household.list_seq)
 
 
 def action_id(kitchen: Kitchen) -> str:
