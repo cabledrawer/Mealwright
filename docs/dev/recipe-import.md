@@ -591,7 +591,7 @@ here; another person's drafts show on the next look at Drafts. There are no swip
 
 ## Import fixes and pints (0.6 PR 7)
 
-Written by Claude Code on 27 Oct. Every choice here is "proposed, for cabledrawer" unless it names his words. The sources: the 0.5 real-recipe report (`import-check-0.5.md`), cabledrawer's kickoff step 7 ("Import fixes ... and pints (answers 3 and 5), then the second real-recipe run") and his answers 3 and 5.
+Written by Claude Code on 27 Oct. cabledrawer OK'd every choice here on 27 Oct, including the three reading rules after the review. The sources: the 0.5 real-recipe report (`import-check-0.5.md`), cabledrawer's kickoff step 7 ("Import fixes ... and pints (answers 3 and 5), then the second real-recipe run") and his answers 3 and 5.
 
 **Reader fixes (`ingredient_reader.py`).** Each is tested on the real line from the report.
 
