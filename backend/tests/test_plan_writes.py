@@ -346,7 +346,8 @@ def test_the_plan_cards_get_photo_time_kcal_and_tub_numbers(
     assert plan["meals"][0]["kcal"] == 300 + 290 + 300
     assert plan["meals"][0]["items"][0]["recipe"]["time_minutes"] == 40
     assert plan["meals"][0]["items"][0]["recipe"]["photo_url"] is None
-    assert [t["number"] for t in plan["tubs"]] == [1, 2]
+    # Numbered in date order (F50): the tub in a meal (made second) is 1, the tub left is 2.
+    assert [t["number"] for t in plan["tubs"]] == [2, 1]
 
 
 # --- Another household's ids: 404, as if they weren't there ---------------------------------
