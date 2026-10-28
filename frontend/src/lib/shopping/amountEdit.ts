@@ -32,6 +32,12 @@ export function toBaseAmount(text: string, food: EditFood): Parsed {
     return { amount: round(asked.amount * (unit === 'l' ? 1000 : 1)), sizeId: null };
   }
   if (base === 'count' && unit === 'count') return { amount: asked.amount, sizeId: null };
+  if (base === 'count' && ['g', 'kg', 'ml', 'l'].includes(unit)) {
+    return {
+      problem:
+        'This ingredient is counted one by one: type a number, or change how it is counted in Edit ingredient.'
+    };
+  }
   return {
     problem:
       base === 'weight'

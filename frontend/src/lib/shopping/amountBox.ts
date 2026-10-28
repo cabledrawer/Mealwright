@@ -5,6 +5,7 @@
 // ingredient's own sizes), the same as amountEdit.ts, which does the final reading.
 
 import { baseText } from './format';
+import { parseAmount } from '#lib/amountText.js';
 import { toBaseAmount, type EditFood, type Parsed } from './amountEdit';
 import type { FoodSize, ListItem, ShopFood } from './types';
 
@@ -91,14 +92,46 @@ export function startDraft(
   return { text: numberText(amount), unit: first.key };
 }
 
-/** The draft as an amount to send, or what is wrong with it, in words. */
+/** Letters in the box: a unit was typed with the number ("250 g"), so it wins over the choice. */
+const hasUnit = (text: string) => /\p{L}/u.test(text);
+
+/**
+ * The draft as an amount to send, or what is wrong with it, in words. "250 g" typed in the box
+ * is read as it stands (F61, cabledrawer 28 Oct), with the same reader as before; a bare number
+ * takes the unit chosen beside it.
+ */
 export function readDraft(draft: Draft, choices: UnitChoice[], food: EditFood): Parsed {
+  if (hasUnit(draft.text)) return toBaseAmount(draft.text.trim(), food);
   const choice = choices.find((c) => c.key === draft.unit) ?? choices[0]!;
   return toBaseAmount(`${draft.text} ${choice.text}`.trim(), food);
 }
 
+/**
+ * A draft with a typed unit ("250 g") as a number and the unit choice it names ("250", g), so
+ * − / + and the unit choice work from it. Anything else is returned as it was.
+ */
+export function settleDraft(draft: Draft, choices: UnitChoice[], food: EditFood): Draft {
+  if (!hasUnit(draft.text)) return draft;
+  const read = toBaseAmount(draft.text.trim(), food);
+  if ('problem' in read) return draft;
+  const typed = parseAmount(draft.text, food as never)?.unit.toLowerCase();
+  const choice =
+    (read.sizeId !== null ? choices.find((c) => c.sizeId === read.sizeId) : undefined) ??
+    choices.find(
+      (c) => c.sizeId === null && c.factor === (typed === 'kg' || typed === 'l' ? 1000 : 1)
+    ) ??
+    choices[0]!;
+  return { text: numberText(read.amount / choice.factor), unit: choice.key };
+}
+
 /** The same amount in another unit: 500 g becomes 0.5 kg or 1 packet. */
-export function switchUnit(draft: Draft, to: string, choices: UnitChoice[], food: EditFood): Draft {
+export function switchUnit(
+  typedDraft: Draft,
+  to: string,
+  choices: UnitChoice[],
+  food: EditFood
+): Draft {
+  const draft = settleDraft(typedDraft, choices, food);
   const target = choices.find((c) => c.key === to);
   if (!target || to === draft.unit) return { ...draft, unit: to };
   if (!draft.text.trim()) return { text: '', unit: to };
@@ -109,15 +142,21 @@ export function switchUnit(draft: Draft, to: string, choices: UnitChoice[], food
 
 /** − and +: one step in the chosen unit; never to zero or below. */
 export function stepDraft(
-  draft: Draft,
+  typedDraft: Draft,
   direction: 1 | -1,
   choices: UnitChoice[],
   food: EditFood
 ): Draft {
+  const draft = settleDraft(typedDraft, choices, food);
   const choice = choices.find((c) => c.key === draft.unit) ?? choices[0]!;
   const read = draft.text.trim() ? readDraft(draft, choices, food) : null;
   const now = read && !('problem' in read) ? read.amount / choice.factor : 0;
   const next = Math.round((now + direction * choice.step) * 1000) / 1000;
   if (!(next > 0)) return draft;
   return { ...draft, text: numberText(next) };
+}
+
+/** What the empty box shows, small: the unit as well as a number ("500 g"). */
+export function placeholderFor(food: Pick<ShopFood, 'counted_as'>): string {
+  return food.counted_as === 'weight' ? '500 g' : food.counted_as === 'volume' ? '500 ml' : '6';
 }

@@ -7,9 +7,11 @@
   // ingredient editor. Hidden offline, like the recipe page's Edit (the editor needs the
   // server), and for an ingredient still being made (no server ID yet).
   import { untrack } from 'svelte';
+  import { MAX_TYPED_AMOUNT } from '#lib/amountText.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import {
+    placeholderFor,
     readDraft,
     startDraft,
     stepDraft,
@@ -155,11 +157,11 @@
       bind:this={input}
       bind:value={draft.text}
       inputmode="decimal"
-      maxlength="20"
+      maxlength={MAX_TYPED_AMOUNT}
       aria-label="Amount"
       aria-describedby="{uid}-hint{problem ? ` ${uid}-p` : ''}"
       aria-invalid={problem ? 'true' : undefined}
-      placeholder={item.amount ? undefined : 'for example 500'}
+      placeholder={item.amount ? undefined : placeholderFor(food)}
       oninput={() => (problem = null)}
       use:focusOnShow
     />
@@ -174,9 +176,13 @@
           <option value={choice.key}>{choice.label}</option>
         {/each}
       </select>
+    {:else}
+      <span class="unit">{choices[0]?.label}</span>
     {/if}
   </div>
-  <span class="hint" id="{uid}-hint">The box holds the real amount: edit it, or use − / +.</span>
+  <span class="hint" id="{uid}-hint"
+    >The box holds the real amount: edit it, or use − / +. You can type a unit too, like 250 g.</span
+  >
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
   <div class="foot">
     <button type="button" class="move" onclick={onmove}>
@@ -275,6 +281,18 @@
     border-radius: var(--radius-md);
     background: var(--color-field);
     color: var(--color-text);
+    font: var(--weight-semibold) 1rem var(--font-ui);
+  }
+
+  input::placeholder {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular, 400);
+  }
+
+  .unit {
+    flex: none;
+    max-width: 9rem;
+    color: var(--color-text-muted);
     font: var(--weight-semibold) 1rem var(--font-ui);
   }
 

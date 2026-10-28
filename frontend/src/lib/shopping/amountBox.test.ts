@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { EditFood } from './amountEdit';
-import { baseFrom, readDraft, startDraft, stepDraft, switchUnit, unitChoices } from './amountBox';
+import {
+  baseFrom,
+  placeholderFor,
+  readDraft,
+  settleDraft,
+  startDraft,
+  stepDraft,
+  switchUnit,
+  unitChoices
+} from './amountBox';
 import type { FoodSize } from './types';
 
 const packet: FoodSize = { id: 12, name: 'packet', plural: 'packets', amount: 500, usual: true };
@@ -156,5 +165,54 @@ describe('baseFrom: what was typed, as a base amount', () => {
     expect(baseFrom('2.3456', 1)).toBe(2.346);
     expect(baseFrom('0.575', 1000)).toBe(575);
     expect(baseFrom('1.1', 500)).toBe(550);
+  });
+});
+
+describe('a unit typed with the number (F61)', () => {
+  const choices = unitChoices(dal, [packet]);
+  it('reads "250 g" as it stands, whatever unit is chosen beside the box', () => {
+    expect(readDraft({ text: '250 g', unit: 'kg' }, choices, dalFood)).toEqual({
+      amount: 250,
+      sizeId: null
+    });
+    expect(readDraft({ text: '1½ packets', unit: 'g' }, choices, dalFood)).toEqual({
+      amount: 750,
+      sizeId: 12
+    });
+    expect(readDraft({ text: '2 kg', unit: 'g' }, choices, dalFood)).toEqual({
+      amount: 2000,
+      sizeId: null
+    });
+  });
+  it('turns it into a number and the unit it names for − / + and the unit choice', () => {
+    expect(settleDraft({ text: '2 kg', unit: 'g' }, choices, dalFood)).toEqual({
+      text: '2',
+      unit: 'kg'
+    });
+    expect(stepDraft({ text: '250 g', unit: 'kg' }, 1, choices, dalFood)).toEqual({
+      text: '300',
+      unit: 'g'
+    });
+    expect(switchUnit({ text: '500 g', unit: 'g' }, 'kg', choices, dalFood)).toEqual({
+      text: '0.5',
+      unit: 'kg'
+    });
+  });
+  it('leaves a bare number alone', () => {
+    expect(settleDraft({ text: '250', unit: 'g' }, choices, dalFood)).toEqual({
+      text: '250',
+      unit: 'g'
+    });
+  });
+  it('says how to fix grams typed for something counted one by one', () => {
+    const c = unitChoices(eggs, []);
+    expect(readDraft({ text: '250 g', unit: 'count' }, c, eggsFood)).toMatchObject({
+      problem: expect.stringContaining('counted one by one')
+    });
+  });
+  it('shows the unit in the empty box', () => {
+    expect(placeholderFor(dal)).toBe('500 g');
+    expect(placeholderFor({ counted_as: 'volume' })).toBe('500 ml');
+    expect(placeholderFor(eggs)).toBe('6');
   });
 });
