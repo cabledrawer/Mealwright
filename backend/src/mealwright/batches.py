@@ -615,6 +615,10 @@ def leftover_tub(
         )
         # tub_count is 1 or more in the database: the first tub is made just below.
         batch.tub_count = 1
+        if item.servings is None and recipe is not None and recipe.serves:
+            # The meal was planned for the recipe's own servings; say so, so the tub added now
+            # is bought on top of those and not in place of them (F58). Same amounts as before.
+            item.servings = recipe.serves
         db.add(batch)
         db.flush()
         steps.append({"op": "new_batch", "batch": batch.id})

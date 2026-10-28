@@ -47,10 +47,12 @@ export function perTubWords(per: BatchPreview['per_tub']): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** "amounts × 1.5": how much more (or less) than the recipe's own serves the batch makes. */
+/** "amounts × 1.5": how much more (or less) than the recipe's own serves the batch makes. The
+ * cook-day meal counts as a portion with the tubs (cabledrawer 28 Oct, F58), and the shopping list
+ * buys exactly this. */
 export function timesWords(tubs: number, serves: number | null): string | null {
   if (!serves) return null;
-  const times = Math.round((tubs / serves) * 100) / 100;
+  const times = Math.round(((tubs + 1) / serves) * 100) / 100;
   return `× ${times}`;
 }
 

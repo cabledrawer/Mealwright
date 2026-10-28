@@ -19,9 +19,9 @@ describe('Cook once words', () => {
   });
 
   it('says how much more than the recipe the batch makes', () => {
-    expect(timesWords(6, 4)).toBe('× 1.5');
-    expect(timesWords(4, 4)).toBe('× 1');
-    expect(timesWords(5, 3)).toBe('× 1.67');
+    expect(timesWords(5, 4)).toBe('× 1.5');
+    expect(timesWords(3, 4)).toBe('× 1');
+    expect(timesWords(4, 3)).toBe('× 1.67');
     expect(timesWords(5, null)).toBeNull();
   });
 });

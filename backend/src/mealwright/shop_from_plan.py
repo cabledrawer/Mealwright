@@ -15,10 +15,11 @@ The choices below are the builder's, **proposed, for cabledrawer**, each easy to
 function each):
 
 - Servings: a recipe item is worked out for its servings (its own "serves" when none was
-  picked). A batch cook's cook meal is worked out for those servings plus one per tub: the
-  people eating at the cook meal eat too, and the tubs are extra (`servings_for`; a Leftovers
-  batch has one tub, so a meal for 4 buys for 5). Tubs and plain ingredients ("Fruit") need
-  nothing bought: a tub is already made, and a plain ingredient has no amount.
+  picked). A batch cook's cook meal is worked out for its tubs plus the cook-day meal, one
+  portion each, as Cook once says (`servings_for`, F58; cabledrawer 28 Oct). A Leftovers batch keeps
+  the meal's own servings for the cook day, so a meal for 4 plus one tub buys for 5).
+  Tubs and plain ingredients ("Fruit") need nothing bought: a tub is already made, and a
+  plain ingredient has no amount.
 - Inner recipes (a line that uses another recipe) add nothing, made ahead or not, as in the
   recipe stock hints (cabledrawer 20 Oct: "inner recipes are checked in a later version"). A
   made-ahead recipe is made, not bought.
@@ -31,8 +32,8 @@ function each):
   weight) are handled as the stock hints do (cabledrawer 19 Oct, Q22): if there is any stock of the
   ingredient it counts as enough; if there is none, the ingredient goes on the list with no
   amount, so it isn't forgotten (`unknown_need`).
-- What is put on the list is rounded up: whole grams or millilitres, and halves for things
-  counted by number (`round_up`).
+- What is put on the list is rounded up to whole grams, millilitres or items (`round_up`;
+  cabledrawer 28 Oct, F56).
 - A typed item for the same ingredient and shop already on the list covers the need: no second
   line is made (a typed item is never touched, and typing one beside a plan line joins them, which
   counts as a hand edit).
@@ -144,19 +145,21 @@ def base_amount(milli: int | None) -> int | float | None:
 
 
 def servings_for(item: MealItem, recipe: Recipe, batch_tubs: int | None) -> int | None:
-    """How many servings a recipe item is worked out for: its own (else the recipe's "serves"),
-    plus one per tub when it is a batch cook's cook meal. None when the recipe has no "serves"
-    to scale from (amounts as written)."""
-    base = item.servings or recipe.serves
-    if base is None:
+    """How many servings a recipe item is worked out for: its own (else the recipe's "serves").
+    A batch cook's cook meal is worked out for the portions the batch makes, exactly as Cook once
+    says (F58, cabledrawer 28 Oct): one per tub plus the cook-day meal, which counts as a portion
+    ("yes it count it"); a cook meal with its own servings counts those people instead of one.
+    None when the recipe has no "serves" to scale from (amounts as written)."""
+    if recipe.serves is None:
         return None
-    return base + (batch_tubs or 0)
+    if batch_tubs is None:
+        return item.servings or recipe.serves
+    return (item.servings or 1) + batch_tubs
 
 
 def round_up(milli: int, counted_as: str) -> int:
-    """Whole grams or millilitres, or halves of an item, always upwards."""
-    step = MILLI // 2 if counted_as == "count" else MILLI
-    return min(math.ceil(milli / step) * step, MAX_MILLI)
+    """Whole grams, millilitres or items, always upwards (F56: no "5½ cinnamon sticks")."""
+    return min(math.ceil(milli / MILLI) * MILLI, MAX_MILLI)
 
 
 def _stand_ins(kitchen: Kitchen) -> dict[int, list[int]]:

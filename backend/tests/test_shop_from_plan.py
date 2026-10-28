@@ -134,7 +134,7 @@ def test_stock_is_taken_off_and_units_are_converted_only_when_they_differ(
     assert amounts(kitchen) == {rice["id"]: 600}  # dal is covered, rice is 1 kg - 400 g
 
 
-def test_whole_grams_and_halves_of_a_count_are_rounded_up(kitchen: TestClient) -> None:
+def test_whole_grams_and_whole_items_of_a_count_are_rounded_up(kitchen: TestClient) -> None:
     onion = new_food(kitchen, "Plan onion", counted_as="count")
     rice = new_food(kitchen, "Plan rounding rice")
     stew = recipe(kitchen, "Stew", line(onion["id"], 3, None), line(rice["id"], 100, "g"), serves=3)
@@ -142,6 +142,14 @@ def test_whole_grams_and_halves_of_a_count_are_rounded_up(kitchen: TestClient) -
     plan(kitchen, stew, 1, servings=2)  # 2/3 of 3 onions = 2, less 1 in stock
     assert amounts(kitchen)[onion["id"]] == 1
     assert amounts(kitchen)[rice["id"]] == 67  # 66.67 g, up to a whole gram
+
+
+def test_a_counted_thing_is_never_listed_in_halves(kitchen: TestClient) -> None:
+    """F56: "Cinnamon sticks 5½" - counted things go up to a whole one on the list."""
+    stick = new_food(kitchen, "Plan cinnamon stick", counted_as="count")
+    stew = recipe(kitchen, "Spiced", line(stick["id"], 5, None), serves=4)
+    plan(kitchen, stew, 1, servings=5)  # 5/4 of 5 sticks = 6.25 -> 7, not 6.5
+    assert amounts(kitchen)[stick["id"]] == 7
 
 
 def test_stand_ins_are_counted_and_one_pack_covers_only_one_ingredient(
@@ -270,7 +278,7 @@ def test_a_meal_in_the_past_does_not_count(kitchen: TestClient, rice: dict[str, 
     assert plan_lines(kitchen) == []
 
 
-def test_a_batch_cook_is_worked_out_for_the_meal_plus_one_serving_per_tub(
+def test_a_batch_cook_is_worked_out_for_the_cook_day_portion_plus_one_per_tub(
     kitchen: TestClient, rice: dict[str, Any]
 ) -> None:
     sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
@@ -283,9 +291,23 @@ def test_a_batch_cook_is_worked_out_for_the_meal_plus_one_serving_per_tub(
         ),
         201,
     )
-    # The four at the cook meal eat too, and six tubs are six more: 10/4 of 200 g. The tubs in
-    # the next meals add nothing.
-    assert amounts(kitchen) == {rice["id"]: 500}
+    # F58 (cabledrawer 28 Oct): the cook-day meal is one portion and six tubs are six more, so 7
+    # portions of a recipe that serves 4: 7/4 of 200 g, which is what Cook once says. Not the full
+    # recipe on top. The tubs in the next meals add nothing.
+    assert amounts(kitchen) == {rice["id"]: 350}
+
+
+def test_the_list_follows_the_tub_count_exactly(kitchen: TestClient, rice: dict[str, Any]) -> None:
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 800, "g"), serves=8)
+    cook = plan(kitchen, sambar, 1)
+    ok(
+        kitchen.post(
+            f"{API}/plan/items/{cook['item_id']}/batch",
+            json={"tub_count": 6, "pattern": "lunch_dinner"},
+        ),
+        201,
+    )
+    assert amounts(kitchen) == {rice["id"]: 700}  # 7 portions of 8, 100 g each
 
 
 def test_leftovers_are_bought_for_on_top_of_the_meal(
