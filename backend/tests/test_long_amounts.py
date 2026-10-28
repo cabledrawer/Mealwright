@@ -8,8 +8,10 @@ send amounts as numbers, which the cap leaves alone, and every value the fields 
 short when written plainly. Only text padded out with spaces or zeros is refused now.
 """
 
+import gc
 import time
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any
 
@@ -31,6 +33,21 @@ ITEM = "00000000-0000-4000-8000-000000000001"
 NOT_A_NUMBER = "Input should be a valid decimal"
 PADDED = "0" * (MAX_AMOUNT_TEXT - 2) + "1.5"  # 21 characters: 1.5 until now, refused now
 HUGE = "1" * 800_000
+
+
+@contextmanager
+def _stopwatch() -> Iterator[Callable[[], float]]:
+    """Seconds taken inside the block, with Python's tidy-up of left-over objects paused. In
+    the whole test run it can stop everything for 1 to 2 seconds at any moment (measured 28 Oct:
+    23 such stops in one run), and these huge texts set it off. That isn't the server being slow."""
+    gc.disable()
+    started = time.monotonic()
+    ended: list[float] = []
+    try:
+        yield lambda: (ended[0] if ended else time.monotonic()) - started
+    finally:
+        ended.append(time.monotonic())
+        gc.enable()
 
 
 def _type(kind: Any) -> Callable[[Any], Any]:
@@ -77,9 +94,9 @@ def test_text_over_20_characters_is_refused_like_any_other_text(name: str) -> No
     assert _refused(read, "0" * (MAX_AMOUNT_TEXT - 2) + "0.1") == NOT_A_NUMBER
     assert _refused(read, " " * MAX_AMOUNT_TEXT + "1") == NOT_A_NUMBER
     assert _refused(read, "lots") == NOT_A_NUMBER  # the same words as before
-    started = time.monotonic()
-    assert _refused(read, HUGE) == NOT_A_NUMBER
-    assert time.monotonic() - started < 0.5
+    with _stopwatch() as took:
+        assert _refused(read, HUGE) == NOT_A_NUMBER
+    assert took() < 0.5
 
 
 @pytest.mark.parametrize("name", FIELDS)
@@ -182,11 +199,11 @@ def test_every_amount_the_api_reads_is_at_most_20_characters(
     for value in (PADDED, HUGE[:30_000] if query else HUGE):
         params = {query: value, "unit": "g"} if query else None
         body = _body(body_path, value) if body_path is not None else None
-        started = time.monotonic()
-        response = kitchen.request(
-            method.upper(), url, params=params, json=body, headers={"Idempotency-Key": new_id()}
-        )
-        assert time.monotonic() - started < 1
+        with _stopwatch() as took:
+            response = kitchen.request(
+                method.upper(), url, params=params, json=body, headers={"Idempotency-Key": new_id()}
+            )
+        assert took() < 1
         assert response.status_code == 422, (url, response.status_code, response.text[:300])
         want = ["query", query] if query else ["body", *_keys(body_path)]
         found = [
