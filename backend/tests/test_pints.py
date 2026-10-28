@@ -181,6 +181,27 @@ def test_pasted_text_is_read_with_the_households_pint(kitchen: TestClient) -> No
     assert milk(shown)["pint_ml"] == {"uk_ml": 1136.0, "us_ml": 946.0}
 
 
+@pytest.mark.parametrize("household", ["uk", "us"])
+def test_too_many_pints_for_the_switch_still_gives_a_review(
+    kitchen: TestClient, household: str
+) -> None:
+    """2000 pints is 946,000 ml read as US but 1,136,000 ml as UK, over the most an amount can
+    be: the review still shows, without the switch (0.6.0 security pass L1)."""
+    set_pints(kitchen, household)
+    text = "Big pudding\n\nIngredients\n2000 pints milk\n100 g rice\n\nMethod\nSimmer."
+    shown = review(kitchen, text)
+    assert milk(shown)["pint_ml"] is None
+    assert len(shown["lines"]) == 2
+
+
+def test_too_many_pints_on_a_us_site_still_gives_a_review(links_on: TestClient, web: Web) -> None:
+    big = page("us_pudding.html").replace("2 pints whole milk", "2000 pints whole milk")
+    web.pages[UNLISTED] = big
+    shown = review(links_on, UNLISTED)
+    assert shown["pints"]["us_site"] is True
+    assert milk(shown)["pint_ml"] is None
+
+
 def test_a_line_without_pints_has_no_pint_reading(kitchen: TestClient) -> None:
     shown = review(kitchen, "Rice\n\nIngredients\n200 g rice\n\nMethod\nCook.")
     assert all(line["pint_ml"] is None for line in shown["lines"])

@@ -25,6 +25,7 @@ from sqlalchemy import select
 
 from mealwright import drafts, page_budget, page_fetch, photos, pints
 from mealwright.aisles import DEFAULT_AISLE
+from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
     AlreadyImported,
@@ -597,10 +598,14 @@ def _review_line(
 
 
 def _pint_ml(read: ReadLine) -> PintReading | None:
-    """A line read from pints: what it comes to in UK and in US pints."""
+    """A line read from pints: what it comes to in UK and in US pints. None when either is over
+    the most an amount can be (2000 pints read as US is fine, but as UK is too much), so the
+    review offers no switch rather than failing (0.6.0 security pass L1)."""
     if read.pints is None:
         return None
     uk, us = (float(read.pints * pints.PINT_ML[kind]) for kind in ("uk", "us"))
+    if max(uk, us) > MAX_AMOUNT:
+        return None
     return PintReading(uk_ml=round(uk, 3), us_ml=round(us, 3))
 
 
