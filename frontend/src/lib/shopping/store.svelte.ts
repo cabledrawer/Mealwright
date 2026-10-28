@@ -75,6 +75,12 @@ export class ShoppingModel {
   device = $state<'phone' | 'computer'>('phone');
   // Raw: its `entry` must stay the very object the Undo list holds.
   lastTicked = $state.raw<Ticked | null>(null);
+  /**
+   * The item just ticked with no amount: its row opens "How much?" (F62, cabledrawer 28 Oct).
+   * The tick is already in the queue; the answer is a second change (`different_pack`), also
+   * queued offline.
+   */
+  askingHowMuch = $state<string | null>(null);
 
   // --- Reading -----------------------------------------------------------------------------------
 
@@ -489,6 +495,8 @@ export class ShoppingModel {
         quiet: true,
         queued: (actionId) => {
           tickId = actionId;
+          // No amount, and not a staple (a staple is only restocked): ask how much.
+          if (!item.amount && !this.food(item.food_id)?.staple) this.askingHowMuch = item.id;
           shown = this.#tickToast(item, actionId);
           this.lastTicked = {
             itemId: item.id,
@@ -590,6 +598,7 @@ export class ShoppingModel {
   undoTick(item: ListItem): Promise<unknown> {
     const tick = item.ticks.find((t) => t.standing);
     if (!tick) return Promise.resolve();
+    if (this.askingHowMuch === item.id) this.askingHowMuch = null;
     if (this.lastTicked?.tickId === tick.id) return this.undoLastTick();
     return this.undo(tick.id, this.#tickLabel(item, tick.id));
   }
@@ -598,6 +607,7 @@ export class ShoppingModel {
   undoLastTick(): Promise<void> {
     const last = this.lastTicked;
     this.lastTicked = null;
+    if (last && this.askingHowMuch === last.itemId) this.askingHowMuch = null;
     return last ? undoHistory.undo(last.entry) : Promise.resolve();
   }
 
@@ -605,6 +615,7 @@ export class ShoppingModel {
   placing = $state<string | null>(null);
 
   untick(item: ListItem) {
+    if (this.askingHowMuch === item.id) this.askingHowMuch = null;
     const ids = standingTicks(item).map((t) => t.id);
     if (!ids.length) return Promise.resolve(null);
     return this.#act(

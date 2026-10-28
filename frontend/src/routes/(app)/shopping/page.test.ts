@@ -526,6 +526,20 @@ describe('the Shopping page', () => {
     await expect.element(page.getByText('How much?')).toBeVisible();
   });
 
+  it('ticking an item with no amount asks How much? at once (F62), and the answer follows the tick', async () => {
+    await render(1300);
+    await page.getByRole('checkbox', { name: 'Tick Kitchen roll' }).click();
+    await expect.element(page.getByText('How much?')).toBeVisible();
+    await expect.element(page.getByRole('radio', { name: '1 × 500 g' })).toBeVisible();
+    await page.getByRole('radio', { name: '1 × 500 g' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 500 })
+    );
+    // Both changes were sent in order: the tick, then the answer.
+    expect(server.actions.map((a) => a.kind)).toEqual(['tick', 'different_pack']);
+  });
+
   it('How much? for a new ingredient offers ready-made sizes, and picking one sends it', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
     await render(1300);
@@ -1047,17 +1061,20 @@ describe('the Shopping page', () => {
       expect(server.actions).toEqual([]);
     });
 
-    it('phone: swiping left shows a red Remove, which asks; a swipe alone removes nothing', async () => {
+    it('phone: swiping left shows a red Remove; a swipe alone removes nothing, and Remove goes at once with Undo (F77)', async () => {
       await render(390);
       swipe(slideOf('Yoghurt'), -100);
       const red = page.getByRole('button', { name: 'Remove Yoghurt from the list' });
       await expect.element(red).toBeVisible();
       expect(server.actions).toEqual([]);
       await red.click();
-      await expect
-        .element(page.getByRole('alertdialog', { name: 'Remove Yoghurt from the shopping list?' }))
-        .toBeVisible();
-      expect(server.actions).toEqual([]);
+      // No question first (cabledrawer 28 Oct): the delete is sent, and the toast offers Undo.
+      expect(page.getByRole('alertdialog').elements()).toEqual([]);
+      await vi.waitFor(() =>
+        expect(server.actions.at(-1)).toMatchObject({ kind: 'delete', item_id: 'i-yoghurt' })
+      );
+      const toast = page.getByRole('status').filter({ hasText: 'Removed Yoghurt' });
+      await expect.element(toast.getByRole('button', { name: 'Undo' })).toBeVisible();
     });
 
     it('phone: an up-and-down drag scrolls and shows no Remove', async () => {

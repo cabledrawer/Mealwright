@@ -46,13 +46,18 @@
   let otherUnit = $state('');
 
   $effect(() => {
-    void model.sizesOf(food.id).then((s) => {
-      sizes = s;
-      if (initial === null && choices.length && item.amount) {
-        initial = choices[0]!.key;
-        picked = initial;
-      }
-    });
+    // Offline, an ingredient whose sizes the phone doesn't hold has none to offer: the
+    // ready-made choices and Other… still work (F62).
+    void model
+      .sizesOf(food.id)
+      .then((s) => {
+        sizes = s;
+        if (initial === null && choices.length && item.amount) {
+          initial = choices[0]!.key;
+          picked = initial;
+        }
+      })
+      .catch(() => {});
   });
 
   const units = $derived(unitsFor(food.counted_as));

@@ -63,9 +63,10 @@
   let open = $state<Record<string, boolean>>({});
   let highlight = $state<string | null>(null);
 
-  // The toast's Change (or a place button) names an item in a trolley: open that fold.
+  // The toast's Change (or a place button) names an item in a trolley: open that fold. The same
+  // for "How much?" asked by a tick with no amount (F62): its row is in the fold.
   $effect(() => {
-    const id = model.placing;
+    const id = model.placing ?? model.askingHowMuch;
     if (!id) return;
     const group = model.groups.find((g) => g.trolley.some((v) => v.item.id === id));
     if (group) {

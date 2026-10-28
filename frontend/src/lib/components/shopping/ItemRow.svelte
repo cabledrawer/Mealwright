@@ -2,7 +2,8 @@
   // One line on the list (mockups ShopRows-*; cabledrawer 20 Oct).
   // Not ticked: only the square ticks. The name and the amount (a pill) both open the amount box.
   // On a phone, swiping the row left shows a red Remove; on a computer a bin shows when the
-  // pointer is over the row. Both, and "Remove from list" in the amount box, ask first.
+  // pointer is over the row. The red Remove after a swipe goes at once, with Undo (F77, cabledrawer
+  // 28 Oct); the bin, the ⋯ menu and "Remove from list" in the amount box ask first.
   // In the trolley: a status line that says where the tick went (PutAwayLine), with "Change"
   // for the place and "Different pack?" there. Notes for the item sit underneath.
   import { tick as afterUpdate, untrack } from 'svelte';
@@ -56,6 +57,20 @@
       : null
   );
   const putAway = $derived(trolley ? model.putAwayFor(item) : null);
+
+  // Just ticked with no amount: "How much?" opens on its row (F62). The row may be a new one in
+  // the trolley by now, so the model remembers which item asked.
+  $effect(() => {
+    if (trolley && view.ticks.length && model.askingHowMuch === item.id) {
+      untrack(() => (packOpen = true));
+    }
+  });
+
+  function closePack() {
+    packOpen = false;
+    if (model.askingHowMuch === item.id) model.askingHowMuch = null;
+    packButton?.focus();
+  }
 
   // The line was ticked elsewhere while its amount box was open: the box has no place now.
   $effect(() => {
@@ -116,6 +131,13 @@
     (back as HTMLElement | null | undefined)?.focus();
   }
 
+  /** The red Remove after a swipe: the row goes at once, with "Removed X" and Undo. */
+  function removeNow() {
+    const back = keepFocus(nameButton ?? document.body);
+    void model.remove(item);
+    back();
+  }
+
   function remove(event: MouseEvent) {
     // The row goes, and the focus with it: note the neighbour to move to first.
     const back = keepFocus(event.currentTarget as HTMLElement);
@@ -145,7 +167,7 @@
         describe: `${food.name} from the list`,
         icon: 'trash',
         tone: 'danger',
-        run: () => ask()
+        run: () => removeNow()
       }}
       right={{
         label: 'Move…',
@@ -257,16 +279,7 @@
   {/if}
 
   {#if packOpen && trolley && view.ticks.length}
-    <PackSheet
-      {model}
-      {item}
-      {food}
-      ticks={view.ticks}
-      onclose={() => {
-        packOpen = false;
-        packButton?.focus();
-      }}
-    />
+    <PackSheet {model} {item} {food} ticks={view.ticks} onclose={closePack} />
   {/if}
 
   {#each notes as note (note.id)}

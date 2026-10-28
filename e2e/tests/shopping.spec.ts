@@ -973,7 +973,7 @@ test("Add amount on a ticked row with no amount gives it a first amount, and Rec
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
-  await row.getByRole("button", { name: `Add amount for ${name}` }).click();
+  // F62: ticking a line with no amount asks "How much?" by itself.
   await expect(row.getByText("How much?")).toBeVisible();
   await row.getByRole("radio", { name: "Other…" }).click();
   await row.getByRole("textbox", { name: "Size of one" }).fill("1");
@@ -986,6 +986,26 @@ test("Add amount on a ticked row with no amount gives it a first amount, and Rec
   const summaries = changes.map((c: { summary: string }) => c.summary);
   expect(summaries.join("\n")).toContain("(first amount)");
   expect(summaries.join("\n")).not.toContain("instead of");
+});
+
+test("F62: leaving \"How much?\" for later keeps Add amount on the ticked row; picking 500 g files it", async ({
+  page,
+}) => {
+  await settleCards(page);
+  const name = `Later ${tag()}`;
+  const foodId = await plainLine(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  const row = page.getByRole("listitem").filter({ hasText: name });
+  await expect(row.getByText("How much?")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(row.getByText("How much?")).toHaveCount(0);
+  expect(await stockOf(page, foodId)).toEqual({});
+  await row.getByRole("button", { name: `Add amount for ${name}` }).click();
+  await row.getByRole("radio", { name: "500 g" }).click();
+  await row.getByRole("button", { name: "Done" }).click();
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Cupboard: 500 });
 });
 
 test("removing asks first: Keep it keeps the line; Remove takes it off, with Undo", async ({
@@ -1099,7 +1119,7 @@ async function swipeLeft(page: Page, name: string) {
   await cdp.detach();
 }
 
-test("phone: swiping a row left shows a red Remove, which asks first; a swipe alone removes nothing", async ({
+test("F77 phone: swiping a row left shows a red Remove; a swipe alone removes nothing, and Remove goes at once with Undo", async ({
   page,
 }) => {
   test.skip(!isPhone(page), "the phone swipe");
@@ -1111,19 +1131,67 @@ test("phone: swiping a row left shows a red Remove, which asks first; a swipe al
     name: `Remove ${name} from the list`,
   });
   await expect(red).toBeVisible();
+  // The swipe alone changed nothing, and nothing asks.
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
-  await checkPage(page); // both themes
-  await red.click();
-  const ask = page.getByRole("alertdialog", {
-    name: `Remove ${name} from the shopping list?`,
-  });
-  await expect(ask).toBeVisible();
-  await ask.getByRole("button", { name: "Keep it" }).click();
-  // Still on the list, and still not ticked: the swipe and the question changed nothing.
   await expect(
     page.getByRole("checkbox", { name: `Tick ${name}` }),
   ).not.toBeChecked();
+  await checkPage(page); // both themes
+  await red.click();
+  // Gone at once, no question first (cabledrawer 28 Oct), with Undo.
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
+  const toast = page.getByRole("status").filter({ hasText: `Removed ${name}` });
+  await expect(toast).toBeVisible();
+  await toast.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+});
+
+test("F73 phone: while a row is swiped, its name and its amount stay on screen beside the button", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone swipe");
+  const name = `Bananas ${tag()}`;
+  await onList(page, name, 472);
+  await page.goto("/shopping");
+  const viewport = page.viewportSize()!;
+  const nameButton = page.getByRole("button", { name, exact: true });
+  const pill = page.getByRole("button", {
+    name: new RegExp(`^Change amount: ${name}, `),
+  });
+  /** The name and the amount are whole on screen and clear of the button that was shown. */
+  const clearOf = async (button: ReturnType<Page["getByRole"]>, side: "left" | "right") => {
+    await expect
+      .poll(async () => {
+        const [b, n, a] = await Promise.all([
+          button.boundingBox(),
+          nameButton.boundingBox(),
+          pill.boundingBox(),
+        ]);
+        if (!b || !n || !a) return "missing";
+        if (n.x < 0 || a.x < 0 || a.x + a.width > viewport.width) return "off screen";
+        const edge = side === "left" ? b.x : b.x + b.width;
+        const clear = (box: { x: number; width: number }) =>
+          side === "left" ? box.x + box.width <= edge + 1 : box.x >= edge - 1;
+        return clear(n) && clear(a) ? "clear" : "under the button";
+      })
+      .toBe("clear");
+  };
+  await swipeLeft(page, name);
+  const red = page.getByRole("button", { name: `Remove ${name} from the list` });
+  await expect(red).toBeVisible();
+  await clearOf(red, "left");
+  await red.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+  // Close it with a tap elsewhere, then the other way.
+  await page.getByRole("heading", { name: "Shopping", level: 1 }).click();
+  await expect(red).toHaveCount(0);
+  await swipeRight(page, name);
+  const blue = page.getByRole("button", {
+    name: `Move… ${name} to another shop or list`,
+  });
+  await expect(blue).toBeVisible();
+  await clearOf(blue, "right");
+  await checkPage(page); // both themes
 });
 
 test("phone: the row is a pill, the box is big enough to tap, and nothing sideways scrolls at 200% text", async ({

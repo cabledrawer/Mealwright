@@ -25,6 +25,10 @@
   // readers on a phone, so whoever uses this puts each action somewhere in the row as a button
   // too (Pantry: the pack menu and the Use soon pills; Shopping: the amount box). Under
   // "reduce motion" nothing slides on its own: the row only moves under the finger.
+  //
+  // The row does not slide off under the button: it gets narrower by the button's width, so its
+  // name and its amount stay on screen beside the button (F73, cabledrawer 28 Oct: "banana
+  // disappears", "472 g should be shown").
   import { untrack, type Snippet } from 'svelte';
   import { restOffset, swipeToReveal, type Side } from '#lib/swipe.js';
   import Icon from './Icon.svelte';
@@ -94,7 +98,8 @@
   <div
     class="slide"
     class:dragging={drag !== null}
-    style:transform={offset ? `translateX(${offset}px)` : undefined}
+    style:margin-left={offset > 0 ? `${offset}px` : undefined}
+    style:margin-right={offset < 0 ? `${-offset}px` : undefined}
     style:padding={bleed ? `0 ${bleed}px` : undefined}
     use:swipeToReveal={{
       toLeft,
@@ -127,7 +132,9 @@
     background: var(--color-surface);
     /* Sideways belongs to the swipe; up and down still scroll the page. */
     touch-action: pan-y;
-    transition: transform 0.18s ease;
+    transition:
+      margin-left 0.18s ease,
+      margin-right 0.18s ease;
   }
 
   .slide.dragging {

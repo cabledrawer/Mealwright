@@ -53,9 +53,10 @@ describe('SwipeRow', () => {
     const used = page.getByRole('button', { name: 'Used… Spinach' });
     await expect.element(used).toBeVisible();
     expect(page.getByRole('button', { name: /Binned/ }).elements()).toEqual([]);
-    expect((document.querySelector('.slide') as HTMLElement).style.transform).toBe(
-      'translateX(104px)'
-    );
+    // F73: the row gets narrower by the button's width; it is not slid out of sight.
+    const slide = document.querySelector('.slide') as HTMLElement;
+    expect(slide.style.marginLeft).toBe('104px');
+    expect(slide.style.transform).toBe('');
     swipe(-208); // from a slid-right row: past the middle, to the other side
     await expect.element(page.getByRole('button', { name: 'Binned Spinach' })).toBeVisible();
     expect(page.getByRole('button', { name: /Used/ }).elements()).toEqual([]);
@@ -74,7 +75,9 @@ describe('SwipeRow', () => {
   it('a side with no action does not slide', () => {
     render({ left: action('Binned', () => {}, 'danger') });
     swipe(100);
-    expect((document.querySelector('.slide') as HTMLElement).style.transform).toBe('');
+    const slide = document.querySelector('.slide') as HTMLElement;
+    expect(slide.style.marginLeft).toBe('');
+    expect(slide.style.marginRight).toBe('');
     expect(page.getByRole('button', { name: /Binned/ }).elements()).toEqual([]);
   });
 
