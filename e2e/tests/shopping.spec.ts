@@ -195,6 +195,67 @@ test("adding something already on the list says so instead of adding it twice", 
   await expect(page.getByRole("button", { name, exact: true })).toHaveCount(1);
 });
 
+/** An ingredient measured in millilitres, on the main list with this much. */
+async function liquidOnList(page: Page, name: string, amountMl: number) {
+  const { food } = await call(page, "POST", "/foods", {
+    name,
+    counted_as: "volume",
+  });
+  await call(page, "POST", `/shopping/lists/${await mainList(page)}/items`, {
+    food_id: food.id,
+    amount: { amount: amountMl, unit: "ml" },
+  });
+}
+
+test("F63: \"2 l milk\" in the add box adds 2 litres of Milk, and joins the 1 L line that is there", async ({
+  page,
+}) => {
+  const name = `Milk ${tag()}`;
+  await liquidOnList(page, name, 1000);
+  await page.goto("/shopping");
+  await page.getByRole("textbox", { name: "Add an item" }).fill(`2 l ${name}`);
+  await page
+    .getByRole("list", { name: "Matching ingredients" })
+    .getByRole("button", { name })
+    .click();
+  // One line, 3 L: joined, not "already on the list" and not a second line.
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 3`) }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name, exact: true })).toHaveCount(1);
+  await expect(page.getByText(`${name} is already on the list`)).toHaveCount(0);
+});
+
+test("F61: the amount box takes \"250 g\" typed with its unit, and the empty box shows a small \"500 g\"", async ({
+  page,
+}) => {
+  const name = `Raisins ${tag()}`;
+  const { food } = await call(page, "POST", "/foods", {
+    name,
+    counted_as: "weight",
+  });
+  await call(page, "POST", `/shopping/lists/${await mainList(page)}/items`, {
+    food_id: food.id,
+  });
+  await page.goto("/shopping");
+  await page.getByRole("button", { name, exact: true }).click();
+  const box = page.getByRole("form", { name: `Change ${name}` });
+  const amount = box.getByRole("textbox", { name: "Amount" });
+  await expect(amount).toHaveAttribute("placeholder", "500 g");
+  await amount.fill("250 g");
+  await box.getByRole("button", { name: "Done" }).click();
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 250`) }),
+  ).toBeVisible();
+  // And in kilos, typed.
+  await page.getByRole("button", { name, exact: true }).click();
+  await amount.fill("2 kg");
+  await box.getByRole("button", { name: "Done" }).click();
+  await expect(
+    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 2 kg`) }),
+  ).toBeVisible();
+});
+
 test("changing the amount of a line", async ({ page }) => {
   const name = `Flour ${tag()}`;
   await onList(page, name, 500);

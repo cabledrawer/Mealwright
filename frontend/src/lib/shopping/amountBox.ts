@@ -114,7 +114,7 @@ export function settleDraft(draft: Draft, choices: UnitChoice[], food: EditFood)
   if (!hasUnit(draft.text)) return draft;
   const read = toBaseAmount(draft.text.trim(), food);
   if ('problem' in read) return draft;
-  const typed = parseAmount(draft.text, food as never)?.unit.toLowerCase();
+  const typed = parseAmount(draft.text, food as never)?.unit?.toLowerCase();
   const choice =
     (read.sizeId !== null ? choices.find((c) => c.sizeId === read.sizeId) : undefined) ??
     choices.find(

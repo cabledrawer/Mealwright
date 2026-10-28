@@ -177,6 +177,37 @@ test('offline: a tick offers Undo at once; Undo is queued after it, and the serv
   expect(line?.ticked_at).toBeNull();
 });
 
+test('F63: offline, "2 l milk" in the add box joins the 1 L line, and the server agrees once back', async ({
+  page,
+  context,
+}) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
+  const name = `Kefir ${tag()}`;
+  await signIn(page);
+  const { food } = await call(page, 'POST', '/foods', { name, counted_as: 'volume' });
+  await call(page, 'POST', `/shopping/lists/${await mainList(page)}/items`, {
+    food_id: food.id,
+    amount: { amount: 1000, unit: 'ml' },
+  });
+  await start(page, name);
+
+  await context.setOffline(true);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(`2 l ${name}`);
+  await page.getByRole('list', { name: 'Matching ingredients' }).getByRole('button', { name }).click();
+  // One line, now 3 L: the typed 2 L joined the 1 L line, on the phone alone.
+  await expect(page.getByRole('button', { name: new RegExp(`^Change amount: ${name}, 3`) })).toBeVisible();
+  await expect(page.getByRole('button', { name, exact: true })).toHaveCount(1);
+  await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
+    timeout: 15_000,
+  });
+  const lines = (await serverItems(page)).filter((i) => i.food.name === name);
+  expect(lines).toHaveLength(1);
+  expect((lines[0] as unknown as { amount: { amount: number } }).amount.amount).toBe(3000);
+});
+
 test('E3: signing out offline warns first, then wipes, and the session ends once back', async ({
   page,
   context,

@@ -390,7 +390,9 @@ export class ShoppingModel {
      * `quiet` leaves out this add's own toast, and `queued` hears the action's ID as soon as
      * it is in the queue, so the caller can undo it. What is queued is the same either way.
      */
-    group?: { queued: (actionId: string) => void }
+    group?: { queued: (actionId: string) => void },
+    /** A typed amount ("1 l milk"): the add carries it, so it joins a line there already. */
+    amount?: { amount: number; sizeId: number | null }
   ): Promise<Outcome<ActionResult> | null> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
@@ -412,7 +414,13 @@ export class ShoppingModel {
       ];
     }
     return this.#act(
-      { kind: 'add', list_id: list.id, item_id: newChangeId(), food_id: food.id },
+      {
+        kind: 'add',
+        list_id: list.id,
+        item_id: newChangeId(),
+        food_id: food.id,
+        ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {})
+      },
       group ? { label, quiet: true, queued: (id) => group.queued(id) } : { label }
     );
   }
@@ -422,7 +430,7 @@ export class ShoppingModel {
    * The packet sizes picked in "How do you count it?" go inside it (`new_food.sizes`), so it
    * works offline too.
    */
-  async addNew(chosen: Chosen) {
+  async addNew(chosen: Chosen, amount?: { amount: number; sizeId: number | null }) {
     const list = this.list;
     if (!list) return null;
     const outcome = await this.#act(
@@ -430,6 +438,7 @@ export class ShoppingModel {
         kind: 'add',
         list_id: list.id,
         item_id: newChangeId(),
+        ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {}),
         new_food: {
           name: chosen.name,
           counted_as: chosen.counted_as,

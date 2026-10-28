@@ -4,6 +4,8 @@
   import Icon from '#lib/components/Icon.svelte';
   import type { FoodRow } from '#lib/client/types.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
+  import { splitAmount } from '#lib/shopping/addAmount.js';
+  import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
 
@@ -26,7 +28,9 @@
   /** The text the matches on show are for: "+ New ingredient" waits until they are. */
   let answeredFor = $state('');
 
-  const typed = $derived(text.trim());
+  // "1 l milk" is the name "milk" with the amount "1 l" in front (F63).
+  const split = $derived(splitAmount(text));
+  const typed = $derived(split ? split.name : text.trim());
   const exact = $derived(
     found.some((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase())
   );
@@ -61,8 +65,35 @@
     answeredFor = '';
   }
 
-  function pick(food: FoodRow) {
+  /** The typed amount for this ingredient, or why it can't be read (said in a toast). */
+  async function amountFor(
+    food: Pick<FoodRow, 'id' | 'counted_as'>,
+    amountText: string
+  ): Promise<{ amount: number; sizeId: number | null } | null> {
+    // Its sizes may need the server; offline, g / kg / ml / L and bare numbers still read.
+    const sizes = food.id > 0 ? await model.sizesOf(food.id).catch(() => []) : [];
+    const read = toBaseAmount(amountText, {
+      counted_as: food.counted_as,
+      sizes,
+      count_word: null,
+      count_word_plural: null
+    });
+    if ('problem' in read) {
+      toasts.show(read.problem, { tone: 'problem' });
+      return null;
+    }
+    return read;
+  }
+
+  async function pick(food: FoodRow) {
+    const typedAmount = split?.amountText;
     reset();
+    if (typedAmount) {
+      // An amount was typed: the add carries it and joins a line already there (0.5's rule).
+      const amount = await amountFor(food, typedAmount);
+      if (amount) void model.add(food, `${food.name} added`, undefined, amount);
+      return;
+    }
     const line = model.lineFor(food.id);
     if (line) {
       const amount = line.display ? ` · ${line.display}` : '';
@@ -75,9 +106,14 @@
 
   async function create() {
     const name = typed;
+    const typedAmount = split?.amountText;
     reset();
     const chosen = await newIngredient.choose(name);
-    if (chosen) void model.addNew(chosen);
+    if (!chosen) return;
+    const amount = typedAmount
+      ? await amountFor({ id: 0, counted_as: chosen.counted_as }, typedAmount)
+      : null;
+    void model.addNew(chosen, amount ?? undefined);
   }
 
   function submit(event: SubmitEvent) {
@@ -85,7 +121,7 @@
     if (!typed || answeredFor !== typed) return; // the matches are still on their way
     const first =
       found.find((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase()) ?? found[0];
-    if (first) pick(first);
+    if (first) void pick(first);
     else if (typed) void create();
   }
 </script>
@@ -112,8 +148,8 @@
   <ul id="{uid}-list" aria-label="Matching ingredients">
     {#each found as food (food.id)}
       <li>
-        <button type="button" onclick={() => pick(food)}>
-          {food.name}
+        <button type="button" onclick={() => void pick(food)}>
+          {food.name}{#if split}<span class="also"> · {split.amountText}</span>{/if}
           {#if food.matched_name && food.matched_name !== food.name}
             <span class="also">also “{food.matched_name}”</span>
           {/if}
