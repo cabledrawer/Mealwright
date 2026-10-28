@@ -20,7 +20,7 @@ Written 17 Oct 2026 from the finished planning spec (`docs/spec.md`). Owner: cab
 ## Reference material in this repo
 
 - `docs/spec.md` is the source of truth. It covers the ethos, UX principles, scope, data model, security, release and roadmap.
-- `docs/mockups/*.dc.html` holds the 62 mockup screens: phone and desktop, light and dark. They were exported from cabledrawer's design canvas, so they use the canvas's own tags (`<sc-if>`, `{{…}}`) and won't render perfectly on their own. Read them as markup with inline styles: exact colours, sizes, spacing, wording and layout. `docs/mockups/canvas.json` lists every file with its title. They are a **visual reference**, not code to copy. Their links show the intended navigation. cabledrawer can show the live canvas if something is unclear.
+- `docs/mockups/*.dc.html` holds the mockup screens: phone and desktop, light and dark. They were exported from cabledrawer's design canvas, so they use the canvas's own tags (`<sc-if>`, `{{…}}`) and won't render perfectly on their own. Read them as markup with inline styles: exact colours, sizes, spacing, wording and layout. `docs/mockups/canvas.json` lists every file with its title. They are a **visual reference**, not code to copy. Their links show the intended navigation. cabledrawer can show the live canvas if something is unclear.
 - `docs/brand/` has the logo SVGs. Colours and wordmark are in spec section 3 and `docs/brand/README.md`.
 
 Mockup file names (light → dark): Sign in `SignIn-*` · Onboarding `Onboard-*` · Today `Main` / `Desktop-Today` / `Dark-Phone-Today` / `Dark-Today` · Plan week `Plan` / `Desktop-Plan` / `Dark-Phone-Plan` / `Dark-Plan` · Month `Month-*` · Shopping `Shop` / `Desktop-Shop` / `Dark-Phone-Shop` / `Dark-Shop` · Pantry `Phone-Pantry` / `Desktop-Pantry` / `Dark-Phone-Pantry` / `Dark-Pantry` · All recipes `Recipes-Phone` · Recipe page `Recipe` / `Desktop-Recipe` / `Dark-Phone-Recipe` / `Dark-Recipe` · Cook once `CookOnce-*` · Cook mode `CookMode-*` · Cooked it `Cooked-*` · Import review `Phone-Import` / `Desktop-Import` / `Dark-Phone-Import` / `Dark-Import` · Drafts `Drafts-*` · Ingredients `Ingredients-*` · Settings `Settings-*`.
@@ -43,7 +43,7 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 | 0.9.0 | Mealie importer, docs, polish, pre-release checks |
 | 1.0.0 | First public release |
 
-**Target (cabledrawer 18 Oct):** reach 0.9.0 by the end of October. To get there: all of a milestone's questions in one sitting at its start, pull requests side by side when they don't overlap, and light review for low-risk pull requests. Not cut: the security audit, the full `./check` before every merge, and the two-device and household tests.
+**Working pace (cabledrawer 18 Oct):** all of a milestone's questions in one sitting at its start, pull requests side by side when they don't overlap, and light review for low-risk pull requests. Not cut: the security audit, the full `./check` before every merge, and the two-device and household tests.
 
 ---
 
@@ -75,7 +75,7 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 
 **cabledrawer checks:** install it on his homelab and sign in from phone and desktop.
 
-**Meanwhile (not code):** run the non-technical prototype test from `docs/prototype-test-plan.md` if it hasn't been done. 0.1 has no feature screens yet, so any findings can still shape 0.2 onwards.
+**The non-technical prototype test** (`docs/prototype-test-plan.md`) runs at 0.9, with the private trial (cabledrawer 19 Oct; spec section 8, "Real use from 0.3").
 
 ---
 
@@ -236,6 +236,14 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **The Plan redesign (cabledrawer 28 Oct; mockups `PlanEat07-Phone`, `PlanCook07-*`, `PlanCards07-Desktop`, `Leftovers07-Phone`, `Month07-Desktop`):** the Both · Eat · Cook switch; separate COOK and EAT cards with drag on the computer; fixed portions per batch, "Leftovers on…" for several meals, "No portions left" → Cook more / Add anyway; Serves − N + and who's eating on a meal (F57); week cells as tall as their content (F42); Month on one screen (F47); tap any day (F52, F53); F49, F65, F39, F40.
 - **Navigation (cabledrawer 28 Oct):** F1 "New recipe" in the sidebar, F2 the Settings cog, F76 Ingredients in the sidebar and the phone's Pantry · Ingredients switch.
 - The Experimental icon (a small pink flask, `Experimental07`) marks Cook mode's per-step ingredients.
+- **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0; spec section 6, "From the 28 Oct review of v0.6.0"):**
+  - Server down: F67's cause (a 502/503/504 from the proxy counts as "can't reach"; a dropped live stream alone never shows the bar; `cantReach()` everywhere; no overlapping or background-tab checks; no repeat toasts after a reload), with a 502-from-the-proxy test (unit and browser).
+  - A safety copy of the database before every upgrade (keep the last 3); the docs say to stop the container before copying the data folder.
+  - "Cooked it": one row per recipe in a meal with several. Cook mode: on-screen timers with a sound (no alarm when locked or in the background, said so); "Keep screen awake" moves into Cook mode; **Cook now** on the recipe page.
+  - Plan: a "Note" item (eating out); **Plan it** on the recipe page; the phone Plan opens at today; one pass at 768–1100 px on every Plan screen; moving cards with the keyboard (Move to… / Copy to…).
+  - The version number in the sidebar foot. Refusing to start with a non-SQLite database address or more than one worker.
+  - Paper cuts: the recipe editor keeps an unsaved draft in the tab, with a reload test; Duplicate on the recipe page; a stale-answer guard in `FoodModel.load()`; "0 tubs left" not orange; SECURITY.md claims no encryption that doesn't exist yet.
+  - Release PR: CHANGELOG link footers for 0.4.0–0.6.0; the PNG line in `docs/brand/README.md`.
 
 **Done when:** the 0.6.0 bugs are fixed with a test each; the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end; the Plan redesign works on phone and computer in both themes.
 
@@ -247,7 +255,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Spec:** section 6, "Decided for 0.7.0 and 0.7.1" (Importer consistency); section 6, Recipes (import).
 
-**Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29).
+**Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29). Also (cabledrawer 28 Oct, review of v0.6.0): converted amounts to a cook's precision (340 g; two decimals only below 10 g or ml); tags tidied on import (capitals and a small synonym table); recipe-name patterns ("How to Make …", "(Authentic … Recipe)"); ingredient names' capitals tidied on save; names like "Beef stock made with 1 stock shot or cube"; "nutrition possibly out of date" after editing an imported recipe.
 
 **Done when:** each finding has a reader test with both ways of writing it giving the same result.
 
@@ -268,7 +276,6 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
 - Secrets (the SSO client secret) encrypted at rest.
 - Passwords and the sign-in cookie (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): new passwords need at least 12 characters (existing ones keep working); new passwords are checked against a bundled, offline list of leaked passwords under a licence on the allow list (never an online lookup) (lead's note: cabledrawer approves the list and its licence first); the sign-in cookie gets the `__Host-` name, which signs everyone out once (say so in the release notes) and can't work in plain-http mode (decide with cabledrawer what that mode does).
-- A setting to swipe right instead of left on Shopping rows, with the other settings (cabledrawer 20 Oct: "should be done before 0.9.0").
 - **Not in 0.8 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
 - Backups: daily, keep 7, into the data volume (adjustable). Export everything (optional password encryption).
 - Logs: errors and sign-ins only, 14 days, never content.
@@ -277,6 +284,14 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **From the 0.6.0 hand test (cabledrawer 28 Oct):** the Shopping redesign (F59: a "plan shopping" view on the computer and an "in the shop" view on the phone; cabledrawer likes today's phone Shopping screen); shops added and managed from the Shopping screen and in Settings → Shops & places (F74); a shorter list (F54); put-away rows (F72, plus clearing one item, and swipes on the phone); the rest of F60. Pantry and Use soon: F64 quick actions and "Passed 3 days ago" on Today, F66 a compact Pantry on the computer, F78 the phone Use soon card, F79 the "How much?" sheet.
 - **The Undo-window setting (cabledrawer 28 Oct):** if `undo_days` becomes a setting and is raised, Undo of a recipe Save older than the old window brings the recipe back without its draft. Decide with cabledrawer when the setting is built.
 - Starter ingredient packs (spec section 2, cabledrawer 18 Oct): the optional onboarding step and the "Add a starter pack" button on Ingredients, with the four packs bundled as data files in the repo. cabledrawer agrees the item lists before the first code pull request.
+- **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0):**
+  - Pantry: best-before (cupboard: dimmed, "probably fine", no To freezer) apart from use-by (fridge: red); one rule for rolling up packets everywhere (Today, Pantry, Use soon); Today's week strip shows the dinner's name.
+  - Shopping: buying amounts (rounded to packs or bunches from known sizes; tiny long-life amounts offered as staples); recipes inside recipes expanded on the list.
+  - Recipes: tag chips in one row with "more", and a screen to manage and merge tags.
+  - Sign-in: a limit on Argon2 (a few hashes at a time); a per-username lock-out capped at about 60 s; change password; a sessions list; sign out everywhere; a one-time setup code for the first run; `X-Forwarded-Host` when a proxy is trusted; a one-time warning when `X-Forwarded-For` arrives from a proxy that isn't trusted.
+  - Household: a roles table (Admin and Member) written before Settings is built; a local `reset-admin` command; removing a person; "Delete everything / start again"; restore written down (how, photos, a warning about backups on the same disk).
+  - Update check and About: "new version ready — close every tab"; a total-time limit on `OutboundGate.request()`; About with the USDA credit, font licences and the AGPL source link.
+  - A mid-width pass (768–1100 px) on the other screens. How the private trial works is decided at the 0.8 kickoff.
 
 **Done when:** a member-only household, an SSO-only household and a mixed one all work; with every Privacy switch off, the outbound-gate test proves nothing leaves; backup → restore works on a fresh container.
 
@@ -297,6 +312,14 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **The 1.0 promise (spec section 8):** document and version the export format in `docs/`; add upgrade tests: a saved database from each earlier 0.x tag upgrades cleanly to the latest, with the 0.9 database kept as a fixture for later tests.
 - **Plan for stepping away:** `docs/dev/architecture.md` (how the pieces fit together, in plain words) and `docs/dev/build-and-release.md` (how to build, test, tag and publish), so someone else could carry on or fork cleanly.
 - **README "Not planned" section:** built from spec section 1 non-goals, the ethos hard rules, "Not in v1" and spec section 8.
+- **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0):**
+  - A repo safe to make public: homelab names and local paths move out of tracked files into a git-ignored local file, then a `./check` step fails on them.
+  - Compose hardening (no-new-privileges, cap_drop, read_only with tmpfs, init, a memory limit, a commented `user:` line); Dockerfile OCI labels and layer order; `uv lock --check` in the build; SBOM and provenance.
+  - Browser tests in the pinned Playwright image; fonts latin and latin-ext only; a healthcheck that touches the database; no `Server` header; THIRD-PARTY-NOTICES.md.
+  - Docs: install, upgrade, backup, reverse proxy, a table of environment variables, CONTRIBUTING.
+  - `./check` extras: hadolint, compose config, shellcheck, a smoke run of the built image, and an upgrade test from a saved real database for each tag.
+  - The arm64 image question at the 0.9 kickoff.
+  - The service worker's cache heals itself; a replayed change with the same key checks the body too; recipe-list hints only for the page shown; a print layout for the shopping list and recipes; an optional sample recipe pack; scaling edge cases written down as "roughly right".
 
 **Done when:** every "v1.0 must have" item in spec section 2 is built and ticked off in a checklist in `docs/`; the pre-release checklist is complete.
 
@@ -306,7 +329,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 1.0.0 First public release
 
-cabledrawer decides when. He makes the GitHub repo public (Forgejo push-mirrors to it, so Forgejo can stay his working copy), then tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
+cabledrawer decides when. He makes the GitHub repo public, starting fresh with one clean "Mealwright 1.0" commit; the full history stays private on Forgejo (cabledrawer 28 Oct, review of v0.6.0). Then he tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
 
 ## After 1.0.0
 
