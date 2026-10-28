@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { checkPage } from './a11y.ts';
+import { checkPage, expectTouchTargets } from './a11y.ts';
 
 // The app shell (0.1): the five pages and Settings, the bottom tabs on phones and the
 // collapsible sidebar on desktop, and the Auto · Light · Dark switch. Each test runs
@@ -152,15 +152,11 @@ test('on phones every button and link is at least 44 px', async ({ page }) => {
   for (const path of ['/', '/settings']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    const small = await page.evaluate(() =>
-      [...document.querySelectorAll('a, button')]
-        .filter((el) => el.checkVisibility() && el.id !== 'svelte-announcer')
-        .filter((el) => !el.matches('.skip'))
-        .map((el) => ({ el, box: el.getBoundingClientRect() }))
-        .filter(({ box }) => box.width < 44 || box.height < 44)
-        .map(({ el, box }) => `${el.textContent?.trim() || el.getAttribute('aria-label')}: ${Math.round(box.width)}×${Math.round(box.height)}`),
-    );
-    expect(small, path).toEqual([]);
+    // Settings' Amounts arrives after the heading; wait for it, so it is always measured.
+    if (path === '/settings') await expect(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+    // The shared check: it counts a switch's larger invisible touch area (the pint switch in
+    // Settings), which measuring the visible box alone missed whenever Amounts had loaded.
+    await expectTouchTargets(page);
   }
 });
 
