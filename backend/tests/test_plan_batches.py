@@ -857,7 +857,7 @@ def test_batch_changes_are_in_recent_changes_with_their_undo(
     assert mine["kind"] == "plan_batch" and mine["can_undo"] is True
 
 
-# --- Never into the past, never before the cooking (F50, cabledrawer 28 Oct) ---------------------------
+# --- Never into the past, never before the cooking (F50, cabledrawer 28 Oct) --------------------------
 
 
 def _after_cook_refused(r: Any) -> None:
