@@ -1,9 +1,9 @@
 """Reading a recipe from a web page (spec section 6, "Recipe import, decided for 0.5").
 
 This is the one place that knows how recipe pages are written, so it can be swapped for
-another reader (recipe-scrapers is the spec's planned fallback, for 0.7 if pages still
-fail) without touching anything else: a replacement only has to provide `read_page` and
-return `PageRecipe`.
+another reader (recipe-scrapers is the spec's possible fallback, revisited after 0.9.0
+real-world testing) without touching anything else: a replacement only has to provide
+`read_page` and return `PageRecipe`.
 
 It reads schema.org `Recipe` data, which almost every recipe site includes for search
 engines: JSON-LD first (`<script type="application/ld+json">`, including `@graph`, several

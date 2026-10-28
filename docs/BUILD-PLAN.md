@@ -63,14 +63,14 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 - Screens: Sign in (`SignIn-*`), plus a first-run "Create admin account" step from Onboarding (`Onboard-*`, first step only).
 - ~~CI with Forgejo Actions~~: dropped for 0.x (cabledrawer 17 Oct, see above). Instead, a `./check` script at the repo root that runs every check below, fails on any error, and ends with a clear pass/fail summary. Plus `docs/dev/test-on-homelab.md` for cabledrawer: build the image in WSL from the tag, save it to a file, copy it to the server with `scp`, and load and run it there with `docker load` (no registry).
 - Checks in `./check`, run before every pull request: lint, type-check, backend and frontend tests, outbound-gate test, licence allow-list check (spec section 8), dependency vulnerability scan (pip-audit and osv-scanner), code scan (Bandit, not Semgrep: cabledrawer 17 Oct), image build and scan (Trivy). From 0.6 the scanners run only when a pull request changes a library, a lock file or the Dockerfile, and always on a release pull request (cabledrawer 25 Oct, spec section 8). Use open tools only; nothing GitHub-specific (no Dependabot or CodeQL).
-- Image builds during 0.x are **amd64 only** (arm64 under emulation on the home server is slow; it's added in 0.9). Images are never pushed to any registry; cabledrawer copies them to the home server with `scp` and `docker load`. Claude Code never pushes images. Never push anywhere public.
+- Image builds during 0.x are **amd64 only** (arm64 under emulation is slow; it's added in 0.9). Images are never pushed to any registry; cabledrawer copies them to the test bed (a test VM, cabledrawer 28 Oct) with `scp` and `docker load`. Claude Code never pushes images. Never push anywhere public.
 - Docker: one container serving the API and the static frontend; non-root user; health check.
 
 **Done when:**
 
 - `docker compose up` on a fresh volume → create admin → sign in → see the empty shell on phone and desktop widths, light and dark.
 - `./check` passes, including the outbound-gate test, the licence check, the scanners, and the Trivy and no-telemetry checks on the built image.
-- Following `docs/dev/test-on-homelab.md`, cabledrawer can build a `0.1.0` image, copy it to the home server with `scp`, and load and run it there.
+- Following `docs/dev/test-on-homelab.md`, cabledrawer can build a `0.1.0` image, copy it to the test bed with `scp`, and load and run it there.
 - A test proves the CSP blocks an external script.
 
 **cabledrawer checks:** install it on his homelab and sign in from phone and desktop.

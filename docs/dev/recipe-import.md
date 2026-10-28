@@ -310,8 +310,8 @@ What it can't stop:
 
 ## Swapping the reader
 
-`page_reader` is the one place that knows how recipe pages are written. The spec plans
-recipe-scrapers as a fallback for 0.7, if real pages still fail; that would be a new
+`page_reader` is the one place that knows how recipe pages are written. recipe-scrapers is not used in 0.7
+(cabledrawer 28 Oct: "okay for now, revisit after 0.9.0 real world testing"); it would be a new
 dependency, so it needs cabledrawer's OK first. To swap:
 
 1. Write a module that provides `read_page(html: str, url: str) -> PageRecipe | None` with the
