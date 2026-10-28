@@ -62,14 +62,13 @@
     const plan = model.plan;
     if (!plan) return [];
     const tubBatch = new Map(plan.tubs.map((t) => [t.id, t.batch_id]));
-    const eaten = new Set<number>();
-    for (const meal of plan.meals) {
-      if (!inMonth(meal.date)) continue;
-      for (const item of meal.items) {
-        const id = item.tub_id === null ? undefined : tubBatch.get(item.tub_id);
-        if (id !== undefined) eaten.add(id);
-      }
-    }
+    const eaten = new Set(
+      plan.meals
+        .filter((meal) => inMonth(meal.date))
+        .flatMap((meal) => meal.items)
+        .map((item) => (item.tub_id === null ? undefined : tubBatch.get(item.tub_id)))
+        .filter((id) => id !== undefined)
+    );
     return plan.batch_cooks
       .filter((b) => inMonth(b.cooked_on) || eaten.has(b.id))
       .sort((a, b) => a.cooked_on.localeCompare(b.cooked_on) || a.id - b.id);
