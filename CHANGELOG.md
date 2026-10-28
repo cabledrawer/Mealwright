@@ -46,6 +46,7 @@ The security passes on each 0.6 pull request found these before release; none wa
 - **Today offline:** the copy saved on the device belongs to the login that saved it, and a load that finishes after signing out saves nothing, so the next person to sign in on that device never sees it.
 - **The plan:** another household's ids are refused (404) on every new plan, batch and Today route and in every id inside a request, and a kept name never comes from or goes to another household.
 - **Name look-ups that never finish:** at most 16 at once for the server and at most 4 for one household, so one household can't block the others' imports; a look-up that can't start gives its place back; the Undo of a bought joined line reads only its own household's line.
+- **Pints:** a line with so many pints that one kind of pint comes to more than 1,000,000 ml (about 2,000 pints) gave an error instead of the review. Now it is read without the UK/US switch (found by the release security pass; tested in a UK and a US household and on a US site).
 
 ### Tests
 
