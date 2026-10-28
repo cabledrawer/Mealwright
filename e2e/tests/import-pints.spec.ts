@@ -8,6 +8,11 @@ import { checkPage, expectNoSidewaysScroll, inTheme, setAccountTheme } from './a
 // household setting are the real server's. The tests run one at a time on one server, and each
 // puts the pint back to UK.
 
+// No service worker here: on WebKit, once it controls the page, page.route no longer sees the
+// page's requests (though the worker leaves /api alone), so a second visit to the box sent the
+// made-up import to the real server.
+test.use({ serviceWorkers: 'block' });
+
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const SWITCH = 'Read its pints as US pints (473 ml)';
