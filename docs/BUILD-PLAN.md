@@ -10,7 +10,7 @@ Written 17 Oct 2026 from the finished planning spec (`docs/spec.md`). Owner: cab
 - At the end of a milestone, go through its **Done when** list, update `CHANGELOG.md`, bump the version, open the release pull request, and **stop**. cabledrawer merges it and creates the `v0.N.0` tag (only he can push to `main` or create `v*` tags). Give cabledrawer a short summary and what to try by hand. Don't start the next milestone until he says so.
 - If the spec and this plan disagree, the spec wins. If something isn't in either, ask cabledrawer rather than guess, and record his answer in `docs/spec.md`, credited to him.
 - 0.x versions are not published (no public image, no release). cabledrawer may build and run them on his own homelab.
-- **Code home during 0.x (cabledrawer 17 Oct): cabledrawer's own Forgejo** on his homelab, as a private repo. Repo: `https://git.example.org/tess/mealwright`. Use plain `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI for pull requests and issues (not `gh`). Claude Code pushes as the restricted `claude` account, with a token limited to repository and issue access; `main` and `v*` tags are protected. **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. Instead, run `./check` before every pull request and paste its summary into the PR description. 0.x images are never pushed to any registry; cabledrawer builds each one, copies it to the home server with `scp` and loads it with `docker load` (cabledrawer 18 Oct). CI starts at 1.0 on GitHub Actions. GitHub becomes the public home at 1.0.0 (see 0.9 and 1.0).
+- **Code home during 0.x (cabledrawer 17 Oct): cabledrawer's own Forgejo** on his homelab, as a private repo. Repo: `https://<code server>/tess/mealwright` (the address is in `CLAUDE.local.md`, git-ignored). Use plain `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI for pull requests and issues (not `gh`). Claude Code pushes as the restricted `claude` account, with a token limited to repository and issue access; `main` and `v*` tags are protected. **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. Instead, run `./check` before every pull request and paste its summary into the PR description. 0.x images are never pushed to any registry; cabledrawer builds each one, copies it to the test bed with `scp` and loads it with `docker load` (cabledrawer 18 Oct). The test bed is a test VM, not the code server's machine; Claude Code stays on WSL, and the move to the test VM's machine is on hold (cabledrawer 28 Oct; spec section 9). CI starts at 1.0 on GitHub Actions. GitHub becomes the public home at 1.0.0 (see 0.9 and 1.0).
 - **When to run `./check` (cabledrawer 17 Oct, from 0.3):** while working, run only the test file for the change plus lint and type checks for that side; run `./check --fast` after a chunk of work or a round of review fixes; run the full `./check` before opening each pull request, again on the final commit after the last fixes, for release pull requests, and whenever a dependency, lock file or the Dockerfile changes. The checker trusts a pasted summary whose commit matches the pull request's latest commit, and runs only the screenshot review and that feature's browser tests. See spec section 9.
 - **Models and effort (cabledrawer 17 Oct, from 0.3):** the lead runs on Opus at the usual effort. Helpers start fresh for each pull request and close when it merges. Use Opus at high effort for the hardest, riskiest work (in 0.3: the sync design, the server sync code, the device's offline queue, and the checker's reviews of those) and Sonnet for everything else. If usage gets tight, move the lead to Sonnet before taking Opus off the risky work. Helpers read only the spec sections their pull request needs, not the whole spec.
 - **Working lessons (cabledrawer 18 Oct, from 0.3):** see spec section 9, "Working lessons from 0.3": summaries for long design docs; decisions copied into `progress.md` and checked by the checker; all product questions before the first code pull request; side-by-side pull requests only when they don't overlap; mockups changed only before a screen is built.
@@ -37,7 +37,8 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 | 0.4.0 | Recipes |
 | 0.5.0 | Recipe import and drafts |
 | 0.6.0 | Meal plan, batch cooks and Today |
-| 0.7.0 | Cooking: Cook mode, "Cooked it", deductions |
+| 0.7.0 | 0.6.0 fixes; Cooking: Cook mode, "Cooked it", deductions; Plan redesign; navigation |
+| 0.7.1 | Importer consistency (cabledrawer 28 Oct) |
 | 0.8.0 | Household, settings, backups |
 | 0.9.0 | Mealie importer, docs, polish, pre-release checks |
 | 1.0.0 | First public release |
@@ -213,12 +214,15 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ---
 
-## 0.7.0 Cooking: Cook mode, "Cooked it", deductions
+## 0.7.0 0.6.0 fixes, cooking, the Plan redesign and navigation
 
-**Spec:** section 2 "Cooking — how deduction works" (all 8 points), section 6 (Plan and batch cooks: cooked record, recipe edited after planning; Recipes: recipes inside recipes), Layout decisions (Cook mode, "Cooked it" review), section 6 gaps (Cook mode ingredients).
+**Scope and order (cabledrawer 28 Oct):** the 0.6.0 bugs first (there is no 0.6.1: "let fix everything in 0.7.0 and test together") → cooking (below) → the Plan redesign → navigation. Importer consistency moves to 0.7.1 (cabledrawer 28 Oct). 0.7.0 is hand-tested as a whole.
+
+**Spec:** section 6, "Decided for 0.7.0 and 0.7.1"; section 2 "Cooking — how deduction works" (all 8 points), section 6 (Plan and batch cooks: cooked record, recipe edited after planning; Recipes: recipes inside recipes), Layout decisions (Cook mode, "Cooked it" review), section 6 gaps (Cook mode ingredients, with the Experimental icon).
 
 **Build:**
 
+- **The 0.6.0 bugs (cabledrawer 28 Oct):** F50 leftovers dates, F58 Cook once and the shopping list (with F56), F48 a tub's use-by from the plan, F22 photos through a reverse proxy, F36 the recipe editor's line order, F45 Month "+N more", F61/F63/F62/F60 shopping amounts, F67 server down (with F68), and the small fixes F16, F44, F41, F73, F46, F75. F5 and F7 go to 0.7.1.
 - Cook mode (`CookMode-*`): big text, one step at a time, timers, screen kept awake, "Show ingredients" sheet, experimental per-step ingredients (guessed, labelled, off unless switched on; fixable when editing the recipe).
 - Deduction engine: scale, convert only when units differ, soonest-expiring packet first, fridge and cupboard before freezer, staples never deducted, never below zero (offer "add to list"), "ask once" questions with "Remember for next time", stand-ins via "can use instead", inner recipes taken from the pantry (offer "Make it first?").
 - "Cooked it" review (`Cooked-*`): every proposed change with Before → After, a Use switch, Used/Left plus stepper for count foods, "Bought some — used them" for missing items, tubs made and where they go. Confirm → one change-log group with Undo.
@@ -228,11 +232,26 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
   - A restock date for each staple: a date line on restocked chips, in the ingredient editor, and a column on Ingredients. The words "Restocked · staples aren’t counted" are already on the Shopping rows (0.4).
   - Ready choices in the "How much?" sheet for a new ingredient (nothing to choose from yet when an ingredient has no sizes).
 
-- **Recipe import (cabledrawer 21 Oct):** if pages still fail or are fiddly after 0.6's fixes and second run, page reading switches to recipe-scrapers (the one page-reading module is swapped; the review screen and the ingredient reader stay). New libraries need cabledrawer's OK and the licence check then.
+- **Recipe import (cabledrawer 28 Oct):** no recipe-scrapers in 0.7; Allrecipes keeps "paste the text instead". cabledrawer: "okay for now, revisit after 0.9.0 real world testing". (This replaces the 21 Oct plan to switch page reading to recipe-scrapers in 0.7.)
+- **The Plan redesign (cabledrawer 28 Oct; mockups `PlanEat07-Phone`, `PlanCook07-*`, `PlanCards07-Desktop`, `Leftovers07-Phone`, `Month07-Desktop`):** the Both · Eat · Cook switch; separate COOK and EAT cards with drag on the computer; fixed portions per batch, "Leftovers on…" for several meals, "No portions left" → Cook more / Add anyway; Serves − N + and who's eating on a meal (F57); week cells as tall as their content (F42); Month on one screen (F47); tap any day (F52, F53); F49, F65, F39, F40.
+- **Navigation (cabledrawer 28 Oct):** F1 "New recipe" in the sidebar, F2 the Settings cog, F76 Ingredients in the sidebar and the phone's Pantry · Ingredients switch.
+- The Experimental icon (a small pink flask, `Experimental07`) marks Cook mode's per-step ingredients.
 
-**Done when:** the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end.
+**Done when:** the 0.6.0 bugs are fixed with a test each; the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end; the Plan redesign works on phone and computer in both themes.
 
-**cabledrawer checks:** cook a real sambar with it.
+**cabledrawer checks:** cook a real sambar with it, and the 0.6.0 findings again.
+
+---
+
+## 0.7.1 Importer consistency (cabledrawer 28 Oct)
+
+**Spec:** section 6, "Decided for 0.7.0 and 0.7.1" (Importer consistency); section 6, Recipes (import).
+
+**Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29).
+
+**Done when:** each finding has a reader test with both ways of writing it giving the same result.
+
+**cabledrawer checks:** imports a handful of the 0.6.0 hand-test recipes again.
 
 ---
 
@@ -255,6 +274,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Logs: errors and sign-ins only, 14 days, never content.
 - Updates: version-age note (no connection), admin "Check now", optional daily check (off by default, in Privacy). Requests go through the outbound gate and send nothing about the install.
 - "Report a problem" (About): report built on the server, shown in full with personal details removed, editable; Open on GitHub (pre-filled issue in the user's browser), Copy, or Download.
+- **From the 0.6.0 hand test (cabledrawer 28 Oct):** the Shopping redesign (F59: a "plan shopping" view on the computer and an "in the shop" view on the phone; cabledrawer likes today's phone Shopping screen); shops added and managed from the Shopping screen and in Settings → Shops & places (F74); a shorter list (F54); put-away rows (F72, plus clearing one item, and swipes on the phone); the rest of F60. Pantry and Use soon: F64 quick actions and "Passed 3 days ago" on Today, F66 a compact Pantry on the computer, F78 the phone Use soon card, F79 the "How much?" sheet.
+- **The Undo-window setting (cabledrawer 28 Oct):** if `undo_days` becomes a setting and is raised, Undo of a recipe Save older than the old window brings the recipe back without its draft. Decide with cabledrawer when the setting is built.
 - Starter ingredient packs (spec section 2, cabledrawer 18 Oct): the optional onboarding step and the "Add a starter pack" button on Ingredients, with the four packs bundled as data files in the repo. cabledrawer agrees the item lists before the first code pull request.
 
 **Done when:** a member-only household, an SSO-only household and a mixed one all work; with every Privacy switch off, the outbound-gate test proves nothing leaves; backup → restore works on a fresh container.
