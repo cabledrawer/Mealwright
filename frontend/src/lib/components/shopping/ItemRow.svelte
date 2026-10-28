@@ -62,12 +62,18 @@
   // the trolley by now, so the model remembers which item asked.
   $effect(() => {
     if (trolley && view.ticks.length && model.askingHowMuch === item.id) {
-      untrack(() => (packOpen = true));
+      untrack(() => {
+        packOpen = true;
+        autoOpened = true;
+      });
     }
   });
 
+  let autoOpened = $state(false);
+
   function closePack() {
     packOpen = false;
+    autoOpened = false;
     if (model.askingHowMuch === item.id) model.askingHowMuch = null;
     packButton?.focus();
   }
@@ -216,6 +222,7 @@
                 changing={placing}
                 onchange={() => (model.placing = placing ? null : item.id)}
                 onadd={(button) => {
+                  autoOpened = false;
                   packButton = button;
                   packOpen = true;
                 }}
@@ -279,7 +286,14 @@
   {/if}
 
   {#if packOpen && trolley && view.ticks.length}
-    <PackSheet {model} {item} {food} ticks={view.ticks} onclose={closePack} />
+    <PackSheet
+      {model}
+      {item}
+      {food}
+      ticks={view.ticks}
+      focusOnOpen={autoOpened}
+      onclose={closePack}
+    />
   {/if}
 
   {#each notes as note (note.id)}

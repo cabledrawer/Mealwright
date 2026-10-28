@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   // "Different pack?" (mockup Shop): "What did you buy?" with the planned pack, one pack of
   // the planned amount, the ingredient's own sizes, and Other…; "Pantry gets 1 pack · 400 g."
   // and Done. The same panel, titled "How much?", for an item with no amount (spec L303).
@@ -13,6 +14,7 @@
     item,
     food,
     ticks,
+    focusOnOpen = false,
     onclose
   }: {
     model: ShoppingModel;
@@ -20,6 +22,8 @@
     food: ShopFood;
     /** The purchases still counted: more than one after "Did you buy 2?". */
     ticks: Tick[];
+    /** Opened by itself (a tick with no amount), not by a button: take the focus, so Escape works. */
+    focusOnOpen?: boolean;
     onclose: () => void;
   } = $props();
 
@@ -115,6 +119,11 @@
     onclose();
   }
 
+  let sheet = $state<HTMLElement>();
+  $effect(() => {
+    if (focusOnOpen) untrack(() => sheet?.focus());
+  });
+
   const title = $derived(item.amount ? 'What did you buy?' : 'How much?');
 </script>
 
@@ -122,6 +131,7 @@
 <div
   class="sheet"
   role="group"
+  bind:this={sheet}
   aria-labelledby="{uid}-t"
   tabindex="-1"
   onkeydown={(event) => {

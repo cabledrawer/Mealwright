@@ -939,7 +939,8 @@ test("a ticked row says where it went: with an amount, with none, and a staple",
     await page.getByRole("checkbox", { name: `Tick ${n}` }).click();
   }
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  // The line with no amount asked "How much?", which opened the trolley by itself (F62).
+  await expect(page.getByText("How much?")).toBeVisible();
   const row = (n: string) => page.getByRole("listitem").filter({ hasText: n });
   await expect(row(withAmount).getByText(/^In the Fridge · /)).toBeVisible();
   await expect(
@@ -971,7 +972,6 @@ test("Add amount on a ticked row with no amount gives it a first amount, and Rec
   const foodId = await plainLine(page, name);
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
   // F62: ticking a line with no amount asks "How much?" by itself.
   await expect(row.getByText("How much?")).toBeVisible();
@@ -996,7 +996,6 @@ test("F62: leaving \"How much?\" for later keeps Add amount on the ticked row; p
   const foodId = await plainLine(page, name);
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
   await expect(row.getByText("How much?")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -1183,7 +1182,7 @@ test("F73 phone: while a row is swiped, its name and its amount stay on screen b
   await clearOf(red, "left");
   await red.evaluate(() => (document.activeElement as HTMLElement)?.blur());
   // Close it with a tap elsewhere, then the other way.
-  await page.getByRole("heading", { name: "Shopping", level: 1 }).click();
+  await nameButton.click();
   await expect(red).toHaveCount(0);
   await swipeRight(page, name);
   const blue = page.getByRole("button", {

@@ -221,7 +221,6 @@ test('F62: offline, ticking a line with no amount still asks How much?, and the 
 
   await context.setOffline(true);
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
-  await page.getByRole('button', { name: /^In the trolley/ }).click();
   const row = page.getByRole('listitem').filter({ hasText: name });
   await expect(row.getByText('How much?')).toBeVisible();
   // The phone doesn't know this ingredient's sizes: the ready-made choices and Other… are there.
