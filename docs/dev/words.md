@@ -358,7 +358,7 @@ Written by Claude Code on 26 Oct from the mockups `Plan`, `Desktop-Plan`, `Month
 - Toasts (the server's own sentence, with Undo): Planned Sambar for Dinner on Mon 19 Oct · Moved Sambar from Dinner on Mon 19 Oct to Lunch on Tue 20 Oct · Copied Sambar to Lunch on Tue 20 Oct · Planned leftovers of Sambar on Lunch on Tue 20 Oct · Removed Sambar from Dinner on Mon 19 Oct · Hid Snack in the plan · Showed Snack in the plan. After Undo: "Undone: " and the same words.
 - Refusals (server, 422/409): That day is too far from today to plan. · Dinner is switched off. Turn it on under Meals to plan it. · A meal holds at most 20 things. · That meal is already there. · Nothing in that meal can be copied. · A tub can only be in one meal at a time. · Pick a recipe or an ingredient to plan. · That meal has already been dealt with, so it can’t be changed here.
 
-## 20. Cook once, eat for… and tubs (0.6 PR 4; every line here is proposed, for cabledrawer)
+## 20. Cook once, eat for… and tubs (0.6 PR 4; OK'd by cabledrawer 28 Oct, see spec section 6, "Decided for Cook once and Shopping from the plan")
 
 Written by Claude Code on 26 Oct from the mockups `CookOnce-Desktop`, `CookOnce-Phone` and their dark twins, and the spec's "Cook once, eat for…" bullets. "Cook once, eat for…" is cabledrawer's own title (kickoff step 4); the pattern names Lunches · Lunch & dinner · Dinners · I'll pick, "+ Add a tub", "+ Add a tub too", ✕, "tubs left", "Whose tub?", "To freezer" and "Fill from freezer first" are the spec's (cabledrawer 17 Oct).
 
@@ -371,7 +371,7 @@ Written by Claude Code on 26 Oct from the mockups `CookOnce-Desktop`, `CookOnce-
 - Toasts (the screen's own words until the server answers, then the server's sentence, with Undo): Cooked Veg biryani once for 4 tubs (3 in the plan) · Put Veg biryani tub in Lunch · Veg biryani tub is Wren’s · Veg biryani tub is nobody’s in particular · Veg biryani tub: use by Thu 22 Oct · Veg biryani tub to the freezer · Put Veg biryani tub back in tubs left from Dinner on Sun 18 Oct · Filled 3 empty days with tubs from the freezer · Took Veg biryani’s tubs off the plan.
 - Refusals (server): A batch can have 1 to 12 tubs. · At most 10 batches can be cooked on one day. · Only a recipe that is still there can be cooked once for several meals. · Veg biryani already has tubs from this meal. Add or move them from the plan. · Veg biryani already has 12 tubs. · Say where each tub goes, or leave it to the pattern. · There’s no freezer in your places yet. · That tub is already in the freezer. · That tub has been eaten. · Say whose tub it is, or its use-by date. · Ask for 1 to 62 days at a time.
 
-## 21. The shopping list from the plan (0.6 PR 5; every line here is proposed, for cabledrawer)
+## 21. The shopping list from the plan (0.6 PR 5; OK'd by cabledrawer 28 Oct, see spec section 6, "Decided for Cook once and Shopping from the plan")
 
 Written by Claude Code on 27 Oct from the mockups `Shop`, `Desktop-Shop` and their dark twins. "Check you have these", "Staples this week's recipes use", "Got it", "+ Add" and "built from this week's plan" are the mockups' words (the spec: "Got it / dismiss"); cabledrawer's kickoff answer 8 sets the look-ahead at 7 days by default.
 

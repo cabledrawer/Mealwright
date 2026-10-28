@@ -1,0 +1,8 @@
+# Scanner exceptions (cabledrawer, 28 Oct 2026; spec section 8, "Scanner warnings that don't affect
+# Mealwright"). Only this one, for deepmerge 4.3.1 (no fixed version yet). It stops being ignored
+# on 28 Nov 2026, so ./check fails on it again from then unless a fixed version is in.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2026-11-28T00:00:00Z
+reason = "Build-time only: @sveltejs/vite-plugin-svelte uses deepmerge to merge Mealwright's own settings when the app is built; no outside input reaches it, and it is not in the built app or the image."
