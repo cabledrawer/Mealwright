@@ -14,6 +14,7 @@
   import { changesToast } from '#lib/import.save.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { PhotoFallback } from '#lib/photoFallback.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -24,6 +25,11 @@
   let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
 
   const review = $derived(flow.review!);
+  // The large copy, or the list copy if only that fails; neither means the "No photo" box.
+  const copy = new PhotoFallback(() =>
+    review.photo.state === 'downloaded' ? review.photo.photo : null
+  );
+  const shown = $derived(copy.shown);
   const uid = $props.id();
   const usPints = $derived(flow.pints === 'us');
   const other = $derived(flow.otherPints);
@@ -80,15 +86,16 @@
 
 <div class="review" class:phone>
   <section class="top" aria-label="Recipe details">
-    {#if review.photo.state === 'downloaded' && review.photo.photo}
+    {#if review.photo.state === 'downloaded' && shown}
       <img
         class="photo"
-        src={review.photo.photo.url}
-        width={review.photo.photo.width}
-        height={review.photo.photo.height}
+        src={shown.url}
+        width={shown.width}
+        height={shown.height}
         alt="Downloaded from the page"
+        onerror={() => copy.fail(shown.url)}
       />
-    {:else if review.photo.state === 'off' || review.photo.state === 'failed'}
+    {:else if review.photo.state !== 'none'}
       <div class="photo none" role="img" aria-label="No photo">
         <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
       </div>

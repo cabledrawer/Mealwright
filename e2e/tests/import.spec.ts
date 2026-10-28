@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
+import { uploadPhoto } from '../review/photos.ts';
 
 // Import a recipe (0.5): the one box, "Importing from links is switched off", the review, Save
 // and its one Undo, "You already have this recipe", and "From: site · by author" on the recipe
@@ -375,4 +376,54 @@ test('a link import keeps where it came from: From: site · by author on the rec
 test('the editor says a web address is a link you can open yourself', async ({ page }) => {
   await page.goto('/recipes/new');
   await expect(page.getByText('A web address shows as a link you can open yourself. Mealwright never visits it.')).toBeVisible();
+});
+
+/** A review whose photo was downloaded: a real stored photo, so its two copies can be fetched. */
+async function withDownloadedPhoto(page: Page) {
+  const id = await uploadPhoto(page.request, 'dish');
+  const response = await page.request.get(`/api/v1/recipes/photos/${id}/list`);
+  expect(response.ok()).toBe(true);
+  const photo = {
+    id,
+    url: `/api/v1/recipes/photos/${id}/large`,
+    width: 1600,
+    height: 1200,
+    list_url: `/api/v1/recipes/photos/${id}/list`,
+    list_width: 208,
+    list_height: 156,
+  };
+  await answer(page, 200, review({ photo: { state: 'downloaded', photo, message: null } }));
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  return photo;
+}
+
+const loadedPicture = (page: Page) =>
+  expect.poll(() => page.getByRole('img', { name: 'Downloaded from the page' }).evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+
+test('the review: the downloaded photo shows its large copy', async ({ page }) => {
+  const photo = await withDownloadedPhoto(page);
+  const img = page.getByRole('img', { name: 'Downloaded from the page' });
+  await expect(img).toHaveAttribute('src', photo.url);
+  await loadedPicture(page);
+});
+
+test('the review: if only the large copy can’t be fetched, the list copy shows (F22)', async ({ page }) => {
+  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  const photo = await withDownloadedPhoto(page);
+  const img = page.getByRole('img', { name: 'Downloaded from the page' });
+  await expect(img).toHaveAttribute('src', photo.list_url);
+  await loadedPicture(page);
+  await expect(page.getByRole('img', { name: 'No photo' })).toHaveCount(0);
+  await checkPage(page);
+});
+
+test('the review: if neither copy can be fetched, the "No photo" box shows, never a broken picture (F22)', async ({ page }) => {
+  await page.route('**/api/v1/recipes/photos/*/*', (route) => route.abort());
+  await withDownloadedPhoto(page);
+  await expect(page.getByRole('img', { name: 'No photo' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Downloaded from the page' })).toHaveCount(0);
+  await checkPage(page);
 });

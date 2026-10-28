@@ -8,7 +8,7 @@
   // but none here). It tries again when the connection comes back (network.backAgain). Only ever
   // our own server's address.
   import type { PhotoOut } from '#lib/client/recipes.js';
-  import { network } from '#lib/network.svelte.js';
+  import { PhotoFallback } from '#lib/photoFallback.svelte.js';
 
   let {
     photo,
@@ -22,22 +22,8 @@
     beside?: boolean;
   } = $props();
 
-  // The addresses that failed, and when: another photo (a new id) gets its own go, and the same
-  // one tries again once the connection comes back.
-  let failed = $state<{ urls: string[]; back: number }>({ urls: [], back: 0 });
-  const gone = (url: string) => network.backAgain === failed.back && failed.urls.includes(url);
-  const shown = $derived.by(() => {
-    if (!photo) return null;
-    if (!gone(photo.url)) return { url: photo.url, width: photo.width, height: photo.height };
-    if (!gone(photo.list_url))
-      return { url: photo.list_url, width: photo.list_width, height: photo.list_height };
-    return null;
-  });
-
-  function fail(url: string) {
-    const urls = network.backAgain === failed.back ? failed.urls : [];
-    failed = { urls: [...urls, url], back: network.backAgain };
-  }
+  const copy = new PhotoFallback(() => photo);
+  const shown = $derived(copy.shown);
 </script>
 
 {#if shown}
@@ -48,7 +34,7 @@
       width={shown.width}
       height={shown.height}
       decoding="async"
-      onerror={() => fail(shown.url)}
+      onerror={() => copy.fail(shown.url)}
     />
   </div>
 {/if}
