@@ -434,6 +434,9 @@ test.describe('a finger on a computer-sized screen', () => {
     await openWeekOf(page, today, day);
     const strip = page.getByRole('list', { name: 'Recipes to plan' });
     await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(`Swipe ${stampNow}`);
+    // The search asks again 200 ms after the last key: wait for its answer, or the first card can
+    // be one from before the search that is about to go.
+    await expect(strip.getByRole('button').filter({ hasNotText: stampNow })).toHaveCount(0);
     const trayCard = strip.getByRole('button').first();
     await expect(trayCard).toBeVisible();
     const card = cell(page, day, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first();
