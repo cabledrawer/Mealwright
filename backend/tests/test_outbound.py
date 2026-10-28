@@ -1,6 +1,7 @@
 """The outbound gate and the network guard (spec section 7)."""
 
 import ast
+import asyncio
 import logging
 import socket
 import socketserver
@@ -21,6 +22,7 @@ from mealwright.config import Settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.main import create_app
 from mealwright.models import Household
+from mealwright.network_guard import _audit, gate_open
 from mealwright.outbound import (
     LABELS,
     USER_AGENT,
@@ -232,6 +234,75 @@ def test_guard_allows_local_lookups() -> None:
 def test_guard_blocks_udp() -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp, pytest.raises(OutboundBlocked):
         udp.sendto(b"hi", ("127.0.0.1", 9))
+
+
+def test_guard_lets_a_write_on_an_existing_connection_through() -> None:
+    # sendmsg with no address finishes a large reply (asyncio's way); it is not a connection.
+    with socket.socket() as tcp:
+        _audit("socket.sendmsg", (tcp, None))
+        _audit("socket.sendmsg", (tcp, ()))
+
+
+def test_guard_still_blocks_sends_to_an_address() -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
+        for event in ("socket.sendmsg", "socket.sendto"):
+            with pytest.raises(OutboundBlocked):
+                _audit(event, (udp, ("1.2.3.4", 53)))
+        with pytest.raises(OutboundBlocked):
+            _audit("socket.connect", (udp, ("1.2.3.4", 53)))
+        # And for real: a UDP sendmsg with an address.
+        with pytest.raises(OutboundBlocked):
+            udp.sendmsg([b"hi"], [], 0, ("127.0.0.1", 9))
+
+
+def test_a_big_reply_arrives_whole_with_the_guard_on() -> None:
+    """F22: a reply bigger than the send buffer is finished with sendmsg (no address), which the
+    guard once refused; asyncio took that for a dead socket and cut the reply off, silently."""
+    size = 3 * 1024 * 1024
+    reply = bytes(range(251)) * (size // 251 + 1)
+    reply = reply[:size]
+    ready = threading.Event()
+    box: dict[str, object] = {}
+
+    class Reply(asyncio.Protocol):
+        def connection_made(self, transport: asyncio.BaseTransport) -> None:
+            sock = transport.get_extra_info("socket")
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+            assert isinstance(transport, asyncio.Transport)
+            transport.write(reply)
+            transport.close()  # after the whole reply has gone out
+
+    def serve() -> None:
+        loop = asyncio.new_event_loop()
+        server = loop.run_until_complete(loop.create_server(Reply, "127.0.0.1", 0))
+        box["port"] = server.sockets[0].getsockname()[1]
+        box["loop"] = loop
+        ready.set()
+        loop.run_forever()
+        server.close()
+        loop.run_until_complete(server.wait_closed())
+        loop.close()
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    assert ready.wait(5)
+    loop = box["loop"]
+    assert isinstance(loop, asyncio.AbstractEventLoop)
+    try:
+        client = socket.socket()
+        client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+        client.settimeout(10)
+        with gate_open():  # the client's connection is the gate's; the server's writes are not
+            client.connect(("127.0.0.1", int(str(box["port"]))))
+        got = bytearray()
+        with client:
+            while chunk := client.recv(65536):
+                got += chunk
+        assert len(got) == size
+        assert bytes(got) == reply
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(5)
 
 
 def test_guard_allows_unix_sockets(tmp_path: Path) -> None:

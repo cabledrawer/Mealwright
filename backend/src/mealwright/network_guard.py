@@ -11,6 +11,14 @@ This module is small and imports no networking module and no database code on pu
 page-reading child process switches the guard on too (`page_budget`), and importing the whole
 gate there would cost it about two thirds of a second of processor time on every page. It never
 imports `socket` itself: a socket's family is read from the object the hook is given.
+
+Only new connections and sends to an address are refused. A write on a connection that already
+exists (a reply going out) is not a connection and is never blocked: `socket.send` fires no
+event, and `socket.sendmsg` with no address is how asyncio finishes a large reply. Note that
+`OutboundBlocked` is an `OSError`, and asyncio treats an `OSError` on its write path as a dead
+socket and closes it without a word in the log. When the hook once refused such a write (F22,
+0.6.0), replies bigger than the send buffer were cut off silently.
+
 `mealwright.outbound` re-exports `install_network_guard`.
 """
 
@@ -62,7 +70,11 @@ def install_network_guard() -> None:
 def _audit(event: str, args: tuple[Any, ...]) -> None:
     if not event.startswith("socket.") or inside_gate.get():
         return
-    if event in {"socket.connect", "socket.sendto", "socket.sendmsg"}:
+    # `socket.sendmsg` with no address is a write on a socket that already exists (asyncio uses it
+    # to finish sending a large reply); with an address it is a UDP send, blocked like sendto.
+    if event in {"socket.connect", "socket.sendto"} or (
+        event == "socket.sendmsg" and len(args) > 1 and args[1]
+    ):
         sock = args[0]
         if getattr(getattr(sock, "family", None), "name", None) == "AF_UNIX":
             return
