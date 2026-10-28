@@ -334,3 +334,29 @@ test('Edit → Save with a new photo, then with the photo removed: the recipe pa
   await expect((await theList()).locator('img')).toHaveCount(0);
   await checkPage(page);
 });
+
+test('the recipe page: when the large copy can’t be fetched, the photo’s box stays in the same place and size (F22)', async ({ page }) => {
+  const name = unique('Place');
+  const { recipe } = await recipeWith(page, name, 'dish');
+  const frameBox = async () => {
+    const img = reader(page).getByRole('img', { name: `Photo of ${name}` });
+    await loaded(img);
+    return (await reader(page).locator('.frame').boundingBox())!;
+  };
+
+  await page.goto(`/recipes/${recipe.id}`);
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  const usual = await frameBox();
+
+  await page.route('**/api/v1/recipes/photos/*/large', (route) => route.abort());
+  await page.goto(`/recipes/${recipe.id}`);
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  await expect(reader(page).getByRole('img', { name: `Photo of ${name}` })).toHaveAttribute('src', /\/list$/);
+  const fallback = await frameBox();
+  expect(fallback).toEqual(usual);
+
+  // And it is where the layout puts it: above the name on a phone, beside the figures on a computer.
+  const heading = (await page.getByRole('heading', { name, level: 1 }).boundingBox())!;
+  if (isPhone(page)) expect(fallback.y + fallback.height).toBeLessThanOrEqual(heading.y);
+  else expect(fallback.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+});
