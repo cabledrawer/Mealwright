@@ -343,7 +343,7 @@ Written by Claude Code on 20 Oct from the editor mockups (`RecipeEditor-*`, `New
 
 ---
 
-## 19. Plan: Week and Month (0.6 PR 3; every line here is proposed, for cabledrawer)
+## 19. Plan: Week and Month (0.6 PR 3; OK'd by cabledrawer 26 Oct, see spec "UX — CORE", "Decided for the 0.6 Week and Month screens")
 
 Written by Claude Code on 26 Oct from the mockups `Plan`, `Desktop-Plan`, `Month-Desktop`, `Month-Phone` and the spec's "Meal planner interactions". cabledrawer's own words: Meals toggles, Week | Month, "2 recipes · 590 kcal" (spec, 17 Oct).
 
@@ -382,7 +382,7 @@ Written by Claude Code on 27 Oct from the mockups `Shop`, `Desktop-Shop` and the
 - Offline (the card stays, its buttons are switched off): "You’re offline. Got it and + Add work when you’re back online."
 - Not shown: nothing planned, everything in stock, or every staple answered: the card is not there, and the line above says nothing about the plan.
 
-## 22. Today (0.6 PR 6; every line here is proposed, for cabledrawer)
+## 22. Today (0.6 PR 6; OK'd by cabledrawer 27 Oct, see spec section 6, "Decided for Today")
 
 Written by Claude Code on 27 Oct from the mockups `Main`, `Desktop-Today`, `MoveIt-*`, `CookedMeal-*` and their dark twins. "Did you cook Sambar?", "Cooked it · Didn't · Move it", "Nothing changes in the pantry until you say." and "Your kitchen is ready" with its three steps are the spec's and the mockups' (cabledrawer 17 Oct).
 
@@ -495,7 +495,7 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - When a move was not made, a toast with the server's sentence: That list was removed, so Coriander wasn’t moved. · That shop was removed, so Coriander wasn’t moved.
   - Quiet notes on the row (sync protocol section 8): Wren had ticked Coriander, so it wasn’t moved. (no Undo) · Wren moved Coriander to Lidl (Undo puts it back where you had it) · Tess had moved Coriander, so your change wasn’t kept. · Tess had moved this. Your tick still went into the pantry.
 
-## 23. Import fixes and pints (0.6 PR 7; every line here is proposed, for cabledrawer)
+## 23. Import fixes and pints (0.6 PR 7; OK'd by cabledrawer 27 Oct, see spec section 6, "Import fixes and pints, decided")
 
 Written by Claude Code on 27 Oct. The card's words are from the mockups `ImportPints-*` (cabledrawer 24 Oct: "looks good"); the Settings row is not drawn in any mockup.
 
