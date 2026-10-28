@@ -7,8 +7,8 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
-  import { colourOfBatch, cookBatchOf, cookedOn, itemName, mealColour } from '#lib/planMeals.js';
-  import type { PlanMeal } from '#lib/client/plan.js';
+  import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf } from '#lib/planMeals.js';
+  import type { PlanBatch, PlanItem, PlanMeal } from '#lib/client/plan.js';
 
   let { actions }: { actions: PlanActions } = $props();
   const model = $derived(actions.model);
@@ -19,9 +19,26 @@
   const mealsOn = (day: string): PlanMeal[] =>
     (model.plan?.meals.filter((m) => m.date === day) ?? []).sort((a, b) => a.slot_id - b.slot_id);
 
-  const colourOf = (meal: PlanMeal): number | null => mealColour(model.plan, meal);
-  /** The cook day of a batch is drawn solid; its tubs light (the design's batch colours). */
-  const solid = (meal: PlanMeal): boolean => cookBatchOf(model.plan, meal) !== null;
+  /** One chip is one thing in a meal (F45): a day's cooking never hides inside a meal's joined
+   * names. `cook` is the batch it is the cooking of; `colour` is its batch's colour. */
+  interface Chip {
+    meal: PlanMeal;
+    item: PlanItem;
+    cook: PlanBatch | null;
+    colour: number | null;
+  }
+
+  function chipOf(meal: PlanMeal, item: PlanItem): Chip {
+    const cook = cookBatchOfItem(model.plan, meal, item);
+    const batch = cook ?? tubOf(model.plan, item)?.batch ?? null;
+    return { meal, item, cook, colour: batch ? colourOfBatch(batch) : null };
+  }
+
+  /** A day's chips: the cooking first, then the rest in meal order. */
+  const chipsOn = (day: string): Chip[] => {
+    const all = mealsOn(day).flatMap((meal) => meal.items.map((item) => chipOf(meal, item)));
+    return [...all.filter((c) => c.cook), ...all.filter((c) => !c.cook)];
+  };
 
   let fillNote = $state('');
   /** "Fill from freezer first": empty days ahead get a tub from the freezer. */
@@ -40,11 +57,23 @@
   const emptyAhead = $derived(
     model.days.filter((d) => inMonth(d) && d >= model.today && mealsOn(d).length === 0).slice(0, 6)
   );
-  const batches = $derived(
-    (model.plan?.batch_cooks ?? [])
-      .filter((b) => inMonth(b.cooked_on))
-      .sort((a, b) => a.cooked_on.localeCompare(b.cooked_on))
-  );
+  /** Batches cooked this month, and those whose tubs are eaten this month (F46). */
+  const batches = $derived.by(() => {
+    const plan = model.plan;
+    if (!plan) return [];
+    const tubBatch = new Map(plan.tubs.map((t) => [t.id, t.batch_id]));
+    const eaten = new Set<number>();
+    for (const meal of plan.meals) {
+      if (!inMonth(meal.date)) continue;
+      for (const item of meal.items) {
+        const id = item.tub_id === null ? undefined : tubBatch.get(item.tub_id);
+        if (id !== undefined) eaten.add(id);
+      }
+    }
+    return plan.batch_cooks
+      .filter((b) => inMonth(b.cooked_on) || eaten.has(b.id))
+      .sort((a, b) => a.cooked_on.localeCompare(b.cooked_on) || a.id - b.id);
+  });
 </script>
 
 <div class="month">
@@ -54,7 +83,7 @@
     </div>
     <div class="cells">
       {#each model.days as day (day)}
-        {@const meals = mealsOn(day)}
+        {@const chips = chipsOn(day)}
         {@const over = drag.isOver(day, null)}
         <div
           class="day"
@@ -79,33 +108,35 @@
               <span class="cook" title="Cook day">COOK</span>
             {/if}
           </div>
-          {#each meals.slice(0, SHOWN) as meal (meal.id)}
-            {@const colour = colourOf(meal)}
+          {#each chips.slice(0, SHOWN) as chip (chip.item.id)}
+            {@const { meal, item, colour } = chip}
+            {@const whole = meal.items.length === 1}
             <button
               type="button"
               class="chip"
               class:batch={colour !== null}
-              class:solid={solid(meal)}
+              class:solid={chip.cook !== null}
               style:--solid={colour ? `var(--batch-${colour})` : undefined}
               class:can
               style:--soft={colour ? `var(--batch-${colour}-soft)` : undefined}
               style:--soft-text={colour ? `var(--batch-${colour}-soft-text)` : undefined}
               disabled={actions.readonly}
               use:pressable={{
-                carry: can ? () => actions.carryMeal(meal) : null,
-                open: () => actions.openMeal(meal)
+                carry: can
+                  ? () => (whole ? actions.carryMeal(meal) : actions.carryItem(meal, item))
+                  : null,
+                open: () => (whole ? actions.openMeal(meal) : actions.openItem(meal, item))
               }}
-              aria-label="{meal.items
-                .map((i) => itemName(i, model.plan))
-                .join(', ')}, {model.slotName(meal.slot_id)} on {dayFull(day)}. Open menu"
-              ><span class="chip-name"
-                >{meal.items.map((i) => itemName(i, model.plan)).join(' · ')}</span
-              ></button
+              aria-label="{chip.cook ? 'Cooking ' : ''}{itemName(
+                item,
+                model.plan
+              )}, {model.slotName(meal.slot_id)} on {dayFull(day)}. Open menu"
+              ><span class="chip-name">{itemName(item, model.plan)}</span></button
             >
           {/each}
-          {#if meals.length > SHOWN}
+          {#if chips.length > SHOWN}
             <button type="button" class="more" onclick={() => actions.openDay(day)}
-              >+{meals.length - SHOWN} more</button
+              >+{chips.length - SHOWN} more</button
             >
           {/if}
           {#if over && drag.carried}
@@ -115,9 +146,11 @@
                 <span data-drop-zone="copy" class:on={drag.over?.mode === 'copy'}
                   >Copy <small>Alt</small></span
                 >
-                <span data-drop-zone="leftovers" class:on={drag.over?.mode === 'leftovers'}
-                  >Leftovers here</span
-                >
+                {#if drag.carried.leftoversOk?.(day, null) ?? true}
+                  <span data-drop-zone="leftovers" class:on={drag.over?.mode === 'leftovers'}
+                    >Leftovers here</span
+                  >
+                {/if}
               {:else}
                 <span class="on">Drop a recipe</span>
               {/if}
