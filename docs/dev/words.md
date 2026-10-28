@@ -507,7 +507,7 @@ Written by Claude Code on 27 Oct. The card's words are from the mockups `ImportP
 
 
 
-## 24. Recipe wishes, paper cuts and follow-ups (0.6 PR 8; every line here is proposed, for cabledrawer unless it says it is from a mockup)
+## 24. Recipe wishes, paper cuts and follow-ups (0.6 PR 8; OK'd by cabledrawer 28 Oct, see spec section 6, "Recipe paper cuts, decided")
 
 Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLines-*` (cabledrawer 24 Oct: "looks good") and the 0.6 friction sort, items 15 to 22.
 
