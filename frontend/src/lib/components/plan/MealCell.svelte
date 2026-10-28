@@ -135,7 +135,10 @@
       <div class="zones" aria-hidden="true">
         <span data-drop-zone="move" class:on={over.mode === 'move'}>Move</span>
         <span data-drop-zone="copy" class:on={over.mode === 'copy'}>Copy <small>Alt</small></span>
-        <span data-drop-zone="leftovers" class:on={over.mode === 'leftovers'}>Leftovers here</span>
+        {#if drag.carried.leftoversOk?.(day, slot.id) ?? true}
+          <span data-drop-zone="leftovers" class:on={over.mode === 'leftovers'}>Leftovers here</span
+          >
+        {/if}
       </div>
     {:else}
       <div class="zones one" aria-hidden="true"><span class="on">Drop here</span></div>

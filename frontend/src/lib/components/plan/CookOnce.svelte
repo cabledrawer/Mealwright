@@ -67,7 +67,11 @@
   const slotsOn = $derived(model.slotsOn);
   const slotAt = (slotId: number) => slotsOn.findIndex((s) => s.id === slotId);
 
+  /** Past days and meals before the cooking are not offered (F50). The cook meal is shown as a
+   * marker only; a day in the past shows nothing but that marker. */
   function slotsFor(day: string) {
+    if (day < model.today)
+      return day === cook?.cookDate ? slotsOn.filter((s) => s.id === cookSlot) : [];
     return day === cook?.cookDate
       ? slotsOn.filter((s) => slotAt(s.id) >= slotAt(cookSlot))
       : slotsOn;
@@ -251,7 +255,7 @@
             </p>
           </div>
           <ul class="days">
-            {#each cook.days as day (day)}
+            {#each cook.days.filter((d) => slotsFor(d).length > 0) as day (day)}
               <li class="day">
                 <h4>{dayShort(day)} {dayOfMonth(day)}</h4>
                 {#each slotsFor(day) as slot (slot.id)}

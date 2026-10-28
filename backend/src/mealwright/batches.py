@@ -43,6 +43,7 @@ from mealwright.plan import (
     _room,
     _snapshot_item,
     _where,
+    check_after_cook,
     check_day,
     find_slot,
     items_of,
@@ -283,6 +284,7 @@ def work_out(
         if spot is not None:
             check_day(kitchen, spot[0])
             find_slot(kitchen, spot[1])
+            check_after_cook(kitchen, meal, spot[0], spot[1])
             target = meal_at(kitchen, spot[0], spot[1])
             if target is not None:
                 _planned(target)

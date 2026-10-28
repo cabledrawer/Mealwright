@@ -18,7 +18,15 @@
     weekStart,
     weekWords
   } from '#lib/planDates.js';
-  import { cookBatchOfItem, itemName, mealName, tubOf, useByWords } from '#lib/planMeals.js';
+  import {
+    afterCook,
+    cookBatchOfItem,
+    dayAfterCook,
+    itemName,
+    mealName,
+    tubOf,
+    useByWords
+  } from '#lib/planMeals.js';
   import type { PlanItem } from '#lib/client/plan.js';
   import PlanDays from './PlanDays.svelte';
 
@@ -32,7 +40,9 @@
   let dialog: HTMLDialogElement;
 
   // Which step, and what has been picked so far.
-  let mode = $state<DropMode | 'plan' | 'whose' | null>(null);
+  let mode = $state<DropMode | 'plan' | 'whose' | 'useby' | null>(null);
+  /** The use-by date being typed for a tub (F48). */
+  let useBy = $state('');
   let weekOf = $state('');
   let day = $state<string | null>(null);
   let slotId = $state<number | null>(null);
@@ -109,6 +119,19 @@
     onclose();
   }
 
+  function openUseBy() {
+    if (!tub) return;
+    useBy = tub.tub.use_by;
+    mode = 'useby';
+  }
+
+  function saveUseBy() {
+    if (!tubItem || !tub || !useBy || actions.readonly) return;
+    if (useBy !== tub.tub.use_by)
+      void model.setUseBy(tub.tub.id, itemName(tubItem, model.plan), useBy);
+    onclose();
+  }
+
   function toFreezer() {
     if (!tubItem || !tub) return;
     void model.toFreezer(tub.tub.id, itemName(tubItem, model.plan));
@@ -133,6 +156,35 @@
           ? 'Plan leftovers here'
           : 'Plan it here'
   );
+
+  // Leftovers go only to meals after the cooking, and never to a past day (F50): the days and
+  // meals before are not shown.
+  const onlyAfter = $derived(
+    mode === 'leftovers' && target && (target.kind === 'meal' || target.kind === 'item')
+      ? target.meal
+      : null
+  );
+  const dayShown = (d: string) =>
+    !onlyAfter || dayAfterCook(d, onlyAfter, model.today, model.slotsOn);
+  const slotShown = (id: number) =>
+    !onlyAfter || day === null || afterCook(day, id, onlyAfter, model.today, model.slotsOn);
+  /** The earliest day that can be picked, so the week bar doesn't walk back into the past. */
+  const earliest = $derived(
+    onlyAfter ? (onlyAfter.date > model.today ? onlyAfter.date : model.today) : null
+  );
+  const atEarliestWeek = $derived(
+    earliest !== null && weekOf >= weekStart(earliest, model.startsOn)
+  );
+
+  $effect(() => {
+    // Leftovers open on the week of the first day that can be picked.
+    if (earliest !== null) weekOf = weekStart(earliest, model.startsOn);
+  });
+
+  $effect(() => {
+    // A day change can leave the picked meal behind the cooking: forget it.
+    if (slotId !== null && !slotShown(slotId)) slotId = null;
+  });
 
   /** Moving or copying onto the very place it is in does nothing. */
   const samePlace = $derived(
@@ -201,11 +253,15 @@
             <p class="sub">
               {tub.tub.place_kind === 'freezer' ? 'In the freezer' : 'In the fridge'} · {useByWords(
                 tub.tub.use_by,
-                model.today
+                model.today,
+                tub.batch.cooked_on
               )}
             </p>
             <button type="button" disabled={actions.readonly} onclick={() => (mode = 'whose')}
               >Whose tub?</button
+            >
+            <button type="button" disabled={actions.readonly} onclick={openUseBy}
+              >Change use-by date</button
             >
           {/if}
           {#if cookable}
@@ -248,12 +304,22 @@
           >
           <button type="button" class="back" onclick={() => (mode = null)}>Back</button>
         </div>
+      {:else if mode === 'useby'}
+        <h3>Use by</h3>
+        <input type="date" bind:value={useBy} aria-label="Use by" data-testid="tub-use-by" />
+        <div class="buttons">
+          <button type="button" class="back" onclick={() => (mode = null)}>Back</button>
+          <button type="button" class="go" disabled={!useBy || actions.readonly} onclick={saveUseBy}
+            >Save</button
+          >
+        </div>
       {:else}
         <h3>{question}</h3>
         <div class="weekbar">
           <button
             type="button"
             aria-label="Earlier week"
+            disabled={atEarliestWeek}
             onclick={() => (weekOf = addDays(weekOf, -7))}>‹</button
           >
           <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
@@ -265,21 +331,27 @@
         </div>
         <div class="days" role="group" aria-label="Day">
           {#each weekDays(weekOf) as d (d)}
-            <button
-              type="button"
-              aria-pressed={day === d}
-              aria-label={dayFull(d)}
-              onclick={() => (day = d)}><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
-            >
+            {#if dayShown(d)}
+              <button
+                type="button"
+                aria-pressed={day === d}
+                aria-label={dayFull(d)}
+                onclick={() => (day = d)}><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
+              >
+            {:else}
+              <span aria-hidden="true"></span>
+            {/if}
           {/each}
         </div>
         <div class="slots" role="group" aria-label="Meal">
           {#each model.slotsOn as slot (slot.id)}
-            <button
-              type="button"
-              aria-pressed={slotId === slot.id}
-              onclick={() => (slotId = slot.id)}>{slot.name}</button
-            >
+            {#if slotShown(slot.id)}
+              <button
+                type="button"
+                aria-pressed={slotId === slot.id}
+                onclick={() => (slotId = slot.id)}>{slot.name}</button
+              >
+            {/if}
           {/each}
         </div>
         {#if samePlace}<p class="note" role="status">

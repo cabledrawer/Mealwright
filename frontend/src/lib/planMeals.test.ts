@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { Plan, PlanItem, PlanMeal } from './client/plan';
+import type { MealSlot, Plan, PlanItem, PlanMeal } from './client/plan';
 import {
+  afterCook,
   batchColour,
+  dayAfterCook,
   colourOfBatch,
   cookBatchOfItem,
   itemName,
@@ -181,5 +183,44 @@ describe('a meal card’s words', () => {
     expect(useByWords('2026-10-29', '2026-10-26')).toBe('3 days left');
     expect(useByWords('2026-10-25', '2026-10-26')).toBe('use by yesterday');
     expect(useByWords('2026-10-22', '2026-10-26')).toBe('4 days past use-by');
+  });
+
+  it('counts days left from the cook day when the batch is not cooked yet (F48)', () => {
+    // Cooked Sat 31 Oct, 3 days in the fridge: use by Tue 3 Nov. On Wed 28 Oct it is not made
+    // yet, so it says 3 days left, never 6.
+    expect(useByWords('2026-11-03', '2026-10-28', '2026-10-31')).toBe('3 days left');
+    // Once cooked, it counts from today as before.
+    expect(useByWords('2026-11-03', '2026-11-01', '2026-10-31')).toBe('2 days left');
+    expect(useByWords('2026-11-03', '2026-11-03', '2026-10-31')).toBe('use by today');
+  });
+});
+
+describe('where leftovers may go (F50)', () => {
+  const slot = (id: number, name: string): MealSlot =>
+    ({ id, name, position: id, enabled: true }) as MealSlot;
+  const slots = [slot(1, 'Breakfast'), slot(2, 'Lunch'), slot(3, 'Dinner')];
+  const cook = { date: '2026-10-29', slot_id: 3 }; // Thursday dinner
+  const today = '2026-10-28';
+
+  it('offers only meals after the cook meal', () => {
+    expect(afterCook('2026-10-29', 1, cook, today, slots)).toBe(false);
+    expect(afterCook('2026-10-29', 3, cook, today, slots)).toBe(false); // the cook meal itself
+    expect(afterCook('2026-10-28', 3, cook, today, slots)).toBe(false);
+    expect(afterCook('2026-10-30', 1, cook, today, slots)).toBe(true);
+    const earlier = { date: '2026-10-29', slot_id: 2 };
+    expect(afterCook('2026-10-29', 3, earlier, today, slots)).toBe(true);
+    expect(afterCook('2026-10-29', 2, earlier, today, slots)).toBe(false);
+  });
+
+  it('never offers a past day, even when the cooking was in the past', () => {
+    const old = { date: '2026-10-26', slot_id: 1 };
+    expect(afterCook('2026-10-27', 2, old, today, slots)).toBe(false);
+    expect(afterCook('2026-10-28', 1, old, today, slots)).toBe(true);
+  });
+
+  it('knows which days have any meal to offer', () => {
+    expect(dayAfterCook('2026-10-29', cook, today, slots)).toBe(false);
+    expect(dayAfterCook('2026-10-30', cook, today, slots)).toBe(true);
+    expect(dayAfterCook('2026-10-26', cook, today, slots)).toBe(false);
   });
 });

@@ -26,6 +26,7 @@ from mealwright.models import (
     Login,
     Meal,
     MealItem,
+    MealSlot,
     Place,
     Recipe,
     RecipePhoto,
@@ -110,7 +111,7 @@ class PlanTubOut(BaseModel):
     id: int
     batch_id: int
     amount_quarters: int
-    number: int  # "tub 2 of 4": 2 (its place among its batch's tubs, in the order made)
+    number: int  # "tub 2 of 4": 2 (its place among its batch's tubs, in date order)
     place_id: int | None
     # Fridge, freezer or cupboard, for the place above (null: no place, or not the household's).
     place_kind: Literal["fridge", "freezer", "cupboard"] | None = None
@@ -263,10 +264,32 @@ def get_plan(
     }
     batch_recipe = {b.id: batch_recipes.get(b.recipe_id or 0) for b in batches}
     tub_batch = {t.id: t.batch_id for t in tubs}
-    # Every tub of a listed batch is in `tubs`, oldest first: "tub 2 of 4" is its place here.
+    # Every tub of a listed batch is in `tubs`. "Tub 2 of 4" is its place in date order (F50,
+    # cabledrawer 28 Oct): tubs in meals by the meal's day and slot, then tubs left in the order made.
+    when: dict[int, tuple[date, int, int]] = {}
+    for tub_id, tub_day, position, slot_id in db.execute(
+        select(MealItem.tub_id, Meal.day, MealSlot.position, MealSlot.id)
+        .join(Meal, and_(Meal.household_id == MealItem.household_id, Meal.id == MealItem.meal_id))
+        .join(
+            MealSlot, and_(MealSlot.household_id == Meal.household_id, MealSlot.id == Meal.slot_id)
+        )
+        .where(
+            MealItem.household_id == household_id,
+            MealItem.tub_id.in_(
+                select(Tub.id).where(
+                    Tub.household_id == household_id,
+                    or_(Tub.id.in_(tub_ids), Tub.batch_id.in_(batch_ids)),
+                )
+            ),
+        )
+    ):
+        if tub_id is not None:
+            when[tub_id] = (tub_day, position, slot_id)
     number: dict[int, int] = {}
     seen: dict[int, int] = {}
-    for tub in tubs:
+    for tub in sorted(
+        tubs, key=lambda t: (t.id not in when, when.get(t.id, (date.min, 0, 0)), t.id)
+    ):
         seen[tub.batch_id] = seen.get(tub.batch_id, 0) + 1
         number[tub.id] = seen[tub.batch_id]
 

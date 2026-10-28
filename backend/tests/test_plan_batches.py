@@ -471,7 +471,8 @@ def test_to_freezer_takes_the_tub_out_of_its_meal_and_sets_the_freezer_use_by(
     assert now["place_kind"] == "freezer"
     assert now["use_by"] != tub["use_by"] and now["use_by"] > tub["use_by"]
     assert [m["date"] for m in view(kitchen)["meals"]].count(day(1)) == 1
-    assert where_tubs_are(kitchen, slots)[0] == (1, None, "freezer")
+    # Numbered in date order (F50): the tub still in a meal is 1, the one in no meal is last.
+    assert where_tubs_are(kitchen, slots)[0] == (2, None, "freezer")
     twice = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer")
     assert twice.status_code == 409 and twice.json()["code"] == "already_frozen"
     assert undo(kitchen, frozen.json())["result"] == "done"
@@ -854,3 +855,67 @@ def test_batch_changes_are_in_recent_changes_with_their_undo(
     listed = kitchen.get(f"{API}/changes").json()["changes"]
     mine = next(c for c in listed if c["id"] == made["change"]["id"])
     assert mine["kind"] == "plan_batch" and mine["can_undo"] is True
+
+
+# --- Never into the past, never before the cooking (F50, cabledrawer 28 Oct) ---------------------------
+
+
+def _after_cook_refused(r: Any) -> None:
+    assert r.status_code == 422, r.text
+    assert r.json()["code"] == "not_after_cook"
+
+
+def test_leftovers_are_refused_before_or_at_the_cook_meal_and_in_the_past(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    url = f"{API}/plan/items/{cook['item_id']}/move"
+    past = (date.today() - timedelta(days=1)).isoformat()
+    for when, slot in (
+        (past, "Lunch"),  # in the past
+        (D1.isoformat(), "Lunch"),  # the cook day, before the cook meal (dinner)
+        (D1 - timedelta(days=1), "Dinner"),  # the day before
+    ):
+        body = {"date": str(when), "slot_id": slots[slot], "mode": "leftovers"}
+        _after_cook_refused(kitchen.post(url, json=body))
+    assert view(kitchen)["tubs"] == []
+
+
+def test_leftovers_of_a_whole_meal_follow_the_same_rule(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    body = {"date": D1.isoformat(), "slot_id": slots["Lunch"], "mode": "leftovers"}
+    _after_cook_refused(kitchen.post(f"{API}/plan/meals/{cook['meal_id']}/move", json=body))
+    assert view(kitchen)["batch_cooks"] == []
+
+
+def test_cook_once_placements_are_refused_before_the_cook_meal(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    early = [{"date": D1.isoformat(), "slot_id": slots["Lunch"]}]
+    for path in ("batch", "batch/preview"):
+        r = kitchen.post(
+            f"{API}/plan/items/{cook['item_id']}/{path}",
+            json={"tub_count": 1, "pattern": "pick", "placements": early},
+        )
+        _after_cook_refused(r)
+    past = [{"date": (date.today() - timedelta(days=1)).isoformat(), "slot_id": slots["Lunch"]}]
+    r = kitchen.post(
+        f"{API}/plan/items/{cook['item_id']}/batch",
+        json={"tub_count": 1, "pattern": "pick", "placements": past},
+    )
+    _after_cook_refused(r)
+    assert view(kitchen)["batch_cooks"] == []
+
+
+def test_tubs_are_numbered_in_date_order(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    """Planned later first, then earlier: the earlier one is still tub 1; a tub left is last."""
+    _leftovers(kitchen, cook["item_id"], D1 + timedelta(days=3), slots["Lunch"])
+    _leftovers(kitchen, cook["item_id"], D1 + timedelta(days=1), slots["Dinner"])
+    _leftovers(kitchen, cook["item_id"], D1 + timedelta(days=1), slots["Lunch"])
+    assert [(n, d, s) for n, d, s in where_tubs_are(kitchen, slots)] == [
+        (3, (D1 + timedelta(days=3)).isoformat(), "Lunch"),
+        (2, (D1 + timedelta(days=1)).isoformat(), "Dinner"),
+        (1, (D1 + timedelta(days=1)).isoformat(), "Lunch"),
+    ]

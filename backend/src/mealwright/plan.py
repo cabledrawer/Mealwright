@@ -60,6 +60,26 @@ def check_day(kitchen: Kitchen, day: date) -> None:
         )
 
 
+def check_after_cook(kitchen: Kitchen, cook: Meal, day: date, slot_id: int) -> None:
+    """Leftovers and tubs only go to meals after the cook meal, and never to a past day (F50,
+    cabledrawer 28 Oct: "just dont show dates befor eth cooked date")."""
+    if day < today(kitchen.household):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_after_cook",
+            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+        )
+    here, there = kitchen.db.get(MealSlot, cook.slot_id), kitchen.db.get(MealSlot, slot_id)
+    if here is None or there is None:  # pragma: no cover (find_slot has checked the slot)
+        return
+    if (day, there.position, there.id) <= (cook.day, here.position, here.id):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_after_cook",
+            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+        )
+
+
 def find_slot(kitchen: Kitchen, slot_id: int, *, on: bool = True) -> MealSlot:
     slot = kitchen.db.get(MealSlot, slot_id)
     if slot is None or slot.household_id != kitchen.household_id:
@@ -336,6 +356,8 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That meal is already there."
         )
+    if mode == "leftovers":
+        check_after_cook(kitchen, meal, day, slot_id)
     steps: list[dict[str, Any]] = []
     name, source = _meal_name(kitchen, meal), meal
     target = meal_at(kitchen, day, slot_id)
@@ -410,6 +432,8 @@ def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: M
             "tub_once",
             "A tub can only be in one meal at a time.",  # proposed, for cabledrawer
         )
+    if mode == "leftovers":
+        check_after_cook(kitchen, source, day, slot_id)
     steps: list[dict[str, Any]] = []
     name = _item_name(kitchen, item)
     where_from = _where(kitchen, source.day, source.slot_id)

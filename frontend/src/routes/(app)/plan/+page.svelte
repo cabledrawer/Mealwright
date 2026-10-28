@@ -24,7 +24,7 @@
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import { monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
-  import { itemName, mealName } from '#lib/planMeals.js';
+  import { afterCook, itemName, mealName } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
 
@@ -95,10 +95,15 @@
 
   const readonly = $derived(network.offline);
 
+  /** "Leftovers here" is offered only on meals after this one, and not in the past (F50). */
+  const leftoversOk = (meal: PlanMeal) => (day: string, slot: number | null) =>
+    afterCook(day, slot ?? meal.slot_id, meal, model.today, model.slotsOn);
+
   function carryMeal(meal: PlanMeal): Carried {
     return {
       label: mealName(meal, model.plan),
       zones: true,
+      leftoversOk: leftoversOk(meal),
       drop: (day, slot, mode) => {
         const to = slot ?? meal.slot_id;
         if (day === meal.date && to === meal.slot_id) return; // dropped where it was
@@ -124,6 +129,7 @@
     carryItem: (meal, item) => ({
       label: itemName(item, model.plan),
       zones: true,
+      leftoversOk: leftoversOk(meal),
       drop: (day, slot, mode) => {
         const to = slot ?? meal.slot_id;
         if (day === meal.date && to === meal.slot_id) return;

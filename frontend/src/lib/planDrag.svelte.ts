@@ -15,6 +15,9 @@ export interface Carried {
   /** A meal or one thing in it can be dropped as a move, a copy or leftovers; a recipe from
    * the tray can only be planned. */
   zones: boolean;
+  /** Whether "Leftovers here" is offered over this day and meal (not before the cook meal, not
+   * in the past; F50). `slot` is null in the Month view. Left out: always. */
+  leftoversOk?: (day: string, slot: number | null) => boolean;
   /** `slot` is null in the Month view, where a drop lands on a whole day. */
   drop: (day: string, slot: number | null, mode: DropMode) => void;
 }

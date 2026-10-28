@@ -125,11 +125,43 @@ export function mealColour(plan: Plan | null, meal: PlanMeal): number | null {
 export const whoseTub = (tub: PlanTub, people: Person[]): string | null =>
   people.find((p) => p.login_id === tub.member_login_id)?.name ?? null;
 
-/** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. */
-export function useByWords(useBy: string, today: string): string {
-  const days = Math.round((Date.parse(useBy) - Date.parse(today)) / 86_400_000);
+/** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. Days left count
+ * from the day the batch is cooked when that is still to come (F48: a tub cooked on Saturday has
+ * its 3 days from Saturday, not "6 days left" on Wednesday). */
+export function useByWords(useBy: string, today: string, cookedOn: string | null = null): string {
+  const from = cookedOn !== null && cookedOn > today && cookedOn <= useBy ? cookedOn : today;
+  const days = Math.round((Date.parse(useBy) - Date.parse(from)) / 86_400_000);
   if (days === 0) return 'use by today';
   if (days === 1) return 'use by tomorrow';
   if (days < 0) return days === -1 ? 'use by yesterday' : `${-days} days past use-by`;
   return `${days} days left`;
+}
+
+/**
+ * Whether leftovers (and tubs) may go to this day and meal: after the meal that was cooked, and
+ * never in the past (F50, cabledrawer 28 Oct: "just dont show dates befor eth cooked date"). `slots`
+ * are the meals that are on, in order. Days are "YYYY-MM-DD".
+ */
+export function afterCook(
+  day: string,
+  slotId: number,
+  cook: { date: string; slot_id: number },
+  today: string,
+  slots: MealSlot[]
+): boolean {
+  if (day < today || day < cook.date) return false;
+  if (day > cook.date) return true;
+  const order = slots.map((s) => s.id);
+  const [at, cookAt] = [order.indexOf(slotId), order.indexOf(cook.slot_id)];
+  return at >= 0 && at > cookAt;
+}
+
+/** Whether any meal on this day is after the cook meal (so the day is worth offering). */
+export function dayAfterCook(
+  day: string,
+  cook: { date: string; slot_id: number },
+  today: string,
+  slots: MealSlot[]
+): boolean {
+  return slots.some((s) => afterCook(day, s.id, cook, today, slots));
 }
