@@ -222,6 +222,19 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].member_login_id).toBeNull();
 
+  // F48: the tub's own use-by can be changed from here, with Undo; days left count from the cook day.
+  await lunch.click();
+  const useByMenu = page.getByRole('dialog', { name: `${name} tub` });
+  await expect(useByMenu).toContainText('3 days left'); // cooked later than today, 3 days in the fridge
+  await useByMenu.getByRole('button', { name: 'Change use-by date' }).click();
+  const newUseBy = addDays(day, 5);
+  await useByMenu.getByTestId('tub-use-by').fill(newUseBy);
+  await useByMenu.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'use by' })).toBeVisible();
+  await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].use_by).toBe(newUseBy);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].use_by).toBe(addDays(day, 3));
+
   // To freezer: the tub leaves its meal and is in the freezer.
   await lunch.click();
   await page.getByRole('dialog', { name: `${name} tub` }).getByRole('button', { name: 'To freezer' }).click();
@@ -276,4 +289,55 @@ test('Leftovers here makes a tub of the meal’s batch cook; Undo takes it back'
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(async () => (await planRange(page, day, addDays(day, 3))).tubs.length).toBe(0);
   await expect(mealButton(page, sun, 'Lunch', slot.Lunch, `${name} tub`)).toHaveCount(0);
+});
+
+test('F50: Leftovers on… and Cook once offer nothing before the cooking or in the past', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `Dal ${stamp()}`;
+  const day = addDays(far(today, 3), 14); // a Saturday of its own
+  const before = addDays(day, -1);
+  const item = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
+  await openWeekOf(page, today, day);
+  await mealButton(page, day, 'Dinner', slot.Dinner, name).click();
+  const sheet = page.getByRole('dialog', { name });
+  await sheet.getByRole('button', { name: 'Leftovers on…' }).click();
+  // The day before the cooking is not offered; the cook day is, with only the meals after dinner.
+  await expect(sheet.getByRole('button', { name: dayName(before) })).toHaveCount(0);
+  await sheet.getByRole('button', { name: dayName(day) }).click();
+  for (const word of ['Breakfast', 'Lunch', 'Dinner']) await expect(sheet.getByRole('button', { name: word, exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Snack', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: dayName(addDays(day, 1)) })).toBeVisible();
+  // The server says no as well.
+  const refused = await page.request.post(`/api/v1/plan/items/${item.item_id}/batch`, {
+    data: { tub_count: 1, pattern: 'pick', placements: [{ date: before, slot_id: slot.Lunch }] },
+    headers: key()
+  });
+  expect(refused.status()).toBe(422);
+  expect(((await refused.json()) as { code: string }).code).toBe('not_after_cook');
+});
+
+test('F45 and F46: Month shows the cooking first and "+N more", and a batch whose tubs run into the month', async ({ page }) => {
+  test.skip(isPhone(page), 'the phone Month is a dot grid');
+  const { slot } = await setup(page);
+  const name = `Stew ${stamp()}`;
+  const others = `Rice ${stamp()}`;
+  const nov = (n: number) => `2026-11-${String(n).padStart(2, '0')}`;
+  const day = nov(8 + 3 * projectIndex()); // this project's own November days
+  const cook = await planned(page, await makeRecipe(page, name), day, slot.Lunch);
+  for (const s of ['Breakfast', 'Dinner', 'Snack']) await planned(page, await makeRecipe(page, `${others} ${s}`), day, slot[s]);
+  const dec = nov(30);
+  const late = await planned(page, await makeRecipe(page, `${name} late`), dec, slot.Dinner);
+  await call(page, 'POST', `/plan/items/${late.item_id}/batch`, { tub_count: 1, pattern: 'lunch_dinner' });
+  await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, { tub_count: 1, pattern: 'pick' });
+  await page.goto('/plan');
+  await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Month' }).click();
+  await page.getByRole('button', { name: 'Next month' }).click(); // October → November
+  const cell = page.getByTestId(`day-${day}`);
+  const chips = cell.getByRole('button', { name: /Open menu$/ });
+  await expect(chips).toHaveCount(3);
+  await expect(chips.first()).toContainText(name); // the cooking, though lunch comes after breakfast
+  await expect(cell.getByRole('button', { name: '+1 more' })).toBeVisible();
+  // December: the batch cooked on 30 November, whose tub is eaten in December, is listed.
+  await page.getByRole('button', { name: 'Next month' }).click();
+  await expect(page.getByRole('heading', { level: 3, name: 'Batches this month' }).locator('..')).toContainText(`${name} late`);
 });
