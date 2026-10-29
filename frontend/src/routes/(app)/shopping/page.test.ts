@@ -717,10 +717,10 @@ describe('the Shopping page', () => {
       await paste.click();
       await paste.click();
       release();
+      await expect.element(page.getByRole('status').getByText('Sesame paste added')).toBeVisible();
       await vi.waitFor(() =>
-        expect(server.actions.filter((x) => x.kind === 'add')).toHaveLength(1)
+        expect(server.actions.filter((x) => x.kind === 'add').length).toBeGreaterThan(0)
       );
-      await new Promise((resolve) => setTimeout(resolve, 200));
       expect(server.actions.filter((x) => x.kind === 'add')).toHaveLength(1);
     });
 

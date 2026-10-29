@@ -207,7 +207,7 @@ async function liquidOnList(page: Page, name: string, amountMl: number) {
   });
 }
 
-test("F63: \"2 l milk\" in the add box adds 2 litres of Milk, and joins the 1 L line that is there", async ({
+test('F63: "2 l milk" in the add box adds 2 litres of Milk, and joins the 1 L line that is there', async ({
   page,
 }) => {
   const name = `Milk ${tag()}`;
@@ -220,7 +220,9 @@ test("F63: \"2 l milk\" in the add box adds 2 litres of Milk, and joins the 1 L 
     .click();
   // One line, 3 L: joined, not "already on the list" and not a second line.
   await expect(
-    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 3`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 3`),
+    }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name, exact: true })).toHaveCount(1);
   await expect(page.getByText(`${name} is already on the list`)).toHaveCount(0);
@@ -239,11 +241,19 @@ test("F63: a name that starts with a number is kept whole, and a bare number say
   const matches = page.getByRole("list", { name: "Matching ingredients" });
   // "2 Garlic": the row says what 2 will be read as.
   await box.fill(`2 ${garlic}`);
-  await expect(matches.getByRole("button", { name: `${garlic} · 2 g` })).toBeVisible();
+  await expect(
+    matches.getByRole("button", { name: `${garlic} · 2 g` }),
+  ).toBeVisible();
   // An ingredient named like the whole text wins: no amount is cut off it.
   await box.fill(spice);
-  await matches.getByRole("button", { name: spice }).click();
-  await expect(page.getByRole("button", { name: spice, exact: true })).toBeVisible();
+  // The match row has no " · 5 g", and the line goes on with no amount.
+  await matches.getByRole("button", { name: spice, exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: spice, exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `Add amount for ${spice}` }),
+  ).toBeVisible();
   // An amount that can't be read keeps the text, so it can be fixed.
   const eggs = `Eggs ${t}`;
   await call(page, "POST", "/foods", { name: eggs, counted_as: "count" });
@@ -253,7 +263,7 @@ test("F63: a name that starts with a number is kept whole, and a bare number say
   await expect(box).toHaveValue(`200 g ${eggs}`);
 });
 
-test("F61: the amount box takes \"250 g\" typed with its unit, and the empty box shows a small \"500 g\"", async ({
+test('F61: the amount box takes "250 g" typed with its unit, and the empty box shows a small "500 g"', async ({
   page,
 }) => {
   const name = `Raisins ${tag()}`;
@@ -272,14 +282,18 @@ test("F61: the amount box takes \"250 g\" typed with its unit, and the empty box
   await amount.fill("250 g");
   await box.getByRole("button", { name: "Done" }).click();
   await expect(
-    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 250`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 250`),
+    }),
   ).toBeVisible();
   // And in kilos, typed.
   await page.getByRole("button", { name, exact: true }).click();
   await amount.fill("2 kg");
   await box.getByRole("button", { name: "Done" }).click();
   await expect(
-    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 2 kg`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 2 kg`),
+    }),
   ).toBeVisible();
 });
 
@@ -322,10 +336,14 @@ test("tapping the name opens the amount box without ticking, and − / + step th
   await expect(amount).toHaveValue("450");
   await box.getByRole("button", { name: "Done" }).click();
   await expect(
-    page.getByRole("button", { name: new RegExp(`^Change amount: ${name}, 450`) }),
+    page.getByRole("button", {
+      name: new RegExp(`^Change amount: ${name}, 450`),
+    }),
   ).toBeVisible();
   // Still not ticked, and nothing went into the pantry.
-  await expect(page.getByRole("checkbox", { name: `Tick ${name}` })).not.toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: `Tick ${name}` }),
+  ).not.toBeChecked();
   expect(await stockOf(page, foodId)).toEqual({});
 });
 
@@ -1015,7 +1033,7 @@ test("Add amount on a ticked row with no amount gives it a first amount, and Rec
   expect(summaries.join("\n")).not.toContain("instead of");
 });
 
-test("F62: leaving \"How much?\" for later keeps Add amount on the ticked row; picking 500 g files it", async ({
+test('F62: leaving "How much?" for later keeps Add amount on the ticked row; picking 500 g files it', async ({
   page,
 }) => {
   await settleCards(page);
@@ -1190,7 +1208,10 @@ test("F73 phone: while a row is swiped, its name and its amount stay on screen b
     name: new RegExp(`^Change amount: ${name}, `),
   });
   /** The name and the amount are whole on screen and clear of the button that was shown. */
-  const clearOf = async (button: ReturnType<Page["getByRole"]>, side: "left" | "right") => {
+  const clearOf = async (
+    button: ReturnType<Page["getByRole"]>,
+    side: "left" | "right",
+  ) => {
     await expect
       .poll(async () => {
         const [b, n, a] = await Promise.all([
@@ -1199,7 +1220,8 @@ test("F73 phone: while a row is swiped, its name and its amount stay on screen b
           pill.boundingBox(),
         ]);
         if (!b || !n || !a) return "missing";
-        if (n.x < 0 || a.x < 0 || a.x + a.width > viewport.width) return "off screen";
+        if (n.x < 0 || a.x < 0 || a.x + a.width > viewport.width)
+          return "off screen";
         const edge = side === "left" ? b.x : b.x + b.width;
         const clear = (box: { x: number; width: number }) =>
           side === "left" ? box.x + box.width <= edge + 1 : box.x >= edge - 1;
@@ -1208,7 +1230,9 @@ test("F73 phone: while a row is swiped, its name and its amount stay on screen b
       .toBe("clear");
   };
   await swipeLeft(page, name);
-  const red = page.getByRole("button", { name: `Remove ${name} from the list` });
+  const red = page.getByRole("button", {
+    name: `Remove ${name} from the list`,
+  });
   await expect(red).toBeVisible();
   await clearOf(red, "left");
   await red.evaluate(() => (document.activeElement as HTMLElement)?.blur());
