@@ -325,6 +325,12 @@ test('F50: Leftovers on… and Cook once offer nothing before the cooking or in 
   expect(((await refused.json()) as { code: string }).code).toBe('not_after_cook');
 });
 
+/** How many things a day already has, as Month counts them: one chip per item in its meals. */
+async function thingsOn(page: Page, day: string): Promise<number> {
+  const meals = (await planRange(page, day, day)).meals as { date: string; items: unknown[] }[];
+  return meals.filter((m) => m.date === day).reduce((n, m) => n + m.items.length, 0);
+}
+
 test('F45 and F46: Month shows the cooking first and "+N more", and a batch whose tubs run into the month', async ({ page }) => {
   test.skip(isPhone(page), 'the phone Month is a dot grid');
   const { slot } = await setup(page);
@@ -332,6 +338,8 @@ test('F45 and F46: Month shows the cooking first and "+N more", and a batch whos
   const others = `Rice ${stamp()}`;
   const nov = (n: number) => `2026-11-${String(n).padStart(2, '0')}`;
   const day = nov(8 + 3 * projectIndex()); // this project's own November days
+  // In a full run other test files' meals can be on this day too: count them first.
+  const before = await thingsOn(page, day);
   const cook = await planned(page, await makeRecipe(page, name), day, slot.Lunch);
   for (const s of ['Breakfast', 'Dinner', 'Snack']) await planned(page, await makeRecipe(page, `${others} ${s}`), day, slot[s]);
   const dec = nov(30);
@@ -345,7 +353,7 @@ test('F45 and F46: Month shows the cooking first and "+N more", and a batch whos
   const chips = cell.getByRole('button', { name: /Open menu$/ });
   await expect(chips).toHaveCount(3);
   await expect(chips.first()).toContainText(name); // the cooking, though lunch comes after breakfast
-  await expect(cell.getByRole('button', { name: '+1 more' })).toBeVisible();
+  await expect(cell.getByRole('button', { name: `+${before + 4 - 3} more` })).toBeVisible();
   // December: the batch cooked on 30 November, whose tub is eaten in December, is listed.
   await page.getByRole('button', { name: 'Next month' }).click();
   await expect(page.getByRole('heading', { level: 3, name: 'Batches this month' }).locator('..')).toContainText(`${name} late`);
