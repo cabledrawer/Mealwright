@@ -3,8 +3,11 @@
 import ast
 import asyncio
 import logging
+import os
 import socket
 import socketserver
+import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -316,6 +319,112 @@ def test_a_big_reply_arrives_whole_with_the_guard_on() -> None:
     finally:
         loop.call_soon_threadsafe(loop.stop)
         thread.join(5)
+
+
+def test_guard_blocks_a_reverse_lookup_of_a_non_local_address() -> None:
+    for sockaddr in (("8.8.8.8", 53), ("2001:db8::1", 53, 0, 0), ("192.0.2.1", 80)):
+        with pytest.raises(OutboundBlocked):
+            _audit("socket.getnameinfo", (sockaddr,))
+    # And for real, through the socket module.
+    with pytest.raises(OutboundBlocked):
+        socket.getnameinfo(("192.0.2.1", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
+
+
+def test_guard_allows_a_reverse_lookup_of_a_loopback_address() -> None:
+    for sockaddr in (
+        ("127.0.0.1", 80),
+        ("127.5.6.7", 80),
+        ("::1", 80, 0, 0),
+        ("::ffff:127.0.0.1", 80, 0, 0),
+    ):
+        _audit("socket.getnameinfo", (sockaddr,))
+    socket.getnameinfo(("127.0.0.1", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
+    socket.getnameinfo(("::1", 80, 0, 0), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
+
+
+def test_guard_refuses_a_malformed_reverse_lookup_without_crashing() -> None:
+    # Whatever Python's own check would say, the hook itself refuses it and never raises
+    # anything but OutboundBlocked.
+    for args in ((), (None,), ("127.0.0.1",), ((),), (("localhost", 80),), (("x", 80),), ((1, 2),)):
+        with pytest.raises(OutboundBlocked):
+            _audit("socket.getnameinfo", args)
+
+
+def test_a_reverse_lookup_is_not_blocked_with_the_gate_open() -> None:
+    with gate_open():
+        _audit("socket.getnameinfo", (("192.0.2.1", 80),))
+        socket.getnameinfo(("192.0.2.1", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
+
+
+def _own_address() -> str | None:
+    """An address of this machine that is not loopback: the one a UDP socket "connected" to a
+    documentation address picks. Connecting a UDP socket sends nothing."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe, gate_open():
+            probe.connect(("192.0.2.1", 9))
+            address = str(probe.getsockname()[0])
+    except OSError:
+        return None
+    return None if address.startswith("127.") or address == "0.0.0.0" else address  # noqa: S104
+
+
+CLIENT_OVER_LAN = """
+import http.client, socket, sys, time
+host, port = sys.argv[1], int(sys.argv[2])
+for _ in range(200):
+    try:
+        conn = http.client.HTTPConnection(host, port, timeout=20)
+        conn.connect()
+        conn.sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+        conn.request("GET", "/api/v1/openapi.json")
+        reply = conn.getresponse()
+        body = reply.read()
+        print(reply.status, len(body), flush=True)
+        break
+    except OSError:
+        time.sleep(0.1)
+"""
+
+
+def test_the_real_server_answers_over_a_non_loopback_connection(tmp_path: Path) -> None:
+    """cabledrawer 29 Oct: normal requests still work over a real, non-loopback connection with the
+    guard on. The server is the real one (`python -m mealwright`, guard installed), listening on
+    this machine's own address; the client is a separate process."""
+    address = _own_address()
+    if address is None:
+        pytest.skip("this machine has no non-loopback address to listen on")
+    with socket.socket() as sock:
+        sock.bind((address, 0))
+        port = int(sock.getsockname()[1])
+    env = {
+        **os.environ,
+        "MEALWRIGHT_DATA_DIR": str(tmp_path / "data"),
+        "MEALWRIGHT_HOST": address,
+        "MEALWRIGHT_PORT": str(port),
+        "MEALWRIGHT_RUN_JOBS": "false",
+        "MEALWRIGHT_FRONTEND_DIR": str(tmp_path / "none"),
+    }
+    server = subprocess.Popen(
+        [sys.executable, "-m", "mealwright"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        client = subprocess.run(  # noqa: S603 (fixed arguments)
+            [sys.executable, "-I", "-c", CLIENT_OVER_LAN, address, str(port)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        status, length = client.stdout.split()
+        assert status == "200", client.stdout + client.stderr
+        # Bigger than the send buffer, so the server finishes it with the deferred write.
+        assert int(length) > 100_000
+    finally:
+        server.terminate()
+        server.wait(10)
 
 
 def test_guard_allows_unix_sockets(tmp_path: Path) -> None:
