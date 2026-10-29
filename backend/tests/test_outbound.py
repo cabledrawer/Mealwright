@@ -255,6 +255,19 @@ def test_guard_still_blocks_sends_to_an_address() -> None:
             udp.sendmsg([b"hi"], [], 0, ("127.0.0.1", 9))
 
 
+def test_guard_blocks_an_address_made_to_look_empty() -> None:
+    # B4 security review: an address whose truth is False is still an address.
+    class Quiet(tuple[str, int]):
+        def __bool__(self) -> bool:
+            return False
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
+        with pytest.raises(OutboundBlocked):
+            _audit("socket.sendmsg", (udp, Quiet(("1.2.3.4", 53))))
+        with pytest.raises(OutboundBlocked):
+            udp.sendmsg([b"hi"], [], 0, Quiet(("127.0.0.1", 9)))
+
+
 def test_a_big_reply_arrives_whole_with_the_guard_on() -> None:
     """F22: a reply bigger than the send buffer is finished with sendmsg (no address), which the
     guard once refused; asyncio took that for a dead socket and cut the reply off, silently."""

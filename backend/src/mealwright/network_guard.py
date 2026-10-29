@@ -73,7 +73,7 @@ def _audit(event: str, args: tuple[Any, ...]) -> None:
     # `socket.sendmsg` with no address is a write on a socket that already exists (asyncio uses it
     # to finish sending a large reply); with an address it is a UDP send, blocked like sendto.
     if event in {"socket.connect", "socket.sendto"} or (
-        event == "socket.sendmsg" and len(args) > 1 and args[1]
+        event == "socket.sendmsg" and len(args) > 1 and not _no_address(args[1])
     ):
         sock = args[0]
         if getattr(getattr(sock, "family", None), "name", None) == "AF_UNIX":
@@ -84,6 +84,12 @@ def _audit(event: str, args: tuple[Any, ...]) -> None:
             raise OutboundBlocked(f"DNS lookup outside the outbound gate ({event})")
     elif event == "socket.gethostbyaddr":
         raise OutboundBlocked("reverse DNS lookup outside the outbound gate")
+
+
+def _no_address(address: object) -> bool:
+    """Only None or a plain empty tuple mean "no address": an address object made to look empty
+    (a tuple subclass whose truth is False) is still an address."""
+    return address is None or (type(address) is tuple and len(address) == 0)
 
 
 def _is_local_name(host: object) -> bool:
