@@ -427,6 +427,17 @@
     font-weight: var(--weight-bold);
   }
 
+  /* The use-by box (F48), styled as the date boxes elsewhere (LotMenu). */
+  input[type='date'] {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-md);
+    background: var(--color-field);
+    color: var(--color-text);
+    font: var(--weight-semibold) 1rem var(--font-ui);
+  }
+
   .note {
     padding: var(--space-4) var(--space-6);
     border-radius: var(--radius-md);

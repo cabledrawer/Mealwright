@@ -310,6 +310,23 @@ def test_the_list_follows_the_tub_count_exactly(kitchen: TestClient, rice: dict[
     assert amounts(kitchen) == {rice["id"]: 700}  # 7 portions of 8, 100 g each
 
 
+def test_a_cook_meal_with_its_own_servings_buys_for_those_people_plus_the_tubs(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    # Proposed, for cabledrawer (B1 review): a cook meal planned "for 4" feeds 4 on the cook day, so
+    # 4 + 6 tubs = 10 portions, not 7. Cook once's own meals have no servings: 1 + tubs, as above.
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
+    cook = plan(kitchen, sambar, 1, servings=4)
+    ok(
+        kitchen.post(
+            f"{API}/plan/items/{cook['item_id']}/batch",
+            json={"tub_count": 6, "pattern": "lunch_dinner"},
+        ),
+        201,
+    )
+    assert amounts(kitchen) == {rice["id"]: 500}  # 10/4 of 200 g
+
+
 def test_leftovers_are_bought_for_on_top_of_the_meal(
     kitchen: TestClient, rice: dict[str, Any]
 ) -> None:
