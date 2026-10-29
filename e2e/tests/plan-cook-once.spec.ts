@@ -40,6 +40,9 @@ async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  // Snack is off in a new household; these tests plan it, so they switch it on themselves
+  // (they used to rely on plan.spec.ts having run first).
+  await call(page, 'PATCH', `/meal-slots/${slot.Snack}`, { enabled: true });
   const me = (await (await page.request.get('/api/v1/me')).json()) as { name: string };
   return { today: household.today, slot, me: me.name };
 }
@@ -227,8 +230,13 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   const useByMenu = page.getByRole('dialog', { name: `${name} tub` });
   await expect(useByMenu).toContainText('3 days left'); // cooked later than today, 3 days in the fridge
   await useByMenu.getByRole('button', { name: 'Change use-by date' }).click();
+  // Not before the cook day (cabledrawer 29 Oct): Save waits, and the box says why.
+  await useByMenu.getByTestId('tub-use-by').fill(addDays(day, -1));
+  await expect(useByMenu.getByText('Pick the cook day or later.')).toBeVisible();
+  await expect(useByMenu.getByRole('button', { name: 'Save' })).toBeDisabled();
   const newUseBy = addDays(day, 5);
   await useByMenu.getByTestId('tub-use-by').fill(newUseBy);
+  await expect(useByMenu.getByText('Pick the cook day or later.')).toHaveCount(0);
   await useByMenu.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'use by' })).toBeVisible();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].use_by).toBe(newUseBy);
@@ -296,16 +304,17 @@ test('F50: Leftovers on… and Cook once offer nothing before the cooking or in 
   const name = `Dal ${stamp()}`;
   const day = addDays(far(today, 3), 14); // a Saturday of its own
   const before = addDays(day, -1);
-  const item = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
+  // Cooked at lunch: a new household's Snack and Dinner come after it (no other test needed first).
+  const item = await planned(page, await makeRecipe(page, name), day, slot.Lunch);
   await openWeekOf(page, today, day);
-  await mealButton(page, day, 'Dinner', slot.Dinner, name).click();
+  await mealButton(page, day, 'Lunch', slot.Lunch, name).click();
   const sheet = page.getByRole('dialog', { name });
   await sheet.getByRole('button', { name: 'Leftovers on…' }).click();
-  // The day before the cooking is not offered; the cook day is, with only the meals after dinner.
+  // The day before the cooking is not offered; the cook day is, with only the meals after lunch.
   await expect(sheet.getByRole('button', { name: dayName(before) })).toHaveCount(0);
   await sheet.getByRole('button', { name: dayName(day) }).click();
-  for (const word of ['Breakfast', 'Lunch', 'Dinner']) await expect(sheet.getByRole('button', { name: word, exact: true })).toHaveCount(0);
-  await expect(sheet.getByRole('button', { name: 'Snack', exact: true })).toBeVisible();
+  for (const word of ['Breakfast', 'Lunch']) await expect(sheet.getByRole('button', { name: word, exact: true })).toHaveCount(0);
+  for (const word of ['Snack', 'Dinner']) await expect(sheet.getByRole('button', { name: word, exact: true })).toBeVisible();
   await expect(sheet.getByRole('button', { name: dayName(addDays(day, 1)) })).toBeVisible();
   // The server says no as well.
   const refused = await page.request.post(`/api/v1/plan/items/${item.item_id}/batch`, {

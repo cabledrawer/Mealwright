@@ -436,7 +436,7 @@ cabledrawer's answers after trying 0.4 on his phone (mockups `ShopRows-*`, in `d
 The shape is in "Data model notes" below: each meal sits on a date and slot and holds one or more items; a batch cook creates tubs. Decided on top of that:
 
 - **Meals nobody cooked (cabledrawer 17 Oct):** if a planned meal's day passes without "Cooked it", the next morning Today asks gently: "Did you cook Sambar yesterday?" → Cooked it · Didn't · Move it. Nothing changes in the pantry until it's answered.
-- **Tub use-by (cabledrawer 17 Oct):** every tub gets a use-by date when it's made. The defaults are 3 days in the fridge and 3 months in the freezer. The user can edit the defaults per household and the date on any tub. Tubs near their date show on "Use soon".
+- **Tub use-by (cabledrawer 17 Oct):** every tub gets a use-by date when it's made. The defaults are 3 days in the fridge and 3 months in the freezer. The user can edit the defaults per household and the date on any tub. Tubs near their date show on "Use soon". **A tub's use-by can't be set before its cook date** (cabledrawer 29 Oct: "yes").
 - **Recipe edited after planning (cabledrawer 17 Oct):** future meals follow the latest version of the recipe. Cooked meals keep a record of what was actually made (recipe version, amounts, deductions), so history and pantry changes stay correct.
 
 **Data model:** meal status (planned / cooked / didn't / moved); a cooked record per meal or batch (a snapshot of the recipe as cooked plus its stock changes); tub use-by date; household defaults for fridge / freezer tub life.
@@ -561,7 +561,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 **0.6.0 bugs, fixed first in 0.7.0 (cabledrawer 28 Oct):**
 
 - **Leftovers dates (F50).** "Leftovers on…", the drag zone "Leftovers here" and Cook once's "I'll pick" never offer past days or days before the cook meal (cabledrawer: "just dont show dates befor eth cooked date"). Tubs are numbered in date order.
-- **Cook once and the shopping list (F58).** The shopping list buys exactly what Cook once says, with no full recipe added on top. **The cook-day meal counts as a portion** (cabledrawer: "yes it count it"): 6 tubs plus eating on the cook day is 7 portions. F56 is checked against this: high spice counts, halves of counted things (rounded up to whole ones on the list), and cups of solids shown in ml.
+- **Cook once and the shopping list (F58).** The shopping list buys exactly what Cook once says, with no full recipe added on top. **The cook-day meal counts as a portion** (cabledrawer: "yes it count it"): 6 tubs plus eating on the cook day is 7 portions. **A cook meal planned for 4 that also makes tubs buys for 4 plus the tubs; the cook-day eaters are portions** (cabledrawer 29 Oct: "yes, buy for 4 plus the tubs"). F56 is checked against this: high spice counts, halves of counted things (rounded up to whole ones on the list), and cups of solids shown in ml.
 - **A tub's use-by (F48)** can be changed from the plan, as the 0.6.0 release notes promise; a 3-day fridge tub never says "6 days left".
 - **Photos through a reverse proxy (F22).** Photos that are cut off (`ERR_HTTP2_PROTOCOL_ERROR`, "unexpected EOF") and `/small` and `/thumb` answering 422 on Check are fixed in the app. If the cause is the proxy or the server rather than Mealwright, the lead stops and tells cabledrawer.
 - **Recipe editor line order (F36):** Ingredient · Amount · Unit · Note (cabledrawer 22 Oct; it was due in 0.6).

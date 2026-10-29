@@ -473,6 +473,14 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
         tub.member_login_id = new
     if "use_by" in fields and fields["use_by"] is not None:
         new_day = fields["use_by"]
+        batch = kitchen.db.get(BatchCook, tub.batch_id)
+        # Not before the cook day (cabledrawer 29 Oct).
+        if batch is not None and new_day < batch.cooked_on:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "use_by_before_cook_day",
+                "A tub’s use-by can’t be before the day it was cooked.",  # proposed, for cabledrawer
+            )
         changed = changed or new_day != tub.use_by
         tub.use_by = new_day
     if not changed:

@@ -460,6 +460,22 @@ def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
     assert kitchen.patch(url, json={}).status_code == 422
 
 
+def test_a_tubs_use_by_cant_be_before_its_cook_day(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    """cabledrawer 29 Oct: a tub's use-by can't be set before its cook date."""
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    tub = view(kitchen)["tubs"][0]
+    url = f"{API}/plan/tubs/{tub['id']}"
+    early = kitchen.patch(url, json={"use_by": (D1 - timedelta(days=1)).isoformat()})
+    assert early.status_code == 422
+    assert early.json()["code"] == "use_by_before_cook_day"
+    assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]
+    same_day = kitchen.patch(url, json={"use_by": D1.isoformat()})
+    assert same_day.status_code == 200
+    assert view(kitchen)["tubs"][0]["use_by"] == D1.isoformat()
+
+
 def test_to_freezer_takes_the_tub_out_of_its_meal_and_sets_the_freezer_use_by(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:

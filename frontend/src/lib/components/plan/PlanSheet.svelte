@@ -125,8 +125,11 @@
     mode = 'useby';
   }
 
+  /** Not before the cook day (cabledrawer 29 Oct); dates compare as yyyy-mm-dd text. */
+  const tooEarly = $derived(!!tub && !!useBy && useBy < tub.batch.cooked_on);
+
   function saveUseBy() {
-    if (!tubItem || !tub || !useBy || actions.readonly) return;
+    if (!tubItem || !tub || !useBy || tooEarly || actions.readonly) return;
     if (useBy !== tub.tub.use_by)
       void model.setUseBy(tub.tub.id, itemName(tubItem, model.plan), useBy);
     onclose();
@@ -306,11 +309,24 @@
         </div>
       {:else if mode === 'useby'}
         <h3>Use by</h3>
-        <input type="date" bind:value={useBy} aria-label="Use by" data-testid="tub-use-by" />
+        <input
+          type="date"
+          bind:value={useBy}
+          min={tub?.batch.cooked_on}
+          aria-label="Use by"
+          aria-describedby={tooEarly ? 'tub-use-by-early' : undefined}
+          data-testid="tub-use-by"
+        />
+        {#if tooEarly}
+          <p id="tub-use-by-early" class="early">Pick the cook day or later.</p>
+        {/if}
         <div class="buttons">
           <button type="button" class="back" onclick={() => (mode = null)}>Back</button>
-          <button type="button" class="go" disabled={!useBy || actions.readonly} onclick={saveUseBy}
-            >Save</button
+          <button
+            type="button"
+            class="go"
+            disabled={!useBy || tooEarly || actions.readonly}
+            onclick={saveUseBy}>Save</button
           >
         </div>
       {:else}
@@ -428,6 +444,13 @@
   }
 
   /* The use-by box (F48), styled as the date boxes elsewhere (LotMenu). */
+  .early {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+  }
+
   input[type='date'] {
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
