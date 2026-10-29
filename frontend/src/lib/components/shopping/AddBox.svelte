@@ -191,7 +191,7 @@
     {#each found as food (food.id)}
       <li>
         <button type="button" onclick={() => void pick(food)}>
-          {food.name}{#if readAsFor(food)}<span class="also"> · {readAsFor(food)}</span>{/if}
+          {food.name}{#if readAsFor(food)}{' '}<span class="also">· {readAsFor(food)}</span>{/if}
           {#if food.matched_name && food.matched_name !== food.name}
             <span class="also">also “{food.matched_name}”</span>
           {/if}
