@@ -5,7 +5,7 @@
   import type { FoodRow } from '#lib/client/types.js';
   import type { FoodSize } from '#lib/shopping/types.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
-  import { MAX_ADD_TEXT, readAs, splitAmount } from '#lib/shopping/addAmount.js';
+  import { MAX_ADD_TEXT, readAs, splitAmount, ZERO_AMOUNT } from '#lib/shopping/addAmount.js';
   import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -86,7 +86,7 @@
 
   /** The amount as the box will read it for this ingredient. */
   const readAsFor = (food: FoodRow): string | null =>
-    split
+    split && !split.zero
       ? readAs(split.amountText, {
           counted_as: food.counted_as,
           sizes: (sizesOf[food.id] ?? []) as never,
@@ -135,7 +135,15 @@
     }
   }
 
+  /** "0 g butter": nothing is added, and the text stays so the amount can be fixed. */
+  function zeroTyped(): boolean {
+    if (!split?.zero) return false;
+    toasts.show(ZERO_AMOUNT, { tone: 'problem' });
+    return true;
+  }
+
   async function pickNow(food: FoodRow) {
+    if (zeroTyped()) return;
     const typedAmount = split?.amountText;
     if (typedAmount) {
       // An amount was typed: the add carries it and joins a line already there (0.5's rule).
@@ -168,6 +176,7 @@
   }
 
   async function createNow() {
+    if (zeroTyped()) return; // never a new item called "0 g butter"
     const name = typed;
     const typedAmount = split?.amountText;
     const chosen = await newIngredient.choose(name);

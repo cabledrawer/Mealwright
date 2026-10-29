@@ -41,11 +41,15 @@ describe('splitAmount: an amount in front of a name in the add box (F63)', () =>
 });
 
 describe('splitAmount: a name that starts with a number (review round 1)', () => {
-  it('keeps "00 flour", "007 tea" and "0 g butter" whole: a leading zero is part of the name', () => {
+  it('keeps "00 flour" and "007 tea" whole: a leading zero is part of the name', () => {
     expect(splitAmount('00 flour')).toBeNull();
     expect(splitAmount('007 tea')).toBeNull();
-    expect(splitAmount('0 g butter')).toBeNull();
     expect(splitAmount('0.5 l milk')).toEqual({ amountText: '0.5 l', name: 'milk' });
+  });
+  it('reads "0 g butter" as Butter with an amount of nothing (cabledrawer 29 Oct)', () => {
+    expect(splitAmount('0 g butter')).toEqual({ amountText: '0 g', name: 'butter', zero: true });
+    expect(splitAmount('0 butter')).toEqual({ amountText: '0', name: 'butter', zero: true });
+    expect(splitAmount('0,0 kg rice')).toEqual({ amountText: '0,0 kg', name: 'rice', zero: true });
   });
   it('refuses text longer than a name and its amount can be', () => {
     expect(splitAmount(`1 ${'a'.repeat(MAX_ADD_TEXT)}`)).toBeNull();

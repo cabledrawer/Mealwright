@@ -724,6 +724,45 @@ describe('the Shopping page', () => {
       expect(server.actions.filter((x) => x.kind === 'add')).toHaveLength(1);
     });
 
+    it('“0 g butter” finds Butter and asks for an amount above 0; nothing new is made (cabledrawer 29 Oct)', async () => {
+      const none = { foods: [], total: 0, counts: {}, next: null };
+      await render(390, {
+        'GET /foods?q=0+g+butter&limit=8': [200, none],
+        'GET /foods?q=butter&limit=8': [
+          200,
+          {
+            foods: [{ id: 71, name: 'Butter', matched_name: null, counted_as: 'weight' }],
+            total: 1,
+            counts: {},
+            next: null
+          }
+        ],
+        'GET /foods?q=0+g+quark&limit=8': [200, none],
+        'GET /foods?q=quark&limit=8': [200, none]
+      });
+      const box = page.getByRole('textbox', { name: 'Add an item' });
+      await box.fill('0 g butter');
+      const butter = page.getByRole('button', { name: 'Butter', exact: true });
+      await expect.element(butter).toBeVisible();
+      await butter.click();
+      await expect
+        .element(page.getByRole('status').getByText('Type an amount above 0'))
+        .toBeVisible();
+      await expect.element(box).toHaveValue('0 g butter');
+      // No match at all: still no new ingredient called "0 g quark", and no sizes sheet.
+      await box.fill('0 g quark');
+      await expect
+        .element(page.getByRole('button', { name: '+ New ingredient: “quark”' }))
+        .toBeVisible();
+      await box.click();
+      await userEvent.keyboard('{Enter}');
+      await expect.element(box).toHaveValue('0 g quark');
+      await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+      expect(server.actions.filter((x) => x.kind === 'add' || x.kind === 'add_new')).toHaveLength(
+        0
+      );
+    });
+
     it('says when it is already on the list, instead of adding twice', async () => {
       await render(390, {
         'GET /foods?q=yoghurt&limit=8': [

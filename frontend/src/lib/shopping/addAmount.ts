@@ -25,7 +25,13 @@ export interface TypedAmount {
   amountText: string;
   /** What is left to search for: "milk". */
   name: string;
+  /** "0 g butter": the amount is nothing. The name is still searched (Butter), but nothing is
+   * added until an amount above 0 is typed (cabledrawer 29 Oct). */
+  zero?: true;
 }
+
+/** Said when the typed amount is 0 (cabledrawer 29 Oct). */
+export const ZERO_AMOUNT = 'Type an amount above 0';
 
 /** A number (with a unit) in front of a name, or null when the text has none. */
 export function splitAmount(text: string): TypedAmount | null {
@@ -33,14 +39,15 @@ export function splitAmount(text: string): TypedAmount | null {
   const match = LEADING.exec(text.trim());
   if (!match) return null;
   const [, number, unit, name] = match;
-  // "0 g butter", "00 flour", "007": a number that is nothing, or starts with a zero and goes
-  // on, is the start of a name, not an amount.
-  if (!(Number.parseFloat(number!.replace(',', '.')) > 0) && !/[¼½¾]|\//.test(number!)) return null;
+  // "00 flour", "007": a number that starts with a zero and goes on is the start of a name.
   if (/^0\d/.test(number!.trim())) return null;
   if (!unit && ONLY_UNIT.test(name!.trim())) return null; // "250 g": an amount, no name
+  // "0 g butter" is Butter with an amount of nothing, not a new item (cabledrawer 29 Oct).
+  const zero = !(Number.parseFloat(number!.replace(',', '.')) > 0) && !/[¼½¾]|\//.test(number!);
   return {
     amountText: unit ? `${number!.trim()} ${normalUnit(unit)}` : number!.trim(),
-    name: name!.trim()
+    name: name!.trim(),
+    ...(zero ? { zero: true as const } : {})
   };
 }
 
