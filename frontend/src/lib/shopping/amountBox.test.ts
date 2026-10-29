@@ -5,6 +5,7 @@ import {
   placeholderFor,
   readDraft,
   settleDraft,
+  unitHintFor,
   startDraft,
   stepDraft,
   switchUnit,
@@ -214,5 +215,13 @@ describe('a unit typed with the number (F61)', () => {
     expect(placeholderFor(dal)).toBe('500 g');
     expect(placeholderFor({ counted_as: 'volume' })).toBe('500 ml');
     expect(placeholderFor(eggs)).toBe('6');
+  });
+});
+
+describe('unitHintFor (review round 1)', () => {
+  it('suggests a unit only for something that has units', () => {
+    expect(unitHintFor(dal)).toContain('250 g'.replace('250', '500'));
+    expect(unitHintFor({ counted_as: 'volume' })).toContain('500 ml');
+    expect(unitHintFor(eggs)).toBe('');
   });
 });

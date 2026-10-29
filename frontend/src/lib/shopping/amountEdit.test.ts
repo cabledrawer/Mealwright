@@ -31,5 +31,7 @@ describe('toBaseAmount', () => {
       sizes: []
     };
     expect(toBaseAmount('6', eggs)).toEqual({ amount: 6, sizeId: null });
+    // A third of an egg: three decimals, as the server takes (review round 1).
+    expect(toBaseAmount('1/3', eggs)).toEqual({ amount: 0.333, sizeId: null });
   });
 });

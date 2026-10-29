@@ -160,3 +160,10 @@ export function stepDraft(
 export function placeholderFor(food: Pick<ShopFood, 'counted_as'>): string {
   return food.counted_as === 'weight' ? '500 g' : food.counted_as === 'volume' ? '500 ml' : '6';
 }
+
+/** The small line's second sentence: a unit to try, only for something that has units. */
+export function unitHintFor(food: Pick<ShopFood, 'counted_as'>): string {
+  return food.counted_as === 'count'
+    ? ''
+    : ` You can type a unit too, like ${placeholderFor(food)}.`;
+}

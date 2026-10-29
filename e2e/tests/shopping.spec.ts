@@ -226,6 +226,33 @@ test("F63: \"2 l milk\" in the add box adds 2 litres of Milk, and joins the 1 L 
   await expect(page.getByText(`${name} is already on the list`)).toHaveCount(0);
 });
 
+test("F63: a name that starts with a number is kept whole, and a bare number says the unit it will be read in", async ({
+  page,
+}) => {
+  const t = tag();
+  const spice = `5 spice ${t}`;
+  const garlic = `Garlic ${t}`;
+  await call(page, "POST", "/foods", { name: spice, counted_as: "weight" });
+  await call(page, "POST", "/foods", { name: garlic, counted_as: "weight" });
+  await page.goto("/shopping");
+  const box = page.getByRole("textbox", { name: "Add an item" });
+  const matches = page.getByRole("list", { name: "Matching ingredients" });
+  // "2 Garlic": the row says what 2 will be read as.
+  await box.fill(`2 ${garlic}`);
+  await expect(matches.getByRole("button", { name: `${garlic} · 2 g` })).toBeVisible();
+  // An ingredient named like the whole text wins: no amount is cut off it.
+  await box.fill(spice);
+  await matches.getByRole("button", { name: spice }).click();
+  await expect(page.getByRole("button", { name: spice, exact: true })).toBeVisible();
+  // An amount that can't be read keeps the text, so it can be fixed.
+  const eggs = `Eggs ${t}`;
+  await call(page, "POST", "/foods", { name: eggs, counted_as: "count" });
+  await box.fill(`200 g ${eggs}`);
+  await matches.getByRole("button", { name: new RegExp(eggs) }).click();
+  await expect(page.getByText(/counted one by one/)).toBeVisible();
+  await expect(box).toHaveValue(`200 g ${eggs}`);
+});
+
 test("F61: the amount box takes \"250 g\" typed with its unit, and the empty box shows a small \"500 g\"", async ({
   page,
 }) => {
@@ -1000,6 +1027,10 @@ test("F62: leaving \"How much?\" for later keeps Add amount on the ticked row; p
   await expect(row.getByText("How much?")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(row.getByText("How much?")).toHaveCount(0);
+  // The focus lands on the row's Add amount, not on the page body.
+  await expect(
+    row.getByRole("button", { name: `Add amount for ${name}` }),
+  ).toBeFocused();
   expect(await stockOf(page, foodId)).toEqual({});
   await row.getByRole("button", { name: `Add amount for ${name}` }).click();
   await row.getByRole("radio", { name: "500 g" }).click();

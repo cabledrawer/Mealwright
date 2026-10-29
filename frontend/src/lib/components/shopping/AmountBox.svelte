@@ -12,6 +12,7 @@
   import { network } from '#lib/network.svelte.js';
   import {
     placeholderFor,
+    unitHintFor,
     readDraft,
     startDraft,
     stepDraft,
@@ -181,7 +182,7 @@
     {/if}
   </div>
   <span class="hint" id="{uid}-hint"
-    >The box holds the real amount: edit it, or use − / +. You can type a unit too, like 250 g.</span
+    >The box holds the real amount: edit it, or use − / +.{unitHintFor(food)}</span
   >
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
   <div class="foot">

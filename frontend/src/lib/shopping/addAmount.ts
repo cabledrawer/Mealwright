@@ -3,6 +3,9 @@
 // "1 l" and "milk"; the number and unit are read by the same reader as the amount box
 // (amountText.parseAmount through amountEdit.toBaseAmount), and it all works offline.
 
+import { parseAmount } from '#lib/amountText.js';
+import type { Food } from '#lib/client/types.js';
+
 /** The number as parseAmount reads it: 1, 1.5, 1,5, ½, 1½, 1/2, 1 1/2. */
 const NUMBER = String.raw`(?:\d+(?:[.,]\d+)?\s*(?:[¼½¾]|\d+\/\d+)?|[¼½¾]|\d+\/\d+)`;
 
@@ -11,6 +14,11 @@ const UNITS = String.raw`(?:g|gr|gram|grams|kg|kgs|kilo|kilos|kilogram|kilograms
 
 const ONLY_UNIT = new RegExp(`^${UNITS}\\.?$`, 'iu');
 const LEADING = new RegExp(`^(${NUMBER})\\s*(${UNITS})?\\.?\\s+(\\S.*)$`, 'iu');
+
+/** The longest an ingredient's name may be (the server's limit, foods.py Name), plus room for
+ * the amount in front of it. Longer text is no amount and a name the server would refuse. */
+export const MAX_NAME = 100;
+export const MAX_ADD_TEXT = MAX_NAME + 33;
 
 export interface TypedAmount {
   /** What goes to the reader: "1 l", "3". */
@@ -21,9 +29,14 @@ export interface TypedAmount {
 
 /** A number (with a unit) in front of a name, or null when the text has none. */
 export function splitAmount(text: string): TypedAmount | null {
+  if (text.length > MAX_ADD_TEXT) return null;
   const match = LEADING.exec(text.trim());
   if (!match) return null;
   const [, number, unit, name] = match;
+  // "0 g butter", "00 flour", "007": a number that is nothing, or starts with a zero and goes
+  // on, is the start of a name, not an amount.
+  if (!(Number.parseFloat(number!.replace(',', '.')) > 0) && !/[¼½¾]|\//.test(number!)) return null;
+  if (/^0\d/.test(number!.trim())) return null;
   if (!unit && ONLY_UNIT.test(name!.trim())) return null; // "250 g": an amount, no name
   return {
     amountText: unit ? `${number!.trim()} ${normalUnit(unit)}` : number!.trim(),
@@ -38,4 +51,18 @@ function normalUnit(unit: string): string {
   if (u.startsWith('m')) return 'ml';
   if (u.startsWith('l')) return 'l';
   return 'g';
+}
+
+/**
+ * The amount as it will be read for this ingredient, for the match row: a bare 2 for garlic
+ * weighed in grams is "2 g", not "2". The same reader as the amount box.
+ */
+export function readAs(
+  amountText: string,
+  food: Pick<Food, 'counted_as' | 'sizes' | 'count_word' | 'count_word_plural'>
+): string | null {
+  const asked = parseAmount(amountText, food);
+  if (!asked) return null;
+  const number = String(Math.round(asked.amount * 1000) / 1000);
+  return !asked.unit || asked.unit === 'count' ? number : `${number} ${asked.unit}`;
 }

@@ -48,6 +48,7 @@
   let packOpen = $state(false);
   let packButton = $state<HTMLElement>();
   let nameButton = $state<HTMLButtonElement>();
+  let rowEl = $state<HTMLElement>();
 
   const place = $derived(model.placeName(tick?.place_id ?? item.put_away_place_id));
   const placing = $derived(model.placing === item.id);
@@ -75,7 +76,13 @@
     packOpen = false;
     autoOpened = false;
     if (model.askingHowMuch === item.id) model.askingHowMuch = null;
-    packButton?.focus();
+    // Opened by itself: there is no button to give the focus back to, so the row's own
+    // "Add amount" (or, once it has an amount, its tick) takes it.
+    const back =
+      packButton ??
+      rowEl?.querySelector<HTMLElement>(`button[aria-label="Add amount for ${food.name}"]`) ??
+      rowEl?.querySelector<HTMLElement>('input[type="checkbox"]');
+    back?.focus();
   }
 
   // The line was ticked elsewhere while its amount box was open: the box has no place now.
@@ -154,7 +161,7 @@
   }
 </script>
 
-<li class="item" class:trolley class:highlight>
+<li class="item" class:trolley class:highlight bind:this={rowEl}>
   {#if editing && !trolley}
     <AmountBox
       {model}

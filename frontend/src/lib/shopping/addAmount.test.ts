@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitAmount } from './addAmount';
+import { MAX_ADD_TEXT, readAs, splitAmount } from './addAmount';
 import { toBaseAmount } from './amountEdit';
 
 describe('splitAmount: an amount in front of a name in the add box (F63)', () => {
@@ -37,5 +37,34 @@ describe('splitAmount: an amount in front of a name in the add box (F63)', () =>
       amount: 1000,
       sizeId: null
     });
+  });
+});
+
+describe('splitAmount: a name that starts with a number (review round 1)', () => {
+  it('keeps "00 flour", "007 tea" and "0 g butter" whole: a leading zero is part of the name', () => {
+    expect(splitAmount('00 flour')).toBeNull();
+    expect(splitAmount('007 tea')).toBeNull();
+    expect(splitAmount('0 g butter')).toBeNull();
+    expect(splitAmount('0.5 l milk')).toEqual({ amountText: '0.5 l', name: 'milk' });
+  });
+  it('refuses text longer than a name and its amount can be', () => {
+    expect(splitAmount(`1 ${'a'.repeat(MAX_ADD_TEXT)}`)).toBeNull();
+  });
+});
+
+describe('readAs: the amount as it will be read, for the match row', () => {
+  const garlic = {
+    counted_as: 'weight' as const,
+    sizes: [],
+    count_word: null,
+    count_word_plural: null
+  };
+  it('says the unit a bare number gets', () => {
+    expect(readAs('2', garlic)).toBe('2 g');
+    expect(readAs('2', { ...garlic, counted_as: 'volume' })).toBe('2 ml');
+    expect(readAs('2', { ...garlic, counted_as: 'count' })).toBe('2');
+  });
+  it('keeps a typed unit', () => {
+    expect(readAs('1 l', { ...garlic, counted_as: 'volume' })).toBe('1 l');
   });
 });

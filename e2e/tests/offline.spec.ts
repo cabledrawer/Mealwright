@@ -234,6 +234,8 @@ test('F62: offline, ticking a line with no amount still asks How much?, and the 
   });
   const line = (await serverItems(page)).find((i) => i.food.name === name);
   expect(line?.ticked_at).not.toBeNull();
+  // The answer reached the pantry too: 500 g of it.
+  await expect.poll(async () => (await pantryStock(page, food.id)).map(([grams]) => grams)).toEqual([500]);
 });
 
 test('E3: signing out offline warns first, then wipes, and the session ends once back', async ({

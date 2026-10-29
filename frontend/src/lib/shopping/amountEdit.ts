@@ -31,7 +31,7 @@ export function toBaseAmount(text: string, food: EditFood): Parsed {
   if (base === 'volume' && (unit === 'ml' || unit === 'l')) {
     return { amount: round(asked.amount * (unit === 'l' ? 1000 : 1)), sizeId: null };
   }
-  if (base === 'count' && unit === 'count') return { amount: asked.amount, sizeId: null };
+  if (base === 'count' && unit === 'count') return { amount: round(asked.amount), sizeId: null };
   if (base === 'count' && ['g', 'kg', 'ml', 'l'].includes(unit)) {
     return {
       problem:

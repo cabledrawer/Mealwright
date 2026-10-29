@@ -3,8 +3,9 @@
   // nobody has used offers + New ingredient: "tahini", which asks How do you count it?.
   import Icon from '#lib/components/Icon.svelte';
   import type { FoodRow } from '#lib/client/types.js';
+  import type { FoodSize } from '#lib/shopping/types.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
-  import { splitAmount } from '#lib/shopping/addAmount.js';
+  import { MAX_ADD_TEXT, readAs, splitAmount } from '#lib/shopping/addAmount.js';
   import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -28,36 +29,71 @@
   /** The text the matches on show are for: "+ New ingredient" waits until they are. */
   let answeredFor = $state('');
 
-  // "1 l milk" is the name "milk" with the amount "1 l" in front (F63).
-  const split = $derived(splitAmount(text));
-  const typed = $derived(split ? split.name : text.trim());
+  // "1 l milk" is the name "milk" with the amount "1 l" in front (F63). Unless an ingredient is
+  // named exactly as the whole text ("5 spice", "00 flour"): then that name, with no amount.
+  const whole = $derived(text.trim());
+  const raw = $derived(splitAmount(text));
+  /** The text whose whole is an ingredient's name, found by the last look-up. */
+  let namedWhole = $state('');
+  const split = $derived(raw && namedWhole !== whole ? raw : null);
+  const typed = $derived(split ? split.name : whole);
   const exact = $derived(
     found.some((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase())
   );
+  /** What each match would add, as it will be read ("Garlic · 2 g"), once its sizes are known. */
+  let sizesOf = $state<Record<number, FoodSize[]>>({});
 
   $effect(() => {
-    const q = typed;
+    const q = whole;
+    const r = raw;
     const mine = ++asked;
     if (!q) {
       found = [];
+      namedWhole = '';
       return;
     }
-    const timer = setTimeout(() => {
-      model
-        .search(q)
-        .then((rows) => {
-          if (mine !== asked) return;
-          found = rows;
-          answeredFor = q;
-        })
-        .catch(() => {
-          if (mine !== asked) return;
-          found = [];
-          answeredFor = '';
-        });
+    const timer = setTimeout(async () => {
+      try {
+        let rows = await model.search(q);
+        let named = '';
+        if (r) {
+          const lower = q.toLocaleLowerCase();
+          if (rows.some((f) => f.name.toLocaleLowerCase() === lower)) named = q;
+          else rows = await model.search(r.name);
+        }
+        if (mine !== asked) return;
+        found = rows;
+        namedWhole = named;
+        answeredFor = q;
+        if (r && !named) {
+          for (const food of rows) {
+            if (food.id > 0 && !sizesOf[food.id]) {
+              void model
+                .sizesOf(food.id)
+                .then((z) => (sizesOf = { ...sizesOf, [food.id]: z }))
+                .catch(() => {});
+            }
+          }
+        }
+      } catch {
+        if (mine !== asked) return;
+        found = [];
+        answeredFor = '';
+      }
     }, 150);
     return () => clearTimeout(timer);
   });
+
+  /** The amount as the box will read it for this ingredient. */
+  const readAsFor = (food: FoodRow): string | null =>
+    split
+      ? readAs(split.amountText, {
+          counted_as: food.counted_as,
+          sizes: (sizesOf[food.id] ?? []) as never,
+          count_word: null,
+          count_word_plural: null
+        })
+      : null;
 
   function reset() {
     text = '';
@@ -87,13 +123,16 @@
 
   async function pick(food: FoodRow) {
     const typedAmount = split?.amountText;
-    reset();
     if (typedAmount) {
       // An amount was typed: the add carries it and joins a line already there (0.5's rule).
+      // Read first: if it can't be read the text stays, so it can be fixed.
       const amount = await amountFor(food, typedAmount);
-      if (amount) void model.add(food, `${food.name} added`, undefined, amount);
+      if (!amount) return;
+      reset();
+      void model.add(food, `${food.name} added`, undefined, amount);
       return;
     }
+    reset();
     const line = model.lineFor(food.id);
     if (line) {
       const amount = line.display ? ` · ${line.display}` : '';
@@ -107,18 +146,20 @@
   async function create() {
     const name = typed;
     const typedAmount = split?.amountText;
-    reset();
     const chosen = await newIngredient.choose(name);
     if (!chosen) return;
+    // The amount is read for the way it was just counted; unreadable: nothing is added.
     const amount = typedAmount
       ? await amountFor({ id: 0, counted_as: chosen.counted_as }, typedAmount)
       : null;
+    if (typedAmount && !amount) return;
+    reset();
     void model.addNew(chosen, amount ?? undefined);
   }
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!typed || answeredFor !== typed) return; // the matches are still on their way
+    if (!typed || answeredFor !== whole) return; // the matches are still on their way
     const first =
       found.find((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase()) ?? found[0];
     if (first) void pick(first);
@@ -135,6 +176,7 @@
       placeholder="Add an item…"
       autocomplete="off"
       aria-controls="{uid}-list"
+      maxlength={MAX_ADD_TEXT}
       bind:value={text}
     />
     {#if desktop}
@@ -149,14 +191,14 @@
     {#each found as food (food.id)}
       <li>
         <button type="button" onclick={() => void pick(food)}>
-          {food.name}{#if split}<span class="also"> · {split.amountText}</span>{/if}
+          {food.name}{#if readAsFor(food)}<span class="also"> · {readAsFor(food)}</span>{/if}
           {#if food.matched_name && food.matched_name !== food.name}
             <span class="also">also “{food.matched_name}”</span>
           {/if}
         </button>
       </li>
     {/each}
-    {#if typed && !exact && answeredFor === typed}
+    {#if typed && !exact && answeredFor === whole}
       <li>
         <button type="button" class="new" onclick={() => void create()}>
           + New ingredient: “{typed}”
