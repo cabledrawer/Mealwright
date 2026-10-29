@@ -64,5 +64,9 @@ export function readAs(
   const asked = parseAmount(amountText, food);
   if (!asked) return null;
   const number = String(Math.round(asked.amount * 1000) / 1000);
-  return !asked.unit || asked.unit === 'count' ? number : `${number} ${asked.unit}`;
+  if (!asked.unit || asked.unit === 'count') return number;
+  // Written as the app writes it: "1 L", and a packet size in the plural when it isn't one.
+  const size = food.sizes.find((s) => s.name === asked.unit);
+  const unit = asked.unit === 'l' ? 'L' : size && asked.amount !== 1 ? size.plural : asked.unit;
+  return `${number} ${unit}`;
 }

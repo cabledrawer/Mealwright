@@ -283,6 +283,8 @@ export class ShoppingModel {
   async sizesOf(foodId: number): Promise<NonNullable<ShopFood['sizes']>> {
     const known = this.food(foodId);
     if (known?.sizes) return known.sizes;
+    const asked = this.#sizes[foodId];
+    if (asked) return asked;
     const full = await getFood(foodId);
     const sizes = full.sizes.map((s) => ({
       id: s.id,

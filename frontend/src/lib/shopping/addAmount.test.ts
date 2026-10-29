@@ -64,7 +64,13 @@ describe('readAs: the amount as it will be read, for the match row', () => {
     expect(readAs('2', { ...garlic, counted_as: 'volume' })).toBe('2 ml');
     expect(readAs('2', { ...garlic, counted_as: 'count' })).toBe('2');
   });
-  it('keeps a typed unit', () => {
-    expect(readAs('1 l', { ...garlic, counted_as: 'volume' })).toBe('1 l');
+  it('keeps a typed unit, written as the app writes it', () => {
+    expect(readAs('1 l', { ...garlic, counted_as: 'volume' })).toBe('1 L');
+  });
+  it('names a packet size in the plural when there is more than one', () => {
+    const packet = { id: 1, name: 'packet', plural: 'packets', amount: 100, usual: true };
+    const withPacket = { ...garlic, sizes: [packet] } as never;
+    expect(readAs('2', withPacket)).toBe('2 packets');
+    expect(readAs('1', withPacket)).toBe('1 packet');
   });
 });

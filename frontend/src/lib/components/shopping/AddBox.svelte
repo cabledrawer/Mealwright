@@ -121,7 +121,21 @@
     return read;
   }
 
+  /** An add is under way (waiting for sizes or for "How do you count it?"): a second tap or
+   * Enter is ignored, so the same thing isn't added twice. */
+  let busy = false;
+
   async function pick(food: FoodRow) {
+    if (busy) return;
+    busy = true;
+    try {
+      await pickNow(food);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function pickNow(food: FoodRow) {
     const typedAmount = split?.amountText;
     if (typedAmount) {
       // An amount was typed: the add carries it and joins a line already there (0.5's rule).
@@ -144,6 +158,16 @@
   }
 
   async function create() {
+    if (busy) return;
+    busy = true;
+    try {
+      await createNow();
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function createNow() {
     const name = typed;
     const typedAmount = split?.amountText;
     const chosen = await newIngredient.choose(name);

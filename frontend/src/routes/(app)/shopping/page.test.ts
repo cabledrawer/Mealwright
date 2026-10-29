@@ -687,6 +687,43 @@ describe('the Shopping page', () => {
       });
     });
 
+    it('a second tap while the sizes are on their way adds once, not twice', async () => {
+      await render(390, {
+        'GET /foods?q=2+l+sesame+paste&limit=8': [
+          200,
+          { foods: [], total: 0, counts: {}, next: null }
+        ],
+        'GET /foods?q=sesame+paste&limit=8': [
+          200,
+          {
+            foods: [{ id: 70, name: 'Sesame paste', matched_name: null, counted_as: 'volume' }],
+            total: 1,
+            counts: {},
+            next: null
+          }
+        ],
+        'GET /foods/70': [200, { id: 70, name: 'Sesame paste', counted_as: 'volume', sizes: [] }]
+      });
+      // The sizes answer hangs until released, as on a slow connection.
+      const answer = globalThis.fetch;
+      let release!: () => void;
+      const released = new Promise<void>((done) => (release = done));
+      vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+        if (String(args[0]).endsWith('/foods/70')) await released;
+        return answer(...args);
+      });
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('2 l sesame paste');
+      const paste = page.getByRole('button', { name: /^Sesame paste/ });
+      await paste.click();
+      await paste.click();
+      release();
+      await vi.waitFor(() =>
+        expect(server.actions.filter((x) => x.kind === 'add')).toHaveLength(1)
+      );
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(server.actions.filter((x) => x.kind === 'add')).toHaveLength(1);
+    });
+
     it('says when it is already on the list, instead of adding twice', async () => {
       await render(390, {
         'GET /foods?q=yoghurt&limit=8': [
