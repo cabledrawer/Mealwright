@@ -2,16 +2,16 @@
 # Mealwright: one container serving the API and the web app (spec section 3).
 # Base images are pinned by digest; change them on purpose, in their own commit.
 
-# --- 1. Build the web app (if there is one yet) -----------------------------------------
+# --- 1. Build the web app ---------------------------------------------------------------
 FROM node:24-trixie-slim@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315 AS web
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
-WORKDIR /src
-COPY . .
-RUN if [ -f frontend/package.json ]; then \
-      cd frontend && npm ci && npm run build; \
-    else \
-      mkdir -p frontend/build; \
-    fi
+WORKDIR /src/frontend
+# The libraries first, from the package files alone: this layer is reused until a library
+# changes, so a change to the app's own code doesn't install them all again.
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
 # --- 2. Install the backend into a virtual environment ----------------------------------
 FROM python:3.14-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS api
