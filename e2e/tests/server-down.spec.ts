@@ -22,9 +22,10 @@ const proxyGap = (route: Route) => route.fulfill({ status: 502, body: '' });
 const PAGES = [
   // `notes`: how many "Can't reach your Mealwright server." notes: Today and Shopping show
   // their saved copy instead.
-  // `realTime`: this one waits the full time on the real clock; the others move the page's
-  // clock on instead, which fires the same timers in the same order (cabledrawer 30 Oct: a faster
-  // check, with one real-time test kept).
+  // `realTime`: this one waits the full time on the real clock, on the desktop project only;
+  // the others, and this one on phone and WebKit, move the page's clock on instead, which fires
+  // the same timers in the same order (cabledrawer 30 Oct: a faster check, with one real-time test
+  // kept, on one browser).
   { name: 'Ingredients', path: '/recipes/ingredients', notes: 1, realTime: false },
   { name: 'Today', path: '/', notes: 0, realTime: false },
   { name: 'Plan', path: '/plan', notes: 1, realTime: true },
@@ -34,10 +35,11 @@ const PAGES = [
   { name: 'Settings', path: '/settings', notes: 1, realTime: false },
 ] as const;
 
-for (const { name, path, notes, realTime } of PAGES) {
+for (const { name, path, notes, realTime: realTimePage } of PAGES) {
   test(`${name}: the server answering 502 is one steady offline state, and the page comes back with it`, async ({
     page,
-  }) => {
+  }, testInfo) => {
+    const realTime = realTimePage && testInfo.project.name === 'desktop 0.7 server down';
     if (realTime) test.slow();
     // A second of the page's time: really waited, or the page's clock moved on at once.
     const second = () => (realTime ? page.waitForTimeout(1000) : page.clock.runFor(1000));
