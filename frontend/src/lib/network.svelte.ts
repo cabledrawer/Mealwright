@@ -174,8 +174,11 @@ class Network {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisible);
-    this.deviceOffline = navigator.onLine === false;
-    if (this.deviceOffline) this.failed();
+    // Not `if (this.deviceOffline)`: start() runs in the layout's $effect, and reading the
+    // state here would run that effect again on every offline event, stopping the bar's timer.
+    const offlineNow = navigator.onLine === false;
+    this.deviceOffline = offlineNow;
+    if (offlineNow) this.failed();
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
