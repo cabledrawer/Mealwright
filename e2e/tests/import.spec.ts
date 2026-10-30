@@ -237,6 +237,9 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByText(/plan it/i)).toHaveCount(0); // Save & plan it waits for 0.6
   await expect(page.getByRole('status').filter({ hasText: '3 lines will be saved without an ingredient' })).toBeVisible();
+  // The Save bar floats over the foot of the screen: look at the end of the page, where it sits below
+  // the content, so the scan is not about which chip happens to be under it at the top.
+  await page.locator('ol li').last().scrollIntoViewIfNeeded();
   await checkPage(page);
 });
 
@@ -453,9 +456,10 @@ test('Save with lines that have no ingredient goes through them one at a time (F
   await expect(page.getByText('New staple:')).toBeVisible();
   // Save again: only the two left are asked about, and Save anyway saves the recipe.
   await page.getByRole('button', { name: 'Save recipe' }).click();
-  await expect(sheet).toBeVisible();
-  await expect(sheet.getByText('Line 1 of 2')).toBeVisible();
-  await sheet.getByRole('button', { name: 'Save anyway' }).click();
+  const again = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+  await expect(again).toBeVisible();
+  await expect(again.getByText('Line 1 of 2')).toBeVisible();
+  await again.getByRole('button', { name: 'Save anyway' }).click();
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();

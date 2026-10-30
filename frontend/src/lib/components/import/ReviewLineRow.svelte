@@ -523,9 +523,11 @@
   }
 
   /* The amount and the note: tap one to fix what was read. */
+  /* The mockup draws these 28 px tall; a touch target is 44 px (the UX rule), so they are. */
   .chip-small {
-    min-height: 28px;
-    padding: 2px 8px;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 2px 10px;
     border: 1px solid var(--color-border-strong);
     border-radius: 8px;
     background: transparent;

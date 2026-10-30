@@ -317,7 +317,7 @@
     min-height: 52px;
     border: none;
     border-radius: 14px;
-    background: var(--color-switch-on);
+    background: #2a7353; /* the mockup's green: white words on it pass AA */
     color: #fff;
     font-size: 15px;
     font-weight: var(--weight-extrabold);
