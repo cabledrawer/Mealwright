@@ -316,7 +316,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
   - A repo safe to make public: homelab names and local paths move out of tracked files into a git-ignored local file, then a `./check` step fails on them.
   - Compose hardening (no-new-privileges, cap_drop, read_only with tmpfs, init, a memory limit, a commented `user:` line); Dockerfile OCI labels and layer order; `uv lock --check` in the build; SBOM and provenance.
   - Browser tests in the pinned Playwright image; fonts latin and latin-ext only; a healthcheck that touches the database; no `Server` header; THIRD-PARTY-NOTICES.md.
-  - Docs: install, upgrade, backup, reverse proxy, a table of environment variables, CONTRIBUTING.
+  - Docs: install, upgrade, backup, reverse proxy, a table of environment variables, CONTRIBUTING. The install docs say "one worker only" (Mealwright can't see gunicorn's forked workers; no lock file; cabledrawer 30 Oct).
   - `./check` extras: hadolint, compose config, shellcheck, a smoke run of the built image, and an upgrade test from a saved real database for each tag.
   - The arm64 image question at the 0.9 kickoff.
   - The service worker's cache heals itself; a replayed change with the same key checks the body too; recipe-list hints only for the page shown; a print layout for the shopping list and recipes; an optional sample recipe pack; scaling edge cases written down as "roughly right".
