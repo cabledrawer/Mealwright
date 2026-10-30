@@ -624,6 +624,17 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Amounts shown in 1.0:** as written, plus grams and millilitres. Cups as a display choice come after 1.0, and Onboarding and Settings say so.
 - **Language:** English with UK dates before 1.0, from one `LOCALE` setting in the code.
 
+**From the v0.7.0-alpha.1 hand test (cabledrawer 30 Oct; findings F80–F86 in his friction log):**
+
+- **F80 (server down, a B3 bug):** a recipe or list already showing stays when the server stops; nothing replaces it with the "Can't reach" note without the person doing anything. With and without the service worker.
+- **F86:** when a page's code can't be fetched (server down, page not saved on the device), the "Can't reach" note shows with the menu, never a bare "500 Internal Error".
+- **F81:** the Undo clash message names the meal ("Nothing to put back for Banana bread (Sun breakfast): it has changed again since.").
+- **F82:** Shopping names never break mid-word (1280 px, two columns and the Put away panel).
+- **F83 (importer consistency):** a new ingredient's "How do you count it?" starts from the amount typed: "1 l orange juice" starts at By volume.
+- **F85** is F15 (the US-pints banner only when the recipe has pints). **F84** (Month: the COOK and Today chips stay inside their day box) goes with the Plan redesign's Month work.
+- **Order:** F83 and F85 with the importer (C1); after the importer PRs, one small follow-up PR with F80, F86, F81, F82 in that order; F84 with the Month PR (P4).
+- **The 0.7.0 release hand test also covers** F58 (Cook once shopping amounts, not tested in alpha.1), F68 (the home-screen app on 4G) and navigation F1, F2, F76.
+
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
 Plain-language list of every kind of record, grouped. Every record belongs to the household (household_id), so more than one household per install stays possible later.
