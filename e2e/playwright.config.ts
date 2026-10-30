@@ -101,6 +101,10 @@ export default defineConfig({
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    // The server stopped behind the reverse proxy (502): one steady offline state (0.7, F67).
+    { name: 'phone 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // SvelteKit 3's own version check stays out of sight; updates wait for the worker (0.6).
     { name: 'desktop 0.6 version check', testMatch: 'version-check.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Safari's engine (WebKit), only where it matters most: the offline queue and the service
