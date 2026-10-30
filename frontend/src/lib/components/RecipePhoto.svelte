@@ -9,6 +9,7 @@
   // our own server's address.
   import type { PhotoOut } from '#lib/client/recipes.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
+  import ZoomPhoto from './ZoomPhoto.svelte';
 
   let {
     photo,
@@ -28,12 +29,11 @@
 
 {#if shown}
   <div class="frame" class:beside>
-    <img
+    <ZoomPhoto
       src={shown.url}
       alt="Photo of {name}"
       width={shown.width}
       height={shown.height}
-      decoding="async"
       onerror={() => copy.fail(shown.url)}
     />
   </div>
@@ -53,14 +53,5 @@
     flex: 1 1 260px;
     height: auto;
     min-height: 150px;
-  }
-
-  img {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 </style>

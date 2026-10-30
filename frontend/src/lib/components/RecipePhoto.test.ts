@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import type { PhotoOut } from '#lib/client/recipes.js';
 import { network } from '#lib/network.svelte.js';
 import RecipePhoto from './RecipePhoto.svelte';
@@ -95,5 +95,48 @@ describe('the recipe page photo', () => {
     flushSync();
     expect(document.querySelector('img')?.getAttribute('src')).toBe(missing);
     await expect.poll(() => document.querySelector('.frame')).toBeNull();
+  });
+});
+
+describe('the photo full size (F29)', () => {
+  let component: ReturnType<typeof mount> | null = null;
+
+  beforeEach(async () => {
+    await page.viewport(390, 844);
+    const target = document.body.appendChild(document.createElement('div'));
+    component = mount(RecipePhoto, { target, props: { name: 'Sambar', photo: photo() } });
+    flushSync();
+  });
+
+  afterEach(() => {
+    if (component) unmount(component);
+    component = null;
+    document.body.innerHTML = '';
+  });
+
+  it('opens when the photo is tapped, with a Close button', async () => {
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    await page.getByRole('button', { name: 'Show the photo full size' }).click();
+    await expect.element(page.getByRole('dialog', { name: 'Photo of Sambar' })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible();
+  });
+
+  it('closes with Escape, and focus goes back to the photo', async () => {
+    const opener = page.getByRole('button', { name: 'Show the photo full size' });
+    await opener.click();
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(opener.element());
+  });
+
+  it('closes with a tap on the photo, and with Close', async () => {
+    const opener = page.getByRole('button', { name: 'Show the photo full size' });
+    await opener.click();
+    await page.getByRole('dialog').getByRole('img').click();
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    await opener.click();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
   });
 });

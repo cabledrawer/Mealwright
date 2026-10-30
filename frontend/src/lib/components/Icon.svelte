@@ -11,6 +11,7 @@
     | 'light'
     | 'dark'
     | 'expand'
+    | 'full-size'
     | 'collapse'
     | 'back'
     | 'chevron-down'
@@ -78,6 +79,8 @@
   {:else if name === 'expand'}
     <path d="M9 6l6 6-6 6" />
     <path d="M4 4v16" />
+  {:else if name === 'full-size'}
+    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
   {:else if name === 'collapse'}
     <path d="M15 6l-6 6 6 6" />
     <path d="M20 4v16" />
