@@ -39,6 +39,15 @@ export class RecipeList {
   /** False until the first answer, so the page can say "Loading…" instead of "No recipes". */
   loaded = $state(false);
   problem = $state<string | null>(null);
+  /** The list has had a good answer since the page opened. */
+  answered = $state(false);
+
+  /** Nothing has loaded yet and the last try failed: the page shows its note instead of an
+   *  empty list. Once rows are showing, a failed reload (a search, the live stream) keeps them
+   *  and says so in the list (F67 review). */
+  get couldntLoad(): boolean {
+    return this.problem !== null && !this.answered;
+  }
   /** "Show more" failed. Kept apart from `problem`, so the rows, the count and the filters stay. */
   moreProblem = $state<string | null>(null);
 
@@ -72,6 +81,7 @@ export class RecipeList {
       this.next = page.next;
       this.tags = tags.tags;
       this.problem = null;
+      this.answered = true;
       this.moreProblem = null;
       // A tag no recipe has any more is gone from the row; so is the choice.
       if (

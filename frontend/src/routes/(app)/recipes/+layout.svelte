@@ -44,7 +44,7 @@
 
   /** The one note for both panes: as the Recipes list on a phone, from the first failure when
    *  the list couldn't load (cabledrawer 30 Oct: the same on every page). */
-  const paneNote = $derived(network.offline || (network.down && list.problem !== null));
+  const paneNote = $derived(network.offline || (network.down && list.couldntLoad));
 
   let reading = $state<HTMLElement>();
   // Each recipe opens at its top, not where the last one was left.

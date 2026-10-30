@@ -11,6 +11,7 @@ import {
   type FakeRequest
 } from '#lib/testing/fakeApi.js';
 import { kitchen } from '#lib/freshness.svelte.js';
+import { network } from '#lib/network.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import NewIngredient from '#lib/components/NewIngredient.svelte';
@@ -127,6 +128,17 @@ describe('the Ingredients page', () => {
     if (component) unmount(component);
     component = null;
     vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  it('a search that fails once the list has loaded keeps the list: no server note (F67 review)', async () => {
+    await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 502 })));
+    await page.getByRole('searchbox', { name: 'Search ingredients' }).fill('arhar');
+    await vi.waitFor(() => expect(network.down).toBe(true));
+    flushSync();
+    await expect.element(page.getByRole('searchbox', { name: 'Search ingredients' })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Can’t reach your Mealwright server.');
   });
 
   it('lists every ingredient from the server, with its counts', async () => {

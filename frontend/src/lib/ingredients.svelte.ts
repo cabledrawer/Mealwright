@@ -22,6 +22,15 @@ export class IngredientsList {
   /** False until the first answer, so the page can show "Loading…" instead of "No foods". */
   loaded = $state(false);
   problem = $state<string | null>(null);
+  /** The list has had a good answer since the page opened. */
+  answered = $state(false);
+
+  /** Nothing has loaded yet and the last try failed: the page shows its note instead of an
+   *  empty list. Once rows are showing, a failed reload (a search, the live stream) keeps them
+   *  and says so in the list (F67 review). */
+  get couldntLoad(): boolean {
+    return this.problem !== null && !this.answered;
+  }
 
   #asked = 0;
 
@@ -35,6 +44,7 @@ export class IngredientsList {
       this.counts = list.counts;
       this.next = list.next;
       this.problem = null;
+      this.answered = true;
     } catch (error) {
       if (asked !== this.#asked) return;
       this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your ingredients.';
