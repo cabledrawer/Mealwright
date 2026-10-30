@@ -523,3 +523,7 @@ Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLi
 - **Undo after a bought joined line (follow-up 9):** instead of "Nothing to put back: it has all changed again since." the server says **Nothing to put back: the line it joined has been bought, so it stays as it is.** (all of it left alone) or **Put back what could be: the line it joined has been bought, so that part stays.** (some).
 - **"for example"** replaces "e.g." in the boxes of the Used sheet, the amount box on Shopping, steps, the Pantry rows and the ingredient editor.
 - **Already done before this PR, nothing new:** Today in the use-by quick picks (18 Oct), packet sizes up front in "How do you count it?" (18 Oct), "is back in Ingredients" after an Undo (the server's own sentence), a new staple with no stock ("+ Staple", 18 Oct), "bought 1 pack · 1 kg (first amount)" (section 14).
+
+## 25. Small fixes (0.7 PR B5)
+
+- **Undo that put nothing back names the thing (F44; cabledrawer's wish 28 Oct; proposed, for cabledrawer):** **Nothing to put back for Banana bread (Mon breakfast): it has changed again since.** On the Plan the thing is the meal item and where it was; for a pantry change it is the ingredient (**Nothing to put back for Spinach: it has changed again since.**). When the change touches no single item or ingredient (a slot, a whole batch, the shopping list), the old sentence stays: **Nothing to put back: it has all changed again since.** The two joined-line sentences (section 24) are unchanged.

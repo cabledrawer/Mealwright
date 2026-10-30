@@ -373,6 +373,7 @@ def test_undo_move_after_moving_again_is_nothing(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/stock/{lot['id']}/move", json={"place_id": place(kitchen, "Freezer")})
     body = kitchen.post(f"{API}/changes/{moved['change']['id']}/undo").json()
     assert body["result"] == "nothing"
+    assert body["message"] == "Nothing to put back for Spinach: it has changed again since."
     assert group(kitchen, "Spinach")["place"]["name"] == "Freezer"
 
 

@@ -266,7 +266,13 @@ def test_undo_says_partly_when_things_changed_since(
     # Someone removes the dosa again, then the first plan-the-dosa change is undone.
     kitchen.delete(f"{API}/plan/items/{b['item_id']}")
     result = undo(kitchen, b)
-    assert result["result"] == "nothing" and "Nothing to put back" in result["message"]
+    assert result["result"] == "nothing"
+    # F44: the message names the thing and where it was.
+    assert result["message"] == (
+        "Nothing to put back for Dosa ("
+        + D1.strftime("%a")
+        + " dinner): it has changed again since."
+    )
     assert shape(kitchen) == [(D1.isoformat(), slots["Dinner"], ["Sambar"])]
     assert a["item_id"]
 

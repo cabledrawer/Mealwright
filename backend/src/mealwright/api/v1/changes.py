@@ -39,6 +39,7 @@ from mealwright.history import (
     undo_lines,
     undo_lot_amounts,
     undo_merge_record,
+    undo_message,
     undo_until,
 )
 from mealwright.models import Change, ChangeLine, Food, Recipe, StockLot, utcnow
@@ -260,7 +261,11 @@ def _plain(food: Food, milli: int) -> str:
 
 
 def _message(
-    kitchen: Kitchen, result: UndoResult, short: list[Shortfall], joined_bought: bool = False
+    kitchen: Kitchen,
+    result: UndoResult,
+    short: list[Shortfall],
+    joined_bought: bool = False,
+    thing: str | None = None,
 ) -> str:
     if joined_bought and result in JOINED_BOUGHT_MESSAGES:
         return JOINED_BOUGHT_MESSAGES[result]
@@ -271,7 +276,7 @@ def _message(
             if short[0].applied:
                 return f"Took back {applied} of the {wanted}: the rest has been used since."
             return f"Nothing to take back: the {wanted} has all been used since."
-    return UNDO_MESSAGES[result]
+    return undo_message(result, thing)
 
 
 def _bring_back(
@@ -403,7 +408,8 @@ def undo_change(
         undo_merge_record(kitchen, data)
     result = tally.result
     back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
-    message = _message(kitchen, result, short, tally.joined_bought)
+    named = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
+    message = _message(kitchen, result, short, tally.joined_bought, named.name if named else None)
     if back:
         message = back if result == "done" else f"{back} {message}"
     if draft_back:

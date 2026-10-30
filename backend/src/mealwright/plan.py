@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
-from mealwright.history import UNDO_MESSAGES, Tally, as_utc, record
+from mealwright.history import Tally, as_utc, record, undo_message
 from mealwright.household import today
 from mealwright.models import BatchCook, Change, Food, Meal, MealItem, MealSlot, Recipe, Tub
 
@@ -184,6 +184,19 @@ def _where(kitchen: Kitchen, day: date, slot_id: int) -> str:
     return f"{slot.name if slot else 'meal'} on {_words_day(day)}"
 
 
+_SNAPSHOT_KEYS = (
+    "id",
+    "meal_id",
+    "position",
+    "kind",
+    "name",
+    "recipe_id",
+    "tub_id",
+    "food_id",
+    "servings",
+)
+
+
 def _snapshot_item(item: MealItem) -> dict[str, Any]:
     return {
         "id": item.id,
@@ -228,10 +241,39 @@ def list_follows_plan(kitchen: Kitchen) -> None:
     shop_from_plan.refresh(kitchen)
 
 
+def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
+    """What an Undo of these steps would name: "Banana bread (Mon breakfast)" (F44). The
+    first item a step touches; None when the steps touch no item (a slot, a whole batch)."""
+    for step in steps:
+        if step["op"] in ("add_item", "move_item"):
+            item = kitchen.db.get(MealItem, step["item"])
+        elif step["op"] == "del_item":
+            item = MealItem(**{key: step["item"][key] for key in _SNAPSHOT_KEYS})
+        else:
+            continue
+        meal = kitchen.db.get(Meal, item.meal_id) if item is not None else None
+        if item is None or meal is None:
+            meal_step = next((s for s in steps if s["op"] == "del_meal"), None)
+            if item is None or meal_step is None:
+                continue
+            day, slot_id = (
+                date.fromisoformat(meal_step["meal"]["day"]),
+                meal_step["meal"]["slot_id"],
+            )
+        else:
+            day, slot_id = meal.day, meal.slot_id
+        slot = kitchen.db.get(MealSlot, slot_id)
+        where = f"{day:%a} {slot.name.lower()}" if slot else f"{day:%a}"
+        return f"{_item_name(kitchen, item)} ({where})"
+    return None
+
+
 def _finish(
     kitchen: Kitchen, kind: str, summary: str, steps: list[dict[str, Any]], **extra: Any
 ) -> Change:
-    change = record(kitchen, kind, summary, None, {"plan": steps, **extra})
+    change = record(
+        kitchen, kind, summary, None, {"plan": steps, "thing": _thing_of(kitchen, steps), **extra}
+    )
     list_follows_plan(kitchen)
     return change
 
@@ -630,7 +672,7 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
         None,
         {
             "result": tally.result,
-            "message": UNDO_MESSAGES[tally.result],
+            "message": undo_message(tally.result, (change.undo_data or {}).get("thing")),
             "undoes_kind": change.kind,
             "undoes_at": as_utc(change.at).isoformat(),
         },
