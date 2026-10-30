@@ -162,16 +162,22 @@ async function expectCentredIcon(button: Locator) {
 test('the Plan’s round buttons are real icons, centred (F41)', async ({ page }) => {
   const { today, slot } = await setup(page);
   // A meal in the week shown, so that its round + is there (an empty meal has the “+ Add” text button).
-  await planned(page, await makeRecipe(page, `Plus ${stamp()}`), today, slot.Dinner);
-  await page.goto('/plan');
-  await expect(page.getByRole('heading', { level: 1, name: 'Plan' })).toBeVisible();
-  await expectCentredIcon(page.getByRole('button', { name: 'Previous week' }));
-  await expectCentredIcon(page.getByRole('button', { name: 'Next week' }));
-  await expectCentredIcon(page.locator('button.plus').first());
-  if (!isPhone(page)) {
-    await expectCentredIcon(page.getByRole('button', { name: 'Collapse recipe tray' }));
-    await page.getByRole('button', { name: 'Collapse recipe tray' }).click();
-    await expectCentredIcon(page.getByRole('button', { name: 'Open recipe tray' }));
+  // Taken out again at the end: the household is shared, and Today's tests expect today's
+  // Dinner free (the full ./check on a6b191c).
+  const item = (await planned(page, await makeRecipe(page, `Plus ${stamp()}`), today, slot.Dinner)).item_id;
+  try {
+    await page.goto('/plan');
+    await expect(page.getByRole('heading', { level: 1, name: 'Plan' })).toBeVisible();
+    await expectCentredIcon(page.getByRole('button', { name: 'Previous week' }));
+    await expectCentredIcon(page.getByRole('button', { name: 'Next week' }));
+    await expectCentredIcon(page.locator('button.plus').first());
+    if (!isPhone(page)) {
+      await expectCentredIcon(page.getByRole('button', { name: 'Collapse recipe tray' }));
+      await page.getByRole('button', { name: 'Collapse recipe tray' }).click();
+      await expectCentredIcon(page.getByRole('button', { name: 'Open recipe tray' }));
+    }
+  } finally {
+    await call(page, 'DELETE', `/plan/items/${item}`);
   }
 });
 
