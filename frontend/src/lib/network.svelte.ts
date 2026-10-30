@@ -2,7 +2,8 @@
 // protocol 11.4.) Shown as a bar on every page, and a toast when the connection comes back.
 //
 // "Offline" means the last request to our server failed with a network error or timeout, or
-// the browser says it is offline. A blip shorter than OFFLINE_AFTER_MS shows nothing at all.
+// the reverse proxy answered for it (502, 503, 504: proxyGap.ts), or the browser says it is
+// offline. A blip shorter than OFFLINE_AFTER_MS shows nothing at all.
 // While we think we are offline a small check goes to our own server every few seconds, so
 // the bar goes away by itself; "Try now" does the same check straight away and reconnects
 // the live stream (live.svelte.ts).
@@ -15,6 +16,7 @@
 // AND nothing is waiting any more, a short toast says "Back online — all saved" (11.4).
 
 import { endPendingSignOut } from './offline/signOutPending';
+import { proxyGap } from './proxyGap';
 import { toasts } from './toast.svelte';
 
 /** A failure shorter than this shows nothing. */
@@ -137,11 +139,15 @@ class Network {
     try {
       // Signed out while offline: the server session ends before anything else is sent.
       if (!(await endPendingSignOut())) throw new Error('still unreachable');
-      await fetch('/api/v1/version', {
+      const response = await fetch('/api/v1/version', {
         cache: 'no-store',
         credentials: 'same-origin',
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS)
       });
+      // 502, 503 and 504 are the reverse proxy saying it can't reach Mealwright: still down
+      // (F67: counting them as an answer flitted between the page and "You're offline", with
+      // "Back online — all saved" while the server was stopped).
+      if (proxyGap(response.status)) throw new Error('the proxy can’t reach the server');
     } catch {
       this.failed();
       return;

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BACK_ONLINE, OFFLINE_AFTER_MS, network, offlineText } from './network.svelte';
+import {
+  BACK_ONLINE,
+  CHECK_EVERY_MS,
+  OFFLINE_AFTER_MS,
+  network,
+  offlineText
+} from './network.svelte';
 import { toasts } from './toast.svelte';
 
 beforeEach(() => {
@@ -152,5 +158,56 @@ describe('the words in the bar', () => {
     expect(offlineText('desktop', 1).detail).toBe(
       '1 change waiting. They’ll save when you’re back.'
     );
+  });
+});
+
+describe('the server is down behind a reverse proxy (F67)', () => {
+  // Caddy answers 502 when Mealwright is stopped; 503 and 504 mean the same.
+  for (const status of [502, 503, 504]) {
+    it(`a ${status} from the online check keeps it offline, with no "Back online — all saved"`, async () => {
+      let up = false;
+      const check = vi.fn(async () => (up ? new Response('{}') : new Response('', { status })));
+      vi.stubGlobal('fetch', check);
+      const stop = network.start(() => {});
+      try {
+        network.failed();
+        await vi.advanceTimersByTimeAsync(OFFLINE_AFTER_MS);
+        expect(network.offline).toBe(true);
+        // A minute of checks, every one answered by the proxy.
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(check.mock.calls.length).toBeGreaterThan(5);
+        expect(network.offline).toBe(true);
+        expect(network.backAgain).toBe(0);
+        expect(toasts.current).toBeNull();
+        // The server is really back: the next check says so.
+        up = true;
+        await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS);
+        expect(network.offline).toBe(false);
+        expect(toasts.current?.message).toBe(BACK_ONLINE);
+      } finally {
+        stop();
+        vi.unstubAllGlobals();
+      }
+    });
+  }
+
+  it('"Try now" with the proxy answering 502 stays offline', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 502 }))
+    );
+    const reconnect = vi.fn();
+    const stop = network.start(reconnect);
+    try {
+      network.failed();
+      await vi.advanceTimersByTimeAsync(OFFLINE_AFTER_MS);
+      await network.tryNow();
+      expect(network.offline).toBe(true);
+      expect(reconnect).not.toHaveBeenCalled();
+      expect(toasts.current).toBeNull();
+    } finally {
+      stop();
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -3,6 +3,9 @@
 
 import { network } from './network.svelte';
 import { endPendingSignOut } from './offline/signOutPending';
+import { PROXY_GAP, proxyGap } from './proxyGap';
+
+export { PROXY_GAP };
 
 export type ThemeChoice = 'auto' | 'light' | 'dark';
 
@@ -50,11 +53,9 @@ export function worthRetrying(error: unknown): boolean {
   return error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
 }
 
-const PROXY_GAP = new Set([502, 503, 504]);
-
 /** The server couldn't be reached: no connection, or the reverse proxy couldn't reach it. */
 export function cantReach(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 0 || PROXY_GAP.has(error.status));
+  return error instanceof ApiError && (error.status === 0 || proxyGap(error.status));
 }
 
 type Fetch = typeof fetch;
@@ -146,7 +147,7 @@ export async function api<T>(
   }
   // Any answer from our server means it is there. But 502, 503 and 504 come from the
   // reverse proxy when it can't reach Mealwright (spec UX principle 16).
-  if (PROXY_GAP.has(response.status)) network.failed();
+  if (proxyGap(response.status)) network.failed();
   else network.succeeded();
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
