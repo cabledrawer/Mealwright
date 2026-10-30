@@ -20,16 +20,18 @@ const backOnline = (page: Page) => page.getByText('Back online — all saved');
 const proxyGap = (route: Route) => route.fulfill({ status: 502, body: '' });
 
 const PAGES = [
-  { name: 'Ingredients', path: '/recipes/ingredients' },
-  { name: 'Today', path: '/' },
-  { name: 'Plan', path: '/plan' },
-  { name: 'Shopping', path: '/shopping' },
+  // `notes`: how many "Can't reach your Mealwright server." notes: Today and Shopping show
+  // their saved copy instead.
+  { name: 'Ingredients', path: '/recipes/ingredients', notes: 1 },
+  { name: 'Today', path: '/', notes: 0 },
+  { name: 'Plan', path: '/plan', notes: 1 },
+  { name: 'Shopping', path: '/shopping', notes: 0 },
   // cabledrawer 30 Oct: Settings and the recipe panes in line with the other pages.
-  { name: 'Recipes', path: '/recipes' },
-  { name: 'Settings', path: '/settings' },
+  { name: 'Recipes', path: '/recipes', notes: 1 },
+  { name: 'Settings', path: '/settings', notes: 1 },
 ] as const;
 
-for (const { name, path } of PAGES) {
+for (const { name, path, notes } of PAGES) {
   test(`${name}: the server answering 502 is one steady offline state, and the page comes back with it`, async ({
     page,
   }) => {
@@ -51,10 +53,9 @@ for (const { name, path } of PAGES) {
     // The device's network is fine; only the server doesn't answer (cabledrawer 30 Oct): "Can't
     // reach your Mealwright server…", never "You're offline…".
     const note = page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' });
-    const noted = await note.count();
     for (let second = 0; second < 12; second++) {
       await expect(bar(page)).toBeVisible();
-      await expect(note).toHaveCount(noted);
+      await expect(note).toHaveCount(notes);
       await expect(backOnline(page)).toHaveCount(0);
       await expect(page.getByText(/You’re offline/)).toHaveCount(0);
       await page.waitForTimeout(1000);
