@@ -285,6 +285,37 @@ describe('the boxes', () => {
     await expect.element(page.getByRole('combobox', { name: `Ingredient ${added}` })).toHaveFocus();
   });
 
+  it('a line reads Ingredient, Amount, Unit, Note, and Tab goes the same way (F36)', async () => {
+    fakeApi({});
+    open();
+    await userEvent.click(page.getByRole('button', { name: '+ Add line' }));
+    const first = document.querySelector('[data-line]')!;
+    const labels = [...first.querySelectorAll('input, select')].map((e) =>
+      e.getAttribute('aria-label')
+    );
+    expect(labels).toEqual([
+      'Ingredient 1',
+      'Amount for ingredient 1',
+      'Unit for ingredient 1',
+      'Note for ingredient 1'
+    ]);
+    // On the screen too: each box starts to the right of, or below, the one before.
+    const boxes = labels.map((label) => first.querySelector(`[aria-label="${label}"]`)!);
+    const at = boxes.map((box) => box.getBoundingClientRect());
+    for (let i = 1; i < at.length; i++) {
+      expect(at[i]!.left > at[i - 1]!.left || at[i]!.top > at[i - 1]!.top - 1).toBe(true);
+    }
+    await userEvent.click(page.getByRole('combobox', { name: 'Ingredient 1' }));
+    for (const next of [
+      'Amount for ingredient 1',
+      'Unit for ingredient 1',
+      'Note for ingredient 1'
+    ]) {
+      await userEvent.tab();
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(next);
+    }
+  });
+
   it('keeps Serves between 1 and 99, and can clear it', async () => {
     fakeApi({});
     open();

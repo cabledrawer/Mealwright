@@ -1,6 +1,6 @@
 <script lang="ts">
   // The ingredient lines and headings (cabledrawer 19 Oct, questions 11 to 14, editor brief item 10):
-  // separate boxes for amount, unit, ingredient and note; the ingredient box is the line's own
+  // separate boxes for ingredient, amount, unit and note (in that order, cabledrawer 22 Oct); the ingredient box is the line's own
   // words, and the pick-list that opens under it while you type (a combobox with a listbox,
   // phone and computer alike; mockup RecipeLines) links them to an ingredient or to another
   // recipe. Enter in the last box adds a line. Lines are dragged by the handle, or moved with
@@ -224,9 +224,9 @@
 
   {#if !phone && draft.lines.some((l) => l.kind === 'ingredient')}
     <div class="head" aria-hidden="true">
+      <span class="h-words">Ingredient (your words)</span>
       <span class="h-amount">Amount</span>
       <span class="h-unit">Unit</span>
-      <span class="h-words">Ingredient (your words)</span>
       <span class="h-note">Note</span>
     </div>
   {/if}
@@ -265,30 +265,6 @@
           />
         {:else}
           <div class="fields">
-            <input
-              class="mw-input amount"
-              aria-label="Amount for ingredient {i + 1}"
-              placeholder="–"
-              maxlength="20"
-              autocomplete="off"
-              aria-invalid={amountError ? true : undefined}
-              aria-describedby={amountError ? `${uid}-${line.key}-amount` : undefined}
-              bind:value={line.amount}
-            />
-            <select
-              class="mw-input unit"
-              aria-label="Unit for ingredient {i + 1}"
-              bind:value={line.unit}
-            >
-              <option value="">none</option>
-              {#each sizesOf(line) as size (size.id)}
-                <option value="size:{size.id}">{size.name}</option>
-              {/each}
-              {#each LINE_UNITS as unit (unit)}
-                <option value={unit}>{unit}</option>
-              {/each}
-            </select>
-
             <div class="words-wrap">
               {#if line.food || line.recipe}
                 <span class="dot" aria-hidden="true"></span>
@@ -347,6 +323,30 @@
                 </span>
               {/if}
             </div>
+
+            <input
+              class="mw-input amount"
+              aria-label="Amount for ingredient {i + 1}"
+              placeholder="–"
+              maxlength="20"
+              autocomplete="off"
+              aria-invalid={amountError ? true : undefined}
+              aria-describedby={amountError ? `${uid}-${line.key}-amount` : undefined}
+              bind:value={line.amount}
+            />
+            <select
+              class="mw-input unit"
+              aria-label="Unit for ingredient {i + 1}"
+              bind:value={line.unit}
+            >
+              <option value="">none</option>
+              {#each sizesOf(line) as size (size.id)}
+                <option value="size:{size.id}">{size.name}</option>
+              {/each}
+              {#each LINE_UNITS as unit (unit)}
+                <option value={unit}>{unit}</option>
+              {/each}
+            </select>
 
             <input
               class="mw-input note"
@@ -502,19 +502,21 @@
   }
 
   .amount {
+    order: 3;
     flex: 0 0 3.5rem;
     padding: 0 var(--space-3);
     text-align: center;
   }
 
   .unit {
+    order: 4;
     flex: 0 0 5rem;
     padding: 0 var(--space-3);
   }
 
   .meta {
     flex: 1 1 100%;
-    order: 4;
+    order: 2;
     font-size: var(--text-sm);
   }
 
@@ -523,7 +525,7 @@
   }
 
   .note {
-    flex: 1 1 100%;
+    flex: 1 1 8rem;
     order: 5;
     background: var(--color-fill);
     border-color: transparent;
@@ -600,7 +602,8 @@
   /* The ingredient box, with the pick-list opening under it. */
   .words-wrap {
     position: relative;
-    flex: 1 1 7rem;
+    order: 1;
+    flex: 1 1 100%;
     min-width: 7rem;
   }
 
@@ -651,7 +654,7 @@
 
     .fields {
       display: grid;
-      grid-template-columns: 4rem 6rem minmax(0, 2fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 2fr) 4rem 6rem minmax(0, 1fr);
       align-items: start;
     }
 
@@ -664,8 +667,20 @@
     }
 
     .meta {
-      grid-column: 3 / -1;
+      grid-column: 1;
       grid-row: 2;
+    }
+
+    .words-wrap {
+      grid-column: 1;
+    }
+
+    .amount {
+      grid-column: 2;
+    }
+
+    .unit {
+      grid-column: 3;
     }
 
     .note {
@@ -679,7 +694,7 @@
 
     .head {
       display: grid;
-      grid-template-columns: 4rem 6rem minmax(0, 2fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 2fr) 4rem 6rem minmax(0, 1fr);
       gap: var(--space-3);
       margin-right: calc(36px + var(--space-3));
       padding-left: calc(28px + var(--space-3));

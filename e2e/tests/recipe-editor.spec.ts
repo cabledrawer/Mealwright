@@ -236,6 +236,9 @@ test('lines can be put in a new order with the keyboard and the mouse', async ({
   // Dragging the last handle above the first.
   const last = page.getByRole('button', { name: /^Move ingredient 3\./ });
   const first = page.getByRole('button', { name: /^Move ingredient 1\./ });
+  // With the ingredient box on a line of its own on a phone, a line is taller (F36): scroll so
+  // that the first line is at the top, and the last is still on the screen.
+  await first.evaluate((el) => el.scrollIntoView({ block: 'start' }));
   const from = (await last.boundingBox())!;
   const to = (await first.boundingBox())!;
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -321,16 +324,16 @@ test('the pick-list opens while you type: other names, recipe counts, keys, and 
   await checkPage(page);
 });
 
-test('Enter in the last box adds a new line, and the order is Amount, Unit, Ingredient, Note (0.6)', async ({ page }) => {
+test('Enter in the last box adds a new line, and the order is Ingredient, Amount, Unit, Note (F36)', async ({ page }) => {
   const recipe = await makeRecipe(page, { name: unique('Enter adds') });
   await page.goto(`/recipes/${recipe.id}/edit`);
   await page.getByRole('button', { name: '+ Add line' }).first().click();
   const boxes = page.locator('[data-line]').first().locator('input:visible, select:visible');
   const labels = await boxes.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? ''));
   expect(labels).toEqual([
+    'Ingredient 1',
     'Amount for ingredient 1',
     'Unit for ingredient 1',
-    'Ingredient 1',
     'Note for ingredient 1',
   ]);
   await expect(page.locator('[data-line]')).toHaveCount(1);
