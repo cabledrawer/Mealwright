@@ -330,12 +330,12 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
   await expect(page.getByText('Boil the lentils.')).toBeVisible();
   // The toast says what was imported, with the one Undo.
-  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
   const foods = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(hing)}`)).json()) as Json;
   expect(foods.foods.map((f: Json) => f.name.toLowerCase())).toContain(hing.toLowerCase());
   const changes = (await (await page.request.get('/api/v1/changes?area=ingredients&limit=10')).json()) as Json;
   expect(changes.changes.filter((c: Json) => c.kind === 'recipe_imported' && c.summary.includes(title))).toHaveLength(1);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${id}`)).status()).toBe(404);
   const after = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(hing)}`)).json()) as Json;

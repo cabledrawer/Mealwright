@@ -140,7 +140,7 @@ test('"2 missing · Add to the list" adds both with one Undo, and the lines say 
   await expect(reader(page).getByText(/missing/)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add to the list' })).toHaveCount(0);
   await expect(reader(page).getByText(/all in stock/i)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText('Undone: 2 ingredients added to the shopping list')).toBeVisible();
   await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
 });

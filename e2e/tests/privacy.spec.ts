@@ -107,7 +107,7 @@ test('an admin adds to "Your own network" and takes off, with Undo', async ({ pa
   await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
   await expect(list.getByText('wiki.home.example', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Removed wiki.home.example from Your own network')).toBeVisible();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(list.getByText('wiki.home.example', { exact: true })).toBeVisible();
   await page.reload();
   await expect(list.getByRole('listitem')).toHaveCount(2);

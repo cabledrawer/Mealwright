@@ -69,7 +69,7 @@ test('Cooked it with leftovers makes a tub, Undo asks again, then Cooked it', as
   await expect(stat(page, 'tubs left')).toHaveText(String(before + 1));
 
   // Undo: the card is back, the tub is gone.
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(card(page).getByText(`Did you cook ${k.name}?`)).toBeVisible();
   await expect(stat(page, 'tubs left')).toHaveText(String(before));
 

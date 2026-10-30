@@ -100,7 +100,7 @@ test('changes save as you go, and Undo puts them back', async ({ page }) => {
   await staple.click();
   await expect(staple).toHaveAttribute('aria-checked', 'true');
   const toast = page.getByRole('status').filter({ hasText: /./ }).last();
-  await expect(toast.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
 
   // Saved on the server… (the toast shows at once, before the server has answered)
   await expect
@@ -108,7 +108,7 @@ test('changes save as you go, and Undo puts them back', async ({ page }) => {
     .toBe(true);
 
   // …and Undo takes it back.
-  await toast.getByRole('button', { name: 'Undo' }).click();
+  await toast.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText('Undone')).toBeVisible();
   await expect
     .poll(async () => (await (await page.request.get(`/api/v1/foods/${food.id}`)).json()).staple)

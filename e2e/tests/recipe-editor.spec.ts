@@ -207,7 +207,7 @@ test('a new recipe cancelled with a typed name comes back with Undo', async ({ p
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page).toHaveURL('/recipes');
   await expect(page.getByText('Changes not saved')).toBeVisible();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page).toHaveURL('/recipes/new');
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Half a recipe');
 });
@@ -254,7 +254,7 @@ test('taking out a line has Undo', async ({ page }) => {
   await page.goto(`/recipes/${recipe.id}/edit`);
   await page.getByRole('button', { name: 'Take out of this recipe' }).first().click();
   await expect(page.getByText('Took out alpha')).toBeVisible();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText('Undone: Took out alpha')).toBeVisible();
   await expect(page.locator('[data-line]')).toHaveCount(2);
 });
@@ -644,7 +644,7 @@ test('Delete recipe goes at once, with Undo', async ({ page }) => {
   await expect(page).toHaveURL('/recipes');
   await expect(page.getByText(`Deleted ${name}`)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(404);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(`Undone: Deleted ${name}`)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(200);
 });
@@ -682,7 +682,7 @@ test('Delete recipe in the recipe page’s ⋯ menu: at once, "Deleted …" with
   await expect(page).toHaveURL('/recipes');
   await expect(page.getByText(`Deleted ${name}`)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(404);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(`Undone: Deleted ${name}`)).toBeVisible();
   expect((await page.request.get(`/api/v1/recipes/${recipe.id}`)).status()).toBe(200);
 });

@@ -181,7 +181,7 @@ test.describe('on a computer', () => {
     await mouseDrag(page, item, cell(page, day, slot.Dinner));
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
     await expect(page.getByRole('status').filter({ hasText: `Planned ${name}` })).toBeVisible();
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).not.toContainText(name);
   });
 
@@ -199,7 +199,7 @@ test.describe('on a computer', () => {
     await mouseDrag(page, card(), cell(page, next, slot.Dinner));
     await expect(cell(page, next, slot.Dinner)).toContainText(name);
     await expect(cell(page, day, slot.Lunch)).not.toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Lunch)).toContainText(name);
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
 
@@ -207,7 +207,7 @@ test.describe('on a computer', () => {
     await mouseDrag(page, card(), cell(page, next, slot.Dinner), { alt: true });
     await expect(cell(page, next, slot.Dinner)).toContainText(name);
     await expect(cell(page, day, slot.Lunch)).toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
 
     // Leftovers here.
@@ -215,7 +215,7 @@ test.describe('on a computer', () => {
     await expect(cell(page, next, slot.Dinner)).toContainText(name);
     await expect(cell(page, day, slot.Lunch)).toContainText(name);
     await expect(page.getByRole('status').filter({ hasText: 'Leftovers' })).toBeVisible();
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
   });
 
@@ -268,7 +268,7 @@ test.describe('on a computer', () => {
     await fingerDrag(from, cell(page, addDays(day, 1), slot.Lunch));
     await expect(cell(page, addDays(day, 1), slot.Lunch)).toContainText(name);
     await expect(cell(page, day, slot.Dinner)).not.toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
   });
 
@@ -345,14 +345,14 @@ test.describe('on a computer', () => {
     await cell(page, day, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
     await page.getByRole('dialog', { name }).getByRole('button', { name: 'Remove' }).click();
     await expect(cell(page, day, slot.Dinner)).not.toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
 
     const dinner = page.getByRole('group', { name: 'Meals to show' }).getByRole('button', { name: 'Dinner' });
     await dinner.click();
     await expect(dinner).toHaveAttribute('aria-pressed', 'false');
     await expect(cell(page, day, slot.Dinner)).toHaveCount(0);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
   });
 
@@ -375,7 +375,7 @@ test.describe('on a computer', () => {
     await mouseDrag(page, chip, page.getByTestId(`day-${to}`));
     await expect(page.getByTestId(`day-${to}`)).toContainText(name);
     await expect(page.getByTestId(`day-${day}`)).not.toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.getByTestId(`day-${day}`)).toContainText(name);
     await mouseDrag(page, chip, page.getByTestId(`day-${copy}`), { alt: true });
     await expect(page.getByTestId(`day-${copy}`)).toContainText(name);
@@ -526,7 +526,7 @@ test.describe('on a phone', () => {
     await sheet.getByRole('button', { name: 'Copy here' }).click();
     await expect(page.getByRole('region', { name: dayName(to) })).toContainText(name);
     await expect(page.getByRole('region', { name: dayName(day) })).toContainText(name);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.getByRole('region', { name: dayName(to) })).not.toContainText(name);
   });
 

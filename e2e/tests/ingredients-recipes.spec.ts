@@ -193,7 +193,7 @@ test('removing an ingredient that recipes use says so first; the lines keep thei
   expect(await first()).toMatchObject({ words: 'some', food: null });
 
   // Undo links them again.
-  await toast.getByRole('button', { name: 'Undo' }).click();
+  await toast.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await first()).link).toBe('ingredient');
   expect((await first()).food?.id).toBe(dal);
 

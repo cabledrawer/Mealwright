@@ -163,7 +163,7 @@ test('offline: a tick offers Undo at once; Undo is queued after it, and the serv
   const toast = page.getByRole('status').filter({ hasText: `${name} ticked` });
   await expect(toast).toBeVisible();
   await expect(toast.getByRole('button', { name: 'Change' })).toBeVisible();
-  await toast.getByRole('button', { name: 'Undo' }).click();
+  await toast.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: `Undone: ${name} ticked` })).toBeVisible();
   await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
   await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).not.toBeChecked();

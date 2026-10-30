@@ -147,7 +147,7 @@ test('Save keeps the pint the switch was left on', async ({ page }) => {
   const recipe = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
   const milk = recipe.lines.find((l: Json) => l.words === 'whole milk');
   expect([milk.amount, milk.unit]).toEqual([1136, 'ml']);
-  await page.getByRole('button', { name: 'Undo' }).click(); // leaves no recipe behind
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); // leaves no recipe behind
   await expect(page.getByText(/^Undone/)).toBeVisible();
 });
 

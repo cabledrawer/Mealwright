@@ -131,7 +131,7 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(0);
   // The recipe's Undo takes the recipe and its new ingredients back, as for any import, and
   // because it was saved from a draft, the draft comes back too (spec section 6, question 36).
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
   await page.goto('/recipes/drafts');
   await expect(page.getByRole('link', { name: `Carry on ${title} (mine)` })).toBeVisible();
@@ -170,7 +170,7 @@ test('Delete hides the draft at once and a toast offers Undo; Undo and Ctrl+Z br
   await checkPage(page);
   await page.mouse.move(0, 0);
   expect(await draftsNamed(page, title)).toHaveLength(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
   expect(await draftsNamed(page, title)).toHaveLength(1);
   if (!isPhone(page)) {

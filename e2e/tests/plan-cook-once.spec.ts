@@ -163,7 +163,7 @@ test('Cook once: the sheet previews, a tub is taken out, added and moved; Save m
   expect(saved.batch_cooks[0].pattern).toBe('dinners');
   expect(meal.meal_id).toBeTruthy();
 
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await planRange(page, day, addDays(day, 10))).tubs.length).toBe(0);
 });
 
@@ -222,7 +222,7 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   await menu.getByRole('button', { name: me }).click();
   await expect(page.getByRole('status').filter({ hasText: `is ${me}’s` })).toBeVisible();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].member_login_id).not.toBeNull();
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].member_login_id).toBeNull();
 
   // F48: the tub's own use-by can be changed from here, with Undo; days left count from the cook day.
@@ -240,7 +240,7 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   await useByMenu.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'use by' })).toBeVisible();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].use_by).toBe(newUseBy);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].use_by).toBe(addDays(day, 3));
 
   // To freezer: the tub leaves its meal and is in the freezer.
@@ -249,7 +249,7 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   await expect(page.getByRole('status').filter({ hasText: 'to the freezer' })).toBeVisible();
   await expect.poll(async () => (await planRange(page, sun, sun)).tubs[0].place_kind).toBe('freezer');
   await expect(mealButton(page, sun, 'Lunch', slot.Lunch, tubName)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(mealButton(page, sun, 'Lunch', slot.Lunch, tubName)).toBeVisible();
 
   // Back to tubs left, then into a meal again from "Tubs left".
@@ -294,7 +294,7 @@ test('Leftovers here makes a tub of the meal’s batch cook; Undo takes it back'
   const plan = await planRange(page, day, addDays(day, 3));
   expect(plan.batch_cooks.map((b: any) => [b.recipe_name, b.tub_count])).toEqual([[name, 1]]);
   expect(plan.tubs).toHaveLength(1);
-  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await planRange(page, day, addDays(day, 3))).tubs.length).toBe(0);
   await expect(mealButton(page, sun, 'Lunch', slot.Lunch, `${name} tub`)).toHaveCount(0);
 });
