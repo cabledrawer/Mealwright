@@ -423,7 +423,7 @@ describe('the pint switch (Amounts)', () => {
     await pints().click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Couldn’t reach your Mealwright server. Nothing was changed.');
+      .toHaveTextContent('Can’t reach your Mealwright server. Nothing was changed.');
     await expect.element(pints()).not.toBeChecked();
     expect(requests.filter((r) => r.method === 'PATCH')).toEqual([]);
   });

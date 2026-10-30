@@ -9,6 +9,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
+  import { nothingChanged } from '#lib/downWords.js';
   import { changePints, getHousehold } from '#lib/client/household.js';
   import type { Pints } from '#lib/client/types.js';
   import { network } from '#lib/network.svelte.js';
@@ -60,7 +61,7 @@
       pintsProblem =
         error instanceof ApiError && !cantReach(error)
           ? error.detail
-          : 'Couldn’t reach your Mealwright server. Nothing was changed.';
+          : nothingChanged(network.deviceOffline);
     }
   }
 
@@ -164,7 +165,7 @@
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
        18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
        Anything added to Appearance later that needs the server is hidden offline. -->
-  {#if network.offline}
+  {#if network.offline || (network.down && pints === null)}
     <OfflineNote screen="Settings" />
   {/if}
   <section class="section" aria-labelledby="appearance">

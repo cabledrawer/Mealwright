@@ -33,3 +33,7 @@ export const cantReachText = (device: boolean): string =>
   device
     ? 'You’re offline. Check your connection.'
     : 'Can’t reach your Mealwright server. Check your connection.';
+
+/** A change that couldn't be sent and was put back (a switch flips back). */
+export const nothingChanged = (device: boolean): string =>
+  `${downTitle(device)} Nothing was changed.`;

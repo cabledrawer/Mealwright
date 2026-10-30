@@ -142,23 +142,32 @@ describe('when the connection comes back', () => {
 
 describe('the words in the bar', () => {
   it('says just "Offline" when nothing is waiting', () => {
-    expect(offlineText('phone', 0)).toEqual({ title: 'Offline', detail: null });
-    expect(offlineText('desktop', 0)).toEqual({ title: 'Offline', detail: null });
+    expect(offlineText('phone', 0, true)).toEqual({ title: 'Offline', detail: null });
+    expect(offlineText('desktop', 0, true)).toEqual({ title: 'Offline', detail: null });
   });
 
   it('phone: "Offline — N changes waiting"', () => {
-    expect(offlineText('phone', 3).title).toBe('Offline — 3 changes waiting');
-    expect(offlineText('phone', 1).title).toBe('Offline — 1 change waiting');
+    expect(offlineText('phone', 3, true).title).toBe('Offline — 3 changes waiting');
+    expect(offlineText('phone', 1, true).title).toBe('Offline — 1 change waiting');
   });
 
   it('desktop: a second line, as in the mockups', () => {
-    expect(offlineText('desktop', 3)).toEqual({
+    expect(offlineText('desktop', 3, true)).toEqual({
       title: 'Offline',
       detail: '3 changes waiting. They’ll save when you’re back.'
     });
-    expect(offlineText('desktop', 1).detail).toBe(
+    expect(offlineText('desktop', 1, true).detail).toBe(
       '1 change waiting. They’ll save when you’re back.'
     );
+  });
+
+  it('follows the cause like the page notes: "Can’t reach server" while the device has a network (cabledrawer 30 Oct)', () => {
+    expect(offlineText('phone', 0, false)).toEqual({ title: 'Can’t reach server', detail: null });
+    expect(offlineText('phone', 2, false).title).toBe('Can’t reach server — 2 changes waiting');
+    expect(offlineText('desktop', 2, false)).toEqual({
+      title: 'Can’t reach server',
+      detail: '2 changes waiting. They’ll save when it answers again.'
+    });
   });
 });
 

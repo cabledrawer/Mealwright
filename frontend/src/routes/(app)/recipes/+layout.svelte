@@ -42,6 +42,10 @@
   /** There are no recipes at all: nothing to point to in the reading pane. */
   const none = $derived(list.loaded && !list.problem && list.all === 0);
 
+  /** The one note for both panes: as the Recipes list on a phone, from the first failure when
+   *  the list couldn't load (cabledrawer 30 Oct: the same on every page). */
+  const paneNote = $derived(network.offline || (network.down && list.problem !== null));
+
   let reading = $state<HTMLElement>();
   // Each recipe opens at its top, not where the last one was left.
   $effect(() => {
@@ -58,13 +62,13 @@
   <div class="panes">
     <!-- Offline: one note for the whole area, not one in each pane. The panes stay in place
          (hidden), so the search and the open recipe are still there when the connection is back. -->
-    {#if network.offline && !editing}
+    {#if paneNote && !editing}
       <div class="offline">
         <h1>Recipes</h1>
         <OfflineNote screen="Recipes" />
       </div>
     {/if}
-    <div class="row" hidden={network.offline && !editing}>
+    <div class="row" hidden={paneNote && !editing}>
       <RecipeListScreen pane {list} {currentId} alone={currentId === null && !editing} />
       <div class="reading" role="region" aria-label="Recipe" bind:this={reading}>
         {#if currentId === null && !editing}

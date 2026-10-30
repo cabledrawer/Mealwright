@@ -148,7 +148,8 @@ describe('the online-only screens, server down', () => {
     ['Plan', Plan],
     ['Pantry', Pantry],
     ['Ingredients', Ingredients],
-    ['Recipes', Recipes]
+    ['Recipes', Recipes],
+    ['Settings', Settings]
   ] as const) {
     it(`${name}: “Can’t reach your Mealwright server.” from the start, the same once the bar shows`, async () => {
       const target = document.body.appendChild(document.createElement('div'));

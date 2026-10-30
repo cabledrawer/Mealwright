@@ -234,7 +234,7 @@ describe('Settings → Privacy', () => {
       await toggle.click();
       await expect
         .element(page.getByRole('alert'))
-        .toHaveTextContent('Couldn’t reach your Mealwright server. Nothing was changed.');
+        .toHaveTextContent('Can’t reach your Mealwright server. Nothing was changed.');
       await expect.element(toggle).not.toBeChecked();
     });
 

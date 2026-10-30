@@ -24,6 +24,9 @@ const PAGES = [
   { name: 'Today', path: '/' },
   { name: 'Plan', path: '/plan' },
   { name: 'Shopping', path: '/shopping' },
+  // cabledrawer 30 Oct: Settings and the recipe panes in line with the other pages.
+  { name: 'Recipes', path: '/recipes' },
+  { name: 'Settings', path: '/settings' },
 ] as const;
 
 for (const { name, path } of PAGES) {
@@ -40,6 +43,8 @@ for (const { name, path } of PAGES) {
     await page.route('**/api/**', proxyGap);
     await page.reload();
     await expect(bar(page)).toBeVisible({ timeout: 15_000 });
+    // The bar's word follows the cause too (cabledrawer 30 Oct): the device has a network.
+    await expect(bar(page)).toContainText('Can’t reach server');
 
     // Steady for over two rounds of the online check (every 5 seconds): the bar never goes,
     // the page never flits between "You're offline" and itself, and no "Back online" toast.

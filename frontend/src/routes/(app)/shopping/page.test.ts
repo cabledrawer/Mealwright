@@ -1363,7 +1363,7 @@ describe('the Shopping page', () => {
         );
         expect((await readQueue())[0]!.action).toMatchObject({ item_id: 'i-yoghurt', shop_id: 2 });
         await vi.waitFor(() => expect(network.waiting).toBe(1));
-        expect(offlineText('phone', network.waiting).title).toBe('Offline — 1 change waiting');
+        expect(offlineText('phone', network.waiting, true).title).toBe('Offline — 1 change waiting');
         // The row itself moved on this phone, not only the toast (0.5 PR 7 review R1): the last
         // shop heading above Yoghurt is now Indian grocer.
         await vi.waitFor(() => {

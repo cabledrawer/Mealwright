@@ -19,15 +19,18 @@ import {
   type OwnNetworkEntry,
   type SwitchName
 } from './client/privacy';
+import { nothingChanged } from './downWords';
+import { network } from './network.svelte';
 import { undoHistory } from './undo.svelte';
 
-export const NO_CONNECTION = 'Couldn’t reach your Mealwright server. Nothing was changed.';
+/** Chosen by the cause, the same on every page (cabledrawer 30 Oct). */
+export const noConnection = (): string => nothingChanged(network.deviceOffline);
 const FALLBACK = 'Something went wrong. Try again.';
 
 /** The sentence to show for an error from the server or from not reaching it. */
 function sentence(error: unknown): string {
   if (!(error instanceof ApiError)) return FALLBACK;
-  return cantReach(error) ? NO_CONNECTION : error.detail;
+  return cantReach(error) ? noConnection() : error.detail;
 }
 
 /** The sentence when the page itself couldn't be loaded: the same words as every page. */

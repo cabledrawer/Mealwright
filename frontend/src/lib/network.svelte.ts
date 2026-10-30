@@ -31,16 +31,21 @@ export const BACK_ONLINE = 'Back online — all saved';
 
 const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
 
-/** The words in the offline bar. `detail` is the second line on desktop, if there is one. */
+/** The words in the offline bar. `detail` is the second line on desktop, if there is one.
+ *  `device`: network.deviceOffline. The word follows the cause, like the page notes (cabledrawer
+ *  30 Oct): "Offline" when this device has no network, "Can’t reach server" when it has one
+ *  but the server doesn't answer. */
 export function offlineText(
   layout: 'phone' | 'desktop',
-  waiting: number
+  waiting: number,
+  device: boolean
 ): { title: string; detail: string | null } {
-  if (waiting <= 0) return { title: 'Offline', detail: null };
-  if (layout === 'phone') return { title: `Offline — ${changes(waiting)} waiting`, detail: null };
+  const word = device ? 'Offline' : 'Can’t reach server';
+  if (waiting <= 0) return { title: word, detail: null };
+  if (layout === 'phone') return { title: `${word} — ${changes(waiting)} waiting`, detail: null };
   return {
-    title: 'Offline',
-    detail: `${changes(waiting)} waiting. They’ll save when you’re back.`
+    title: word,
+    detail: `${changes(waiting)} waiting. They’ll save ${device ? 'when you’re back' : 'when it answers again'}.`
   };
 }
 

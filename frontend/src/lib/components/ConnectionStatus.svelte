@@ -10,7 +10,11 @@
 
   let { layout }: { layout: 'phone' | 'desktop' | 'dot' } = $props();
 
-  const text = $derived(offlineText(layout === 'phone' ? 'phone' : 'desktop', network.waiting));
+  // The word follows the cause, like the page notes (cabledrawer 30 Oct): "Offline" or "Can’t
+  // reach server".
+  const text = $derived(
+    offlineText(layout === 'phone' ? 'phone' : 'desktop', network.waiting, network.deviceOffline)
+  );
 </script>
 
 <div
@@ -25,7 +29,7 @@
         type="button"
         class="dot-button"
         aria-label={`${text.title}. Try now`}
-        title="Offline. Try now"
+        title={`${text.title}. Try now`}
         disabled={network.trying}
         onclick={() => void network.tryNow()}
       >
