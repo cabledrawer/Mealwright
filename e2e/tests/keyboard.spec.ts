@@ -169,6 +169,7 @@ test.describe('signed in', () => {
     const editor = page.getByRole('complementary', { name: `Edit Keyboard used ${stamp}` });
     await expect(editor.getByRole('heading', { name: 'Used in 6 recipes' })).toBeVisible();
     await expect(editor.getByRole('button', { name: '+ 1 more recipe' })).toBeVisible();
+    // As above: wait for the chip's count before listing the controls.
     await expect(page.getByRole('button', { name: /^Not in any recipe · \d+/ })).toBeVisible();
     await checkKeyboard(page, 'Ingredients with the editor open');
   });

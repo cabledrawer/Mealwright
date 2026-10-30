@@ -12,9 +12,10 @@ page-reading child process switches the guard on too (`page_budget`), and import
 gate there would cost it about two thirds of a second of processor time on every page. It never
 imports `socket` itself: a socket's family is read from the object the hook is given.
 
-A reverse lookup (`socket.gethostbyaddr`, `socket.getnameinfo`) is refused too, except
-`getnameinfo` for a loopback address: its audit event carries only the address, not the flags,
-so a numeric-only call can't be told apart and anything that is not loopback is refused.
+A reverse lookup (`socket.gethostbyaddr`, `socket.getnameinfo`) is refused too, whatever the
+address: `getnameinfo`'s audit event carries only the address, not the flags, so a numeric-only
+call can't be told apart, and even a loopback address other than 127.0.0.1 asks the system's DNS
+server. Nothing in the app needs it.
 
 Only new connections and sends to an address are refused. A write on a connection that already
 exists (a reply going out) is not a connection and is never blocked: `socket.send` fires no
@@ -86,38 +87,14 @@ def _audit(event: str, args: tuple[Any, ...]) -> None:
     if event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyname_ex"}:
         if not _is_local_name(args[0] if args else None):
             raise OutboundBlocked(f"DNS lookup outside the outbound gate ({event})")
-    elif event == "socket.gethostbyaddr":
+    elif event in {"socket.gethostbyaddr", "socket.getnameinfo"}:
         raise OutboundBlocked("reverse DNS lookup outside the outbound gate")
-    elif event == "socket.getnameinfo" and not _is_loopback(_sockaddr_host(args)):
-        # The event carries only the address, not the flags, so a numeric-only call can't be told
-        # apart: only a loopback address, which stays on the machine, is allowed.
-        raise OutboundBlocked("reverse DNS lookup outside the outbound gate")
-
-
-def _sockaddr_host(args: tuple[Any, ...]) -> object:
-    """The host in the address a `getnameinfo` event carries, or None if it isn't a tuple."""
-    sockaddr = args[0] if args else None
-    return sockaddr[0] if isinstance(sockaddr, tuple) and len(sockaddr) > 0 else None
 
 
 def _no_address(address: object) -> bool:
     """Only None or a plain empty tuple mean "no address": an address object made to look empty
     (a tuple subclass whose truth is False) is still an address."""
     return address is None or (type(address) is tuple and len(address) == 0)
-
-
-def _is_loopback(host: object) -> bool:
-    """A loopback IP literal (127.0.0.0/8, ::1, or an IPv4-mapped 127.x). Anything else, including
-    a name or something malformed, is not."""
-    if not isinstance(host, str):
-        return False
-    try:
-        address = ipaddress.ip_address(host.split("%")[0])
-    except ValueError:
-        return False
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
-        address = address.ipv4_mapped
-    return address.is_loopback
 
 
 def _is_local_name(host: object) -> bool:

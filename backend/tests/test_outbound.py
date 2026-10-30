@@ -330,16 +330,19 @@ def test_guard_blocks_a_reverse_lookup_of_a_non_local_address() -> None:
         socket.getnameinfo(("192.0.2.1", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
 
 
-def test_guard_allows_a_reverse_lookup_of_a_loopback_address() -> None:
+def test_guard_blocks_a_reverse_lookup_of_a_loopback_address_too() -> None:
+    # A loopback address other than 127.0.0.1 (127.5.6.7) still asks the system's DNS server
+    # (security review, 30 Oct), so no address is let through.
     for sockaddr in (
         ("127.0.0.1", 80),
         ("127.5.6.7", 80),
         ("::1", 80, 0, 0),
         ("::ffff:127.0.0.1", 80, 0, 0),
     ):
-        _audit("socket.getnameinfo", (sockaddr,))
-    socket.getnameinfo(("127.0.0.1", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
-    socket.getnameinfo(("::1", 80, 0, 0), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
+        with pytest.raises(OutboundBlocked):
+            _audit("socket.getnameinfo", (sockaddr,))
+    with pytest.raises(OutboundBlocked):
+        socket.getnameinfo(("127.5.6.7", 80), socket.NI_NUMERICHOST | socket.NI_NUMERICSERV)
 
 
 def test_guard_refuses_a_malformed_reverse_lookup_without_crashing() -> None:
@@ -368,6 +371,23 @@ def _own_address() -> str | None:
     return None if address.startswith("127.") or address == "0.0.0.0" else address  # noqa: S104
 
 
+# The real server, with one test-only change: an audit hook (added before the guard's) gives each
+# listening socket a small send buffer, which the sockets it accepts inherit, so a big reply needs
+# the deferred write. The hook notes each such write (a `sendmsg` with no address) in a file.
+SERVER_WITH_SMALL_SEND_BUFFER = """
+import runpy, socket, sys
+seen = sys.argv[1]
+def note(event, args):
+    if event == "socket.bind" and args[0].family == socket.AF_INET:
+        args[0].setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4096)
+    elif event == "socket.sendmsg" and args[1] in (None, ()):
+        with open(seen, "a") as f:
+            f.write("sendmsg\\n")
+sys.addaudithook(note)
+sys.argv = sys.argv[:1]
+runpy.run_module("mealwright", run_name="__main__", alter_sys=True)
+"""
+
 CLIENT_OVER_LAN = """
 import http.client, socket, sys, time
 host, port = sys.argv[1], int(sys.argv[2])
@@ -388,8 +408,9 @@ for _ in range(200):
 
 def test_the_real_server_answers_over_a_non_loopback_connection(tmp_path: Path) -> None:
     """cabledrawer 29 Oct: normal requests still work over a real, non-loopback connection with the
-    guard on. The server is the real one (`python -m mealwright`, guard installed), listening on
-    this machine's own address; the client is a separate process."""
+    guard on. The server is the real one (mealwright's own entry point, guard installed),
+    listening on this machine's own address with a small send buffer; the client is a separate
+    process."""
     address = _own_address()
     if address is None:
         pytest.skip("this machine has no non-loopback address to listen on")
@@ -404,8 +425,9 @@ def test_the_real_server_answers_over_a_non_loopback_connection(tmp_path: Path) 
         "MEALWRIGHT_RUN_JOBS": "false",
         "MEALWRIGHT_FRONTEND_DIR": str(tmp_path / "none"),
     }
-    server = subprocess.Popen(
-        [sys.executable, "-m", "mealwright"],
+    seen = tmp_path / "deferred-writes.txt"
+    server = subprocess.Popen(  # noqa: S603 (fixed arguments)
+        [sys.executable, "-c", SERVER_WITH_SMALL_SEND_BUFFER, str(seen)],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -420,8 +442,9 @@ def test_the_real_server_answers_over_a_non_loopback_connection(tmp_path: Path) 
         )
         status, length = client.stdout.split()
         assert status == "200", client.stdout + client.stderr
-        # Bigger than the send buffer, so the server finishes it with the deferred write.
         assert int(length) > 100_000
+        # The reply really went through the deferred write that the guard once cut off (F22).
+        assert seen.exists() and "sendmsg" in seen.read_text()
     finally:
         server.terminate()
         server.wait(10)
