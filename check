@@ -83,17 +83,18 @@ RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mealwright-check-XXXXXX")"
 # it stops the running step and everything the step started, then removes the temp folder.
 set -m
 CHILD=""
-stop_child() {
-  [[ -n "$CHILD" ]] || return 0
-  kill -TERM -- "-$CHILD" 2>/dev/null
+BESIDE=""   # the step running beside the others (start_beside), if any
+stop_group() {
+  [[ -n "$1" ]] || return 0
+  kill -TERM -- "-$1" 2>/dev/null
   local i
   for i in 1 2 3 4 5 6 7 8 9 10; do   # up to about 5 s to stop cleanly
-    kill -0 "$CHILD" 2>/dev/null || break
+    kill -0 "$1" 2>/dev/null || break
     sleep 0.5
   done
-  kill -KILL -- "-$CHILD" 2>/dev/null
-  CHILD=""
+  kill -KILL -- "-$1" 2>/dev/null
 }
+stop_child() { stop_group "$CHILD"; CHILD=""; stop_group "$BESIDE"; BESIDE=""; }
 cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -117,6 +118,35 @@ step() {
   else
     CHILD=""
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
+    echo "FAIL"
+    printf '%-28s FAIL\n' "$name" >&3
+    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+  fi
+}
+
+# start_beside <name> <command...>: start a step that runs while the next ones do (cabledrawer
+# 30 Oct: the backend tests beside the browser tests; the machine has room for both).
+# finish_beside waits for it and records it like any other step.
+start_beside() {
+  BESIDE_NAME="$1"; shift
+  BESIDE_LOG="$LOGS/${BESIDE_NAME// /-}.log" BESIDE_START=$(date +%s)
+  printf '%-28s %s\n' "$BESIDE_NAME" "started, runs beside the next steps"
+  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$BESIDE_LOG.end"; exit $rc) </dev/null >"$BESIDE_LOG" 2>&1 &
+  BESIDE=$!
+}
+finish_beside() {
+  [[ -n "$BESIDE" ]] || return 0
+  local name="$BESIDE_NAME" log="$BESIDE_LOG" ok=1 took
+  printf '%-28s ' "$name"
+  wait "$BESIDE" || ok=0
+  BESIDE=""
+  took="$(( $(cat "$log.end" 2>/dev/null || date +%s) - BESIDE_START ))s"
+  rm -f "$log.end"
+  if ((ok)); then
+    record "$name" PASS "ran beside the browser tests" "$took"
+    echo "PASS"
+  else
+    record "$name" FAIL "see .check/logs/${name// /-}.log" "$took"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
     tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
@@ -150,7 +180,12 @@ if need uv; then
   step "backend: ruff format"    backend uv run --frozen ruff format --check .
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
-  step "backend: pytest"         backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
+  if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
+    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
+  else
+    # Finished after the browser tests (finish_beside, below).
+    start_beside "backend: pytest" backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
+  fi
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
   step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py
 else
@@ -204,6 +239,7 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
 else
   skip "browser tests" "none yet"
 fi
+finish_beside
 
 # --- Nothing left behind -----------------------------------------------------
 # The browser tests' throwaway app folders (mealwright-e2e-*) and pytest's own run folders
