@@ -1,5 +1,6 @@
 """Run the server: python -m mealwright"""
 
+import logging
 from types import FrameType
 
 import uvicorn
@@ -7,7 +8,7 @@ import uvicorn
 from mealwright.config import get_settings
 from mealwright.events import Broadcaster
 from mealwright.logs import set_up_logging
-from mealwright.main import create_app
+from mealwright.main import UnsupportedSetup, create_app
 
 GRACEFUL_SECONDS = 5
 
@@ -31,7 +32,12 @@ def main() -> None:
     # Our own log lines (errors and sign-ins only; spec section 7): the container output
     # and a 14-day log file in the data folder (mealwright.logs).
     log_file = set_up_logging(settings.data_dir)
-    app = create_app(settings, log_file)
+    try:
+        app = create_app(settings, log_file)
+    except UnsupportedSetup as refused:
+        # One clear line in the container log, not a traceback.
+        logging.getLogger("mealwright").error("Not starting: %s", refused)
+        raise SystemExit(1) from None
     config = uvicorn.Config(
         app,
         host=settings.host,

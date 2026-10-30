@@ -1,11 +1,15 @@
 """The FastAPI application."""
 
 import logging
+import multiprocessing
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from mealwright import __version__, errors, events, jobs, migrate
@@ -33,8 +37,35 @@ TELEMETRY_OFF: TelemetryConfig = {
 }
 
 
+class UnsupportedSetup(RuntimeError):
+    """Mealwright can't run safely like this, so it refuses to start (spec section 6)."""
+
+
+def refuse_unsupported_setup(settings: Settings) -> None:
+    """Before 1.0 Mealwright runs on SQLite in one process: the live updates, the sign-in
+    slow-down and the nightly jobs live in that one process's memory, and SQLite takes one
+    writer. Say why instead of half-working."""
+    try:
+        backend = make_url(settings.sqlalchemy_url).get_backend_name()
+    except ArgumentError:
+        backend = ""
+    if backend != "sqlite":
+        raise UnsupportedSetup(
+            "MEALWRIGHT_DATABASE_URL must be a SQLite address (sqlite:///...). Other "
+            "databases aren't supported yet. Leave it unset to use /data/mealwright.db."
+        )
+    concurrency = os.environ.get("WEB_CONCURRENCY", "").strip()
+    # A supervisor (uvicorn --workers, --reload) starts each worker as a child process.
+    if multiprocessing.parent_process() is not None or concurrency not in {"", "1"}:
+        raise UnsupportedSetup(
+            "Mealwright runs as one worker. Start it with `python -m mealwright` (as the "
+            "container does), without --workers or WEB_CONCURRENCY."
+        )
+
+
 def create_app(settings: Settings | None = None, log_file: DailyLogFile | None = None) -> FastAPI:
     settings = settings or get_settings()
+    refuse_unsupported_setup(settings)
     # From here on, only the outbound gate may connect to anything (spec section 7).
     install_network_guard()
     engine = make_engine(settings.sqlalchemy_url)
