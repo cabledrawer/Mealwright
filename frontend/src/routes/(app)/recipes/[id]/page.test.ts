@@ -470,8 +470,11 @@ describe('the recipe page', () => {
       });
       await expect.element(page.getByText('2 missing')).toBeVisible();
       await expect.element(page.getByText('Not enough')).toBeVisible();
-      await page.getByRole('button', { name: 'Fewer servings' }).click();
-      await page.getByRole('button', { name: 'Fewer servings' }).click();
+      // Both taps in one go, with no wait between them: a slow machine can't stretch the gap
+      // past STOCK_WAIT_MS and turn one request into two.
+      const fewer = page.getByRole('button', { name: 'Fewer servings' }).element() as HTMLElement;
+      fewer.click();
+      fewer.click();
       await expect.element(page.getByText('Serves 2')).toBeVisible();
       await vi.waitFor(() => expect(page.getByText('2 missing').elements()).toHaveLength(0));
       expect(page.getByText('Not enough').elements()).toHaveLength(0);

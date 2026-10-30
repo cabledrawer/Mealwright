@@ -373,7 +373,11 @@ describe('the Shopping page', () => {
 
     release();
     await expect.element(page.getByRole('checkbox', { name: 'Tick Tahini' })).toBeVisible();
-    // The waiting tick was sent first, once, and is still there (now in the server's copy).
+    // The waiting tick was sent first, once, and is still there (now in the server's copy). The
+    // tick's own answer can bring Tahini down before the list is asked for, so wait for the ask.
+    await vi.waitFor(() =>
+      expect(server.requests.map((r) => `${r.method} ${r.path}`)).toContain('GET /shopping/changes')
+    );
     const asked = server.requests.map((r) => `${r.method} ${r.path}`);
     expect(asked.indexOf('POST /shopping/actions')).toBeLessThan(
       asked.indexOf('GET /shopping/changes')
