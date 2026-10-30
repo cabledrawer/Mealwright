@@ -1,12 +1,15 @@
+import shutil
+import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from mealwright import migrate
 from mealwright.auth import hash_password
 from mealwright.config import Settings
-from mealwright.db import Base
+from mealwright.db import Base, make_engine
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.main import create_app
 from mealwright.models import Household, Login
@@ -32,10 +35,29 @@ def _forget_compiled_statements() -> Iterator[None]:
         mapper._compiled_cache.clear()
 
 
+@pytest.fixture(scope="session")
+def migrated_database(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A fresh database brought up to the newest layout once per run (cabledrawer 30 Oct: a faster
+    check). Running all the migrations took about 0.2 s, in every test that starts the app;
+    copying this file takes a few ms. The app still runs its migrations on start, as it does
+    for real, and finds nothing to do. test_migrations.py runs every step itself."""
+    path = tmp_path_factory.mktemp("template") / "mealwright.db"
+    engine = make_engine(f"sqlite:///{path}")
+    migrate.upgrade(engine)
+    engine.dispose()
+    # Folded into the one file, so the copy holds everything (no -wal file left beside it).
+    with sqlite3.connect(path) as db:
+        db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    return path
+
+
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def settings(tmp_path: Path, migrated_database: Path) -> Settings:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    shutil.copyfile(migrated_database, data_dir / "mealwright.db")
     # The nightly jobs are tested on their own (test_jobs.py).
-    return Settings(data_dir=tmp_path / "data", run_jobs=False)
+    return Settings(data_dir=data_dir, run_jobs=False)
 
 
 @pytest.fixture

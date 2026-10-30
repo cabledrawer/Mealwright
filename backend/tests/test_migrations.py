@@ -239,8 +239,10 @@ def _wording(app: TestClient) -> dict[int, list[tuple[str, str]]]:
 
 
 def test_upgrading_a_0_2_0_database_keeps_everything_and_old_changes_read_as_before(
-    settings: Settings,
+    tmp_path: Path,
 ) -> None:
+    # Its own empty data folder: the `settings` fixture comes with a new database already in it.
+    settings = Settings(data_dir=tmp_path / "data", run_jobs=False)
     settings.data_dir.mkdir(parents=True)
     engine = _make_0_2_0_database(settings.data_dir / "mealwright.db")
     with engine.connect() as db:
