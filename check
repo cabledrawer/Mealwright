@@ -83,7 +83,7 @@ RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mealwright-check-XXXXXX")"
 # it stops the running step and everything the step started, then removes the temp folder.
 set -m
 CHILD=""
-BESIDE=""   # the step running beside the others (start_beside), if any
+declare -A BESIDE=() BESIDE_LOG=() BESIDE_START=() BESIDE_NOTE=()   # steps running beside the others (start_beside)
 stop_group() {
   [[ -n "$1" ]] || return 0
   kill -TERM -- "-$1" 2>/dev/null
@@ -94,7 +94,12 @@ stop_group() {
   done
   kill -KILL -- "-$1" 2>/dev/null
 }
-stop_child() { stop_group "$CHILD"; CHILD=""; stop_group "$BESIDE"; BESIDE=""; }
+stop_child() {
+  stop_group "$CHILD"; CHILD=""
+  local name
+  for name in "${!BESIDE[@]}"; do stop_group "${BESIDE[$name]}"; done
+  BESIDE=()
+}
 cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -124,26 +129,29 @@ step() {
   fi
 }
 
-# start_beside <name> <command...>: start a step that runs while the next ones do (cabledrawer
-# 30 Oct: the backend tests beside the browser tests; the machine has room for both).
-# finish_beside waits for it and records it like any other step.
+# start_beside <name> <note> <command...>: start a step that runs while the next ones do
+# (cabledrawer 30 Oct: the backend tests beside the browser tests; the machine has room for both).
+# Several can run at once. finish_beside <name> waits for it and records it like any other
+# step, with <note> in the summary.
 start_beside() {
-  BESIDE_NAME="$1"; shift
-  BESIDE_LOG="$LOGS/${BESIDE_NAME// /-}.log" BESIDE_START=$(date +%s)
-  printf '%-28s %s\n' "$BESIDE_NAME" "started, runs beside the next steps"
-  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$BESIDE_LOG.end"; exit $rc) </dev/null >"$BESIDE_LOG" 2>&1 &
-  BESIDE=$!
+  local name="$1" note="$2"; shift 2
+  local log="$LOGS/${name// /-}.log"
+  BESIDE_LOG[$name]="$log" BESIDE_START[$name]=$(date +%s) BESIDE_NOTE[$name]="$note"
+  printf '%-28s %s\n' "$name" "started, runs beside the next steps"
+  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 &
+  BESIDE[$name]=$!
 }
 finish_beside() {
-  [[ -n "$BESIDE" ]] || return 0
-  local name="$BESIDE_NAME" log="$BESIDE_LOG" ok=1 took
+  local name="$1"
+  [[ -n "${BESIDE[$name]:-}" ]] || return 0
+  local log="${BESIDE_LOG[$name]}" ok=1 took
   printf '%-28s ' "$name"
-  wait "$BESIDE" || ok=0
-  BESIDE=""
-  took="$(( $(cat "$log.end" 2>/dev/null || date +%s) - BESIDE_START ))s"
+  wait "${BESIDE[$name]}" || ok=0
+  unset "BESIDE[$name]"
+  took="$(( $(cat "$log.end" 2>/dev/null || date +%s) - BESIDE_START[$name] ))s"
   rm -f "$log.end"
   if ((ok)); then
-    record "$name" PASS "ran beside the browser tests" "$took"
+    record "$name" PASS "${BESIDE_NOTE[$name]}" "$took"
     echo "PASS"
   else
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$took"
@@ -151,6 +159,22 @@ finish_beside() {
     printf '%-28s FAIL\n' "$name" >&3
     tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
   fi
+}
+
+# list_flaky <step name> <report.json>: the browser tests in one Playwright JSON report that
+# failed once and passed on their one retry (cabledrawer 30 Oct). They don't fail the check, but
+# they go in that step's note and in the summary, to fix in the next tidy-up.
+list_flaky() {
+  local name="$1" report="$2" i found=()
+  [[ -f "$report" ]] || return 0
+  mapfile -t found < <(cd "$ROOT/e2e" && node scripts/flaky.mjs "$report" 2>/dev/null)
+  ((${#found[@]})) || return 0
+  flaky+=("${found[@]}")
+  for i in "${!names[@]}"; do
+    [[ "${names[$i]}" == "$name" ]] && notes[i]="${notes[i]:+${notes[i]}; }${#found[@]} flaky (passed on retry): listed below"
+  done
+  show "$(printf '%-28s %s' "$name" "${#found[@]} flaky (passed on retry):")"
+  for i in "${found[@]}"; do show "    $i"; done
 }
 
 skip() { printf '%-28s SKIP (%s)\n' "$1" "$2"; record "$1" SKIP "$2" "-"; }
@@ -180,11 +204,14 @@ if need uv; then
   step "backend: ruff format"    backend uv run --frozen ruff format --check .
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
+  # --durations=25: the 25 slowest tests are named at the end of the step's log.
   if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
-    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
+    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q --durations=25
   else
-    # Finished after the browser tests (finish_beside, below).
-    start_beside "backend: pytest" backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q
+    # Finished after the browser tests (finish_beside, below). At a lower priority (nice), so
+    # the browser tests, which have timings to keep, always come first for the processor.
+    start_beside "backend: pytest" "ran beside the browser tests" \
+                                 backend env TMPDIR="$RUN_TMP" nice -n 10 uv run --frozen pytest -q --durations=25
   fi
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
   step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py
@@ -199,12 +226,18 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   else
     step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
   fi
-  step "frontend: lint"          sh -c 'cd frontend && npm run lint'
-  step "frontend: svelte-check"  sh -c 'cd frontend && npm run check'
+  # Lint and svelte-check only read the code, so they run beside the unit tests. `svelte-kit
+  # sync` (the generated files in .svelte-kit) runs first, on its own, so the later syncs
+  # (svelte-check's and the unit tests') find them up to date and write nothing.
+  step "frontend: sync"          sh -c 'cd frontend && npx svelte-kit sync'
+  start_beside "frontend: lint" "ran beside the unit tests" sh -c 'cd frontend && npm run lint'
+  start_beside "frontend: svelte-check" "ran beside the unit tests" sh -c 'cd frontend && npm run check'
   # The unit tests run in headless Chromium, so install it first (a quick no-op once
   # it is there). `npm test` itself no longer installs it.
   step "frontend: browser"       sh -c 'cd frontend && npx playwright install chromium-headless-shell'
   step "frontend: tests"         sh -c 'cd frontend && npm test'
+  finish_beside "frontend: lint"
+  finish_beside "frontend: svelte-check"
   # The browser code size limit (spec "Keeping the UI good", item 5): test the size
   # script on a fake build, then build the app and fail if its largest page (its JS and
   # CSS, shared code included, gzip-compressed) is over frontend/browser-code-limit.txt.
@@ -223,23 +256,34 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
-  step "browser: tests"          env TMPDIR="$RUN_TMP" PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-tests.json" \
-                                     sh -c 'cd e2e && npx playwright test'
-  # A test that failed once and passed on its one retry doesn't fail the check, but it is named
-  # in the summary as flaky, to fix in the next tidy-up (cabledrawer 30 Oct).
-  if [[ -f "$ROOT/.check/browser-tests.json" ]]; then
-    mapfile -t flaky < <(cd "$ROOT/e2e" && node scripts/flaky.mjs "$ROOT/.check/browser-tests.json" 2>/dev/null)
-    if ((${#flaky[@]})); then
-      last=$((${#names[@]} - 1))
-      notes[last]="${notes[last]:+${notes[last]}; }${#flaky[@]} flaky (passed on retry): listed below"
-      show "browser: tests             ${#flaky[@]} flaky (passed on retry):"
-      for t in "${flaky[@]}"; do show "    $t"; done
-    fi
+  # The image only needs the source: it is built while the browser tests run, and checked after.
+  if [[ -f "$ROOT/Dockerfile" ]]; then
+    start_beside "image: build" "ran beside the browser tests" docker build -t "$IMAGE" .
+  fi
+  # Two runs side by side (cabledrawer 30 Oct): desktop here, and phone + WebKit beside it, each
+  # with its own four servers (E2E_APP_PORT, and that + 10), saved sign-in, test-results folder
+  # and JSON report. Both serve the web app built once by "frontend: size limit" above
+  # (E2E_SKIP_BUILD=1).
+  e2e_port="${E2E_APP_PORT:-18080}"
+  if [[ -f "$ROOT/frontend/build/index.html" ]]; then
+    start_beside "browser: phone + webkit" "ran beside browser: desktop" \
+      env TMPDIR="$RUN_TMP" E2E_PROJECTS=phone E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + 10)) \
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-phone.json" \
+          sh -c 'cd e2e && npx playwright test --output test-results/phone'
+    step "browser: desktop"      env TMPDIR="$RUN_TMP" E2E_PROJECTS=desktop E2E_SKIP_BUILD=1 E2E_APP_PORT="$e2e_port" \
+                                     PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-desktop.json" \
+                                     sh -c 'cd e2e && npx playwright test --output test-results/desktop'
+    finish_beside "browser: phone + webkit"
+    list_flaky "browser: desktop" "$ROOT/.check/browser-desktop.json"
+    list_flaky "browser: phone + webkit" "$ROOT/.check/browser-phone.json"
+  else
+    record "browser tests" FAIL "no built web app (frontend: size limit builds it)" "-"
+    show "browser tests                FAIL (no built web app)"
   fi
 else
   skip "browser tests" "none yet"
 fi
-finish_beside
+finish_beside "backend: pytest"
 
 # --- Nothing left behind -----------------------------------------------------
 # The browser tests' throwaway app folders (mealwright-e2e-*) and pytest's own run folders
@@ -311,7 +355,11 @@ no_gallery_in_image() {
 if ((FAST)); then
   skip "image" "fast run"
 elif [[ -f "$ROOT/Dockerfile" ]]; then
-  step "image: build"            docker build -t "$IMAGE" .
+  if [[ -n "${BESIDE[image: build]:-}" ]]; then
+    finish_beside "image: build"
+  else
+    step "image: build"          docker build -t "$IMAGE" .
+  fi
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
   # The component gallery is for development builds only (spec "Keeping the UI good",
