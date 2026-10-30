@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, type Project } from '@playwright/test';
 import { FIXED_MOMENT } from './tests/clock.ts';
 import { AUTH_FILE, PORTS, local } from './tests/servers.ts';
 
@@ -38,6 +38,18 @@ const webkit = {
   launchOptions: { args: [] as string[] },
 };
 
+// E2E_PROJECTS picks one half of the projects (./check runs the two halves side by side, each
+// with its own servers): "phone" is every phone and WebKit project, "desktop" is all the rest.
+// Unset or empty, every project runs.
+const half = process.env.E2E_PROJECTS || undefined;
+if (half !== undefined && half !== 'phone' && half !== 'desktop') {
+  throw new Error(`E2E_PROJECTS must be "phone" or "desktop", not "${half}".`);
+}
+const inPhoneHalf = (name: string) =>
+  name.startsWith('phone') || name.startsWith('webkit') || name === 'screens phone-light' || name === 'slow phone';
+const pick = (projects: Project[]) =>
+  half === undefined ? projects : projects.filter((p) => inPhoneHalf(p.name ?? '') === (half === 'phone'));
+
 export default defineConfig({
   testDir: './tests',
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
@@ -48,7 +60,7 @@ export default defineConfig({
   retries: 1,
   forbidOnly: true,
   globalSetup: './global-setup.ts',
-  projects: [
+  projects: pick([
     { name: 'chromium', testMatch: 'csp.spec.ts', use: { browserName: 'chromium' } },
     { name: 'sign-in', testMatch: 'sign-in.spec.ts', use: desktop },
     // The component gallery is development-only: the built app has none of it (0.4).
@@ -134,7 +146,7 @@ export default defineConfig({
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
-  ],
+  ]),
   // ./check also asks for a JSON report (PLAYWRIGHT_JSON_OUTPUT_FILE), to find the flaky tests.
   reporter: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [['list'], ['json']] : 'list',
   use: {
@@ -147,7 +159,9 @@ export default defineConfig({
     command: 'node serve.mjs',
     url: `${local(PORTS.main)}/api/v1/version`,
     reuseExistingServer: false,
-    timeout: 180_000,
+    // Generous: in ./check two sets of servers, the backend tests and the image build all start
+    // at about the same time.
+    timeout: 300_000,
     // Stop serve.mjs politely at the end of the run, so it can stop the servers and remove its
     // throwaway data folder. Playwright's default is to kill it outright, which skips that.
     gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },

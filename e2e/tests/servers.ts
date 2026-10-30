@@ -16,5 +16,7 @@ export const insecure = (port: number) => `http://mealwright.test:${port}`;
 
 export const ADMIN = { name: 'Tess', username: 'tess', password: 'kitchen-secret-2026' };
 
-export const AUTH_FILE = '.auth/tess.json';
-export const SHOTS_AUTH_FILE = '.auth/shots.json';
+// Saved sign-ins, one pair per port base: ./check runs two sets of servers at once (desktop, and
+// phone + WebKit), and a cookie doesn't tell ports apart, so each run keeps its own.
+export const AUTH_FILE = `.auth/tess-${base}.json`;
+export const SHOTS_AUTH_FILE = `.auth/shots-${base}.json`;

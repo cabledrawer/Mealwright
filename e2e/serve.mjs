@@ -1,9 +1,9 @@
-// Starts everything the browser tests need: builds the web app, then runs four
+// Starts everything the browser tests need: builds the web app (unless E2E_SKIP_BUILD=1), then runs four
 // Mealwright servers on 127.0.0.1, each with its own empty data folder (see
 // tests/servers.ts). The backend works out the CSP hashes of the built page at start-up,
 // so it starts after the build. Stops them all when Playwright stops this script.
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,10 +15,20 @@ const servers = [
   { name: 'main', port: base, plainHttp: true }, // last: Playwright waits for this one
 ];
 
-const build = spawnSync('npm', ['--prefix', '../frontend', 'run', '-s', 'build'], {
-  stdio: 'inherit',
-});
-if (build.status !== 0) process.exit(build.status ?? 1);
+// With E2E_SKIP_BUILD=1 the web app already built in ../frontend/build is used as it is:
+// ./check builds it once (its size-limit step) and runs two sets of servers on that one build,
+// because two builds into the same folder at once would spoil it.
+if (process.env.E2E_SKIP_BUILD === '1') {
+  if (!existsSync('../frontend/build/index.html')) {
+    console.error('E2E_SKIP_BUILD=1, but there is no built web app in ../frontend/build.');
+    process.exit(1);
+  }
+} else {
+  const build = spawnSync('npm', ['--prefix', '../frontend', 'run', '-s', 'build'], {
+    stdio: 'inherit',
+  });
+  if (build.status !== 0) process.exit(build.status ?? 1);
+}
 
 // With E2E_CLOCK_SHIFT_MS (the browser tests, playwright.config.ts) each server's clock is moved
 // to the tests' fixed date and time by a test-only launcher that isn't in the app or the image
