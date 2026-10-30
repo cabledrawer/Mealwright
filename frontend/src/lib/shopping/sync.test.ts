@@ -371,6 +371,55 @@ describe('answers to each change', () => {
   });
 });
 
+describe('changes sent from an earlier visit (after a reload)', () => {
+  /** A change left on the phone by an earlier visit: nobody on this page is waiting for it. */
+  async function leftFromEarlier(result: Record<string, unknown>) {
+    server((one) => [
+      200,
+      { results: one.body.actions.map((a) => ({ id: a.id, seq: 41, ...result })) }
+    ]);
+    shoppingSync.forget();
+    await addToQueue(tick('a'), ME.id, await loadDeviceId());
+    const shown = vi.spyOn(toasts, 'show');
+    await shoppingSync.start();
+    await vi.waitFor(async () => expect(await readQueue()).toEqual([]));
+    shoppingSync.forget();
+    return shown;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('a first answer with a message says it', async () => {
+    const shown = await leftFromEarlier({
+      status: 'ignored',
+      message: 'Wren had removed this.',
+      repeat: false
+    });
+    expect(shown).toHaveBeenCalledWith('Wren had removed this.');
+  });
+
+  it('an answer marked repeat: true doesn’t say it again (F67)', async () => {
+    const shown = await leftFromEarlier({
+      status: 'ignored',
+      message: 'Wren had removed this.',
+      repeat: true
+    });
+    expect(shown).not.toHaveBeenCalled();
+  });
+
+  it('nor does a repeated refusal', async () => {
+    const shown = await leftFromEarlier({
+      status: 'refused',
+      reason: 'bad_action',
+      message: 'Not that.',
+      repeat: true
+    });
+    expect(shown).not.toHaveBeenCalled();
+  });
+});
+
 describe('a reset (FE-7)', () => {
   it('replaces the copy, keeps the queue and sends it afterwards, in order', async () => {
     // A was synced with an older server at cursor 90, and holds 2 waiting changes.

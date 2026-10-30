@@ -68,6 +68,9 @@ export interface ActionResult {
   /** The ingredient an add with `new_food` used or made. */
   food_id?: number | null;
   change?: Change | null;
+  /** The server had this change already (sent before, the answer lost): the same answer
+   *  again (sync protocol 5.3). */
+  repeat?: boolean;
   /** The changes since the batch's `since`, read after the action (5.5). */
   changes?: ChangesAnswer;
 }

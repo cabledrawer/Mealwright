@@ -384,11 +384,13 @@ export class ShoppingSync {
           result.reason ?? null
         );
         if (waiter) waiter.reject(error);
-        else toasts.show(error.detail, { tone: 'problem' });
+        // Sent from an earlier visit, as below.
+        else if (!result.repeat) toasts.show(error.detail, { tone: 'problem' });
       } else if (waiter) {
         waiter.resolve(result);
-      } else if (result.status === 'ignored' && result.message) {
-        // Sent from an earlier visit: nobody is waiting, so say it here.
+      } else if (result.status === 'ignored' && result.message && !result.repeat) {
+        // Sent from an earlier visit: nobody is waiting, so say it here. Not for an answer
+        // marked repeat: the server had it already, so it's not news after a reload (F67).
         toasts.show(result.message);
       }
     }
