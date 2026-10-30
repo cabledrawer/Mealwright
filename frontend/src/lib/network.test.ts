@@ -140,6 +140,31 @@ describe('when the connection comes back', () => {
   });
 });
 
+describe('the cause, when the browser’s event was missed (F67 review 3)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('an answer from the server means the device has a network', () => {
+    network.deviceOffline = true;
+    network.succeeded();
+    expect(network.deviceOffline).toBe(false);
+  });
+
+  it('a failure while the browser says offline counts as the device', () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    network.failed();
+    expect(network.deviceOffline).toBe(true);
+  });
+
+  it('looking at the app again asks the browser', () => {
+    const stop = network.start(() => {});
+    network.deviceOffline = true;
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(network.deviceOffline).toBe(false);
+    stop();
+  });
+});
+
 describe('the words in the bar', () => {
   it('says just "Offline" when nothing is waiting', () => {
     expect(offlineText('phone', 0, true)).toEqual({ title: 'Offline', detail: null });

@@ -97,6 +97,9 @@ class Network {
    *  about now (the server may have finished it on its way down, follow-up 10): it only
    *  makes the online check ask at once. */
   succeeded(sentAt?: number): void {
+    // An answer means this device has a network, even if the browser's `online` event was
+    // missed (a home-screen app resumed, F67 review).
+    this.deviceOffline = false;
     if (this.#failingSince === null && !this.offline) return;
     if (sentAt !== undefined && this.#failingSince !== null && sentAt <= this.#failingSince) {
       void this.#check();
@@ -122,6 +125,10 @@ class Network {
 
   /** A request to our server failed with a network error or timeout. */
   failed(): void {
+    // The browser's `offline` event may have been missed. (Writes the state without reading
+    // it: start() runs in the layout's $effect.) It clears on an answer, or when the app is
+    // looked at again (onVisible).
+    if (navigator.onLine === false) this.deviceOffline = true;
     if (this.#failingSince !== null) return;
     this.#failingSince = Date.now();
     this.failing = true;
@@ -173,6 +180,8 @@ class Network {
       this.failed();
     };
     const onVisible = () => {
+      // A home-screen app resumed may have missed the browser's online/offline events.
+      if (document.visibilityState === 'visible') this.deviceOffline = navigator.onLine === false;
       const failing = this.#failingSince !== null || this.offline;
       if (failing && document.visibilityState === 'visible') void this.#check();
     };
