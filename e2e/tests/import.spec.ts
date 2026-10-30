@@ -427,3 +427,122 @@ test('the review: if neither copy can be fetched, the "No photo" box shows, neve
   await expect(page.getByRole('img', { name: 'Downloaded from the page' })).toHaveCount(0);
   await checkPage(page);
 });
+
+test('Save with lines that have no ingredient goes through them one at a time (F4)', async ({ page }) => {
+  const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
+  await answer(page, 200, review({ name: unique('Sambar') }, names));
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  const sheet = page.getByRole('dialog', { name: '3 lines aren’t linked yet' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByText('Line 1 of 3')).toBeVisible();
+  await checkPage(page);
+  await sheet.getByRole('button', { name: 'Skip this line' }).click();
+  await expect(sheet.getByText('Line 2 of 3')).toBeVisible();
+  await sheet.getByRole('button', { name: 'Treat as staple' }).click();
+  await expect(sheet.getByText('Line 3 of 3')).toBeVisible();
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+  // Back to Check: nothing was saved, and the line that was settled shows it.
+  await sheet.getByRole('button', { name: 'Back to Check' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expect(page.getByText('New staple:')).toBeVisible();
+  // Save again: only the two left are asked about, and Save anyway saves the recipe.
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByText('Line 1 of 2')).toBeVisible();
+  await sheet.getByRole('button', { name: 'Save anyway' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+});
+
+test('the Check lines: status dots, a chip that fixes the amount, and a New ingredient that closes with Done (F30.6, F10, F21)', async ({ page }) => {
+  const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
+  await answer(page, 200, review({ name: unique('Sambar') }, names));
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expect(page.getByRole('img', { name: 'To confirm' })).toHaveCount(1);
+  await expect(page.getByRole('img', { name: 'Needs you' })).toHaveCount(2);
+  // The line to confirm has Treat as staple too.
+  await expect(page.getByRole('button', { name: 'Treat as staple' })).toHaveCount(3);
+  // The curry leaves line has no amount.
+  await page.getByRole('button', { name: /^No amount/ }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('2');
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Amount 2/ })).toBeVisible();
+  // New ingredient opens its form; Done settles it.
+  await page.getByRole('button', { name: `New ingredient “${names.hing}”` }).click();
+  await expect(page.getByLabel('Usually kept in')).toBeVisible();
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByLabel('Usually kept in')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+});
+
+test('a long method step is split only after a preview, and can be put back (F13)', async ({ page }) => {
+  const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
+  const long =
+    'Heat the oil. Add the onion and fry until golden. Stir in the spices. Pour in the stock. Simmer for twenty minutes.';
+  await answer(page, 200, review({ name: unique('Sambar'), steps: [{ kind: 'step', text: long }] }, names));
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByText('A long step (5 sentences)')).toBeVisible();
+  await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+  await expect(page.getByText('Preview: this step as 3 steps')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep as one' }).click();
+  await expect(page.getByText('Preview: this step as 3 steps')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+  await page.getByRole('button', { name: 'Keep the split' }).click();
+  await expect(page.getByText('Method · 3 steps found')).toBeVisible();
+  await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
+  await expect(page.getByText('Method · 1 step found')).toBeVisible();
+});
+
+test('a recipe photo opens full size, and Esc or a tap closes it (F29)', async ({ page }) => {
+  const title = unique('Sambar');
+  const photoId = await uploadPhoto(page.request, 'dish');
+  const created = await page.request.post('/api/v1/recipes', {
+    data: { name: title, steps: [{ text: 'Stir.' }], photo_id: photoId },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(created.ok()).toBe(true);
+  const { id } = (await created.json()) as Json;
+  await page.goto(`/recipes/${id}`);
+  const photo = page.getByRole('button', { name: 'Show the photo full size' }).first();
+  await photo.click();
+  const viewer = page.getByRole('dialog', { name: `Photo of ${title}` });
+  await expect(viewer).toBeVisible();
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+  await page.keyboard.press('Escape');
+  await expect(viewer).toBeHidden();
+  await expect(photo).toBeFocused();
+  await photo.click();
+  await viewer.getByRole('img').click();
+  await expect(viewer).toBeHidden();
+  await page.request.delete(`/api/v1/recipes/${id}`, { headers: { 'idempotency-key': crypto.randomUUID() } });
+});
+
+test('the photo on Check opens full size too (F29)', async ({ page }) => {
+  await withDownloadedPhoto(page);
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Show the photo full size' }).click();
+  const viewer = page.getByRole('dialog', { name: 'Downloaded from the page' });
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(viewer).toBeHidden();
+  await expectNoSidewaysScroll(page);
+});

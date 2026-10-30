@@ -28,7 +28,7 @@ async function reviewOf(page: Page, title: string, hing: string, masala: string)
 
 /** Leave the review for the Recipes list and keep it as a draft: it lands on Drafts. */
 async function keepDraft(page: Page) {
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
@@ -71,7 +71,7 @@ test('leaving the review asks “Save as draft?”; Save draft keeps it and land
   const masala = unique('Garam masala');
   await reviewOf(page, title, hing, masala);
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
   const dialog = page.getByRole('dialog', { name: 'Save as draft?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(`You haven’t finished checking ${title}.`);
@@ -98,7 +98,7 @@ test('leaving the review asks “Save as draft?”; Save draft keeps it and land
 test('Discard leaves without keeping anything', async ({ page }) => {
   const title = unique('Rava dosa');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
   await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page).toHaveURL(/\/recipes$/);
   expect(await draftsNamed(page, title)).toHaveLength(0);
@@ -289,7 +289,7 @@ test('offline, Drafts shows what it last had and cannot be changed', async ({ pa
 test('a draft in the dark theme passes the accessibility scan, on the review and the leave sheet', async ({ page }) => {
   const title = unique('Pongal');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await inTheme(page, 'dark');
   await checkPage(page, { themes: ['dark'] });

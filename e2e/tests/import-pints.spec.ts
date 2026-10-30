@@ -142,6 +142,7 @@ test('Save keeps the pint the switch was left on', async ({ page }) => {
   await openReview(page, pudding(title));
   await page.getByRole('switch', { name: SWITCH }).click(); // UK pints: 1136 ml
   await page.getByRole('button', { name: 'Save recipe' }).click();
+  await page.getByRole('button', { name: 'Save anyway' }).click(); // its lines are not in the kitchen
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
   const id = Number(page.url().split('/').pop());
   const recipe = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
