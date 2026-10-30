@@ -43,7 +43,9 @@ export default defineConfig({
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
   expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0, threshold: 0 } },
   workers: 1,
-  retries: 0,
+  // One more try for a test that fails (cabledrawer 30 Oct): one that then passes doesn't fail the
+  // check, but ./check lists it as flaky in its summary and the PR, to fix in the next tidy-up.
+  retries: 1,
   forbidOnly: true,
   globalSetup: './global-setup.ts',
   projects: [
@@ -133,7 +135,8 @@ export default defineConfig({
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
   ],
-  reporter: 'list',
+  // ./check also asks for a JSON report (PLAYWRIGHT_JSON_OUTPUT_FILE), to find the flaky tests.
+  reporter: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [['list'], ['json']] : 'list',
   use: {
     baseURL: local(PORTS.main),
     // Dates look as they do on cabledrawer's phone (dd/mm/yyyy), not mm/dd/yyyy.

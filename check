@@ -99,7 +99,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-names=() results=() notes=() times=()
+names=() results=() notes=() times=() flaky=()
 
 record() { names+=("$1"); results+=("$2"); notes+=("$3"); times+=("$4"); }
 
@@ -188,7 +188,19 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
-  step "browser: tests"          env TMPDIR="$RUN_TMP" sh -c 'cd e2e && npx playwright test'
+  step "browser: tests"          env TMPDIR="$RUN_TMP" PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-tests.json" \
+                                     sh -c 'cd e2e && npx playwright test'
+  # A test that failed once and passed on its one retry doesn't fail the check, but it is named
+  # in the summary as flaky, to fix in the next tidy-up (cabledrawer 30 Oct).
+  if [[ -f "$ROOT/.check/browser-tests.json" ]]; then
+    mapfile -t flaky < <(cd "$ROOT/e2e" && node scripts/flaky.mjs "$ROOT/.check/browser-tests.json" 2>/dev/null)
+    if ((${#flaky[@]})); then
+      last=$((${#names[@]} - 1))
+      notes[last]="${notes[last]:+${notes[last]}; }${#flaky[@]} flaky (passed on retry): listed below"
+      show "browser: tests             ${#flaky[@]} flaky (passed on retry):"
+      for t in "${flaky[@]}"; do show "    $t"; done
+    fi
+  fi
 else
   skip "browser tests" "none yet"
 fi
@@ -316,6 +328,12 @@ SUMMARY="$ROOT/.check/summary.md"
     echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
   done
   echo
+  if ((${#flaky[@]})); then
+    echo "**Flaky browser tests** (failed once, passed on retry; fix in the next tidy-up):"
+    echo
+    for t in "${flaky[@]}"; do echo "- \`$t\`"; done
+    echo
+  fi
   if ((fail == 0 && missing == 0)); then
     if ((FAST)); then
       echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
