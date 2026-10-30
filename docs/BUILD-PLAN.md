@@ -37,8 +37,7 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 | 0.4.0 | Recipes |
 | 0.5.0 | Recipe import and drafts |
 | 0.6.0 | Meal plan, batch cooks and Today |
-| 0.7.0 | 0.6.0 fixes; Cooking: Cook mode, "Cooked it", deductions; Plan redesign; navigation |
-| 0.7.1 | Importer consistency (cabledrawer 28 Oct) |
+| 0.7.0 | 0.6.0 fixes; importer consistency (back in 0.7.0, cabledrawer 30 Oct); Cooking: Cook mode, "Cooked it", deductions; Plan redesign; navigation |
 | 0.8.0 | Household, settings, backups |
 | 0.9.0 | Mealie importer, docs, polish, pre-release checks |
 | 1.0.0 | First public release |
@@ -216,13 +215,13 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 0.7.0 0.6.0 fixes, cooking, the Plan redesign and navigation
 
-**Scope and order (cabledrawer 28 Oct):** the 0.6.0 bugs first (there is no 0.6.1: "let fix everything in 0.7.0 and test together") → cooking (below) → the Plan redesign → navigation. Importer consistency moves to 0.7.1 (cabledrawer 28 Oct). 0.7.0 is hand-tested as a whole.
+**Scope and order (cabledrawer 28 Oct):** the 0.6.0 bugs first (there is no 0.6.1: "let fix everything in 0.7.0 and test together") → importer consistency (below) → cooking → the Plan redesign → navigation. 0.7.0 is hand-tested as a whole. **Change of order (cabledrawer 30 Oct):** importer consistency, planned on 28 Oct for 0.7.1, moves back into 0.7.0 and comes straight after the 0.6.0 bugs, before cooking, because cabledrawer is starting real use with his own recipes; there is no separate 0.7.1.
 
 **Spec:** section 6, "Decided for 0.7.0 and 0.7.1"; section 2 "Cooking — how deduction works" (all 8 points), section 6 (Plan and batch cooks: cooked record, recipe edited after planning; Recipes: recipes inside recipes), Layout decisions (Cook mode, "Cooked it" review), section 6 gaps (Cook mode ingredients, with the Experimental icon).
 
 **Build:**
 
-- **The 0.6.0 bugs (cabledrawer 28 Oct):** F50 leftovers dates, F58 Cook once and the shopping list (with F56), F48 a tub's use-by from the plan, F22 photos through a reverse proxy, F36 the recipe editor's line order, F45 Month "+N more", F61/F63/F62/F60 shopping amounts, F67 server down (with F68), and the small fixes F16, F44, F41, F73, F46, F75. F5 and F7 go to 0.7.1.
+- **The 0.6.0 bugs (cabledrawer 28 Oct):** F50 leftovers dates, F58 Cook once and the shopping list (with F56), F48 a tub's use-by from the plan, F22 photos through a reverse proxy, F36 the recipe editor's line order, F45 Month "+N more", F61/F63/F62/F60 shopping amounts, F67 server down (with F68), and the small fixes F16, F44, F41, F73, F46, F75. F5 and F7 go with importer consistency (below).
 - Cook mode (`CookMode-*`): big text, one step at a time, timers, screen kept awake, "Show ingredients" sheet, experimental per-step ingredients (guessed, labelled, off unless switched on; fixable when editing the recipe).
 - Deduction engine: scale, convert only when units differ, soonest-expiring packet first, fridge and cupboard before freezer, staples never deducted, never below zero (offer "add to list"), "ask once" questions with "Remember for next time", stand-ins via "can use instead", inner recipes taken from the pantry (offer "Make it first?").
 - "Cooked it" review (`Cooked-*`): every proposed change with Before → After, a Use switch, Used/Left plus stepper for count foods, "Bought some — used them" for missing items, tubs made and where they go. Confirm → one change-log group with Undo.
@@ -251,11 +250,11 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ---
 
-## 0.7.1 Importer consistency (cabledrawer 28 Oct)
+## 0.7.0, importer consistency (cabledrawer 28 Oct; in 0.7.0 before cooking, cabledrawer 30 Oct)
 
 **Spec:** section 6, "Decided for 0.7.0 and 0.7.1" (Importer consistency); section 6, Recipes (import).
 
-**Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card; Add an item reads pack words like "2 packets milk", cabledrawer 30 Oct) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29). Also (cabledrawer 28 Oct, review of v0.6.0): converted amounts to a cook's precision (340 g; two decimals only below 10 g or ml); tags tidied on import (capitals and a small synonym table); recipe-name patterns ("How to Make …", "(Authentic … Recipe)"); ingredient names' capitals tidied on save; names like "Beef stock made with 1 stock shot or cube"; "nutrition possibly out of date" after editing an imported recipe.
+**Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card; Add an item reads pack words like "2 packets milk", cabledrawer 30 Oct) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29). Also (cabledrawer 28 Oct, review of v0.6.0): converted amounts to a cook's precision (340 g; two decimals only below 10 g or ml); tags tidied on import (capitals and a small synonym table); recipe-name patterns ("How to Make …", "(Authentic … Recipe)"); ingredient names' capitals tidied on save; names like "Beef stock made with 1 stock shot or cube"; "nutrition possibly out of date" after editing an imported recipe. Add an item reads pack words ("2 packets milk") with the ingredient reader (cabledrawer 30 Oct).
 
 **Done when:** each finding has a reader test with both ways of writing it giving the same result.
 
