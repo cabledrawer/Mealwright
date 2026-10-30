@@ -517,18 +517,26 @@ test.describe('a finger on a computer-sized screen', () => {
     };
 
     // Sideways on a tray card: the strip scrolls, nothing is planned.
+    // Where a card is, asked again if the search list redraws it while it is being found (a card
+    // that has just gone answers "not attached"; the next one is in the same place).
+    const where = async (l: Locator) => {
+      let at = { x: 0, y: 0 };
+      await expect(async () => {
+        at = await centre(l);
+      }).toPass({ timeout: 5000 });
+      return at;
+    };
     const before = await strip.evaluate((el) => el.scrollLeft);
-    await swipe(await centre(trayCard), -300, 0);
+    await swipe(await where(trayCard), -300, 0);
     await expect.poll(() => strip.evaluate((el) => el.scrollLeft)).toBeGreaterThan(before);
     await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0);
 
     // Up on a meal card, in a short window: the page (or the week grid) scrolls, and the meal stays.
     await page.setViewportSize({ width: 1280, height: 420 });
-    await card.scrollIntoViewIfNeeded();
     const scrolled = () =>
       page.evaluate(() => (document.scrollingElement?.scrollTop ?? 0) + (document.querySelector('.week')?.scrollTop ?? 0));
     const top = await scrolled();
-    await swipe(await centre(card), 0, -150);
+    await swipe(await where(card), 0, -150);
     await expect.poll(scrolled).not.toBe(top);
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
     await expect(page.getByRole('status').filter({ hasText: /Moved|Copied|Leftovers/ })).toHaveCount(0);
