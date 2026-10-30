@@ -10,6 +10,7 @@ import {
   startImport,
   type ImportReview,
   type LineLink,
+  type NewIngredient,
   type ReviewLine,
   type Saved,
   type SaveBody,
@@ -17,6 +18,7 @@ import {
 } from './client/imports';
 import type { CountedAs, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
+import { MOST_STEPS, splitStep } from './importSteps';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -77,6 +79,17 @@ export class ImportFlow {
   keeping = $state(false);
   /** Keeping the draft didn't work: the server's sentence ("You have 50 drafts. …"). */
   draftProblem = $state<string | null>(null);
+
+  /** F6: a line that took the choice made on another line, and which line that was. Not kept
+   *  in a draft; it only explains "Also used for 1 more line". */
+  sharedFrom = $state<Record<number, number>>({});
+  /** F4: Save found lines with no ingredient. The lines to go through, one at a time, and where
+   *  the person is among them; null when the sheet isn't open. */
+  walk = $state<{ queue: number[]; at: number } | null>(null);
+  /** F13: the step whose split is shown for a look (nothing changes until Keep the split). */
+  previewStep = $state<number | null>(null);
+  /** F13: the steps as they were before any split, so the split can be put back. */
+  stepsBefore = $state<ImportReview['steps'] | null>(null);
 
   #saveKey = newChangeId();
   #draftKey = newChangeId();
@@ -142,6 +155,10 @@ export class ImportFlow {
   private show(review: ImportReview): void {
     this.review = review;
     this.choices = {};
+    this.sharedFrom = {};
+    this.walk = null;
+    this.previewStep = null;
+    this.stepsBefore = null;
     this.pints = review.pints?.reading ?? 'uk';
     this.name = review.name;
     this.serves = review.serves === null ? '' : String(review.serves);
@@ -178,7 +195,15 @@ export class ImportFlow {
       .map(Number)
       .sort((a, b) => a - b)
       .map((index) => [index, this.choices[index]]);
-    return JSON.stringify([this.name, this.serves, this.minutes, this.pints, lines]);
+    return JSON.stringify([
+      this.name,
+      this.serves,
+      this.minutes,
+      this.pints,
+      lines,
+      this.review?.lines,
+      this.review?.steps
+    ]);
   }
 
   /** A draft this was opened from, changed since it was last kept: leaving asks. A review not
@@ -279,21 +304,112 @@ export class ImportFlow {
     this.saveProblem = null;
   }
 
+  /** Take back the choice on a line (Change). A line that followed another stops following. */
+  unchoose(index: number): void {
+    this.choose(index, null);
+    if (index in this.sharedFrom) {
+      const from = { ...this.sharedFrom };
+      delete from[index];
+      this.sharedFrom = from;
+    }
+  }
+
+  // --- Fixing what was read (F30.6) ----------------------------------------------------------
+
+  /** The amount, unit or note of a line, fixed by hand. The change lives in the review itself,
+   *  so a draft keeps it and Save sends it. A line read with the pint switch stops following
+   *  it once its amount or unit is changed. */
+  editLine(
+    index: number,
+    patch: {
+      amount?: number | null;
+      amount_text?: string | null;
+      unit?: string | null;
+      note?: string | null;
+    }
+  ): void {
+    const line = this.review?.lines[index];
+    if (!line || line.kind !== 'ingredient') return;
+    if (('amount' in patch || 'unit' in patch) && line.pint_ml) {
+      Object.assign(line, this.withPints(line));
+      line.pint_ml = null;
+    }
+    Object.assign(line, patch);
+    if ('unit' in patch) line.size = null;
+    this.saveProblem = null;
+  }
+
   /** "Same as Onions" on a line that is to confirm (its best guess) or one picked from the list. */
   sameAs(index: number, food: Ref): void {
-    this.choose(index, { kind: 'ingredient', food, learn: true });
+    const choice: Choice = { kind: 'ingredient', food, learn: true };
+    this.choose(index, choice);
+    this.#share(index, choice);
+  }
+
+  /** What a new ingredient for this line starts as: the reader's guess, else the line's words. */
+  guessFor(index: number): NewIngredient | null {
+    const line = this.review?.lines[index];
+    if (!line || line.kind !== 'ingredient') return null;
+    if (line.new_ingredient) return line.new_ingredient;
+    const words = line.words.trim();
+    return {
+      name: words ? words[0]!.toUpperCase() + words.slice(1) : '',
+      counted_as: 'weight',
+      place: null
+    };
   }
 
   newIngredient(index: number, staple = false): void {
-    const line = this.review?.lines[index];
-    if (!line?.new_ingredient) return;
-    const guess = line.new_ingredient;
-    this.choose(index, {
+    const guess = this.guessFor(index);
+    if (!guess) return;
+    const choice: Choice = {
       kind: staple ? 'staple' : 'new',
       name: guess.name,
       counted_as: guess.counted_as,
       place_id: guess.place?.id ?? null
+    };
+    this.choose(index, choice);
+    this.#share(index, choice);
+  }
+
+  /** Make a new ingredient a staple, or not (the tick in the New ingredient form). The lines
+   *  that took its choice follow. */
+  setStaple(index: number, staple: boolean): void {
+    for (const at of [index, ...this.followers(index)]) {
+      const choice = this.choices[at];
+      if (choice && choice.kind !== 'ingredient') {
+        this.choose(at, { ...choice, kind: staple ? 'staple' : 'new' });
+      }
+    }
+  }
+
+  /** The lines that took this line's choice (F6), for "Also used for 1 more line". */
+  followers(index: number): number[] {
+    return Object.entries(this.sharedFrom)
+      .filter(([, from]) => from === index)
+      .map(([j]) => Number(j));
+  }
+
+  /** F6: once an ingredient is made or picked on one line, the lines of the same import that
+   *  read as the same thing take the same choice. Only lines with no choice yet that still
+   *  need one; each can be changed on its own. Matching is on the whole name (case and
+   *  spacing ignored), never on part of one. */
+  #share(index: number, choice: Choice): void {
+    const review = this.review;
+    const source = review?.lines[index];
+    if (!review || !source) return;
+    const keys = nameKeys(source, choice.kind === 'ingredient' ? null : choice.name);
+    const next = { ...this.choices };
+    const from = { ...this.sharedFrom };
+    review.lines.forEach((line, j) => {
+      if (j === index || line.kind !== 'ingredient' || next[j]) return;
+      if (line.label !== 'to_confirm' && line.label !== 'needs_you') return;
+      if (!nameKeys(line, null).some((key) => keys.includes(key))) return;
+      next[j] = choice.kind === 'ingredient' ? { ...choice, learn: true } : { ...choice };
+      from[j] = index;
     });
+    this.choices = next;
+    this.sharedFrom = from;
   }
 
   /** The ingredient a line will be tied to, or null: a choice, else a match. */
@@ -346,6 +462,83 @@ export class ImportFlow {
     return whole(this.serves, 99) && whole(this.minutes, 14_400);
   }
 
+  /** Save, but with lines that have no ingredient behind them, first the sheet that goes through
+   *  them one at a time (F4). `save()` itself never asks. */
+  async trySave(): Promise<Saved | null> {
+    const queue = this.unlinkedLines();
+    if (queue.length > 0) {
+      this.walk = { queue, at: 0 };
+      return null;
+    }
+    return this.save();
+  }
+
+  /** The places of the ingredient lines with no ingredient behind them. */
+  unlinkedLines(): number[] {
+    const lines = this.review?.lines ?? [];
+    return lines.flatMap((line, i) => (line.kind === 'ingredient' && !this.linkOf(i) ? [i] : []));
+  }
+
+  /** The line the sheet is on, or null when it isn't open. */
+  get walkLine(): number | null {
+    return this.walk ? (this.walk.queue[this.walk.at] ?? null) : null;
+  }
+
+  /** On to the next line that still has no ingredient (Skip, or the line was just settled).
+   *  Closes the sheet after the last one. */
+  walkNext(): void {
+    const walk = this.walk;
+    if (!walk) return;
+    let at = walk.at + 1;
+    while (at < walk.queue.length && this.linkOf(walk.queue[at]!)) at++;
+    this.walk = at < walk.queue.length ? { queue: walk.queue, at } : null;
+  }
+
+  /** Back to Check, with nothing saved. */
+  walkClose(): void {
+    this.walk = null;
+  }
+
+  /** Save anyway: whatever is still not linked is saved as words. */
+  async saveAnyway(): Promise<Saved | null> {
+    this.walk = null;
+    return this.save();
+  }
+
+  // --- Steps (F13) ---------------------------------------------------------------------------
+
+  /** How step `i` would read as shorter steps, or null when it isn't a long step. */
+  splitOf(i: number): string[] | null {
+    const review = this.review;
+    const step = review?.steps[i];
+    if (!review || !step || step.kind !== 'step') return null;
+    const pieces = splitStep(step.text);
+    if (!pieces) return null;
+    return review.steps.length - 1 + pieces.length > MOST_STEPS ? null : pieces;
+  }
+
+  /** Keep the split of step `i`. */
+  keepSplit(i: number): void {
+    const review = this.review;
+    const pieces = this.splitOf(i);
+    if (!review || !pieces) return;
+    if (!this.stepsBefore) this.stepsBefore = review.steps.map((s) => ({ ...s }));
+    review.steps = [
+      ...review.steps.slice(0, i),
+      ...pieces.map((text) => ({ kind: 'step' as const, text })),
+      ...review.steps.slice(i + 1)
+    ];
+    this.previewStep = null;
+  }
+
+  /** Put the steps back as the page had them. */
+  putStepsBack(): void {
+    if (!this.review || !this.stepsBefore) return;
+    this.review.steps = this.stepsBefore;
+    this.stepsBefore = null;
+    this.previewStep = null;
+  }
+
   async save(): Promise<Saved | null> {
     const body = this.body();
     if (!body || this.saving) return null;
@@ -381,6 +574,17 @@ export class ImportFlow {
       this.saving = false;
     }
   }
+}
+
+/** The names a line might be called, folded: its words, the reader's guess and the name
+ *  "Same as" would add; plus a name typed for a new ingredient. */
+function nameKeys(line: ReviewLine, typed: string | null): string[] {
+  const keys: string[] = [];
+  for (const text of [line.words, line.new_ingredient?.name, line.learn_name, typed]) {
+    const key = (text ?? '').toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+    if (key && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
 }
 
 function problemOf(code: string, message: string): ImportProblem {

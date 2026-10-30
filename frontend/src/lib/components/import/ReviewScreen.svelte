@@ -14,13 +14,16 @@
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
+  import { sentenceCount } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
+  import ZoomPhoto from '#lib/components/ZoomPhoto.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
+  import WalkSheet from './WalkSheet.svelte';
 
   import '#lib/styles/fields.css';
   let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
@@ -36,11 +39,15 @@
   const other = $derived(flow.otherPints);
   const ingredientCount = $derived(review.lines.filter((l) => l.kind === 'ingredient').length);
 
-  async function save() {
-    const saved = await flow.save();
+  async function finish(saved: Awaited<ReturnType<typeof flow.save>>) {
     if (!saved) return;
     changesToast(saved);
     await goto(resolve('/(app)/recipes/[id]', { id: String(saved.recipe.id) }));
+  }
+
+  /** Save; with lines that have no ingredient, the sheet that goes through them comes first. */
+  async function save() {
+    await finish(await flow.trySave());
   }
 
   function leave() {
@@ -88,14 +95,15 @@
 <div class="review" class:phone>
   <section class="top" aria-label="Recipe details">
     {#if review.photo.state === 'downloaded' && shown}
-      <img
-        class="photo"
-        src={shown.url}
-        width={shown.width}
-        height={shown.height}
-        alt="Downloaded from the page"
-        onerror={() => copy.fail(shown.url)}
-      />
+      <div class="photo">
+        <ZoomPhoto
+          src={shown.url}
+          width={shown.width}
+          height={shown.height}
+          alt="Downloaded from the page"
+          onerror={() => copy.fail(shown.url)}
+        />
+      </div>
     {:else if review.photo.state !== 'none'}
       <div class="photo none" role="img" aria-label="No photo">
         <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
@@ -227,9 +235,44 @@
     </h2>
     <ol>
       {#each review.steps as step, i (i)}
-        <li class:heading={step.kind === 'heading'}>{step.text}</li>
+        {@const pieces = flow.splitOf(i)}
+        <li class:heading={step.kind === 'heading'}>
+          {step.text}
+          {#if pieces && flow.previewStep !== i}
+            <span class="long">
+              <span class="long-note">A long step ({sentenceCount(step.text)} sentences)</span>
+              <button type="button" class="chip" onclick={() => (flow.previewStep = i)}
+                >Split into shorter steps</button
+              >
+            </span>
+          {/if}
+          {#if pieces && flow.previewStep === i}
+            <span class="preview" role="group" aria-label="Preview of the split">
+              <span class="preview-title">Preview: this step as {pieces.length} steps</span>
+              {#each pieces as piece, n (n)}
+                <span class="piece"><b>{n + 1}.</b> {piece}</span>
+              {/each}
+              <span class="preview-buttons">
+                <button type="button" class="keep" onclick={() => flow.keepSplit(i)}
+                  >Keep the split</button
+                >
+                <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
+                  >Keep as one</button
+                >
+              </span>
+            </span>
+          {/if}
+        </li>
       {/each}
     </ol>
+    {#if flow.stepsBefore}
+      <p class="note">
+        Some long steps were split into shorter ones.
+        <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
+          >Put the steps back as they were</button
+        >
+      </p>
+    {/if}
     {#if review.steps_cut}
       <p class="note">The page had more than 100 steps. The first 100 are here.</p>
     {/if}
@@ -275,6 +318,10 @@
   {/if}
 </div>
 
+{#if flow.walk}
+  <WalkSheet {flow} onsave={async () => finish(await flow.saveAnyway())} />
+{/if}
+
 {#if asking}
   <LeaveSheet
     name={flow.name}
@@ -309,11 +356,13 @@
   }
 
   .photo {
+    position: relative;
     flex: none;
     width: 72px;
     height: 72px;
     border-radius: var(--radius-lg);
-    object-fit: cover;
+    background: var(--color-recipe-square);
+    overflow: hidden;
   }
 
   .review:not(.phone) .photo {
@@ -470,6 +519,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+
+  .method {
     padding: var(--space-4) var(--space-6);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
@@ -493,6 +545,79 @@
   ol {
     margin: 0;
     padding: 0;
+  }
+
+  .lines ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .long,
+  .preview {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 14px;
+  }
+
+  .preview {
+    border: 2px solid var(--color-accent);
+    font-size: var(--text-md);
+  }
+
+  .long-note {
+    color: var(--color-maybe-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .preview-title {
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .preview-buttons {
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+  }
+
+  .chip,
+  .keep,
+  .quiet {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border-radius: var(--radius-full);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .chip {
+    align-self: flex-start;
+    border: 1px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .keep {
+    border: none;
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .quiet {
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
   }
 
   .method ol {

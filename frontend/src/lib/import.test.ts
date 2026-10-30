@@ -524,3 +524,244 @@ describe('amounts in words', () => {
     expect(volumeWords(1136)).toBe('1.14 L');
   });
 });
+
+describe('importer consistency on Check (0.7)', () => {
+  beforeEach(() => network.reset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const icing = (over: Partial<ReviewLine>) =>
+    line({
+      written: '140g icing sugar, sifted',
+      words: 'icing sugar',
+      label: 'needs_you',
+      food: null,
+      place: null,
+      learn_name: 'icing sugar',
+      new_ingredient: { name: 'Icing sugar', counted_as: 'weight', place: null },
+      ...over
+    });
+
+  function flowOf(review: Partial<ImportReview>): ImportFlow {
+    const flow = new ImportFlow();
+    flow.load({
+      id: 1,
+      name: 'Sponge',
+      source: { kind: 'text', site: null },
+      started_by: 'K',
+      started_at: '',
+      updated_at: '',
+      expires_at: '',
+      days_left: 15,
+      lines_total: 0,
+      lines_checked: 0,
+      text: 'x',
+      review: { ...REVIEW, ...review },
+      choices: { name: null, serves: null, minutes: null, lines: {} }
+    });
+    return flow;
+  }
+
+  describe('F6: a choice made on one line is used on matching lines', () => {
+    const lines = [
+      icing({}),
+      icing({ written: 'icing sugar, to decorate', note: 'to decorate' }),
+      icing({ written: '1 egg', words: 'egg', learn_name: 'egg', new_ingredient: null })
+    ];
+
+    it('links a New ingredient to the other line with the same name, and only that one', () => {
+      const flow = flowOf({ lines });
+      flow.newIngredient(0);
+      expect(flow.choices[1]).toMatchObject({ kind: 'new', name: 'Icing sugar' });
+      expect(flow.choices[2]).toBeUndefined();
+      expect(flow.followers(0)).toEqual([1]);
+      expect(flow.unlinked).toBe(1);
+    });
+
+    it('follows a staple, and a staple tick on the first line', () => {
+      const flow = flowOf({ lines });
+      flow.newIngredient(0, true);
+      expect(flow.choices[1]).toMatchObject({ kind: 'staple' });
+      flow.setStaple(0, false);
+      expect(flow.choices[0]).toMatchObject({ kind: 'new' });
+      expect(flow.choices[1]).toMatchObject({ kind: 'new' });
+    });
+
+    it('links a picked ingredient to the matching line too', () => {
+      const flow = flowOf({ lines });
+      flow.sameAs(0, { id: 9, name: 'Icing sugar' });
+      expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', food: { id: 9 } });
+    });
+
+    it('leaves a line that has its own choice, and lets a followed line be changed', () => {
+      const flow = flowOf({ lines });
+      flow.sameAs(1, { id: 5, name: 'Sugar' });
+      flow.newIngredient(0);
+      expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', food: { id: 5 } });
+      flow.unchoose(1);
+      expect(flow.choices[1]).toBeUndefined();
+      expect(flow.followers(0)).toEqual([]);
+    });
+  });
+
+  describe('F30.6: fixing the amount, unit and note', () => {
+    it('changes what Save sends, and a draft keeps it', () => {
+      const flow = flowOf({});
+      const before = flow.unkept;
+      flow.editLine(2, { amount: 2, amount_text: '2', unit: 'tbsp', note: 'heaped' });
+      const sent = flow.body()!.lines[2]!;
+      expect(sent).toMatchObject({ amount: 2, unit: 'tbsp', note: 'heaped' });
+      expect(flow.draftBody()!.review.lines[2]).toMatchObject({ amount: 2, unit: 'tbsp' });
+      expect(before).toBe(false);
+      expect(flow.unkept).toBe(true);
+    });
+
+    it('takes a line off the pint switch once its amount is typed', () => {
+      const flow = flowOf({
+        pints: { household: 'uk', us_site: true, reading: 'us' },
+        lines: [
+          line({
+            amount: 946,
+            unit: 'ml',
+            pint_ml: { uk_ml: 1136, us_ml: 946 }
+          })
+        ]
+      });
+      flow.editLine(0, { amount: 500, amount_text: '500' });
+      flow.pints = 'uk';
+      expect(flow.body()!.lines[0]).toMatchObject({ amount: 500, unit: 'ml' });
+    });
+
+    it('leaves the pint reading alone when only the note changes', () => {
+      const flow = flowOf({
+        pints: { household: 'uk', us_site: true, reading: 'us' },
+        lines: [line({ amount: 946, unit: 'ml', pint_ml: { uk_ml: 1136, us_ml: 946 } })]
+      });
+      flow.editLine(0, { note: 'cold' });
+      flow.pints = 'uk';
+      expect(flow.body()!.lines[0]).toMatchObject({ amount: 1136, note: 'cold' });
+    });
+
+    it('does nothing to a heading', () => {
+      const flow = flowOf({});
+      flow.editLine(3, { amount: 5 });
+      expect(flow.review!.lines[3]!.amount).toBe(1);
+    });
+  });
+
+  describe('F4: going through the lines with no ingredient', () => {
+    it('saves at once when every line is linked', async () => {
+      const flow = flowOf({ lines: [line({})] });
+      fakeApi({
+        'POST /recipes/import/save': [
+          200,
+          {
+            recipe: { id: 1, name: 'x' },
+            change: { id: 1, summary: 's' },
+            new_ingredients: [],
+            learned: 0
+          }
+        ]
+      });
+      await flow.trySave();
+      expect(flow.walk).toBeNull();
+      expect(flow.saved).not.toBeNull();
+    });
+
+    it('opens the walk on the first unlinked line instead of saving', async () => {
+      const flow = flowOf({});
+      const saved = await flow.trySave();
+      expect(saved).toBeNull();
+      expect(flow.saved).toBeNull();
+      expect(flow.walk).toEqual({ queue: [1, 2], at: 0 });
+      expect(flow.walkLine).toBe(1);
+    });
+
+    it('moves on with Skip, skips lines settled meanwhile, and closes after the last', async () => {
+      const flow = flowOf({});
+      await flow.trySave();
+      flow.walkNext();
+      expect(flow.walkLine).toBe(2);
+      flow.walkNext();
+      expect(flow.walk).toBeNull();
+
+      await flow.trySave();
+      flow.sameAs(2, { id: 7, name: 'Hing' }); // settled before its turn
+      flow.walkNext();
+      expect(flow.walk).toBeNull();
+    });
+
+    it('Back to Check closes it with nothing saved', async () => {
+      const flow = flowOf({});
+      await flow.trySave();
+      flow.walkClose();
+      expect(flow.walk).toBeNull();
+      expect(flow.saved).toBeNull();
+    });
+
+    it('Save anyway saves the lines as words', async () => {
+      const flow = flowOf({});
+      await flow.trySave();
+      fakeApi({
+        'POST /recipes/import/save': [
+          200,
+          {
+            recipe: { id: 1, name: 'x' },
+            change: { id: 1, summary: 's' },
+            new_ingredients: [],
+            learned: 0
+          }
+        ]
+      });
+      const saved = await flow.saveAnyway();
+      expect(saved).not.toBeNull();
+      expect(flow.walk).toBeNull();
+      expect(flow.body()!.lines[1]!.link).toBeNull();
+    });
+  });
+
+  describe('a new ingredient for a line with no guess', () => {
+    it('starts from the line’s words', () => {
+      const flow = flowOf({
+        lines: [line({ label: 'needs_you', food: null, new_ingredient: null, words: 'asafoetida' })]
+      });
+      flow.newIngredient(0);
+      expect(flow.choices[0]).toMatchObject({
+        kind: 'new',
+        name: 'Asafoetida',
+        counted_as: 'weight'
+      });
+    });
+  });
+
+  describe('F13: splitting long steps', () => {
+    const LONG =
+      'Beat the butter and sugar until pale. Add the eggs one at a time. Fold in the flour. Divide between the tins. Level the tops.';
+    const steps: ImportReview['steps'] = [
+      { kind: 'step', text: 'Heat the oven.' },
+      { kind: 'step', text: LONG }
+    ];
+
+    it('shows the split without changing anything', () => {
+      const flow = flowOf({ steps });
+      expect(flow.splitOf(0)).toBeNull();
+      expect(flow.splitOf(1)).toHaveLength(3);
+      expect(flow.review!.steps).toHaveLength(2);
+      expect(flow.stepsBefore).toBeNull();
+    });
+
+    it('keeps the split only when asked, and puts the steps back', () => {
+      const flow = flowOf({ steps });
+      flow.keepSplit(1);
+      expect(flow.review!.steps).toHaveLength(4);
+      expect(flow.body()!.steps).toHaveLength(4);
+      flow.putStepsBack();
+      expect(flow.review!.steps).toEqual(steps);
+      expect(flow.stepsBefore).toBeNull();
+    });
+
+    it('never splits a heading', () => {
+      const flow = flowOf({ steps: [{ kind: 'heading', text: LONG }] });
+      expect(flow.splitOf(0)).toBeNull();
+    });
+  });
+});

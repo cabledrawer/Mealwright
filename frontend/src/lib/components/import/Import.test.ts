@@ -314,14 +314,151 @@ describe('Import a recipe', () => {
 
     it('offers Pick an ingredient, New ingredient and Treat as staple for a line that needs you', async () => {
       const flow = await reviewing();
-      await expect.element(page.getByText('Not in your ingredients')).toBeVisible();
+      await expect.element(page.getByText('· not in your ingredients')).toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Pick an ingredient' })).toBeVisible();
-      await page.getByRole('button', { name: 'Treat as staple' }).click();
+      await page.getByRole('button', { name: 'Treat as staple' }).nth(1).click();
       expect(flow.choices[2]).toMatchObject({ kind: 'staple', name: 'Asafoetida' });
       await expect.element(page.getByText(/Made a staple when you save/)).toBeVisible();
       // The first guess can be changed right there.
       await page.getByLabelText('Name').nth(1).fill('Hing');
       expect(flow.choices[2]).toMatchObject({ name: 'Hing' });
+    });
+
+    it('names what it read on a line that is not in your ingredients (F5)', async () => {
+      await reviewing();
+      // Not "2 tbsp  Not in your ingredients": the name is there, so the amount isn't mistaken
+      // for it (mockup Dark-ImportCheck07-Desktop: the name, the amount, then the words).
+      await expect.element(page.getByText('asafoetida', { exact: true })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: /^Amount ¼ tsp/ })).toBeVisible();
+      await expect.element(page.getByText('· not in your ingredients')).toBeVisible();
+    });
+
+    it('gives every line a status dot with its meaning in words', async () => {
+      await reviewing();
+      await expect.element(page.getByRole('img', { name: 'Ready' })).toBeVisible();
+      await expect.element(page.getByRole('img', { name: 'To confirm' })).toBeVisible();
+      await expect.element(page.getByRole('img', { name: 'Needs you' })).toBeVisible();
+    });
+
+    it('says “No amount” on a line with none, as a chip that opens the boxes', async () => {
+      const flow = await reviewing();
+      flow.editLine(2, { amount: null, amount_text: null, unit: null });
+      flushSync();
+      await expect.element(page.getByRole('button', { name: /^No amount/ })).toBeVisible();
+    });
+
+    it('fixes the amount, unit and note from the chips (F30.6)', async () => {
+      const flow = await reviewing();
+      await page.getByRole('button', { name: /^Amount ¼ tsp/ }).click();
+      await page.getByLabelText('Amount', { exact: true }).fill('2');
+      expect(flow.review!.lines[2]).toMatchObject({ amount: 2, amount_text: '2' });
+      await page.getByLabelText(/^Unit/).selectOptions('tbsp');
+      expect(flow.review!.lines[2]!.unit).toBe('tbsp');
+      await page.getByLabelText('Note').fill('heaped');
+      expect(flow.body()!.lines[2]).toMatchObject({ amount: 2, unit: 'tbsp', note: 'heaped' });
+      await page.getByLabelText('Amount', { exact: true }).fill('lots');
+      await expect.element(page.getByText('Type a number, like 2 or ½.')).toBeVisible();
+      expect(flow.review!.lines[2]!.amount).toBe(2);
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByLabelText(/^Unit/)).not.toBeInTheDocument();
+    });
+
+    it('offers Treat as staple on a line to confirm too (F21)', async () => {
+      const flow = await reviewing();
+      const staples = page.getByRole('button', { name: 'Treat as staple' });
+      await expect.element(staples.first()).toBeVisible();
+      await staples.first().click();
+      expect(flow.choices[1]).toMatchObject({ kind: 'staple', name: 'Red onion' });
+    });
+
+    it('closes the New ingredient form with Done and shows a settled line (F10)', async () => {
+      const flow = await reviewing();
+      await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();
+      await expect.element(page.getByLabelText('Name').nth(1)).toBeVisible();
+      await page.getByRole('switch', { name: 'Treat as staple (never counted)' }).click();
+      expect(flow.choices[2]).toMatchObject({ kind: 'staple' });
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByLabelText('Name').nth(1)).not.toBeInTheDocument();
+      await expect.element(page.getByText('New staple:')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit' }).click();
+      await expect.element(page.getByLabelText('Name').nth(1)).toBeVisible();
+    });
+
+    it('will not close the form on an empty name', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();
+      await page.getByLabelText('Name').nth(1).fill('');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByText('Type a name.')).toBeVisible();
+    });
+
+    it('says when a line took the choice made on another (F6)', async () => {
+      const flow = await reviewing();
+      flow.review!.lines[1] = { ...flow.review!.lines[1]!, words: 'asafoetida', learn_name: null };
+      flow.newIngredient(2);
+      flushSync();
+      await expect.element(page.getByText(/^Also used for 1 more line/)).toBeVisible();
+      await expect.element(page.getByText(/^Same choice as/)).toBeVisible();
+    });
+
+    it('goes through the lines with no ingredient when Save finds some (F4)', async () => {
+      const flow = await reviewing();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await expect.element(sheet).toBeVisible();
+      await expect.element(sheet.getByText('Line 1 of 2')).toBeVisible();
+      await sheet.getByRole('button', { name: 'Skip this line' }).click();
+      await expect.element(sheet.getByText('Line 2 of 2')).toBeVisible();
+      await sheet.getByRole('button', { name: 'Treat as staple' }).click();
+      expect(flow.choices[2]).toMatchObject({ kind: 'staple' });
+      await expect.element(sheet).not.toBeInTheDocument();
+      expect(flow.saved).toBeNull();
+    });
+
+    it('Back to Check closes the sheet; Save anyway saves (F4)', async () => {
+      const flow = await reviewing();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      await page.getByRole('button', { name: 'Back to Check' }).click();
+      await expect
+        .element(page.getByRole('dialog', { name: '2 lines aren’t linked yet' }))
+        .not.toBeInTheDocument();
+      fakeApi({
+        'POST /recipes/import/save': [
+          200,
+          {
+            recipe: { id: 5, name: 'Sambar' },
+            change: { id: 1, summary: 'Imported Sambar' },
+            new_ingredients: [],
+            learned: 0
+          }
+        ]
+      });
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      await page.getByRole('button', { name: 'Save anyway' }).click();
+      await vi.waitFor(() => expect(flow.saved).not.toBeNull());
+    });
+
+    it('shows a long step’s split before keeping it, with a way back (F13)', async () => {
+      const flow = await reviewing();
+      flow.review!.steps = [
+        {
+          kind: 'step',
+          text: 'Beat the butter. Add the eggs. Fold in the flour. Divide between the tins. Level the tops.'
+        }
+      ];
+      flushSync();
+      await expect.element(page.getByText('A long step (5 sentences)')).toBeVisible();
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await expect.element(page.getByText('Preview: this step as 3 steps')).toBeVisible();
+      expect(flow.review!.steps).toHaveLength(1);
+      await page.getByRole('button', { name: 'Keep as one' }).click();
+      expect(flow.review!.steps).toHaveLength(1);
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await page.getByRole('button', { name: 'Keep the split' }).click();
+      expect(flow.review!.steps).toHaveLength(3);
+      await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
+      expect(flow.review!.steps).toHaveLength(1);
     });
 
     it('says how many lines will be saved without an ingredient', async () => {

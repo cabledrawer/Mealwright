@@ -535,3 +535,17 @@ cabledrawer OK'd the C1 readings on 31 Oct ("C1 readings: OK"). The UK/US quart,
 - **Notes the import writes into a line's note:** **or so** (from "3-or-so cups"), **optional** (for a line under "For serving", "To garnish" or "Optional", and for an "optional:" line), **made with …** and **and cut into …** (the words stay as written), **variety** words ("less spicy variety") and the other choice after "or" ("or butter").
 - **Several links pasted (Import start):** **Several links · one link at a time: only the first is read**.
 - **Quarts, gallons and fluid ounces** are read like pints, with the household's pint (and "Read its pints as US pints" for one recipe); nothing new on screen. Sizes: UK quart 1136 ml, US 946; UK gallon 4546, US 3785; UK fl oz 28.41, US 29.57.
+
+## 19. Check before saving, 0.7.0 (C2; proposed, for cabledrawer unless the mockup has the words)
+
+From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cabledrawer, 30 Oct). Words not in a mockup are marked proposed.
+
+- **Status dot** (screen readers): Ready · To confirm · Needs you · Staple.
+- **A line that is not in your ingredients:** `milk · 2 tbsp · not in your ingredients`. A line with no amount shows a chip `No amount`.
+- **Chips:** the amount (`200 g`) and the note (`softened`) open **Amount · Unit · Note** and **Done**; under them: "Tap the amount or note on any line to fix what was read." A bad amount: "Type a number, like 2 or ½." (proposed).
+- **Choices:** Same as “Ghee” · Pick another · New ingredient · Treat as staple (to confirm); New ingredient “Milk” · Pick an ingredient · Treat as staple (needs you).
+- **New ingredient form:** Name · How it’s counted · Usually kept in · Treat as staple (never counted) · Cancel · Done; Type a name. (proposed); a settled line: `New ingredient: Icing sugar` with Edit and Change.
+- **Shared choice (F6):** Also used for 1 more line: “icing sugar, to decorate” · Same choice as “…” above (proposed).
+- **Save with unlinked lines (F4):** 2 lines aren’t linked yet · Unlinked lines can’t be counted in your pantry or added to the shopping list properly. Sort them now, or save anyway and link them later in the recipe. · LINE 1 OF 2 · New ingredient “Milk” (Counted by volume · Fridge) · Pick another · Treat as staple · Skip this line · Back to Check · Save anyway.
+- **Long steps (F13):** A long step (5 sentences) · Split into shorter steps · Preview: this step as 3 steps · Keep the split · Keep as one · Put the steps back as they were (proposed) · Some long steps were split into shorter ones. (proposed).
+- **Photo (F29):** Show the photo full size (screen readers) · Full size (on the photo) · Close.
