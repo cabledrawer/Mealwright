@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BACK_ONLINE,
   CHECK_EVERY_MS,
+  CHECK_TIMEOUT_MS,
   OFFLINE_AFTER_MS,
   network,
   offlineText
@@ -208,6 +209,97 @@ describe('the server is down behind a reverse proxy (F67)', () => {
     } finally {
       stop();
       vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('the online check is gentle (F67)', () => {
+  const lookAt = (state: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: state });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  afterEach(() => {
+    delete (document as { visibilityState?: unknown }).visibilityState;
+    vi.unstubAllGlobals();
+  });
+
+  /** A server that never answers: each check gives up after its time limit. (The browser's
+   *  own time limit runs on real time, so the pretend one stands in for it.) */
+  const hanging = () => {
+    const check = vi.fn(
+      () =>
+        new Promise<Response>((_, reject) =>
+          setTimeout(() => reject(new DOMException('', 'TimeoutError')), CHECK_TIMEOUT_MS)
+        )
+    );
+    vi.stubGlobal('fetch', check);
+    return check;
+  };
+
+  it('never overlaps itself: a slow check is waited for, not joined by another', async () => {
+    const check = hanging();
+    const stop = network.start(() => {});
+    try {
+      network.failed();
+      // Checks start every 5 s, and each may take up to 8 s.
+      await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS * 2 + 100);
+      expect(check).toHaveBeenCalledTimes(1);
+      // "Try now" meanwhile joins the check under way.
+      void network.tryNow();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(check).toHaveBeenCalledTimes(1);
+      // Once it has given up, the next one may start.
+      await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS);
+      await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS);
+      expect(check.mock.calls.length).toBeGreaterThan(1);
+      let running = 0;
+      let most = 0;
+      check.mockImplementation(async () => {
+        running++;
+        most = Math.max(most, running);
+        await new Promise((done) => setTimeout(done, CHECK_TIMEOUT_MS - 1));
+        running--;
+        return new Response('', { status: 502 });
+      });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(most).toBe(1);
+    } finally {
+      stop();
+    }
+  });
+
+  it('doesn’t check while the tab is in the background, and checks at once when it’s back', async () => {
+    const check = vi.fn(async () => new Response('', { status: 502 }));
+    vi.stubGlobal('fetch', check);
+    const stop = network.start(() => {});
+    try {
+      network.failed();
+      lookAt('hidden');
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(check).not.toHaveBeenCalled();
+      expect(network.offline).toBe(true);
+      check.mockImplementation(async () => new Response('{}'));
+      lookAt('visible');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(check).toHaveBeenCalledTimes(1);
+      expect(network.offline).toBe(false);
+    } finally {
+      stop();
+    }
+  });
+
+  it('a tab that comes back while all is well asks nothing', async () => {
+    const check = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', check);
+    const stop = network.start(() => {});
+    try {
+      lookAt('hidden');
+      lookAt('visible');
+      await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS * 3);
+      expect(check).not.toHaveBeenCalled();
+    } finally {
+      stop();
     }
   });
 });

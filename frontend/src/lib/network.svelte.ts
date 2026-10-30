@@ -4,8 +4,8 @@
 // "Offline" means the last request to our server failed with a network error or timeout, or
 // the reverse proxy answered for it (502, 503, 504: proxyGap.ts), or the browser says it is
 // offline. A blip shorter than OFFLINE_AFTER_MS shows nothing at all.
-// While we think we are offline a small check goes to our own server every few seconds, so
-// the bar goes away by itself; "Try now" does the same check straight away and reconnects
+// While we think we are offline a small check goes to our own server every few seconds (one at
+// a time, and not while the tab is in the background), so the bar goes away by itself; "Try now" does the same check straight away and reconnects
 // the live stream (live.svelte.ts).
 //
 // Only our own server is ever asked (the check is GET /api/v1/version, same origin).
@@ -69,6 +69,12 @@ class Network {
   #checkTimer: ReturnType<typeof setInterval> | null = null;
   #wasShown = false;
   #reconnect: (() => void) | null = null;
+  /** The check under way: another one waits for it rather than running alongside (F67). */
+  #checking: Promise<void> | null = null;
+  /** Reconnect the live stream after the check under way, whatever it finds ("Try now"). */
+  #reconnectAfter = false;
+  /** The browser said the connection is back while the check was under way. */
+  #browserBack = false;
   /** The bar was shown and the connection is back: say so once nothing is waiting. */
   #backOnline = false;
 
@@ -102,7 +108,10 @@ class Network {
       this.offline = true;
       this.#wasShown = true;
     }, OFFLINE_AFTER_MS);
-    this.#checkTimer = setInterval(() => void this.#check(), CHECK_EVERY_MS);
+    this.#checkTimer = setInterval(() => {
+      // Not in a background tab: it checks again as soon as it is looked at (start()).
+      if (document.visibilityState !== 'hidden') void this.#check();
+    }, CHECK_EVERY_MS);
   }
 
   /** "Try now": ask our server, and reconnect the live stream. */
@@ -127,20 +136,34 @@ class Network {
     this.#reconnect = reconnect;
     const onOnline = () => void this.#check(false, true);
     const onOffline = () => this.failed();
+    const onVisible = () => {
+      const failing = this.#failingSince !== null || this.offline;
+      if (failing && document.visibilityState === 'visible') void this.#check();
+    };
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
+    document.addEventListener('visibilitychange', onVisible);
     if (navigator.onLine === false) this.failed();
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
+      document.removeEventListener('visibilitychange', onVisible);
       this.#clearTimers();
       this.#reconnect = null;
     };
   }
 
   /** Ask our server. Reconnect the stream if we were offline (or `always`). `online`: the
-   *  browser has just said the connection is back. */
-  async #check(always = false, online = false): Promise<void> {
+   *  browser has just said the connection is back. Only one check at a time: asked while one
+   *  is under way, it waits for that one (a slow server never piles checks up). */
+  #check(always = false, online = false): Promise<void> {
+    if (always) this.#reconnectAfter = true;
+    if (online) this.#browserBack = true;
+    this.#checking ??= this.#checkOnce().finally(() => (this.#checking = null));
+    return this.#checking;
+  }
+
+  async #checkOnce(): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
     try {
       // Signed out while offline: the server session ends before anything else is sent.
@@ -155,9 +178,13 @@ class Network {
       // "Back online — all saved" while the server was stopped).
       if (proxyGap(response.status)) throw new Error('the proxy can’t reach the server');
     } catch {
+      this.#reconnectAfter = this.#browserBack = false;
       this.failed();
       return;
     }
+    const always = this.#reconnectAfter;
+    const online = this.#browserBack;
+    this.#reconnectAfter = this.#browserBack = false;
     // An answer that came in while we were offline (a late live-stream hello, say) may already
     // have cleared the failure, and then succeeded() doesn't count this: the browser being back
     // still does, so a photo that failed meanwhile tries again.
@@ -176,6 +203,8 @@ class Network {
   reset(): void {
     this.#clearTimers();
     this.#failingSince = null;
+    this.#checking = null;
+    this.#reconnectAfter = this.#browserBack = false;
     this.#wasShown = false;
     this.#backOnline = false;
     this.offline = false;
