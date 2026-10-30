@@ -5,7 +5,7 @@
 // is left. The stock marks follow the chosen servings (cabledrawer 19 Oct, Q22): after − / + the
 // page asks the server again, once the taps stop.
 
-import { ApiError, CANT_REACH, cantReach } from './api';
+import { ApiError, cantReachWords, cantReach } from './api';
 import { getRecipe, getRecipeStock, type Recipe, type RecipeStock } from './client/recipes';
 import { MAX_SERVES, MIN_SERVES, factorOf } from './recipeAmounts';
 
@@ -114,7 +114,9 @@ export class RecipeView {
         this.recipe = null;
         this.stock = null;
       } else {
-        this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load this recipe. Try again.';
+        this.problem = cantReach(error)
+          ? cantReachWords()
+          : 'Couldn’t load this recipe. Try again.';
       }
     } finally {
       if (asked === this.#asked) this.loaded = true;

@@ -2,6 +2,8 @@
   // "Wren’s version" (cabledrawer 19 Oct, editor brief decision 4): the recipe as the other person
   // saved it, in a sheet over the editor (not a new tab: the installed app has none). Closing
   // brings you back to your own edit, untouched. Nothing here can be edited.
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import type { RecipeOut } from '#lib/client/recipes.js';
   import { compareLines, compareSteps, otherChanges } from '#lib/recipes/compare.js';
@@ -126,7 +128,7 @@
     <p class="hint">Highlighted: what {who} changed. Nothing here can be edited.</p>
 
     {#if offline}<p class="hint" role="status">
-        You’re offline. Save when you’re back online.
+        {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
       </p>{/if}
 
     <div class="buttons">

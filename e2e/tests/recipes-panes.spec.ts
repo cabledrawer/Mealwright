@@ -428,7 +428,7 @@ test('offline: one note for both panes, and the list is back as it was when the 
   const tag = `Offline ${stamp()}`;
   const [one] = await manyNamed(page, tag, 1);
   await goOffline(page, context, `/recipes/${one!.id}`, tag);
-  const note = page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.');
+  const note = page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.');
   await expect(note).toBeVisible({ timeout: 15_000 });
   await expect(note).toHaveCount(1);
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();

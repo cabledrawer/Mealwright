@@ -3,6 +3,7 @@
 
 import type { OwnNetworkEntry, SwitchName } from './client/privacy';
 import { dayMonthWords } from './dates';
+import { downLine } from './downWords';
 
 /**
  * Where the section "Outside connections" starts: /settings/privacy#outside-connections.
@@ -31,8 +32,12 @@ export type Locked = 'member' | 'offline' | null;
 
 export const MEMBER_NOTE =
   'Only an admin can change these, because they decide what Mealwright may contact.';
-export const OFFLINE_NOTE =
-  'You’re offline. This is as it was when you last looked, and it can’t be changed until you’re back online.';
+/** Offline, or the server not answering: the words say which (downWords.ts, cabledrawer 30 Oct). */
+export const offlineNote = (device: boolean): string =>
+  downLine(
+    device,
+    (b) => `This is as it was when you last looked, and it can’t be changed ${b.until}.`
+  );
 
 export const LEAD = 'Nothing leaves this server unless you switch it on.';
 export const LEARN_IMPORT_LIMITS =

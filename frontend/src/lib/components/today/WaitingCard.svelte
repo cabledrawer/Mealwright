@@ -3,6 +3,8 @@
   // day has come, with Cooked it · Didn't · Move it. One card at a time: the newest meal first,
   // and a line saying how many more are waiting behind it. Nothing changes in the pantry until
   // it is answered (spec, "Meals nobody cooked"). The words are proposed, for cabledrawer.
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import type { TodayModel } from '#lib/today.svelte.js';
   import type { WaitingMeal } from '#lib/client/today.js';
   import { moreWords, whenWords } from '#lib/todayWords.js';
@@ -43,7 +45,9 @@
     <button type="button" disabled={model.readonly} onclick={onmove}>Move it</button>
   </div>
   {#if model.readonly}
-    <p class="offline" role="status">You’re offline. Today changes when you’re back online.</p>
+    <p class="offline" role="status">
+      {downLine(network.deviceOffline, (b) => `Today changes ${b.when}.`)}
+    </p>
   {/if}
   {#if model.moreWaiting}
     <p class="more">{moreWords(model.moreWaiting)}</p>

@@ -8,6 +8,7 @@
   // no asking); each is shown as a button first, and the card's own buttons do the same. A phone
   // has cards, a computer a table (no swipes).
   // Online only: drafts are kept on the server.
+  import { offlineNote } from '#lib/privacyWords.js';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
@@ -121,7 +122,7 @@
   >
 {/snippet}
 
-{#if network.offline && !drafts.loaded}
+{#if network.down && !drafts.loaded}
   <OfflineNote screen="Drafts" />
 {:else if drafts.problem && !drafts.loaded}
   <div class="failed" role="alert">
@@ -133,8 +134,7 @@
 {:else}
   {#if network.offline}
     <p class="stale" role="status">
-      You’re offline. This is as it was when you last looked, and it can’t be changed until you’re
-      back online.
+      {offlineNote(network.deviceOffline)}
     </p>
   {/if}
   {#if drafts.deleteProblem}

@@ -5,6 +5,7 @@
   //   phone: the week as a list of days, the month as a dot grid; press and hold for the menu.
   // Online only, like the Pantry: offline the plan can be read but not changed. Cook once, eat for…
   // (PR 4) makes tubs, which can be placed, moved, given to someone and frozen.
+  import { downLine } from '#lib/downWords.js';
   import { browser } from '$app/env';
   import { onMount, untrack } from 'svelte';
   import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
@@ -243,10 +244,12 @@
   </div>
 
   {#if readonly && model.loaded}
-    <p class="note" role="status">You’re offline. Plan changes when you’re back online.</p>
+    <p class="note" role="status">
+      {downLine(network.deviceOffline, (b) => `Plan changes ${b.when}.`)}
+    </p>
   {/if}
 
-  {#if !model.loaded && network.offline}
+  {#if !model.loaded && network.down}
     <OfflineNote screen="Plan" />
   {:else if model.problem && !model.loaded}
     <section class="problem" role="alert">

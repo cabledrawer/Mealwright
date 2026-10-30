@@ -5,6 +5,8 @@
   // added to any meal with "+ Add a tub" (or "+ Add a tub too" when the meal has something planned), taken out
   // with ✕, and moved by dragging it or by tapping it and then tapping the meal (the keyboard and
   // finger way). Online only, like the rest of the plan.
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import { untrack } from 'svelte';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import {
@@ -145,7 +147,9 @@
       </header>
 
       {#if actions.readonly}
-        <p class="note" role="status">You’re offline. Plan changes when you’re back online.</p>
+        <p class="note" role="status">
+          {downLine(network.deviceOffline, (b) => `Plan changes ${b.when}.`)}
+        </p>
       {/if}
       {#if cook.problem}
         <p class="problem" role="alert">{cook.problem}</p>

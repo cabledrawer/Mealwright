@@ -412,7 +412,7 @@
   </section>
 {/snippet}
 
-{#if network.offline}
+{#if network.offline || (!pantry && network.down)}
   <OfflineNote screen="Pantry" />
 {:else if model.problem && !pantry}
   <p class="problem" role="alert">

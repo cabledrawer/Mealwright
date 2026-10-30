@@ -9,6 +9,7 @@
   // draft?" (mockup Import05-*, the leave sheet; spec "Import drafts"): Save draft · Keep
   // checking · Discard. A draft that was opened and not changed just leaves. Closing or
   // reloading the tab can't be asked about, so that leaves as it always did.
+  import { downLine } from '#lib/downWords.js';
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
@@ -270,7 +271,7 @@
     </button>
   </div>
   {#if network.offline}
-    <p class="muted" role="status">You’re offline. Save when you’re back online.</p>
+    <p class="muted" role="status">{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</p>
   {/if}
 </div>
 

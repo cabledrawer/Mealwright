@@ -225,7 +225,7 @@
 {:else}
   <PageHeader title="Recipes" overline={network.offline ? undefined : count} />
 
-  {#if network.offline}
+  {#if network.offline || (network.down && list.problem !== null)}
     <OfflineNote screen="Recipes" />
   {:else}
     <!-- Phone: the Drafts and Ingredients buttons sit at the top of All recipes. Desktop has

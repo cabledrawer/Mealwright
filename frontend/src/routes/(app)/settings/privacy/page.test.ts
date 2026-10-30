@@ -456,6 +456,7 @@ describe('Settings → Privacy', () => {
       });
       await expect.element(page.getByRole('switch', { name: IMPORT })).toBeChecked();
       network.offline = true;
+      network.deviceOffline = true;
       await expect.element(page.getByText(OFFLINE_NOTE).first()).toBeVisible();
       await expect.element(page.getByRole('switch', { name: IMPORT })).toBeChecked();
       await expect.element(page.getByRole('switch', { name: IMPORT })).toBeDisabled();
@@ -474,6 +475,7 @@ describe('Settings → Privacy', () => {
 
     it('says the page needs the server when nothing was ever loaded', async () => {
       network.offline = true;
+      network.deviceOffline = true;
       vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
       component = mount(Privacy, { target: document.body });
       flushSync();

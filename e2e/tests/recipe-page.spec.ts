@@ -259,7 +259,7 @@ test('offline: says it needs the server, and points to Shopping', async ({ page,
   const { recipe, name } = await sambar(page);
   await goOffline(page, context, recipe.id, name);
   await expect(
-    page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.'),
+    page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.'),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await checkPage(page);

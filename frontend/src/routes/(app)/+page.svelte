@@ -5,6 +5,7 @@
   // "Your kitchen is ready". Online only, like the Plan: offline it shows the copy saved last
   // time, with the answer buttons switched off. "Did you buy 2?" shows here as well as on
   // Shopping (spec, "Offline shopping-list sync"). Docs: docs/dev/api-0.2.md section 6.3c.
+  import { downLine } from '#lib/downWords.js';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import CookedSheet from '#lib/components/today/CookedSheet.svelte';
@@ -98,7 +99,7 @@
   {/snippet}
 </PageHeader>
 
-{#if !data && network.offline}
+{#if !data && network.down}
   <!-- Offline (or the server down) with no saved copy: the same note as every page (F67). -->
   <OfflineNote screen="Today" />
 {:else if model.problem && !data}
@@ -110,7 +111,10 @@
 {:else}
   {#if model.readonly}
     <p class="offline" role="status">
-      You’re offline. Today changes when you’re back online. This is what was saved last time.
+      {downLine(
+        network.deviceOffline,
+        (b) => `Today changes ${b.when}. This is what was saved last time.`
+      )}
     </p>
   {/if}
 

@@ -699,6 +699,7 @@ describe('the recipe page', () => {
       await open();
       await expect.element(page.getByRole('heading', { name: 'Sambar' })).toBeVisible();
       network.offline = true;
+      network.deviceOffline = true;
       await expect.element(page.getByText('You’re offline.')).toBeVisible();
       await expect
         .element(

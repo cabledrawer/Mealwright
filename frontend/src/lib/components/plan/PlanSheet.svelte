@@ -7,6 +7,8 @@
   //   a tub (Cook once, PR 4): Whose tub? · Move to… · To freezer · Remove (back to tubs left); a
   //   tub is never copied, so it has no Copy to… or Leftovers on…;
   //   a planned recipe: also Cook once, eat for… (opens the sheet that makes the tubs).
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import type { DropMode } from '#lib/client/plan.js';
   import type { PlanActions, PlanTarget as Target } from '#lib/planActions.js';
   import {
@@ -245,7 +247,9 @@
       </header>
 
       {#if actions.readonly}
-        <p class="note" role="status">You’re offline. Plan changes when you’re back online.</p>
+        <p class="note" role="status">
+          {downLine(network.deviceOffline, (b) => `Plan changes ${b.when}.`)}
+        </p>
       {/if}
 
       {#if target.kind === 'day'}

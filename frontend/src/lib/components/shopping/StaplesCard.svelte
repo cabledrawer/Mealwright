@@ -3,6 +3,7 @@
   // week's planned recipes use, each with Got it and + Add. Staples are assumed in stock and
   // never put on the list by the plan; this is the one nudge. Online only: the server keeps
   // "Got it". Docs: docs/dev/words.md section 21.
+  import { downLine } from '#lib/downWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import { staplesLine, usedIn } from '#lib/shopping/plan.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
@@ -55,7 +56,7 @@
     </ul>
     {#if offline}
       <p class="offline" role="status">
-        You’re offline. Got it and + Add work when you’re back online.
+        {downLine(network.deviceOffline, (b) => `Got it and + Add work ${b.when}.`)}
       </p>
     {/if}
   </section>

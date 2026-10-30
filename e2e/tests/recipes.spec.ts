@@ -374,7 +374,7 @@ async function goOffline(page: Page, context: BrowserContext) {
 test('offline: says it needs the server, and points to Shopping', async ({ page, context }) => {
   await goOffline(page, context);
   await expect(
-    page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.'),
+    page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.'),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('searchbox')).toHaveCount(0);

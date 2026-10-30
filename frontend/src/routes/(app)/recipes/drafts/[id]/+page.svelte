@@ -65,7 +65,7 @@
   <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}
     <p class="note" aria-busy="true">Loading…</p>
-  {:else if phase === 'problem' && network.offline}
+  {:else if phase === 'problem' && network.down}
     <OfflineNote screen="Drafts" />
   {:else if phase === 'gone'}
     <p class="note" role="alert">{problem}</p>

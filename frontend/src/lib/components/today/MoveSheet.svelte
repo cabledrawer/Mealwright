@@ -2,6 +2,8 @@
   // "Move it" (mockups MoveIt-Phone, MoveIt-Desktop): quick picks Today and Tomorrow at the same
   // meal, a 7-day strip, then a meal. A meal that already has food gets it alongside. The old
   // meal is marked moved and keeps its place. The words are proposed, for cabledrawer.
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import type { WaitingMeal } from '#lib/client/today.js';
   import { addDays } from '#lib/dates.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
@@ -150,7 +152,9 @@
       </div>
 
       {#if model.readonly}
-        <p class="note" role="status">You’re offline. Today changes when you’re back online.</p>
+        <p class="note" role="status">
+          {downLine(network.deviceOffline, (b) => `Today changes ${b.when}.`)}
+        </p>
       {:else}
         <p class="note">You can undo a move.</p>
       {/if}

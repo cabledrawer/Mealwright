@@ -4,7 +4,7 @@
 // the answer buttons switched off. An answer shows at once (the card goes), is saved with its
 // change ID, and is offered for Undo; then Today is fetched again.
 
-import { CANT_REACH, cantReach, forgetWhenSessionEnds } from './api';
+import { cantReachWords, cantReach, forgetWhenSessionEnds } from './api';
 import { serverUndo } from './client/changes';
 import type { PlanMeal } from './client/plan';
 import {
@@ -143,7 +143,7 @@ export class TodayModel {
         if (unreachable) this.fromCopy = true;
         return;
       }
-      this.problem = unreachable ? CANT_REACH : 'Couldn’t load Today. Try again.';
+      this.problem = unreachable ? cantReachWords() : 'Couldn’t load Today. Try again.';
     }
   }
 

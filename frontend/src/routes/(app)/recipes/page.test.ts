@@ -312,6 +312,7 @@ describe('the All recipes page', () => {
 
   it('offline: says it needs the server, and asks for nothing', async () => {
     network.offline = true;
+    network.deviceOffline = true;
     open();
     await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     await expect

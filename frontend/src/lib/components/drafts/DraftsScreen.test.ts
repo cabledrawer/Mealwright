@@ -227,6 +227,7 @@ describe('the Drafts screen', () => {
       await open({ 'GET /recipes/drafts': list(THREE) });
       await expect.element(page.getByText('Rava dosa')).toBeVisible();
       network.offline = true;
+      network.deviceOffline = true;
       flushSync();
       swipe(slideOf('Rava dosa'), -110);
       expect(page.getByRole('button', { name: 'Delete Rava dosa' }).elements()).toHaveLength(1);
@@ -420,6 +421,7 @@ describe('the Drafts screen', () => {
 
     it('says it needs the server when it is offline and nothing was loaded', async () => {
       network.offline = true;
+      network.deviceOffline = true;
       await open({});
       await expect.element(page.getByText(/Drafts needs your Mealwright server/)).toBeVisible();
     });
@@ -439,6 +441,7 @@ describe('the Drafts screen', () => {
       await open({ 'GET /recipes/drafts': list(THREE) });
       await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
       network.offline = true;
+      network.deviceOffline = true;
       flushSync();
       await expect.element(page.getByText(/This is as it was when you last looked/)).toBeVisible();
       await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();

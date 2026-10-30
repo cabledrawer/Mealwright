@@ -3,6 +3,7 @@
   // Oct, editor brief). Nothing changes until Save; Cancel with changes closes at once with
   // "Changes not saved" and Undo. Recipes are online only in 0.4: offline, the editor keeps
   // what was typed and Save waits.
+  import { downLine } from '#lib/downWords.js';
   import '#lib/styles/fields.css';
   import { onMount, tick } from 'svelte';
   import { beforeNavigate } from '$app/navigation';
@@ -356,7 +357,9 @@
     </header>
 
     {#if network.offline}
-      <EditorNote tone="offline">You’re offline. Save when you’re back online.</EditorNote>
+      <EditorNote tone="offline"
+        >{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</EditorNote
+      >
     {/if}
     {#if cantSave}
       <EditorNote tone="trouble">

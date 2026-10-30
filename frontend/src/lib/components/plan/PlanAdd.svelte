@@ -2,6 +2,8 @@
   // "Add to Dinner · Mon 19": pick a recipe (searched by name, tag or ingredient) or, once
   // something is typed, a plain ingredient ("Fruit") to put in a meal. A meal that already has
   // things gets it alongside. In Month, with no meal chosen, it asks which meal first.
+  import { downLine } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
   import { untrack } from 'svelte';
   import { listFoods } from '#lib/client/foods.js';
   import type { TubLeft } from '#lib/client/plan.js';
@@ -134,7 +136,9 @@
       />
 
       {#if actions.readonly}
-        <p class="note" role="status">You’re offline. Plan changes when you’re back online.</p>
+        <p class="note" role="status">
+          {downLine(network.deviceOffline, (b) => `Plan changes ${b.when}.`)}
+        </p>
       {/if}
       {#if problem}<p class="note problem" role="alert">{problem}</p>{/if}
 

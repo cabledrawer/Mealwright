@@ -303,3 +303,46 @@ describe('the online check is gentle (F67)', () => {
     }
   });
 });
+
+describe('one steady message, chosen by the cause (cabledrawer 30 Oct)', () => {
+  it('is down from the first failure, before the bar, and stays down until an answer', () => {
+    expect(network.down).toBe(false);
+    network.failed();
+    expect(network.failing).toBe(true);
+    expect(network.down).toBe(true);
+    expect(network.offline).toBe(false);
+    vi.advanceTimersByTime(OFFLINE_AFTER_MS);
+    expect(network.down).toBe(true);
+    network.succeeded();
+    expect(network.down).toBe(false);
+    expect(network.failing).toBe(false);
+  });
+
+  it('an answer to a request sent before the failures began doesn’t end it (follow-up 10)', () => {
+    const before = Date.now();
+    vi.advanceTimersByTime(10);
+    network.failed();
+    network.succeeded(before);
+    expect(network.down).toBe(true);
+  });
+
+  it('knows whether the device itself has no network, from the browser', () => {
+    const stop = network.start(() => {});
+    expect(network.deviceOffline).toBe(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(network.deviceOffline).toBe(true);
+    expect(network.down).toBe(true);
+    window.dispatchEvent(new Event('online'));
+    expect(network.deviceOffline).toBe(false);
+    stop();
+  });
+
+  it('a device already offline when the app starts says so at once', () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const stop = network.start(() => {});
+    expect(network.deviceOffline).toBe(true);
+    expect(network.down).toBe(true);
+    stop();
+    vi.restoreAllMocks();
+  });
+});

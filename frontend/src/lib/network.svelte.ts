@@ -47,6 +47,13 @@ export function offlineText(
 class Network {
   /** The bar is showing. */
   offline = $state(false);
+  /** A request to our server has failed and nothing has answered since (no wait for the bar:
+   *  a screen that couldn't load says so at once, and keeps saying it, cabledrawer 30 Oct). */
+  failing = $state(false);
+  /** The browser says this device has no network. Then the words are "You’re offline…";
+   *  with a network but no answer from the server they are "Can’t reach your Mealwright
+   *  server…" (downWords.ts, cabledrawer 30 Oct). */
+  deviceOffline = $state(false);
   #waiting = $state(0);
 
   /** Changes waiting to be sent (the signed-in login's queue). */
@@ -93,6 +100,7 @@ class Network {
     this.#failingSince = null;
     this.#clearTimers();
     this.offline = false;
+    this.failing = false;
     this.backAgain++;
     if (this.#wasShown) {
       this.#wasShown = false;
@@ -111,6 +119,7 @@ class Network {
   failed(): void {
     if (this.#failingSince !== null) return;
     this.#failingSince = Date.now();
+    this.failing = true;
     this.#showTimer = setTimeout(() => {
       this.#showTimer = null;
       if (this.#failingSince === null) return;
@@ -134,6 +143,13 @@ class Network {
     }
   }
 
+  /** The bar shows, or a request has failed and nothing has answered since. A screen that
+   *  couldn't load shows its note while this is true: from the first failure, so its words
+   *  don't change when the bar comes 3 s later (cabledrawer 30 Oct). */
+  get down(): boolean {
+    return this.offline || this.failing;
+  }
+
   /** Ask our server whether it is there (the live stream dropped, say). Shows the bar only
    *  if it can't be reached; says nothing if it can. */
   check(): Promise<void> {
@@ -143,8 +159,14 @@ class Network {
   /** Start watching the browser's own online/offline word. Returns a function that stops. */
   start(reconnect: () => void): () => void {
     this.#reconnect = reconnect;
-    const onOnline = () => void this.#check(false, true);
-    const onOffline = () => this.failed();
+    const onOnline = () => {
+      this.deviceOffline = false;
+      void this.#check(false, true);
+    };
+    const onOffline = () => {
+      this.deviceOffline = true;
+      this.failed();
+    };
     const onVisible = () => {
       const failing = this.#failingSince !== null || this.offline;
       if (failing && document.visibilityState === 'visible') void this.#check();
@@ -152,7 +174,8 @@ class Network {
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisible);
-    if (navigator.onLine === false) this.failed();
+    this.deviceOffline = navigator.onLine === false;
+    if (this.deviceOffline) this.failed();
     return () => {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
@@ -226,6 +249,8 @@ class Network {
     this.#wasShown = false;
     this.#backOnline = false;
     this.offline = false;
+    this.failing = false;
+    this.deviceOffline = false;
     this.#waiting = 0;
     this.trying = false;
     this.backAgain = 0;

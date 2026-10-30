@@ -112,6 +112,7 @@ describe('a new recipe', () => {
     open();
     await page.getByRole('textbox', { name: 'Name' }).fill('Typed offline');
     network.offline = true;
+    network.deviceOffline = true;
     await expect
       .element(page.getByText('You’re offline. Save when you’re back online.'))
       .toBeVisible();
@@ -222,6 +223,7 @@ describe('a new recipe', () => {
     const again = page.getByRole('button', { name: 'Try again' });
     await expect.element(again).toBeEnabled();
     network.offline = true;
+    network.deviceOffline = true;
     await expect.element(again).toBeDisabled();
     await expect.element(page.getByRole('button', { name: /^Save/ })).toBeDisabled();
     network.offline = false;
@@ -577,6 +579,7 @@ describe('an existing recipe', () => {
       const sheet = page.getByRole('dialog');
       await expect.element(sheet.getByRole('button', { name: 'Save mine anyway' })).toBeEnabled();
       network.offline = true;
+      network.deviceOffline = true;
       await expect.element(sheet.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
       await expect
         .element(sheet.getByText('You’re offline. Save when you’re back online.'))

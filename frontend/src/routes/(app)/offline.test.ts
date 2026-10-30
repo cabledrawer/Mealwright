@@ -7,6 +7,8 @@ import { session } from '#lib/session.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { ME } from '#lib/testing/fakeShopping.js';
 import Ingredients from './recipes/ingredients/+page.svelte';
+import Today from './+page.svelte';
+import Plan from './plan/+page.svelte';
 import Pantry from './pantry/+page.svelte';
 import Recipes from './recipes/+page.svelte';
 import Settings from './settings/+page.svelte';
@@ -34,6 +36,7 @@ describe('the online-only screens, offline', () => {
     });
     session.me = { ...ME };
     network.offline = true;
+    network.deviceOffline = true;
   });
 
   afterEach(() => {
@@ -117,4 +120,52 @@ describe('the online-only screens, offline', () => {
     await vi.waitFor(() => expect(asked.length).toBeGreaterThan(before));
     expect(asked.slice(before).some((url) => url.startsWith('/api/v1/pantry'))).toBe(true);
   });
+});
+
+// The server down behind the reverse proxy, the device's network fine (F67, cabledrawer 30 Oct):
+// "One steady message from the start, chosen by the cause … Same wording on every page, and
+// it stays until things change." No "Couldn't load" or plain-text line first, and no change of
+// words when the bar comes 3 seconds later.
+describe('the online-only screens, server down', () => {
+  const mounted: ReturnType<typeof mount>[] = [];
+
+  beforeEach(async () => {
+    // The phone: All recipes is a page of its own there (desktop: the layout's panes).
+    await page.viewport(390, 800);
+    vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 502 })));
+    session.me = { ...ME };
+  });
+
+  afterEach(() => {
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  for (const [name, screen] of [
+    ['Today', Today],
+    ['Plan', Plan],
+    ['Pantry', Pantry],
+    ['Ingredients', Ingredients],
+    ['Recipes', Recipes]
+  ] as const) {
+    it(`${name}: “Can’t reach your Mealwright server.” from the start, the same once the bar shows`, async () => {
+      const target = document.body.appendChild(document.createElement('div'));
+      mounted.push(mount(screen, { target }));
+      flushSync();
+      const title = page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' });
+      const body = page.getByText(
+        `${name} comes back by itself when the server answers. Your shopping list works offline.`
+      );
+      await expect.element(title).toBeVisible();
+      // Before the bar: the note is already the steady one.
+      expect(network.offline).toBe(false);
+      await expect.element(body).toBeVisible();
+      await expect.poll(() => network.offline, { timeout: 6000 }).toBe(true);
+      await expect.element(title).toBeVisible();
+      await expect.element(body).toBeVisible();
+      expect(document.body.textContent).not.toMatch(/You’re offline|Couldn’t load|Try again\./);
+    });
+  }
 });

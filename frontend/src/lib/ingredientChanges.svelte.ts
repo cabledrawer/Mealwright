@@ -2,7 +2,7 @@
 // ingredients (new, Staple on/off, removed, merged, edited), with Undo for 7 days. The
 // list comes from GET /changes?area=ingredients. Answers that arrive late are ignored.
 
-import { CANT_REACH, cantReach } from './api';
+import { cantReachWords, cantReach } from './api';
 import { listChanges, undoFromList } from './client/changes';
 import type { Change } from './client/types';
 
@@ -31,7 +31,7 @@ export class IngredientChanges {
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load the recent changes.';
+      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the recent changes.';
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }

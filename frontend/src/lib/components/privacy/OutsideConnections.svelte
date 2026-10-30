@@ -2,11 +2,12 @@
   // "Outside connections": one switch for each kind of connection Mealwright may make
   // (spec section 7). All start off. Only an admin changes them; a member sees them
   // and a note saying why. Offline they show as last loaded and can't be changed.
+  import { network } from '#lib/network.svelte.js';
   import type { SwitchName } from '#lib/client/privacy.js';
   import {
     LEARN_IMPORT_LIMITS,
     MEMBER_NOTE,
-    OFFLINE_NOTE,
+    offlineNote,
     OUTSIDE_CONNECTIONS_ANCHOR,
     SWITCH_ORDER,
     SWITCH_WORDS,
@@ -58,7 +59,7 @@
   {#if locked === 'member'}
     <p class="note">{MEMBER_NOTE}</p>
   {:else if locked === 'offline'}
-    <p class="note">{OFFLINE_NOTE}</p>
+    <p class="note">{offlineNote(network.deviceOffline)}</p>
   {/if}
   <p class="note">{LEARN_IMPORT_LIMITS}</p>
 </section>

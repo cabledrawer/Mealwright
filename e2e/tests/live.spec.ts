@@ -172,7 +172,7 @@ test.describe('the connection bar', () => {
     await expect(bar(page)).toBeVisible({ timeout: 15_000 });
     // Pantry needs the server: it says so, and points to Shopping.
     await expect(
-      page.getByText('Pantry needs your Mealwright server. Your shopping list works offline.'),
+      page.getByText('Pantry comes back by itself when the server answers. Your shopping list works offline.'),
     ).toBeVisible();
     const tryNow = bar(page).getByRole('button', { name: 'Try now' });
     await tryNow.click();

@@ -199,6 +199,7 @@ describe('Import a recipe', () => {
 
     it('needs the server: offline, the button is off and the note says why', async () => {
       network.offline = true;
+      network.deviceOffline = true;
       const flow = new ImportFlow();
       flow.text = 'Sambar\n1 onion';
       show(flow);
@@ -325,6 +326,7 @@ describe('Import a recipe', () => {
       // The places the rows ask for have come: no answer is left to say we're connected.
       await vi.waitFor(() => expect(placesAndShops.places.length).toBeGreaterThan(0));
       network.offline = true;
+      network.deviceOffline = true;
       flushSync();
       await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
       await expect

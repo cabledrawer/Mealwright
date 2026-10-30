@@ -3,7 +3,7 @@
 // through save() with its change ID and Undo, and then the screen is fetched again so
 // the server's wording ("1½ packets · about 750 g") replaces any guess.
 
-import { ApiError, CANT_REACH, cantReach } from './api';
+import { ApiError, cantReachWords, cantReach } from './api';
 import { listChanges, serverUndo, undoFromList } from './client/changes';
 import { createFood, listFoods, patchFood } from './client/foods';
 import {
@@ -112,7 +112,7 @@ export class PantryModel {
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load the pantry. Try again.';
+      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the pantry. Try again.';
     }
   }
 

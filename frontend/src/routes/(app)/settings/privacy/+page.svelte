@@ -57,7 +57,7 @@
 <PageHeader title="Privacy" parent={{ href: '/(app)/settings', label: 'Settings' }} />
 
 {#if !privacy.loaded}
-  {#if network.offline}
+  {#if network.down}
     <OfflineNote screen="Privacy" />
   {:else if privacy.problem}
     <p class="problem" role="alert">

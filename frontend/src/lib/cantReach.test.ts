@@ -3,7 +3,7 @@
 // the reverse proxy, give the same words on every page.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, CANT_REACH, cantReach } from './api';
+import { ApiError, cantReachWords, cantReach } from './api';
 import { IngredientChanges } from './ingredientChanges.svelte';
 import { IngredientsList } from './ingredients.svelte';
 import { network } from './network.svelte';
@@ -48,7 +48,7 @@ describe('cantReach()', () => {
   });
 
   it('the words are those of the word list (section 7, Connection)', () => {
-    expect(CANT_REACH).toBe('Can’t reach your Mealwright server. Check your connection.');
+    expect(cantReachWords()).toBe('Can’t reach your Mealwright server. Check your connection.');
   });
 });
 
@@ -68,7 +68,7 @@ describe('one wording on every page when the server can’t be reached (F67)', (
         server(answer);
         const page = make();
         await page.load();
-        expect(page.problem).toBe(CANT_REACH);
+        expect(page.problem).toBe(cantReachWords());
       });
     }
   }
@@ -76,7 +76,7 @@ describe('one wording on every page when the server can’t be reached (F67)', (
   it('Privacy, loading: the same words', async () => {
     server(502);
     await privacy.load();
-    expect(privacy.problem).toBe(CANT_REACH);
+    expect(privacy.problem).toBe(cantReachWords());
     privacy.forget();
   });
 });

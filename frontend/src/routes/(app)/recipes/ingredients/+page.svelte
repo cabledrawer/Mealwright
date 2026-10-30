@@ -235,7 +235,8 @@
   {/snippet}
 </PageHeader>
 
-{#if network.offline}
+{#if network.offline || (network.down && list.problem !== null)}
+  <!-- From the first failure, so the words don't change when the bar comes (F67). -->
   <OfflineNote screen="Ingredients" />
 {:else}
   <div class="layout">

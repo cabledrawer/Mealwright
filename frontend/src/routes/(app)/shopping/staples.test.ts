@@ -197,6 +197,7 @@ describe('Shopping: the list from the plan', () => {
     await render(390);
     await expect.element(page.getByRole('button', { name: 'Got it, Turmeric' })).toBeVisible();
     network.offline = true;
+    network.deviceOffline = true;
     await expect.element(page.getByRole('button', { name: 'Got it, Turmeric' })).toBeDisabled();
     await expect.element(page.getByRole('button', { name: '+ Add Turmeric' })).toBeDisabled();
     await expect

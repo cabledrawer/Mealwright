@@ -9,7 +9,7 @@
 // back and says so, so the page never keeps showing a switch the server doesn't have. The
 // entry list answers in the server's own sentences (a refusal is shown as it is).
 
-import { ApiError, CANT_REACH, cantReach, forgetWhenSessionEnds } from './api';
+import { ApiError, cantReachWords, cantReach, forgetWhenSessionEnds } from './api';
 import {
   addEntry,
   getOwnNetwork,
@@ -32,7 +32,7 @@ function sentence(error: unknown): string {
 
 /** The sentence when the page itself couldn't be loaded: the same words as every page. */
 function loadSentence(error: unknown): string {
-  return cantReach(error) ? CANT_REACH : sentence(error);
+  return cantReach(error) ? cantReachWords() : sentence(error);
 }
 
 const OFF: Record<SwitchName, boolean> = { recipe_import: false, recipe_photos: false };

@@ -3,6 +3,7 @@
   // visit (spec section 6, "Recipe import, decided for 0.5"). Each is a name, one address
   // or a range. Only an admin changes the list; a member sees it. Taking one off is
   // at once, with Undo; adding one answers in the server's own sentence if it won't do.
+  import { network } from '#lib/network.svelte.js';
   import type { OwnNetworkEntry } from '#lib/client/privacy.js';
   import {
     entryWords,
@@ -11,7 +12,7 @@
     NETWORK_EMPTY,
     NETWORK_HELP,
     NETWORK_INTRO,
-    OFFLINE_NOTE,
+    offlineNote,
     OWN_NETWORK_ANCHOR,
     type Locked
   } from '#lib/privacyWords.js';
@@ -120,7 +121,7 @@
     {#if locked === 'member'}
       <p class="help">{MEMBER_NOTE}</p>
     {:else if locked === 'offline'}
-      <p class="help">{OFFLINE_NOTE}</p>
+      <p class="help">{offlineNote(network.deviceOffline)}</p>
     {/if}
     <p class="help">{NETWORK_HELP}</p>
     <p class="blocked"><b>Always blocked, even if listed:</b> {NETWORK_BLOCKED}</p>

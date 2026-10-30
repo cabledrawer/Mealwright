@@ -1,8 +1,11 @@
 <script lang="ts">
   // What an online-only screen shows while the server can't be reached (spec section 6,
   // "Opening the app offline", cabledrawer 18 Oct). Pantry, Ingredients and Settings need the
-  // server in 0.3; the shopping list works from the phone's copy, so point there.
+  // server in 0.3; the shopping list works from the phone's copy, so point there. The words
+  // say why: no network on this device, or no answer from the server (cabledrawer 30 Oct).
   import { resolve } from '$app/paths';
+  import { downBody, downTitle } from '#lib/downWords.js';
+  import { network } from '#lib/network.svelte.js';
 
   let {
     screen
@@ -13,8 +16,8 @@
 </script>
 
 <section class="offline" aria-labelledby="offline-note-title">
-  <h2 id="offline-note-title">You’re offline.</h2>
-  <p>{screen} needs your Mealwright server. Your shopping list works offline.</p>
+  <h2 id="offline-note-title">{downTitle(network.deviceOffline)}</h2>
+  <p>{downBody(screen, network.deviceOffline)}</p>
   <a class="shopping" href={resolve('/(app)/shopping')}>Shopping</a>
 </section>
 
