@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from mealwright.auth import hash_password
 from mealwright.config import Settings
+from mealwright.db import Base
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.main import create_app
 from mealwright.models import Household, Login
@@ -14,6 +15,18 @@ from mealwright.outbound import install_network_guard
 # The whole test suite runs with the network guard on: any connection or DNS lookup
 # outside the outbound gate fails the test that made it.
 install_network_guard()
+
+
+@pytest.fixture(autouse=True)
+def _forget_compiled_statements() -> Iterator[None]:
+    """Each test builds its own app and so its own database dialect. SQLAlchemy keeps every
+    mapper's compiled statements in a cache keyed by dialect, and the cache holds the dialect
+    (and its type caches) until it fills. Across the suite that was about 3,000 objects left
+    behind per test that touches the database; emptying the caches afterwards drops it to
+    about 35. Nothing here changes what a test sees."""
+    yield
+    for mapper in Base.registry.mappers:
+        mapper._compiled_cache.clear()
 
 
 @pytest.fixture
