@@ -115,7 +115,8 @@ describe('the online-only screens, offline', () => {
     show(Pantry);
     await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     const before = asked.length;
-    network.offline = false;
+    // An answer from the server: the bar and the failure both clear.
+    network.succeeded();
     flushSync();
     await vi.waitFor(() => expect(asked.length).toBeGreaterThan(before));
     expect(asked.slice(before).some((url) => url.startsWith('/api/v1/pantry'))).toBe(true);
@@ -167,6 +168,47 @@ describe('the online-only screens, server down', () => {
       await expect.element(title).toBeVisible();
       await expect.element(body).toBeVisible();
       expect(document.body.textContent).not.toMatch(/You’re offline|Couldn’t load|Try again\./);
+    });
+  }
+});
+
+// Something else answers before the bar's 3 s (the live stream's hello): the page fetches
+// again by itself, rather than keep its note while the server answers (F67 review 2).
+describe('the online-only screens, back before the bar', () => {
+  const mounted: ReturnType<typeof mount>[] = [];
+
+  afterEach(() => {
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  for (const [name, screen] of [
+    ['Today', Today],
+    ['Plan', Plan],
+    ['Pantry', Pantry],
+    ['Recipes', Recipes]
+  ] as const) {
+    it(`${name} fetches again when the server answers, with no bar`, async () => {
+      await page.viewport(390, 800);
+      vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 502 })));
+      session.me = { ...ME };
+      const target = document.body.appendChild(document.createElement('div'));
+      mounted.push(mount(screen, { target }));
+      flushSync();
+      await expect
+        .element(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' }))
+        .toBeVisible();
+      const asked: string[] = [];
+      vi.stubGlobal('fetch', (input: string) => {
+        asked.push(String(input));
+        return Promise.reject(new TypeError('Failed to fetch'));
+      });
+      network.succeeded();
+      flushSync();
+      expect(network.offline).toBe(false);
+      await vi.waitFor(() => expect(asked.length).toBeGreaterThan(0));
     });
   }
 });

@@ -48,7 +48,9 @@
 
   let wasOffline = false;
   $effect(() => {
-    if (network.offline) wasOffline = true;
+    // `down`, not `offline`: the note shows from the first failure, so the page fetches again
+    // when anything answers, even before the bar came (F67 review).
+    if (network.down) wasOffline = true;
     else if (wasOffline) {
       wasOffline = false;
       void model.load();
