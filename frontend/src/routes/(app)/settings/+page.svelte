@@ -8,7 +8,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
-  import { ApiError } from '#lib/api.js';
+  import { ApiError, cantReach } from '#lib/api.js';
   import { changePints, getHousehold } from '#lib/client/household.js';
   import type { Pints } from '#lib/client/types.js';
   import { network } from '#lib/network.svelte.js';
@@ -58,7 +58,7 @@
     } catch (error) {
       pints = before;
       pintsProblem =
-        error instanceof ApiError && error.status !== 0
+        error instanceof ApiError && !cantReach(error)
           ? error.detail
           : 'Couldn’t reach your Mealwright server. Nothing was changed.';
     }

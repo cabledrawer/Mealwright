@@ -3,7 +3,7 @@
 // through save() with its change ID, and is offered for Undo; then the plan is fetched
 // again so the server's version replaces the guess. Online only, like the Pantry.
 
-import { ApiError } from './api';
+import { CANT_REACH, cantReach } from './api';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
 import {
@@ -106,10 +106,7 @@ export class PlanModel {
       void this.#loadTubs();
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem =
-        error instanceof ApiError && error.status === 0
-          ? error.detail
-          : 'Couldn’t load the plan. Try again.';
+      this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load the plan. Try again.';
     }
   }
 

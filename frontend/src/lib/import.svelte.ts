@@ -108,7 +108,7 @@ export class ImportFlow {
 
   private fail(error: ApiError): void {
     if (cantReach(error)) {
-      this.problem = problemOf('offline', error.status === 0 ? OFFLINE_NOTE : error.detail);
+      this.problem = problemOf('offline', OFFLINE_NOTE);
       return;
     }
     const body = (error.body ?? {}) as Record<string, unknown>;

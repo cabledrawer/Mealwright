@@ -226,6 +226,7 @@ test.describe('on a computer', () => {
 
     test('the arrows and Today wait until the household’s today has come (a slow connection)', async ({ page }) => {
       // The full ./check on ae14498: “Next week” pressed before the household came threw “Invalid time value”.
+      // Since F67 they aren't shown at all until then (no empty week label between ‹ ›).
       let release = () => {};
       const held = new Promise<void>((resolve) => (release = resolve));
       await page.route('**/api/v1/household', async (route) => {
@@ -233,9 +234,10 @@ test.describe('on a computer', () => {
         await route.continue();
       });
       await page.goto('/plan');
-      await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();
-      await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
-      await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeDisabled();
+      await expect(page.getByText('Loading the plan…')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Next week' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Previous week' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveCount(0);
       release();
       await page.getByRole('button', { name: 'Next week' }).click();
       await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled();

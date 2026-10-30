@@ -198,27 +198,28 @@
   </PageHeader>
 
   <div class="toolbar">
-    <div class="nav">
+    <!-- Only once the plan knows which week it is: while it can't load, no empty ‹ › (F67). -->
+    {#if model.anchor}
+      <div class="nav">
+        <button
+          type="button"
+          aria-label={model.view === 'week' ? 'Previous week' : 'Previous month'}
+          onclick={() => model.step(-1)}>‹</button
+        >
+        <span class="range" aria-live="polite">{range}</span>
+        <button
+          type="button"
+          aria-label={model.view === 'week' ? 'Next week' : 'Next month'}
+          onclick={() => model.step(1)}>›</button
+        >
+      </div>
       <button
         type="button"
-        aria-label={model.view === 'week' ? 'Previous week' : 'Previous month'}
-        disabled={!model.anchor}
-        onclick={() => model.step(-1)}>‹</button
+        class="today"
+        disabled={!model.today || model.onToday}
+        onclick={() => model.goToday()}>Today</button
       >
-      <span class="range" aria-live="polite">{range}</span>
-      <button
-        type="button"
-        aria-label={model.view === 'week' ? 'Next week' : 'Next month'}
-        disabled={!model.anchor}
-        onclick={() => model.step(1)}>›</button
-      >
-    </div>
-    <button
-      type="button"
-      class="today"
-      disabled={!model.today || model.onToday}
-      onclick={() => model.goToday()}>Today</button
-    >
+    {/if}
     {#if model.slots.length}
       <div class="meals" role="group" aria-label="Meals to show">
         <span class="meals-label">Meals</span>

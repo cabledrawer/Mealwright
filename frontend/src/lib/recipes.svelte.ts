@@ -2,7 +2,7 @@
 // (docs/dev/api-0.4-recipes.md section 4). An answer that arrives late (an older search) is
 // ignored. The tags for the filter row come with it.
 
-import { ApiError } from './api';
+import { CANT_REACH, cantReach } from './api';
 import { listRecipes, listTags, type RecipeRow, type TagCount } from './client/recipes';
 
 const PAGE = 50;
@@ -82,10 +82,7 @@ export class RecipeList {
       }
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem =
-        error instanceof ApiError && error.status === 0
-          ? error.detail
-          : 'Couldn’t load your recipes. Try again.';
+      this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load your recipes. Try again.';
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }
@@ -103,10 +100,7 @@ export class RecipeList {
       this.moreProblem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.moreProblem =
-        error instanceof ApiError && error.status === 0
-          ? error.detail
-          : 'Couldn’t load more recipes. Try again.';
+      this.moreProblem = cantReach(error) ? CANT_REACH : 'Couldn’t load more recipes. Try again.';
     }
   }
 }

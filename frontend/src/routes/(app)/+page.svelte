@@ -98,10 +98,11 @@
   {/snippet}
 </PageHeader>
 
-{#if model.problem && !data}
-  <p class="problem" role="alert">{model.problem}</p>
-{:else if !model.loaded && network.offline}
+{#if !data && network.offline}
+  <!-- Offline (or the server down) with no saved copy: the same note as every page (F67). -->
   <OfflineNote screen="Today" />
+{:else if model.problem && !data}
+  <p class="problem" role="alert">{model.problem}</p>
 {:else if !data}
   <p class="loading">Loading…</p>
 {:else if data.first_day}

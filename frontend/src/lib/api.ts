@@ -58,6 +58,9 @@ export function cantReach(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 0 || proxyGap(error.status));
 }
 
+/** The words for "the server can't be reached", the same on every page (word list, section 7). */
+export const CANT_REACH = 'Can’t reach your Mealwright server. Check your connection.';
+
 type Fetch = typeof fetch;
 
 let onUnauthorized: (() => void) | null = null;
@@ -124,7 +127,7 @@ export async function api<T>(
   // Signed out while offline: end that session on the server before anything else is sent.
   if (!(await endPendingSignOut(doFetch))) {
     network.failed();
-    throw new ApiError(0, 'Can’t reach your Mealwright server. Check your connection.');
+    throw new ApiError(0, CANT_REACH);
   }
   const headers: Record<string, string> = {};
   // A file (a recipe photo) goes as it is; everything else is JSON.
@@ -143,7 +146,7 @@ export async function api<T>(
     });
   } catch {
     network.failed();
-    throw new ApiError(0, 'Can’t reach your Mealwright server. Check your connection.');
+    throw new ApiError(0, CANT_REACH);
   }
   // Any answer from our server means it is there. But 502, 503 and 504 come from the
   // reverse proxy when it can't reach Mealwright (spec UX principle 16).

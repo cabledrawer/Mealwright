@@ -4,7 +4,7 @@
 // the answer buttons switched off. An answer shows at once (the card goes), is saved with its
 // change ID, and is offered for Undo; then Today is fetched again.
 
-import { ApiError, forgetWhenSessionEnds } from './api';
+import { CANT_REACH, cantReach, forgetWhenSessionEnds } from './api';
 import { serverUndo } from './client/changes';
 import type { PlanMeal } from './client/plan';
 import {
@@ -127,7 +127,7 @@ export class TodayModel {
       if (login !== null) writeCopy(data, login, began);
     } catch (error) {
       if (asked !== this.#asked) return;
-      const unreachable = error instanceof ApiError && error.status === 0;
+      const unreachable = cantReach(error);
       if (unreachable && !this.data) {
         const copy = readCopy();
         if (copy) {
@@ -143,7 +143,7 @@ export class TodayModel {
         if (unreachable) this.fromCopy = true;
         return;
       }
-      this.problem = unreachable ? error.detail : 'Couldn’t load Today. Try again.';
+      this.problem = unreachable ? CANT_REACH : 'Couldn’t load Today. Try again.';
     }
   }
 

@@ -1,7 +1,7 @@
 // The Ingredients list: every food, searched by any name on the server (contract 6.2).
 // Answers that arrive late (an older search) are ignored.
 
-import { ApiError } from './api';
+import { CANT_REACH, cantReach } from './api';
 import { listFoods } from './client/foods';
 import type { FoodFilter, FoodList, FoodRow } from './client/types';
 
@@ -37,10 +37,7 @@ export class IngredientsList {
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem =
-        error instanceof ApiError && error.status === 0
-          ? error.detail
-          : 'Couldn’t load your ingredients.';
+      this.problem = cantReach(error) ? CANT_REACH : 'Couldn’t load your ingredients.';
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }
