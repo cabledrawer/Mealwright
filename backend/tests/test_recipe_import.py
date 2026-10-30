@@ -284,7 +284,7 @@ def test_a_link_gives_the_review_with_the_pages_recipe(
     assert shown["author"] == "Meena Raman"
     assert shown["time_minutes"] == 30
     assert shown["serves"] == 3
-    assert shown["tags"] == ["Side Dish", "South Indian", "Tamil Nadu"]
+    assert shown["tags"] == ["Side", "South Indian", "Tamil Nadu"]  # "Side dish" is "Side"
     headings = [line["words"] for line in shown["lines"] if line["kind"] == "heading"]
     assert headings == ["For the poriyal", "For the tadka", "To finish"]
     assert shown["steps"][0] == {"kind": "heading", "text": "Tadka"}

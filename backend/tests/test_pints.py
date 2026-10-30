@@ -70,10 +70,25 @@ def test_a_pint_next_to_a_metric_amount_leaves_the_metric_one_the_amount() -> No
     assert (line.amount, line.unit, line.pints) == (Decimal(568), "ml", None)
 
 
-@pytest.mark.parametrize("text", ["2 quarts stock", "1 fl oz brandy", "1 gallon water"])
-def test_quarts_gallons_and_fluid_ounces_are_not_read_even_with_a_pint_size(text: str) -> None:
-    line = read_line(text, pint_ml=568)
-    assert line.amount is None and line.pints is None
+@pytest.mark.parametrize(
+    ("text", "uk_ml", "us_ml"),
+    [("2 quarts stock", 2272, 1892), ("1 gallon water", 4544, 3784), ("1 qt milk", 1136, 946)],
+)
+def test_quarts_and_gallons_are_pints_so_the_household_pint_decides(
+    text: str, uk_ml: int, us_ml: int
+) -> None:
+    """Follow-up 6 (0.7.0): a quart is two pints and a gallon eight; they report their pints,
+    so the US switch works on them too."""
+    uk, us = read_line(text, pint_ml=568), read_line(text, pint_ml=473)
+    assert (uk.amount, uk.unit) == (uk_ml, "ml") and (us.amount, us.unit) == (us_ml, "ml")
+    assert uk.pints is not None and uk.pints == us.pints
+    assert read_line(text).amount is None  # with no pint size given, as in 0.5
+
+
+def test_fluid_ounces_follow_the_pint_but_have_no_switch() -> None:
+    assert read_line("20 fl oz milk", pint_ml=568).amount == 568
+    assert read_line("16 fl oz milk", pint_ml=473).amount == 473
+    assert read_line("1 fl oz brandy", pint_ml=568).pints is None
 
 
 # --- Telling a US site -----------------------------------------------------------------------

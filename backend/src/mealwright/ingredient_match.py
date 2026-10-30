@@ -25,14 +25,29 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, MILLI, CountedAs, unit_size
 from mealwright.household import cup_ml
 from mealwright.household import places as household_places
-from mealwright.ingredient_reader import COUNTED_AS, ReadLine, working_text
+from mealwright.ingredient_reader import COUNTED_AS, WEAK_WORDS, ReadLine, working_text
 from mealwright.models import Food, FoodName, FoodSize, Household
-from mealwright.names import normalise
+from mealwright.names import normalise, singular
 
 Label = Literal["matched", "to_confirm", "needs_you", "staple"]
 
 MAX_NAME_CHARS = 100  # a food's name
 CUPBOARD = "cupboard"
+FRIDGE = "fridge"
+
+# "Kept in" for a new ingredient (cabledrawer 30 Oct): milk, cream, raw meat and the like go in the
+# Fridge, not the Cupboard. A word here puts the ingredient there; a word in `NOT_FRIDGE` ("coconut
+# milk", "chicken stock", "milk powder") takes it back to the Cupboard. Proposed, for cabledrawer.
+FRIDGE_WORDS = frozenset(
+    {"milk", "cream", "butter", "yoghurt", "yogurt", "egg", "cheese", "chicken", "beef", "pork",
+     "lamb", "mince", "turkey", "duck", "bacon", "sausage", "ham", "fish", "salmon", "cod",
+     "prawn", "steak", "crème", "fraîche", "creme", "fraiche", "buttermilk", "tofu", "paneer"}
+)  # fmt: skip
+NOT_FRIDGE = frozenset(
+    {"coconut", "powder", "stock", "tinned", "canned", "dried", "tartar", "bean", "noodle",
+     "sauce", "peanut", "almond", "oat", "soy", "soya", "rice", "cube", "paste", "evaporated",
+     "condensed", "ghee", "flavour", "seasoning", "cracker", "biscuit", "crisp", "cashew"}
+)  # fmt: skip
 
 
 # --- The household's ingredients, read once ---------------------------------------------------
@@ -131,6 +146,16 @@ class KnownIngredients:
                 words[size.plural.lower()] = None
         return tuple(words)
 
+    def usual_place_id(self, name: str) -> int | None:
+        """The place a new ingredient called `name` is usually kept: the Fridge for milk, cream,
+        raw meat and the like, else the Cupboard (None if the household has no such place)."""
+        words = {singular(word) for word in _key(name).split()}
+        if words & FRIDGE_WORDS and not words & NOT_FRIDGE:
+            for place in self.places:
+                if _key(place.name) == FRIDGE:
+                    return place.id
+        return self.cupboard_id
+
     @cached_property
     def cupboard_id(self) -> int | None:
         """The place called Cupboard (the first, if there are several), or None."""
@@ -227,7 +252,7 @@ def first_guess(kitchen: KnownIngredients, read: ReadLine, staple: bool = False)
         counted_as = "count"
     else:
         counted_as = "weight"
-    return NewIngredient(_short(_capital(name)), counted_as, kitchen.cupboard_id, staple)
+    return NewIngredient(_short(_capital(name)), counted_as, kitchen.usual_place_id(name), staple)
 
 
 # --- The match --------------------------------------------------------------------------------
@@ -303,6 +328,8 @@ def _closest(
             # An equal set is the same words in another order ("dal toor").
             if not (theirs <= line or line <= theirs):
                 continue
+            if theirs & line <= WEAK_WORDS:
+                continue  # only a colour or size word in common
             share = len(theirs & line) / len(theirs | line)
             score = (share, 1 if theirs <= line else 0, -food.id)
             if best is None or score > best[0]:

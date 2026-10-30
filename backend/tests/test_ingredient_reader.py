@@ -12,6 +12,11 @@ from mealwright.ingredient_reader import MAX_LINE_CHARS, ReadLine, read_line, wo
 D = Decimal
 
 
+def core_of(text: str) -> tuple[Decimal | None, str | None, str]:
+    line = read_line(text)
+    return line.amount, line.unit, line.name
+
+
 def amount_of(text: str) -> tuple[Decimal | None, str | None]:
     line = read_line(text)
     return line.amount, line.unit
@@ -202,18 +207,21 @@ def test_pints_and_the_like_are_no_amount() -> None:
 @pytest.mark.parametrize(
     ("text", "grams"),
     [
-        ("1 oz butter", D("28.35")),
-        ("8 oz spinach", D("226.8")),
-        ("2 ounces cheese", D("56.7")),
-        ("½ oz yeast", D("14.175")),
-        ("1 lb potatoes", D("453.6")),
-        ("2 lbs potatoes", D("907.2")),
-        ("1½ pounds flour", D("680.4")),
-        ("1 pound flour", D("453.6")),
+        ("1 oz butter", D(28)),
+        ("8 oz spinach", D(227)),
+        ("2 ounces cheese", D(57)),
+        ("½ oz yeast", D(14)),
+        ("1 lb potatoes", D(454)),
+        ("2 lbs potatoes", D(907)),
+        ("1½ pounds flour", D(680)),
+        ("1 pound flour", D(454)),
     ],
 )
-def test_ounces_and_pounds_on_their_own_convert_exactly(text: str, grams: D) -> None:
-    # cabledrawer 23 Oct, question 18: 1 oz = 28.35 g, 1 lb = 453.6 g, so they count.
+def test_ounces_and_pounds_on_their_own_convert_and_are_rounded_as_a_cook_writes(
+    text: str, grams: D
+) -> None:
+    # cabledrawer 23 Oct, question 18: 1 oz = 28.35 g, 1 lb = 453.6 g, so they count; 0.7.0 rounds
+    # the result to a whole gram (two decimals only below 10 g): 340 g, not 340.2 g.
     line = read_line(text)
     assert (line.amount, line.unit) == (grams, "g")
     assert line.counts
@@ -801,8 +809,10 @@ def test_a_size_word_before_a_name_held_in_a_bracket() -> None:
 
 
 def test_a_name_that_starts_with_a_number_word_keeps_it() -> None:
+    # The amount after the name is read like one before it (0.7.0, F18).
     line = read_line("five spice powder, 1 tsp")
-    assert (line.amount, line.name, line.note) == (None, "five spice powder", "1 tsp")
+    assert (line.amount, line.unit, line.name) == (D(1), "tsp", "five spice powder")
+    assert core_of("1 tsp five spice powder") == core_of("five spice powder, 1 tsp")
 
 
 @pytest.mark.parametrize("text", ["3 medium (about 1 lb)", "1 small (about 2 cups)"])

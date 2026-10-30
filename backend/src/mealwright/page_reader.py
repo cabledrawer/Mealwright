@@ -789,7 +789,7 @@ def _first_minutes(recipe: _Recipe, key: str) -> int | None:
 # --- Serves and Makes ----------------------------------------------------------------------------
 
 _YIELD = re.compile(
-    r"^(?:(serves|makes|yields?|for)\s*:?\s*)?(?:about\s+|approx\.?\s+)?"
+    r"^(?:(serves|makes|yields?|for|feeds|cuts?\s+into)\s*:?\s*)?(?:about\s+|approx\.?\s+)?"
     # The number is at most 20 digits each side (MAX_NUMBER_TEXT) and a longer one doesn't
     # match at all; a range's second number is never converted.
     r"(\d{1,20}(?:[.,]\d{1,20})?)(?![.,]?\d)(?:\s*(?:-|\u2013|\u2014|to)\s*\d+(?:[.,]\d+)?)?"
@@ -816,14 +816,14 @@ def _yield(recipe: _Recipe) -> tuple[int | None, tuple[Decimal, str] | None]:
         match = _YIELD.match(_one_line(value))
         if not match:
             continue
-        prefix = (match.group(1) or "").lower()
+        prefix = " ".join((match.group(1) or "").lower().split())  # "cuts into" (F3)
         if len(match.group(2)) > MAX_NUMBER_TEXT:
             continue
         amount = Decimal(match.group(2).replace(",", "."))
         unit = re.split(r"[(\[]", match.group(3))[0].strip(" .,;:")
         first_word = unit.split(" ")[0].lower() if unit else ""
         whole = amount == amount.to_integral_value() and 1 <= amount <= MAX_SERVES
-        if prefix in {"serves", "for"} or first_word in _SERVINGS:
+        if prefix in {"serves", "for", "feeds", "cuts into", "cut into"} or first_word in _SERVINGS:
             if serves is None and whole:
                 serves = int(amount)
         elif not unit:

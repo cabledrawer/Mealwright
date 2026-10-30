@@ -59,7 +59,19 @@ from mealwright.foods import find as find_food
 from mealwright.foods import name_owner, name_taken, refresh_table_key
 from mealwright.history import FoodEdit
 from mealwright.ingredient_match import KnownIngredients, Match, kitchen_of, match_line
-from mealwright.ingredient_reader import ReadLine, read_line, working_text
+from mealwright.ingredient_reader import FIXED_COUNTS, ReadLine, read_lines, working_text
+from mealwright.line_prep import (
+    clean_recipe_name,
+    is_abbreviated_heading,
+    is_full_heading,
+    is_ingredient_heading,
+    is_page_junk,
+    is_step_heading,
+    kitchen_round,
+    serving_heading,
+    tidy_ingredient_name,
+    tidy_tags,
+)
 from mealwright.models import (
     Change,
     Food,
@@ -69,7 +81,7 @@ from mealwright.models import (
     RecipePhoto,
     utcnow,
 )
-from mealwright.names import cut_text, fold
+from mealwright.names import cut_text, fold, singular
 from mealwright.outbound import LABELS, Connection, OutboundGate
 from mealwright.page_budget import PageBusy, PageUnreadable, read_within_budget
 from mealwright.page_fetch import FetchRefused
@@ -110,6 +122,16 @@ def looks_like_link(text: str) -> bool:
         return False
     low = text.lower()
     return low.startswith(("http://", "https://", "www.")) or "://" in low
+
+
+def several_links(text: str) -> list[str]:
+    """The links in `text` when it is nothing but links, one or more, split by spaces or line
+    breaks; an empty list for anything else (pasted recipe text). Pasting two links must never
+    make a recipe named after a web address (F25)."""
+    words = text.split()
+    if words and all(looks_like_link(word) for word in words):
+        return words
+    return []
 
 
 def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
@@ -180,9 +202,13 @@ def start(kitchen: Kitchen, gate: OutboundGate, text: str, again: bool = False) 
     def left() -> float:
         return MAX_IMPORT_SECONDS - (_now() - began)
 
-    if looks_like_link(text):
-        link = text if "://" in text else f"https://{text}"
-        return _from_link(kitchen, gate, link, again, left)
+    links = several_links(text)
+    if links:  # "one link at a time" (F25): the first is read, the count left over is said
+        first = links[0] if "://" in links[0] else f"https://{links[0]}"
+        review = _from_link(kitchen, gate, first, again, left)
+        return (
+            review.model_copy(update={"more_links": len(links) - 1}) if len(links) > 1 else review
+        )
     return _from_text(kitchen, text)
 
 
@@ -421,29 +447,36 @@ def _review(
     reading: pints.Pints = "us" if us_site else household
     lines: list[ReviewLine] = []
     counts = {"matched": 0, "to_confirm": 0, "needs_you": 0, "staple": 0}
+    any_pints = False  # a line says pints
+    serving = False  # under a "For serving" heading: the lines are optional (F19)
     for text, heading in found.lines[:MAX_LINES]:
-        line = _line(ingredients, places, text, heading, pints.PINT_ML[reading])
-        if line.label is not None:
-            counts[line.label] += 1
-        lines.append(line)
-    steps: list[ReviewStep] = []
-    shortened = 0
-    for text, heading in found.steps[:MAX_STEPS]:
-        limit = 200 if heading else MAX_STEP_CHARS
-        if len(text) > limit:
-            text = cut_text(text, limit).rstrip()
-            shortened += 0 if heading else 1
-        if text:
-            steps.append(ReviewStep(kind="step" if not heading else "heading", text=text))
+        if not heading and is_page_junk(text):  # the page's own buttons (F33)
+            continue
+        heading = heading or is_ingredient_heading(text)  # "For the Lamb" (F34)
+        if heading:
+            serving = serving_heading(text)
+        for line, says_pints in _lines(
+            ingredients, places, text, heading, pints.PINT_ML[reading], serving
+        ):
+            if len(lines) >= MAX_LINES:
+                break
+            any_pints = any_pints or says_pints
+            if line.label is not None:
+                counts[line.label] += 1
+            lines.append(line)
+    steps, shortened = _steps_of(found.steps)
+    # Pints: the banner only shows when a line says pints (F15).
+    if us_site and not any_pints:
+        us_site = False
     return ImportReview(
         source=source,
-        name=cut_text(found.name, 200).rstrip(),
+        name=cut_text(clean_recipe_name(found.name), 200).rstrip(),
         description=found.description,
         author=cut_text(found.author, 200).rstrip() if found.author else None,
         time_minutes=found.time_minutes,
         serves=found.serves,
         makes=_makes(found.makes),
-        tags=list(found.tags),
+        tags=tidy_tags(list(found.tags)),
         nutrition=_nutrition(found.nutrition),
         photo=photo,
         lines=lines,
@@ -455,6 +488,41 @@ def _review(
         left_out=found.left_out,
         pints=ReviewPints(household=household, us_site=us_site, reading=reading),
     )
+
+
+def _steps_of(found: list[tuple[str, bool]]) -> tuple[list[ReviewStep], int]:
+    """The method as steps and headings, and how many steps were shortened. A step that is only
+    a section title takes no step number (F23: "FULL RECIPE"). A short version of the method
+    ("ABBREVIATED RECIPE") that a "FULL RECIPE" follows is left out: it repeats the full one."""
+    items: list[tuple[str, bool]] = []
+    for text, heading in found[:MAX_STEPS]:
+        items.append((text, heading or is_step_heading(text)))
+    skipping = False
+    steps: list[ReviewStep] = []
+    shortened = 0
+    for index, (text, heading) in enumerate(items):
+        if heading and is_abbreviated_heading(text):
+            skipping = any(
+                later_heading and is_full_heading(later)
+                for later, later_heading in items[index + 1 :]
+            )
+            if skipping:
+                continue
+        elif heading and skipping:
+            skipping = not is_full_heading(text)
+            if skipping:
+                continue
+        elif skipping:
+            continue
+        limit = 200 if heading else MAX_STEP_CHARS
+        if len(text) > limit:
+            text = cut_text(text, limit).rstrip()
+            shortened += 0 if heading else 1
+        if heading:
+            text = text.rstrip(":").strip()
+        if text:
+            steps.append(ReviewStep(kind="step" if not heading else "heading", text=text))
+    return steps, shortened
 
 
 def _makes(makes: tuple[Decimal, str] | None) -> ReviewMakes | None:
@@ -497,37 +565,53 @@ def _food_places(kitchen: Kitchen) -> dict[int, str]:
     }
 
 
-def _line(
+def _lines(
     ingredients: KnownIngredients,
     places: dict[int, str],
     text: str,
     heading: bool,
     pint_ml: int = pints.PINT_ML[pints.DEFAULT_PINTS],
-) -> ReviewLine:
+    optional: bool = False,
+) -> list[tuple[ReviewLine, bool]]:
+    """One written line as review lines: usually one, two for "olive oil + salt" (F26)."""
     written = cut_text(text, MAX_WRITTEN).rstrip()
     if heading:
-        words = cut_text(" ".join(text.split()), MAX_WORDS).rstrip() or "Ingredients"
-        return ReviewLine(
-            kind="heading",
-            written=written,
-            words=words,
-            amount=None,
-            amount_text=None,
-            unit=None,
-            size=None,
-            note=None,
-            readable=True,
-            label=None,
-            food=None,
-            place=None,
-            matched_by=None,
-            counts=False,
-            new_ingredient=None,
-            learn_name=None,
+        words = cut_text(" ".join(text.split()).rstrip(":").strip(), MAX_WORDS).rstrip()
+        words = words or "Ingredients"
+        return [
+            (
+                ReviewLine(
+                    kind="heading",
+                    written=written,
+                    words=words,
+                    amount=None,
+                    amount_text=None,
+                    unit=None,
+                    size=None,
+                    note=None,
+                    readable=True,
+                    label=None,
+                    food=None,
+                    place=None,
+                    matched_by=None,
+                    counts=False,
+                    new_ingredient=None,
+                    learn_name=None,
+                ),
+                False,
+            )
+        ]
+    found: list[tuple[ReviewLine, bool]] = []
+    for read in read_lines(text, ingredients.size_words, pint_ml):
+        match = match_line(ingredients, read)
+        line = _review_line(
+            ingredients, places, cut_text(read.text, MAX_WRITTEN).rstrip(), read, match
         )
-    read = read_line(text, ingredients.size_words, pint_ml)
-    match = match_line(ingredients, read)
-    return _review_line(ingredients, places, written, read, match)
+        if optional and line.readable and not (line.note or "").startswith("optional"):
+            note = ", ".join(part for part in ("optional", line.note) if part)
+            line = line.model_copy(update={"note": cut_text(note, MAX_NOTE).rstrip()})
+        found.append((line, read.pints is not None))
+    return found
 
 
 def _review_line(
@@ -547,10 +631,17 @@ def _review_line(
     unit = read.unit
     note = read.note
     if read.readable:
-        words = cut_text(read.name_as_written or read.name, MAX_WORDS).rstrip()
+        # The name without its prep words: the note carries them, so they show once (F7).
+        words = cut_text(read.name or read.name_as_written, MAX_WORDS).rstrip()
         if read.amount is not None:
             amount_milli = int(read.amount * 1000)
-        if read.size_word and size is None:
+        fixed = FIXED_COUNTS.get(singular(read.size_word)) if read.size_word else None
+        if fixed is not None and size is None and read.amount is not None and unit is None:
+            # "a dozen eggs" is 12 and "2 cloves garlic" is 2: the same as writing the number.
+            amount_milli = int(read.amount * fixed * 1000)
+            if fixed == 1:
+                note = ", ".join(part for part in (read.size_word, note) if part)
+        elif read.size_word and size is None:
             # A size word the ingredient has no size for ("a sprig", "1 bunch"): the count
             # would mean something else, so the amount goes in the note instead.
             said = " ".join(part for part in (amount_text(amount_milli), read.size_word) if part)
@@ -603,7 +694,16 @@ def _pint_ml(read: ReadLine) -> PintReading | None:
     review offers no switch rather than failing (0.6.0 security pass L1)."""
     if read.pints is None:
         return None
-    uk, us = (float(read.pints * pints.PINT_ML[kind]) for kind in ("uk", "us"))
+    uk, us = (
+        float(
+            kitchen_round(
+                Decimal(read.pints.numerator)
+                / Decimal(read.pints.denominator)
+                * pints.PINT_ML[kind]
+            )
+        )
+        for kind in ("uk", "us")
+    )
     if max(uk, us) > MAX_AMOUNT:
         return None
     return PintReading(uk_ml=round(uk, 3), us_ml=round(us, 3))
@@ -681,7 +781,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             row = table().match(link.name or "")
             food = Food(
                 household_id=kitchen.household_id,
-                name=link.name or "",
+                name=tidy_ingredient_name(link.name or ""),
                 counted_as=link.counted_as or (row.counted_as if row else "weight"),
                 staple=link.kind == "staple",
                 place_id=place_id,

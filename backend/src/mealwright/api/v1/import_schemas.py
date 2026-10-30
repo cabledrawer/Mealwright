@@ -163,6 +163,9 @@ class ImportReview(BaseModel):
     steps_shortened: int  # steps cut to 5,000 characters
     left_out: list[LeftOutOut]
     pints: ReviewPints = Field(default_factory=ReviewPints)
+    # Several links were pasted: only the first is read, one at a time. How many were left
+    # unread (0 for a single link or pasted text).
+    more_links: int = 0
 
 
 class AlreadyImported(BaseModel):
