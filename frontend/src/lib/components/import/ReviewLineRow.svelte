@@ -15,6 +15,7 @@
   import type { CountedAs, Ref } from '#lib/client/types.js';
   import type { Choice, ImportFlow } from '#lib/import.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { unitFor } from '#lib/recipeAmounts.js';
 
   import '#lib/styles/fields.css';
   let {
@@ -44,7 +45,7 @@
   );
 
   function unitWord(unit: string): string {
-    return unit === 'cup' ? (line.amount === 1 ? 'cup' : 'cups') : unit;
+    return line.amount === null ? unit : unitFor(unit, line.amount);
   }
 
   $effect(() => {

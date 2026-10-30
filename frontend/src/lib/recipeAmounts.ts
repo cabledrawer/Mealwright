@@ -52,13 +52,18 @@ const PLURAL: Record<string, [string, string]> = {
   pinch: ['pinch', 'pinches']
 };
 
+/** A unit's word for an amount: plural only above one, so "½ cup", "1 cup", "1½ cups". */
+export function unitFor(unit: string, value: number): string {
+  const forms = PLURAL[unit];
+  if (!forms) return unit;
+  return value > 1 ? forms[1] : forms[0];
+}
+
 /** The words after the number: "g", "cups", "packets"; null for a plain count. */
 function unitWords(line: RecipeLine, value: number): string | null {
   if (line.size) return value > 1 ? line.size.plural : line.size.name;
   if (!line.unit) return null;
-  const forms = PLURAL[line.unit];
-  if (!forms) return line.unit;
-  return value > 1 ? forms[1] : forms[0];
+  return unitFor(line.unit, value);
 }
 
 /**

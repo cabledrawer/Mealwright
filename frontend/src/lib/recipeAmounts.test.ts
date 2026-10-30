@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeLine } from './client/recipes';
-import { factorOf, gramsText, lineAmount, makesAmount, quarters } from './recipeAmounts';
+import { factorOf, gramsText, lineAmount, makesAmount, quarters, unitFor } from './recipeAmounts';
 
 const line = (extra: Partial<RecipeLine>): RecipeLine => ({
   id: 1,
@@ -97,5 +97,22 @@ describe('makes, nutrition and the scale', () => {
     expect(gramsText(16)).toBe(`16${NB}g`);
     expect(quarters(2.75)).toBe('2¾');
     expect(factorOf(6, 4)).toBe(1.5);
+  });
+});
+
+describe('a fraction of one takes the singular unit (F16)', () => {
+  it.each([
+    [0.25, 'cup'],
+    [0.5, 'cup'],
+    [0.75, 'cup'],
+    [1, 'cup'],
+    [1.5, 'cups'],
+    [2, 'cups']
+  ])('%s of a cup is "%s"', (value, word) => {
+    expect(unitFor('cup', value)).toBe(word);
+  });
+
+  it('leaves units with no plural alone', () => {
+    expect(unitFor('g', 250)).toBe('g');
   });
 });
