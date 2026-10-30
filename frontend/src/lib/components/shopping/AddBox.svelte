@@ -5,7 +5,13 @@
   import type { FoodRow } from '#lib/client/types.js';
   import type { FoodSize } from '#lib/shopping/types.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
-  import { MAX_ADD_TEXT, readAs, splitAmount, ZERO_AMOUNT } from '#lib/shopping/addAmount.js';
+  import {
+    countedAsFor,
+    MAX_ADD_TEXT,
+    readAs,
+    splitAmount,
+    ZERO_AMOUNT
+  } from '#lib/shopping/addAmount.js';
   import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -179,7 +185,7 @@
     if (zeroTyped()) return; // never a new item called "0 g butter"
     const name = typed;
     const typedAmount = split?.amountText;
-    const chosen = await newIngredient.choose(name);
+    const chosen = await newIngredient.choose(name, typedAmount ? countedAsFor(typedAmount) : null);
     if (!chosen) return;
     // The amount is read for the way it was just counted; unreadable: nothing is added.
     const amount = typedAmount

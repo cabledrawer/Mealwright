@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_ADD_TEXT, readAs, splitAmount } from './addAmount';
+import { countedAsFor, MAX_ADD_TEXT, readAs, splitAmount } from './addAmount';
 import { toBaseAmount } from './amountEdit';
 
 describe('splitAmount: an amount in front of a name in the add box (F63)', () => {
@@ -76,5 +76,51 @@ describe('readAs: the amount as it will be read, for the match row', () => {
     const withPacket = { ...garlic, sizes: [packet] } as never;
     expect(readAs('2', withPacket)).toBe('2 packets');
     expect(readAs('1', withPacket)).toBe('1 packet');
+  });
+});
+
+describe('splitAmount: the ways an ingredient is sold (cabledrawer 30 Oct: "2 packets milk")', () => {
+  it('reads "2 packets milk" as milk, 2 packets, the same as "2 packet milk"', () => {
+    const one = splitAmount('2 packets milk');
+    expect(one).toEqual({ amountText: '2 packets', name: 'milk' });
+    expect(splitAmount('2 packet milk')?.name).toBe(one?.name);
+    expect(splitAmount('1 loaf bread')).toEqual({ amountText: '1 loaf', name: 'bread' });
+    expect(splitAmount('2 tins chopped tomatoes')).toEqual({
+      amountText: '2 tins',
+      name: 'chopped tomatoes'
+    });
+  });
+  it('skips an "of" after the way it is sold', () => {
+    expect(splitAmount('2 bags of ice')).toEqual({ amountText: '2 bags', name: 'ice' });
+    expect(splitAmount('1 l of milk')).toEqual({ amountText: '1 l', name: 'milk' });
+  });
+  it('keeps a name that starts like a pack word, and a pack word alone is no name', () => {
+    expect(splitAmount('2 tinned tomatoes')).toEqual({ amountText: '2', name: 'tinned tomatoes' });
+    expect(splitAmount('2 packets')).toBeNull();
+  });
+  it("is read for the ingredient's own packet size", () => {
+    const milk = {
+      counted_as: 'volume' as const,
+      sizes: [{ name: 'packet', plural: 'packets', usual: false, amount: 568 }],
+      count_word: null,
+      count_word_plural: null
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(readAs('2 packets', milk as any)).toBe('2 packets');
+  });
+});
+
+describe('countedAsFor: the typed amount says how a new ingredient is counted (F83)', () => {
+  it('is by volume for litres and millilitres, by weight for grams and kilos', () => {
+    for (const text of ['1 l orange juice', '250 ml cream', '1½ l milk']) {
+      expect(countedAsFor(splitAmount(text)!.amountText), text).toBe('volume');
+    }
+    for (const text of ['250 g butter', '1.5 kg flour']) {
+      expect(countedAsFor(splitAmount(text)!.amountText), text).toBe('weight');
+    }
+  });
+  it('is one by one for a bare number, and says nothing for a packet', () => {
+    expect(countedAsFor(splitAmount('3 eggs')!.amountText)).toBe('count');
+    expect(countedAsFor(splitAmount('2 packets milk')!.amountText)).toBeNull();
   });
 });

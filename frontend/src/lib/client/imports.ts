@@ -71,6 +71,8 @@ export interface ImportReview {
   left_out: { heading: string; lines: number }[];
   /** Always sent by the server; optional here so a review kept before 0.6 still fits. */
   pints?: ReviewPints;
+  /** Several links were pasted: how many were left unread (the first is the review). */
+  more_links?: number;
 }
 
 /** How a line is tied to an ingredient when it is saved. */

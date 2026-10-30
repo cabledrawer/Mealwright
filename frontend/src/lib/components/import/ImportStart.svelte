@@ -9,7 +9,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
-  import { OFFLINE_NOTE, type ImportFlow } from '#lib/import.svelte.js';
+  import { LINKS_ONE_AT_A_TIME, OFFLINE_NOTE, type ImportFlow } from '#lib/import.svelte.js';
 
   import '#lib/styles/fields.css';
   let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
@@ -52,7 +52,12 @@
     <p class="kind" id="{uid}-kind" aria-live="polite">
       {#if kind === 'link'}
         <span class="chip good"
-          ><Icon name="link" size={18} stroke={2.2} />A link · your server visits this page once</span
+          ><Icon
+            name="link"
+            size={18}
+            stroke={2.2}
+          />{#if flow.linkCount > 1}{LINKS_ONE_AT_A_TIME}{:else}A link · your server visits this
+            page once{/if}</span
         >
       {:else if kind === 'text'}
         <span class="chip"

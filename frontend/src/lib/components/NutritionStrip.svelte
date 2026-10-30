@@ -4,9 +4,15 @@
   // It is per serving, so it does not change when the servings are scaled.
   import { gramsText, kcalText } from '#lib/recipeAmounts.js';
 
+  /** Proposed, for cabledrawer. */
+  const NUTRITION_OUT_OF_DATE = 'Nutrition possibly out of date';
+
   let {
-    nutrition
+    nutrition,
+    outOfDate = false
   }: {
+    /** An imported recipe that has been edited since (0.7.0): the figures came from the page. */
+    outOfDate?: boolean;
     nutrition: {
       kcal: number | null;
       protein: number | null;
@@ -38,6 +44,9 @@
     {/each}
   </section>
   <p class="per">per serving</p>
+  {#if outOfDate}
+    <p class="per">{NUTRITION_OUT_OF_DATE}</p>
+  {/if}
 {/if}
 
 <style>

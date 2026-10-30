@@ -41,6 +41,9 @@ export interface Already {
   photo: { list_url: string; list_width: number; list_height: number } | null;
 }
 
+/** Several links in the box (F25; proposed, for cabledrawer). */
+export const LINKS_ONE_AT_A_TIME = 'Several links · one link at a time: only the first is read';
+
 export const OFFLINE_NOTE =
   'Importing needs your Mealwright server. Try again when you’re back online.';
 /** Keeping a draft didn't reach the server (proposed, for cabledrawer). */
@@ -81,9 +84,15 @@ export class ImportFlow {
   #kept = '';
 
   get isLink(): boolean {
-    return (
-      /^\s*(https?:\/\/|www\.)\S+\s*$/i.test(this.text) || /^\s*\S+:\/\/\S*\s*$/.test(this.text)
-    );
+    return this.linkCount > 0;
+  }
+
+  /** How many links the box holds when it holds nothing but links, separated by spaces or line
+   *  breaks (0 for anything else). The server reads one link at a time: the first (F25). */
+  get linkCount(): number {
+    const words = this.text.split(/\s+/).filter(Boolean);
+    const link = (w: string) => /^(https?:\/\/|www\.)\S+$/i.test(w) || /^\S+:\/\/\S*$/.test(w);
+    return words.length > 0 && words.every(link) ? words.length : 0;
   }
 
   /** Read what is in the box. `again`: import a link again as a copy. */

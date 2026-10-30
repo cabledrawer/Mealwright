@@ -37,6 +37,8 @@ interface Pending {
   name: string;
   /** make: the dialog makes the ingredient (Ingredients). choose: it only asks (Shopping). */
   mode: 'make' | 'choose';
+  /** How the typed amount counts it ("1 l" is by volume): the dialog starts there. */
+  hint: CountedAs | null;
   resolve: (answer: Made | Chosen | null) => void;
 }
 
@@ -66,14 +68,18 @@ class NewIngredientFlow {
   }
 
   /** Open the dialog only to ask: nothing is made until the caller sends it. */
-  choose(name: string): Promise<Chosen | null> {
-    return this.#open(name, 'choose') as Promise<Chosen | null>;
+  choose(name: string, hint: CountedAs | null = null): Promise<Chosen | null> {
+    return this.#open(name, 'choose', hint) as Promise<Chosen | null>;
   }
 
-  #open(name: string, mode: Pending['mode']): Promise<Made | Chosen | null> {
+  #open(
+    name: string,
+    mode: Pending['mode'],
+    hint: CountedAs | null = null
+  ): Promise<Made | Chosen | null> {
     this.current?.resolve(null);
     return new Promise((resolve) => {
-      this.current = { name: name.trim(), mode, resolve };
+      this.current = { name: name.trim(), mode, hint, resolve };
     });
   }
 

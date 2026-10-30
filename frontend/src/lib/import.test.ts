@@ -76,11 +76,24 @@ describe('the import flow', () => {
       ['ftp://example.test/x', true],
       ['Sambar\n1 onion', false],
       ['Sambar', false],
-      ['2 onions and a link https://x.example', false]
+      ['2 onions and a link https://x.example', false],
+      ['https://a.example/x\nhttps://b.example/y', true],
+      ['https://a.example/x https://b.example/y\n', true],
+      ['https://a.example/x\n2 onions', false]
     ] as const) {
       flow.text = text;
       expect(flow.isLink, text).toBe(link);
     }
+  });
+
+  it('counts the links when the box holds only links (F25)', () => {
+    const flow = new ImportFlow();
+    flow.text = 'https://a.example/x\nhttps://b.example/y';
+    expect(flow.linkCount).toBe(2);
+    flow.text = 'https://a.example/x';
+    expect(flow.linkCount).toBe(1);
+    flow.text = 'Sambar\nhttps://b.example/y';
+    expect(flow.linkCount).toBe(0);
   });
 
   it('asks the server and shows the review; nothing is saved', async () => {

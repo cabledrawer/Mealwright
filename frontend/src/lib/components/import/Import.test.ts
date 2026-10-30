@@ -148,6 +148,16 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText('Pasted text · nothing goes online')).toBeVisible();
     });
 
+    it('says several links are read one at a time (F25)', async () => {
+      const flow = new ImportFlow();
+      show(flow);
+      flow.text = 'https://kitchen.example/dal\nhttps://kitchen.example/rice';
+      flushSync();
+      await expect
+        .element(page.getByText('Several links · one link at a time: only the first is read'))
+        .toBeVisible();
+    });
+
     it('can’t read an empty box', async () => {
       show(new ImportFlow());
       await expect.element(page.getByRole('button', { name: 'Read the recipe' })).toBeDisabled();

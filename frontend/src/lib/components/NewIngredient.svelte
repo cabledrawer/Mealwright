@@ -49,10 +49,11 @@
   $effect(() => {
     if (pending) {
       name = pending.name;
-      how = 'weight';
+      // A typed amount says how it is counted ("1 l" is by volume, F83); else By weight.
+      how = pending.hint ?? 'weight';
       guess = null;
-      guessed = 'weight';
-      touched = false;
+      guessed = pending.hint ?? 'weight';
+      touched = pending.hint !== null;
       sizes = [];
       addingSize = false;
       sizeProblem = null;
