@@ -71,6 +71,8 @@ class Network {
   #reconnect: (() => void) | null = null;
   /** The check under way: another one waits for it rather than running alongside (F67). */
   #checking: Promise<void> | null = null;
+  /** Bumped by reset(): a check still under way from before then is ignored when it answers. */
+  #round = 0;
   /** Reconnect the live stream after the check under way, whatever it finds ("Try now"). */
   #reconnectAfter = false;
   /** The browser said the connection is back while the check was under way. */
@@ -78,9 +80,16 @@ class Network {
   /** The bar was shown and the connection is back: say so once nothing is waiting. */
   #backOnline = false;
 
-  /** A request to our server got an answer (any answer, even "no"): we are connected. */
-  succeeded(): void {
+  /** A request to our server got an answer (any answer, even "no"): we are connected.
+   *  `sentAt`: when that request went out. One sent before the failures began proves nothing
+   *  about now (the server may have finished it on its way down, follow-up 10): it only
+   *  makes the online check ask at once. */
+  succeeded(sentAt?: number): void {
     if (this.#failingSince === null && !this.offline) return;
+    if (sentAt !== undefined && this.#failingSince !== null && sentAt <= this.#failingSince) {
+      void this.#check();
+      return;
+    }
     this.#failingSince = null;
     this.#clearTimers();
     this.offline = false;
@@ -159,11 +168,16 @@ class Network {
   #check(always = false, online = false): Promise<void> {
     if (always) this.#reconnectAfter = true;
     if (online) this.#browserBack = true;
-    this.#checking ??= this.#checkOnce().finally(() => (this.#checking = null));
+    if (!this.#checking) {
+      const checking: Promise<void> = this.#checkOnce(this.#round).finally(() => {
+        if (this.#checking === checking) this.#checking = null;
+      });
+      this.#checking = checking;
+    }
     return this.#checking;
   }
 
-  async #checkOnce(): Promise<void> {
+  async #checkOnce(round: number): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
     try {
       // Signed out while offline: the server session ends before anything else is sent.
@@ -173,11 +187,14 @@ class Network {
         credentials: 'same-origin',
         signal: AbortSignal.timeout(CHECK_TIMEOUT_MS)
       });
+      // Forgotten (reset()) while it was asking: its answer belongs to before.
+      if (round !== this.#round) return;
       // 502, 503 and 504 are the reverse proxy saying it can't reach Mealwright: still down
       // (F67: counting them as an answer flitted between the page and "You're offline", with
       // "Back online — all saved" while the server was stopped).
       if (proxyGap(response.status)) throw new Error('the proxy can’t reach the server');
     } catch {
+      if (round !== this.#round) return;
       this.#reconnectAfter = this.#browserBack = false;
       this.failed();
       return;
@@ -204,6 +221,7 @@ class Network {
     this.#clearTimers();
     this.#failingSince = null;
     this.#checking = null;
+    this.#round++;
     this.#reconnectAfter = this.#browserBack = false;
     this.#wasShown = false;
     this.#backOnline = false;

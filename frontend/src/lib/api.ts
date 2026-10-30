@@ -136,6 +136,7 @@ export async function api<T>(
     headers['content-type'] = file ? file.type || 'image/jpeg' : 'application/json';
   if (options.idempotencyKey) headers['idempotency-key'] = options.idempotencyKey;
   let response: Response;
+  const sentAt = Date.now();
   try {
     response = await doFetch(`/api/v1${path}`, {
       method,
@@ -151,7 +152,7 @@ export async function api<T>(
   // Any answer from our server means it is there. But 502, 503 and 504 come from the
   // reverse proxy when it can't reach Mealwright (spec UX principle 16).
   if (proxyGap(response.status)) network.failed();
-  else network.succeeded();
+  else network.succeeded(sentAt);
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {

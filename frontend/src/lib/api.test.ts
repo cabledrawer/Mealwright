@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api, detailOf, getMe, setUnauthorizedHandler } from './api';
 import { OFFLINE_AFTER_MS, network } from './network.svelte';
+import { toasts } from './toast.svelte';
 
 afterEach(() => setUnauthorizedHandler(null));
 
@@ -178,5 +179,74 @@ describe('api and the connection bar', () => {
     const { fetch, calls } = fakeFetch(200, {});
     await api('GET', '/version', undefined, { fetch });
     expect(calls[0]?.init?.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe('a late answer while the server is down (follow-up 10)', () => {
+  afterEach(() => {
+    network.reset();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('an answer to a request sent before the server went down doesn’t clear the bar or say “Back online — all saved”', async () => {
+    vi.useFakeTimers();
+    network.reset();
+    // The online check and every new request: Caddy's 502, the server is stopped.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 502 }))
+    );
+    const shown = vi.spyOn(toasts, 'show');
+    const stop = network.start(() => {});
+    try {
+      // A slow request (an import, say) went out while the server was still up…
+      let answer: (r: Response) => void = () => {};
+      const slow = api('GET', '/recipes', undefined, {
+        fetch: () => new Promise<Response>((done) => (answer = done))
+      });
+      // …then the server stopped: the next request gets the proxy's 502, and the bar shows.
+      await expect(api('GET', '/pantry')).rejects.toBeInstanceOf(ApiError);
+      await vi.advanceTimersByTimeAsync(OFFLINE_AFTER_MS);
+      expect(network.offline).toBe(true);
+      // The server finishes the slow request on its way down; the answer comes in late.
+      answer(new Response('{"recipes":[]}', { status: 200 }));
+      await slow;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(network.offline).toBe(true);
+      // Still down a minute later, with no toast at any point.
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(network.offline).toBe(true);
+      expect(shown).not.toHaveBeenCalled();
+    } finally {
+      stop();
+    }
+  });
+
+  it('a late answer still counts when the server really is back: it checks at once', async () => {
+    vi.useFakeTimers();
+    network.reset();
+    let up = false;
+    const check = vi.fn(async () => (up ? new Response('{}') : new Response('', { status: 502 })));
+    vi.stubGlobal('fetch', check);
+    const stop = network.start(() => {});
+    try {
+      let answer: (r: Response) => void = () => {};
+      const slow = api('GET', '/recipes', undefined, {
+        fetch: () => new Promise<Response>((done) => (answer = done))
+      });
+      await expect(api('GET', '/pantry')).rejects.toBeInstanceOf(ApiError);
+      await vi.advanceTimersByTimeAsync(OFFLINE_AFTER_MS);
+      up = true;
+      const before = check.mock.calls.length;
+      answer(new Response('{"recipes":[]}', { status: 200 }));
+      await slow;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(check.mock.calls.length).toBe(before + 1);
+      expect(network.offline).toBe(false);
+    } finally {
+      stop();
+    }
   });
 });
