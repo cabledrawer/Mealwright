@@ -66,6 +66,7 @@
 
 <style>
   .section {
+    --heading-row: 28px; /* as tall as “Your own network” with its pill, so the two cards start level */
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -73,6 +74,9 @@
   }
 
   h2 {
+    display: flex;
+    align-items: center;
+    min-height: var(--heading-row);
     padding: 0 var(--space-3);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
@@ -90,6 +94,8 @@
   }
 
   ul {
+    margin: 0;
+    padding: 0;
     list-style: none;
   }
 

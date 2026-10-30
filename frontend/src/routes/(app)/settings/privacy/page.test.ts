@@ -105,6 +105,30 @@ describe('Settings → Privacy', () => {
     await expect.element(page.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
   });
 
+  it('lines up: switch rows not indented, headings level, the banner as wide as the cards (F75)', async () => {
+    await page.viewport(1300, 900);
+    open({ 'GET /privacy/own-network': list([wiki, lan]) });
+    await expect.element(page.getByRole('switch', { name: IMPORT })).toBeVisible();
+    const box = (el: Element) => el.getBoundingClientRect();
+    const outside = page.getByRole('heading', { name: 'Outside connections' }).element();
+    const own = page.getByRole('heading', { name: 'Your own network' }).element();
+    // The two headings are level: the pill beside the second doesn't push it down.
+    expect(
+      Math.abs(box(outside).y + box(outside).height / 2 - (box(own).y + box(own).height / 2))
+    ).toBeLessThanOrEqual(1);
+    // The first switch row's words start one card padding in, with no empty space before them.
+    const card = outside.parentElement!.querySelector('.card')!;
+    const words = card.querySelector('li .words')!;
+    expect(box(words).left - box(card).left).toBeLessThanOrEqual(24);
+    const listed = page.getByRole('list', { name: 'Allowed on your own network' }).element();
+    const ownCard = listed.closest('.card')!;
+    expect(box(listed.querySelector('li')!).left - box(ownCard).left).toBeLessThanOrEqual(24);
+    // The banner is as wide as the two cards together.
+    const banner = page.getByText('Nothing leaves this server unless you switch it on.').element();
+    expect(Math.abs(box(banner).right - box(ownCard).right)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box(banner).left - box(card).left)).toBeLessThanOrEqual(1);
+  });
+
   it('copes with a link whose # part is not valid text', async () => {
     // Without the fix, the jump throws inside the page's load: an unhandled rejection.
     const unhandled: unknown[] = [];

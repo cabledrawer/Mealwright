@@ -138,7 +138,8 @@
 
   .heading {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-height: 28px;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3) var(--space-4);
@@ -155,6 +156,8 @@
   }
 
   .chip {
+    flex: 0 1 auto;
+    min-width: 0;
     padding: 3px 8px;
     border-radius: var(--radius-full);
     background: var(--color-chip);
@@ -179,6 +182,8 @@
   }
 
   ul {
+    margin: 0;
+    padding: 0;
     list-style: none;
     border-bottom: 1px solid var(--color-divider);
   }

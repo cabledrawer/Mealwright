@@ -105,7 +105,7 @@
   }
 
   .lead {
-    max-width: 640px;
+    max-width: 1100px; /* as wide as the two cards below (F75) */
     padding: 14px var(--space-7);
     border-radius: var(--radius-xl);
     background: var(--color-note);
