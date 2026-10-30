@@ -219,21 +219,27 @@ test.describe('on a computer', () => {
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
   });
 
-  test('the arrows and Today wait until the household’s today has come (a slow connection)', async ({ page }) => {
-    // The full ./check on ae14498: “Next week” pressed before the household came threw “Invalid time value”.
-    let release = () => {};
-    const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/v1/household', async (route) => {
-      await held;
-      await route.continue();
+  // No service worker here: on WebKit, once it controls the page, page.route stops seeing its
+  // requests (see import-pints.spec.ts).
+  test.describe('a slow household answer', () => {
+    test.use({ serviceWorkers: 'block' });
+
+    test('the arrows and Today wait until the household’s today has come (a slow connection)', async ({ page }) => {
+      // The full ./check on ae14498: “Next week” pressed before the household came threw “Invalid time value”.
+      let release = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route('**/api/v1/household', async (route) => {
+        await held;
+        await route.continue();
+      });
+      await page.goto('/plan');
+      await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();
+      await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
+      await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeDisabled();
+      release();
+      await page.getByRole('button', { name: 'Next week' }).click();
+      await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled();
     });
-    await page.goto('/plan');
-    await expect(page.getByRole('button', { name: 'Next week' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Previous week' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeDisabled();
-    release();
-    await page.getByRole('button', { name: 'Next week' }).click();
-    await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled();
   });
 
   test('dropping a meal on a filled one puts it in alongside, with “2 recipes”', async ({ page }) => {
@@ -443,9 +449,12 @@ test.describe('a finger on a computer-sized screen', () => {
 
     // On every browser: nothing that scrolls is switched off.
     const panning = (l: Locator) => l.evaluate((el) => getComputedStyle(el).touchAction);
-    expect(await panning(trayCard)).toBe('pan-x pan-y');
-    expect(await panning(card)).toBe('pan-y');
-    expect(await panning(cell(page, day, slot.Dinner).getByRole('button', { name: /^1 recipe/ }))).toBe('pan-y');
+    // Polled: a card that redraws can answer "" for a moment.
+    await expect.poll(() => panning(trayCard)).toBe('pan-x pan-y');
+    await expect.poll(() => panning(card)).toBe('pan-y');
+    await expect
+      .poll(() => panning(cell(page, day, slot.Dinner).getByRole('button', { name: /^1 recipe/ })))
+      .toBe('pan-y');
 
     // A swipe before the long press (synthetic touch events) plans and moves nothing.
     await trayCard.evaluate(async (el) => {

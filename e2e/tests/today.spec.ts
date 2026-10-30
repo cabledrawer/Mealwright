@@ -133,18 +133,24 @@ test('Move it to tomorrow adds alongside a meal that has food', async ({ page })
     .toBe('moved');
 });
 
-test('a household with nothing yet sees Your kitchen is ready', async ({ page }) => {
-  // The shared test household is never empty, so the server's answer is changed to say so (the
-  // conditions themselves are tested in the backend: test_today.py).
-  await page.route('**/api/v1/today', async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    await route.fulfill({ response, json: { ...body, first_day: true } });
+// No service worker here: on WebKit, once it controls the page, page.route stops seeing its
+// requests (see import-pints.spec.ts).
+test.describe('an empty household', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('a household with nothing yet sees Your kitchen is ready', async ({ page }) => {
+    // The shared test household is never empty, so the server's answer is changed to say so (the
+    // conditions themselves are tested in the backend: test_today.py).
+    await page.route('**/api/v1/today', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, first_day: true } });
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Your kitchen is ready' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Import a recipe/ }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /Add what’s in your cupboards/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Plan a meal/ })).toBeVisible();
+    await checkPage(page);
   });
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Your kitchen is ready' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Import a recipe/ }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: /Add what’s in your cupboards/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Plan a meal/ })).toBeVisible();
-  await checkPage(page);
 });

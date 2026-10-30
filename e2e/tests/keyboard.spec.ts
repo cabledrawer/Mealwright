@@ -141,6 +141,9 @@ test.describe('signed in', () => {
   test('Ingredients', async ({ page }) => {
     await page.goto('/recipes/ingredients');
     await expect(page.getByRole('heading', { name: 'Ingredients', level: 1 })).toBeVisible();
+    // The "Not in any recipe" chip gains its count only when the list has come; on a busy machine
+    // that can be later than the page looks settled. Every control is still checked.
+    await expect(page.getByRole('button', { name: /^Not in any recipe · \d+/ })).toBeVisible();
     await checkKeyboard(page, 'Ingredients');
   });
 
@@ -166,6 +169,7 @@ test.describe('signed in', () => {
     const editor = page.getByRole('complementary', { name: `Edit Keyboard used ${stamp}` });
     await expect(editor.getByRole('heading', { name: 'Used in 6 recipes' })).toBeVisible();
     await expect(editor.getByRole('button', { name: '+ 1 more recipe' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Not in any recipe · \d+/ })).toBeVisible();
     await checkKeyboard(page, 'Ingredients with the editor open');
   });
 
