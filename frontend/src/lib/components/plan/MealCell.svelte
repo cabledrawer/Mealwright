@@ -3,6 +3,7 @@
   // ("Dosa · Fresh · 230 kcal"), "2 recipes · 590 kcal" and a + under them, or a dashed "+ Add"
   // when nothing is planned. Every card can be dragged by mouse or finger, and opened (a click,
   // Enter, or a held finger) for the menu that does everything a drag does.
+  import Icon from '#lib/components/Icon.svelte';
   import type { MealSlot, PlanItem, PlanMeal } from '#lib/client/plan.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
@@ -116,7 +117,8 @@
           disabled={actions.readonly}
           aria-label="Add to {where}"
           title="Add to this meal"
-          onclick={() => actions.add(day, slot.id)}>+</button
+          onclick={() => actions.add(day, slot.id)}
+          ><Icon name="plus" size={20} stroke={2.6} /></button
         >
       </div>
     </div>
@@ -291,9 +293,9 @@
     border-radius: var(--radius-full);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
-    font: inherit;
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
+    display: grid;
+    place-items: center;
+    padding: 0;
     cursor: pointer;
   }
 

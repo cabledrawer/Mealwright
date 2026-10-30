@@ -131,6 +131,34 @@ describe('the Pantry page', () => {
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
 
+  it('phone: the round + is a real icon, centred in its circle (F41)', async () => {
+    await render(390);
+    const button = page.getByRole('button', { name: 'Add to pantry', exact: true }).element();
+    const icon = button.querySelector('svg');
+    expect(icon).not.toBeNull();
+    const circle = button.getBoundingClientRect();
+    const mark = icon!.getBoundingClientRect();
+    expect(Math.abs(mark.x + mark.width / 2 - (circle.x + circle.width / 2))).toBeLessThanOrEqual(
+      1
+    );
+    expect(Math.abs(mark.y + mark.height / 2 - (circle.y + circle.height / 2))).toBeLessThanOrEqual(
+      1
+    );
+    expect(button.textContent?.trim()).toBe('');
+  });
+
+  it('desktop: the + in “+ Add to pantry” is a real icon, level with the words (F66)', async () => {
+    await render(1300);
+    const button = page.getByRole('button', { name: '+ Add to pantry', exact: true }).first();
+    const el = button.element();
+    const icon = el.querySelector('svg')!;
+    expect(icon).not.toBeNull();
+    const box = el.getBoundingClientRect();
+    const mark = icon.getBoundingClientRect();
+    expect(Math.abs(mark.y + mark.height / 2 - (box.y + box.height / 2))).toBeLessThanOrEqual(1);
+    expect(el.textContent?.trim()).toBe('Add to pantry');
+  });
+
   it('phone: the Use soon card links to the recipes that use them, also when opened to every item', async () => {
     await render(390);
     const link = page.getByRole('link', { name: 'Recipes that use them →' });

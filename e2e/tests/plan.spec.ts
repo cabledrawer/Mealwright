@@ -148,6 +148,33 @@ test.afterEach(() => {
   expect(scriptErrors, 'the page raised no script errors').toEqual([]);
 });
 
+/** A round button is a real icon (an SVG, no letter) whose middle is the circle's middle, within 1 px (F41). */
+async function expectCentredIcon(button: Locator) {
+  await button.scrollIntoViewIfNeeded();
+  await expect(button.locator('svg')).toHaveCount(1);
+  expect(((await button.textContent()) ?? '').trim()).toBe('');
+  const circle = (await button.boundingBox())!;
+  const mark = (await button.locator('svg').boundingBox())!;
+  expect(Math.abs(mark.x + mark.width / 2 - (circle.x + circle.width / 2))).toBeLessThanOrEqual(1);
+  expect(Math.abs(mark.y + mark.height / 2 - (circle.y + circle.height / 2))).toBeLessThanOrEqual(1);
+}
+
+test('the Plan’s round buttons are real icons, centred (F41)', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  // A meal in the week shown, so that its round + is there (an empty meal has the “+ Add” text button).
+  await planned(page, await makeRecipe(page, `Plus ${stamp()}`), today, slot.Dinner);
+  await page.goto('/plan');
+  await expect(page.getByRole('heading', { level: 1, name: 'Plan' })).toBeVisible();
+  await expectCentredIcon(page.getByRole('button', { name: 'Previous week' }));
+  await expectCentredIcon(page.getByRole('button', { name: 'Next week' }));
+  await expectCentredIcon(page.locator('button.plus').first());
+  if (!isPhone(page)) {
+    await expectCentredIcon(page.getByRole('button', { name: 'Collapse recipe tray' }));
+    await page.getByRole('button', { name: 'Collapse recipe tray' }).click();
+    await expectCentredIcon(page.getByRole('button', { name: 'Open recipe tray' }));
+  }
+});
+
 test.describe('on a computer', () => {
   test.beforeEach(({ page }) => {
     test.skip(isPhone(page), 'the computer’s week grid, tray and drag');

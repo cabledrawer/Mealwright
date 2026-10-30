@@ -2,6 +2,7 @@
   // Days as a list (mockup Plan, the phone): a card per day, a row per meal that is on. Press and
   // hold a meal (or tap it) for the menu: Move to… · Copy to… · Leftovers on… · Remove. Used for
   // the phone's week and for the day picked in the phone's Month.
+  import Icon from '#lib/components/Icon.svelte';
   import type { PlanMeal } from '#lib/client/plan.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
@@ -76,7 +77,8 @@
                 class="plus"
                 disabled={actions.readonly}
                 aria-label="Add to {slot.name} on {dayFull(day)}"
-                onclick={() => actions.add(day, slot.id)}>+</button
+                onclick={() => actions.add(day, slot.id)}
+                ><Icon name="plus" size={20} stroke={2.6} /></button
               >
             {:else}
               <button
@@ -221,9 +223,9 @@
     border-radius: var(--radius-md);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
-    font: inherit;
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
+    display: grid;
+    place-items: center;
+    padding: 0;
     cursor: pointer;
   }
 

@@ -235,7 +235,9 @@
         ><Icon name="plus" size={20} stroke={2.6} /></button
       >
     {:else}
-      <button type="button" class="add-pill" onclick={addClicked}>+ Add to pantry</button>
+      <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
+        ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+      >
     {/if}
   {/snippet}
 </PageHeader>
@@ -459,8 +461,12 @@
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button type="button" class="add-pill" onclick={() => addToPantry.show()}
-            >+ Add to pantry</button
+          <button
+            type="button"
+            class="add-pill"
+            aria-label="+ Add to pantry"
+            onclick={() => addToPantry.show()}
+            ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
           >
         </div>
       {:else}
@@ -524,8 +530,12 @@
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button type="button" class="add-pill" onclick={() => addToPantry.show()}
-            >+ Add to pantry</button
+          <button
+            type="button"
+            class="add-pill"
+            aria-label="+ Add to pantry"
+            onclick={() => addToPantry.show()}
+            ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
           >
         </div>
       {:else}
@@ -602,6 +612,10 @@
   }
 
   .add-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
     min-height: var(--touch-target);
     padding: 0 18px;
     border: none;

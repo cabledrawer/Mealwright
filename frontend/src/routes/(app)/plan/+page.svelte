@@ -5,6 +5,7 @@
   //   phone: the week as a list of days, the month as a dot grid; press and hold for the menu.
   // Online only, like the Pantry: offline the plan can be read but not changed. Cook once, eat for…
   // (PR 4) makes tubs, which can be placed, moved, given to someone and frozen.
+  import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { browser } from '$app/env';
   import { onMount, untrack } from 'svelte';
@@ -207,13 +208,14 @@
         <button
           type="button"
           aria-label={model.view === 'week' ? 'Previous week' : 'Previous month'}
-          onclick={() => model.step(-1)}>‹</button
+          onclick={() => model.step(-1)}><Icon name="back" size={22} stroke={2.4} /></button
         >
         <span class="range" aria-live="polite">{range}</span>
         <button
           type="button"
           aria-label={model.view === 'week' ? 'Next week' : 'Next month'}
-          onclick={() => model.step(1)}>›</button
+          onclick={() => model.step(1)}
+          ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
         >
       </div>
       <button
@@ -351,10 +353,15 @@
     border-radius: var(--radius-full);
     background: transparent;
     color: var(--color-text);
-    font: inherit;
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-bold);
+    display: grid;
+    place-items: center;
+    padding: 0;
     cursor: pointer;
+  }
+
+  .flip {
+    display: grid;
+    transform: rotate(180deg);
   }
 
   .range {

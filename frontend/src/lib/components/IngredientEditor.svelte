@@ -365,7 +365,8 @@
               type="button"
               class="remove"
               aria-label="Remove {name.name}"
-              onclick={() => void model.removeName(name)}>✕</button
+              onclick={() => void model.removeName(name)}
+              ><Icon name="close" size={12} stroke={3} /></button
             >
           </li>
         {/each}
@@ -429,7 +430,8 @@
                 type="button"
                 class="remove"
                 aria-label="Remove the {size.name} size"
-                onclick={() => void model.removeSize(size)}>✕</button
+                onclick={() => void model.removeSize(size)}
+                ><Icon name="close" size={12} stroke={3} /></button
               >
             </span>
           </li>
@@ -590,7 +592,8 @@
               type="button"
               class="remove"
               aria-label="Remove {other.name}"
-              onclick={() => void model.removeStandIn(other)}>✕</button
+              onclick={() => void model.removeStandIn(other)}
+              ><Icon name="close" size={12} stroke={3} /></button
             >
           </li>
         {/each}
@@ -820,8 +823,6 @@
     border-radius: var(--radius-full);
     background: var(--color-chip-remove);
     color: var(--color-text-soft);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-extrabold);
     cursor: pointer;
   }
 

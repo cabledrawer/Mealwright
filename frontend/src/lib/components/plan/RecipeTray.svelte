@@ -2,6 +2,7 @@
   // The recipe tray (mockup Desktop-Plan): a slim strip under the plan, collapsible. Drag a recipe
   // up onto a day to plan it; or click it (or press Enter) to choose the day and meal from a
   // menu. Filters are the ones All recipes has: Can cook now, Use soon.
+  import Icon from '#lib/components/Icon.svelte';
   import type { TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import { colourOfBatch, useByWords } from '#lib/planMeals.js';
@@ -89,7 +90,9 @@
       aria-expanded={open}
       aria-label={open ? 'Collapse recipe tray' : 'Open recipe tray'}
       title={open ? 'Collapse tray' : 'Open tray'}
-      onclick={() => onopen(!open)}>{open ? '⌄' : '⌃'}</button
+      onclick={() => onopen(!open)}
+      ><span class:up={!open} class="chev"><Icon name="chevron-down" size={22} stroke={2.4} /></span
+      ></button
     >
   </div>
   {#if open}
@@ -244,9 +247,18 @@
     border-radius: var(--radius-full);
     background: var(--color-fill);
     color: var(--color-text-soft);
-    font: inherit;
-    font-size: var(--text-3xl);
+    display: grid;
+    place-items: center;
+    padding: 0;
     cursor: pointer;
+  }
+
+  .chev {
+    display: grid;
+  }
+
+  .chev.up {
+    transform: rotate(180deg);
   }
 
   .strip {

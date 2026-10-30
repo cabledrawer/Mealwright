@@ -7,6 +7,7 @@
   //   a tub (Cook once, PR 4): Whose tub? · Move to… · To freezer · Remove (back to tubs left); a
   //   tub is never copied, so it has no Copy to… or Leftovers on…;
   //   a planned recipe: also Cook once, eat for… (opens the sheet that makes the tubs).
+  import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import type { DropMode } from '#lib/client/plan.js';
@@ -340,13 +341,15 @@
             type="button"
             aria-label="Earlier week"
             disabled={atEarliestWeek}
-            onclick={() => (weekOf = addDays(weekOf, -7))}>‹</button
+            onclick={() => (weekOf = addDays(weekOf, -7))}
+            ><Icon name="back" size={22} stroke={2.4} /></button
           >
           <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
           <button
             type="button"
             aria-label="Later week"
-            onclick={() => (weekOf = addDays(weekOf, 7))}>›</button
+            onclick={() => (weekOf = addDays(weekOf, 7))}
+            ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
           >
         </div>
         <div class="days" role="group" aria-label="Day">
@@ -520,7 +523,14 @@
     border-radius: var(--radius-full);
     background: var(--color-fill);
     color: var(--color-text);
-    font-size: var(--text-3xl);
+    display: grid;
+    place-items: center;
+    padding: 0;
+  }
+
+  .flip {
+    display: grid;
+    transform: rotate(180deg);
   }
 
   .days {
