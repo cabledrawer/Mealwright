@@ -22,20 +22,31 @@ const proxyGap = (route: Route) => route.fulfill({ status: 502, body: '' });
 const PAGES = [
   // `notes`: how many "Can't reach your Mealwright server." notes: Today and Shopping show
   // their saved copy instead.
-  { name: 'Ingredients', path: '/recipes/ingredients', notes: 1 },
-  { name: 'Today', path: '/', notes: 0 },
-  { name: 'Plan', path: '/plan', notes: 1 },
-  { name: 'Shopping', path: '/shopping', notes: 0 },
+  // `realTime`: this one waits the full time on the real clock; the others move the page's
+  // clock on instead, which fires the same timers in the same order (cabledrawer 30 Oct: a faster
+  // check, with one real-time test kept).
+  { name: 'Ingredients', path: '/recipes/ingredients', notes: 1, realTime: false },
+  { name: 'Today', path: '/', notes: 0, realTime: false },
+  { name: 'Plan', path: '/plan', notes: 1, realTime: true },
+  { name: 'Shopping', path: '/shopping', notes: 0, realTime: false },
   // cabledrawer 30 Oct: Settings and the recipe panes in line with the other pages.
-  { name: 'Recipes', path: '/recipes', notes: 1 },
-  { name: 'Settings', path: '/settings', notes: 1 },
+  { name: 'Recipes', path: '/recipes', notes: 1, realTime: false },
+  { name: 'Settings', path: '/settings', notes: 1, realTime: false },
 ] as const;
 
-for (const { name, path, notes } of PAGES) {
+for (const { name, path, notes, realTime } of PAGES) {
   test(`${name}: the server answering 502 is one steady offline state, and the page comes back with it`, async ({
     page,
   }) => {
-    test.slow();
+    if (realTime) test.slow();
+    // A second of the page's time: really waited, or the page's clock moved on at once.
+    const second = () => (realTime ? page.waitForTimeout(1000) : page.clock.runFor(1000));
+    /** Wait for the bar to come or go, letting the page's time pass a second at a time. */
+    const barTurns = (shown: boolean) =>
+      expect(async () => {
+        if (!realTime) await page.clock.runFor(1000);
+        await expect(bar(page))[shown ? 'toBeVisible' : 'toBeHidden']({ timeout: realTime ? 15_000 : 500 });
+      }).toPass({ timeout: 20_000 });
     // Open it once with the server up, as Tess had (Today and Shopping keep a copy).
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -44,7 +55,7 @@ for (const { name, path, notes } of PAGES) {
     // The server stops, and the page is reloaded.
     await page.route('**/api/**', proxyGap);
     await page.reload();
-    await expect(bar(page)).toBeVisible({ timeout: 15_000 });
+    await barTurns(true);
     // The bar's word follows the cause too (cabledrawer 30 Oct): the device has a network.
     await expect(bar(page)).toContainText('Can’t reach server');
 
@@ -53,17 +64,17 @@ for (const { name, path, notes } of PAGES) {
     // The device's network is fine; only the server doesn't answer (cabledrawer 30 Oct): "Can't
     // reach your Mealwright server…", never "You're offline…".
     const note = page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' });
-    for (let second = 0; second < 12; second++) {
+    for (let n = 0; n < 12; n++) {
       await expect(bar(page)).toBeVisible();
       await expect(note).toHaveCount(notes);
       await expect(backOnline(page)).toHaveCount(0);
       await expect(page.getByText(/You’re offline/)).toHaveCount(0);
-      await page.waitForTimeout(1000);
+      await second();
     }
 
     // The server is back: the next check finds it, the bar goes, and the page is there.
     await page.unroute('**/api/**', proxyGap);
-    await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+    await barTurns(false);
     await expect(backOnline(page)).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(note).toHaveCount(0);
