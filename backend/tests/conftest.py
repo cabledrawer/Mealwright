@@ -26,6 +26,9 @@ def _forget_compiled_statements() -> Iterator[None]:
     about 35. Nothing here changes what a test sees."""
     yield
     for mapper in Base.registry.mappers:
+        # `_compiled_cache` is private to SQLAlchemy, and used here in the tests only (cabledrawer
+        # 30 Oct: OK). The app never touches it. If a SQLAlchemy update renames it, this line
+        # fails loudly in every test; then find the new name or drop this fixture.
         mapper._compiled_cache.clear()
 
 
