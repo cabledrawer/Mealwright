@@ -313,7 +313,7 @@ describe('the server says no to the whole batch', () => {
     const sent = server((one) =>
       one.body.actions.length > 3 ? [413, { code: 'too_many' }] : applied(one)
     );
-    shoppingSync.timing.gatherMs = 20;
+    shoppingSync.timing.gatherMs = 250; // the app's own window: 20 ms was too short under load (all six must land in one batch)
     const actions = Array.from({ length: 6 }, (_, i) => tick(`i${i}`));
     await Promise.all(actions.map((a) => sendAction(a)));
     expect(sent.map((s) => s.body.actions.length)).toEqual([6, 3, 3]);
@@ -353,7 +353,7 @@ describe('answers to each change', () => {
         )
       }
     ]);
-    shoppingSync.timing.gatherMs = 20;
+    shoppingSync.timing.gatherMs = 250; // both must land in one batch: 20 ms was too short under load
     const [bad, good] = await Promise.allSettled([sendAction(tick('a')), sendAction(tick('b'))]);
     expect(bad.status).toBe('rejected');
     expect(good.status).toBe('fulfilled');
