@@ -13,7 +13,7 @@ The lead writes one brief per review round, saves it in the session scratchpad a
 - **Full** (the `checker` type with `model: opus`, usual effort): a PR that changes the database, the sync protocol or the offline queue, or when cabledrawer asks for one.
 - **Security pass** as well (the `security-checker` type): a PR that touches sign-in, permissions, households, sync, imports, uploads or the outbound gate; and every release PR.
 - At most **two rounds** per PR. After round 2 only a high or security finding gets another round; the rest go on the follow-up list in `docs/dev/progress.md`.
-- A checker starts only after its builder has finished. At most two helpers at once, builders included.
+- A checker starts only after its builder has finished. Up to three helpers at once, at most two of them building; the third is only a checker (cabledrawer 30 Oct).
 
 ## The brief, in this order
 

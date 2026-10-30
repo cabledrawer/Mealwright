@@ -9,7 +9,7 @@ The lead writes one brief per builder, saves it in the session scratchpad as `br
 
 ## Before writing it
 
-- At most two builders at once; a PR runs beside another only if the milestone plan says they don't overlap.
+- Up to three helpers at once, at most two of them building; the third is only a checker (cabledrawer 30 Oct). A PR is built beside another only if the milestone plan says they don't overlap.
 - Make the worktree from the right base: `git worktree add -b <branch> ../mw-<short> <base>` (`origin/main`, or the branch it stacks on). Check that no other helper's worktree uses that branch.
 - **Mockups:** copy the screens this PR builds from `<sync>/mockups-<milestone>/` into the worktree's `docs/mockups/`, unchanged (same file names, light and dark, phone and desktop where drawn). `canvas.json` is not changed. Commit them first, on their own: `Mockups: <Screen> (<which versions>), unchanged`. Never edit the design canvas artifact.
 
