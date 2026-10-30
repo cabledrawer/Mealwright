@@ -102,11 +102,13 @@ class Live {
       this.#close();
       this.#replaced = true;
     });
-    // The browser tries again by itself; the offline bar waits 3 seconds before showing.
+    // The browser tries again by itself. A dropped stream alone never shows the offline bar
+    // or a toast (F67): it only asks our server whether it is there (network.check()), and
+    // that check decides.
     source.addEventListener('error', () => {
       if (this.#source !== source) return;
       if (source.readyState === EventSource.CLOSED) void this.#refused(source);
-      else network.failed();
+      else void network.check();
     });
   }
 

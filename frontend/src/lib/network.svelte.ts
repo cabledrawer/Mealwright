@@ -116,6 +116,12 @@ class Network {
     }
   }
 
+  /** Ask our server whether it is there (the live stream dropped, say). Shows the bar only
+   *  if it can't be reached; says nothing if it can. */
+  check(): Promise<void> {
+    return this.#check();
+  }
+
   /** Start watching the browser's own online/offline word. Returns a function that stops. */
   start(reconnect: () => void): () => void {
     this.#reconnect = reconnect;

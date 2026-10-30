@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setUnauthorizedHandler } from './api';
 import { live } from './live.svelte';
-import { network } from './network.svelte';
+import { network, OFFLINE_AFTER_MS } from './network.svelte';
+import { toasts } from './toast.svelte';
 import { loadDeviceId } from './offline/device';
 import { getMeta } from './offline/phone';
 import { addToQueue, readQueue } from './offline/store';
@@ -168,5 +169,59 @@ describe('a stream closed for a newer tab (replaced, more than 10 tabs on one si
     // and it is an ordinary stream again
     live.reconnect();
     expect(FakeSource.all).toHaveLength(3);
+  });
+});
+
+describe('a dropped stream (F67)', () => {
+  // The browser reports a dropped stream as an error and tries again by itself.
+  const drop = () => {
+    const source = stream();
+    source.readyState = 0;
+    source.dispatchEvent(new Event('error'));
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    toasts.dismiss();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('never shows the offline bar or a toast on its own: the server still answers', async () => {
+    const check = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', check);
+    const shown = vi.spyOn(toasts, 'show');
+    stream().send('hello', { cursor: 1 });
+    for (let i = 0; i < 3; i++) {
+      drop();
+      // Looked at every second, so a bar that came and went would be seen.
+      for (let s = 0; s < 20; s++) {
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(network.offline).toBe(false);
+      }
+    }
+    expect(shown).not.toHaveBeenCalled();
+    // It asked our own server, and nothing else.
+    expect(check).toHaveBeenCalled();
+    for (const [url] of check.mock.calls as unknown as [string][]) {
+      expect(url).toBe('/api/v1/version');
+    }
+  });
+
+  it('shows the bar when the server really can’t be reached', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 502 }))
+    );
+    const shown = vi.spyOn(toasts, 'show');
+    drop();
+    await vi.advanceTimersByTimeAsync(OFFLINE_AFTER_MS + 100);
+    expect(network.offline).toBe(true);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(network.offline).toBe(true);
+    expect(shown).not.toHaveBeenCalled();
   });
 });
