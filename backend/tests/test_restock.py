@@ -104,3 +104,39 @@ def test_a_merge_keeps_the_newer_date_and_undo_puts_it_back(kitchen: TestClient)
     ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
     assert _close(_restocked(kitchen, kept), older)
     assert _close(_restocked(kitchen, gone), newer)
+
+
+def test_a_merge_copies_no_live_tick_so_untick_still_puts_the_date_back(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    tick_id = new_id()
+    tick(kitchen, s, "Salt", id=tick_id)
+    rock = ok(kitchen.post(f"{API}/foods", json={"name": "Rock salt", "staple": True}), 201)
+    kept = int(rock["food"]["id"])
+    ok(kitchen.post(f"{API}/foods/{salt}/merge", json={"into_id": kept}))
+    assert _close(_restocked(kitchen, kept), datetime.now(UTC))  # the tick moved with its line
+    seen = int(changes(kitchen)["cursor"])
+    one(kitchen, "untick", seen, item_id=s.items["Salt"], tick_ids=[tick_id])
+    assert _restocked(kitchen, kept) is None
+
+
+def test_undo_of_a_merge_is_whole_when_the_date_was_raised_since(kitchen: TestClient) -> None:
+    def staple(name: str) -> int:
+        made = ok(kitchen.post(f"{API}/foods", json={"name": name, "staple": True}), 201)
+        return int(made["food"]["id"])
+
+    kept, gone = staple("Rock salt"), staple("Sea salt")
+    older, newer = utcnow() - timedelta(days=40), utcnow() - timedelta(days=2)
+    with db(kitchen) as session:
+        for food_id, when in ((kept, older), (gone, newer)):
+            session.execute(update(Food).where(Food.id == food_id).values(restocked_at=when))
+        session.commit()
+    merged = ok(kitchen.post(f"{API}/foods/{gone}/merge", json={"into_id": kept}))
+    with db(kitchen) as session:  # a restock kept by the tidy-up since
+        session.execute(update(Food).where(Food.id == kept).values(restocked_at=utcnow()))
+        session.commit()
+    undone = ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert undone["result"] == "done"
+    assert _close(_restocked(kitchen, kept), older)

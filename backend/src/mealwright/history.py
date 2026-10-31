@@ -708,6 +708,12 @@ def undo_foods(
             now = current.get(collection, {}).get(key)
             if now == old:
                 continue  # already back the way it was
+            if collection == "fields" and key.endswith(":restocked_at") and now != new:
+                # Raised since (a restock kept by the tidy-up): it still goes back to the date
+                # before the merge, and isn't counted as something left alone (0.7 K1).
+                _restore_field(kitchen, key, old)
+                kitchen.db.flush()
+                continue
             if now != new or (
                 collection == "recipe_lines" and not _line_as_left(kitchen, key, new)
             ):

@@ -397,7 +397,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 A merged-away id returns the food it was merged into (different `id`, plus `"merged_from": {"id": 40, "name": "Drumsticks (moringa)"}`), so old links keep working.
 
-`restocked_at` (0.7 K1, on the list and the editor, read-only): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer date of the two on the ingredient that stays.
+`restocked_at` (0.7 K1, on the list and the editor, read-only): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back).
 
 **`POST /api/v1/foods`** → `201`
 
