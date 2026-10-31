@@ -140,18 +140,19 @@ _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNO
 _HOW_TO_TAIL = re.compile(
     r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
 )
-# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) a "Recipe"
-# bracket and "Recipe" just before a bracket ("Lemon Rice Recipe (Chitranna)"), then the end of
-# the name ("Classic Victoria sandwich recipe"); a dash separates only with spaces round it.
-# (2) Whose recipe it is stays: a
-# possessive with or without s ("Mum's Recipe", "Kids' Recipe"), and a short leftover that is
-# only my/our/your/his/her/their or such a word with "family", "secret" and the like ("My",
-# "Our Family"): the end label is put back. A longer name ("My Favourite Dal Recipe") loses it.
-# (3) The start: "Recipe for [a|an|the] ...", "Recipe: ...", "Recipe - ..." (first word), always.
-# "Recipe" stays inside a name ("The Recipe Tin lasagne", "My Recipe: Dal", "Recipe-tested
-# Chili"), before an apostrophe, and when nothing real is left.
+# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) the start,
+# always: "Recipe for [a|an|the] ...", "Recipe: ..." and "Recipe - ..." (a dash needs spaces round
+# it). (2) A "Recipe" bracket, a "Recipe" label just before a bracket ("Lemon Rice Recipe
+# (Chitranna)"), a bracket of puff words ("(Easy)"), then the end of the name ("Classic Victoria
+# sandwich recipe"); a dash separates only with spaces round it. (3) Whose recipe it is stays:
+# after a possessive with or without s, also past one quoted word ("Mum's Recipe", "Kids'
+# Recipe", "Grandma's \u201cSecret\u201d Recipe"), and a short leftover that is only
+# my/our/your/his/her/their or such a word with "family", "secret" and the like ("My", "Our
+# Family"): step 2 is undone, so "Recipe: My Recipe" is "My Recipe". A longer name loses its end
+# label ("My Favourite Dal Recipe"). "Recipe" stays inside a name ("The Recipe Tin lasagne", "My
+# Recipe: Dal", "Recipe-tested Chili"), before an apostrophe, and when nothing real is left.
 _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
-_RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[-\u2013\u2014]\s+|\s*\|)\s*(?=\S)", re.IGNORECASE)
+_RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[-\u2013\u2014]\s+)\s*(?=\S)", re.IGNORECASE)
 _RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
 _POSSESSIVE_RECIPE = re.compile(
     r"[\'\u2019]s?\s+(?:[\"\u201c\u2018]\S+[\"\u201d\u2019]\s+)?recipe\s*!*\s*$", re.IGNORECASE
@@ -178,12 +179,9 @@ _BRACKET_PUFF = re.compile(
 )
 
 
-_END_RECIPE = re.compile(r"\b(recipe)\s*!*\s*$", re.IGNORECASE)
-
-
 def _short_owner(text: str) -> bool:
     """Only a pronoun, or a pronoun and one word like family or secret ("My", "Our Family")."""
-    left = [word.lower() for word in text.split()]
+    left = re.sub(r"^recipe[-\u2013\u2014]", "", text, flags=re.IGNORECASE).lower().split()
     return (
         bool(left)
         and left[0] in _PRONOUNS
@@ -202,19 +200,16 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _SITE_TAIL.sub("", found) or found
     cleaned = _HOW_TO.sub("", cleaned)
     cleaned = _HOW_TO_TAIL.sub("", cleaned) or cleaned
-    before = cleaned
+    cleaned = _RECIPE_FOR.sub("", cleaned)
+    cleaned = _RECIPE_LEAD.sub("", cleaned)
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
-    cleaned = _RECIPE_LABEL.sub("", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
+    before = cleaned
+    cleaned = _RECIPE_LABEL.sub("", cleaned)
     if not _POSSESSIVE_RECIPE.search(cleaned):
         cleaned = _RECIPE_TAIL.sub("", cleaned)
     if cleaned != before and _short_owner(cleaned):
         cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
-    cleaned = _RECIPE_FOR.sub("", cleaned)
-    cleaned = _RECIPE_LEAD.sub("", cleaned)
-    ended = _END_RECIPE.search(before)
-    if ended is not None and _short_owner(cleaned) and not _END_RECIPE.search(cleaned):
-        cleaned = f"{cleaned.rstrip()} {ended.group(1)}"  # "Recipe for My Recipe" is "My Recipe"
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     words = {word.strip("'\u2019.,!:;").lower() for word in cleaned.split()}
     if not any(c.isalpha() for c in cleaned) or words <= _NOTHING_LEFT:
