@@ -140,8 +140,16 @@ _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNO
 _HOW_TO_TAIL = re.compile(
     r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
 )
-# "Recipe" as a word of its own, anywhere left ("Lemon Rice Recipe (Chitranna)") (F91).
-_RECIPE_WORD = re.compile(r"\s*\brecipe\b[ \t]*", re.IGNORECASE)
+# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer): a leading "Recipe for"
+# with its little word ("Recipe for Banana Bread" is "Banana Bread"), a leading "Recipe:" and the
+# like, and "Recipe" just before a bracket, colon, dash or bar ("Lemon Rice Recipe (Chitranna)").
+# Never in the middle of a name ("The Recipe Tin lasagne"), before a comma ("Mum's Recipe,
+# Revisited"), after a possessive, or with an apostrophe after it ("Nan's recipe's best scones").
+_RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
+_RECIPE_LEAD = re.compile(r"^recipe\s*[:\u2013\u2014|-]\s*(?=\S)", re.IGNORECASE)
+_RECIPE_LABEL = re.compile(
+    r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[:|\u2013\u2014-])", re.IGNORECASE
+)
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
 _RECIPE_TAIL = re.compile(r"\s*(?:[-–—|:]\s*[^-–—|:]*)?\brecipe\s*!*\s*$", re.IGNORECASE)
 _BRACKET_PUFF = re.compile(
@@ -155,9 +163,9 @@ def clean_recipe_name(name: str) -> str:
     """A recipe's name without the site's search words: "Classic Victoria sandwich recipe" is
     "Classic Victoria sandwich"; "How to Make Butter Chicken (Authentic Indian Recipe)" is "Butter
     Chicken"; "Sambar Recipe, How to Make Sambar" is "Sambar" and "Lemon Rice Recipe (Chitranna)"
-    is "Lemon Rice (Chitranna)": "Recipe" as a word of its own and a "How to Make ..." part
-    go, "Classic" stays (F91). The user can still change it on Check. A name that would be empty
-    stays as it was."""
+    is "Lemon Rice (Chitranna)": "Recipe" where it is a label and a "How to Make ..." part go,
+    "Classic" stays (F91; `_RECIPE_LABEL` says where). The user can still change it on Check. A
+    name that would be empty stays as it was."""
     found = " ".join(name.split())
     cleaned = _SITE_TAIL.sub("", found) or found
     cleaned = _HOW_TO.sub("", cleaned)
@@ -165,8 +173,9 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
     cleaned = _RECIPE_TAIL.sub("", cleaned)
-    cleaned = _RECIPE_WORD.sub(" ", cleaned)
-    cleaned = " ".join(cleaned.split()).replace(" ,", ",")
+    cleaned = _RECIPE_FOR.sub("", cleaned)
+    cleaned = _RECIPE_LEAD.sub("", cleaned)
+    cleaned = _RECIPE_LABEL.sub("", cleaned)
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     if not any(c.isalpha() for c in cleaned):
         return found

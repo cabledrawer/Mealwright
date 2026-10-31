@@ -319,7 +319,17 @@ def test_f19_serving_headings() -> None:
         ("Butter chicken - the best curry recipe", "Butter chicken"),
         ("Butter Chicken (Authentic)", "Butter Chicken"),
         ("Recipe", "Recipe"),
-        ("Recipe book cake", "Book cake"),  # F91: "Recipe" as a word of its own goes anywhere
+        ("Recipe book cake", "Recipe book cake"),
+        # F91 (proposed, for cabledrawer): "Recipe" goes only where it is a label.
+        ("Recipe for Banana Bread", "Banana Bread"),
+        ("Recipe of the Day: Dal", "Recipe of the Day: Dal"),
+        ("Recipe for the best dal", "Best dal"),
+        ("Recipe: Banana Bread", "Banana Bread"),
+        ("Mum's Recipe, Revisited", "Mum's Recipe, Revisited"),
+        ("Mum's Recipe (Revisited)", "Mum's Recipe (Revisited)"),
+        ("Nan's recipe's best scones", "Nan's recipe's best scones"),
+        ("The Recipe Tin lasagne", "The Recipe Tin lasagne"),
+        ("Lasagne Recipe - Easy Dinner", "Lasagne - Easy Dinner"),
         ("Sambar Recipe, How to Make Sambar", "Sambar"),
         ("Lemon Rice Recipe (Chitranna)", "Lemon Rice (Chitranna)"),
         ("Classic Victoria sandwich", "Classic Victoria sandwich"),
