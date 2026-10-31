@@ -15,6 +15,7 @@ from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import aliased
 
+from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.household import meal_slots, today
@@ -495,6 +496,43 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
     return _finish(kitchen, "plan_tub", summary, steps)
 
 
+def eat_tub(kitchen: Kitchen, tub: Tub, quarters: int | None) -> Change:
+    """Eat from a tub (0.7 K2; spec "Stock", Tubs; "Cooking" point 7): a tub is used, not the
+    ingredients again. One whole tub by default (what is left of it); a quarter-step number says
+    "used ½". Whatever is left stays where it is, in its meal or place. Proposed, for cabledrawer:
+    an empty tub stays (0 left) for its Undo window like any other tub, and can't be eaten."""
+    if tub.amount_quarters <= 0:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "tub_eaten",
+            "That tub is all eaten.",  # proposed, for cabledrawer
+        )
+    used = tub.amount_quarters if quarters is None else quarters
+    if used < 1 or used > tub.amount_quarters:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "too_much",
+            f"There’s only {quarters_text(tub.amount_quarters)} of that tub left.",  # proposed
+        )
+    steps = [
+        {
+            "op": "tub_eat",
+            "tub": tub.id,
+            "from": tub.amount_quarters,
+            "to": tub.amount_quarters - used,
+        }
+    ]
+    tub.amount_quarters -= used
+    kitchen.db.flush()
+    name = tub_name(kitchen, tub)
+    summary = (
+        f"Ate {name}"
+        if tub.amount_quarters == 0 and quarters is None
+        else f"Ate {quarters_text(used)} of {name}"
+    )
+    return _finish(kitchen, "plan_tub", summary, steps)
+
+
 def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
     """Freeze a tub: it leaves its meal (back to tubs left, in the freezer) and gets a use-by
     the household's freezer life from today (as the pantry's To freezer does). Proposed, for
@@ -824,6 +862,13 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         db.flush()
         if batch is not None and step["count"] is not None:
             batch.tub_count = step["count"]
+        return True
+    if op == "tub_eat":
+        tub = _own(kitchen, Tub, step["tub"])
+        if tub is None or tub.amount_quarters != step["to"]:
+            return False  # eaten from again since: leave it
+        tub.amount_quarters = step["from"]
+        db.flush()
         return True
     if op == "tub":
         tub = _own(kitchen, Tub, step["tub"])

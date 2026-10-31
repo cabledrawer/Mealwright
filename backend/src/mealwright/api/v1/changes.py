@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import drafts, plan, recipes, shopping
+from mealwright import cooking, drafts, plan, recipes, shopping
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -58,6 +58,7 @@ STOCK_KINDS = (
     "use_by",
     "shopped",
     "repacked",
+    "cooked",
 )
 
 # Changes to ingredients, shown in Ingredients → Recent changes.
@@ -495,6 +496,8 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             undone = plan.undo(kitchen, change)
         else:
             undone = pantry_undo(kitchen, change, batch)
+            if change.kind == "cooked":
+                cooking.forget_record(kitchen, change)  # so it can be cooked again
         batch.finish()
         earlier = commit(kitchen)
         if earlier is None:

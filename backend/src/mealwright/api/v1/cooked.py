@@ -231,6 +231,7 @@ def _confirm(kitchen: Kitchen, response: Response, make: Callable[[], Change]) -
             "key_reused",
             "That change ID was already used for something else.",
         )
+    response.status_code = status.HTTP_200_OK
     response.headers["Idempotent-Replayed"] = "true"
     return _written(kitchen, earlier)
 

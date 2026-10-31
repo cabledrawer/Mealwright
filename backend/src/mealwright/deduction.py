@@ -347,10 +347,9 @@ def work_out(
         row.from_freezer = bool(choice and choice.from_freezer)
         own = pool.total(food.id, row.from_freezer)
         row.use_default = row.status in ("take", "ask") and own > 0
-        if choice is not None:
-            row.use = choice.use
-        else:
-            row.use = row.use_default
+        # A row nobody chose on is tried (it takes what there is, stand-ins too); its switch is
+        # settled below, once it is known whether anything could be taken.
+        row.use = choice.use if choice is not None else True
         row.wanted = row.needed
         if choice is not None and choice.used_milli is not None:
             row.wanted, row.entered = checked(choice.used_milli), "used"
@@ -360,7 +359,13 @@ def work_out(
                 raise _refuse("left_too_much", "That’s more than there is.")  # proposed
             row.wanted, row.entered = own - choice.left_milli, "left"
             row.entered_milli = choice.left_milli
-        if confirming and row.use and row.asked is not None and row.entered is None:
+        if (
+            confirming
+            and row.use
+            and row.asked is not None
+            and row.entered is None
+            and (choice is not None or row.use_default)
+        ):
             raise ask(kitchen, food, row.asked.kind)
         if row.wanted is None or row.wanted <= 0:
             continue
@@ -401,6 +406,8 @@ def work_out(
     for row in rows:
         if row.status in ("take", "none_in_pantry"):
             row.use_default = bool(row.takes)  # nothing to take (or only the freezer): off
+        if row.food is not None and row.status != "staple" and row.key not in choices:
+            row.use = row.use_default
     return Worked(recipe, portions, rows)
 
 

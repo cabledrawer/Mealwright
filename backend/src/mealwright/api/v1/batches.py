@@ -237,6 +237,29 @@ def edit_tub(
     )
 
 
+class EatIn(BaseModel):
+    quarters: Annotated[int, Field(ge=1, le=4)] | None = Field(
+        default=None,
+        description="How many quarters of a tub were eaten (2 is half). Left out: the whole of"
+        " what is left of it.",
+    )
+
+
+@router.post("/plan/tubs/{plan_tub_id}/eat")
+def eat_tub(
+    plan_tub_id: StoredInt, kitchen: Here, response: Response, body: EatIn | None = None
+) -> PlanWrite:
+    """Eat from a tub: the tub is used, never the ingredients it was made from. One whole tub
+    by default, or a number of quarters. What is left stays where it is. Undo gives it back."""
+    return _run(
+        kitchen,
+        response,
+        lambda: batches.eat_tub(
+            kitchen, batches.find_tub(kitchen, plan_tub_id), (body or EatIn()).quarters
+        ),
+    )
+
+
 @router.post("/plan/tubs/{plan_tub_id}/freezer")
 def tub_to_freezer(plan_tub_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """To freezer: the tub leaves its meal, goes in the freezer and gets a use-by the
