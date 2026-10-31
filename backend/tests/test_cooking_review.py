@@ -757,8 +757,10 @@ def test_a_use_off_row_offers_running_low_as_the_preview_does_when_a_stand_in_dr
     (none in the house) takes butter as its stand-in: 70 g is left, so the preview offers a pack,
     and so does a Confirm with butter's Use off."""
     butter, confirm = butter_and_ghee(kitchen, path, 220, 100)
+    shown = butter_preview(kitchen, confirm)
+    assert shown["running_low"] is True and shown["list_amount"]["amount"] == 100
     ok(confirm(use=False, add_to_list=True), 201)
-    assert len(_listed(kitchen, butter)) == 1
+    assert _listed(kitchen, butter) == [100_000]  # what the preview showed
     assert amounts(kitchen, butter) == [170_000]  # only the ghee's 50 g was taken
 
 
