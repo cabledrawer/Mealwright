@@ -695,20 +695,32 @@ describe('the recipe page', () => {
       await expect.element(page.getByRole('link', { name: 'Recipes' }).first()).toBeVisible();
     });
 
-    it('offline says it needs the server and points to Shopping', async () => {
+    it('the recipe already showing stays when the bar comes, without Edit (F80)', async () => {
       await open();
       await expect.element(page.getByRole('heading', { name: 'Sambar' })).toBeVisible();
       network.offline = true;
       network.deviceOffline = true;
+      flushSync();
+      await expect.element(page.getByRole('heading', { name: 'Sambar' })).toBeVisible();
+      expect(document.body.textContent).not.toMatch(/You’re offline/);
+      await expect
+        .element(page.getByRole('link', { name: 'Edit', exact: true }))
+        .not.toBeInTheDocument();
+    });
+
+    it('offline with no recipe yet says it needs the server and points to Shopping', async () => {
+      network.offline = true;
+      network.deviceOffline = true;
+      await open({}, STOCK, {
+        'GET /recipes/1': [502, ''],
+        'GET /recipes/1/stock': [502, '']
+      });
       await expect.element(page.getByText('You’re offline.')).toBeVisible();
       await expect
         .element(
           page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.')
         )
         .toBeVisible();
-      await expect
-        .element(page.getByRole('link', { name: 'Edit', exact: true }))
-        .not.toBeInTheDocument();
     });
 
     it('a recipe with only a name says nothing is written down yet', async () => {

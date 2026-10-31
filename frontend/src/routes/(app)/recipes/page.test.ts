@@ -310,17 +310,29 @@ describe('the All recipes page', () => {
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   });
 
-  it('offline: says it needs the server, and asks for nothing', async () => {
+  it('offline from the start, the list not loaded: says it needs the server', async () => {
     network.offline = true;
     network.deviceOffline = true;
-    open();
+    open({
+      'GET /recipes?limit=50': [502, ''],
+      'GET /recipes/tags': [502, '']
+    });
     await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
     await expect
       .element(
         page.getByText('Recipes needs your Mealwright server. Your shopping list works offline.')
       )
       .toBeVisible();
-    expect(requests.filter((r) => r.path.startsWith('/recipes'))).toHaveLength(0);
     expect(document.body.textContent).not.toContain('New recipe');
+  });
+
+  it('the list already showing stays when the bar comes (F80)', async () => {
+    open();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    network.offline = true;
+    network.deviceOffline = true;
+    flushSync();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Can’t reach|You’re offline\./);
   });
 });

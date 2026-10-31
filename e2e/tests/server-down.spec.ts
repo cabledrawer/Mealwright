@@ -82,3 +82,58 @@ for (const { name, path, notes, realTime: realTimePage } of PAGES) {
     await expect(note).toHaveCount(0);
   });
 }
+
+// F80 (0.7 alpha 1 hand test, cabledrawer 30 Oct): with a recipe open on the PC, about 20 seconds
+// after the server stopped, the open recipe was replaced by the "Can't reach" note, with no
+// typing and no reload. What is already on screen stays; the bar says the server is down.
+async function recipeStaysWhenServerStops(page: Page, withServiceWorker: boolean) {
+  const name = `Dosa ${Date.now().toString(36)}`;
+  const made = await page.request.fetch('/api/v1/recipes', {
+    method: 'POST',
+    data: { name, serves: 2, lines: [{ words: 'rice', amount: 200, unit: 'g' }] },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(made.status()).toBe(201);
+  const id = ((await made.json()) as { id: number }).id;
+  await page.goto(`/recipes/${id}`);
+  if (withServiceWorker) {
+    // The service worker controls the page (after a reload) before the server stops.
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    await page.reload();
+    await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
+  }
+  const reading = page.getByRole('region', { name: 'Recipe', exact: true });
+  await expect(reading.getByRole('heading', { level: 1, name })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recipe list' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  // The server stops: every call gets the proxy's empty 502. The page's time moves on past
+  // the bar's wait, several rounds of the online check and the live stream's retries.
+  await page.route('**/api/**', proxyGap);
+  // The live stream dropping makes the page ask its server whether it is there; the browser's
+  // own "online" word makes it ask the same way (a stream already open can't be dropped from
+  // here).
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 30; n++) await page.clock.runFor(1000);
+
+  // The one steady message is the bar; the recipe and the list stay where they were.
+  await expect(bar(page)).toBeVisible();
+  await expect(reading.getByRole('heading', { level: 1, name })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Recipe list' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
+}
+
+test('a recipe already open stays when the server stops, and the list beside it too', async ({ page }) => {
+  test.skip(isPhone(page), 'The list and the recipe are beside each other on a computer only.');
+  await recipeStaysWhenServerStops(page, false);
+});
+
+// The same with the service worker controlling the page, as on an installed app (Chromium only:
+// WebKit's page.route doesn't see requests once a service worker controls the page).
+test.describe('with the service worker', () => {
+  test.use({ serviceWorkers: 'allow' });
+  test('a recipe already open stays when the server stops (service worker on)', async ({ page, browserName }) => {
+    test.skip(isPhone(page) || browserName !== 'chromium', 'Computer layout, Chromium only.');
+    await recipeStaysWhenServerStops(page, true);
+  });
+});

@@ -171,7 +171,7 @@
     {/if}
   </div>
 
-  {#if network.offline || (!recipe && network.down)}
+  {#if !recipe && network.down}
     <!-- In the three panes the layout shows this note once, for both panes. -->
     {#if !panes}<OfflineNote screen="Recipes" />{/if}
   {:else if recipe}
