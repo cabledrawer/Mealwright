@@ -53,9 +53,9 @@ class SnapshotTake(BaseModel):
 
 
 class SnapshotChoice(BaseModel):
-    """One ingredient of the "Cooked it" review as it was confirmed (0.7 K2; cabledrawer 31 Oct:
-    "Per-ingredient choices in K2: OK"): what was worked out, what the person chose, and what was
-    taken. Amounts are thousandths of the ingredient's base unit (g, ml or items)."""
+    """One ingredient of the "Cooked it" review as it was confirmed (0.7 K2): what was worked
+    out, what the person chose, and what was taken. Amounts are thousandths of the ingredient's
+    base unit (g, ml or items)."""
 
     key: str  # "food:12", "recipe:7" (a recipe with no pantry ingredient) or "line:3"
     status: str  # the row's state when confirmed: take, none_in_pantry, staple, ask…

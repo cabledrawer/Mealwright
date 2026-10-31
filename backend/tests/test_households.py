@@ -238,6 +238,12 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     # What was cooked (0.7 K1). Also tried in test_cooked.py.
     ("GET", "/api/v1/plan/items/{plan_item_id}/cooked"): None,
     ("GET", "/api/v1/plan/batches/{plan_batch_id}/cooked"): None,
+    # "Cooked it" and eating a tub (0.7 K2). Also tried in test_cooking.py and test_tub_eating.py.
+    ("POST", "/api/v1/plan/items/{plan_item_id}/cook/preview"): {},
+    ("POST", "/api/v1/plan/items/{plan_item_id}/cook"): {},
+    ("POST", "/api/v1/plan/batches/{plan_batch_id}/cook/preview"): {},
+    ("POST", "/api/v1/plan/batches/{plan_batch_id}/cook"): {},
+    ("POST", "/api/v1/plan/tubs/{plan_tub_id}/eat"): None,
     # Today (0.6 PR 6). Also tried in test_today.py, in both directions.
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cooked"): {},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/didnt"): None,

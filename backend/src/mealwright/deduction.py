@@ -414,7 +414,7 @@ def work_out(
 # --- What the API shows -------------------------------------------------------------------------
 
 
-class LineOut(BaseModel):
+class RowLineOut(BaseModel):
     id: int
     words: str
 
@@ -442,7 +442,7 @@ class RowOut(BaseModel):
 
     key: str
     status: RowStatus
-    lines: list[LineOut]
+    lines: list[RowLineOut]
     food: Ref | None
     recipe: Ref | None  # a recipe used as an ingredient
     needed: AmountOut | None  # worked out for the portions cooked
@@ -495,7 +495,7 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
     return RowOut(
         key=row.key,
         status=row.status,
-        lines=[LineOut(id=line.id, words=line.words) for line in row.lines],
+        lines=[RowLineOut(id=line.id, words=line.words) for line in row.lines],
         food=Ref(id=food.id, name=food.name) if food else None,
         recipe=Ref(id=row.inner.id, name=row.inner.name) if row.inner else None,
         needed=amount_out(food, row.needed, None) if food and row.needed is not None else None,
