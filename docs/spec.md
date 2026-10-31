@@ -711,6 +711,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 - Batch cook: recipe, cook date, tub count, spread pattern, prep note, batch colour.
 - Tub: batch, amount in quarters, place or meal, member, use-by.
 - Cooked record: snapshot of the recipe as cooked, per-ingredient choices, stock changes.
+  - **Cooked record, decided (cabledrawer 31 Oct, after the K1 review).** One record per meal item or batch cook (finer than one per meal): "One record per item: OK." The snapshot keeps the recipe's own amounts with the portions cooked, and each line's size (name and amount) as it was. Per-ingredient choices go into the snapshot in K2, with no database change: "Per-ingredient choices in K2: OK." **The cooked record is never lost:** "K3 refuses taking a cooked batch off the plan ("This was cooked on … Undo 'Cooked it' first"); the cooked record is never lost." A cooked meal item already can't be taken off.
 
 **Shopping**
 
