@@ -428,22 +428,21 @@ async function goOffline(page: Page, context: BrowserContext, path: string, sear
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 }
 
-test('server down after the panes loaded: both stay as they were, with the bar, and the search is kept', async ({ page, context }) => {
+test('server down after the panes loaded: the open recipe stays, with the bar', async ({ page, context }) => {
   const tag = `Offline ${stamp()}`;
   const [one] = await manyNamed(page, tag, 1);
   await goOffline(page, context, `/recipes/${one!.id}`, tag);
   await expect(page.getByTestId('connection-desktop')).toBeVisible({ timeout: 15_000 });
-  // What was showing stays (F80): no note, the search and the open recipe still there.
+  // What was showing stays (F80): no note, the open recipe still there. The list beside it may
+  // show the note instead (cabledrawer 31 Oct), so nothing here expects it.
   await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
-  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(tag);
   await expect(reading(page).getByRole('heading', { name: one!.name, level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await checkPage(page);
-  // Back online: the bar goes, and the panes are as they were left.
+  // Back online: the bar goes, and the open recipe is as it was left.
   await context.unroute('**/api/**');
   await page.getByRole('button', { name: 'Try now' }).first().click();
   await expect(page.getByTestId('connection-desktop')).toBeHidden({ timeout: 15_000 });
-  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(tag);
   await expect(reading(page).getByRole('heading', { name: one!.name, level: 1 })).toBeVisible();
 });
 

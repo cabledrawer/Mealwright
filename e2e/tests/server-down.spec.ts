@@ -116,14 +116,13 @@ async function recipeStaysWhenServerStops(page: Page, withServiceWorker: boolean
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   for (let n = 0; n < 30; n++) await page.clock.runFor(1000);
 
-  // The one steady message is the bar; the recipe and the list stay where they were.
+  // The one steady message is the bar; the open recipe stays where it was (cabledrawer 31 Oct: the list beside it may show the note).
   await expect(bar(page)).toBeVisible();
   await expect(reading.getByRole('heading', { level: 1, name })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Recipe list' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
 }
 
-test('a recipe already open stays when the server stops, and the list beside it too', async ({ page }) => {
+test('a recipe already open stays when the server stops', async ({ page }) => {
   test.skip(isPhone(page), 'The list and the recipe are beside each other on a computer only.');
   await recipeStaysWhenServerStops(page, false);
 });
@@ -169,11 +168,9 @@ test("a page whose code can't be fetched shows the Can't reach note with the men
   await expect(page.getByRole('link', { name: 'Shopping' }).first()).toBeVisible();
 });
 
-// F80 on every screen that shows a list or settings (spec: what is already showing stays): once
+// F80 on Settings (cabledrawer 31 Oct: Recipes, Ingredients and Pantry may show the note instead): once
 // loaded, the screen stays when the server stops, and what needs the server is greyed out.
 for (const screen of [
-  { name: 'Ingredients', path: '/recipes/ingredients', shows: /All ingredients/ },
-  { name: 'Pantry', path: '/pantry', shows: /Pantry/ },
   { name: 'Settings', path: '/settings', shows: /Appearance/ },
 ] as const) {
   test(`${screen.name} already showing stays when the server stops`, async ({ page }) => {
@@ -186,9 +183,6 @@ for (const screen of [
     await expect(bar(page)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    if (screen.name === 'Ingredients') {
-      await expect(page.getByRole('region', { name: 'All ingredients' }).or(page.getByLabel('All ingredients'))).toBeVisible();
-    }
     if (screen.name === 'Settings') {
       await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /pints/i })).toBeDisabled();
