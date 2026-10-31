@@ -520,6 +520,24 @@ def test_and_between_two_seasonings_is_still_two_lines() -> None:
         assert [r.name for r in read_lines(text)] == names, text
 
 
+def test_freshly_ground_goes_to_the_note_only_for_pepper() -> None:
+    # C1 security round 3, L3: the rule is for "salt and freshly ground black pepper", not
+    # every ground spice or nut.
+    assert read_line("2 tsp freshly ground black pepper").name == "black pepper"
+    assert read_line("1 tsp freshly ground white pepper").name == "white pepper"
+    assert read_line("100 g freshly ground almonds").name == "ground almonds"
+    assert read_line("1 tsp freshly ground cumin").name == "ground cumin"
+
+
+def test_nested_brackets_keep_their_inner_words_in_the_matching_key() -> None:
+    # C1 security round 3, L2: the bracket pattern is linear, so only the inner bracket goes.
+    # The key is never stored; only foods named with nested brackets match differently.
+    from mealwright.names import normalise
+
+    assert normalise("Chilli (Kashmiri (dried))") == "chilli kashmiri"
+    assert normalise("Chilli (dried)") == "chilli"
+
+
 def test_only_cloves_and_sprigs_move_from_after_the_name() -> None:
     for text in ("4 chicken fillets", "6 bacon rasher", "3 celery stalks"):
         assert read_line(text).size_word is None, text

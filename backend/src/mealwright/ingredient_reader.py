@@ -750,7 +750,10 @@ def _cap(text: str, limit: int) -> str:
     return (cut or text[:limit]).rstrip(_EDGE_PUNCT)
 
 
-_FRESHLY_GROUND = re.compile(r"\bfreshly\s+ground\b", re.IGNORECASE)
+# Only before pepper (C1 security round 3): "freshly ground almonds" stay ground almonds.
+_FRESHLY_GROUND = re.compile(
+    r"\bfreshly\s+ground\b(?=\s+(?:black\s+|white\s+)?pepper)", re.IGNORECASE
+)
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)
 
 
