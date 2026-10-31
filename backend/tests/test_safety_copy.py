@@ -1,5 +1,6 @@
 """A safety copy of the database before every upgrade (cabledrawer 28 Oct, review of v0.6.0)."""
 
+import os
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -105,25 +106,76 @@ def test_only_the_newest_three_copies_stay_and_other_files_are_left_alone(
     assert _copies(backups) == sorted([*older[1:], new, *others])
 
 
-def test_a_failing_upgrade_trims_no_copies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A start-up that fails on a migration, again and again, keeps every copy: the last
-    good one is never trimmed away."""
+def _broken(*_args: object) -> None:
+    raise RuntimeError("a migration failed")
+
+
+def test_a_failing_upgrade_makes_one_copy_and_trims_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A start-up that fails on a migration, again and again, copies the database once (the
+    clean copy, from before the first try) and trims nothing."""
     backups = tmp_path / "backups"
     backups.mkdir()
     older = [f"pre-upgrade-d7a4c2e81f56-202610{day}-090000.db" for day in (24, 25, 26)]
     for name in older:
         (backups / name).write_bytes(b"old")
     engine = _old_database(tmp_path / "mealwright.db")
-
-    def broken(*_args: object) -> None:
-        raise RuntimeError("a migration failed")
-
-    monkeypatch.setattr(migrate, "_run", broken)
+    monkeypatch.setattr(migrate, "_run", _broken)
     for _start in range(2):
         with pytest.raises(RuntimeError):
             migrate.upgrade(engine, backups=backups)
-    assert set(older) <= set(_copies(backups))
-    assert len(_copies(backups)) > len(older)  # and the copies the two starts made
+    [clean] = [n for n in _copies(backups) if n not in older and n != migrate.UPGRADE_FAILED]
+    assert _copies(backups) == sorted([*older, clean, migrate.UPGRADE_FAILED])
+    assert (backups / migrate.UPGRADE_FAILED).read_text().strip() == clean
+
+
+def test_the_clean_copy_outlives_the_trim_once_the_upgrade_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    backups = tmp_path / "backups"
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate, "_run", _broken)
+    with pytest.raises(RuntimeError):
+        migrate.upgrade(engine, backups=backups)
+    [clean] = [n for n in _copies(backups) if n != migrate.UPGRADE_FAILED]
+    # Three newer copies turn up meanwhile (say, from a copy of the data folder).
+    newer = [f"pre-upgrade-d7a4c2e81f56-209910{day}-090000.db" for day in (24, 25, 26)]
+    for name in newer:
+        (backups / name).write_bytes(b"new")
+    monkeypatch.undo()
+    migrate.upgrade(engine, backups=backups)
+    assert migrate.current_revision(engine) == _head()
+    assert _copies(backups) == sorted([clean, *newer])  # and the marker is gone
+
+
+def test_the_tidy_up_failing_doesnt_fail_the_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def no_tidy(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError("read-only folder")
+
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate, "_keep_newest", no_tidy)
+    migrate.upgrade(engine, backups=tmp_path / "backups")
+    assert migrate.current_revision(engine) == _head()
+    assert "Couldn't tidy the safety copies" in caplog.text
+
+
+def test_the_half_written_copy_is_named_for_its_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[str] = []
+    real = sqlite3.connect
+
+    def spy(target: object, *args: object, **kwargs: object) -> sqlite3.Connection:
+        seen.append(str(target))
+        return real(target, *args, **kwargs)  # type: ignore[arg-type]
+
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate.sqlite3, "connect", spy)
+    migrate.safety_copy(engine, tmp_path / "backups")
+    assert any(name.endswith(f".{os.getpid()}.part") for name in seen)
 
 
 def test_if_the_copy_fails_nothing_is_upgraded(tmp_path: Path) -> None:

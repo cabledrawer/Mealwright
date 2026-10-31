@@ -1,6 +1,7 @@
 """Run database migrations from code (on start-up and in tests)."""
 
 import logging
+import os
 import re
 import sqlite3
 from collections.abc import Iterator
@@ -20,6 +21,12 @@ log = logging.getLogger(__name__)
 SAFETY_COPIES_KEPT = 3
 # pre-upgrade-<revision>-<UTC date and time>.db, e.g. pre-upgrade-c5f1b8d2a763-20261030-142501.db
 SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})\.db$")
+# Proposed, for cabledrawer (0.7 K1 review): while an upgrade hasn't yet worked, this file in the
+# backups folder names the clean copy made before it. A start-up that finds it makes no new
+# copy (on SQLite a failed migration can leave the database half-upgraded, so a new copy
+# could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
+# keeps failing, and not on the trim after it finally works.
+UPGRADE_FAILED = "upgrade-failed"
 
 
 def alembic_config() -> Config:
@@ -100,8 +107,9 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
         return None
     stamp = (now or datetime.now(UTC)).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
     target = backups / f"pre-upgrade-{revision}-{stamp}.db"
-    # Written under another name first, so a copy cut short never counts as one of the three.
-    partial = target.with_name(target.name + ".part")
+    # Written under another name first, so a copy cut short never counts as one of the three
+    # (with the process ID, so two Mealwrights started at once never write the same file).
+    partial = target.with_name(f"{target.name}.{os.getpid()}.part")
     try:
         backups.mkdir(parents=True, exist_ok=True)
         partial.unlink(missing_ok=True)
@@ -133,28 +141,65 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     return target
 
 
-def _keep_newest(backups: Path) -> None:
-    """Only the newest SAFETY_COPIES_KEPT copies stay; other files in the folder are never
-    touched."""
+def _keep_newest(backups: Path, also: str | None = None) -> None:
+    """Only the newest SAFETY_COPIES_KEPT copies stay, plus `also` (the clean copy from before
+    an upgrade that failed); other files in the folder are never touched."""
     copies = []
     for path in backups.iterdir():
         found = SAFETY_COPY_NAME.match(path.name)
-        if found and path.is_file():
+        if found and path.is_file() and path.name != also:
             copies.append((found.group(2), path.name, path))
     copies.sort(reverse=True)
     for _stamp, _name, path in copies[SAFETY_COPIES_KEPT:]:
         path.unlink(missing_ok=True)
 
 
+def _failed_before(backups: Path) -> str | None:
+    """The clean copy's name, if an earlier upgrade didn't work; else None."""
+    try:
+        return (backups / UPGRADE_FAILED).read_text(encoding="utf-8").strip() or None
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise SafetyCopyFailed(
+            f"Couldn't read {backups / UPGRADE_FAILED} ({error}). The database was not "
+            "changed. Check that the folder can be read, then start Mealwright again."
+        ) from error
+
+
 def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None) -> None:
     """Bring the database up to `revision`. With `backups` (on start-up), a safety copy is
-    made there first, and nothing is upgraded if it fails. Old copies are trimmed only after
-    the upgrade has worked: a start-up that keeps failing on a migration must never trim away
-    the last copy from before the trouble."""
-    copy = safety_copy(engine, backups) if backups is not None else None
+    made there first, and nothing is upgraded if it fails. While an upgrade keeps failing,
+    no new copy is made and nothing is trimmed (see UPGRADE_FAILED); once it works, old
+    copies are trimmed, keeping the clean one from before the trouble."""
+    if backups is None:
+        _run(engine, "upgrade", revision)
+        return
+    clean = _failed_before(backups)
+    kept_aside = clean  # only a copy from before an earlier failure is kept beyond the three
+    if clean is None:
+        copy = safety_copy(engine, backups)
+        if copy is not None:
+            clean = copy.name
+            try:
+                (backups / UPGRADE_FAILED).write_text(clean + "\n", encoding="utf-8")
+            except OSError as error:
+                raise SafetyCopyFailed(
+                    f"Couldn't write {backups / UPGRADE_FAILED} ({error}). The database was "
+                    "not changed. Check that the folder can be written and the disk isn't "
+                    "full, then start Mealwright again."
+                ) from error
+    else:
+        log.warning("An earlier upgrade didn't work; the safety copy from before it: %s", clean)
     _run(engine, "upgrade", revision)
-    if copy is not None:
-        _keep_newest(copy.parent)
+    if clean is None:
+        return
+    # The upgrade worked: tidying up after it never stops Mealwright starting.
+    try:
+        (backups / UPGRADE_FAILED).unlink(missing_ok=True)
+        _keep_newest(backups, also=kept_aside)
+    except OSError as error:
+        log.warning("Couldn't tidy the safety copies in %s: %s", backups, error)
 
 
 def downgrade(engine: Engine, revision: str) -> None:
