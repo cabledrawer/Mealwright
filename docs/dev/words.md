@@ -558,3 +558,14 @@ From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cab
 - **Remove line (F105; the button is cabledrawer's word, the toast proposed, for cabledrawer):** the button **Remove line** on each ingredient line (screen readers: **Remove line: 1 cup basmati rice**); the toast **Removed “1 cup basmati rice”** with Undo, then **Undone: Removed “1 cup basmati rice”**. A long line is cut at 40 characters with “…”.
 - **Split into two (F109; button cabledrawer's, the rest proposed, for cabledrawer):** the button **Split into two** on each ingredient line (screen readers: **Split into two: 4 1/2 cups water and broth**); **First ingredient** · **Second ingredient** · **Split** · **Cancel**; the hint **Each gets no amount: “4½ cups together” goes in its note.** (**Two lines, one for each.** when the line has no amount); the error **Type two different names.**; the toast **Split “4 1/2 cups water and broth” into two** with Undo. The note the reader writes on each of the two lines: **4½ cups together** (a no-break space between the number and the unit; one cup is “1 cup”, “2 cans”, “100 g”).
 - **Made in this recipe (F108; the choice's name is cabledrawer's, the rest proposed, for cabledrawer):** the button **Made in this recipe** on a line that needs a choice (first, filled, when the note says “from the …” or the name is a section heading of the recipe; otherwise between Pick an ingredient and Treat as staple); on the settled line **Made in this recipe:** before the name, the right-hand label **Made here**, and the hint **Made in this recipe: saved as words only, never taken from your pantry.** with Change.
+
+## 27. "Cooked it" deductions: API messages (0.7 K2; proposed, for cabledrawer)
+
+These are the sentences the server sends back (`detail`); the review screen in K3 shows them or words of its own. The ask-once questions are the existing ones (section 7).
+
+- Cooked change in Recent changes: **Cooked Sambar (2 portions)** · **Cooked Sambar (1 portion)**.
+- Cooked already: **This was already cooked on Mon 2 Nov. Undo “Cooked it” first.**
+- A batch's own meal: **This meal is cooked once for several. Cook the batch instead.**
+- A recipe that is gone: **Only a recipe that is still there can be cooked.**
+- A choice for an ingredient that isn't in the recipe: **That ingredient isn’t in this recipe.** · chosen twice: **An ingredient can be chosen only once.** · an amount for a row with no ingredient: **There’s no ingredient to take that from.** · for a staple: **Staples aren’t counted, so nothing is taken.** · more left than there is: **That’s more than there is.**
+- Eating a tub: **Ate Sambar tub** · **Ate ½ of Sambar tub** · **That tub is all eaten.** · **There’s only ¾ of that tub left.**
