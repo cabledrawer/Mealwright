@@ -12,10 +12,11 @@
 // with one that stores the change in IndexedDB and sends it when the server can be
 // reached; callers of save() won't change.
 
-import { ApiError, worthRetrying } from './api';
+import { ApiError, cantReachWords, worthRetrying } from './api';
 import { askOnce } from './askOnce.svelte';
 import { newChangeId } from './changeId';
 import type { Answer, Ask } from './client/types';
+import { blockedWhileDown } from './serverNeeded';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
@@ -87,6 +88,16 @@ function askOf(error: unknown): Ask | null {
  * Pass `changeId` only to retry a change that was already sent once.
  */
 export function save<T>(change: Change<T>, changeId: string = newChangeId()): Promise<Outcome<T>> {
+  // A menu or sheet that was already open when the server stopped answering: nothing is shown,
+  // sent or remembered for Undo. The usual words say why, and the caller gets a quiet
+  // "cancelled" (status 0 is "can't reach", so no second "Couldn't save" toast follows).
+  if (blockedWhileDown()) {
+    return Promise.resolve({
+      ok: false,
+      error: new ApiError(0, cantReachWords()),
+      cancelled: true
+    });
+  }
   // eslint-disable-next-line prefer-const -- the Undo entry reads it later
   let outcome: Promise<Outcome<T>>;
   let entry: UndoEntry | undefined;

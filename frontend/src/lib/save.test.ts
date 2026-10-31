@@ -3,6 +3,7 @@ import { ApiError } from './api';
 import { COULDNT_SAVE, save, useSender, worthRetrying, type Change } from './save';
 import { askOnce } from './askOnce.svelte';
 import type { Ask } from './client/types';
+import { network } from './network.svelte';
 import { toasts } from './toast.svelte';
 import { undoHistory } from './undo.svelte';
 
@@ -305,5 +306,39 @@ describe('nothing changed', () => {
     await save(change);
     expect(undoHistory.size).toBe(0);
     expect(toasts.current).toBeNull();
+  });
+});
+
+describe('save() while the server can’t be reached (F80 review)', () => {
+  afterEach(() => network.reset());
+
+  it('shows nothing, sends nothing, remembers no Undo, and says why once', async () => {
+    network.offline = true;
+    const state = { place: 'Fridge' };
+    const send = vi.fn().mockResolvedValue('ok');
+    const apply = vi.fn();
+    const outcome = await save({
+      ...placeChange(state, 'Freezer', send, true),
+      apply
+    });
+    expect(apply).not.toHaveBeenCalled();
+    expect(state.place).toBe('Fridge');
+    expect(send).not.toHaveBeenCalled();
+    expect(undoHistory.size).toBe(0);
+    expect(toasts.current?.message).toMatch(/^Can’t reach your Mealwright server/);
+    expect(toasts.current?.message).not.toBe(COULDNT_SAVE);
+    expect(outcome).toMatchObject({ ok: false, cancelled: true });
+    expect(!outcome.ok && outcome.error).toMatchObject({ status: 0 });
+  });
+
+  it('saves as usual once the server answers again', async () => {
+    network.offline = true;
+    const state = { place: 'Fridge' };
+    await save(placeChange(state, 'Freezer', vi.fn()));
+    network.reset();
+    toasts.dismiss();
+    const outcome = await save(placeChange(state, 'Freezer', vi.fn().mockResolvedValue('ok')));
+    expect(outcome.ok).toBe(true);
+    expect(state.place).toBe('Freezer');
   });
 });

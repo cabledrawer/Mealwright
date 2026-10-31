@@ -324,3 +324,61 @@ test('Shopping: a tick’s Undo still works while the server is down (it is queu
   await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
 });
+
+/** The server stops (every call answers 502) and the bar shows. */
+async function serverStops(page: Page) {
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+}
+
+const CANT_REACH = 'Can’t reach your Mealwright server. Check your connection.';
+
+// Things already open when the server drops (A2 last round): the guard under the greyed buttons.
+test('Pantry: a packet menu already open when the server stops sends nothing when Used is tapped', async ({ page }) => {
+  const places = (await (await page.request.get('/api/v1/places')).json()) as { id: number; name: string }[];
+  const name = `Moong ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
+  const { food } = await post(page, '/foods', { name, place_id: places[0]!.id });
+  await post(page, `/foods/${food.id}/sizes`, { name: 'pack', amount: 200 });
+  await post(page, '/stock', { food_id: food.id, amount: { amount: 1, unit: 'pack' }, place_id: places[0]!.id });
+  await page.goto('/pantry');
+  await page.getByRole('searchbox', { name: isPhone(page) ? 'Search pantry' : 'Find in pantry' }).fill(name);
+  await expect(page.getByRole('list', { name: 'Found in the pantry' })).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  await page.getByRole('list', { name: `Packets of ${name}` }).getByRole('button').first().click();
+  const menu = page.getByRole('dialog');
+  await expect(menu.getByRole('button', { name: 'Used', exact: true })).toBeVisible();
+
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/api/')) sent.push(`${r.method()} ${r.url()}`);
+  });
+  await serverStops(page);
+  await menu.getByRole('button', { name: 'Used', exact: true }).click();
+  await expect(page.getByText(CANT_REACH).last()).toBeVisible();
+  expect(sent).toEqual([]);
+  await expect(page.getByText('Couldn’t save. Try again.')).toHaveCount(0);
+});
+
+test('Ingredients: the rename box already open when the server stops sends nothing', async ({ page }) => {
+  test.skip(isPhone(page), 'Computer layout');
+  const name = `Barley ${Date.now()}`;
+  await post(page, '/foods', { name, counted_as: 'weight' });
+  await page.goto('/recipes/ingredients');
+  await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(name);
+  await page.locator('button.row', { hasText: name }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+  const box = page.getByRole('textbox', { name: 'Name' });
+  await box.fill(`${name} pearl`);
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/api/')) sent.push(`${r.method()} ${r.url()}`);
+  });
+  await serverStops(page);
+  await box.press('Enter');
+  await expect(page.getByText(CANT_REACH).last()).toBeVisible();
+  expect(sent).toEqual([]);
+  await expect(page.getByText('Couldn’t save. Try again.')).toHaveCount(0);
+});
