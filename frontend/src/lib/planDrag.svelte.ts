@@ -7,6 +7,7 @@
 // Whatever can be dragged can also be moved with the keyboard: the click / Enter menu
 // (PlanSheet) does everything a drag does.
 
+import { blockedWhileDown } from './serverNeeded';
 import type { DropMode } from './client/plan';
 
 /** What is being carried, and what happens when it is let go. */
@@ -88,7 +89,8 @@ class Drag {
   finish(): void {
     const { carried, over } = this;
     this.cancel();
-    if (carried && over) carried.drop(over.day, over.slot, over.mode);
+    // Picked up while the server answered, dropped after it stopped: nothing is sent.
+    if (carried && over && !blockedWhileDown()) carried.drop(over.day, over.slot, over.mode);
   }
 
   cancel(): void {
