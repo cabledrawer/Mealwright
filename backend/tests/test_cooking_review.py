@@ -620,7 +620,7 @@ def test_the_undos_sync_log_row_says_what_it_undoes(kitchen: TestClient) -> None
 
 
 def two_recipes_one_food(
-    client: TestClient, in_stock: int, need: tuple[int, int]
+    client: TestClient, in_stock: int, need: tuple[int, ...]
 ) -> tuple[int, int]:
     from test_plan import slot_ids
 
@@ -632,7 +632,8 @@ def two_recipes_one_food(
         )
     )
     meal = 0
-    for name, grams in zip(("Zorba sambar", "Zorba rasam"), need, strict=True):
+    names = ("Zorba sambar", "Zorba rasam", "Zorba kootu")[: len(need)]
+    for name, grams in zip(names, need, strict=True):
         recipe = make(client, name, serves=4, lines=[line(dal["id"], grams, "g")])
         planned = ok(
             client.post(
@@ -917,6 +918,29 @@ def test_a_ticked_pack_on_a_later_row_wins_over_an_off_rows_unticked_one(
     key = f"food:{food_id}"
     on = {"use": True, "add_to_list": True, **rasam}
     body = _meal_choices(shown, key, {"use": False}, on)
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert amounts(kitchen, food_id) == [50_000]
+    assert _listed(kitchen, food_id) == [300_000]
+
+
+def test_a_typed_amount_never_makes_a_later_off_row_short(kitchen: TestClient) -> None:
+    """Dal 400 g, low at 300 g; sambar 100 g, rasam 250 g, kootu 1 g: the preview shows nothing
+    short and the pack on sambar. Sambar off with its pack ticked, rasam "used 350 g", kootu off:
+    kootu is offered what the preview showed (not short), so sambar's ticked pack is listed."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 250, 1))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    picked = [
+        {"use": False, "add_to_list": True},
+        {"use": True, "used": {"amount": 350, "unit": "g"}},
+        {"use": False},
+    ]
+    body = {
+        "items": [
+            {"item_id": item["item_id"], "choices": [{"key": key, **choice}]}
+            for item, choice in zip(shown["items"], picked, strict=True)
+        ]
+    }
     ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
     assert amounts(kitchen, food_id) == [50_000]
     assert _listed(kitchen, food_id) == [300_000]

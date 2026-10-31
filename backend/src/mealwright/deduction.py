@@ -25,7 +25,7 @@ rounded; stand-ins are used in id order and only when they are counted the same 
 """
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Literal
@@ -345,7 +345,6 @@ def work_out(
     answers: list[Answer] | None = None,
     choices: dict[str, Choice] | None = None,
     pool: Pool | None = None,
-    preview_of_off_rows: bool = False,
 ) -> Worked:
     """What cooking `portions` of the recipe takes from the pantry. Read-only. With `choices`
     (a confirm) the rows follow them, and a row that still needs its question answered is
@@ -405,7 +404,6 @@ def work_out(
         if (
             confirming
             and row.use
-            and not preview_of_off_rows
             and row.asked is not None
             and row.entered is None
             and (choice is not None or row.use_default)
@@ -508,62 +506,38 @@ def off_rows(worked: list[Worked], choices: list[dict[str, Choice]]) -> list[Row
     ]
 
 
-def _as_used(choice: Choice, each: Worked, key: str) -> Choice:
-    """A "left" answer becomes what the real run took, so the second work-out (whose pool an
-    earlier Use-off row may have drawn down) never refuses a Confirm the real run accepted."""
-    if choice.left_milli is None:
-        return choice
-    row = next(row for row in each.rows if row.key == key)
-    return replace(choice, used_milli=row.wanted, left_milli=None)
-
-
 def offer_as_previewed(
     kitchen: Kitchen,
     entries: list[tuple[Recipe, int, dict[str, Choice]]],
     worked: list[Worked],
     answers: list[Answer] | None = None,
 ) -> None:
-    """A row with Use off is offered what the preview would show with the person's other choices
-    (their typed amounts and freezer ticks; the preview endpoints send none): every recipe worked
-    out once more on one fresh pool with every Use on, as the meal preview does, and settled as
-    a meal. Nothing is taken. Only the offer's fields are copied onto the off rows."""
-    off = off_rows(worked, [choices for _, _, choices in entries])
+    """A row with Use off is offered what the preview showed: every recipe worked out once more
+    as the preview does (one fresh pool, no choices: the preview endpoints take none) and settled
+    as a meal. Nothing is taken. Only the offer's fields are copied onto the off rows, with the
+    person's own tick on the offer."""
+    choices = [picked for _, _, picked in entries]
+    off = off_rows(worked, choices)
     if not off:
         return
     off_ids = {id(row) for row in off}
     pool = Pool(kitchen)
     shown = [
-        work_out(
-            kitchen,
-            recipe,
-            portions,
-            answers,
-            {
-                key: _as_used(replace(choice, use=True), each, key)
-                for key, choice in choices.items()
-            },
-            pool,
-            preview_of_off_rows=True,
-        )
-        for (recipe, portions, choices), each in zip(entries, worked, strict=True)
+        work_out(kitchen, recipe, portions, answers, None, pool) for recipe, portions, _ in entries
     ]
+    settle_meal(shown)
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}
-    # An off row, and a Use-on row with nothing typed, are short as the preview showed them; a
-    # row with a typed amount is short as it really is (here its typed amount could be drawn
-    # from stock the off rows took first).
-    rows_as_they_are = [
-        by_key[(i, row.key)] if id(row) in off_ids or row.entered is None else row
-        for i, each in enumerate(worked)
-        for row in each.rows
-    ]
-    settle_meal(shown, _short_foods(rows_as_they_are))
-    for i, each in enumerate(worked):
+    for i, (each, picked) in enumerate(zip(worked, choices, strict=True)):
         for row in each.rows:
-            if id(row) in off_ids:
-                seen = by_key[(i, row.key)]
-                row.short, row.status, row.make_first = seen.short, seen.status, seen.make_first
-                row.in_freezer, row.list_milli = seen.in_freezer, seen.list_milli
-                row.running_low, row.add_to_list = seen.running_low, seen.add_to_list
+            if id(row) not in off_ids:
+                continue
+            seen = by_key[(i, row.key)]
+            row.short, row.status, row.make_first = seen.short, seen.status, seen.make_first
+            row.in_freezer, row.list_milli = seen.in_freezer, seen.list_milli
+            row.running_low, row.add_to_list = seen.running_low, seen.add_to_list
+            tick = picked[row.key].add_to_list
+            if row.list_milli > 0 and tick is not None:
+                row.add_to_list = tick
 
 
 def _short_foods(rows: Iterable[Row]) -> set[int]:
@@ -572,13 +546,11 @@ def _short_foods(rows: Iterable[Row]) -> set[int]:
     }
 
 
-def settle_meal(worked: list[Worked], short: set[int] | None = None) -> None:
+def settle_meal(worked: list[Worked]) -> None:
     """Across the recipes of one meal: an ingredient gets at most one running-low pack, and none
     when the same ingredient is already short somewhere in the meal (the shortfall is the bigger
-    offer). The pack the person ticked wins, else the first row's. `short`: the ingredients short
-    in the meal, when they aren't the ones these rows show."""
-    if short is None:
-        short = _short_foods(row for each in worked for row in each.rows)
+    offer). The pack the person ticked wins, else the first row's."""
+    short = _short_foods(row for each in worked for row in each.rows)
     packs = [
         (row.food.id, row)
         for each in worked
