@@ -701,40 +701,42 @@ describe('Import a recipe', () => {
 
     it('F93: the header counts follow every choice on the lines, and Change puts them back', async () => {
       const flow = await reviewing();
-      const counts = () => page.getByLabelText('What was found');
-      await expect.element(counts()).toHaveTextContent('1 matched');
-      await expect.element(counts()).toHaveTextContent('1 needs you');
+      const read = () =>
+        page.getByLabelText('What was found').element().textContent.replace(/\s+/g, ' ');
+      const shows = (words: string) => vi.waitFor(() => expect(read()).toContain(words));
+      await shows('1 matched');
+      await shows('1 needs you');
       expect(flow.unlinked).toBe(2);
       // Line 2 (needs you) and line 1 (to confirm): a new ingredient, then a staple.
       flow.newIngredient(2);
-      await expect.element(counts()).toHaveTextContent('0 need you');
-      await expect.element(counts()).toHaveTextContent('1 to confirm');
-      await expect.element(counts()).toHaveTextContent('2 matched');
+      await shows('0 need you');
+      await shows('1 to confirm');
+      await shows('2 matched');
       flow.newIngredient(1, true);
-      await expect.element(counts()).toHaveTextContent('0 to confirm');
-      await expect.element(counts()).toHaveTextContent('1 staple');
-      await expect.element(counts()).toHaveTextContent('2 matched');
+      await shows('0 to confirm');
+      await shows('1 staple');
+      await shows('2 matched');
       expect(flow.unlinked).toBe(0);
       // Pick an existing one on a line, then take each choice back.
       flow.unchoose(1);
       flow.sameAs(1, { id: 2, name: 'Onions' });
-      await expect.element(counts()).toHaveTextContent('3 matched');
+      await shows('3 matched');
       flow.unchoose(1);
       flow.unchoose(2);
-      await expect.element(counts()).toHaveTextContent('1 matched');
-      await expect.element(counts()).toHaveTextContent('1 to confirm');
-      await expect.element(counts()).toHaveTextContent('1 needs you');
-      await expect.element(counts()).toHaveTextContent('0 staples');
+      await shows('1 matched');
+      await shows('1 to confirm');
+      await shows('1 needs you');
+      await shows('0 staples');
       // The tick in the New ingredient form makes the same line a staple, and back.
       flow.newIngredient(2);
       flow.setStaple(2, true);
-      await expect.element(counts()).toHaveTextContent('1 staple');
+      await shows('1 staple');
       flow.setStaple(2, false);
-      await expect.element(counts()).toHaveTextContent('0 staples');
+      await shows('0 staples');
       flow.unchoose(2);
       // An amount edit changes no status.
       flow.editLine(2, { amount: 2, amount_text: '2' });
-      await expect.element(counts()).toHaveTextContent('1 needs you');
+      await shows('1 needs you');
     });
 
     it('F92: Discard deletes the review’s waiting photo at once; a draft’s photo stays', async () => {

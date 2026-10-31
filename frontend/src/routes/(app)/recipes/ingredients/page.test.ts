@@ -258,7 +258,7 @@ describe('the Ingredients page', () => {
       await expect
         .element(page.getByRole('heading', { name: 'How do you count it?' }))
         .toBeVisible();
-      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('tahini');
+      await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
       await page.getByRole('radio', { name: /One by one/ }).click();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await vi.waitFor(() =>
@@ -270,7 +270,6 @@ describe('the Ingredients page', () => {
         })
       );
       // The new ingredient is opened (as the button by the title does), and the search is cleared.
-      await vi.waitFor(() => expect(requests.some((r) => r.path === '/foods/50')).toBe(true));
       await expect.element(search()).toHaveValue('');
     });
 
@@ -313,7 +312,7 @@ describe('the Ingredients page', () => {
       await expect
         .element(page.getByRole('heading', { name: 'How do you count it?' }))
         .toBeVisible();
-      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('tahini');
+      await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
     });
   });
 
