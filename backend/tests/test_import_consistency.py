@@ -319,7 +319,14 @@ def test_f19_serving_headings() -> None:
         ("Butter chicken - the best curry recipe", "Butter chicken"),
         ("Butter Chicken (Authentic)", "Butter Chicken"),
         ("Recipe", "Recipe"),
-        ("Recipe book cake", "Recipe book cake"),
+        ("Recipe book cake", "Book cake"),  # F91: "Recipe" as a word of its own goes anywhere
+        ("Sambar Recipe, How to Make Sambar", "Sambar"),
+        ("Lemon Rice Recipe (Chitranna)", "Lemon Rice (Chitranna)"),
+        ("Classic Victoria sandwich", "Classic Victoria sandwich"),
+        ("Classic Lemon Rice Recipe: How to Make It", "Classic Lemon Rice"),
+        ("Dal recipe - how to cook dal", "Dal"),
+        ("Recipes for two", "Recipes for two"),
+        ("Unrecipe cake", "Unrecipe cake"),
         ("Banana bread", "Banana bread"),
     ],
 )

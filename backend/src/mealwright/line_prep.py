@@ -136,6 +136,12 @@ _SITE_TAIL = re.compile(
     re.IGNORECASE,
 )
 _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNORECASE)
+# A "How to Make X" part after the name: "Sambar Recipe, How to Make Sambar" (F91).
+_HOW_TO_TAIL = re.compile(
+    r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
+)
+# "Recipe" as a word of its own, anywhere left ("Lemon Rice Recipe (Chitranna)") (F91).
+_RECIPE_WORD = re.compile(r"\s*\brecipe\b[ \t]*", re.IGNORECASE)
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
 _RECIPE_TAIL = re.compile(r"\s*(?:[-–—|:]\s*[^-–—|:]*)?\brecipe\s*!*\s*$", re.IGNORECASE)
 _BRACKET_PUFF = re.compile(
@@ -148,13 +154,19 @@ _BRACKET_PUFF = re.compile(
 def clean_recipe_name(name: str) -> str:
     """A recipe's name without the site's search words: "Classic Victoria sandwich recipe" is
     "Classic Victoria sandwich"; "How to Make Butter Chicken (Authentic Indian Recipe)" is "Butter
-    Chicken". The user can still change it on Check. A name that would be empty stays as it was."""
+    Chicken"; "Sambar Recipe, How to Make Sambar" is "Sambar" and "Lemon Rice Recipe (Chitranna)"
+    is "Lemon Rice (Chitranna)": "Recipe" as a word of its own and a "How to Make ..." part
+    go, "Classic" stays (F91). The user can still change it on Check. A name that would be empty
+    stays as it was."""
     found = " ".join(name.split())
     cleaned = _SITE_TAIL.sub("", found) or found
     cleaned = _HOW_TO.sub("", cleaned)
+    cleaned = _HOW_TO_TAIL.sub("", cleaned) or cleaned
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
     cleaned = _RECIPE_TAIL.sub("", cleaned)
+    cleaned = _RECIPE_WORD.sub(" ", cleaned)
+    cleaned = " ".join(cleaned.split()).replace(" ,", ",")
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     if not any(c.isalpha() for c in cleaned):
         return found

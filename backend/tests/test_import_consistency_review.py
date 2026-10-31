@@ -168,6 +168,26 @@ def test_the_recipe_name_and_tags_are_tidied(links_on: TestClient, web: Web) -> 
     assert shown["tags"] == ["Dinner", "Main"]
 
 
+def test_f91_every_source_of_a_name_is_tidied_the_same(links_on: TestClient, web: Web) -> None:
+    """F91: JSON-LD, microdata, the page title and pasted text all go through one tidy."""
+    url = "https://bananaleaf.example/lemon/"
+    web.pages[url] = (
+        '<html><script type="application/ld+json">{"@type":"Recipe",'
+        '"name":"Lemon Rice Recipe (Chitranna)","recipeIngredient":["1 onion"],'
+        '"recipeInstructions":["Cook."]}</script></html>'
+    )
+    assert review(links_on, url)["name"] == "Lemon Rice (Chitranna)"
+    web.pages[url] = (
+        '<html><body itemscope itemtype="https://schema.org/Recipe">'
+        '<h1 itemprop="name">Sambar Recipe, How to Make Sambar</h1>'
+        '<span itemprop="recipeIngredient">1 onion</span>'
+        '<div itemprop="recipeInstructions">Cook.</div></body></html>'
+    )
+    assert review(links_on, url, again=True)["name"] == "Sambar"
+    pasted = "Sambar Recipe, How to Make Sambar\nIngredients\n1 onion\nMethod\n1. Cook.\n"
+    assert review(links_on, pasted)["name"] == "Sambar"
+
+
 def test_cuts_into_slices_fills_serves(links_on: TestClient, web: Web) -> None:
     url = "https://bananaleaf.example/cake/"
     web.pages[url] = (
