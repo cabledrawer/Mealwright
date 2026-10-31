@@ -172,7 +172,9 @@ def test_enough_left_is_not_running_low_and_a_small_pack_is_what_is_offered(
 # --- 4a. A whole meal ----
 
 
-def a_meal(kitchen: TestClient, in_stock: int) -> tuple[dict[str, Any], int, list[int]]:
+def a_meal(
+    kitchen: TestClient, in_stock: int, household_id: int = 1
+) -> tuple[dict[str, Any], int, list[int]]:
     dal = food(kitchen, "Zorba dal")
     if in_stock:
         stock(kitchen, dal["id"], in_stock, "g")
@@ -180,7 +182,7 @@ def a_meal(kitchen: TestClient, in_stock: int) -> tuple[dict[str, Any], int, lis
     second = make(kitchen, "Zorba rasam", serves=4, lines=[line(dal["id"], 200, "g")])
     from test_plan import slot_ids
 
-    slot = slot_ids(kitchen)["Dinner"]
+    slot = slot_ids(kitchen, household_id)["Dinner"]
     items = []
     meal = 0
     for recipe in (first, second):
@@ -501,13 +503,23 @@ def test_undoing_an_eaten_tub_after_a_newer_eat_gives_back_what_it_ate(kitchen: 
 def test_another_households_meal_and_item_are_not_found(
     kitchen: TestClient, neighbour: TestClient
 ) -> None:
-    _, meal, items = a_meal(kitchen, 300)
-    assert neighbour.post(f"{API}/plan/meals/{meal}/cook/preview", json={}).status_code == 404
+    dal, meal, items = a_meal(kitchen, 300)
+    theirs_dal, their_meal, their_items = a_meal(neighbour, 300, household_id=2)
+    ours, theirs = [(dal["id"], 300_000)], [(theirs_dal["id"], 300_000)]
+    # Their meal with our item id, and our meal with their item id: not found, nothing taken.
+    for client, meal_id, item_id in (
+        (neighbour, their_meal, items[0]),
+        (kitchen, meal, their_items[0]),
+    ):
+        for suffix in ("cook/preview", "cook"):
+            body = {"items": [{"item_id": item_id}]}
+            answer = client.post(f"{API}/plan/meals/{meal_id}/{suffix}", json=body)
+            assert answer.status_code == 404, (suffix, answer.text)
+    # And a meal that is not theirs, whole.
     assert neighbour.post(f"{API}/plan/meals/{meal}/cook", json={}).status_code == 404
-    theirs = neighbour.post(
-        f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": items[0]}]}
-    )
-    assert theirs.status_code == 404
+    assert kitchen.post(f"{API}/plan/meals/{their_meal}/cook", json={}).status_code == 404
+    assert [(dal["id"], a) for a in amounts(kitchen, dal["id"])] == ours
+    assert [(theirs_dal["id"], a) for a in amounts(neighbour, theirs_dal["id"])] == theirs
 
 
 # --- A ticked "add to list" is kept when Use is off, on every path ----------------
