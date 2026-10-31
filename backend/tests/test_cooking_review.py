@@ -666,6 +666,50 @@ def test_a_meal_offers_one_running_low_pack_per_ingredient(kitchen: TestClient) 
     assert _listed(kitchen, food_id) == [300_000]  # one pack, not two
 
 
+def test_a_meal_with_use_off_in_both_offers_what_the_meal_preview_showed(
+    kitchen: TestClient,
+) -> None:
+    """Dal 250 g, running low at 300 g; sambar needs 100 g and rasam 200 g. The meal preview shows
+    rasam 50 g short and no running-low pack. Confirm with Use off in both lists the same 50 g."""
+    food_id, meal = two_recipes_one_food(kitchen, 250, (100, 200))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    off = {
+        "items": [
+            {"item_id": i["item_id"], "choices": [{"key": key, "use": False, "add_to_list": True}]}
+            for i in shown["items"]
+        ]
+    }
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=off), 201)
+    assert _listed(kitchen, food_id) == [50_000]
+    assert amounts(kitchen, food_id) == [250_000]  # nothing taken
+
+
+def test_a_use_off_staple_does_not_start_the_second_work_out(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mealwright import deduction
+
+    calls: list[int] = []
+    real = deduction.work_out
+
+    def counted(*args: Any, **kwargs: Any) -> Any:
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    oil = food(kitchen, "Zorba oil", staple=True)
+    dal = food(kitchen, "Zorba dal")
+    stock(kitchen, dal["id"], 500, "g")
+    recipe = recipe_of(kitchen, [line(oil["id"], 2, "tbsp"), line(dal["id"], 100, "g")])
+    item = plan_item(kitchen, recipe, servings=4, day=FAR)
+    monkeypatch.setattr(deduction, "work_out", counted)
+    ok(cook(kitchen, item, [{"key": f"food:{oil['id']}", "use": False}]), 201)
+    assert calls == []  # a staple has nothing to offer: no second work-out
+    item2 = plan_item(kitchen, recipe, servings=4, day=FAR + timedelta(days=1))
+    ok(cook(kitchen, item2, [{"key": f"food:{dal['id']}", "use": False}]), 201)
+    assert calls == [1]  # a real Use-off row: one more, for the one recipe
+
+
 def test_a_meal_with_the_ingredient_already_short_offers_no_running_low_pack(
     kitchen: TestClient,
 ) -> None:

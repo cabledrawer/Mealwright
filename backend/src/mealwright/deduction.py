@@ -24,7 +24,6 @@ day is the one added first (the pantry's own rule); a part-used packet is kept e
 rounded; stand-ins are used in id order and only when they are counted the same way.
 """
 
-import copy
 from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal
@@ -375,20 +374,6 @@ def work_out(
     }
     pool = pool or Pool(kitchen)
     pool.ensure(food_ids | set(others))
-    # A row with Use off is offered what the preview offers it: the preview's own work-out, run
-    # on a copy of the pool as it is now, with every row's Use on. So the two cannot drift.
-    as_preview: dict[str, Row] = {}
-    if confirming and not preview_of_off_rows and any(not c.use for c in choices.values()):
-        mine = copy.copy(pool)
-        mine.left = dict(pool.left)
-        on = {key: replace(choice, use=True) for key, choice in choices.items()}
-        as_preview = {
-            row.key: row
-            for row in work_out(
-                kitchen, recipe, portions, answers, on, mine, preview_of_off_rows=True
-            ).rows
-        }
-
     # Pass 1: each row's own stock.
     for row in rows:
         choice = choices.get(row.key)
@@ -471,13 +456,7 @@ def work_out(
         if row.food is None or row.wanted is None:
             continue
         # Use does not change what is offered (cabledrawer 31 Oct: the tick is its own choice): a
-        # row switched off is worked out as the preview works it out, only nothing is taken.
-        shown = as_preview.get(row.key)
-        if shown is not None:
-            row.short, row.status, row.make_first = shown.short, shown.status, shown.make_first
-            row.in_freezer, row.list_milli = shown.in_freezer, shown.list_milli
-            row.running_low, row.add_to_list = shown.running_low, shown.add_to_list
-            continue
+        # row switched off is given the preview's answer afterwards (`offer_as_previewed`).
         took, left_after = row.taken, pool.total(row.food.id)
         row.short = max(row.wanted - took, 0)
         if row.status == "take" and not took and not row.entered:
@@ -511,6 +490,59 @@ def work_out(
         if row.food is not None and row.status != "staple" and row.key not in choices:
             row.use = row.use_default
     return Worked(recipe, portions, rows)
+
+
+def off_rows(worked: list[Worked], choices: list[dict[str, Choice]]) -> list[Row]:
+    """The rows with Use switched off that could take something (an ingredient, not a staple,
+    with an amount): only these are given the preview's answer."""
+    return [
+        row
+        for each, picked in zip(worked, choices, strict=True)
+        for row in each.rows
+        if row.key in picked
+        and not picked[row.key].use
+        and row.food is not None
+        and row.status != "staple"
+        and row.wanted
+    ]
+
+
+def offer_as_previewed(
+    kitchen: Kitchen,
+    entries: list[tuple[Recipe, int, dict[str, Choice]]],
+    worked: list[Worked],
+    answers: list[Answer] | None = None,
+) -> None:
+    """A row with Use off is offered what the preview would show with the person's other choices
+    (their typed amounts and freezer ticks; the preview endpoints send none): every recipe worked
+    out once more on one fresh pool with every Use on, as the meal preview does, and settled as
+    a meal. Nothing is taken. Only the offer's fields are copied onto the off rows."""
+    off = off_rows(worked, [choices for _, _, choices in entries])
+    if not off:
+        return
+    off_ids = {id(row) for row in off}
+    pool = Pool(kitchen)
+    shown = [
+        work_out(
+            kitchen,
+            recipe,
+            portions,
+            answers,
+            {key: replace(choice, use=True) for key, choice in choices.items()},
+            pool,
+            preview_of_off_rows=True,
+        )
+        for recipe, portions, choices in entries
+    ]
+    settle_meal(shown)
+    by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}
+    for i, each in enumerate(worked):
+        for row in each.rows:
+            if id(row) in off_ids:
+                seen = by_key[(i, row.key)]
+                row.short, row.status, row.make_first = seen.short, seen.status, seen.make_first
+                row.in_freezer, row.list_milli = seen.in_freezer, seen.list_milli
+                row.running_low, row.add_to_list = seen.running_low, seen.add_to_list
 
 
 def settle_meal(worked: list[Worked]) -> None:
