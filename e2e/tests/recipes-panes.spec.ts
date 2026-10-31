@@ -424,23 +424,23 @@ async function goOffline(page: Page, context: BrowserContext, path: string, sear
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 }
 
-test('offline: one note for both panes, and the list is back as it was when the connection returns', async ({ page, context }) => {
+test('server down after the panes loaded: both stay as they were, with the bar, and the search is kept', async ({ page, context }) => {
   const tag = `Offline ${stamp()}`;
   const [one] = await manyNamed(page, tag, 1);
   await goOffline(page, context, `/recipes/${one!.id}`, tag);
-  const note = page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.');
-  await expect(note).toBeVisible({ timeout: 15_000 });
-  await expect(note).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
-  await expect(page.getByRole('searchbox')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
-  await checkPage(page);
-  // Back online: the panes return as they were left, the search still in the box.
-  await context.unroute('**/api/**');
-  await page.getByRole('button', { name: 'Try now' }).first().click();
+  await expect(page.getByTestId('connection-desktop')).toBeVisible({ timeout: 15_000 });
+  // What was showing stays (F80): no note, the search and the open recipe still there.
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
   await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(tag);
   await expect(reading(page).getByRole('heading', { name: one!.name, level: 1 })).toBeVisible();
-  await expect(note).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
+  await checkPage(page);
+  // Back online: the bar goes, and the panes are as they were left.
+  await context.unroute('**/api/**');
+  await page.getByRole('button', { name: 'Try now' }).first().click();
+  await expect(page.getByTestId('connection-desktop')).toBeHidden({ timeout: 15_000 });
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(tag);
+  await expect(reading(page).getByRole('heading', { name: one!.name, level: 1 })).toBeVisible();
 });
 
 // --- Many, long names, 200% text -------------------------------------------------------------------

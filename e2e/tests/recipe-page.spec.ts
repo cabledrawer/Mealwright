@@ -255,13 +255,23 @@ async function goOffline(page: Page, context: BrowserContext, id: number, name: 
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 }
 
-test('offline: says it needs the server, and points to Shopping', async ({ page, context }) => {
+test('server down after the recipe loaded: it stays, Edit and Delete go, and Shopping is reachable', async ({
+  page,
+  context,
+}) => {
   const { recipe, name } = await sambar(page);
   await goOffline(page, context, recipe.id, name);
+  await expect(page.getByTestId(isPhone(page) ? 'connection-phone' : 'connection-desktop')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
   await expect(
-    page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.'),
-  ).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
+    isPhone(page)
+      ? page.getByRole('link', { name: 'Shop', exact: true }).first()
+      : page.getByRole('link', { name: 'Shopping', exact: true }).first(),
+  ).toBeVisible();
   await checkPage(page);
   await context.unroute('**/api/**');
 });

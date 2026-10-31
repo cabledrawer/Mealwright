@@ -371,15 +371,36 @@ async function goOffline(page: Page, context: BrowserContext) {
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
 }
 
-test('offline: says it needs the server, and points to Shopping', async ({ page, context }) => {
+test('server down after the list loaded: the list stays, the bar shows, and Shopping is reachable', async ({ page, context }) => {
   await goOffline(page, context);
+  await expect(page.getByTestId(isPhone(page) ? 'connection-phone' : 'connection-desktop')).toBeVisible({
+    timeout: 15_000,
+  });
+  // What is on screen stays (F80), with no note in its place.
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
+  // Shopping works offline: the sidebar on a computer, the "Shop" tab on a phone.
+  await expect(
+    isPhone(page)
+      ? page.getByRole('link', { name: 'Shop', exact: true }).first()
+      : page.getByRole('link', { name: 'Shopping', exact: true }).first(),
+  ).toBeVisible();
+  await checkPage(page);
+  await context.unroute('**/api/**');
+});
+
+test('server down before anything loaded: the note says it needs the server, and points to Shopping', async ({
+  page,
+  context,
+}) => {
+  await context.route('**/api/v1/recipes**', (route) => route.abort());
+  await page.goto('/recipes');
   await expect(
     page.getByText('Recipes comes back by itself when the server answers. Your shopping list works offline.'),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('searchbox')).toHaveCount(0);
-  await checkPage(page);
-  await context.unroute('**/api/**');
+  await context.unroute('**/api/v1/recipes**');
 });
 
 // --- Many, long names, 200% text ------------------------------------------------------------

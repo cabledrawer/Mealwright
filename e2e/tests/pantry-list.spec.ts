@@ -76,7 +76,7 @@ test('taps on a staple and on + List made while the connection fails are sent on
   await expect(page.getByRole('status').filter({ hasText: `${oil} is already on the shopping list.` })).toBeVisible();
 
   // On Shopping, both are there, waiting.
-  await page.getByRole('link', { name: 'Shopping', exact: true }).first().click();
+  await page.getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: oil, exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: rice, exact: true })).toBeVisible();

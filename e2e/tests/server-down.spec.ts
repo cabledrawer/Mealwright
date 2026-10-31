@@ -253,17 +253,73 @@ test('Pantry: an opened row stays, and its packet menu, Edit link and Undo are g
   for (const undo of await page.getByRole('button', { name: /^Undo: / }).all()) await expect(undo).toBeDisabled();
 });
 
-test('Ingredients: a row click while the server is down says so, and Undo is greyed out', async ({ page }) => {
+test('Ingredients: a row click while the server is down says so, the open editor is greyed out, and Undo sends nothing', async ({
+  page,
+}) => {
   test.skip(isPhone(page), 'Computer layout');
-  await post(page, '/foods', { name: `Rice ${Date.now()}`, counted_as: 'weight' });
+  const name = `Rice ${Date.now()}`;
+  await post(page, '/foods', { name, counted_as: 'weight' });
   await page.goto('/recipes/ingredients');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.locator('button.row', { hasText: name }).click();
+  // Rename while the server is up: a toast with Undo.
+  await page.getByRole('button', { name: 'Rename' }).click();
+  await page.getByRole('textbox', { name: 'Name' }).fill(`${name} basmati`);
+  await page.getByRole('textbox', { name: 'Name' }).press('Enter');
+  const undo = page.getByRole('status').getByRole('button', { name: 'Undo' });
+  await expect(undo).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/api/')) sent.push(`${r.method()} ${r.url()}`);
+  });
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+  // The editor's changes are greyed out; reading stays.
+  await expect(page.getByRole('button', { name: 'Rename' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Merge with another…' })).toBeDisabled();
+  // The toast's Undo needs the server: it says so and sends nothing.
+  const before = sent.length;
+  if (await undo.isVisible()) await undo.click();
+  else await page.keyboard.press('Control+z');
+  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+  expect(sent.slice(before)).toEqual([]);
+  // A row click says so too.
+  await page.locator('button.row').first().click();
+  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+});
+
+test('Pantry: "+ Add to pantry" says why while the server is down', async ({ page }) => {
+  await page.goto('/pantry');
+  await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.route('**/api/**', proxyGap);
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
   await expect(bar(page)).toBeVisible();
-  await page.locator('button.row').first().click();
-  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.')).toBeVisible();
-  for (const undo of await page.getByRole('button', { name: /^Undo: / }).all()) await expect(undo).toBeDisabled();
+  await page.getByRole('button', { name: /Add to pantry/ }).first().click();
+  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Add to pantry' })).toHaveCount(0);
+});
+
+test('Shopping: a tick’s Undo still works while the server is down (it is queued)', async ({ page }) => {
+  const name = `Lentils ${Date.now()}`;
+  const { food } = await post(page, '/foods', { name, counted_as: 'weight' });
+  const { lists } = await (await page.request.get('/api/v1/shopping/lists')).json();
+  const main = lists.find((l: { main: boolean }) => l.main).id;
+  await post(page, `/shopping/lists/${main}/items`, { food_id: food.id, amount: { amount: 300, unit: 'g' } });
+  await page.goto('/shopping');
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+  await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toHaveCount(0);
+  await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api';
+import { network } from './network.svelte';
 import { toasts } from './toast.svelte';
 import {
   COULDNT_UNDO,
@@ -217,5 +218,44 @@ describe('Ctrl+Z after a reload', () => {
   it('does nothing when the server has nothing either', async () => {
     undoHistory.fallback = async () => null;
     expect(await undoHistory.undoLast()).toBe(false);
+  });
+});
+
+describe('Undo while the server can’t be reached (F80 review)', () => {
+  afterEach(() => network.reset());
+
+  it('a change that needs the server says so, sends nothing and stays on the list', async () => {
+    const undo = vi.fn().mockResolvedValue(undefined);
+    const entry = { label: 'Deleted Dosa', needsServer: true, undo };
+    undoHistory.record(entry, { toast: false });
+    network.offline = true;
+    await undoHistory.undo(entry);
+    expect(undo).not.toHaveBeenCalled();
+    expect(undoHistory.size).toBe(1);
+    expect(toasts.current?.message).toMatch(/^Can’t reach your Mealwright server/);
+    // Back: it is undone as usual.
+    network.reset();
+    await undoHistory.undo(entry);
+    expect(undo).toHaveBeenCalledOnce();
+    expect(undoHistory.size).toBe(0);
+  });
+
+  it('a local or queued change is undone as usual', async () => {
+    const undo = vi.fn();
+    const entry = { label: 'Removed a line', undo };
+    undoHistory.record(entry, { toast: false });
+    network.offline = true;
+    await undoHistory.undo(entry);
+    expect(undo).toHaveBeenCalledOnce();
+    expect(undoHistory.size).toBe(0);
+  });
+
+  it('Ctrl+Z walks into the same rule', async () => {
+    const undo = vi.fn();
+    undoHistory.record({ label: 'Deleted Dosa', needsServer: true, undo }, { toast: false });
+    network.offline = true;
+    await undoHistory.undoLast();
+    expect(undo).not.toHaveBeenCalled();
+    expect(undoHistory.size).toBe(1);
   });
 });

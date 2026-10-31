@@ -170,10 +170,9 @@ test.describe('the connection bar', () => {
     // The app comes back to the foreground, fetches, and finds it can't reach the server.
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
     await expect(bar(page)).toBeVisible({ timeout: 15_000 });
-    // Pantry needs the server: it says so, and points to Shopping.
-    await expect(
-      page.getByText('Pantry comes back by itself when the server answers. Your shopping list works offline.'),
-    ).toBeVisible();
+    // What is on screen stays (F80): Pantry still shows, with no note in its place.
+    await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
     const tryNow = bar(page).getByRole('button', { name: 'Try now' });
     await tryNow.click();
     await expect(bar(page)).toBeVisible(); // still can't reach it
