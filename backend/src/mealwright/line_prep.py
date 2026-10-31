@@ -142,8 +142,8 @@ _HOW_TO_TAIL = re.compile(
 )
 # "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) a "Recipe"
 # bracket and "Recipe" just before a bracket ("Lemon Rice Recipe (Chitranna)"), then the end of
-# the name ("Classic Victoria sandwich recipe"); a hyphen separates only with spaces round it,
-# an en or em dash also without ("Dal\u2014Easy Recipe"). (2) Whose recipe it is stays: a
+# the name ("Classic Victoria sandwich recipe"); a dash separates only with spaces round it.
+# (2) Whose recipe it is stays: a
 # possessive with or without s ("Mum's Recipe", "Kids' Recipe"), and a short leftover that is
 # only my/our/your/his/her/their or such a word with "family", "secret" and the like ("My",
 # "Our Family"): the end label is put back. A longer name ("My Favourite Dal Recipe") loses it.
@@ -151,9 +151,11 @@ _HOW_TO_TAIL = re.compile(
 # "Recipe" stays inside a name ("The Recipe Tin lasagne", "My Recipe: Dal", "Recipe-tested
 # Chili"), before an apostrophe, and when nothing real is left.
 _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
-_RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[|\u2013\u2014-])\s*(?=\S)", re.IGNORECASE)
+_RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[-\u2013\u2014]\s+|\s*\|)\s*(?=\S)", re.IGNORECASE)
 _RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
-_POSSESSIVE_RECIPE = re.compile(r"[\'\u2019]s?\s+recipe\s*!*\s*$", re.IGNORECASE)
+_POSSESSIVE_RECIPE = re.compile(
+    r"[\'\u2019]s?\s+(?:[\"\u201c\u2018]\S+[\"\u201d\u2019]\s+)?recipe\s*!*\s*$", re.IGNORECASE
+)
 _PRONOUNS = frozenset({"my", "our", "your", "his", "her", "their"})
 # After a pronoun these still read as "whose recipe", not as a dish: "Our Family", "Their Secret".
 _OWNER_WORDS = frozenset(
@@ -161,12 +163,12 @@ _OWNER_WORDS = frozenset(
 )
 _NOTHING_LEFT = frozenset({"recipe", "for", "a", "an", "the"})
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
-# A hyphen is a separator only with spaces round it ("Butter chicken - the best curry recipe");
-# "Gluten-Free Banana Bread Recipe" has none, so only " Recipe" goes. An en or em dash is one
-# with or without spaces (F91).
+# A dash (hyphen, en or em dash) is a separator only with spaces round it ("Butter chicken - the
+# best curry recipe"); "Gluten-Free Banana Bread Recipe" and "New York\u2013Style Cheesecake Recipe"
+# have none, so only " Recipe" goes (F91).
 _RECIPE_TAIL = re.compile(
-    r"\s*(?:(?:\s-\s|\s*[\u2013\u2014]\s*|\s*[|:]\s*)"
-    r"(?:(?!\s-\s)[^|:\u2013\u2014])*?)?\brecipe\s*!*\s*$",
+    r"\s*(?:(?:\s[-\u2013\u2014]\s|\s*[|:]\s*)"
+    r"(?:(?!\s[-\u2013\u2014]\s)[^|:])*?)?\brecipe\s*!*\s*$",
     re.IGNORECASE,
 )
 _BRACKET_PUFF = re.compile(
@@ -174,6 +176,19 @@ _BRACKET_PUFF = re.compile(
     r"[\)\]]\s*$",
     re.IGNORECASE,
 )
+
+
+_END_RECIPE = re.compile(r"\b(recipe)\s*!*\s*$", re.IGNORECASE)
+
+
+def _short_owner(text: str) -> bool:
+    """Only a pronoun, or a pronoun and one word like family or secret ("My", "Our Family")."""
+    left = [word.lower() for word in text.split()]
+    return (
+        bool(left)
+        and left[0] in _PRONOUNS
+        and (len(left) == 1 or (len(left) == 2 and left[1] in _OWNER_WORDS))
+    )
 
 
 def clean_recipe_name(name: str) -> str:
@@ -193,13 +208,13 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _BRACKET_PUFF.sub("", cleaned)
     if not _POSSESSIVE_RECIPE.search(cleaned):
         cleaned = _RECIPE_TAIL.sub("", cleaned)
-    left = [word.lower() for word in cleaned.split()]
-    if cleaned != before and left and left[0] in _PRONOUNS:
-        short = len(left) == 1 or (len(left) == 2 and left[1] in _OWNER_WORDS)
-        if short:
-            cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
+    if cleaned != before and _short_owner(cleaned):
+        cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
     cleaned = _RECIPE_FOR.sub("", cleaned)
     cleaned = _RECIPE_LEAD.sub("", cleaned)
+    ended = _END_RECIPE.search(before)
+    if ended is not None and _short_owner(cleaned) and not _END_RECIPE.search(cleaned):
+        cleaned = f"{cleaned.rstrip()} {ended.group(1)}"  # "Recipe for My Recipe" is "My Recipe"
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     words = {word.strip("'\u2019.,!:;").lower() for word in cleaned.split()}
     if not any(c.isalpha() for c in cleaned) or words <= _NOTHING_LEFT:
