@@ -66,7 +66,7 @@ ls -lh backups/       # the new backup should be there, and not tiny
 
 **Stop the container before copying the data folder by hand** (cabledrawer 28 Oct). While Mealwright runs, the database keeps recent changes in a second file beside it (`mealwright.db-wal`), so a copy of a running data folder can miss them or not open at all.
 
-**Mealwright's own safety copy (from 0.7.0, cabledrawer 28 Oct).** Before it upgrades the database on start-up, Mealwright copies it to `data/backups/pre-upgrade-<revision>-<date>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the last three. While an upgrade keeps failing, it makes no new copy and deletes none: the file `data/backups/upgrade-failed` names the copy from before the first try, and that copy is kept even after the upgrade works (proposed, for cabledrawer). A new install, or a start-up with nothing to upgrade, makes no copy. If the copy can't be made (a full disk, a folder it can't write), Mealwright doesn't upgrade or start, and the log says why. This copy is a second line of defence: it holds only the database, not the photos, so keep making the backup above.
+**Mealwright's own safety copy (from 0.7.0, cabledrawer 28 Oct).** Before it upgrades the database on start-up, Mealwright copies it to `data/backups/pre-upgrade-<revision>-<date>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the last three. While an upgrade keeps failing, it makes no new copy and deletes none: the file `data/backups/upgrade-failed` names the copy from before the first try, and that copy is kept even after the upgrade works (cabledrawer 31 Oct). The log then says, for example: "Database upgrade failed. Your data from before is safe in /data/backups/pre-upgrade-….db. Mealwright didn't start." and points to section 5. A new install, or a start-up with nothing to upgrade, makes no copy. If the copy can't be made (a full disk, a folder it can't write), Mealwright doesn't upgrade or start, and the log says why. This copy is a second line of defence: it holds only the database, not the photos, so keep making the backup above.
 
 ### 4.2 Load the image
 
@@ -215,6 +215,15 @@ Then put the old tag back: edit `compose.yaml` and set the `image:` line to the 
 ```bash
 docker compose up -d
 docker compose logs -f
+```
+
+**If you have no backup from just before the update** (proposed, for cabledrawer): Mealwright's own safety copy holds the database, though not the photos. Instead of the `mv` and `tar` lines above, put the copy the log names in place of the database, and remove the two files beside it that belong to the failed upgrade:
+
+```bash
+cd <folder>
+sudo cp data/mealwright.db "backups/mealwright-broken-$(date +%Y%m%d-%H%M).db"   # keep the failed one aside
+sudo cp data/backups/pre-upgrade-<revision>-<date>.db data/mealwright.db
+sudo rm -f data/mealwright.db-wal data/mealwright.db-shm
 ```
 
 Check `/api/v1/version` shows the old version. Tell Claude Code what went wrong with the new one, and include the end of `docker compose logs` from the failed start if you still have it. Once it is sorted, you can delete the `data-broken-…` folder.

@@ -130,6 +130,30 @@ def test_a_failing_upgrade_makes_one_copy_and_trims_none(
     assert (backups / migrate.UPGRADE_FAILED).read_text().strip() == clean
 
 
+def test_a_failing_upgrade_says_plainly_where_the_data_is(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The log says what happened and what to do, naming the clean copy (cabledrawer 31 Oct)."""
+    backups = tmp_path / "backups"
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate, "_run", _broken)
+    with caplog.at_level("WARNING", logger=migrate.__name__), pytest.raises(RuntimeError):
+        migrate.upgrade(engine, backups=backups)
+    [clean] = [n for n in _copies(backups) if n != migrate.UPGRADE_FAILED]
+    assert (
+        f"Database upgrade failed. Your data from before is safe in {backups / clean}. "
+        "Mealwright didn't start. See docs/dev/test-on-homelab.md, 'Going back to the "
+        "previous version'."
+    ) in caplog.messages
+    caplog.clear()
+    with caplog.at_level("WARNING", logger=migrate.__name__), pytest.raises(RuntimeError):
+        migrate.upgrade(engine, backups=backups)
+    assert caplog.messages[0] == (
+        f"An earlier database upgrade failed. Your data from before it is safe in "
+        f"{backups / clean}. Trying the upgrade again."
+    )
+
+
 def test_the_clean_copy_outlives_the_trim_once_the_upgrade_works(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

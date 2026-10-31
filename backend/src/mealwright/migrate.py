@@ -21,10 +21,10 @@ log = logging.getLogger(__name__)
 SAFETY_COPIES_KEPT = 3
 # pre-upgrade-<revision>-<UTC date and time>.db, e.g. pre-upgrade-c5f1b8d2a763-20261030-142501.db
 SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})\.db$")
-# Proposed, for cabledrawer (0.7 K1 review): while an upgrade hasn't yet worked, this file in the
-# backups folder names the clean copy made before it. A start-up that finds it makes no new
-# copy (on SQLite a failed migration can leave the database half-upgraded, so a new copy
-# could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
+# cabledrawer 31 Oct ("K1's 'upgrade-failed' note: OK"; 0.7 K1 review): while an upgrade hasn't yet
+# worked, this file in the backups folder names the clean copy made before it. A start-up that finds
+# it makes no new copy (on SQLite a failed migration can leave the database half-upgraded, so a new
+# copy could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
 # keeps failing, and not on the trim after it finally works.
 UPGRADE_FAILED = "upgrade-failed"
 
@@ -190,8 +190,23 @@ def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None)
                     "full, then start Mealwright again."
                 ) from error
     else:
-        log.warning("An earlier upgrade didn't work; the safety copy from before it: %s", clean)
-    _run(engine, "upgrade", revision)
+        log.warning(
+            "An earlier database upgrade failed. Your data from before it is safe in %s. "
+            "Trying the upgrade again.",
+            backups / clean,
+        )
+    try:
+        _run(engine, "upgrade", revision)
+    except Exception:
+        if clean is not None:
+            # Plain words for the person reading the log (cabledrawer 31 Oct).
+            log.error(
+                "Database upgrade failed. Your data from before is safe in %s. Mealwright "
+                "didn't start. See docs/dev/test-on-homelab.md, 'Going back to the previous "
+                "version'.",
+                backups / clean,
+            )
+        raise
     if clean is None:
         return
     # The upgrade worked: tidying up after it never stops Mealwright starting.
