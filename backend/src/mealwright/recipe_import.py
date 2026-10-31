@@ -638,10 +638,9 @@ def _review_line(
             amount_milli = int(read.amount * 1000)
         fixed = FIXED_COUNTS.get(singular(read.size_word)) if read.size_word else None
         if fixed is not None and size is None and read.amount is not None and unit is None:
-            # "a dozen eggs" is 12 and "2 cloves garlic" is 2: the same as writing the number.
+            # "a dozen eggs" is 12: the same as writing the number. A clove is not in
+            # `FIXED_COUNTS`: "2 cloves garlic" takes the branch below (F89).
             amount_milli = int(read.amount * fixed * 1000)
-            if fixed == 1:
-                note = ", ".join(part for part in (read.size_word, note) if part)
         elif read.size_word and size is None and unit is None:
             # A size word the ingredient has no size for ("a sprig", "1 bunch"): the count
             # would mean something else, so the amount goes in the note instead. A weight or

@@ -61,54 +61,58 @@ def test_serving_lines_are_optional(kitchen: TestClient, web: Web) -> None:
     assert "optional" not in (lamb["note"] or "")
 
 
-def test_a_dozen_and_cloves_count_as_the_number_itself(kitchen: TestClient, web: Web) -> None:
+def test_a_dozen_counts_as_the_number_itself(kitchen: TestClient, web: Web) -> None:
     lines = lines_of(review(kitchen, LAMB))
     eggs = next(line for line in lines if line["words"] == "eggs")
     assert (eggs["amount"], eggs["size"]) == (12, None)
+
+
+def test_f89_cloves_are_cloves_never_garlic(kitchen: TestClient, web: Web) -> None:
+    """F89 (cabledrawer 31 Oct): "2 cloves garlic" reads as 2 cloves, shown as "2 cloves" in the
+    note like "1 bunch coriander", never counted and never taken as 2 whole garlic. The learned
+    size comes with K3."""
+    lines = lines_of(review(kitchen, LAMB))
     garlic = [line for line in lines if line["words"] == "garlic"]
     assert len(garlic) == 2
-    # Written before or after the name: the same amount.
-    assert garlic[0]["amount"] == garlic[1]["amount"] == 2
-    assert garlic[0]["note"] == garlic[1]["note"] == "cloves, minced"
-
-
-def test_f88_a_weight_with_its_container_keeps_its_amount(kitchen: TestClient, web: Web) -> None:
-    """F88 (cabledrawer 31 Oct): "three 14-ounce cans" and "half a 340g jar" get an amount, like
-    "one 14-ounce can". Before, the review moved it to the note ("as written") and left none."""
-    text = "\n".join(
-        [
-            "Pantry",
-            "Ingredients",
-            "one 14-ounce can coconut milk",
-            "three 14-ounce cans coconut milk",
-            "three 14 oz cans coconut milk",
-            "two (14-ounce) cans coconut milk",
-            "half a 340g jar jam",
-            "1/2 a 400g tin tomatoes",
-            "two 400g tins tomatoes",
-            "four 400ml cartons passata",
-            "half a jar plum jam",
-            "Method",
-            "1. Cook.",
-        ]
+    # Written before or after the name: the same reading.
+    for line in garlic:
+        assert (line["amount"], line["unit"], line["size"]) == (None, None, None)
+        assert line["note"] == "2 cloves, minced"
+        assert line["counts"] is False
+    forms = (
+        "Garlic\nIngredients\n2 cloves garlic\n2 garlic cloves\ngarlic, 2 cloves\n8 whole cloves\n"
     )
-    lines = {line["written"]: line for line in lines_of(review(kitchen, text))}
-    want = {
-        "one 14-ounce can coconut milk": (397, "g"),
-        "three 14-ounce cans coconut milk": (1191, "g"),
-        "three 14 oz cans coconut milk": (1191, "g"),
-        "two (14-ounce) cans coconut milk": (794, "g"),
-        "half a 340g jar jam": (170, "g"),
-        "1/2 a 400g tin tomatoes": (200, "g"),
-        "two 400g tins tomatoes": (800, "g"),
-        "four 400ml cartons passata": (1600, "ml"),
-    }
-    for written, (amount, unit) in want.items():
-        assert (lines[written]["amount"], lines[written]["unit"]) == (amount, unit), written
-        assert lines[written]["note"].startswith("as written:"), written
-    # No weight written: the container can't be turned into an amount, so it stays in the note.
-    jar = lines["half a jar plum jam"]
-    assert (jar["amount"], jar["note"]) == (None, "\u00bd jar")
+    forms += "1 bunch coriander\nMethod\n1. Cook.\n"
+    read = {line["written"]: line for line in lines_of(review(kitchen, forms))}
+    for written in ("2 cloves garlic", "2 garlic cloves", "garlic, 2 cloves"):
+        assert (read[written]["words"], read[written]["amount"]) == ("garlic", None), written
+        assert read[written]["note"] == "2 cloves", written
+        assert read[written]["counts"] is False, written
+    # The same as a size the ingredient lacks anywhere else, and the spice is untouched (F87).
+    assert (read["1 bunch coriander"]["amount"], read["1 bunch coriander"]["note"]) == (
+        None,
+        "1 bunch",
+    )
+    assert (read["8 whole cloves"]["words"], read["8 whole cloves"]["amount"]) == (
+        "whole cloves",
+        8,
+    )
+
+
+def test_f89_garlic_with_a_clove_size_counts_that_size(kitchen: TestClient, web: Web) -> None:
+    """When the ingredient does have a "clove" size, the line is 2 of that size, as before."""
+    made = kitchen.post(f"{API}/foods", json={"name": "Garlic", "counted_as": "weight"})
+    assert made.status_code == 201, made.text
+    food_id = made.json()["food"]["id"]
+    sized = kitchen.post(f"{API}/foods/{food_id}/sizes", json={"name": "clove", "amount": 4})
+    assert sized.status_code == 201, sized.text
+    text = "Garlic\nIngredients\n2 cloves garlic\n2 garlic cloves\nMethod\n1. Cook.\n"
+    for line in lines_of(review(kitchen, text)):
+        if line["kind"] != "ingredient":
+            continue
+        assert line["label"] == "matched", line["written"]
+        assert (line["amount"], line["size"]["name"]) == (2, "clove"), line["written"]
+        assert line["counts"] is True, line["written"]
 
 
 def test_new_ingredient_milk_is_kept_in_the_fridge_and_flour_in_the_cupboard(

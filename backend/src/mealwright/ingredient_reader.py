@@ -89,8 +89,9 @@ CONTAINER_WORDS = frozenset(
      "sachet", "pot", "block"}
 )  # fmt: skip
 # Size words that mean a fixed number of the thing itself, so an ingredient with no size of that
-# name still gets an amount: "a dozen eggs" is 12 eggs, "2 cloves garlic" is 2 garlic.
-FIXED_COUNTS = {"dozen": 12, "clove": 1}
+# name still gets an amount: "a dozen eggs" is 12 eggs. Not "clove": one clove is not one garlic,
+# so "2 cloves garlic" stays "2 cloves" like "1 bunch coriander" (F89, cabledrawer 31 Oct).
+FIXED_COUNTS = {"dozen": 12}
 # A size word that can stand after the name: "2 garlic cloves" is "2 cloves garlic".
 TRAILING_SIZE_WORDS = frozenset({"clove", "sprig"})
 # Words that say "some", with no number. Kept like a size word; they never count.
