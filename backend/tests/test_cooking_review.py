@@ -685,6 +685,46 @@ def test_a_meal_with_use_off_in_both_offers_what_the_meal_preview_showed(
     assert amounts(kitchen, food_id) == [250_000]  # nothing taken
 
 
+def _meal_choices(shown: Any, key: str, sambar: dict[str, Any], rasam: dict[str, Any]) -> Any:
+    first, second = shown["items"]
+    return {
+        "items": [
+            {"item_id": first["item_id"], "choices": [{"key": key, **sambar}]},
+            {"item_id": second["item_id"], "choices": [{"key": key, **rasam}]},
+        ]
+    }
+
+
+def test_a_ticked_running_low_pack_holds_when_a_later_recipe_has_use_off(
+    kitchen: TestClient,
+) -> None:
+    """Dal 400 g, running low at 300 g; the preview offers the pack on sambar's row. The person
+    ticks it and switches rasam's Use off: the pack is still listed and sambar takes its 100 g."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 200))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    body = _meal_choices(shown, key, {"use": True, "add_to_list": True}, {"use": False})
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert _listed(kitchen, food_id) == [300_000]
+    assert amounts(kitchen, food_id) == [300_000]
+
+
+def test_a_ticked_running_low_pack_on_a_use_off_row_holds_before_a_use_on_row(
+    kitchen: TestClient,
+) -> None:
+    """The mirror: sambar (Use off) carries the preview's pack and the person ticks it; rasam
+    (Use on) takes its 200 g. One pack is listed, not none and not two."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 200))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    body = _meal_choices(
+        shown, key, {"use": False, "add_to_list": True}, {"use": True, "add_to_list": True}
+    )
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert _listed(kitchen, food_id) == [300_000]
+    assert amounts(kitchen, food_id) == [200_000]
+
+
 def test_a_use_off_staple_does_not_start_the_second_work_out(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

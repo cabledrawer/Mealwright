@@ -267,10 +267,12 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     nothing: a refusal comes before anything is written), and write a record for each."""
     pool = Pool(kitchen)
     worked = [work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool) for e in entries]
-    settle_meal(worked)
+    # The Use-off rows take the preview's offers first, so settling the meal sees the preview's
+    # shortfalls, not their own unworked ones (which would clear a ticked pack on another row).
     offer_as_previewed(
         kitchen, [(e.recipe, e.portions, e.choices) for e in entries], worked, answers
     )
+    settle_meal(worked)
     remember_answers(kitchen, answers)
     edit = StockEdit(kitchen)
     for each in worked:
