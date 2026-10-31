@@ -34,6 +34,7 @@
     review.photo.state === 'downloaded' ? review.photo.photo : null
   );
   const shown = $derived(copy.shown);
+  const counts = $derived(flow.counts);
   const uid = $props.id();
   const usPints = $derived(flow.pints === 'us');
   const other = $derived(flow.otherPints);
@@ -86,6 +87,7 @@
   }
 
   function discard() {
+    void flow.dropPhoto(); // its waiting photo goes at once (F92)
     if (target) void goOn(target);
   }
 
@@ -197,15 +199,13 @@
         <div class="lines-head">
           <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
           <div class="counts" aria-label="What was found">
-            <span class="count good">{review.counts.matched} matched</span>
-            <span class="count warn">{review.counts.to_confirm} to confirm</span>
+            <span class="count good">{counts.matched} matched</span>
+            <span class="count warn">{counts.to_confirm} to confirm</span>
             <span class="count bad"
-              >{review.counts.needs_you}
-              {review.counts.needs_you === 1 ? 'needs' : 'need'} you</span
+              >{counts.needs_you}
+              {counts.needs_you === 1 ? 'needs' : 'need'} you</span
             >
-            <span class="count"
-              >{review.counts.staple} {review.counts.staple === 1 ? 'staple' : 'staples'}</span
-            >
+            <span class="count">{counts.staple} {counts.staple === 1 ? 'staple' : 'staples'}</span>
           </div>
         </div>
         {#if !phone}

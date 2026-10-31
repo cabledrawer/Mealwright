@@ -699,6 +699,86 @@ describe('Import a recipe', () => {
       expect(flow.draftId).toBeNull();
     });
 
+    it('F93: the header counts follow every choice on the lines, and Change puts them back', async () => {
+      const flow = await reviewing();
+      const counts = () => page.getByLabelText('What was found');
+      await expect.element(counts()).toHaveTextContent('1 matched');
+      await expect.element(counts()).toHaveTextContent('1 needs you');
+      expect(flow.unlinked).toBe(2);
+      // Line 2 (needs you) and line 1 (to confirm): a new ingredient, then a staple.
+      flow.newIngredient(2);
+      await expect.element(counts()).toHaveTextContent('0 need you');
+      await expect.element(counts()).toHaveTextContent('1 to confirm');
+      await expect.element(counts()).toHaveTextContent('2 matched');
+      flow.newIngredient(1, true);
+      await expect.element(counts()).toHaveTextContent('0 to confirm');
+      await expect.element(counts()).toHaveTextContent('1 staple');
+      await expect.element(counts()).toHaveTextContent('2 matched');
+      expect(flow.unlinked).toBe(0);
+      // Pick an existing one on a line, then take each choice back.
+      flow.unchoose(1);
+      flow.sameAs(1, { id: 2, name: 'Onions' });
+      await expect.element(counts()).toHaveTextContent('3 matched');
+      flow.unchoose(1);
+      flow.unchoose(2);
+      await expect.element(counts()).toHaveTextContent('1 matched');
+      await expect.element(counts()).toHaveTextContent('1 to confirm');
+      await expect.element(counts()).toHaveTextContent('1 needs you');
+      await expect.element(counts()).toHaveTextContent('0 staples');
+      // The tick in the New ingredient form makes the same line a staple, and back.
+      flow.newIngredient(2);
+      flow.setStaple(2, true);
+      await expect.element(counts()).toHaveTextContent('1 staple');
+      flow.setStaple(2, false);
+      await expect.element(counts()).toHaveTextContent('0 staples');
+      flow.unchoose(2);
+      // An amount edit changes no status.
+      flow.editLine(2, { amount: 2, amount_text: '2' });
+      await expect.element(counts()).toHaveTextContent('1 needs you');
+    });
+
+    it('F92: Discard deletes the review’s waiting photo at once; a draft’s photo stays', async () => {
+      const PHOTO = {
+        id: 41,
+        width: 800,
+        height: 600,
+        url: '/api/v1/recipes/photos/41/large',
+        list_width: 156,
+        list_height: 117,
+        list_url: '/api/v1/recipes/photos/41/list'
+      };
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      fakeApi({
+        'POST /recipes/import': [
+          200,
+          { ...REVIEW, photo: { state: 'downloaded', photo: PHOTO, message: null } }
+        ],
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS]
+      });
+      await flow.read();
+      show(flow, ReviewScreen);
+      const requests = fakeApi({ 'DELETE /recipes/photos/41': [204, null] });
+      leaveFor('/recipes');
+      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(requests.map((r) => r.method + ' ' + r.path)).toEqual(['DELETE /recipes/photos/41']);
+      // Asked again, it does nothing more.
+      await flow.dropPhoto();
+      expect(requests).toHaveLength(1);
+
+      // A kept draft owns its photo: nothing is deleted.
+      const kept = new ImportFlow();
+      kept.load({
+        ...KEPT,
+        review: { ...REVIEW, photo: { state: 'downloaded', photo: PHOTO, message: null } }
+      });
+      const none = fakeApi({});
+      await kept.dropPhoto();
+      expect(none).toHaveLength(0);
+    });
+
     it('does not ask after Save, or when the tab is closed or reloaded', async () => {
       const flow = await reviewing();
       expect(leaveFor('/recipes', { willUnload: true })).not.toHaveBeenCalled();

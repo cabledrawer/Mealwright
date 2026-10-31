@@ -4,6 +4,7 @@
 
 import { ApiError, cantReach } from './api';
 import { changeDraft, keepDraft, type DraftBody, type DraftOut } from './client/drafts';
+import { deletePhoto } from './client/recipes';
 import { drafts } from './drafts.svelte';
 import {
   saveImport,
@@ -260,8 +261,27 @@ export class ImportFlow {
     }
   }
 
+  /** Let go of the photo this review is waiting with (F92): Discard, and going back to the box,
+   *  delete it at once so ten reads that were never saved don't block the next. A draft's photo
+   *  stays (the draft owns it), and a saved recipe has taken it. Never throws: a photo that can't
+   *  be deleted now is deleted by the server's hourly tidy-up within 24 hours. */
+  async dropPhoto(): Promise<void> {
+    const shown = this.review?.photo;
+    if (!shown || shown.state !== 'downloaded' || !shown.photo) return;
+    if (this.draftId !== null || this.saved) return;
+    const id = shown.photo.id;
+    // The review no longer holds it, so a second Discard doesn't ask again.
+    this.review = { ...this.review!, photo: { state: 'none', photo: null, message: null } };
+    try {
+      await deletePhoto(id);
+    } catch {
+      // gone already, or the server can't be reached: the tidy-up takes it
+    }
+  }
+
   /** Back to the box, keeping what was typed (Paste text instead, Cancel on a sheet). */
   backToBox(): void {
+    void this.dropPhoto();
     this.phase = 'start';
     this.review = null;
     this.already = null;
@@ -421,6 +441,21 @@ export class ImportFlow {
       return { kind: 'ingredient', food: line.food, learn: false };
     }
     return null;
+  }
+
+  /** The header's counts as the lines stand now (F93): a line with a choice (a new ingredient,
+   *  a pick, "Same as") is ready, so it counts as matched; a new staple counts as a staple;
+   *  taking a choice back (Change) puts the line back where the reader had it. Headings are
+   *  not counted. The same states as each line's dot. */
+  get counts(): ImportReview['counts'] {
+    const counts = { matched: 0, to_confirm: 0, needs_you: 0, staple: 0 };
+    this.review?.lines.forEach((line, i) => {
+      if (line.kind !== 'ingredient') return;
+      const choice = this.choices[i];
+      if (choice) counts[choice.kind === 'staple' ? 'staple' : 'matched']++;
+      else if (line.label && line.label in counts) counts[line.label]++;
+    });
+    return counts;
   }
 
   /** How many lines will be saved with no ingredient behind them (words only). */
