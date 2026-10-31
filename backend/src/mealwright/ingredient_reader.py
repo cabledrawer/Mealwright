@@ -1011,6 +1011,9 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         and size_word is None
         and len(parts) >= 2
         and singular(parts[-1].lower()) in TRAILING_SIZE_WORDS
+        # "8 whole cloves" is the spice (name "whole cloves"), not "8 cloves of whole" (F87):
+        # what is left must be more than colour, size or "whole/dried/ground" words.
+        and not all(_clean_token(word) in WEAK_WORDS for word in parts[:-1])
     ):  # "2 garlic cloves" is "2 cloves garlic"
         size_word = parts[-1].lower()
         name = " ".join(parts[:-1])

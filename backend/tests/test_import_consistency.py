@@ -92,6 +92,22 @@ def test_f8_one_14_ounce_can_and_half_a_jar() -> None:
     assert (jar.amount, jar.unit) == (D(170), "g")
 
 
+def test_f87_a_word_before_cloves_is_part_of_the_name_not_the_name() -> None:
+    """F87 (cabledrawer 31 Oct): "8 whole cloves" is the spice, never a new ingredient "Whole"."""
+    for text, name in (
+        ("8 whole cloves", "whole cloves"),
+        ("8 dried cloves", "dried cloves"),
+        ("4 ground cloves", "ground cloves"),
+        ("2 whole sprigs thyme", "whole sprigs thyme"),
+    ):
+        line = read_line(text)
+        assert (line.amount, line.size_word, line.name) == (D(text[0]), None, name), text
+        assert line.counts, text
+    # A name before the clove still makes it the size word.
+    for text in ("2 garlic cloves", "2 whole garlic cloves"):
+        assert read_line(text).size_word == "cloves", text
+
+
 def test_follow_up_5_one_and_a_half_cups_flour() -> None:
     line = same("one and a half cups flour", "1 1/2 cups flour", "1½ cups flour", "1.5 cups flour")
     assert (line.amount, line.unit, line.name) == (D("1.5"), "cup", "flour")
