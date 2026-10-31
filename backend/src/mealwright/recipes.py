@@ -32,6 +32,7 @@ from mealwright.api.v1.recipe_schemas import (
     RecipeStepOut,
     SizeRef,
     SourceOut,
+    StepLineOut,
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref, Who
@@ -51,6 +52,7 @@ from mealwright.models import (
     RecipeLine,
     RecipePhoto,
     RecipeStep,
+    RecipeStepLine,
     RecipeTag,
     Tag,
     utcnow,
@@ -320,18 +322,8 @@ def save(
             {"recipe_id": recipe.id},
         )
 
-    _save_lines(kitchen, recipe, body, resolved)
-    db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))
-    for position, step in enumerate(body.steps):
-        db.add(
-            RecipeStep(
-                household_id=kitchen.household_id,
-                recipe_id=recipe.id,
-                position=position,
-                kind=step.kind,
-                text=step.text,
-            )
-        )
+    lines = _save_lines(kitchen, recipe, body, resolved)
+    _save_steps(kitchen, recipe, body, lines)
     _save_tags(kitchen, recipe, body.tags)
     _save_made_ahead(kitchen, recipe, body)
     if "photo_id" in body.model_fields_set:  # left out: the photo stays as it is
@@ -374,13 +366,15 @@ def delete_photo(db: DbSession, photo: RecipePhoto) -> None:
 
 def _save_lines(
     kitchen: Kitchen, recipe: Recipe, body: RecipeIn, resolved: list[_Resolved]
-) -> None:
+) -> list[RecipeLine]:
+    """Write the lines; returns them in order."""
     db = kitchen.db
     old = {
         line.id: line
         for line in db.scalars(select(RecipeLine).where(RecipeLine.recipe_id == recipe.id))
     }
     kept: set[int] = set()
+    rows: list[RecipeLine] = []
     for position, (line, links) in enumerate(zip(body.lines, resolved, strict=True)):
         row = old.get(line.id) if line.id is not None else None
         if row is None:
@@ -388,6 +382,7 @@ def _save_lines(
             db.add(row)
         else:
             kept.add(row.id)
+        rows.append(row)
         row.position = position
         row.kind = line.kind
         row.words = line.words or (
@@ -402,6 +397,66 @@ def _save_lines(
     for line_id, row in old.items():
         if line_id not in kept:
             db.delete(row)
+    db.flush()
+    return rows
+
+
+def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[RecipeLine]) -> None:
+    """Replace the steps, and their ingredient links. A step sent with `lines` gets exactly
+    those, set by hand. A step sent without keeps the links it had (guessed or by hand) when
+    the recipe had a step with the same words before and the line is still there; any other
+    link goes with its old step."""
+    db = kitchen.db
+    old_steps = list(
+        db.scalars(
+            select(RecipeStep)
+            .where(RecipeStep.recipe_id == recipe.id)
+            .order_by(RecipeStep.position, RecipeStep.id)
+        )
+    )
+    old_links: dict[int, list[RecipeStepLine]] = {}
+    if old_steps:
+        for link in db.scalars(
+            select(RecipeStepLine).where(
+                RecipeStepLine.step_id.in_([step.id for step in old_steps])
+            )
+        ):
+            old_links.setdefault(link.step_id, []).append(link)
+    # The same words, in order: the first unused old step with them.
+    by_words: dict[tuple[str, str], list[int]] = {}
+    for old_step in old_steps:
+        by_words.setdefault((old_step.kind, old_step.text), []).append(old_step.id)
+    still_there = {line.id for line in lines if line.kind == "ingredient"}
+    carried: list[list[tuple[int, str]]] = []
+    for step in body.steps:
+        same = by_words.get((step.kind, step.text))
+        before = old_links.get(same.pop(0), []) if same else []
+        carried.append([(link.line_id, link.kind) for link in before])
+    db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))
+    db.flush()
+    for position, (step, kept) in enumerate(zip(body.steps, carried, strict=True)):
+        row = RecipeStep(
+            household_id=kitchen.household_id,
+            recipe_id=recipe.id,
+            position=position,
+            kind=step.kind,
+            text=step.text,
+        )
+        db.add(row)
+        db.flush()
+        if step.lines is not None:
+            wanted = [(lines[index].id, "by_hand") for index in step.lines]
+        else:
+            wanted = [(line_id, kind) for line_id, kind in kept if line_id in still_there]
+        for line_id, kind in wanted:
+            db.add(
+                RecipeStepLine(
+                    household_id=kitchen.household_id,
+                    step_id=row.id,
+                    line_id=line_id,
+                    kind=kind,
+                )
+            )
     db.flush()
 
 
@@ -639,6 +694,11 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     keys = list(db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.recipe_id.in_(ids))))
     if keys:
         delete_after_commit(db, household.id, keys)  # the files, once this is committed
+    db.execute(
+        delete(RecipeStepLine).where(
+            RecipeStepLine.step_id.in_(select(RecipeStep.id).where(RecipeStep.recipe_id.in_(ids)))
+        )
+    )
     for table in (RecipeLine, RecipeStep, RecipeTag, RecipePhoto):
         db.execute(delete(table).where(table.recipe_id.in_(ids)))
     db.execute(delete(Recipe).where(Recipe.id.in_(ids)))
@@ -872,13 +932,37 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
                 note=row.note,
             )
         )
-    steps = [
-        RecipeStepOut(id=s.id, kind=cast(Literal["step", "heading"], s.kind), text=s.text)
-        for s in db.scalars(
+    step_rows = list(
+        db.scalars(
             select(RecipeStep)
             .where(RecipeStep.recipe_id == recipe.id)
             .order_by(RecipeStep.position, RecipeStep.id)
         )
+    )
+    position_of = {line.id: index for index, line in enumerate(lines)}
+    step_lines: dict[int, list[StepLineOut]] = {}
+    if step_rows:
+        for uses in db.scalars(
+            select(RecipeStepLine)
+            .where(RecipeStepLine.step_id.in_([s.id for s in step_rows]))
+            .order_by(RecipeStepLine.id)
+        ):
+            if uses.line_id in position_of:
+                step_lines.setdefault(uses.step_id, []).append(
+                    StepLineOut(
+                        line_id=uses.line_id,
+                        line=position_of[uses.line_id],
+                        kind=cast(Literal["guessed", "by_hand"], uses.kind),
+                    )
+                )
+    steps = [
+        RecipeStepOut(
+            id=s.id,
+            kind=cast(Literal["step", "heading"], s.kind),
+            text=s.text,
+            lines=sorted(step_lines.get(s.id, []), key=lambda uses: uses.line),
+        )
+        for s in step_rows
     ]
     homemade = homemade_food(kitchen, recipe)
     used_by = db.execute(

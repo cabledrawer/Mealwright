@@ -269,6 +269,20 @@ class RecipeLineIn(BaseModel):
 class RecipeStepIn(BaseModel):
     kind: Literal["step", "heading"] = "step"
     text: Annotated[str, Field(min_length=1, max_length=MAX_STEP_CHARS)]
+    # Which ingredient lines this step uses, set by hand (0.7, for Cook mode's per-step
+    # ingredients): positions in this save's `lines`, counting from 0, so a new line can be
+    # linked in the same save. Left out (null): the step keeps the links it had, if it is
+    # the same step (same words) and the line is still in the recipe. [] : none.
+    # In range is checked against `lines` in RecipeIn; StoredInt refuses a huge one as bad_number.
+    lines: list[StoredInt] | None = Field(
+        default=None,
+        max_length=MAX_LINES,
+        description=(
+            "The ingredient lines this step uses, set by hand: positions in this save's"
+            " `lines`, counting from 0. Left out or null: the step keeps the links it had if"
+            " its words are unchanged and the line is still in the recipe. [] : none."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check(self) -> RecipeStepIn:
@@ -280,6 +294,10 @@ class RecipeStepIn(BaseModel):
             self.text = text_block(self.text).strip()
         if not self.text:
             raise ValueError("Type the step.")
+        if self.lines is not None:
+            if self.kind == "heading" and self.lines:
+                raise ValueError("A heading has no ingredients.")
+            self.lines = list(dict.fromkeys(self.lines))
         return self
 
 
@@ -379,6 +397,10 @@ class RecipeIn(BaseModel):
         ids = [line.id for line in self.lines if line.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("The same line is in the recipe twice.")
+        for step in self.steps:
+            for index in step.lines or []:
+                if not 0 <= index < len(self.lines) or self.lines[index].kind != "ingredient":
+                    raise ValueError("A step can only use the recipe's own ingredient lines.")
         return self
 
 
@@ -424,10 +446,19 @@ class RecipeLineOut(BaseModel):
     note: str | None
 
 
+class StepLineOut(BaseModel):
+    """One ingredient line a step uses (0.7, for Cook mode's per-step ingredients)."""
+
+    line_id: int
+    line: int  # its position in the recipe's `lines`, counting from 0, as a save sends it
+    kind: Literal["guessed", "by_hand"]
+
+
 class RecipeStepOut(BaseModel):
     id: int
     kind: Literal["step", "heading"]
     text: str
+    lines: list[StepLineOut] = Field(default_factory=list)
 
 
 class MakesOut(BaseModel):

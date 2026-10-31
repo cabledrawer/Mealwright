@@ -741,6 +741,7 @@ class RecipeLine(Base):
 
     __tablename__ = "recipe_line"
     __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_recipe_line_household_id_id"),
         CheckConstraint("kind IN ('ingredient', 'heading')", name="kind_known"),
         CheckConstraint("food_id IS NULL OR sub_recipe_id IS NULL", name="one_link"),
         Index("ix_recipe_line_recipe_id_position", "recipe_id", "position"),
@@ -780,6 +781,7 @@ class RecipeStep(Base):
 
     __tablename__ = "recipe_step"
     __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_recipe_step_household_id_id"),
         CheckConstraint("kind IN ('step', 'heading')", name="kind_known"),
         Index("ix_recipe_step_recipe_id_position", "recipe_id", "position"),
         {"sqlite_autoincrement": True},
@@ -793,6 +795,41 @@ class RecipeStep(Base):
     position: Mapped[int] = mapped_column(Integer)
     kind: Mapped[str] = mapped_column(String(10), default="step")
     text: Mapped[str] = mapped_column(String(5000))
+
+
+class RecipeStepLine(Base):
+    """Which ingredient lines a method step uses, for Cook mode's per-step ingredients
+    (spec section 6 gaps, "Cook mode ingredients", cabledrawer 17 Oct): each link is guessed
+    from the step's words, or set by hand when editing the recipe. Goes with its step or its
+    line; the step and the line are always the same household's."""
+
+    __tablename__ = "recipe_step_line"
+    __table_args__ = (
+        CheckConstraint("kind IN ('guessed', 'by_hand')", name="kind_known"),
+        UniqueConstraint("step_id", "line_id", name="uq_recipe_step_line_step_id_line_id"),
+        ForeignKeyConstraint(
+            ["household_id", "step_id"],
+            ["recipe_step.household_id", "recipe_step.id"],
+            ondelete="CASCADE",
+            name="fk_recipe_step_line_household_id_recipe_step",
+        ),
+        ForeignKeyConstraint(
+            ["household_id", "line_id"],
+            ["recipe_line.household_id", "recipe_line.id"],
+            ondelete="CASCADE",
+            name="fk_recipe_step_line_household_id_recipe_line",
+        ),
+        Index("ix_recipe_step_line_line_id", "line_id"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    step_id: Mapped[int] = mapped_column(Integer)
+    line_id: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(10), default="by_hand")
 
 
 class Tag(Base):

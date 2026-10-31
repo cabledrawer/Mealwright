@@ -946,3 +946,41 @@ def test_restock_date_migration_marks_old_staple_ticks_and_goes_back_and_forward
     assert migrate_head(engine) == newest_migration()
     assert marks() == {"t-salt": 1, "t-dal": 0}
     assert _row_counts(engine, skip) == before
+
+
+RESTOCK_MIGRATION = "b89c3c1918f8"  # 0.7 K1's restock date: the one just before step links
+
+
+def test_step_links_migration_adds_one_table_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.7 K1: the step ↔ ingredient line table is added empty, recipe steps and lines keep
+    every row, rule and "never reuse an id"; a link can't join two households and goes with
+    its step; going back drops only the table and keeps every other row."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)  # a recipe with a line and a step in each of two households
+    skip = {"recipe_step_line", "cooked_record", "alembic_version"}
+    before = _row_counts(engine, skip)
+    migrate.downgrade(engine, RESTOCK_MIGRATION)
+    assert "recipe_step_line" not in inspect(engine).get_table_names()
+    assert _row_counts(engine, skip) == before
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    for table in ("recipe_step", "recipe_line"):
+        sql = _table_sql(engine, table)
+        assert "AUTOINCREMENT" in sql and "CHECK" in sql, table
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        add_row = (
+            "INSERT INTO recipe_step_line (household_id, step_id, line_id, kind)"
+            " VALUES (?, ?, ?, 'guessed')"
+        )
+        connection.exec_driver_sql(add_row, (1, 1, 1))
+        for household_id, step_id, line_id in ((1, 1, 2), (2, 1, 2), (1, 2, 1)):
+            with pytest.raises(IntegrityError):
+                connection.exec_driver_sql(add_row, (household_id, step_id, line_id))
+        connection.exec_driver_sql("DELETE FROM recipe_step WHERE id = 1")
+        assert connection.exec_driver_sql("SELECT count(*) FROM recipe_step_line").scalar() == 0
+    after = _row_counts(engine, skip)
+    migrate.downgrade(engine, RESTOCK_MIGRATION)
+    assert _row_counts(engine, skip) == after
+    assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
