@@ -1,5 +1,5 @@
 """K2 round 3: an Undo sent through /sync does what the Undo in Recent changes does. Both go
-through `undo_checked`/`undo_run`, so "Cooked it" can be cooked again after either, and a
+through `undo_refusal`/`undo_run`, so "Cooked it" can be cooked again after either, and a
 removal that no longer stands cannot be undone by either."""
 
 from datetime import timedelta
