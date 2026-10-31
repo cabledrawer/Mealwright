@@ -788,16 +788,14 @@ describe('the Shopping page', () => {
       expect(server.actions.some((x) => x.kind === 'add')).toBe(false);
     });
 
-    it('a new name offers + New ingredient, then How do you count it? with the guess first, and packet sizes', async () => {
+    it('a new name offers + New ingredient, then Pantry keeps it by with the guess first, and packet sizes', async () => {
       await render(390, {
         'GET /foods?q=flaxseed&limit=8': [200, { foods: [], total: 0, counts: {}, next: null }],
         'GET /foods/guess?name=flaxseed': [200, { counted_as: 'volume', from_table: true }]
       });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('flaxseed');
       await page.getByRole('button', { name: '+ New ingredient: “flaxseed”' }).click();
-      await expect
-        .element(page.getByRole('heading', { name: 'How do you count it?' }))
-        .toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
       await vi.waitFor(() => {
         const radios = page
           .getByRole('radio')

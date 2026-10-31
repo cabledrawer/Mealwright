@@ -94,6 +94,14 @@ describe('the ingredient editor, opened from anywhere', () => {
     expect(dialog.getByText(/^Used in \d/).elements()).toHaveLength(0);
   });
 
+  it('asks “Pantry keeps it by”, with its hint (F119)', async () => {
+    const dialog = await openToorDal();
+    await expect.element(dialog.getByLabelText(/^Pantry keeps it by/)).toBeVisible();
+    await expect
+      .element(dialog.getByText(/The way you buy it: a 500.g jar → by weight\. Recipes can still/))
+      .toBeVisible();
+  });
+
   describe('the recipes that use it (0.4)', () => {
     const recipes = (names: string[]) => names.map((name, i) => ({ id: 30 + i, name }));
 

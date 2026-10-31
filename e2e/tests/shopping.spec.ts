@@ -137,7 +137,7 @@ test("the main list can be renamed but not removed", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("a typed name that is not an ingredient asks How do you count it?, with packet sizes up front", async ({
+test("a typed name that is not an ingredient asks Pantry keeps it by, with packet sizes up front", async ({
   page,
 }) => {
   const name = `tahini ${tag()}`;
@@ -146,7 +146,7 @@ test("a typed name that is not an ingredient asks How do you count it?, with pac
   await page
     .getByRole("button", { name: `+ New ingredient: “${name}”` })
     .click();
-  const dialog = page.getByRole("dialog", { name: "How do you count it?" });
+  const dialog = page.getByRole("dialog", { name: "Pantry keeps it by" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("radio")).toHaveText([
     /By weight/,
@@ -383,7 +383,7 @@ test("the amount box’s Edit ingredient saves the box and opens the ingredient 
   await context.setOffline(false);
 });
 
-test("Ingredients has a New ingredient button that asks How do you count it?", async ({
+test("Ingredients has a New ingredient button that asks Pantry keeps it by", async ({
   page,
 }) => {
   const name = `Sumac ${tag()}`;
@@ -397,7 +397,7 @@ test("Ingredients has a New ingredient button that asks How do you count it?", a
         : { name: "+ New ingredient" },
     )
     .click();
-  const dialog = page.getByRole("dialog", { name: "How do you count it?" });
+  const dialog = page.getByRole("dialog", { name: "Pantry keeps it by" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
   await dialog.getByRole("radio", { name: /One by one/ }).click();
   await dialog.getByRole("button", { name: "Add", exact: true }).click();

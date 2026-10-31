@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
   // The ingredient editor (mockups Ingredients-Phone, Ingredients-Desktop). The same
   // component everywhere: in the phone sheet / desktop panel (IngredientSheet.svelte)
   // and beside the list on the Ingredients page. Saves as you go: each field is saved
@@ -173,7 +174,7 @@
     void model.setField(
       { counted_as: value },
       (f) => (f.counted_as = value),
-      'Changed how it’s counted'
+      'Changed what the pantry keeps it by'
     );
   }
 
@@ -479,14 +480,17 @@
       </section>
 
       <div class="fields">
-        <label>
-          Counted
-          <select value={food.counted_as} onchange={setCountedAs}>
-            {#each COUNTED as option (option.value)}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </label>
+        <div class="with-hint">
+          <label>
+            {KEPT_BY}
+            <select value={food.counted_as} onchange={setCountedAs} aria-describedby="kept-by-hint">
+              {#each COUNTED as option (option.value)}
+                <option value={option.value}>{option.label}</option>
+              {/each}
+            </select>
+          </label>
+          <span class="kept-hint" id="kept-by-hint">{KEPT_BY_HINT}</span>
+        </div>
         {#if food.counted_as === 'count'}
           <label>
             Each one is a
@@ -1039,6 +1043,18 @@
     color: var(--color-text);
     /* 16 px on phones stops them zooming in. */
     font: var(--weight-semibold) 1rem var(--font-ui);
+  }
+
+  .with-hint {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    grid-column: 1 / -1;
+  }
+
+  .kept-hint {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   label input[aria-invalid='true'] {

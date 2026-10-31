@@ -221,14 +221,17 @@ describe('the Ingredients page', () => {
     expect(toasts.current?.action?.label).toBe('Undo');
   });
 
-  it('New ingredient asks How do you count it?, makes it and opens it', async () => {
+  it('New ingredient asks Pantry keeps it by, makes it and opens it', async () => {
     requests.length = 0;
     // A phone shows the round + (the words would squeeze the title); a computer the words.
     await expect
       .element(page.getByRole('button', { name: '+ New ingredient' }))
       .not.toBeInTheDocument();
     await page.getByRole('button', { name: 'New ingredient', exact: true }).click();
-    await expect.element(page.getByRole('heading', { name: 'How do you count it?' })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
+    await expect
+      .element(page.getByText(/The way you buy it: a 500.g jar → by weight\./))
+      .toBeVisible();
     await page.getByRole('textbox', { name: 'Name' }).fill('Tahini');
     await page.getByRole('radio', { name: /One by one/ }).click();
     await page.getByRole('button', { name: 'Add', exact: true }).click();

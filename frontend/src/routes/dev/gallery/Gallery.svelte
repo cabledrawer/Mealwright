@@ -890,7 +890,7 @@
         >Ask once: weight of a cup</button
       >
       <button type="button" class="demo" onclick={() => void newIngredient.choose('Curry leaves')}
-        >How do you count it?</button
+        >Pantry keeps it by</button
       >
     </div>
   </section>
@@ -1414,7 +1414,7 @@
         search={searchEverything}
         {blocked}
         onpick={() => toasts.show('Gallery: nothing is picked.')}
-        oncreate={() => toasts.show('Gallery: this opens “How do you count it?”.')}
+        oncreate={() => toasts.show('Gallery: this opens “Pantry keeps it by”.')}
       />
     </div>
 

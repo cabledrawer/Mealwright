@@ -174,7 +174,7 @@
   }
 
   async function createIngredient(line: DraftLine, name: string) {
-    // Both dialogs are modal: the sheet gives way while "How do you count it?" is open.
+    // Both dialogs are modal: the sheet gives way while "Pantry keeps it by" is open.
     const made = await newIngredient.ask(name);
     if (made) pick(line, { kind: 'ingredient', food: { id: made.id, name: made.name } });
   }

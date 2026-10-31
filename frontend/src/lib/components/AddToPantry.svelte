@@ -91,7 +91,7 @@
   }
 
   /**
-   * "+ New ingredient": asks "How do you count it?" first, as Shopping and the recipe editor
+   * "+ New ingredient": asks "Pantry keeps it by" first, as Shopping and the recipe editor
    * do; that sheet makes it (or finds the one already called that), then it’s picked here.
    * The question opens on top of this sheet; Cancel there comes back here with nothing made.
    */

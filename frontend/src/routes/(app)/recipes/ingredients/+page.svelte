@@ -310,7 +310,7 @@
 
       <div class="card">
         <div class="heads" aria-hidden="true">
-          <span>Ingredient</span><span>Counted as</span><span>Lives in</span><span>Recipes</span>
+          <span>Ingredient</span><span>Kept by</span><span>Lives in</span><span>Recipes</span>
         </div>
         {#if list.foods.length}
           <ul>

@@ -209,7 +209,7 @@ describe('the Pantry page', () => {
     expect(requests.some((r) => r.path === '/stock' || r.path.startsWith('/stock/'))).toBe(false);
   });
 
-  it('Add to pantry: + New ingredient asks How do you count it?, then picks what it made', async () => {
+  it('Add to pantry: + New ingredient asks Pantry keeps it by, then picks what it made', async () => {
     routes({
       'GET /foods?q=tahini&limit=8': [200, { foods: [], counts: {}, total: 0, next: null }],
       'POST /foods': [
@@ -229,9 +229,7 @@ describe('the Pantry page', () => {
       await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('tahini');
       await sheet.getByRole('button', { name: '+ New ingredient: “tahini”' }).click();
       // Nothing is made until the question is answered.
-      await expect
-        .element(page.getByRole('heading', { name: 'How do you count it?' }))
-        .toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
       expect(requests.some((r) => r.method === 'POST' && r.path === '/foods')).toBe(false);
       await page.getByRole('radio', { name: /One by one/ }).click();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -245,14 +243,14 @@ describe('the Pantry page', () => {
       // Back in Add to pantry with it picked.
       await expect.element(sheet.getByText('Tahini', { exact: true })).toBeVisible();
       await expect
-        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .element(page.getByRole('heading', { name: 'Pantry keeps it by' }))
         .not.toBeInTheDocument();
     } finally {
       unmount(question);
     }
   });
 
-  it('Add to pantry: Cancel on How do you count it? makes nothing and stays in the sheet', async () => {
+  it('Add to pantry: Cancel on Pantry keeps it by makes nothing and stays in the sheet', async () => {
     routes({
       'GET /foods?q=tahini&limit=8': [200, { foods: [], counts: {}, total: 0, next: null }]
     });
@@ -263,7 +261,7 @@ describe('the Pantry page', () => {
       const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
       await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('tahini');
       await sheet.getByRole('button', { name: '+ New ingredient: “tahini”' }).click();
-      const asking = page.getByRole('dialog', { name: 'How do you count it?' });
+      const asking = page.getByRole('dialog', { name: 'Pantry keeps it by' });
       await asking.getByRole('button', { name: 'Cancel' }).click();
       await expect.element(asking).not.toBeInTheDocument();
       await expect

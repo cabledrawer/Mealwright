@@ -1,5 +1,6 @@
 <script lang="ts">
-  // "How do you count it?" (newIngredient.svelte.ts): By weight · By volume · One by one ·
+  import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
+  // "Pantry keeps it by" (newIngredient.svelte.ts): By weight · By volume · One by one ·
   // Don't count it, with the bundled table's guess first. Packet sizes can be added right
   // here, so they don't have to be added afterwards in the editor. A modal dialog:
   // Escape = Cancel.
@@ -152,7 +153,7 @@
 <dialog bind:this={dialog} aria-labelledby="{uid}-q" oncancel={() => newIngredient.cancel()}>
   {#if pending}
     <form onsubmit={submit}>
-      <h2 id="{uid}-q">How do you count it?</h2>
+      <h2 id="{uid}-q">{KEPT_BY}</h2>
       {#if pending.name}
         <p class="name">{pending.name}</p>
       {:else}
@@ -162,6 +163,7 @@
         </label>
       {/if}
 
+      <p class="kept-hint" id="{uid}-hint">{KEPT_BY_HINT}</p>
       <div class="options" role="radiogroup" aria-labelledby="{uid}-q" use:radioKeys>
         {#each ordered as option (option.value)}
           <button
@@ -298,6 +300,11 @@
     margin-top: calc(-1 * var(--space-4));
     font-size: var(--text-xl);
     font-weight: var(--weight-bold);
+  }
+
+  .kept-hint {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .options {

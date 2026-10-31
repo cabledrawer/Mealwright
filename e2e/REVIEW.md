@@ -154,7 +154,7 @@ Fill this in per PR as rulings are made. PR 4 (Shopping):
 - Checkboxes have a 44 px tap area around the 22 px box; buttons are 44 px tall, not 36 px.
 - Taking an item off the list is "Remove from list" inside the amount editor (tap the amount)
   (cabledrawer's decision 7, 18 Oct).
-- "How do you count it?" has no mockup yet (the put-away toast's Change button is in the phone mockup).
+- "Pantry keeps it by" has no mockup yet (the put-away toast's Change button is in the phone mockup).
 
 Hidden in 0.3: list generation from the
 plan, the staples check card, tubs, "Recipes for these".

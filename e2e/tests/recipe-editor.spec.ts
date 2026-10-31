@@ -361,17 +361,17 @@ test('a recipe used as an ingredient is saved as a recipe line', async ({ page }
   expect(saved.lines[0]).toMatchObject({ link: 'recipe', recipe: { id: powder.id }, unit: 'tbsp', amount_text: '2' });
 });
 
-test('+ New ingredient opens "How do you count it?", then the line is linked', async ({ page }) => {
+test('+ New ingredient opens "Pantry keeps it by", then the line is linked', async ({ page }) => {
   const recipe = await makeRecipe(page, { name: unique('New ing') });
   await page.goto(`/recipes/${recipe.id}/edit`);
   await page.getByRole('button', { name: '+ Add line' }).first().click();
   const fresh = unique('Kokum');
   await page.getByLabel('Ingredient 1', { exact: true }).fill(fresh);
   await page.getByRole('option', { name: new RegExp(`^\\+ New ingredient “${fresh}”`) }).click();
-  await expect(page.getByRole('heading', { name: 'How do you count it?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
   await page.getByRole('radio', { name: /By weight/ }).check();
   await page.getByRole('button', { name: /^(Add|Save|Done|Make)/ }).last().click();
-  await expect(page.getByRole('heading', { name: 'How do you count it?' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeHidden();
   await save(page).click();
   await expect(page).toHaveURL(`/recipes/${recipe.id}`);
   const saved = await getRecipe(page, recipe.id);

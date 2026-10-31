@@ -438,7 +438,7 @@ export class ShoppingModel {
 
   /**
    * A typed name that isn't an ingredient yet: one `add` with `new_food` (sync-protocol 4.4).
-   * The packet sizes picked in "How do you count it?" go inside it (`new_food.sizes`), so it
+   * The packet sizes picked in "Pantry keeps it by" go inside it (`new_food.sizes`), so it
    * works offline too.
    */
   async addNew(chosen: Chosen, amount?: { amount: number; sizeId: number | null }) {

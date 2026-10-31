@@ -1,6 +1,6 @@
 <script lang="ts">
   // "Add an item…" (mockup Shop): type a name; matching ingredients are offered, and a name
-  // nobody has used offers + New ingredient: "tahini", which asks How do you count it?.
+  // nobody has used offers + New ingredient: "tahini", which asks Pantry keeps it by.
   import Icon from '#lib/components/Icon.svelte';
   import type { FoodRow } from '#lib/client/types.js';
   import type { FoodSize } from '#lib/shopping/types.js';
@@ -128,7 +128,7 @@
     return read;
   }
 
-  /** An add is under way (waiting for sizes or for "How do you count it?"): a second tap or
+  /** An add is under way (waiting for sizes or for "Pantry keeps it by"): a second tap or
    * Enter is ignored, so the same thing isn't added twice. */
   let busy = false;
 

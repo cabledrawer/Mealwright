@@ -1,4 +1,4 @@
-// "How do you count it?" (sync-protocol 16.2, spec L304): asked once when a typed name is a
+// "Pantry keeps it by" (sync-protocol 16.2, spec L304): asked once when a typed name is a
 // brand-new ingredient, from the Shopping add box and from the Ingredients "New ingredient"
 // button. NewIngredient.svelte shows it; callers wait for the answer.
 

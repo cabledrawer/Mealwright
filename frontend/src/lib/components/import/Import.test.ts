@@ -374,6 +374,16 @@ describe('Import a recipe', () => {
       expect(flow.choices[2]).toMatchObject({ name: 'Hing' });
     });
 
+    it('asks “Pantry keeps it by” with its hint on a new ingredient (F119)', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: 'New ingredient' }).first().click();
+      await expect.element(page.getByLabelText(/^Pantry keeps it by/)).toBeVisible();
+      await expect
+        .element(page.getByText(/The way you buy it: a 500.g jar → by weight\. Recipes can still/))
+        .toBeVisible();
+      expect(document.body.textContent).not.toContain('How it’s counted');
+    });
+
     it('names what it read on a line that is not in your ingredients (F5)', async () => {
       await reviewing();
       // Not "2 tbsp  Not in your ingredients": the name is there, so the amount isn't mistaken

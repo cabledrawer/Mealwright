@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
   // One ingredient line on the review, as a card (mockup Dark-ImportCheck07-Desktop, spec "The
   // labels", "Learning", "New ingredient from an import", "Treat as staple" and "Importer
   // consistency"): a status dot, the line as written, the name it read with its amount and note as
@@ -390,10 +391,11 @@
             />
           </label>
           <label class="field" for="{uid}-how">
-            <span>How it’s counted</span>
+            <span>{KEPT_BY}</span>
             <select
               id="{uid}-how"
               class="mw-input"
+              aria-describedby="{uid}-how-hint"
               value={made.counted_as}
               onchange={(e) => edit({ counted_as: e.currentTarget.value as CountedAs })}
             >
@@ -402,6 +404,7 @@
               {/each}
             </select>
           </label>
+          <span class="hint" id="{uid}-how-hint">{KEPT_BY_HINT}</span>
           <label class="field" for="{uid}-place">
             <span>Usually kept in</span>
             <select

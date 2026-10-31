@@ -9,7 +9,7 @@
   // The pick-list under a line's ingredient box (mockup RecipeLines): a listbox of what the
   // typed words find, shown while the person types. Ingredients first, each with "also called …"
   // and "in N recipes" (by any of their other names too: "thuvaram" finds Toor dal), then recipes,
-  // and last "+ New ingredient “dru”", which opens the same "How do you count it?" as Shopping.
+  // and last "+ New ingredient “dru”", which opens the same "Pantry keeps it by" as Shopping.
   // A recipe that would make a loop is greyed out with the reason.
   //
   // The box is a combobox and keeps the focus; its owner (LineList) hands the arrow keys and Enter
