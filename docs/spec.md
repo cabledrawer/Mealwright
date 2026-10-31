@@ -653,7 +653,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 
 - **F87:** "8 whole cloves" is Cloves, 8 (or the ingredient "Whole cloves" if it exists), never a new ingredient "Whole". Other "whole X" lines read the same way.
 - **F88:** "three 14-ounce cans coconut milk" and "half a 340g jar jam" get an amount, like "one 14-ounce can" and "half a jar" already do.
-- **F89:** "2 cloves garlic" reads as 2 cloves of garlic.
+- **F89:** "2 cloves garlic" reads as 2 cloves of garlic. cabledrawer 31 Oct: "F89: both. In A3, "2 cloves garlic" reads as 2 cloves (shown as "2 cloves", never counted or taken as 2 garlic); in K3 the learned size ("1 clove ≈ …") comes with my F106 rule."
 - **F91:** "Recipe" and "How to Make …" are dropped from imported names ("Sambar Recipe, How to Make Sambar" is "Sambar"; "Lemon Rice Recipe (Chitranna)" is "Lemon Rice (Chitranna)"). "Classic" is kept.
 - **F92:** Discard on the Check screen deletes its waiting photo at once.
 - **F93:** the Check screen's header count ("2 need you") updates as lines are sorted.
