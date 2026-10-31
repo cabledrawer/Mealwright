@@ -60,4 +60,16 @@ describe('the error page inside the app', () => {
     await expect.element(page.getByText('This page didn’t open. Try again.')).toBeVisible();
     expect(document.body.textContent).not.toMatch(/500|Internal Error/);
   });
+
+  it('says nothing wrong first: until the server has been asked, no “Something went wrong.”', async () => {
+    let answer: (response: Response) => void = () => {};
+    vi.stubGlobal('fetch', () => new Promise<Response>((done) => (answer = done)));
+    open();
+    await new Promise((done) => setTimeout(done, 100));
+    expect(document.body.textContent).not.toMatch(/Something went wrong/);
+    answer(new Response('', { status: 502 }));
+    await expect
+      .element(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' }))
+      .toBeVisible();
+  });
 });

@@ -8,10 +8,23 @@
   import { downTitle } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
 
-  // Ask our own server whether it is there, so the words fit the cause.
+  // Ask our own server whether it is there, so the words fit the cause. Until it has answered
+  // (or something else has already said the server is down) nothing is said: no wrong first
+  // words that change a few seconds later.
+  let asked = $state(false);
+  let trying = $state(false);
   onMount(() => {
-    void network.check();
+    void network.check().finally(() => (asked = true));
   });
+
+  /** Try again: reload only once the server answers. While it is still down, a reload would
+   *  load the proxy's bare page and lose the app, so the note and the menu stay. */
+  async function tryAgain() {
+    trying = true;
+    await network.check();
+    trying = false;
+    if (!network.down) location.reload();
+  }
 
   const down = $derived(network.down || network.deviceOffline);
   const device = $derived(network.deviceOffline);
@@ -23,19 +36,26 @@
   );
 </script>
 
-<svelte:head
-  ><title>{down ? 'Can’t reach your server' : 'Something went wrong'} · Mealwright</title
-  ></svelte:head
->
+<svelte:head>
+  <title
+    >{!asked && !down
+      ? 'Mealwright'
+      : `${down ? 'Can’t reach your server' : 'Something went wrong'} · Mealwright`}</title
+  >
+</svelte:head>
 
-<section class="note" aria-labelledby="error-title">
-  <h1 id="error-title">{title}</h1>
-  <p>{body}</p>
-  <div class="buttons">
-    <button type="button" class="again" onclick={() => location.reload()}>Try again</button>
-    <a class="shopping" href={resolve('/(app)/shopping')}>Shopping</a>
-  </div>
-</section>
+{#if asked || down}
+  <section class="note" aria-labelledby="error-title">
+    <h1 id="error-title">{title}</h1>
+    <p>{body}</p>
+    <div class="buttons">
+      <button type="button" class="again" disabled={trying} onclick={() => void tryAgain()}
+        >Try again</button
+      >
+      <a class="shopping" href={resolve('/(app)/shopping')}>Shopping</a>
+    </div>
+  </section>
+{/if}
 
 <style>
   .note {
