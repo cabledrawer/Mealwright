@@ -329,7 +329,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 1.0.0 First public release
 
-cabledrawer decides when. He makes the GitHub repo public, starting fresh with one clean "Mealwright 1.0" commit; the full history stays private on Forgejo (cabledrawer 28 Oct, review of v0.6.0). Then he tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
+cabledrawer decides when. He makes the GitHub repo public. The development history goes to GitHub, cleaned (cabledrawer 30 Oct: "GitHub at 1.0 gets the development history, cleaned (not "starts fresh")."), replacing the 28 Oct "start fresh with one clean commit". Then he tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
 
 At 1.0, `CHANGELOG.md` gets link footers for every version, pointing at GitHub (cabledrawer 31 Oct: "No CHANGELOG footer links to the private Forgejo: add them at 1.0, pointing at GitHub.").
 
