@@ -97,6 +97,31 @@ def test_search_by_any_name(kitchen: TestClient) -> None:
     assert [(f["name"], f["matched_name"]) for f in by_other] == [("Toor dal", "arhar dal")]
 
 
+def test_f97_an_exact_name_or_other_name_comes_first_even_past_the_first_page(
+    kitchen: TestClient,
+) -> None:
+    """The Ingredients page offers "+ New ingredient" from the first page only, so an ingredient
+    named exactly what was typed (or with that other name) must be on it, however many names
+    merely contain the text."""
+    for number in range(60):  # more than a page of names that contain "chilli flakes"
+        add(kitchen, f"Zz chilli flakes {number:02d}")
+    hot = add(kitchen, "Zzz hot flakes")
+    kitchen.post(f"{API}/foods/{hot['id']}/other-names", json={"name": "Chilli flakes"})
+    page = kitchen.get(f"{API}/foods", params={"q": "chilli flakes", "limit": 50}).json()
+    assert page["next"] is not None
+    assert (page["foods"][0]["name"], page["foods"][0]["matched_name"]) == (
+        "Zzz hot flakes",
+        "Chilli flakes",
+    )
+    # An exact name is first as well, whatever it sorts like.
+    plain = add(kitchen, "Zzzz chilli flakes")
+    page = kitchen.get(f"{API}/foods", params={"q": "chilli flakes", "limit": 50}).json()
+    assert page["foods"][0]["id"] == plain["id"]
+    # No exact match: nothing is out of order (names that start with it, then contain it).
+    page = kitchen.get(f"{API}/foods", params={"q": "zz chilli", "limit": 3}).json()
+    assert [f["name"] for f in page["foods"]] == [f"Zz chilli flakes {n:02d}" for n in range(3)]
+
+
 def test_staples_filter(kitchen: TestClient) -> None:
     salt = add(kitchen, "Salt", staple=True)
     add(kitchen, "Toor dal")

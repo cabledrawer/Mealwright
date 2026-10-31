@@ -19,10 +19,17 @@ def fold(text: str) -> str:
 
 def search_match(name: str, others: list[str], needle: str) -> tuple[int, str | None] | None:
     """Does a typed search find this food? `needle` is already folded. Returns how well
-    (0 name starts with it, 1 name contains it, 2 an other name starts with it, 3 an other
-    name contains it; lower is better) and which other name matched, or None for no match.
-    Used by Ingredients and by Pantry, so both find the same things."""
+    (-1 the name or another name is exactly it, 0 name starts with it, 1 name contains it, 2 an
+    other name starts with it, 3 an other name contains it; lower is better) and which other name
+    matched, or None for no match. Used by Ingredients and by Pantry, so both find the same
+    things; only Ingredients sorts by the rank. An exact match comes first so that the screen's
+    "+ New ingredient" offer (F97), which looks at the first page only, never misses it."""
     folded = fold(name)
+    if folded == needle:
+        return -1, None
+    for other in others:
+        if fold(other) == needle:
+            return -1, other
     if folded.startswith(needle):
         return 0, None
     if needle in folded:
