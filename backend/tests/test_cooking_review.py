@@ -721,6 +721,7 @@ def butter_and_ghee(client: TestClient, path: str, butter_in_house: int, low_at:
             f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": item, **body}]}
         )
 
+    confirm.item = item  # type: ignore[attr-defined]
     return butter["id"], confirm
 
 
@@ -742,6 +743,12 @@ def test_a_ticked_running_low_offer_is_kept_when_use_is_off(kitchen: TestClient,
     assert amounts(kitchen, butter) == [100_000]  # only the ghee's 50 g stand-in was taken
 
 
+def butter_preview(client: TestClient, confirm: Any) -> dict[str, Any]:
+    from test_deduction import propose, row_of
+
+    return row_of(propose(client, confirm.item), "Zorba butter")
+
+
 @pytest.mark.parametrize("path", ["item", "batch", "meal"])
 def test_a_use_off_row_offers_running_low_as_the_preview_does_when_a_stand_in_draws(
     kitchen: TestClient, path: str
@@ -753,3 +760,18 @@ def test_a_use_off_row_offers_running_low_as_the_preview_does_when_a_stand_in_dr
     ok(confirm(use=False, add_to_list=True), 201)
     assert len(_listed(kitchen, butter)) == 1
     assert amounts(kitchen, butter) == [170_000]  # only the ghee's 50 g was taken
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+def test_a_use_off_row_offers_no_more_than_the_preview_when_stock_is_in_the_freezer(
+    kitchen: TestClient, path: str
+) -> None:
+    """Butter 100 g in the pantry and 100 g in the freezer, running low at 60 g. The preview takes
+    butter's 100 g and ghee cannot draw from the freezer: 100 g is left, no offer. Confirm with
+    butter's Use off must not offer one either."""
+    butter, confirm = butter_and_ghee(kitchen, path, 100, 60)
+    stock(kitchen, butter, 100, "g", place_id=place_id(kitchen, "Freezer"))
+    shown = butter_preview(kitchen, confirm)
+    assert shown["running_low"] is False
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert _listed(kitchen, butter) == []

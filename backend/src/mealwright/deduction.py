@@ -24,7 +24,8 @@ day is the one added first (the pantry's own rule); a part-used packet is kept e
 rounded; stand-ins are used in id order and only when they are counted the same way.
 """
 
-from dataclasses import dataclass, field
+import copy
+from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal
 from typing import Literal
@@ -333,38 +334,6 @@ def _stand_ins(kitchen: Kitchen, foods: set[int]) -> dict[int, list[int]]:
     return {key: sorted(ids) for key, ids in found.items()}
 
 
-def _dry_own(pool: Pool, row: Row, food: Food) -> int:
-    """What a row's own packets would give with Use on, read now and put back: nothing is taken."""
-    saved = dict(pool.left)
-    try:
-        got = pool.take(food, row.wanted or 0, row.from_freezer, False, row.entered is None)
-        return got.amount if got is not None else 0
-    finally:
-        pool.left.clear()
-        pool.left.update(saved)
-
-
-def _dry_stand_in(
-    pool: Pool, row: Row, food: Food, stand_ins: dict[int, list[int]], others: dict[int, Food]
-) -> int:
-    """What the stand-ins would give a Use-off row with none of its own: pass 2's draw, read in
-    pass 2's turn (after the rows before it have drawn, as the preview has them) and put back."""
-    saved = dict(pool.left)
-    try:
-        short, total = row.wanted or 0, 0
-        for other_id in stand_ins.get(food.id, ()):
-            other = others.get(other_id)
-            if short <= 0 or other is None or other.counted_as != food.counted_as:
-                continue
-            more = pool.take(other, short, row.from_freezer, True, row.entered is None)
-            if more is not None:
-                total, short = total + more.amount, short - more.amount
-        return total
-    finally:
-        pool.left.clear()
-        pool.left.update(saved)
-
-
 def _refuse(code: str, detail: str) -> Problem:
     return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, code, detail)
 
@@ -376,6 +345,7 @@ def work_out(
     answers: list[Answer] | None = None,
     choices: dict[str, Choice] | None = None,
     pool: Pool | None = None,
+    preview_of_off_rows: bool = False,
 ) -> Worked:
     """What cooking `portions` of the recipe takes from the pantry. Read-only. With `choices`
     (a confirm) the rows follow them, and a row that still needs its question answered is
@@ -405,9 +375,19 @@ def work_out(
     }
     pool = pool or Pool(kitchen)
     pool.ensure(food_ids | set(others))
-
-    # A Use-off row: what its own packets would give.
-    off: dict[str, int] = {}
+    # A row with Use off is offered what the preview offers it: the preview's own work-out, run
+    # on a copy of the pool as it is now, with every row's Use on. So the two cannot drift.
+    as_preview: dict[str, Row] = {}
+    if confirming and not preview_of_off_rows and any(not c.use for c in choices.values()):
+        mine = copy.copy(pool)
+        mine.left = dict(pool.left)
+        on = {key: replace(choice, use=True) for key, choice in choices.items()}
+        as_preview = {
+            row.key: row
+            for row in work_out(
+                kitchen, recipe, portions, answers, on, mine, preview_of_off_rows=True
+            ).rows
+        }
 
     # Pass 1: each row's own stock.
     for row in rows:
@@ -439,6 +419,7 @@ def work_out(
         if (
             confirming
             and row.use
+            and not preview_of_off_rows
             and row.asked is not None
             and row.entered is None
             and (choice is not None or row.use_default)
@@ -447,9 +428,6 @@ def work_out(
         if row.wanted is None or row.wanted <= 0:
             continue
         if confirming and not row.use:
-            # Nothing is taken, but what its own packets would give is read now, as the preview
-            # reads it (pass 2's stand-ins have not drawn yet).
-            off[row.key] = _dry_own(pool, row, food)
             continue
         taken = pool.take(food, row.wanted, row.from_freezer, False, row.entered is None)
         if taken is not None:
@@ -458,13 +436,10 @@ def work_out(
     # Pass 2: an ingredient with none at all (not in the freezer either) is taken from its "Can
     # use instead" ingredients. With some but not enough, the rest is a shortfall, never mixed
     # with a stand-in (cabledrawer 31 Oct).
-    stand_in_off: dict[str, int] = {}
     for row in rows:
         if row.food is None or not row.wanted:
             continue
         if confirming and not row.use:
-            if not off.get(row.key) and pool.total(row.food.id) == 0:
-                stand_in_off[row.key] = _dry_stand_in(pool, row, row.food, stand_ins, others)
             continue
         if row.takes or pool.total(row.food.id) > 0:
             continue
@@ -497,13 +472,13 @@ def work_out(
             continue
         # Use does not change what is offered (cabledrawer 31 Oct: the tick is its own choice): a
         # row switched off is worked out as the preview works it out, only nothing is taken.
-        if row.key in off:
-            # As the preview: what is left at the end, less what this row's own take would have
-            # drawn (the other rows, stand-ins too, have drawn from the same pool).
-            took = off[row.key] + stand_in_off.get(row.key, 0)
-            left_after = max(pool.total(row.food.id) - off[row.key], 0)
-        else:
-            took, left_after = row.taken, pool.total(row.food.id)
+        shown = as_preview.get(row.key)
+        if shown is not None:
+            row.short, row.status, row.make_first = shown.short, shown.status, shown.make_first
+            row.in_freezer, row.list_milli = shown.in_freezer, shown.list_milli
+            row.running_low, row.add_to_list = shown.running_low, shown.add_to_list
+            continue
+        took, left_after = row.taken, pool.total(row.food.id)
         row.short = max(row.wanted - took, 0)
         if row.status == "take" and not took and not row.entered:
             row.status = "none_in_pantry"
