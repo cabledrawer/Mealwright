@@ -310,6 +310,98 @@ def test_f19_serving_headings() -> None:
 # --- Names and tags (F9, section 9) -------------------------------------------------------------
 
 
+# F91, round 3: a table of real-looking titles, written before the rule was changed again. A
+# dash is a separator only with spaces round it; "Recipe" goes only as a label; whose recipe it
+# is (my, our, Mum's, Kids') stays.
+RECIPE_TITLES = [
+    # hyphenated words anywhere
+    ("Gluten-Free Banana Bread Recipe", "Gluten-Free Banana Bread"),
+    ("Easy One-Pot Pasta Recipe", "Easy One-Pot Pasta"),
+    ("Slow-Cooker Beef Stew Recipe", "Slow-Cooker Beef Stew"),
+    ("No-Knead Bread Recipe", "No-Knead Bread"),
+    ("Stir-Fried Noodles Recipe", "Stir-Fried Noodles"),
+    ("Pan-Fried Salmon recipe", "Pan-Fried Salmon"),
+    ("One-Pot Chicken and Rice", "One-Pot Chicken and Rice"),
+    ("Gluten-Free Recipes for Kids", "Gluten-Free Recipes for Kids"),
+    ("Dal - Gluten-Free Recipe", "Dal"),
+    ("Dal Makhani Recipe | Gluten-Free Kitchen", "Dal Makhani"),
+    # Recipe first, middle, last
+    ("Recipe", "Recipe"),
+    ("Recipe Box Brownies", "Recipe Box Brownies"),
+    ("The Recipe Tin lasagne", "The Recipe Tin lasagne"),
+    ("Quick Recipe Idea", "Quick Recipe Idea"),
+    ("Grandma's Recipe Cookies", "Grandma's Recipe Cookies"),
+    ("Chef John's Recipe for Fish Tacos", "Chef John's Recipe for Fish Tacos"),
+    ("Recipe for Banana Bread", "Banana Bread"),
+    ("Recipe for a Perfect Roast", "Perfect Roast"),
+    ("Recipe for the", "Recipe for the"),
+    ("Recipe of the Day: Dal", "Recipe of the Day: Dal"),
+    ("Recipe: Dal", "Dal"),
+    ("Recipe - Dal", "Dal"),
+    ("Recipe-tested Chili", "Recipe-tested Chili"),
+    ("Recipe-Box Brownies", "Recipe-Box Brownies"),
+    ("Recipe (Easy) Dal", "Recipe (Easy) Dal"),
+    ("Moist Banana Bread: Recipe", "Moist Banana Bread"),
+    ("Banana Bread Recipe: Moist and Easy", "Banana Bread Recipe: Moist and Easy"),
+    ("Pie Recipe \u2014 Apple Pie", "Pie Recipe \u2014 Apple Pie"),
+    ("Tarka Dal Recipe  ", "Tarka Dal"),
+    ("Mac & Cheese Recipe!", "Mac & Cheese"),
+    # possessives and pronouns
+    ("Mum's Recipe", "Mum's Recipe"),
+    ("Mum\u2019s Recipe", "Mum\u2019s Recipe"),
+    ("Grandma\u2019s Recipe", "Grandma\u2019s Recipe"),
+    ("Kids' Recipe", "Kids' Recipe"),
+    ("Kids\u2019 Recipe", "Kids\u2019 Recipe"),
+    ("My Recipe", "My Recipe"),
+    ("Your Recipe", "Your Recipe"),
+    ("Our Family Recipe", "Our Family Recipe"),
+    ("Their Secret Recipe", "Their Secret Recipe"),
+    ("His and Hers Recipe", "His and Hers Recipe"),
+    ("My Mum's Famous Dal Recipe", "My Mum's Famous Dal Recipe"),
+    ("My Recipe: Dal", "My Recipe: Dal"),
+    ("Family Recipe: Dal", "Family Recipe: Dal"),
+    ("Secret Recipe - Chili", "Secret Recipe - Chili"),
+    ("5-Minute Recipe - Hummus", "5-Minute Recipe - Hummus"),
+    ("Nan's recipe's best scones", "Nan's recipe's best scones"),
+    ("Mum's Recipe, Revisited", "Mum's Recipe, Revisited"),
+    ("Mum's Recipe (Revisited)", "Mum's Recipe (Revisited)"),
+    # site tails, brackets, colons
+    ("Butter Chicken Recipe - BBC Good Food", "Butter Chicken"),
+    ("Pancakes - Allrecipes", "Pancakes"),
+    ("Easy Pancake Recipe | BBC Good Food", "Easy Pancake"),
+    ("Quick Naan Recipe | The Spruce Eats", "Quick Naan"),
+    ("Pad Thai \u2013 Authentic Recipe", "Pad Thai"),
+    ("Chicken Tikka Masala (Restaurant Style) Recipe", "Chicken Tikka Masala (Restaurant Style)"),
+    ("Chicken Tikka Masala Recipe (Restaurant Style)", "Chicken Tikka Masala (Restaurant Style)"),
+    ("Lentil Soup (Vegan Recipe)", "Lentil Soup"),
+    ("Easy Chilli [Recipe]", "Easy Chilli"),
+    ("Dal Recipe (Easy)", "Dal"),
+    ("Lemon Rice Recipe (Chitranna)", "Lemon Rice (Chitranna)"),
+    ("Sambar Recipe, How to Make Sambar", "Sambar"),
+    ("How to Make Butter Chicken (Authentic Indian Recipe)", "Butter Chicken"),
+    ("How to Make Masala Chai", "Masala Chai"),
+    ("Classic Victoria Sponge Recipe", "Classic Victoria Sponge"),
+    ("Classic Victoria sandwich", "Classic Victoria sandwich"),
+    # capitals and other languages
+    ("BEST EVER CHILLI RECIPE", "BEST EVER CHILLI"),
+    ("RECIPE: DAL", "DAL"),
+    ("RECIPE FOR LEMON CAKE", "LEMON CAKE"),
+    ("Jalape\u00f1o Poppers Recipe", "Jalape\u00f1o Poppers"),
+    ("G\u00e2teau au chocolat", "G\u00e2teau au chocolat"),
+    ("Recette de ratatouille", "Recette de ratatouille"),
+    ("Rezept f\u00fcr Apfelkuchen", "Rezept f\u00fcr Apfelkuchen"),
+    ("Wei\u00dfwurst Rezept", "Wei\u00dfwurst Rezept"),
+    ("Poulet r\u00f4ti \u00e0 l\u2019ancienne", "Poulet r\u00f4ti \u00e0 l\u2019ancienne"),
+]
+
+
+@pytest.mark.parametrize(("written", "cleaned"), RECIPE_TITLES)
+def test_recipe_title_table(written: str, cleaned: str) -> None:
+    from mealwright.line_prep import clean_recipe_name
+
+    assert clean_recipe_name(written) == cleaned
+
+
 @pytest.mark.parametrize(
     ("written", "cleaned"),
     [

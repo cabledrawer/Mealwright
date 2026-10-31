@@ -148,10 +148,17 @@ _HOW_TO_TAIL = re.compile(
 _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
 _RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[|\u2013\u2014-])\s*(?=\S)", re.IGNORECASE)
 _RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
-_POSSESSIVE_RECIPE = re.compile(r"[\'\u2019]s\s+recipe\s*!*\s*$", re.IGNORECASE)
+_POSSESSIVE_RECIPE = re.compile(r"[\'\u2019]s?\s+recipe\s*!*\s*$", re.IGNORECASE)
+_PRONOUNS = frozenset({"my", "our", "your", "his", "her", "their"})
 _NOTHING_LEFT = frozenset({"recipe", "for", "a", "an", "the"})
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
-_RECIPE_TAIL = re.compile(r"\s*(?:[-–—|:]\s*[^-–—|:]*)?\brecipe\s*!*\s*$", re.IGNORECASE)
+# A dash is a separator only with spaces round it ("Butter chicken - the best curry recipe");
+# "Gluten-Free Banana Bread Recipe" has none, so only " Recipe" goes (F91).
+_RECIPE_TAIL = re.compile(
+    r"\s*(?:(?:\s[-\u2013\u2014]\s|\s*[|:]\s*)(?:(?!\s[-\u2013\u2014]\s)[^|:])*?)?"
+    r"\brecipe\s*!*\s*$",
+    re.IGNORECASE,
+)
 _BRACKET_PUFF = re.compile(
     r"\s*[\(\[]\s*(?:authentic|easy|best|simple|quick|classic|traditional|foolproof)\b[^()\[\]]*"
     r"[\)\]]\s*$",
@@ -170,6 +177,7 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _SITE_TAIL.sub("", found) or found
     cleaned = _HOW_TO.sub("", cleaned)
     cleaned = _HOW_TO_TAIL.sub("", cleaned) or cleaned
+    before = cleaned
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
     cleaned = _RECIPE_LABEL.sub("", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
@@ -177,6 +185,13 @@ def clean_recipe_name(name: str) -> str:
         cleaned = _RECIPE_TAIL.sub("", cleaned)
     cleaned = _RECIPE_FOR.sub("", cleaned)
     cleaned = _RECIPE_LEAD.sub("", cleaned)
+    left = cleaned.split()
+    if (
+        cleaned != before
+        and left
+        and (left[0].lower() in _PRONOUNS or left[-1].lower() in _PRONOUNS)
+    ):
+        cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     words = {word.strip("'\u2019.,!:;").lower() for word in cleaned.split()}
     if not any(c.isalpha() for c in cleaned) or words <= _NOTHING_LEFT:
