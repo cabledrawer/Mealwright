@@ -196,6 +196,18 @@ describe('the Ingredients page', () => {
     await expect.element(page.getByText('Every ingredient is in a recipe.')).toBeVisible();
   });
 
+  it('Merge is greyed out while the server can’t be reached', async () => {
+    const merge = page.getByRole('button', { name: 'Merge', exact: true });
+    await expect.element(merge).toBeEnabled();
+    network.offline = true;
+    flushSync();
+    try {
+      await expect.element(merge).toBeDisabled();
+    } finally {
+      network.reset();
+    }
+  });
+
   it('Merge on a Maybe-the-same row merges straight away, with Undo', async () => {
     await page.getByRole('button', { name: 'Merge', exact: true }).click();
     await vi.waitFor(() =>

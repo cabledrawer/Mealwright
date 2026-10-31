@@ -164,7 +164,8 @@
   <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
        18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
-       Anything added to Appearance later that needs the server is hidden offline. -->
+       Once loaded, Amounts stays too, with its switch greyed out while the server can't be
+       reached. Anything added later that needs the server is greyed out or hidden the same way. -->
   {#if network.down && pints === null}
     <OfflineNote screen="Settings" />
   {/if}

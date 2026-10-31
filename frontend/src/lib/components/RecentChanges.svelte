@@ -6,6 +6,7 @@
   import { totalWords } from '#lib/changeTotals.js';
   import { startsWithVerb } from '#lib/changeVerb.js';
   import type { Change } from '#lib/client/types.js';
+  import { network } from '#lib/network.svelte.js';
   import { session } from '#lib/session.svelte.js';
 
   let {
@@ -64,6 +65,7 @@
             type="button"
             class="undo"
             aria-label="Undo: {change.summary}"
+            disabled={network.offline}
             onclick={() => onundo(change)}>Undo</button
           >
         {/if}

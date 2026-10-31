@@ -26,6 +26,12 @@
     if (!network.down) location.reload();
   }
 
+  /** The note appears after the first check: the screen reader hears it, and focus is on it. */
+  let heading = $state<HTMLElement>();
+  $effect(() => {
+    if (heading) heading.focus();
+  });
+
   const down = $derived(network.down || network.deviceOffline);
   const device = $derived(network.deviceOffline);
   const title = $derived(down ? downTitle(device) : 'Something went wrong.');
@@ -46,7 +52,7 @@
 
 {#if asked || down}
   <section class="note" aria-labelledby="error-title">
-    <h1 id="error-title">{title}</h1>
+    <h1 id="error-title" tabindex="-1" bind:this={heading}>{title}</h1>
     <p>{body}</p>
     <div class="buttons">
       <button type="button" class="again" disabled={trying} onclick={() => void tryAgain()}

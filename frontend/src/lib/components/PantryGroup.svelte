@@ -6,6 +6,8 @@
   // the ¼ · ½ · ¾ · Full picks for an open one).
   import type { Group, Lot, Place } from '#lib/client/types.js';
   import { boughtWords, dateWords, useByWords } from '#lib/dates.js';
+  import { network } from '#lib/network.svelte.js';
+  import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { listLabel, type PantryList } from '#lib/pantryList.svelte.js';
@@ -189,14 +191,18 @@
         describe: name,
         icon: 'check',
         tone: 'used',
-        run: () => (usedOpen = true)
+        run: () => {
+          if (!blockedWhileDown()) usedOpen = true;
+        }
       }}
       left={{
         label: 'Binned',
         describe: name,
         icon: 'trash',
         tone: 'danger',
-        run: () => void model.binned(first.id, name)
+        run: () => {
+          if (!blockedWhileDown()) void model.binned(first.id, name);
+        }
       }}
     >
       {@render headRow()}
@@ -214,6 +220,7 @@
               type="button"
               class="lot"
               aria-haspopup="dialog"
+              disabled={network.offline}
               onclick={(event) => openMenu(lot, event)}
             >
               <span class="lot-amount">{lot.stock.display}{lot.open ? ' · open' : ''}</span>
@@ -237,6 +244,7 @@
             <button
               type="button"
               class="link"
+              disabled={network.offline}
               aria-label="type it instead: how much is left"
               onclick={(event) => openMenu(single, event, 'grams')}>type it instead</button
             ></span
@@ -255,7 +263,7 @@
               bind:value={typed}
             />
           </label>
-          <button type="submit" class="pill" disabled={!canSave}>Save</button>
+          <button type="submit" class="pill" disabled={!canSave || network.offline}>Save</button>
         {:else}
           <label class="small-field">
             Used some ({baseUnit})
@@ -267,10 +275,15 @@
               bind:value={typed}
             />
           </label>
-          <button type="submit" class="pill" disabled={!canSave}>Used</button>
+          <button type="submit" class="pill" disabled={!canSave || network.offline}>Used</button>
         {/if}
       </form>
-      <button type="button" class="link" onclick={() => ingredientEditor.open(group.food.id)}>
+      <button
+        type="button"
+        class="link"
+        disabled={network.offline}
+        onclick={() => ingredientEditor.open(group.food.id)}
+      >
         Edit {name}
       </button>
     </div>

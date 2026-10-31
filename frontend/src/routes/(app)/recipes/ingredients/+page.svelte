@@ -313,7 +313,12 @@
                 <span class="col">{food.place?.name ?? ''}</span>
                 <span class="end">
                   {#if maybe}
-                    <button type="button" class="merge" onclick={() => merge(food)}>Merge</button>
+                    <button
+                      type="button"
+                      class="merge"
+                      disabled={network.offline}
+                      onclick={() => merge(food)}>Merge</button
+                    >
                   {:else}
                     <UsedCount count={food.used_in_recipes ?? 0} />
                   {/if}

@@ -5,6 +5,7 @@
   import { ApiError } from '#lib/api.js';
   import type { Lot } from '#lib/client/types.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
+  import { network } from '#lib/network.svelte.js';
   import { PICKS, pickFor } from '#lib/picks.js';
   import { radioKeys } from '#lib/radioKeys.js';
 
@@ -68,6 +69,7 @@
         role="radio"
         aria-checked={current === p.value}
         aria-label={p.label === 'Full' ? 'Full' : `${p.label} left`}
+        disabled={network.offline}
         onclick={() => pick(p.value)}>{p.label}</button
       >
     {/each}

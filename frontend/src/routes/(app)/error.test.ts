@@ -72,4 +72,11 @@ describe('the error page inside the app', () => {
       .element(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' }))
       .toBeVisible();
   });
+
+  it('moves focus to the note when it first appears, so it is announced', async () => {
+    open();
+    const title = page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' });
+    await expect.element(title).toBeVisible();
+    await vi.waitFor(() => expect(document.activeElement?.id).toBe('error-title'));
+  });
 });

@@ -29,6 +29,7 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+  import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { PantryModel } from '#lib/pantry.svelte.js';
   import { PantryList, listLabel } from '#lib/pantryList.svelte.js';
   import { searchResults } from '#lib/pantrySearch.js';
@@ -288,14 +289,18 @@
               describe: lot.food.name,
               icon: 'check',
               tone: 'used',
-              run: () => openUsed(lot)
+              run: () => {
+                if (!blockedWhileDown()) openUsed(lot);
+              }
             }}
             left={{
               label: 'Binned',
               describe: lot.food.name,
               icon: 'trash',
               tone: 'danger',
-              run: () => void model.binned(lot.id, lot.food.name)
+              run: () => {
+                if (!blockedWhileDown()) void model.binned(lot.id, lot.food.name);
+              }
             }}
           >
             <div class="soon-line">{@render useSoonRow(lot, compact)}</div>

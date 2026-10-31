@@ -219,3 +219,51 @@ test('three panes: a recipe that never loaded says why the server is down, not a
   // The list beside it stays.
   await expect(list.getByRole('link', { name })).toBeVisible();
 });
+
+const apiKey = () => ({ 'idempotency-key': crypto.randomUUID() });
+async function post(page: Page, path: string, data: object) {
+  const response = await page.request.fetch(`/api/v1${path}`, { method: 'POST', data, headers: apiKey() });
+  expect(response.ok(), `${path}: ${await response.text()}`).toBe(true);
+  return response.json();
+}
+
+// F80 review round 2: nothing that writes to the server is live while it is down.
+test('Pantry: an opened row stays, and its packet menu, Edit link and Undo are greyed out', async ({ page }) => {
+  const places = (await (await page.request.get('/api/v1/places')).json()) as { id: number; name: string }[];
+  const name = `Dal ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
+  const { food } = await post(page, '/foods', { name, place_id: places[0]!.id });
+  await post(page, `/foods/${food.id}/sizes`, { name: 'pack', amount: 200 });
+  await post(page, '/stock', { food_id: food.id, amount: { amount: 1, unit: 'pack' }, place_id: places[0]!.id });
+  await page.goto('/pantry');
+  await page.getByRole('searchbox', { name: isPhone(page) ? 'Search pantry' : 'Find in pantry' }).fill(name);
+  await expect(page.getByRole('list', { name: 'Found in the pantry' })).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  const lot = page.getByRole('list', { name: `Packets of ${name}` }).getByRole('button');
+  await expect(lot.first()).toBeEnabled();
+  await page.waitForLoadState('networkidle');
+
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: `Packets of ${name}` })).toBeVisible();
+  await expect(lot.first()).toBeDisabled();
+  await expect(page.getByRole('button', { name: `Edit ${name}` })).toBeDisabled();
+  for (const undo of await page.getByRole('button', { name: /^Undo: / }).all()) await expect(undo).toBeDisabled();
+});
+
+test('Ingredients: a row click while the server is down says so, and Undo is greyed out', async ({ page }) => {
+  test.skip(isPhone(page), 'Computer layout');
+  await post(page, '/foods', { name: `Rice ${Date.now()}`, counted_as: 'weight' });
+  await page.goto('/recipes/ingredients');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+  await page.locator('button.row').first().click();
+  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.')).toBeVisible();
+  for (const undo of await page.getByRole('button', { name: /^Undo: / }).all()) await expect(undo).toBeDisabled();
+});
