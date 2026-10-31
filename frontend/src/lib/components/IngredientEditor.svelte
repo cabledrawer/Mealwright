@@ -13,6 +13,8 @@
   import { canRemove } from '#lib/canRemove.js';
   import { FoodModel } from '#lib/foodEditor.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
+  import { cantReachWords } from '#lib/api.js';
+  import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
   import FoodPicker from './FoodPicker.svelte';
@@ -307,6 +309,7 @@
             class="pencil"
             aria-label="Rename"
             title="Rename"
+            disabled={network.offline}
             onclick={() => (renaming = true)}><Icon name="pencil" size={16} stroke={2.2} /></button
           >
         </span>
@@ -318,331 +321,337 @@
       {/if}
     </header>
 
-    {#if food.maybe_same.length}
-      <section class="maybe" aria-labelledby="{uid}-maybe">
-        <h3 id="{uid}-maybe">Maybe the same</h3>
-        {#each food.maybe_same as other (other.id)}
-          <div class="maybe-row">
-            <span>Is it the same as <b>{other.name}</b>?</span>
-            <span class="maybe-buttons">
-              {#if other.merge_this}
-                <button
-                  type="button"
-                  class="merge-now"
-                  aria-label="Merge into {other.name}"
-                  onclick={() => void model.mergeInto(other)}>Merge</button
-                >
-              {:else}
-                <button
-                  type="button"
-                  class="merge-now"
-                  aria-label="Merge {other.name} into this"
-                  onclick={() => void model.absorb(other)}>Merge</button
-                >
-              {/if}
-              <button type="button" class="quiet" onclick={() => void model.notTheSame(other)}
-                >Not the same</button
-              >
-            </span>
-          </div>
-        {/each}
-      </section>
-    {/if}
-
-    <section aria-labelledby="{uid}-names">
-      <h3 id="{uid}-names">Other names</h3>
-      <ul class="chips">
-        {#each food.other_names as name (name.id)}
-          <li class="chip">
-            <button
-              type="button"
-              class="chip-name"
-              aria-expanded={splitting?.id === name.id}
-              aria-controls="{uid}-split"
-              onclick={() => (splitting = splitting?.id === name.id ? null : name)}
-              >{name.name}</button
-            ><button
-              type="button"
-              class="remove"
-              aria-label="Remove {name.name}"
-              onclick={() => void model.removeName(name)}
-              ><Icon name="close" size={12} stroke={3} /></button
-            >
-          </li>
-        {/each}
-        <li>
-          {#if addingName}
-            <input
-              class="chip-input"
-              aria-label="Another name for {food.name}"
-              use:focusOnShow
-              onchange={addName}
-              onblur={() => (addingName = false)}
-              onkeydown={boxKeys(() => (addingName = false))}
-            />
-          {:else}
-            <button type="button" class="add" onclick={() => (addingName = true)}>+ Add</button>
-          {/if}
-        </li>
-      </ul>
-      {#if splitting}
-        {@const name = splitting}
-        <div class="split" id="{uid}-split">
-          <span>“{name.name}”</span>
-          <button
-            type="button"
-            class="quiet"
-            onclick={() => {
-              const target = name;
-              splitting = null;
-              void model.split(target);
-            }}>Make its own ingredient</button
-          >
-          <button type="button" class="link muted" onclick={() => (splitting = null)}>Cancel</button
-          >
-        </div>
-      {/if}
-      <p class="hint">
-        Recipe imports match any of these names. Tap one to make it its own ingredient.
-      </p>
-    </section>
-
-    <section aria-labelledby="{uid}-sold">
-      <h3 id="{uid}-sold">How it’s sold</h3>
-      <ul class="sold">
-        {#each food.sizes as size (size.id)}
-          <li>
-            <span class="size-name">
-              {size.display}
-              {#if size.added_when_shopping && !size.usual}
-                <span class="note">added when shopping</span>
-              {/if}
-            </span>
-            <span class="size-end">
-              {#if size.usual}
-                <span class="tag">Usual</span>
-              {:else}
-                <button type="button" class="link" onclick={() => void model.makeUsual(size)}
-                  >Make usual</button
-                >
-              {/if}
-              <button
-                type="button"
-                class="remove"
-                aria-label="Remove the {size.name} size"
-                onclick={() => void model.removeSize(size)}
-                ><Icon name="close" size={12} stroke={3} /></button
-              >
-            </span>
-          </li>
-        {/each}
-        <li class="add-row">
-          {#if addingSize}
-            <form class="size-form" onsubmit={addSize}>
-              <label>
-                Name
-                <input name="name" placeholder="packet, tub, dozen…" use:focusOnShow />
-              </label>
-              <span class="equals" aria-hidden="true">=</span>
-              <label>
-                Amount
-                <input name="amount" inputmode="decimal" maxlength="20" placeholder="500" />
-              </label>
-              <label>
-                Unit
-                <select name="unit">
-                  {#each sizeUnits as unit (unit)}<option>{unit}</option>{/each}
-                </select>
-              </label>
-              <span class="size-buttons">
-                <button type="submit" class="small-main">Add</button>
-                <button type="button" class="quiet" onclick={() => (addingSize = false)}
-                  >Cancel</button
+    <!-- Reading stays while the server can't be reached; every change is greyed out. -->
+    {#if network.offline}<p class="hint" role="status">{cantReachWords()}</p>{/if}
+    <fieldset class="writes" disabled={network.offline}>
+      {#if food.maybe_same.length}
+        <section class="maybe" aria-labelledby="{uid}-maybe">
+          <h3 id="{uid}-maybe">Maybe the same</h3>
+          {#each food.maybe_same as other (other.id)}
+            <div class="maybe-row">
+              <span>Is it the same as <b>{other.name}</b>?</span>
+              <span class="maybe-buttons">
+                {#if other.merge_this}
+                  <button
+                    type="button"
+                    class="merge-now"
+                    aria-label="Merge into {other.name}"
+                    onclick={() => void model.mergeInto(other)}>Merge</button
+                  >
+                {:else}
+                  <button
+                    type="button"
+                    class="merge-now"
+                    aria-label="Merge {other.name} into this"
+                    onclick={() => void model.absorb(other)}>Merge</button
+                  >
+                {/if}
+                <button type="button" class="quiet" onclick={() => void model.notTheSame(other)}
+                  >Not the same</button
                 >
               </span>
-              {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
-            </form>
-          {:else}
-            <button type="button" class="link" onclick={() => (addingSize = true)}>
-              + Add a size
-            </button>
-          {/if}
-        </li>
-      </ul>
-    </section>
-
-    <div class="fields">
-      <label>
-        Counted
-        <select value={food.counted_as} onchange={setCountedAs}>
-          {#each COUNTED as option (option.value)}
-            <option value={option.value}>{option.label}</option>
+            </div>
           {/each}
-        </select>
-      </label>
-      {#if food.counted_as === 'count'}
-        <label>
-          Each one is a
-          <input
-            value={food.count_word ?? ''}
-            placeholder="slice, piece…"
-            onchange={setCountWord}
-            onkeydown={boxKeys(() => {})}
-          />
-        </label>
-        <label>
-          Weight of one
-          <input
-            value={food.item_weight ? `${Math.round(food.item_weight.grams)} g` : ''}
-            maxlength="20"
-            placeholder="for example 150 g"
-            onchange={setItemWeight}
-            onkeydown={boxKeys(() => {})}
-          />
-        </label>
-      {:else}
-        <label>
-          Weight of 1 cup
-          <input
-            value={food.cup_weight ? `${Math.round(food.cup_weight.grams)} g` : ''}
-            maxlength="20"
-            placeholder="for example 200 g"
-            onchange={setCupWeight}
-            onkeydown={boxKeys(() => {})}
-          />
-        </label>
+        </section>
       {/if}
-      <label>
-        Running low at
-        <input
-          value={food.running_low_at?.short ?? food.running_low_at?.display ?? ''}
-          maxlength={MAX_TYPED_AMOUNT}
-          placeholder="for example ½ packet"
-          aria-invalid={lowProblem ? true : undefined}
-          aria-describedby={lowProblem ? `${uid}-low` : undefined}
-          onchange={setRunningLow}
-          onkeydown={boxKeys(() => {})}
-        />
-      </label>
-      <label>
-        Lives in
-        <select value={food.place?.id ?? ''} onchange={setPlace}>
-          {#if !food.place}<option value="">Not set</option>{/if}
-          {#each placesAndShops.places as place (place.id)}
-            <option value={place.id}>{place.name}</option>
+
+      <section aria-labelledby="{uid}-names">
+        <h3 id="{uid}-names">Other names</h3>
+        <ul class="chips">
+          {#each food.other_names as name (name.id)}
+            <li class="chip">
+              <button
+                type="button"
+                class="chip-name"
+                aria-expanded={splitting?.id === name.id}
+                aria-controls="{uid}-split"
+                onclick={() => (splitting = splitting?.id === name.id ? null : name)}
+                >{name.name}</button
+              ><button
+                type="button"
+                class="remove"
+                aria-label="Remove {name.name}"
+                onclick={() => void model.removeName(name)}
+                ><Icon name="close" size={12} stroke={3} /></button
+              >
+            </li>
           {/each}
-        </select>
-      </label>
-      {#if lowProblem}<p id="{uid}-low" class="problem wide" role="alert">{lowProblem}</p>{/if}
-      <div class="shop wide">
+          <li>
+            {#if addingName}
+              <input
+                class="chip-input"
+                aria-label="Another name for {food.name}"
+                use:focusOnShow
+                onchange={addName}
+                onblur={() => (addingName = false)}
+                onkeydown={boxKeys(() => (addingName = false))}
+              />
+            {:else}
+              <button type="button" class="add" onclick={() => (addingName = true)}>+ Add</button>
+            {/if}
+          </li>
+        </ul>
+        {#if splitting}
+          {@const name = splitting}
+          <div class="split" id="{uid}-split">
+            <span>“{name.name}”</span>
+            <button
+              type="button"
+              class="quiet"
+              onclick={() => {
+                const target = name;
+                splitting = null;
+                void model.split(target);
+              }}>Make its own ingredient</button
+            >
+            <button type="button" class="link muted" onclick={() => (splitting = null)}
+              >Cancel</button
+            >
+          </div>
+        {/if}
+        <p class="hint">
+          Recipe imports match any of these names. Tap one to make it its own ingredient.
+        </p>
+      </section>
+
+      <section aria-labelledby="{uid}-sold">
+        <h3 id="{uid}-sold">How it’s sold</h3>
+        <ul class="sold">
+          {#each food.sizes as size (size.id)}
+            <li>
+              <span class="size-name">
+                {size.display}
+                {#if size.added_when_shopping && !size.usual}
+                  <span class="note">added when shopping</span>
+                {/if}
+              </span>
+              <span class="size-end">
+                {#if size.usual}
+                  <span class="tag">Usual</span>
+                {:else}
+                  <button type="button" class="link" onclick={() => void model.makeUsual(size)}
+                    >Make usual</button
+                  >
+                {/if}
+                <button
+                  type="button"
+                  class="remove"
+                  aria-label="Remove the {size.name} size"
+                  onclick={() => void model.removeSize(size)}
+                  ><Icon name="close" size={12} stroke={3} /></button
+                >
+              </span>
+            </li>
+          {/each}
+          <li class="add-row">
+            {#if addingSize}
+              <form class="size-form" onsubmit={addSize}>
+                <label>
+                  Name
+                  <input name="name" placeholder="packet, tub, dozen…" use:focusOnShow />
+                </label>
+                <span class="equals" aria-hidden="true">=</span>
+                <label>
+                  Amount
+                  <input name="amount" inputmode="decimal" maxlength="20" placeholder="500" />
+                </label>
+                <label>
+                  Unit
+                  <select name="unit">
+                    {#each sizeUnits as unit (unit)}<option>{unit}</option>{/each}
+                  </select>
+                </label>
+                <span class="size-buttons">
+                  <button type="submit" class="small-main">Add</button>
+                  <button type="button" class="quiet" onclick={() => (addingSize = false)}
+                    >Cancel</button
+                  >
+                </span>
+                {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
+              </form>
+            {:else}
+              <button type="button" class="link" onclick={() => (addingSize = true)}>
+                + Add a size
+              </button>
+            {/if}
+          </li>
+        </ul>
+      </section>
+
+      <div class="fields">
         <label>
-          Usual shop
-          <select
-            value={food.shop?.id ?? ''}
-            onchange={(event) => {
-              const id = Number(valueOf(event)) || null;
-              setShop(placesAndShops.shops.find((s) => s.id === id) ?? null);
-            }}
-          >
-            <option value="">Any shop</option>
-            {#each placesAndShops.shops as shop (shop.id)}
-              <option value={shop.id}>{shop.name}</option>
+          Counted
+          <select value={food.counted_as} onchange={setCountedAs}>
+            {#each COUNTED as option (option.value)}
+              <option value={option.value}>{option.label}</option>
             {/each}
           </select>
         </label>
-        {#if addingShop}
-          <input
-            class="chip-input"
-            aria-label="New shop’s name"
-            use:focusOnShow
-            onchange={addShop}
-            onblur={() => (addingShop = false)}
-            onkeydown={boxKeys(() => (addingShop = false))}
-          />
+        {#if food.counted_as === 'count'}
+          <label>
+            Each one is a
+            <input
+              value={food.count_word ?? ''}
+              placeholder="slice, piece…"
+              onchange={setCountWord}
+              onkeydown={boxKeys(() => {})}
+            />
+          </label>
+          <label>
+            Weight of one
+            <input
+              value={food.item_weight ? `${Math.round(food.item_weight.grams)} g` : ''}
+              maxlength="20"
+              placeholder="for example 150 g"
+              onchange={setItemWeight}
+              onkeydown={boxKeys(() => {})}
+            />
+          </label>
         {:else}
-          <button type="button" class="add" onclick={() => (addingShop = true)}>+ Shop</button>
+          <label>
+            Weight of 1 cup
+            <input
+              value={food.cup_weight ? `${Math.round(food.cup_weight.grams)} g` : ''}
+              maxlength="20"
+              placeholder="for example 200 g"
+              onchange={setCupWeight}
+              onkeydown={boxKeys(() => {})}
+            />
+          </label>
         {/if}
-      </div>
-    </div>
-
-    <div class="switch-row">
-      <span class="switch-text">
-        <span id="{uid}-staple" class="switch-label">Staple</span>
-        <span id="{uid}-staple-hint" class="hint">Assume it’s in stock; don’t count it</span>
-      </span>
-      <Switch
-        checked={food.staple}
-        labelledby="{uid}-staple"
-        describedby="{uid}-staple-hint"
-        onchange={(on) =>
-          void model.setField(
-            { staple: on },
-            (f) => (f.staple = on),
-            on ? `${food.name} is a staple` : `${food.name} isn’t a staple`
-          )}
-      />
-    </div>
-
-    <section aria-labelledby="{uid}-instead">
-      <h3 id="{uid}-instead">Can use instead</h3>
-      <ul class="chips">
-        {#each food.stand_ins as other (other.id)}
-          <li class="chip">
-            {other.name}<button
-              type="button"
-              class="remove"
-              aria-label="Remove {other.name}"
-              onclick={() => void model.removeStandIn(other)}
-              ><Icon name="close" size={12} stroke={3} /></button
+        <label>
+          Running low at
+          <input
+            value={food.running_low_at?.short ?? food.running_low_at?.display ?? ''}
+            maxlength={MAX_TYPED_AMOUNT}
+            placeholder="for example ½ packet"
+            aria-invalid={lowProblem ? true : undefined}
+            aria-describedby={lowProblem ? `${uid}-low` : undefined}
+            onchange={setRunningLow}
+            onkeydown={boxKeys(() => {})}
+          />
+        </label>
+        <label>
+          Lives in
+          <select value={food.place?.id ?? ''} onchange={setPlace}>
+            {#if !food.place}<option value="">Not set</option>{/if}
+            {#each placesAndShops.places as place (place.id)}
+              <option value={place.id}>{place.name}</option>
+            {/each}
+          </select>
+        </label>
+        {#if lowProblem}<p id="{uid}-low" class="problem wide" role="alert">{lowProblem}</p>{/if}
+        <div class="shop wide">
+          <label>
+            Usual shop
+            <select
+              value={food.shop?.id ?? ''}
+              onchange={(event) => {
+                const id = Number(valueOf(event)) || null;
+                setShop(placesAndShops.shops.find((s) => s.id === id) ?? null);
+              }}
             >
-          </li>
-        {/each}
-        <li class:wide-item={picking === 'stand-in'}>
-          {#if picking === 'stand-in'}
-            <FoodPicker
-              label="Can use instead of {food.name}"
-              exclude={excluded(food)}
-              onpick={pickStandIn}
-              oncancel={() => (picking = null)}
+              <option value="">Any shop</option>
+              {#each placesAndShops.shops as shop (shop.id)}
+                <option value={shop.id}>{shop.name}</option>
+              {/each}
+            </select>
+          </label>
+          {#if addingShop}
+            <input
+              class="chip-input"
+              aria-label="New shop’s name"
+              use:focusOnShow
+              onchange={addShop}
+              onblur={() => (addingShop = false)}
+              onkeydown={boxKeys(() => (addingShop = false))}
             />
           {:else}
-            <button type="button" class="add" onclick={() => (picking = 'stand-in')}>+ Add</button>
+            <button type="button" class="add" onclick={() => (addingShop = true)}>+ Shop</button>
           {/if}
-        </li>
-      </ul>
-    </section>
+        </div>
+      </div>
 
-    <UsedInRecipes recipes={food.used_in} count={food.used_in_recipes} onfollow={leaving} />
-
-    <footer>
-      {#if picking === 'merge'}
-        <FoodPicker
-          label="Merge {food.name} into"
-          exclude={[food.id]}
-          onpick={pickMerge}
-          oncancel={() => (picking = null)}
+      <div class="switch-row">
+        <span class="switch-text">
+          <span id="{uid}-staple" class="switch-label">Staple</span>
+          <span id="{uid}-staple-hint" class="hint">Assume it’s in stock; don’t count it</span>
+        </span>
+        <Switch
+          checked={food.staple}
+          labelledby="{uid}-staple"
+          describedby="{uid}-staple-hint"
+          onchange={(on) =>
+            void model.setField(
+              { staple: on },
+              (f) => (f.staple = on),
+              on ? `${food.name} is a staple` : `${food.name} isn’t a staple`
+            )}
         />
-      {:else}
-        <button type="button" class="merge" onclick={() => (picking = 'merge')}>
-          Merge with another…
-        </button>
-      {/if}
-      <button
-        type="button"
-        class="link muted"
-        disabled={!food.last_change?.can_undo}
-        title={food.last_change?.can_undo ? `Undo: ${food.last_change.summary}` : undefined}
-        onclick={() => void model.undoLast()}>Undo last change</button
-      >
-    </footer>
+      </div>
 
-    <RemoveIngredient
-      usedIn={food.used_in_recipes}
-      madeBy={food.made_by}
-      removable={canRemove(food)}
-      onremove={() => void model.remove()}
-      onfollow={leaving}
-    />
+      <section aria-labelledby="{uid}-instead">
+        <h3 id="{uid}-instead">Can use instead</h3>
+        <ul class="chips">
+          {#each food.stand_ins as other (other.id)}
+            <li class="chip">
+              {other.name}<button
+                type="button"
+                class="remove"
+                aria-label="Remove {other.name}"
+                onclick={() => void model.removeStandIn(other)}
+                ><Icon name="close" size={12} stroke={3} /></button
+              >
+            </li>
+          {/each}
+          <li class:wide-item={picking === 'stand-in'}>
+            {#if picking === 'stand-in'}
+              <FoodPicker
+                label="Can use instead of {food.name}"
+                exclude={excluded(food)}
+                onpick={pickStandIn}
+                oncancel={() => (picking = null)}
+              />
+            {:else}
+              <button type="button" class="add" onclick={() => (picking = 'stand-in')}>+ Add</button
+              >
+            {/if}
+          </li>
+        </ul>
+      </section>
+
+      <UsedInRecipes recipes={food.used_in} count={food.used_in_recipes} onfollow={leaving} />
+
+      <footer>
+        {#if picking === 'merge'}
+          <FoodPicker
+            label="Merge {food.name} into"
+            exclude={[food.id]}
+            onpick={pickMerge}
+            oncancel={() => (picking = null)}
+          />
+        {:else}
+          <button type="button" class="merge" onclick={() => (picking = 'merge')}>
+            Merge with another…
+          </button>
+        {/if}
+        <button
+          type="button"
+          class="link muted"
+          disabled={!food.last_change?.can_undo}
+          title={food.last_change?.can_undo ? `Undo: ${food.last_change.summary}` : undefined}
+          onclick={() => void model.undoLast()}>Undo last change</button
+        >
+      </footer>
+
+      <RemoveIngredient
+        usedIn={food.used_in_recipes}
+        madeBy={food.made_by}
+        removable={canRemove(food)}
+        onremove={() => void model.remove()}
+        onfollow={leaving}
+      />
+    </fieldset>
   {/if}
 </div>
 
@@ -1083,5 +1092,14 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  /* The greyed-out wrapper adds no box of its own: the editor's layout is as it was. */
+  fieldset.writes {
+    display: contents;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
 </style>
