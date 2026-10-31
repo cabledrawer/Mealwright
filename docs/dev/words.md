@@ -552,3 +552,4 @@ From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cab
 - **Last card of the sheet (proposed, for cabledrawer):** 2 lines left unlinked · You can save now and link them later in the recipe, or go back to Check and sort them there. · Save anyway · Back to Check.
 - **Long steps (F13):** A long step (5 sentences) · Split into shorter steps · Preview: this step as 3 steps · Keep the split · Keep as one · Put the steps back as they were (proposed) · Some long steps were split into shorter ones. (proposed).
 - **Photo (F29):** Show the photo of Sambar full size (screen readers; proposed, for cabledrawer) · Full size (on the photo) · Close.
+- **Tab titles of that page (F86; proposed, for cabledrawer):** **Can’t reach your server · Mealwright** while the server doesn't answer, **Something went wrong · Mealwright** when it does. Until the first answer the title is just **Mealwright** and the page says nothing.

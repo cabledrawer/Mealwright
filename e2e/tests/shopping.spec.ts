@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./clock.ts";
-import { checkPage, isPhone, setAccountTheme } from "./a11y.ts";
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from "./a11y.ts";
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
 // desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
@@ -1439,3 +1439,25 @@ test("desktop: names on the list never break mid-word at 1280 px with the Put aw
   }, names);
   expect(broken).toEqual([]);
 });
+
+// F82: one word wider than the whole row breaks (only then), and nothing scrolls sideways.
+for (const { label, width, type } of [
+  { label: "375 px", width: 375, type: "100%" },
+  { label: "375 px at 200% text", width: 375, type: "200%" },
+]) {
+  test(`one very long word breaks only because it must, and nothing scrolls sideways (${label})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const word = `Pneumonoultramicroscopicsilicovolcanoconiosis${"x".repeat(40)}${Math.random().toString(36).slice(2, 5)}`;
+    await onList(page, word);
+    await onList(page, `Short ${tag()}`);
+    await page.goto("/shopping");
+    await page.evaluate((size) => (document.documentElement.style.fontSize = size), type);
+    await expect(page.getByRole("button", { name: word, exact: true })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    // The long word's own box stays inside the screen (it broke rather than pushed out).
+    const box = (await page.getByRole("button", { name: word, exact: true }).boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  });
+}

@@ -151,7 +151,6 @@ test("a page whose code can't be fetched shows the Can't reach note with the men
   // Nothing of any page that hasn't been opened yet can be fetched; the API answers 502.
   await page.route('**/_app/immutable/nodes/*', (route) => route.abort('failed'));
   await page.route('**/api/**', proxyGap);
-  await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await page.getByRole('link', { name: 'Settings' }).first().click();
 
   await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toBeVisible();
@@ -159,4 +158,64 @@ test("a page whose code can't be fetched shows the Can't reach note with the men
   // The normal frame: the menu is still there (the sidebar on a computer, the tabs on a phone).
   await expect(page.getByRole('navigation').first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Shopping' }).first()).toBeVisible();
+  // The first words are the right ones (no "Something went wrong." that changes later).
+  await expect(page.getByText('Something went wrong.')).toHaveCount(0);
+
+  // Try again while the server is still down keeps the note and the menu: it never reloads
+  // onto the proxy's bare page.
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Shopping' }).first()).toBeVisible();
+});
+
+// F80 on every screen that shows a list or settings (spec: what is already showing stays): once
+// loaded, the screen stays when the server stops, and what needs the server is greyed out.
+for (const screen of [
+  { name: 'Ingredients', path: '/recipes/ingredients', shows: /All ingredients/ },
+  { name: 'Pantry', path: '/pantry', shows: /Pantry/ },
+  { name: 'Settings', path: '/settings', shows: /Appearance/ },
+] as const) {
+  test(`${screen.name} already showing stays when the server stops`, async ({ page }) => {
+    await page.goto(screen.path);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.route('**/api/**', proxyGap);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+    await expect(bar(page)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    if (screen.name === 'Ingredients') {
+      await expect(page.getByRole('region', { name: 'All ingredients' }).or(page.getByLabel('All ingredients'))).toBeVisible();
+    }
+    if (screen.name === 'Settings') {
+      await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+      await expect(page.getByRole('switch', { name: /pints/i })).toBeDisabled();
+    }
+  });
+}
+
+// F80 (review): the list is loaded, the server goes down, and a recipe that never loaded is
+// clicked: the reading pane says why instead of staying blank.
+test('three panes: a recipe that never loaded says why the server is down, not a blank pane', async ({ page }) => {
+  test.skip(isPhone(page), 'The list and the recipe are beside each other on a computer only.');
+  const name = `Idli ${Date.now().toString(36)}`;
+  const made = await page.request.fetch('/api/v1/recipes', {
+    method: 'POST',
+    data: { name, serves: 2, lines: [{ words: 'rice', amount: 200, unit: 'g' }] },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(made.status()).toBe(201);
+  const id = ((await made.json()) as { id: number }).id;
+  await page.goto('/recipes');
+  const list = page.getByRole('region', { name: 'Recipe list' });
+  await expect(list.getByRole('link', { name })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await page.route(new RegExp(`/api/v1/recipes/${id}(/|\\?|$)`), proxyGap);
+  await list.getByRole('link', { name }).click();
+  const reading = page.getByRole('region', { name: 'Recipe', exact: true });
+  await expect(reading.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toBeVisible();
+  // The list beside it stays.
+  await expect(list.getByRole('link', { name })).toBeVisible();
 });
