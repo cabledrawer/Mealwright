@@ -210,6 +210,7 @@ def tick(act: Act) -> None:
         place_id=place.id,
         bought_milli=milli or None,
         bought_size_id=size.id if size and milli else None,
+        restock=food.staple,  # "Restocked": the staple's restock date moves on
     )
     kitchen.db.add(row)
     kitchen.db.flush()

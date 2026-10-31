@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal, cast
 
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
-from mealwright import amounts, recipes, shopping
+from mealwright import amounts, recipes, restock, shopping
 from mealwright.aisles import AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
@@ -167,6 +168,9 @@ class FoodOut(BaseModel):
     used_in: list[Ref]  # those recipes, A to Z
     # The recipe whose own made-ahead ingredient this is (so it can't be removed), if any.
     made_by: Ref | None = None
+    # A staple's last restock on Shopping (0.7; mealwright.restock). Null: not a staple, or
+    # never restocked. Read-only.
+    restocked_at: datetime | None = None
 
 
 class FoodWrite(BaseModel):
@@ -186,6 +190,7 @@ class FoodListItem(BaseModel):
     stand_ins: list[Ref]
     maybe_same: list[MaybeSame]
     used_in_recipes: int
+    restocked_at: datetime | None = None  # as on FoodOut
 
 
 class FoodCounts(BaseModel):
@@ -397,6 +402,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         used_in_recipes=len(using),
         used_in=using,
         made_by=Ref(id=maker.id, name=maker.name) if maker else None,
+        restocked_at=restock.restocked(db, kitchen.household_id, [food]).get(food.id),
     )
 
 
@@ -510,6 +516,9 @@ def list_foods(
 
     start = int(after) if after else 0
     page = scored[start : start + limit]
+    restocked = restock.restocked(
+        kitchen.db, kitchen.household_id, [food for _rank, _key, food, _matched in page]
+    )
     items = []
     for _rank, _key, food, matched in page:
         place = places.get(food.place_id) if food.place_id else None
@@ -529,6 +538,7 @@ def list_foods(
                 ),
                 maybe_same=same_out(food, same.get(food.id, set()), by_id, stocked),
                 used_in_recipes=in_recipes.get(food.id, 0),
+                restocked_at=restocked.get(food.id),
             )
         )
     more = start + limit < len(scored)

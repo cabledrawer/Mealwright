@@ -21,6 +21,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import restock
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
 from mealwright.household import undo_window
@@ -1214,6 +1215,7 @@ def tidy_lists(db: DbSession, household: Household, now: datetime | None = None)
     item_ids = [item_id for item_id, _ in items]
     highest = max([version for _, version in lists + items], default=0)
     if item_ids:
+        restock.keep_before_tidy_up(db, hid, item_ids)
         ticks = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
         db.execute(update(Change).where(Change.tick_id.in_(ticks)).values(tick_id=None))
         db.execute(delete(ListTick).where(ListTick.item_id.in_(item_ids)))

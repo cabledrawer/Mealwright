@@ -242,6 +242,10 @@ class Food(Base):
     aisle: Mapped[str | None] = mapped_column(String(20))
     # The shopping-list counter value of the last change a list shows (sync protocol 3.7).
     version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # A staple's restock date (0.7, cabledrawer 20 Oct) is its newest standing "Restocked" tick
+    # (`list_tick.restock`), so an untick or Undo puts the date back by itself. This keeps the
+    # newest one among purchases the tidy-up has already deleted (`mealwright.restock`).
+    restocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class FoodName(Base):
@@ -570,6 +574,8 @@ class ListTick(Base):
     bought_size_id: Mapped[int | None] = mapped_column(
         ForeignKey("food_size.id", ondelete="SET NULL")
     )
+    # A staple ticked: "Restocked" (nothing goes into the pantry; the restock date moves on).
+    restock: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
     reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reversed_by_action_id: Mapped[str | None] = mapped_column(String(64))

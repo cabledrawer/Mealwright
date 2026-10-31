@@ -755,7 +755,18 @@ def _photo_keys(engine: Engine) -> list[tuple[str]]:
 
 DRAFTS = "d7a4c2e81f56"  # 0.5 PR 5's migration: the one just before the plan tables
 PLAN_TABLES = ("meal_slot", "meal", "meal_item", "batch_cook", "tub")
+# Tables later migrations add: a test of an older migration leaves them out of its counts.
+K1_TABLES = ("recipe_step_line", "cooked_record")
 PLAN_COLUMNS = {"tub_fridge_days", "tub_freezer_months", "plan_ahead_days", "week_starts_on"}
+
+
+def _table_sql(engine: Engine, table: str) -> str:
+    with engine.connect() as connection:
+        return str(
+            connection.exec_driver_sql(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+            ).scalar_one()
+        )
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
@@ -775,7 +786,7 @@ def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
     gives the same slots."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)  # two households with a recipe each, upgraded to the newest
-    skip = {*PLAN_TABLES, "staple_check", "alembic_version"}
+    skip = {*PLAN_TABLES, "staple_check", *K1_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     assert before["recipe"] == 2 and before["food"] == 2 and before["household"] == 2
     migrate.downgrade(engine, DRAFTS)
@@ -819,7 +830,7 @@ def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_pat
     does, and one household's row can't be written twice for one ingredient."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {"staple_check", "alembic_version"}
+    skip = {"staple_check", *K1_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     assert "staple_check" in inspect(engine).get_table_names()
     migrate.downgrade(engine, PLAN_MIGRATION)
@@ -859,7 +870,7 @@ def test_household_pints_migration_adds_one_column_and_goes_back_and_forward(
     keeps every other row; going forward again puts every household back on UK pints."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {"alembic_version"}
+    skip = {*K1_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     with engine.connect() as connection:
         households = connection.exec_driver_sql("SELECT count(*) FROM household").scalar_one()
@@ -880,3 +891,58 @@ def test_household_pints_migration_adds_one_column_and_goes_back_and_forward(
     with engine.connect() as connection:
         found = connection.exec_driver_sql("SELECT pints FROM household").scalars().all()
     assert found == ["uk"] * (households + 1)
+
+
+PINTS_MIGRATION = "c5f1b8d2a763"  # 0.6 PR 7's migration: the one just before the restock date
+
+
+def test_restock_date_migration_marks_old_staple_ticks_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.7 K1: purchases made before it are marked as restocks when nothing went into the
+    pantry and their ingredient is a staple; going back drops both columns and keeps every
+    row; going forward again marks them again."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    migrate.downgrade(engine, PINTS_MIGRATION)
+    with engine.begin() as connection:
+        main = connection.exec_driver_sql(
+            "SELECT id FROM shopping_list WHERE household_id = 1 AND main"
+        ).scalar_one()
+        connection.exec_driver_sql(
+            "INSERT INTO food (id, household_id, name, counted_as, staple, created_at)"
+            " VALUES (3, 1, 'Salt', 'weight', 1, '2026-10-02')"
+        )
+        for item, food in (("i-salt", 3), ("i-dal", 1)):
+            connection.exec_driver_sql(
+                "INSERT INTO list_item (id, household_id, list_id, food_id, source, hand_edited,"
+                " added_at, added_by_name, version) VALUES (?, 1, ?, ?, 'typed', 0,"
+                " '2026-10-20', 'User', 1)",
+                (item, main, food),
+            )
+        for tick, item, bought in (("t-salt", "i-salt", None), ("t-dal", "i-dal", None)):
+            connection.exec_driver_sql(
+                "INSERT INTO list_tick (household_id, id, item_id, login_name, ticked_at,"
+                " bought_milli) VALUES (1, ?, ?, 'User', '2026-10-21 10:00:00', ?)",
+                (tick, item, bought),
+            )
+    skip = {*K1_TABLES, "alembic_version"}
+    before = _row_counts(engine, skip)
+
+    def marks() -> dict[str, int]:
+        with engine.connect() as connection:
+            rows = connection.exec_driver_sql("SELECT id, restock FROM list_tick").all()
+        return {row[0]: row[1] for row in rows}
+
+    migrate.upgrade(engine)
+    assert marks() == {"t-salt": 1, "t-dal": 0}
+    assert _row_counts(engine, skip) == before
+    migrate.downgrade(engine, PINTS_MIGRATION)
+    assert "restock" not in {c["name"] for c in inspect(engine).get_columns("list_tick")}
+    assert "restocked_at" not in {c["name"] for c in inspect(engine).get_columns("food")}
+    assert _row_counts(engine, skip) == before
+    assert "AUTOINCREMENT" in _table_sql(engine, "food")  # the copy still never reuses an id
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert marks() == {"t-salt": 1, "t-dal": 0}
+    assert _row_counts(engine, skip) == before
