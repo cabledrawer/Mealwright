@@ -606,7 +606,9 @@
 
         {#if editing}
           <div class="delete">
-            <button type="button" onclick={() => void remove()}>Delete recipe</button>
+            <button type="button" disabled={network.offline} onclick={() => void remove()}
+              >Delete recipe</button
+            >
             <span class="mw-hint">No “Are you sure?”: you can undo it for 7 days.</span>
           </div>
         {/if}

@@ -3,6 +3,7 @@
   // Picking uploads at once; the editor keeps the upload's id for Save. On a phone the
   // browser's own picker offers "Take photo" or the photo library: Mealwright never asks
   // for the camera itself.
+  import { network } from '#lib/network.svelte.js';
   import '#lib/styles/fields.css';
   import Icon from '../Icon.svelte';
   import type { DraftPhoto } from '#lib/recipes/draft.svelte.js';
@@ -46,8 +47,15 @@
   {:else if photo.shown}
     <img class="frame" src={photo.shown.url} alt="Cover for this recipe" />
     <span class="buttons">
-      <button type="button" class="mw-pill" onclick={() => picker.click()}>Change photo</button>
-      <button type="button" class="mw-pill" onclick={onremove}>Remove photo</button>
+      <button
+        type="button"
+        class="mw-pill"
+        disabled={network.offline}
+        onclick={() => picker.click()}>Change photo</button
+      >
+      <button type="button" class="mw-pill" disabled={network.offline} onclick={onremove}
+        >Remove photo</button
+      >
     </span>
   {:else}
     <button
@@ -55,6 +63,7 @@
       class="frame empty"
       class:problem={!!photo.error}
       aria-describedby={photo.error ? `${uid}-error` : undefined}
+      disabled={network.offline}
       onclick={() => picker.click()}
     >
       <span class="camera"><Icon name="photo" size={26} /></span>
