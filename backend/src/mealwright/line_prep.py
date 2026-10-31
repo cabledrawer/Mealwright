@@ -140,23 +140,33 @@ _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNO
 _HOW_TO_TAIL = re.compile(
     r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
 )
-# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). It goes from: the start in
-# "Recipe for [a|an|the] ...", "Recipe: ..." and "Recipe - ..." (first word, spaces round a dash);
-# just before a bracket ("Lemon Rice Recipe (Chitranna)"); the end ("Classic Victoria sandwich
-# recipe"). It stays in a possessive ("Mum's Recipe"), inside a name ("The Recipe Tin lasagne",
-# "My Recipe: Dal", "Recipe-tested Chili"), before an apostrophe, and when nothing real is left.
+# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) a "Recipe"
+# bracket and "Recipe" just before a bracket ("Lemon Rice Recipe (Chitranna)"), then the end of
+# the name ("Classic Victoria sandwich recipe"); a hyphen separates only with spaces round it,
+# an en or em dash also without ("Dal\u2014Easy Recipe"). (2) Whose recipe it is stays: a
+# possessive with or without s ("Mum's Recipe", "Kids' Recipe"), and a short leftover that is
+# only my/our/your/his/her/their or such a word with "family", "secret" and the like ("My",
+# "Our Family"): the end label is put back. A longer name ("My Favourite Dal Recipe") loses it.
+# (3) The start: "Recipe for [a|an|the] ...", "Recipe: ...", "Recipe - ..." (first word), always.
+# "Recipe" stays inside a name ("The Recipe Tin lasagne", "My Recipe: Dal", "Recipe-tested
+# Chili"), before an apostrophe, and when nothing real is left.
 _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
 _RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[|\u2013\u2014-])\s*(?=\S)", re.IGNORECASE)
 _RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
 _POSSESSIVE_RECIPE = re.compile(r"[\'\u2019]s?\s+recipe\s*!*\s*$", re.IGNORECASE)
 _PRONOUNS = frozenset({"my", "our", "your", "his", "her", "their"})
+# After a pronoun these still read as "whose recipe", not as a dish: "Our Family", "Their Secret".
+_OWNER_WORDS = frozenset(
+    {"family", "secret", "special", "favourite", "favorite", "own", "famous", "original"}
+)
 _NOTHING_LEFT = frozenset({"recipe", "for", "a", "an", "the"})
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
-# A dash is a separator only with spaces round it ("Butter chicken - the best curry recipe");
-# "Gluten-Free Banana Bread Recipe" has none, so only " Recipe" goes (F91).
+# A hyphen is a separator only with spaces round it ("Butter chicken - the best curry recipe");
+# "Gluten-Free Banana Bread Recipe" has none, so only " Recipe" goes. An en or em dash is one
+# with or without spaces (F91).
 _RECIPE_TAIL = re.compile(
-    r"\s*(?:(?:\s[-\u2013\u2014]\s|\s*[|:]\s*)(?:(?!\s[-\u2013\u2014]\s)[^|:])*?)?"
-    r"\brecipe\s*!*\s*$",
+    r"\s*(?:(?:\s-\s|\s*[\u2013\u2014]\s*|\s*[|:]\s*)"
+    r"(?:(?!\s-\s)[^|:\u2013\u2014])*?)?\brecipe\s*!*\s*$",
     re.IGNORECASE,
 )
 _BRACKET_PUFF = re.compile(
@@ -183,15 +193,13 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _BRACKET_PUFF.sub("", cleaned)
     if not _POSSESSIVE_RECIPE.search(cleaned):
         cleaned = _RECIPE_TAIL.sub("", cleaned)
+    left = [word.lower() for word in cleaned.split()]
+    if cleaned != before and left and left[0] in _PRONOUNS:
+        short = len(left) == 1 or (len(left) == 2 and left[1] in _OWNER_WORDS)
+        if short:
+            cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
     cleaned = _RECIPE_FOR.sub("", cleaned)
     cleaned = _RECIPE_LEAD.sub("", cleaned)
-    left = cleaned.split()
-    if (
-        cleaned != before
-        and left
-        and (left[0].lower() in _PRONOUNS or left[-1].lower() in _PRONOUNS)
-    ):
-        cleaned = before  # "My Recipe", "Our Family Recipe": whose recipe it is stays
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
     words = {word.strip("'\u2019.,!:;").lower() for word in cleaned.split()}
     if not any(c.isalpha() for c in cleaned) or words <= _NOTHING_LEFT:
