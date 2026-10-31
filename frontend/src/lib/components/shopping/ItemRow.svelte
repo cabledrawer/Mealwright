@@ -439,16 +439,19 @@
 
   .top {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: var(--space-4);
     padding-top: var(--space-4);
   }
 
-  /* Names wrap between words, never inside one: the name keeps room for its longest word
-     (min-content, which `anywhere` would make tiny) and the amount moves under it when that
-     doesn't fit (F82, cabledrawer 30 Oct). Only a word wider than the whole row still breaks. */
+  /* Names wrap between words, never inside one: the name's starting width is its longest word
+     (`flex-basis: min-content`, which `overflow-wrap: anywhere` would make tiny), and the amount
+     moves under it when that doesn't fit. The cap at the row's width means only a word wider
+     than the whole row still breaks, with no sideways scroll (F82, cabledrawer 30 Oct). */
   .name {
-    min-width: min-content;
+    flex: 1 1 min-content;
+    min-width: 0;
     max-width: 100%;
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
@@ -458,7 +461,6 @@
 
   /* Not ticked: the name is a button that opens the amount box. */
   button.name {
-    flex: 1 1 0;
     min-height: var(--touch-target);
     padding: 0;
     border: none;
