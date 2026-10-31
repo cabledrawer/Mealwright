@@ -337,7 +337,7 @@ def test_a_stand_in_is_taken_from_when_the_ingredient_has_none(kitchen: TestClie
     ]
 
 
-def test_a_stand_in_covers_only_what_the_ingredient_itself_lacks(kitchen: TestClient) -> None:
+def test_a_stand_in_is_never_mixed_in_when_the_ingredient_has_some(kitchen: TestClient) -> None:
     onion = food(kitchen, "Zorba onion", counted_as="count")
     red = food(kitchen, "Zorba red onion", counted_as="count")
     _stand_in(kitchen, onion["id"], red["id"])
@@ -345,11 +345,80 @@ def test_a_stand_in_covers_only_what_the_ingredient_itself_lacks(kitchen: TestCl
     stock(kitchen, red["id"], 5, "count")
     item = plan_item(kitchen, recipe_of(kitchen, [line(onion["id"], 3, None)]), servings=4)
     row = row_of(propose(kitchen, item), "Zorba onion")
+    # cabledrawer 31 Oct: take what there is and offer the rest to buy; the stand-in stays out.
     assert [(t["food"]["name"], t["stand_in"], t["amount"]["amount"]) for t in row["takes"]] == [
-        ("Zorba onion", False, 1),
-        ("Zorba red onion", True, 2),
+        ("Zorba onion", False, 1)
     ]
-    assert row["short"] is None
+    assert row["short"]["amount"] == 2 and row["add_to_list"] is True
+
+
+def test_stock_only_in_the_freezer_is_shown_with_use_off_and_no_stand_in(
+    kitchen: TestClient,
+) -> None:
+    onion = food(kitchen, "Zorba onion", counted_as="count")
+    red = food(kitchen, "Zorba red onion", counted_as="count")
+    _stand_in(kitchen, onion["id"], red["id"])
+    stock(kitchen, onion["id"], 4, "count", place_id=place_id(kitchen, "Freezer"))
+    stock(kitchen, red["id"], 5, "count")
+    item = plan_item(kitchen, recipe_of(kitchen, [line(onion["id"], 2, None)]), servings=4)
+    row = row_of(propose(kitchen, item), "Zorba onion")
+    assert row["use"] is False and row["takes"] == [] and row["in_freezer"]["amount"] == 4
+
+
+def test_two_packets_with_one_use_by_the_opened_one_goes_first(kitchen: TestClient) -> None:
+    rice = food(kitchen, "Zorba rice")
+    size = ok(
+        kitchen.post(f"{API}/foods/{rice['id']}/sizes", json={"name": "bag", "amount": 500}), 201
+    )
+    bag = next(s for s in size["food"]["sizes"] if s["name"] == "bag")
+    day = DAY.isoformat()
+    for _ in range(2):
+        ok(
+            kitchen.post(
+                f"{API}/stock",
+                json={
+                    "food_id": rice["id"],
+                    "amount": {"amount": 1, "size_id": bag["id"]},
+                    "use_by": day,
+                },
+            ),
+            201,
+        )
+    with db_of(kitchen) as db:
+        lots = list(db.query(StockLot).filter_by(food_id=rice["id"]).order_by(StockLot.id))
+        lots[1].amount_milli = 300_000  # the later one was opened
+        opened = lots[1].id
+        db.commit()
+    item = plan_item(kitchen, recipe_of(kitchen, [line(rice["id"], 100, "g")]), servings=4)
+    lot = row_of(propose(kitchen, item), "Zorba rice")["takes"][0]["lots"][0]
+    assert lot["lot_id"] == opened
+
+
+def test_a_packet_that_would_be_left_with_under_2_percent_is_used_all(kitchen: TestClient) -> None:
+    rice = food(kitchen, "Zorba rice")
+    size = ok(
+        kitchen.post(f"{API}/foods/{rice['id']}/sizes", json={"name": "bag", "amount": 500}), 201
+    )
+    bag = next(s for s in size["food"]["sizes"] if s["name"] == "bag")
+    ok(
+        kitchen.post(
+            f"{API}/stock",
+            json={"food_id": rice["id"], "amount": {"amount": 1, "size_id": bag["id"]}},
+        ),
+        201,
+    )
+    item = plan_item(kitchen, recipe_of(kitchen, [line(rice["id"], 495, "g")]), servings=4)
+    take = row_of(propose(kitchen, item), "Zorba rice")["takes"][0]
+    assert take["amount"]["amount"] == 500 and take["lots"][0]["used_all"] is True
+    # 3 % left is not.
+    item2 = plan_item(
+        kitchen,
+        recipe_of(kitchen, [line(rice["id"], 485, "g")]),
+        servings=4,
+        day=DAY + timedelta(days=1),
+    )
+    take = row_of(propose(kitchen, item2), "Zorba rice")["takes"][0]
+    assert take["amount"]["amount"] == 485 and take["lots"][0]["used_all"] is False
 
 
 def test_a_stand_in_counted_another_way_is_not_used(kitchen: TestClient) -> None:

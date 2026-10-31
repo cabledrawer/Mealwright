@@ -50,7 +50,7 @@ from mealwright.models import (
     StockLot,
 )
 from mealwright.recipes import live_recipes
-from mealwright.stock import LotView, lots_of, place_kinds, plan_take
+from mealwright.stock import LotView, lots_of, opened_lots, place_kinds, plan_take
 
 RowStatus = Literal[
     "take",  # something to take from the pantry
@@ -75,6 +75,7 @@ class Choice:
     used_milli: int | None = None
     left_milli: int | None = None
     from_freezer: bool = False
+    add_to_list: bool = True  # a shortfall goes on the shopping list when confirmed
 
 
 # --- Working out ------------------------------------------------------------------------------
@@ -87,6 +88,7 @@ class Take:
     lots: list[tuple[StockLot, int]]
     before: int  # the ingredient's whole stock before this take
     amount: int
+    used_all: set[int] = field(default_factory=set)  # packets left with under 2 %: taken whole
 
 
 @dataclass
@@ -107,6 +109,7 @@ class Row:
     make_first: bool = False
     in_freezer: int = 0
     from_freezer: bool = False
+    add_to_list: bool = False  # the shortfall is ticked to go on the shopping list
     asked: AskOnce | None = None
 
     @property
@@ -248,8 +251,15 @@ class _Pool:
     def __init__(self, kitchen: Kitchen, food_ids: set[int]) -> None:
         self.kinds = place_kinds(kitchen)
         self.lots: dict[int, list[StockLot]] = {}
-        for lot in lots_of(kitchen, food_ids):
+        everything = lots_of(kitchen, food_ids)
+        for lot in everything:
             self.lots.setdefault(lot.food_id, []).append(lot)
+        self.opened = opened_lots(kitchen, everything)
+        wanted = {lot.size_id for lot in everything if lot.size_id}
+        self.size_milli = {
+            size.id: size.amount_milli
+            for size in kitchen.db.scalars(select(FoodSize).where(FoodSize.id.in_(wanted)))
+        }
         self.left = {lot.id: lot.amount_milli for lots in self.lots.values() for lot in lots}
 
     def freezer(self, lot: StockLot) -> bool:
@@ -262,11 +272,21 @@ class _Pool:
             if with_freezer or not self.freezer(lot)
         )
 
-    def take(self, food: Food, amount: int, from_freezer: bool, stand_in: bool) -> Take | None:
-        """Rule 4: the packet that goes off first. None when nothing could be taken."""
+    def take(
+        self, food: Food, amount: int, from_freezer: bool, stand_in: bool, tidy: bool = True
+    ) -> Take | None:
+        """Rule 4: the packet that goes off first. None when nothing could be taken. With `tidy`,
+        a packet left with under 2 % of its size is taken whole ("Used it all", cabledrawer 31 Oct)."""
         mine = self.lots.get(food.id, [])
         views = [
-            LotView(lot.id, self.left[lot.id], lot.use_by, as_utc(lot.added_at), self.freezer(lot))
+            LotView(
+                lot.id,
+                self.left[lot.id],
+                lot.use_by,
+                as_utc(lot.added_at),
+                self.freezer(lot),
+                lot.id in self.opened,
+            )
             for lot in mine
             if self.left[lot.id] > 0
         ]
@@ -275,11 +295,17 @@ class _Pool:
             return None
         by_id = {lot.id: lot for lot in mine}
         before = self.total(food.id)
+        used_all: set[int] = set()
+        taken_lots: list[tuple[StockLot, int]] = []
         for lot_id, taken in plan:
+            lot = by_id[lot_id]
+            rest = self.left[lot_id] - taken
+            size = self.size_milli.get(lot.size_id) if lot.size_id else None
+            if tidy and size and rest > 0 and rest * 50 < size:
+                taken, used_all = taken + rest, used_all | {lot_id}
             self.left[lot_id] -= taken
-        return Take(
-            food, stand_in, [(by_id[i], t) for i, t in plan], before, sum(t for _, t in plan)
-        )
+            taken_lots.append((lot, taken))
+        return Take(food, stand_in, taken_lots, before, sum(t for _, t in taken_lots), used_all)
 
 
 def _stand_ins(kitchen: Kitchen, foods: set[int]) -> dict[int, list[int]]:
@@ -371,20 +397,24 @@ def work_out(
             continue
         if confirming and not row.use:
             continue
-        taken = pool.take(food, row.wanted, row.from_freezer, False)
+        taken = pool.take(food, row.wanted, row.from_freezer, False, row.entered is None)
         if taken is not None:
             row.takes.append(taken)
 
-    # Pass 2: what own stock could not cover comes from "Can use instead" ingredients.
+    # Pass 2: an ingredient with none at all (not in the freezer either) is taken from its "Can
+    # use instead" ingredients. With some but not enough, the rest is a shortfall, never mixed
+    # with a stand-in (cabledrawer 31 Oct).
     for row in rows:
         if row.food is None or not row.wanted or (confirming and not row.use):
             continue
-        short = row.wanted - row.taken
+        if row.takes or pool.total(row.food.id) > 0:
+            continue
+        short = row.wanted
         for other_id in stand_ins.get(row.food.id, ()):
             other = others.get(other_id)
             if short <= 0 or other is None or other.counted_as != row.food.counted_as:
                 continue
-            taken = pool.take(other, short, row.from_freezer, True)
+            taken = pool.take(other, short, row.from_freezer, True, row.entered is None)
             if taken is not None:
                 row.takes.append(taken)
                 short -= taken.amount
@@ -399,6 +429,10 @@ def work_out(
             row.status = "none_in_pantry"
         if row.inner is not None and row.short > 0:
             row.make_first = True
+        picked = choices.get(row.key)
+        row.add_to_list = (
+            row.short > 0 and row.inner is None and (picked is None or picked.add_to_list)
+        )
         if not row.from_freezer and row.short > 0:
             row.in_freezer = sum(
                 pool.left[lot.id] for lot in pool.lots.get(row.food.id, ()) if pool.freezer(lot)
@@ -424,6 +458,7 @@ class LotTakeOut(BaseModel):
     place: Ref | None
     use_by: date | None
     amount: AmountOut
+    used_all: bool  # under 2 % of the packet would be left: taken whole, "Used it all"
 
 
 class TakeOut(BaseModel):
@@ -450,6 +485,7 @@ class RowOut(BaseModel):
     use: bool
     short: AmountOut | None  # not in the pantry: "add to list" (or, for a recipe, make it)
     make_first: bool
+    add_to_list: bool  # the shortfall is ticked to go on the shopping list
     in_freezer: AmountOut | None  # waiting in the freezer, left alone unless from_freezer
     from_freezer: bool
     ask: Ask | None
@@ -483,6 +519,7 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
                         else None,
                         use_by=lot.use_by,
                         amount=amount_out(take.food, amount, None),
+                        used_all=lot.id in take.used_all,
                     )
                     for lot, amount in take.lots
                 ],
@@ -503,6 +540,7 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
         use=row.use_default,
         short=amount_out(food, row.short, size) if food and row.short > 0 else None,
         make_first=row.make_first,
+        add_to_list=row.add_to_list,
         in_freezer=amount_out(food, row.in_freezer, None) if food and row.in_freezer > 0 else None,
         from_freezer=row.from_freezer,
         ask=question,

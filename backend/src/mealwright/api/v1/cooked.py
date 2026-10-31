@@ -111,6 +111,9 @@ class ChoiceIn(BaseModel):
     from_freezer: bool = Field(
         default=False, description="Take from the freezer too, when the rest isn't enough."
     )
+    add_to_list: bool = Field(
+        default=True, description="Put what is missing on the shopping list (ticked to start)."
+    )
 
     @model_validator(mode="after")
     def _one_amount(self) -> ChoiceIn:
@@ -166,6 +169,7 @@ def _choices(kitchen: Kitchen, given: list[ChoiceIn]) -> dict[str, deduction.Cho
             used_milli=amounts["used_milli"],
             left_milli=amounts["left_milli"],
             from_freezer=one.from_freezer,
+            add_to_list=one.add_to_list,
         )
     return out
 

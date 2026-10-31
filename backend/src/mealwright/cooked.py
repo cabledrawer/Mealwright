@@ -71,6 +71,7 @@ class SnapshotChoice(BaseModel):
     from_freezer: bool
     used_milli: int  # taken in all, from the ingredient and its stand-ins
     short_milli: int  # wanted but not in the pantry
+    add_to_list: bool = False  # the shortfall was put on the shopping list
     takes: list[SnapshotTake]
 
 

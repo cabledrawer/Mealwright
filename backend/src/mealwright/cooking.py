@@ -21,6 +21,7 @@ portion for each tub, as Cook once and the shopping list do (F58); a meal that i
 moved can't.
 """
 
+import uuid
 from typing import Any
 
 from fastapi import status
@@ -34,7 +35,9 @@ from mealwright.errors import Problem, not_found
 from mealwright.foods import remember_answers
 from mealwright.history import as_utc
 from mealwright.household import today
-from mealwright.models import BatchCook, Change, CookedRecord, Meal, MealItem, Recipe
+from mealwright.models import BatchCook, Change, CookedRecord, ListItem, Meal, MealItem, Recipe
+from mealwright.shop_from_plan import PLAN_KIND, base_amount, round_up
+from mealwright.shopping import Batch, ensure_main_list, payload_hash, server_action, tombstone
 from mealwright.stock import StockEdit
 
 MOST_PORTIONS = 999
@@ -197,6 +200,7 @@ def _choice_of(row: Row) -> cooked.SnapshotChoice:
         from_freezer=row.from_freezer,
         used_milli=row.taken,
         short_milli=row.short,
+        add_to_list=row.add_to_list,
         takes=[
             cooked.SnapshotTake(
                 food_id=take.food.id,
@@ -230,6 +234,7 @@ def _confirm(
             for lot, amount in take.lots:
                 edit.touch(lot).amount_milli -= amount
     change = edit.record("cooked", _summary(recipe, portions), None)
+    listed = _add_shortfalls(kitchen, worked)
     snapshot = cooked.snapshot(kitchen.db, recipe)
     snapshot.choices = choices_of(worked)
     record = CookedRecord(
@@ -245,14 +250,102 @@ def _confirm(
     )
     kitchen.db.add(record)
     kitchen.db.flush()
-    data: dict[str, Any] = {"cooked_record_id": record.id, **link}
+    data: dict[str, Any] = {"cooked_record_id": record.id, "listed": listed, **link}
     change.undo_data = data
     kitchen.db.flush()
     return change
 
 
+def _add_shortfalls(kitchen: Kitchen, worked: Worked) -> list[list[Any]]:
+    """What the pantry lacked goes on the main shopping list (cabledrawer 31 Oct: "Confirm adds it to
+    the shopping list"): onto the ingredient's open line, else a new one, counted up whole.
+    Returns [item id, was new, amount added] for Undo."""
+    wanted = [(row.food, row.short) for row in worked.rows if row.add_to_list and row.food]
+    if not wanted:
+        return []
+    batch = Batch(kitchen, action=str(uuid.uuid4()))
+    main = ensure_main_list(kitchen.db, kitchen.household_id)
+    seq = batch.number()
+    action = server_action(batch, PLAN_KIND, {}, None, list_id=main.id)
+    made: list[list[Any]] = []
+    changed: list[list[Any]] = []
+    for food, short in wanted:
+        add = round_up(short, food.counted_as)
+        line = kitchen.db.scalar(
+            select(ListItem).where(
+                ListItem.household_id == kitchen.household_id,
+                ListItem.list_id == main.id,
+                ListItem.food_id == food.id,
+                ListItem.deleted_at.is_(None),
+                ListItem.merged_into_id.is_(None),
+                ListItem.ticked_at.is_(None),
+                ListItem.amount_milli.is_not(None),
+            )
+        )
+        if line is not None:
+            # An open line (the plan's own, say) that already covers it is left alone.
+            more = max(add - (line.amount_milli or 0), 0)
+            if more:
+                before = line.amount_milli
+                line.amount_milli = (line.amount_milli or 0) + more
+                changed.append([line.id, base_amount(before), base_amount(line.amount_milli)])
+                line.size_id, line.hand_edited, line.version = None, True, seq
+                made.append([line.id, False, more])
+            continue
+        item = ListItem(
+            id=str(uuid.uuid4()),
+            household_id=kitchen.household_id,
+            list_id=main.id,
+            food_id=food.id,
+            shop_id=food.shop_id,
+            amount_milli=add,
+            source="typed",
+            hand_edited=True,
+            added_by_login_id=kitchen.login.id,
+            added_by_name=kitchen.login.name,
+            version=seq,
+        )
+        kitchen.db.add(item)
+        made.append([item.id, True, add])
+    # The shape the sync log already has for a list change the server makes (sync protocol 5.8).
+    payload: dict[str, Any] = {
+        "created": [m[0] for m in made if m[1]],
+        "changed": [],
+        "removed": [],
+    }
+    payload["changed"] = changed
+    action.payload, action.payload_hash, action.result = payload, payload_hash(payload), payload
+    batch.finish()
+    kitchen.db.flush()
+    return made
+
+
+def _take_off_list(kitchen: Kitchen, change: Change) -> None:
+    """Undo of "Cooked it" takes back what it put on the list, unless that line has been
+    ticked or removed since."""
+    listed = (change.undo_data or {}).get("listed") or []
+    if not listed:
+        return
+    batch = Batch(kitchen, action=str(uuid.uuid4()))
+    seq = batch.number()
+    for item_id, was_new, added in listed:
+        item = kitchen.db.get(ListItem, item_id)
+        if item is None or item.household_id != kitchen.household_id or item.deleted_at:
+            continue
+        if item.ticked_at is not None or (item.amount_milli or 0) < added:
+            continue
+        if was_new and item.amount_milli == added:
+            tombstone(kitchen, item, seq, batch.action)
+        else:
+            item.amount_milli = (item.amount_milli or 0) - added
+            item.version = seq
+    batch.finish()
+    kitchen.db.flush()
+
+
 def forget_record(kitchen: Kitchen, change: Change) -> None:
     """Undo of "Cooked it": the record goes, so the item or batch can be cooked again."""
+    _take_off_list(kitchen, change)
     for record in kitchen.db.scalars(
         select(CookedRecord).where(
             CookedRecord.household_id == kitchen.household_id, CookedRecord.change_id == change.id

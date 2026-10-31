@@ -14,7 +14,14 @@ from test_recipe_list import line, place_id, stock
 from test_recipes import food, make
 
 from mealwright import cooked
-from mealwright.models import Change, ChangeLine, CookedRecord, FoodConversion, StockLot
+from mealwright.models import (
+    Change,
+    ChangeLine,
+    CookedRecord,
+    FoodConversion,
+    ListItem,
+    StockLot,
+)
 
 API = "/api/v1"
 
@@ -531,3 +538,54 @@ def test_a_batch_whose_recipe_is_gone_cannot_be_cooked(kitchen: TestClient) -> N
     ok(kitchen.delete(f"{API}/recipes/{recipe['id']}"))
     answer = kitchen.post(f"{API}/plan/batches/{batch}/cook", json={})
     assert (answer.status_code, answer.json()["code"]) == (422, "not_a_recipe")
+
+
+# --- The shortfall goes on the shopping list ----------------------------------------
+
+
+def _listed(client: TestClient, food_id: int) -> list[int]:
+    with db_of(client) as db:
+        return [
+            item.amount_milli
+            for item in db.scalars(select(ListItem).where(ListItem.food_id == food_id))
+            if item.deleted_at is None and item.amount_milli is not None
+        ]
+
+
+FAR = DAY + timedelta(days=20)  # beyond the shopping list's look-ahead: the plan adds nothing
+
+
+def far_curry(client: TestClient, in_stock: int) -> tuple[dict[str, Any], int]:
+    dal = food(client, "Zorba dal")
+    stock(client, dal["id"], in_stock, "g")
+    recipe = recipe_of(client, [line(dal["id"], 200, "g")])
+    return dal, plan_item(client, recipe, servings=2, day=FAR)
+
+
+def test_confirming_puts_what_was_missing_on_the_list_and_undo_takes_it_off(
+    kitchen: TestClient,
+) -> None:
+    dal, item = far_curry(kitchen, 60)  # needs 100 g
+    done = ok(cook(kitchen, item), 201)
+    assert amounts(kitchen, dal["id"]) == [0]
+    assert _listed(kitchen, dal["id"]) == [40_000]
+    choice = done["cooked"]["snapshot"]["choices"][0]
+    assert choice["short_milli"] == 40_000 and choice["add_to_list"] is True
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert _listed(kitchen, dal["id"]) == []
+
+
+def test_a_shortfall_can_be_left_off_the_list(kitchen: TestClient) -> None:
+    dal, item = far_curry(kitchen, 60)
+    done = ok(cook(kitchen, item, [{"key": f"food:{dal['id']}", "add_to_list": False}]), 201)
+    assert _listed(kitchen, dal["id"]) == []
+    assert done["cooked"]["snapshot"]["choices"][0]["add_to_list"] is False
+
+
+def test_make_first_rows_are_not_put_on_the_shopping_list(kitchen: TestClient) -> None:
+    batter = make(kitchen, "Zorba batter", made_ahead=True, makes={"amount": 2, "unit": "l"})
+    dosa = recipe_of(
+        kitchen, [{"words": "batter", "amount": 500, "unit": "ml", "recipe_id": batter["id"]}]
+    )
+    ok(cook(kitchen, plan_item(kitchen, dosa, servings=4)), 201)
+    assert _listed(kitchen, batter["homemade"]["id"]) == []

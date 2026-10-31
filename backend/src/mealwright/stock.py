@@ -33,17 +33,20 @@ class LotView:
     use_by: date | None
     added_at: datetime
     freezer: bool
+    opened: bool = False  # part used: less than the packet it was bought as
 
 
 def use_order(lots: Iterable[LotView]) -> list[LotView]:
-    """The order lots are used in: not frozen first, then soonest use-by, then no use-by,
-    oldest added first."""
+    """The order lots are used in: not frozen first, then soonest use-by, then no use-by. Two
+    with the same use-by: the opened one first, else the one bought first. With no use-by:
+    oldest bought first (cabledrawer 31 Oct)."""
     return sorted(
         lots,
         key=lambda lot: (
             lot.freezer,
             lot.use_by is None,
             lot.use_by or date.max,
+            lot.use_by is not None and not lot.opened,
             lot.added_at,
             lot.id,
         ),
@@ -109,20 +112,39 @@ def place_kinds(kitchen: Kitchen) -> dict[int, str]:
     }
 
 
-def view(lot: StockLot, kinds: dict[int, str]) -> LotView:
+def opened_lots(kitchen: Kitchen, lots: Iterable[StockLot]) -> set[int]:
+    """The lots that are part used: bought as a size, and now holding less than it."""
+    lots = list(lots)
+    wanted = {lot.size_id for lot in lots if lot.size_id}
+    if not wanted:
+        return set()
+    sizes = {
+        size.id: size.amount_milli
+        for size in kitchen.db.scalars(select(FoodSize).where(FoodSize.id.in_(wanted)))
+    }
+    return {
+        lot.id for lot in lots if lot.size_id in sizes and 0 < lot.amount_milli < sizes[lot.size_id]
+    }
+
+
+def view(lot: StockLot, kinds: dict[int, str], opened: bool = False) -> LotView:
     return LotView(
         lot.id,
         lot.amount_milli,
         lot.use_by,
         as_utc(lot.added_at),
         kinds.get(lot.place_id) == "freezer",
+        opened,
     )
 
 
 def ordered(kitchen: Kitchen, lots: Iterable[StockLot]) -> list[StockLot]:
     kinds = place_kinds(kitchen)
     by_id = {lot.id: lot for lot in lots}
-    return [by_id[v.id] for v in use_order(view(lot, kinds) for lot in by_id.values())]
+    opened = opened_lots(kitchen, by_id.values())
+    return [
+        by_id[v.id] for v in use_order(view(lot, kinds, lot.id in opened) for lot in by_id.values())
+    ]
 
 
 def has_stock(kitchen: Kitchen, food_id: int) -> bool:
@@ -294,7 +316,10 @@ def take(
     missing."""
     kinds = place_kinds(kitchen)
     by_id = {lot.id: lot for lot in lots}
-    plan, short = plan_take([view(lot, kinds) for lot in lots], amount, include_freezer)
+    opened = opened_lots(kitchen, lots)
+    plan, short = plan_take(
+        [view(lot, kinds, lot.id in opened) for lot in lots], amount, include_freezer
+    )
     for lot_id, taken in plan:
         lot = edit.touch(by_id[lot_id])
         lot.amount_milli -= taken
