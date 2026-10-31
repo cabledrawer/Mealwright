@@ -391,6 +391,8 @@ def undo_change(
             if lot.food_id not in start:
                 start[lot.food_id] = place_totals(kitchen, lot.food_id)
     short = undo_lines(kitchen, change, tally)
+    if data.get("listed"):
+        cooking.undo_list(kitchen, change, tally, batch)
     if data.get("foods") and not _still_needed(kitchen, change, data["foods"]):
         done_before = tally.done
         touched_foods = undo_foods(kitchen, data["foods"], tally)

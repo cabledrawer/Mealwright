@@ -355,6 +355,10 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("FoodPatch", "place_id"): "test_households",
     ("FoodPatch", "shop_id"): "test_households",
     ("AmountIn", "size_id"): "test_households",
+    (
+        "MealItemIn",
+        "item_id",
+    ): "test_cooking_review.py: a meal cooked with another household's item",
     ("ChoiceAmount", "size_id"): "test_cooking.py: a choice naming another household's food",
     ("Answer", "food_id"): "test_households",
     ("NewStandIn", "food_id"): "test_households",

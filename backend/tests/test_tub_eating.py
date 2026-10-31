@@ -90,12 +90,14 @@ def test_undo_gives_the_quarters_back(kitchen: TestClient) -> None:
     assert undone["result"] == "done" and quarters(kitchen, tubs[0]) == 4
 
 
-def test_undo_leaves_a_tub_that_was_eaten_from_again(kitchen: TestClient) -> None:
+def test_undo_gives_back_what_it_ate_even_after_the_tub_was_eaten_from_again(
+    kitchen: TestClient,
+) -> None:
     _, tubs = tubs_of_a_batch(kitchen)
     first = ok(eat(kitchen, tubs[0], quarters=1))
     ok(eat(kitchen, tubs[0], quarters=1))
     undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
-    assert undone["result"] == "nothing" and quarters(kitchen, tubs[0]) == 2
+    assert undone["result"] == "done" and quarters(kitchen, tubs[0]) == 3  # the stock rule
 
 
 def test_a_retry_with_the_same_key_eats_once(kitchen: TestClient) -> None:

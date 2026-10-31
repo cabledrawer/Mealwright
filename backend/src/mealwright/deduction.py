@@ -75,7 +75,7 @@ class Choice:
     used_milli: int | None = None
     left_milli: int | None = None
     from_freezer: bool = False
-    add_to_list: bool = True  # a shortfall goes on the shopping list when confirmed
+    add_to_list: bool | None = None  # None: as proposed
 
 
 # --- Working out ------------------------------------------------------------------------------
@@ -109,7 +109,9 @@ class Row:
     make_first: bool = False
     in_freezer: int = 0
     from_freezer: bool = False
-    add_to_list: bool = False  # the shortfall is ticked to go on the shopping list
+    add_to_list: bool = False  # the offer to put something on the shopping list is ticked
+    list_milli: int = 0  # what would go on: the shortfall, or for running low a small pack
+    running_low: bool = False  # what is left is at or below the ingredient's running-low level
     asked: AskOnce | None = None
 
     @property
@@ -245,22 +247,34 @@ def _rows(kitchen: Kitchen, recipe: Recipe, portions: int, answers: list[Answer]
     return list(rows.values())
 
 
-class _Pool:
+class Pool:
     """The packets, read once, and what each has left as the rows take from it."""
 
-    def __init__(self, kitchen: Kitchen, food_ids: set[int]) -> None:
+    def __init__(self, kitchen: Kitchen, food_ids: set[int] | None = None) -> None:
+        self.kitchen = kitchen
         self.kinds = place_kinds(kitchen)
         self.lots: dict[int, list[StockLot]] = {}
-        everything = lots_of(kitchen, food_ids)
+        self.loaded: set[int] = set()
+        self.opened: set[int] = set()
+        self.size_milli: dict[int, int] = {}
+        self.left: dict[int, int] = {}
+        self.ensure(food_ids or set())
+
+    def ensure(self, food_ids: set[int]) -> None:
+        """Read the packets of these ingredients, if not read yet (one pool can serve every
+        recipe of a meal, so two recipes never take the same grams)."""
+        new = food_ids - self.loaded
+        if not new:
+            return
+        self.loaded |= new
+        everything = lots_of(self.kitchen, new)
         for lot in everything:
             self.lots.setdefault(lot.food_id, []).append(lot)
-        self.opened = opened_lots(kitchen, everything)
+            self.left[lot.id] = lot.amount_milli
+        self.opened |= opened_lots(self.kitchen, everything)
         wanted = {lot.size_id for lot in everything if lot.size_id}
-        self.size_milli = {
-            size.id: size.amount_milli
-            for size in kitchen.db.scalars(select(FoodSize).where(FoodSize.id.in_(wanted)))
-        }
-        self.left = {lot.id: lot.amount_milli for lots in self.lots.values() for lot in lots}
+        for size in self.kitchen.db.scalars(select(FoodSize).where(FoodSize.id.in_(wanted))):
+            self.size_milli[size.id] = size.amount_milli
 
     def freezer(self, lot: StockLot) -> bool:
         return self.kinds.get(lot.place_id) == "freezer"
@@ -329,6 +343,7 @@ def work_out(
     portions: int,
     answers: list[Answer] | None = None,
     choices: dict[str, Choice] | None = None,
+    pool: Pool | None = None,
 ) -> Worked:
     """What cooking `portions` of the recipe takes from the pantry. Read-only. With `choices`
     (a confirm) the rows follow them, and a row that still needs its question answered is
@@ -356,7 +371,8 @@ def work_out(
         )
         if visible(food)
     }
-    pool = _Pool(kitchen, food_ids | set(others))
+    pool = pool or Pool(kitchen)
+    pool.ensure(food_ids | set(others))
 
     # Pass 1: each row's own stock.
     for row in rows:
@@ -419,24 +435,63 @@ def work_out(
                 row.takes.append(taken)
                 short -= taken.amount
 
-    # Rule 6 and the freezer: what is missing, and what waits in the freezer.
+    # Rule 6, the freezer and running low: what is missing, what waits in the freezer, and what
+    # the offer to add to the shopping list would add.
+    low_ids = {
+        row.food.id
+        for row in rows
+        if row.food is not None and row.food.running_low_milli is not None and not row.food.staple
+    }
+    smallest: dict[int, int] = {}
+    if low_ids:
+        for size in kitchen.db.scalars(select(FoodSize).where(FoodSize.food_id.in_(low_ids))):
+            smallest[size.food_id] = min(
+                smallest.get(size.food_id, size.amount_milli), size.amount_milli
+            )
+
+    def nothing_to_take(food: Food) -> bool:
+        if pool.total(food.id) > 0:
+            return False
+        return not any(
+            others[i].counted_as == food.counted_as and pool.total(i) > 0
+            for i in stand_ins.get(food.id, ())
+            if i in others
+        )
+
     for row in rows:
         if row.food is None or row.wanted is None:
             continue
-        if not (confirming and not row.use):
+        applied = not (confirming and not row.use)
+        if applied:
             row.short = max(row.wanted - row.taken, 0)
+        elif row.wanted > 0 and nothing_to_take(row.food):
+            row.short = row.wanted  # switched off, and it was never in the house: still offered
         if row.status == "take" and not row.takes and not row.entered:
             row.status = "none_in_pantry"
         if row.inner is not None and row.short > 0:
             row.make_first = True
-        picked = choices.get(row.key)
-        row.add_to_list = (
-            row.short > 0 and row.inner is None and (picked is None or picked.add_to_list)
-        )
         if not row.from_freezer and row.short > 0:
             row.in_freezer = sum(
                 pool.left[lot.id] for lot in pool.lots.get(row.food.id, ()) if pool.freezer(lot)
             )
+        # What would go on the list, and whether it starts ticked (cabledrawer 31 Oct).
+        default = False
+        if row.short > 0 and row.inner is None:
+            row.list_milli = row.short
+            default = not (row.in_freezer > 0 and not row.takes)  # in the freezer: in the house
+        elif (
+            applied
+            and row.takes
+            and row.food.running_low_milli is not None
+            and not row.food.staple
+            and pool.total(row.food.id) <= row.food.running_low_milli
+        ):
+            row.running_low = True
+            row.list_milli = smallest.get(row.food.id) or row.food.running_low_milli
+        picked = choices.get(row.key)
+        row.add_to_list = default
+        if row.list_milli > 0 and picked is not None and picked.add_to_list is not None:
+            row.add_to_list = picked.add_to_list
     for row in rows:
         if row.status in ("take", "none_in_pantry"):
             row.use_default = bool(row.takes)  # nothing to take (or only the freezer): off
@@ -485,7 +540,9 @@ class RowOut(BaseModel):
     use: bool
     short: AmountOut | None  # not in the pantry: "add to list" (or, for a recipe, make it)
     make_first: bool
-    add_to_list: bool  # the shortfall is ticked to go on the shopping list
+    add_to_list: bool  # the offer to add to the shopping list is ticked
+    list_amount: AmountOut | None  # what would go on: the shortfall, or for running low a pack
+    running_low: bool  # what is left is at or below the running-low level: the offer is unticked
     in_freezer: AmountOut | None  # waiting in the freezer, left alone unless from_freezer
     from_freezer: bool
     ask: Ask | None
@@ -541,6 +598,8 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
         short=amount_out(food, row.short, size) if food and row.short > 0 else None,
         make_first=row.make_first,
         add_to_list=row.add_to_list,
+        list_amount=amount_out(food, row.list_milli, size) if food and row.list_milli > 0 else None,
+        running_low=row.running_low,
         in_freezer=amount_out(food, row.in_freezer, None) if food and row.in_freezer > 0 else None,
         from_freezer=row.from_freezer,
         ask=question,

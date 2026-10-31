@@ -244,6 +244,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/batches/{plan_batch_id}/cook/preview"): {},
     ("POST", "/api/v1/plan/batches/{plan_batch_id}/cook"): {},
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/eat"): None,
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/cook/preview"): {},
+    ("POST", "/api/v1/plan/meals/{plan_meal_id}/cook"): {},
     # Today (0.6 PR 6). Also tried in test_today.py, in both directions.
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cooked"): {},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/didnt"): None,

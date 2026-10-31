@@ -569,3 +569,5 @@ These are the sentences the server sends back (`detail`); the review screen in K
 - A recipe that is gone: **Only a recipe that is still there can be cooked.**
 - A choice for an ingredient that isn't in the recipe: **That ingredient isn’t in this recipe.** · chosen twice: **An ingredient can be chosen only once.** · an amount for a row with no ingredient: **There’s no ingredient to take that from.** · for a staple: **Staples aren’t counted, so nothing is taken.** · more left than there is: **That’s more than there is.**
 - Eating a tub: **Ate Sambar tub** · **Ate ½ of Sambar tub** · **That tub is all eaten.** · **There’s only ¾ of that tub left.**
+- A meal's recipes: **There’s no recipe in this meal to cook.** · **A recipe can be chosen only once.**
+- Running low after cooking (the review's wording is K3's): the offer to add is not ticked; it adds one of the smallest size, else the running-low level.

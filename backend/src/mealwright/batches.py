@@ -861,11 +861,15 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         return True
     if op == "tub_eat":
         tub = _own(kitchen, Tub, step["tub"])
-        if tub is None or tub.amount_quarters != step["to"]:
-            return False  # eaten from again since: leave it
-        tub.amount_quarters = step["from"]
+        if tub is None:
+            return False
+        # As a stock Undo does: give back what this change ate, on top of what is there now, up
+        # to a whole tub; what can't be given back makes it "partly".
+        back = step["from"] - step["to"]
+        whole: bool = tub.amount_quarters + back <= 4
+        tub.amount_quarters = min(tub.amount_quarters + back, 4)
         db.flush()
-        return True
+        return whole
     if op == "tub":
         tub = _own(kitchen, Tub, step["tub"])
         if tub is None:

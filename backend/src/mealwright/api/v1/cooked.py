@@ -5,7 +5,7 @@ meal item and for a batch cook. The review screen that uses them is K3."""
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field, model_validator
@@ -111,8 +111,11 @@ class ChoiceIn(BaseModel):
     from_freezer: bool = Field(
         default=False, description="Take from the freezer too, when the rest isn't enough."
     )
-    add_to_list: bool = Field(
-        default=True, description="Put what is missing on the shopping list (ticked to start)."
+    add_to_list: bool | None = Field(
+        default=None,
+        description="Put the offered amount on the shopping list: what is missing, or for"
+        " running low a small pack. Its own tick, apart from Use. Left out: as proposed"
+        " (a shortfall ticked, running low and freezer-only stock not).",
     )
 
     @model_validator(mode="after")
@@ -139,7 +142,9 @@ class CookIn(CookPreviewIn):
     choices: list[ChoiceIn] = Field(default_factory=list, max_length=200)
 
 
-def _choices(kitchen: Kitchen, given: list[ChoiceIn]) -> dict[str, deduction.Choice]:
+def _choices(
+    kitchen: Kitchen, given: list[ChoiceIn], answers: list[Answer]
+) -> dict[str, deduction.Choice]:
     out: dict[str, deduction.Choice] = {}
     for one in given:
         if one.key in out:
@@ -162,7 +167,12 @@ def _choices(kitchen: Kitchen, given: list[ChoiceIn]) -> dict[str, deduction.Cho
             if typed.amount == 0:
                 amounts[name] = 0
             else:
-                value = AmountIn(amount=typed.amount, unit=typed.unit, size_id=typed.size_id)
+                value = AmountIn(
+                    amount=typed.amount,
+                    unit=typed.unit,
+                    size_id=typed.size_id,
+                    answers=answers,
+                )
                 amounts[name] = foods.resolve(kitchen, food, value).milli
         out[one.key] = deduction.Choice(
             use=one.use,
@@ -174,6 +184,12 @@ def _choices(kitchen: Kitchen, given: list[ChoiceIn]) -> dict[str, deduction.Cho
     return out
 
 
+def _proposals(kitchen: Kitchen, entries: list[cooking.Entry], answers: list[Answer]) -> Any:
+    return [
+        deduction.proposal_out(kitchen, each) for each in cooking.preview(kitchen, entries, answers)
+    ]
+
+
 @router.post("/plan/items/{plan_item_id}/cook/preview")
 def preview_item_cook(
     plan_item_id: StoredInt, body: CookPreviewIn, kitchen: Here
@@ -183,9 +199,8 @@ def preview_item_cook(
     alone), what is missing, and the questions to answer first (send them back in `answers`).
     Changes nothing."""
     item = plan.find_item(kitchen, plan_item_id)
-    return deduction.proposal_out(
-        kitchen, cooking.preview_item(kitchen, item, body.portions, body.answers)
-    )
+    entry = cooking.item_entry(kitchen, item, body.portions, {})
+    return _proposals(kitchen, [entry], body.answers)[0]  # type: ignore[no-any-return]
 
 
 @router.post("/plan/batches/{plan_batch_id}/cook/preview")
@@ -194,8 +209,63 @@ def preview_batch_cook(
 ) -> deduction.ProposalOut:
     """The same for a batch cook, worked out once for the cook-day eaters and the tubs."""
     batch = batches.find_batch(kitchen, plan_batch_id)
-    return deduction.proposal_out(
-        kitchen, cooking.preview_batch(kitchen, batch, body.portions, body.answers)
+    entry = cooking.batch_entry(kitchen, batch, body.portions, {})
+    return _proposals(kitchen, [entry], body.answers)[0]  # type: ignore[no-any-return]
+
+
+class MealItemIn(BaseModel):
+    item_id: StoredInt
+    portions: Annotated[int, Field(ge=1, le=cooking.MOST_PORTIONS)] | None = None
+    choices: list[ChoiceIn] = Field(default_factory=list, max_length=200)
+
+
+class CookMealIn(BaseModel):
+    items: Annotated[list[MealItemIn], Field(max_length=20)] | None = Field(
+        default=None,
+        description="Which recipes of the meal, with their portions and choices. Left out: every"
+        " recipe in the meal, as proposed.",
+    )
+    answers: list[Answer] = Field(default_factory=list, max_length=5)
+
+
+class MealItemProposalOut(BaseModel):
+    item_id: int
+    proposal: deduction.ProposalOut
+
+
+class MealProposalOut(BaseModel):
+    meal_id: int
+    items: list[MealItemProposalOut]
+
+
+def _meal_entries(kitchen: Kitchen, meal_id: int, body: CookMealIn) -> list[cooking.Entry]:
+    meal = plan.find_meal(kitchen, meal_id)
+    wanted = None
+    if body.items is not None:
+        wanted = {}
+        for one in body.items:
+            if one.item_id in wanted:
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "twice",
+                    "A recipe can be chosen only once.",  # proposed, for cabledrawer
+                )
+            wanted[one.item_id] = (one.portions, _choices(kitchen, one.choices, body.answers))
+    return cooking.meal_entries(kitchen, meal, wanted)
+
+
+@router.post("/plan/meals/{plan_meal_id}/cook/preview")
+def preview_meal_cook(plan_meal_id: StoredInt, body: CookMealIn, kitchen: Here) -> MealProposalOut:
+    """The same for a meal with several recipes, worked out from one pool of packets, so two
+    recipes never both propose the same grams. Changes nothing."""
+    entries = _meal_entries(kitchen, plan_meal_id, body)
+    proposals = _proposals(kitchen, entries, body.answers)
+    return MealProposalOut(
+        meal_id=plan_meal_id,
+        items=[
+            MealItemProposalOut(item_id=e.link["item_id"], proposal=p)
+            for e, p in zip(entries, proposals, strict=True)
+        ],
     )
 
 
@@ -207,18 +277,40 @@ class CookedWrite(BaseModel):
     cooked: CookedOut | None
 
 
+class CookedMealWrite(BaseModel):
+    """A meal's confirm: one change, and a record for each recipe cooked."""
+
+    change: ChangeOut
+    cooked: list[CookedOut]
+
+
+def _records(kitchen: Kitchen, change: Change) -> list[CookedRecord]:
+    ids = (change.undo_data or {}).get("cooked_record_ids") or []
+    found = [kitchen.db.get(CookedRecord, i) for i in ids]
+    return [r for r in found if r is not None and r.household_id == kitchen.household_id]
+
+
 def _written(kitchen: Kitchen, change: Change) -> CookedWrite:
-    data = change.undo_data or {}
-    record = kitchen.db.get(CookedRecord, data.get("cooked_record_id", 0))
-    if record is not None and record.household_id != kitchen.household_id:
-        record = None  # pragma: no cover (an id only this household's own change holds)
+    records = _records(kitchen, change)
     return CookedWrite(
         change=change_out(kitchen, change),
-        cooked=cooked_out(record) if record is not None else None,
+        cooked=cooked_out(records[0]) if records else None,
     )
 
 
-def _confirm(kitchen: Kitchen, response: Response, make: Callable[[], Change]) -> CookedWrite:
+def _written_meal(kitchen: Kitchen, change: Change) -> CookedMealWrite:
+    return CookedMealWrite(
+        change=change_out(kitchen, change),
+        cooked=[cooked_out(r) for r in _records(kitchen, change)],
+    )
+
+
+def _confirm[T](
+    kitchen: Kitchen,
+    response: Response,
+    make: Callable[[], Change],
+    written: Callable[[Kitchen, Change], T] = _written,  # type: ignore[assignment]
+) -> T:
     """One confirm: the household's lock, a retry with the same `Idempotency-Key` answers from
     the first change, and the commit."""
     lock_household(kitchen)
@@ -228,7 +320,7 @@ def _confirm(kitchen: Kitchen, response: Response, make: Callable[[], Change]) -
         earlier = commit(kitchen)
         if earlier is None:
             response.status_code = status.HTTP_201_CREATED
-            return _written(kitchen, change)
+            return written(kitchen, change)
     if earlier.kind != "cooked":
         raise Problem(
             status.HTTP_409_CONFLICT,
@@ -237,7 +329,7 @@ def _confirm(kitchen: Kitchen, response: Response, make: Callable[[], Change]) -
         )
     response.status_code = status.HTTP_200_OK
     response.headers["Idempotent-Replayed"] = "true"
-    return _written(kitchen, earlier)
+    return written(kitchen, earlier)
 
 
 @router.post("/plan/items/{plan_item_id}/cook", status_code=status.HTTP_201_CREATED)
@@ -251,12 +343,17 @@ def cook_item(
     return _confirm(
         kitchen,
         response,
-        lambda: cooking.cook_item(
+        lambda: cooking.confirm(
             kitchen,
-            plan.find_item(kitchen, plan_item_id),
-            body.portions,
+            [
+                cooking.item_entry(
+                    kitchen,
+                    plan.find_item(kitchen, plan_item_id),
+                    body.portions,
+                    _choices(kitchen, body.choices, body.answers),
+                )
+            ],
             body.answers,
-            _choices(kitchen, body.choices),
         ),
     )
 
@@ -270,11 +367,32 @@ def cook_batch(
     return _confirm(
         kitchen,
         response,
-        lambda: cooking.cook_batch(
+        lambda: cooking.confirm(
             kitchen,
-            batches.find_batch(kitchen, plan_batch_id),
-            body.portions,
+            [
+                cooking.batch_entry(
+                    kitchen,
+                    batches.find_batch(kitchen, plan_batch_id),
+                    body.portions,
+                    _choices(kitchen, body.choices, body.answers),
+                )
+            ],
             body.answers,
-            _choices(kitchen, body.choices),
         ),
+    )
+
+
+@router.post("/plan/meals/{plan_meal_id}/cook", status_code=status.HTTP_201_CREATED)
+def cook_meal(
+    plan_meal_id: StoredInt, body: CookMealIn, kitchen: Here, response: Response
+) -> CookedMealWrite:
+    """Cooked it, for a meal with several recipes: one confirm and one Undo for the whole meal.
+    The packets are shared out across its recipes, so nothing is taken twice; one change, and
+    a cooked record for each recipe. All or nothing: if any recipe is refused, none is taken. A
+    meal with a batch cook's recipe is refused (`cook_the_batch`): cook the batch."""
+    return _confirm(
+        kitchen,
+        response,
+        lambda: cooking.confirm(kitchen, _meal_entries(kitchen, plan_meal_id, body), body.answers),
+        _written_meal,
     )
