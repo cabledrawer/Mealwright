@@ -172,8 +172,9 @@
   </div>
 
   {#if !recipe && network.down}
-    <!-- In the three panes the layout shows this note once, for both panes. -->
-    {#if !panes}<OfflineNote screen="Recipes" />{/if}
+    <!-- In the three panes, when the list couldn't load either, the layout shows its one note
+         and hides this pane; otherwise this pane says why the recipe isn't here. -->
+    <OfflineNote screen="Recipes" />
   {:else if recipe}
     <article class="recipe">
       {#if !panes}<RecipePhoto photo={recipe.photo} name={recipe.name} />{/if}
