@@ -604,6 +604,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **On Check you can fix the amount, unit and note**, not only the ingredient (F30.6).
 - **F4:** Save with unlinked lines gives a real warning; if the user says yes, it takes them through each one (New ingredient / Pick / Staple) with Skip and "Save anyway".
 - **F13:** a **"Split into shorter steps"** button on Check that shows the split before saving; never automatic.
+- **Decided on 31 Oct (cabledrawer 31 Oct: "C2: 44 px chips OK. One column on the phone only; on the computer keep the mockup's three columns (details, ingredients, method). A Split button on each long step: OK, update the spec. F4 opening the sheet straight away on Save: OK."):** the line chips on Check are 44 px touch targets; Check is one column on a phone and three columns on a computer (details 300 px, ingredients, method 340 px, as `ImportCheck07-Desktop`), and stacks to one column again when the window is narrow or the text is large; F13's Split button sits on each long step; with unlinked lines, Save opens the F4 walk-through sheet straight away.
 - **F29:** tap a recipe photo → full size (Esc or a tap closes it).
 - F5 and F7 (above) are part of this work.
 
