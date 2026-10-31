@@ -8,6 +8,7 @@
   import { browser } from '$app/env';
   import { page } from '$app/state';
   import { tick } from 'svelte';
+  import { cantReachWords } from '#lib/api.js';
   import { serverUndo } from '#lib/client/changes.js';
   import { mergeFood } from '#lib/client/foods.js';
   import type { FoodFilter, FoodRow, FoodWrite } from '#lib/client/types.js';
@@ -26,6 +27,7 @@
   import { network } from '#lib/network.svelte.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import { save } from '#lib/save.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   const list = new IngredientsList();
   const recent = new IngredientChanges();
@@ -148,6 +150,11 @@
   }
 
   function open(food: FoodRow) {
+    // Editing needs the server: while it is down, say so instead of opening an editor.
+    if (network.offline) {
+      toasts.show(cantReachWords());
+      return;
+    }
     // Desktop edits beside the list; phones get the sheet.
     if (isDesktop()) {
       selectedId = food.id;
@@ -235,7 +242,7 @@
   {/snippet}
 </PageHeader>
 
-{#if network.offline || (network.down && list.couldntLoad)}
+{#if network.down && list.couldntLoad}
   <!-- From the first failure, so the words don't change when the bar comes (F67). -->
   <OfflineNote screen="Ingredients" />
 {:else}

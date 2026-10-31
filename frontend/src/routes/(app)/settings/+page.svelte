@@ -165,7 +165,7 @@
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
        18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
        Anything added to Appearance later that needs the server is hidden offline. -->
-  {#if network.offline || (network.down && pints === null)}
+  {#if network.down && pints === null}
     <OfflineNote screen="Settings" />
   {/if}
   <section class="section" aria-labelledby="appearance">
@@ -178,7 +178,7 @@
     </div>
   </section>
 
-  {#if pints !== null && !network.offline}
+  {#if pints !== null}
     <section class="section" aria-labelledby="amounts">
       <h2 id="amounts">Amounts</h2>
       <div class="card">
@@ -196,7 +196,7 @@
             bind:checked={() => pints === 'us', (on) => void setPints(on)}
             labelledby="pints-label"
             describedby="pints-detail"
-            disabled={!admin}
+            disabled={!admin || network.offline}
           />
         </div>
       </div>

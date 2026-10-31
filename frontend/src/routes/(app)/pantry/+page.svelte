@@ -244,19 +244,32 @@
 
 {#snippet useSoonRow(lot: UseSoonLot, compact: boolean)}
   {@const words = lotWords(lot)}
-  <button type="button" class="soon-name" onclick={() => ingredientEditor.open(lot.food.id)}
+  <button
+    type="button"
+    class="soon-name"
+    disabled={network.offline}
+    onclick={() => ingredientEditor.open(lot.food.id)}
     >{lot.food.name} · {compact ? words.compactDate : words.what}</button
   >
   <span class="soon-actions">
-    <button type="button" class="pill" onclick={() => void model.used(lot.id, lot.food.name)}
-      >Used</button
+    <button
+      type="button"
+      class="pill"
+      disabled={network.offline}
+      onclick={() => void model.used(lot.id, lot.food.name)}>Used</button
     >
-    <button type="button" class="pill" onclick={() => void model.binned(lot.id, lot.food.name)}
-      >Binned</button
+    <button
+      type="button"
+      class="pill"
+      disabled={network.offline}
+      onclick={() => void model.binned(lot.id, lot.food.name)}>Binned</button
     >
     {#if lot.place.kind !== 'freezer'}
-      <button type="button" class="pill" onclick={() => void model.toFreezer(lot.id, lot.food.name)}
-        >To freezer</button
+      <button
+        type="button"
+        class="pill"
+        disabled={network.offline}
+        onclick={() => void model.toFreezer(lot.id, lot.food.name)}>To freezer</button
       >
     {/if}
   </span>
@@ -404,8 +417,11 @@
             oncancel={() => (addingStaple = false)}
           />
         {:else}
-          <button type="button" class="add-staple" onclick={() => (addingStaple = true)}
-            >+ Staple</button
+          <button
+            type="button"
+            class="add-staple"
+            disabled={network.offline}
+            onclick={() => (addingStaple = true)}>+ Staple</button
           >
         {/if}
       </li>
@@ -416,7 +432,7 @@
   </section>
 {/snippet}
 
-{#if network.offline || (!pantry && network.down)}
+{#if !pantry && network.down}
   <OfflineNote screen="Pantry" />
 {:else if model.problem && !pantry}
   <p class="problem" role="alert">
