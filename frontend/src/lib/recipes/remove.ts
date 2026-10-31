@@ -11,5 +11,5 @@ import { undoHistory } from '../undo.svelte';
 export async function removeRecipe(id: number, name: string): Promise<void> {
   const { change } = await deleteRecipe(id, newChangeId());
   kitchen.changed();
-  undoHistory.record({ label: `Deleted ${name}`, undo: serverUndo(change.id) });
+  undoHistory.record({ label: `Deleted ${name}`, needsServer: true, undo: serverUndo(change.id) });
 }

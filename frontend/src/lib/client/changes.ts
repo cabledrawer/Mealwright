@@ -74,7 +74,7 @@ export function undoToast(summary: string, result: UndoResult | null): string {
 export async function lastOwnChange(): Promise<UndoEntry | null> {
   const { changes } = await listChanges({ mine: true, limit: 20 });
   const last = changes.find((c) => c.can_undo && !c.undone);
-  return last ? { label: last.summary, undo: serverUndo(last.id) } : null;
+  return last ? { label: last.summary, needsServer: true, undo: serverUndo(last.id) } : null;
 }
 
 /**

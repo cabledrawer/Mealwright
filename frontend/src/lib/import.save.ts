@@ -12,6 +12,7 @@ export function changesToast(saved: Saved): void {
   kitchen.changed();
   undoHistory.record({
     label: saved.change.summary,
+    needsServer: true,
     undo: serverUndo(saved.change.id)
   });
 }

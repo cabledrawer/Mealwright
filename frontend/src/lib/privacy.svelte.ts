@@ -161,6 +161,7 @@ class Privacy {
       this.#put(entry);
       undoHistory.record({
         label: `Added ${entry.value} to Your own network`,
+        needsServer: true,
         undo: async () => {
           try {
             await removeEntry(entry.id);
@@ -208,6 +209,7 @@ class Privacy {
     if (generation !== this.#generation) return;
     undoHistory.record({
       label: `Removed ${entry.value} from Your own network`,
+      needsServer: true,
       undo: async () => {
         // Put back as a new entry (it keeps its text; it now says who put it back).
         const added = await addEntry(entry.value);

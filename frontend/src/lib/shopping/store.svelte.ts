@@ -4,7 +4,7 @@
 // while it can't be sent, and goes only if the server refuses it (UX principle 8). Undo is
 // in the toast (principle 6).
 
-import { ApiError, cantReach } from '#lib/api.js';
+import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
 import { kitchen } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { newChangeId } from '#lib/changeId.js';
@@ -246,6 +246,11 @@ export class ShoppingModel {
   }
 
   async #putBack(staples: Staple[], label: string): Promise<void> {
+    // Not queued: it is a call to the server, so while it can't be reached it says so.
+    if (network.offline) {
+      toasts.show(cantReachWords());
+      return;
+    }
     try {
       for (const staple of staples) this.planCard = await notGotIt(staple.food.id);
       toasts.show(undoneWords(label));

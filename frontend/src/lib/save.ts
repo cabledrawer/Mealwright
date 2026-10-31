@@ -94,6 +94,7 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
     const { label, run } = change.undo;
     entry = {
       label,
+      needsServer: true,
       undo: async () => {
         const result = await outcome;
         // It didn't save, so it has already been rolled back and the toast said so.

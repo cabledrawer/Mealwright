@@ -3,7 +3,8 @@
 // back the most recent. (The household's shared history, with Undo for 7 days on
 // anyone's change, is the Recent changes list, which comes from the server.)
 
-import { worthRetrying, ApiError } from './api';
+import { worthRetrying, ApiError, cantReachWords } from './api';
+import { network } from './network.svelte';
 import { toasts } from './toast.svelte';
 
 export interface UndoEntry {
@@ -14,6 +15,9 @@ export interface UndoEntry {
    * "Put back 1 packet. The rest was used."), or false to show nothing.
    */
   undo: () => Promise<string | void | false> | string | void | false;
+  /** Taking it back is a call to the server that isn't queued. While the server can't be
+   *  reached it isn't tried: the usual words, and the change stays on the list. */
+  needsServer?: boolean;
 }
 
 /** How many of your own changes Ctrl+Z can walk back through. */
@@ -85,6 +89,10 @@ class UndoHistory {
   /** Undo one change. If it fails, it stays on the list and the toast offers Try again. */
   async undo(entry: UndoEntry): Promise<void> {
     if (!this.#entries.includes(entry)) return; // already undone
+    if (entry.needsServer && network.offline) {
+      toasts.show(cantReachWords());
+      return;
+    }
     this.forget(entry);
     try {
       const message = await entry.undo();

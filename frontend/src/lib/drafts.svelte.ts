@@ -65,6 +65,7 @@ class Drafts {
     const deleting = deleteDraft(draft.id, newChangeId());
     const entry: UndoEntry = {
       label: `Deleted the ${draft.name} draft`,
+      needsServer: true,
       undo: async () => {
         const { change } = await deleting;
         const message = await serverUndo(change.id)();
