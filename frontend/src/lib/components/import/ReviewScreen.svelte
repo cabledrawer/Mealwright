@@ -363,11 +363,11 @@
   }
 
   /* A computer with room: three columns (details, ingredients, method; mockup
-     Dark-ImportCheck07-Desktop). In rem, so larger text stacks them again before they squeeze. */
+     Dark-ImportCheck07-Desktop: 300px, the rest, 340px). In rem, so larger text stacks them again before they squeeze. */
   @container (min-width: 64rem) {
     .review:not(.phone) {
       display: grid;
-      grid-template-columns: 17rem minmax(0, 1fr) 19rem;
+      grid-template-columns: 18.75rem minmax(0, 1fr) 21.25rem;
       gap: var(--space-6);
       align-items: start;
       max-width: none;
