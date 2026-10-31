@@ -29,6 +29,7 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+  import { cantReachWords } from '#lib/api.js';
   import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { PantryModel } from '#lib/pantry.svelte.js';
   import { PantryList, listLabel } from '#lib/pantryList.svelte.js';
@@ -185,8 +186,11 @@
   /** "+ Add to pantry": the sheet online; offline, a toast says why it can't open (cabledrawer 18 Oct). */
   function addClicked() {
     if (network.offline) {
+      // The words follow the cause: no network on the device, or no answer from the server.
       toasts.show(
-        'Adding to the pantry needs your Mealwright server. Try again when you’re back online.'
+        network.deviceOffline
+          ? 'Adding to the pantry needs your Mealwright server. Try again when you’re back online.'
+          : cantReachWords()
       );
       return;
     }
@@ -216,11 +220,13 @@
   }
 
   function newStaple(name: string) {
+    if (blockedWhileDown()) return;
     addingStaple = false;
     void model.newStaple(name);
   }
 
   function pickStaple(food: Ref) {
+    if (blockedWhileDown()) return;
     addingStaple = false;
     void model.makeStaple(food);
   }
@@ -482,11 +488,7 @@
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button
-            type="button"
-            class="add-pill"
-            aria-label="+ Add to pantry"
-            onclick={() => addToPantry.show()}
+          <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
             ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
           >
         </div>
@@ -551,11 +553,7 @@
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button
-            type="button"
-            class="add-pill"
-            aria-label="+ Add to pantry"
-            onclick={() => addToPantry.show()}
+          <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
             ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
           >
         </div>

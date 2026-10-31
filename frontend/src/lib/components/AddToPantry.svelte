@@ -4,6 +4,7 @@
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
   // which opens the device's own date picker and then shows the date it chose).
   // A sheet from the bottom on phones, a dialog on desktop.
+  import { network } from '#lib/network.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
   import { addToPantry } from '#lib/addToPantry.svelte.js';
   import { getFood } from '#lib/client/foods.js';
@@ -339,7 +340,9 @@
 
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-      <button type="submit" class="add" disabled={!food || food.staple}>Add to pantry</button>
+      <button type="submit" class="add" disabled={!food || food.staple || network.offline}
+        >Add to pantry</button
+      >
     </form>
   {/if}
 </dialog>
