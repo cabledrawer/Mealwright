@@ -140,16 +140,16 @@ _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNO
 _HOW_TO_TAIL = re.compile(
     r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
 )
-# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer): a leading "Recipe for"
-# with its little word ("Recipe for Banana Bread" is "Banana Bread"), a leading "Recipe:" and the
-# like, and "Recipe" just before a bracket, colon, dash or bar ("Lemon Rice Recipe (Chitranna)").
-# Never in the middle of a name ("The Recipe Tin lasagne"), before a comma ("Mum's Recipe,
-# Revisited"), after a possessive, or with an apostrophe after it ("Nan's recipe's best scones").
+# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). It goes from: the start in
+# "Recipe for [a|an|the] ...", "Recipe: ..." and "Recipe - ..." (first word, spaces round a dash);
+# just before a bracket ("Lemon Rice Recipe (Chitranna)"); the end ("Classic Victoria sandwich
+# recipe"). It stays in a possessive ("Mum's Recipe"), inside a name ("The Recipe Tin lasagne",
+# "My Recipe: Dal", "Recipe-tested Chili"), before an apostrophe, and when nothing real is left.
 _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNORECASE)
-_RECIPE_LEAD = re.compile(r"^recipe\s*[:\u2013\u2014|-]\s*(?=\S)", re.IGNORECASE)
-_RECIPE_LABEL = re.compile(
-    r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[:|\u2013\u2014-])", re.IGNORECASE
-)
+_RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[|\u2013\u2014-])\s*(?=\S)", re.IGNORECASE)
+_RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
+_POSSESSIVE_RECIPE = re.compile(r"[\'\u2019]s\s+recipe\s*!*\s*$", re.IGNORECASE)
+_NOTHING_LEFT = frozenset({"recipe", "for", "a", "an", "the"})
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
 _RECIPE_TAIL = re.compile(r"\s*(?:[-–—|:]\s*[^-–—|:]*)?\brecipe\s*!*\s*$", re.IGNORECASE)
 _BRACKET_PUFF = re.compile(
@@ -171,13 +171,15 @@ def clean_recipe_name(name: str) -> str:
     cleaned = _HOW_TO.sub("", cleaned)
     cleaned = _HOW_TO_TAIL.sub("", cleaned) or cleaned
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
+    cleaned = _RECIPE_LABEL.sub("", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
-    cleaned = _RECIPE_TAIL.sub("", cleaned)
+    if not _POSSESSIVE_RECIPE.search(cleaned):
+        cleaned = _RECIPE_TAIL.sub("", cleaned)
     cleaned = _RECIPE_FOR.sub("", cleaned)
     cleaned = _RECIPE_LEAD.sub("", cleaned)
-    cleaned = _RECIPE_LABEL.sub("", cleaned)
     cleaned = " ".join(cleaned.split()).strip(" -–—|:")
-    if not any(c.isalpha() for c in cleaned):
+    words = {word.strip("'\u2019.,!:;").lower() for word in cleaned.split()}
+    if not any(c.isalpha() for c in cleaned) or words <= _NOTHING_LEFT:
         return found
     return cleaned[:1].upper() + cleaned[1:]
 
