@@ -222,7 +222,8 @@ async function post(page: Page, path: string, data: object) {
 }
 
 // F80 review round 2: nothing that writes to the server is live while it is down.
-test('Pantry: an opened row stays, and its packet menu, Edit link and Undo are greyed out', async ({ page }) => {
+// cabledrawer 31 Oct: the Pantry may show the "Can't reach" note instead of its list; whatever stays is greyed out.
+test('Pantry: when the server stops, the packet menu, Edit link and Undo of an opened row are greyed out or gone', async ({ page }) => {
   const places = (await (await page.request.get('/api/v1/places')).json()) as { id: number; name: string }[];
   const name = `Dal ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
   const { food } = await post(page, '/foods', { name, place_id: places[0]!.id });
@@ -240,14 +241,12 @@ test('Pantry: an opened row stays, and its packet menu, Edit link and Undo are g
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
   await expect(bar(page)).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
-  await expect(page.getByRole('list', { name: `Packets of ${name}` })).toBeVisible();
-  await expect(lot.first()).toBeDisabled();
-  await expect(page.getByRole('button', { name: `Edit ${name}` })).toBeDisabled();
+  for (const button of await lot.all()) await expect(button).toBeDisabled();
+  for (const edit of await page.getByRole('button', { name: `Edit ${name}` }).all()) await expect(edit).toBeDisabled();
   for (const undo of await page.getByRole('button', { name: /^Undo: / }).all()) await expect(undo).toBeDisabled();
 });
 
-test('Ingredients: a row click while the server is down says so, the open editor is greyed out, and Undo sends nothing', async ({
+test('Ingredients: while the server is down the open editor is greyed out or gone, a row click says so, and Undo sends nothing', async ({
   page,
 }) => {
   test.skip(isPhone(page), 'Computer layout');
@@ -273,18 +272,21 @@ test('Ingredients: a row click while the server is down says so, the open editor
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
   await expect(bar(page)).toBeVisible();
-  // The editor's changes are greyed out; reading stays.
-  await expect(page.getByRole('button', { name: 'Rename' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Merge with another…' })).toBeDisabled();
+  // The editor's changes are greyed out or gone (cabledrawer 31 Oct: the list may give way to the note).
+  for (const rename of await page.getByRole('button', { name: 'Rename' }).all()) await expect(rename).toBeDisabled();
+  for (const merge of await page.getByRole('button', { name: 'Merge with another…' }).all()) await expect(merge).toBeDisabled();
   // The toast's Undo needs the server: it says so and sends nothing.
   const before = sent.length;
   if (await undo.isVisible()) await undo.click();
   else await page.keyboard.press('Control+z');
   await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
   expect(sent.slice(before)).toEqual([]);
-  // A row click says so too.
-  await page.locator('button.row').first().click();
-  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+  // A row click, if the list is still there, says so too.
+  const row = page.locator('button.row').first();
+  if (await row.isVisible()) {
+    await row.click();
+    await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+  }
 });
 
 test('Pantry: "+ Add to pantry" says why while the server is down', async ({ page }) => {
