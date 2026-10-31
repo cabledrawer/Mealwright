@@ -425,9 +425,11 @@ def test_two_pages_are_read_at_once(child_as) -> None:  # type: ignore[no-untype
     child_as(_holding_child)
     *results, ends = _in_threads(2, 4.0)
     assert results == [None, None]
-    # Both ran together: about 4.x seconds in all, not 8. Holding 4 s, not 2, leaves room
-    # for starting two children on a busy machine.
-    assert max(ends) < 7.5
+    # Both ran together: they end within a moment of each other. One after the other, the
+    # second would end at least 4 s after the first. Not a limit on the total: starting a
+    # child is slower when the machine is busy (3.85 s in all, 0.09 s apart, in K1's full
+    # check on 31 Oct, beside the browser tests).
+    assert abs(ends[0] - ends[1]) < 1.0
 
 
 def test_a_third_page_waits_its_turn_and_then_runs(child_as) -> None:  # type: ignore[no-untyped-def]
