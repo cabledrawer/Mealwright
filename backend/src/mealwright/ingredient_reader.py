@@ -31,13 +31,14 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
 
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, CountedAs, unit_family, unit_size
 from mealwright.api.v1.recipe_schemas import GLYPHS, UNIT_ALIASES, fraction_of
 from mealwright.line_prep import kitchen_round, strip_footnotes
 from mealwright.names import singular, without_hidden
+from mealwright.pints import UNIT_ML, kind_of
 
 # The longest line read. Anything longer isn't an ingredient line.
 MAX_LINE_CHARS = 1000
@@ -90,6 +91,8 @@ CONTAINER_WORDS = frozenset(
 # Size words that mean a fixed number of the thing itself, so an ingredient with no size of that
 # name still gets an amount: "a dozen eggs" is 12 eggs, "2 cloves garlic" is 2 garlic.
 FIXED_COUNTS = {"dozen": 12, "clove": 1}
+# A size word that can stand after the name: "2 garlic cloves" is "2 cloves garlic".
+TRAILING_SIZE_WORDS = frozenset({"clove", "sprig", "stalk", "rasher", "fillet"})
 # Words that say "some", with no number. Kept like a size word; they never count.
 QUANTITY_WORDS = frozenset(
     {
@@ -140,13 +143,12 @@ _VARIETY = re.compile(r"\b(?:variety|varieties|type|kind)\b", re.IGNORECASE)
 
 # Pints, read only when the caller says how big a pint is (`read_line(pint_ml=...)`; see pints.py).
 PINTS = frozenset({"pint", "pints", "pt"})
-# Quarts and gallons are made of pints, so the household's pint decides them too (a US quart is
-# 946 ml, a UK one 1,136 ml). A fluid ounce is a twentieth of a UK pint and a sixteenth of a US one.
-PINT_MULTIPLE = {
-    "pint": 1, "pints": 1, "pt": 1, "quart": 2, "quarts": 2, "qt": 2,
-    "gallon": 8, "gallons": 8, "gal": 8,
+# Pints, quarts, gallons and fluid ounces are all read with the household's pint (UK or US):
+# the word → which measure it is (`pints.UNIT_ML` has the sizes).
+PINT_FAMILY = {
+    "pint": "pint", "pints": "pint", "pt": "pint", "quart": "quart", "quarts": "quart",
+    "qt": "quart", "gallon": "gallon", "gallons": "gallon", "gal": "gallon", "fl oz": "fl oz",
 }  # fmt: skip
-FL_OZ_IN_PINT = {568: 20, 473: 16}
 
 # Ounces and pounds on their own convert exactly (cabledrawer 23 Oct, question 18): 1 oz is
 # 28.35 g and 1 lb is 453.6 g. Pints, fluid ounces and the rest stay in the note (UK and US
@@ -309,6 +311,8 @@ class ReadLine:
     # How many pints the line says, when its amount was worked out from them (the amount is
     # then in ml, for the pint size the caller gave). None for every other line.
     pints: Fraction | None = None
+    # Which measure those are: "pint", "quart", "gallon" or "fl oz" (None when `pints` is None).
+    pint_unit: str | None = None
 
 
 def _unreadable(text: str) -> ReadLine:
@@ -430,19 +434,28 @@ def _multiple(text: str, value: Fraction, at: int) -> _Measure | None:
     return None
 
 
+_PACK_START = re.compile(r"\s+(?:(?:a|an)\s+)?(\(\s*)?", re.IGNORECASE)
+
+
 def _packs(text: str, value: Fraction, at: int) -> _Measure | None:
     """A count straight before a measured container: "1 14-ounce can" is "1 x 14 oz can", "2
     400g tins" is 800 g. Only when a container word (can, tin, jar…) follows the measure."""
-    space = re.compile(r"\s+").match(text, at)
+    space = _PACK_START.match(text, at)
     if space is None:
         return None
     inner = _measure(text, space.end(), allow_multiple=False)
     if inner is None or not (inner.unit or inner.other) or inner.value == 0:
         return None
-    word, _after, _passed = _take_size(text, inner.end, frozenset())
+    end = inner.end
+    if space.group(1):  # "1 (14 ounce) can": the bracket closes before the container word
+        close = re.compile(r"\s*\)").match(text, end)
+        if close is None:
+            return None
+        end = close.end()
+    word, _after, _passed = _take_size(text, end, frozenset())
     if word is None or not (word in CONTAINER_WORDS or singular(word) in CONTAINER_WORDS):
         return None
-    return _Measure(value * inner.value, inner.unit, inner.other, 0, inner.end, True)
+    return _Measure(value * inner.value, inner.unit, inner.other, 0, end, True)
 
 
 def _measure(text: str, start: int, allow_multiple: bool = True) -> _Measure | None:
@@ -569,6 +582,7 @@ _AND_A_PART = re.compile(
 )
 _OR_SO = re.compile(r"(?<=\d)\s*-?\s*or[- ]so\b", re.IGNORECASE)
 _FILLER = re.compile(r"(?:just|only)\s+(?=\S)", re.IGNORECASE)
+_ARTICLE_AFTER = re.compile(r"\s*,\s*((?:a|an|one)\s+[^\W\d_]+)\s*(?=,|$)", re.IGNORECASE)
 _AFTER_NAME = re.compile(r"\s*(?:,|:|\s[-\u2013]\s|\s)\s*")
 
 
@@ -581,6 +595,16 @@ def _amount_after_name(work: str, extra: frozenset[str]) -> str:
     start = lead.end() if lead else 0
     if _measure(work, start) is not None or _ARTICLE.match(work, start):
         return work
+    spoken = _ARTICLE_AFTER.search(work)
+    if spoken is not None:  # "golden raisins, a handful"
+        word = spoken.group(1).split()[-1].lower()
+        name = work[: spoken.start()]
+        if (
+            (_is_size(word, extra) or word in QUANTITY_WORDS)
+            and any(c.isalpha() for c in name)
+            and not any(c.isdigit() for c in name)
+        ):
+            return f"{spoken.group(1)} {name}{work[spoken.end() :]}"
     for found in _AFTER_NAME.finditer(work, 1):
         name = work[: found.start()]
         if not any(c.isalpha() for c in name) or any(c.isdigit() for c in name):
@@ -876,12 +900,38 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
                 inside.remove(part)
                 notes.extend(t.strip() for t in [plain, *nested[1:]] if t.strip())
     for part in list(inside):
+        # "(kashmiri variety)", "(kashmiri or byadgi variety)": the same as the form above.
+        if not _brackets(part)[1] and re.search(r"\bvarieties|variety\b", part, re.IGNORECASE):
+            base = re.sub(r"\bvarieties|variety\b", "", part, flags=re.IGNORECASE)
+            alts = [a.strip() for a in re.split(r"\s*(?:\bor\b|/|,)\s*", base, flags=re.I)]
+            alts = [a for a in alts if a]
+            if (
+                alts
+                and not any(c.isdigit() for c in part)
+                and all(len(a.split()) <= 2 for a in alts)
+                and not any(_clean_token(w) in NOTE_HINTS for a in alts for w in a.split())
+            ):
+                variety = alts
+                inside.remove(part)
+                notes.append(part.strip())
+    for part in list(inside):
         # "1 cup flour (125g)": a bracket holding only a metric measure is the amount when the
         # line's own unit isn't metric (the metric one wins).
-        if amount is not None and unit not in METRIC and unit != "pinch" and (unit or other):
+        container = size_word is not None and (
+            size_word in CONTAINER_WORDS or singular(size_word) in CONTAINER_WORDS
+        )
+        if (
+            amount is not None
+            and unit not in METRIC
+            and unit != "pinch"
+            and (unit or other or container)
+        ):
             metric = _bracket_metric(part)
             if metric is not None:
-                amount, unit, other = metric.value, metric.unit, None
+                # "half a jar (340g)": half of the bracket's amount; "1 cup flour (125g)": it.
+                whole = unit is None and other is None
+                amount = amount * metric.value if whole else metric.value
+                unit, other = metric.unit, None
                 second_used = True
                 inside.remove(part)
                 continue
@@ -944,6 +994,17 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     )
     kept, removed = _strip_prep(tokens, DESCRIPTOR_WORDS if packaged else PREP_WORDS)
     name = _tidy(" ".join(kept))
+    parts = name.split()
+    if (
+        amount is not None
+        and size_word is None
+        and len(parts) >= 2
+        and singular(parts[-1].lower()) in TRAILING_SIZE_WORDS
+    ):  # "2 garlic cloves" is "2 cloves garlic"
+        size_word = parts[-1].lower()
+        name = " ".join(parts[:-1])
+        if written.lower().endswith(size_word):
+            written = written[: -len(size_word)].rstrip()
     if variety and name:  # "Kashmiri dried red chilies", also called "byadgi"
         name = f"{variety[0]} {name}"
         written = f"{variety[0]} {written}"
@@ -952,12 +1013,11 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
 
     chosen = measure is not None and measure.chosen
     pints = None
-    if pint_ml is not None and other in PINT_MULTIPLE and amount is not None:
-        pints = amount * PINT_MULTIPLE[other]  # 2 pints: 1,136 ml; a quart is two pints
-        amount = _rounded(pints * pint_ml)
-        unit, other, chosen = "ml", None, True
-    elif pint_ml is not None and other == "fl oz" and amount is not None:
-        amount = _rounded(amount * Fraction(pint_ml, FL_OZ_IN_PINT.get(pint_ml, 20)))
+    pint_unit = None
+    if pint_ml is not None and other in PINT_FAMILY and amount is not None:
+        pint_unit = PINT_FAMILY[other]  # 2 pints: 1,136 ml; a UK quart 1,136, a US one 946
+        pints = amount
+        amount = _rounded(amount * Fraction(UNIT_ML[pint_unit][kind_of(pint_ml)]))
         unit, other, chosen = "ml", None, True
     if other in OUNCES | POUNDS and amount is not None:  # 8 oz on its own: exactly 226.8 g
         amount = _rounded(amount * (GRAMS_PER_OUNCE if other in OUNCES else GRAMS_PER_POUND))
@@ -969,7 +1029,12 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         notes.insert(0, said or f"{_trim(amount)} {other}")
         amount = None
         unit = None
-    number = _decimal(amount) if amount is not None else None
+    number: Decimal | None = None
+    if amount is not None and amount <= Fraction(MAX_AMOUNT) * 1000:  # far past any amount: none
+        try:
+            number = _decimal(amount)
+        except InvalidOperation:  # more than 28 digits
+            number = None
     if number is not None and not (0 < number <= MAX_AMOUNT):  # also 0.0001, which rounds to 0
         number = None
     if number is None:
@@ -1000,19 +1065,29 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         readable=True,
         chosen=chosen or second_used,
         pints=pints if number is not None else None,
+        pint_unit=pint_unit if number is not None else None,
     )
 
 
 def _rounded(value: Fraction) -> Fraction:
     """A converted amount as a cook writes it (340 g, 5.67 g): see `line_prep.kitchen_round`."""
-    exact = Decimal(value.numerator) / Decimal(value.denominator)
-    return Fraction(kitchen_round(exact))
+    if value > Fraction(MAX_AMOUNT) * 1000:  # absurdly large: not rounded (and never an error)
+        return value
+    try:
+        exact = Decimal(value.numerator) / Decimal(value.denominator)
+        return Fraction(kitchen_round(exact))
+    except InvalidOperation, ValueError, OverflowError:
+        return value
 
 
 # --- Two ingredients on one line (F26) --------------------------------------------------------
 
 _PLUS = re.compile(r"\s+\+\s+")
 _AND = re.compile(r"\s+and\s+", re.IGNORECASE)
+_AND_A = re.compile(
+    r"\s+and\s+(?=(?:a|an)\s+(?:pinch|dash|splash|sprinkle|drizzle|handful|knob|glug|swish|squeeze)\b)",
+    re.IGNORECASE,
+)
 _TASTE_END = re.compile(
     r"\b(?:to\s+taste|as\s+(?:needed|required|desired)|for\s+(?:the\s+)?(?:garnish|serving)"
     r"|to\s+(?:serve|garnish))\s*$",
@@ -1041,9 +1116,22 @@ def split_line(text: str) -> list[str]:
             len(sides) == 2
             and not any(c.isdigit() for c in head)
             and all(_short_side(side) for side in sides)
+            and not _one_name(sides)
         ):
             return [f"{side.strip()} {suffix}" for side in sides]
+    spoken = _AND_A.search(work)  # "olive oil and a sprinkle of salt"
+    if spoken is not None and not any(c.isdigit() for c in work):
+        left, right = work[: spoken.start()], work[spoken.end() :]
+        if _short_side(left) and _short_side(right):
+            return [left.strip(), right.strip()]
     return [text]
+
+
+def _one_name(sides: list[str]) -> bool:
+    """ "sweet and sour sauce", "oil and vinegar dressing": one side is a single word and the
+    other has more, so the "and" joins words of one name."""
+    counts = sorted(len(_brackets(side)[0].split()) for side in sides)
+    return counts[0] == 1 and counts[1] > 1
 
 
 def _short_side(side: str) -> bool:

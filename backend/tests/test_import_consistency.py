@@ -113,9 +113,12 @@ def test_follow_up_6_quarts_and_fluid_ounces_follow_the_household_pint() -> None
     assert core("1 quart milk") == (D(1136), "ml", "milk")
     assert core("2 pints milk") == core("1 quart milk")
     assert core("1 quart milk", PINT_US) == (D(946), "ml", "milk")
-    assert core("1 gallon milk") == core("8 pints milk")
+    assert core("1 gallon milk") == (D(4546), "ml", "milk")
+    assert core("1 gallon milk", PINT_US) == (D(3785), "ml", "milk")
     assert core("20 fl oz milk") == core("1 pint milk")
     assert core("16 fl oz milk", PINT_US) == core("1 pint milk", PINT_US)
+    assert core("10 fl oz milk") == (D(284), "ml", "milk")
+    assert core("10 fl oz milk", PINT_US) == (D(296), "ml", "milk")
     assert core("2 fl. oz milk") == core("2 fl oz milk")
     # With no pint size given (the old behaviour), they stay in the note.
     line = read_line("1 quart milk", pint_ml=None)
@@ -123,8 +126,10 @@ def test_follow_up_6_quarts_and_fluid_ounces_follow_the_household_pint() -> None
 
 
 def test_quarts_report_their_pints_so_the_switch_still_works() -> None:
-    assert read_line("1 quart milk", pint_ml=PINT_UK).pints == 2
-    assert read_line("2 fl oz milk", pint_ml=PINT_UK).pints is None
+    line = read_line("1 quart milk", pint_ml=PINT_UK)
+    assert (line.pints, line.pint_unit) == (1, "quart")
+    line = read_line("2 fl oz milk", pint_ml=PINT_UK)
+    assert (line.pints, line.pint_unit) == (2, "fl oz")
 
 
 def test_f12_a_heaped_unit_is_still_a_unit() -> None:
@@ -337,3 +342,143 @@ def test_converted_amounts_are_rounded_as_a_cook_writes_them() -> None:
     assert core("1 lb mince") == (D(454), "g", "mince")
     assert core("1/4 oz yeast")[0] == D("7.09") or core("1/4 oz yeast")[0] == D("7.1")
     assert core("2 pints milk") == (D(1136), "ml", "milk")
+
+
+# --- Review round 1 ------------------------------------------------------------------------------
+
+
+def test_scale_button_check_is_fast_on_long_lines() -> None:
+    """Security: the scale-button pattern used to backtrack exponentially."""
+    import time
+
+    from mealwright.line_prep import is_page_junk
+
+    for line in ("x " * 5000, "x " * 24 + "y", "1x " * 5000 + "y", "½x" * 5000 + "!"):
+        started = time.perf_counter()
+        assert not is_page_junk(line)
+        assert time.perf_counter() - started < 0.1, line[:20]
+    assert is_page_junk("½x1×2×") and is_page_junk("1x 2x 3x")
+
+
+def test_every_new_pattern_is_fast_on_100_kb_of_its_own_pieces() -> None:
+    """Security sweep: each pattern added in this PR against 100 kB of repeats of its pieces."""
+    import time
+
+    from mealwright import ingredient_reader as reader
+    from mealwright import line_prep as prep
+
+    pieces = [
+        "x ", "1x ", "(Note ", "( ", "(, ", "[3] ", " and ", " + ", " or ", " / ", "For the ",
+        "recipe ", "| ", "- ", "(", ")", "heaped ", "a handful ", "1 ", "½ ", "cloves, ",
+        "(variety) ", " to taste ", "made with ", "and cut ", "1 14-ounce ", "Recipe (",
+    ]  # fmt: skip
+    for piece in pieces:
+        big = piece * (100_000 // len(piece))
+        for name, call in (
+            ("strip_footnotes", prep.strip_footnotes),
+            ("is_page_junk", prep.is_page_junk),
+            ("is_ingredient_heading", prep.is_ingredient_heading),
+            ("is_step_heading", prep.is_step_heading),
+            ("serving_heading", prep.serving_heading),
+            ("clean_recipe_name", prep.clean_recipe_name),
+            ("tidy_ingredient_name", prep.tidy_ingredient_name),
+            ("tidy_tags", lambda t: prep.tidy_tags([t])),
+            ("split_line", reader.split_line),
+            ("read_lines", reader.read_lines),
+        ):
+            started = time.perf_counter()
+            call(big)
+            assert time.perf_counter() - started < 1.0, (name, piece)
+        # The reader's limit is a line of 1,000 characters: at that size it is fast, too.
+        started = time.perf_counter()
+        reader.read_line(big[:1000])
+        assert time.perf_counter() - started < 0.3, ("read_line", piece)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "999999999999 999999999999oz can beans",
+        "999999999999 x 999999999999 lb tins beans",
+        "999999999999 999999999999 gallon cans beans",
+        "999999999999999999 oz flour",
+        "999999999999999999999999 pints milk",
+    ],
+)
+def test_a_huge_converted_amount_never_raises(text: str) -> None:
+    line = read_line(text, pint_ml=PINT_UK)
+    assert line.text == text  # read_line answered, whatever it made of it
+    assert line.amount is None or line.amount > 0
+
+
+def test_variety_in_brackets_is_never_another_name() -> None:
+    a = read_line("4 dried red chilies (kashmiri variety)")
+    b = read_line("4 dried red chilies (kashmiri or byadgi variety)")
+    c = read_line("4 dried red chilies ((kashmiri or byadgi) (less spicy variety))")
+    assert a.name == b.name == c.name == "kashmiri dried red chilies"
+    assert a.other_names == ()
+    assert b.other_names == c.other_names == ("byadgi",)
+    assert "variety" in (a.note or "") and "variety" in (b.note or "")
+
+
+def test_a_jar_and_its_weight_three_ways() -> None:
+    line = same(
+        "1/2 a 340g jar strawberry jam",
+        "half a jar (340g) strawberry jam",
+        "half a 340g jar strawberry jam",
+        "0.5 jar (340 g) strawberry jam",
+    )
+    assert (line.amount, line.unit, line.name) == (D(170), "g", "strawberry jam")
+
+
+def test_a_bracketed_tin_size_is_the_same_as_the_hyphenated_one() -> None:
+    line = same("1 (14 ounce) can tomatoes", "one 14-ounce can tomatoes", "1 14 oz can tomatoes")
+    assert (line.amount, line.unit, line.name) == (D(397), "g", "tomatoes")
+
+
+def test_olive_oil_and_a_sprinkle_of_salt_is_two_lines() -> None:
+    from mealwright.ingredient_reader import read_lines
+
+    for text in ("olive oil and a sprinkle of salt", "olive oil + a sprinkle of salt"):
+        assert [r.name for r in read_lines(text)] == ["olive oil", "salt"], text
+    assert len(read_lines("macaroni and a sprinkle of cheese, 2")) <= 2
+
+
+def test_garlic_cloves_after_the_name_is_the_same_as_before() -> None:
+    a, b = read_line("2 garlic cloves"), read_line("2 cloves garlic")
+    assert (
+        (a.amount, a.size_word, a.name)
+        == (b.amount, b.size_word, b.name)
+        == (D(2), "cloves", "garlic")
+    )
+    assert read_line("2 celery stalks").name == "celery"
+    assert read_line("1 cinnamon stick").name == "cinnamon stick"  # stick is not one of them
+
+
+def test_a_handful_after_the_name_is_the_same_as_before() -> None:
+    a = read_line("golden raisins, a handful")
+    b = read_line("a handful of golden raisins")
+    assert (a.amount, a.size_word, a.name) == (b.amount, b.size_word, b.name)
+    assert read_line("salt, a pinch").name == "salt"
+
+
+def test_and_joining_one_name_does_not_split() -> None:
+    from mealwright.ingredient_reader import read_lines
+
+    for text in ("sweet and sour sauce, to taste", "oil and vinegar dressing to serve"):
+        assert len(read_lines(text)) == 1, text
+    assert len(read_lines("salt and pepper to taste")) == 2
+
+
+def test_tags_acronyms_and_sweet() -> None:
+    from mealwright.line_prep import tidy_tags
+
+    assert tidy_tags(["bbq", "Sweet"]) == ["BBQ", "Sweet"]
+
+
+def test_a_site_name_after_the_title_is_dropped() -> None:
+    from mealwright.line_prep import clean_recipe_name
+
+    assert clean_recipe_name("Easy Pancake Recipe | BBC Good Food") == "Easy Pancake"
+    assert clean_recipe_name("Pancakes - Allrecipes") == "Pancakes"
+    assert clean_recipe_name("Chicken - Rice Bowl") == "Chicken - Rice Bowl"

@@ -34,10 +34,11 @@ Label = Literal["matched", "to_confirm", "needs_you", "staple"]
 MAX_NAME_CHARS = 100  # a food's name
 CUPBOARD = "cupboard"
 FRIDGE = "fridge"
+FREEZER = "freezer"
 
 # "Kept in" for a new ingredient (cabledrawer 30 Oct): milk, cream, raw meat and the like go in the
-# Fridge, not the Cupboard. A word here puts the ingredient there; a word in `NOT_FRIDGE` ("coconut
-# milk", "chicken stock", "milk powder") takes it back to the Cupboard. Proposed, for cabledrawer.
+# Fridge, not the Cupboard (cabledrawer OK'd 31 Oct). A word here puts the ingredient there; a word in
+# `NOT_FRIDGE` ("coconut milk", "chicken stock", "milk powder") takes it back to the Cupboard.
 FRIDGE_WORDS = frozenset(
     {"milk", "cream", "butter", "yoghurt", "yogurt", "egg", "cheese", "chicken", "beef", "pork",
      "lamb", "mince", "turkey", "duck", "bacon", "sausage", "ham", "fish", "salmon", "cod",
@@ -46,7 +47,8 @@ FRIDGE_WORDS = frozenset(
 NOT_FRIDGE = frozenset(
     {"coconut", "powder", "stock", "tinned", "canned", "dried", "tartar", "bean", "noodle",
      "sauce", "peanut", "almond", "oat", "soy", "soya", "rice", "cube", "paste", "evaporated",
-     "condensed", "ghee", "flavour", "seasoning", "cracker", "biscuit", "crisp", "cashew"}
+     "condensed", "ghee", "flavour", "seasoning", "cracker", "biscuit", "crisp", "cashew",
+     "bouillon", "corned"}  # "chicken bouillon", "corned beef": Cupboard (cabledrawer 31 Oct)
 )  # fmt: skip
 
 
@@ -150,6 +152,10 @@ class KnownIngredients:
         """The place a new ingredient called `name` is usually kept: the Fridge for milk, cream,
         raw meat and the like, else the Cupboard (None if the household has no such place)."""
         words = {singular(word) for word in _key(name).split()}
+        if {"fish", "finger"} <= words:  # fish fingers: Freezer (cabledrawer 31 Oct)
+            for place in self.places:
+                if _key(place.name) == FREEZER:
+                    return place.id
         if words & FRIDGE_WORDS and not words & NOT_FRIDGE:
             for place in self.places:
                 if _key(place.name) == FRIDGE:

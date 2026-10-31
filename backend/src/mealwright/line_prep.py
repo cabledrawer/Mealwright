@@ -16,7 +16,7 @@ place, each with its finding number:
 """
 
 import re
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 # --- Footnote marks (F17) ---------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ def strip_footnotes(text: str) -> str:
         found = _EMPTY_BRACKET.sub(" ", found)
         if found == before:
             break
-    found = _NOTE_NUMBER.sub(" ", found)
+    found = " ".join(_NOTE_NUMBER.sub(" ", found).split())  # one space at most, so no long runs
     found = re.sub(r"\(\s*[,;]\s*", "(", found)
     found = re.sub(r"\(\s+", "(", found)
     found = re.sub(r"\s+\)", ")", found)
@@ -55,15 +55,18 @@ _JUNK = re.compile(
     re.IGNORECASE,
 )
 # The recipe card's scale buttons: "½x1×2×", "1x 2x 3x".
-_SCALE_BUTTONS = re.compile(r"(?:[\d½¼¾⅓⅔]*\s*[x×]\s*){2,}", re.IGNORECASE)
+_SCALE_BUTTONS = re.compile(r"(?:[\d½¼¾⅓⅔]{0,3}[x×] ?){2,}", re.IGNORECASE)
+MAX_JUNK = 80  # a longer line is never a button or a label
 
 
 def is_page_junk(text: str) -> bool:
     """A line that is the page's own button or label, not part of the recipe: "Cook Mode",
     "Prevent your screen from going dark", the "½x1×2×" scale buttons. Whole lines only, so a
     real line that merely contains one of these words stays."""
+    if len(text) > 4 * MAX_JUNK:  # not worth collapsing
+        return False
     line = " ".join(text.split()).strip(" \t:•-")
-    if not line:
+    if not line or len(line) > MAX_JUNK:
         return False
     if _SCALE_BUTTONS.fullmatch(line):
         return True
@@ -126,6 +129,12 @@ def is_full_heading(text: str) -> bool:
 
 # --- Recipe names (F9 and the patterns) -------------------------------------------------------
 
+# A site's name after the title: "Easy Pancake Recipe | BBC Good Food", "Pancakes - Allrecipes".
+_SITE_TAIL = re.compile(
+    r"\s*\|[^|]*$|\s+[-–—]\s+[^-–—]*\b(?:good\s*food|allrecipes|recipes|kitchen|cooking|bbc"
+    r"|food\s+network|taste|epicurious|bon\s+app[eé]tit)\b[^-–—]*$",
+    re.IGNORECASE,
+)
 _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNORECASE)
 _RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
 _RECIPE_TAIL = re.compile(r"\s*(?:[-–—|:]\s*[^-–—|:]*)?\brecipe\s*!*\s*$", re.IGNORECASE)
@@ -141,7 +150,8 @@ def clean_recipe_name(name: str) -> str:
     "Classic Victoria sandwich"; "How to Make Butter Chicken (Authentic Indian Recipe)" is "Butter
     Chicken". The user can still change it on Check. A name that would be empty stays as it was."""
     found = " ".join(name.split())
-    cleaned = _HOW_TO.sub("", found)
+    cleaned = _SITE_TAIL.sub("", found) or found
+    cleaned = _HOW_TO.sub("", cleaned)
     cleaned = _RECIPE_BRACKET.sub(" ", cleaned)
     cleaned = _BRACKET_PUFF.sub("", cleaned)
     cleaned = _RECIPE_TAIL.sub("", cleaned)
@@ -153,13 +163,13 @@ def clean_recipe_name(name: str) -> str:
 
 # --- Tags -------------------------------------------------------------------------------------
 
-# Words that mean the same: every word on the right becomes the one on the left. Proposed, for
-# cabledrawer: short on purpose.
+# Words that mean the same: every word on the right becomes the one on the left (OK'd by cabledrawer
+# 31 Oct). Short on purpose.
 TAG_SYNONYMS: dict[str, tuple[str, ...]] = {
     "Main": ("mains", "main course", "main dish", "main meal", "entree", "entrée", "dinner mains"),
     "Starter": ("starters", "appetiser", "appetizer", "appetisers", "appetizers"),
     "Side": ("sides", "side dish", "side dishes"),
-    "Dessert": ("desserts", "pudding", "puddings", "sweet"),
+    "Dessert": ("desserts", "pudding", "puddings"),
     "Snack": ("snacks", "nibbles"),
     "Breakfast": ("breakfasts", "brunch"),
     "Vegetarian": ("veggie", "veg", "vegetarian friendly"),
@@ -172,6 +182,8 @@ TAG_SYNONYMS: dict[str, tuple[str, ...]] = {
     "Quick": ("quick and easy", "fast", "speedy"),
 }
 _SYNONYM_OF = {word: tag for tag, words in TAG_SYNONYMS.items() for word in (tag.lower(), *words)}
+# Short words that are always written in capitals.
+TAG_ACRONYMS = {"bbq": "BBQ", "uk": "UK", "usa": "USA", "us": "US", "diy": "DIY"}
 MAX_TAG = 40
 
 
@@ -185,7 +197,11 @@ def tidy_tags(tags: list[str]) -> list[str]:
         if not text:
             continue
         key = text.lower()
-        tag = _SYNONYM_OF.get(key) or (text if text.isupper() and len(text) <= 4 else None)
+        tag = (
+            _SYNONYM_OF.get(key)
+            or TAG_ACRONYMS.get(key)
+            or (text if text.isupper() and len(text) <= 4 else None)
+        )
         if tag is None:
             tag = text[:1].upper() + text[1:].lower() if text.islower() or text.isupper() else text
             tag = tag[:1].upper() + tag[1:]
@@ -227,6 +243,9 @@ def tidy_ingredient_name(name: str) -> str:
 def kitchen_round(value: Decimal) -> Decimal:
     """A converted amount in g or ml as a cook would write it: 396.9 is 397 and 340.2 is 340;
     two decimals only below 10 (5.67 g), never 1.136 kg's last digits."""
-    if value >= 10:
-        return value.quantize(Decimal(1), rounding=ROUND_HALF_UP)
-    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP).normalize()
+    try:
+        if value >= 10:
+            return value.quantize(Decimal(1), rounding=ROUND_HALF_UP)
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP).normalize()
+    except InvalidOperation:  # more than 28 digits: far past any amount, left as it is
+        return value

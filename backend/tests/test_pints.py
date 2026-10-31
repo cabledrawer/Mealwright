@@ -72,7 +72,7 @@ def test_a_pint_next_to_a_metric_amount_leaves_the_metric_one_the_amount() -> No
 
 @pytest.mark.parametrize(
     ("text", "uk_ml", "us_ml"),
-    [("2 quarts stock", 2272, 1892), ("1 gallon water", 4544, 3784), ("1 qt milk", 1136, 946)],
+    [("2 quarts stock", 2272, 1892), ("1 gallon water", 4546, 3785), ("1 qt milk", 1136, 946)],
 )
 def test_quarts_and_gallons_are_pints_so_the_household_pint_decides(
     text: str, uk_ml: int, us_ml: int
@@ -85,10 +85,13 @@ def test_quarts_and_gallons_are_pints_so_the_household_pint_decides(
     assert read_line(text).amount is None  # with no pint size given, as in 0.5
 
 
-def test_fluid_ounces_follow_the_pint_but_have_no_switch() -> None:
+def test_fluid_ounces_follow_the_household_pint_and_have_the_switch() -> None:
     assert read_line("20 fl oz milk", pint_ml=568).amount == 568
     assert read_line("16 fl oz milk", pint_ml=473).amount == 473
-    assert read_line("1 fl oz brandy", pint_ml=568).pints is None
+    assert read_line("10 fl oz milk", pint_ml=568).amount == 284
+    assert read_line("10 fl oz milk", pint_ml=473).amount == 296
+    line = read_line("1 fl oz brandy", pint_ml=568)
+    assert (line.pints, line.pint_unit) == (1, "fl oz")
 
 
 # --- Telling a US site -----------------------------------------------------------------------

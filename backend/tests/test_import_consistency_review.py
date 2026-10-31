@@ -17,7 +17,6 @@ from test_recipe_import import (  # noqa: F401
     to_save,
     web,
 )
-from test_recipes import save as edit_recipe
 
 LAMB = """Lamb curry
 Ingredients
@@ -157,20 +156,6 @@ def test_names_get_tidy_capitals_on_save(kitchen: TestClient, web: Web) -> None:
     assert whole["lines"][0]["food"]["name"] == "Kashmiri chilli powder"
 
 
-def test_a_link_import_edited_later_is_marked(links_on: TestClient, web: Web) -> None:
-    from test_recipe_import import LINK
-
-    shown = review(links_on, LINK)
-    shown["nutrition"] = {"kcal": 200, "protein": None, "carbs": None, "fat": None, "fibre": None}
-    saved = ok(save(links_on, to_save(shown)), 201)["recipe"]
-    recipe = ok(links_on.get(f"{API}/recipes/{saved['id']}"))
-    assert recipe["nutrition_possibly_out_of_date"] is False
-    edited = ok(edit_recipe(links_on, recipe, name="Poriyal, my way"))
-    assert edited["nutrition_possibly_out_of_date"] is True
-    plain = ok(links_on.get(f"{API}/recipes/{recipe['id']}"))
-    assert plain["nutrition_possibly_out_of_date"] is True
-
-
 @pytest.mark.parametrize("text", ["https://a.example/x", "https://a.example/x https://b.example/y"])
 def test_links_never_become_a_recipe_named_after_an_address(
     kitchen: TestClient, web: Web, text: str
@@ -178,3 +163,41 @@ def test_links_never_become_a_recipe_named_after_an_address(
     # With the link switch off, nothing is read and nothing is made.
     response = kitchen.post(f"{API}/recipes/import", json={"text": text})
     assert response.status_code == 403
+
+
+def test_a_huge_amount_in_pasted_text_still_gives_a_review(kitchen: TestClient, web: Web) -> None:
+    text = (
+        "Beans\nIngredients\n999999999999 999999999999oz can beans\n"
+        "999999999999 x 999999999999 lb tins beans\n999999999999 999999999999 gallon cans beans\n"
+        "2 pints milk\nMethod\n1. Mix."
+    )
+    shown = review(kitchen, text)
+    assert len(shown["lines"]) == 4
+
+
+def test_the_quart_switch_follows_the_pints_choice(kitchen: TestClient, web: Web) -> None:
+    text = "Soup\nIngredients\n1 quart stock\n1 gallon water\n10 fl oz cream\nMethod\n1. Boil."
+    uk = {line["words"]: line for line in review(kitchen, text)["lines"]}
+    assert uk["stock"]["amount"] == 1136
+    assert uk["stock"]["pint_ml"] == {"uk_ml": 1136.0, "us_ml": 946.0}
+    assert uk["water"]["pint_ml"] == {"uk_ml": 4546.0, "us_ml": 3785.0}
+    assert uk["cream"]["pint_ml"] == {"uk_ml": 284.0, "us_ml": 296.0}
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    us = {line["words"]: line for line in review(kitchen, text)["lines"]}
+    assert (us["stock"]["amount"], us["water"]["amount"], us["cream"]["amount"]) == (946, 3785, 296)
+
+
+def test_kept_in_exceptions(kitchen: TestClient, web: Web) -> None:
+    """cabledrawer 31 Oct: chicken bouillon and corned beef are Cupboard, fish fingers Freezer."""
+    text = (
+        "Tea\nIngredients\n1 chicken bouillon cube\n1 tin corned beef\n8 fish fingers\n"
+        "500 g chicken breast\nMethod\n1. Cook."
+    )
+    places = {
+        line["words"]: line["new_ingredient"]["place"]["name"]
+        for line in review(kitchen, text)["lines"]
+    }
+    assert places["chicken bouillon cube"] == "Cupboard"
+    assert places["corned beef"] == "Cupboard"
+    assert places["fish fingers"] == "Freezer"
+    assert places["chicken breast"] == "Fridge"

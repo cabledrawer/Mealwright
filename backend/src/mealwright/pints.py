@@ -8,7 +8,7 @@ How a US site is told (proposed, for cabledrawer): the site's address is on `US_
 the page says its own language is US English (`<html lang="en-US">`). Both are in this one
 file so they are easy to change. Nothing is looked up and nothing is sent anywhere.
 
-Quarts, gallons and fluid ounces are not read: they stay in the note, as in 0.5.
+Quarts, gallons and fluid ounces are read the same way (`UNIT_ML`).
 """
 
 from typing import Literal
@@ -18,6 +18,22 @@ type Pints = Literal["uk", "us"]
 
 PINT_ML: dict[str, int] = {"uk": 568, "us": 473}
 DEFAULT_PINTS: Pints = "uk"
+
+# The other measures that follow the household's pint (follow-up 6, OK'd by cabledrawer 28 Oct; the
+# sizes are proposed, for cabledrawer): ml in one of each, UK and US. A gallon and a fluid ounce are
+# the real ones (4.546 l, 28.41 ml), not eight and a twentieth of the rounded pint.
+UNIT_ML: dict[str, dict[str, str]] = {
+    "pint": {"uk": "568", "us": "473"},
+    "quart": {"uk": "1136", "us": "946"},
+    "gallon": {"uk": "4546", "us": "3785"},
+    "fl oz": {"uk": "28.41", "us": "29.57"},
+}
+
+
+def kind_of(pint_ml: int) -> Pints:
+    """Which pint a size in ml is: 473 is the US pint, anything else the UK one."""
+    return "us" if pint_ml == PINT_ML["us"] else "uk"
+
 
 # Recipe sites whose pints are US pints. A site is listed by its main address; its sub-domains
 # count too ("www.allrecipes.com"). Proposed, for cabledrawer: short on purpose.

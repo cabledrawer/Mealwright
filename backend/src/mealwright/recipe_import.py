@@ -17,7 +17,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from fastapi import status
 from pydantic import ValidationError
@@ -89,6 +89,7 @@ from mealwright.page_fetch import Problem as FetchProblem
 from mealwright.page_reader import PageRecipe
 from mealwright.pasted_recipe import PastedTooLong, read_pasted
 from mealwright.photos import MAX_WAITING, Cleaned
+from mealwright.pints import UNIT_ML
 
 log = logging.getLogger(__name__)
 
@@ -694,16 +695,20 @@ def _pint_ml(read: ReadLine) -> PintReading | None:
     review offers no switch rather than failing (0.6.0 security pass L1)."""
     if read.pints is None:
         return None
-    uk, us = (
-        float(
-            kitchen_round(
-                Decimal(read.pints.numerator)
-                / Decimal(read.pints.denominator)
-                * pints.PINT_ML[kind]
+    unit = read.pint_unit or "pint"
+    try:
+        uk, us = (
+            float(
+                kitchen_round(
+                    Decimal(read.pints.numerator)
+                    / Decimal(read.pints.denominator)
+                    * Decimal(UNIT_ML[unit][kind])
+                )
             )
+            for kind in ("uk", "us")
         )
-        for kind in ("uk", "us")
-    )
+    except InvalidOperation, ValueError, OverflowError:
+        return None
     if max(uk, us) > MAX_AMOUNT:
         return None
     return PintReading(uk_ml=round(uk, 3), us_ml=round(us, 3))

@@ -908,20 +908,6 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             fat=_float(recipe.fat_milli),
             fibre=_float(recipe.fibre_milli),
         ),
-        nutrition_possibly_out_of_date=(
-            recipe.imported_at is not None
-            and recipe.version > 1
-            and any(
-                value is not None
-                for value in (
-                    recipe.kcal_milli,
-                    recipe.protein_milli,
-                    recipe.carbs_milli,
-                    recipe.fat_milli,
-                    recipe.fibre_milli,
-                )
-            )
-        ),
         lines=lines,
         steps=steps,
         source_note=recipe.source_note,

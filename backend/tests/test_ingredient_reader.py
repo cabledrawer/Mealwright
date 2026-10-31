@@ -179,8 +179,8 @@ def test_units_and_their_spellings(word: str, unit: str) -> None:
 
 
 def test_a_unit_has_to_be_a_whole_word() -> None:
-    line = read_line("2 garlic cloves")
-    assert (line.amount, line.unit, line.name) == (D(2), None, "garlic cloves")
+    line = read_line("2 garlic cloves")  # 0.7.0: "cloves" after the name is still the size word
+    assert (line.amount, line.unit, line.size_word, line.name) == (D(2), None, "cloves", "garlic")
     line = read_line("1 gram-flour mix")
     assert line.unit is None
     assert line.name == "gram-flour mix"
@@ -358,9 +358,10 @@ def test_a_count_with_its_weight_in_brackets() -> None:
     assert (line.amount, line.unit, line.size_word) == (D(400), "g", "can")
     assert line.name == "chickpeas"
     assert line.note == "drained"
+    # 0.7.0: the same as "one 14-ounce can chickpeas" (397 g).
     line = read_line("1 (14 oz) can chickpeas")
-    assert (line.amount, line.unit, line.size_word) == (D(1), None, "can")
-    assert not line.counts
+    assert (line.amount, line.unit, line.size_word) == (D(397), "g", "can")
+    assert line.counts
 
 
 # --- Size words ------------------------------------------------------------------------------

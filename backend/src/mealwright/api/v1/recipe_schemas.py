@@ -479,9 +479,6 @@ class RecipeOut(BaseModel):
     homemade: Ref | None  # its own pantry ingredient, once saved with Made ahead on
     tags: list[str]
     nutrition: NutritionOut
-    # An imported recipe that has been edited since: its nutrition came from the page and may no
-    # longer fit the ingredients (0.7.0). False for a recipe that was never imported.
-    nutrition_possibly_out_of_date: bool = False
     lines: list[RecipeLineOut]
     steps: list[RecipeStepOut]
     source_note: str | None
