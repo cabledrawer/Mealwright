@@ -449,24 +449,32 @@ def work_out(
                 smallest.get(size.food_id, size.amount_milli), size.amount_milli
             )
 
-    def nothing_to_take(food: Food) -> bool:
-        if pool.total(food.id) > 0:
-            return False
-        return not any(
-            others[i].counted_as == food.counted_as and pool.total(i) > 0
-            for i in stand_ins.get(food.id, ())
-            if i in others
-        )
+    def would_take(row: Row, food: Food, wanted: int) -> int:
+        """What this row takes, or would take with Use on: the preview's answer (its own
+        packets, else a stand-in's when it has none at all), read without taking anything."""
+        if row.taken or not (confirming and not row.use):
+            return row.taken
+        got = min(wanted, pool.total(food.id, row.from_freezer))
+        if got == 0 and pool.total(food.id) == 0:
+            got = min(
+                wanted,
+                sum(
+                    pool.total(i, row.from_freezer)
+                    for i in stand_ins.get(food.id, ())
+                    if i in others and others[i].counted_as == food.counted_as
+                ),
+            )
+        return got
 
     for row in rows:
         if row.food is None or row.wanted is None:
             continue
+        # Use does not change what is offered (cabledrawer 31 Oct: the tick is its own choice): a
+        # row switched off is worked out as the preview works it out, only nothing is taken.
         applied = not (confirming and not row.use)
-        if applied:
-            row.short = max(row.wanted - row.taken, 0)
-        elif row.wanted > 0 and nothing_to_take(row.food):
-            row.short = row.wanted  # switched off, and it was never in the house: still offered
-        if row.status == "take" and not row.takes and not row.entered:
+        took = would_take(row, row.food, row.wanted)
+        row.short = max(row.wanted - took, 0)
+        if row.status == "take" and not took and not row.entered:
             row.status = "none_in_pantry"
         if row.inner is not None and row.short > 0:
             row.make_first = True
@@ -478,7 +486,7 @@ def work_out(
         default = False
         if row.short > 0 and row.inner is None:
             row.list_milli = row.short
-            default = not (row.in_freezer > 0 and not row.takes)  # in the freezer: in the house
+            default = not (row.in_freezer > 0 and not took)  # in the freezer: in the house
         elif (
             applied
             and row.takes

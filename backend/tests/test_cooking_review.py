@@ -5,6 +5,7 @@ a typed amount with an ask-once answer, the counter, and the Pantry's own order.
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
@@ -104,7 +105,7 @@ def test_stock_only_in_the_freezer_is_not_added_unless_ticked(kitchen: TestClien
     assert (row["use"], row["add_to_list"], row["in_freezer"]["amount"]) == (False, False, 300)
     ok(cook(kitchen, a), 201)
     assert _listed(kitchen, peas["id"]) == []
-    ok(cook(kitchen, b, [{"key": f"food:{peas['id']}", "add_to_list": True}]), 201)
+    ok(cook(kitchen, b, [{"key": f"food:{peas['id']}", "use": False, "add_to_list": True}]), 201)
     assert _listed(kitchen, peas["id"]) == [100_000]
 
 
@@ -514,3 +515,72 @@ def test_another_households_meal_and_item_are_not_found(
         f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": items[0]}]}
     )
     assert theirs.status_code == 404
+
+
+# --- A ticked "add to list" is kept when Use is off, on every path ---------------------------------------
+
+
+def one_recipe(
+    client: TestClient, path: str, name: str, stocked: int, freezer: bool
+) -> tuple[int, Any]:
+    """Zorba dal needing 200 g on the item, batch (4 portions) or meal path; returns the food id
+    and a function that confirms it with these choices."""
+    from test_plan import slot_ids
+
+    dal = food(client, name)
+    if stocked:
+        where = {"place_id": place_id(client, "Freezer")} if freezer else {}
+        stock(client, dal["id"], stocked, "g", **where)
+    recipe = recipe_of(client, [line(dal["id"], 200, "g")])
+    planned = ok(
+        client.post(
+            f"{API}/plan/items",
+            json={
+                "date": FAR.isoformat(),
+                "slot_id": slot_ids(client)["Dinner"],
+                "recipe_id": recipe["id"],
+            },
+        ),
+        201,
+    )
+    item, meal = planned["item_id"], planned["meal_id"]
+    key = f"food:{dal['id']}"
+    if path == "batch":
+        batch = ok(
+            client.post(f"{API}/plan/items/{item}/batch", json={"tub_count": 3, "pattern": "pick"}),
+            201,
+        )["batch_id"]
+
+    def confirm(**choice: Any) -> Any:
+        body = {"choices": [{"key": key, **choice}]}
+        if path == "item":
+            return client.post(f"{API}/plan/items/{item}/cook", json=body)
+        if path == "batch":
+            return client.post(f"{API}/plan/batches/{batch}/cook", json=body)
+        return client.post(
+            f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": item, **body}]}
+        )
+
+    return dal["id"], confirm
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+@pytest.mark.parametrize(
+    ("stocked", "freezer", "listed"),
+    [(0, False, 200_000), (100, False, 100_000), (300, True, 200_000)],
+    ids=["none in the house", "short", "freezer only"],
+)
+def test_a_ticked_add_to_list_is_kept_when_use_is_off(
+    kitchen: TestClient, path: str, stocked: int, freezer: bool, listed: int
+) -> None:
+    food_id, confirm = one_recipe(kitchen, path, "Zorba dal", stocked, freezer)
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert _listed(kitchen, food_id) == [listed]
+    assert amounts(kitchen, food_id) == ([stocked * 1000] if stocked else [])  # nothing taken
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+def test_use_off_with_enough_in_the_house_offers_nothing(kitchen: TestClient, path: str) -> None:
+    food_id, confirm = one_recipe(kitchen, path, "Zorba dal", 500, False)
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert _listed(kitchen, food_id) == []
