@@ -573,7 +573,8 @@ test('Check is three columns on a wide computer and one column on a phone, and l
     // Details, ingredients, method side by side, from the same top.
     expect(now.lines.x).toBeGreaterThan(now.details.x + now.details.width - 1);
     expect(now.method.x).toBeGreaterThan(now.lines.x + now.lines.width - 1);
-    expect(Math.abs(now.lines.y - now.details.y)).toBeLessThan(80);
+    expect(Math.abs(now.lines.y - now.details.y)).toBeLessThan(4);
+    expect(Math.abs(now.method.y - now.details.y)).toBeLessThan(4);
     await expectNoSidewaysScroll(page);
     await checkPage(page);
     await inTheme(page, 'dark');

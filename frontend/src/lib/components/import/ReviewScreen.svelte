@@ -192,19 +192,22 @@
     </div>
 
     <div class="col middle">
-      <div class="counts" aria-label="What was found">
-        <span class="count good">{review.counts.matched} matched</span>
-        <span class="count warn">{review.counts.to_confirm} to confirm</span>
-        <span class="count bad"
-          >{review.counts.needs_you} {review.counts.needs_you === 1 ? 'needs' : 'need'} you</span
-        >
-        <span class="count"
-          >{review.counts.staple} {review.counts.staple === 1 ? 'staple' : 'staples'}</span
-        >
-      </div>
-
       <section class="lines" aria-labelledby="{uid}-ingredients">
-        <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
+        <!-- The counts sit in the heading row, as the mockup (ImportCheck07-Desktop). -->
+        <div class="lines-head">
+          <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
+          <div class="counts" aria-label="What was found">
+            <span class="count good">{review.counts.matched} matched</span>
+            <span class="count warn">{review.counts.to_confirm} to confirm</span>
+            <span class="count bad"
+              >{review.counts.needs_you}
+              {review.counts.needs_you === 1 ? 'needs' : 'need'} you</span
+            >
+            <span class="count"
+              >{review.counts.staple} {review.counts.staple === 1 ? 'staple' : 'staples'}</span
+            >
+          </div>
+        </div>
         {#if !phone}
           <p class="columns" aria-hidden="true">
             <span>As written → how Mealwright reads it → in your kitchen</span>
@@ -528,6 +531,14 @@
     padding: 0 var(--space-1);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
+  }
+
+  .lines-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
   }
 
   .counts {
