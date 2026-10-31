@@ -289,6 +289,43 @@ describe('the Ingredients page', () => {
         .not.toBeInTheDocument();
     });
 
+    it('offers nothing for a name the server found by folding accents and spaces', async () => {
+      const pepper = toorDal({ id: 60, name: 'Jalapeño', other_names: [], counted_as: 'count' });
+      const flakes = toorDal({
+        id: 61,
+        name: 'Chilli flakes',
+        other_names: [],
+        counted_as: 'count'
+      });
+      fakeApi({
+        'GET /foods': (request) => {
+          const q = new URLSearchParams(request.url.split('?')[1]).get('q') ?? '';
+          const foods = q.includes('jalapeno') ? [rowOf(pepper)] : [rowOf(flakes)];
+          return [
+            200,
+            {
+              total: 2,
+              counts: { all: 2, staples: 0, unused: 0, maybe_same: 0, maybe_same_pairs: 0 },
+              foods,
+              next: null
+            }
+          ];
+        },
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS]
+      });
+      await search().fill('jalapeno');
+      await expect.element(page.getByRole('button', { name: /^Jalapeño/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^\+ New ingredient: / }))
+        .not.toBeInTheDocument();
+      await search().fill('chilli  flakes');
+      await expect.element(page.getByRole('button', { name: /^Chilli flakes/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^\+ New ingredient: / }))
+        .not.toBeInTheDocument();
+    });
+
     it('is hidden while the server can’t be reached, and with another filter', async () => {
       await search().fill('tahini');
       await expect.element(offer('tahini')).toBeVisible();

@@ -4,8 +4,10 @@
 
 import type { FoodRow } from './client/types';
 
-/** Case and spacing ignored, as Shopping compares a typed name with the ingredients it found. */
-const key = (text: string): string => text.trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
+/** Case, accents and spacing ignored, the way the server folds a name for search
+ *  ("Jalapeño" is "jalapeno", two spaces are one). */
+const key = (text: string): string =>
+  text.normalize('NFKD').replace(/\p{M}/gu, '').trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
 
 /** The name to offer ("chilli flakes"), or null when the text is empty or is exactly the name or
  *  another name of one of the ingredients found for it. Partial matches don't stop the offer. */

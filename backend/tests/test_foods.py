@@ -113,10 +113,16 @@ def test_f97_an_exact_name_or_other_name_comes_first_even_past_the_first_page(
         "Zzz hot flakes",
         "Chilli flakes",
     )
-    # An exact name comes first as well, past the 60 names that contain it.
-    plain = add(kitchen, "Zzzz chilli flakes")
-    page = kitchen.get(f"{API}/foods", params={"q": "zzzz chilli flakes", "limit": 50}).json()
-    assert page["foods"][0]["id"] == plain["id"]
+    # Spaces and accents count the same on both sides: two spaces still find "Chilli flakes",
+    # and "jalapeno" finds the other name "Jalape\u00f1o" first, past 60 names that contain it.
+    page = kitchen.get(f"{API}/foods", params={"q": "chilli  flakes", "limit": 50}).json()
+    assert page["foods"][0]["id"] == hot["id"]
+    for number in range(60):
+        add(kitchen, f"Zz jalapeno {number:02d}")
+    pepper = add(kitchen, "Zzz green pepper")
+    kitchen.post(f"{API}/foods/{pepper['id']}/other-names", json={"name": "Jalape\u00f1o"})
+    page = kitchen.get(f"{API}/foods", params={"q": "jalapeno", "limit": 50}).json()
+    assert page["next"] is not None and page["foods"][0]["id"] == pepper["id"]
     # No exact match: nothing is out of order (names that start with it, then contain it).
     page = kitchen.get(f"{API}/foods", params={"q": "zz chilli", "limit": 3}).json()
     assert [f["name"] for f in page["foods"]] == [f"Zz chilli flakes {n:02d}" for n in range(3)]

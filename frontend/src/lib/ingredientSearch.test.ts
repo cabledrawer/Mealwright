@@ -19,6 +19,15 @@ describe('newNameFor (F97)', () => {
     expect(newNameFor('Red Chilli Powder', found)).toBeNull();
   });
 
+  it('ignores accents and inner spaces on both sides, as the server folds names', () => {
+    expect(newNameFor('jalapeno', [row('Jalape\u00f1o')])).toBeNull();
+    expect(newNameFor('Jalape\u00f1o', [row('Jalapeno')])).toBeNull();
+    expect(newNameFor('chilli  flakes', [row('Chilli flakes')])).toBeNull();
+    expect(
+      newNameFor('creme fraiche', [row('Chilli'), row('x', ['Cr\u00e8me  fra\u00eeche'])])
+    ).toBeNull();
+  });
+
   it('offers nothing for empty text', () => {
     expect(newNameFor('', found)).toBeNull();
     expect(newNameFor('   ', [])).toBeNull();

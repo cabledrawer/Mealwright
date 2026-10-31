@@ -24,11 +24,12 @@ def search_match(name: str, others: list[str], needle: str) -> tuple[int, str | 
     matched, or None for no match. Used by Ingredients and by Pantry, so both find the same
     things; only Ingredients sorts by the rank. An exact match comes first so that the screen's
     "+ New ingredient" offer (F97), which looks at the first page only, never misses it."""
-    folded = fold(name)
+    needle = " ".join(needle.split())  # inner spaces count once, on both sides (F97)
+    folded = " ".join(fold(name).split())
     if folded == needle:
         return -1, None
     for other in others:
-        if fold(other) == needle:
+        if " ".join(fold(other).split()) == needle:
             return -1, other
     if folded.startswith(needle):
         return 0, None
@@ -36,7 +37,7 @@ def search_match(name: str, others: list[str], needle: str) -> tuple[int, str | 
         return 1, None
     best: tuple[int, str | None] | None = None
     for other in others:
-        other_folded = fold(other)
+        other_folded = " ".join(fold(other).split())
         if needle in other_folded:
             rank = 2 if other_folded.startswith(needle) else 3
             if best is None or rank < best[0]:
