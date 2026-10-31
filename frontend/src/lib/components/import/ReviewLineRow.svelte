@@ -131,10 +131,26 @@
 
   function openEditor() {
     if (!editing) {
-      amountText = line.amount_text ?? (line.amount === null ? '' : amountWords(line.amount));
+      amountText = storedAmount();
       amountError = false;
     }
     editing = !editing;
+  }
+
+  /** The amount as it is stored on the line, as the box shows it. */
+  function storedAmount(): string {
+    return line.amount_text ?? (line.amount === null ? '' : amountWords(line.amount));
+  }
+
+  /** Done: a box that couldn't be read goes back to the amount that is stored (the error goes);
+   *  Done again closes the boxes. */
+  function doneEditor() {
+    if (amountError) {
+      amountText = storedAmount();
+      amountError = false;
+      return;
+    }
+    editing = false;
   }
 
   function typeAmount(value: string) {
@@ -261,7 +277,7 @@
         {/if}
         <p class="done-row">
           <span class="hint">Tap the amount or note on any line to fix what was read.</span>
-          <button type="button" class="done" onclick={() => (editing = false)}>Done</button>
+          <button type="button" class="done" onclick={doneEditor}>Done</button>
         </p>
       {/if}
 

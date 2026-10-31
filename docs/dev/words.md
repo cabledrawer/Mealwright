@@ -547,5 +547,6 @@ From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cab
 - **New ingredient form:** Name · How it’s counted · Usually kept in · Treat as staple (never counted) · Cancel · Done; Type a name. (proposed); a settled line: `New ingredient: Icing sugar` with Edit and Change.
 - **Shared choice (F6):** Also used for 1 more line: “icing sugar, to decorate” · Same choice as “…” above (proposed).
 - **Save with unlinked lines (F4):** 2 lines aren’t linked yet · Unlinked lines can’t be counted in your pantry or added to the shopping list properly. Sort them now, or save anyway and link them later in the recipe. · LINE 1 OF 2 · New ingredient “Milk” (Counted by volume · Fridge) · Pick another · Treat as staple · Skip this line · Back to Check · Save anyway.
+- **Last card of the sheet (proposed, for cabledrawer):** 2 lines left unlinked · You can save now and link them later in the recipe, or go back to Check and sort them there. · Save anyway · Back to Check.
 - **Long steps (F13):** A long step (5 sentences) · Split into shorter steps · Preview: this step as 3 steps · Keep the split · Keep as one · Put the steps back as they were (proposed) · Some long steps were split into shorter ones. (proposed).
-- **Photo (F29):** Show the photo full size (screen readers) · Full size (on the photo) · Close.
+- **Photo (F29):** Show the photo of Sambar full size (screen readers; proposed, for cabledrawer) · Full size (on the photo) · Close.

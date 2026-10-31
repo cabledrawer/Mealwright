@@ -359,8 +359,27 @@ describe('Import a recipe', () => {
       await page.getByLabelText('Amount', { exact: true }).fill('lots');
       await expect.element(page.getByText('Type a number, like 2 or ½.')).toBeVisible();
       expect(flow.review!.lines[2]!.amount).toBe(2);
+      // Done on a box that couldn't be read puts the stored amount back; Done again closes.
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByLabelText('Amount', { exact: true })).toHaveValue('2');
+      await expect.element(page.getByText('Type a number, like 2 or ½.')).not.toBeInTheDocument();
+      expect(flow.review!.lines[2]!.amount).toBe(2);
       await page.getByRole('button', { name: 'Done' }).click();
       await expect.element(page.getByLabelText(/^Unit/)).not.toBeInTheDocument();
+    });
+
+    it('keeps the sheet open on a last card when the last line is skipped (L1)', async () => {
+      const flow = await reviewing();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await sheet.getByRole('button', { name: 'Skip this line' }).click();
+      await sheet.getByRole('button', { name: 'Skip this line' }).click();
+      const last = page.getByRole('dialog', { name: '2 lines left unlinked' });
+      await expect.element(last).toBeVisible();
+      expect(flow.saved).toBeNull();
+      await expect.element(last.getByRole('button', { name: 'Back to Check' })).toBeVisible();
+      await last.getByRole('button', { name: 'Back to Check' }).click();
+      await expect.element(last).not.toBeInTheDocument();
     });
 
     it('offers Treat as staple on a line to confirm too (F21)', async () => {
@@ -412,7 +431,10 @@ describe('Import a recipe', () => {
       await expect.element(sheet.getByText('Line 2 of 2')).toBeVisible();
       await sheet.getByRole('button', { name: 'Treat as staple' }).click();
       expect(flow.choices[2]).toMatchObject({ kind: 'staple' });
-      await expect.element(sheet).not.toBeInTheDocument();
+      // The skipped line is still not linked: the sheet ends on its last card, with nothing saved.
+      await expect
+        .element(page.getByRole('dialog', { name: '1 line left unlinked' }))
+        .toBeVisible();
       expect(flow.saved).toBeNull();
     });
 

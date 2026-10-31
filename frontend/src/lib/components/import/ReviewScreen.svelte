@@ -101,6 +101,7 @@
           width={shown.width}
           height={shown.height}
           alt="Downloaded from the page"
+          name={flow.name.trim() || 'this recipe'}
           onerror={() => copy.fail(shown.url)}
         />
       </div>

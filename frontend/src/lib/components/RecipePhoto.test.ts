@@ -114,15 +114,22 @@ describe('the photo full size (F29)', () => {
     document.body.innerHTML = '';
   });
 
+  it('names the recipe in the button’s words, and the picture keeps its own (L2)', async () => {
+    await expect
+      .element(page.getByRole('button', { name: 'Show the photo of Sambar full size' }))
+      .toBeVisible();
+    await expect.element(page.getByRole('img', { name: 'Photo of Sambar' })).toBeInTheDocument();
+  });
+
   it('opens when the photo is tapped, with a Close button', async () => {
     await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
-    await page.getByRole('button', { name: 'Show the photo full size' }).click();
+    await page.getByRole('button', { name: 'Show the photo of Sambar full size' }).click();
     await expect.element(page.getByRole('dialog', { name: 'Photo of Sambar' })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Close' })).toBeVisible();
   });
 
   it('closes with Escape, and focus goes back to the photo', async () => {
-    const opener = page.getByRole('button', { name: 'Show the photo full size' });
+    const opener = page.getByRole('button', { name: 'Show the photo of Sambar full size' });
     await opener.click();
     await expect.element(page.getByRole('dialog')).toBeVisible();
     await userEvent.keyboard('{Escape}');
@@ -131,7 +138,7 @@ describe('the photo full size (F29)', () => {
   });
 
   it('closes with a tap on the photo, and with Close', async () => {
-    const opener = page.getByRole('button', { name: 'Show the photo full size' });
+    const opener = page.getByRole('button', { name: 'Show the photo of Sambar full size' });
     await opener.click();
     await page.getByRole('dialog').getByRole('img').click();
     await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();

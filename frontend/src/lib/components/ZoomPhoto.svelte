@@ -12,6 +12,7 @@
     width,
     height,
     alt,
+    name,
     onerror,
     children
   }: {
@@ -19,6 +20,8 @@
     width: number;
     height: number;
     alt: string;
+    /** The recipe's name, for the button's words. */
+    name: string;
     onerror?: () => void;
     /** Extra things drawn over the picture, inside the button. */
     children?: Snippet;
@@ -45,7 +48,7 @@
   bind:this={opener}
   type="button"
   class="open"
-  aria-label="Show the photo full size"
+  aria-label="Show the photo of {name} full size"
   onclick={() => (open = true)}
 >
   <img {src} {alt} {width} {height} decoding="async" {onerror} />

@@ -522,7 +522,7 @@ test('a recipe photo opens full size, and Esc or a tap closes it (F29)', async (
   expect(created.ok()).toBe(true);
   const { id } = (await created.json()) as Json;
   await page.goto(`/recipes/${id}`);
-  const photo = page.getByRole('button', { name: 'Show the photo full size' }).first();
+  const photo = page.getByRole('button', { name: `Show the photo of ${title} full size` }).first();
   await photo.click();
   const viewer = page.getByRole('dialog', { name: `Photo of ${title}` });
   await expect(viewer).toBeVisible();
@@ -543,7 +543,7 @@ test('the photo on Check opens full size too (F29)', async ({ page }) => {
   await box(page).fill('https://bananaleaf.example/sambar/');
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
-  await page.getByRole('button', { name: 'Show the photo full size' }).click();
+  await page.getByRole('button', { name: 'Show the photo of Sambar full size' }).click();
   const viewer = page.getByRole('dialog', { name: 'Downloaded from the page' });
   await expect(viewer).toBeVisible();
   await page.keyboard.press('Escape');

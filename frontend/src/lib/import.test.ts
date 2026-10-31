@@ -681,8 +681,10 @@ describe('importer consistency on Check (0.7)', () => {
       await flow.trySave();
       flow.walkNext();
       expect(flow.walkLine).toBe(2);
-      flow.walkNext();
-      expect(flow.walk).toBeNull();
+      flow.walkNext(); // both were skipped: the sheet stays, on its last card (L1)
+      expect(flow.walk).not.toBeNull();
+      expect(flow.walkLine).toBeNull();
+      flow.walkClose();
 
       await flow.trySave();
       flow.sameAs(2, { id: 7, name: 'Hing' }); // settled before its turn
@@ -763,5 +765,25 @@ describe('importer consistency on Check (0.7)', () => {
       const flow = flowOf({ steps: [{ kind: 'heading', text: LONG }] });
       expect(flow.splitOf(0)).toBeNull();
     });
+  });
+});
+
+describe('the save walk-through ends (L1)', () => {
+  it('keeps the sheet on its last card while lines are still unlinked, and closes once none are', async () => {
+    const flow = new ImportFlow();
+    flow.review = {
+      ...REVIEW,
+      lines: [line({ label: 'needs_you', food: null }), line({ label: 'needs_you', food: null })]
+    };
+    await flow.trySave();
+    flow.walkNext();
+    flow.walkNext();
+    expect(flow.walk).not.toBeNull();
+    expect(flow.walkLine).toBeNull();
+    expect(flow.unlinkedLines()).toHaveLength(2);
+    flow.sameAs(0, { id: 1, name: 'A' });
+    flow.sameAs(1, { id: 1, name: 'A' });
+    flow.walkNext();
+    expect(flow.walk).toBeNull();
   });
 });

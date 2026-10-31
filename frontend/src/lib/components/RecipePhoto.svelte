@@ -32,6 +32,7 @@
     <ZoomPhoto
       src={shown.url}
       alt="Photo of {name}"
+      {name}
       width={shown.width}
       height={shown.height}
       onerror={() => copy.fail(shown.url)}

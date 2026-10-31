@@ -485,13 +485,16 @@ export class ImportFlow {
   }
 
   /** On to the next line that still has no ingredient (Skip, or the line was just settled).
-   *  Closes the sheet after the last one. */
+   *  After the last one the sheet closes, or, with lines still unlinked, shows its last card. */
   walkNext(): void {
     const walk = this.walk;
     if (!walk) return;
     let at = walk.at + 1;
     while (at < walk.queue.length && this.linkOf(walk.queue[at]!)) at++;
-    this.walk = at < walk.queue.length ? { queue: walk.queue, at } : null;
+    if (at < walk.queue.length) this.walk = { queue: walk.queue, at };
+    // The last line is done. Lines still unlinked keep the sheet open on its last card (Save
+    // anyway or Back to Check), so Skip never drops back to Check with the same sheet waiting.
+    else this.walk = this.unlinkedLines().length > 0 ? { queue: walk.queue, at } : null;
   }
 
   /** Back to Check, with nothing saved. */

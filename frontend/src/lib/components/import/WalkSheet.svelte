@@ -29,7 +29,8 @@
   const total = $derived(walk?.queue.length ?? 0);
   const at = $derived(walk?.at ?? 0);
   const index = $derived(flow.walkLine ?? 0);
-  const line = $derived(flow.review?.lines[index]);
+  /** Null on the last card, when every line has had its turn. */
+  const line = $derived(flow.walkLine === null ? undefined : flow.review?.lines[index]);
   const guess = $derived(flow.guessFor(index));
   const COUNTED = { weight: 'by weight', volume: 'by volume', count: 'one by one' } as const;
 
@@ -150,6 +151,28 @@
       {/if}
 
       <div class="foot">
+        <button type="button" class="back" onclick={() => flow.walkClose()}>Back to Check</button>
+        <button type="button" class="anyway" disabled={flow.saving} onclick={onsave}
+          >Save anyway</button
+        >
+      </div>
+    </div>
+  {:else if walk}
+    <!-- The last card: every line has had its turn, and some are still not linked. -->
+    {@const left = flow.unlinkedLines().length}
+    <div class="body">
+      <span class="grip" aria-hidden="true"></span>
+      <div class="head">
+        <h2 id="{uid}-title">
+          {left}
+          {left === 1 ? 'line' : 'lines'} left unlinked
+        </h2>
+        <p id="{uid}-text">
+          You can save now and link {left === 1 ? 'it' : 'them'} later in the recipe, or go back to Check
+          and sort {left === 1 ? 'it' : 'them'} there.
+        </p>
+      </div>
+      <div class="foot last">
         <button type="button" class="back" onclick={() => flow.walkClose()}>Back to Check</button>
         <button type="button" class="anyway" disabled={flow.saving} onclick={onsave}
           >Save anyway</button
@@ -353,6 +376,11 @@
     gap: 10px;
     padding-top: 12px;
     border-top: 1px solid var(--color-border);
+  }
+
+  .foot.last {
+    flex-direction: column-reverse;
+    border-top: none;
   }
 
   .back,
