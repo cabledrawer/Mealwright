@@ -37,7 +37,7 @@ def upgrade() -> None:
             sa.Column("restock", sa.Boolean(), server_default=sa.text("0"), nullable=False)
         )
     op.execute(
-        "UPDATE list_tick SET restock = 1 WHERE bought_milli IS NULL AND item_id IN ("
+        "UPDATE list_tick SET restock = true WHERE bought_milli IS NULL AND item_id IN ("
         " SELECT list_item.id FROM list_item JOIN food ON food.id = list_item.food_id"
         " WHERE food.staple AND food.household_id = list_tick.household_id)"
     )
