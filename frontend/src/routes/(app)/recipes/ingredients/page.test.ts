@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import {
   PLACES,
   SHOPS,
@@ -239,6 +239,82 @@ describe('the Ingredients page', () => {
         counted_as: 'count'
       })
     );
+  });
+
+  describe('“+ New ingredient: …” in the search box (F97)', () => {
+    const search = () => page.getByRole('searchbox', { name: 'Search ingredients' });
+    const offer = (name: string) =>
+      page.getByRole('button', { name: `+ New ingredient: “${name}”` });
+
+    it('is offered when nothing has the typed name, and asks with the name filled in', async () => {
+      await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^\+ New ingredient: / }))
+        .not.toBeInTheDocument();
+      await search().fill('tahini');
+      await expect.element(offer('tahini')).toBeVisible();
+      requests.length = 0;
+      await offer('tahini').click();
+      await expect
+        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .toBeVisible();
+      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('tahini');
+      await page.getByRole('radio', { name: /One by one/ }).click();
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await vi.waitFor(() =>
+        expect(
+          requests.find((r) => r.method === 'POST' && r.path === '/foods')?.body
+        ).toMatchObject({
+          name: 'tahini',
+          counted_as: 'count'
+        })
+      );
+      // The new ingredient is opened (as the button by the title does), and the search is cleared.
+      await vi.waitFor(() => expect(requests.some((r) => r.path === '/foods/50')).toBe(true));
+      await expect.element(search()).toHaveValue('');
+    });
+
+    it('is offered at the end of partial matches, but not for an exact name or other name', async () => {
+      await search().fill('toor');
+      await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
+      await expect.element(offer('toor')).toBeVisible();
+      await search().fill('  TOOR   dal ');
+      await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^\+ New ingredient: / }))
+        .not.toBeInTheDocument();
+      await search().fill('arhar dal');
+      await expect.element(page.getByRole('button', { name: /^Toor dal/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^\+ New ingredient: / }))
+        .not.toBeInTheDocument();
+    });
+
+    it('is hidden while the server can’t be reached, and with another filter', async () => {
+      await search().fill('tahini');
+      await expect.element(offer('tahini')).toBeVisible();
+      network.offline = true;
+      flushSync();
+      try {
+        await expect.element(offer('tahini')).not.toBeInTheDocument();
+      } finally {
+        network.reset();
+      }
+      await expect.element(offer('tahini')).toBeVisible();
+      await page.getByRole('button', { name: 'Staples' }).click();
+      await expect.element(offer('tahini')).not.toBeInTheDocument();
+    });
+
+    it('Enter with nothing found asks for the name, as Enter does in Shopping', async () => {
+      await search().fill('tahini');
+      await expect.element(offer('tahini')).toBeVisible();
+      await search().click();
+      await userEvent.keyboard('{Enter}');
+      await expect
+        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .toBeVisible();
+      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('tahini');
+    });
   });
 
   it('a computer shows the words “+ New ingredient”, not the round +', async () => {

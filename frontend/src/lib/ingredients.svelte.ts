@@ -24,6 +24,9 @@ export class IngredientsList {
   problem = $state<string | null>(null);
   /** The list has had a good answer since the page opened. */
   answered = $state(false);
+  /** The search and filter the rows on show are the answer to (the "+ New ingredient" offer
+   *  waits until they match what is typed). */
+  answeredFor = $state<{ query: string; filter: FoodFilter } | null>(null);
 
   /** Nothing has loaded yet and the last try failed: the page shows its note instead of an
    *  empty list. Once rows are showing, a failed reload (a search, the live stream) keeps them
@@ -37,14 +40,16 @@ export class IngredientsList {
   /** Fetch the first page for the current search and filter. */
   async load(): Promise<void> {
     const asked = ++this.#asked;
+    const { query, filter } = this;
     try {
-      const list = await listFoods({ q: this.query, filter: this.filter, limit: PAGE });
+      const list = await listFoods({ q: query, filter, limit: PAGE });
       if (asked !== this.#asked) return; // a newer search has started
       this.foods = list.foods;
       this.counts = list.counts;
       this.next = list.next;
       this.problem = null;
       this.answered = true;
+      this.answeredFor = { query, filter };
     } catch (error) {
       if (asked !== this.#asked) return;
       this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your ingredients.';

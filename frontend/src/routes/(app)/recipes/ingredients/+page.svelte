@@ -25,6 +25,7 @@
   import { live } from '#lib/live.svelte.js';
   import { mergeTarget } from '#lib/maybeSame.js';
   import { network } from '#lib/network.svelte.js';
+  import { newNameFor } from '#lib/ingredientSearch.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import { save } from '#lib/save.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -162,9 +163,26 @@
     } else ingredientEditor.open(food.id);
   }
 
-  /** "New ingredient": ask how it's counted, then open it so the rest can be filled in. */
-  async function makeNew() {
-    const made = await newIngredient.ask();
+  /** "+ New ingredient: 'chilli flakes'" at the end of the results (F97): offered when what is
+   *  typed isn't exactly the name, or another name, of an ingredient in them. Only once the rows
+   *  on show answer what is typed with the "All" filter (another filter hides ingredients that
+   *  may be an exact match), and never while the server can't be reached, like the button by
+   *  the title. */
+  const offered = $derived(
+    !network.offline &&
+      list.loaded &&
+      !list.problem &&
+      list.filter === 'all' &&
+      list.answeredFor?.query === list.query &&
+      list.answeredFor.filter === 'all'
+      ? newNameFor(list.query, list.foods)
+      : null
+  );
+
+  /** "New ingredient": ask how it's counted, then open it so the rest can be filled in. With a
+   *  name (from the search box) the question has it filled in already. */
+  async function makeNew(name = '') {
+    const made = await newIngredient.ask(name);
     if (!made) return;
     list.query = '';
     list.filter = 'all';
@@ -256,6 +274,10 @@
             placeholder="Search by any name, e.g. arhar dal"
             aria-label="Search ingredients"
             bind:value={list.query}
+            onkeydown={(event) => {
+              // Enter with nothing found makes it, as Enter does in Shopping's box.
+              if (event.key === 'Enter' && offered && !list.foods.length) void makeNew(offered);
+            }}
           />
         </label>
         <div class="filters" role="group" aria-label="Show">
@@ -347,6 +369,11 @@
             No ingredients yet. They’re added when you put something in the pantry or import a
             recipe.
           </p>
+        {/if}
+        {#if offered}
+          <button type="button" class="new-from-search" onclick={() => void makeNew(offered ?? '')}>
+            + New ingredient: “{offered}”
+          </button>
         {/if}
       </div>
 
@@ -640,6 +667,20 @@
     background: var(--color-chip);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
+  }
+
+  /* The end of the results, like the "+ New ingredient" chip in Shopping's Add an item box. */
+  .new-from-search {
+    display: block;
+    margin: var(--space-4) auto var(--space-6);
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
+    cursor: pointer;
   }
 
   .nothing {
