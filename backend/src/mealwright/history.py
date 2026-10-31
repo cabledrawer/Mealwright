@@ -155,11 +155,11 @@ def can_undo(kitchen: Kitchen, change: Change) -> bool:
         and change.kind not in NOTE_KINDS
         and change.undone_by_change_id is None
         and utcnow() < undo_until(kitchen, change)
-        and (change.kind != "food_removed" or _removal_stands(kitchen, change))
+        and (change.kind != "food_removed" or removal_stands(kitchen, change))
     )
 
 
-def _removal_stands(kitchen: Kitchen, change: Change) -> bool:
+def removal_stands(kitchen: Kitchen, change: Change) -> bool:
     """A "Removed Lemon from Ingredients" keeps its Undo only while Lemon is still removed,
     and only the newest removal of it: once Lemon is back (an Undo that put stock back into
     it, or an offline add) that removal no longer stands. Worked out when it is read."""

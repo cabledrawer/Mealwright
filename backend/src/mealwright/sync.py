@@ -414,7 +414,7 @@ def pressed_at(act: Act, applied_at: datetime) -> datetime:
 
 def undo(act: Act) -> None:
     """`undo {undoes}`: reverse that action, by anyone in the household (section 9)."""
-    from mealwright.api.v1.changes import undo_change
+    from mealwright.api.v1.changes import undo_change, undo_refusal, undo_run
 
     kitchen = act.kitchen
     target = shopping.action_row(kitchen, act.payload["undoes"])
@@ -447,10 +447,13 @@ def undo(act: Act) -> None:
     if change is None:
         act.ignore("nothing_to_undo")
         return
-    if change.undone_by_change_id is not None:
-        act.ignore("already_undone")
+    refused = undo_refusal(kitchen, change)  # the same checks as Undo in Recent changes
+    if refused is not None:
+        act.ignore(refused)
         return
-    done = undo_change(kitchen, change, act.batch, act.id)
+    done = undo_run(
+        kitchen, change, act.batch, lambda: undo_change(kitchen, change, act.batch, act.id)
+    )
     act.main_change = done
     act.food_id = change.food_id
     target.undone_by_action_id = act.id

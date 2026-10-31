@@ -1,5 +1,6 @@
 """Recent changes and Undo (docs/dev/api-0.2.md 6.5; spec section 6, "History and undo")."""
 
+from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -28,11 +29,11 @@ from mealwright.history import (
     already_undone,
     as_utc,
     back_undone,
-    can_undo,
     commit,
     foods_in,
     record,
     record_back,
+    removal_stands,
     replayed,
     too_old,
     undo_foods,
@@ -464,6 +465,39 @@ def undo_change(
     return undo
 
 
+def undo_refusal(kitchen: Kitchen, change: Change) -> str | None:
+    """Why this change cannot be undone, whichever way the Undo comes (Recent changes, or the
+    sync log): `cannot_undo` or `already_undone`; None when nothing stands in the way. The window
+    is the caller's (the sync log corrects it for the phone's clock)."""
+    if change.kind == "undo" or change.kind in KEY_ONLY_KINDS:
+        return "cannot_undo"
+    if change.undone_by_change_id is not None:
+        return "already_undone"
+    # "Lemon is back in Ingredients", or a removal of Lemon that no longer stands.
+    if change.kind in NOTE_KINDS or (
+        change.kind == "food_removed" and not removal_stands(kitchen, change)
+    ):
+        return "cannot_undo"
+    return None
+
+
+def undo_run(
+    kitchen: Kitchen, change: Change, batch: shopping.Batch, stock: Callable[[], Change]
+) -> Change:
+    """Do the Undo, by the kind of change: one place for both ways in, so they cannot drift.
+    `stock` is the caller's way of undoing a stock or list change."""
+    if change.kind == "recipe_removed":
+        return recipes.undo_removal(kitchen, change)
+    if change.kind == "draft_removed":
+        return drafts.undo_removal(kitchen, change)
+    if change.kind.startswith("plan_"):
+        return plan.undo(kitchen, change)
+    undone = stock()
+    if change.kind == "cooked":
+        cooking.forget_record(kitchen, change)  # so it can be cooked again
+    return undone
+
+
 @router.post("/changes/{change_id}/undo")
 def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
     """Reverse just that change; later changes stay. Anyone in the household can undo
@@ -475,31 +509,21 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         change = kitchen.db.get(Change, change_id)
         if change is None or change.household_id != kitchen.household_id:
             raise not_found("That change")
-        if change.kind == "undo":
-            raise Problem(
-                status.HTTP_409_CONFLICT, "cannot_undo", "An Undo can’t itself be undone."
-            )
-        if change.kind in KEY_ONLY_KINDS:
-            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
-        if change.undone_by_change_id is not None:
+        refused = undo_refusal(kitchen, change)
+        if refused == "already_undone":
             raise already_undone()
+        if refused is not None:
+            message = (
+                "An Undo can’t itself be undone."
+                if change.kind == "undo"
+                else "That can’t be undone."
+            )
+            raise Problem(status.HTTP_409_CONFLICT, refused, message)
         if utcnow() >= undo_until(kitchen, change):
             raise too_old()
-        if not can_undo(kitchen, change):
-            # "Lemon is back in Ingredients", or a removal of Lemon that no longer stands.
-            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         from mealwright.ticks import pantry_undo
 
-        if change.kind == "recipe_removed":
-            undone = recipes.undo_removal(kitchen, change)
-        elif change.kind == "draft_removed":
-            undone = drafts.undo_removal(kitchen, change)
-        elif change.kind.startswith("plan_"):
-            undone = plan.undo(kitchen, change)
-        else:
-            undone = pantry_undo(kitchen, change, batch)
-            if change.kind == "cooked":
-                cooking.forget_record(kitchen, change)  # so it can be cooked again
+        undone = undo_run(kitchen, change, batch, lambda: pantry_undo(kitchen, change, batch))
         batch.finish()
         earlier = commit(kitchen)
         if earlier is None:
