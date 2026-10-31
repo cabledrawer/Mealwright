@@ -256,7 +256,11 @@ def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
             moved_item = kitchen.db.get(MealItem, step["item"])
             was = _meal_was(kitchen, steps, step["from_meal"])
             if moved_item is not None and was is not None:
-                return f"{_item_name(kitchen, moved_item)} ({_short_where(kitchen, *was)})"
+                more = sum(1 for other in steps if other["op"] == "move_item") - 1
+                name = _item_name(kitchen, moved_item)
+                if more:
+                    name = f"{name} and {more} more"
+                return f"{name} ({_short_where(kitchen, *was)})"
         if step["op"] in ("add_item", "move_item"):
             item = kitchen.db.get(MealItem, step["item"])
         elif step["op"] == "del_item":

@@ -319,6 +319,25 @@ def test_undo_of_a_moved_item_that_changed_again_names_the_item_and_where_it_was
     )
 
 
+def test_a_meal_of_two_items_moved_onto_a_filled_slot_is_named_with_and_one_more(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """F81 (review): the Undo's name follows the words list: the first item and "and N more"."""
+    from mealwright.models import Change
+
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D2, slots["Breakfast"])
+    moved = kitchen.post(
+        f"{API}/plan/meals/{a['meal_id']}/move",
+        json={"date": D2.isoformat(), "slot_id": slots["Breakfast"]},
+    ).json()
+    with db_of(kitchen) as db:
+        change = db.get(Change, moved["change"]["id"])
+        assert change is not None
+        assert change.undo_data["thing"] == f"Sambar and 1 more ({D1:%a} breakfast)"
+
+
 def test_the_caps(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]) -> None:
     for _ in range(plan_module.MOST_ITEMS_IN_MEAL):
         plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
