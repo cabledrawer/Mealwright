@@ -28,6 +28,14 @@ describe('newNameFor (F97)', () => {
     ).toBeNull();
   });
 
+  it('folds sharp s like the server, and keeps the vowel signs of other scripts', () => {
+    expect(newNameFor('weisswurst', [row('Wei\u00dfwurst')])).toBeNull();
+    expect(newNameFor('Wei\u00dfwurst', [row('Weisswurst')])).toBeNull();
+    // Devanagari: the sign \u093e (aa) is a spacing mark, so \u0915\u093e (ka+aa) is not \u0915 (ka).
+    expect(newNameFor('\u0915\u093e', [row('\u0915\u093e')])).toBeNull();
+    expect(newNameFor('\u0915\u093e', [row('\u0915')])).toBe('\u0915\u093e');
+  });
+
   it('offers nothing for empty text', () => {
     expect(newNameFor('', found)).toBeNull();
     expect(newNameFor('   ', [])).toBeNull();

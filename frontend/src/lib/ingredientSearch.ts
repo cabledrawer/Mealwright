@@ -5,9 +5,18 @@
 import type { FoodRow } from './client/types';
 
 /** Case, accents and spacing ignored, the way the server folds a name for search
- *  ("Jalapeño" is "jalapeno", two spaces are one). */
+ *  ("Jalape\u00f1o" is "jalapeno", "Wei\u00dfwurst" is "weisswurst", two spaces are one). Only the
+ *  marks that sit on a letter are dropped (\p{Mn}); the spacing marks of Devanagari and the like
+ *  are part of the letter. */
 const key = (text: string): string =>
-  text.normalize('NFKD').replace(/\p{M}/gu, '').trim().replace(/\s+/gu, ' ').toLocaleLowerCase();
+  text
+    .toLocaleLowerCase()
+    .replace(/[\u00df\u1e9e]/gu, 'ss')
+    .replace(/\u03c2/gu, '\u03c3')
+    .normalize('NFKD')
+    .replace(/\p{Mn}/gu, '')
+    .trim()
+    .replace(/\s+/gu, ' ');
 
 /** The name to offer ("chilli flakes"), or null when the text is empty or is exactly the name or
  *  another name of one of the ingredients found for it. Partial matches don't stop the offer. */
