@@ -642,9 +642,11 @@ def _review_line(
             amount_milli = int(read.amount * fixed * 1000)
             if fixed == 1:
                 note = ", ".join(part for part in (read.size_word, note) if part)
-        elif read.size_word and size is None:
+        elif read.size_word and size is None and unit is None:
             # A size word the ingredient has no size for ("a sprig", "1 bunch"): the count
-            # would mean something else, so the amount goes in the note instead.
+            # would mean something else, so the amount goes in the note instead. A weight or
+            # volume with the container ("three 14-ounce cans", "half a 340g jar") is a real
+            # amount and stays (F88; `size_ok` and the matcher already count it).
             said = " ".join(part for part in (amount_text(amount_milli), read.size_word) if part)
             note = ", ".join(part for part in (said, note) if part)
             amount_milli, unit = None, None

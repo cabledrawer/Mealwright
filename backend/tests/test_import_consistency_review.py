@@ -72,6 +72,45 @@ def test_a_dozen_and_cloves_count_as_the_number_itself(kitchen: TestClient, web:
     assert garlic[0]["note"] == garlic[1]["note"] == "cloves, minced"
 
 
+def test_f88_a_weight_with_its_container_keeps_its_amount(kitchen: TestClient, web: Web) -> None:
+    """F88 (cabledrawer 31 Oct): "three 14-ounce cans" and "half a 340g jar" get an amount, like
+    "one 14-ounce can". Before, the review moved it to the note ("as written") and left none."""
+    text = "\n".join(
+        [
+            "Pantry",
+            "Ingredients",
+            "one 14-ounce can coconut milk",
+            "three 14-ounce cans coconut milk",
+            "three 14 oz cans coconut milk",
+            "two (14-ounce) cans coconut milk",
+            "half a 340g jar jam",
+            "1/2 a 400g tin tomatoes",
+            "two 400g tins tomatoes",
+            "four 400ml cartons passata",
+            "half a jar plum jam",
+            "Method",
+            "1. Cook.",
+        ]
+    )
+    lines = {line["written"]: line for line in lines_of(review(kitchen, text))}
+    want = {
+        "one 14-ounce can coconut milk": (397, "g"),
+        "three 14-ounce cans coconut milk": (1191, "g"),
+        "three 14 oz cans coconut milk": (1191, "g"),
+        "two (14-ounce) cans coconut milk": (794, "g"),
+        "half a 340g jar jam": (170, "g"),
+        "1/2 a 400g tin tomatoes": (200, "g"),
+        "two 400g tins tomatoes": (800, "g"),
+        "four 400ml cartons passata": (1600, "ml"),
+    }
+    for written, (amount, unit) in want.items():
+        assert (lines[written]["amount"], lines[written]["unit"]) == (amount, unit), written
+        assert lines[written]["note"].startswith("as written:"), written
+    # No weight written: the container can't be turned into an amount, so it stays in the note.
+    jar = lines["half a jar plum jam"]
+    assert (jar["amount"], jar["note"]) == (None, "\u00bd jar")
+
+
 def test_new_ingredient_milk_is_kept_in_the_fridge_and_flour_in_the_cupboard(
     kitchen: TestClient, web: Web
 ) -> None:
