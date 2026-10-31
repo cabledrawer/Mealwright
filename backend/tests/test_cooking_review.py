@@ -900,3 +900,23 @@ def test_a_use_off_row_offers_no_more_than_the_preview_when_stock_is_in_the_free
     assert shown["running_low"] is False
     ok(confirm(use=False, add_to_list=True), 201)
     assert _listed(kitchen, butter) == []
+
+
+@pytest.mark.parametrize(
+    "rasam",
+    [{}, {"used": {"amount": 350, "unit": "g"}}],
+    ids=["as proposed", "used 350 g"],
+)
+def test_a_ticked_pack_on_a_later_row_wins_over_an_off_rows_unticked_one(
+    kitchen: TestClient, rasam: dict[str, Any]
+) -> None:
+    """Dal 400 g, low at 300 g; sambar 100 g, rasam 350 g. The preview shows rasam 50 g short;
+    sambar's Use is off, so rasam really takes 350 g and leaves 50 g: its ticked pack is listed."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 350))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    on = {"use": True, "add_to_list": True, **rasam}
+    body = _meal_choices(shown, key, {"use": False}, on)
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert amounts(kitchen, food_id) == [50_000]
+    assert _listed(kitchen, food_id) == [300_000]

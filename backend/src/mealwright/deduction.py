@@ -548,10 +548,11 @@ def offer_as_previewed(
         for (recipe, portions, choices), each in zip(entries, worked, strict=True)
     ]
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}
-    # Only an off row's own shortfall comes from this work-out; a Use-on row is short as it
-    # really is (here its typed amount could be drawn from stock the off rows took first).
+    # An off row, and a Use-on row with nothing typed, are short as the preview showed them; a
+    # row with a typed amount is short as it really is (here its typed amount could be drawn
+    # from stock the off rows took first).
     rows_as_they_are = [
-        by_key[(i, row.key)] if id(row) in off_ids else row
+        by_key[(i, row.key)] if id(row) in off_ids or row.entered is None else row
         for i, each in enumerate(worked)
         for row in each.rows
     ]
@@ -574,18 +575,23 @@ def _short_foods(rows: Iterable[Row]) -> set[int]:
 def settle_meal(worked: list[Worked], short: set[int] | None = None) -> None:
     """Across the recipes of one meal: an ingredient gets at most one running-low pack, and none
     when the same ingredient is already short somewhere in the meal (the shortfall is the bigger
-    offer). Later rows give way to the first. `short`: the ingredients short in the meal, when
-    they aren't the ones these rows show."""
+    offer). The pack the person ticked wins, else the first row's. `short`: the ingredients short
+    in the meal, when they aren't the ones these rows show."""
     if short is None:
         short = _short_foods(row for each in worked for row in each.rows)
-    seen: set[int] = set()
-    for each in worked:
-        for row in each.rows:
-            if not row.running_low or row.food is None:
-                continue
-            if row.food.id in short or row.food.id in seen:
-                row.running_low, row.list_milli, row.add_to_list = False, 0, False
-            seen.add(row.food.id)
+    packs = [
+        (row.food.id, row)
+        for each in worked
+        for row in each.rows
+        if row.running_low and row.food is not None
+    ]
+    kept: dict[int, Row] = {}
+    for food_id, row in packs:
+        if food_id not in kept or (row.add_to_list and not kept[food_id].add_to_list):
+            kept[food_id] = row
+    for food_id, row in packs:
+        if food_id in short or kept[food_id] is not row:
+            row.running_low, row.list_milli, row.add_to_list = False, 0, False
 
 
 # --- What the API shows -------------------------------------------------------------------------
