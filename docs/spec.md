@@ -649,6 +649,18 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Paper cuts (PC).** The editor's draft line has a **Start over** link. Duplicate names the copy "Sambar (copy)", opens it in the editor, and copies everything except cooked history and the plan. Refusing to start: the log says plainly what's wrong and how to fix it. SECURITY.md says the database and backups are not encrypted in 0.7, and that disk encryption on the server is the owner's choice. No other friction-log items join the paper cuts; the rest go to 0.8.
 - **Release (0.7.0).** v0.7.0-alpha.2 after the alpha.1 fixes; v0.7.0-beta.1 once everything up to the paper cuts is merged, for cabledrawer's full hand test; then v0.7.0. **No CHANGELOG link footers in 0.x** (cabledrawer 31 Oct: "No CHANGELOG footer links to the private Forgejo: add them at 1.0, pointing at GitHub."). The brand README keeps its one PNG line. The release gets the scanners and an Opus security pass over all of 0.7.
 
+**From the v0.7.0-alpha.2 hand test (cabledrawer 31 Oct; findings F87–F97 in his friction log), built in PR A3 "alpha.2 fixes":**
+
+- **F87:** "8 whole cloves" is Cloves, 8 (or the ingredient "Whole cloves" if it exists), never a new ingredient "Whole". Other "whole X" lines read the same way.
+- **F88:** "three 14-ounce cans coconut milk" and "half a 340g jar jam" get an amount, like "one 14-ounce can" and "half a jar" already do.
+- **F89:** "2 cloves garlic" reads as 2 cloves of garlic.
+- **F91:** "Recipe" and "How to Make …" are dropped from imported names ("Sambar Recipe, How to Make Sambar" is "Sambar"; "Lemon Rice Recipe (Chitranna)" is "Lemon Rice (Chitranna)"). "Classic" is kept.
+- **F92:** Discard on the Check screen deletes its waiting photo at once.
+- **F93:** the Check screen's header count ("2 need you") updates as lines are sorted.
+- **F95:** Shopping's "Add an item" offers only units the item has.
+- **F97 (cabledrawer 31 Oct):** "On the Ingredients page, I should be able to add an ingredient straight from the search box. When the typed text isn't exactly the name (or another name) of an existing ingredient, show "+ New ingredient: '<typed text>'" at the end of the results, also when there are partial matches (typing "chilli" finds "Chilli powder", but I may want "Chilli flakes"). Tapping it opens the usual New ingredient question with the name already filled in, then opens the new ingredient as the "+ New ingredient" button does now. Make it work the same way as Shopping's "Add an item" box. Hide it while the server can't be reached, like the button by the title."
+- **F90** was old test data: nothing to build. **F94:** the release PR sets the version (release-pr step 2).
+
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
 Plain-language list of every kind of record, grouped. Every record belongs to the household (household_id), so more than one household per install stays possible later.
