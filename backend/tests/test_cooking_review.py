@@ -732,3 +732,13 @@ def test_a_use_off_row_has_no_shortfall_another_rows_stand_in_made(
     ok(confirm(use=False, add_to_list=True), 201)
     assert _listed(kitchen, butter) == []  # 120 g in the house covers the 100 g it would take
     assert amounts(kitchen, butter) == [70_000]  # only the ghee's 50 g stand-in was taken
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+def test_a_ticked_running_low_offer_is_kept_when_use_is_off(
+    kitchen: TestClient, path: str
+) -> None:
+    butter, confirm = butter_and_ghee(kitchen, path, 150, 100)
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert len(_listed(kitchen, butter)) == 1  # 100 g would leave 50 g, at or below 100 g
+    assert amounts(kitchen, butter) == [100_000]  # only the ghee's 50 g stand-in was taken

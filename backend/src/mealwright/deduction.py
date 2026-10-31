@@ -504,10 +504,10 @@ def work_out(
             row.list_milli = row.short
             default = not (row.in_freezer > 0 and not took)  # in the freezer: in the house
         elif (
-            row.takes
+            took > 0
             and row.food.running_low_milli is not None
             and not row.food.staple
-            and pool.total(row.food.id) <= row.food.running_low_milli
+            and left_after <= row.food.running_low_milli
         ):
             row.running_low = True
             row.list_milli = smallest.get(row.food.id) or row.food.running_low_milli
