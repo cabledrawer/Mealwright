@@ -265,6 +265,7 @@ FIELDS = (
     "aisle",
     "running_low_milli",
     "merged_into_id",
+    "restocked_at",  # kept as text in the snapshot (0.7 K1: a merge can move it on)
 )
 SIZE_FIELDS = (
     "food_id",
@@ -299,7 +300,10 @@ def snapshot(kitchen: Kitchen, food_ids: Iterable[int]) -> Snapshot:
         snap["fields"][f"{food.id}:exists"] = True
         snap["fields"][f"{food.id}:removed"] = food.removed_at is not None
         for name in FIELDS:
-            snap["fields"][f"{food.id}:{name}"] = getattr(food, name)
+            value = getattr(food, name)
+            if isinstance(value, datetime):
+                value = as_utc(value).isoformat()
+            snap["fields"][f"{food.id}:{name}"] = value
     for row in db.scalars(select(FoodName).where(FoodName.food_id.in_(ids))):
         snap["names"][str(row.id)] = {"food_id": row.food_id, "name": row.name}
     for size in db.scalars(select(FoodSize).where(FoodSize.food_id.in_(ids))):
@@ -481,6 +485,8 @@ def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
     revived = name == "merged_into_id" and value is None and shown
     if revived and _name_taken(kitchen, food.name, food.id):
         return False
+    if name == "restocked_at" and value is not None:
+        value = datetime.fromisoformat(value)
     setattr(food, name, value)
     return True
 

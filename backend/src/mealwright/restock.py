@@ -55,6 +55,17 @@ def restocked(db: DbSession, household_id: int, foods: Iterable[Food]) -> dict[i
     return found
 
 
+def newer(db: DbSession, household_id: int, gone: Food, into: Food) -> datetime | None:
+    """For a merge of `gone` into `into`: the restock date to keep on `into`, the newer of
+    the two (its own kept date, or `gone`'s restock date, ticks included, if `gone` is a
+    staple). The ticks move with their shopping-list lines, so that date stays either way."""
+    dates = [d for d in (_aware(into.restocked_at), _aware(gone.restocked_at)) if d]
+    from_ticks = restocked(db, household_id, [gone]).get(gone.id)
+    if from_ticks is not None:
+        dates.append(from_ticks)
+    return max(dates) if dates else None
+
+
 def keep_before_tidy_up(db: DbSession, household_id: int, item_ids: list[str]) -> None:
     """The tidy-up is about to delete these items' purchases: keep each staple's newest
     standing restock among them on the ingredient."""

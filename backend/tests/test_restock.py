@@ -86,3 +86,21 @@ def test_a_staple_no_longer_a_staple_shows_no_date(kitchen: TestClient) -> None:
     tick(kitchen, s, "Salt")
     ok(kitchen.patch(f"{API}/foods/{salt}", json={"staple": False}))
     assert _restocked(kitchen, salt) is None
+
+
+def test_a_merge_keeps_the_newer_date_and_undo_puts_it_back(kitchen: TestClient) -> None:
+    def staple(name: str) -> int:
+        made = ok(kitchen.post(f"{API}/foods", json={"name": name, "staple": True}), 201)
+        return int(made["food"]["id"])
+
+    kept, gone = staple("Rock salt"), staple("Sea salt")
+    older, newer = utcnow() - timedelta(days=40), utcnow() - timedelta(days=2)
+    with db(kitchen) as session:
+        for food_id, when in ((kept, older), (gone, newer)):
+            session.execute(update(Food).where(Food.id == food_id).values(restocked_at=when))
+        session.commit()
+    merged = ok(kitchen.post(f"{API}/foods/{gone}/merge", json={"into_id": kept}))
+    assert _close(_restocked(kitchen, kept), newer)
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert _close(_restocked(kitchen, kept), older)
+    assert _close(_restocked(kitchen, gone), newer)

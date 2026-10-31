@@ -1247,6 +1247,8 @@ def merge_foods(
 
     into.place_id = into.place_id or gone.place_id
     into.shop_id = into.shop_id or gone.shop_id
+    # The kept one is restocked as recently as either was (0.7 K1).
+    into.restocked_at = restock.newer(db, kitchen.household_id, gone, into)
     gone.merged_into_id = into.id
     db.flush()
     fix_usual_sizes(kitchen, [into.id])
