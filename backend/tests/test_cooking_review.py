@@ -765,11 +765,12 @@ def butter_and_ghee(client: TestClient, path: str, butter_in_house: int, low_at:
             f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": item, **body}]}
         )
 
-    confirm.preview_url = (  # type: ignore[attr-defined]
-        f"{API}/plan/batches/{batch}/cook/preview"
-        if path == "batch"
-        else f"{API}/plan/items/{item}/cook/preview"
-    )
+    confirm.preview_url = {  # type: ignore[attr-defined]
+        "item": f"{API}/plan/items/{item}/cook/preview",
+        "batch": f"{API}/plan/batches/{batch}/cook/preview" if path == "batch" else "",
+        "meal": f"{API}/plan/meals/{meal}/cook/preview",
+    }[path]
+    confirm.path = path  # type: ignore[attr-defined]
     return butter["id"], confirm
 
 
@@ -794,7 +795,10 @@ def test_a_ticked_running_low_offer_is_kept_when_use_is_off(kitchen: TestClient,
 def butter_preview(client: TestClient, confirm: Any) -> dict[str, Any]:
     from test_deduction import row_of
 
-    return row_of(ok(client.post(confirm.preview_url, json={})), "Zorba butter")
+    shown = ok(client.post(confirm.preview_url, json={}))
+    if confirm.path == "meal":
+        shown = shown["items"][0]["proposal"]
+    return row_of(shown, "Zorba butter")
 
 
 @pytest.mark.parametrize("path", ["item", "batch", "meal"])
