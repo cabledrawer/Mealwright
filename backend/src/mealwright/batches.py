@@ -525,11 +525,7 @@ def eat_tub(kitchen: Kitchen, tub: Tub, quarters: int | None) -> Change:
     tub.amount_quarters -= used
     kitchen.db.flush()
     name = tub_name(kitchen, tub)
-    summary = (
-        f"Ate {name}"
-        if tub.amount_quarters == 0 and quarters is None
-        else f"Ate {quarters_text(used)} of {name}"
-    )
+    summary = f"Ate {name}" if tub.amount_quarters == 0 else f"Ate {quarters_text(used)} of {name}"
     return _finish(kitchen, "plan_tub", summary, steps)
 
 
