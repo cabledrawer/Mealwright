@@ -689,7 +689,10 @@ describe('importer consistency on Check (0.7)', () => {
       await flow.trySave();
       flow.sameAs(2, { id: 7, name: 'Hing' }); // settled before its turn
       flow.walkNext();
-      expect(flow.walk).toBeNull();
+      expect(flow.walkLine).toBeNull(); // line 1 is still not linked: the last card
+      flow.sameAs(1, { id: 8, name: 'Onions' });
+      flow.walkNext();
+      expect(flow.walk).toBeNull(); // nothing left unlinked: the sheet closes
     });
 
     it('Back to Check closes it with nothing saved', async () => {

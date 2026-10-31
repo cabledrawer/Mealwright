@@ -550,3 +550,38 @@ test('the photo on Check opens full size too (F29)', async ({ page }) => {
   await expect(viewer).toBeHidden();
   await expectNoSidewaysScroll(page);
 });
+
+test('Check is three columns on a wide computer and one column on a phone, and larger text stacks them', async ({ page }) => {
+  const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
+  await answer(page, 200, review({ name: unique('Sambar') }, names));
+  await page.setViewportSize(onPhone() ? { width: 390, height: 844 } : { width: 1600, height: 1000 });
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  const boxes = async () => ({
+    details: (await page.getByRole('region', { name: 'Recipe details' }).boundingBox())!,
+    lines: (await page.getByRole('region', { name: /^Ingredients/ }).boundingBox())!,
+    method: (await page.getByRole('region', { name: /^Method/ }).boundingBox())!,
+  });
+  const now = await boxes();
+  if (onPhone()) {
+    // One column: each below the one before.
+    expect(now.lines.y).toBeGreaterThan(now.details.y + now.details.height - 1);
+    expect(now.method.y).toBeGreaterThan(now.lines.y + now.lines.height - 1);
+  } else {
+    // Details, ingredients, method side by side, from the same top.
+    expect(now.lines.x).toBeGreaterThan(now.details.x + now.details.width - 1);
+    expect(now.method.x).toBeGreaterThan(now.lines.x + now.lines.width - 1);
+    expect(Math.abs(now.lines.y - now.details.y)).toBeLessThan(80);
+    await expectNoSidewaysScroll(page);
+    await checkPage(page);
+    await inTheme(page, 'dark');
+    await checkPage(page, { themes: ['dark'] });
+    // Text at 200%: no room for three columns, so they stack.
+    await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+    const big = await boxes();
+    expect(big.lines.y).toBeGreaterThan(big.details.y + big.details.height - 1);
+    await expectNoSidewaysScroll(page);
+  }
+});

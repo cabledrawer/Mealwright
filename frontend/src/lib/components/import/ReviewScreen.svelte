@@ -92,204 +92,212 @@
   const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
-<div class="review" class:phone>
-  <section class="top" aria-label="Recipe details">
-    {#if review.photo.state === 'downloaded' && shown}
-      <div class="photo">
-        <ZoomPhoto
-          src={shown.url}
-          width={shown.width}
-          height={shown.height}
-          alt="Downloaded from the page"
-          name={flow.name.trim() || 'this recipe'}
-          onerror={() => copy.fail(shown.url)}
-        />
-      </div>
-    {:else if review.photo.state !== 'none'}
-      <div class="photo none" role="img" aria-label="No photo">
-        <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
-      </div>
-    {/if}
-    <div class="fields">
-      <label class="field" for="{uid}-name">
-        <span>Name</span>
-        <input
-          id="{uid}-name"
-          class="mw-input title"
-          type="text"
-          maxlength="200"
-          bind:value={flow.name}
-        />
-      </label>
-      <div class="two">
-        <label class="field" for="{uid}-serves">
-          <span>Serves</span>
-          <input
-            id="{uid}-serves"
-            class="mw-input"
-            type="text"
-            inputmode="numeric"
-            maxlength="2"
-            bind:value={flow.serves}
-          />
-        </label>
-        <label class="field" for="{uid}-time">
-          <span>Minutes</span>
-          <input
-            id="{uid}-time"
-            class="mw-input"
-            type="text"
-            inputmode="numeric"
-            maxlength="5"
-            bind:value={flow.minutes}
-          />
-        </label>
-      </div>
-      {#if review.nutrition.kcal !== null}
-        <p class="found">Nutrition found · {review.nutrition.kcal} kcal per serving</p>
-      {/if}
-      {#if review.source.kind === 'link' && review.source.site}
-        <p class="muted">
-          From {review.source.site}{review.author ? ` · by ${review.author}` : ''}
+<div class="wrap">
+  <div class="review" class:phone>
+    <div class="col">
+      <section class="top" aria-label="Recipe details">
+        {#if review.photo.state === 'downloaded' && shown}
+          <div class="photo">
+            <ZoomPhoto
+              src={shown.url}
+              width={shown.width}
+              height={shown.height}
+              alt="Downloaded from the page"
+              name={flow.name.trim() || 'this recipe'}
+              onerror={() => copy.fail(shown.url)}
+            />
+          </div>
+        {:else if review.photo.state !== 'none'}
+          <div class="photo none" role="img" aria-label="No photo">
+            <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
+          </div>
+        {/if}
+        <div class="fields">
+          <label class="field" for="{uid}-name">
+            <span>Name</span>
+            <input
+              id="{uid}-name"
+              class="mw-input title"
+              type="text"
+              maxlength="200"
+              bind:value={flow.name}
+            />
+          </label>
+          <div class="two">
+            <label class="field" for="{uid}-serves">
+              <span>Serves</span>
+              <input
+                id="{uid}-serves"
+                class="mw-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="2"
+                bind:value={flow.serves}
+              />
+            </label>
+            <label class="field" for="{uid}-time">
+              <span>Minutes</span>
+              <input
+                id="{uid}-time"
+                class="mw-input"
+                type="text"
+                inputmode="numeric"
+                maxlength="5"
+                bind:value={flow.minutes}
+              />
+            </label>
+          </div>
+          {#if review.nutrition.kcal !== null}
+            <p class="found">Nutrition found · {review.nutrition.kcal} kcal per serving</p>
+          {/if}
+          {#if review.source.kind === 'link' && review.source.site}
+            <p class="muted">
+              From {review.source.site}{review.author ? ` · by ${review.author}` : ''}
+            </p>
+          {/if}
+        </div>
+      </section>
+
+      {#if review.photo.state === 'off' || review.photo.state === 'failed'}
+        <p class="photo-note">
+          {#if review.photo.state === 'off'}
+            <b>Photo not downloaded.</b> Photo downloads are off in
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
+            <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
+          {:else}
+            <b>Photo not downloaded</b>
+            — {review.photo.message} You can add your own photo later.
+          {/if}
         </p>
+      {/if}
+
+      {#if flow.offersPints}
+        <!-- A US page: its pints are read as US pints, for this recipe only (mockup ImportPints-*;
+         words proposed, for cabledrawer). -->
+        <section class="pints" aria-labelledby="{uid}-pints">
+          <div class="pints-row">
+            <p class="pints-words">
+              <span class="pints-title">This looks like a US recipe</span>
+              <span id="{uid}-pints">Read its pints as US pints (473 ml)</span>
+            </p>
+            <Switch
+              checked={usPints}
+              labelledby="{uid}-pints"
+              onchange={(on) => (flow.pints = on ? 'us' : 'uk')}
+            />
+          </div>
+          <p class="pints-foot">For this recipe only. Your setting stays UK pints.</p>
+        </section>
       {/if}
     </div>
-  </section>
 
-  {#if review.photo.state === 'off' || review.photo.state === 'failed'}
-    <p class="photo-note">
-      {#if review.photo.state === 'off'}
-        <b>Photo not downloaded.</b> Photo downloads are off in
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-        <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
-      {:else}
-        <b>Photo not downloaded</b>
-        — {review.photo.message} You can add your own photo later.
-      {/if}
-    </p>
-  {/if}
-
-  {#if flow.offersPints}
-    <!-- A US page: its pints are read as US pints, for this recipe only (mockup ImportPints-*;
-         words proposed, for cabledrawer). -->
-    <section class="pints" aria-labelledby="{uid}-pints">
-      <div class="pints-row">
-        <p class="pints-words">
-          <span class="pints-title">This looks like a US recipe</span>
-          <span id="{uid}-pints">Read its pints as US pints (473 ml)</span>
-        </p>
-        <Switch
-          checked={usPints}
-          labelledby="{uid}-pints"
-          onchange={(on) => (flow.pints = on ? 'us' : 'uk')}
-        />
-      </div>
-      <p class="pints-foot">For this recipe only. Your setting stays UK pints.</p>
-    </section>
-  {/if}
-
-  <div class="counts" aria-label="What was found">
-    <span class="count good">{review.counts.matched} matched</span>
-    <span class="count warn">{review.counts.to_confirm} to confirm</span>
-    <span class="count bad"
-      >{review.counts.needs_you} {review.counts.needs_you === 1 ? 'needs' : 'need'} you</span
-    >
-    <span class="count"
-      >{review.counts.staple} {review.counts.staple === 1 ? 'staple' : 'staples'}</span
-    >
-  </div>
-
-  <section class="lines" aria-labelledby="{uid}-ingredients">
-    <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
-    {#if !phone}
-      <p class="columns" aria-hidden="true">
-        <span>As written → how Mealwright reads it → in your kitchen</span>
-      </p>
-    {/if}
-    <ul>
-      {#each review.lines as line, index (index)}
-        <ReviewLineRow
-          {flow}
-          {index}
-          line={flow.withPints(line)}
-          problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
-        />
-      {/each}
-    </ul>
-    {#if flow.offersPints && other}
-      <p class="pints-hint">
-        Switch it {usPints ? 'off' : 'on'} and the {other.words} reads {other.reads}
-        ({other.kind === 'us' ? 'US' : 'UK'} pints).
-      </p>
-    {/if}
-    {#if review.lines_cut}
-      <p class="note">The page had more than 200 ingredient lines. The first 200 are here.</p>
-    {/if}
-  </section>
-
-  <section class="method" aria-labelledby="{uid}-method">
-    <h2 id="{uid}-method">
-      Method <span class="muted"
-        >· {review.steps.filter((s) => s.kind === 'step').length}
-        {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
-      >
-    </h2>
-    <ol>
-      {#each review.steps as step, i (i)}
-        {@const pieces = flow.splitOf(i)}
-        <li class:heading={step.kind === 'heading'}>
-          {step.text}
-          {#if pieces && flow.previewStep !== i}
-            <span class="long">
-              <span class="long-note">A long step ({sentenceCount(step.text)} sentences)</span>
-              <button type="button" class="chip" onclick={() => (flow.previewStep = i)}
-                >Split into shorter steps</button
-              >
-            </span>
-          {/if}
-          {#if pieces && flow.previewStep === i}
-            <span class="preview" role="group" aria-label="Preview of the split">
-              <span class="preview-title">Preview: this step as {pieces.length} steps</span>
-              {#each pieces as piece, n (n)}
-                <span class="piece"><b>{n + 1}.</b> {piece}</span>
-              {/each}
-              <span class="preview-buttons">
-                <button type="button" class="keep" onclick={() => flow.keepSplit(i)}
-                  >Keep the split</button
-                >
-                <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
-                  >Keep as one</button
-                >
-              </span>
-            </span>
-          {/if}
-        </li>
-      {/each}
-    </ol>
-    {#if flow.stepsBefore}
-      <p class="note">
-        Some long steps were split into shorter ones.
-        <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
-          >Put the steps back as they were</button
+    <div class="col middle">
+      <div class="counts" aria-label="What was found">
+        <span class="count good">{review.counts.matched} matched</span>
+        <span class="count warn">{review.counts.to_confirm} to confirm</span>
+        <span class="count bad"
+          >{review.counts.needs_you} {review.counts.needs_you === 1 ? 'needs' : 'need'} you</span
         >
-      </p>
-    {/if}
-    {#if review.steps_cut}
-      <p class="note">The page had more than 100 steps. The first 100 are here.</p>
-    {/if}
-    {#if review.steps_shortened}
-      <p class="note">
-        {review.steps_shortened}
-        {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
-      </p>
-    {/if}
-    {#each review.left_out as left (left.heading)}
-      <p class="note">{leftOutWords(left.heading, left.lines)}. You can add them by hand.</p>
-    {/each}
-  </section>
+        <span class="count"
+          >{review.counts.staple} {review.counts.staple === 1 ? 'staple' : 'staples'}</span
+        >
+      </div>
+
+      <section class="lines" aria-labelledby="{uid}-ingredients">
+        <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
+        {#if !phone}
+          <p class="columns" aria-hidden="true">
+            <span>As written → how Mealwright reads it → in your kitchen</span>
+          </p>
+        {/if}
+        <ul>
+          {#each review.lines as line, index (index)}
+            <ReviewLineRow
+              {flow}
+              {index}
+              line={flow.withPints(line)}
+              problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
+            />
+          {/each}
+        </ul>
+        {#if flow.offersPints && other}
+          <p class="pints-hint">
+            Switch it {usPints ? 'off' : 'on'} and the {other.words} reads {other.reads}
+            ({other.kind === 'us' ? 'US' : 'UK'} pints).
+          </p>
+        {/if}
+        {#if review.lines_cut}
+          <p class="note">The page had more than 200 ingredient lines. The first 200 are here.</p>
+        {/if}
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="method" aria-labelledby="{uid}-method">
+        <h2 id="{uid}-method">
+          Method <span class="muted"
+            >· {review.steps.filter((s) => s.kind === 'step').length}
+            {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
+          >
+        </h2>
+        <ol>
+          {#each review.steps as step, i (i)}
+            {@const pieces = flow.splitOf(i)}
+            <li class:heading={step.kind === 'heading'}>
+              {step.text}
+              {#if pieces && flow.previewStep !== i}
+                <span class="long">
+                  <span class="long-note">A long step ({sentenceCount(step.text)} sentences)</span>
+                  <button type="button" class="chip" onclick={() => (flow.previewStep = i)}
+                    >Split into shorter steps</button
+                  >
+                </span>
+              {/if}
+              {#if pieces && flow.previewStep === i}
+                <span class="preview" role="group" aria-label="Preview of the split">
+                  <span class="preview-title">Preview: this step as {pieces.length} steps</span>
+                  {#each pieces as piece, n (n)}
+                    <span class="piece"><b>{n + 1}.</b> {piece}</span>
+                  {/each}
+                  <span class="preview-buttons">
+                    <button type="button" class="keep" onclick={() => flow.keepSplit(i)}
+                      >Keep the split</button
+                    >
+                    <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
+                      >Keep as one</button
+                    >
+                  </span>
+                </span>
+              {/if}
+            </li>
+          {/each}
+        </ol>
+        {#if flow.stepsBefore}
+          <p class="note">
+            Some long steps were split into shorter ones.
+            <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
+              >Put the steps back as they were</button
+            >
+          </p>
+        {/if}
+        {#if review.steps_cut}
+          <p class="note">The page had more than 100 steps. The first 100 are here.</p>
+        {/if}
+        {#if review.steps_shortened}
+          <p class="note">
+            {review.steps_shortened}
+            {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
+          </p>
+        {/if}
+        {#each review.left_out as left (left.heading)}
+          <p class="note">{leftOutWords(left.heading, left.lines)}. You can add them by hand.</p>
+        {/each}
+      </section>
+    </div>
+  </div>
 </div>
 
-<div class="bar">
+<div class="bar" class:phone>
   <p class="muted">Nothing is saved until you choose.</p>
   {#if flow.unlinked > 0}
     <p class="muted" role="status">
@@ -336,11 +344,48 @@
 {/if}
 
 <style>
+  .wrap {
+    container-type: inline-size;
+  }
+
   .review {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     max-width: 860px;
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 0;
+  }
+
+  /* A computer with room: three columns (details, ingredients, method; mockup
+     Dark-ImportCheck07-Desktop). In rem, so larger text stacks them again before they squeeze. */
+  @container (min-width: 64rem) {
+    .review:not(.phone) {
+      display: grid;
+      grid-template-columns: 17rem minmax(0, 1fr) 19rem;
+      gap: var(--space-6);
+      align-items: start;
+      max-width: none;
+    }
+
+    .wrap .review:not(.phone) .top {
+      flex-direction: column;
+      padding: var(--space-6);
+    }
+
+    .wrap .review:not(.phone) .photo {
+      width: 100%;
+      height: 150px;
+    }
+
+    .wrap .review:not(.phone) .photo.none {
+      height: 150px;
+    }
   }
 
   .top {
@@ -641,6 +686,10 @@
     padding-bottom: var(--space-4);
     color: var(--color-text-muted);
     font-size: var(--text-md);
+  }
+
+  .bar:not(.phone) {
+    max-width: none;
   }
 
   .bar {
