@@ -737,6 +737,25 @@ def test_a_left_amount_after_a_use_off_row_is_not_refused(kitchen: TestClient) -
     assert amounts(kitchen, food_id) == [350_000]
 
 
+@pytest.mark.parametrize(
+    "rasam",
+    [{"left": {"amount": 0, "unit": "g"}}, {"used": {"amount": 400, "unit": "g"}}],
+    ids=["nothing left", "used 400 g"],
+)
+def test_a_typed_amount_on_a_use_on_row_does_not_clear_the_off_rows_ticked_pack(
+    kitchen: TestClient, rasam: dict[str, Any]
+) -> None:
+    """Dal 400 g, low at 300 g; the pack is offered on sambar's row and ticked, sambar's Use is
+    off, rasam really takes all 400 g. Nothing is short, so the ticked pack is listed."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 200))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    body = _meal_choices(shown, key, {"use": False, "add_to_list": True}, {"use": True, **rasam})
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert _listed(kitchen, food_id) == [300_000]
+    assert amounts(kitchen, food_id) == [0]
+
+
 def test_a_use_off_staple_does_not_start_the_second_work_out(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

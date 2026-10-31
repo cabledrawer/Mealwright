@@ -24,6 +24,7 @@ day is the one added first (the pantry's own rule); a part-used packet is kept e
 rounded; stand-ins are used in id order and only when they are counted the same way.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal
@@ -546,8 +547,15 @@ def offer_as_previewed(
         )
         for (recipe, portions, choices), each in zip(entries, worked, strict=True)
     ]
-    settle_meal(shown)
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}
+    # Only an off row's own shortfall comes from this work-out; a Use-on row is short as it
+    # really is (here its typed amount could be drawn from stock the off rows took first).
+    rows_as_they_are = [
+        by_key[(i, row.key)] if id(row) in off_ids else row
+        for i, each in enumerate(worked)
+        for row in each.rows
+    ]
+    settle_meal(shown, _short_foods(rows_as_they_are))
     for i, each in enumerate(worked):
         for row in each.rows:
             if id(row) in off_ids:
@@ -557,16 +565,19 @@ def offer_as_previewed(
                 row.running_low, row.add_to_list = seen.running_low, seen.add_to_list
 
 
-def settle_meal(worked: list[Worked]) -> None:
+def _short_foods(rows: Iterable[Row]) -> set[int]:
+    return {
+        row.food.id for row in rows if row.food is not None and row.short > 0 and row.inner is None
+    }
+
+
+def settle_meal(worked: list[Worked], short: set[int] | None = None) -> None:
     """Across the recipes of one meal: an ingredient gets at most one running-low pack, and none
     when the same ingredient is already short somewhere in the meal (the shortfall is the bigger
-    offer). Later rows give way to the first."""
-    short = {
-        row.food.id
-        for each in worked
-        for row in each.rows
-        if row.food is not None and row.short > 0 and row.inner is None
-    }
+    offer). Later rows give way to the first. `short`: the ingredients short in the meal, when
+    they aren't the ones these rows show."""
+    if short is None:
+        short = _short_foods(row for each in worked for row in each.rows)
     seen: set[int] = set()
     for each in worked:
         for row in each.rows:
