@@ -30,6 +30,9 @@ from urllib.parse import urljoin, urlsplit
 from mealwright import names
 
 # The recipe editor's limits (api/v1/recipe_schemas.py and spec section 6).
+# An ingredient line is cut to this long (4 x the reader's own 1,000 limit): a page can't hand the
+# reader a megabyte of one line.
+MAX_LINE_TEXT = 4000
 MAX_LINES = 200  # ingredient lines and headings together
 MAX_STEPS = 100  # steps and headings together
 MAX_STEP_WORK = 10_000  # parts of a method looked at, counting repeats (a real one: ~200)
@@ -655,7 +658,7 @@ def _ingredients(recipe: _Recipe) -> list[PageLine]:
             value = _field(value, "name", "text")
         if not _is_text(value):
             continue
-        for text in _lines(value):
+        for text in (line[:MAX_LINE_TEXT] for line in _lines(value)):
             if text.endswith(":") and len(text) <= MAX_HEADING and not _HAS_DIGIT.search(text):
                 heading = text.rstrip(":").strip()
                 if heading:

@@ -21,7 +21,7 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 # --- Footnote marks (F17) ---------------------------------------------------------------------
 
 _NOTE_MARK = re.compile(r"\(\s*(?:see\s+)?notes?\s*\d+[^()]*\)", re.IGNORECASE)
-_EMPTY_BRACKET = re.compile(r"\(\s*[,;]?\s*\)")
+_EMPTY_BRACKET = re.compile(r"\(\s*(?:[,;]\s*)?\)")
 _NOTE_NUMBER = re.compile(r"\[\s*\d{1,3}\s*\]")
 
 
@@ -131,8 +131,8 @@ def is_full_heading(text: str) -> bool:
 
 # A site's name after the title: "Easy Pancake Recipe | BBC Good Food", "Pancakes - Allrecipes".
 _SITE_TAIL = re.compile(
-    r"\s*\|[^|]*$|\s+[-–—]\s+[^-–—]*\b(?:good\s*food|allrecipes|recipes|kitchen|cooking|bbc"
-    r"|food\s+network|taste|epicurious|bon\s+app[eé]tit)\b[^-–—]*$",
+    r"\s*\|[^|]*$|\s+[-–—]\s+[^-–—]*\b(?:good\s*food|allrecipes|recipes|cooking|bbc"
+    r"|food\s+network|epicurious|bon\s+app[eé]tit)\b[^-–—]*$",
     re.IGNORECASE,
 )
 _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNORECASE)

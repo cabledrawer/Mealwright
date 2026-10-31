@@ -7,7 +7,7 @@ rules that work offline.
 import re
 import unicodedata
 
-_BRACKETS = re.compile(r"\([^)]*\)|\[[^\]]*\]")
+_BRACKETS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")  # no nested "(": a run of them is linear
 _NOT_WORD = re.compile(r"[^a-z0-9%]+")
 
 

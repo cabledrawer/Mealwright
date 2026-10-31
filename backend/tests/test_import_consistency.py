@@ -451,7 +451,6 @@ def test_garlic_cloves_after_the_name_is_the_same_as_before() -> None:
         == (b.amount, b.size_word, b.name)
         == (D(2), "cloves", "garlic")
     )
-    assert read_line("2 celery stalks").name == "celery"
     assert read_line("1 cinnamon stick").name == "cinnamon stick"  # stick is not one of them
 
 
@@ -482,3 +481,64 @@ def test_a_site_name_after_the_title_is_dropped() -> None:
     assert clean_recipe_name("Easy Pancake Recipe | BBC Good Food") == "Easy Pancake"
     assert clean_recipe_name("Pancakes - Allrecipes") == "Pancakes"
     assert clean_recipe_name("Chicken - Rice Bowl") == "Chicken - Rice Bowl"
+
+
+# --- Review round 2 ------------------------------------------------------------------------------
+
+
+def test_normalise_is_fast_on_a_run_of_open_brackets() -> None:
+    import time
+
+    from mealwright.names import normalise
+
+    for hostile in ("(" * 200_000, "[" * 200_000, "(note 1" * 30_000):
+        started = time.perf_counter()
+        normalise(hostile)
+        assert time.perf_counter() - started < 0.5, hostile[:8]
+    assert normalise("Flour (plain) [sifted]") == normalise("Flour")
+
+
+def test_the_empty_bracket_pattern_is_fast_on_non_breaking_spaces() -> None:
+    import time
+
+    from mealwright.line_prep import strip_footnotes
+
+    started = time.perf_counter()
+    strip_footnotes("(" + " " * 100_000)
+    assert time.perf_counter() - started < 0.2
+
+
+def test_and_between_two_seasonings_is_still_two_lines() -> None:
+    from mealwright.ingredient_reader import read_lines
+
+    for text, names in (
+        ("salt and black pepper to taste", ["salt", "black pepper"]),
+        ("salt and freshly ground black pepper, to taste", ["salt", "black pepper"]),
+        ("sweet and sour sauce, to taste", ["sweet and sour sauce"]),
+        ("oil and vinegar dressing to serve", ["oil and vinegar dressing"]),
+    ):
+        assert [r.name for r in read_lines(text)] == names, text
+
+
+def test_only_cloves_and_sprigs_move_from_after_the_name() -> None:
+    for text in ("4 chicken fillets", "6 bacon rasher", "3 celery stalks"):
+        assert read_line(text).size_word is None, text
+        assert read_line(text).name.split()[-1] in text
+    assert read_line("2 thyme sprigs").name == "thyme"
+
+
+def test_a_bracketed_weight_is_the_total_for_several_tins() -> None:
+    two = read_line("2 tins (800 g) tomatoes")
+    assert (two.amount, two.unit, two.name) == (D(800), "g", "tomatoes")
+    one = read_line("1 tin (400 g) tomatoes")
+    assert (one.amount, one.unit) == (D(400), "g")
+    assert core("half a jar (340g) strawberry jam") == (D(170), "g", "strawberry jam")
+
+
+def test_variety_regex_is_whole_words_and_site_tail_keeps_taste() -> None:
+    from mealwright.line_prep import clean_recipe_name
+
+    assert read_line("4 dried red chilies (varietyx)").other_names != ()
+    assert read_line("4 dried red chilies (kashmiri variety)").name == "kashmiri dried red chilies"
+    assert clean_recipe_name("Pancakes - Taste the difference") == "Pancakes - Taste the difference"
+    assert clean_recipe_name("Pancakes - Kitchen sink") == "Pancakes - Kitchen sink"

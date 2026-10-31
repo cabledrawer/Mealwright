@@ -258,7 +258,10 @@ def first_guess(kitchen: KnownIngredients, read: ReadLine, staple: bool = False)
         counted_as = "count"
     else:
         counted_as = "weight"
-    return NewIngredient(_short(_capital(name)), counted_as, kitchen.usual_place_id(name), staple)
+    short = _short(
+        _capital(name)
+    )  # never the whole of a hostile line (names.normalise is slow on it)
+    return NewIngredient(short, counted_as, kitchen.usual_place_id(short), staple)
 
 
 # --- The match --------------------------------------------------------------------------------

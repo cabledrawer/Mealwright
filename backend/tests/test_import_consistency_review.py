@@ -201,3 +201,29 @@ def test_kept_in_exceptions(kitchen: TestClient, web: Web) -> None:
     assert places["corned beef"] == "Cupboard"
     assert places["fish fingers"] == "Freezer"
     assert places["chicken breast"] == "Fridge"
+
+
+def test_a_one_megabyte_hostile_ingredient_line_does_not_freeze_the_import(
+    links_on: TestClient, web: Web
+) -> None:
+    import json
+    import time
+
+    url = "https://bananaleaf.example/hostile/"
+    hostile = "(note 1" * 150_000  # about 1 MB
+    web.pages[url] = (
+        '<html><script type="application/ld+json">'
+        + json.dumps(
+            {
+                "@type": "Recipe",
+                "name": "Hostile",
+                "recipeIngredient": [hostile, "1 onion"],
+                "recipeInstructions": ["Cook."],
+            }
+        )
+        + "</script></html>"
+    )
+    started = time.perf_counter()
+    shown = review(links_on, url)
+    assert time.perf_counter() - started < 1.0
+    assert len(shown["lines"]) >= 1

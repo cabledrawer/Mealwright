@@ -22,6 +22,7 @@ import pytest
 
 from mealwright import page_reader
 from mealwright.page_reader import (
+    MAX_LINE_TEXT,
     MAX_LINES,
     MAX_STEPS,
     MAX_TAGS,
@@ -1334,7 +1335,8 @@ def test_one_property_nested_250_deep_around_1_mb_is_read_once(
     microdata_read: dict[str, int],
 ) -> None:
     found_ = _read_nested(microdata_read, nested_microdata(["recipeIngredient"], WORDS))
-    assert found_.ingredients[0] == PageLine(ONE_LINE)
+    # An ingredient line is cut to MAX_LINE_TEXT (0.7.0 security round 2).
+    assert found_.ingredients[0] == PageLine(ONE_LINE[:MAX_LINE_TEXT])
 
 
 def test_different_properties_nested_250_deep_around_1_mb_are_read_once(

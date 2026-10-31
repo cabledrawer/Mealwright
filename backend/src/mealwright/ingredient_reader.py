@@ -92,7 +92,7 @@ CONTAINER_WORDS = frozenset(
 # name still gets an amount: "a dozen eggs" is 12 eggs, "2 cloves garlic" is 2 garlic.
 FIXED_COUNTS = {"dozen": 12, "clove": 1}
 # A size word that can stand after the name: "2 garlic cloves" is "2 cloves garlic".
-TRAILING_SIZE_WORDS = frozenset({"clove", "sprig", "stalk", "rasher", "fillet"})
+TRAILING_SIZE_WORDS = frozenset({"clove", "sprig"})
 # Words that say "some", with no number. Kept like a size word; they never count.
 QUANTITY_WORDS = frozenset(
     {
@@ -140,6 +140,7 @@ MODIFIER_WORDS = WEAK_WORDS | frozenset(
      "full-fat", "self-raising", "wholemeal", "unsweetened", "sweetened"}
 )  # fmt: skip
 _VARIETY = re.compile(r"\b(?:variety|varieties|type|kind)\b", re.IGNORECASE)
+_VARIETY_WORD = re.compile(r"\b(?:varieties|variety)\b", re.IGNORECASE)
 
 # Pints, read only when the caller says how big a pint is (`read_line(pint_ml=...)`; see pints.py).
 PINTS = frozenset({"pint", "pints", "pt"})
@@ -749,6 +750,7 @@ def _cap(text: str, limit: int) -> str:
     return (cut or text[:limit]).rstrip(_EDGE_PUNCT)
 
 
+_FRESHLY_GROUND = re.compile(r"\bfreshly\s+ground\b", re.IGNORECASE)
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)
 
 
@@ -901,8 +903,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
                 notes.extend(t.strip() for t in [plain, *nested[1:]] if t.strip())
     for part in list(inside):
         # "(kashmiri variety)", "(kashmiri or byadgi variety)": the same as the form above.
-        if not _brackets(part)[1] and re.search(r"\bvarieties|variety\b", part, re.IGNORECASE):
-            base = re.sub(r"\bvarieties|variety\b", "", part, flags=re.IGNORECASE)
+        if not _brackets(part)[1] and _VARIETY_WORD.search(part):
+            base = _VARIETY_WORD.sub("", part)
             alts = [a.strip() for a in re.split(r"\s*(?:\bor\b|/|,)\s*", base, flags=re.I)]
             alts = [a for a in alts if a]
             if (
@@ -929,7 +931,9 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             metric = _bracket_metric(part)
             if metric is not None:
                 # "half a jar (340g)": half of the bracket's amount; "1 cup flour (125g)": it.
-                whole = unit is None and other is None
+                # "2 tins (800 g)": the bracket is the total, 800 g (proposed, for cabledrawer); only
+                # one tin or a fraction of one multiplies ("half a jar (340g)" is 170 g).
+                whole = unit is None and other is None and amount <= 1
                 amount = amount * metric.value if whole else metric.value
                 unit, other = metric.unit, None
                 second_used = True
@@ -984,6 +988,10 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             notes.insert(0, f"or {_tidy(right)}")
             rest = _with_shared_noun(left, right)
 
+    grind = _FRESHLY_GROUND.search(rest)  # "freshly ground black pepper" is black pepper
+    if grind is not None:
+        notes.insert(0, "freshly ground")
+        rest = f"{rest[: grind.start()]} {rest[grind.end() :]}"
     tokens = rest.split()
     while tokens and _clean_token(tokens[0]) == "of":
         tokens.pop(0)
@@ -1127,11 +1135,17 @@ def split_line(text: str) -> list[str]:
     return [text]
 
 
+# A word before "and" that joins the two halves of one name: "sweet and sour sauce", "oil and
+# vinegar dressing". "salt and black pepper" is two, because "salt" is not one of these.
+JOINED_FIRST_WORDS = MODIFIER_WORDS | frozenset({"oil", "fish", "mac", "macaroni", "bread", "rock"})
+
+
 def _one_name(sides: list[str]) -> bool:
-    """ "sweet and sour sauce", "oil and vinegar dressing": one side is a single word and the
-    other has more, so the "and" joins words of one name."""
-    counts = sorted(len(_brackets(side)[0].split()) for side in sides)
-    return counts[0] == 1 and counts[1] > 1
+    """One side is a single word that is on `JOINED_FIRST_WORDS` and the other has more, so the
+    "and" joins words of one name."""
+    first = _brackets(sides[0])[0].split()
+    rest = _brackets(sides[1])[0].split()
+    return len(first) == 1 and len(rest) > 1 and _clean_token(first[0]) in JOINED_FIRST_WORDS
 
 
 def _short_side(side: str) -> bool:
