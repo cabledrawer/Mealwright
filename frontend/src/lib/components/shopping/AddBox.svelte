@@ -7,6 +7,7 @@
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import {
     countedAsFor,
+    readForNew,
     MAX_ADD_TEXT,
     readAs,
     splitAmount,
@@ -187,11 +188,15 @@
     const typedAmount = split?.amountText;
     const chosen = await newIngredient.choose(name, typedAmount ? countedAsFor(typedAmount) : null);
     if (!chosen) return;
-    // The amount is read for the way it was just counted; unreadable: nothing is added.
-    const amount = typedAmount
-      ? await amountFor({ id: 0, counted_as: chosen.counted_as }, typedAmount)
-      : null;
-    if (typedAmount && !amount) return;
+    // The amount is read for the way it was just counted, and for the sizes just made in the
+    // dialog ("2 packets milk" with packet = 1 L). A size isn't saved yet, so it has no id; the
+    // amount goes in as the plain total. Unreadable: the item is still added, with no amount.
+    let amount: { amount: number; sizeId: number | null } | null = null;
+    if (typedAmount) {
+      const read = readForNew(typedAmount, chosen);
+      if ('problem' in read) toasts.show(read.problem, { tone: 'problem' });
+      else amount = { amount: read.amount, sizeId: null };
+    }
     reset();
     void model.addNew(chosen, amount ?? undefined);
   }

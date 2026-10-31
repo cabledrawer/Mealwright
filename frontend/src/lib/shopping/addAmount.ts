@@ -4,6 +4,8 @@
 // (amountText.parseAmount through amountEdit.toBaseAmount), and it all works offline.
 
 import { parseAmount } from '#lib/amountText.js';
+import { toBaseAmount, type Parsed } from './amountEdit.js';
+import type { Chosen } from '#lib/newIngredient.svelte.js';
 import type { CountedAs, Food } from '#lib/client/types.js';
 
 /** The number as parseAmount reads it: 1, 1.5, 1,5, ½, 1½, 1/2, 1 1/2. */
@@ -99,4 +101,30 @@ export function countedAsFor(amountText: string): CountedAs | null {
   if (unit === 'g' || unit === 'kg') return 'weight';
   if (unit === 'ml' || unit === 'l') return 'volume';
   return null;
+}
+
+/**
+ * The typed amount for an ingredient that is being made right now ("2 packets milk" with the
+ * packet size just added in the dialog). Those sizes aren't saved yet, so they have no real id:
+ * the amount comes back as the plain total in grams, millilitres or items, with no size id.
+ */
+export function readForNew(
+  amountText: string,
+  chosen: Pick<Chosen, 'counted_as' | 'sizes'>
+): Parsed {
+  const read = toBaseAmount(amountText, {
+    counted_as: chosen.counted_as,
+    sizes: chosen.sizes.map((size, index) => ({
+      id: -(index + 1),
+      name: size.name.toLowerCase(),
+      plural: `${size.name.toLowerCase()}s`,
+      amount: size.amount * (size.unit === 'kg' || size.unit === 'l' ? 1000 : 1),
+      display: '',
+      usual: false,
+      added_when_shopping: true
+    })),
+    count_word: null,
+    count_word_plural: null
+  });
+  return 'problem' in read ? read : { amount: read.amount, sizeId: null };
 }

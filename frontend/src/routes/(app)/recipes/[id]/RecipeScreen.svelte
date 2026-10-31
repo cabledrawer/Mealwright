@@ -190,18 +190,10 @@
         <!-- The photo beside the figures; narrower than the two together, they wrap. -->
         <div class="facts">
           <RecipePhoto photo={recipe.photo} name={recipe.name} beside />
-          <div class="nutrition">
-            <NutritionStrip
-              nutrition={recipe.nutrition}
-              outOfDate={recipe.nutrition_possibly_out_of_date}
-            />
-          </div>
+          <div class="nutrition"><NutritionStrip nutrition={recipe.nutrition} /></div>
         </div>
       {:else}
-        <NutritionStrip
-          nutrition={recipe.nutrition}
-          outOfDate={recipe.nutrition_possibly_out_of_date}
-        />
+        <NutritionStrip nutrition={recipe.nutrition} />
       {/if}
 
       {#if empty}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countedAsFor, MAX_ADD_TEXT, readAs, splitAmount } from './addAmount';
+import { countedAsFor, MAX_ADD_TEXT, readAs, readForNew, splitAmount } from './addAmount';
 import { toBaseAmount } from './amountEdit';
 
 describe('splitAmount: an amount in front of a name in the add box (F63)', () => {
@@ -122,5 +122,25 @@ describe('countedAsFor: the typed amount says how a new ingredient is counted (F
   it('is one by one for a bare number, and says nothing for a packet', () => {
     expect(countedAsFor(splitAmount('3 eggs')!.amountText)).toBe('count');
     expect(countedAsFor(splitAmount('2 packets milk')!.amountText)).toBeNull();
+  });
+});
+
+describe('readForNew: "2 packets milk" for an ingredient made in the same step', () => {
+  const milk = {
+    counted_as: 'volume' as const,
+    sizes: [{ name: 'packet', amount: 1, unit: 'l' }]
+  };
+  it('reads the amount against the size just added in the dialog', () => {
+    expect(readForNew('2 packets', milk)).toEqual({ amount: 2000, sizeId: null });
+    expect(readForNew('1 packet', milk)).toEqual({ amount: 1000, sizeId: null });
+  });
+  it('still reads plain units', () => {
+    expect(readForNew('1 l', { counted_as: 'volume', sizes: [] })).toEqual({
+      amount: 1000,
+      sizeId: null
+    });
+  });
+  it('says it cannot read a packet there is no size for, so the add carries on without an amount', () => {
+    expect('problem' in readForNew('2 packets', { counted_as: 'volume', sizes: [] })).toBe(true);
   });
 });

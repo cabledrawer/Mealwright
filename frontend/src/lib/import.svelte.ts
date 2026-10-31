@@ -41,7 +41,7 @@ export interface Already {
   photo: { list_url: string; list_width: number; list_height: number } | null;
 }
 
-/** Several links in the box (F25; proposed, for cabledrawer). */
+/** Several links in the box (F25). */
 export const LINKS_ONE_AT_A_TIME = 'Several links · one link at a time: only the first is read';
 
 export const OFFLINE_NOTE =

@@ -153,8 +153,6 @@ export interface Recipe {
   tags: string[];
   /** Per serving; null is unknown, never 0. */
   nutrition: Nutrition;
-  /** An imported recipe edited since: its figures came from the page (0.7.0). */
-  nutrition_possibly_out_of_date?: boolean;
   lines: RecipeLine[];
   steps: RecipeStep[];
   source_note: string | null;
