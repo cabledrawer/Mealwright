@@ -243,8 +243,20 @@ def list_follows_plan(kitchen: Kitchen) -> None:
 
 def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
     """What an Undo of these steps would name: "Banana bread (Mon breakfast)" (F44). The
-    first item a step touches; None when the steps touch no item (a slot, a whole batch)."""
+    first item a step touches; None when the steps touch no item (a slot, a whole batch).
+    A move names where the thing was (F81: a moved meal had no name here)."""
     for step in steps:
+        if step["op"] == "move_meal":
+            moved = kitchen.db.get(Meal, step["meal"])
+            if moved is None:
+                continue
+            day, slot_id = date.fromisoformat(step["from"][0]), step["from"][1]
+            return f"{_meal_name(kitchen, moved)} ({_short_where(kitchen, day, slot_id)})"
+        if step["op"] == "move_item":
+            moved_item = kitchen.db.get(MealItem, step["item"])
+            was = _meal_was(kitchen, steps, step["from_meal"])
+            if moved_item is not None and was is not None:
+                return f"{_item_name(kitchen, moved_item)} ({_short_where(kitchen, *was)})"
         if step["op"] in ("add_item", "move_item"):
             item = kitchen.db.get(MealItem, step["item"])
         elif step["op"] == "del_item":
@@ -262,10 +274,28 @@ def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
             )
         else:
             day, slot_id = meal.day, meal.slot_id
-        slot = kitchen.db.get(MealSlot, slot_id)
-        where = f"{day:%a} {slot.name.lower()}" if slot else f"{day:%a}"
-        return f"{_item_name(kitchen, item)} ({where})"
+        return f"{_item_name(kitchen, item)} ({_short_where(kitchen, day, slot_id)})"
     return None
+
+
+def _short_where(kitchen: Kitchen, day: date, slot_id: int) -> str:
+    """ "Mon breakfast" (the Undo messages of F44)."""
+    slot = kitchen.db.get(MealSlot, slot_id)
+    return f"{day:%a} {slot.name.lower()}" if slot else f"{day:%a}"
+
+
+def _meal_was(
+    kitchen: Kitchen, steps: list[dict[str, Any]], meal_id: int
+) -> tuple[date, int] | None:
+    """The date and slot of a meal a move took something from: the meal itself, or, when the
+    move left it empty and it went, the copy of it kept in the steps."""
+    meal = kitchen.db.get(Meal, meal_id)
+    if meal is not None:
+        return meal.day, meal.slot_id
+    gone = next((s for s in steps if s["op"] == "del_meal" and s["meal"]["id"] == meal_id), None)
+    if gone is None:
+        return None
+    return date.fromisoformat(gone["meal"]["day"]), gone["meal"]["slot_id"]
 
 
 def _finish(

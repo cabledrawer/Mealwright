@@ -277,6 +277,48 @@ def test_undo_says_partly_when_things_changed_since(
     assert a["item_id"]
 
 
+def test_undo_of_a_moved_meal_that_moved_again_names_the_meal(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """F81 (0.7 alpha 1 hand test): the meal was moved in the screen, moved again as another
+    device would (the API, back where it began), then the first move was undone. The message
+    names the meal and where it was."""
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Breakfast"])
+    moved = kitchen.post(
+        f"{API}/plan/meals/{a['meal_id']}/move",
+        json={"date": D2.isoformat(), "slot_id": slots["Breakfast"]},
+    ).json()
+    again = kitchen.post(
+        f"{API}/plan/meals/{a['meal_id']}/move",
+        json={"date": D1.isoformat(), "slot_id": slots["Breakfast"]},
+    )
+    assert again.status_code == 200, again.text
+    result = undo(kitchen, moved)
+    assert result["result"] == "nothing"
+    assert result["message"] == (
+        f"Nothing to put back for Sambar ({D1:%a} breakfast): it has changed again since."
+    )
+
+
+def test_undo_of_a_moved_item_that_changed_again_names_the_item_and_where_it_was(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D2, slots["Breakfast"])
+    moved = kitchen.post(
+        f"{API}/plan/items/{a['item_id']}/move",
+        json={"date": D2.isoformat(), "slot_id": slots["Breakfast"]},
+    ).json()
+    # Another device removes it from where it went.
+    assert kitchen.delete(f"{API}/plan/items/{a['item_id']}").status_code in (200, 204)
+    result = undo(kitchen, moved)
+    assert result["result"] == "nothing"
+    assert result["message"] == (
+        f"Nothing to put back for Sambar ({D1:%a} breakfast): it has changed again since."
+    )
+
+
 def test_the_caps(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]) -> None:
     for _ in range(plan_module.MOST_ITEMS_IN_MEAL):
         plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
