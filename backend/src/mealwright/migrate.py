@@ -1,11 +1,25 @@
 """Run database migrations from code (on start-up and in tests)."""
 
+import logging
+import re
+import sqlite3
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
+from datetime import UTC, datetime
+from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine
+
+log = logging.getLogger(__name__)
+
+# How many safety copies are kept (spec section 6, "Decided for 0.7.0 and 0.7.1").
+SAFETY_COPIES_KEPT = 3
+# pre-upgrade-<revision>-<UTC date and time>.db, e.g. pre-upgrade-c5f1b8d2a763-20261030-142501.db
+SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})\.db$")
 
 
 def alembic_config() -> Config:
@@ -51,7 +65,91 @@ def _run(engine: Engine, action: str, revision: str) -> None:
         connection.commit()
 
 
-def upgrade(engine: Engine, revision: str = "head") -> None:
+class SafetyCopyFailed(RuntimeError):
+    """The database couldn't be copied before an upgrade, so it was not upgraded."""
+
+
+def current_revision(engine: Engine) -> str | None:
+    """The database's migration revision. None: a new, empty database."""
+    with engine.connect() as connection:
+        return MigrationContext.configure(connection).get_current_revision()
+
+
+def _sqlite_file(engine: Engine) -> Path | None:
+    if engine.dialect.name != "sqlite":
+        return None
+    database = engine.url.database
+    if not database or database == ":memory:" or database.startswith("file:"):
+        return None
+    return Path(database)
+
+
+def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> Path | None:
+    """Copy the database before upgrading it (cabledrawer 28 Oct, review of v0.6.0): SQLite's own
+    backup, which gives a consistent copy while the database is in use (WAL included), to
+    `backups/pre-upgrade-<current revision>-<UTC date>.db`. Only the newest
+    SAFETY_COPIES_KEPT copies stay; other files in the folder are never touched.
+
+    Nothing is copied for a new database or one that is already up to date. Returns the copy,
+    or None. Raises SafetyCopyFailed if the copy can't be made: then don't upgrade."""
+    if _sqlite_file(engine) is None:
+        return None
+    revision = current_revision(engine)
+    head = ScriptDirectory.from_config(alembic_config()).get_current_head()
+    if revision is None or revision == head:
+        return None
+    stamp = (now or datetime.now(UTC)).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
+    target = backups / f"pre-upgrade-{revision}-{stamp}.db"
+    # Written under another name first, so a copy cut short never counts as one of the three.
+    partial = target.with_name(target.name + ".part")
+    try:
+        backups.mkdir(parents=True, exist_ok=True)
+        partial.unlink(missing_ok=True)
+        raw = engine.raw_connection()
+        try:
+            source = raw.driver_connection
+            if not isinstance(source, sqlite3.Connection):
+                raise sqlite3.Error("not a SQLite connection")
+            copy = sqlite3.connect(partial)
+            try:
+                source.backup(copy)
+                # The copy keeps the source's WAL mode; a plain journal makes it one file that
+                # opens on its own, with no "-wal" or "-shm" files appearing beside it.
+                copy.execute("PRAGMA journal_mode=DELETE")
+            finally:
+                copy.close()
+        finally:
+            raw.close()
+        partial.replace(target)
+    except (OSError, sqlite3.Error) as error:
+        with suppress(OSError):
+            partial.unlink(missing_ok=True)
+        raise SafetyCopyFailed(
+            f"Couldn't make a safety copy of the database in {backups} before upgrading it "
+            f"({error}). The database was not changed. Check that the folder can be written "
+            "and the disk isn't full, then start Mealwright again."
+        ) from error
+    _keep_newest(backups)
+    log.info("Safety copy of the database before upgrading it: %s", target.name)
+    return target
+
+
+def _keep_newest(backups: Path) -> None:
+    copies = []
+    for path in backups.iterdir():
+        found = SAFETY_COPY_NAME.match(path.name)
+        if found and path.is_file():
+            copies.append((found.group(2), path.name, path))
+    copies.sort(reverse=True)
+    for _stamp, _name, path in copies[SAFETY_COPIES_KEPT:]:
+        path.unlink(missing_ok=True)
+
+
+def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None) -> None:
+    """Bring the database up to `revision`. With `backups` (on start-up), a safety copy is
+    made there first, and nothing is upgraded if it fails."""
+    if backups is not None:
+        safety_copy(engine, backups)
     _run(engine, "upgrade", revision)
 
 

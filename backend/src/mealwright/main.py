@@ -74,7 +74,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
-            migrate.upgrade(engine)
+            migrate.upgrade(engine, backups=settings.data_dir / "backups")
         background = None
         if settings.run_jobs:
             background = jobs.scheduler(app.state.sessionmaker, log_file)
