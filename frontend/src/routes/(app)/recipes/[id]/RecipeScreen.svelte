@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { timeWords } from '#lib/timeWords.js';
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
   // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, Cook now, nutrition per serving, the ingredients with where each one
   // is and a − / + for servings (on screen only), "N missing · Add to the list", the method, tags and where it
@@ -129,7 +130,7 @@
     if (!recipe) return [];
     const parts: string[] = [];
     if (recipe.description) parts.push(recipe.description);
-    if (recipe.time_minutes !== null) parts.push(`${recipe.time_minutes}\u00a0min`);
+    if (recipe.time_minutes !== null) parts.push(timeWords(recipe.time_minutes));
     return parts;
   });
   const makesNow = $derived(recipe?.makes ? makesAmount(recipe.makes, factor) : null);

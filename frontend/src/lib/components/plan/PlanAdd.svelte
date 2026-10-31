@@ -12,6 +12,7 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
+  import { timeWords } from '#lib/timeWords.js';
 
   let {
     actions,
@@ -229,7 +230,7 @@
                 <span class="name">{recipe.name}</span>
                 <span class="meta"
                   >{[
-                    recipe.time_minutes ? `${recipe.time_minutes} min` : '',
+                    recipe.time_minutes ? timeWords(recipe.time_minutes) : '',
                     recipe.kcal != null ? `${recipe.kcal} kcal` : ''
                   ]
                     .filter(Boolean)

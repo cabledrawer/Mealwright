@@ -27,6 +27,13 @@ describe('the line under a recipe', () => {
     expect(recipeLine(recipe())).toBe('50 min · 320 kcal · all in stock but 1');
   });
 
+  it('says a long time in hours and minutes (F114)', () => {
+    expect(recipeLine(recipe({ time_minutes: 745 }))).toBe(
+      '12 h 25 min · 320 kcal · all in stock but 1'
+    );
+    expect(recipeLine(recipe({ time_minutes: 60 }))).toBe('1 h · 320 kcal · all in stock but 1');
+  });
+
   it('leaves out the time when it is not known', () => {
     expect(recipeLine(recipe({ time_minutes: null }))).toBe('320 kcal · all in stock but 1');
   });

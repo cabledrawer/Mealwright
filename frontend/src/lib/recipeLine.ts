@@ -4,6 +4,7 @@
 
 import type { RecipeRow } from './client/recipes';
 import { dateWords } from './dates';
+import { timeWords } from './timeWords';
 
 /** A number and its unit stay on one line. */
 const NBSP = ' ';
@@ -51,7 +52,7 @@ export function useSoonWords(soon: NonNullable<RecipeRow['use_soon']>): string {
 /** The parts of a recipe's line, in order. */
 export function recipeParts(recipe: RecipeRow): Part[] {
   const parts: Part[] = [];
-  if (recipe.time_minutes !== null) parts.push({ text: `${recipe.time_minutes}${NBSP}min` });
+  if (recipe.time_minutes !== null) parts.push({ text: timeWords(recipe.time_minutes) });
   parts.push({
     text: recipe.kcal === null ? 'nutrition unknown' : `${Math.round(recipe.kcal)}${NBSP}kcal`
   });

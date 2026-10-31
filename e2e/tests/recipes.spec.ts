@@ -67,7 +67,7 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   await expect(page.locator('li')).toHaveCount(3);
   await expect(page.getByText('50 min · 320 kcal · all in stock but 1', { exact: true })).toBeVisible();
   await expect(page.getByText('nutrition unknown · all in stock', { exact: true })).toBeVisible();
-  await expect(page.getByText('60 min · nutrition unknown', { exact: true })).toBeVisible();
+  await expect(page.getByText('1\u00a0h · nutrition unknown', { exact: true })).toBeVisible();
   // Rows are in A to Z order, and each one opens its recipe.
   const names = await page.locator('li').allInnerTexts();
   expect(names.map((n) => n.split('\n')[0])).toEqual([`${tag} one`, `${tag} three`, `${tag} two`]);

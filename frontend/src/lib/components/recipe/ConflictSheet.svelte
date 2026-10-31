@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { timeWords } from '#lib/timeWords.js';
   // "Wren’s version" (cabledrawer 19 Oct, editor brief decision 4): the recipe as the other person
   // saved it, in a sheet over the editor (not a new tab: the installed app has none). Closing
   // brings you back to your own edit, untouched. Nothing here can be edited.
@@ -51,7 +52,9 @@
   const timeChanged = $derived(opened.time_minutes !== theirs.time_minutes);
   const servesChanged = $derived(opened.serves !== theirs.serves);
   const meta = $derived(
-    [theirs.description, theirs.time_minutes ? `${theirs.time_minutes} min` : null].filter(Boolean)
+    [theirs.description, theirs.time_minutes ? timeWords(theirs.time_minutes) : null].filter(
+      Boolean
+    )
   );
 </script>
 
