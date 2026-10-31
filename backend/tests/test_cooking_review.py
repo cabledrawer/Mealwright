@@ -496,13 +496,6 @@ def test_undoing_an_eaten_tub_after_a_newer_eat_gives_back_what_it_ate(kitchen: 
     ok(eat(kitchen, tubs[0], quarters=1))
     undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
     assert undone["result"] == "done" and quarters(kitchen, tubs[0]) == 3
-    # A tub that is whole again can't take more back: partly.
-    second = ok(eat(kitchen, tubs[1], quarters=2))
-    ok(kitchen.post(f"{API}/changes/{second['change']['id']}/undo"))
-    third = ok(eat(kitchen, tubs[2], quarters=1))
-    ok(eat(kitchen, tubs[2], quarters=1))
-    ok(kitchen.post(f"{API}/changes/{third['change']['id']}/undo"))
-    assert quarters(kitchen, tubs[2]) == 3
 
 
 def test_another_households_meal_and_item_are_not_found(
@@ -517,7 +510,7 @@ def test_another_households_meal_and_item_are_not_found(
     assert theirs.status_code == 404
 
 
-# --- A ticked "add to list" is kept when Use is off, on every path ---------------------------------------
+# --- A ticked "add to list" is kept when Use is off, on every path ----------------
 
 
 def one_recipe(

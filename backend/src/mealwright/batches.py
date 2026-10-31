@@ -866,6 +866,7 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         # As a stock Undo does: give back what this change ate, on top of what is there now, up
         # to a whole tub; what can't be given back makes it "partly".
         back = step["from"] - step["to"]
+        # The cap is unreachable today (eating only lowers a tub); it guards a later refill.
         whole: bool = tub.amount_quarters + back <= 4
         tub.amount_quarters = min(tub.amount_quarters + back, 4)
         db.flush()
