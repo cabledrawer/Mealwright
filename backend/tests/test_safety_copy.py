@@ -98,7 +98,32 @@ def test_only_the_newest_three_copies_stay_and_other_files_are_left_alone(
     engine = _old_database(tmp_path / "mealwright.db")
     copy = migrate.safety_copy(engine, backups, now=datetime(2026, 10, 30, 8, 0, tzinfo=UTC))
     assert copy is not None
-    assert _copies(backups) == sorted([*older[1:], copy.name, *others])
+    assert _copies(backups) == sorted([*older, copy.name, *others])  # not trimmed yet
+    copy.unlink()
+    migrate.upgrade(engine, backups=backups)  # trimmed once the upgrade has worked
+    [new] = [name for name in _copies(backups) if name not in older and name not in others]
+    assert _copies(backups) == sorted([*older[1:], new, *others])
+
+
+def test_a_failing_upgrade_trims_no_copies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A start-up that fails on a migration, again and again, keeps every copy: the last
+    good one is never trimmed away."""
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    older = [f"pre-upgrade-d7a4c2e81f56-202610{day}-090000.db" for day in (24, 25, 26)]
+    for name in older:
+        (backups / name).write_bytes(b"old")
+    engine = _old_database(tmp_path / "mealwright.db")
+
+    def broken(*_args: object) -> None:
+        raise RuntimeError("a migration failed")
+
+    monkeypatch.setattr(migrate, "_run", broken)
+    for _start in range(2):
+        with pytest.raises(RuntimeError):
+            migrate.upgrade(engine, backups=backups)
+    assert set(older) <= set(_copies(backups))
+    assert len(_copies(backups)) > len(older)  # and the copies the two starts made
 
 
 def test_if_the_copy_fails_nothing_is_upgraded(tmp_path: Path) -> None:

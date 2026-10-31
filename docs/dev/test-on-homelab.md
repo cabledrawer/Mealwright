@@ -66,7 +66,7 @@ ls -lh backups/       # the new backup should be there, and not tiny
 
 **Stop the container before copying the data folder by hand** (cabledrawer 28 Oct). While Mealwright runs, the database keeps recent changes in a second file beside it (`mealwright.db-wal`), so a copy of a running data folder can miss them or not open at all.
 
-**Mealwright's own safety copy (from 0.7.0, cabledrawer 28 Oct).** Before it upgrades the database on start-up, Mealwright copies it to `data/backups/pre-upgrade-<revision>-<date>.db` (the date and time in UTC) and keeps the last three. A new install, or a start-up with nothing to upgrade, makes no copy. If the copy can't be made (a full disk, a folder it can't write), Mealwright doesn't upgrade or start, and the log says why. This copy is a second line of defence: it holds only the database, not the photos, so keep making the backup above.
+**Mealwright's own safety copy (from 0.7.0, cabledrawer 28 Oct).** Before it upgrades the database on start-up, Mealwright copies it to `data/backups/pre-upgrade-<revision>-<date>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the last three; while an upgrade keeps failing, no copy is ever deleted. A new install, or a start-up with nothing to upgrade, makes no copy. If the copy can't be made (a full disk, a folder it can't write), Mealwright doesn't upgrade or start, and the log says why. This copy is a second line of defence: it holds only the database, not the photos, so keep making the backup above.
 
 ### 4.2 Load the image
 

@@ -87,8 +87,8 @@ def _sqlite_file(engine: Engine) -> Path | None:
 def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> Path | None:
     """Copy the database before upgrading it (cabledrawer 28 Oct, review of v0.6.0): SQLite's own
     backup, which gives a consistent copy while the database is in use (WAL included), to
-    `backups/pre-upgrade-<current revision>-<UTC date>.db`. Only the newest
-    SAFETY_COPIES_KEPT copies stay; other files in the folder are never touched.
+    `backups/pre-upgrade-<current revision>-<UTC date>.db`. Old copies are trimmed by
+    `upgrade`, and only once the upgrade has worked.
 
     Nothing is copied for a new database or one that is already up to date. Returns the copy,
     or None. Raises SafetyCopyFailed if the copy can't be made: then don't upgrade."""
@@ -129,12 +129,13 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
             f"({error}). The database was not changed. Check that the folder can be written "
             "and the disk isn't full, then start Mealwright again."
         ) from error
-    _keep_newest(backups)
     log.info("Safety copy of the database before upgrading it: %s", target.name)
     return target
 
 
 def _keep_newest(backups: Path) -> None:
+    """Only the newest SAFETY_COPIES_KEPT copies stay; other files in the folder are never
+    touched."""
     copies = []
     for path in backups.iterdir():
         found = SAFETY_COPY_NAME.match(path.name)
@@ -147,10 +148,13 @@ def _keep_newest(backups: Path) -> None:
 
 def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None) -> None:
     """Bring the database up to `revision`. With `backups` (on start-up), a safety copy is
-    made there first, and nothing is upgraded if it fails."""
-    if backups is not None:
-        safety_copy(engine, backups)
+    made there first, and nothing is upgraded if it fails. Old copies are trimmed only after
+    the upgrade has worked: a start-up that keeps failing on a migration must never trim away
+    the last copy from before the trouble."""
+    copy = safety_copy(engine, backups) if backups is not None else None
     _run(engine, "upgrade", revision)
+    if copy is not None:
+        _keep_newest(copy.parent)
 
 
 def downgrade(engine: Engine, revision: str) -> None:
