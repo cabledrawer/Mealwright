@@ -14,14 +14,23 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.models import CookedRecord, Food, Recipe, RecipeLine, RecipeStep
+from mealwright.models import CookedRecord, Food, FoodSize, Recipe, RecipeLine, RecipeStep
+
+_SIZE_UNIT: dict[str, Literal["g", "ml"]] = {"weight": "g", "volume": "ml"}
 
 
 class SnapshotLine(BaseModel):
     kind: Literal["ingredient", "heading"]
     words: str
     amount_milli: int | None  # the recipe's own amount, for its `servings` (1½ is 1500)
-    unit: str | None
+    unit: str | None  # null: a count, or a number of the size below
+    # One of the ingredient's own sizes ("1 packet"), as it was: its name, plural and amount
+    # (in g for an ingredient weighed, ml for one measured by volume, null unit for a count).
+    size_id: int | None = None
+    size_name: str | None = None
+    size_plural: str | None = None
+    size_amount_milli: int | None = None
+    size_unit: Literal["g", "ml"] | None = None
     food_id: int | None
     food_name: str | None
     recipe_id: int | None  # another recipe used as an ingredient
@@ -55,7 +64,9 @@ def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
         )
     )
     food_ids = {row.food_id for row in rows if row.food_id}
-    foods = {food.id: food.name for food in db.scalars(select(Food).where(Food.id.in_(food_ids)))}
+    foods = {food.id: food for food in db.scalars(select(Food).where(Food.id.in_(food_ids)))}
+    size_ids = {row.size_id for row in rows if row.size_id}
+    sizes = {s.id: s for s in db.scalars(select(FoodSize).where(FoodSize.id.in_(size_ids)))}
     used_ids = {row.sub_recipe_id for row in rows if row.sub_recipe_id}
     used = {
         other.id: other.name for other in db.scalars(select(Recipe).where(Recipe.id.in_(used_ids)))
@@ -76,10 +87,11 @@ def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
                 amount_milli=row.amount_milli,
                 unit=row.unit,
                 food_id=row.food_id,
-                food_name=foods.get(row.food_id) if row.food_id else None,
+                food_name=foods[row.food_id].name if row.food_id in foods else None,
                 recipe_id=row.sub_recipe_id,
                 recipe_name=used.get(row.sub_recipe_id) if row.sub_recipe_id else None,
                 note=row.note,
+                **_size(sizes.get(row.size_id) if row.size_id else None, foods),
             )
             for row in rows
         ],
@@ -88,6 +100,19 @@ def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
             for step in steps
         ],
     )
+
+
+def _size(size: FoodSize | None, foods: dict[int, Food]) -> dict[str, Any]:
+    if size is None:
+        return {}
+    food = foods.get(size.food_id)
+    return {
+        "size_id": size.id,
+        "size_name": size.name,
+        "size_plural": size.plural,
+        "size_amount_milli": size.amount_milli,
+        "size_unit": _SIZE_UNIT.get(food.counted_as) if food else None,
+    }
 
 
 def read(record: CookedRecord) -> Snapshot:

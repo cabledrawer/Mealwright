@@ -217,3 +217,43 @@ def test_the_database_refuses_a_record_in_another_household_or_for_two_things(
         session.add(CookedRecord(household_id=1, snapshot=snap, portions=2, meal_item_id=item_id))
         with pytest.raises(IntegrityError):
             session.flush()
+
+
+def test_a_size_line_keeps_its_size_after_the_size_is_renamed_or_deleted(
+    kitchen: TestClient,
+) -> None:
+    """ "1 packet" is stored as 1 of the size: the snapshot keeps the size's name and amount,
+    so the record still says how much that was once the size changes or goes."""
+    dal = food(kitchen, "Toor dal", counted_as="weight")
+    url = f"{API}/foods/{dal['id']}/sizes"
+    packet = ok(kitchen.post(url, json={"name": "packet", "amount": 500}), 201)["food"]["sizes"][0]
+    recipe = make(
+        kitchen,
+        "Dal",
+        lines=[{"words": "toor dal", "amount": 1, "size_id": packet["id"], "food_id": dal["id"]}],
+    )
+    slot = slot_ids(kitchen)["Dinner"]
+    body = {"date": DAY.isoformat(), "slot_id": slot, "recipe_id": recipe["id"], "servings": 2}
+    item_id = int(ok(kitchen.post(f"{API}/plan/items", json=body), 201)["item_id"])
+    _cook(kitchen, recipe["id"], meal_item_id=item_id)
+    want = {
+        "amount_milli": 1000,
+        "unit": None,
+        "size_id": packet["id"],
+        "size_name": "packet",
+        "size_plural": "packets",
+        "size_amount_milli": 500_000,
+        "size_unit": "g",
+    }
+    cooked_url = f"{API}/plan/items/{item_id}/cooked"
+
+    def line() -> dict[str, Any]:
+        found: dict[str, Any] = ok(kitchen.get(cooked_url))["snapshot"]["lines"][0]
+        return {k: found[k] for k in want}
+
+    assert line() == want
+    ok(kitchen.patch(f"{url}/{packet['id']}", json={"name": "bag"}))
+    ok(kitchen.patch(f"{url}/{packet['id']}", json={"amount": 1000}))
+    assert line() == want
+    ok(kitchen.delete(f"{url}/{packet['id']}"))
+    assert line() == want
