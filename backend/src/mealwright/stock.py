@@ -219,7 +219,11 @@ class StockEdit:
         return lot
 
     def record(
-        self, kind: str, summary: str, food_id: int, undo_data: dict[str, object] | None = None
+        self,
+        kind: str,
+        summary: str,
+        food_id: int | None,
+        undo_data: dict[str, object] | None = None,
     ) -> Change:
         now = utcnow()
         for lot in self.lots.values():

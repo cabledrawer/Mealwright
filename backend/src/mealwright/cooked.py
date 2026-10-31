@@ -43,15 +43,48 @@ class SnapshotStep(BaseModel):
     text: str
 
 
+class SnapshotTake(BaseModel):
+    """What was taken from one ingredient's packets (a stand-in's too)."""
+
+    food_id: int
+    food_name: str
+    stand_in: bool
+    amount_milli: int
+
+
+class SnapshotChoice(BaseModel):
+    """One ingredient of the "Cooked it" review as it was confirmed (0.7 K2; cabledrawer 31 Oct:
+    "Per-ingredient choices in K2: OK"): what was worked out, what the person chose, and what was
+    taken. Amounts are thousandths of the ingredient's base unit (g, ml or items)."""
+
+    key: str  # "food:12", "recipe:7" (a recipe with no pantry ingredient) or "line:3"
+    status: str  # the row's state when confirmed: take, none_in_pantry, staple, ask…
+    line_ids: list[int]
+    food_id: int | None
+    food_name: str | None
+    recipe_id: int | None  # a recipe used as an ingredient
+    recipe_name: str | None
+    use: bool  # the Use switch
+    needed_milli: int | None  # worked out for the portions cooked
+    entered: Literal["used", "left"] | None  # an amount the person typed, and which kind
+    entered_milli: int | None
+    from_freezer: bool
+    used_milli: int  # taken in all, from the ingredient and its stand-ins
+    short_milli: int  # wanted but not in the pantry
+    takes: list[SnapshotTake]
+
+
 class Snapshot(BaseModel):
     """The recipe as it was when it was cooked. Amounts are the recipe's own, for `servings`;
-    the record's `portions` says how many were cooked."""
+    the record's `portions` says how many were cooked. `choices` holds the review's rows as
+    confirmed (empty on a record that was made before "Cooked it" took things from the pantry)."""
 
     name: str
     version: int
     servings: int | None
     lines: list[SnapshotLine]
     steps: list[SnapshotStep]
+    choices: list[SnapshotChoice] = []
 
 
 def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
