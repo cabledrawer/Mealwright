@@ -378,6 +378,8 @@ describe('Import a recipe', () => {
       await expect.element(last).toBeVisible();
       expect(flow.saved).toBeNull();
       await expect.element(last.getByRole('button', { name: 'Back to Check' })).toBeVisible();
+      // The button that was pressed went with the line card: focus moves to Back to Check.
+      await expect.element(last.getByRole('button', { name: 'Back to Check' })).toHaveFocus();
       await last.getByRole('button', { name: 'Back to Check' }).click();
       await expect.element(last).not.toBeInTheDocument();
     });

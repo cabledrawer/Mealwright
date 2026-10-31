@@ -52,6 +52,13 @@
     picking = false;
   });
 
+  // On the last card the button just pressed has gone with the line card: focus Back to Check,
+  // so a keyboard or screen-reader user keeps their place (C2 review 2).
+  let lastBack: HTMLButtonElement | undefined = $state();
+  $effect(() => {
+    if (!line && lastBack) lastBack.focus();
+  });
+
   $effect(() => {
     if (!placesAndShops.places.length) void placesAndShops.load().catch(() => {});
   });
@@ -173,7 +180,9 @@
         </p>
       </div>
       <div class="foot last">
-        <button type="button" class="back" onclick={() => flow.walkClose()}>Back to Check</button>
+        <button type="button" class="back" bind:this={lastBack} onclick={() => flow.walkClose()}
+          >Back to Check</button
+        >
         <button type="button" class="anyway" disabled={flow.saving} onclick={onsave}
           >Save anyway</button
         >
