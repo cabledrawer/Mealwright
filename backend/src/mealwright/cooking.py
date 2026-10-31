@@ -265,7 +265,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
                 for lot, amount in take.lots:
                     edit.touch(lot).amount_milli -= amount
     change = edit.record("cooked", _summary(entries), None)
-    listed = _add_to_list(kitchen, [row for each in worked for row in each.rows])
+    listed, action_id = _add_to_list(kitchen, [row for each in worked for row in each.rows], change)
     ids: list[int] = []
     for entry, each in zip(entries, worked, strict=True):
         snapshot = cooked.snapshot(kitchen.db, entry.recipe)
@@ -285,6 +285,8 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
         kitchen.db.flush()
         ids.append(record.id)
     data: dict[str, Any] = {"cooked_record_id": ids[0], "cooked_record_ids": ids, "listed": listed}
+    if action_id:
+        data["action"] = action_id  # so the Undo's sync-log row can say what it undoes (5.8)
     if len(entries) == 1:
         data.update(entries[0].link)
     else:
@@ -308,19 +310,21 @@ def _open_line(kitchen: Kitchen, list_id: str, food_id: int) -> ListItem | None:
     )
 
 
-def _add_to_list(kitchen: Kitchen, rows: list[Row]) -> list[dict[str, Any]]:
+def _add_to_list(
+    kitchen: Kitchen, rows: list[Row], change: Change
+) -> tuple[list[dict[str, Any]], str | None]:
     """What the rows offered to put on the shopping list, where it was ticked (cabledrawer 31 Oct:
     "Confirm adds it to the shopping list"): onto the ingredient's open line when that is too
     small, else a new line, counted up whole. Each ingredient once, whatever recipes need it.
     Returns what Undo needs: the line, whether it is new, how much was added, and the line as it
-    was and the version this wrote."""
+    was and the version this wrote, and the sync-log action that wrote it."""
     wanted: dict[int, list[Any]] = {}
     for row in rows:
         if row.add_to_list and row.food is not None and row.list_milli > 0:
             found = wanted.setdefault(row.food.id, [row.food, 0])
             found[1] += row.list_milli
     if not wanted:
-        return []
+        return [], None
     main = ensure_main_list(kitchen.db, kitchen.household_id)
     edits: list[tuple[Food, ListItem | None, int]] = []
     for food, milli in wanted.values():
@@ -331,10 +335,10 @@ def _add_to_list(kitchen: Kitchen, rows: list[Row]) -> list[dict[str, Any]]:
         elif add > (line.amount_milli or 0):  # a line that already covers it is left alone
             edits.append((food, line, add - (line.amount_milli or 0)))
     if not edits:
-        return []
+        return [], None
     batch = Batch(kitchen, action=str(uuid.uuid4()))
     seq = batch.number()
-    action = server_action(batch, PLAN_KIND, {}, None, list_id=main.id)
+    action = server_action(batch, PLAN_KIND, {}, change, list_id=main.id)
     made: list[dict[str, Any]] = []
     created: list[str] = []
     changed: list[list[Any]] = []
@@ -372,7 +376,7 @@ def _add_to_list(kitchen: Kitchen, rows: list[Row]) -> list[dict[str, Any]]:
     action.payload, action.payload_hash, action.result = payload, payload_hash(payload), payload
     batch.finish()
     kitchen.db.flush()
-    return made
+    return made, action.id
 
 
 def undo_list(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) -> None:

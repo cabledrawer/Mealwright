@@ -577,3 +577,28 @@ def test_use_off_with_enough_in_the_house_offers_nothing(kitchen: TestClient, pa
     food_id, confirm = one_recipe(kitchen, path, "Zorba dal", 500, False)
     ok(confirm(use=False, add_to_list=True), 201)
     assert _listed(kitchen, food_id) == []
+
+
+# --- The sync log says what the Undo undoes ---------------------------------------
+
+
+def test_the_undos_sync_log_row_says_what_it_undoes(kitchen: TestClient) -> None:
+    from mealwright.models import SyncAction
+
+    dal, item = far_curry(kitchen, 60)
+    done = ok(cook(kitchen, item), 201)
+    with db_of(kitchen) as db:
+        added = db.scalars(
+            select(SyncAction).where(SyncAction.change_id == done["change"]["id"])
+        ).one()
+        assert added.kind == "plan_update" and added.undone_by_action_id is None
+        action_id = added.id
+    undone = undo(kitchen, done)
+    assert undone["result"] == "done"
+    with db_of(kitchen) as db:
+        row = db.scalars(
+            select(SyncAction).where(SyncAction.change_id == undone["change"]["id"])
+        ).one()
+        assert row.kind == "undo" and row.payload == {"undoes": action_id}
+        assert db.get(SyncAction, (1, action_id)).undone_by_action_id == row.id  # type: ignore[union-attr]
+        assert dal["id"]
