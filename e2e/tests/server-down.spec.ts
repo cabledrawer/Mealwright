@@ -137,3 +137,26 @@ test.describe('with the service worker', () => {
     await recipeStaysWhenServerStops(page, true);
   });
 });
+
+// F86 (0.7 alpha 1 hand test, cabledrawer 30 Oct): when a page's code can't be fetched (the server
+// down, the page not saved on this device), the app showed a bare "500 Internal Error": no menu
+// and no "Can't reach" note. It now shows the note inside the normal frame, with the menu.
+test("a page whose code can't be fetched shows the Can't reach note with the menu, never a 500", async ({
+  page,
+}) => {
+  await page.goto('/shopping');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  // Nothing of any page that hasn't been opened yet can be fetched; the API answers 502.
+  await page.route('**/_app/immutable/nodes/*', (route) => route.abort('failed'));
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.getByRole('link', { name: 'Settings' }).first().click();
+
+  await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toBeVisible();
+  await expect(page.getByText(/500|Internal Error/)).toHaveCount(0);
+  // The normal frame: the menu is still there (the sidebar on a computer, the tabs on a phone).
+  await expect(page.getByRole('navigation').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Shopping' }).first()).toBeVisible();
+});

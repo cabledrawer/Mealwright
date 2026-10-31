@@ -11,6 +11,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- **A page that can't be opened shows the "Can't reach" note, not "500 Internal Error" (0.7 alpha 1, F86).** When a page's code can't be fetched (the server down, the page not yet saved on the device), the app now shows its own page inside the normal frame, with the menu: "Can’t reach your Mealwright server." (or "You’re offline."), "This page isn’t on this device yet. Try again when it answers…", with Try again and Shopping. Words proposed, for cabledrawer (`words.md` section 25). Browser test (phone, computer and WebKit) and unit tests.
 - **Recipes: an open recipe stays when the server stops (0.7 alpha 1, F80).** The list and the recipe on screen were replaced by the "Can't reach your Mealwright server." note as soon as the offline bar showed (a few seconds after any call got the proxy's 502). The note now shows only when the list or the recipe could not be loaded at all; what is already on screen stays, the bar says the server is down, and Edit and Delete stay hidden meanwhile. Browser test (with and without the service worker) and unit tests.
 
 ## [0.6.0] - 2026-10-28
