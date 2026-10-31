@@ -333,27 +333,33 @@ def _stand_ins(kitchen: Kitchen, foods: set[int]) -> dict[int, list[int]]:
     return {key: sorted(ids) for key, ids in found.items()}
 
 
-def _dry_run(
-    pool: Pool, row: Row, food: Food, stand_ins: dict[int, list[int]], others: dict[int, Food]
-) -> tuple[int, int]:
-    """What a row would take with Use on, and what its ingredient would have left, worked out the
-    way the preview does (its own packets, else a stand-in's when it has none at all) and then
-    put back: nothing is taken."""
+def _dry_own(pool: Pool, row: Row, food: Food) -> int:
+    """What a row's own packets would give with Use on, read now and put back: nothing is taken."""
     saved = dict(pool.left)
     try:
         got = pool.take(food, row.wanted or 0, row.from_freezer, False, row.entered is None)
-        took = got.amount if got is not None else 0
-        left = pool.total(food.id)
-        if got is None and left == 0:
-            short = row.wanted or 0
-            for other_id in stand_ins.get(food.id, ()):
-                other = others.get(other_id)
-                if short <= 0 or other is None or other.counted_as != food.counted_as:
-                    continue
-                more = pool.take(other, short, row.from_freezer, True, row.entered is None)
-                if more is not None:
-                    took, short = took + more.amount, short - more.amount
-        return took, left
+        return got.amount if got is not None else 0
+    finally:
+        pool.left.clear()
+        pool.left.update(saved)
+
+
+def _dry_stand_in(
+    pool: Pool, row: Row, food: Food, stand_ins: dict[int, list[int]], others: dict[int, Food]
+) -> int:
+    """What the stand-ins would give a Use-off row with none of its own: pass 2's draw, read in
+    pass 2's turn (after the rows before it have drawn, as the preview has them) and put back."""
+    saved = dict(pool.left)
+    try:
+        short, total = row.wanted or 0, 0
+        for other_id in stand_ins.get(food.id, ()):
+            other = others.get(other_id)
+            if short <= 0 or other is None or other.counted_as != food.counted_as:
+                continue
+            more = pool.take(other, short, row.from_freezer, True, row.entered is None)
+            if more is not None:
+                total, short = total + more.amount, short - more.amount
+        return total
     finally:
         pool.left.clear()
         pool.left.update(saved)
@@ -400,8 +406,8 @@ def work_out(
     pool = pool or Pool(kitchen)
     pool.ensure(food_ids | set(others))
 
-    # A Use-off row: what it would take, and what would be left.
-    off: dict[str, tuple[int, int]] = {}
+    # A Use-off row: what its own packets would give.
+    off: dict[str, int] = {}
 
     # Pass 1: each row's own stock.
     for row in rows:
@@ -441,9 +447,9 @@ def work_out(
         if row.wanted is None or row.wanted <= 0:
             continue
         if confirming and not row.use:
-            # Nothing is taken, but what it would take is read now, as the preview reads it: before
-            # any stand-in has drawn on the pool.
-            off[row.key] = _dry_run(pool, row, food, stand_ins, others)
+            # Nothing is taken, but what its own packets would give is read now, as the preview
+            # reads it (pass 2's stand-ins have not drawn yet).
+            off[row.key] = _dry_own(pool, row, food)
             continue
         taken = pool.take(food, row.wanted, row.from_freezer, False, row.entered is None)
         if taken is not None:
@@ -452,8 +458,13 @@ def work_out(
     # Pass 2: an ingredient with none at all (not in the freezer either) is taken from its "Can
     # use instead" ingredients. With some but not enough, the rest is a shortfall, never mixed
     # with a stand-in (cabledrawer 31 Oct).
+    stand_in_off: dict[str, int] = {}
     for row in rows:
-        if row.food is None or not row.wanted or (confirming and not row.use):
+        if row.food is None or not row.wanted:
+            continue
+        if confirming and not row.use:
+            if not off.get(row.key) and pool.total(row.food.id) == 0:
+                stand_in_off[row.key] = _dry_stand_in(pool, row, row.food, stand_ins, others)
             continue
         if row.takes or pool.total(row.food.id) > 0:
             continue
@@ -487,7 +498,10 @@ def work_out(
         # Use does not change what is offered (cabledrawer 31 Oct: the tick is its own choice): a
         # row switched off is worked out as the preview works it out, only nothing is taken.
         if row.key in off:
-            took, left_after = off[row.key]
+            # As the preview: what is left at the end, less what this row's own take would have
+            # drawn (the other rows, stand-ins too, have drawn from the same pool).
+            took = off[row.key] + stand_in_off.get(row.key, 0)
+            left_after = max(pool.total(row.food.id) - off[row.key], 0)
         else:
             took, left_after = row.taken, pool.total(row.food.id)
         row.short = max(row.wanted - took, 0)

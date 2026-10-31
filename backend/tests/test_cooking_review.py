@@ -740,3 +740,16 @@ def test_a_ticked_running_low_offer_is_kept_when_use_is_off(kitchen: TestClient,
     ok(confirm(use=False, add_to_list=True), 201)
     assert len(_listed(kitchen, butter)) == 1  # 100 g would leave 50 g, at or below 100 g
     assert amounts(kitchen, butter) == [100_000]  # only the ghee's 50 g stand-in was taken
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+def test_a_use_off_row_offers_running_low_as_the_preview_does_when_a_stand_in_draws(
+    kitchen: TestClient, path: str
+) -> None:
+    """Butter 220 g, running low at 100 g; the recipe takes butter 100 g and ghee 50 g, and ghee
+    (none in the house) takes butter as its stand-in: 70 g is left, so the preview offers a pack,
+    and so does a Confirm with butter's Use off."""
+    butter, confirm = butter_and_ghee(kitchen, path, 220, 100)
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert len(_listed(kitchen, butter)) == 1
+    assert amounts(kitchen, butter) == [170_000]  # only the ghee's 50 g was taken
