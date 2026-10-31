@@ -74,7 +74,8 @@ function normalUnit(unit: string): string {
 
 /**
  * The amount as it will be read for this ingredient, for the match row: a bare 2 for garlic
- * weighed in grams is "2 g", not "2". The same reader as the amount box.
+ * weighed in grams is "2 g", not "2". The same reader as the amount box. Null when the
+ * unit typed isn't one the ingredient has (the amount would be refused).
  */
 export function readAs(
   amountText: string,
@@ -82,6 +83,9 @@ export function readAs(
 ): string | null {
   const asked = parseAmount(amountText, food);
   if (!asked) return null;
+  // Only a unit this ingredient has is offered (F95): "2 packets" for milk with no packet size
+  // would be refused on adding, so the row shows the name alone and the refusal says why.
+  if ('problem' in toBaseAmount(amountText, food)) return null;
   const number = String(Math.round(asked.amount * 1000) / 1000);
   if (!asked.unit || asked.unit === 'count') return number;
   // Written as the app writes it: "1 L", and a packet size in the plural when it isn't one.

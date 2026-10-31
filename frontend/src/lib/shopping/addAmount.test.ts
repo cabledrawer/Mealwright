@@ -79,6 +79,28 @@ describe('readAs: the amount as it will be read, for the match row', () => {
   });
 });
 
+describe('readAs: only units the ingredient has are offered (F95)', () => {
+  const base = { sizes: [], count_word: null, count_word_plural: null };
+  const milk = { ...base, counted_as: 'volume' as const };
+  it('offers no amount for a way of selling the ingredient does not have', () => {
+    // "2 packets milk": milk has no packet size, so the row is "Milk", not "Milk · 2 packets".
+    expect(readAs('2 packets', milk)).toBeNull();
+    expect(readAs('2 tins', { ...base, counted_as: 'weight' as const })).toBeNull();
+    expect(readAs('1 dozen', { ...base, counted_as: 'count' as const })).toBeNull();
+  });
+  it('offers no amount for a unit of the wrong kind either', () => {
+    expect(readAs('2 g', milk)).toBeNull();
+    expect(readAs('2 ml', { ...base, counted_as: 'weight' as const })).toBeNull();
+    expect(readAs('2 kg', { ...base, counted_as: 'count' as const })).toBeNull();
+  });
+  it('still offers its own units and sizes', () => {
+    expect(readAs('1 l', milk)).toBe('1 L');
+    expect(readAs('250 g', { ...base, counted_as: 'weight' as const })).toBe('250 g');
+    const bottle = { id: 1, name: 'bottle', plural: 'bottles', amount: 1000, usual: false };
+    expect(readAs('2 bottles', { ...milk, sizes: [bottle] } as never)).toBe('2 bottles');
+  });
+});
+
 describe('splitAmount: the ways an ingredient is sold (cabledrawer 30 Oct: "2 packets milk")', () => {
   it('reads "2 packets milk" as milk, 2 packets, the same as "2 packet milk"', () => {
     const one = splitAmount('2 packets milk');
