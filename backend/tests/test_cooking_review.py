@@ -725,6 +725,18 @@ def test_a_ticked_running_low_pack_on_a_use_off_row_holds_before_a_use_on_row(
     assert amounts(kitchen, food_id) == [200_000]
 
 
+def test_a_left_amount_after_a_use_off_row_is_not_refused(kitchen: TestClient) -> None:
+    """Dal 400 g; sambar (Use off) would take 100 g in the offer's work-out, so rasam's "350 g
+    left" must not be checked against the 300 g that work-out sees: the real stock is 400 g."""
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 200))
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    key = f"food:{food_id}"
+    left = {"use": True, "left": {"amount": 350, "unit": "g"}}
+    body = _meal_choices(shown, key, {"use": False}, left)
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=body), 201)
+    assert amounts(kitchen, food_id) == [350_000]
+
+
 def test_a_use_off_staple_does_not_start_the_second_work_out(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

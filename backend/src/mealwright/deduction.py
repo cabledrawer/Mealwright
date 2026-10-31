@@ -507,6 +507,15 @@ def off_rows(worked: list[Worked], choices: list[dict[str, Choice]]) -> list[Row
     ]
 
 
+def _as_used(choice: Choice, each: Worked, key: str) -> Choice:
+    """A "left" answer becomes what the real run took, so the second work-out (whose pool an
+    earlier Use-off row may have drawn down) never refuses a Confirm the real run accepted."""
+    if choice.left_milli is None:
+        return choice
+    row = next(row for row in each.rows if row.key == key)
+    return replace(choice, used_milli=row.wanted, left_milli=None)
+
+
 def offer_as_previewed(
     kitchen: Kitchen,
     entries: list[tuple[Recipe, int, dict[str, Choice]]],
@@ -528,11 +537,14 @@ def offer_as_previewed(
             recipe,
             portions,
             answers,
-            {key: replace(choice, use=True) for key, choice in choices.items()},
+            {
+                key: _as_used(replace(choice, use=True), each, key)
+                for key, choice in choices.items()
+            },
             pool,
             preview_of_off_rows=True,
         )
-        for recipe, portions, choices in entries
+        for (recipe, portions, choices), each in zip(entries, worked, strict=True)
     ]
     settle_meal(shown)
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}
