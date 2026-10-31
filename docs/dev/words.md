@@ -527,3 +527,9 @@ Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLi
 ## 25. Small fixes (0.7 PR B5)
 
 - **Undo that put nothing back names the thing (F44; cabledrawer's wish 28 Oct; proposed, for cabledrawer):** **Nothing to put back for Banana bread (Mon breakfast): it has changed again since.** On the Plan the thing is the meal item and where it was; for a pantry change it is the ingredient (**Nothing to put back for Spinach: it has changed again since.**). When the change touches no single item or ingredient (a slot, a whole batch, the shopping list), the old sentence stays: **Nothing to put back: it has all changed again since.** The two joined-line sentences (section 24) are unchanged.
+
+## 26. Importer consistency (0.7 PR C1)
+
+- **Notes the import writes into a line's note:** **or so** (from "3-or-so cups"), **optional** (for a line under "For serving", "To garnish" or "Optional", and for an "optional:" line), **made with …** and **and cut into …** (the words stay as written), **variety** words ("less spicy variety") and the other choice after "or" ("or butter").
+- **Several links pasted (Import start):** **Several links · one link at a time: only the first is read**.
+- **Quarts, gallons and fluid ounces** are read like pints, with the household's pint (and "Read its pints as US pints" for one recipe); nothing new on screen. Sizes: UK quart 1136 ml, US 946; UK gallon 4546, US 3785; UK fl oz 28.41, US 29.57.
