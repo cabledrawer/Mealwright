@@ -530,6 +530,8 @@ Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLi
 
 ## 26. Importer consistency (0.7 PR C1)
 
+cabledrawer OK'd the C1 readings on 31 Oct ("C1 readings: OK"). The UK/US quart, gallon and fl oz sizes below are the lead's numbers (proposed, for cabledrawer).
+
 - **Notes the import writes into a line's note:** **or so** (from "3-or-so cups"), **optional** (for a line under "For serving", "To garnish" or "Optional", and for an "optional:" line), **made with …** and **and cut into …** (the words stay as written), **variety** words ("less spicy variety") and the other choice after "or" ("or butter").
 - **Several links pasted (Import start):** **Several links · one link at a time: only the first is read**.
 - **Quarts, gallons and fluid ounces** are read like pints, with the household's pint (and "Read its pints as US pints" for one recipe); nothing new on screen. Sizes: UK quart 1136 ml, US 946; UK gallon 4546, US 3785; UK fl oz 28.41, US 29.57.
