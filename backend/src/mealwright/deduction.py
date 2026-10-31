@@ -400,7 +400,8 @@ def work_out(
     pool = pool or Pool(kitchen)
     pool.ensure(food_ids | set(others))
 
-    off: dict[str, tuple[int, int]] = {}  # a Use-off row: what it would take, and what would be left
+    # A Use-off row: what it would take, and what would be left.
+    off: dict[str, tuple[int, int]] = {}
 
     # Pass 1: each row's own stock.
     for row in rows:
