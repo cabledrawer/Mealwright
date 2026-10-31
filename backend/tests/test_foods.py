@@ -113,10 +113,10 @@ def test_f97_an_exact_name_or_other_name_comes_first_even_past_the_first_page(
         "Zzz hot flakes",
         "Chilli flakes",
     )
-    # An exact name is first as well, whatever it sorts like.
+    # An exact name is among the first as well (both exact matches sort before the 60 others).
     plain = add(kitchen, "Zzzz chilli flakes")
     page = kitchen.get(f"{API}/foods", params={"q": "chilli flakes", "limit": 50}).json()
-    assert page["foods"][0]["id"] == plain["id"]
+    assert {f["id"] for f in page["foods"][:2]} == {hot["id"], plain["id"]}
     # No exact match: nothing is out of order (names that start with it, then contain it).
     page = kitchen.get(f"{API}/foods", params={"q": "zz chilli", "limit": 3}).json()
     assert [f["name"] for f in page["foods"]] == [f"Zz chilli flakes {n:02d}" for n in range(3)]
