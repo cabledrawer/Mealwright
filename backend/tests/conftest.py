@@ -4,9 +4,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from mealwright import migrate
+from mealwright import auth, migrate
 from mealwright.auth import hash_password
 from mealwright.config import Settings
 from mealwright.db import Base, make_engine
@@ -18,6 +19,25 @@ from mealwright.outbound import install_network_guard
 # The whole test suite runs with the network guard on: any connection or DNS lookup
 # outside the outbound gate fails the test that made it.
 install_network_guard()
+
+# Cheap password hashing, in the tests only (cabledrawer 31 Oct): Argon2 with the smallest
+# settings instead of the app's (64 MiB and 3 passes). Nearly every test signs in, so the
+# app's hashing was a large part of the run. A test that checks hashing itself is marked
+# `real_hashing` and keeps the app's own hasher. The app and the image never see this file.
+CHEAP_HASHER = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+_CHEAP_DUMMY_HASH = CHEAP_HASHER.hash("no such login")
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "real_hashing: hash passwords with the app's own settings")
+
+
+@pytest.fixture(autouse=True)
+def _cheap_hashing(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    if request.node.get_closest_marker("real_hashing"):
+        return
+    monkeypatch.setattr(auth, "_hasher", CHEAP_HASHER)
+    monkeypatch.setattr(auth, "_DUMMY_HASH", _CHEAP_DUMMY_HASH)
 
 
 @pytest.fixture(autouse=True)

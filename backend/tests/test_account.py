@@ -5,6 +5,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from conftest import CHEAP_HASHER
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
@@ -86,13 +87,40 @@ def test_setup_checks_its_input(client: TestClient, change: dict[str, str]) -> N
     assert client.get("/api/v1/setup").json()["needs_setup"] is True
 
 
+# argon2-cffi's defaults (RFC 9106): 64 MiB, 3 passes, 4 lanes. The tests hash cheaply
+# (conftest.py, cabledrawer 31 Oct) except where marked `real_hashing`.
+APP_HASH = "$argon2id$v=19$m=65536,t=3,p=4$"
+
+
+@pytest.mark.real_hashing
 def test_password_is_stored_scrambled(client: TestClient) -> None:
     set_up(client)
     with db(client) as session:
         stored = session.scalar(select(Login.password_hash))
     assert stored is not None
-    assert stored.startswith("$argon2id$")
+    assert stored.startswith(APP_HASH)
     assert ADMIN["password"] not in stored
+
+
+@pytest.mark.real_hashing
+def test_a_weaker_stored_hash_is_made_stronger_at_sign_in(client: TestClient) -> None:
+    set_up(client)
+    with db(client) as session:
+        session.execute(update(Login).values(password_hash=CHEAP_HASHER.hash(ADMIN["password"])))
+        session.commit()
+    assert sign_in(client) == 200
+    with db(client) as session:
+        stored = session.scalar(select(Login.password_hash))
+    assert stored is not None
+    assert stored.startswith(APP_HASH)
+
+
+def test_the_other_tests_hash_cheaply(client: TestClient) -> None:
+    set_up(client)
+    with db(client) as session:
+        stored = session.scalar(select(Login.password_hash))
+    assert stored is not None
+    assert stored.startswith("$argon2id$v=19$m=8,t=1,p=1$")
 
 
 # --- Signing in and out ----------------------------------------------------------------------
