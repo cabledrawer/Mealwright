@@ -215,9 +215,9 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 0.7.0 0.6.0 fixes, cooking, the Plan redesign and navigation
 
-**Scope and order (cabledrawer 28 Oct):** the 0.6.0 bugs first (there is no 0.6.1: "let fix everything in 0.7.0 and test together") → importer consistency (below) → cooking → the Plan redesign → navigation. 0.7.0 is hand-tested as a whole. **Change of order (cabledrawer 30 Oct):** importer consistency, planned on 28 Oct for 0.7.1, moves back into 0.7.0 and comes straight after the 0.6.0 bugs, before cooking, because cabledrawer is starting real use with his own recipes; there is no separate 0.7.1.
+**Scope and order (cabledrawer 28 Oct):** the 0.6.0 bugs first (there is no 0.6.1: "let fix everything in 0.7.0 and test together") → importer consistency (below) → cooking → the Plan redesign → navigation. 0.7.0 is hand-tested as a whole. **Change of order (cabledrawer 30 Oct):** importer consistency, planned on 28 Oct for 0.7.1, moves back into 0.7.0 and comes straight after the 0.6.0 bugs, before cooking, because cabledrawer is starting real use with his own recipes; there is no separate 0.7.1 (cabledrawer 31 Oct: "There's no 0.7.1: the importer moved into 0.7.0 (C1 and C2 are merged)."). **The 0.7 open questions** (K2 to the release) were answered on 31 Oct; the answers are in the spec, section 6, "Answers to the 0.7 open questions".
 
-**Spec:** section 6, "Decided for 0.7.0 and 0.7.1"; section 2 "Cooking — how deduction works" (all 8 points), section 6 (Plan and batch cooks: cooked record, recipe edited after planning; Recipes: recipes inside recipes), Layout decisions (Cook mode, "Cooked it" review), section 6 gaps (Cook mode ingredients, with the Experimental icon).
+**Spec:** section 6, "Decided for 0.7.0"; section 2 "Cooking — how deduction works" (all 8 points), section 6 (Plan and batch cooks: cooked record, recipe edited after planning; Recipes: recipes inside recipes), Layout decisions (Cook mode, "Cooked it" review), section 6 gaps (Cook mode ingredients, with the Experimental icon).
 
 **Build:**
 
@@ -242,7 +242,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
   - Plan: a "Note" item (eating out); **Plan it** on the recipe page; the phone Plan opens at today; one pass at 768–1100 px on every Plan screen; moving cards with the keyboard (Move to… / Copy to…).
   - The version number in the sidebar foot. Refusing to start with a non-SQLite database address or more than one worker.
   - Paper cuts: the recipe editor keeps an unsaved draft in the tab, with a reload test; Duplicate on the recipe page; a stale-answer guard in `FoodModel.load()`; "0 tubs left" not orange; SECURITY.md claims no encryption that doesn't exist yet. Two PRs (cabledrawer 29 and 30 Oct): PC1 the recipe screens (draft, Duplicate), PC2 the rest (with the friction-log cuts), plus two B3 leftovers (cabledrawer 30 Oct): "+ Add to pantry" and the import messages by cause, and the "Try now" timing case (spec, Server down (F67)).
-  - Release PR: CHANGELOG link footers for 0.4.0–0.6.0; the PNG line in `docs/brand/README.md`.
+  - Release PR: the PNG line in `docs/brand/README.md`. No CHANGELOG link footers in 0.x (cabledrawer 31 Oct: "No CHANGELOG footer links to the private Forgejo: add them at 1.0, pointing at GitHub."). A v0.7.0-beta.1 tag for cabledrawer's full hand test once everything up to the paper cuts is merged (cabledrawer 31 Oct).
 
 **Done when:** the 0.6.0 bugs are fixed with a test each; the deduction engine has thorough unit tests (each of the 8 rules, stand-ins, inner recipes, ask-once); cook → review → confirm → undo works end to end; the Plan redesign works on phone and computer in both themes.
 
@@ -252,7 +252,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ## 0.7.0, importer consistency (cabledrawer 28 Oct; in 0.7.0 before cooking, cabledrawer 30 Oct)
 
-**Spec:** section 6, "Decided for 0.7.0 and 0.7.1" (Importer consistency); section 6, Recipes (import).
+**Spec:** section 6, "Decided for 0.7.0" (Importer consistency); section 6, Recipes (import).
 
 **Build:** cabledrawer: "the importer lacks consistency". The same thing written two ways gives the same result: the ingredient reader (amounts in words and after the name, names that pick up units or two items, "or" and "+" lines, varieties, headings, footnotes, page junk, several links, pints banner: F3, F7, F8, F9, F11, F12, F15, F17, F18, F19, F20, F23, F25, F26, F28, F31, F32, F33, F34, F35; plus "one and a half cups", "a dozen", quarts and fluid ounces, and a list page holding one recipe card; Add an item reads pack words like "2 packets milk", cabledrawer 30 Oct) and the Check screen (fix amount, unit and note, F30.6; a status dot; the same choices on every line incl. Treat as staple, F21; F4, F5, F6, F10, F13, F29). Also (cabledrawer 28 Oct, review of v0.6.0): converted amounts to a cook's precision (340 g; two decimals only below 10 g or ml); tags tidied on import (capitals and a small synonym table); recipe-name patterns ("How to Make …", "(Authentic … Recipe)"); ingredient names' capitals tidied on save; names like "Beef stock made with 1 stock shot or cube". ("Nutrition possibly out of date" moved to 0.8, cabledrawer 31 Oct.) Add an item reads pack words ("2 packets milk") with the ingredient reader (cabledrawer 30 Oct).
 
@@ -330,6 +330,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 ## 1.0.0 First public release
 
 cabledrawer decides when. He makes the GitHub repo public, starting fresh with one clean "Mealwright 1.0" commit; the full history stays private on Forgejo (cabledrawer 28 Oct, review of v0.6.0). Then he tags `v1.0.0`; the GitHub pipeline publishes the images and the release. After that, version numbers follow spec section 8: patch for security and tiny fixes, minor for smaller features, major for big functionality or anything needing user action. Features are bundled into minor releases about once a month at most; security fixes go out whenever needed. Every release is tested upgrading from a 1.0.0 database (the 1.0 promise).
+
+At 1.0, `CHANGELOG.md` gets link footers for every version, pointing at GitHub (cabledrawer 31 Oct: "No CHANGELOG footer links to the private Forgejo: add them at 1.0, pointing at GitHub.").
 
 ## After 1.0.0
 
