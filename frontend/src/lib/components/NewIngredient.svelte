@@ -5,6 +5,7 @@
   // Escape = Cancel.
   import { api, ApiError } from '#lib/api.js';
   import type { CountedAs } from '#lib/client/types.js';
+  import { network } from '#lib/network.svelte.js';
   import { newIngredient, type HowCounted, type NewSize } from '#lib/newIngredient.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
 
@@ -248,7 +249,7 @@
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
       <div class="buttons">
         <button type="button" class="quiet" onclick={() => newIngredient.cancel()}>Cancel</button>
-        <button type="submit" class="main" disabled={!typed || busy}>Add</button>
+        <button type="submit" class="main" disabled={!typed || busy || network.offline}>Add</button>
       </div>
     </form>
   {/if}
