@@ -676,3 +676,59 @@ def test_a_meal_with_the_ingredient_already_short_offers_no_running_low_pack(
     assert rows[1]["short"]["amount"] == 50 and rows[1]["add_to_list"] is True
     ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json={}), 201)
     assert _listed(kitchen, food_id) == [50_000]
+
+
+# --- Round 3: a Use-off row is worked out before stand-ins draw; the running-low tick holds ------
+
+
+def butter_and_ghee(client: TestClient, path: str, butter_in_house: int, low_at: int | None) -> Any:
+    """A recipe needing butter 100 g and ghee 50 g; ghee has none and butter is its stand-in.
+    Returns the butter id and a function that confirms with the butter row's choice."""
+    from test_plan import slot_ids
+
+    butter, ghee = food(client, "Zorba butter"), food(client, "Zorba ghee")
+    ok(client.post(f"{API}/foods/{ghee['id']}/stand-ins", json={"food_id": butter["id"]}), 201)
+    stock(client, butter["id"], butter_in_house, "g")
+    if low_at is not None:
+        patch = {"running_low_at": {"amount": low_at, "unit": "g"}}
+        ok(client.patch(f"{API}/foods/{butter['id']}", json=patch))
+    recipe = recipe_of(client, [line(butter["id"], 100, "g"), line(ghee["id"], 50, "g")])
+    planned = ok(
+        client.post(
+            f"{API}/plan/items",
+            json={
+                "date": FAR.isoformat(),
+                "slot_id": slot_ids(client)["Dinner"],
+                "recipe_id": recipe["id"],
+            },
+        ),
+        201,
+    )
+    item, meal = planned["item_id"], planned["meal_id"]
+    if path == "batch":
+        batch = ok(
+            client.post(f"{API}/plan/items/{item}/batch", json={"tub_count": 3, "pattern": "pick"}),
+            201,
+        )["batch_id"]
+
+    def confirm(**choice: Any) -> Any:
+        body = {"choices": [{"key": f"food:{butter['id']}", **choice}]}
+        if path == "item":
+            return client.post(f"{API}/plan/items/{item}/cook", json=body)
+        if path == "batch":
+            return client.post(f"{API}/plan/batches/{batch}/cook", json=body)
+        return client.post(
+            f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": item, **body}]}
+        )
+
+    return butter["id"], confirm
+
+
+@pytest.mark.parametrize("path", ["item", "batch", "meal"])
+def test_a_use_off_row_has_no_shortfall_another_rows_stand_in_made(
+    kitchen: TestClient, path: str
+) -> None:
+    butter, confirm = butter_and_ghee(kitchen, path, 120, None)
+    ok(confirm(use=False, add_to_list=True), 201)
+    assert _listed(kitchen, butter) == []  # 120 g in the house covers the 100 g it would take
+    assert amounts(kitchen, butter) == [70_000]  # only the ghee's 50 g stand-in was taken

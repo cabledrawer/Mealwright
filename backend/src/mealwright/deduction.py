@@ -333,6 +333,32 @@ def _stand_ins(kitchen: Kitchen, foods: set[int]) -> dict[int, list[int]]:
     return {key: sorted(ids) for key, ids in found.items()}
 
 
+def _dry_run(
+    pool: Pool, row: Row, food: Food, stand_ins: dict[int, list[int]], others: dict[int, Food]
+) -> tuple[int, int]:
+    """What a row would take with Use on, and what its ingredient would have left, worked out the
+    way the preview does (its own packets, else a stand-in's when it has none at all) and then
+    put back: nothing is taken."""
+    saved = dict(pool.left)
+    try:
+        got = pool.take(food, row.wanted or 0, row.from_freezer, False, row.entered is None)
+        took = got.amount if got is not None else 0
+        left = pool.total(food.id)
+        if got is None and left == 0:
+            short = row.wanted or 0
+            for other_id in stand_ins.get(food.id, ()):
+                other = others.get(other_id)
+                if short <= 0 or other is None or other.counted_as != food.counted_as:
+                    continue
+                more = pool.take(other, short, row.from_freezer, True, row.entered is None)
+                if more is not None:
+                    took, short = took + more.amount, short - more.amount
+        return took, left
+    finally:
+        pool.left.clear()
+        pool.left.update(saved)
+
+
 def _refuse(code: str, detail: str) -> Problem:
     return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, code, detail)
 
@@ -374,6 +400,8 @@ def work_out(
     pool = pool or Pool(kitchen)
     pool.ensure(food_ids | set(others))
 
+    off: dict[str, tuple[int, int]] = {}  # a Use-off row: what it would take, and what would be left
+
     # Pass 1: each row's own stock.
     for row in rows:
         choice = choices.get(row.key)
@@ -412,6 +440,9 @@ def work_out(
         if row.wanted is None or row.wanted <= 0:
             continue
         if confirming and not row.use:
+            # Nothing is taken, but what it would take is read now, as the preview reads it: before
+            # any stand-in has drawn on the pool.
+            off[row.key] = _dry_run(pool, row, food, stand_ins, others)
             continue
         taken = pool.take(food, row.wanted, row.from_freezer, False, row.entered is None)
         if taken is not None:
@@ -449,30 +480,15 @@ def work_out(
                 smallest.get(size.food_id, size.amount_milli), size.amount_milli
             )
 
-    def would_take(row: Row, food: Food, wanted: int) -> int:
-        """What this row takes, or would take with Use on: the preview's answer (its own
-        packets, else a stand-in's when it has none at all), read without taking anything."""
-        if row.taken or not (confirming and not row.use):
-            return row.taken
-        got = min(wanted, pool.total(food.id, row.from_freezer))
-        if got == 0 and pool.total(food.id) == 0:
-            got = min(
-                wanted,
-                sum(
-                    pool.total(i, row.from_freezer)
-                    for i in stand_ins.get(food.id, ())
-                    if i in others and others[i].counted_as == food.counted_as
-                ),
-            )
-        return got
-
     for row in rows:
         if row.food is None or row.wanted is None:
             continue
         # Use does not change what is offered (cabledrawer 31 Oct: the tick is its own choice): a
         # row switched off is worked out as the preview works it out, only nothing is taken.
-        applied = not (confirming and not row.use)
-        took = would_take(row, row.food, row.wanted)
+        if row.key in off:
+            took, left_after = off[row.key]
+        else:
+            took, left_after = row.taken, pool.total(row.food.id)
         row.short = max(row.wanted - took, 0)
         if row.status == "take" and not took and not row.entered:
             row.status = "none_in_pantry"
@@ -488,8 +504,7 @@ def work_out(
             row.list_milli = row.short
             default = not (row.in_freezer > 0 and not took)  # in the freezer: in the house
         elif (
-            applied
-            and row.takes
+            row.takes
             and row.food.running_low_milli is not None
             and not row.food.staple
             and pool.total(row.food.id) <= row.food.running_low_milli
