@@ -245,28 +245,30 @@
             aria-expanded={editing}
             onclick={openBox}>{food.name}</button
           >
-          <button
-            type="button"
-            class="amount"
-            aria-expanded={editing}
-            aria-label={item.display
-              ? `Change amount: ${food.name}, ${item.display}`
-              : `Add amount for ${food.name}`}
-            onclick={openBox}
-          >
-            {item.display ?? 'Add amount'}
-            {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
-          </button>
-          {#if model.device === 'computer'}
-            <RowMenu
-              name={food.name}
-              items={[
-                { label: 'Change amount', run: () => openBox() },
-                { label: 'Move to…', run: (from) => openMove(from) },
-                { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
-              ]}
-            />
-          {/if}
+          <span class="end">
+            <button
+              type="button"
+              class="amount"
+              aria-expanded={editing}
+              aria-label={item.display
+                ? `Change amount: ${food.name}, ${item.display}`
+                : `Add amount for ${food.name}`}
+              onclick={openBox}
+            >
+              {item.display ?? 'Add amount'}
+              {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
+            </button>
+            {#if model.device === 'computer'}
+              <RowMenu
+                name={food.name}
+                items={[
+                  { label: 'Change amount', run: () => openBox() },
+                  { label: 'Move to…', run: (from) => openMove(from) },
+                  { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
+                ]}
+              />
+            {/if}
+          </span>
         {/if}
       </div>
     </SwipeRow>
@@ -363,10 +365,20 @@
 
   .line {
     display: flex;
+    flex-wrap: wrap; /* the amount drops under a name whose longest word doesn't fit beside it (F82) */
     align-items: center;
     gap: 0 var(--space-6);
     min-height: 60px;
     padding: var(--space-2) 0;
+  }
+
+  /* The amount and the menu stay together, and drop under the name as one. */
+  .end {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0 var(--space-6);
+    margin-left: auto;
   }
 
   .trolley .line {
@@ -432,17 +444,21 @@
     padding-top: var(--space-4);
   }
 
+  /* Names wrap between words, never inside one: the name keeps room for its longest word
+     (min-content, which `anywhere` would make tiny) and the amount moves under it when that
+     doesn't fit (F82, cabledrawer 30 Oct). Only a word wider than the whole row still breaks. */
   .name {
-    min-width: 0;
+    min-width: min-content;
+    max-width: 100%;
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
     text-align: left;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   /* Not ticked: the name is a button that opens the amount box. */
   button.name {
-    flex: 1 1 8rem;
+    flex: 1 1 0;
     min-height: var(--touch-target);
     padding: 0;
     border: none;

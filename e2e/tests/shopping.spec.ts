@@ -1389,3 +1389,53 @@ test("the Move picker at 200% text: nothing scrolls sideways and it passes the a
   });
   expect(inside).toBe(true);
 });
+
+// F82 (0.7 alpha 1 hand test, cabledrawer 30 Oct): at 1280 px, with the list in two columns and the
+// Put away panel beside it, names broke mid-word ("Cilantr/o", "Corian/der"). A name now wraps
+// between words only; a single word longer than its box may still break (no sideways scroll).
+test("desktop: names on the list never break mid-word at 1280 px with the Put away panel", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the two columns and the panel are the computer layout");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const names = ["Cilantro", "Coriander", "Fenugreek leaves", "Asafoetida", "Cardamom pods", "Mustard seeds"];
+  // A short word after each name keeps a retry from meeting the same ingredient again. Two
+  // aisles make the two columns.
+  const mark = Math.random().toString(36).slice(2, 5);
+  const list = await mainList(page);
+  for (const [n, name] of names.entries()) {
+    const { food } = await call(page, "POST", "/foods", {
+      name: `${name} ${mark}`,
+      counted_as: "weight",
+      aisle: n < 3 ? "veg_fruit" : "spices",
+    });
+    await call(page, "POST", `/shopping/lists/${list}/items`, {
+      food_id: food.id,
+      amount: { amount: 300, unit: "g" },
+    });
+  }
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: /^Tick Cilantro/ }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  // Every word of every name sits on one line: a broken word has a box on two lines.
+  const broken = await page.evaluate((expected) => {
+    const found: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>("main .name")) {
+      const text = el.textContent?.trim() ?? "";
+      if (!expected.some((name) => text.startsWith(name))) continue;
+      const node = el.firstChild;
+      if (!node || node.nodeType !== Node.TEXT_NODE) continue;
+      for (const match of (node.textContent ?? "").matchAll(/\S+/g)) {
+        const range = document.createRange();
+        range.setStart(node, match.index ?? 0);
+        range.setEnd(node, (match.index ?? 0) + match[0].length);
+        const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+        if (lines.size > 1) found.push(match[0]);
+      }
+    }
+    return found;
+  }, names);
+  expect(broken).toEqual([]);
+});
