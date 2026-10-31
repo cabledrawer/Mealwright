@@ -10,7 +10,7 @@ import type { FoodRow } from './client/types';
  *  are part of the letter. */
 const key = (text: string): string =>
   text
-    .toLocaleLowerCase()
+    .toLowerCase()
     .replace(/[\u00df\u1e9e]/gu, 'ss')
     .replace(/\u03c2/gu, '\u03c3')
     .normalize('NFKD')
