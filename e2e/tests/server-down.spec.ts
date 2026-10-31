@@ -261,6 +261,7 @@ test('Ingredients: a row click while the server is down says so, the open editor
   await post(page, '/foods', { name, counted_as: 'weight' });
   await page.goto('/recipes/ingredients');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(name);
   await page.locator('button.row', { hasText: name }).click();
   // Rename while the server is up: a toast with Undo.
   await page.getByRole('button', { name: 'Rename' }).click();

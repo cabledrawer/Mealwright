@@ -419,6 +419,10 @@ async function goOffline(page: Page, context: BrowserContext, path: string, sear
   await search(page, searched);
   await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(searched);
   await hello;
+  // The search's answer is in before the server goes: an answer lost on the way would rightly
+  // leave the list with nothing to show (the steady note), which is a different test.
+  await expect(list(page).getByRole('link', { name: new RegExp(searched) }).first()).toBeVisible();
+  await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);
   await context.route('**/api/**', (route) => route.abort());
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
