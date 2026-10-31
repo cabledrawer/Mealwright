@@ -2,6 +2,7 @@
   // "You already have this recipe" (mockup ImportAlready-Phone, spec "The same link twice",
   // cabledrawer 21 Oct): Open it · Import again as a copy. A sheet on a phone, a dialog on a
   // computer. The server answered before fetching anything, so nothing was visited.
+  import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import type { Already } from '#lib/import.svelte.js';
@@ -66,7 +67,7 @@
     <a class="primary" href={resolve('/(app)/recipes/[id]', { id: String(already.recipe.id) })}
       >Open it</a
     >
-    <button type="button" class="secondary" disabled={busy} onclick={oncopy}
+    <button type="button" class="secondary" disabled={busy || network.offline} onclick={oncopy}
       >Import again as a copy</button
     >
     <button type="button" class="cancel" onclick={onclose}>Cancel</button>

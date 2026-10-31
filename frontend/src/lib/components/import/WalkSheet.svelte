@@ -4,6 +4,7 @@
   // New ingredient · Pick another · Treat as staple, with Skip this line, Back to Check and Save
   // anyway. A sheet on a phone, a dialog on a computer. Words proposed, for cabledrawer, except where
   // the mockup has them.
+  import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import type { Ref } from '#lib/client/types.js';
@@ -159,8 +160,11 @@
 
       <div class="foot">
         <button type="button" class="back" onclick={() => flow.walkClose()}>Back to Check</button>
-        <button type="button" class="anyway" disabled={flow.saving} onclick={onsave}
-          >Save anyway</button
+        <button
+          type="button"
+          class="anyway"
+          disabled={flow.saving || network.offline}
+          onclick={onsave}>Save anyway</button
         >
       </div>
     </div>
@@ -183,8 +187,11 @@
         <button type="button" class="back" bind:this={lastBack} onclick={() => flow.walkClose()}
           >Back to Check</button
         >
-        <button type="button" class="anyway" disabled={flow.saving} onclick={onsave}
-          >Save anyway</button
+        <button
+          type="button"
+          class="anyway"
+          disabled={flow.saving || network.offline}
+          onclick={onsave}>Save anyway</button
         >
       </div>
     </div>
