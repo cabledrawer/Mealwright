@@ -1115,6 +1115,7 @@ class MealItem(Base):
             ondelete="CASCADE",
             name="fk_meal_item_household_id_tub",
         ),
+        UniqueConstraint("household_id", "id", name="uq_meal_item_household_id_id"),
         Index("ix_meal_item_household_id_meal_id", "household_id", "meal_id", "position"),
         # A tub sits in one meal at a time.
         Index("uq_meal_item_tub_id", "tub_id", unique=True),
@@ -1140,6 +1141,62 @@ class MealItem(Base):
     name: Mapped[str | None] = mapped_column(String(200))
     # How many people the recipe is for. Null: its own "serves".
     servings: Mapped[int | None] = mapped_column(Integer)
+
+
+class CookedRecord(Base):
+    """What was actually cooked, for one meal item or one batch cook (spec section 6, "Plan
+    and batch cooks": "Cooked meals keep a record of what was actually made", cabledrawer 17 Oct):
+    a snapshot of the recipe as cooked, and the change-log group holding its stock changes.
+    Written by "Cooked it"; read-only otherwise. The snapshot is the record's own copy, so
+    editing the recipe or deleting it for good changes nothing here."""
+
+    __tablename__ = "cooked_record"
+    __table_args__ = (
+        CheckConstraint("(meal_item_id IS NULL) != (batch_id IS NULL)", name="meal_item_or_batch"),
+        CheckConstraint("portions >= 1 AND portions <= 999", name="portions_range"),
+        ForeignKeyConstraint(
+            ["household_id", "meal_item_id"],
+            ["meal_item.household_id", "meal_item.id"],
+            ondelete="CASCADE",
+            name="fk_cooked_record_household_id_meal_item",
+        ),
+        ForeignKeyConstraint(
+            ["household_id", "batch_id"],
+            ["batch_cook.household_id", "batch_cook.id"],
+            ondelete="CASCADE",
+            name="fk_cooked_record_household_id_batch_cook",
+        ),
+        # One record per meal item, and per batch cook.
+        Index("uq_cooked_record_meal_item_id", "meal_item_id", unique=True),
+        Index("uq_cooked_record_batch_id", "batch_id", unique=True),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    meal_item_id: Mapped[int | None] = mapped_column(Integer)
+    batch_id: Mapped[int | None] = mapped_column(Integer)
+    # The recipe it was cooked from, while it exists; the snapshot keeps its name either way.
+    recipe_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe.id", ondelete="SET NULL"), index=True
+    )
+    # How many portions were cooked. The snapshot's amounts are the recipe's own, for its
+    # servings (spec section 2, deduction point 2 scales them by portions over servings).
+    portions: Mapped[int] = mapped_column(Integer)
+    # The recipe as it was when cooked: name, version, servings, lines (words, amount, unit,
+    # the ingredient or recipe and its name, note) and steps. `mealwright.cooked.Snapshot`.
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+    # The change-log group with its stock changes. Emptied if the tidy-up deletes that change.
+    change_id: Mapped[int | None] = mapped_column(
+        ForeignKey("change.id", ondelete="SET NULL"), index=True
+    )
+    cooked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    cooked_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    cooked_by_name: Mapped[str] = mapped_column(String(100), default="")
 
 
 @event.listens_for(MealItem, "before_insert")

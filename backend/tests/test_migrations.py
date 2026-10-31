@@ -984,3 +984,64 @@ def test_step_links_migration_adds_one_table_and_goes_back_and_forward(tmp_path:
     migrate.downgrade(engine, RESTOCK_MIGRATION)
     assert _row_counts(engine, skip) == after
     assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
+
+
+STEP_LINKS_MIGRATION = "31a5838bc5a2"  # 0.7 K1's step links: the one just before cooked records
+
+
+def test_cooked_records_migration_adds_one_table_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.7 K1: the cooked record table is added empty, meal items keep every row, rule and
+    "never reuse an id"; a record can't reach into another household, is for a meal item or a
+    batch (never both), and keeps its snapshot when the recipe goes; going back drops only the
+    table."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    migrate.downgrade(engine, STEP_LINKS_MIGRATION)
+    with engine.begin() as connection:
+        slot = connection.exec_driver_sql(
+            "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        connection.exec_driver_sql(
+            "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+            " VALUES (1, 1, '2026-10-30', ?, 'cooked', '2026-10-30')",
+            (slot,),
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
+            " VALUES (1, 1, 1, 0, 'recipe', 1)"
+        )
+    skip = {"cooked_record", "alembic_version"}
+    before = _row_counts(engine, skip)
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    sql = _table_sql(engine, "meal_item")
+    assert "AUTOINCREMENT" in sql and "ck_meal_item_one_of" in sql
+    snapshot = '{"name": "Sambar", "version": 1, "servings": 4, "lines": [], "steps": []}'
+    add_row = (
+        "INSERT INTO cooked_record (household_id, meal_item_id, batch_id, recipe_id, portions,"
+        " snapshot, cooked_at, cooked_by_name) VALUES (?, ?, ?, 1, 2, ?, '2026-10-30', 'User')"
+    )
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        for household_id, item_id in ((2, 1), (1, None)):
+            with pytest.raises(IntegrityError):
+                connection.exec_driver_sql(add_row, (household_id, item_id, None, snapshot))
+        connection.exec_driver_sql(add_row, (1, 1, None, snapshot))
+        connection.exec_driver_sql("UPDATE meal_item SET name = 'Sambar', recipe_id = NULL")
+        connection.exec_driver_sql("DELETE FROM recipe_line WHERE recipe_id = 1")
+        connection.exec_driver_sql("DELETE FROM recipe_step WHERE recipe_id = 1")
+        connection.exec_driver_sql("DELETE FROM recipe_tag WHERE recipe_id = 1")
+        connection.exec_driver_sql("DELETE FROM recipe_photo WHERE recipe_id = 1")
+        connection.exec_driver_sql("DELETE FROM recipe WHERE id = 1")
+        kept = connection.exec_driver_sql("SELECT recipe_id, snapshot FROM cooked_record").one()
+    assert kept[0] is None and "Sambar" in kept[1]
+    after = _row_counts(engine, skip)
+    migrate.downgrade(engine, STEP_LINKS_MIGRATION)
+    assert "cooked_record" not in inspect(engine).get_table_names()
+    assert _row_counts(engine, skip) == after
+    assert "AUTOINCREMENT" in _table_sql(engine, "meal_item")
+    migrate.upgrade(engine)
+    assert _row_counts(engine, skip) == after
