@@ -508,6 +508,26 @@ def work_out(
     return Worked(recipe, portions, rows)
 
 
+def settle_meal(worked: list[Worked]) -> None:
+    """Across the recipes of one meal: an ingredient gets at most one running-low pack, and none
+    when the same ingredient is already short somewhere in the meal (the shortfall is the bigger
+    offer). Later rows give way to the first."""
+    short = {
+        row.food.id
+        for each in worked
+        for row in each.rows
+        if row.food is not None and row.short > 0 and row.inner is None
+    }
+    seen: set[int] = set()
+    for each in worked:
+        for row in each.rows:
+            if not row.running_low or row.food is None:
+                continue
+            if row.food.id in short or row.food.id in seen:
+                row.running_low, row.list_milli, row.add_to_list = False, 0, False
+            seen.add(row.food.id)
+
+
 # --- What the API shows -------------------------------------------------------------------------
 
 

@@ -614,3 +614,65 @@ def test_the_undos_sync_log_row_says_what_it_undoes(kitchen: TestClient) -> None
         assert row.kind == "undo" and row.payload == {"undoes": action_id}
         assert db.get(SyncAction, (1, action_id)).undone_by_action_id == row.id  # type: ignore[union-attr]
         assert dal["id"]
+
+
+# --- Running low in a meal: one pack per ingredient -----------------------------
+
+
+def two_recipes_one_food(
+    client: TestClient, in_stock: int, need: tuple[int, int]
+) -> tuple[int, int]:
+    from test_plan import slot_ids
+
+    dal = food(client, "Zorba dal")
+    stock(client, dal["id"], in_stock, "g")
+    ok(
+        client.patch(
+            f"{API}/foods/{dal['id']}", json={"running_low_at": {"amount": 300, "unit": "g"}}
+        )
+    )
+    meal = 0
+    for name, grams in zip(("Zorba sambar", "Zorba rasam"), need, strict=True):
+        recipe = make(client, name, serves=4, lines=[line(dal["id"], grams, "g")])
+        planned = ok(
+            client.post(
+                f"{API}/plan/items",
+                json={
+                    "date": FAR.isoformat(),
+                    "slot_id": slot_ids(client)["Dinner"],
+                    "recipe_id": recipe["id"],
+                    "servings": 4,
+                },
+            ),
+            201,
+        )
+        meal = planned["meal_id"]
+    return dal["id"], meal
+
+
+def test_a_meal_offers_one_running_low_pack_per_ingredient(kitchen: TestClient) -> None:
+    food_id, meal = two_recipes_one_food(kitchen, 400, (100, 100))  # 300 g left, then 200 g
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    rows = [row_of(i["proposal"], "Zorba dal") for i in shown["items"]]
+    assert [r["running_low"] for r in rows] == [True, False]
+    assert rows[1]["list_amount"] is None and rows[1]["add_to_list"] is False
+    both = {
+        "items": [
+            {"item_id": i["item_id"], "choices": [{"key": f"food:{food_id}", "add_to_list": True}]}
+            for i in shown["items"]
+        ]
+    }
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json=both), 201)
+    assert _listed(kitchen, food_id) == [300_000]  # one pack, not two
+
+
+def test_a_meal_with_the_ingredient_already_short_offers_no_running_low_pack(
+    kitchen: TestClient,
+) -> None:
+    food_id, meal = two_recipes_one_food(kitchen, 250, (100, 200))  # the second is 50 g short
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={}))
+    rows = [row_of(i["proposal"], "Zorba dal") for i in shown["items"]]
+    assert [r["running_low"] for r in rows] == [False, False]
+    assert rows[1]["short"]["amount"] == 50 and rows[1]["add_to_list"] is True
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/cook", json={}), 201)
+    assert _listed(kitchen, food_id) == [50_000]

@@ -31,7 +31,7 @@ from sqlalchemy import select
 from mealwright import cooked, plan
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
-from mealwright.deduction import Choice, Pool, Row, Worked, work_out
+from mealwright.deduction import Choice, Pool, Row, Worked, settle_meal, work_out
 from mealwright.errors import Problem, not_found
 from mealwright.foods import remember_answers
 from mealwright.history import Tally, as_utc
@@ -202,7 +202,9 @@ def preview(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> li
     """One proposal for each recipe, from one pool of packets: two recipes of a meal never
     both propose the same grams."""
     pool = Pool(kitchen)
-    return [work_out(kitchen, e.recipe, e.portions, answers, None, pool) for e in entries]
+    found = [work_out(kitchen, e.recipe, e.portions, answers, None, pool) for e in entries]
+    settle_meal(found)
+    return found
 
 
 # --- Confirming -----------------------------------------------------------------------------------
@@ -257,6 +259,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     nothing: a refusal comes before anything is written), and write a record for each."""
     pool = Pool(kitchen)
     worked = [work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool) for e in entries]
+    settle_meal(worked)
     remember_answers(kitchen, answers)
     edit = StockEdit(kitchen)
     for each in worked:
