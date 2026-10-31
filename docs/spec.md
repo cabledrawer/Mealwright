@@ -627,7 +627,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 
 **From the v0.7.0-alpha.1 hand test (cabledrawer 30 Oct; findings F80–F86 in his friction log):**
 
-- **F80 (server down, a B3 bug):** a recipe or list already showing stays when the server stops; nothing replaces it with the "Can't reach" note without the person doing anything. With and without the service worker.
+- **F80 (server down, a B3 bug):** a recipe or list already showing stays when the server stops (for the Recipes, Ingredients and Pantry lists, changed by cabledrawer 31 Oct: see "What works with the server down" below); nothing replaces it with the "Can't reach" note without the person doing anything. With and without the service worker.
 - **F86:** when a page's code can't be fetched (server down, page not saved on the device), the "Can't reach" note shows with the menu, never a bare "500 Internal Error".
 - **What works with the server down (cabledrawer 31 Oct):** "Only Today and Shopping need to work with the server down. Recipes, Ingredients and Pantry may show the "Can't reach" note instead of their saved lists." So Today and Shopping keep working from the saved copy, and an open recipe stays on screen when the server stops (F80, unchanged). The Recipes, Ingredients and Pantry lists are no longer promised offline and may show the "Can't reach" note. This changes the older lines on what the phone keeps offline (sections "Offline shopping-list sync" and the offline bullet in the overview).
 - **F81:** the Undo clash message names the meal ("Nothing to put back for Banana bread (Sun breakfast): it has changed again since.").
