@@ -211,13 +211,20 @@ class Batch:
         # Another Batch in this same transaction (a plan Undo updates the list inside the
         # Undo's own) may have used numbers since this one began: start from the household's
         # counter as it stands, so a number is never used twice.
-        self.last = max(self.last, self.kitchen.household.list_seq) + 1
+        #
+        # The household's counter is written at once (follow-up 7, PR 74 security round 2), so a
+        # second Batch started in this transaction can't start from a stale number.
+        household = self.kitchen.household
+        self.last = max(self.last, household.list_seq) + 1
+        household.list_seq = self.last
         self.taken.append(self.last)
         return self.last
 
     def give_back(self) -> None:
         """A refused action hands its number back (it is always the last one taken)."""
-        self.taken.pop()
+        household = self.kitchen.household
+        if household.list_seq == self.taken.pop():
+            household.list_seq = self.last - 1
         self.last -= 1
 
     def number(self) -> int:
