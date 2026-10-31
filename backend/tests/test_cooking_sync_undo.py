@@ -2,13 +2,15 @@
 through `undo_checked`/`undo_run`, so "Cooked it" can be cooked again after either, and a
 removal that no longer stands cannot be undone by either."""
 
+from datetime import timedelta
+
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sync_kit import PHONE_A, new_id, ok, one, s0
 from test_cooking import amounts, cook, far_curry
 from test_plan import db_of
 
-from mealwright.models import Change, CookedRecord, SyncAction
+from mealwright.models import Change, CookedRecord, SyncAction, utcnow
 
 API = "/api/v1"
 
@@ -52,3 +54,31 @@ def test_a_sync_undo_of_a_removal_that_no_longer_stands_is_refused(kitchen: Test
     assert result["status"] == "ignored" and result["reason"] == "cannot_undo"
     http = kitchen.post(f"{API}/changes/{removed.id}/undo")
     assert http.status_code == 409 and http.json()["code"] == "cannot_undo"
+
+
+def test_a_too_old_removal_that_no_longer_stands_says_too_old_over_http(
+    kitchen: TestClient,
+) -> None:
+    """Undo in Recent changes asks the window before whether the removal stands, as it always
+    did."""
+    s = s0(kitchen)
+    phone = "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d43"
+    one(s.wren, "delete", s.c0, phone, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(
+        s.wren,
+        "add",
+        s.c0,
+        phone,
+        list_id=s.main,
+        item_id=new_id(),
+        new_food={"name": "paneer", "counted_as": "weight"},
+    )
+    with db_of(kitchen) as db:
+        removed = db.scalars(select(Change).where(Change.kind == "food_removed")).one()
+        db.execute(
+            update(Change).where(Change.id == removed.id).values(at=utcnow() - timedelta(days=8))
+        )
+        db.commit()
+    response = kitchen.post(f"{API}/changes/{removed.id}/undo")
+    assert response.status_code == 410 and response.json()["code"] == "too_old"

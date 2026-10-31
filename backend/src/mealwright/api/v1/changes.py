@@ -465,20 +465,30 @@ def undo_change(
     return undo
 
 
-def undo_refusal(kitchen: Kitchen, change: Change) -> str | None:
-    """Why this change cannot be undone, whichever way the Undo comes (Recent changes, or the
-    sync log): `cannot_undo` or `already_undone`; None when nothing stands in the way. The window
-    is the caller's (the sync log corrects it for the phone's clock)."""
+def undo_kind_refusal(change: Change) -> str | None:
+    """The first checks of an Undo, whichever way it comes: `cannot_undo` for an Undo or a
+    change that only keeps a request key, `already_undone`; None when nothing stands in the way."""
     if change.kind == "undo" or change.kind in KEY_ONLY_KINDS:
         return "cannot_undo"
     if change.undone_by_change_id is not None:
         return "already_undone"
-    # "Lemon is back in Ingredients", or a removal of Lemon that no longer stands.
+    return None
+
+
+def undo_standing_refusal(kitchen: Kitchen, change: Change) -> str | None:
+    """`cannot_undo` for "Lemon is back in Ingredients", or a removal of Lemon that no longer
+    stands. The HTTP Undo asks it after the window, the sync log in `undo_refusal`."""
     if change.kind in NOTE_KINDS or (
         change.kind == "food_removed" and not removal_stands(kitchen, change)
     ):
         return "cannot_undo"
     return None
+
+
+def undo_refusal(kitchen: Kitchen, change: Change) -> str | None:
+    """Why this change cannot be undone, the window apart (the sync log corrects the window for
+    the phone's clock, so it asks for it itself)."""
+    return undo_kind_refusal(change) or undo_standing_refusal(kitchen, change)
 
 
 def undo_run(
@@ -509,7 +519,7 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         change = kitchen.db.get(Change, change_id)
         if change is None or change.household_id != kitchen.household_id:
             raise not_found("That change")
-        refused = undo_refusal(kitchen, change)
+        refused = undo_kind_refusal(change)
         if refused == "already_undone":
             raise already_undone()
         if refused is not None:
@@ -521,6 +531,8 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             raise Problem(status.HTTP_409_CONFLICT, refused, message)
         if utcnow() >= undo_until(kitchen, change):
             raise too_old()
+        if undo_standing_refusal(kitchen, change) is not None:
+            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         from mealwright.ticks import pantry_undo
 
         undone = undo_run(kitchen, change, batch, lambda: pantry_undo(kitchen, change, batch))
