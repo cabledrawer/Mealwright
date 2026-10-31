@@ -323,6 +323,29 @@ def test_the_main_photo_waits_until_save_and_goes_on_the_recipe(
     assert recipe["photo"]["id"] == photo["id"]
 
 
+def test_f92_ten_reads_then_discarding_them_frees_the_eleventh(
+    links_on: TestClient, web: Web
+) -> None:
+    """F92: the Check screen's Discard deletes its waiting photo (DELETE /recipes/photos/<id>), so
+    ten reads that were never saved don't block the next one."""
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = kit.jpeg(1200, 900)
+    shown = [review(links_on, LINK, again=True) for _ in range(10)]
+    assert all(each["photo"]["state"] == "downloaded" for each in shown)
+    blocked = review(links_on, LINK, again=True)
+    assert blocked["photo"]["state"] == "failed"
+    assert blocked["photo"]["message"] == photos.TOO_MANY_WAITING
+    for each in shown:
+        assert (
+            links_on.delete(f"{API}/recipes/photos/{each['photo']['photo']['id']}").status_code
+            == 204
+        )
+    again = review(links_on, LINK, again=True)
+    assert again["photo"]["state"] == "downloaded"
+    with links_on.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert len(db.scalars(select(RecipePhoto)).all()) == 1
+
+
 def test_a_photo_that_cannot_be_had_never_stops_the_import(links_on: TestClient, web: Web) -> None:
     switch(links_on, Connection.RECIPE_PHOTOS)
     web.photo = FetchRefused(Problem.PHOTO_TOO_BIG)

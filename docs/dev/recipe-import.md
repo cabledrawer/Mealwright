@@ -622,3 +622,11 @@ Written by Claude Code on 30 Oct from cabledrawer's 28 and 30 Oct decisions ("th
 - **Review (`recipe_import.py`):** junk and headings are decided for pasted text and pages alike; lines under a serving heading get the note "optional"; the review's `words` is the name without its prep words (the note carries them: F7); `pints.us_site` is false when no line says pints (F15); `more_links` (new field).
 - **Kept in (`ingredient_match.py`):** `FRIDGE_WORDS` / `NOT_FRIDGE` choose the Fridge for milk, cream, raw meat and the like; chicken bouillon and corned beef are Cupboard, fish fingers Freezer (cabledrawer 31 Oct: "C1 readings: OK, but fix the Fridge list: chicken bouillon → Cupboard, (tinned) corned beef → Cupboard, fish fingers → Freezer").
 - **Add an item:** `frontend/src/lib/shopping/addAmount.ts` reads the ways an ingredient is sold in front of a name ("2 packets milk"). It works offline, so it mirrors the reader's container words in a short list there rather than asking the server.
+
+## Alpha 2 fixes (0.7, PR A3; F87, F88, F91)
+
+Reading choices below are proposed, for cabledrawer.
+
+- **F87 (proposed, for cabledrawer):** a word before "cloves" or "sprigs" that is in `WEAK_WORDS` (whole, dried, ground, red...) is part of the name, so "8 whole cloves" reads as the name "whole cloves", amount 8, no size word. The matcher then finds Cloves as a "to confirm" best guess, or "Whole cloves" exactly if it exists. "2 garlic cloves" and "2 whole garlic cloves" still read the clove as the size word.
+- **F88:** `_review_line` kept moving the amount of a line with a size word into the note when the ingredient had no such size, even when the amount was a weight or volume ("three 14-ounce cans" is 1,191 g). It now does that only when the line has no unit, the same test `size_ok` and the matcher use. The line as written stays in the note.
+- **F91 (proposed, for cabledrawer):** `clean_recipe_name` also drops a "How to Make ..." part after a comma, colon, dash or bar, and "Recipe" as a word of its own anywhere ("Recipe book cake" is "Book cake"). Every source of a name goes through the one call in `recipe_import`.
