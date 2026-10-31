@@ -205,13 +205,17 @@ if need uv; then
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
   # --durations=25: the 25 slowest tests are named at the end of the step's log.
+  # -n: the backend tests run in several workers (pytest-xdist, cabledrawer 31 Oct). Four by default;
+  # CHECK_PYTEST_WORKERS changes it (1 runs them all in one process, as before).
+  workers=(-n "${CHECK_PYTEST_WORKERS:-4}")
+  [[ "${CHECK_PYTEST_WORKERS:-4}" == 1 ]] && workers=(-p no:xdist)
   if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
-    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q --durations=25
+    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25
   else
     # Finished after the browser tests (finish_beside, below). At a lower priority (nice), so
     # the browser tests, which have timings to keep, always come first for the processor.
     start_beside "backend: pytest" "ran beside the browser tests" \
-                                 backend env TMPDIR="$RUN_TMP" nice -n 10 uv run --frozen pytest -q --durations=25
+                                 backend env TMPDIR="$RUN_TMP" nice -n 10 uv run --frozen pytest -q "${workers[@]}" --durations=25
   fi
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
   step "backend: no telemetry"   backend uv run --frozen python -I scripts/check_no_telemetry.py

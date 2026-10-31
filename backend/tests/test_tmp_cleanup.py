@@ -69,3 +69,14 @@ def test_the_check_can_see_folders_that_are_left(tmp_path: Path) -> None:
     # The same run with the old setting leaves its folder, so the test above isn't vacuous.
     left = run_inner(tmp_path, "-o", "tmp_path_retention_policy=all")
     assert left, "expected pytest to keep its folder with the retention policy on 'all'"
+
+
+def test_a_run_in_several_workers_removes_its_temp_folders(tmp_path: Path) -> None:
+    # ./check runs the backend tests in several workers (pytest-xdist, cabledrawer 31 Oct); each
+    # worker has a folder of its own inside the run's, and all of them must go too.
+    assert run_inner(tmp_path, "-n", "2") == []
+
+
+def test_the_check_can_see_a_worker_folder_that_is_left(tmp_path: Path) -> None:
+    left = run_inner(tmp_path, "-n", "2", "-o", "tmp_path_retention_policy=all")
+    assert left, "expected pytest to keep its folder with the retention policy on 'all'"
