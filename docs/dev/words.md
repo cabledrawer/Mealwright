@@ -620,6 +620,12 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 - **Leaving with a timer running:** **Stop the timer and leave?** with **Stay** and **Leave** (spec).
 - **Page title:** *Cooking Sambar · Mealwright*.
 
+**Decisions for K4 (proposed, for cabledrawer; the lead's safest choices while the maintainer is away):**
+- **Ingredients for each step** is remembered on this device (local storage), not for the household, until a household setting is decided (it needs a database change).
+- **Cooked it** is not shown at the end of Cook mode when it was opened with Cook now (no meal in the plan to cook); only **Not now** is.
+- Cook mode shows the recipe's own amounts, not the servings chosen on the recipe page.
+- The per-step guess is made on the screen only; nothing is written when a recipe is saved.
+
 ## 30. Portions, Serves, who's eating and Notes (0.7 P1; proposed, for cabledrawer unless the mockup or spec has the words)
 
 Written by Claude Code on 1 Nov from the mockup `Leftovers07-Phone` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" and "A "Note" plan item". cabledrawer's own words (spec, 28 Oct): "Portions", "Leftovers on…", "No portions left", "Cook more", "Add anyway", "Serves − N +", and the Note examples "eating out", "takeaway", "at Amma's".
