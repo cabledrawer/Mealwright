@@ -519,6 +519,14 @@ export class ImportFlow {
     undoHistory.record(entry);
   }
 
+  /** Remove line: the line is taken out of the review, so it is not saved, not counted and not
+   *  in the Save warning. The toast's Undo (and Ctrl+Z) puts it back where it was. */
+  removeLine(index: number): void {
+    const line = this.review?.lines[index];
+    if (!line || line.kind !== 'ingredient') return;
+    this.#swap(index, [line], [], `Removed “${shorter(line.written)}”`);
+  }
+
   /** Split into two: one line that is really two ingredients ("water and broth") becomes two
    *  lines with the names given, each with no amount and the note "4½ cups together" when the
    *  line had one. The two are looked up in the household's ingredients by exact name, as the

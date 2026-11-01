@@ -623,6 +623,93 @@ describe('importer consistency on Check (0.7)', () => {
     });
   });
 
+  describe('F105: Remove line', () => {
+    const three = () => [
+      icing({}),
+      icing({ written: 'icing sugar, to decorate', note: 'to decorate' }),
+      icing({ written: '1 egg', words: 'egg', learn_name: 'egg', new_ingredient: null })
+    ];
+    beforeEach(() => {
+      undoHistory.clear();
+      toasts.dismiss();
+    });
+
+    it('takes the line out of what is saved and of every count', () => {
+      const flow = flowOf({ lines: three() });
+      expect(flow.unlinked).toBe(3);
+      expect(flow.counts.needs_you).toBe(3);
+      flow.removeLine(2);
+      expect(flow.review!.lines.map((l) => l.written)).toEqual([
+        '140g icing sugar, sifted',
+        'icing sugar, to decorate'
+      ]);
+      expect(flow.unlinked).toBe(2);
+      expect(flow.counts).toEqual({ matched: 0, to_confirm: 0, needs_you: 2, staple: 0 });
+      expect(flow.body()!.lines.map((l) => l.words)).toEqual(['icing sugar', 'icing sugar']);
+      expect(flow.unlinkedLines()).toEqual([0, 1]);
+    });
+
+    it('says what was removed, with Undo, and keeps the choices with their lines', () => {
+      const flow = flowOf({ lines: three() });
+      flow.newIngredient(0); // line 1 follows it
+      flow.removeLine(0);
+      expect(toasts.current?.message).toBe('Removed “140g icing sugar, sifted”');
+      expect(toasts.current?.action?.label).toBe('Undo');
+      // The line that followed is now the first, with its choice and no "also used for".
+      expect(flow.choices[0]).toMatchObject({ kind: 'new', name: 'Icing sugar' });
+      expect(flow.choices[1]).toBeUndefined();
+      expect(flow.sharedFrom).toEqual({});
+      expect(flow.unlinked).toBe(1);
+    });
+
+    it('puts the line back where it was, with its choice and its followers', async () => {
+      const flow = flowOf({ lines: three() });
+      flow.newIngredient(0);
+      flow.removeLine(0);
+      flow.removeLine(1); // the egg
+      expect(flow.review!.lines).toHaveLength(1);
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.lines.map((l) => l.words)).toEqual(['icing sugar', 'icing sugar', 'egg']);
+      expect(flow.choices[0]).toMatchObject({ kind: 'new' });
+      expect(flow.choices[1]).toMatchObject({ kind: 'new' });
+      expect(flow.choices[2]).toBeUndefined();
+      expect(flow.followers(0)).toEqual([1]);
+      expect(toasts.current?.message).toBe('Undone: Removed “140g icing sugar, sifted”');
+    });
+
+    it('cuts a long line in the toast', () => {
+      const long = 'x'.repeat(10) + ' ' + 'y'.repeat(60);
+      const flow = flowOf({ lines: [icing({ written: long }), ...three()] });
+      flow.removeLine(0);
+      expect(toasts.current?.message).toBe(`Removed “${'x'.repeat(10)}…”`);
+    });
+
+    it('leaves headings alone', () => {
+      const flow = flowOf({
+        lines: [{ ...icing({}), kind: 'heading', label: null }, ...three()]
+      });
+      flow.removeLine(0);
+      expect(flow.review!.lines).toHaveLength(4);
+      expect(undoHistory.size).toBe(0);
+    });
+
+    it('forgets the Undo when the screen goes', async () => {
+      const flow = flowOf({ lines: three() });
+      flow.removeLine(0);
+      flow.forgetTakenOut();
+      expect(await undoHistory.undoLast()).toBe(false);
+      expect(flow.review!.lines).toHaveLength(2);
+    });
+
+    it('counts as a change since the draft was kept', () => {
+      const flow = flowOf({ lines: three() });
+      expect(flow.unkept).toBe(false);
+      flow.removeLine(1);
+      expect(flow.unkept).toBe(true);
+    });
+  });
+
   describe('F109: Split into two', () => {
     const joined = () =>
       icing({

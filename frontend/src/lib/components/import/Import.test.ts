@@ -552,6 +552,41 @@ describe('Import a recipe', () => {
       expect(page.getByText(/also called/).elements()).toHaveLength(1);
     });
 
+    it('has Remove line on each ingredient line: out of the recipe, the counts and the warning, with Undo (F105)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      await expect
+        .element(page.getByText('2 lines will be saved without an ingredient.', { exact: false }))
+        .toBeVisible();
+      expect(page.getByRole('button', { name: /^Remove line/ }).elements()).toHaveLength(3);
+      await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
+      expect(flow.review!.lines).toHaveLength(2);
+      expect(toasts.current?.message).toBe('Removed “1 red onion, sliced”');
+      await expect
+        .element(page.getByText('1 line will be saved without an ingredient.', { exact: false }))
+        .toBeVisible();
+      await expect.element(page.getByText('0 to confirm')).toBeVisible();
+      expect(document.querySelector('.lines h2')?.textContent).toContain('2');
+      expect(page.getByText('1 red onion, sliced').elements()).toHaveLength(0);
+      // The cursor stays in the list, on the Remove of the line that took its place.
+      expect(document.activeElement?.getAttribute('aria-label')).toBe(
+        'Remove line: ¼ tsp asafoetida'
+      );
+      expect(flow.body()!.lines.map((l) => l.words)).toEqual(['thuvaram paruppu', 'asafoetida']);
+      // Undo brings it back in the same place.
+      expect(await undoHistory.undoLast()).toBe(true);
+      flushSync();
+      await expect
+        .element(page.getByText('2 lines will be saved without an ingredient.', { exact: false }))
+        .toBeVisible();
+      expect(flow.review!.lines.map((l) => l.written)).toEqual([
+        '1 cup (200 g) thuvaram paruppu',
+        '1 red onion, sliced',
+        '¼ tsp asafoetida'
+      ]);
+    });
+
     it('Split into two on any line: two names, then two lines (F109)', async () => {
       undoHistory.clear();
       toasts.dismiss();

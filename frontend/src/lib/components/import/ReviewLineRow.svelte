@@ -13,6 +13,7 @@
   // pressed. A New ingredient opens its form, which closes with Done (F10) and shows as a settled
   // line; a choice made on one line is taken by the lines of the same import that read as the
   // same thing (F6).
+  import { tick } from 'svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -114,6 +115,16 @@
 
   async function doSplit() {
     splitError = !(await flow.splitLine(index, splitNames));
+  }
+
+  /** Remove line: taken out of the recipe, with Undo in the toast (F105). The cursor stays in the
+   *  list, on the Remove of the line that took its place. */
+  async function remove(button: HTMLElement) {
+    const list = button.closest('ul');
+    flow.removeLine(index);
+    await tick();
+    const buttons = list?.querySelectorAll<HTMLElement>('[data-remove-line]');
+    (buttons?.[index] ?? buttons?.[index - 1])?.focus();
   }
 
   function pick(food: Ref) {
@@ -508,6 +519,13 @@
         aria-expanded={splitting}
         aria-label="Split into two: {line.written}"
         onclick={openSplit}>Split into two</button
+      >
+      <button
+        type="button"
+        class="remove"
+        data-remove-line
+        aria-label="Remove line: {line.written}"
+        onclick={(e) => void remove(e.currentTarget)}>Remove line</button
       >
     </div>
   </li>
