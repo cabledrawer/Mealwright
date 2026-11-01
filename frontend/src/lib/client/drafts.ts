@@ -8,7 +8,9 @@ import type { ImportReview } from './imports';
 /** What one line was set to on the review, as a draft keeps it. */
 export type DraftChoice =
   | { kind: 'ingredient'; food: Ref; learn: boolean }
-  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null };
+  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
+  /** "Made in this recipe" (F108): saved as words only. */
+  | { kind: 'here' };
 
 /** Every choice so far: the boxes on top (null: as read) and a choice per settled line. */
 export interface DraftChoices {

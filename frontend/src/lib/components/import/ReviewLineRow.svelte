@@ -45,6 +45,13 @@
   let amountError = $state(false);
   let nameError = $state(false);
   const choice = $derived(flow.choices[index] ?? null);
+  /** A New ingredient or staple choice (has a name and a place), and "Made in this recipe" (F108). */
+  const made = $derived(
+    choice && (choice.kind === 'new' || choice.kind === 'staple') ? choice : null
+  );
+  const here = $derived(choice?.kind === 'here');
+  /** "Made in this recipe" is offered first (F108). */
+  const hereFirst = $derived(flow.offersMadeHere(index));
   const open = $derived(line.label === 'to_confirm' || line.label === 'needs_you');
   const COUNTED: { value: CountedAs; label: string }[] = [
     { value: 'weight', label: 'By weight' },
@@ -82,6 +89,7 @@
 
   /** The name shown in bold: what it is (or will be) in your kitchen, else what was read. */
   const name = $derived.by(() => {
+    if (choice?.kind === 'here') return line.words;
     if (choice) return choice.kind === 'ingredient' ? choice.food.name : choice.name;
     if (!open) return line.food?.name ?? line.words;
     return line.words;
@@ -139,17 +147,18 @@
   }
 
   function edit(change: Partial<Extract<Choice, { kind: 'new' | 'staple' }>>) {
-    if (choice && choice.kind !== 'ingredient') {
-      flow.choose(index, { ...choice, ...change });
+    if (made) {
+      flow.choose(index, { ...made, ...change });
       for (const at of flow.followers(index)) {
         const other = flow.choices[at];
-        if (other && other.kind !== 'ingredient') flow.choose(at, { ...other, ...change });
+        if (other && (other.kind === 'new' || other.kind === 'staple'))
+          flow.choose(at, { ...other, ...change });
       }
     }
   }
 
   function doneForm() {
-    if (choice && choice.kind !== 'ingredient' && !choice.name.trim()) {
+    if (made && !made.name.trim()) {
       nameError = true;
       return;
     }
@@ -226,8 +235,10 @@
 
       <p class="read">
         <span class="what">
-          {#if choice && choice.kind !== 'ingredient'}
-            <span class="made">{choice.kind === 'staple' ? 'New staple' : 'New ingredient'}:</span>
+          {#if made}
+            <span class="made">{made.kind === 'staple' ? 'New staple' : 'New ingredient'}:</span>
+          {:else if here}
+            <span class="made">Made in this recipe:</span>
           {/if}
           {#if !choice && open && !line.readable}
             <b class="bad">Couldn’t read this line</b>
@@ -364,7 +375,7 @@
             Adds “{line.learn_name}” as another name for {choice.food.name} when you save.
           </p>
         {/if}
-      {:else if choice && formOpen}
+      {:else if made && formOpen}
         <div class="fields">
           <label class="field" for="{uid}-name">
             <span>Name</span>
@@ -374,7 +385,7 @@
               type="text"
               maxlength="100"
               aria-invalid={nameError ? true : undefined}
-              value={choice.name}
+              value={made.name}
               oninput={(e) => edit({ name: e.currentTarget.value })}
             />
           </label>
@@ -383,7 +394,7 @@
             <select
               id="{uid}-how"
               class="mw-input"
-              value={choice.counted_as}
+              value={made.counted_as}
               onchange={(e) => edit({ counted_as: e.currentTarget.value as CountedAs })}
             >
               {#each COUNTED as option (option.value)}
@@ -396,7 +407,7 @@
             <select
               id="{uid}-place"
               class="mw-input"
-              value={choice.place_id ?? ''}
+              value={made.place_id ?? ''}
               onchange={(e) =>
                 edit({ place_id: e.currentTarget.value ? Number(e.currentTarget.value) : null })}
             >
@@ -409,14 +420,14 @@
         </div>
         {#if nameError}<p class="error" role="alert">Type a name.</p>{/if}
         <p class="hint">
-          {choice.kind === 'staple'
+          {made.kind === 'staple'
             ? 'Made a staple when you save. It never counts towards stock.'
             : 'Made when you save. Nothing is added to the pantry.'}
         </p>
         <div class="done-row">
           <span class="staple-switch">
             <Switch
-              checked={choice.kind === 'staple'}
+              checked={made.kind === 'staple'}
               labelledby="{uid}-staple"
               onchange={(on) => flow.setStaple(index, on)}
             />
@@ -427,15 +438,17 @@
             <button type="button" class="done" onclick={doneForm}>Done</button>
           </span>
         </div>
-      {:else if choice}
+      {:else if made}
         <p class="hint">
-          {choice.kind === 'staple'
+          {made.kind === 'staple'
             ? 'Made a staple when you save. It never counts towards stock.'
             : 'Made when you save. Nothing is added to the pantry.'}
-          Counted {COUNTED.find((c) => c.value === choice.counted_as)?.label.toLowerCase()} · kept in
-          {placesAndShops.places.find((p) => p.id === choice.place_id)?.name ??
+          Counted {COUNTED.find((c) => c.value === made.counted_as)?.label.toLowerCase()} · kept in
+          {placesAndShops.places.find((p) => p.id === made.place_id)?.name ??
             'nowhere in particular'}.
         </p>
+      {:else if here}
+        <p class="hint">Made in this recipe: saved as words only, never taken from your pantry.</p>
       {/if}
 
       {#if choice && (followers.length > 0 || sharedFrom !== undefined)}
@@ -459,10 +472,16 @@
           />
         {:else}
           <p class="buttons">
+            {#if hereFirst}
+              <button type="button" class="chip primary" onclick={() => flow.madeHere(index)}
+                >Made in this recipe</button
+              >
+            {/if}
             {#if line.label === 'to_confirm' && line.food}
               <button
                 type="button"
-                class="chip primary"
+                class="chip"
+                class:primary={!hereFirst}
                 onclick={() => flow.sameAs(index, line.food!)}>Same as “{line.food.name}”</button
               >
               <button type="button" class="chip" onclick={() => (picking = true)}
@@ -472,11 +491,20 @@
                 >New ingredient</button
               >
             {:else}
-              <button type="button" class="chip primary needs" onclick={() => makeNew(false)}
+              <button
+                type="button"
+                class="chip needs"
+                class:primary={!hereFirst}
+                onclick={() => makeNew(false)}
                 >New ingredient{guess?.name ? ` “${guess.name}”` : ''}</button
               >
               <button type="button" class="chip" onclick={() => (picking = true)}
                 >Pick an ingredient</button
+              >
+            {/if}
+            {#if !hereFirst}
+              <button type="button" class="chip" onclick={() => flow.madeHere(index)}
+                >Made in this recipe</button
               >
             {/if}
             <button type="button" class="chip" onclick={() => makeNew(true)}>Treat as staple</button
@@ -491,7 +519,7 @@
       {/if}
       {#if choice && !formOpen}
         <p class="buttons">
-          {#if choice.kind !== 'ingredient'}
+          {#if made}
             <button type="button" class="chip" onclick={() => (formOpen = true)}>Edit</button>
           {/if}
           <button type="button" class="chip" onclick={() => flow.unchoose(index)}>Change</button>
@@ -504,9 +532,11 @@
         {#if choice}
           {choice.kind === 'ingredient'
             ? 'Same as'
-            : choice.kind === 'staple'
-              ? 'New staple'
-              : 'New ingredient'}
+            : choice.kind === 'here'
+              ? 'Made here'
+              : choice.kind === 'staple'
+                ? 'New staple'
+                : 'New ingredient'}
         {:else if line.label === 'staple'}
           Staple
         {:else if line.label === 'matched'}

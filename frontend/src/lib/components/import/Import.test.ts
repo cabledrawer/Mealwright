@@ -637,6 +637,33 @@ describe('Import a recipe', () => {
       expect(page.getByLabelText('First ingredient').elements()).toHaveLength(0);
     });
 
+    it('offers Made in this recipe first for a "from the …" line, and as a plain choice for the others (F108)', async () => {
+      const flow = await reviewing();
+      flow.review!.lines[1] = {
+        ...flow.review!.lines[1]!,
+        note: 'from the spice blend'
+      };
+      flushSync();
+      const first = page.getByRole('button', { name: 'Made in this recipe' }).first();
+      await expect.element(first).toBeVisible();
+      // It leads the red onion line's buttons, and the asafoetida line has it as a later choice.
+      const buttons = Array.from(document.querySelectorAll('.line:nth-of-type(2) .buttons button'));
+      expect(buttons[0]?.textContent).toBe('Made in this recipe');
+      const later = Array.from(document.querySelectorAll('.line:nth-of-type(3) .buttons button'));
+      expect(later.map((b) => b.textContent?.trim())).toEqual([
+        'New ingredient “Asafoetida”',
+        'Pick an ingredient',
+        'Made in this recipe',
+        'Treat as staple'
+      ]);
+      await first.click();
+      expect(flow.choices[1]).toEqual({ kind: 'here' });
+      await expect
+        .element(page.getByText('Made in this recipe: saved as words only', { exact: false }))
+        .toBeVisible();
+      expect(flow.unlinked).toBe(1);
+    });
+
     it('numbers the steps through the method, never counting a heading (F112)', async () => {
       const flow = await reviewing();
       flow.review!.steps = [

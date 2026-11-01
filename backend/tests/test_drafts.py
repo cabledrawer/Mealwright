@@ -1293,3 +1293,32 @@ def test_a_signed_out_visitor_gets_nothing(kitchen: TestClient) -> None:
         assert stranger.get(f"{API}/recipes/drafts").status_code == 401
         assert stranger.get(f"{API}/recipes/drafts/1").status_code == 401
         assert stranger.delete(f"{API}/recipes/drafts/1").status_code == 401
+
+
+# --- "Made in this recipe" (F108) ----------------------------------------------------------
+
+
+def test_f108_a_made_in_this_recipe_choice_is_kept_and_counts_as_settled(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """F108 (cabledrawer 31 Oct): a line made in the recipe itself is kept in a draft as the choice
+    "here": no ingredient, no name; it counts as checked and comes back as it was kept."""
+    shown = review(kitchen, PASTED)
+    bare = kept(kitchen, shown)
+    assert (bare["lines_total"], bare["lines_checked"]) == (6, 3)
+    more = ok(put(kitchen, bare["id"], shown, choices={"lines": {"3": {"kind": "here"}}}))
+    assert more["lines_checked"] == 4
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{bare['id']}"))
+    assert got["choices"]["lines"]["3"]["kind"] == "here"
+    assert got["choices"]["lines"]["3"]["food"] is None
+
+
+def test_f108_an_old_draft_without_it_and_an_unknown_kind(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, PASTED)
+    old = kept(kitchen, shown, choices=choices_for(shown, cupboard(kitchen)), key="old")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{old['id']}"))
+    assert [c["kind"] for c in got["choices"]["lines"].values()] == ["ingredient", "new", "staple"]
+    refused = keep(kitchen, shown, choices={"lines": {"3": {"kind": "elsewhere"}}})
+    assert refused.status_code == 422

@@ -55,9 +55,11 @@ class DraftChoice(BaseModel):
     - `ingredient`: an ingredient the household has (`food`); `learn` adds the line's words as
       another name of it on Save ("Same as Onions").
     - `new` and `staple`: a new ingredient or staple, made only on Save (`name`, `counted_as`,
-      `place_id`)."""
+      `place_id`).
+    - `here`: "Made in this recipe" (F108): the line is made earlier in the same recipe, so it is
+      saved as words only, never tied to an ingredient and never taken from the pantry."""
 
-    kind: Literal["ingredient", "new", "staple"]
+    kind: Literal["ingredient", "new", "staple", "here"]
     food: Ref | None = None
     learn: bool = False
     name: Annotated[str, Field(max_length=100)] | None = None
@@ -73,7 +75,7 @@ class DraftChoice(BaseModel):
     def _make_sense(self) -> DraftChoice:
         if self.kind == "ingredient" and self.food is None:
             raise ValueError("Pick an ingredient.")
-        if self.kind != "ingredient" and not self.name:
+        if self.kind in ("new", "staple") and not self.name:
             raise ValueError("Type a name for the new ingredient.")
         return self
 

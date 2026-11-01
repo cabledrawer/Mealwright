@@ -27,7 +27,10 @@ import { unitFor } from './recipeAmounts';
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
   | { kind: 'ingredient'; food: Ref; learn: boolean }
-  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null };
+  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
+  /** "Made in this recipe" (F108): saved as words only, never linked, never taken from the
+   *  pantry, and not counted as unlinked. */
+  | { kind: 'here' };
 
 /** Why the box didn't give a review: the server's sentence, and what the screen offers. */
 export interface ImportProblem {
@@ -411,7 +414,7 @@ export class ImportFlow {
   setStaple(index: number, staple: boolean): void {
     for (const at of [index, ...this.followers(index)]) {
       const choice = this.choices[at];
-      if (choice && choice.kind !== 'ingredient') {
+      if (choice && (choice.kind === 'new' || choice.kind === 'staple')) {
         this.choose(at, { ...choice, kind: staple ? 'staple' : 'new' });
       }
     }
@@ -432,7 +435,10 @@ export class ImportFlow {
     const review = this.review;
     const source = review?.lines[index];
     if (!review || !source) return;
-    const keys = nameKeys(source, choice.kind === 'ingredient' ? null : choice.name);
+    const keys = nameKeys(
+      source,
+      choice.kind === 'new' || choice.kind === 'staple' ? choice.name : null
+    );
     const next = { ...this.choices };
     const from = { ...this.sharedFrom };
     review.lines.forEach((line, j) => {
@@ -573,6 +579,32 @@ export class ImportFlow {
   forgetTakenOut(): void {
     this.#takenOut.forEach((entry) => undoHistory.forget(entry));
     this.#takenOut = [];
+  }
+
+  /** F108: a line made earlier in the same recipe ("2 tsp spice mix (from the spice blend)"):
+   *  saved as words only. */
+  madeHere(index: number): void {
+    const choice: Choice = { kind: 'here' };
+    this.choose(index, choice);
+    this.#share(index, choice);
+  }
+
+  /** F108: "Made in this recipe" comes first when the note says "from the …", or the name is
+   *  one of the recipe's own section headings ("For the spice blend" is "spice blend"). */
+  offersMadeHere(index: number): boolean {
+    const lines = this.review?.lines ?? [];
+    const line = lines[index];
+    if (!line || line.kind !== 'ingredient') return false;
+    const flat = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (/\bfrom the\b/i.test(line.note ?? '')) return true;
+    const name = flat(line.words);
+    return lines.some((other) => {
+      if (other.kind !== 'heading') return false;
+      const core = flat(
+        other.words.replace(/^(for|to make|make)\s+(the\s+)?/i, '').replace(/^the\s+/i, '')
+      );
+      return core !== '' && (core === name || core === flat(line.new_ingredient?.name ?? ''));
+    });
   }
 
   /** The ingredient a line will be tied to, or null: a choice, else a match. */
@@ -784,7 +816,7 @@ export function volumeWords(ml: number): string {
 
 function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
   let sent: LineLink | null = null;
-  if (line.kind === 'ingredient' && link) {
+  if (line.kind === 'ingredient' && link && link.kind !== 'here') {
     sent =
       link.kind === 'ingredient'
         ? { kind: 'ingredient', food_id: link.food.id, learn: link.learn ? line.learn_name : null }

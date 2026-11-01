@@ -12,6 +12,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- **Import Check: Made in this recipe (0.7 alpha 2, F108).** A line made earlier in the same recipe ("2 teaspoons spice mix (from the spice blend)") can be set to Made in this recipe: it is saved as words only, never tied to an ingredient, never taken from the pantry, and not counted in "will be saved without an ingredient". The choice comes first when the note says "from the …" or the name is one of the recipe's own section headings. A draft keeps it (a new kind of choice, "here", in the drafts API).
 - **Import Check: step numbers skip no more at a heading (0.7 alpha 2, F112).** A method with headings now reads 1, 2, 3 ... through the whole method, as the recipe page does; a heading takes no number. The "N steps found" count was already right.
 - **Import Check: the text in the filled buttons is centred (0.7 alpha 2, F104).** "New ingredient 'Whole'" and "Same as 'Rice'" no longer sit at the top of the button (a layout rule meant for the line's text column had caught the button's own name).
 - **Import: "whole" comes out of every "whole X" name (0.7 alpha 2, F103).** "whole allspice berries" is Allspice berries, "8 whole cloves" is 8 cloves, and "whole" stays in the line's note. This replaces the F87 reading "whole cloves". "also called" no longer repeats the name the line already shows ("basmati rice · also called basmati rice").

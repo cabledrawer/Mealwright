@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImportReview, ReviewLine } from '#lib/client/imports.js';
 import { network } from '#lib/network.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
-import type { DraftOut } from './client/drafts';
+import type { DraftChoice, DraftOut } from './client/drafts';
 import { PINTS_REVIEW } from '#lib/testing/importSamples.js';
 import { toasts } from './toast.svelte';
 import { undoHistory } from './undo.svelte';
@@ -561,7 +561,10 @@ describe('importer consistency on Check (0.7)', () => {
       ...over
     });
 
-  function flowOf(review: Partial<ImportReview>): ImportFlow {
+  function flowOf(
+    review: Partial<ImportReview>,
+    kept: Record<string, DraftChoice> = {}
+  ): ImportFlow {
     const flow = new ImportFlow();
     flow.load({
       id: 1,
@@ -576,7 +579,7 @@ describe('importer consistency on Check (0.7)', () => {
       lines_checked: 0,
       text: 'x',
       review: { ...REVIEW, ...review },
-      choices: { name: null, serves: null, minutes: null, lines: {} }
+      choices: { name: null, serves: null, minutes: null, lines: kept }
     });
     return flow;
   }
@@ -791,6 +794,79 @@ describe('importer consistency on Check (0.7)', () => {
       const flow = flowOf({ lines: [joined()] });
       expect(await flow.splitLine(0, ['water', 'broth'])).toBe(true);
       expect(flow.review!.lines.map((l) => l.label)).toEqual(['needs_you', 'needs_you']);
+    });
+  });
+
+  describe('F108: Made in this recipe', () => {
+    const spice = () =>
+      icing({
+        written: '2 teaspoons spice mix (from the spice blend)',
+        words: 'spice mix',
+        amount: 2,
+        amount_text: '2',
+        unit: 'tsp',
+        note: 'from the spice blend',
+        learn_name: 'spice mix'
+      });
+    const heading = (words: string): ReviewLine => ({
+      ...icing({}),
+      kind: 'heading',
+      label: null,
+      words,
+      written: words
+    });
+
+    it('is saved as words only: no link, not counted as unlinked, kept in a draft', () => {
+      const egg = icing({
+        written: '1 egg',
+        words: 'egg',
+        learn_name: 'egg',
+        new_ingredient: null
+      });
+      const flow = flowOf({ lines: [{ ...spice(), new_ingredient: null }, egg] });
+      expect(flow.unlinked).toBe(2);
+      flow.madeHere(0);
+      expect(flow.unlinked).toBe(1);
+      expect(flow.unlinkedLines()).toEqual([1]);
+      expect(flow.counts.matched).toBe(1);
+      const sent = flow.body()!.lines[0]!;
+      expect(sent).toMatchObject({ words: 'spice mix', amount: 2, unit: 'tsp', link: null });
+      expect(sent.size_id).toBeNull();
+      expect(flow.draftBody()!.choices.lines['0']).toEqual({ kind: 'here' });
+    });
+
+    it('comes back from a draft, and an old draft without it still loads', () => {
+      const flow = flowOf({ lines: [spice()] });
+      flow.madeHere(0);
+      const again = flowOf({ lines: [spice()] }, { '0': { kind: 'here' } });
+      expect(again.choices[0]).toEqual({ kind: 'here' });
+      expect(again.unlinked).toBe(0);
+      const old = flowOf({ lines: [spice()] });
+      expect(old.unlinked).toBe(1);
+    });
+
+    it('is offered first for "from the …" and for a name that is a section heading', () => {
+      const flow = flowOf({
+        lines: [
+          heading('For the spice blend'),
+          spice(),
+          icing({ written: '1 tsp cumin', words: 'cumin', note: null }),
+          icing({ written: '2 tbsp spice blend', words: 'Spice blend', note: null }),
+          icing({ written: '1 tsp salt (from the pantry)', words: 'salt', note: 'from the pantry' })
+        ]
+      });
+      expect(flow.offersMadeHere(1)).toBe(true); // the note says "from the spice blend"
+      expect(flow.offersMadeHere(2)).toBe(false);
+      expect(flow.offersMadeHere(3)).toBe(true); // the name is the heading "For the spice blend"
+      expect(flow.offersMadeHere(4)).toBe(true); // "from the …" in any form
+      expect(flow.offersMadeHere(0)).toBe(false); // a heading
+    });
+
+    it('a line with a choice of its own is not followed into "made here" by another', () => {
+      const flow = flowOf({ lines: [spice(), spice()] });
+      flow.madeHere(0);
+      expect(flow.choices[1]).toEqual({ kind: 'here' }); // the same name: taken, as other choices are
+      expect(flow.followers(0)).toEqual([1]);
     });
   });
 
