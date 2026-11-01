@@ -321,7 +321,7 @@
   }}
 />
 
-<div class="plan" class:fill={!compact}>
+<div class="plan" class:fill={!compact} class:month={!compact && model.view === 'month'}>
   <PageHeader title="Plan">
     {#snippet actions()}
       {#if model.view === 'week' && !compact}
@@ -536,6 +536,12 @@
   /* On a computer the grid fills the height under the header (UX: the week grid fills it). */
   .plan.fill {
     min-height: calc(100dvh - 2 * var(--space-10));
+  }
+
+  /* The month is exactly one screen tall (F47), whatever is planned in it: its days share what is
+     left under the toolbar, and a busy day shows "+N more" instead of growing. */
+  .plan.month {
+    height: max(calc(100dvh - 2 * var(--space-10)), 560px);
   }
 
   /* The title keeps its words whole: at a large text size the buttons wrap under it. */
