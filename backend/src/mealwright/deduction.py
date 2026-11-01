@@ -35,7 +35,7 @@ from fastapi import status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from mealwright.amounts import MILLI, TooBig, checked, round_half_up, unit_family, unit_size
+from mealwright.amounts import MILLI, TooBig, checked, plural, round_half_up, unit_family, unit_size
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import amount_text
 from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
@@ -719,6 +719,7 @@ class RowOut(BaseModel):
     count_note: CountNoteOut | None = None  # status no_amount with "2 cloves" in the note
     bought: bool = False  # "Bought some — used them" (a confirm's choice, kept on the record)
     unit: Literal["g", "ml", "count"] | None = None  # what the pantry counts the ingredient in
+    unit_word: str | None = None  # a counted ingredient's word, plural: "bulbs" (else null)
 
 
 class ProposalOut(BaseModel):
@@ -726,6 +727,12 @@ class ProposalOut(BaseModel):
     portions: int
     servings: int | None
     rows: list[RowOut]
+
+
+def _unit_word(food: Food | None) -> str | None:
+    if food is None or food.counted_as != "count":
+        return None
+    return food.count_word_plural or (plural(food.count_word) if food.count_word else None)
 
 
 def _ask_need(row: Row) -> NeedOut | None:
@@ -802,6 +809,7 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
         else None,
         bought=row.bought,
         unit=BASE_UNITS[food.counted_as] if food else None,
+        unit_word=_unit_word(food),
     )
 
 

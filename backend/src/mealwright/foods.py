@@ -294,12 +294,8 @@ def remember_answers(kitchen: Kitchen, answers: list[Answer]) -> None:
         if answer.kind == "size":
             if answer.name is None or answer.amount is None:  # pragma: no cover (validated)
                 continue
-            milli = checked(to_milli(answer.amount))
-            found = find_size(kitchen, food, answer.name)
-            if found is None:
-                add_size(kitchen, food, answer.name, milli)
-            elif found.amount_milli != milli:  # a new answer replaces the old one (F106)
-                found.amount_milli = milli
+            if find_size(kitchen, food, answer.name) is None:
+                add_size(kitchen, food, answer.name, checked(to_milli(answer.amount)))
         elif answer.remember and answer.grams is not None:
             if answer.kind == "weight_per_ml":
                 value = grams_per_cup_to_mg_per_ml(answer.grams, cup_ml(kitchen.household))

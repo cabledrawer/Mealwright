@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_cooking import FAR, _batch, cook
+from test_cooking import FAR, _batch, amounts, cook
 from test_cooking_review import list_lines
 from test_deduction import plan_item, propose, recipe_of, row_of
 from test_plan import db_of
@@ -234,3 +234,62 @@ def test_a_cooked_batch_cannot_be_taken_off_the_plan_until_cooked_it_is_undone(
     ok(kitchen.get(f"{API}/plan/batches/{batch}/cooked"))  # the record is still there
     ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     ok(kitchen.delete(f"{API}/plan/batches/{batch}"))  # now it can go
+
+
+def _sizes(client: TestClient, food_id: int) -> dict[str, int]:
+    with db_of(client) as db:
+        found = db.scalars(select(FoodSize).where(FoodSize.food_id == food_id))
+        return {s.name: s.amount_milli for s in found}
+
+
+def test_a_size_answer_from_the_pantry_never_changes_an_existing_size(kitchen: TestClient) -> None:
+    rice = food(kitchen, "Zorba rice")
+    ok(kitchen.post(f"{API}/foods/{rice['id']}/sizes", json={"name": "bag", "amount": 1000}), 201)
+    answer = {"kind": "size", "food_id": rice["id"], "name": "bag", "amount": 5}
+    body = {"food_id": rice["id"], "amount": {"amount": 1, "unit": "bag", "answers": [answer]}}
+    ok(kitchen.post(f"{API}/stock", json=body), 201)
+    assert _sizes(kitchen, rice["id"]) == {"bag": 1_000_000}
+
+
+def test_a_cook_replaces_only_the_size_its_note_asked_about_and_undo_puts_it_back(
+    kitchen: TestClient,
+) -> None:
+    garlic = food(kitchen, "Zorba garlic")
+    stock(kitchen, garlic["id"], 100, "g")
+    for name, amount in (("clove", 4), ("bag", 1000)):
+        ok(
+            kitchen.post(
+                f"{API}/foods/{garlic['id']}/sizes", json={"name": name, "amount": amount}
+            ),
+            201,
+        )
+    recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"], "note": "2 cloves"}])
+    item = plan_item(kitchen, recipe, servings=4, day=FAR)
+
+    def size(name: str, amount: float) -> dict[str, Any]:
+        return {"kind": "size", "food_id": garlic["id"], "name": name, "amount": amount}
+
+    typed = [{"key": f"food:{garlic['id']}", "used": {"amount": 12, "unit": "g"}}]
+    done = ok(cook(kitchen, item, typed, answers=[size("clove", 6), size("bag", 5)]), 201)
+    assert _sizes(kitchen, garlic["id"]) == {"clove": 6000, "bag": 1_000_000}
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert _sizes(kitchen, garlic["id"]) == {"clove": 4000, "bag": 1_000_000}
+
+
+def test_garlic_counted_by_number_asks_in_its_own_word_and_learns_a_fraction_of_one(
+    kitchen: TestClient,
+) -> None:
+    garlic = food(kitchen, "Zorba garlic", counted_as="count")
+    ok(kitchen.patch(f"{API}/foods/{garlic['id']}", json={"count_word": "bulb"}))
+    stock(kitchen, garlic["id"], 3, "count")
+    recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"], "note": "2 cloves"}])
+    item = plan_item(kitchen, recipe, servings=4, day=FAR)
+    row = row_of(propose(kitchen, item), "Zorba garlic")
+    assert (row["unit"], row["unit_word"]) == ("count", "bulbs")
+    assert row["half"]["amount"] == 1.5  # half of what is left of the packet with no size
+    # Half a bulb for 2 cloves: a clove is a quarter of a bulb.
+    typed = [{"key": f"food:{garlic['id']}", "used": {"amount": 0.5, "unit": "count"}}]
+    clove = {"kind": "size", "food_id": garlic["id"], "name": "clove", "amount": 0.25}
+    ok(cook(kitchen, item, typed, answers=[clove]), 201)
+    assert _sizes(kitchen, garlic["id"]) == {"clove": 250}
+    assert amounts(kitchen, garlic["id"]) == [2_500]

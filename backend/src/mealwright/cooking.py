@@ -29,6 +29,7 @@ from fastapi import status
 from sqlalchemy import select
 
 from mealwright import cooked, plan
+from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
 from mealwright.deduction import (
@@ -41,7 +42,7 @@ from mealwright.deduction import (
     work_out,
 )
 from mealwright.errors import Problem, not_found
-from mealwright.foods import remember_answers
+from mealwright.foods import find, find_size, remember_answers
 from mealwright.history import Tally, as_utc
 from mealwright.household import today
 from mealwright.models import (
@@ -49,11 +50,13 @@ from mealwright.models import (
     Change,
     CookedRecord,
     Food,
+    FoodSize,
     ListItem,
     Meal,
     MealItem,
     Recipe,
 )
+from mealwright.names import fold
 from mealwright.shop_from_plan import PLAN_KIND, base_amount, round_up
 from mealwright.shopping import Batch, ensure_main_list, payload_hash, server_action, tombstone
 from mealwright.stock import StockEdit
@@ -222,6 +225,39 @@ def choices_of(worked: Worked) -> list[cooked.SnapshotChoice]:
     return [_choice_of(row) for row in worked.rows]
 
 
+def _remember(
+    kitchen: Kitchen, worked: list[Worked], answers: list[Answer]
+) -> list[dict[str, Any]]:
+    """Save the answers. Only here may a size answer replace a size, and only the size the review
+    asked about (the word in a row's "2 cloves" note, F89): every other answer keeps the rule
+    that an existing size is never changed. What was replaced is returned, for the Undo."""
+    asked = {
+        (row.food.id, fold(row.count_note[1]))
+        for each in worked
+        for row in each.rows
+        if row.food is not None and row.count_note is not None
+    }
+    plain: list[Answer] = []
+    replaced: list[dict[str, Any]] = []
+    for answer in answers:
+        if (
+            answer.kind == "size"
+            and answer.name is not None
+            and answer.amount is not None
+            and (answer.food_id, fold(answer.name)) in asked
+        ):
+            found = find_size(kitchen, find(kitchen, answer.food_id), answer.name)
+            milli = checked(to_milli(answer.amount))
+            if found is not None:
+                if found.amount_milli != milli:
+                    replaced.append({"id": found.id, "was": found.amount_milli, "now": milli})
+                    found.amount_milli = milli
+                continue
+        plain.append(answer)
+    remember_answers(kitchen, plain)
+    return replaced
+
+
 def _choice_of(row: Row) -> cooked.SnapshotChoice:
     return cooked.SnapshotChoice(
         key=row.key,
@@ -274,7 +310,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
         kitchen, [(e.recipe, e.portions, e.choices) for e in entries], worked, answers
     )
     settle_meal(worked)
-    remember_answers(kitchen, answers)
+    replaced = _remember(kitchen, worked, answers)
     edit = StockEdit(kitchen)
     for each in worked:
         for row in each.rows:
@@ -302,6 +338,8 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
         kitchen.db.flush()
         ids.append(record.id)
     data: dict[str, Any] = {"cooked_record_id": ids[0], "cooked_record_ids": ids, "listed": listed}
+    if replaced:
+        data["sizes"] = replaced  # Undo puts the old amounts back
     if action_id:
         data["action"] = action_id  # so the Undo's sync-log row can say what it undoes (5.8)
     if len(entries) == 1:
@@ -432,7 +470,16 @@ def undo_list(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) -> N
 
 def forget_record(kitchen: Kitchen, change: Change) -> None:
     """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
-    when the Undo was only partly done)."""
+    when the Undo was only partly done), and a size the cook replaced goes back to its old
+    amount (unless it has been changed since)."""
+    for each in (change.undo_data or {}).get("sizes") or []:
+        size = kitchen.db.get(FoodSize, each["id"])
+        if (
+            size is not None
+            and size.household_id == kitchen.household_id
+            and size.amount_milli == each["now"]
+        ):
+            size.amount_milli = each["was"]
     for record in kitchen.db.scalars(
         select(CookedRecord).where(
             CookedRecord.household_id == kitchen.household_id, CookedRecord.change_id == change.id
