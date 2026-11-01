@@ -237,8 +237,10 @@
     cursor: pointer;
   }
 
+  /* In a narrow column the unit menu drops under the amount instead of squeezing it (F123). */
   .row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-4);
   }
@@ -257,8 +259,9 @@
   }
 
   input {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 5rem;
+    /* Room for its number, at any width: "1250" fits (F123). */
+    min-width: 4.5rem;
     min-height: 48px;
     padding: 0 var(--space-4);
     border: 1px solid var(--color-field-border);

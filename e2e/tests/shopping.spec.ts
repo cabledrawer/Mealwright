@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "./clock.ts";
-import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from "./a11y.ts";
+import {
+  checkPage,
+  expectNoSidewaysScroll,
+  isPhone,
+  setAccountTheme,
+} from "./a11y.ts";
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
 // desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
@@ -345,6 +350,41 @@ test("tapping the name opens the amount box without ticking, and − / + step th
     page.getByRole("checkbox", { name: `Tick ${name}` }),
   ).not.toBeChecked();
   expect(await stockOf(page, foodId)).toEqual({});
+});
+
+test("F123: in a narrow column the amount box keeps room for its number, and the unit menu drops under it", async ({
+  page,
+}) => {
+  const name = `Ghee ${tag()}`;
+  await onList(page, name, 500);
+  await page.goto("/shopping");
+  await page.getByRole("button", { name, exact: true }).click();
+  const box = page.getByRole("form", { name: `Change ${name}` });
+  const amount = box.getByRole("textbox", { name: "Amount" });
+  await expect(amount).toHaveValue("500");
+  // A narrow column: the form made 240 px wide, as two columns on a small window make it.
+  await box.evaluate((el) => {
+    (el as HTMLElement).style.width = "240px";
+  });
+  const room = async () =>
+    amount.evaluate((el) => {
+      const input = el as HTMLInputElement;
+      return {
+        width: input.getBoundingClientRect().width,
+        clipped: input.scrollWidth > input.clientWidth,
+      };
+    });
+  const seen = await room();
+  expect(seen.width).toBeGreaterThanOrEqual(72);
+  expect(seen.clipped).toBe(false);
+  // Nothing spills out of the box, and the unit menu is still reachable.
+  const form = (await box.boundingBox())!;
+  const menu = box.getByRole("combobox", { name: "Unit" });
+  if (await menu.count()) {
+    const at = (await menu.boundingBox())!;
+    expect(at.x + at.width).toBeLessThanOrEqual(form.x + form.width + 1);
+  }
+  await expectNoSidewaysScroll(page);
 });
 
 test("the amount box’s Edit ingredient saves the box and opens the ingredient editor; offline it isn’t there", async ({
@@ -1396,9 +1436,19 @@ test("the Move picker at 200% text: nothing scrolls sideways and it passes the a
 test("desktop: names on the list never break mid-word at 1280 px with the Put away panel", async ({
   page,
 }) => {
-  test.skip(isPhone(page), "the two columns and the panel are the computer layout");
+  test.skip(
+    isPhone(page),
+    "the two columns and the panel are the computer layout",
+  );
   await page.setViewportSize({ width: 1280, height: 900 });
-  const names = ["Cilantro", "Coriander", "Fenugreek leaves", "Asafoetida", "Cardamom pods", "Mustard seeds"];
+  const names = [
+    "Cilantro",
+    "Coriander",
+    "Fenugreek leaves",
+    "Asafoetida",
+    "Cardamom pods",
+    "Mustard seeds",
+  ];
   // A short word after each name keeps a retry from meeting the same ingredient again. Two
   // aisles make the two columns.
   const mark = Math.random().toString(36).slice(2, 5);
@@ -1431,7 +1481,9 @@ test("desktop: names on the list never break mid-word at 1280 px with the Put aw
         const range = document.createRange();
         range.setStart(node, match.index ?? 0);
         range.setEnd(node, (match.index ?? 0) + match[0].length);
-        const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+        const lines = new Set(
+          [...range.getClientRects()].map((r) => Math.round(r.top)),
+        );
         if (lines.size > 1) found.push(match[0]);
       }
     }
@@ -1453,11 +1505,18 @@ for (const { label, width, type } of [
     await onList(page, word);
     await onList(page, `Short ${tag()}`);
     await page.goto("/shopping");
-    await page.evaluate((size) => (document.documentElement.style.fontSize = size), type);
-    await expect(page.getByRole("button", { name: word, exact: true })).toBeVisible();
+    await page.evaluate(
+      (size) => (document.documentElement.style.fontSize = size),
+      type,
+    );
+    await expect(
+      page.getByRole("button", { name: word, exact: true }),
+    ).toBeVisible();
     await expectNoSidewaysScroll(page);
     // The long word's own box stays inside the screen (it broke rather than pushed out).
-    const box = (await page.getByRole("button", { name: word, exact: true }).boundingBox())!;
+    const box = (await page
+      .getByRole("button", { name: word, exact: true })
+      .boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(width);
   });
 }
