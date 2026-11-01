@@ -17,6 +17,7 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
   return (await response.json()) as Record<string, any>;
 }
 
+// Weeks 30 to 40 ahead (k 0 to 10). The plan allows at most 104 weeks ahead (DAYS_AHEAD 731), so a block from week 140 up cannot be planned in.
 const far = (today: string, k: number) => addDays(today, 7 * (30 + k));
 const stamp = () => `Cards${Date.now().toString(36)}`;
 
