@@ -18,6 +18,7 @@ from mealwright.household import cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
 from mealwright.pints import household_pints
+from mealwright.shopping import lock_db
 
 router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
 
@@ -63,7 +64,9 @@ def add_place(body: NewPlace, kitchen: Here) -> PlaceOut:
     """ "+ Place": add a place, last in the order. `kind` (fridge, freezer or cupboard) drives
     the rules ("freezer last"). A name the household already has (ignoring case) is a 409
     `place_exists` that carries that place, so the screen just picks it. Not logged as a change,
-    like "+ Shop"."""
+    like "+ Shop". Under the household's lock, so two phones at once can't pass the cap or
+    add one name twice."""
+    lock_db(kitchen.db, kitchen.household)
     existing = places(kitchen.db, kitchen.household_id)
     for old in existing:
         if fold(old.name) == fold(body.name):
@@ -115,7 +118,9 @@ class NewShop(BaseModel):
 
 @router.post("/shops", status_code=status.HTTP_201_CREATED)
 def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
-    """ "+ Shop": add a shop by name. A name that's already there gives that shop (200)."""
+    """ "+ Shop": add a shop by name. A name that's already there gives that shop (200).
+    Under the household's lock, so two phones at once can't add one name twice."""
+    lock_db(kitchen.db, kitchen.household)
     existing = list(
         kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
     )

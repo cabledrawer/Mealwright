@@ -1,5 +1,6 @@
 """Places, shops, units, remembered answers and the household's settings."""
 
+import threading
 from collections.abc import Iterator
 
 import pytest
@@ -166,6 +167,59 @@ def test_a_household_has_at_most_fifty_places(kitchen: TestClient, neighbour: Te
     # Another household is not held back by this one's places.
     theirs = neighbour.post(f"{API}/places", json={"name": "One too many", "kind": "cupboard"})
     assert theirs.status_code == 201
+
+
+def _at_once(kitchen: TestClient, path: str, bodies: list[dict[str, str]]) -> list[int]:
+    """Two phones of the same login send their POSTs at the same moment."""
+    start = threading.Barrier(len(bodies))
+    codes: list[int] = []
+
+    def send(body: dict[str, str]) -> None:
+        other = TestClient(kitchen.app, base_url="https://testserver")
+        other.cookies.update(kitchen.cookies)
+        start.wait()
+        codes.append(other.post(f"{API}{path}", json=body).status_code)
+
+    threads = [threading.Thread(target=send, args=(body,)) for body in bodies]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    return sorted(codes)
+
+
+def test_two_phones_adding_the_fiftieth_place_at_once_keep_the_cap(kitchen: TestClient) -> None:
+    for number in range(45):
+        kitchen.post(f"{API}/places", json={"name": f"Shelf {number}", "kind": "cupboard"})
+    for turn in range(5):
+        assert len(kitchen.get(f"{API}/places").json()) == 49
+        codes = _at_once(
+            kitchen,
+            "/places",
+            [
+                {"name": f"Garage {turn}", "kind": "fridge"},
+                {"name": f"Shed {turn}", "kind": "freezer"},
+            ],
+        )
+        assert codes == [201, 409]
+        assert len(kitchen.get(f"{API}/places").json()) == 50
+        with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            last = db.scalars(select(Place).order_by(Place.position.desc())).first()
+            assert last is not None
+            db.delete(last)
+            db.commit()
+
+
+@pytest.mark.parametrize(("path", "body"), [("/places", {"kind": "cupboard"}), ("/shops", {})])
+def test_two_phones_adding_the_same_name_at_once_make_one(
+    kitchen: TestClient, path: str, body: dict[str, str]
+) -> None:
+    for turn in range(5):
+        name = f"Corner {turn}"
+        codes = _at_once(kitchen, path, [{"name": name, **body}, {"name": name.upper(), **body}])
+        assert codes in ([200, 201], [201, 409])
+        names = [row["name"] for row in kitchen.get(f"{API}{path}").json()]
+        assert len([n for n in names if n.lower() == name.lower()]) == 1
 
 
 def test_household_settings(kitchen: TestClient) -> None:
