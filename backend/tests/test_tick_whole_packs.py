@@ -25,7 +25,7 @@ from sync_kit import (
     send,
 )
 
-from mealwright.models import FoodSize, ListTick
+from mealwright.models import FoodSize, ListTick, StockLot
 
 
 def _line(
@@ -43,7 +43,8 @@ def _line(
         pack, grams = size.split("=")
         sized = ok(
             s.kitchen.post(
-                f"{API}/foods/{made['id']}/sizes", json={"name": pack, "amount": float(grams) if "." in grams else int(grams)}
+                f"{API}/foods/{made['id']}/sizes",
+                json={"name": pack, "amount": float(grams) if "." in grams else int(grams)},
             ),
             201,
         )
@@ -271,3 +272,53 @@ def test_a_queued_tick_of_a_huge_line_is_capped_too(kitchen: TestClient) -> None
     )
     assert time.monotonic() - started < 5
     assert s.lots("Rock salt") == [("Cupboard", 20_000)]
+
+
+# --- A capped lot is not a packet (review round 2) -------------------------------------------
+
+
+def _lot_ids(s: S0, name: str) -> list[tuple[int, int | None]]:
+    with db(s.kitchen) as session:
+        rows = session.query(StockLot).filter(StockLot.food_id == s.foods[name]).all()
+        return [(row.id, row.size_id) for row in rows if row.amount_milli > 0]
+
+
+def test_a_capped_lot_has_no_size_and_no_quarter_picks(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _line(s, "Ghee", 30_000, "jar=500")  # 60 jars, over the cap of 50
+    _tick(s, "Ghee")
+    [(lot, size_id)] = _lot_ids(s, "Ghee")
+    assert size_id is None
+    # Three quarters of "a jar" would set 375 g on a 30 kg lot: it asks for an amount instead.
+    refused = kitchen.post(f"{API}/stock/{lot}/left", json={"fraction": 0.75})
+    assert refused.status_code == 422 and refused.json()["code"] == "needs_amount"
+    ok(kitchen.post(f"{API}/stock/{lot}/left", json={"amount": {"amount": 100, "unit": "g"}}))
+    assert s.total("Ghee") == 100
+
+
+def test_a_capped_tick_is_undone_and_unticked_exactly(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _line(s, "Ghee", 30_000, "jar=500")
+    _line(s, "Oil", 30_000, "jar=500")
+    done = _tick(s, "Ghee")
+    assert s.total("Ghee") == 30_000
+    one(kitchen, "undo", counter(kitchen), PHONE_A, undoes=done["id"])
+    assert s.total("Ghee") == 0
+    ticked = _tick(s, "Oil")
+    assert s.total("Oil") == 30_000
+    one(
+        kitchen,
+        "untick",
+        counter(kitchen),
+        PHONE_A,
+        item_id=s.items["Oil"],
+        tick_ids=[ticked["id"]],
+    )
+    assert s.total("Oil") == 0
+
+
+def test_a_tick_within_the_cap_keeps_the_size_on_its_lots(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _line(s, "Ghee", 1_000, "jar=500")
+    _tick(s, "Ghee")
+    assert [size for _, size in _lot_ids(s, "Ghee")] == [s.sizes["Ghee"]] * 2

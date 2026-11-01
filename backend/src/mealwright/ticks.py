@@ -227,7 +227,11 @@ def tick(act: Act) -> None:
     kitchen.db.flush()
     if row.bought_milli:
         edit = StockEdit(kitchen)
-        put_in(kitchen, edit, food, place, lot_amounts(row.bought_milli, size), size)
+        amounts = lot_amounts(row.bought_milli, size)
+        # Past the cap the amount is one big lot: it isn't a packet, so it carries no size
+        # (a "¾" would otherwise be three quarters of one jar, not of the lot).
+        one_big = size is not None and len(amounts) == 1 and amounts[0] > size.amount_milli
+        put_in(kitchen, edit, food, place, amounts, None if one_big else size)
         shown = size or usual_size(kitchen, food.id)
         summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
         if food.counted_as == "count" and row.bought_size_id and shown is not None:

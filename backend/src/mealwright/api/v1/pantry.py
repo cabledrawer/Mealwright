@@ -45,7 +45,6 @@ from mealwright.stock import (
 router = APIRouter(tags=["pantry"], dependencies=[SameOrigin])
 
 
-
 # --- Shapes ---------------------------------------------------------------------------------
 
 
@@ -455,7 +454,10 @@ def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response
             kitchen, food.id
         )
         if body.fraction is not None:
-            if size is None:
+            too_big = (
+                lot.size_id is None and size is not None and lot.amount_milli > size.amount_milli
+            )
+            if size is None or too_big:  # no packet, or a lot bigger than one (a capped tick)
                 raise Problem(
                     422, "needs_amount", f"{food.name} has no packet size: type an amount."
                 )

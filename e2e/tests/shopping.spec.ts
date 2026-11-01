@@ -390,6 +390,9 @@ async function expectRoomForTheNumber(
   await expect(menu).toBeVisible();
   const at = (await menu.boundingBox())!;
   expect(at.x + at.width).toBeLessThanOrEqual(form.x + form.width + 1);
+  // "Drops under it": the menu's top is below the number box's bottom.
+  const above = (await amount.boundingBox())!;
+  expect(at.y).toBeGreaterThanOrEqual(above.y + above.height - 1);
   await expectNoSidewaysScroll(page);
 }
 
