@@ -18,7 +18,7 @@ from sqlalchemy.orm import aliased
 from mealwright import shopping
 from mealwright.amounts import TooBig, checked
 from mealwright.api.v1.context import Kitchen
-from mealwright.foods import add_size, amount_out, sizes, usual_size
+from mealwright.foods import add_size, amount_out, pack_bought, sizes, usual_size
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -199,6 +199,14 @@ def tick(act: Act) -> None:
         place = default_place(kitchen, food)
     size = shopping.get_size(kitchen, food, item.size_id)
     milli = None if food.staple or recount else item.amount_milli
+    if milli and size is None:
+        # F122 (cabledrawer 31 Oct): a line in plain grams, ml or items puts the pack bought into
+        # the pantry, not the exact need: 38 g ghee with a 500 g jar is 1 jar. A line already
+        # in packs, and an ingredient with no size to buy in, go in as they are.
+        pack = pack_bought(kitchen, food.id)
+        if pack is not None and pack.amount_milli > 0:
+            milli = -(-milli // pack.amount_milli) * pack.amount_milli
+            size = pack
     row = ListTick(
         household_id=kitchen.household_id,
         id=act.id,

@@ -166,6 +166,16 @@ def usual_size(kitchen: Kitchen, food_id: int) -> FoodSize | None:
     return next((size for size in found if size.usual), found[0] if found else None)
 
 
+def pack_bought(kitchen: Kitchen, food_id: int) -> FoodSize | None:
+    """The size a list amount is bought in (F122): the ingredient's Usual size, else its only
+    size. With several sizes and none Usual there is no way to know, so none."""
+    found = sizes(kitchen, food_id)
+    usual = next((size for size in found if size.usual), None)
+    if usual is not None:
+        return usual
+    return found[0] if len(found) == 1 else None
+
+
 def name_owner(kitchen: Kitchen, name: str, except_id: int | None = None) -> Food | None:
     """Another visible food already called this (ignoring case and accents)."""
     folded = fold(name)
