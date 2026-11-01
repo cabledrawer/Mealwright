@@ -314,9 +314,9 @@ test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tu
   const name = `${stamp()} Chilli`;
   // Two days back (this week, a day no other test cooks on; a tub keeps 3 days, so it runs to tomorrow): "Cooked it" needs a day that has come.
   const cooked = addDays(today, -2);
-  await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
+  await planned(page, await makeRecipe(page, name), cooked, slot.Snack);
   await page.goto('/plan');
-  await cell(page, cooked, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  await cell(page, cooked, slot.Snack).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
   await page.getByRole('dialog', { name }).getByRole('button', { name: 'Cooked it' }).click();
   const review = page.getByTestId('cooked-review');
   await review.getByRole('button', { name: 'More tubs' }).click();
