@@ -677,8 +677,8 @@
     padding: 0 var(--space-6);
     border: none;
     border-radius: var(--radius-full);
-    background: var(--color-chip);
-    color: var(--color-accent);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft); /* accent on the grey chip is 4.47:1, under 4.5 */
     font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
   }
