@@ -224,6 +224,7 @@ cd <folder>
 sudo cp data/mealwright.db "backups/mealwright-broken-$(date +%Y%m%d-%H%M).db"   # keep the failed one aside
 sudo cp data/backups/pre-upgrade-<revision>-<date>.db data/mealwright.db
 sudo rm -f data/mealwright.db-wal data/mealwright.db-shm
+sudo rm -f data/backups/upgrade-failed   # the copy you just restored is no longer "the copy from before the first try"
 ```
 
 Check `/api/v1/version` shows the old version. Tell Claude Code what went wrong with the new one, and include the end of `docker compose logs` from the failed start if you still have it. Once it is sorted, you can delete the `data-broken-…` folder.

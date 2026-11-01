@@ -154,6 +154,15 @@ def _keep_newest(backups: Path, also: str | None = None) -> None:
         path.unlink(missing_ok=True)
 
 
+def _made_on(name: str) -> str:
+    """ " (made on 2026-10-31)" from a copy's name, so a stale marker shows; else nothing."""
+    found = SAFETY_COPY_NAME.match(name)
+    if not found:
+        return ""
+    stamp = found.group(2)
+    return f" (made on {stamp[:4]}-{stamp[4:6]}-{stamp[6:8]})"
+
+
 def _failed_before(backups: Path) -> str | None:
     """The clean copy's name, if an earlier upgrade didn't work; else None."""
     try:
@@ -176,6 +185,23 @@ def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None)
         _run(engine, "upgrade", revision)
         return
     clean = _failed_before(backups)
+    if clean is not None and not (backups / clean).is_file():
+        # The copy the marker names is gone (say, restored and moved on): a stale marker must
+        # not stop a fresh copy being made.
+        log.warning(
+            "The safety copy %s, named by %s, is missing. Removing the marker and making a "
+            "fresh copy.",
+            backups / clean,
+            backups / UPGRADE_FAILED,
+        )
+        try:
+            (backups / UPGRADE_FAILED).unlink(missing_ok=True)
+        except OSError as error:
+            raise SafetyCopyFailed(
+                f"Couldn't remove {backups / UPGRADE_FAILED} ({error}). The database was not "
+                "changed. Check that the folder can be written, then start Mealwright again."
+            ) from error
+        clean = None
     kept_aside = clean  # only a copy from before an earlier failure is kept beyond the three
     if clean is None:
         copy = safety_copy(engine, backups)
@@ -191,9 +217,10 @@ def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None)
                 ) from error
     else:
         log.warning(
-            "An earlier database upgrade failed. Your data from before it is safe in %s. "
+            "An earlier database upgrade failed. Your data from before it is safe in %s%s. "
             "Trying the upgrade again.",
             backups / clean,
+            _made_on(clean),
         )
     try:
         _run(engine, "upgrade", revision)

@@ -150,7 +150,8 @@ def test_a_failing_upgrade_says_plainly_where_the_data_is(
         migrate.upgrade(engine, backups=backups)
     assert caplog.messages[0] == (
         f"An earlier database upgrade failed. Your data from before it is safe in "
-        f"{backups / clean}. Trying the upgrade again."
+        f"{backups / clean} (made on {clean[-18:-14]}-{clean[-14:-12]}-{clean[-12:-10]}). "
+        "Trying the upgrade again."
     )
 
 
@@ -227,3 +228,35 @@ def test_start_up_on_a_new_install_makes_no_copy(tmp_path: Path) -> None:
         pass
     assert (data_dir / "mealwright.db").exists()
     assert _copies(data_dir / "backups") == []
+
+
+def test_a_marker_naming_a_missing_copy_is_removed_and_a_fresh_copy_made(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    gone = "pre-upgrade-d7a4c2e81f56-20261031-090000.db"
+    (backups / migrate.UPGRADE_FAILED).write_text(gone + "\n")
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate, "_run", _broken)
+    with caplog.at_level("WARNING", logger=migrate.__name__), pytest.raises(RuntimeError):
+        migrate.upgrade(engine, backups=backups)
+    assert any("is missing" in m and gone in m for m in caplog.messages)
+    [fresh] = [n for n in _copies(backups) if n != migrate.UPGRADE_FAILED]
+    assert fresh != gone
+    assert (backups / migrate.UPGRADE_FAILED).read_text().strip() == fresh
+
+
+def test_the_stale_marker_warning_shows_the_copys_date(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    name = "pre-upgrade-d7a4c2e81f56-20261031-090000.db"
+    (backups / name).write_bytes(b"old")
+    (backups / migrate.UPGRADE_FAILED).write_text(name + "\n")
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(migrate, "_run", _broken)
+    with caplog.at_level("WARNING", logger=migrate.__name__), pytest.raises(RuntimeError):
+        migrate.upgrade(engine, backups=backups)
+    assert "(made on 2026-10-31)" in caplog.messages[0]
