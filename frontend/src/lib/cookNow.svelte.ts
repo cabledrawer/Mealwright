@@ -4,7 +4,8 @@
 //
 // Which meal (meal slots have names and an order, no times):
 //   1. the recipe is already planned today in a meal that is not cooked yet: that meal, nothing
-//      new is planned;
+//      new is planned, and "Cooked it" reviews only this recipe's item there (proposed, for
+//      cabledrawer, 1 Nov);
 //   2. else the first meal that is on today, in order, with no meal at all yet;
 //   3. else the first meal that is on today whose meal is still planned (the recipe is added to
 //      it, and "Cooked it" then reviews only this recipe, not the others in that meal);
@@ -65,7 +66,7 @@ export function cookSpot(
 export class CookNow {
   /** The meal Cook mode can answer with "Cooked it"; null: none. */
   mealId = $state<number | null>(null);
-  /** The plan item it added (so "Cooked it" reviews only this recipe); null: it added none. */
+  /** The plan item "Cooked it" reviews (this recipe's, added or already planned); null: the meal. */
   itemId = $state<number | null>(null);
   /** The recipe it is about (so another recipe's Cook mode shows none of this). */
   recipeId = $state<number | null>(null);
@@ -92,6 +93,10 @@ export class CookNow {
       if (!spot) throw new Error('no meal is on');
       if (spot.kind === 'planned') {
         this.mealId = spot.meal.id; // already planned: nothing new is added
+        // Proposed, for cabledrawer (1 Nov): as in rule 3, Cooked it reviews only this recipe's item
+        // (the first one if the meal has it twice), not the other recipes in that meal.
+        this.itemId =
+          spot.meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === recipeId)?.id ?? null;
         return;
       }
       const body = { date: today, slot_id: spot.slotId, recipe_id: recipeId };
