@@ -86,7 +86,7 @@ describe('the All recipes page', () => {
       .element(page.getByText('50 min · 320 kcal · all in stock but 1'))
       .toBeInTheDocument();
     await expect.element(page.getByText('Uses spinach (today)')).toBeVisible();
-    await expect.element(page.getByText('60 min · nutrition unknown')).toBeVisible();
+    await expect.element(page.getByText('1 h · nutrition unknown')).toBeVisible();
     // A to Z is the server's order; the page keeps it.
     const names = [...document.querySelectorAll('li .name')].map((n) => n.textContent);
     expect(names).toEqual(['Palak paneer', 'Rajma', 'Sambar']);
