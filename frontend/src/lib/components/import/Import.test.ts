@@ -1047,6 +1047,43 @@ describe('Import a recipe', () => {
       expect(none).toHaveLength(0);
     });
 
+    it('a photo error fails the address the picture tried, not the photo shown by then', async () => {
+      const PHOTO = {
+        id: 41,
+        width: 800,
+        height: 600,
+        url: '/api/v1/recipes/photos/41/large',
+        list_width: 156,
+        list_height: 117,
+        list_url: '/api/v1/recipes/photos/41/list'
+      };
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      fakeApi({
+        'POST /recipes/import': [
+          200,
+          { ...REVIEW, photo: { state: 'downloaded', photo: PHOTO, message: null } }
+        ],
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS]
+      });
+      await flow.read();
+      show(flow, ReviewScreen);
+      const img = () =>
+        document.querySelector<HTMLImageElement>('img[alt="Downloaded from the page"]');
+      await vi.waitFor(() => expect(img()?.getAttribute('src')).toBe(PHOTO.url));
+      // A late error from an address no longer shown leaves the large copy alone.
+      img()!.setAttribute('src', '/api/v1/recipes/photos/40/large');
+      img()!.dispatchEvent(new Event('error'));
+      flushSync();
+      expect(img()?.getAttribute('width')).toBe('800');
+      // A real error on the shown large copy still falls back to the list copy.
+      img()!.setAttribute('src', PHOTO.url);
+      img()!.dispatchEvent(new Event('error'));
+      flushSync();
+      await vi.waitFor(() => expect(img()?.getAttribute('src')).toBe(PHOTO.list_url));
+    });
+
     it('does not ask after Save, or when the tab is closed or reloaded', async () => {
       const flow = await reviewing();
       expect(leaveFor('/recipes', { willUnload: true })).not.toHaveBeenCalled();
