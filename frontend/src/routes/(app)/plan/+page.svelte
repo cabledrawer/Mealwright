@@ -17,14 +17,10 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
-  import CookOnce from '#lib/components/plan/CookOnce.svelte';
-  import NoPortions from '#lib/components/plan/NoPortions.svelte';
-  import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
   import PlanMonthPhone from '#lib/components/plan/PlanMonthPhone.svelte';
   import PlanShowSwitch from '#lib/components/plan/PlanShowSwitch.svelte';
-  import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import PlanWeek from '#lib/components/plan/PlanWeek.svelte';
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
@@ -129,6 +125,17 @@
   let sheet = $state<PlanTarget | null>(null);
   let cooking = $state<{ meal: PlanMeal; item: PlanItem } | null>(null);
   let adding = $state<{ day: string; slotId: number | null } | null>(null);
+  // Each part below is fetched the first time it is wanted, then stays mounted.
+  let sheetAsked = $state(false);
+  let cookingAsked = $state(false);
+  let addingAsked = $state(false);
+  let noPortionsAsked = $state(false);
+  $effect(() => {
+    if (sheet) sheetAsked = true;
+    if (cooking) cookingAsked = true;
+    if (adding) addingAsked = true;
+    if (model.noPortions) noPortionsAsked = true;
+  });
   /** The day shown under the phone's Month. */
   let picked = $state('');
 
@@ -430,8 +437,18 @@
   {/if}
 </div>
 
-<PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
-<CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
+<!-- The menu, Cook once, Plan a recipe and No portions are fetched when first asked for, so the
+     Plan's first load stays under the size limit. -->
+{#if sheetAsked}
+  {#await import('#lib/components/plan/PlanSheet.svelte') then { default: PlanSheet }}
+    <PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
+  {/await}
+{/if}
+{#if cookingAsked}
+  {#await import('#lib/components/plan/CookOnce.svelte') then { default: CookOnce }}
+    <CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
+  {/await}
+{/if}
 {#if cookedAsked}
   {#await import('#lib/components/cooked/CookedReview.svelte') then { default: CookedReview }}
     <CookedReview
@@ -447,8 +464,16 @@
     />
   {/await}
 {/if}
-<PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
-<NoPortions {actions} />
+{#if addingAsked}
+  {#await import('#lib/components/plan/PlanAdd.svelte') then { default: PlanAdd }}
+    <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
+  {/await}
+{/if}
+{#if model.noPortions || noPortionsAsked}
+  {#await import('#lib/components/plan/NoPortions.svelte') then { default: NoPortions }}
+    <NoPortions {actions} />
+  {/await}
+{/if}
 
 {#if drag.carried}
   <div class="ghost" style:left="{drag.x}px" style:top="{drag.y}px" aria-hidden="true">
