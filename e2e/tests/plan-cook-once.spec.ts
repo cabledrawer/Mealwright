@@ -10,8 +10,10 @@ import { expectNoAxeViolations, inTheme, isPhone, setAccountTheme } from './a11y
 // plan.spec.ts's), named with a word no other test uses. The tests' day is a Saturday, so the
 // day after (Sunday) is in the same week and the Monday is in the next.
 //
-// Weeks ahead of today: this file uses 36 to 82 (36 + 4 per test and project, and F50 two more).
-// The other plan specs: plan 0 to 35, portions 84 to 104, views 110 to 135 (the next spec picks from 136 up).
+// Weeks ahead of today (the plan accepts 0 to 104), one block per plan spec; the next spec takes
+// the free weeks 80 to 83:
+//   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
+//   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
@@ -23,8 +25,8 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
 
 const INDEX: Record<string, number> = { 'desktop 0.6 cook once': 0, 'phone 0.6 cook once': 1, 'webkit 0.6 cook once': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
-/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 3). */
-const far = (today: string, k: number) => addDays(today, 7 * (36 + 4 * (projectIndex() * 4 + k)));
+/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 4; two weeks apart, as a test reads 11 days). */
+const far = (today: string, k: number) => addDays(today, 7 * (35 + 2 * (5 * projectIndex() + k)));
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
 function addDays(iso: string, days: number): string {
@@ -313,7 +315,7 @@ test('Leftovers here makes a tub of the meal’s batch cook; Undo takes it back'
 test('F50: Leftovers on… and Cook once offer nothing before the cooking or in the past', async ({ page }) => {
   const { today, slot } = await setup(page);
   const name = `Dal ${stamp()}`;
-  const day = addDays(far(today, 3), 14); // a Saturday of its own
+  const day = far(today, 4); // a Saturday of its own
   const before = addDays(day, -1);
   // Cooked at lunch: a new household's Snack and Dinner come after it (no other test needed first).
   const item = await planned(page, await makeRecipe(page, name), day, slot.Lunch);

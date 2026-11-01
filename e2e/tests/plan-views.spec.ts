@@ -6,9 +6,10 @@ import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme, T
 // test plans in a week of its own, far from the other plan tests' (and scopes what it checks by
 // names of its own), because the two projects share one server. The tests' day is a Saturday.
 //
-// Weeks ahead of today used by the plan specs (the next spec picks from 136 up):
-//   plan.spec.ts 0 to 35, plan-cook-once.spec.ts 36 to 82, plan-portions.spec.ts 84 to 104,
-//   plan-views.spec.ts 110 to 127 (far) and 130 to 135 (the width tests).
+// Weeks ahead of today (the plan accepts 0 to 104), one block per plan spec; the next spec takes
+// the free weeks 80 to 83:
+//   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
+//   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
@@ -20,8 +21,8 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
 
 const INDEX: Record<string, number> = { 'desktop 0.7 plan views': 0, 'phone 0.7 plan views': 1, 'webkit 0.7 plan views': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
-/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 5). */
-const far = (today: string, k: number) => addDays(today, 7 * (110 + projectIndex() * 6 + k));
+/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 4: 0 to 2 here, 3 and 4 the width tests). */
+const far = (today: string, k: number) => addDays(today, 7 * (65 + projectIndex() * 5 + k));
 /** Short, so a name made with it is no longer than a real one: a word the width tests can't break. */
 const short = () => Math.floor(Date.now() * 1000 + Math.random() * 1000).toString(36).slice(-6);
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
@@ -388,7 +389,7 @@ for (const width of [800, 1024]) {
     const k = await setup(page);
     // Weeks no other test plans in (one per project, since they share a server, and nothing but this test's own meals in them), so every word on
     // screen is one this test made.
-    const day = addDays(k.today, 7 * (130 + (width === 800 ? 0 : 1) + 2 * projectIndex()));
+    const day = addDays(k.today, 7 * (65 + 5 * projectIndex() + (width === 800 ? 3 : 4)));
     const w = await seedWeek(page, k, day);
     await page.setViewportSize({ width, height: 900 });
     await openWeekOf(page, k.today, day);

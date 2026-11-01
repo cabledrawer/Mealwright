@@ -10,8 +10,10 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 // in a week of its own (today plus 7 × its own number), so the tests never meet each other's
 // meals, and names the things it makes with a word no other test uses.
 //
-// Weeks ahead of today: this file uses 0 to 35 (k 0 to 11, plus 12 per project). The other plan
-// specs: cook-once 36 to 82, portions 84 to 104, views 110 to 135 (the next spec picks from 136 up).
+// Weeks ahead of today (the plan accepts 0 to 104), one block per plan spec; the next spec takes
+// the free weeks 80 to 83:
+//   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
+//   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
@@ -27,8 +29,8 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
 // Month, in days of its own), and each test in a week of its own within them.
 const INDEX: Record<string, number> = { 'desktop 0.6 plan': 0, 'phone 0.6 plan': 1, 'webkit 0.6 plan': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
-/** A day in week number `k` after today's (a Saturday), in this project's own weeks. */
-const inWeek = (today: string, k: number) => addDays(today, 7 * (k + 12 * projectIndex()));
+/** A day in week `k` (1 to 11, never 0) of this project's own weeks: weeks 2 to 34 after today's (a Saturday). */
+const inWeek = (today: string, k: number) => addDays(today, 7 * (1 + 11 * projectIndex() + k));
 
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
