@@ -15,9 +15,11 @@ from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import aliased
 
+from mealwright import cooked
 from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
+from mealwright.history import as_utc
 from mealwright.household import meal_slots, today
 from mealwright.models import (
     SPREAD_PATTERNS,
@@ -564,8 +566,17 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
 
 
 def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
-    """Take a batch off: its tubs go, and their meal items. Undo brings all back."""
+    """Take a batch off: its tubs go, and their meal items. Undo brings all back. A batch that
+    was cooked can't be taken off while its cooked record stands (the record is never lost)."""
     db = kitchen.db
+    record = cooked.for_batch(db, kitchen.household_id, batch.id)
+    if record is not None:
+        day = today(kitchen.household, as_utc(record.cooked_at))
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "already_cooked",
+            f"This was cooked on {day:%a} {day.day} {day:%b}. Undo “Cooked it” first.",
+        )  # proposed, for cabledrawer
     steps: list[dict[str, Any]] = []
     tubs = list(
         db.scalars(

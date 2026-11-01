@@ -17,6 +17,8 @@ export interface PlanActions {
   openItem: (meal: PlanMeal, item: PlanItem) => void;
   /** Open "Cook once, eat for…" for a planned recipe. */
   openCookOnce: (meal: PlanMeal, item: PlanItem) => void;
+  /** Open the "Cooked it" review for a meal. */
+  openCooked: (meal: PlanMeal) => void;
   /** Choose something to plan on a day (and a meal, when it's known). */
   add: (day: string, slotId: number | null) => void;
   /** Show one day's meals (Month). */

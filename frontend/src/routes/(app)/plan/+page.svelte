@@ -13,6 +13,7 @@
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import CookOnce from '#lib/components/plan/CookOnce.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
@@ -21,10 +22,12 @@
   import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import PlanWeek from '#lib/components/plan/PlanWeek.svelte';
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
+  import { CookReview } from '#lib/cookReview.svelte.js';
+  import { cookTarget } from '#lib/cookTargets.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
-  import { monthWords, weekWords } from '#lib/planDates.js';
+  import { dayFull, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
@@ -116,6 +119,32 @@
     };
   }
 
+  // "Cooked it": the same review as on Today. The meal is then answered as cooked.
+  const review = new CookReview();
+  let cookedMeal = $state<PlanMeal | null>(null);
+  let leftover = $state<LeftoverOptions | null>(null);
+
+  function openCooked(meal: PlanMeal) {
+    const target = cookTarget(
+      model.plan,
+      meal,
+      `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`
+    );
+    const first = meal.items.find((i) => i.kind === 'recipe');
+    cookedMeal = meal;
+    // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
+    leftover =
+      first && target.parts.every((p) => p.batchId === null)
+        ? { itemId: first.id, today: model.today }
+        : null;
+    void review.open(target);
+  }
+
+  function closeCooked() {
+    review.close();
+    cookedMeal = null;
+  }
+
   const actions: PlanActions = {
     model,
     get readonly() {
@@ -127,6 +156,7 @@
     openMeal: (meal) => (sheet = { kind: 'meal', meal }),
     openItem: (meal, item) => (sheet = { kind: 'item', meal, item }),
     openCookOnce: (meal, item) => (cooking = { meal, item }),
+    openCooked,
     add: (day, slotId) => (adding = { day, slotId }),
     openDay: (day) => (sheet = { kind: 'day', day }),
     carryMeal,
@@ -309,6 +339,16 @@
 
 <PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
 <CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
+<CookedReview
+  {review}
+  {leftover}
+  {readonly}
+  onclose={closeCooked}
+  onconfirmed={(leftovers) => {
+    const meal = cookedMeal;
+    if (meal) void model.cooked(meal, leftovers);
+  }}
+/>
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
 
 {#if drag.carried}

@@ -30,7 +30,7 @@
     tubOf,
     useByWords
   } from '#lib/planMeals.js';
-  import type { PlanItem } from '#lib/client/plan.js';
+  import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import PlanDays from './PlanDays.svelte';
 
   let {
@@ -107,6 +107,23 @@
     if (!only || only.kind !== 'recipe' || !only.recipe || only.recipe.removed) return null;
     return cookBatchOfItem(model.plan, target.meal, only) ? null : only;
   });
+
+  /** The meal this menu can answer as cooked: planned, from its day on, with a recipe in it. */
+  const cookedMeal = $derived.by((): PlanMeal | null => {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return null;
+    const meal = target.meal;
+    if (meal.status !== 'planned' || meal.date > model.today) return null;
+    return meal.items.some((i) => i.kind === 'recipe' && i.recipe && !i.recipe.removed)
+      ? meal
+      : null;
+  });
+
+  function cooked() {
+    const meal = cookedMeal;
+    if (!meal) return;
+    onclose();
+    actions.openCooked(meal);
+  }
 
   function cookOnce() {
     if (!target || !cookable || (target.kind !== 'meal' && target.kind !== 'item')) return;
@@ -271,6 +288,9 @@
             <button type="button" disabled={actions.readonly} onclick={openUseBy}
               >Change use-by date</button
             >
+          {/if}
+          {#if cookedMeal}
+            <button type="button" disabled={actions.readonly} onclick={cooked}>Cooked it</button>
           {/if}
           {#if cookable}
             <button type="button" disabled={actions.readonly} onclick={cookOnce}

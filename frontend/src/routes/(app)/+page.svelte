@@ -8,13 +8,15 @@
   import { downLine } from '#lib/downWords.js';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
-  import CookedSheet from '#lib/components/today/CookedSheet.svelte';
+  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import FirstDay from '#lib/components/today/FirstDay.svelte';
   import MoveSheet from '#lib/components/today/MoveSheet.svelte';
   import WaitingCard from '#lib/components/today/WaitingCard.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
+  import { CookReview } from '#lib/cookReview.svelte.js';
+  import { cookTarget } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -23,7 +25,8 @@
   import { colourOfBatch, itemName, tubOf, whoseTub } from '#lib/planMeals.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
-  import { dayWords, mealsWords } from '#lib/todayWords.js';
+  import { dayWords, mealsWords, whenWords } from '#lib/todayWords.js';
+  import type { PlanMeal } from '#lib/client/plan.js';
   import type { WaitingMeal } from '#lib/client/today.js';
 
   const model = new TodayModel();
@@ -64,7 +67,47 @@
     }
   }
 
-  let cooking = $state<WaitingMeal | null>(null);
+  // "Cooked it": the one review for a meal waiting on Today and for a meal eaten today.
+  const review = new CookReview();
+  let answering = $state<WaitingMeal | null>(null);
+  let leftover = $state<LeftoverOptions | null>(null);
+
+  function openCooked(w: WaitingMeal, hasUseBy: boolean) {
+    const meal = model.mealOf(w);
+    if (!meal || !model.data) return;
+    answering = w;
+    leftover =
+      w.leftover_item_id !== null
+        ? {
+            itemId: w.leftover_item_id,
+            today: model.data.today,
+            ...(hasUseBy ? { useByFridge: w.use_by_fridge, useByFreezer: w.use_by_freezer } : {})
+          }
+        : null;
+    const when = `${whenWords(w.date, model.data.today)} · ${model.slotName(w.slot_id).toLowerCase()}`;
+    void review.open(cookTarget(model.data.plan, meal, when));
+  }
+
+  /** A meal eaten today that is still planned: the same review (the server counts a tub's use-by). */
+  function cookEating(meal: PlanMeal) {
+    const first = meal.items.find((i) => i.kind === 'recipe');
+    openCooked(
+      {
+        meal_id: meal.id,
+        date: meal.date,
+        slot_id: meal.slot_id,
+        leftover_item_id: first?.id ?? null,
+        use_by_fridge: '',
+        use_by_freezer: ''
+      },
+      false
+    );
+  }
+
+  function closeCooked() {
+    review.close();
+    answering = null;
+  }
   let moving = $state<WaitingMeal | null>(null);
 
   const data = $derived(model.data);
@@ -137,7 +180,7 @@
       <WaitingCard
         {model}
         waiting={model.asking}
-        oncooked={() => (cooking = model.asking)}
+        oncooked={() => model.asking && openCooked(model.asking, true)}
         onmove={() => (moving = model.asking)}
       />
     {/if}
@@ -185,6 +228,14 @@
             </div>
           {/if}
           {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal</p>{/if}
+          {#if meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe')}
+            <button
+              type="button"
+              class="cooked-it"
+              disabled={model.readonly}
+              onclick={() => cookEating(meal)}>Cooked it</button
+            >
+          {/if}
         </div>
       {/each}
     </section>
@@ -255,7 +306,16 @@
   </div>
 {/if}
 
-<CookedSheet {model} waiting={cooking} onclose={() => (cooking = null)} />
+<CookedReview
+  {review}
+  {leftover}
+  readonly={model.readonly}
+  onclose={closeCooked}
+  onconfirmed={(leftovers) => {
+    const waiting = answering;
+    if (waiting) void model.cooked(waiting, leftovers);
+  }}
+/>
 <MoveSheet {model} waiting={moving} onclose={() => (moving = null)} />
 
 <style>
@@ -434,6 +494,25 @@
     color: var(--soft-text, var(--color-tub-chip-text));
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
+  }
+
+  .cooked-it {
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    padding: 0 18px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .cooked-it:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .pill {

@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_cooking import FAR, cook
+from test_cooking import FAR, _batch, cook
 from test_deduction import plan_item, propose, recipe_of, row_of
 from test_plan import db_of
 from test_recipe_list import line, place_id, stock
@@ -211,3 +211,17 @@ def test_one_ingredient_in_two_places_is_one_total_in_the_review(kitchen: TestCl
     )
     assert sorted(lot["place"]["name"] for lot in take["lots"]) == ["Cupboard", "Fridge"]
     assert rows[0]["short"] is None
+
+
+def test_a_cooked_batch_cannot_be_taken_off_the_plan_until_cooked_it_is_undone(
+    kitchen: TestClient,
+) -> None:
+    _, _, batch, _ = _batch(kitchen)
+    done = ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)
+    refused = kitchen.delete(f"{API}/plan/batches/{batch}")
+    assert (refused.status_code, refused.json()["code"]) == (409, "already_cooked")
+    assert refused.json()["detail"].startswith("This was cooked on ")
+    assert refused.json()["detail"].endswith("Undo “Cooked it” first.")
+    ok(kitchen.get(f"{API}/plan/batches/{batch}/cooked"))  # the record is still there
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    ok(kitchen.delete(f"{API}/plan/batches/{batch}"))  # now it can go

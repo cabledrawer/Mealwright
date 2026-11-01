@@ -6,6 +6,7 @@
 import { cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
+import { cookedIt, type Leftovers } from './client/today';
 import {
   editTub,
   fillFromFreezer,
@@ -276,6 +277,16 @@ export class PlanModel {
     return this.#send({
       label: `Cooked ${recipeName} once for ${body.tub_count} ${word}`,
       send: (key) => makeBatch(itemId, body, key)
+    });
+  }
+
+  /** Cooked it, for a meal on the Plan: the meal is answered, with "Any left over?" tubs if any.
+   * The pantry was already changed by the review; this is Today's answer, as on Today. */
+  cooked(meal: PlanMeal, leftovers: Leftovers | null) {
+    const name = mealName(meal, this.plan);
+    return this.#send({
+      label: `Cooked ${name}`,
+      send: (key) => cookedIt(meal.id, leftovers, key)
     });
   }
 
