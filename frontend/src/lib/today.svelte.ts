@@ -164,6 +164,8 @@ export class TodayModel {
     label: string;
     mealId: number;
     send: (key: string) => ReturnType<typeof didntCook>;
+    /** Also undone when this is: what "Cooked it" took from the pantry (one Undo for both). */
+    alsoUndo?: () => Promise<string | void>;
   }) {
     let before: TodayData | null = null;
     let undoer: (() => Promise<string | void>) | null = null;
@@ -191,19 +193,31 @@ export class TodayModel {
           const change = value.change;
           if (!change?.can_undo) return false;
           undoer ??= serverUndo(change.id);
-          return undoer();
+          return (async () => {
+            const own = await undoer!();
+            const more = await options.alsoUndo?.();
+            return more ?? own;
+          })();
         }
       }
     });
   }
 
-  /** Cooked it, with "Any left over?" if there is any. */
-  cooked(waiting: WaitingMeal, leftovers: Leftovers | null) {
+  /**
+   * Cooked it, with "Any left over?" if there is any. `undoCooked` takes back what the review
+   * took from the pantry: this answer's Undo does both.
+   */
+  cooked(
+    waiting: WaitingMeal,
+    leftovers: Leftovers | null,
+    undoCooked?: () => Promise<string | void>
+  ) {
     const name = this.nameOf(waiting);
     return this.#send({
       label: `Cooked ${name}`,
       mealId: waiting.meal_id,
-      send: (key) => cookedIt(waiting.meal_id, leftovers, key)
+      send: (key) => cookedIt(waiting.meal_id, leftovers, key),
+      alsoUndo: undoCooked
     });
   }
 

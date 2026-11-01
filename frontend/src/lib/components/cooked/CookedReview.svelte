@@ -6,7 +6,7 @@
   // cook…?" and the Plan's Cooked it open this same screen. The words are proposed, for cabledrawer.
   import type { Leftovers } from '#lib/client/today.js';
   import { changeCount } from '#lib/cookRows.js';
-  import type { CookReview } from '#lib/cookReview.svelte.js';
+  import { undoAll, type CookReview } from '#lib/cookReview.svelte.js';
   import { pickedDateWords } from '#lib/dates.js';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
@@ -34,7 +34,10 @@
     readonly?: boolean;
     onclose: () => void;
     /** After the pantry is changed: Today's answer for the meal itself (and its tubs). */
-    onconfirmed?: (leftovers: Leftovers | null) => void | Promise<void>;
+    onconfirmed?: (
+      leftovers: Leftovers | null,
+      undoCooked: () => Promise<string | void>
+    ) => void | Promise<void>;
   } = $props();
 
   const uid = $props.id();
@@ -82,7 +85,7 @@
 
   async function confirm() {
     if (!target) return;
-    const outcomes = await review.confirm();
+    const outcomes = await review.confirm({ undoable: !onconfirmed });
     if (outcomes.some((o) => !o.ok)) return; // the toast says why; the screen stays
     const leftovers: Leftovers | null =
       count > 0 && leftover
@@ -94,7 +97,7 @@
           }
         : null;
     onclose();
-    await onconfirmed?.(leftovers);
+    await onconfirmed?.(leftovers, undoAll(outcomes));
   }
 
   function closeOnBackdrop(event: MouseEvent) {

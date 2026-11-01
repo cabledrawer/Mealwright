@@ -179,6 +179,8 @@ export class PlanModel {
     label: string;
     edit?: (plan: Plan) => Plan;
     send: (key: string) => Promise<PlanWrite>;
+    /** Also undone when this is (what "Cooked it" took from the pantry). */
+    alsoUndo?: () => Promise<string | void>;
   }) {
     let before: Plan | null = null;
     let undoer: (() => Promise<string | void>) | null = null;
@@ -201,7 +203,12 @@ export class PlanModel {
           const change = value.change;
           if (!change?.can_undo) return false;
           undoer ??= serverUndo(change.id);
-          return undoer();
+          if (!options.alsoUndo) return undoer();
+          return (async () => {
+            const own = await undoer!();
+            const more = await options.alsoUndo?.();
+            return more ?? own;
+          })();
         }
       }
     });
@@ -282,11 +289,12 @@ export class PlanModel {
 
   /** Cooked it, for a meal on the Plan: the meal is answered, with "Any left over?" tubs if any.
    * The pantry was already changed by the review; this is Today's answer, as on Today. */
-  cooked(meal: PlanMeal, leftovers: Leftovers | null) {
+  cooked(meal: PlanMeal, leftovers: Leftovers | null, undoCooked?: () => Promise<string | void>) {
     const name = mealName(meal, this.plan);
     return this.#send({
       label: `Cooked ${name}`,
-      send: (key) => cookedIt(meal.id, leftovers, key)
+      send: (key) => cookedIt(meal.id, leftovers, key),
+      alsoUndo: undoCooked
     });
   }
 

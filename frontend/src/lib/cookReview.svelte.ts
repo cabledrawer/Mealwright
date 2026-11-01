@@ -156,7 +156,10 @@ export class CookReview {
    * Take it all out of the pantry: the meal's recipes as one change, each batch as its own.
    * Resolves with every outcome; nothing was taken for one that failed (its toast says why).
    */
-  async confirm(): Promise<Outcome<CookedMealWrite | CookedWrite>[]> {
+  async confirm(
+    options: { undoable?: boolean } = {}
+  ): Promise<Outcome<CookedMealWrite | CookedWrite>[]> {
+    const undoable = options.undoable ?? true;
     const target = this.target;
     if (!target) return [];
     const outcomes: Outcome<CookedMealWrite | CookedWrite>[] = [];
@@ -174,7 +177,9 @@ export class CookReview {
         answers: this.answers
       };
       outcomes.push(
-        await this.#send(label, (key, asked) => cookMeal(mealId, withAsked(body, asked), key))
+        await this.#send(label, undoable, (key, asked) =>
+          cookMeal(mealId, withAsked(body, asked), key)
+        )
       );
     }
     for (const tab of this.tabs.filter((t) => t.part.batchId !== null)) {
@@ -186,7 +191,9 @@ export class CookReview {
         answers: this.answers
       };
       outcomes.push(
-        await this.#send(label, (key, asked) => cookBatch(batchId, withAsked(body, asked), key))
+        await this.#send(label, undoable, (key, asked) =>
+          cookBatch(batchId, withAsked(body, asked), key)
+        )
       );
     }
     this.saving = false;
@@ -195,6 +202,7 @@ export class CookReview {
 
   #send<T extends CookedMealWrite | CookedWrite>(
     label: string,
+    undoable: boolean,
     send: (key: string, asked: Answer[]) => Promise<T>
   ): Promise<Outcome<T>> {
     return save<T>({
@@ -202,12 +210,15 @@ export class CookReview {
       rollback: () => {},
       send,
       saved: () => kitchen.changed(),
-      undo: {
-        label,
-        labelFrom: (value) => value.change.summary,
-        skip: (value) => !value.change.can_undo,
-        run: (value) => serverUndo(value.change.id)()
-      }
+      // With a meal answer to follow, that answer's toast undoes this too (one Undo).
+      undo: undoable
+        ? {
+            label,
+            labelFrom: (value) => value.change.summary,
+            skip: (value) => !value.change.can_undo,
+            run: (value) => serverUndo(value.change.id)()
+          }
+        : undefined
     });
   }
 }
@@ -215,4 +226,18 @@ export class CookReview {
 /** The answers the person gave on the screen, then any the server asked for as the confirm went. */
 function withAsked<B extends { answers: Answer[] }>(body: B, asked: Answer[]): B {
   return { ...body, answers: [...body.answers, ...asked].slice(0, 20) };
+}
+
+/** One Undo for what the outcomes changed in the pantry (the meal's Undo runs it too). */
+export function undoAll(
+  outcomes: Outcome<CookedMealWrite | CookedWrite>[]
+): () => Promise<string | void> {
+  const undoers = outcomes.flatMap((o) =>
+    o.ok && o.value.change.can_undo ? [serverUndo(o.value.change.id)] : []
+  );
+  return async () => {
+    let said: string | void = undefined;
+    for (const undo of undoers) said = (await undo()) ?? said;
+    return said;
+  };
 }
