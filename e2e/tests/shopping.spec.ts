@@ -1,5 +1,11 @@
 import { test, expect, type Page } from "./clock.ts";
-import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from "./a11y.ts";
+import {
+  checkPage,
+  expectNoSidewaysScroll,
+  inTheme,
+  isPhone,
+  setAccountTheme,
+} from "./a11y.ts";
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
 // desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
@@ -347,39 +353,66 @@ test("tapping the name opens the amount box without ticking, and − / + step th
   expect(await stockOf(page, foodId)).toEqual({});
 });
 
-test("F123: in a narrow column the amount box keeps room for its number, and the unit menu drops under it", async ({
-  page,
-}) => {
-  const name = `Ghee ${tag()}`;
-  await onList(page, name, 500);
+/** A 240 px wide amount form, for an ingredient with a size so the unit menu always shows. */
+async function narrowAmountForm(page: Page, label: string) {
+  const name = `Ghee ${label} ${tag()}`;
+  const foodId = await onList(page, name, 500);
+  await call(page, "POST", `/foods/${foodId}/sizes`, { name: "jar", amount: 500 });
   await page.goto("/shopping");
   await page.getByRole("button", { name, exact: true }).click();
   const box = page.getByRole("form", { name: `Change ${name}` });
   const amount = box.getByRole("textbox", { name: "Amount" });
-  await expect(amount).toHaveValue("500");
+  await expect(amount).toBeVisible();
   // A narrow column: the form made 240 px wide, as two columns on a small window make it.
   await box.evaluate((el) => {
     (el as HTMLElement).style.width = "240px";
   });
-  const room = async () =>
-    amount.evaluate((el) => {
-      const input = el as HTMLInputElement;
-      return {
-        width: input.getBoundingClientRect().width,
-        clipped: input.scrollWidth > input.clientWidth,
-      };
-    });
-  const seen = await room();
+  return { box, amount };
+}
+
+async function expectRoomForTheNumber(
+  page: Page,
+  box: ReturnType<Page["locator"]>,
+  amount: ReturnType<Page["locator"]>,
+) {
+  const seen = await amount.evaluate((el) => {
+    const input = el as HTMLInputElement;
+    return {
+      width: input.getBoundingClientRect().width,
+      clipped: input.scrollWidth > input.clientWidth,
+    };
+  });
   expect(seen.width).toBeGreaterThanOrEqual(72);
   expect(seen.clipped).toBe(false);
-  // Nothing spills out of the box, and the unit menu is still reachable.
+  // Nothing spills out of the box, and the unit menu is there and reachable.
   const form = (await box.boundingBox())!;
   const menu = box.getByRole("combobox", { name: "Unit" });
-  if (await menu.count()) {
-    const at = (await menu.boundingBox())!;
-    expect(at.x + at.width).toBeLessThanOrEqual(form.x + form.width + 1);
-  }
+  await expect(menu).toBeVisible();
+  const at = (await menu.boundingBox())!;
+  expect(at.x + at.width).toBeLessThanOrEqual(form.x + form.width + 1);
   await expectNoSidewaysScroll(page);
+}
+
+test("F123: in a narrow column the amount box keeps room for its number, and the unit menu drops under it", async ({
+  page,
+}) => {
+  const { box, amount } = await narrowAmountForm(page, "plain");
+  await expect(amount).toHaveValue("500");
+  await expectRoomForTheNumber(page, box, amount);
+});
+
+test("F123: the same at 200% text", async ({ page }) => {
+  const { box, amount } = await narrowAmountForm(page, "big");
+  await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+  await expectRoomForTheNumber(page, box, amount);
+  await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+});
+
+test("F123: the same in the dark theme", async ({ page }) => {
+  const { box, amount } = await narrowAmountForm(page, "dark");
+  await inTheme(page, "dark");
+  await expectRoomForTheNumber(page, box, amount);
+  await setAccountTheme(page);
 });
 
 test("the amount box’s Edit ingredient saves the box and opens the ingredient editor; offline it isn’t there", async ({
