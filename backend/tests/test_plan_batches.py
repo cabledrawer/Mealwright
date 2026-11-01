@@ -953,7 +953,7 @@ def test_tubs_are_numbered_in_date_order(
     ]
 
 
-# --- Dragging a COOK card moves the cooking (0.7 P3) -----------------------------------------------
+# --- Dragging a COOK card moves the cooking (0.7 P3) ---------------------------------------------
 
 
 def _move_meal(client: TestClient, meal_id: int, day_: str, slot: int) -> Any:

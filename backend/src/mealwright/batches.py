@@ -1160,15 +1160,15 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         if batch is None:
             return False
         batch.cooked_on = date.fromisoformat(step["from"])
-        whole = True
+        complete = True
         for tub_id, use_by in step["tubs"]:
             tub = _own(kitchen, Tub, tub_id)
             if tub is None:
-                whole = False
+                complete = False
                 continue
             tub.use_by = date.fromisoformat(use_by)
         db.flush()
-        return whole
+        return complete
     if op == "new_tub":
         tub = _own(kitchen, Tub, step["tub"])
         if tub is None or item_of_tub(kitchen, tub) is not None:
