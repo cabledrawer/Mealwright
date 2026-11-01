@@ -756,7 +756,7 @@ def _photo_keys(engine: Engine) -> list[tuple[str]]:
 DRAFTS = "d7a4c2e81f56"  # 0.5 PR 5's migration: the one just before the plan tables
 PLAN_TABLES = ("meal_slot", "meal", "meal_item", "batch_cook", "tub")
 # Tables later migrations add: a test of an older migration leaves them out of its counts.
-K1_TABLES = ("recipe_step_line", "cooked_record")
+K1_TABLES = ("recipe_step_line", "cooked_record", "meal_eater")
 PLAN_COLUMNS = {"tub_fridge_days", "tub_freezer_months", "plan_ahead_days", "week_starts_on"}
 
 
@@ -957,7 +957,7 @@ def test_step_links_migration_adds_one_table_and_goes_back_and_forward(tmp_path:
     its step; going back drops only the table and keeps every other row."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)  # a recipe with a line and a step in each of two households
-    skip = {"recipe_step_line", "cooked_record", "alembic_version"}
+    skip = {"recipe_step_line", "cooked_record", "meal_eater", "alembic_version"}
     before = _row_counts(engine, skip)
     migrate.downgrade(engine, RESTOCK_MIGRATION)
     assert "recipe_step_line" not in inspect(engine).get_table_names()
@@ -1012,7 +1012,7 @@ def test_cooked_records_migration_adds_one_table_and_goes_back_and_forward(
             "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
             " VALUES (1, 1, 1, 0, 'recipe', 1)"
         )
-    skip = {"cooked_record", "alembic_version"}
+    skip = {"cooked_record", "meal_eater", "alembic_version"}
     before = _row_counts(engine, skip)
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
@@ -1078,7 +1078,7 @@ def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Pat
                 "INSERT INTO meal_item (household_id, meal_id, position, kind, name)"
                 " VALUES (1, 2, 0, 'note', 'Eating out')"
             )
-    skip = {"alembic_version"}
+    skip = {"meal_eater", "alembic_version"}
     before = _row_counts(engine, skip)
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
@@ -1111,5 +1111,54 @@ def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Pat
     assert [k[0] for k in kinds] == ["recipe"]  # the notes are gone
     assert [m[0] for m in meals] == [1]  # and the meal that held only a note
     assert "AUTOINCREMENT" in _table_sql(engine, "meal_item")
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+
+
+NOTE_MIGRATION = "e0c4a7b19d35"  # 0.7 P1's notes: the one just before meal eaters
+
+
+def test_meal_eaters_migration_adds_one_table_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.7 P1: the who's-eating table is added empty and every other row stays; a row can't
+    reach into another household's meal, a person is ticked once per meal, and a row goes with
+    its meal or its login; going back drops only the table."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"meal_eater", "alembic_version"}
+    before = _row_counts(engine, skip)
+    migrate.downgrade(engine, NOTE_MIGRATION)
+    assert "meal_eater" not in inspect(engine).get_table_names()
+    assert _row_counts(engine, skip) == before
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    names = {c["name"] for c in inspect(engine).get_columns("meal_eater")}
+    assert {"household_id", "meal_id", "login_id"} <= names
+    assert "AUTOINCREMENT" in _table_sql(engine, "meal_eater")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        slot = connection.exec_driver_sql(
+            "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        connection.exec_driver_sql(
+            "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+            " VALUES (1, 1, '2026-11-02', ?, 'planned', '2026-11-01')",
+            (slot,),
+        )
+        login = connection.exec_driver_sql(
+            "SELECT id FROM login WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        add_row = "INSERT INTO meal_eater (household_id, meal_id, login_id) VALUES (?, 1, ?)"
+        connection.exec_driver_sql(add_row, (1, login))
+        with pytest.raises(IntegrityError):  # the same person twice
+            connection.exec_driver_sql(add_row, (1, login))
+        with pytest.raises(IntegrityError):  # household 2 can't tick a meal of household 1
+            connection.exec_driver_sql(add_row, (2, login))
+        connection.exec_driver_sql("DELETE FROM meal WHERE id = 1")
+        assert connection.exec_driver_sql("SELECT count(*) FROM meal_eater").scalar() == 0
+    after = _row_counts(engine, skip)
+    migrate.downgrade(engine, NOTE_MIGRATION)
+    assert "meal_eater" not in inspect(engine).get_table_names()
+    assert _row_counts(engine, skip) == after
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()

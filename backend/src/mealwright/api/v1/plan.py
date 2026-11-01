@@ -26,6 +26,7 @@ from mealwright.models import (
     Food,
     Login,
     Meal,
+    MealEater,
     MealItem,
     MealSlot,
     Place,
@@ -88,6 +89,11 @@ class PlanItemOut(BaseModel):
     servings: int | None
     # A note's text ("Eating out"); null for everything else.
     note: str | None = None
+    # Serves - N +: how many people this recipe is for now. Its own `servings` once set; else the
+    # recipe's Serves (a meal planned before 0.7 has none set), or one for the cook meal of a
+    # batch (how Cook once and the list count it); null for anything but a recipe, and for a
+    # recipe with no Serves.
+    eating: int | None = None
 
 
 class PlanMealOut(BaseModel):
@@ -99,6 +105,9 @@ class PlanMealOut(BaseModel):
     # One serving of each recipe and tub added up; null when none of them has kcal (PR 3;
     # cabledrawer 26 Oct).
     kcal: int | None = None
+    # Who is eating (0.7 P1): the logins ticked, by sign-in until member profiles (0.8). Empty:
+    # everyone.
+    eater_login_ids: list[int] = Field(default_factory=list)
 
 
 class PlanBatchOut(BaseModel):
@@ -312,6 +321,17 @@ def get_plan(
             return kcal_of(batch_recipe.get(tub_batch[i.tub_id]))
         return None
 
+    cook_meals = {(b.cook_meal_id, b.recipe_id) for b in batches if b.cook_meal_id is not None}
+
+    def eating_of(i: MealItem, recipe: Recipe | None) -> int | None:
+        if i.kind != "recipe":
+            return None
+        if i.servings is not None:
+            return i.servings
+        if (i.meal_id, i.recipe_id) in cook_meals:
+            return 1
+        return recipe.serves if recipe else None
+
     def item_out(i: MealItem) -> PlanItemOut:
         recipe = recipes.get(i.recipe_id) if i.recipe_id else None
         food = foods.get(i.food_id) if i.food_id else None
@@ -342,11 +362,24 @@ def get_plan(
             else None,
             servings=i.servings,
             note=i.name if i.kind == "note" else None,
+            eating=eating_of(i, recipe),
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}
     kcal_by_meal: dict[int, int] = {}
     portions = batch_service.portions_by_batch(kitchen, batches)
+    eaters: dict[int, list[int]] = {}
+    for meal_id, login_id in db.execute(
+        select(MealEater.meal_id, MealEater.login_id)
+        .join(Login, Login.id == MealEater.login_id)
+        .where(
+            MealEater.household_id == household_id,
+            Login.household_id == household_id,
+            MealEater.meal_id.in_(select(Meal.id).where(*in_range)),
+        )
+        .order_by(MealEater.login_id)
+    ):
+        eaters.setdefault(meal_id, []).append(login_id)
     for i in items:
         by_meal.setdefault(i.meal_id, []).append(item_out(i))
         kcal = item_kcal(i)
@@ -363,6 +396,7 @@ def get_plan(
                 status=m.status,  # type: ignore[arg-type]
                 items=by_meal.get(m.id, []),
                 kcal=kcal_by_meal.get(m.id),
+                eater_login_ids=eaters.get(m.id, []),
             )
             for m in meals
         ],
@@ -497,6 +531,44 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     if response.headers.get("Idempotent-Replayed"):
         response.status_code = status.HTTP_200_OK
     return out
+
+
+class ServingsIn(BaseModel):
+    servings: Annotated[int, Field(ge=1, le=99)]
+
+
+@router.patch("/plan/items/{plan_item_id}")
+def set_plan_item_servings(
+    plan_item_id: StoredInt, body: ServingsIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """Serves - N +: how many people a planned recipe is for. Amounts and the shopping list
+    follow. Already that number → `change: null`. Works on meals planned before 0.7 (no number
+    set) too. Only a recipe (`422 not_a_recipe`) in a planned meal (`409 meal_done`)."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_servings(kitchen, plan.find_item(kitchen, plan_item_id), body.servings),
+    )
+
+
+class EatersIn(BaseModel):
+    login_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
+        description="Who is eating, by sign-in (proposed, for cabledrawer; member profiles come in"
+        " 0.8). Empty: everyone."
+    )
+
+
+@router.put("/plan/meals/{plan_meal_id}/eaters")
+def set_plan_meal_eaters(
+    plan_meal_id: StoredInt, body: EatersIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """Who is eating a meal. Replaces the whole list; already that way → `change: null`. A
+    login of another household → `404`."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_eaters(kitchen, plan.find_meal(kitchen, plan_meal_id), body.login_ids),
+    )
 
 
 @router.delete("/plan/items/{plan_item_id}")

@@ -1147,6 +1147,31 @@ class MealItem(Base):
     servings: Mapped[int | None] = mapped_column(Integer)
 
 
+class MealEater(Base):
+    """Who is eating a meal (0.7 P1, Serves - N + and "who's eating", F57). One row per person
+    ticked; none means everyone. Proposed, for cabledrawer: by sign-in (the household's logins), as
+    tubs already are (`Tub.member_login_id`), until member profiles arrive (0.8)."""
+
+    __tablename__ = "meal_eater"
+    __table_args__ = (
+        UniqueConstraint("meal_id", "login_id", name="uq_meal_eater_meal_id_login_id"),
+        ForeignKeyConstraint(
+            ["household_id", "meal_id"],
+            ["meal.household_id", "meal.id"],
+            ondelete="CASCADE",
+            name="fk_meal_eater_household_id_meal",
+        ),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    meal_id: Mapped[int] = mapped_column(Integer, index=True)
+    login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+
+
 class CookedRecord(Base):
     """What was actually cooked, for one meal item or one batch cook (spec section 6, "Plan
     and batch cooks": "Cooked meals keep a record of what was actually made", cabledrawer 17 Oct):

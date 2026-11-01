@@ -4,14 +4,25 @@ from datetime import date, timedelta
 from typing import Any, Literal
 
 from fastapi import status
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
 from mealwright.household import today
-from mealwright.models import BatchCook, Change, Food, Meal, MealItem, MealSlot, Recipe, Tub
+from mealwright.models import (
+    BatchCook,
+    Change,
+    Food,
+    Login,
+    Meal,
+    MealEater,
+    MealItem,
+    MealSlot,
+    Recipe,
+    Tub,
+)
 
 
 def delete_meal(db: DbSession, meal: Meal) -> None:
@@ -229,6 +240,7 @@ def _drop_meal(kitchen: Kitchen, meal: Meal, steps: list[dict[str, Any]]) -> Non
                 "status": meal.status,
             },
             "batches": batches,
+            "eaters": eaters_of(kitchen, meal),
         }
     )
     delete_meal(kitchen.db, meal)
@@ -261,7 +273,7 @@ def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
                 if more:
                     name = f"{name} and {more} more"
                 return f"{name} ({_short_where(kitchen, *was)})"
-        if step["op"] in ("add_item", "move_item"):
+        if step["op"] in ("add_item", "move_item", "servings"):
             item = kitchen.db.get(MealItem, step["item"])
         elif step["op"] == "del_item":
             item = MealItem(**{key: step["item"][key] for key in _SNAPSHOT_KEYS})
@@ -548,6 +560,88 @@ def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: M
     return _finish(kitchen, _KINDS[mode], summary, steps, meal_id=target.id)
 
 
+def set_servings(kitchen: Kitchen, item: MealItem, servings: int) -> Change | None:
+    """Serves - N + (0.7 P1; F57): how many people a recipe in a meal is for. Amounts and the
+    shopping list follow. Already that number → None. A meal planned before 0.7 has none set
+    (its recipe's own Serves is meant), so the first change starts from there."""
+    meal = kitchen.db.get(Meal, item.meal_id)
+    if meal is None:  # pragma: no cover (the database keeps every item in a meal)
+        raise not_found("That meal")
+    _planned(meal)
+    if item.kind != "recipe":
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_recipe",
+            "Only a recipe has a number of servings.",  # proposed, for cabledrawer
+        )
+    if item.servings == servings:
+        return None
+    before = item.servings
+    item.servings = servings
+    kitchen.db.flush()
+    where = _where(kitchen, meal.day, meal.slot_id)
+    return _finish(
+        kitchen,
+        "plan_servings",
+        f"Set {_item_name(kitchen, item)} for {servings} on {where}",
+        [{"op": "servings", "item": item.id, "from": before}],
+        meal_id=meal.id,
+        item_id=item.id,
+    )
+
+
+def eaters_of(kitchen: Kitchen, meal: Meal) -> list[int]:
+    """The logins ticked as eating a meal, oldest first (none: everyone)."""
+    return list(
+        kitchen.db.scalars(
+            select(MealEater.login_id)
+            .join(Login, Login.id == MealEater.login_id)
+            .where(
+                MealEater.household_id == kitchen.household_id,
+                MealEater.meal_id == meal.id,
+                Login.household_id == kitchen.household_id,
+            )
+            .order_by(MealEater.login_id)
+        )
+    )
+
+
+def _write_eaters(kitchen: Kitchen, meal_id: int, login_ids: list[int]) -> None:
+    kitchen.db.execute(
+        delete(MealEater).where(
+            MealEater.household_id == kitchen.household_id, MealEater.meal_id == meal_id
+        )
+    )
+    for login_id in sorted(set(login_ids)):
+        kitchen.db.add(
+            MealEater(household_id=kitchen.household_id, meal_id=meal_id, login_id=login_id)
+        )
+    kitchen.db.flush()
+
+
+def set_eaters(kitchen: Kitchen, meal: Meal, login_ids: list[int]) -> Change | None:
+    """Who is eating this meal (0.7 P1; F57). Proposed, for cabledrawer: by sign-in, until member
+    profiles (0.8). None ticked means everyone. Already that way → None."""
+    _planned(meal)
+    wanted = sorted(set(login_ids))
+    for login_id in wanted:
+        login = kitchen.db.get(Login, login_id)
+        if login is None or login.household_id != kitchen.household_id:
+            raise not_found("That person")
+    before = eaters_of(kitchen, meal)
+    if before == wanted:
+        return None
+    _write_eaters(kitchen, meal.id, wanted)
+    when = _short_where(kitchen, meal.day, meal.slot_id)
+    return _finish(
+        kitchen,
+        "plan_eaters",
+        f"Changed who is eating {_meal_name(kitchen, meal)} ({when})",
+        [{"op": "eaters", "meal": meal.id, "login_ids": before}],
+        meal_id=meal.id,
+    )
+
+
 def set_slot(kitchen: Kitchen, slot: MealSlot, enabled: bool) -> Change | None:
     if slot.enabled == enabled:
         return None
@@ -615,6 +709,11 @@ def _undo_step(
             )
             db.add(meal)
             db.flush()
+            _write_eaters(
+                kitchen,
+                meal.id,
+                [i for i in step.get("eaters", []) if _own(kitchen, Login, i) is not None],
+            )
             for batch_id in step["batches"]:
                 batch = _own(kitchen, BatchCook, batch_id)
                 if batch is not None and batch.cook_meal_id is None:
@@ -672,6 +771,23 @@ def _undo_step(
         touched.add(item.meal_id)
         item.meal_id, item.position = meal.id, step["position"]
         db.flush()
+        return True
+    if op == "servings":
+        item = _own(kitchen, MealItem, step["item"])
+        if item is None or _open(kitchen, item.meal_id) is None:
+            return False
+        item.servings = step["from"]
+        db.flush()
+        return True
+    if op == "eaters":
+        meal = _open(kitchen, remap.get(step["meal"], step["meal"]))
+        if meal is None:
+            return False
+        _write_eaters(
+            kitchen,
+            meal.id,
+            [i for i in step["login_ids"] if _own(kitchen, Login, i) is not None],
+        )
         return True
     if op == "status":
         # Today's answer (cooked, didn't, moved): the meal is asked about again, if it still
