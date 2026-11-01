@@ -197,12 +197,13 @@ def test_the_clock_stops_a_child_that_the_processor_limit_would_not(
 ) -> None:
     # The processor limit is far away (60 s; the page needs about 7), so only the clock and
     # the kill can stop it. Without `child.kill()` the parent would wait for the child to
-    # finish by itself, about 7 s, so the bound is far under that.
+    # finish by itself, about 7 s, so the bound is under that, with room for a slow start
+    # when the machine is busy (the full check runs the browser tests alongside).
     html = slow_page()
     began = time.monotonic()
     with caplog.at_level(logging.WARNING), pytest.raises(PageUnreadable) as refused:
         read_within_budget(html, URL, cpu_seconds=60, wall_seconds=0.5)
-    assert time.monotonic() - began < 1.8
+    assert time.monotonic() - began < 5
     assert refused.value.reason == "time"
     assert caplog.messages == ["Couldn't read a page: recipe import, over its time limit"]
     assert len(started) == 1
@@ -338,8 +339,9 @@ def test_a_child_that_answers_but_does_not_end_is_killed_after_a_moment(
     monkeypatch.setattr(page_budget, "_EXIT_SECONDS", 0.5)
     began = time.monotonic()
     assert read_within_budget("<p>x</p>", URL) is None
-    # Without the wait's limit, the parent would sit there for the child's 30 seconds.
-    assert time.monotonic() - began < 3
+    # Without the wait's limit, the parent would sit there for the child's 30 seconds. 10 s,
+    # not less: starting the child can take seconds on a busy machine.
+    assert time.monotonic() - began < 10
     assert gone(started[0])
 
 
@@ -478,7 +480,7 @@ def test_the_reads_clock_is_cut_to_what_the_import_has_left(
         # Plenty of processor time and the usual 15 s clock; only the import's time is short.
         read_within_budget(slow_page(), URL, cpu_seconds=60, within_seconds=1.0)
     assert over.value.reason == "time"
-    assert time.monotonic() - began < 2.5  # not the 15 s clock
+    assert time.monotonic() - began < 8  # not the 15 s clock; room for a slow start
     assert gone(started[0])
 
 
