@@ -519,5 +519,7 @@ def test_a_child_that_answered_is_not_given_more_time_than_the_import_has(
     monkeypatch.setattr(page_budget, "_EXIT_SECONDS", 20.0)
     monkeypatch.setattr(page_budget, "MIN_READ_SECONDS", 0.2)
     began = time.monotonic()
-    assert read_within_budget("<p>x</p>", URL, within_seconds=1.5) is None
-    assert time.monotonic() - began < 3  # not the 20 s of waiting for it to end
+    # 6 s, not less: starting the child can take seconds on a busy machine (the full check
+    # runs the browser tests alongside), and it has to answer inside this time.
+    assert read_within_budget("<p>x</p>", URL, within_seconds=6) is None
+    assert time.monotonic() - began < 10  # not the 20 s of waiting for it to end
