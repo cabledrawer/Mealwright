@@ -24,6 +24,7 @@ day is the one added first (the pantry's own rule); a part-used packet is kept e
 rounded; stand-ins are used in id order and only when they are counted the same way.
 """
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
@@ -34,7 +35,7 @@ from fastapi import status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from mealwright.amounts import MILLI, TooBig, checked, round_half_up, unit_family
+from mealwright.amounts import MILLI, TooBig, checked, round_half_up, unit_family, unit_size
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
 from mealwright.conversions import AskOnce, UnitAmount, to_base_milli
@@ -77,6 +78,7 @@ class Choice:
     left_milli: int | None = None
     from_freezer: bool = False
     add_to_list: bool | None = None  # None: as proposed
+    bought: bool = False  # "Bought some — used them": kept on the record, changes no stock
 
 
 # --- Working out ------------------------------------------------------------------------------
@@ -114,6 +116,11 @@ class Row:
     list_milli: int = 0  # what would go on: the shortfall, or for running low a small pack
     running_low: bool = False  # what is left is at or below the ingredient's running-low level
     asked: AskOnce | None = None
+    estimate: bool = False  # the recipe and the pantry count it differently: `needed` is a guess
+    asked_need: dict[str, int] = field(default_factory=dict)  # family -> recipe side, thousandths
+    half_milli: int = 0  # about half of the packet that goes off first, in the pantry's unit
+    count_note: tuple[int, str] | None = None  # "2 cloves" noted on a line with no amount
+    bought: bool = False
 
     @property
     def taken(self) -> int:
@@ -166,6 +173,38 @@ def _line_need(
         known(kitchen, food, answers),
         cup_ml(kitchen.household),
     )
+
+
+def _note_asked(row: Row, line: RecipeLine, kitchen: Kitchen) -> None:
+    """What the line asks for on the recipe's side (g, ml or items, thousandths), so the review
+    can ask for the amount in the pantry's unit and work out the conversion from the answer."""
+    if line.amount_milli is None:
+        return
+    unit = line.unit or "count"
+    family = unit_family(unit)
+    if family is None:
+        return
+    base = Decimal(line.amount_milli) * unit_size(unit, cup_ml(kitchen.household))
+    row.asked_need[family] = row.asked_need.get(family, 0) + int(base)
+
+
+COUNT_WORDS = re.compile(
+    r"^\s*(?P<n>\d+(?:\.\d+)?)?\s*(?P<frac>[½¼¾])?\s+(?P<word>cloves?|sprigs?)\b", re.IGNORECASE
+)
+FRACTIONS = {"½": 500, "¼": 250, "¾": 750}
+
+
+def _count_note(row: Row, recipe: Recipe, portions: int) -> tuple[int, str] | None:
+    """ "2 cloves" in the note of a line with no amount (F89): how many, scaled to the portions,
+    and the size word ("clove"). Only for a row of one line."""
+    if len(row.lines) != 1 or not row.lines[0].note:
+        return None
+    found = COUNT_WORDS.match(row.lines[0].note)
+    if found is None or (found["n"] is None and found["frac"] is None):
+        return None
+    count = int(Decimal(found["n"] or 0) * MILLI) + FRACTIONS.get(found["frac"] or "", 0)
+    word = found["word"].lower().removesuffix("s")
+    return (to_halves(scaled(count, recipe, portions)), word) if count > 0 else None
 
 
 def _rows(kitchen: Kitchen, recipe: Recipe, portions: int, answers: list[Answer]) -> list[Row]:
@@ -221,24 +260,33 @@ def _rows(kitchen: Kitchen, recipe: Recipe, portions: int, answers: list[Answer]
             row.status, row.use_default = "staple", False
             continue
         if row.asked is not None:
+            _note_asked(row, line, kitchen)  # every line counts in what the answer is about
             continue
         try:
             need = _line_need(line, food, sizes, answers, kitchen)
         except AskOnce as needed:
             row.asked = needed
+            _note_asked(row, line, kitchen)
             continue
         except TooBig:
             continue
         if need is not None:
             row.needed = (row.needed or 0) + need
+            family = unit_family(line.unit or "count")
+            if line.size_id is None and family is not None and family != food.counted_as:
+                row.estimate = True
     for row in rows.values():
         if row.food is None or row.status == "staple":
             continue
         if row.asked is not None:
             row.status = "ask"
             row.needed = None
+            row.asked_need = {
+                family: scaled(milli, recipe, portions) for family, milli in row.asked_need.items()
+            }
         elif row.needed is None:
             row.status, row.use_default = "no_amount", False
+            row.count_note = _count_note(row, recipe, portions)
         else:
             try:
                 value = scaled(row.needed, recipe, portions)
@@ -286,6 +334,31 @@ class Pool:
             for lot in self.lots.get(food_id, ())
             if with_freezer or not self.freezer(lot)
         )
+
+    def half_packet(self, food: Food) -> int:
+        """About half of the packet that goes off first (its size, else what is left in it), in
+        the ingredient's unit, thousandths: halves of a count, whole g or ml. 0 when there is no
+        packet outside the freezer."""
+        mine = self.lots.get(food.id, [])
+        views = [
+            LotView(
+                lot.id,
+                self.left[lot.id],
+                lot.use_by,
+                as_utc(lot.added_at),
+                self.freezer(lot),
+                lot.id in self.opened,
+            )
+            for lot in mine
+            if self.left[lot.id] > 0
+        ]
+        plan, _ = plan_take(views, 1, False)
+        if not plan:
+            return 0
+        lot = next(each for each in mine if each.id == plan[0][0])
+        whole = (self.size_milli.get(lot.size_id) if lot.size_id else None) or self.left[lot.id]
+        step = 500 if food.counted_as == "count" else MILLI
+        return round_half_up(Decimal(whole) / 2 / step) * step
 
     def take(
         self, food: Food, amount: int, from_freezer: bool, stand_in: bool, tidy: bool = True
@@ -378,6 +451,10 @@ def work_out(
     for row in rows:
         choice = choices.get(row.key)
         if row.food is None or row.status == "staple":
+            if choice is not None and choice.bought:
+                if row.status == "staple":
+                    raise _refuse("staple", "Staples aren’t counted, so nothing is taken.")
+                raise _refuse("no_ingredient", "There’s no ingredient to take that from.")
             if choice is not None and (
                 choice.used_milli is not None or choice.left_milli is not None
             ):
@@ -392,6 +469,9 @@ def work_out(
         # A row nobody chose on is tried (it takes what there is, stand-ins too); its switch is
         # settled below, once it is known whether anything could be taken.
         row.use = choice.use if choice is not None else True
+        row.bought = choice is not None and choice.bought
+        if row.status in ("ask", "no_amount") and own > 0:
+            row.half_milli = pool.half_packet(food)
         row.wanted = row.needed
         if choice is not None and choice.used_milli is not None:
             row.wanted, row.entered = checked(choice.used_milli), "used"
@@ -593,6 +673,20 @@ class TakeOut(BaseModel):
     lots: list[LotTakeOut]
 
 
+class NeedOut(BaseModel):
+    """What the recipe asks for on its own side, where it is not what the pantry counts."""
+
+    amount: float
+    unit: Literal["g", "ml", "item"]
+
+
+class CountNoteOut(BaseModel):
+    """A line with no amount whose note says how many ("2 cloves"): the count and the size word."""
+
+    count: float
+    word: str
+
+
 class RowOut(BaseModel):
     """One ingredient of the review. `use` is how its Use switch starts."""
 
@@ -612,6 +706,11 @@ class RowOut(BaseModel):
     in_freezer: AmountOut | None  # waiting in the freezer, left alone unless from_freezer
     from_freezer: bool
     ask: Ask | None
+    estimate: bool = False  # `needed` came from changing units (a cup of flour in grams)
+    ask_need: NeedOut | None = None  # status ask: what the recipe asks for, on its own side
+    half: AmountOut | None = None  # about half of the first packet, in the pantry's unit
+    count_note: CountNoteOut | None = None  # status no_amount with "2 cloves" in the note
+    bought: bool = False  # "Bought some — used them" (a confirm's choice, kept on the record)
 
 
 class ProposalOut(BaseModel):
@@ -619,6 +718,16 @@ class ProposalOut(BaseModel):
     portions: int
     servings: int | None
     rows: list[RowOut]
+
+
+def _ask_need(row: Row) -> NeedOut | None:
+    """One family only: with weights and cups mixed in one row nothing can be worked out from a
+    single answer, so the screen asks the old way."""
+    if len(row.asked_need) != 1:
+        return None
+    ((family, milli),) = row.asked_need.items()
+    unit: Literal["g", "ml", "item"] = {"weight": "g", "volume": "ml", "count": "item"}[family]  # type: ignore[assignment]
+    return NeedOut(amount=milli / MILLI, unit=unit) if milli > 0 else None
 
 
 def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
@@ -669,6 +778,13 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
         in_freezer=amount_out(food, row.in_freezer, None) if food and row.in_freezer > 0 else None,
         from_freezer=row.from_freezer,
         ask=question,
+        estimate=row.estimate,
+        ask_need=_ask_need(row),
+        half=amount_out(food, row.half_milli, None) if food and row.half_milli > 0 else None,
+        count_note=CountNoteOut(count=row.count_note[0] / MILLI, word=row.count_note[1])
+        if row.count_note
+        else None,
+        bought=row.bought,
     )
 
 

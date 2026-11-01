@@ -118,10 +118,22 @@ class ChoiceIn(BaseModel):
         " (a shortfall ticked, running low and freezer-only stock not).",
     )
 
+    bought: bool = Field(
+        default=False,
+        description='"Bought some — used them": a row with nothing in the pantry, used from'
+        " what was bought. Nothing is taken (Use is off); the record keeps it.",
+    )
+
     @model_validator(mode="after")
     def _one_amount(self) -> ChoiceIn:
         if self.used is not None and self.left is not None:
             raise ValueError("Say how much was used or how much is left, not both.")
+        if self.bought and (
+            ("use" in self.model_fields_set and self.use)
+            or self.used is not None
+            or self.left is not None
+        ):
+            raise ValueError("Bought some means Use is off, with no amount.")
         return self
 
 
@@ -133,7 +145,7 @@ class CookPreviewIn(BaseModel):
     )
     answers: list[Answer] = Field(
         default_factory=list,
-        max_length=5,
+        max_length=20,
         description="Replies to the questions an earlier proposal asked.",
     )
 
@@ -175,11 +187,12 @@ def _choices(
                 )
                 amounts[name] = foods.resolve(kitchen, food, value).milli
         out[one.key] = deduction.Choice(
-            use=one.use,
+            use=one.use and not one.bought,
             used_milli=amounts["used_milli"],
             left_milli=amounts["left_milli"],
             from_freezer=one.from_freezer,
             add_to_list=one.add_to_list,
+            bought=one.bought,
         )
     return out
 
@@ -225,7 +238,7 @@ class CookMealIn(BaseModel):
         description="Which recipes of the meal, with their portions and choices. Left out: every"
         " recipe in the meal, as proposed.",
     )
-    answers: list[Answer] = Field(default_factory=list, max_length=5)
+    answers: list[Answer] = Field(default_factory=list, max_length=20)
 
 
 class MealItemProposalOut(BaseModel):

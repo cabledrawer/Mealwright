@@ -240,6 +240,7 @@ def _choice_of(row: Row) -> cooked.SnapshotChoice:
         short_milli=row.short,
         add_to_list=row.add_to_list,
         running_low=row.running_low,
+        bought=row.bought,
         takes=[
             cooked.SnapshotTake(
                 food_id=take.food.id,
