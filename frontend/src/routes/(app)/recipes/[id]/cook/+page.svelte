@@ -50,12 +50,10 @@
         ) ?? null)
       : null
   );
+  const shown = $derived(cookNow.noticeFor(id, mealId));
   const notice = $derived(
-    cookNow.recipeId === id && cookNow.text
-      ? {
-          text: cookNow.text,
-          ...(cookNow.canUndo ? { undo: () => void cookNow.undo() } : {})
-        }
+    shown
+      ? { text: shown.text, ...(shown.canUndo ? { undo: () => void cookNow.undo() } : {}) }
       : null
   );
 
@@ -126,6 +124,7 @@
   });
 
   onDestroy(() => {
+    cookNow.leave(); // the notice must not come back on a later visit
     timers.stopAll();
     void awake.leave();
   });

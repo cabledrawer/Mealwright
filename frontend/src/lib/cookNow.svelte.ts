@@ -137,12 +137,25 @@ export class CookNow {
     }
   }
 
+  /** The notice for a Cook mode page: only for this recipe and the ?meal= it was opened with
+   *  (so a later visit, such as going back in history, shows none). */
+  noticeFor(recipeId: number, mealId: number | null): { text: string; canUndo: boolean } | null {
+    if (this.recipeId !== recipeId || !this.text || this.mealId !== mealId) return null;
+    // After Undo the meal is still named in the address, but the item is gone: keep the line.
+    return { text: this.text, canUndo: this.canUndo };
+  }
+
+  /** Cook mode was left: forget it, so the notice doesn't come back on a later visit. */
+  leave(): void {
+    this.#reset(null);
+  }
+
   /** The notice's Undo. */
   async undo(): Promise<void> {
     if (this.#entry) await undoHistory.undo(this.#entry);
   }
 
-  #reset(recipeId: number) {
+  #reset(recipeId: number | null) {
     this.mealId = null;
     this.itemId = null;
     this.recipeId = recipeId;

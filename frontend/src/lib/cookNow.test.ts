@@ -232,6 +232,29 @@ describe('Cook now plans first', () => {
     expect(now.text).toBe(NOT_PLANNED);
   });
 
+  it('the notice is for this recipe and this ?meal= only, and is gone once Cook mode is left', async () => {
+    serve([]);
+    const now = new CookNow();
+    await now.start(5);
+    expect(now.noticeFor(5, 70)).toEqual({ text: 'Planned for today’s Breakfast', canUndo: true });
+    expect(now.noticeFor(5, 71)).toBeNull(); // a different ?meal=
+    expect(now.noticeFor(5, null)).toBeNull(); // no ?meal= (going back in history)
+    expect(now.noticeFor(6, 70)).toBeNull(); // another recipe
+    now.leave();
+    expect(now.noticeFor(5, 70)).toBeNull();
+    expect(now.mealId).toBeNull();
+  });
+
+  it('the “wasn’t planned” line belongs to a Cook mode opened with no ?meal=', async () => {
+    serve([], { failWrite: true });
+    const now = new CookNow();
+    await now.start(5);
+    expect(now.noticeFor(5, null)).toEqual({ text: NOT_PLANNED, canUndo: false });
+    expect(now.noticeFor(5, 70)).toBeNull();
+    now.leave();
+    expect(now.noticeFor(5, null)).toBeNull();
+  });
+
   it('when the plan can’t be written, there is no meal and one line says so', async () => {
     serve([], { failWrite: true });
     const now = new CookNow();
