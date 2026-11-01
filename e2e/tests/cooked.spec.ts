@@ -61,8 +61,10 @@ async function clearWaiting(page: Page) {
   for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/didnt`);
 }
 
-/** A day that Today asks about, of this project's own (1 to 3 days back); `later` is 3 days further back. */
-const waitingDay = (today: string, later = false) => addDays(today, -(1 + projectIndex() + (later ? 3 : 0)));
+/** A day that Today asks about (4 to 6 days back: today.spec uses 1 to 3), of this project's own. */
+const waitingDay = (today: string) => addDays(today, -(4 + projectIndex()));
+/** A day in the weeks before, of this project's own: `week` 0 is 15 days back, 1 is 22, 2 is 29. */
+const pastDay = (today: string, week: number) => addDays(today, -(15 + 7 * week + projectIndex()));
 
 const card = (page: Page) => page.getByTestId('did-you-cook');
 const review = (page: Page, name: string) => page.getByRole('dialog', { name: `Cooked ${name}` });
@@ -113,18 +115,19 @@ test('Today: the review shows what comes out, Confirm takes it, one Undo gives i
   await expect.poll(() => have(page, `Toor dal ${s}`)).toBe(800);
 });
 
-test('Today: a counted ingredient can be set by Used or Left, and Portions cooked updates every row', async ({ page }) => {
+test('a counted ingredient can be set by Used or Left, and Portions cooked updates every row', async ({ page }) => {
   const k = await setup(page);
-  await clearWaiting(page);
   const s = stamp();
   const onion = await k.food(`Onion ${s}`, { counted_as: 'count' });
   const dal = await k.food(`Dal ${s}`);
   await k.stock(onion, 5, 'count');
   await k.stock(dal, 800);
   const name = `Rasam ${s}`;
-  await k.plan(await k.recipe(name, [line(onion, 'onions', 2), line(dal, 'dal', 200, 'g')]), waitingDay(k.today), k.slot.Lunch);
+  const day = pastDay(k.today, 0);
+  await k.plan(await k.recipe(name, [line(onion, 'onions', 2), line(dal, 'dal', 200, 'g')]), day, k.slot.Lunch);
 
-  await openToday(page, name);
+  await openMealOnPlan(page, k.today, day, k.slot.Lunch, 'Lunch', name);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
   const dialog = review(page, name);
   await expect(rowOf(dialog, `Onion ${s}`)).toContainText('5 → 3');
   await dialog.getByRole('button', { name: `More Onion ${s}` }).click();
@@ -134,7 +137,7 @@ test('Today: a counted ingredient can be set by Used or Left, and Portions cooke
   await dialog.getByRole('button', { name: 'More portions' }).click();
   await expect(rowOf(dialog, `Dal ${s}`)).toContainText('−250 g');
   await confirm(dialog).click();
-  await expect(card(page)).toHaveCount(0);
+  await expect(dialog).toBeHidden();
   // "Left" was chosen with 2.5: the pantry is left with 2½ onions, and 250 g of dal came out.
   await expect.poll(() => have(page, `Onion ${s}`)).toBe(2.5);
   await expect.poll(() => have(page, `Dal ${s}`)).toBe(550);
@@ -142,13 +145,14 @@ test('Today: a counted ingredient can be set by Used or Left, and Portions cooke
 
 test('"Bought some — used them" changes nothing in the pantry and the cooked record keeps it', async ({ page }) => {
   const k = await setup(page);
-  await clearWaiting(page);
   const s = stamp();
   const shallot = await k.food(`Shallot ${s}`, { counted_as: 'count' });
   const name = `Kootu ${s}`;
-  const made = await k.plan(await k.recipe(name, [line(shallot, 'shallots', 8)]), waitingDay(k.today), k.slot.Breakfast);
+  const day = pastDay(k.today, 0);
+  const made = await k.plan(await k.recipe(name, [line(shallot, 'shallots', 8)]), day, k.slot.Breakfast);
 
-  await openToday(page, name);
+  await openMealOnPlan(page, k.today, day, k.slot.Breakfast, 'Breakfast', name);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
   const dialog = review(page, name);
   const row = rowOf(dialog, `Shallot ${s}`);
   await expect(row.getByText('Not in pantry')).toBeVisible();
@@ -156,8 +160,12 @@ test('"Bought some — used them" changes nothing in the pantry and the cooked r
   await row.getByRole('button', { name: 'Bought some — used them' }).click();
   await expect(row.getByRole('button', { name: 'Bought some — used them' })).toHaveAttribute('aria-pressed', 'true');
   await confirm(dialog).click();
-  await expect(card(page)).toHaveCount(0);
+  await expect(dialog).toBeHidden();
   await expect.poll(() => have(page, `Shallot ${s}`)).toBe(0);
+  // Bought some: nothing was put on the shopping list for it.
+  const lists = (await (await page.request.get('/api/v1/shopping/lists')).json()) as { lists: { id: string }[] };
+  const main = await (await page.request.get(`/api/v1/shopping/lists/${lists.lists[0]!.id}`)).text();
+  expect(main).not.toContain(`Shallot ${s}`);
   const record = (await (await page.request.get(`/api/v1/plan/items/${made.item_id}/cooked`)).json()) as {
     snapshot: { choices: { key: string; bought: boolean; used_milli: number }[] };
   };
@@ -166,22 +174,19 @@ test('"Bought some — used them" changes nothing in the pantry and the cooked r
 
 test('F106: the question is in the pantry unit, the answer is learned, and next time it is an estimate', async ({ page }) => {
   const k = await setup(page);
-  await clearWaiting(page);
   const s = stamp();
   const toor = await k.food(`Jaggery ${s}`); // not in the bundled table: a cup of it is a question
   await k.stock(toor, 2000);
   const first = `Payasam ${s}`;
   const second = `Pongal ${s}`;
   const recipe = (name: string) => k.recipe(name, [line(toor, 'jaggery', 1, 'cup')]);
-  // Today asks about the newest first.
-  // The same day: Today asks about the later meal first.
-  await k.plan(await recipe(second), waitingDay(k.today, true), k.slot.Dinner);
-  await k.plan(await recipe(first), waitingDay(k.today, true), k.slot.Lunch);
+  const day = pastDay(k.today, 1);
+  await k.plan(await recipe(first), day, k.slot.Dinner);
+  await k.plan(await recipe(second), day, k.slot.Lunch);
 
-  await page.goto('/');
-  await expect(card(page).getByText(`Did you cook ${second}?`)).toBeVisible();
-  await card(page).getByRole('button', { name: 'Cooked it' }).click();
-  const dialog = review(page, second);
+  await openMealOnPlan(page, k.today, day, k.slot.Dinner, 'Dinner', first);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
+  const dialog = review(page, first);
   const row = rowOf(dialog, `Jaggery ${s}`);
   await expect(row.getByText(`How much Jaggery ${s} did you use?`)).toBeVisible();
   await expect(row.getByText('Recipe says 1 cup jaggery')).toBeVisible();
@@ -192,12 +197,13 @@ test('F106: the question is in the pantry unit, the answer is learned, and next 
   await expect(row.getByText('estimate')).toBeVisible();
   await expect(row).toContainText('−200 g');
   await confirm(dialog).click();
-  await expect(card(page).getByText(`Did you cook ${first}?`)).toBeVisible();
+  await expect(dialog).toBeHidden();
   await expect.poll(() => have(page, `Jaggery ${s}`)).toBe(1800);
 
   // The answer was remembered: the next recipe proposes it, marked as an estimate, no question.
-  await card(page).getByRole('button', { name: 'Cooked it' }).click();
-  const again = review(page, first);
+  await openMealOnPlan(page, k.today, day, k.slot.Lunch, 'Lunch', second);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
+  const again = review(page, second);
   await expect(rowOf(again, `Jaggery ${s}`).getByText('estimate')).toBeVisible();
   await expect(rowOf(again, `Jaggery ${s}`)).toContainText('−200 g');
   await expect(again.getByText(`How much Jaggery ${s} did you use?`)).toHaveCount(0);
@@ -206,7 +212,7 @@ test('F106: the question is in the pantry unit, the answer is learned, and next 
   await again.getByRole('textbox', { name: /How much was used/ }).fill('150');
   await expect(rowOf(again, `Jaggery ${s}`)).toContainText('1800 → 1650 g');
   await confirm(again).click();
-  await expect(card(page)).toHaveCount(0);
+  await expect(again).toBeHidden();
   await expect.poll(() => have(page, `Jaggery ${s}`)).toBe(1650);
 });
 
@@ -300,16 +306,17 @@ test('Plan: a Cook once batch is cooked once for the cook day and its tubs, and 
 
 test('the review at 200% text in both themes: nothing scrolls sideways and Confirm stays in reach', async ({ page }) => {
   const k = await setup(page);
-  await clearWaiting(page);
   const s = stamp();
   const toor = await k.food(`Jaggery with a very long name that goes on and on ${s}`);
   const dal = await k.food(`Toor dal ${s}`);
   await k.stock(toor, 500);
   await k.stock(dal, 800);
   const name = `Sambar with a long name ${s}`;
-  await k.plan(await k.recipe(name, [line(toor, 'jaggery', 2, 'cup'), line(dal, 'dal', 200, 'g')]), waitingDay(k.today, true), k.slot.Breakfast);
+  const day = pastDay(k.today, 2);
+  await k.plan(await k.recipe(name, [line(toor, 'jaggery', 2, 'cup'), line(dal, 'dal', 200, 'g')]), day, k.slot.Dinner);
 
-  await openToday(page, name);
+  await openMealOnPlan(page, k.today, day, k.slot.Dinner, 'Dinner', name);
+  await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
   const dialog = review(page, name);
   await expect(dialog.getByText(/did you use\?/)).toBeVisible();
   await checkPage(page); // both themes, with the question open
@@ -324,4 +331,23 @@ test('the review at 200% text in both themes: nothing scrolls sideways and Confi
   const box = (await confirm(dialog).boundingBox())!;
   const window = page.viewportSize()!;
   expect(box.y + box.height).toBeLessThanOrEqual(window.height + 1);
+});
+
+test('Today: a meal eaten today has its own Cooked it, which opens the same review', async ({ page }) => {
+  test.skip(projectIndex() !== 0, 'one project plans the dinner of today; the others share the server');
+  const k = await setup(page);
+  const s = stamp();
+  const rice = await k.food(`Rice ${s}`);
+  await k.stock(rice, 1000);
+  const name = `Pulao ${s}`;
+  await k.plan(await k.recipe(name, [line(rice, 'rice', 200, 'g')]), k.today, k.slot.Dinner);
+  await page.goto('/');
+  const meal = page.getByTestId('today-eating').locator('.card', { hasText: name });
+  await meal.getByRole('button', { name: 'Cooked it' }).click();
+  const dialog = review(page, name);
+  await expect(rowOf(dialog, `Rice ${s}`)).toContainText('1000 → 800 g');
+  await confirm(dialog).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(() => have(page, `Rice ${s}`)).toBe(800);
+  await expect(meal.getByText('Cooked', { exact: true })).toBeVisible();
 });

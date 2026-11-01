@@ -57,9 +57,9 @@ test('Cooked it with leftovers makes a tub, Undo asks again, then Cooked it', as
   await card(page).getByRole('button', { name: 'Cooked it' }).click();
   const sheet = page.getByRole('dialog', { name: `Cooked ${k.name}` });
   await expect(sheet.getByText('Nothing in this recipe comes from the pantry.')).toBeVisible();
-  await expect(sheet.getByText('None')).toBeVisible();
+  await expect(sheet.getByText('None', { exact: true })).toBeVisible();
   await sheet.getByRole('button', { name: 'More tubs' }).click();
-  await expect(sheet.getByText('1 tub')).toBeVisible();
+  await expect(sheet.getByRole('group', { name: 'Leftover tubs' }).getByText('1 tub')).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Fridge' })).toHaveAttribute('aria-pressed', 'true');
   await expect(sheet.getByText(/Use by .* · \d+ days left|Use by .* · use by/)).toBeVisible();
   await sheet.getByRole('button', { name: 'Confirm · update pantry' }).click();
