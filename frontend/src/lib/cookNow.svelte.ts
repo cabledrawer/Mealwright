@@ -114,19 +114,24 @@ export class CookNow {
       const change = write.change;
       if (change?.can_undo) {
         const undo = serverUndo(change.id);
-        this.#entry = {
+        const entry: UndoEntry = {
           label: this.text,
           needsServer: true,
           undo: async () => {
             const message = await undo();
-            this.undone = true;
-            this.canUndo = false;
-            this.text = TAKEN_OUT;
+            // The plan item is taken out either way, but the screen changes only if it is still
+            // this Cook now's (another recipe's Cook mode may be open by now).
+            if (this.#entry === entry) {
+              this.undone = true;
+              this.canUndo = false;
+              this.text = TAKEN_OUT;
+            }
             return message;
           }
         };
+        this.#entry = entry;
         // On the list for Ctrl+Z; no toast, because Cook mode covers the toast's place.
-        undoHistory.record(this.#entry, { toast: false });
+        undoHistory.record(entry, { toast: false });
         this.canUndo = true;
       }
     } catch {

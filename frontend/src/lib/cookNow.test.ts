@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MealSlot, PlanMeal } from './client/plan';
+import { undoHistory } from './undo.svelte';
 import { CookNow, NOT_PLANNED, TAKEN_OUT, cookSpot } from './cookNow.svelte';
 
 const slots: MealSlot[] = [
@@ -153,6 +154,23 @@ describe('Cook now plans first', () => {
     expect(now.undone).toBe(true);
     expect(now.text).toBe(TAKEN_OUT);
     expect(now.canUndo).toBe(false);
+  });
+
+  it('Undo of an earlier Cook now does not touch the screen of another recipe’s Cook now', async () => {
+    undoHistory.clear();
+    serve([]);
+    const now = new CookNow();
+    await now.start(5); // adds recipe 5; its Undo stays on Ctrl+Z's list
+    now.leave();
+    serve([meal(7, 2, 'planned', [6])]);
+    await now.start(6); // rule 1: already planned, nothing added
+    expect(now.mealId).toBe(7);
+    expect(await undoHistory.undoLast()).toBe(true); // undoes recipe 5's plan item
+    expect(now.undone).toBe(false);
+    expect(now.text).toBeNull();
+    expect(now.canUndo).toBe(false);
+    expect(now.mealId).toBe(7);
+    undoHistory.clear();
   });
 
   it('adds nothing when the recipe is already planned in a meal today', async () => {
