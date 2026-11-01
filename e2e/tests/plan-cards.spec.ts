@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
-import { expectNoAxeViolations, inTheme, setAccountTheme } from './a11y.ts';
+import { expectNoAxeViolations, expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
 import { uploadPhoto } from '../review/photos.ts';
 
 // The Plan's cards in Both (0.7, P3): COOK and EAT are separate cards, cells are only as tall as
@@ -251,6 +251,7 @@ test('F39: the tray wraps onto two lines, and the mouse wheel scrolls the rest',
   expect(lines.rows, 'more than one line of recipes').toBeGreaterThan(1);
   expect(lines.whole, 'more recipes than two lines hold').toBeGreaterThan(lines.shown);
   expect(lines.shown, 'two lines high').toBeLessThan(130);
+  await strip.scrollIntoViewIfNeeded();
   const box = (await strip.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 120);
@@ -299,9 +300,11 @@ test('F49: a tub is taken off a meal with plain words and a note, not a red "Bac
 test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tub goes there', async ({ page }) => {
   const { today, slot } = await setup(page);
   const name = `${stamp()} Chilli`;
-  await planned(page, await makeRecipe(page, name), today, slot.Dinner);
+  // Three days back (this week, a day no other test cooks on): "Cooked it" needs a day that has come.
+  const cooked = addDays(today, -3);
+  await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
   await page.goto('/plan');
-  await cell(page, today, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  await cell(page, cooked, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
   await page.getByRole('dialog', { name }).getByRole('button', { name: 'Cooked it' }).click();
   const review = page.getByTestId('cooked-review');
   await review.getByRole('button', { name: 'More tubs' }).click();
@@ -310,8 +313,56 @@ test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tu
   await expect(eat.locator('option').first()).toHaveText('Not planned yet');
   await eat.selectOption({ index: 1 });
   const [eatDay, eatSlot] = (await eat.inputValue()).split('|') as [string, string];
-  expect(eatDay > today || Number(eatSlot) !== slot.Dinner).toBe(true);
+  expect(eatDay >= today).toBe(true); // never a day that has gone
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toBeHidden();
   await expect(cell(page, eatDay, Number(eatSlot)).getByRole('button', { name: new RegExp(`^${name} tub`) })).toBeVisible();
+});
+
+test('at 1100 px wide and 200% text the cards and the keyboard picker keep their words whole, in both themes', async ({ page }) => {
+  test.setTimeout(180_000);
+  const { today, slot } = await setup(page);
+  const day = far(today, 9);
+  const name = 'Dal';
+  const { sun } = await batchWithTubs(page, name, day, slot);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await openWeekOf(page, today, day);
+  await expect(cookCard(cell(page, day, slot.Dinner))).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await inTheme(page, theme);
+    for (const text of ['100%', '200%']) {
+      await page.evaluate((size) => (document.documentElement.style.fontSize = size), text);
+      const broken = () =>
+        page.evaluate(() => {
+          const out: string[] = [];
+          for (const area of document.querySelectorAll('.week, dialog[open]')) {
+            const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              const el = node.parentElement;
+              if (!el || !el.checkVisibility()) continue;
+              for (const m of (node.textContent ?? '').matchAll(/[^\s\-–—/·→]+/g)) {
+                const range = document.createRange();
+                range.setStart(node, m.index!);
+                range.setEnd(node, m.index! + m[0].length);
+                const lines = new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top / 4)));
+                if (lines.size > 1) out.push(m[0]);
+              }
+            }
+          }
+          return out;
+        });
+      await expect.poll(broken, { message: `words broken in the week, ${theme}, ${text}` }).toEqual([]);
+      await expectNoSidewaysScroll(page);
+      // The keyboard picker.
+      await cell(page, sun, slot.Lunch).getByRole('button', { name: /tub/ }).first().click();
+      const menu = page.getByRole('dialog');
+      await menu.getByRole('button', { name: 'Move to…' }).click();
+      await page.keyboard.press('ArrowRight');
+      await expect.poll(broken, { message: `words broken in the picker, ${theme}, ${text}` }).toEqual([]);
+      await expectNoSidewaysScroll(page);
+      await page.keyboard.press('Escape');
+      await expect(menu).toBeHidden();
+    }
+  }
+  await page.evaluate(() => (document.documentElement.style.fontSize = ''));
 });

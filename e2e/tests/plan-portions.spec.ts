@@ -324,7 +324,8 @@ test('a "Leftovers here" drop with no portion left asks Cook more or Add anyway'
   const sun = addDays(day, 1);
   await batchOf(page, name, day, slot.Dinner, 1, 'lunches'); // its one tub is in Sunday's lunch
   await openWeekOf(page, today, day);
-  const from = mealButton(page, day, 'Dinner', slot.Dinner, name);
+  // The meal is eaten (and its leftovers planned) from the EAT card; the COOK card moves the cooking.
+  const from = cell(page, day, slot.Dinner).getByRole('button', { name: /\(eating\)/ });
   const to = cell(page, sun, slot.Dinner);
   await from.scrollIntoViewIfNeeded();
   const a = (await from.boundingBox())!;

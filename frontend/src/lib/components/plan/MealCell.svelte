@@ -55,11 +55,7 @@
           style:--soft-text={card.colour ? `var(--batch-${card.colour}-soft-text)` : undefined}
           style:--dot={card.colour ? `var(--batch-${card.colour})` : undefined}
           disabled={actions.readonly}
-          use:pressable={cardFor(
-            meal,
-            item,
-            card.role === 'cook' || (card.role === 'eat' && !item.tub_id)
-          )}
+          use:pressable={cardFor(meal, item, card.role === 'cook')}
           data-item={item.id}
           aria-label="{card.name}{card.role === 'cook'
             ? ' (cooking)'

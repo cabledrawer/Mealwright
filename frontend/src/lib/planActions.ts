@@ -25,7 +25,7 @@ export interface PlanActions {
   openDay: (day: string) => void;
   carryMeal: (meal: PlanMeal) => Carried;
   carryItem: (meal: PlanMeal, item: PlanItem) => Carried;
-  /** A COOK card (or the EAT card of its cook-day meal): moves the cooking, with its EAT card. */
+  /** A COOK card: moves the cooking, with its EAT card (the EAT card itself drags like a meal). */
   carryCook: (meal: PlanMeal) => Carried;
 }
 

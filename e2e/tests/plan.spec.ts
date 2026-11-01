@@ -478,7 +478,8 @@ test.describe('a finger on a computer-sized screen', () => {
   test('cards let a finger scroll: touch-action allows panning, and the strip and page do scroll', async ({ page, browserName }) => {
     const { today, slot } = await setup(page);
     const stampNow = stamp();
-    for (let i = 0; i < 9; i++) await makeRecipe(page, `Swipe ${stampNow} ${i}`);
+    // Enough to fill more than the tray's two lines.
+    for (let i = 0; i < 16; i++) await makeRecipe(page, `Swipe ${stampNow} ${i}`);
     const day = inWeek(today, 8);
     const name = `Swiped ${stampNow}`;
     await planned(page, await makeRecipe(page, name), day, slot.Dinner);
@@ -526,7 +527,7 @@ test.describe('a finger on a computer-sized screen', () => {
       await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     };
 
-    // Sideways on a tray card: the strip scrolls, nothing is planned.
+    // Up on a tray card: the strip (two lines high, F39) scrolls, nothing is planned.
     // Where a card is, asked again if the search list redraws it while it is being found (a card
     // that has just gone answers "not attached"; the next one is in the same place).
     const where = async (l: Locator) => {
@@ -536,9 +537,9 @@ test.describe('a finger on a computer-sized screen', () => {
       }).toPass({ timeout: 5000 });
       return at;
     };
-    const before = await strip.evaluate((el) => el.scrollLeft);
-    await swipe(await where(trayCard), -300, 0);
-    await expect.poll(() => strip.evaluate((el) => el.scrollLeft)).toBeGreaterThan(before);
+    const before = await strip.evaluate((el) => el.scrollTop);
+    await swipe(await where(trayCard), 0, -60);
+    await expect.poll(() => strip.evaluate((el) => el.scrollTop)).toBeGreaterThan(before);
     await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0);
 
     // Up on a meal card, in a short window: the page (or the week grid) scrolls, and the meal stays.
