@@ -3,7 +3,7 @@
   // once, see the portions left, and when there are none left choose Cook more (a bigger batch;
   // amounts and the shopping list follow) or Add anyway (the meal is planned; the batch stays the
   // same). Only meals after the cook and before the use-by are listed. Words marked "proposed,
-  // for cabledrawer" are in docs/dev/words.md section 28.
+  // for cabledrawer" are in docs/dev/words.md section 30.
   import { onMount } from 'svelte';
   import {
     getPlan,

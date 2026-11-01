@@ -1,7 +1,7 @@
 // "Leftovers on…" (0.7 P1; cabledrawer 28 Oct): a batch makes a fixed number of portions, its tubs
 // plus the cook-day meal. These work out which meals the sheet offers and what it says about
 // the portions, from what the server sent. Pure, so they are tested on their own
-// (portions.test.ts). Words marked "proposed, for cabledrawer" are in docs/dev/words.md section 28.
+// (portions.test.ts). Words marked "proposed, for cabledrawer" are in docs/dev/words.md section 30.
 
 import type { MealSlot, Plan, PlanMeal, Portions } from './client/plan';
 import { addDays } from './planDates';
