@@ -75,6 +75,26 @@ describe('the recipe page photo', () => {
     await expect.poll(() => document.querySelector('.frame')).toBeNull();
   });
 
+  it('a late error from a photo already gone is ignored, not a crash', () => {
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => errors.push(event.error);
+    window.addEventListener('error', onError);
+    try {
+      open({ photo: photo({ url: DISH, list_url: DISH }) });
+      const img = document.querySelector('img')!;
+      // The first error drops the only copy (the list copy is the same address), so no photo
+      // is shown; a second error still queued for that picture must find nothing to fail.
+      img.dispatchEvent(new Event('error'));
+      flushSync();
+      expect(document.querySelector('.frame')).toBeNull();
+      img.dispatchEvent(new Event('error'));
+      flushSync();
+    } finally {
+      window.removeEventListener('error', onError);
+    }
+    expect(errors).toEqual([]);
+  });
+
   it('shows the list copy when only the large copy can’t be fetched', async () => {
     open({ photo: photo({ url: '/api/v1/recipes/photos/404/large', list_url: DISH }) });
     await expect.poll(() => document.querySelector('img')?.getAttribute('src')).toBe(DISH);
