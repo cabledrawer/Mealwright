@@ -493,7 +493,7 @@
   }
 
   .used-left button {
-    min-height: 36px;
+    min-height: var(--touch-target);
     padding: 0 var(--space-4);
     border: none;
     border-radius: var(--radius-full);

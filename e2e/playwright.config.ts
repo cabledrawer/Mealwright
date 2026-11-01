@@ -108,6 +108,10 @@ export default defineConfig({
     { name: 'phone 0.6 today', testMatch: 'today.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 today', testMatch: 'today.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 today', testMatch: 'today.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // "Cooked it", the review: what comes out of the pantry, Use switches, tabs, Undo (0.7, K3).
+    { name: 'phone 0.7 cooked', testMatch: 'cooked.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 cooked', testMatch: 'cooked.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 cooked', testMatch: 'cooked.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Pints: the household's pint in Settings, and the review's US-recipe card (0.6, PR 7).
     { name: 'phone 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
