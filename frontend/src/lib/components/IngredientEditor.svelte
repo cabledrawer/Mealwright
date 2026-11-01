@@ -483,13 +483,17 @@
         <div class="with-hint">
           <label>
             {KEPT_BY}
-            <select value={food.counted_as} onchange={setCountedAs} aria-describedby="kept-by-hint">
+            <select
+              value={food.counted_as}
+              onchange={setCountedAs}
+              aria-describedby="{uid}-kept-hint"
+            >
               {#each COUNTED as option (option.value)}
                 <option value={option.value}>{option.label}</option>
               {/each}
             </select>
           </label>
-          <span class="kept-hint" id="kept-by-hint">{KEPT_BY_HINT}</span>
+          <span class="kept-hint" id="{uid}-kept-hint">{KEPT_BY_HINT}</span>
         </div>
         {#if food.counted_as === 'count'}
           <label>

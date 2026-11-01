@@ -231,6 +231,10 @@ describe('the Pantry page', () => {
       // Nothing is made until the question is answered.
       await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
       expect(requests.some((r) => r.method === 'POST' && r.path === '/foods')).toBe(false);
+      // The hint is linked to the choice buttons (review round 1).
+      const group = page.getByRole('radiogroup').element();
+      const hint = document.getElementById(group.getAttribute('aria-describedby') ?? '');
+      expect(hint?.textContent).toMatch(/The way you buy it/);
       await page.getByRole('radio', { name: /One by one/ }).click();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
       await vi.waitFor(() =>

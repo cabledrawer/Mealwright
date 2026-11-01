@@ -102,6 +102,16 @@ describe('the ingredient editor, opened from anywhere', () => {
       .toBeVisible();
   });
 
+  it('links the hint to the choice with an id of its own, not a fixed one (review)', async () => {
+    const dialog = await openToorDal();
+    const select = dialog.getByLabelText(/^Pantry keeps it by/).element();
+    const id = select.getAttribute('aria-describedby') ?? '';
+    expect(id).not.toBe('');
+    expect(id).not.toBe('kept-by-hint');
+    expect(document.getElementById(id)?.textContent).toMatch(/The way you buy it/);
+    expect(document.querySelectorAll('#kept-by-hint')).toHaveLength(0);
+  });
+
   describe('the recipes that use it (0.4)', () => {
     const recipes = (names: string[]) => names.map((name, i) => ({ id: 30 + i, name }));
 

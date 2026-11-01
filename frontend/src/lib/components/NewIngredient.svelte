@@ -164,7 +164,13 @@
       {/if}
 
       <p class="kept-hint" id="{uid}-hint">{KEPT_BY_HINT}</p>
-      <div class="options" role="radiogroup" aria-labelledby="{uid}-q" use:radioKeys>
+      <div
+        class="options"
+        role="radiogroup"
+        aria-labelledby="{uid}-q"
+        aria-describedby="{uid}-hint"
+        use:radioKeys
+      >
         {#each ordered as option (option.value)}
           <button
             type="button"
