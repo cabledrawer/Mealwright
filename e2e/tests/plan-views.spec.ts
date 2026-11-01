@@ -14,10 +14,10 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
   return (await response.json()) as Record<string, any>;
 }
 
-const INDEX: Record<string, number> = { 'desktop 0.7 plan views': 0, 'phone 0.7 plan views': 1 };
+const INDEX: Record<string, number> = { 'desktop 0.7 plan views': 0, 'phone 0.7 plan views': 1, 'webkit 0.7 plan views': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 /** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 4). */
-const far = (today: string, k: number) => addDays(today, 7 * (94 + projectIndex() * 5 + k));
+const far = (today: string, k: number) => addDays(today, 7 * (44 + projectIndex() * 5 + k));
 /** Short, so a name made with it is no longer than a real one: a word the width tests can't break. */
 const short = () => Math.floor(Date.now() * 1000 + Math.random() * 1000).toString(36).slice(-6);
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
@@ -222,7 +222,7 @@ test('Plan it on the recipe page picks the day and the meal, plans the recipe th
   const name = `Kootu ${stamp()}`;
   const recipe = await makeRecipe(page, name);
   const day = addDays(k.today, 1); // the Sunday of this week, which the picker shows at once
-  const meal = projectIndex() === 0 ? 'Dinner' : 'Lunch'; // each project its own meal
+  const meal = ['Dinner', 'Lunch', 'Breakfast'][projectIndex()]!; // each project its own meal
   await page.goto(`/recipes/${recipe}`);
   await page.getByRole('button', { name: 'Plan it', exact: true }).click();
   const sheet = page.getByRole('dialog', { name });
@@ -269,8 +269,8 @@ test('Plan it shows what is already planned at each meal, and marks a day that h
   const recipe = await makeRecipe(page, name);
   const day = addDays(k.today, 9 + projectIndex()); // each project its own day: they share one server
   const empty = addDays(k.today, 12); // nothing of this test's is on it
-  const meal = projectIndex() === 0 ? 'Dinner' : 'Lunch';
-  const spare = projectIndex() === 0 ? 'Lunch' : 'Dinner';
+  const meal = ['Dinner', 'Lunch', 'Breakfast'][projectIndex()]!;
+  const spare = ['Lunch', 'Dinner', 'Lunch'][projectIndex()]!;
   await planned(page, other, day, k.slot[meal]!);
   await page.goto(`/recipes/${recipe}`);
   await page.getByRole('button', { name: 'Plan it', exact: true }).click();
@@ -352,9 +352,9 @@ for (const width of [800, 1024]) {
     test.skip(isPhone(page), 'the computer layout');
     test.setTimeout(240_000);
     const k = await setup(page);
-    // Weeks no other test plans in (and nothing but this test's own meals in them), so every word on
+    // Weeks no other test plans in (one per project, since they share a server, and nothing but this test's own meals in them), so every word on
     // screen is one this test made.
-    const day = addDays(k.today, 7 * (width === 800 ? 81 : 82));
+    const day = addDays(k.today, 7 * ((width === 800 ? 81 : 82) - 2 * projectIndex()));
     const w = await seedWeek(page, k, day);
     await page.setViewportSize({ width, height: 900 });
     await openWeekOf(page, k.today, day);

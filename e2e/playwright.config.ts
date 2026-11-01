@@ -127,6 +127,7 @@ export default defineConfig({
     // The switch Both · Eat · Cook, Plan it, the phone Plan on today, and 768–1100 px (0.7, P2).
     { name: 'phone 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
