@@ -204,6 +204,8 @@ test('three panes: a recipe that never loaded says why the server is down, not a
   const id = ((await made.json()) as { id: number }).id;
   await page.goto('/recipes');
   const list = page.getByRole('region', { name: 'Recipe list' });
+  // Search for it, so other tests' recipes can't push it off the list's first page.
+  await page.getByRole('searchbox', { name: 'Search recipes' }).fill(name);
   await expect(list.getByRole('link', { name })).toBeVisible();
   await page.waitForLoadState('networkidle');
   await page.route(new RegExp(`/api/v1/recipes/${id}(/|\\?|$)`), proxyGap);
