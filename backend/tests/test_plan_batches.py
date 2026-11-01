@@ -718,6 +718,45 @@ def test_fill_from_freezer_puts_the_soonest_tub_on_each_empty_day_with_undo(
     assert bad.json()["code"] == "bad_range"
 
 
+def test_fill_from_freezer_says_which_meals_it_filled_and_why(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    """The Undo toast names the meals (cabledrawer 28 Oct): "Filled Tue dinner, Thu lunch from freezer
+    tubs (they run out soonest)", and one Undo takes all of it back."""
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick", extras_to_freezer=True)
+    before = shape(kitchen)
+    filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(0), "to": day(3)})
+    weekdays = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    names = [f"{weekdays[(D1 + timedelta(days=i)).weekday()]} dinner" for i in (1, 2, 3)]
+    expected = f"Filled {', '.join(names)} from freezer tubs (they run out soonest)"
+    assert filled.json()["change"]["summary"] == expected
+    assert undo(kitchen, filled.json())["result"] == "done"
+    assert shape(kitchen) == before
+
+
+def test_fill_from_freezer_one_tub_and_many_tubs_are_worded_to_fit(
+    kitchen: TestClient, cook: dict[str, Any], stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick", extras_to_freezer=True)
+    one = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(0), "to": day(3)})
+    summary = one.json()["change"]["summary"]
+    assert summary.endswith(" dinner from a freezer tub (it runs out soonest)")
+    assert summary.count(",") == 0
+    # Many tubs: the first six meals are named and the rest counted, so it stays short.
+    other = plan_recipe(kitchen, stuff["biryani"], D1, slots["Lunch"])
+    make(
+        kitchen,
+        other["item_id"],
+        tub_count=batches_module.MOST_TUBS_IN_BATCH,
+        pattern="pick",
+        extras_to_freezer=True,
+    )
+    many = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(5), "to": day(30)})
+    text = many.json()["change"]["summary"]
+    assert text.endswith(" more from freezer tubs (they run out soonest)")
+    assert text.count("dinner") == 6 and len(text) < 300
+
+
 def test_fill_from_freezer_leaves_out_days_too_far_ahead_to_plan(
     kitchen: TestClient,
     cook: dict[str, Any],

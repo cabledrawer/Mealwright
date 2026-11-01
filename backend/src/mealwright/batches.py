@@ -1118,24 +1118,34 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
         )
     }
     steps: list[dict[str, Any]] = []
-    filled = 0
+    filled: list[date] = []
     day = first
     while day <= last and tubs:
         if day not in busy and day not in held:
             check_day(kitchen, day)
             tub = tubs.pop(0)
             _put_tub_in_meal(kitchen, tub, (day, slot.id), steps)
-            filled += 1
+            filled.append(day)
         day += timedelta(days=1)
     if not filled:
         return None
-    word = "tub" if filled == 1 else "tubs"
-    return _finish(
-        kitchen,
-        "plan_tub",
-        f"Filled {filled} empty {'day' if filled == 1 else 'days'} with {word} from the freezer",
-        steps,
-    )
+    # Which meals, and why (cabledrawer 28 Oct): the soonest use-by goes first, so the tubs that run
+    # out soonest are eaten first.
+    named = [f"{_WEEKDAYS[d.weekday()]} {slot.name.lower()}" for d in filled]
+    if len(named) > _MOST_NAMED:  # the summary is at most 300 characters
+        named = [*named[:_MOST_NAMED], f"{len(named) - _MOST_NAMED} more"]
+    meals = ", ".join(named)
+    if len(filled) == 1:
+        summary = (
+            f"Filled {meals} from a freezer tub (it runs out soonest)"  # proposed, for cabledrawer
+        )
+    else:
+        summary = f"Filled {meals} from freezer tubs (they run out soonest)"
+    return _finish(kitchen, "plan_tub", summary, steps)
+
+
+_MOST_NAMED = 6
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
 # --- Reading -----------------------------------------------------------------------------------
