@@ -87,6 +87,7 @@ describe('Cook mode’s per-step ingredients switch (a household setting)', () =
     expect(prefs.perStep).toBe(false);
     await prefs.load();
     expect(prefs.perStep).toBe(false);
+    expect(calls.length).toBeGreaterThan(0);
     expect(calls.every((c) => c.method === 'GET')).toBe(true);
     expect(localStorage.getItem(OLD_PER_STEP_KEY)).toBeNull();
   });
