@@ -621,7 +621,7 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 - **Page title:** *Cooking Sambar · Mealwright*.
 
 **Decisions for K4 (proposed, for cabledrawer; the lead's safest choices while the maintainer is away):**
-- **Ingredients for each step** is remembered on this device (local storage), not for the household, until a household setting is decided (it needs a database change).
+- ~~**Ingredients for each step** is remembered on this device.~~ Replaced by cabledrawer's 1 Nov decision: it is a household setting (see below).
 - **Cooked it** is not shown at the end of Cook mode when it was opened with Cook now (no meal in the plan to cook); only **Not now** is.
 - Cook mode shows the recipe's own amounts, not the servings chosen on the recipe page.
 - The per-step guess is made on the screen only; nothing is written when a recipe is saved.
@@ -629,6 +629,14 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 **K4 fix round 1 (proposed, for cabledrawer):**
 - **Escape** leaves Cook mode, asking **Stop the timer and leave?** first when a timer is running.
 - Screen-reader names: the row of timers started on other steps is **Timers on other steps**; the row with Keep screen awake and Ingredients for each step is **Options**.
+
+**K4 decisions of 1 Nov (cabledrawer's decisions; the words and the member rule are proposed, for cabledrawer):**
+- **Ingredients for each step** is a household setting: once on, it stays on for the household. Another phone sees the change the next time it opens Cook mode.
+- **Member rule (proposed, for cabledrawer):** any signed-in person of the household may change this one switch (it changes only what Cook mode shows); the pint in Settings stays for admins only.
+- **Cook now plans first:** the notice **Planned for today’s Dinner** with **Undo** (the meal's name is the slot's; proposed), shown at the top of Cook mode (the usual toast would sit under it). After Undo the notice says **Taken out of today’s plan.** and Cook mode shows only **Not now**. When the recipe was already planned today, nothing is added and there is no notice.
+- **Which meal (proposed, for cabledrawer):** the meal today that already has this recipe and isn't cooked yet; else the first meal slot today, in order, with nothing cooked; if every meal today is cooked, the last one.
+- **When the plan can't be written** (offline or an error): Cook mode still opens, and one line says **This recipe wasn’t planned.**
+- **When the switch can't be saved** (offline or an error): it goes back to what it was and says the existing words for a change put back: **You’re offline. Nothing was changed.** or **Can’t reach your Mealwright server. Nothing was changed.** (nothing new).
 
 ## 30. Portions, Serves, who's eating and Notes (0.7 P1; proposed, for cabledrawer unless the mockup or spec has the words)
 
