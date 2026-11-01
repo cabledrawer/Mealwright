@@ -309,6 +309,27 @@ describe('the "Cooked it" review', () => {
     expect(confirmed[0]).toEqual({ count: 1, place_kind: 'freezer', item_id: 100 });
   });
 
+  it('a line with no amount can be switched on and given one', async () => {
+    const pinch = row('Cardamom', 6, {
+      status: 'no_amount',
+      takes: [],
+      needed: null,
+      use: false,
+      lines: [{ id: 6, words: 'cardamom, a few' }]
+    });
+    previews = [[proposal('Sambar', [pinch])]];
+    await show(['Sambar']);
+    const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });
+    await dialog.getByRole('switch', { name: 'Take Cardamom from the pantry' }).click();
+    await dialog.getByRole('textbox', { name: /How much was used/ }).fill('3');
+    await dialog.getByRole('button', { name: 'Confirm · update pantry' }).click();
+    await vi.waitFor(() => expect(confirmed).toHaveLength(1));
+    const sent = calls.find((c) => c.url.endsWith('/plan/meals/7/cook'))!;
+    expect(sent.body.items[0]!.choices).toEqual([
+      { key: 'food:6', use: true, used: { amount: 3, unit: 'g' } }
+    ]);
+  });
+
   it('a meal with no recipe has nothing to take and can still be answered', async () => {
     review = new CookReview();
     confirmed = [];

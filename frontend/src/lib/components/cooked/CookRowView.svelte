@@ -88,6 +88,8 @@
   const countNote = $derived(row.status === 'no_amount' ? row.count_note : null);
   const asking = $derived((derivable || countNote !== null) && !skipped);
   const unit = $derived(unitLabel(row));
+  /** A line with no amount, switched on: the amount is typed in the pantry's unit. */
+  const manual = $derived(row.status === 'no_amount' && countNote === null && view.use);
 
   /** The figure was too far from sensible to learn from (a cup that weighs 10 kg). */
   let unlikely = $state(false);
@@ -210,7 +212,7 @@
     {/if}
   </div>
 
-  {#if editing && !counted && view.use}
+  {#if (editing && !counted && view.use) || manual}
     <div class="extra edit">
       <span class="used-left" role="group" aria-label="Enter amount as">
         <button
