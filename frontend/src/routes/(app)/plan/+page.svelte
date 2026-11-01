@@ -30,7 +30,7 @@
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
-  import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
+  import { addDays, dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
@@ -206,6 +206,7 @@
       `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`
     );
     const first = meal.items.find((i) => i.kind === 'recipe');
+    const useByFridge = model.tubFridgeDays ? addDays(meal.date, model.tubFridgeDays) : '';
     cookedMeal = meal;
     // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
     leftover =
@@ -213,7 +214,16 @@
         ? {
             itemId: first.id,
             today: model.today,
-            eatOn: nextFreeMeals(model.plan, model.slotsOn, meal, model.today).map((f) => ({
+            // A new fridge tub keeps tubFridgeDays from the cook day: not past that.
+            ...(useByFridge ? { useByFridge } : {}),
+            eatOn: nextFreeMeals(
+              model.plan,
+              model.slotsOn,
+              meal,
+              model.today,
+              4,
+              useByFridge || null
+            ).map((f) => ({
               ...f,
               label: `${dayWords(f.day)} · ${model.slotName(f.slotId)}`
             }))

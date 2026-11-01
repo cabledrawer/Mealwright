@@ -57,7 +57,7 @@ import {
   withoutMeal,
   withServings
 } from './planEdits';
-import { itemName, mealName } from './planMeals';
+import { cookBatchOfItem, itemName, mealName } from './planMeals';
 import { save } from './save';
 
 export type PlanView = 'week' | 'month';
@@ -75,6 +75,8 @@ export class PlanModel {
   anchor = $state('');
   today = $state('');
   startsOn = $state(1);
+  /** Days a tub keeps in the fridge (its default use-by), from the household. */
+  tubFridgeDays = $state(0);
   slots = $state<MealSlot[]>([]);
   plan = $state<Plan | null>(null);
   /** Tubs in no meal, soonest use-by first (the tray's "Tubs left"). */
@@ -107,6 +109,7 @@ export class PlanModel {
         if (asked !== this.#asked) return;
         this.today = household.today;
         this.startsOn = household.week_starts_on || 1;
+        this.tubFridgeDays = household.tub_fridge_days ?? 0;
         this.anchor ||= household.today;
       }
       const first = this.days[0];
@@ -342,6 +345,13 @@ export class PlanModel {
     ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask' = 'ask'
   ) {
     const verb = { move: 'Moved', copy: 'Copied', leftovers: 'Leftovers of' }[mode];
+    // The cooking moves with its whole meal (proposed, for cabledrawer; the server does the same).
+    const itemId = 'item' in what ? what.item : null;
+    if (mode === 'move' && itemId !== null) {
+      const from = this.plan?.meals.find((m) => m.items.some((i) => i.id === itemId));
+      const item = from?.items.find((i) => i.id === itemId);
+      if (from && item && cookBatchOfItem(this.plan, from, item)) what = { meal: from.id };
+    }
     const meal =
       'meal' in what
         ? this.plan?.meals.find((m) => m.id === what.meal)

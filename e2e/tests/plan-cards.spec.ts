@@ -312,8 +312,8 @@ test('F49: a tub is taken off a meal with plain words and a note, not a red "Bac
 test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tub goes there', async ({ page }) => {
   const { today, slot } = await setup(page);
   const name = `${stamp()} Chilli`;
-  // Three days back (this week, a day no other test cooks on): "Cooked it" needs a day that has come.
-  const cooked = addDays(today, -3);
+  // Two days back (this week, a day no other test cooks on; a tub keeps 3 days, so it runs to tomorrow): "Cooked it" needs a day that has come.
+  const cooked = addDays(today, -2);
   await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
   await page.goto('/plan');
   await cell(page, cooked, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
@@ -326,6 +326,7 @@ test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tu
   await eat.selectOption({ index: 1 });
   const [eatDay, eatSlot] = (await eat.inputValue()).split('|') as [string, string];
   expect(eatDay >= today).toBe(true); // never a day that has gone
+  expect(eatDay <= addDays(cooked, 3), 'not past the tub’s use-by').toBe(true);
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toBeHidden();
   await expect(cell(page, eatDay, Number(eatSlot)).getByRole('button', { name: new RegExp(`^${name} tub`) })).toBeVisible();
@@ -345,7 +346,7 @@ test('F65 on Today: the same "Eat it on…", and Undo takes the placement back w
   const waiting = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
   for (const w of waiting.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/didnt`);
   const name = `${stamp()} Soup`;
-  const cooked = addDays(today, -5);
+  const cooked = addDays(today, -1);
   await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
   await page.goto('/');
   await expect(page.getByTestId('did-you-cook').getByText(`Did you cook ${name}?`)).toBeVisible();
@@ -357,6 +358,7 @@ test('F65 on Today: the same "Eat it on…", and Undo takes the placement back w
   await eat.selectOption({ index: 1 });
   const [eatDay, eatSlot] = (await eat.inputValue()).split('|') as [string, string];
   expect(eatDay >= today).toBe(true);
+  expect(eatDay <= addDays(cooked, 3), 'not past the tub’s use-by').toBe(true);
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toBeHidden();
   const tubsAt = async () => {
@@ -432,6 +434,10 @@ test('a COOK card in a meal with several things moves the whole meal (proposed, 
   await planned(page, await makeRecipe(page, side), day, slot.Dinner);
   await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, { tub_count: 1, pattern: 'pick' });
   await openWeekOf(page, today, day);
+  // Enter on the COOK card opens the menu of the whole meal (it moves as one).
+  await cookCard(cell(page, day, slot.Dinner)).click();
+  await expect(page.getByRole('dialog', { name: /and 1 more$/ })).toBeVisible();
+  await page.keyboard.press('Escape');
   await mouseDrag(page, cookCard(cell(page, day, slot.Dinner)), cell(page, sun, slot.Snack));
   await expect.poll(async () => {
     const meals = (await planRange(page, sun, sun)).meals as { id: number; slot_id: number; items: unknown[] }[];

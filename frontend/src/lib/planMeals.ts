@@ -195,11 +195,17 @@ export function nextFreeMeals(
   slots: MealSlot[],
   after: { date: string; slot_id: number },
   today: string,
-  limit = 4
+  limit = 4,
+  /** The last day a tub may be eaten (its use-by), when it is known. */
+  until: string | null = null
 ): { day: string; slotId: number }[] {
   if (!plan) return [];
   const found: { day: string; slotId: number }[] = [];
-  for (let day = after.date > today ? after.date : today; day <= plan.end; day = nextDay(day)) {
+  for (
+    let day = after.date > today ? after.date : today;
+    day <= plan.end && (until === null || day <= until);
+    day = nextDay(day)
+  ) {
     for (const slot of slots) {
       if (found.length >= limit) return found;
       if (day < plan.start || !afterCook(day, slot.id, after, today, slots)) continue;

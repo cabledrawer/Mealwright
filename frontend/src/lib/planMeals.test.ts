@@ -309,3 +309,24 @@ describe('nextFreeMeals (F65)', () => {
     );
   });
 });
+
+describe('nextFreeMeals stops at the tub’s use-by', () => {
+  const slots = [
+    { id: 1, name: 'Breakfast', position: 1, enabled: true },
+    { id: 2, name: 'Lunch', position: 2, enabled: true }
+  ];
+  const plan = {
+    start: '2026-10-17',
+    end: '2026-10-25',
+    meals: [],
+    batch_cooks: [],
+    tubs: []
+  } as unknown as Plan;
+  it('offers nothing past it, and nothing at all when no meal fits', () => {
+    const cook = { date: '2026-10-17', slot_id: 1 };
+    const found = nextFreeMeals(plan, slots, cook, '2026-10-17', 20, '2026-10-18');
+    expect(found.every((f) => f.day <= '2026-10-18')).toBe(true);
+    expect(found).toHaveLength(3);
+    expect(nextFreeMeals(plan, slots, cook, '2026-10-20', 20, '2026-10-18')).toEqual([]);
+  });
+});

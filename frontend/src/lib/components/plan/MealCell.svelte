@@ -26,7 +26,8 @@
         ? () =>
             cook ? actions.carryCook(m) : whole ? actions.carryMeal(m) : actions.carryItem(m, item)
         : null,
-      open: () => (whole ? actions.openMeal(m) : actions.openItem(m, item))
+      // The cooking is its meal's (it moves with it), so its menu is the meal's.
+      open: () => (whole || cook ? actions.openMeal(m) : actions.openItem(m, item))
     };
   }
 

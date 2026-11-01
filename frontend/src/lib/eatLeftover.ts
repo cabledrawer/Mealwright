@@ -5,10 +5,12 @@
 // It is part of "Cooked it": no toast of its own, and the Undo of "Cooked it" takes the placement
 // back first (a tub in a meal can't be taken back until it is out of it), then the cook.
 
+import { ApiError } from './api';
 import { newChangeId } from './changeId';
 import { serverUndo } from './client/changes';
 import { getTubsLeft, placeTub } from './client/plan';
 import { kitchen } from './freshness.svelte';
+import { toasts } from './toast.svelte';
 
 /** What takes the placement back; null until there is one. Shared by the Undo and the placing. */
 export interface Placed {
@@ -33,7 +35,9 @@ export async function eatLeftover(
     const written = await placeTub(tub.id, { date: to.day, slot_id: to.slotId }, newChangeId());
     if (written.change?.can_undo) placed.undo = serverUndo(written.change.id);
     kitchen.changed();
-  } catch {
-    // The tub simply stays in Tubs left, where it was made.
+  } catch (error) {
+    // The tub stays in Tubs left, where it was made; the server's words say why. A server that
+    // can't be reached has its own message everywhere else, so nothing is added to it here.
+    if (error instanceof ApiError) toasts.show(error.detail, { tone: 'problem' });
   }
 }

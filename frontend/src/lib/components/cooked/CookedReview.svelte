@@ -77,6 +77,15 @@
     chosen ?? (place === 'fridge' ? leftover?.useByFridge : leftover?.useByFreezer) ?? ''
   );
 
+  /** "Eat it on…": not past the tub's use-by (the Plan and Today give the fridge's; a chosen
+   * date wins). With no use-by known, every free meal is offered. */
+  const eatChoices = $derived(
+    (leftover?.eatOn ?? []).filter((option) => !useBy || option.day <= useBy)
+  );
+  $effect(() => {
+    if (eatAt && !eatChoices.some((o) => `${o.day}|${o.slotId}` === eatAt)) eatAt = '';
+  });
+
   const changes = $derived(review.tabs.reduce((n, t) => n + changeCount(t.rows, t.states), 0));
   const summary = $derived(
     [
@@ -315,12 +324,12 @@
                   >Change</button
                 >
               </div>
-              {#if leftover.eatOn?.length}
+              {#if eatChoices.length}
                 <label class="eaton">
                   <span>Eat it on…</span>
                   <select bind:value={eatAt}>
                     <option value="">Not planned yet</option>
-                    {#each leftover.eatOn as option (`${option.day}|${option.slotId}`)}
+                    {#each eatChoices as option (`${option.day}|${option.slotId}`)}
                       <option value="{option.day}|{option.slotId}">{option.label}</option>
                     {/each}
                   </select>

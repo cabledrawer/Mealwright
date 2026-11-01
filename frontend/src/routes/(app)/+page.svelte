@@ -74,13 +74,13 @@
   let leftover = $state<LeftoverOptions | null>(null);
 
   /** F65: the next free meals in the week on Today, for "Eat it on…". */
-  function eatOnOptions(meal: PlanMeal) {
+  function eatOnOptions(meal: PlanMeal, until: string | null) {
     const data = model.data;
     if (!data) return [];
     const slots = data.slots
       .filter((s) => s.enabled)
       .sort((a, b) => a.position - b.position || a.id - b.id);
-    return nextFreeMeals(data.plan, slots, meal, data.today).map((f) => ({
+    return nextFreeMeals(data.plan, slots, meal, data.today, 4, until).map((f) => ({
       ...f,
       label: `${dayWords(f.day, data.today)} · ${model.slotName(f.slotId)}`
     }));
@@ -95,7 +95,7 @@
         ? {
             itemId: w.leftover_item_id,
             today: model.data.today,
-            eatOn: eatOnOptions(meal),
+            eatOn: eatOnOptions(meal, hasUseBy ? w.use_by_fridge : null),
             ...(hasUseBy ? { useByFridge: w.use_by_fridge, useByFreezer: w.use_by_freezer } : {})
           }
         : null;

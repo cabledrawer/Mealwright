@@ -81,7 +81,11 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
 });
 test.afterEach(() => {
-  expect(scriptErrors, 'the page raised no script errors').toEqual([]);
+  // WebKit reports a fetch that a reload cut short ("… due to access control checks") as a page
+  // error even though the app handles the failure; only those navigation aborts of the Cook view's
+  // stock check are left out.
+  const real = scriptErrors.filter((message) => !/\/api\/v1\/recipes\/\d+\/stock\?servings=\d+ due to access control checks/.test(message));
+  expect(real, 'the page raised no script errors').toEqual([]);
 });
 
 /**
