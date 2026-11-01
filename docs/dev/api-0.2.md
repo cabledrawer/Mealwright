@@ -456,7 +456,8 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 
 ### 6.3 Places, shops, household
 
-- `GET /api/v1/places` → `[{ "id": 1, "name": "Fridge", "kind": "fridge" }, …]` in order. (Renaming and adding: Settings, 0.8.)
+- `GET /api/v1/places` → `[{ "id": 1, "name": "Fridge", "kind": "fridge" }, …]` in order. (Renaming, reordering and deleting: Settings, 0.8.)
+- `POST /api/v1/places` `{ "name": "Garage fridge", "kind": "fridge" }` → `201` with the new place (`{ id, name, kind }`), put last in the order (cabledrawer 31 Oct, F101 "+ Place": type a new place wherever a place is picked). `kind` is `fridge`, `freezer` or `cupboard` and drives the rules ("freezer last"); anything else is `422`. The name is tidied and 1 to 40 characters. A name the household already has (ignoring case) → `409 place_exists` with `place` (that place), so the screen just picks it. Only the household's own places are looked at. Members may add one. Not logged as a change, like "+ Shop"; there is no Undo.
 - `GET /api/v1/shops` → `[{ "id": 1, "name": "Tesco" }, …]`.
 - `POST /api/v1/shops` `{ "name": "Lidl" }` → `201` with the new shop, or `200` with the existing one if the name is already used (ignoring case), so "+ Shop" never makes duplicates. Not logged as a change.
 - `GET /api/v1/household` → `{ "name": "Home", "time_zone": null, "cup_ml": null, "cup_ml_used": 250, "undo_days": 7, "history_months": 12, "use_soon_days": 2, "tub_fridge_days": 3, "tub_freezer_months": 3, "plan_ahead_days": 7, "week_starts_on": 1, "today": "2026-10-17" }`.

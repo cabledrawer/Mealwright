@@ -11,11 +11,11 @@ from mealwright import amounts
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, replayed
 from mealwright.household import cup_ml, places, today, valid_time_zone
-from mealwright.models import Food, FoodConversion, Shop
+from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
 from mealwright.pints import household_pints
 
@@ -38,6 +38,45 @@ def list_places(kitchen: Here) -> list[PlaceOut]:
         PlaceOut(id=p.id, name=p.name, kind=p.kind)  # type: ignore[arg-type]
         for p in places(kitchen.db, kitchen.household_id)
     ]
+
+
+class NewPlace(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+    kind: Literal["fridge", "freezer", "cupboard"]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the place’s name.")
+        return value
+
+
+@router.post("/places", status_code=status.HTTP_201_CREATED)
+def add_place(body: NewPlace, kitchen: Here) -> PlaceOut:
+    """ "+ Place": add a place, last in the order. `kind` (fridge, freezer or cupboard) drives
+    the rules ("freezer last"). A name the household already has (ignoring case) is a 409
+    `place_exists` that carries that place, so the screen just picks it. Not logged as a change,
+    like "+ Shop"."""
+    existing = places(kitchen.db, kitchen.household_id)
+    for old in existing:
+        if fold(old.name) == fold(body.name):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "place_exists",
+                f"There’s already a place called {old.name}.",
+                place={"id": old.id, "name": old.name, "kind": old.kind},
+            )
+    place = Place(
+        household_id=kitchen.household_id,
+        name=body.name,
+        kind=body.kind,
+        position=max((p.position for p in existing), default=-1) + 1,
+    )
+    kitchen.db.add(place)
+    kitchen.db.commit()
+    return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
 
 @router.get("/shops")

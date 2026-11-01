@@ -74,6 +74,78 @@ def test_shop_by_name(kitchen: TestClient) -> None:
     assert [s["name"] for s in kitchen.get(f"{API}/shops").json()] == ["Tesco", "Lidl"]
 
 
+def test_add_a_place(kitchen: TestClient) -> None:
+    response = kitchen.post(f"{API}/places", json={"name": "  Garage   fridge ", "kind": "fridge"})
+    assert response.status_code == 201
+    made = response.json()
+    assert made == {"id": made["id"], "name": "Garage fridge", "kind": "fridge"}
+    listed = kitchen.get(f"{API}/places").json()
+    assert [p["name"] for p in listed] == [
+        "Fridge",
+        "Freezer",
+        "Cupboard",
+        "Spice rack",
+        "Garage fridge",
+    ]
+    assert listed[-1] == made
+    # The next one goes after it.
+    kitchen.post(f"{API}/places", json={"name": "Chest freezer", "kind": "freezer"})
+    assert kitchen.get(f"{API}/places").json()[-1]["name"] == "Chest freezer"
+
+
+def test_a_place_name_the_household_has_is_a_409_with_that_place(kitchen: TestClient) -> None:
+    response = kitchen.post(f"{API}/places", json={"name": "fridge", "kind": "cupboard"})
+    assert response.status_code == 409
+    body = response.json()
+    assert body["code"] == "place_exists"
+    assert body["place"] == {"id": 1, "name": "Fridge", "kind": "fridge"}
+    assert len(kitchen.get(f"{API}/places").json()) == 4
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"name": "", "kind": "cupboard"},
+        {"name": "   ", "kind": "cupboard"},
+        {"name": "x" * 41, "kind": "cupboard"},
+        {"name": "Pantry", "kind": "garage"},
+        {"name": "Pantry"},
+        {"kind": "cupboard"},
+    ],
+)
+def test_a_bad_place_is_refused(kitchen: TestClient, body: dict[str, str]) -> None:
+    assert kitchen.post(f"{API}/places", json=body).status_code == 422
+    assert len(kitchen.get(f"{API}/places").json()) == 4
+
+
+def test_a_forty_character_place_name_is_fine(kitchen: TestClient) -> None:
+    made = kitchen.post(f"{API}/places", json={"name": "y" * 40, "kind": "cupboard"})
+    assert made.status_code == 201
+
+
+def test_a_member_can_add_a_place(member: TestClient) -> None:
+    made = member.post(f"{API}/places", json={"name": "Larder", "kind": "cupboard"})
+    assert made.status_code == 201
+
+
+def test_places_are_the_households_own(kitchen: TestClient, neighbour: TestClient) -> None:
+    made = kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"})
+    assert made.status_code == 201
+    # Another household's "Garage" is never matched: the same name is new for them.
+    theirs = neighbour.post(f"{API}/places", json={"name": "garage", "kind": "freezer"})
+    assert theirs.status_code == 201
+    assert theirs.json()["id"] != made.json()["id"]
+    assert theirs.json()["kind"] == "freezer"
+    ours = [p["name"] for p in kitchen.get(f"{API}/places").json()]
+    their_names = [p["name"] for p in neighbour.get(f"{API}/places").json()]
+    assert "Garage" in ours and "garage" not in ours
+    assert "garage" in their_names and "Garage" not in their_names
+    # A 409 only ever names the caller's own place.
+    clash = neighbour.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"})
+    assert clash.status_code == 409
+    assert clash.json()["place"]["id"] == theirs.json()["id"]
+
+
 def test_household_settings(kitchen: TestClient) -> None:
     household = kitchen.get(f"{API}/household").json()
     assert household["time_zone"] is None  # until the admin's browser sends it: UTC
