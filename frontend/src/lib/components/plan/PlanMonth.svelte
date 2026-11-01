@@ -1,19 +1,34 @@
 <script lang="ts">
-  // The month on a computer or iPad (mockup Month-Desktop): whole weeks of day cells, each with
-  // a chip per meal ("+2 more" when full), a COOK tag on cook days, one colour per batch, and a
-  // side panel with "Batches this month" and "Empty days ahead". A chip drags to another day
-  // (it keeps its meal, so a dinner stays a dinner); Alt copies; the Leftovers zone plans
-  // leftovers. A recipe from the tray dropped on a day goes to its last empty meal.
+  // The month on a computer or iPad (mockup Month07-Desktop): whole weeks of day cells that share
+  // the height, so the month fits one screen (F47), each with up to three chips (the cooking
+  // first, then "+N more"), a COOK tag on cook days, one colour per batch, and a side panel with
+  // "Batches this month" and "Empty days ahead". A click anywhere in a day opens it (F53). A chip
+  // drags to another day (it keeps its meal, so a dinner stays a dinner); Alt copies; the
+  // Leftovers zone plans leftovers. There is no recipe tray here: the day's own sheet offers the
+  // recipes and the tubs left.
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
   import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf } from '#lib/planMeals.js';
+  import { chipsThatFit } from '#lib/planMonthFit.js';
   import type { PlanBatch, PlanItem, PlanMeal } from '#lib/client/plan.js';
 
   let { actions }: { actions: PlanActions } = $props();
   const model = $derived(actions.model);
   const can = $derived(actions.desktop && !actions.readonly);
-  const SHOWN = 3;
+
+  // The month fits one screen (F47): the days share the height, and a short day shows fewer than
+  // three things (the rest are "+N more"), so nothing is cut off.
+  let cellsHeight = $state(0);
+  let scale = $state(1);
+  $effect(() => {
+    void cellsHeight; // measured again whenever the text size or the window changes
+    scale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
+  });
+  const dayHeight = $derived.by(() => {
+    const rows = model.days.length / 7;
+    return rows > 0 && cellsHeight > 0 ? (cellsHeight - (rows - 1) * 3 * scale) / rows : 0;
+  });
 
   const inMonth = (day: string) => day.slice(0, 7) === model.anchor.slice(0, 7);
   const mealsOn = (day: string): PlanMeal[] =>
@@ -80,9 +95,10 @@
     <div class="head" aria-hidden="true">
       {#each model.days.slice(0, 7) as day (day)}<span>{dayShort(day).toUpperCase()}</span>{/each}
     </div>
-    <div class="cells">
+    <div class="cells" style:--rows={model.days.length / 7} bind:clientHeight={cellsHeight}>
       {#each model.days as day (day)}
         {@const chips = chipsOn(day)}
+        {@const shown = chipsThatFit(dayHeight, chips.length, scale)}
         {@const over = drag.isOver(day, null)}
         <div
           class="day"
@@ -94,20 +110,22 @@
           role="group"
           aria-label={dayFull(day)}
         >
+          <!-- The whole day is one button (F53); the number, the tags and the chips sit above it. -->
+          <button
+            type="button"
+            class="hit"
+            disabled={actions.readonly}
+            aria-label="Add to {dayFull(day)}"
+            onclick={() => actions.add(day, null)}
+          ></button>
           <div class="top">
-            <button
-              type="button"
-              class="num"
-              disabled={actions.readonly}
-              aria-label="Add to {dayFull(day)}"
-              onclick={() => actions.add(day, null)}>{dayOfMonth(day)}</button
-            >
+            <span class="num">{dayOfMonth(day)}</span>
             {#if day === model.today}<span class="now">Today</span>{/if}
             {#if cookedOn(model.plan, day).length}
               <span class="cook" title="Cook day">COOK</span>
             {/if}
           </div>
-          {#each chips.slice(0, SHOWN) as chip (chip.item.id)}
+          {#each chips.slice(0, shown) as chip (chip.item.id)}
             {@const { meal, item, colour } = chip}
             {@const whole = meal.items.length === 1}
             <button
@@ -133,9 +151,9 @@
               ><span class="chip-name">{itemName(item, model.plan)}</span></button
             >
           {/each}
-          {#if chips.length > SHOWN}
+          {#if chips.length > shown}
             <button type="button" class="more" onclick={() => actions.openDay(day)}
-              >+{chips.length - SHOWN} more</button
+              >+{chips.length - shown} more</button
             >
           {/if}
           {#if over && drag.carried}
@@ -221,48 +239,74 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-6);
+    gap: var(--space-2);
+    padding: var(--space-5);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
-    overflow-y: auto;
   }
 
   .head,
   .cells {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: var(--space-3);
+    gap: 3px;
   }
 
   .head span {
-    padding: 0 var(--space-3);
+    padding: 0 var(--space-2);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-overline);
   }
 
+  /* The weeks share the height (F47): the month fits one screen, whether it has five weeks or six. */
   .cells {
     flex: 1;
-    grid-auto-rows: minmax(104px, 1fr);
+    min-height: 0;
+    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
   }
 
   .day {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: 2px;
     min-width: 0;
-    padding: var(--space-3);
+    min-height: 0;
+    padding: 4px;
+    overflow: hidden;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
+  }
+
+  /* The day itself is a button, so a click anywhere in it opens it (F53). */
+  .hit {
+    position: absolute;
+    inset: 0;
+    border: none;
+    border-radius: inherit;
+    background: none;
+    cursor: pointer;
+  }
+
+  .hit:hover:not(:disabled) {
+    background: var(--color-accent-soft);
+  }
+
+  .day > :not(.hit, .zones) {
+    position: relative;
+    pointer-events: none;
+  }
+
+  .day .chip,
+  .day .more {
+    pointer-events: auto;
   }
 
   /* Days of the next or last month: quieter, but still readable. */
   .day.out .num {
     color: var(--color-text-muted);
-    font-weight: var(--weight-bold);
   }
 
   .day.today {
@@ -280,32 +324,26 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: 0 var(--space-2);
     min-width: 0;
+    min-height: 18px;
   }
 
   .num {
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
     padding: 0 var(--space-2);
-    border: none;
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--color-text);
-    font: inherit;
-    font-size: var(--text-lg);
+    font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
-    text-align: left;
-    cursor: pointer;
+    line-height: 18px;
   }
 
   .now,
   .cook {
-    padding: 1px var(--space-3);
+    padding: 0 var(--space-3);
     border-radius: var(--radius-full);
     font-size: var(--text-xs);
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-overline);
+    line-height: 16px;
   }
 
   .now {
@@ -319,11 +357,13 @@
     color: var(--color-inverse-text);
   }
 
+  /* A chip is small (the mockup's 24 px, 18 here to fit six weeks); the whole day is the target. */
   .chip {
+    flex: none;
     display: flex;
     align-items: center;
-    min-height: var(--touch-target);
-    padding: 0 var(--space-4);
+    height: 18px;
+    padding: 0 var(--space-3);
     border: none;
     border-radius: var(--radius-sm);
     background: var(--soft, var(--color-ground));
@@ -331,6 +371,7 @@
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
+    line-height: 14px;
     text-align: left;
     cursor: pointer;
     user-select: none;
@@ -355,13 +396,16 @@
   }
 
   .more {
-    min-height: var(--touch-target);
+    flex: none;
+    height: 15px;
+    padding: 0 var(--space-2);
     border: none;
     background: none;
     color: var(--color-accent);
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
+    line-height: 15px;
     text-align: left;
     cursor: pointer;
   }

@@ -453,7 +453,9 @@
       {:else}
         <PlanMonth {actions} />
       {/if}
-      {#if !compact && (model.view === 'month' || show === 'both')}
+      <!-- Month has no tray: it must fit one screen (F47), and a day's own sheet offers the recipes
+           and the tubs left (F53). -->
+      {#if !compact && model.view === 'week' && show === 'both'}
         <RecipeTray
           list={recipes}
           disabled={readonly}

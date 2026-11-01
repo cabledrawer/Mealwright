@@ -48,7 +48,7 @@
     {/each}
   </div>
 
-  <PlanDays {actions} days={[selected]} />
+  <div class="list"><PlanDays {actions} days={[selected]} /></div>
 </div>
 
 <style>
@@ -56,6 +56,27 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
+  }
+
+  /* From a tablet's width (768 px) the day's meals sit beside the grid, so the month and the day
+     fit one screen (F47): the day's list scrolls on its own. */
+  @media (min-width: 768px) {
+    .phone-month {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+
+    .grid,
+    .list {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .list {
+      max-height: calc(100dvh - 2 * var(--space-10) - 140px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
   }
 
   .grid {
