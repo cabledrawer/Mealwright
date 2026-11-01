@@ -203,3 +203,22 @@ describe('pressable', () => {
     expect(dropped).not.toHaveBeenCalled();
   });
 });
+
+describe('a drop zone that hangs below its place', () => {
+  it('still belongs to that place and picks its mode', () => {
+    document.body.innerHTML = `
+      <div data-drop-day="2026-10-20" data-drop-slot="4"
+        style="position:absolute;left:0;top:0;width:200px;height:80px">
+        <span data-drop-zone="leftovers" style="position:absolute;left:0;top:100%;z-index:2;width:200px;height:40px"></span>
+      </div>
+      <div data-drop-day="2026-10-20" data-drop-slot="5"
+        style="position:absolute;left:0;top:80px;width:200px;height:200px"></div>`;
+    drag.begin({ label: 'x', zones: true, drop: () => {} }, 50, 40, false);
+    expect(drag.over).toMatchObject({ day: '2026-10-20', slot: 4, mode: 'move' });
+    // Below the first place, over the zone (which is painted over the second place).
+    drag.look(50, 100, false);
+    expect(drag.over).toMatchObject({ day: '2026-10-20', slot: 4, mode: 'leftovers' });
+    drag.look(50, 200, false);
+    expect(drag.over).toMatchObject({ slot: 5, mode: 'move' });
+  });
+});

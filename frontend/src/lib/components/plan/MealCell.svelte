@@ -349,11 +349,14 @@
     cursor: pointer;
   }
 
-  /* The three zones sit at the foot of the place, so the rest of it is a plain drop (a move, or
-     a copy with Alt held). */
+  /* The three zones hang just below the place (cells are only as tall as their content, so the
+     zones would cover all of a small one), and the whole place is a plain drop (a move, or a copy
+     with Alt held). */
   .zones {
     position: absolute;
-    inset: auto var(--space-2) var(--space-2) var(--space-2);
+    inset: 100% var(--space-2) auto var(--space-2);
+    margin-top: var(--space-2);
+    box-shadow: 0 12px 28px rgb(23 32 28 / 0.2);
     z-index: 2;
     display: flex;
     flex-direction: column;
@@ -389,6 +392,8 @@
 
   .zones.one {
     inset: var(--space-2);
+    margin: 0;
+    box-shadow: none;
   }
 
   .zones.one span {

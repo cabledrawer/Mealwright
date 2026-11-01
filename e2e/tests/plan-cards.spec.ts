@@ -411,3 +411,22 @@ test('at 1100 px wide and 200% text the cards and the keyboard picker keep their
   }
   await page.evaluate(() => (document.documentElement.style.fontSize = ''));
 });
+
+test('a COOK card in a meal with several things moves the whole meal (proposed, for cabledrawer)', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `${stamp()} Biryani`;
+  const side = `${stamp()} Raita`;
+  const day = far(today, 10);
+  const sun = addDays(day, 1);
+  const cook = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
+  await planned(page, await makeRecipe(page, side), day, slot.Dinner);
+  await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, { tub_count: 1, pattern: 'pick' });
+  await openWeekOf(page, today, day);
+  await mouseDrag(page, cookCard(cell(page, day, slot.Dinner)), cell(page, sun, slot.Snack));
+  await expect.poll(async () => {
+    const meals = (await planRange(page, sun, sun)).meals as { id: number; slot_id: number; items: unknown[] }[];
+    const moved = meals.find((m) => m.id === cook.meal_id);
+    return [moved?.slot_id, moved?.items.length];
+  }).toEqual([slot.Snack, 2]);
+  await expect(cell(page, sun, slot.Snack).getByRole('button', { name: new RegExp(`^${side}`) })).toBeVisible();
+});
