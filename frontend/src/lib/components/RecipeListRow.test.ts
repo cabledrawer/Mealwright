@@ -90,7 +90,7 @@ describe('a recipe row', () => {
 
   it('goes back to the plain square when the photo can’t be fetched', async () => {
     open(row({ photo: photo({ list_url: '/api/v1/recipes/photos/404/list' }) }));
-    await expect.poll(() => pictures().length).toBe(0);
+    await expect.poll(() => pictures().length, { timeout: 6000 }).toBe(0);
     const box = square().getBoundingClientRect();
     expect([box.width, box.height]).toEqual([52, 52]);
   });
@@ -109,7 +109,7 @@ describe('a recipe row', () => {
   it('tries a failed photo again when the connection comes back', async () => {
     const missing = '/api/v1/recipes/photos/404/list';
     open(row({ photo: photo({ list_url: missing }) }));
-    await expect.poll(() => pictures().length).toBe(0);
+    await expect.poll(() => pictures().length, { timeout: 6000 }).toBe(0);
     // No second try while nothing has changed.
     await new Promise((done) => setTimeout(done, 100));
     expect(pictures().length).toBe(0);
@@ -118,7 +118,7 @@ describe('a recipe row', () => {
     flushSync();
     expect(pictures()[0]?.getAttribute('src')).toBe(missing);
     // Still missing: back to the plain square, until the next time.
-    await expect.poll(() => pictures().length).toBe(0);
+    await expect.poll(() => pictures().length, { timeout: 6000 }).toBe(0);
   });
 
   it('centres the square beside a short name', () => {

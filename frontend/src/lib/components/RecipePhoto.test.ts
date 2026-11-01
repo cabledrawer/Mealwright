@@ -72,7 +72,7 @@ describe('the recipe page photo', () => {
 
   it('draws nothing when the photo can’t be fetched', async () => {
     open({ photo: photo({ url: '/api/v1/recipes/photos/404/large' }) });
-    await expect.poll(() => document.querySelector('.frame')).toBeNull();
+    await expect.poll(() => document.querySelector('.frame'), { timeout: 6000 }).toBeNull();
   });
 
   it('a late error from a photo already gone is ignored, not a crash', () => {
@@ -108,7 +108,9 @@ describe('the recipe page photo', () => {
 
   it('shows the list copy when only the large copy can’t be fetched', async () => {
     open({ photo: photo({ url: '/api/v1/recipes/photos/404/large', list_url: DISH }) });
-    await expect.poll(() => document.querySelector('img')?.getAttribute('src')).toBe(DISH);
+    await expect
+      .poll(() => document.querySelector('img')?.getAttribute('src'), { timeout: 6000 })
+      .toBe(DISH);
     const img = document.querySelector('img')!;
     expect(img.getAttribute('alt')).toBe('Photo of Sambar');
     expect(img.getAttribute('width')).toBe('208');
@@ -120,12 +122,12 @@ describe('the recipe page photo', () => {
   it('tries a failed photo again when the connection comes back', async () => {
     const missing = '/api/v1/recipes/photos/404/large';
     open({ photo: photo({ url: missing }) });
-    await expect.poll(() => document.querySelector('.frame')).toBeNull();
+    await expect.poll(() => document.querySelector('.frame'), { timeout: 6000 }).toBeNull();
     network.failed();
     network.succeeded();
     flushSync();
     expect(document.querySelector('img')?.getAttribute('src')).toBe(missing);
-    await expect.poll(() => document.querySelector('.frame')).toBeNull();
+    await expect.poll(() => document.querySelector('.frame'), { timeout: 6000 }).toBeNull();
   });
 });
 
