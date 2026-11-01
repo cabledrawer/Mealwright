@@ -40,7 +40,7 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
 from mealwright.conversions import AskOnce, UnitAmount, to_base_milli
 from mealwright.errors import Problem
-from mealwright.foods import amount_out, ask, find, known, usual_size, visible
+from mealwright.foods import BASE_UNITS, amount_out, ask, find, known, usual_size, visible
 from mealwright.history import as_utc
 from mealwright.household import cup_ml, places
 from mealwright.models import (
@@ -711,6 +711,7 @@ class RowOut(BaseModel):
     half: AmountOut | None = None  # about half of the first packet, in the pantry's unit
     count_note: CountNoteOut | None = None  # status no_amount with "2 cloves" in the note
     bought: bool = False  # "Bought some — used them" (a confirm's choice, kept on the record)
+    unit: Literal["g", "ml", "count"] | None = None  # what the pantry counts the ingredient in
 
 
 class ProposalOut(BaseModel):
@@ -785,6 +786,7 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
         if row.count_note
         else None,
         bought=row.bought,
+        unit=BASE_UNITS[food.counted_as] if food else None,
     )
 
 

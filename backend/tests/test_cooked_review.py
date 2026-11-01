@@ -33,6 +33,7 @@ def test_a_row_is_marked_an_estimate_only_when_the_units_were_changed(kitchen: T
     result = propose(kitchen, plan_item(kitchen, recipe, servings=4))
     assert row_of(result, "Plain flour")["estimate"] is True  # a cup in grams
     assert row_of(result, "Zorba rice")["estimate"] is False  # kg to g is fixed maths
+    assert [row_of(result, n)["unit"] for n in ("Plain flour", "Zorba milk")] == ["g", "ml"]
     assert row_of(result, "Zorba milk")["estimate"] is False  # tbsp to ml too
 
 
