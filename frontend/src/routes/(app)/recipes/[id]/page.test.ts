@@ -705,6 +705,64 @@ describe('the recipe page', () => {
       expect(asked.url).toContain('2026-10-30');
     });
 
+    it('shows what is already planned at each meal, and marks the day (M3)', async () => {
+      const item = (id: number, name: string) => ({
+        id,
+        position: id,
+        kind: 'recipe',
+        recipe: { id: 20 + id, name, kcal: null },
+        tub_id: null,
+        ingredient: null,
+        kept_name: null,
+        servings: null,
+        note: null,
+        eating: null
+      });
+      const meals = [
+        {
+          id: 5,
+          date: '2026-10-20',
+          slot_id: 2,
+          status: 'planned',
+          items: [item(1, 'Rasam'), item(2, 'Rice')],
+          kcal: null,
+          eater_login_ids: []
+        }
+      ];
+      await open({}, STOCK, {
+        ...planRoutes(),
+        'GET /plan': [200, { ...EMPTY_PLAN, meals }]
+      });
+      await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+      const sheet = page.getByRole('dialog', { name: 'Sambar' });
+      // Only the day with something in it is marked, and says so.
+      await expect.element(sheet.getByRole('button', { name: 'Tuesday 20 October' })).toBeVisible();
+      // The word is said as the day's description; only that day has it.
+      expect(sheet.getByText('Something planned').elements()).toHaveLength(1);
+      const marked = sheet.getByRole('button', { name: 'Tuesday 20 October' }).element();
+      expect(document.getElementById(marked.getAttribute('aria-describedby')!)?.textContent).toBe(
+        'Something planned'
+      );
+      await sheet.getByRole('button', { name: 'Tuesday 20 October' }).click();
+      await vi.waitFor(() =>
+        expect(sheet.getByRole('button', { name: /^Dinner/ }).element().textContent).toContain(
+          'Rasam · Rice'
+        )
+      );
+      await vi.waitFor(() =>
+        expect(sheet.getByRole('button', { name: /^Breakfast/ }).element().textContent).toContain(
+          'Nothing yet'
+        )
+      );
+      // Another day: nothing there.
+      await sheet.getByRole('button', { name: 'Sunday 18 October' }).click();
+      await vi.waitFor(() =>
+        expect(sheet.getByRole('button', { name: /^Dinner/ }).element().textContent).toContain(
+          'Nothing yet'
+        )
+      );
+    });
+
     it('says so, and opens nothing, when the plan can’t be read', async () => {
       await open({}, STOCK, { ...planRoutes(), 'GET /plan': [500, { detail: 'no' }] });
       await page.getByRole('button', { name: 'Plan it', exact: true }).click();

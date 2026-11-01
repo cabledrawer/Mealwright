@@ -261,6 +261,31 @@ test('Plan it offers the next 14 days from today in one view, with no week arrow
   await expect(days.nth(13)).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('Plan it shows what is already planned at each meal, and marks a day that has something', async ({ page }) => {
+  const k = await setup(page);
+  const name = `Avial ${stamp()}`;
+  const olan = `Olan ${stamp()}`;
+  const other = await makeRecipe(page, olan);
+  const recipe = await makeRecipe(page, name);
+  const day = addDays(k.today, 9 + projectIndex()); // each project its own day: they share one server
+  const empty = addDays(k.today, 12); // nothing of this test's is on it
+  const meal = projectIndex() === 0 ? 'Dinner' : 'Lunch';
+  const spare = projectIndex() === 0 ? 'Lunch' : 'Dinner';
+  await planned(page, other, day, k.slot[meal]!);
+  await page.goto(`/recipes/${recipe}`);
+  await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name });
+  const days = sheet.getByRole('group', { name: 'Day' });
+  // The day with something is marked, and the marking has a word for a screen reader.
+  const marked = days.getByRole('button', { name: dayName(day), exact: true });
+  await expect(marked).toHaveAccessibleDescription('Something planned');
+  await marked.click();
+  await expect(sheet.getByRole('button', { name: meal, exact: true })).toContainText(olan);
+  await expect(sheet.getByRole('button', { name: spare, exact: true }).locator('small')).not.toHaveText(olan);
+  await days.getByRole('button', { name: dayName(empty), exact: true }).click();
+  await expect(sheet.getByRole('button', { name: meal, exact: true })).not.toContainText(olan);
+});
+
 // --- The phone Plan opens on today -----------------------------------------------------------------
 
 test('the phone Plan opens on today, with earlier days folded away and the date said once', async ({ page }) => {
