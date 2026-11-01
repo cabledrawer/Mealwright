@@ -20,6 +20,8 @@
     today: string;
     useByFridge?: string;
     useByFreezer?: string;
+    /** The next free meals a tub can be eaten at ("Eat it on…", F65), when the Plan knows them. */
+    eatOn?: { day: string; slotId: number; label: string }[];
   }
 
   let {
@@ -36,7 +38,8 @@
     /** After the pantry is changed: Today's answer for the meal itself (and its tubs). */
     onconfirmed?: (
       leftovers: Leftovers | null,
-      undoCooked: () => Promise<string | void>
+      undoCooked: () => Promise<string | void>,
+      eatOn: { day: string; slotId: number } | null
     ) => void | boolean | 'unsure' | Promise<void | boolean | 'unsure'>;
   } = $props();
 
@@ -47,6 +50,8 @@
   let place = $state<'fridge' | 'freezer'>('fridge');
   let chosen = $state<string | null>(null);
   let changing = $state(false);
+  /** "Eat it on…": a day and a meal as "2026-10-19|2", or nothing yet. */
+  let eatAt = $state('');
 
   const target = $derived(review.target);
   const tab = $derived(review.tab);
@@ -59,6 +64,7 @@
       place = 'fridge';
       chosen = null;
       changing = false;
+      eatAt = '';
     }
   });
 
@@ -99,7 +105,9 @@
     const { ok } = await review.confirm({
       after: onconfirmed
         ? async (outcomes) => {
-            const answered = await onconfirmed(leftovers, undoAll(outcomes));
+            const [day, slot] = eatAt.split('|');
+            const eatOn = leftovers && day && slot ? { day, slotId: Number(slot) } : null;
+            const answered = await onconfirmed(leftovers, undoAll(outcomes), eatOn);
             return answered === undefined ? true : answered;
           }
         : undefined
@@ -307,6 +315,17 @@
                   >Change</button
                 >
               </div>
+              {#if leftover.eatOn?.length}
+                <label class="eaton">
+                  <span>Eat it on…</span>
+                  <select bind:value={eatAt}>
+                    <option value="">Not planned yet</option>
+                    {#each leftover.eatOn as option (`${option.day}|${option.slotId}`)}
+                      <option value="{option.day}|{option.slotId}">{option.label}</option>
+                    {/each}
+                  </select>
+                </label>
+              {/if}
               {#if changing}
                 <label class="date">
                   <span class="visually-hidden">Use-by date</span>
@@ -647,6 +666,16 @@
     cursor: pointer;
   }
 
+  .eaton {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    font-weight: var(--weight-bold);
+  }
+
+  .eaton select,
   .date input {
     min-height: var(--touch-target);
     padding: 0 var(--space-5);

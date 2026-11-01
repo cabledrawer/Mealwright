@@ -452,9 +452,21 @@
             <button type="button" disabled={actions.readonly} onclick={toFreezer}>To freezer</button
             >
           {/if}
-          <button type="button" class="remove" disabled={actions.readonly} onclick={remove}
-            >{tub ? 'Back to tubs left' : 'Remove'}</button
+          <!-- F49: taking a tub off a meal keeps the tub, so it isn't red and it says so. -->
+          <button
+            type="button"
+            class:remove={!tub}
+            disabled={actions.readonly}
+            onclick={remove}
+            aria-describedby={tub ? 'take-off-hint' : undefined}
+            >{tub ? 'Take off this meal (keep the tub)' : 'Remove'}</button
           >
+          {#if tub}
+            <p id="take-off-hint" class="hint">
+              The tub stays in the {tub.tub.place_kind === 'freezer' ? 'freezer' : 'fridge'}, in
+              Tubs left.
+            </p>
+          {/if}
         </div>
       {:else if mode === 'whose'}
         <h3>Whose tub?</h3>
@@ -699,6 +711,12 @@
     font-size: var(--text-xl);
     font-weight: var(--weight-bold);
     text-align: left;
+  }
+
+  .hint {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
   }
 
   .list .remove {

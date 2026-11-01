@@ -403,6 +403,32 @@ export class PlanModel {
     );
   }
 
+  /**
+   * F65, "Eat it on…" in "Any left over?": the first tub just made goes on the chosen meal. The
+   * tubs are the newest of that recipe cooked that day (the answer doesn't name them). No toast
+   * of its own: the one for "Cooked it" stays, and its Undo is the way back.
+   */
+  async eatLeftover(
+    recipeName: string,
+    cookedOn: string,
+    count: number,
+    day: string,
+    slotId: number
+  ) {
+    const left = await getTubsLeft();
+    const made = left.tubs
+      .filter((t) => t.recipe_name === recipeName && t.cooked_on === cookedOn)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, count);
+    const tub = made.at(-1);
+    if (!tub) return;
+    await this.#send({
+      label: `Put ${recipeName} tub in ${this.slotName(slotId)}`,
+      send: (key) => placeTub(tub.id, { date: day, slot_id: slotId }, key),
+      quiet: true
+    });
+  }
+
   /** Put a tub in a meal (from tubs left, or moving one that is in a meal already). */
   placeTub(tubId: number, name: string, day: string, slotId: number) {
     return this.#send({

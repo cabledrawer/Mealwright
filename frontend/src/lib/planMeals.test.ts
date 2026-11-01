@@ -10,6 +10,7 @@ import {
   mealColour,
   mealName,
   mealTotals,
+  nextFreeMeals,
   recipeMeta,
   tubOf,
   tubWords,
@@ -271,5 +272,40 @@ describe('where leftovers may go (F50)', () => {
     expect(dayAfterCook('2026-10-29', cook, today, slots)).toBe(false);
     expect(dayAfterCook('2026-10-30', cook, today, slots)).toBe(true);
     expect(dayAfterCook('2026-10-26', cook, today, slots)).toBe(false);
+  });
+});
+
+describe('nextFreeMeals (F65)', () => {
+  const slots = [
+    { id: 1, name: 'Breakfast', position: 1, enabled: true },
+    { id: 2, name: 'Lunch', position: 2, enabled: true },
+    { id: 3, name: 'Dinner', position: 3, enabled: true }
+  ];
+  const plan = {
+    start: '2026-10-17',
+    end: '2026-10-20',
+    meals: [
+      { date: '2026-10-18', slot_id: 3 },
+      { date: '2026-10-19', slot_id: 1 }
+    ],
+    batch_cooks: [],
+    tubs: []
+  } as unknown as Plan;
+
+  it('skips the filled meals and anything before the cooking', () => {
+    const found = nextFreeMeals(plan, slots, { date: '2026-10-18', slot_id: 3 }, '2026-10-17', 3);
+    expect(found).toEqual([
+      { day: '2026-10-19', slotId: 2 },
+      { day: '2026-10-19', slotId: 3 },
+      { day: '2026-10-20', slotId: 1 }
+    ]);
+  });
+
+  it('never offers a past day, and has nothing without a plan', () => {
+    const found = nextFreeMeals(plan, slots, { date: '2026-10-17', slot_id: 1 }, '2026-10-19', 2);
+    expect(found.every((f) => f.day >= '2026-10-19')).toBe(true);
+    expect(nextFreeMeals(null, slots, { date: '2026-10-17', slot_id: 1 }, '2026-10-17')).toEqual(
+      []
+    );
   });
 });

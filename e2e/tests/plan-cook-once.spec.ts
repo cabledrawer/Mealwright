@@ -229,7 +229,7 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
   const lunch = mealButton(page, sun, 'Lunch', slot.Lunch, tubName);
   await lunch.click();
   const menu = page.getByRole('dialog', { name: `${name} tub` });
-  for (const word of ['Whose tub?', 'Move to…', 'To freezer', 'Back to tubs left']) await expect(menu.getByRole('button', { name: word })).toBeVisible();
+  for (const word of ['Whose tub?', 'Move to…', 'To freezer', 'Take off this meal (keep the tub)']) await expect(menu.getByRole('button', { name: word })).toBeVisible();
   for (const word of ['Copy to…', 'Leftovers on…']) await expect(menu.getByRole('button', { name: word })).toHaveCount(0);
   await menu.getByRole('button', { name: 'Whose tub?' }).click();
   await menu.getByRole('button', { name: me }).click();
@@ -267,7 +267,7 @@ test('tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
 
   // Back to tubs left, then into a meal again from "Tubs left".
   await mealButton(page, sun, 'Dinner', slot.Dinner, tubName).click();
-  await page.getByRole('dialog', { name: `${name} tub` }).getByRole('button', { name: 'Back to tubs left' }).click();
+  await page.getByRole('dialog', { name: `${name} tub` }).getByRole('button', { name: 'Take off this meal (keep the tub)' }).click();
   await expect(page.getByRole('status').filter({ hasText: /back in tubs left/ })).toBeVisible();
   await expect.poll(async () => (await (await page.request.get('/api/v1/plan/tubs-left')).json()).tubs.length).toBeGreaterThan(0);
   if (isPhone(page)) {

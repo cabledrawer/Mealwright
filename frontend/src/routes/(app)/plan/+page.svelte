@@ -29,9 +29,9 @@
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
-  import { dayFull, monthWords, weekWords } from '#lib/planDates.js';
+  import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
-  import { afterCook, itemName, mealName } from '#lib/planMeals.js';
+  import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
@@ -209,7 +209,14 @@
     // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
     leftover =
       first && target.parts.every((p) => p.batchId === null)
-        ? { itemId: first.id, today: model.today }
+        ? {
+            itemId: first.id,
+            today: model.today,
+            eatOn: nextFreeMeals(model.plan, model.slotsOn, meal, model.today).map((f) => ({
+              ...f,
+              label: `${dayWords(f.day)} · ${model.slotName(f.slotId)}`
+            }))
+          }
         : null;
     void review.open(target);
   }
@@ -473,10 +480,14 @@
       {leftover}
       {readonly}
       onclose={closeCooked}
-      onconfirmed={async (leftovers, undoCooked) => {
+      onconfirmed={async (leftovers, undoCooked, eatOn) => {
         const meal = cookedMeal;
         if (!meal) return true;
-        return answered(await model.cooked(meal, leftovers, undoCooked));
+        const result = answered(await model.cooked(meal, leftovers, undoCooked));
+        const name = meal.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
+        if (result === true && eatOn && leftovers && name)
+          void model.eatLeftover(name, meal.date, leftovers.count, eatOn.day, eatOn.slotId);
+        return result;
       }}
     />
   {/await}

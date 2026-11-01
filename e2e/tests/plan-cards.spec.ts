@@ -274,3 +274,44 @@ test('F40: a recipe is dragged from its photo as well as from its name', async (
   await expect(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
   await expect(picture).toHaveAttribute('draggable', 'false');
 });
+
+test('F49: a tub is taken off a meal with plain words and a note, not a red "Back to tubs left"', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `${stamp()} Kofta`;
+  const day = far(today, 8);
+  const { sun } = await batchWithTubs(page, name, day, slot);
+  await openWeekOf(page, today, day);
+  const tub = cell(page, sun, slot.Lunch).getByRole('button', { name: new RegExp(`^${name} tub`) });
+  await tub.click();
+  const menu = page.getByRole('dialog', { name: `${name} tub` });
+  await expect(menu.getByRole('button', { name: 'Back to tubs left' })).toHaveCount(0);
+  const off = menu.getByRole('button', { name: 'Take off this meal (keep the tub)' });
+  await expect(off).toBeVisible();
+  await expect(off).not.toHaveClass(/remove/); // not the red button
+  await expect(menu.getByText('The tub stays in the fridge, in Tubs left.')).toBeVisible();
+  await off.click();
+  await expect(page.getByRole('status').filter({ hasText: /back in tubs left/ })).toBeVisible();
+  await expect(cell(page, sun, slot.Lunch).getByRole('button', { name: new RegExp(`^${name} tub`) })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(cell(page, sun, slot.Lunch).getByRole('button', { name: new RegExp(`^${name} tub`) })).toBeVisible();
+});
+
+test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tub goes there', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `${stamp()} Chilli`;
+  await planned(page, await makeRecipe(page, name), today, slot.Dinner);
+  await page.goto('/plan');
+  await cell(page, today, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
+  await page.getByRole('dialog', { name }).getByRole('button', { name: 'Cooked it' }).click();
+  const review = page.getByTestId('cooked-review');
+  await review.getByRole('button', { name: 'More tubs' }).click();
+  const eat = review.getByLabel('Eat it on…');
+  await expect(eat).toBeVisible();
+  await expect(eat.locator('option').first()).toHaveText('Not planned yet');
+  await eat.selectOption({ index: 1 });
+  const [eatDay, eatSlot] = (await eat.inputValue()).split('|') as [string, string];
+  expect(eatDay > today || Number(eatSlot) !== slot.Dinner).toBe(true);
+  await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+  await expect(review).toBeHidden();
+  await expect(cell(page, eatDay, Number(eatSlot)).getByRole('button', { name: new RegExp(`^${name} tub`) })).toBeVisible();
+});

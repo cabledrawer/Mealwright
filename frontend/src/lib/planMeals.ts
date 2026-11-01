@@ -196,3 +196,33 @@ export function dayAfterCook(
 ): boolean {
   return slots.some((s) => afterCook(day, s.id, cook, today, slots));
 }
+
+/**
+ * The next meals with nothing planned in them, after a meal and from today on, in the weeks the
+ * plan on screen holds (F65: "Eat it on…" in "Any left over?"). `after` is the cook meal.
+ */
+export function nextFreeMeals(
+  plan: Plan | null,
+  slots: MealSlot[],
+  after: { date: string; slot_id: number },
+  today: string,
+  limit = 4
+): { day: string; slotId: number }[] {
+  if (!plan) return [];
+  const found: { day: string; slotId: number }[] = [];
+  for (let day = after.date > today ? after.date : today; day <= plan.end; day = nextDay(day)) {
+    for (const slot of slots) {
+      if (found.length >= limit) return found;
+      if (day < plan.start || !afterCook(day, slot.id, after, today, slots)) continue;
+      if (!plan.meals.some((m) => m.date === day && m.slot_id === slot.id))
+        found.push({ day, slotId: slot.id });
+    }
+  }
+  return found;
+}
+
+const nextDay = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
