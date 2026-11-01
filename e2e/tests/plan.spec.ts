@@ -9,6 +9,9 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 // The server's clock and household "today" are the tests' fixed day (clock.ts). Every test plans
 // in a week of its own (today plus 7 × its own number), so the tests never meet each other's
 // meals, and names the things it makes with a word no other test uses.
+//
+// Weeks ahead of today: this file uses 0 to 35 (k 0 to 11, plus 12 per project). The other plan
+// specs: cook-once 36 to 82, portions 84 to 104, views 110 to 135 (the next spec picks from 136 up).
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 

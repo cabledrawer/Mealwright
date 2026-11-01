@@ -9,6 +9,9 @@ import { expectNoAxeViolations, inTheme, isPhone, setAccountTheme } from './a11y
 // The three projects share one server, and every test plans in weeks of its own (far from
 // plan.spec.ts's), named with a word no other test uses. The tests' day is a Saturday, so the
 // day after (Sunday) is in the same week and the Monday is in the next.
+//
+// Weeks ahead of today: this file uses 36 to 82 (36 + 4 per test and project, and F50 two more).
+// The other plan specs: plan 0 to 35, portions 84 to 104, views 110 to 135 (the next spec picks from 136 up).
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 

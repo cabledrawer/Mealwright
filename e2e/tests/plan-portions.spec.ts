@@ -14,6 +14,9 @@ test.beforeEach(async ({ page }) => {
 //
 // The two projects share one server, and every test plans in a week of its own (far from the
 // other plan tests'). The tests' day is a Saturday.
+//
+// Weeks ahead of today: this file uses 84 to 104. The other plan specs: plan 0 to 35, cook-once
+// 36 to 82, views 110 to 135 (the next spec picks from 136 up).
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
@@ -25,7 +28,7 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
 
 const INDEX: Record<string, number> = { 'desktop 0.7 portions': 0, 'phone 0.7 portions': 1, 'webkit 0.7 portions': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
-/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 6; the last weeks the plan allows). */
+/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 6; the plan has no limit on how far ahead, only on how many days one request asks for). */
 const far = (today: string, k: number) => addDays(today, 7 * (84 + projectIndex() * 7 + k));
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
