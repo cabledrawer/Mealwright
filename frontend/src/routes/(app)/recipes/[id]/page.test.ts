@@ -763,6 +763,23 @@ describe('the recipe page', () => {
       );
     });
 
+    it('does nothing when the page is left before the plan is read (L4)', async () => {
+      await open({}, STOCK, {
+        ...planRoutes(),
+        // The page is left while the plan is being read; the answer is a problem.
+        'GET /plan': () => {
+          unmount(mounted.shift()!);
+          return [500, { detail: 'no' }];
+        }
+      });
+      await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+      await vi.waitFor(() => expect(server.requests.some((r) => r.path === '/plan')).toBe(true));
+      // Nothing more is awaited to look for; give the answer's microtasks a turn.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(page.getByText('Couldn’t load the plan. Try again.').elements()).toHaveLength(0);
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
+    });
+
     it('says so, and opens nothing, when the plan can’t be read', async () => {
       await open({}, STOCK, { ...planRoutes(), 'GET /plan': [500, { detail: 'no' }] });
       await page.getByRole('button', { name: 'Plan it', exact: true }).click();

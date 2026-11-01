@@ -68,25 +68,34 @@
   let planning = $state<PlanTarget | null>(null);
   let planBusy = $state(false);
 
+  /** The page was left (or its recipe changed) while something was still being waited for. */
+  let left = false;
+  const stale = (wanted: number) => left || recipe?.id !== wanted;
+
   async function planIt() {
     if (!recipe || planBusy) return;
     planBusy = true;
     const [wanted, wantedName] = [recipe.id, recipe.name];
-    if (!planModel || !planActions) {
-      const [{ PlanModel }, { pickerActions }] = await Promise.all([
-        import('#lib/plan.svelte.js'),
-        import('#lib/planActions.js')
-      ]);
-      planModel = new PlanModel();
-      planActions = pickerActions(planModel, () => network.offline);
+    try {
+      if (!planModel || !planActions) {
+        const [{ PlanModel }, { pickerActions }] = await Promise.all([
+          import('#lib/plan.svelte.js'),
+          import('#lib/planActions.js')
+        ]);
+        if (stale(wanted)) return;
+        planModel = new PlanModel();
+        planActions = pickerActions(planModel, () => network.offline);
+      }
+      await planModel.loadAhead();
+      if (stale(wanted)) return;
+      if (!planModel.loaded) {
+        toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });
+        return;
+      }
+      planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName } };
+    } finally {
+      planBusy = false;
     }
-    await planModel.loadAhead();
-    planBusy = false;
-    if (!planModel.loaded) {
-      toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });
-      return;
-    }
-    planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName } };
   }
 
   const view = new RecipeView(untrack(() => id));
@@ -130,7 +139,10 @@
     void shopping.refresh();
   }
 
-  onDestroy(() => view.stop());
+  onDestroy(() => {
+    left = true;
+    view.stop();
+  });
 
   // In the desktop's three panes this is the reading pane (mockups Desktop-Recipe and
   // Dark-Recipe): wider, ingredients beside the method when there is room, and focus comes

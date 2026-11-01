@@ -11,7 +11,7 @@
   import { browser } from '$app/env';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
-  import { onMount, tick, untrack } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
   import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -93,14 +93,15 @@
     document.getElementById(`cook-${day}`)?.scrollIntoView({ block: 'start' });
   }
 
+  let left = false;
+  onDestroy(() => (left = true));
+
   /** Start cooking: Cook mode for this plan item, so "Cooked it" is there at the last step. */
   async function startCooking(entry: CookEntry) {
     if (entry.recipeId === null) return;
-    (await import('#lib/cookNow.svelte.js')).cookNow.open(
-      entry.recipeId,
-      entry.meal.id,
-      entry.item.id
-    );
+    const { cookNow } = await import('#lib/cookNow.svelte.js');
+    if (left) return; // the Plan was left while the code was fetched: don't pull the person to Cook
+    cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
