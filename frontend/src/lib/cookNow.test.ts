@@ -57,17 +57,24 @@ describe('which meal today Cook now plans the recipe into', () => {
     expect(cookSpot(TODAY, slots, meals, 5)).toEqual({ kind: 'new', slotId: 2 });
   });
 
-  it('else the first meal that is on today, in order, with nothing cooked', () => {
+  it('else the first meal that is on today, in order, with no meal at all', () => {
     expect(cookSpot(TODAY, slots, [], 5)).toEqual({ kind: 'new', slotId: 1 });
     expect(cookSpot(TODAY, slots, [meal(1, 1, 'cooked', [9])], 5)).toEqual({
       kind: 'new',
       slotId: 2
     });
-    // A meal with something else planned still counts as nothing cooked.
+  });
+
+  it('an empty meal is preferred over one that already has something planned', () => {
     expect(cookSpot(TODAY, slots, [meal(1, 1, 'planned', [9])], 5)).toEqual({
       kind: 'new',
-      slotId: 1
+      slotId: 2
     });
+  });
+
+  it('skips a meal marked “didn’t cook” and one that was moved: the server refuses both', () => {
+    const meals = [meal(1, 1, 'didnt', [9]), meal(2, 2, 'moved', [9])];
+    expect(cookSpot(TODAY, slots, meals, 5)).toEqual({ kind: 'new', slotId: 3 });
   });
 
   it('goes by the order of the meals, not their ids, and never into one that is switched off', () => {
@@ -75,9 +82,14 @@ describe('which meal today Cook now plans the recipe into', () => {
     expect(cookSpot(TODAY, slots, meals, 5)).toEqual({ kind: 'new', slotId: 3 });
   });
 
-  it('when every meal today is cooked, the last one that is on', () => {
-    const meals = [meal(1, 1, 'cooked', [9]), meal(2, 2, 'cooked', [9]), meal(3, 3, 'cooked', [9])];
+  it('with no empty meal, the first one that is still planned (the recipe is added to it)', () => {
+    const meals = [meal(1, 1, 'cooked', [9]), meal(2, 2, 'didnt', [9]), meal(3, 3, 'planned', [9])];
     expect(cookSpot(TODAY, slots, meals, 5)).toEqual({ kind: 'new', slotId: 3 });
+  });
+
+  it('when every meal today is cooked, missed or moved, nothing is open', () => {
+    const meals = [meal(1, 1, 'cooked', [9]), meal(2, 2, 'didnt', [9]), meal(3, 3, 'moved', [9])];
+    expect(cookSpot(TODAY, slots, meals, 5)).toBeNull();
   });
 
   it('is nothing when no meal is on', () => {
@@ -151,6 +163,27 @@ describe('Cook now plans first', () => {
     expect(now.mealId).toBe(7);
     expect(now.text).toBeNull();
     expect(now.canUndo).toBe(false);
+  });
+
+  it('when every meal today is cooked, nothing is written and the one line says so', async () => {
+    const calls = serve([
+      meal(1, 1, 'cooked', [9]),
+      meal(2, 2, 'didnt', [9]),
+      meal(3, 3, 'moved', [9])
+    ]);
+    const now = new CookNow();
+    await now.start(5);
+    expect(calls.filter((c) => c.startsWith('POST'))).toEqual([]);
+    expect(now.mealId).toBeNull();
+    expect(now.text).toBe(NOT_PLANNED);
+  });
+
+  it('added to a meal that holds other recipes, only the new item is for Cooked it', async () => {
+    serve([meal(1, 1, 'cooked', [9]), meal(2, 2, 'cooked', [9]), meal(70, 3, 'planned', [9])]);
+    const now = new CookNow();
+    await now.start(5);
+    expect(now.mealId).toBe(70);
+    expect(now.itemId).toBe(700);
   });
 
   it('when the plan can’t be written, there is no meal and one line says so', async () => {

@@ -5,8 +5,13 @@
 // Which meal (meal slots have names and an order, no times):
 //   1. the recipe is already planned today in a meal that is not cooked yet: that meal, nothing
 //      new is planned;
-//   2. else the first meal that is on today, in order, with nothing cooked yet;
-//   3. else (every meal today is cooked) the last meal that is on.
+//   2. else the first meal that is on today, in order, with no meal at all yet;
+//   3. else the first meal that is on today whose meal is still planned (the recipe is added to
+//      it, and "Cooked it" then reviews only this recipe, not the others in that meal);
+//   4. else nothing is open (the server refuses a meal that is cooked, "didn't cook" or moved):
+//      no plan write, and Cook mode opens without "Cooked it" and with the "wasn't planned" line.
+// Rules 2 to 4 are proposed, for cabledrawer (1 Nov, after the checker found that the first version
+// chose meals the server refuses).
 //
 // Offline, or the plan can't be written: Cook mode still opens, without "Cooked it", and one
 // line says the recipe wasn't planned.
@@ -42,15 +47,18 @@ export function cookSpot(
     if (meal && meal.status === 'planned' && hasRecipe(meal, recipeId))
       return { kind: 'planned', meal };
   }
-  const open = on.find((s) => !here.some((m) => m.slot_id === s.id && m.status === 'cooked'));
-  const slot = open ?? on.at(-1);
-  return slot ? { kind: 'new', slotId: slot.id } : null;
+  const empty = on.find((s) => !here.some((m) => m.slot_id === s.id));
+  if (empty) return { kind: 'new', slotId: empty.id };
+  const room = on.find((s) => here.some((m) => m.slot_id === s.id && m.status === 'planned'));
+  return room ? { kind: 'new', slotId: room.id } : null;
 }
 
 /** What the recipe page's Cook now came to, for the Cook mode screen it opens. */
 export class CookNow {
   /** The meal Cook mode can answer with "Cooked it"; null: none. */
   mealId = $state<number | null>(null);
+  /** The plan item it added (so "Cooked it" reviews only this recipe); null: it added none. */
+  itemId = $state<number | null>(null);
   /** The recipe it is about (so another recipe's Cook mode shows none of this). */
   recipeId = $state<number | null>(null);
   /** The words to show: where it was planned, or that it wasn't. */
@@ -86,6 +94,7 @@ export class CookNow {
       if (write.meal_id === null) throw new Error('no meal');
       const slotName = slots.find((s) => s.id === spot.slotId)?.name ?? 'meal';
       this.mealId = write.meal_id;
+      this.itemId = write.item_id ?? null;
       this.text = `Planned for today’s ${slotName}`;
       const change = write.change;
       if (change?.can_undo) {
@@ -120,6 +129,7 @@ export class CookNow {
 
   #reset(recipeId: number) {
     this.mealId = null;
+    this.itemId = null;
     this.recipeId = recipeId;
     this.text = null;
     this.canUndo = false;
