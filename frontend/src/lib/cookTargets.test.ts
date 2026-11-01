@@ -10,7 +10,9 @@ const recipe = (id: number, name: string, recipeId = id): PlanItem => ({
   tub_id: null,
   ingredient: null,
   kept_name: null,
-  servings: 4
+  note: null,
+  servings: 4,
+  eating: null
 });
 
 const meal = (items: PlanItem[]): PlanMeal => ({
@@ -19,7 +21,8 @@ const meal = (items: PlanItem[]): PlanMeal => ({
   slot_id: 1,
   status: 'planned',
   items,
-  kcal: null
+  kcal: null,
+  eater_login_ids: []
 });
 
 const batch = (recipeId: number): PlanBatch =>
