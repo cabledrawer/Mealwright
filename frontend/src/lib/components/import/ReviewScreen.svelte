@@ -94,6 +94,15 @@
   // A removed line's Undo has nowhere to go once this screen is gone.
   $effect(() => () => flow.forgetTakenOut());
 
+  // The bar floats over the foot of the list (and, on a phone, rests on the bottom tabs). A
+  // control that is scrolled to, by a tap, Tab or a find, must stop above them, not hide behind.
+  let barHeight = $state(0);
+  $effect(() => {
+    const root = document.documentElement;
+    root.style.scrollPaddingBottom = `calc(${barHeight}px + ${phone ? 'var(--tabbar-height) + env(safe-area-inset-bottom) + var(--offline-offset)' : '0px'} + var(--space-4))`;
+    return () => root.style.removeProperty('scroll-padding-bottom');
+  });
+
   const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
@@ -319,7 +328,7 @@
   </div>
 </div>
 
-<div class="bar" class:phone>
+<div class="bar" class:phone bind:offsetHeight={barHeight}>
   <p class="muted">Nothing is saved until you choose.</p>
   {#if flow.unlinked > 0}
     <p class="muted" role="status">
@@ -722,6 +731,13 @@
 
   .bar:not(.phone) {
     max-width: none;
+  }
+
+  /* On a phone the bottom tabs are fixed over the foot of the screen: the bar rests on top of
+     them (and the offline bar), so Cancel and Save are never hidden behind the tabs while the
+     list scrolls. */
+  .bar.phone {
+    bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + var(--offline-offset));
   }
 
   .bar {
