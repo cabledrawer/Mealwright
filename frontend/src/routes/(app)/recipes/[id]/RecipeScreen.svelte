@@ -11,6 +11,7 @@
   // work, not stubbed: Plan it and Cook once (0.7). "From: <site> ·
   // by <author>" shows for an imported recipe (0.5); a typed-in recipe's source note is shown as
   // typed, as a link if it is a web address.
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
@@ -22,6 +23,7 @@
   import RecipeIngredient from '#lib/components/RecipeIngredient.svelte';
   import RowMenu from '#lib/components/shopping/RowMenu.svelte';
   import ServingsStepper from '#lib/components/ServingsStepper.svelte';
+  import { cookNow } from '#lib/cookNow.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -40,6 +42,19 @@
   const webAddress = (note: string) => /^https?:\/\/\S+$/i.test(note);
 
   let { id }: { id: number } = $props();
+
+  // Cook now plans the recipe into today's next meal first (with Undo), then opens Cook mode for
+  // that meal so "Cooked it" is there. A click that opens a new tab or window goes the plain way.
+  async function cookNowClicked(event: MouseEvent) {
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (cookNow.busy) return;
+    await cookNow.start(id);
+    const to = resolve('/(app)/recipes/[id]/cook', { id: String(id) });
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
+    await goto(cookNow.mealId ? `${to}?meal=${cookNow.mealId}` : to);
+  }
 
   const view = new RecipeView(untrack(() => id));
   const shopping = new PantryList();
@@ -180,8 +195,11 @@
         <!-- Cook now: the main button above the ingredients (spec "Cook mode (K4)"; Plan it
              comes beside it with the Plan redesign). Cook mode keeps the screen awake itself. -->
         <div class="actions">
-          <a class="cook" href={resolve('/(app)/recipes/[id]/cook', { id: String(recipe.id) })}
-            >Cook now</a
+          <a
+            class="cook"
+            href={resolve('/(app)/recipes/[id]/cook', { id: String(recipe.id) })}
+            aria-busy={cookNow.busy}
+            onclick={cookNowClicked}>Cook now</a
           >
         </div>
       {/if}

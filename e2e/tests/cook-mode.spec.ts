@@ -112,16 +112,31 @@ async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean } = {
   }, options.wakeLock ?? true);
 }
 
+/** The plan can't be written, so Cook now plans nothing (and leaves the shared plan alone). */
+async function refusePlanning(page: Page) {
+  await page.route('**/api/v1/plan/items', (route) =>
+    route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { detail: 'Something broke.' } }) : route.fallback(),
+  );
+}
+
+async function perStepSetting(page: Page, on: boolean) {
+  const response = await page.request.fetch('/api/v1/household', { method: 'PATCH', data: { cook_per_step: on } });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
 test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
+  await perStepSetting(page, false); // the household's switch is shared: every test starts off
 });
 
-test('Cook now opens Cook mode: one big step at a time, with Back, Next, keys and a swipe', async ({ page }) => {
+test.afterEach(async ({ page }) => {
+  await perStepSetting(page, false); // leave the shared household as found
+});
+
+test('Cook mode shows one big step at a time, with Back, Next, keys and a swipe', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id, name } = await makeRecipe(page, FOUR);
-  await page.goto(`/recipes/${id}`);
-  await page.getByRole('link', { name: 'Cook now' }).click();
-  await expect(page).toHaveURL(`/recipes/${id}/cook`);
+  await page.goto(`/recipes/${id}/cook`);
   await expect(cook(page)).toBeVisible();
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expect(count(page)).toHaveText('Step 1 of 4');
@@ -234,8 +249,10 @@ test('a timer found in the step starts on a tap, counts down, and ends with the 
 test('leaving with a timer running asks "Stop the timer and leave?"', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
+  await refusePlanning(page); // the way in is the recipe page (so Back has somewhere to go), planning nothing
   await page.goto(`/recipes/${id}`);
   await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(`/recipes/${id}/cook`);
   await next(page).click();
   await page.getByRole('button', { name: 'Start timer for 10 minutes' }).click();
   await page.getByRole('button', { name: 'Leave Cook mode' }).click();
@@ -258,8 +275,7 @@ test('leaving with a timer running asks "Stop the timer and leave?"', async ({ p
 test('leaving without a timer needs no question', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
-  await page.goto(`/recipes/${id}`);
-  await page.getByRole('link', { name: 'Cook now' }).click();
+  await page.goto(`/recipes/${id}/cook`);
   await page.getByRole('button', { name: 'Leave Cook mode' }).click();
   await expect(page).toHaveURL(`/recipes/${id}`);
 });
@@ -303,11 +319,142 @@ test('per-step ingredients are off, then guessed from the step once switched on 
   await expect(box).toContainText('No ingredient guessed for this step.');
 });
 
-test('the last step ends with Not now, back to the recipe', async ({ page }) => {
+test('per-step ingredients stay on for the household: on, reload, still on; another phone sees it', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  const sw = page.getByRole('switch', { name: /Ingredients for each step/ });
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await sw.click();
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('per-step')).toBeVisible();
+  await page.reload();
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('per-step')).toBeVisible();
+  // It is the household's, not this device's: nothing about it is kept in this browser.
+  expect(await page.evaluate(() => localStorage.getItem('mealwright.cook.perStep'))).toBeNull();
+  // Switched off from somewhere else (another phone), it is off the next time Cook mode opens.
+  await perStepSetting(page, false);
+  await page.reload();
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('per-step')).toHaveCount(0);
+});
+
+test('a device that had the old switch on does not switch the household on', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto('/');
+  await page.evaluate(() => localStorage.setItem('mealwright.cook.perStep', '1'));
+  await page.goto(`/recipes/${id}/cook`);
+  await expect(page.getByRole('switch', { name: /Ingredients for each step/ })).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('per-step')).toHaveCount(0);
+});
+
+test('when the server cannot take the per-step switch it goes back and says so', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  const sw = page.getByRole('switch', { name: /Ingredients for each step/ });
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await page.route('**/api/v1/household', (route) =>
+    route.request().method() === 'PATCH' ? route.fulfill({ status: 500, json: { detail: 'Something broke.' } }) : route.fallback(),
+  );
+  await sw.click();
+  await expect(page.getByText('Couldn’t save. Try again.')).toBeVisible();
+  await expect(sw).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('per-step')).toHaveCount(0);
+});
+
+/** Today's meals, and every plan item of this recipe today. */
+async function plannedToday(page: Page, recipeId: number) {
+  const today = ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
+  const plan = (await (await page.request.get(`/api/v1/plan?from=${today}&to=${today}`)).json()) as {
+    meals: { id: number; slot_id: number; items: { id: number; kind: string; recipe: { id: number } | null }[] }[];
+  };
+  return plan.meals.flatMap((m) => m.items.filter((i) => i.kind === 'recipe' && i.recipe?.id === recipeId).map((i) => ({ mealId: m.id, itemId: i.id })));
+}
+
+async function lastStep(page: Page) {
+  while ((await next(page).count()) > 0) await next(page).click();
+}
+
+test('Cook now plans the recipe into today\'s next meal first, then Cooked it is there; Undo takes it out and leaves Not now', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   await page.goto(`/recipes/${id}`);
   await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
+  await expect(cook(page)).toBeVisible();
+  const notice = page.getByTestId('cook-notice');
+  await expect(notice).toContainText(/^Planned for today’s \w+/);
+  expect(await plannedToday(page, id)).toHaveLength(1);
+  await lastStep(page);
+  await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  await notice.getByRole('button', { name: 'Undo' }).click();
+  await expect(notice).toHaveText('Taken out of today’s plan.');
+  await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  expect(await plannedToday(page, id)).toHaveLength(0);
+});
+
+test('Cooked it from Cook now opens the review for the planned meal', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id, name } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page.getByTestId('cook-notice')).toContainText('Planned for today’s');
+  await lastStep(page);
+  await page.getByRole('button', { name: 'Cooked it' }).click();
+  // The meal may already hold other things planned today: the title then names them all.
+  const review = page.getByRole('dialog', { name: new RegExp(`^Cooked .*${name}`) });
+  await expect(review).toBeVisible();
+  await review.getByRole('button', { name: 'Cancel' }).first().click();
+  await expect(review).toHaveCount(0);
+  for (const { itemId } of await plannedToday(page, id)) {
+    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key() });
+  }
+});
+
+test('Cook now adds nothing to the plan when the recipe is already planned today', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  const today = ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; position: number; enabled: boolean }[];
+  const last = slots.filter((s) => s.enabled).sort((a, b) => a.position - b.position).at(-1)!;
+  await call(page, '/plan/items', { date: today, slot_id: last.id, recipe_id: id });
+  expect(await plannedToday(page, id)).toHaveLength(1);
+  await page.goto(`/recipes/${id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
+  await expect(cook(page)).toBeVisible();
+  await expect(page.getByTestId('cook-notice')).toHaveCount(0);
+  await lastStep(page);
+  await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
+  const planned = await plannedToday(page, id);
+  expect(planned).toHaveLength(1);
+  await page.request.fetch(`/api/v1/plan/items/${planned[0]!.itemId}`, { method: 'DELETE', headers: key() });
+});
+
+test('when the plan cannot be written Cook mode still opens, without Cooked it, and says so', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await refusePlanning(page);
+  await page.goto(`/recipes/${id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(`/recipes/${id}/cook`);
+  await expect(cook(page)).toBeVisible();
+  await expect(page.getByTestId('cook-notice')).toHaveText('This recipe wasn’t planned.');
+  await lastStep(page);
+  await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  expect(await plannedToday(page, id)).toHaveLength(0);
+});
+
+test('the last step ends with Not now, back to the recipe', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
   for (let i = 0; i < 3; i++) await next(page).click();
   await expect(count(page)).toHaveText('Step 4 of 4');
   await expect(next(page)).toHaveCount(0);

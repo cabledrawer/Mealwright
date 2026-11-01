@@ -9,9 +9,16 @@
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getRecipe, type Recipe } from '#lib/client/recipes.js';
   import CookMode from '#lib/components/cook/CookMode.svelte';
+  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
+  import { cookNow } from '#lib/cookNow.svelte.js';
   import { cookPrefs } from '#lib/cookPrefs.svelte.js';
+  import { CookReview, answered } from '#lib/cookReview.svelte.js';
+  import { cookTarget } from '#lib/cookTargets.js';
   import { CookTimers } from '#lib/cookTimers.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { PlanModel } from '#lib/plan.svelte.js';
+  import { dayFull } from '#lib/planDates.js';
   import { ScreenAwake } from '#lib/screenAwake.svelte.js';
 
   const id = $derived(Number(page.params.id));
@@ -23,8 +30,59 @@
   let recipe = $state<Recipe | null>(null);
   let gone = $state(false);
   let problem = $state<string | null>(null);
+  /** The one line when the per-step switch went back (the server couldn't take it). */
+  let switchProblem = $state<string | null>(null);
   /** Set when the person has chosen to leave: the next navigation goes through. */
   let leaving = false;
+
+  // "Cooked it" at the last step: only when this recipe is planned in a meal (Cook now plans it
+  // first, or finds it planned today). The meal comes in the address (?meal=). The plan is read
+  // here so a meal that was taken out again (Undo) or cooked already has no "Cooked it".
+  const mealId = $derived(Number(page.url.searchParams.get('meal')) || null);
+  const model = new PlanModel();
+  const meal = $derived(
+    mealId && !(cookNow.undone && cookNow.mealId === mealId)
+      ? (model.plan?.meals.find(
+          (m) =>
+            m.id === mealId &&
+            m.status === 'planned' &&
+            m.items.some((i) => i.kind === 'recipe' && i.recipe?.id === id)
+        ) ?? null)
+      : null
+  );
+  const notice = $derived(
+    cookNow.recipeId === id && cookNow.text
+      ? {
+          text: cookNow.text,
+          ...(cookNow.canUndo ? { undo: () => void cookNow.undo() } : {})
+        }
+      : null
+  );
+
+  const review = new CookReview();
+  let leftover = $state<LeftoverOptions | null>(null);
+  let confirmed = false;
+
+  function openCooked() {
+    if (!meal) return;
+    const target = cookTarget(
+      model.plan,
+      meal,
+      `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`
+    );
+    const first = meal.items.find((i) => i.kind === 'recipe');
+    // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
+    leftover =
+      first && target.parts.every((p) => p.batchId === null)
+        ? { itemId: first.id, today: model.today }
+        : null;
+    void review.open(target);
+  }
+
+  function closeCooked() {
+    review.close();
+    if (confirmed) exit();
+  }
 
   async function load() {
     try {
@@ -36,7 +94,11 @@
       else problem = cantReach(error) ? cantReachWords() : 'Couldn’t load this recipe. Try again.';
     }
   }
-  onMount(() => void load());
+  onMount(() => {
+    void load();
+    void cookPrefs.load(); // the household's per-step switch
+    if (mealId) void model.load();
+  });
 
   function exit() {
     leaving = true;
@@ -70,7 +132,13 @@
     {timers}
     {awake}
     perStep={cookPrefs.perStep}
-    onperstep={(on) => cookPrefs.setPerStep(on)}
+    {notice}
+    oncooked={meal ? openCooked : null}
+    problem={switchProblem}
+    onperstep={async (on) => {
+      const line = await cookPrefs.setPerStep(on);
+      if (line) switchProblem = line;
+    }}
     onexit={exit}
   />
 {:else if gone}
@@ -85,6 +153,20 @@
 {:else}
   <p class="loading" aria-busy="true">Loading…</p>
 {/if}
+
+<CookedReview
+  {review}
+  {leftover}
+  readonly={network.offline}
+  onclose={closeCooked}
+  onconfirmed={async (leftovers, undoCooked) => {
+    const planned = meal;
+    if (!planned) return true;
+    const result = answered(await model.cooked(planned, leftovers, undoCooked));
+    if (result === true) confirmed = true;
+    return result;
+  }}
+/>
 
 <style>
   .loading,

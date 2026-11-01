@@ -24,7 +24,9 @@
     perStep,
     onperstep,
     onexit,
-    oncooked = null
+    oncooked = null,
+    notice = null,
+    problem = null
   }: {
     recipe: Recipe;
     timers: CookTimers;
@@ -36,6 +38,10 @@
     onexit: () => void;
     /** "Cooked it": into the review. Not there when nothing has been planned to cook. */
     oncooked?: (() => void) | null;
+    /** Where Cook now planned the recipe, with its Undo (the toast would be under this screen). */
+    notice?: { text: string; undo?: () => void } | null;
+    /** One short line, e.g. when the per-step switch went back. */
+    problem?: string | null;
   } = $props();
 
   const uid = $props.id();
@@ -189,6 +195,13 @@
         {/each}
       </div>
     {/if}
+    {#if notice}
+      <p class="notice" role="status" data-testid="cook-notice">
+        <span>{notice.text}</span>
+        {#if notice.undo}<button type="button" onclick={notice.undo}>Undo</button>{/if}
+      </p>
+    {/if}
+    {#if problem}<p class="notice problem" role="status">{problem}</p>{/if}
   </header>
 
   <!-- The swipe is the extra; the Back and Next buttons are the way for the keyboard and screen readers. -->
@@ -554,6 +567,35 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.4;
+  }
+
+  .notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin: 0;
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+    border-radius: var(--radius-md);
+    background: var(--color-fill);
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+  }
+
+  .notice button {
+    flex: none;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .elsewhere {
