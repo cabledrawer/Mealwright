@@ -40,8 +40,11 @@ function meal(
       tub_id: null,
       ingredient: null,
       kept_name: null,
-      servings: null
-    }))
+      servings: null,
+      note: null,
+      eating: null
+    })),
+    eater_login_ids: []
   };
 }
 
