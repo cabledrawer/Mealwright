@@ -26,6 +26,7 @@ import {
   getPlan,
   planItem,
   type MealSlot,
+  type PlanItem,
   type PlanMeal,
   type PlanWrite
 } from './client/plan';
@@ -153,6 +154,12 @@ export class CookNow {
     if (this.recipeId !== recipeId || !this.text || this.mealId !== mealId) return null;
     // After Undo the meal is still named in the address, but the item is gone: keep the line.
     return { text: this.text, canUndo: this.canUndo };
+  }
+
+  /** The one plan item of `meal` that "Cooked it" reviews for this recipe; null: the whole meal. */
+  onlyItem(recipeId: number, meal: PlanMeal): PlanItem | null {
+    if (this.recipeId !== recipeId || this.mealId !== meal.id || !this.itemId) return null;
+    return meal.items.find((i) => i.id === this.itemId) ?? null;
   }
 
   /** Cook mode was left: forget it, so the notice doesn't come back on a later visit. */

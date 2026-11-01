@@ -62,10 +62,7 @@
   function openCooked() {
     if (!meal) return;
     // Cook now added this recipe to the meal: Cooked it reviews only it, not the others there.
-    const only =
-      cookNow.recipeId === id && cookNow.mealId === meal.id && cookNow.itemId
-        ? (meal.items.find((i) => i.id === cookNow.itemId) ?? null)
-        : null;
+    const only = cookNow.onlyItem(id, meal);
     const target = cookTarget(
       model.plan,
       meal,

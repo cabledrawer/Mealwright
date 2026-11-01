@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MealSlot, PlanMeal } from './client/plan';
 import { undoHistory } from './undo.svelte';
+import { cookTarget } from './cookTargets';
 import { CookNow, NOT_PLANNED, TAKEN_OUT, cookSpot } from './cookNow.svelte';
 
 const slots: MealSlot[] = [
@@ -242,6 +243,41 @@ describe('Cook now plans first', () => {
     expect(now.mealId).toBe(70);
     expect(now.text).toBe('Planned for today’s Breakfast');
     expect(now.canUndo).toBe(true);
+  });
+
+  it.each([409, 400])('a %i on the plan write is not tried again', async (status) => {
+    let posts = 0;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      if (url === '/api/v1/household') return json({ today: TODAY });
+      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url.startsWith('/api/v1/plan?'))
+        return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
+      if (url === '/api/v1/plan/items' && init.method === 'POST') {
+        posts++;
+        return new Response('{"detail":"no"}', { status });
+      }
+      return new Response('{}', { status: 404 });
+    });
+    const now = new CookNow();
+    await now.start(5);
+    expect(posts).toBe(1);
+    expect(now.text).toBe(NOT_PLANNED);
+    expect(now.mealId).toBeNull();
+  });
+
+  it('what the Cooked it screen passes to cookTarget: just this recipe’s item, so one part', async () => {
+    const planned = meal(7, 2, 'planned', [9, 5]);
+    serve([planned]);
+    const now = new CookNow();
+    await now.start(5);
+    const only = now.onlyItem(5, planned);
+    expect(only?.id).toBe(71);
+    const target = cookTarget(null, planned, 'x', only);
+    expect(target.parts.map((p) => p.itemId)).toEqual([71]);
+    expect(target.title).toBe('Cooked R5');
+    // Another recipe's Cook mode, or another meal: the whole meal.
+    expect(now.onlyItem(6, planned)).toBeNull();
+    expect(now.onlyItem(5, meal(8, 2, 'planned', [5]))).toBeNull();
   });
 
   it('when the second try can’t reach the server either, the “wasn’t planned” line', async () => {
