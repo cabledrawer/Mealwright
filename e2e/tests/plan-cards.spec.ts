@@ -146,6 +146,8 @@ test('dragging a COOK card moves the cooking and its EAT card, flags tubs now be
     const meals = (await planRange(page, sun, sun)).meals as { id: number; date: string; slot_id: number }[];
     return meals.find((m) => m.id === cook.meal_id)?.slot_id;
   }).toBe(slot.Snack);
+  // The batch is cooked on the new day, as the server keeps it.
+  expect(((await planRange(page, sun, sun)).batch_cooks as { cooked_on: string }[]).map((b) => b.cooked_on)).toContain(sun);
   const moved = cell(page, sun, slot.Snack);
   await expect(cookCard(moved)).toHaveCount(1);
   await expect(moved.getByRole('button', { name: /\(eating\)/ })).toHaveCount(1);
@@ -162,6 +164,7 @@ test('dragging a COOK card moves the cooking and its EAT card, flags tubs now be
   }).toBe(slot.Dinner);
   await expect(cookCard(cell(page, day, slot.Dinner))).toHaveCount(1);
   await expect(cell(page, sun, slot.Lunch)).not.toContainText('Before the cook day');
+  await expect.poll(async () => ((await planRange(page, day, day)).batch_cooks as { cooked_on: string }[]).map((b) => b.cooked_on)).toContain(day);
 });
 
 test('a COOK card is not dropped on a meal that is already planned', async ({ page }) => {

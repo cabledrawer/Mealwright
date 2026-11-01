@@ -8,6 +8,7 @@ import {
   withoutMeal,
   withServings
 } from './planEdits';
+import { samplePlan } from './testing/planViews';
 
 const item = (id: number, name: string, kcal: number | null = null): PlanItem => ({
   id,
@@ -119,5 +120,14 @@ describe('Serves - N + and who is eating, straight after a change', () => {
     expect(next.meals[0]?.eater_login_ids).toEqual([1, 3]);
     expect(next.meals[1]?.eater_login_ids).toEqual([]);
     expect(withEaters(next, 1, []).meals[0]?.eater_login_ids).toEqual([]);
+  });
+});
+
+describe('moving a cook meal', () => {
+  it('moves the batch’s cook day with it', () => {
+    const base = samplePlan();
+    const next = withMealDropped(base, 3, '2026-10-22', 2, 'move');
+    expect(next.batch_cooks[0]!.cooked_on).toBe('2026-10-22');
+    expect(base.batch_cooks[0]!.cooked_on).toBe('2026-10-18');
   });
 });

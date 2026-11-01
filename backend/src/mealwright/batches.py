@@ -567,6 +567,60 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
     return _finish(kitchen, "plan_tub", f"{name} to the freezer", steps)
 
 
+def batches_cooked_at(kitchen: Kitchen, meal: Meal) -> list[BatchCook]:
+    """The batches whose cook meal this is."""
+    return list(
+        kitchen.db.scalars(
+            select(BatchCook).where(
+                BatchCook.household_id == kitchen.household_id, BatchCook.cook_meal_id == meal.id
+            )
+        )
+    )
+
+
+def refuse_cooked(kitchen: Kitchen, batches: list[BatchCook]) -> None:
+    """A batch that was cooked keeps its cook day while its cooked record stands."""
+    for batch in batches:
+        record = cooked.for_batch(kitchen.db, kitchen.household_id, batch.id)
+        if record is not None:
+            day = today(kitchen.household, as_utc(record.cooked_at))
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "already_cooked",
+                f"This was cooked on {day:%a} {day.day} {day:%b}. Undo “Cooked it” first.",
+            )  # proposed, for cabledrawer
+
+
+def move_cook_day(
+    kitchen: Kitchen, batches: list[BatchCook], day: date, steps: list[dict[str, Any]]
+) -> None:
+    """The cook meal moved to `day` (spec: dragging a COOK card moves the cooking): the batch is
+    cooked on that day now, and its tubs' use-by dates keep their distance from it. What is
+    changed is kept in the steps, so Undo puts every date back exactly."""
+    db = kitchen.db
+    for batch in batches:
+        tubs = list(
+            db.scalars(
+                select(Tub).where(
+                    Tub.household_id == kitchen.household_id, Tub.batch_id == batch.id
+                )
+            )
+        )
+        steps.append(
+            {
+                "op": "batch_day",
+                "batch": batch.id,
+                "from": batch.cooked_on.isoformat(),
+                "tubs": [[t.id, t.use_by.isoformat()] for t in tubs],
+            }
+        )
+        shift = day - batch.cooked_on
+        batch.cooked_on = day
+        for tub in tubs:
+            tub.use_by = tub.use_by + shift
+    db.flush()
+
+
 def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
     """Take a batch off: its tubs go, and their meal items. Undo brings all back. A batch that
     was cooked can't be taken off while its cooked record stands (the record is never lost)."""
@@ -1101,6 +1155,20 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         db.delete(batch)
         db.flush()
         return True
+    if op == "batch_day":
+        batch = _own(kitchen, BatchCook, step["batch"])
+        if batch is None:
+            return False
+        batch.cooked_on = date.fromisoformat(step["from"])
+        whole = True
+        for tub_id, use_by in step["tubs"]:
+            tub = _own(kitchen, Tub, tub_id)
+            if tub is None:
+                whole = False
+                continue
+            tub.use_by = date.fromisoformat(use_by)
+        db.flush()
+        return whole
     if op == "new_tub":
         tub = _own(kitchen, Tub, step["tub"])
         if tub is None or item_of_tub(kitchen, tub) is not None:

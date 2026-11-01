@@ -951,3 +951,94 @@ def test_tubs_are_numbered_in_date_order(
         (2, (D1 + timedelta(days=1)).isoformat(), "Dinner"),
         (1, (D1 + timedelta(days=1)).isoformat(), "Lunch"),
     ]
+
+
+# --- Dragging a COOK card moves the cooking (0.7 P3) -----------------------------------------------
+
+
+def _move_meal(client: TestClient, meal_id: int, day_: str, slot: int) -> Any:
+    return client.post(
+        f"{API}/plan/meals/{meal_id}/move", json={"date": day_, "slot_id": slot, "mode": "move"}
+    )
+
+
+def _batch_row(kitchen: TestClient, batch_id: int) -> tuple[date, list[date]]:
+    with db_of(kitchen) as db:
+        batch = db.get(BatchCook, batch_id)
+        assert batch is not None
+        tubs = db.scalars(select(Tub).where(Tub.batch_id == batch_id).order_by(Tub.id))
+        return batch.cooked_on, [t.use_by for t in tubs]
+
+
+def test_moving_the_cook_meal_moves_the_cooking_across_a_week_and_back(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    cooked_before, use_by_before = _batch_row(kitchen, made["batch_id"])
+    assert cooked_before == D1
+    moved = _move_meal(kitchen, cook["meal_id"], day(9), slots["Dinner"])  # a week and two days on
+    assert moved.status_code == 200, moved.text
+    cooked_after, use_by_after = _batch_row(kitchen, made["batch_id"])
+    assert cooked_after == D1 + timedelta(days=9)
+    # Every tub's use-by keeps its distance from the cook day.
+    assert use_by_after == [u + timedelta(days=9) for u in use_by_before]
+    # The week it moved to shows the batch (GET /plan finds batches by cook day).
+    there = view(kitchen, D1 + timedelta(days=8), days=3)
+    assert [b["id"] for b in there["batch_cooks"]] == [made["batch_id"]]
+    assert there["batch_cooks"][0]["cooked_on"] == day(9)
+    # And back, to before where it was.
+    back = _move_meal(kitchen, cook["meal_id"], day(-2), slots["Dinner"])
+    assert back.status_code == 200, back.text
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 - timedelta(days=2)
+
+
+def test_undo_of_moving_the_cook_meal_puts_the_dates_back_exactly(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    # One tub has its own use-by, so "exactly" means more than the same distance.
+    tub = view(kitchen)["tubs"][0]["id"]
+    edited = kitchen.patch(f"{API}/plan/tubs/{tub}", json={"use_by": day(20)})
+    assert edited.status_code == 200, edited.text
+    before = _batch_row(kitchen, made["batch_id"])
+    moved = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
+    assert moved.status_code == 200, moved.text
+    assert _batch_row(kitchen, made["batch_id"]) != before
+    assert undo(kitchen, moved.json())["result"] == "done"
+    assert _batch_row(kitchen, made["batch_id"]) == before
+
+
+def test_a_batch_that_was_cooked_keeps_its_cook_day(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    from mealwright.models import CookedRecord
+
+    made = make(kitchen, cook["item_id"])
+    with db_of(kitchen) as db:
+        db.add(
+            CookedRecord(
+                household_id=1, batch_id=made["batch_id"], portions=4, snapshot={"name": "x"}
+            )
+        )
+        db.commit()
+    r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
+    assert r.status_code == 409 and r.json()["code"] == "already_cooked"
+    assert "Undo “Cooked it” first." in r.json()["detail"]
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1
+
+
+def test_moving_one_households_cook_meal_leaves_the_other_households_batch_alone(
+    kitchen: TestClient,
+    neighbour: TestClient,
+    cook: dict[str, Any],
+    slots: dict[str, int],
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    with db_of(kitchen) as db:
+        theirs = db.scalars(select(BatchCook).where(BatchCook.household_id == 2)).all()
+    assert theirs == []  # the neighbour has no batch yet
+    assert neighbour.post(
+        f"{API}/plan/meals/{cook['meal_id']}/move",
+        json={"date": day(5), "slot_id": slots["Dinner"], "mode": "move"},
+    ).status_code in (404, 422)
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1

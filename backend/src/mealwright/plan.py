@@ -455,6 +455,10 @@ def move_meal(
     Onto a filled meal, the items go in alongside."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
+    from mealwright import batches
+
+    cooking = batches.batches_cooked_at(kitchen, meal) if mode == "move" else []
+    batches.refuse_cooked(kitchen, cooking)  # before _planned: it says when it was cooked
     _planned(meal)
     if (meal.day, meal.slot_id) == (day, slot_id):
         raise Problem(
@@ -493,6 +497,7 @@ def move_meal(
         where_from = _where(kitchen, meal.day, meal.slot_id)
         meal.day, meal.slot_id = day, slot_id
         kitchen.db.flush()
+        batches.move_cook_day(kitchen, cooking, day, steps)
         return _finish(
             kitchen,
             "plan_moved",

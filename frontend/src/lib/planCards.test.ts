@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { beforeCook, cookPlace, makesWords, weekCards } from './planCards';
 import { timeWords } from './timeWords';
-import { cookedOn, cookDayOf } from './planMeals';
 import { PEOPLE, SLOTS, samplePlan } from './testing/planViews';
 
 const plan = samplePlan();
@@ -73,15 +72,6 @@ describe('tubs before the cook day', () => {
       [6, true]
     ]);
     expect(weekCards(moved, cookMeal, PEOPLE, SLOTS)[0]!.before).toBe(false);
-  });
-
-  it('the cook day follows the cook meal, not the batch’s old cooked_on', () => {
-    const moved = samplePlan();
-    moved.meals.find((m) => m.id === 3)!.date = '2026-10-21';
-    expect(cookPlace(moved, moved.batch_cooks[0]!)).toEqual({ date: '2026-10-21', slot_id: 3 });
-    expect(cookDayOf(moved, moved.batch_cooks[0]!)).toBe('2026-10-21');
-    expect(cookedOn(moved, '2026-10-21')).toHaveLength(1);
-    expect(cookedOn(moved, '2026-10-18')).toHaveLength(0);
   });
 });
 

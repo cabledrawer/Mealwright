@@ -76,20 +76,9 @@ export function mealAt(plan: Plan | null, day: string, slotId: number): PlanMeal
 export const slotsOn = (slots: MealSlot[]) =>
   slots.filter((s) => s.enabled).sort((a, b) => a.position - b.position || a.id - b.id);
 
-/**
- * The day a batch is cooked: the day of its cook meal when the plan holds it (a cook meal that
- * was dragged to another day has moved, while the batch's own `cooked_on` is still the day it was
- * made), else `cooked_on`.
- */
-export function cookDayOf(plan: Plan, batch: PlanBatch): string {
-  const meal =
-    batch.cook_meal_id === null ? null : plan.meals.find((m) => m.id === batch.cook_meal_id);
-  return meal ? meal.date : batch.cooked_on;
-}
-
 /** The batch cooked on a day, if any (its cook day). */
 export function cookedOn(plan: Plan | null, day: string) {
-  return plan?.batch_cooks.filter((b) => cookDayOf(plan, b) === day) ?? [];
+  return plan?.batch_cooks.filter((b) => b.cooked_on === day) ?? [];
 }
 
 /** Which batch a meal belongs to, by its tubs: for the colour in the Month view. */

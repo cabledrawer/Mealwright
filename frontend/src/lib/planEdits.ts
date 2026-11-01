@@ -74,6 +74,8 @@ export function withMealDropped(
   if (mode === 'move' && !existing) {
     meal.date = day;
     meal.slot_id = slotId;
+    // The cooking moves with its meal (the server does the same).
+    for (const batch of next.batch_cooks) if (batch.cook_meal_id === meal.id) batch.cooked_on = day;
     return tidy(next);
   }
   const into = existing ?? fresh(next, day, slotId);
