@@ -146,6 +146,28 @@ def test_places_are_the_households_own(kitchen: TestClient, neighbour: TestClien
     assert clash.json()["place"]["id"] == theirs.json()["id"]
 
 
+def test_a_household_has_at_most_fifty_places(kitchen: TestClient, neighbour: TestClient) -> None:
+    # 4 places to start with; the 50th is the last that is let in (proposed, for cabledrawer).
+    for number in range(46):
+        made = kitchen.post(f"{API}/places", json={"name": f"Shelf {number}", "kind": "cupboard"})
+        assert made.status_code == 201
+    assert len(kitchen.get(f"{API}/places").json()) == 50
+    refused = kitchen.post(f"{API}/places", json={"name": "One too many", "kind": "cupboard"})
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "too_many_places"
+    assert refused.json()["detail"] == (
+        "You have 50 places, the most Mealwright keeps. Rename or remove one in Settings."
+    )
+    assert len(kitchen.get(f"{API}/places").json()) == 50
+    # A name the household already has still gives that place, so the screen can pick it.
+    again = kitchen.post(f"{API}/places", json={"name": "shelf 3", "kind": "cupboard"})
+    assert again.status_code == 409
+    assert again.json()["code"] == "place_exists"
+    # Another household is not held back by this one's places.
+    theirs = neighbour.post(f"{API}/places", json={"name": "One too many", "kind": "cupboard"})
+    assert theirs.status_code == 201
+
+
 def test_household_settings(kitchen: TestClient) -> None:
     household = kitchen.get(f"{API}/household").json()
     assert household["time_zone"] is None  # until the admin's browser sends it: UTC

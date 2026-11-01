@@ -53,6 +53,11 @@ class NewPlace(BaseModel):
         return value
 
 
+# A household keeps at most this many places (proposed, for cabledrawer): a typo-and-retry loop or
+# a runaway client can't fill the list the pickers show. Asked in words.md.
+MAX_PLACES = 50
+
+
 @router.post("/places", status_code=status.HTTP_201_CREATED)
 def add_place(body: NewPlace, kitchen: Here) -> PlaceOut:
     """ "+ Place": add a place, last in the order. `kind` (fridge, freezer or cupboard) drives
@@ -68,6 +73,13 @@ def add_place(body: NewPlace, kitchen: Here) -> PlaceOut:
                 f"There’s already a place called {old.name}.",
                 place={"id": old.id, "name": old.name, "kind": old.kind},
             )
+    if len(existing) >= MAX_PLACES:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "too_many_places",
+            f"You have {MAX_PLACES} places, the most Mealwright keeps. "
+            "Rename or remove one in Settings.",
+        )
     place = Place(
         household_id=kitchen.household_id,
         name=body.name,

@@ -14,7 +14,7 @@
   // places stay in Settings (0.8).
   //
   // A new place is not queued: it needs the server (the safest; proposed, for cabledrawer).
-  import { cantReach } from '#lib/api.js';
+  import { ApiError, cantReach } from '#lib/api.js';
   import type { Place, PlaceKind } from '#lib/client/types.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -61,7 +61,11 @@
     try {
       onadded(await placesAndShops.addPlace(name, kind));
     } catch (error) {
-      problem = cantReach(error) ? NEEDS_SERVER : 'Couldn’t add that place. Try again.';
+      problem = cantReach(error)
+        ? NEEDS_SERVER
+        : error instanceof ApiError && error.code === 'too_many_places'
+          ? error.detail
+          : 'Couldn’t add that place. Try again.';
     } finally {
       busy = false;
     }

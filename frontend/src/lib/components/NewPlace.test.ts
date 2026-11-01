@@ -72,6 +72,16 @@ describe('"+ Place"', () => {
     await vi.waitFor(() => expect(added).toEqual([{ id: 1, name: 'Fridge', kind: 'fridge' }]));
   });
 
+  it('says why when the household already has 50 places, and picks nothing', async () => {
+    const sentence =
+      'You have 50 places, the most Mealwright keeps. Rename or remove one in Settings.';
+    fakeApi({ 'POST /places': [409, { code: 'too_many_places', detail: sentence }] });
+    await page.getByRole('textbox', { name: 'Place’s name' }).fill('One too many');
+    await page.getByRole('button', { name: 'Add place' }).click();
+    await expect.element(page.getByRole('alert')).toHaveTextContent(sentence);
+    expect(added).toHaveLength(0);
+  });
+
   it('needs a name', async () => {
     const requests = fakeApi({});
     await page.getByRole('button', { name: 'Add place' }).click();
