@@ -3,12 +3,17 @@
   // amount go straight into the pantry, and every ticked row says where it went; here you can
   // also choose where the last one went, or Undo last tick. The phone has the toast
   // ("Coriander → Fridge · Change · Undo") instead.
+  import { standingTicks } from '#lib/shopping/view.js';
+  import type { ListItem } from '#lib/shopping/types.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import NewPlace, { NEW_PLACE } from '../NewPlace.svelte';
 
   let { model }: { model: ShoppingModel } = $props();
   const uid = $props.id();
   let addingPlace = $state(false);
+  /** The row the "+ Place" box was opened for: the place goes to it, whatever is ticked or
+   * undone while the server answers (L3). */
+  let addingFor: ListItem | null = null;
 
   const last = $derived(model.lastTicked);
   const item = $derived(last ? model.item(last.itemId) : undefined);
@@ -44,6 +49,7 @@
             value={placeId}
             onchange={(event) => {
               if (event.currentTarget.value === NEW_PLACE) {
+                addingFor = item;
                 addingPlace = true;
                 event.currentTarget.value = String(placeId);
               } else void model.putAway(item, Number(event.currentTarget.value));
@@ -61,7 +67,9 @@
       <NewPlace
         onadded={(added) => {
           addingPlace = false;
-          void model.putAway(item, added.id);
+          // Still ticked: put it there. Undone or removed meanwhile: the place is made, no more.
+          const row = addingFor && model.item(addingFor.id);
+          if (row && standingTicks(row).length) void model.putAway(row, added.id);
         }}
         oncancel={() => (addingPlace = false)}
       />

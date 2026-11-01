@@ -16,6 +16,7 @@ import type { ShoppingCopy } from '#lib/shopping/types.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { notHereText } from '#lib/shopping/store.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import Shopping from './+page.svelte';
 import '#lib/styles/tokens.css';
@@ -478,6 +479,65 @@ describe('the Shopping page', () => {
     await shoppingSync.refresh(true);
     await expect.element(name).toBeVisible();
     await expect.element(name).toHaveValue('Gar');
+  });
+
+  it('desktop: a place added after another row was ticked goes to the row it was opened for (L3)', async () => {
+    Object.assign(row('i-yoghurt')!, { amount: 500, display: '500 g' });
+    await render(1300, {
+      'POST /places': [201, { id: 9, name: 'Garage', kind: 'cupboard' }]
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await page.getByRole('combobox', { name: 'Where' }).selectOptions('+ Place');
+    await page.getByRole('textbox', { name: 'Place’s name' }).fill('Garage');
+    // The server is slow to answer; meanwhile another row is ticked.
+    let answer!: () => void;
+    const answered = new Promise<void>((done) => (answer = done));
+    const fetched = globalThis.fetch;
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      if (args[1]?.method === 'POST' && String(args[0]).endsWith('/places')) await answered;
+      return fetched(...args);
+    });
+    await page.getByRole('button', { name: 'Add place' }).click();
+    await page.getByRole('checkbox', { name: 'Tick Yoghurt' }).click();
+    answer();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({
+        kind: 'put_away',
+        item_id: 'i-onions',
+        place_id: 9
+      })
+    );
+  });
+
+  it('desktop: a place added after Undo last tick puts nothing away and does not fail (L3)', async () => {
+    await render(1300, {
+      'POST /places': [201, { id: 9, name: 'Garage', kind: 'cupboard' }]
+    });
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await page.getByRole('combobox', { name: 'Where' }).selectOptions('+ Place');
+    await page.getByRole('textbox', { name: 'Place’s name' }).fill('Garage');
+    let answer!: () => void;
+    const answered = new Promise<void>((done) => (answer = done));
+    const fetched = globalThis.fetch;
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      if (args[1]?.method === 'POST' && String(args[0]).endsWith('/places')) await answered;
+      return fetched(...args);
+    });
+    const unhandled: unknown[] = [];
+    const note = (event: PromiseRejectionEvent) => unhandled.push(event.reason);
+    window.addEventListener('unhandledrejection', note);
+    await page.getByRole('button', { name: 'Add place' }).click();
+    await page.getByRole('button', { name: 'Undo last tick' }).click();
+    await vi.waitFor(() => expect(server.actions.at(-1)).toMatchObject({ kind: 'undo' }));
+    answer();
+    // The place was made (it is in the list), but nothing is put away in it.
+    await vi.waitFor(() => expect(placesAndShops.places.map((p) => p.id)).toContain(9));
+    await expect
+      .poll(() => server.requests.filter((r) => r.path === '/places' && r.method === 'POST').length)
+      .toBe(1);
+    window.removeEventListener('unhandledrejection', note);
+    expect(unhandled).toEqual([]);
+    expect(server.actions.filter((a) => a.kind === 'put_away')).toEqual([]);
   });
 
   it('Different pack? offers the planned pack and sends the one picked', async () => {

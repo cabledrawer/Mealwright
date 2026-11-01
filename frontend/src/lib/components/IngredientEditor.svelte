@@ -78,6 +78,8 @@
   let addingSize = $state(false);
   let addingShop = $state(false);
   let addingPlace = $state(false);
+  /** The ingredient the "+ Place" box was opened for (L3). */
+  let addingFor: FoodModel | null = null;
   let picking = $state<'stand-in' | 'merge' | null>(null);
   let lowProblem = $state<string | null>(null);
   let sizeProblem = $state<string | null>(null);
@@ -198,6 +200,7 @@
   function setPlace(event: Event) {
     if (valueOf(event) === NEW_PLACE) {
       // "+ Place": the box opens; the list shows the ingredient's place again meanwhile.
+      addingFor = model;
       addingPlace = true;
       (event.currentTarget as HTMLSelectElement).value = String(food?.place?.id ?? '');
       return;
@@ -205,9 +208,9 @@
     setPlaceTo(Number(valueOf(event)) || null);
   }
 
-  function setPlaceTo(id: number | null) {
+  function setPlaceTo(id: number | null, on: FoodModel = model) {
     const place = placesAndShops.places.find((p) => p.id === id) ?? null;
-    void model.setField(
+    void on.setField(
       { place_id: id },
       (f) => (f.place = place && { id: place.id, name: place.name }),
       place ? `Lives in ${place.name}` : 'No usual place'
@@ -570,7 +573,7 @@
             <NewPlace
               onadded={(place) => {
                 addingPlace = false;
-                setPlaceTo(place.id);
+                setPlaceTo(place.id, addingFor ?? model);
               }}
               oncancel={() => (addingPlace = false)}
             />
