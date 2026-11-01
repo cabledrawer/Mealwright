@@ -419,7 +419,7 @@ describe('Cook mode', () => {
 
     it('draws the flask on the switch’s row in the Experimental pink', async () => {
       open(recipe(FOUR));
-      const flask = document.querySelector('.options .what svg')!;
+      const flask = document.querySelector('.flask svg')!;
       const probe = document.body.appendChild(document.createElement('span'));
       probe.style.color = 'var(--color-experimental)';
       expect(getComputedStyle(flask).color).toBe(getComputedStyle(probe).color);
