@@ -308,8 +308,20 @@ export class PlanModel {
     });
   }
 
+  /**
+   * Set when a "Leftovers here" found no portion left (the drop zone, or the one-day picker): the
+   * screen asks Cook more or Add anyway (cabledrawer 28 Oct). Cleared when answered or put away.
+   */
+  noPortions = $state<{ what: Mover; day: string; slotId: number; name: string } | null>(null);
+
   /** Move, copy or plan leftovers of a meal or one thing in it, to another day and meal. */
-  drop(what: Mover, day: string, slotId: number, mode: DropMode) {
+  drop(
+    what: Mover,
+    day: string,
+    slotId: number,
+    mode: DropMode,
+    ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask' = 'ask'
+  ) {
     const verb = { move: 'Moved', copy: 'Copied', leftovers: 'Leftovers of' }[mode];
     const meal =
       'meal' in what
@@ -323,7 +335,12 @@ export class PlanModel {
             meal.items.find((i) => i.id === what.item)!,
             this.plan
           );
-    const to = { date: day, slot_id: slotId, mode };
+    const to = {
+      date: day,
+      slot_id: slotId,
+      mode,
+      ...(mode === 'leftovers' ? { if_none_left: ifNoneLeft } : {})
+    };
     return this.#send({
       label: `${verb} ${name} ${mode === 'leftovers' ? 'on' : 'to'} ${this.slotName(slotId)}`,
       // Leftovers make a real tub on the server, so the screen waits for it.
@@ -335,7 +352,12 @@ export class PlanModel {
                 ? withMealDropped(plan, what.meal, day, slotId, mode)
                 : withItemDropped(plan, what.item, day, slotId, mode),
       send: (key) =>
-        'meal' in what ? movePlanMeal(what.meal, to, key) : movePlanItem(what.item, to, key)
+        'meal' in what ? movePlanMeal(what.meal, to, key) : movePlanItem(what.item, to, key),
+      refused: (error) => {
+        if (mode !== 'leftovers' || error.code !== 'no_portions_left') return false;
+        this.noPortions = { what, day, slotId, name };
+        return true;
+      }
     });
   }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MealSlot, Plan, PlanItem, PlanMeal, Portions } from './client/plan';
 import {
   barLabel,
+  reached,
   leftoverRows,
   offeredDays,
   planWords,
@@ -27,7 +28,8 @@ const made: Portions = {
   tubs: 4,
   in_meals: 3,
   left: 1,
-  use_by: '2026-10-21'
+  use_by: '2026-10-21',
+  spare_use_by: ['2026-10-21']
 };
 
 const tubItem = (id: number, tub: number): PlanItem => ({
@@ -134,9 +136,29 @@ describe('the meals Leftovers on… lists', () => {
   it('works out the meals picked beyond the portions left: the latest ones', () => {
     const list = rows([]);
     const picked = new Set([rowKey(list[3]!), rowKey(list[1]!), rowKey(list[5]!)]);
-    expect(shortRows(list, picked, 1).map(rowKey)).toEqual([rowKey(list[3]!), rowKey(list[5]!)]);
-    expect(shortRows(list, picked, 3)).toEqual([]);
-    expect(shortRows(list, new Set(), 0)).toEqual([]);
+    const keep = '2026-10-21';
+    expect(shortRows(list, picked, [keep]).map(rowKey)).toEqual([
+      rowKey(list[3]!),
+      rowKey(list[5]!)
+    ]);
+    expect(shortRows(list, picked, [keep, keep, keep])).toEqual([]);
+    expect(shortRows(list, new Set(), [])).toEqual([]);
+  });
+});
+
+describe('which meals the spare tubs reach (F50: never past a tub’s use-by)', () => {
+  it('gives each meal the tub with the earliest use-by that is still good', () => {
+    expect(reached(['2026-10-20', '2026-10-30'], ['2026-10-19', '2026-10-25'])).toEqual([
+      true,
+      true
+    ]);
+    // The tub that goes off on the 20th cannot be used on the 25th.
+    expect(reached(['2026-10-20'], ['2026-10-25'])).toEqual([false]);
+    expect(reached(['2026-10-20', '2026-10-30'], ['2026-10-25', '2026-10-26'])).toEqual([
+      true,
+      false
+    ]);
+    expect(reached([], ['2026-10-25'])).toEqual([false]);
   });
 });
 
@@ -178,5 +200,13 @@ describe('the portions bar and its words (the mockup’s)', () => {
   it('names the button by what it plans', () => {
     expect(planWords(1)).toBe('Plan 1 tub');
     expect(planWords(2)).toBe('Plan 2 tubs');
+  });
+});
+
+describe('the planned rows and the button (the mockup’s words)', () => {
+  it('counts tubs only, and meals when there are no tubs', () => {
+    expect(planWords(2, 3)).toBe('Plan 2 tubs');
+    expect(planWords(0, 1)).toBe('Plan 1 meal');
+    expect(planWords(0, 2)).toBe('Plan 2 meals');
   });
 });

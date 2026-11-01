@@ -63,7 +63,8 @@ const PORTIONS: Portions = {
   tubs: 3,
   in_meals: 2,
   left: 1,
-  use_by: '2026-10-22'
+  use_by: '2026-10-22',
+  spare_use_by: ['2026-10-22']
 };
 
 describe('the meal’s menu (0.7 P1)', () => {
@@ -276,7 +277,12 @@ describe('the meal’s menu (0.7 P1)', () => {
     });
 
     it('plans several meals at once when the portions reach', async () => {
-      batch = { ...PORTIONS, left: 2, in_meals: 1, portions: 4 };
+      batch = {
+        ...PORTIONS,
+        left: 2,
+        in_meals: 1,
+        spare_use_by: ['2026-10-22', '2026-10-22']
+      };
       const dialog = await openLeftovers();
       await dialog.getByRole('checkbox', { name: /Tue 20 · Lunch/ }).click();
       await dialog.getByRole('checkbox', { name: /Wed 21 · Dinner/ }).click();
@@ -297,7 +303,7 @@ describe('the meal’s menu (0.7 P1)', () => {
     });
 
     it('with none left says so, and asks for Cook more or Add anyway before planning', async () => {
-      batch = { ...PORTIONS, left: 0, in_meals: 3 };
+      batch = { ...PORTIONS, left: 0, in_meals: 3, spare_use_by: [] };
       const dialog = await openLeftovers();
       await dialog.getByRole('checkbox', { name: /Wed 21 · Lunch/ }).click();
       const alert = dialog.getByRole('alert');
@@ -310,8 +316,30 @@ describe('the meal’s menu (0.7 P1)', () => {
       expect(sent()).toEqual([]);
     });
 
+    it('a spare tub that goes off before a meal does not reach it', async () => {
+      // Two spare tubs: one off on Tue 20, one keeps to Thu 22.
+      batch = { ...PORTIONS, left: 2, in_meals: 1, spare_use_by: ['2026-10-20', '2026-10-22'] };
+      const dialog = await openLeftovers();
+      await dialog.getByRole('checkbox', { name: /Wed 21 · Lunch/ }).click();
+      expect(dialog.getByRole('alert').elements()).toHaveLength(0); // the tub that keeps reaches it
+      await dialog.getByRole('checkbox', { name: /Thu 22 · Lunch/ }).click();
+      await expect
+        .element(dialog.getByRole('alert'))
+        .toHaveTextContent('No portions left for Thu 22 lunch.');
+      await expect.element(dialog.getByText('2 picked, only 1 left')).toBeVisible();
+    });
+
+    it('Add anyway counts only the tubs in the button, as the mockup does', async () => {
+      batch = { ...PORTIONS, left: 1, spare_use_by: ['2026-10-22'] };
+      const dialog = await openLeftovers();
+      await dialog.getByRole('checkbox', { name: /Tue 20 · Lunch/ }).click();
+      await dialog.getByRole('checkbox', { name: /Tue 20 · Dinner/ }).click();
+      await dialog.getByRole('button', { name: /Add anyway/ }).click();
+      await expect.element(dialog.getByRole('button', { name: 'Plan 1 tub' })).toBeEnabled();
+    });
+
     it('Cook more plans it with a bigger batch', async () => {
-      batch = { ...PORTIONS, left: 0, in_meals: 3 };
+      batch = { ...PORTIONS, left: 0, in_meals: 3, spare_use_by: [] };
       const dialog = await openLeftovers();
       await dialog.getByRole('checkbox', { name: /Wed 21 · Lunch/ }).click();
       await dialog.getByRole('button', { name: /Cook more/ }).click();
@@ -322,18 +350,18 @@ describe('the meal’s menu (0.7 P1)', () => {
     });
 
     it('Add anyway plans it and leaves the batch', async () => {
-      batch = { ...PORTIONS, left: 0, in_meals: 3 };
+      batch = { ...PORTIONS, left: 0, in_meals: 3, spare_use_by: [] };
       const dialog = await openLeftovers();
       await dialog.getByRole('checkbox', { name: /Wed 21 · Lunch/ }).click();
       await dialog.getByRole('button', { name: /Add anyway/ }).click();
-      await dialog.getByRole('button', { name: 'Plan 1 tub' }).click();
+      await dialog.getByRole('button', { name: 'Plan 1 meal' }).click();
       await expect
         .poll(sent)
         .toEqual([{ meals: [{ date: '2026-10-21', slot_id: 2 }], if_none_left: 'add_anyway' }]);
     });
 
     it('un-ticking the meal that was short takes the question away', async () => {
-      batch = { ...PORTIONS, left: 0, in_meals: 3 };
+      batch = { ...PORTIONS, left: 0, in_meals: 3, spare_use_by: [] };
       const dialog = await openLeftovers();
       const box = dialog.getByRole('checkbox', { name: /Wed 21 · Lunch/ });
       await box.click();
@@ -352,7 +380,7 @@ describe('the meal’s menu (0.7 P1)', () => {
         409,
         { detail: 'No portions left.', code: 'no_portions_left', left: 0, wanted: 1 }
       ];
-      batch = { ...PORTIONS, left: 0, in_meals: 3 };
+      batch = { ...PORTIONS, left: 0, in_meals: 3, spare_use_by: [] };
       await dialog.getByRole('button', { name: 'Plan 1 tub' }).click();
       await expect
         .element(dialog.getByRole('alert'))
@@ -371,7 +399,8 @@ describe('the meal’s menu (0.7 P1)', () => {
         tubs: null,
         in_meals: null,
         left: null,
-        use_by: '2026-10-22'
+        use_by: '2026-10-22',
+        spare_use_by: []
       };
       const dialog = await openLeftovers();
       expect(dialog.getByRole('img').elements()).toHaveLength(0);

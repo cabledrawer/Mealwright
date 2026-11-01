@@ -592,8 +592,14 @@ class PlanMoveIn(BaseModel):
     slot_id: StoredInt
     mode: Literal["move", "copy", "leftovers"] = Field(
         default="move",
-        description="move: it leaves where it was. copy: it stays too. leftovers: the same"
-        " as copy for now (real leftover tubs come with Cook once).",
+        description="move: it leaves where it was. copy: it stays too. leftovers: a tub of the"
+        " recipe's batch cook (see `if_none_left`).",
+    )
+    if_none_left: Literal["ask", "cook_more", "add_anyway"] = Field(
+        default="ask",
+        description="leftovers only: what to do when the batch has no portion left for that"
+        " meal. ask: change nothing and answer 409 `no_portions_left`. cook_more: a bigger"
+        " batch. add_anyway: plan the recipe there for one serving; the batch stays the same.",
     )
 
 
@@ -607,7 +613,12 @@ def move_plan_item(
         kitchen,
         response,
         lambda: plan.move_item(
-            kitchen, plan.find_item(kitchen, plan_item_id), body.date, body.slot_id, body.mode
+            kitchen,
+            plan.find_item(kitchen, plan_item_id),
+            body.date,
+            body.slot_id,
+            body.mode,
+            body.if_none_left,
         ),
     )
 
@@ -622,7 +633,12 @@ def move_plan_meal(
         kitchen,
         response,
         lambda: plan.move_meal(
-            kitchen, plan.find_meal(kitchen, plan_meal_id), body.date, body.slot_id, body.mode
+            kitchen,
+            plan.find_meal(kitchen, plan_meal_id),
+            body.date,
+            body.slot_id,
+            body.mode,
+            body.if_none_left,
         ),
     )
 

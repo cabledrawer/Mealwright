@@ -76,16 +76,20 @@ export type BarPart = 'cook' | 'planned' | 'picked' | 'free' | 'over';
  * One part for each portion: the cook-day meal, the tubs already planned, the ones just picked,
  * the ones still free; and a part for each meal picked beyond the portions left.
  */
-export function portionBar(p: Portions, picked: number): BarPart[] {
+export function portionBar(
+  p: Portions,
+  picked: number,
+  short = Math.max(0, picked - (p.left ?? 0))
+): BarPart[] {
   const left = p.left ?? 0;
   const planned = Math.max(0, (p.tubs ?? 0) - left);
-  const within = Math.min(picked, left);
+  const within = picked - short;
   return [
     ...Array<BarPart>(p.cook_day ?? 0).fill('cook'),
     ...Array<BarPart>(planned).fill('planned'),
     ...Array<BarPart>(within).fill('picked'),
-    ...Array<BarPart>(left - within).fill('free'),
-    ...Array<BarPart>(Math.max(0, picked - left)).fill('over')
+    ...Array<BarPart>(Math.max(0, left - within)).fill('free'),
+    ...Array<BarPart>(short).fill('over')
   ];
 }
 
@@ -101,24 +105,59 @@ export function barLabel(p: Portions): string {
  * "Makes 6 · 2 eaten Sun · 3 tubs planned · 2 picked, only 1 left" (proposed, for cabledrawer; the
  * mockup's words). `cookDay` is the short name of the cook day ("Sun").
  */
-export function portionsLine(p: Portions, picked: number, cookDay: string): string {
+export function portionsLine(
+  p: Portions,
+  picked: number,
+  cookDay: string,
+  short = Math.max(0, picked - (p.left ?? 0))
+): string {
   const planned = Math.max(0, (p.tubs ?? 0) - (p.left ?? 0));
   const left = p.left ?? 0;
+  // `short` meals no spare tub reaches: only `picked - short` of the picks have a portion.
+  const got = picked - short;
   const tail =
     picked === 0
       ? `${left} left`
-      : picked <= left
+      : short === 0
         ? `${picked} picked, ${left - picked} left`
-        : `${picked} picked, ${left === 0 ? 'none left' : `only ${left} left`}`;
+        : `${picked} picked, ${got === 0 ? 'none left' : `only ${got} left`}`;
   return `Makes ${p.portions} · ${p.cook_day} eaten ${cookDay} · ${tubs(planned)} planned · ${tail}`;
 }
 
-/** The meals picked beyond the portions left: the latest ones (the earliest take the portions). */
-export function shortRows(rows: LeftoverRow[], picked: Set<string>, left: number): LeftoverRow[] {
-  return rows.filter((r) => picked.has(rowKey(r))).slice(left);
+/**
+ * How many of the meals (days, soonest first) the spare tubs reach: each meal takes the spare
+ * tub with the earliest use-by on or after its day (F50: never a tub past its use-by). The same
+ * rule as the server's (`batches.reach`), so the sheet and the server count alike.
+ */
+export function reached(spareUseBy: string[], days: string[]): boolean[] {
+  const free = [...spareUseBy].sort();
+  return days.map((day) => {
+    const at = free.findIndex((useBy) => useBy >= day);
+    if (at < 0) return false;
+    free.splice(at, 1);
+    return true;
+  });
+}
+
+/** The meals picked that no spare tub reaches (none left for them), soonest first. */
+export function shortRows(
+  rows: LeftoverRow[],
+  picked: Set<string>,
+  spareUseBy: string[]
+): LeftoverRow[] {
+  const chosen = rows.filter((r) => picked.has(rowKey(r)));
+  const got = reached(
+    spareUseBy,
+    chosen.map((r) => r.day)
+  );
+  return chosen.filter((_, i) => !got[i]);
 }
 
 export const rowKey = (r: { day: string; slotId: number }) => `${r.day}|${r.slotId}`;
 
-/** "Plan 2 tubs" (the mockup's button). */
-export const planWords = (n: number) => `Plan ${tubs(n)}`;
+/** "Plan 2 tubs" (the mockup's button: tubs only). Meals planned with Add anyway are not tubs:
+ * when there are only those, "Plan 1 meal". */
+export const planWords = (tubCount: number, meals = tubCount) =>
+  tubCount === 0 && meals > 0
+    ? `Plan ${meals} ${meals === 1 ? 'meal' : 'meals'}`
+    : `Plan ${tubs(tubCount)}`;

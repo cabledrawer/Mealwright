@@ -554,7 +554,13 @@ def test_a_recipe_deleted_for_good_leaves_the_batch_and_its_tubs_by_name(
 def _leftovers(client: TestClient, item_id: int, day_: date, slot: int) -> dict[str, Any]:
     r = client.post(
         f"{API}/plan/items/{item_id}/move",
-        json={"date": day_.isoformat(), "slot_id": slot, "mode": "leftovers"},
+        # Cook more: the older one-day route says "No portions left" unless told what to do.
+        json={
+            "date": day_.isoformat(),
+            "slot_id": slot,
+            "mode": "leftovers",
+            "if_none_left": "cook_more",
+        },
     )
     assert r.status_code == 200, r.text
     return r.json()  # type: ignore[no-any-return]
@@ -641,12 +647,22 @@ def test_a_tub_is_never_copied_as_leftovers(
 def test_a_batch_holds_at_most_the_most_tubs_and_a_day_the_most_batches(
     kitchen: TestClient, cook: dict[str, Any], stuff: dict[str, int], slots: dict[str, int]
 ) -> None:
+    with db_of(kitchen) as db:
+        household = db.get(Household, 1)
+        assert household is not None
+        household.tub_fridge_days = 30  # so the days below are before the use-by
+        db.commit()
     days = [D1 + timedelta(days=n) for n in range(1, 14)]
     for d in days[: batches_module.MOST_TUBS_IN_BATCH]:
         _leftovers(kitchen, cook["item_id"], d, slots["Lunch"])
     full = kitchen.post(
         f"{API}/plan/items/{cook['item_id']}/move",
-        json={"date": days[-1].isoformat(), "slot_id": slots["Lunch"], "mode": "leftovers"},
+        json={
+            "date": days[-1].isoformat(),
+            "slot_id": slots["Lunch"],
+            "mode": "leftovers",
+            "if_none_left": "cook_more",
+        },
     )
     assert full.status_code == 422 and full.json()["code"] == "batch_full"
     # Ten batches cooked on one day is the most.

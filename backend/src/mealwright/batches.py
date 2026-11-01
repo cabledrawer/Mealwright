@@ -641,12 +641,19 @@ def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
 
 
 def leftover_tub(
-    kitchen: Kitchen, source: Meal, item: MealItem, target: Meal, steps: list[dict[str, Any]]
+    kitchen: Kitchen,
+    source: Meal,
+    item: MealItem,
+    target: Meal,
+    steps: list[dict[str, Any]],
+    *,
+    grow: bool = False,
 ) -> None:
     """A recipe's leftovers in another meal: a tub of the batch cooked for the source meal (the
     batch is made now if there is none), taken from the tubs left if one is spare, else a new
     one. Proposed, for cabledrawer: a meal with several recipes makes a tub of each recipe (and
-    copies its plain ingredients); a tub is never copied."""
+    copies its plain ingredients); a tub is never copied. A spare tub is used only if its use-by is
+    the target's day or later, the earliest use-by first (F50); `grow` always makes a new one."""
     db = kitchen.db
     batch = db.scalar(
         select(BatchCook).where(
@@ -689,16 +696,21 @@ def leftover_tub(
             )
             or 0
         )
-    spare = db.scalar(
-        select(Tub)
-        .where(
-            Tub.household_id == kitchen.household_id,
-            Tub.batch_id == batch.id,
-            Tub.amount_quarters > 0,
-            ~exists().where(MealItem.tub_id == Tub.id),
+    spare = (
+        None
+        if grow
+        else db.scalar(
+            select(Tub)
+            .where(
+                Tub.household_id == kitchen.household_id,
+                Tub.batch_id == batch.id,
+                Tub.amount_quarters > 0,
+                Tub.use_by >= target.day,
+                ~exists().where(MealItem.tub_id == Tub.id),
+            )
+            .order_by(Tub.use_by, Tub.id)
+            .limit(1)
         )
-        .order_by(Tub.id)
-        .limit(1)
     )
     if spare is None:
         if made >= MOST_TUBS_IN_BATCH:
@@ -708,11 +720,18 @@ def leftover_tub(
                 f"{batch.recipe_name} already has {MOST_TUBS_IN_BATCH} tubs.",  # proposed
             )
         fridge = places_of_kind(db, kitchen.household_id, "fridge")
+        use_by = tub_use_by(kitchen, "fridge", batch.cooked_on)
+        if target.day > use_by:  # a new fridge tub is no good past its own use-by
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "after_use_by",
+                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+            )
         spare = Tub(
             household_id=kitchen.household_id,
             batch_id=batch.id,
             place_id=fridge.id if fridge else None,
-            use_by=tub_use_by(kitchen, "fridge", batch.cooked_on),
+            use_by=use_by,
         )
         db.add(spare)
         db.flush()
@@ -747,6 +766,8 @@ class Portions:
     # The last day a tub of this batch can go in a meal: the latest use-by of a tub still
     # to place, else the household's fridge life from the cook day.
     use_by: date
+    # The use-by of each spare tub, soonest first: a tub can only go in a meal on or before it.
+    spare: list[date]
 
     @property
     def total(self) -> int:
@@ -787,7 +808,23 @@ def portions_of(kitchen: Kitchen, batch: BatchCook) -> Portions:
         in_meals=sum(1 for _q, _u, in_meal in tubs if in_meal),
         left=len(spare),
         use_by=max(spare) if spare else fridge,
+        spare=sorted(spare),
     )
+
+
+def reach(spare: list[date], days: list[date]) -> int:
+    """How many of the meals (days, soonest first) the spare tubs reach: each meal takes the
+    spare tub with the earliest use-by that is on or after its day (F50: never a tub past its
+    use-by). The same rule the sheet uses (portions.ts) and `leftover_tub` follows."""
+    free = sorted(spare)
+    taken = 0
+    for day in days:
+        for index, use_by in enumerate(free):
+            if use_by >= day:
+                del free[index]
+                taken += 1
+                break
+    return taken
 
 
 def portions_by_batch(kitchen: Kitchen, found: list[BatchCook]) -> dict[int, Portions]:
@@ -806,6 +843,53 @@ def _batch_of(kitchen: Kitchen, source: Meal, item: MealItem) -> BatchCook | Non
             else BatchCook.recipe_name == item.name,
         )
     )
+
+
+def _no_portions(left: int, wanted: int) -> Problem:
+    return Problem(
+        status.HTTP_409_CONFLICT,
+        "no_portions_left",
+        "No portions left.",
+        left=left,
+        wanted=wanted,
+    )
+
+
+def leftover_one(
+    kitchen: Kitchen,
+    source: Meal,
+    item: MealItem,
+    target: Meal,
+    steps: list[dict[str, Any]],
+    if_none_left: str,
+) -> None:
+    """One meal's leftovers (cabledrawer 28 Oct: "No portions left"). A batch that exists and has no
+    spare tub reaching this meal: `ask` refuses with `no_portions_left`, `cook_more` makes a new
+    tub (a bigger batch), `add_anyway` plans the recipe there for one serving and leaves the
+    batch. No batch yet: it is made, as before."""
+    batch = _batch_of(kitchen, source, item)
+    if batch is None:
+        leftover_tub(kitchen, source, item, target, steps)
+        return
+    if reach(portions_of(kitchen, batch).spare, [target.day]):
+        leftover_tub(kitchen, source, item, target, steps)
+    elif if_none_left == "cook_more":
+        leftover_tub(kitchen, source, item, target, steps, grow=True)
+    elif if_none_left == "add_anyway":
+        anyway = MealItem(
+            household_id=kitchen.household_id,
+            meal_id=target.id,
+            position=_end(kitchen, target),
+            kind="recipe",
+            recipe_id=item.recipe_id,
+            name=None if item.recipe_id else item.name,
+            servings=1,
+        )
+        kitchen.db.add(anyway)
+        kitchen.db.flush()
+        steps.append({"op": "add_item", "item": anyway.id})
+    else:
+        raise _no_portions(0, 1)
 
 
 def recipe_meal_item(kitchen: Kitchen, item: MealItem) -> Meal:
@@ -862,39 +946,19 @@ def leftovers_on(kitchen: Kitchen, item: MealItem, spots: list[Spot], if_none_le
             _planned(target)
             _room(kitchen, target)
     ordered = sorted(spots, key=lambda s: (s[0], slot_order.get(s[1], (0, s[1]))))
-    left = portions.left if portions else len(ordered)
-    short = ordered[left:]
-    if short and batch is not None and if_none_left == "ask":
-        raise Problem(
-            status.HTTP_409_CONFLICT,
-            "no_portions_left",
-            "No portions left.",
-            left=left,
-            wanted=len(ordered),
-        )
+    left = reach(portions.spare, [d for d, _ in ordered]) if portions else len(ordered)
+    if batch is not None and left < len(ordered) and if_none_left == "ask":
+        raise _no_portions(left, len(ordered))
+    # No batch yet: the first meal makes it and the rest are more tubs of it, not "none left".
+    choice = "cook_more" if batch is None else if_none_left
     steps: list[dict[str, Any]] = []
     first: Meal | None = None
-    for index, (day, slot_id) in enumerate(ordered):
+    for day, slot_id in ordered:
         target = meal_at(kitchen, day, slot_id)
         if target is None:
             target = _make_meal(kitchen, day, slot_id, steps)
         first = first or target
-        if batch is not None and index >= left and if_none_left == "add_anyway":
-            anyway = MealItem(
-                household_id=kitchen.household_id,
-                meal_id=target.id,
-                position=_end(kitchen, target),
-                kind="recipe",
-                recipe_id=item.recipe_id,
-                name=None if item.recipe_id else item.name,
-                servings=1,
-            )
-            kitchen.db.add(anyway)
-            kitchen.db.flush()
-            steps.append({"op": "add_item", "item": anyway.id})
-        else:
-            leftover_tub(kitchen, source, item, target, steps)
-            batch = batch or _batch_of(kitchen, source, item)
+        leftover_one(kitchen, source, item, target, steps, choice)
     name = _item_name(kitchen, item)
     where = ", ".join(_where(kitchen, d, s) for d, s in ordered)
     return _finish(

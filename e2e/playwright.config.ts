@@ -101,9 +101,6 @@ export default defineConfig({
     { name: 'desktop 0.6 cook once', testMatch: 'plan-cook-once.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 cook once', testMatch: 'plan-cook-once.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // The shopping list built from the plan, and the staples card (0.6, PR 5).
-    // Portions, Serves - N + and Note (0.7, P1).
-    { name: 'phone 0.7 portions', testMatch: 'plan-portions.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
-    { name: 'desktop 0.7 portions', testMatch: 'plan-portions.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'phone 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 plan list', testMatch: 'plan-list.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
@@ -119,6 +116,10 @@ export default defineConfig({
     { name: 'phone 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Portions, Serves - N + and Note (0.7, P1).
+    { name: 'phone 0.7 portions', testMatch: 'plan-portions.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 portions', testMatch: 'plan-portions.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 portions', testMatch: 'plan-portions.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },

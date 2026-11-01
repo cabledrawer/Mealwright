@@ -80,8 +80,7 @@
       : []
   );
   const chosen = $derived(new Set(picked));
-  const left = $derived(portions?.has_batch ? (portions.left ?? 0) : picked.length);
-  const short = $derived(portions?.has_batch ? shortRows(rows, chosen, left) : []);
+  const short = $derived(portions?.has_batch ? shortRows(rows, chosen, portions.spare_use_by) : []);
   const ready = $derived(
     picked.length > 0 && (short.length === 0 || choice !== null) && !actions.readonly && !sending
   );
@@ -104,6 +103,9 @@
     // Un-ticking until nothing is short clears the choice, so it is asked again if needed.
     if (short.length === 0 && choice !== null) choice = null;
   });
+
+  /** Meals planned as tubs: Add anyway plans a recipe for one serving instead, not a tub. */
+  const tubCount = $derived(picked.length - (choice === 'add_anyway' ? short.length : 0));
 
   const cookDay = $derived(dayWords(meal.date));
   const cookSlot = $derived(model.slotName(meal.slot_id).toLowerCase());
@@ -150,7 +152,7 @@
     {#if portions.has_batch}
       <div class="bar-wrap">
         <div class="bar" role="img" aria-label={barLabel(portions)}>
-          {#each portionBar(portions, picked.length) as part, i (i)}
+          {#each portionBar(portions, picked.length, short.length) as part, i (i)}
             <span class={part}></span>
           {/each}
         </div>
@@ -159,13 +161,19 @@
             {@const words = portionsLine(
               portions,
               picked.length,
-              dayWords(meal.date).split(' ')[0]!
+              dayWords(meal.date).split(' ')[0]!,
+              short.length
             )}
             {words.slice(0, words.lastIndexOf('·') + 2)}<b class="short"
               >{words.slice(words.lastIndexOf('·') + 2)}</b
             >
           {:else}
-            {portionsLine(portions, picked.length, dayWords(meal.date).split(' ')[0]!)}
+            {portionsLine(
+              portions,
+              picked.length,
+              dayWords(meal.date).split(' ')[0]!,
+              short.length
+            )}
           {/if}
         </p>
       </div>
@@ -193,7 +201,7 @@
             >
             <span class="tag">
               {#if planned}
-                planned
+                tub {tubbed.findIndex((r) => rowKey(r) === key) + 1} · planned
               {:else if over}
                 {choice === 'cook_more'
                   ? 'new tub'
@@ -262,7 +270,7 @@
   <div class="buttons">
     <button type="button" class="back" onclick={onback}>Back</button>
     <button type="button" class="go" disabled={!ready} onclick={plan}
-      >{planWords(picked.length || 0)}</button
+      >{planWords(tubCount, picked.length)}</button
     >
   </div>
 </div>

@@ -15,6 +15,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import CookOnce from '#lib/components/plan/CookOnce.svelte';
+  import NoPortions from '#lib/components/plan/NoPortions.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
@@ -351,6 +352,7 @@
   }}
 />
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
+<NoPortions {actions} />
 
 {#if drag.carried}
   <div class="ghost" style:left="{drag.x}px" style:top="{drag.y}px" aria-hidden="true">

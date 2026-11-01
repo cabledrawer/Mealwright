@@ -351,6 +351,9 @@ class PortionsOut(BaseModel):
     left: int | None  # portions left to plan
     # The last day a tub of this batch can go in a meal.
     use_by: date
+    # The use-by of each spare tub, soonest first: a tub goes only in a meal on or before its
+    # use-by, so the meals the portions left reach are counted from these.
+    spare_use_by: list[date]
 
 
 @router.get("/plan/items/{plan_item_id}/portions")
@@ -372,6 +375,7 @@ def get_portions(plan_item_id: StoredInt, kitchen: Here) -> PortionsOut:
             in_meals=None,
             left=None,
             use_by=batches.tub_use_by(kitchen, "fridge", source.day),
+            spare_use_by=[],
         )
     found = batches.portions_of(kitchen, batch)
     return PortionsOut(
@@ -384,6 +388,7 @@ def get_portions(plan_item_id: StoredInt, kitchen: Here) -> PortionsOut:
         in_meals=found.in_meals,
         left=found.left,
         use_by=found.use_by,
+        spare_use_by=found.spare,
     )
 
 

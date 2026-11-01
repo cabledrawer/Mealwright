@@ -416,14 +416,19 @@ def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str,
 
 
 def _leftovers_of(
-    kitchen: Kitchen, item: MealItem, source: Meal, meal: Meal, steps: list[dict[str, Any]]
+    kitchen: Kitchen,
+    item: MealItem,
+    source: Meal,
+    meal: Meal,
+    steps: list[dict[str, Any]],
+    if_none_left: str = "ask",
 ) -> None:
     """ "Leftovers here" (cabledrawer 26 Oct, PR 4): a recipe becomes a tub of its batch cook, an
     ingredient is copied. A tub is never copied (the callers leave tubs out)."""
     if item.kind == "recipe":
         from mealwright import batches
 
-        batches.leftover_tub(kitchen, source, item, meal, steps)
+        batches.leftover_one(kitchen, source, item, meal, steps, if_none_left)
     else:
         _copy_of(kitchen, item, meal, steps)
 
@@ -437,7 +442,14 @@ def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, A
     kitchen.db.flush()
 
 
-def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode) -> Change:
+def move_meal(
+    kitchen: Kitchen,
+    meal: Meal,
+    day: date,
+    slot_id: int,
+    mode: Mode,
+    if_none_left: str = "ask",
+) -> Change:
     """Move a whole meal, or copy it. "Leftovers" makes a tub of each recipe in it (from the
     batch cook cooked for this meal, made if there is none) and copies its ingredients.
     Onto a filled meal, the items go in alongside."""
@@ -494,7 +506,7 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
         if mode == "move":
             _bring(kitchen, item, target, steps)
         elif mode == "leftovers":
-            _leftovers_of(kitchen, item, source, target, steps)
+            _leftovers_of(kitchen, item, source, target, steps, if_none_left)
         else:
             _copy_of(kitchen, item, target, steps)
     if mode == "move":
@@ -510,7 +522,14 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
     )
 
 
-def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: Mode) -> Change:
+def move_item(
+    kitchen: Kitchen,
+    item: MealItem,
+    day: date,
+    slot_id: int,
+    mode: Mode,
+    if_none_left: str = "ask",
+) -> Change:
     """Move one thing from a meal to another date and slot, or copy it."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
@@ -548,7 +567,7 @@ def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: M
         if not items_of(kitchen, source):
             _drop_meal(kitchen, source, steps)
     elif mode == "leftovers":
-        _leftovers_of(kitchen, item, source, target, steps)
+        _leftovers_of(kitchen, item, source, target, steps, if_none_left)
     else:
         _copy_of(kitchen, item, target, steps)
     where_to = _where(kitchen, day, slot_id)

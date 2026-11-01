@@ -18,10 +18,10 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
   return (await response.json()) as Record<string, any>;
 }
 
-const INDEX: Record<string, number> = { 'desktop 0.7 portions': 0, 'phone 0.7 portions': 1 };
+const INDEX: Record<string, number> = { 'desktop 0.7 portions': 0, 'phone 0.7 portions': 1, 'webkit 0.7 portions': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
-/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 7). */
-const far = (today: string, k: number) => addDays(today, 7 * (84 + projectIndex() * 8 + k));
+/** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 9). */
+const far = (today: string, k: number) => addDays(today, 7 * (84 + projectIndex() * 10 + k));
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
 function addDays(iso: string, days: number): string {
@@ -160,7 +160,7 @@ test('with no portions left, Add anyway plans the meal and the batch stays the s
   const menu = await openLeftovers(page, day, slot.Dinner, name);
   await menu.getByRole('checkbox', { name: `${dayWords(tue)} · Lunch` }).check();
   await menu.getByRole('button', { name: /Add anyway/ }).click();
-  await menu.getByRole('button', { name: 'Plan 1 tub' }).click();
+  await menu.getByRole('button', { name: 'Plan 1 meal' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'leftovers of' })).toBeVisible();
   await expect.poll(async () => (await planRange(page, day, addDays(day, 5))).meals.find((m: any) => m.date === tue)?.items.length).toBe(1);
   const plan = await planRange(page, day, addDays(day, 5));
@@ -286,8 +286,9 @@ test('+ Note adds "Eating out" to a meal: it counts as filled, with no Serves or
   await inTheme(page, 'light');
   await add.getByRole('button', { name: 'Add note' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Planned At Amma’s for Dinner' })).toBeVisible();
-  const plan = await planRange(page, day, day);
-  expect(plan.meals[0].items).toMatchObject([{ kind: 'note', note: 'At Amma’s', recipe: null }]);
+  await expect.poll(async () => (await planRange(page, day, day)).meals[0]?.items).toMatchObject([
+    { kind: 'note', note: 'At Amma’s', recipe: null },
+  ]);
   await mealButton(page, day, 'Dinner', slot.Dinner, 'At Amma’s').click();
   const menu = page.getByRole('dialog', { name: 'At Amma’s' });
   await expect(menu.getByRole('button', { name: 'Move to…' })).toBeVisible();
@@ -300,7 +301,7 @@ test('+ Note adds "Eating out" to a meal: it counts as filled, with no Serves or
 
 test('+ Note: a quick note is one tap', async ({ page }) => {
   const { today, slot } = await setup(page);
-  const day = addDays(far(today, 7), 1);
+  const day = far(today, 8);
   await openWeekOf(page, today, day);
   if (isPhone(page)) {
     await page.getByRole('region', { name: dayName(day) }).getByRole('button', { name: /^\+ Add dinner|^Add to Dinner/ }).first().click();
@@ -311,4 +312,42 @@ test('+ Note: a quick note is one tap', async ({ page }) => {
   await add.getByRole('button', { name: '+ Note' }).click();
   await add.getByRole('button', { name: 'Takeaway' }).click();
   await expect.poll(async () => (await planRange(page, day, day)).meals[0]?.items[0]?.note).toBe('Takeaway');
+});
+
+// --- The drop zone and the one-day picker also ask ----------------------------------------------
+
+test('a "Leftovers here" drop with no portion left asks Cook more or Add anyway', async ({ page }) => {
+  test.skip(isPhone(page) || test.info().project.use.browserName === 'webkit', 'a mouse drag, on Chromium');
+  const { today, slot } = await setup(page);
+  const name = `Upma ${stamp()}`;
+  const day = far(today, 9);
+  const mon = addDays(day, 2);
+  await batchOf(page, name, day, slot.Dinner, 1, 'lunches'); // its one tub is in Sunday's lunch
+  await openWeekOf(page, today, day);
+  const from = mealButton(page, day, 'Dinner', slot.Dinner, name);
+  const to = cell(page, mon, slot.Lunch);
+  await from.scrollIntoViewIfNeeded();
+  const a = (await from.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2 + 12, { steps: 3 });
+  await to.scrollIntoViewIfNeeded();
+  const b = (await to.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height * 0.2, { steps: 10 });
+  const zone = to.locator('[data-drop-zone="leftovers"]');
+  await expect(zone).toBeVisible();
+  const z = (await zone.boundingBox())!;
+  await page.mouse.move(z.x + z.width / 2, z.y + z.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const ask = page.getByRole('dialog', { name: 'No portions left' });
+  await expect(ask.getByRole('alert')).toHaveText(`No portions left for ${dayWords(mon)} lunch.`);
+  for (const theme of ['light', 'dark'] as const) {
+    await inTheme(page, theme);
+    await expectNoAxeViolations(page, `No portions left, ${theme}`);
+  }
+  await inTheme(page, 'light');
+  // Nothing was planned while it asked.
+  expect((await planRange(page, day, addDays(day, 5))).batch_cooks[0].tub_count).toBe(1);
+  await ask.getByRole('button', { name: /Cook more/ }).click();
+  await expect.poll(async () => (await planRange(page, day, addDays(day, 5))).batch_cooks[0].tub_count).toBe(2);
 });

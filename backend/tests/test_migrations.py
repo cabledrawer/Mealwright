@@ -1103,8 +1103,21 @@ def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Pat
                 "INSERT INTO meal_item (household_id, meal_id, position, kind, name)"
                 " VALUES (2, 1, 0, 'note', 'Out')"
             )
+        # A batch cooked for meal 2, whose recipe was taken out since: only the note is left.
+        connection.exec_driver_sql(
+            "INSERT INTO batch_cook (household_id, recipe_name, cook_meal_id, cooked_on,"
+            " tub_count, pattern, created_at)"
+            " VALUES (1, 'Dal', 2, '2026-11-03', 1, 'pick', '2026-11-01')"
+        )
     migrate.downgrade(engine, COOKED_RECORDS_MIGRATION)
-    assert _row_counts(engine, skip) == {**before, "meal": before["meal"] - 1}
+    assert _row_counts(engine, skip) == {
+        **before,
+        "meal": before["meal"] - 1,
+        "batch_cook": before["batch_cook"] + 1,
+    }
+    with engine.connect() as connection:
+        link = connection.exec_driver_sql("SELECT cook_meal_id FROM batch_cook").scalar_one()
+    assert link is None  # the batch stays, no longer pointing at the meal that went
     with engine.connect() as connection:
         kinds = connection.exec_driver_sql("SELECT kind FROM meal_item").all()
         meals = connection.exec_driver_sql("SELECT id FROM meal ORDER BY id").all()

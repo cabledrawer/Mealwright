@@ -138,13 +138,13 @@ export const removePlanMeal = (id: number, key: string) =>
 
 export const movePlanItem = (
   id: number,
-  to: { date: string; slot_id: number; mode: DropMode },
+  to: { date: string; slot_id: number; mode: DropMode; if_none_left?: WhenNoneLeft },
   key: string
 ) => api<PlanWrite>('POST', `/plan/items/${id}/move`, to, { idempotencyKey: key });
 
 export const movePlanMeal = (
   id: number,
-  to: { date: string; slot_id: number; mode: DropMode },
+  to: { date: string; slot_id: number; mode: DropMode; if_none_left?: WhenNoneLeft },
   key: string
 ) => api<PlanWrite>('POST', `/plan/meals/${id}/move`, to, { idempotencyKey: key });
 
@@ -255,6 +255,8 @@ export interface Portions {
   left: number | null;
   /** The last day a tub of this batch can go in a meal. */
   use_by: string;
+  /** The use-by of each spare tub, soonest first: a tub goes only in a meal on or before it. */
+  spare_use_by: string[];
 }
 
 export type WhenNoneLeft = 'ask' | 'cook_more' | 'add_anyway';

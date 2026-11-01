@@ -48,6 +48,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # A batch cooked for a meal that held only a note (its recipe was taken out since) forgets
+    # the link first, as `delete_meal` does: the database refuses to delete a meal it points at.
+    op.execute(
+        "UPDATE batch_cook SET cook_meal_id = NULL WHERE cook_meal_id IN"
+        " (SELECT meal_id FROM meal_item WHERE kind = 'note')"
+        " AND cook_meal_id NOT IN (SELECT meal_id FROM meal_item WHERE kind != 'note')"
+    )
     # A meal the notes were the only thing in goes (with its notes); the other notes go next.
     op.execute(
         "DELETE FROM meal WHERE id IN (SELECT meal_id FROM meal_item WHERE kind = 'note')"
