@@ -28,7 +28,8 @@ describe('chipsThatFit (F47)', () => {
   it('needs no "+N more" row when everything fits', () => {
     // three chips and nothing else: 3 + 20 + 76 + 3 = 102
     expect(chipsThatFit(102, 3)).toBe(3);
-    expect(chipsThatFit(101, 3)).toBe(2);
+    // one short: three do not fit, so "+N more" is needed, and two chips with it need 102
+    expect(chipsThatFit(101, 3)).toBe(1);
   });
 
   it('never shows more than three, and grows with the text size', () => {
