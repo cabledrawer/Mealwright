@@ -36,6 +36,7 @@
     | 'place-spice'
     | 'flask'
     | 'pan'
+    | 'plate'
     | 'play';
 </script>
 
@@ -147,6 +148,9 @@
   {:else if name === 'pan'}
     <path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" />
     <path d="M17 13h3" />
+  {:else if name === 'plate'}
+    <circle cx="12" cy="13" r="7" />
+    <path d="M5 13h14" />
   {:else if name === 'play'}
     <path d="M8 5v14l11-7z" fill="currentColor" />
   {:else if name === 'search'}

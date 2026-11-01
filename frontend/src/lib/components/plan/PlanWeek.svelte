@@ -14,7 +14,7 @@
 <div class="week" role="group" aria-label="Week plan">
   <div
     class="grid"
-    style:grid-template-rows="auto repeat({model.slotsOn.length}, minmax(76px, 1fr))"
+    style:grid-template-rows="auto repeat({model.slotsOn.length}, minmax(6.5rem, auto))"
   >
     <span class="corner"></span>
     {#each model.days as day (day)}
@@ -47,9 +47,13 @@
     overflow-y: auto;
   }
 
+  /* Cells are only as tall as what is in them (F42): rows size to their content, and each cell
+     sits at the top of its row. */
   .grid {
     flex: 1;
     display: grid;
+    align-content: start;
+    align-items: start;
     grid-template-columns: 36px repeat(7, minmax(0, 1fr));
     gap: var(--space-4);
     min-height: min-content;

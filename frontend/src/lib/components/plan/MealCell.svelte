@@ -8,15 +8,8 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
-  import {
-    colourOfBatch,
-    cookBatchOfItem,
-    itemName,
-    mealTotals,
-    recipeMeta,
-    tubOf,
-    whoseTub
-  } from '#lib/planMeals.js';
+  import { weekCards } from '#lib/planCards.js';
+  import { mealTotals } from '#lib/planMeals.js';
 
   let { actions, day, slot }: { actions: PlanActions; day: string; slot: MealSlot } = $props();
 
@@ -25,37 +18,19 @@
   const over = $derived(drag.isOver(day, slot.id) ? drag.over : null);
   const can = $derived(actions.desktop && !actions.readonly);
 
-  /** A tub: "Tub 2 of 4 · Wren". */
-  function tubMeta(item: PlanItem): string {
-    const found = tubOf(model.plan, item);
-    if (!found) return 'Tub';
-    const who = whoseTub(found.tub, model.people);
-    return `Tub ${found.tub.number} of ${found.batch.tub_count}${who ? ` · ${who}` : ''}`;
-  }
-
-  /** The batch colour a card wears: light on a tub, solid on the day it was cooked. */
-  function colourOf(m: PlanMeal, item: PlanItem): { n: number; solid: boolean } | null {
-    const found = tubOf(model.plan, item);
-    if (found) return { n: colourOfBatch(found.batch), solid: false };
-    const cooked = cookBatchOfItem(model.plan, m, item);
-    return cooked ? { n: colourOfBatch(cooked), solid: true } : null;
-  }
-
-  function meta(item: PlanItem): string {
-    if (item.kind === 'tub') return tubMeta(item);
-    if (item.kind === 'note') return 'Note';
-    return recipeMeta(item);
-  }
-
-  function cardFor(m: PlanMeal, item: PlanItem) {
+  function cardFor(m: PlanMeal, item: PlanItem, cook: boolean) {
     // One thing in the meal: the card is the meal. Several: each is itself.
     const whole = m.items.length === 1;
     return {
-      carry: can ? () => (whole ? actions.carryMeal(m) : actions.carryItem(m, item)) : null,
+      carry: can
+        ? () =>
+            cook ? actions.carryCook(m) : whole ? actions.carryMeal(m) : actions.carryItem(m, item)
+        : null,
       open: () => (whole ? actions.openMeal(m) : actions.openItem(m, item))
     };
   }
 
+  const cards = $derived(meal ? weekCards(model.plan!, meal, model.people, model.slotsOn) : []);
   const where = $derived(`${slot.name} on ${dayFull(day)}`);
 </script>
 
@@ -68,34 +43,60 @@
 >
   {#if meal}
     <div class="meal" class:one={meal.items.length === 1}>
-      {#each meal.items as item (item.id)}
-        {@const batch = colourOf(meal, item)}
-        {@const cooked = batch?.solid ? cookBatchOfItem(model.plan, meal, item) : null}
+      {#each cards as card (card.key)}
+        {@const item = card.item}
+        {@const solo = meal.items.length === 1 && card.role === 'fresh'}
         <button
           type="button"
-          class="card"
+          class="card {card.role}"
           class:can
-          class:tub={item.kind === 'tub'}
-          class:batch={batch !== null}
-          class:solid={batch?.solid}
-          style:--soft={batch ? `var(--batch-${batch.n}-soft)` : undefined}
-          style:--soft-text={batch ? `var(--batch-${batch.n}-soft-text)` : undefined}
-          style:--solid={batch ? `var(--batch-${batch.n})` : undefined}
+          class:before={card.before}
+          style:--soft={card.colour ? `var(--batch-${card.colour}-soft)` : undefined}
+          style:--soft-text={card.colour ? `var(--batch-${card.colour}-soft-text)` : undefined}
+          style:--dot={card.colour ? `var(--batch-${card.colour})` : undefined}
           disabled={actions.readonly}
-          use:pressable={cardFor(meal, item)}
-          aria-label="{itemName(item, model.plan)}, {where}. Open menu"
+          use:pressable={cardFor(
+            meal,
+            item,
+            card.role === 'cook' || (card.role === 'eat' && !item.tub_id)
+          )}
+          data-item={item.id}
+          aria-label="{card.name}{card.role === 'cook'
+            ? ' (cooking)'
+            : card.role === 'eat' && !card.item.tub_id
+              ? ' (eating)'
+              : ''}, {where}{card.before ? ', before the cook day' : ''}. Open menu"
         >
-          {#if item.recipe?.photo_url && meal.items.length === 1}
+          {#if item.recipe?.photo_url && solo}
             <img class="photo" src={item.recipe.photo_url} alt="" loading="lazy" />
           {/if}
-          <span class="name">{itemName(item, model.plan)}</span>
-          {#if meta(item)}<span class="meta">{meta(item)}</span>{/if}
-          {#if cooked}
-            <span class="meta"
-              >{cooked.prep_note ??
-                `Cook once · ${cooked.tub_count} ${cooked.tub_count === 1 ? 'tub' : 'tubs'}`}</span
+          {#if card.eyebrow}
+            <span class="eyebrow"
+              ><Icon
+                name={card.role === 'cook' ? 'pan' : 'plate'}
+                size={13}
+                stroke={2.4}
+              />{card.eyebrow}</span
             >
           {/if}
+          <span class="name">{card.shown}</span>
+          {#if card.role === 'cook'}
+            <span class="meta"><i class="dot" aria-hidden="true"></i>{card.meta}</span>
+            {#if card.prep}<span class="meta">{card.prep}</span>{/if}
+          {:else if card.meta}
+            <span class="meta"
+              >{#if card.role === 'fresh'}<Icon name="pan" size={13} stroke={2.4} />Fresh ·
+              {/if}{card.meta}</span
+            >
+          {:else if card.role === 'fresh'}
+            <span class="meta"><Icon name="pan" size={13} stroke={2.4} />Fresh</span>
+          {/if}
+          {#if card.who.length}
+            <span class="who"
+              >{#each card.who as person (person)}<span>{person}</span>{/each}</span
+            >
+          {/if}
+          {#if card.before}<span class="early">Before the cook day</span>{/if}
         </button>
       {/each}
       <div class="foot">
@@ -164,7 +165,7 @@
   }
 
   .add {
-    flex: 1;
+    width: 100%;
     min-height: var(--touch-target);
     border: 1px dashed var(--color-add-border);
     border-radius: var(--radius-md);
@@ -183,7 +184,6 @@
   }
 
   .meal {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -196,11 +196,11 @@
   .card {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     min-height: var(--touch-target);
-    padding: var(--space-4) var(--space-5);
-    border: none;
-    border-radius: var(--radius-sm);
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
     background: var(--color-ground);
     color: var(--color-text);
     font: inherit;
@@ -218,17 +218,44 @@
     cursor: grab;
   }
 
-  .card.tub {
-    background: var(--color-tub-chip);
-    color: var(--color-tub-chip-text);
+  .card.fresh,
+  .card.plain {
+    border-color: var(--color-border-strong);
+    background: var(--color-surface);
+  }
+
+  /* COOK is blue, with a pan; the dot is the batch's colour, which its tubs wear. */
+  .card.cook {
+    background: var(--color-cook);
+    color: var(--color-cook-text);
+  }
+
+  .card.eat {
+    background: var(--soft);
+    color: var(--soft-text);
+  }
+
+  .card.before {
+    outline: 2px solid var(--batch-2);
+    outline-offset: 1px;
   }
 
   .photo {
     display: block;
-    width: calc(100% + 2 * var(--space-5));
+    width: calc(100% + 2 * var(--space-6));
     height: 54px;
-    margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-5)) var(--space-2);
+    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-6)) var(--space-2);
     object-fit: cover;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: var(--tracking-overline);
+    text-transform: uppercase;
   }
 
   .name {
@@ -238,24 +265,45 @@
   }
 
   .meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     color: var(--color-text-muted);
     font-size: var(--text-xs);
     font-weight: var(--weight-medium);
   }
 
-  .card.batch {
-    background: var(--soft);
-    color: var(--soft-text);
-  }
-
-  .card.solid {
-    background: var(--solid);
-    color: #fff;
-  }
-
-  .card.tub .meta,
-  .card.batch .meta {
+  .card.cook .meta,
+  .card.eat .meta {
     color: inherit;
+  }
+
+  .dot {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    background: var(--dot);
+  }
+
+  .who {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .who span {
+    padding: 2px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+  }
+
+  .early {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
   }
 
   .foot {
@@ -264,7 +312,6 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
-    margin-top: auto;
   }
 
   .totals {

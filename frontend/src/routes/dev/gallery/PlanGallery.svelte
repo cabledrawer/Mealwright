@@ -112,7 +112,8 @@
     add: () => {},
     openDay: (day) => (target = { kind: 'day', day }),
     carryMeal: (meal) => ({ label: 'Meal', zones: true, drop: () => void meal }),
-    carryItem: (meal) => ({ label: 'Item', zones: true, drop: () => void meal })
+    carryItem: (meal) => ({ label: 'Item', zones: true, drop: () => void meal }),
+    carryCook: (meal) => ({ label: 'Cook', zones: false, drop: () => void meal })
   };
   const phoneActions: PlanActions = { ...actions, desktop: false };
   const offlineActions: PlanActions = { ...actions, readonly: true };

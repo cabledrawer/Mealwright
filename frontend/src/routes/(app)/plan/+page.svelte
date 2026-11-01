@@ -35,6 +35,7 @@
   import { PlanModel } from '#lib/plan.svelte.js';
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   const model = new PlanModel();
   const recipes = new RecipeList();
@@ -233,6 +234,22 @@
     add: (day, slotId) => (adding = { day, slotId }),
     openDay: (day) => (sheet = { kind: 'day', day }),
     carryMeal,
+    // The cooking and its EAT card are one meal, so they move together, as one change with one
+    // Undo. Tubs now before the cook day are flagged on the Week, not refused. It can't land on a
+    // meal that is already planned: the meal would be folded into that one and lose its cooking.
+    carryCook: (meal) => ({
+      label: mealName(meal, model.plan),
+      zones: false,
+      drop: (day, slot) => {
+        const to = slot ?? meal.slot_id;
+        if (day === meal.date && to === meal.slot_id) return;
+        if (model.mealAt(day, to)) {
+          toasts.show('Cooking can only move to an empty meal.', { tone: 'problem' });
+          return;
+        }
+        void model.drop({ meal: meal.id }, day, to, 'move');
+      }
+    }),
     carryItem: (meal, item) => ({
       label: itemName(item, model.plan),
       zones: true,

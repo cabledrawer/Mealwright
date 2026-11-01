@@ -129,6 +129,8 @@ export default defineConfig({
     { name: 'desktop 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
+    { name: 'desktop 0.7 plan cards', testMatch: 'plan-cards.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+
     { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
     // The server stopped behind the reverse proxy (502): one steady offline state (0.7, F67).

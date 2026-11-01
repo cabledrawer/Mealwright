@@ -412,6 +412,8 @@ for (const width of [800, 1024]) {
         await expect(menu).toBeVisible();
         await expectWhole(page, `the meal's menu, ${at}`);
         await menu.getByRole('button', { name: 'Cook once, eat for…' }).click();
+        // The sheet's code is fetched when first asked for: wait for it before measuring.
+        await expect(page.getByRole('dialog', { name: 'Cook once, eat for…' })).toBeVisible();
         await expectWhole(page, `Cook once, ${at}`);
         await page.keyboard.press('Escape');
         await dayCard(page, day).getByRole('button', { name: new RegExp(`Breakfast: .*${w.pongal}`) }).click();
