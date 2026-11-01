@@ -7,6 +7,7 @@ import { cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
 import { cookedIt, type Leftovers } from './client/today';
+import { sendTwice } from './sendTwice';
 import {
   editTub,
   fillFromFreezer,
@@ -181,37 +182,44 @@ export class PlanModel {
     send: (key: string) => Promise<PlanWrite>;
     /** Also undone when this is (what "Cooked it" took from the pantry). */
     alsoUndo?: () => Promise<string | void>;
+    /** Sent again with the same ID, and no toast of its own: the caller says it once. */
+    changeId?: string;
+    quiet?: boolean;
   }) {
     let before: Plan | null = null;
     let undoer: (() => Promise<string | void>) | null = null;
-    return save<PlanWrite>({
-      apply: () => {
-        before = $state.snapshot(this.plan) as Plan | null;
-        if (this.plan && options.edit) this.plan = options.edit(this.plan);
-      },
-      rollback: () => {
-        if (before) this.plan = before;
-      },
-      send: (key) => options.send(key),
-      // The screen fetches the plan again when the kitchen changes.
-      saved: () => kitchen.changed(),
-      undo: {
-        label: options.label,
-        labelFrom: (value) => value.change?.summary,
-        skip: (value) => value.change === null,
-        run: (value) => {
-          const change = value.change;
-          if (!change?.can_undo) return false;
-          undoer ??= serverUndo(change.id);
-          if (!options.alsoUndo) return undoer();
-          return (async () => {
-            const own = await undoer!();
-            const more = await options.alsoUndo?.();
-            return more ?? own;
-          })();
+    return save<PlanWrite>(
+      {
+        apply: () => {
+          before = $state.snapshot(this.plan) as Plan | null;
+          if (this.plan && options.edit) this.plan = options.edit(this.plan);
+        },
+        rollback: () => {
+          if (before) this.plan = before;
+        },
+        send: (key) => options.send(key),
+        // The screen fetches the plan again when the kitchen changes.
+        saved: () => kitchen.changed(),
+        quiet: options.quiet,
+        undo: {
+          label: options.label,
+          labelFrom: (value) => value.change?.summary,
+          skip: (value) => value.change === null,
+          run: (value) => {
+            const change = value.change;
+            if (!change?.can_undo) return false;
+            undoer ??= serverUndo(change.id);
+            if (!options.alsoUndo) return undoer();
+            return (async () => {
+              const own = await undoer!();
+              const more = await options.alsoUndo?.();
+              return more ?? own;
+            })();
+          }
         }
-      }
-    });
+      },
+      options.changeId
+    );
   }
 
   /** Plan a recipe or an ingredient on a day and meal. */
@@ -291,11 +299,15 @@ export class PlanModel {
    * The pantry was already changed by the review; this is Today's answer, as on Today. */
   cooked(meal: PlanMeal, leftovers: Leftovers | null, undoCooked?: () => Promise<string | void>) {
     const name = mealName(meal, this.plan);
-    return this.#send({
-      label: `Cooked ${name}`,
-      send: (key) => cookedIt(meal.id, leftovers, key),
-      alsoUndo: undoCooked
-    });
+    return sendTwice((changeId) =>
+      this.#send({
+        label: `Cooked ${name}`,
+        send: (key) => cookedIt(meal.id, leftovers, key),
+        alsoUndo: undoCooked,
+        changeId,
+        quiet: true
+      })
+    );
   }
 
   /** Put a tub in a meal (from tubs left, or moving one that is in a meal already). */

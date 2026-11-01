@@ -22,7 +22,7 @@
   import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import PlanWeek from '#lib/components/plan/PlanWeek.svelte';
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
-  import { CookReview } from '#lib/cookReview.svelte.js';
+  import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -347,7 +347,7 @@
   onconfirmed={async (leftovers, undoCooked) => {
     const meal = cookedMeal;
     if (!meal) return true;
-    return (await model.cooked(meal, leftovers, undoCooked)).ok;
+    return answered(await model.cooked(meal, leftovers, undoCooked));
   }}
 />
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />

@@ -66,6 +66,8 @@ export interface Change<T> {
   };
   /** Deal with a refusal yourself (return true), e.g. "name taken → open that food". */
   refused?: (error: ApiError) => boolean;
+  /** Show no toast when it fails: the caller says it once (the "Cooked it" review). */
+  quiet?: boolean;
 }
 
 export type Outcome<T> =
@@ -172,6 +174,7 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
 function tellProblem<T>(error: unknown, change: Change<T>, retry: () => void): void {
   // A session that has ended goes to sign in (api.ts); no toast needed.
   if (error instanceof ApiError && error.status === 401) return;
+  if (change.quiet) return;
   if (error instanceof ApiError && change.refused?.(error)) return;
   if (worthRetrying(error)) {
     toasts.show(COULDNT_SAVE, { tone: 'problem', action: { label: 'Try again', run: retry } });

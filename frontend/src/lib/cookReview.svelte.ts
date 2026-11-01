@@ -19,12 +19,15 @@ import {
   type Proposal
 } from './client/cook';
 import type { Answer } from './client/types';
-import { choicesOf, newRowState, withAnswer, type RowState } from './cookRows';
+import { TOO_MANY_ANSWERS, choicesOf, newRowState, withAnswer, type RowState } from './cookRows';
 import { kitchen } from './freshness.svelte';
-import { save, type Outcome } from './save';
+import { save, worthRetrying, type Outcome } from './save';
+import { newChangeId } from './changeId';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
+export const COULDNT_REACH_COOK =
+  'Couldn’t reach the server. Some of “Cooked it” may be saved: check Recent changes.';
 export const COULDNT_COOK = 'Couldn’t save “Cooked it”. Nothing was changed. Try again.';
 
 /** One recipe to cook: a meal item, or a Cook once batch. */
@@ -65,6 +68,8 @@ export class CookTab {
     this.states[key] = { ...(this.states[key] ?? newRowState()), ...change };
   }
 }
+
+type Outcomes = Outcome<CookedMealWrite | CookedWrite>[];
 
 export class CookReview {
   target = $state<CookTarget | null>(null);
@@ -168,14 +173,16 @@ export class CookReview {
    */
   async confirm(
     options: {
-      /** What follows the pantry (the meal's answer): false makes the whole confirm fail. */
-      after?: (outcomes: Outcome<CookedMealWrite | CookedWrite>[]) => Promise<boolean>;
+      /**
+       * What follows the pantry (the meal's answer). false: it was refused, so the pantry is put
+       * back. 'unsure': its reply was lost, so nothing is taken back.
+       */
+      after?: (outcomes: Outcomes) => Promise<boolean | 'unsure'>;
     } = {}
-  ): Promise<{ ok: boolean; outcomes: Outcome<CookedMealWrite | CookedWrite>[] }> {
-    const undoable = false; // one Undo for the lot is made below, or by the meal's answer
+  ): Promise<{ ok: boolean; outcomes: Outcomes }> {
     const target = this.target;
     if (!target) return { ok: false, outcomes: [] };
-    const outcomes: Outcome<CookedMealWrite | CookedWrite>[] = [];
+    const outcomes: Outcomes = [];
     const items = this.tabs.filter((t) => t.part.itemId !== null);
     this.saving = true;
     const label = target.title;
@@ -190,9 +197,7 @@ export class CookReview {
         answers: this.answers
       };
       outcomes.push(
-        await this.#send(label, undoable, (key, asked) =>
-          cookMeal(mealId, withAsked(body, asked), key)
-        )
+        await this.#send((key, asked) => cookMeal(mealId, this.#merged(body, asked), key))
       );
     }
     for (const tab of this.tabs.filter((t) => t.part.batchId !== null)) {
@@ -204,14 +209,21 @@ export class CookReview {
         answers: this.answers
       };
       outcomes.push(
-        await this.#send(label, undoable, (key, asked) =>
-          cookBatch(batchId, withAsked(body, asked), key)
-        )
+        await this.#send((key, asked) => cookBatch(batchId, this.#merged(body, asked), key))
       );
     }
-    let ok = outcomes.every((o) => o.ok);
-    if (ok && options.after) ok = await options.after(outcomes);
-    if (!ok) await this.#takeBack(outcomes);
+    // A refusal (the server answered no) takes back what worked. A reply that never came may
+    // still have been saved, so then nothing is taken back (proposed, for cabledrawer).
+    const failed = outcomes.find((o) => !o.ok);
+    let result: 'ok' | 'unsure' | 'refused' = 'ok';
+    if (failed && !failed.ok)
+      result = !failed.cancelled && worthRetrying(failed.error) ? 'unsure' : 'refused';
+    if (result === 'ok' && options.after) {
+      const answered = await options.after(outcomes);
+      result = answered === true ? 'ok' : answered === 'unsure' ? 'unsure' : 'refused';
+    }
+    if (result === 'refused') await this.#takeBack(outcomes);
+    else if (result === 'unsure') this.#keep(outcomes);
     else if (!options.after && outcomes.length > 0) {
       const done = outcomes.flatMap((o) => (o.ok ? [o.value] : []));
       undoHistory.record(
@@ -219,7 +231,17 @@ export class CookReview {
       );
     }
     this.saving = false;
-    return { ok, outcomes };
+    return { ok: result !== 'refused', outcomes };
+  }
+
+  /** The screen's answers plus any the server asked for as the confirm went; 20 at most. */
+  #merged<B extends { answers: Answer[] }>(body: B, asked: Answer[]): B {
+    const merged = withAsked(body, asked);
+    if (asked.some((a) => !merged.answers.includes(a))) {
+      this.tooMany = true;
+      throw new ApiError(422, TOO_MANY_ANSWERS, 'too_many_answers');
+    }
+    return merged;
   }
 
   #undoEntry(done: (CookedMealWrite | CookedWrite)[], label: string): UndoEntry {
@@ -229,29 +251,42 @@ export class CookReview {
       needsServer: true,
       undo: async () => {
         let said: string | void = undefined;
-        for (const undo of undoers.reverse()) said = (await undo()) ?? said;
+        for (const undo of [...undoers].reverse()) said = (await undo()) ?? said;
         return said;
       }
     };
   }
 
+  /** The reply was lost: keep every change that worked, each with its Undo, and say so. */
+  #keep(outcomes: Outcomes): void {
+    for (const o of outcomes) {
+      if (o.ok)
+        undoHistory.record(this.#undoEntry([o.value], o.value.change.summary), { toast: false });
+    }
+    toasts.show(COULDNT_REACH_COOK, { tone: 'problem' });
+    kitchen.changed();
+  }
+
   /**
-   * One call failed (or the meal's answer did): put back what the others took, last first, and
-   * say nothing was changed. Whatever cannot be put back (the server went away) keeps a normal
-   * Undo, so nothing is left without one. (Proposed, for cabledrawer.)
+   * A call was refused (or the meal's answer): put back what the others took, last first, and
+   * say nothing was changed. An Undo that comes back "partly" counts as stayed, and its message
+   * is shown. Whatever cannot be put back (the server went away) keeps a normal Undo, so
+   * nothing is left without one. (Proposed, for cabledrawer.)
    */
-  async #takeBack(outcomes: Outcome<CookedMealWrite | CookedWrite>[]): Promise<void> {
+  async #takeBack(outcomes: Outcomes): Promise<void> {
     const worked = outcomes.flatMap((o) => (o.ok && o.value.change.can_undo ? [o.value] : []));
     const stayed: (CookedMealWrite | CookedWrite)[] = [];
-    for (const value of worked.reverse()) {
+    const notes: string[] = [];
+    for (const value of [...worked].reverse()) {
       try {
-        await serverUndo(value.change.id)();
+        const said = await serverUndo(value.change.id)();
+        if (said) notes.push(said);
       } catch {
         stayed.push(value);
       }
     }
     if (stayed.length === 0) {
-      toasts.show(COULDNT_COOK, { tone: 'problem' });
+      toasts.show(notes.length ? notes.join(' ') : COULDNT_COOK, { tone: 'problem' });
       return;
     }
     for (const value of stayed) {
@@ -259,26 +294,25 @@ export class CookReview {
     }
   }
 
-  #send<T extends CookedMealWrite | CookedWrite>(
-    label: string,
-    undoable: boolean,
+  /** One call, sent again once with the same key if the reply never came (the server then
+   * answers from the first, taking nothing twice). It shows nothing itself: the review says it. */
+  async #send<T extends CookedMealWrite | CookedWrite>(
     send: (key: string, asked: Answer[]) => Promise<T>
   ): Promise<Outcome<T>> {
-    return save<T>({
-      apply: () => {},
-      rollback: () => {},
-      send,
-      saved: () => kitchen.changed(),
-      // With a meal answer to follow, that answer's toast undoes this too (one Undo).
-      undo: undoable
-        ? {
-            label,
-            labelFrom: (value) => value.change.summary,
-            skip: (value) => !value.change.can_undo,
-            run: (value) => serverUndo(value.change.id)()
-          }
-        : undefined
-    });
+    const key = newChangeId();
+    const once = () =>
+      save<T>(
+        {
+          apply: () => {},
+          rollback: () => {},
+          send,
+          saved: () => kitchen.changed(),
+          quiet: true
+        },
+        key
+      );
+    const first = await once();
+    return !first.ok && !first.cancelled && worthRetrying(first.error) ? once() : first;
   }
 }
 
@@ -296,7 +330,13 @@ export function undoAll(
   );
   return async () => {
     let said: string | void = undefined;
-    for (const undo of undoers) said = (await undo()) ?? said;
+    for (const undo of [...undoers].reverse()) said = (await undo()) ?? said;
     return said;
   };
+}
+
+/** What the meal's answer came to for the review: done, refused, or its reply never came. */
+export function answered(outcome: Outcome<unknown>): boolean | 'unsure' {
+  if (outcome.ok) return true;
+  return !outcome.cancelled && worthRetrying(outcome.error) ? 'unsure' : false;
 }

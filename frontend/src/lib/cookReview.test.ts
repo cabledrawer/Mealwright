@@ -32,6 +32,10 @@ describe('one Undo for what was taken from the pantry', () => {
     const undo = undoAll([outcome(5), outcome(6, false), outcome(7)]);
     expect(await undo()).toBe('Put back 150 g of the 200 g.');
     // The one that cannot be undone is left out.
-    expect(asked).toEqual(['POST /api/v1/changes/5/undo', 'POST /api/v1/changes/7/undo']);
+    expect(asked).toEqual(['POST /api/v1/changes/7/undo', 'POST /api/v1/changes/5/undo']);
+    // Asked again, it goes the same way round (the list is never turned over in place).
+    asked.length = 0;
+    await undo();
+    expect(asked).toEqual(['POST /api/v1/changes/7/undo', 'POST /api/v1/changes/5/undo']);
   });
 });

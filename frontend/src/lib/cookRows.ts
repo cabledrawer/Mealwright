@@ -193,7 +193,10 @@ export function parseAmountText(text: string): number {
   const glyph = /^(\d+)?\s*([¼½¾])$/.exec(t);
   if (glyph) return Number(glyph[1] ?? 0) + (GLYPHS[glyph[2]!] ?? 0);
   const fraction = /^(\d+)?\s*(\d+)\/(\d+)$/.exec(t);
-  if (fraction) return Number(fraction[1] ?? 0) + Number(fraction[2]) / Number(fraction[3]);
+  if (fraction) {
+    const value = Number(fraction[1] ?? 0) + Number(fraction[2]) / Number(fraction[3]);
+    return Number(fraction[3]) > 0 && Number.isFinite(value) ? value : NaN;
+  }
   return /^\d*\.?\d+$/.test(t) ? Number(t) : NaN;
 }
 

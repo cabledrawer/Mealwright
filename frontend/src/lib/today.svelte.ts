@@ -17,6 +17,7 @@ import {
   type WaitingMeal
 } from './client/today';
 import { kitchen } from './freshness.svelte';
+import { sendTwice } from './sendTwice';
 import { network } from './network.svelte';
 import { rememberedLogin } from './offline/device';
 import { wipePending } from './offline/wipePending.svelte';
@@ -166,41 +167,48 @@ export class TodayModel {
     send: (key: string) => ReturnType<typeof didntCook>;
     /** Also undone when this is: what "Cooked it" took from the pantry (one Undo for both). */
     alsoUndo?: () => Promise<string | void>;
+    /** Sent again with the same ID, and no toast of its own: the caller says it once. */
+    changeId?: string;
+    quiet?: boolean;
   }) {
     let before: TodayData | null = null;
     let undoer: (() => Promise<string | void>) | null = null;
-    return save({
-      apply: () => {
-        before = $state.snapshot(this.data) as TodayData | null;
-        if (this.data) {
-          // The card goes at once; the next one (if any) shows.
-          this.data = {
-            ...this.data,
-            waiting: this.data.waiting.filter((w) => w.meal_id !== options.mealId)
-          };
+    return save(
+      {
+        apply: () => {
+          before = $state.snapshot(this.data) as TodayData | null;
+          if (this.data) {
+            // The card goes at once; the next one (if any) shows.
+            this.data = {
+              ...this.data,
+              waiting: this.data.waiting.filter((w) => w.meal_id !== options.mealId)
+            };
+          }
+        },
+        rollback: () => {
+          if (before) this.data = before;
+        },
+        send: (key) => options.send(key),
+        saved: () => kitchen.changed(),
+        quiet: options.quiet,
+        undo: {
+          label: options.label,
+          labelFrom: (value) => value.change?.summary,
+          skip: (value) => value.change === null,
+          run: (value) => {
+            const change = value.change;
+            if (!change?.can_undo) return false;
+            undoer ??= serverUndo(change.id);
+            return (async () => {
+              const own = await undoer!();
+              const more = await options.alsoUndo?.();
+              return more ?? own;
+            })();
+          }
         }
       },
-      rollback: () => {
-        if (before) this.data = before;
-      },
-      send: (key) => options.send(key),
-      saved: () => kitchen.changed(),
-      undo: {
-        label: options.label,
-        labelFrom: (value) => value.change?.summary,
-        skip: (value) => value.change === null,
-        run: (value) => {
-          const change = value.change;
-          if (!change?.can_undo) return false;
-          undoer ??= serverUndo(change.id);
-          return (async () => {
-            const own = await undoer!();
-            const more = await options.alsoUndo?.();
-            return more ?? own;
-          })();
-        }
-      }
-    });
+      options.changeId
+    );
   }
 
   /**
@@ -213,12 +221,16 @@ export class TodayModel {
     undoCooked?: () => Promise<string | void>
   ) {
     const name = this.nameOf(waiting);
-    return this.#send({
-      label: `Cooked ${name}`,
-      mealId: waiting.meal_id,
-      send: (key) => cookedIt(waiting.meal_id, leftovers, key),
-      alsoUndo: undoCooked
-    });
+    return sendTwice((changeId) =>
+      this.#send({
+        label: `Cooked ${name}`,
+        mealId: waiting.meal_id,
+        send: (key) => cookedIt(waiting.meal_id, leftovers, key),
+        alsoUndo: undoCooked,
+        changeId,
+        quiet: true
+      })
+    );
   }
 
   didnt(waiting: WaitingMeal) {

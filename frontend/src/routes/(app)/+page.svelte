@@ -15,7 +15,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
-  import { CookReview } from '#lib/cookReview.svelte.js';
+  import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
@@ -314,7 +314,7 @@
   onconfirmed={async (leftovers, undoCooked) => {
     const waiting = answering;
     if (!waiting) return true;
-    return (await model.cooked(waiting, leftovers, undoCooked)).ok;
+    return answered(await model.cooked(waiting, leftovers, undoCooked));
   }}
 />
 <MoveSheet {model} waiting={moving} onclose={() => (moving = null)} />

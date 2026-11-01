@@ -37,7 +37,7 @@
     onconfirmed?: (
       leftovers: Leftovers | null,
       undoCooked: () => Promise<string | void>
-    ) => void | boolean | Promise<void | boolean>;
+    ) => void | boolean | 'unsure' | Promise<void | boolean | 'unsure'>;
   } = $props();
 
   const uid = $props.id();
@@ -98,7 +98,10 @@
     // screen stays open, so Confirm can be pressed again.
     const { ok } = await review.confirm({
       after: onconfirmed
-        ? async (outcomes) => (await onconfirmed(leftovers, undoAll(outcomes))) !== false
+        ? async (outcomes) => {
+            const answered = await onconfirmed(leftovers, undoAll(outcomes));
+            return answered === undefined ? true : answered;
+          }
         : undefined
     });
     if (ok) onclose(); // the answer was given first: closing lets go of what it was about

@@ -240,6 +240,9 @@ describe('at most 20 answers', () => {
       parseAmountText('1/2'),
       parseAmountText('2,5')
     ]).toEqual([0.25, 1.5, 0.5, 2.5]);
+    expect(parseAmountText('1/0')).toBeNaN();
+    expect(parseAmountText('0/0')).toBeNaN();
+    expect(parseAmountText('2 1/0')).toBeNaN();
     expect(parseAmountText('abc')).toBeNaN();
     expect(parseAmountText('')).toBeNaN();
   });
