@@ -89,7 +89,8 @@ test('opens from All recipes, says where each ingredient is, and passes the acce
   await expect(reader(page).getByText('unknown', { exact: true }).first()).toBeVisible(); // carbs were never typed
   // Edit opens the editor (Delete is inside it). Hidden in 0.4: not drawn, not stubbed.
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveAttribute('href', `/recipes/${recipe.id}/edit`);
-  await expect(page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Delete/)).toHaveCount(0);
+  await expect(page.getByRole('main').getByText(/Start cooking|Cook once|Delete/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Plan it', exact: true })).toBeVisible();
   await checkPage(page);
 });
 

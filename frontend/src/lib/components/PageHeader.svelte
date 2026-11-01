@@ -65,8 +65,6 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    /* The title keeps its words whole: at a large text size the buttons wrap under it. */
-    flex-wrap: wrap;
     gap: var(--space-6);
   }
 

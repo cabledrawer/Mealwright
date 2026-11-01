@@ -466,6 +466,11 @@
     min-height: calc(100dvh - 2 * var(--space-10));
   }
 
+  /* The title keeps its words whole: at a large text size the buttons wrap under it. */
+  .plan :global(.page-header) {
+    flex-wrap: wrap;
+  }
+
   .toolbar {
     display: flex;
     flex-wrap: wrap;

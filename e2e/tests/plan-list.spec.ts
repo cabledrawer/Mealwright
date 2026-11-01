@@ -1,6 +1,11 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, setAccountTheme } from './a11y.ts';
 
+// The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mealwright.plan-show', 'both'));
+});
+
 // The shopping list built from the plan (0.6, PR 5), against the real server: a planned recipe's
 // ingredients appear on Shopping and follow the plan; a hand edit survives a plan change; the
 // "Check you have these" card with Got it and + Add. Runs on Chromium (phone and computer) and

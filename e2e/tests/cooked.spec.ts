@@ -1,6 +1,11 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone } from './a11y.ts';
 
+// The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mealwright.plan-show', 'both'));
+});
+
 // "Cooked it", the review (0.7, K3), against the real server: what comes out of the pantry, a Use
 // switch and an amount you can change on every row, one Confirm and one Undo, a tab for each
 // recipe of a meal, "Bought some — used them", the question in the pantry's unit (F106), a Cook

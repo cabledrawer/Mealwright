@@ -95,6 +95,11 @@ async function mouseDrag(page: Page, from: Locator, to: Locator, zone?: 'leftove
   await page.mouse.up();
 }
 
+// The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mealwright.plan-show', 'both'));
+});
+
 const scriptErrors: string[] = [];
 test.beforeEach(async ({ page }) => {
   scriptErrors.length = 0;

@@ -338,6 +338,7 @@ for (const width of [800, 1024]) {
         await expect(page.getByRole('dialog', { name: 'Add to the plan' })).toBeVisible();
         await expectWhole(page, `Add to the plan, ${at}`);
         await page.keyboard.press('Escape');
+        await expect(page.getByRole('dialog', { name: 'Add to the plan' })).toHaveCount(0);
         // The month, with its day.
         await page.getByRole('button', { name: 'Month', exact: true }).click();
         await expectWhole(page, `Month, ${at}`);

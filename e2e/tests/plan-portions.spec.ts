@@ -1,6 +1,11 @@
 import { test, expect, type Page } from './clock.ts';
 import { expectNoAxeViolations, expectNoSidewaysScroll, expectTouchTargets, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
+// The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mealwright.plan-show', 'both'));
+});
+
 // Portions, Serves - N + and Note (0.7, P1): "Leftovers on…" with several meals ticked and the
 // portions left, "No portions left" with Cook more and Add anyway, Serves in the meal's menu
 // (also on a meal planned before the update, which has no number set), who's eating, and a

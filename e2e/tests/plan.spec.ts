@@ -136,6 +136,11 @@ async function fingerHold(target: Locator) {
 const toast = (page: Page) => page.getByRole('status').filter({ hasText: /Undo|Planned|Moved|Copied|Removed|Leftovers/ });
 
 // A script error anywhere on the page fails the test that caused it.
+// The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('mealwright.plan-show', 'both'));
+});
+
 const scriptErrors: string[] = [];
 
 test.beforeEach(async ({ page }) => {
