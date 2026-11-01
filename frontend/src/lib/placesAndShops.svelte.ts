@@ -6,9 +6,9 @@
 // a session that ends (a 401, or the live stream's signed_out: below), another tab's wipe
 // ((app)/+layout.svelte), and a late answer naming another login ((app)/+layout.ts).
 
-import { forgetWhenSessionEnds } from './api';
-import { addShop, getPlaces, getShops } from './client/foods';
-import type { Place, Shop } from './client/types';
+import { ApiError, codeOf, forgetWhenSessionEnds } from './api';
+import { addPlace, addShop, getPlaces, getShops } from './client/foods';
+import type { Place, PlaceKind, Shop } from './client/types';
 
 class PlacesAndShops {
   places = $state<Place[]>([]);
@@ -53,6 +53,31 @@ class PlacesAndShops {
     if (!this.shops.some((s) => s.id === shop.id)) this.shops = [...this.shops, shop];
     return shop;
   }
+
+  /** "+ Place": adds it last, or finds the one already called that (the server says so with a
+   * 409 `place_exists`), so the screen can just pick it. A network failure is thrown. */
+  async addPlace(name: string, kind: PlaceKind): Promise<Place> {
+    const generation = this.#generation;
+    let place: Place;
+    try {
+      place = await addPlace(name.trim(), kind);
+    } catch (error) {
+      const found = error instanceof ApiError ? existingPlace(error) : null;
+      if (!found) throw error;
+      place = found;
+    }
+    // Forgotten (signed out) while asking: the place is the last login's, so it isn't kept.
+    if (generation !== this.#generation) return place;
+    if (!this.places.some((p) => p.id === place.id)) this.places = [...this.places, place];
+    return place;
+  }
+}
+
+/** The place a 409 `place_exists` names. */
+function existingPlace(error: ApiError): Place | null {
+  if (error.status !== 409 || codeOf(error.body) !== 'place_exists') return null;
+  const place = (error.body as { place?: Place }).place;
+  return place && typeof place.id === 'number' ? place : null;
 }
 
 export const placesAndShops = new PlacesAndShops();

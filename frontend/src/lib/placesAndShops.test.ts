@@ -123,4 +123,64 @@ describe('signing out forgets the household’s shops and places', () => {
     expect(placesAndShops.shops).toEqual([]);
     await arloSeesOnlyHis();
   });
+  it('"+ Place" adds the place, last, with the name tidied and the kind sent', async () => {
+    await wrensLoaded();
+    const requests = fakeApi({
+      ...WRENS,
+      'POST /places': [201, { id: 2, name: 'Garage fridge', kind: 'fridge' }]
+    });
+    const made = await placesAndShops.addPlace('  Garage fridge ', 'fridge');
+    expect(made).toEqual({ id: 2, name: 'Garage fridge', kind: 'fridge' });
+    expect(requests[0]?.body).toEqual({ name: 'Garage fridge', kind: 'fridge' });
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Garage fridge']);
+  });
+
+  it('a place the household already has is picked, not added twice', async () => {
+    await wrensLoaded({
+      'POST /places': [
+        409,
+        {
+          code: 'place_exists',
+          detail: 'There’s already a place called Wren’s fridge.',
+          place: { id: 1, name: 'Wren’s fridge', kind: 'fridge' }
+        }
+      ]
+    });
+    const made = await placesAndShops.addPlace('wren’s FRIDGE', 'cupboard');
+    expect(made).toEqual({ id: 1, name: 'Wren’s fridge', kind: 'fridge' });
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
+  });
+
+  it('a place that is already held by the other server list is put in once', async () => {
+    await wrensLoaded({
+      'POST /places': [
+        409,
+        {
+          code: 'place_exists',
+          detail: 'x',
+          place: { id: 9, name: 'Larder', kind: 'cupboard' }
+        }
+      ]
+    });
+    await placesAndShops.addPlace('larder', 'cupboard');
+    await placesAndShops.addPlace('larder', 'cupboard');
+    expect(placesAndShops.places.filter((p) => p.id === 9)).toHaveLength(1);
+  });
+
+  it('a place added just before signing out isn’t kept for the next login', async () => {
+    await wrensLoaded({ 'POST /places': [201, { id: 2, name: 'Wren’s shed', kind: 'cupboard' }] });
+    let answer!: () => void;
+    const answered = new Promise<void>((done) => (answer = done));
+    const fetched = globalThis.fetch;
+    vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+      await answered;
+      return fetched(...args);
+    });
+    const adding = placesAndShops.addPlace('Wren’s shed', 'cupboard');
+    sessionEnded();
+    answer();
+    await adding;
+    expect(placesAndShops.places).toEqual([]);
+    await arloSeesOnlyHis();
+  });
 });

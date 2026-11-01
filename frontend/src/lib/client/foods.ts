@@ -9,6 +9,7 @@ import type {
   FoodPatch,
   FoodWrite,
   Place,
+  PlaceKind,
   Shop
 } from './types';
 
@@ -124,3 +125,8 @@ export const getShops = () => api<Shop[]>('GET', '/shops');
 
 /** Adds a shop, or returns the one already called that, so "+ Shop" never makes doubles. */
 export const addShop = (name: string) => api<Shop>('POST', '/shops', { name });
+
+/** Adds a place (last in the order). A name the household already has is a 409 `place_exists`
+ *  carrying that place, so "+ Place" picks it instead of making a double. */
+export const addPlace = (name: string, kind: PlaceKind) =>
+  api<Place>('POST', '/places', { name, kind });
