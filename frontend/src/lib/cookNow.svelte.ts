@@ -16,10 +16,18 @@
 // Offline, or the plan can't be written: Cook mode still opens, without "Cooked it", and one
 // line says the recipe wasn't planned.
 
+import { cantReach } from './api';
 import { newChangeId } from './changeId';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
-import { getMealSlots, getPlan, planItem, type MealSlot, type PlanMeal } from './client/plan';
+import {
+  getMealSlots,
+  getPlan,
+  planItem,
+  type MealSlot,
+  type PlanMeal,
+  type PlanWrite
+} from './client/plan';
 import { kitchen } from './freshness.svelte';
 import { network } from './network.svelte';
 import { slotsOn } from './planMeals';
@@ -86,10 +94,17 @@ export class CookNow {
         this.mealId = spot.meal.id; // already planned: nothing new is added
         return;
       }
-      const write = await planItem(
-        { date: today, slot_id: spot.slotId, recipe_id: recipeId },
-        newChangeId()
-      );
+      const body = { date: today, slot_id: spot.slotId, recipe_id: recipeId };
+      const key = newChangeId();
+      let write: PlanWrite;
+      try {
+        write = await planItem(body, key);
+      } catch (error) {
+        if (!cantReach(error)) throw error;
+        // The reply may have been lost after the server did it: ask again with the same key,
+        // which the server answers with the same item instead of adding a second.
+        write = await planItem(body, key);
+      }
       kitchen.changed();
       if (write.meal_id === null) throw new Error('no meal');
       const slotName = slots.find((s) => s.id === spot.slotId)?.name ?? 'meal';

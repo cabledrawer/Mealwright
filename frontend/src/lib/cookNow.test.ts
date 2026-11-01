@@ -186,6 +186,52 @@ describe('Cook now plans first', () => {
     expect(now.itemId).toBe(700);
   });
 
+  it('a reply lost on the way back: tries once more with the same key, and plans one item', async () => {
+    const keys: string[] = [];
+    let items = 0;
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      if (url === '/api/v1/household') return json({ today: TODAY });
+      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url.startsWith('/api/v1/plan?'))
+        return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
+      if (url === '/api/v1/plan/items') {
+        const key = new Headers(init.headers).get('Idempotency-Key') ?? '';
+        const first = !keys.includes(key);
+        keys.push(key);
+        if (first) items++; // the server did the work
+        if (keys.length === 1) throw new TypeError('reply lost');
+        return json({
+          change: { id: 41, can_undo: true, summary: 'x' },
+          meal_id: 70,
+          item_id: 700
+        });
+      }
+      return new Response('{}', { status: 404 });
+    });
+    const now = new CookNow();
+    await now.start(5);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(items).toBe(1);
+    expect(now.mealId).toBe(70);
+    expect(now.text).toBe('Planned for today’s Breakfast');
+    expect(now.canUndo).toBe(true);
+  });
+
+  it('when the second try can’t reach the server either, the “wasn’t planned” line', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url === '/api/v1/household') return json({ today: TODAY });
+      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url.startsWith('/api/v1/plan?'))
+        return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
+      throw new TypeError('down');
+    });
+    const now = new CookNow();
+    await now.start(5);
+    expect(now.mealId).toBeNull();
+    expect(now.text).toBe(NOT_PLANNED);
+  });
+
   it('when the plan can’t be written, there is no meal and one line says so', async () => {
     serve([], { failWrite: true });
     const now = new CookNow();
