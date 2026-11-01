@@ -8,6 +8,10 @@ export const getHousehold = () => api<Household>('GET', '/household');
 /** Settings: which pint a recipe's "pint" is (an admin only; the server refuses a member). */
 export const changePints = (pints: Pints) => api<Household>('PATCH', '/household', { pints });
 
+/** Cook mode's per-step ingredients, for the household (any person of it may change it). */
+export const changeCookPerStep = (on: boolean) =>
+  api<Household>('PATCH', '/household', { cook_per_step: on });
+
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml
  * everywhere else.

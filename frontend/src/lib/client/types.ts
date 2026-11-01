@@ -188,6 +188,8 @@ export interface Household {
   cup_ml_used: number;
   /** Which pint a recipe's "pint" is: UK (568 ml) or US (473 ml). */
   pints: Pints;
+  /** Cook mode's per-step ingredients (Experimental): on for the household once switched on. */
+  cook_per_step: boolean;
   undo_days: number;
   history_months: number;
   use_soon_days: number;

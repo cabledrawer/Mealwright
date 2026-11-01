@@ -1,34 +1,92 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CookPrefs, PER_STEP_KEY } from './cookPrefs.svelte';
+import { CookPrefs, OLD_PER_STEP_KEY } from './cookPrefs.svelte';
+
+const household = (on: boolean) =>
+  new Response(JSON.stringify({ name: 'Home', cook_per_step: on }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' }
+  });
+
+function serve(handler: (method: string, body: unknown) => Response | Promise<Response>) {
+  const calls: { method: string; body: unknown }[] = [];
+  vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+    const body = init.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ method: String(init.method), body });
+    return handler(String(init.method), body);
+  });
+  return calls;
+}
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  localStorage.removeItem(PER_STEP_KEY);
+  localStorage.removeItem(OLD_PER_STEP_KEY);
 });
 
-describe('Cook mode’s per-step ingredients switch', () => {
-  it('is off by default', () => {
+describe('Cook mode’s per-step ingredients switch (a household setting)', () => {
+  it('is off until the household says otherwise', async () => {
     expect(new CookPrefs().perStep).toBe(false);
-  });
-
-  it('is remembered on this device once switched on, and off again', () => {
+    serve(() => household(true));
     const prefs = new CookPrefs();
-    prefs.setPerStep(true);
-    expect(new CookPrefs().perStep).toBe(true);
-    prefs.setPerStep(false);
-    expect(new CookPrefs().perStep).toBe(false);
+    await prefs.load();
+    expect(prefs.perStep).toBe(true);
   });
 
-  it('falls back to off when storage can’t be read, and still switches for now when it can’t be written', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked');
+  it('is saved to the household, and a fresh screen reads it back', async () => {
+    let stored = false;
+    const calls = serve((method, body) => {
+      if (method === 'PATCH') stored = (body as { cook_per_step: boolean }).cook_per_step;
+      return household(stored);
     });
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked');
+    const prefs = new CookPrefs();
+    expect(await prefs.setPerStep(true)).toBeNull();
+    expect(prefs.perStep).toBe(true);
+    expect(calls).toEqual([{ method: 'PATCH', body: { cook_per_step: true } }]);
+    const second = new CookPrefs();
+    await second.load();
+    expect(second.perStep).toBe(true);
+    expect(await prefs.setPerStep(false)).toBeNull();
+    await second.load();
+    expect(second.perStep).toBe(false);
+  });
+
+  it('goes back to what it was, and says so in one short line, when the server can’t be reached', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('network down');
     });
+    const prefs = new CookPrefs();
+    const line = await prefs.setPerStep(true);
+    expect(prefs.perStep).toBe(false);
+    expect(line).toMatch(/Nothing was changed\.$/);
+  });
+
+  it('goes back too when the server answers with an error', async () => {
+    serve(() => new Response('{"detail":"no"}', { status: 500 }));
+    const prefs = new CookPrefs();
+    prefs.perStep = true;
+    const line = await prefs.setPerStep(false);
+    expect(prefs.perStep).toBe(true);
+    expect(line).toBe('Couldn’t save. Try again.');
+  });
+
+  it('keeps what it had when the household can’t be read', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('network down');
+    });
+    const prefs = new CookPrefs();
+    prefs.perStep = true;
+    await prefs.load();
+    expect(prefs.perStep).toBe(true);
+  });
+
+  it('no longer uses this device’s old key: a device that had it on does not switch the household on', async () => {
+    localStorage.setItem(OLD_PER_STEP_KEY, '1');
+    const calls = serve(() => household(false));
     const prefs = new CookPrefs();
     expect(prefs.perStep).toBe(false);
-    prefs.setPerStep(true);
-    expect(prefs.perStep).toBe(true);
+    await prefs.load();
+    expect(prefs.perStep).toBe(false);
+    expect(calls.every((c) => c.method === 'GET')).toBe(true);
+    expect(localStorage.getItem(OLD_PER_STEP_KEY)).toBeNull();
   });
 });
