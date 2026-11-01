@@ -274,7 +274,7 @@
     gap: 2px;
     min-width: 0;
     min-height: 0;
-    padding: 4px;
+    padding: 3px;
     overflow: hidden;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-md);
@@ -357,12 +357,12 @@
     color: var(--color-inverse-text);
   }
 
-  /* A chip is small (the mockup's 24 px, 18 here to fit six weeks); the whole day is the target. */
+  /* A chip is 24 px (the least a target may be); the whole day is the bigger target. */
   .chip {
     flex: none;
     display: flex;
     align-items: center;
-    height: 18px;
+    height: 24px;
     padding: 0 var(--space-3);
     border: none;
     border-radius: var(--radius-sm);
@@ -371,7 +371,7 @@
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-    line-height: 14px;
+    line-height: 16px;
     text-align: left;
     cursor: pointer;
     user-select: none;
@@ -397,7 +397,7 @@
 
   .more {
     flex: none;
-    height: 15px;
+    height: 24px;
     padding: 0 var(--space-2);
     border: none;
     background: none;
@@ -405,7 +405,7 @@
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-    line-height: 15px;
+    line-height: 24px;
     text-align: left;
     cursor: pointer;
   }

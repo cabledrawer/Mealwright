@@ -331,24 +331,27 @@ test.describe('on a computer', () => {
     await openMonthOf(page, today, first);
     await expect(page.getByTestId(`day-${first}`)).toBeVisible();
     expect(await page.getByTestId(/^day-/).count()).toBe(42);
-    const room = await page.evaluate(() => {
-      const cells = [...document.querySelectorAll<HTMLElement>('[data-testid^="day-"]')];
-      return {
-        pageScroll: document.documentElement.scrollHeight - innerHeight,
-        lastBottom: cells.at(-1)!.getBoundingClientRect().bottom,
-        height: innerHeight,
-        clipped: cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length
-      };
-    });
+    // The days are measured once the page has laid them out, so a day with more than fits takes a
+    // moment to show fewer: wait for that, then look.
+    const measure = () =>
+      page.evaluate(() => {
+        const cells = [...document.querySelectorAll<HTMLElement>('[data-testid^="day-"]')];
+        return {
+          pageScroll: document.documentElement.scrollHeight - innerHeight,
+          lastBottom: cells.at(-1)!.getBoundingClientRect().bottom - innerHeight,
+          clipped: cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length
+        };
+      });
+    await expect.poll(async () => (await measure()).clipped).toBe(0);
+    const room = await measure();
     expect(room.pageScroll).toBeLessThanOrEqual(0);
-    expect(room.lastBottom).toBeLessThanOrEqual(room.height);
-    expect(room.clipped).toBe(0);
+    expect(room.lastBottom).toBeLessThanOrEqual(0);
   });
 
   test('F47: a day of five things shows three and "+2 more", the cooking first', async ({
     page
   }) => {
-    await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.setViewportSize({ width: 1280, height: 1200 });
     const { today, slot } = await setup(page);
     const day = dayFor(today, 'B');
     const word = stamp();

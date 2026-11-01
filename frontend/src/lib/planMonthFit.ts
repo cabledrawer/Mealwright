@@ -6,11 +6,11 @@
 /** The most things a day shows before "+N more" (cabledrawer 28 Oct). */
 export const MOST_CHIPS = 3;
 
-const PAD = 4; // the day's padding, top and bottom each
+const PAD = 3; // the day's padding, top and bottom each
 const TOP = 18 + 2; // the number row and the gap under it
-const CHIP = 18; // one chip
+const CHIP = 24; // one chip: 24 px at least, or a pointer or a finger misses it (WCAG 2.2 target size)
 const GAP = 2; // between chips
-const MORE = 15; // the "+N more" row
+const MORE = 24; // the "+N more" row
 
 /**
  * How many of `count` things fit in a day `height` px tall (0 when it has not been measured:

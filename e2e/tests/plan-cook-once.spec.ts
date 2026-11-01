@@ -345,6 +345,8 @@ async function thingsOn(page: Page, day: string): Promise<number> {
 
 test('F45 and F46: Month shows the cooking first and "+N more", and a batch whose tubs run into the month', async ({ page }) => {
   test.skip(isPhone(page), 'the phone Month is a dot grid');
+  // Three things and "+N more" need a tall day: a short one (six weeks on a small screen) shows fewer (P4, F47).
+  await page.setViewportSize({ width: 1280, height: 1200 });
   const { slot } = await setup(page);
   const name = `Stew ${stamp()}`;
   const others = `Rice ${stamp()}`;
