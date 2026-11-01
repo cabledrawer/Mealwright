@@ -676,6 +676,16 @@ Written by Claude Code on 1 Nov from the mockup `PlanCards07-Desktop` (and its d
 - **F49:** the tub's button **Take off this meal (keep the tub)** (cabledrawer's example), not red, with the line **The tub stays in the fridge, in Tubs left.** / **… in the freezer, …** (proposed). The toast stays "Put Chana masala tub back in tubs left from …" (the server's words).
 - **F65:** in "Any left over?" with tubs picked: **Eat it on…** with **Not planned yet** first and then the next free meals, as **Sun 18 · Breakfast** (proposed); a tub that was chosen goes to that meal when Confirm is pressed.
 
+## 33. Month and day: one screen, a click on any day, Fill from freezer first (0.7 P4; proposed, for cabledrawer unless the spec or mockup has the words)
+
+Written by Claude Code on 1 Nov from the mockup `Month07-Desktop` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" (Month and day, P4). cabledrawer's own words (spec, 28 Oct): "A full Month day shows up to 3 items, then "+N more"", "Filled Tue dinner, Thu lunch from freezer tubs (they run out soonest)", "The day sheet lists the oldest freezer tub first", "fridge tubs past their use-by aren't offered", **Cook once here**.
+
+- **A day in Month:** its number, **Today** and **COOK** (existing), up to three chips (the cooking first), then **+2 more** (cabledrawer's words; it opens the day). A day too short for three (six weeks on a small screen) shows fewer and the rest are in "+N more". The whole day is one button, read aloud as **Add to Thursday 5 November** (the existing words). The tray under the Month is gone (the day's sheet offers recipes and tubs).
+- **The day's sheet** (the existing **Add to the plan**, headed **Dinner · Thursday 5 November**, or **a meal · Thursday 5 November** before a meal is picked): the meals, the search **Find a recipe or an ingredient** (existing), **+ Note** (existing) and, new, **Cook once here…** (the mockup's words).
+- **Use a tub** (the mockup's heading; it was "Tubs left"): the oldest freezer tub first, then fridge tubs by use-by, each as **Palak paneer · tub 1 of 2** with **Freezer · 4 months left** (existing words). When a fridge tub was left out: **Fridge tubs that are past their use-by by then aren’t offered.** (the mockup's words, with a curly apostrophe).
+- **Cook once here…:** pressing it shows **Pick the recipe to cook once here.** (proposed) and the recipes only (no tubs, no ingredients, no note); the button now reads **Back** (proposed). Picking a recipe plans it in the chosen meal and opens **Cook once, eat for…** (existing).
+- **Fill from freezer first** (existing button), its Undo toast now says which meals and why: **Filled Tue dinner, Thu lunch from freezer tubs (they run out soonest)** (cabledrawer's example); for one tub **Filled Tue dinner from a freezer tub (it runs out soonest)** (proposed); with more than six meals the first six are named and the rest counted: **Filled Mon dinner, Tue dinner, … 6 more from freezer tubs (they run out soonest)** (proposed). One Undo takes all of it back.
+
 ## 34. Paper cuts (0.7 PC1, PC2; proposed, for cabledrawer unless the spec has the words)
 
 Written by Claude Code on 2 Nov from the spec's "Paper cuts" (cabledrawer 28 Oct) and "Server down (F67)" (cabledrawer 30 Oct). cabledrawer's own words are marked.
