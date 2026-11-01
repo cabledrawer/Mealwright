@@ -310,14 +310,14 @@
             {/if}
           </section>
         {/if}
-      </div>
-
-      <footer>
-        <p class="summary" role="status">{summary}</p>
         <p class="sub">
           Nothing changes until you confirm. You can undo it from the message that follows, or from
           Pantry → Recent changes.
         </p>
+      </div>
+
+      <footer>
+        <p class="summary" role="status">{summary}</p>
         <div class="buttons">
           <button type="button" class="back" onclick={onclose}>Cancel</button>
           <button
@@ -695,7 +695,11 @@
   }
 
   @media (max-width: 767px) {
+    .back {
+      display: none;
+    }
     dialog {
+      overflow: hidden;
       inset: 0;
       width: 100%;
       height: 100dvh;

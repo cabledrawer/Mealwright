@@ -314,7 +314,7 @@ test('the review at 200% text in both themes: nothing scrolls sideways and Confi
   await expect(dialog.getByText(/did you use\?/)).toBeVisible();
   await checkPage(page); // both themes, with the question open
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
-  await expect(dialog.getByRole('button', { name: 'Cancel' }).last()).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Cancel' }).first()).toBeVisible();
   await expectNoSidewaysScroll(page);
   expect(
     await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
