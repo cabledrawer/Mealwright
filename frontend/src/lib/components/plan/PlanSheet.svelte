@@ -418,7 +418,7 @@
         />
       {:else}
         <h3>{question}</h3>
-        {#if target?.kind === 'recipe'}
+        {#if target?.kind === 'recipe' && target.ahead}
           <!-- The next 14 days, from the recipe page only; fetched when first asked for (size limit). -->
           {#await import('./PlanItPicker.svelte') then { default: Picker }}
             <Picker {model} bind:day bind:slotId />

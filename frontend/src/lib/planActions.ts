@@ -31,7 +31,8 @@ export interface PlanActions {
 export type PlanTarget =
   | { kind: 'meal'; meal: PlanMeal }
   | { kind: 'item'; meal: PlanMeal; item: PlanItem }
-  | { kind: 'recipe'; recipe: { id: number; name: string } }
+  /** `ahead`: from the recipe page, where the picker offers the next 14 days (not the Plan's tray). */
+  | { kind: 'recipe'; recipe: { id: number; name: string }; ahead?: true }
   | { kind: 'tubleft'; tub: TubLeft }
   | { kind: 'day'; day: string };
 

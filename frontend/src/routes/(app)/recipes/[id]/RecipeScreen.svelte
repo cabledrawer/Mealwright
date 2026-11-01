@@ -92,7 +92,7 @@
         toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });
         return;
       }
-      planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName } };
+      planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };
     } finally {
       planBusy = false;
     }
