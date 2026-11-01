@@ -386,7 +386,9 @@
             class="earlier"
             aria-expanded={earlier}
             onclick={() => (earlier = !earlier)}
-            >{earlier ? 'Hide earlier days' : 'Show earlier days'}</button
+            >{earlier
+              ? 'Hide earlier days'
+              : `Earlier this week (${past.length} ${past.length === 1 ? 'day' : 'days'})`}</button
           >
         {/if}
         {#if show === 'cook'}

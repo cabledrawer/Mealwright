@@ -257,7 +257,8 @@ test('the phone Plan opens on today, with earlier days folded away and the date 
   expect(top!.y + 100).toBeLessThan(page.viewportSize()!.height); // in view without scrolling
   // The week's dates are said once: not in the header and again in the arrows.
   await expect(page.getByText(/^\d+ – \d+ October$/)).toHaveCount(1);
-  const earlier = page.getByRole('button', { name: 'Show earlier days' });
+  // Saturday: Monday to Friday are folded, and the button says how many.
+  const earlier = page.getByRole('button', { name: 'Earlier this week (5 days)' });
   await expect(earlier).toHaveAttribute('aria-expanded', 'false');
   await earlier.click();
   await expect(dayCard(page, monday)).toBeVisible();
@@ -269,7 +270,7 @@ test('the phone Plan opens on today, with earlier days folded away and the date 
   await expect(dayCard(page, monday)).toHaveCount(0);
   // Another week has no fold.
   await page.getByRole('button', { name: 'Next week' }).click();
-  await expect(page.getByRole('button', { name: 'Show earlier days' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Earlier this week/ })).toHaveCount(0);
 });
 
 // --- 768–1100 px wide ------------------------------------------------------------------------------
