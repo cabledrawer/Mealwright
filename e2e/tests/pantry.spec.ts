@@ -574,6 +574,33 @@ test('"200 g left · type it instead" (a full pack) opens What\'s left in the pa
   await expect.poll(() => amountLeft(page, food.id)).toBe(150);
 });
 
+test("F122: a weight packet with no size, not open, can have its amount set (What's left), with Undo", async ({
+  page,
+}) => {
+  const unique = `Ghee ${test.info().project.name.replace(/\W/g, "")} ${Date.now()}`;
+  const { food } = await api(page, "POST", "/foods", {
+    name: unique,
+    counted_as: "weight",
+  });
+  await api(page, "POST", "/stock", {
+    food_id: food.id,
+    amount: { amount: 38, unit: "g" },
+  });
+  await openRow(page, unique);
+  // No size: no ¼ ½ ¾ Full, but "What's left" can still be typed, beside "Used some".
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: /^Used some/ })).toBeVisible();
+  await page.getByRole("button", { name: /^type it instead/ }).click();
+  const dialog = page.getByRole("dialog", { name: new RegExp(unique) });
+  const box = dialog.getByRole("textbox", { name: /What’s left/ });
+  await expect(box).toBeFocused();
+  await box.fill("20");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect.poll(() => amountLeft(page, food.id)).toBe(20);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect.poll(() => amountLeft(page, food.id)).toBe(38);
+});
+
 test("a row with several packets shows no marks in the row", async ({
   page,
 }) => {

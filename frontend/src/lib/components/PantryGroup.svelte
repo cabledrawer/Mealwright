@@ -235,10 +235,14 @@
         {/each}
       </ul>
       {#if group.lots.length > 1}<span class="hint">Oldest gets used first.</span>{/if}
-      {#if single && pickFor(single) !== undefined}
+      <!-- "What's left" on every packet (F122): the picks when its size is known, and always a
+           way to type it, beside "Used some". Counted things have "How many left?" below. -->
+      {#if single && (pickFor(single) !== undefined || group.food.counted_as !== 'count')}
         <div class="marks">
-          <span class="small-label" id="{uid}-left">How much is left? Best guess is fine.</span>
-          <PackPicks lot={single} {name} {model} labelledby="{uid}-left" />
+          {#if pickFor(single) !== undefined}
+            <span class="small-label" id="{uid}-left">How much is left? Best guess is fine.</span>
+            <PackPicks lot={single} {name} {model} labelledby="{uid}-left" />
+          {/if}
           <span class="small-label"
             >{leftWords} ·
             <button

@@ -128,8 +128,10 @@
       <p class="hint">{useByWords(lot.use_by, lot.days_left)}</p>
 
       {#if step === 'actions'}
-        {#if lot.open || pickFor(lot) !== undefined}
-          <div class="picks">
+        <!-- "What's left" on every packet (F122): the picks when the size is known or the packet
+             is open, and always a way to type the amount. -->
+        <div class="picks">
+          {#if lot.open || pickFor(lot) !== undefined}
             <span class="hint" id="{uid}-q">How much is left? Best guess is fine.</span>
             <PackPicks
               {lot}
@@ -138,14 +140,14 @@
               labelledby="{uid}-q"
               onneedsamount={() => (step = 'grams')}
             />
-            <span class="hint"
-              >{about.charAt(0).toLocaleUpperCase() + about.slice(1)} ·
-              <button type="button" class="link" onclick={() => (step = 'grams')}
-                >type {baseUnit === 'g' ? 'grams' : baseUnit === 'ml' ? 'millilitres' : 'a number'} instead</button
-              ></span
-            >
-          </div>
-        {/if}
+          {/if}
+          <span class="hint"
+            >{about.charAt(0).toLocaleUpperCase() + about.slice(1)} ·
+            <button type="button" class="link" onclick={() => (step = 'grams')}
+              >type {baseUnit === 'g' ? 'grams' : baseUnit === 'ml' ? 'millilitres' : 'a number'} instead</button
+            ></span
+          >
+        </div>
         <ul class="actions">
           <li>
             <button type="button" data-first onclick={() => act(() => model.used(id, name))}

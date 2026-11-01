@@ -666,6 +666,37 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('a weight packet with no size can still have its amount set: What’s left (F122)', async () => {
+    await render(1300);
+    const rice = sample.pantry.places
+      .flatMap((p) => p.groups)
+      .find((g) => g.food.name === 'Basmati rice')!.lots[0]!;
+    routes({ [`POST /stock/${rice.id}/left`]: written('Basmati rice: 300 g → 120 g') });
+    await page.getByRole('button', { name: /^Basmati rice/ }).click();
+    // No size and not open: no picks, but a way to type it, beside "Used some".
+    expect(page.getByRole('radiogroup').elements()).toHaveLength(0);
+    await expect.element(page.getByLabelText(/^Used some/)).toBeVisible();
+    await page.getByRole('button', { name: 'type it instead: how much is left' }).click();
+    const menu = page.getByRole('dialog', { name: /Basmati rice/ });
+    await menu.getByRole('textbox', { name: /What’s left/ }).fill('120');
+    await menu.getByRole('button', { name: 'Save' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.path === `/stock/${rice.id}/left`)?.body).toEqual({
+        amount: { amount: 120, unit: 'g' }
+      })
+    );
+  });
+
+  it('the packet menu of a packet with no size offers What’s left too (F122)', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: /^Basmati rice/ }).click();
+    await page.getByRole('list', { name: 'Packets of Basmati rice' }).getByRole('button').click();
+    const menu = page.getByRole('dialog', { name: /Basmati rice/ });
+    expect(menu.getByRole('radiogroup').elements()).toHaveLength(0);
+    await menu.getByRole('button', { name: /^type grams instead/ }).click();
+    await expect.element(menu.getByRole('textbox', { name: /What’s left/ })).toBeVisible();
+  });
+
   it('a full, unopened pack has the picks too, with Full chosen', async () => {
     await render(1300);
     await page.getByRole('button', { name: /^Paneer 2 packs/ }).click();
