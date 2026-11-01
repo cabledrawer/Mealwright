@@ -113,7 +113,7 @@ test('F97: a name that is not there can be added straight from the search box', 
   // A new name: the question comes with the name shown, then the new ingredient opens.
   await search.fill(wanted);
   await list.getByRole('button', { name: `+ New ingredient: \u201c${wanted}\u201d` }).click();
-  const question = page.getByRole('dialog', { name: 'How do you count it?' });
+  const question = page.getByRole('dialog', { name: 'Pantry keeps it by' });
   await expect(question.getByText(wanted, { exact: true })).toBeVisible();
   await question.getByRole('radio', { name: /By weight/ }).click();
   await question.getByRole('button', { name: 'Add', exact: true }).click();

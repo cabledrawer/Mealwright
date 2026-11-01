@@ -259,7 +259,7 @@ describe('the Ingredients page', () => {
       requests.length = 0;
       await offer('tahini').click();
       await expect
-        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .element(page.getByRole('heading', { name: 'Pantry keeps it by' }))
         .toBeVisible();
       await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
       await page.getByRole('radio', { name: /One by one/ }).click();
@@ -350,7 +350,7 @@ describe('the Ingredients page', () => {
       await search().click();
       await userEvent.keyboard('{Enter}');
       await expect
-        .element(page.getByRole('heading', { name: 'How do you count it?' }))
+        .element(page.getByRole('heading', { name: 'Pantry keeps it by' }))
         .toBeVisible();
       await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
     });
