@@ -260,3 +260,39 @@ def test_the_stale_marker_warning_shows_the_copys_date(
     with caplog.at_level("WARNING", logger=migrate.__name__), pytest.raises(RuntimeError):
         migrate.upgrade(engine, backups=backups)
     assert "(made on 2026-10-31)" in caplog.messages[0]
+
+
+def test_a_part_file_from_another_process_is_tidied_and_our_own_stays(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    stale = backups / "pre-upgrade-d7a4c2e81f56-20261031-090000.db.99999999.part"
+    mine = backups / f"pre-upgrade-d7a4c2e81f56-20261031-090001.db.{os.getpid()}.part"
+    other = backups / "notes.txt"
+    for path in (stale, mine, other):
+        path.write_bytes(b"x")
+    migrate._keep_newest(backups)
+    assert not stale.exists()
+    assert mine.exists()
+    assert other.exists()
+
+
+def test_a_part_file_that_cant_be_removed_doesnt_stop_the_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    stale = backups / "pre-upgrade-d7a4c2e81f56-20261031-090000.db.99999999.part"
+    stale.write_bytes(b"x")
+    real = Path.unlink
+
+    def refuse(self: Path, *args: object, **kwargs: object) -> None:
+        if self == stale:
+            raise PermissionError("read-only")
+        real(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+    engine = _old_database(tmp_path / "mealwright.db")
+    with caplog.at_level("WARNING", logger=migrate.__name__):
+        migrate.upgrade(engine, backups=backups)
+    assert migrate.current_revision(engine) == _head()
+    assert "Couldn't remove the half-written copy" in caplog.text

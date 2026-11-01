@@ -26,6 +26,7 @@ SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})\.db$"
 # it makes no new copy (on SQLite a failed migration can leave the database half-upgraded, so a new
 # copy could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
 # keeps failing, and not on the trim after it finally works.
+PART_NAME = re.compile(r"^pre-upgrade-[0-9A-Za-z_]+-\d{8}-\d{6}\.db\.(\d+)\.part$")
 UPGRADE_FAILED = "upgrade-failed"
 
 
@@ -141,9 +142,22 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     return target
 
 
+def _drop_stale_parts(backups: Path) -> None:
+    """Delete half-written copies left by a start that was killed (another process's `.part`
+    files). This process's own stay. A file that can't be removed is logged, never fatal."""
+    for path in backups.iterdir():
+        found = PART_NAME.match(path.name)
+        if found and int(found.group(1)) != os.getpid():
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as error:
+                log.warning("Couldn't remove the half-written copy %s: %s", path, error)
+
+
 def _keep_newest(backups: Path, also: str | None = None) -> None:
     """Only the newest SAFETY_COPIES_KEPT copies stay, plus `also` (the clean copy from before
     an upgrade that failed); other files in the folder are never touched."""
+    _drop_stale_parts(backups)
     copies = []
     for path in backups.iterdir():
         found = SAFETY_COPY_NAME.match(path.name)
