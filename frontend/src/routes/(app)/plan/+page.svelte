@@ -9,8 +9,8 @@
   import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { browser } from '$app/env';
-  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { goto } from '$app/navigation';
   import { onMount, tick, untrack } from 'svelte';
   import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
@@ -20,9 +20,7 @@
   import CookOnce from '#lib/components/plan/CookOnce.svelte';
   import NoPortions from '#lib/components/plan/NoPortions.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
-  import PlanCook from '#lib/components/plan/PlanCook.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
-  import PlanEat from '#lib/components/plan/PlanEat.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
   import PlanMonthPhone from '#lib/components/plan/PlanMonthPhone.svelte';
   import PlanShowSwitch from '#lib/components/plan/PlanShowSwitch.svelte';
@@ -30,7 +28,6 @@
   import PlanWeek from '#lib/components/plan/PlanWeek.svelte';
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
-  import { cookNow } from '#lib/cookNow.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -99,7 +96,11 @@
   /** Start cooking: Cook mode for this plan item, so "Cooked it" is there at the last step. */
   async function startCooking(entry: CookEntry) {
     if (entry.recipeId === null) return;
-    cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
+    (await import('#lib/cookNow.svelte.js')).cookNow.open(
+      entry.recipeId,
+      entry.meal.id,
+      entry.item.id
+    );
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
@@ -389,9 +390,14 @@
           >
         {/if}
         {#if show === 'cook'}
-          <PlanCook {actions} days={dayList} onstart={startCooking} />
+          <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
+          {#await import('#lib/components/plan/PlanCook.svelte') then { default: Cook }}
+            <Cook {actions} days={dayList} onstart={startCooking} />
+          {/await}
         {:else if show === 'eat'}
-          <PlanEat {actions} days={dayList} oncook={showCook} />
+          {#await import('#lib/components/plan/PlanEat.svelte') then { default: Eat }}
+            <Eat {actions} days={dayList} oncook={showCook} />
+          {/await}
         {:else if compact}
           <PlanDays {actions} days={dayList} />
         {:else}
