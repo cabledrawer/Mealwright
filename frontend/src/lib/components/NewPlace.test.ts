@@ -112,4 +112,31 @@ describe('"+ Place"', () => {
     expect(cancelled).toBe(2);
     expect(added).toHaveLength(0);
   });
+
+  it('Escape on Add place or Cancel closes only the box, and focus goes back to the picker (L4)', async () => {
+    unmount(component!);
+    component = null;
+    document.body.replaceChildren();
+    const picker = document.createElement('select');
+    picker.setAttribute('aria-label', 'Where');
+    document.body.append(picker);
+    const outside: string[] = [];
+    document.body.addEventListener('keydown', (e) => outside.push(e.key));
+    for (const button of ['Add place', 'Cancel']) {
+      picker.focus();
+      component = mount(NewPlace, {
+        target: document.body,
+        props: { onadded: (p: Place) => added.push(p), oncancel: () => cancelled++ }
+      });
+      flushSync();
+      await expect.element(page.getByRole('textbox', { name: 'Place’s name' })).toHaveFocus();
+      (page.getByRole('button', { name: button }).element() as HTMLElement).focus();
+      await userEvent.keyboard('{Escape}');
+      expect(outside).not.toContain('Escape');
+      await expect.element(page.getByLabelText('Where')).toHaveFocus();
+      unmount(component);
+      component = null;
+    }
+    expect(cancelled).toBe(2);
+  });
 });

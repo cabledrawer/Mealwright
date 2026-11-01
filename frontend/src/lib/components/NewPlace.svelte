@@ -34,8 +34,16 @@
   let problem = $state<string | null>(null);
   let busy = $state(false);
 
+  /** The picker that opened this box (it had focus): focus goes back to it on Escape/Cancel. */
+  const opener = typeof document === 'undefined' ? null : document.activeElement;
+
   function focusOnShow(node: HTMLInputElement) {
     node.focus();
+  }
+
+  function cancel() {
+    oncancel();
+    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
   }
 
   async function add() {
@@ -59,20 +67,29 @@
     }
   }
 
+  function escapeCloses(node: HTMLElement) {
+    const onkey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+    };
+    node.addEventListener('keydown', onkey);
+    return { destroy: () => node.removeEventListener('keydown', onkey) };
+  }
+
   function keys(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       event.preventDefault();
       void add();
-    } else if (event.key === 'Escape') {
-      // Closes this box only, not the sheet it is in.
-      event.preventDefault();
-      event.stopPropagation();
-      oncancel();
     }
   }
 </script>
 
-<div class="new-place" role="group" aria-labelledby="{uid}-t">
+<!-- Escape from anywhere in the box (the buttons too) closes it, not the sheet around it. A
+  plain listener on the box itself, so it stops the key before anything above it (or the
+  page's delegated handlers) sees it. -->
+<div class="new-place" role="group" aria-labelledby="{uid}-t" use:escapeCloses>
   <span class="title" id="{uid}-t">New place</span>
   <label class="name">
     Place’s name
@@ -100,7 +117,7 @@
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   <div class="buttons">
     <button type="button" class="main" disabled={busy} onclick={() => void add()}>Add place</button>
-    <button type="button" class="quiet" onclick={oncancel}>Cancel</button>
+    <button type="button" class="quiet" onclick={cancel}>Cancel</button>
   </div>
 </div>
 

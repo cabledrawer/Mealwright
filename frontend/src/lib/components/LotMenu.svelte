@@ -196,10 +196,18 @@
             {#if addingPlace}
               <NewPlace
                 onadded={(added) => act(() => model.move(id, name, added))}
-                oncancel={() => (addingPlace = false)}
+                oncancel={() => {
+                  addingPlace = false;
+                  // The "+ Place" button comes back as a new element: focus it.
+                  void tick().then(() =>
+                    dialog.querySelector<HTMLElement>('[data-new-place]')?.focus()
+                  );
+                }}
               />
             {:else}
-              <button type="button" onclick={() => (addingPlace = true)}>+ Place</button>
+              <button type="button" data-new-place onclick={() => (addingPlace = true)}
+                >+ Place</button
+              >
             {/if}
           </li>
         </ul>
