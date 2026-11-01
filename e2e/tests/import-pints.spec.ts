@@ -104,6 +104,11 @@ const answer = (page: Page, body: Json) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
   );
 
+/** On a phone the Save bar rests above the bottom tabs; the scan sees the page where it stands, so
+ * the milk line is brought to the middle, as a person would scroll to it, not left under the bar. */
+const milkInView = (page: Page) =>
+  page.locator('.line.pints').evaluate((el) => el.scrollIntoView({ block: 'center' }));
+
 async function openReview(page: Page, body: Json) {
   await answer(page, body);
   await page.goto('/recipes/import');
@@ -121,6 +126,7 @@ test('a US recipe: the card, the switch on by default, the milk in US pints', as
   await expect(page.getByText(/2 pints whole milk\s+· US pints/)).toBeVisible();
   await expect(page.getByText('Switch it off and the whole milk reads 1.14 L (UK pints).')).toBeVisible();
   await expectNoSidewaysScroll(page);
+  await milkInView(page);
   await checkPage(page);
 });
 
@@ -163,6 +169,7 @@ test('a US household sees no card, and a page that is not American neither', asy
 test('the card in the dark theme passes the accessibility scan', async ({ page }) => {
   await openReview(page, pudding());
   await inTheme(page, 'dark');
+  await milkInView(page);
   await checkPage(page, { themes: ['dark'] });
 });
 
