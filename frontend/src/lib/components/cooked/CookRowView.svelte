@@ -71,13 +71,13 @@
   function setTyped(text: string) {
     typed = text;
     const n = parse(text);
-    if (text.trim() !== '' && Number.isFinite(n) && n >= 0) patch({ value: n, use: true });
+    if (text.trim() !== '' && Number.isFinite(n) && n >= 0) patch({ value: n });
   }
 
   function step(by: number) {
     const current = mine?.value ?? view.taken;
     const next = Math.max(0, Math.round((current + by) * 2) / 2);
-    patch({ value: next, use: true });
+    patch({ value: next });
   }
 
   // The question, in the pantry's unit (F106). The conversion is worked out from the answer.
@@ -89,11 +89,16 @@
   const asking = $derived((derivable || countNote !== null) && !skipped);
   const unit = $derived(unitLabel(row));
 
+  /** The figure was too far from sensible to learn from (a cup that weighs 10 kg). */
+  let unlikely = $state(false);
+
   async function answer(value: number) {
     if (!(value > 0)) return;
+    unlikely = false;
     if (ask && derivable) {
       const given = conversionAnswer(ask, row.ask_need, row.unit, value, remember);
       if (given) await review.addAnswer(given);
+      else unlikely = true;
     } else if (countNote && row.food) {
       patch({ value, mode: 'used', use: true });
       const size = remember ? sizeAnswer(row.food.id, countNote, value) : null;
@@ -289,6 +294,9 @@
           }}>Skip</button
         >
       </div>
+      {#if unlikely}
+        <p class="q" role="alert">That doesn’t look right. Try another amount.</p>
+      {/if}
       <div class="remember">
         <span id="{uid}-r">Remember for next time</span>
         <Switch bind:checked={remember} labelledby="{uid}-r" {disabled} />
