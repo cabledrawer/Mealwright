@@ -13,7 +13,7 @@
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
+  import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import CookOnce from '#lib/components/plan/CookOnce.svelte';
   import NoPortions from '#lib/components/plan/NoPortions.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
@@ -125,7 +125,11 @@
   let cookedMeal = $state<PlanMeal | null>(null);
   let leftover = $state<LeftoverOptions | null>(null);
 
+  /** The review's code is fetched when it is first asked for (size limit), then stays mounted. */
+  let cookedAsked = $state(false);
+
   function openCooked(meal: PlanMeal) {
+    cookedAsked = true;
     const target = cookTarget(
       model.plan,
       meal,
@@ -340,17 +344,21 @@
 
 <PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
 <CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
-<CookedReview
-  {review}
-  {leftover}
-  {readonly}
-  onclose={closeCooked}
-  onconfirmed={async (leftovers, undoCooked) => {
-    const meal = cookedMeal;
-    if (!meal) return true;
-    return answered(await model.cooked(meal, leftovers, undoCooked));
-  }}
-/>
+{#if cookedAsked}
+  {#await import('#lib/components/cooked/CookedReview.svelte') then { default: CookedReview }}
+    <CookedReview
+      {review}
+      {leftover}
+      {readonly}
+      onclose={closeCooked}
+      onconfirmed={async (leftovers, undoCooked) => {
+        const meal = cookedMeal;
+        if (!meal) return true;
+        return answered(await model.cooked(meal, leftovers, undoCooked));
+      }}
+    />
+  {/await}
+{/if}
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
 <NoPortions {actions} />
 
