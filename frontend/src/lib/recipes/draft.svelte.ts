@@ -64,6 +64,28 @@ export interface DraftStep {
   text: string;
 }
 
+/** The editor's boxes as the tab keeps them (see `toCarried`). */
+export interface Carried {
+  /** The saved recipe's version this was typed on; null for a new recipe. */
+  version: number | null;
+  name: string;
+  description: string;
+  time: string;
+  serves: number | null;
+  makesAmount: string;
+  makesUnit: string;
+  makesWord: string;
+  madeAhead: boolean;
+  homemadeName: string;
+  tags: string[];
+  nutrition: Record<keyof Nutrition, string>;
+  lines: DraftLine[];
+  steps: DraftStep[];
+  source: string;
+  sizes: Record<number, SizeRef[]>;
+  photoRemoved: boolean;
+}
+
 export type PhotoChange = 'none' | 'removed' | 'new';
 
 export interface DraftPhoto {
@@ -270,6 +292,93 @@ export class RecipeDraft {
     this.sizes = { ...from.sizes };
     this.photo = { ...from.photo, uploading: null };
     this.#initial = from.#initial;
+  }
+
+  /**
+   * What the tab keeps while the editor is open (sessionStorage; see carry.ts). Not the photo:
+   * an upload waiting to be saved is not kept, only a photo taken off.
+   */
+  toCarried(): Carried {
+    return {
+      version: this.opened?.version ?? null,
+      name: this.name,
+      description: this.description,
+      time: this.time,
+      serves: this.serves,
+      makesAmount: this.makesAmount,
+      makesUnit: this.makesUnit,
+      makesWord: this.makesWord,
+      madeAhead: this.madeAhead,
+      homemadeName: this.homemadeName,
+      tags: [...this.tags],
+      nutrition: { ...this.nutrition },
+      lines: this.lines.map((l) => ({ ...l })),
+      steps: this.steps.map((s) => ({ ...s })),
+      source: this.source,
+      sizes: { ...this.sizes },
+      photoRemoved: this.photo.change === 'removed'
+    };
+  }
+
+  /**
+   * Put back what the tab kept, on top of the recipe as just loaded. Anything that isn't the
+   * shape `toCarried` writes is ignored and nothing changes (returns false). A draft made on an
+   * older version keeps that version, so Save meets the "Someone changed this" note rather than
+   * quietly writing over their change.
+   */
+  applyCarried(raw: unknown): boolean {
+    const c = raw as Partial<Carried> | null;
+    const str = (v: unknown) => typeof v === 'string';
+    if (
+      !c ||
+      typeof c !== 'object' ||
+      !str(c.name) ||
+      !Array.isArray(c.lines) ||
+      !Array.isArray(c.steps) ||
+      !Array.isArray(c.tags) ||
+      !c.nutrition ||
+      typeof c.nutrition !== 'object'
+    ) {
+      return false;
+    }
+    const line = (l: Partial<DraftLine>): DraftLine => ({
+      ...blankLine(l.kind === 'heading' ? 'heading' : 'ingredient'),
+      id: typeof l.id === 'number' ? l.id : null,
+      words: str(l.words) ? l.words! : '',
+      amount: str(l.amount) ? l.amount! : '',
+      unit: str(l.unit) ? l.unit! : '',
+      food: l.food ?? null,
+      recipe: l.recipe ?? null,
+      recipeRemoved: !!l.recipeRemoved,
+      note: str(l.note) ? l.note! : ''
+    });
+    const step = (s: Partial<DraftStep>): DraftStep => ({
+      ...blankStep(s.kind === 'heading' ? 'heading' : 'step'),
+      text: str(s.text) ? s.text! : ''
+    });
+    const keep = (v: unknown, fallback: string) => (str(v) ? (v as string) : fallback);
+    this.name = c.name!;
+    this.description = keep(c.description, '');
+    this.time = keep(c.time, '');
+    this.serves = typeof c.serves === 'number' ? c.serves : null;
+    this.makesAmount = keep(c.makesAmount, '');
+    this.makesUnit = keep(c.makesUnit, 'l');
+    this.makesWord = keep(c.makesWord, '');
+    this.madeAhead = !!c.madeAhead;
+    this.homemadeName = keep(c.homemadeName, '');
+    this.tags = c.tags.filter(str) as string[];
+    for (const n of NUTRIENTS) this.nutrition[n] = keep(c.nutrition[n], '');
+    this.lines = c.lines.length ? c.lines.map(line) : [blankLine()];
+    this.steps = c.steps.length ? c.steps.map(step) : [blankStep()];
+    this.source = keep(c.source, '');
+    this.sizes = { ...this.sizes, ...(c.sizes ?? {}) };
+    if (c.photoRemoved && this.opened?.photo) {
+      this.photo = { shown: null, change: 'removed', uploading: null, file: null, error: null };
+    }
+    if (this.opened && typeof c.version === 'number' && c.version !== this.opened.version) {
+      this.opened = { ...this.opened, version: c.version };
+    }
+    return true;
   }
 
   // --- Photo ----------------------------------------------------------------------------------

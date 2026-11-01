@@ -19,6 +19,7 @@ vi.mock('#lib/recipes/paths.js', async (original) => ({
 let component: ReturnType<typeof mount> | null = null;
 
 beforeEach(() => {
+  sessionStorage.clear();
   navigation.go.mockClear();
   toasts.dismiss();
   undoHistory.clear();
@@ -30,6 +31,7 @@ afterEach(() => {
   component = null;
   document.body.innerHTML = '';
   vi.unstubAllGlobals();
+  sessionStorage.clear();
 });
 
 function open(props: { recipeId?: number } = {}) {
@@ -245,6 +247,66 @@ describe('a new recipe', () => {
         { timeout: 4000 }
       )
       .toBeVisible();
+  });
+});
+
+describe('carrying on where you left off', () => {
+  const reopen = () => {
+    if (component) unmount(component);
+    component = null;
+    document.body.innerHTML = '';
+    open();
+  };
+
+  it('a reload keeps a new recipe’s edits, with the line and Start over', async () => {
+    fakeApi({});
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Half done');
+    reopen();
+    await expect.element(page.getByText('Carrying on where you left off')).toBeVisible();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Half done');
+    await page.getByRole('button', { name: 'Start over' }).click();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+    expect(page.getByText('Carrying on where you left off').query()).toBeNull();
+    reopen();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+    expect(page.getByText('Carrying on where you left off').query()).toBeNull();
+  });
+
+  it('Cancel clears it', async () => {
+    fakeApi({});
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Half done');
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('Save clears it', async () => {
+    fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    expect(sessionStorage.length).toBe(1);
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/12'));
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('keeps nothing when nothing was changed', async () => {
+    fakeApi({});
+    open();
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('works when the tab cannot keep anything', async () => {
+    fakeApi({});
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Still works');
+    await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Still works');
+    vi.restoreAllMocks();
   });
 });
 

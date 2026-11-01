@@ -39,6 +39,7 @@
     releaseWhenToastGoes,
     type Errors
   } from '#lib/recipes/draft.svelte.js';
+  import { clearCarried, readCarried, writeCarried } from '#lib/recipes/carry.js';
   import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '#lib/recipes/paths.js';
   import { removeRecipe } from '#lib/recipes/remove.js';
   import { fold, recipeSearch } from '#lib/recipes/search.js';
@@ -68,6 +69,8 @@
   let blocked = $state<Blocked[]>([]);
   let existing = $state<string | null>(null);
   let live = $state('');
+  /** The boxes came back from what this tab kept: "Carrying on where you left off". */
+  let carrying = $state(false);
   let phone = $state(matchMedia('(max-width: 767px)').matches);
   /** Set when the editor is being left on purpose (saved, cancelled, deleted). */
   let leaving = false;
@@ -102,7 +105,7 @@
 
   // --- Opening ---------------------------------------------------------------------------------
 
-  async function open() {
+  async function open(fresh = false) {
     loading = 'loading';
     const kept = takeKept(key);
     if (kept) {
@@ -121,6 +124,7 @@
         return;
       }
     }
+    if (!kept && !fresh && draft && applyKept(draft)) carrying = true;
     if (recipeId !== null) {
       cannotUse(recipeId)
         .then((list) => (blocked = list))
@@ -129,6 +133,28 @@
   }
 
   onMount(() => void open());
+
+  /** Put back what this tab kept from an earlier visit to this editor, if it is still readable. */
+  function applyKept(d: RecipeDraft): boolean {
+    const saved = readCarried(key);
+    return saved !== null && d.applyCarried(saved);
+  }
+
+  // Every change is kept in the tab; nothing to keep once the boxes match what is saved.
+  $effect(() => {
+    const d = draft;
+    if (!d || leaving) return;
+    if (d.dirty) writeCarried(key, d.toCarried());
+    else clearCarried(key);
+  });
+
+  /** "Start over": drop what was kept and open the saved recipe (or a blank one) again. */
+  async function startOver() {
+    clearCarried(key);
+    carrying = false;
+    draft?.discardUpload();
+    await open(true);
+  }
 
   // --- Made ahead: is there already an ingredient with that name? --------------------------------
 
@@ -165,6 +191,8 @@
   /** Leave with unsaved changes: nothing is asked; Undo opens the editor again as it was. */
   function keepForUndo() {
     const d = draft;
+    // Cancelled: the tab keeps nothing (Undo brings the editor back from memory, and keeps it again).
+    clearCarried(key);
     if (!d) return;
     if (!d.dirty) {
       // Nothing to bring back, but a photo still going up must not be left behind.
@@ -249,6 +277,7 @@
         saved = await saveRecipe(id, built.body, version, overwrite, attempt.key);
       }
       leaving = true;
+      clearCarried(key);
       kitchen.changed();
       toasts.show('Saved');
       void go(recipePage(saved.id));
@@ -303,6 +332,7 @@
     const name = draft?.opened?.name ?? '';
     if (!recipeId) return;
     leaving = true;
+    clearCarried(key);
     try {
       await removeRecipe(recipeId, name);
       void go(RECIPES);
@@ -360,6 +390,12 @@
       <EditorNote tone="offline"
         >{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</EditorNote
       >
+    {/if}
+    {#if carrying}
+      <EditorNote tone="draft">
+        <span>Carrying on where you left off</span>
+        <button type="button" class="mw-pill" onclick={() => void startOver()}>Start over</button>
+      </EditorNote>
     {/if}
     {#if cantSave}
       <EditorNote tone="trouble">

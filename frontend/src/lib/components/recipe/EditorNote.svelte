@@ -9,12 +9,12 @@
     children
   }: {
     /** offline: calm · trouble: something didn't save · conflict: someone else saved first. */
-    tone: 'offline' | 'trouble' | 'conflict';
+    tone: 'offline' | 'trouble' | 'conflict' | 'draft';
     children: Snippet;
   } = $props();
 </script>
 
-<div class="note {tone}" role={tone === 'offline' ? 'status' : 'alert'}>
+<div class="note {tone}" role={tone === 'offline' || tone === 'draft' ? 'status' : 'alert'}>
   {#if tone === 'offline'}<Icon name="cloud-off" size={18} />{/if}
   {#if tone === 'trouble'}<Icon name="alert" size={18} />{/if}
   {@render children()}
@@ -32,9 +32,14 @@
     font-weight: var(--weight-bold);
   }
 
-  .offline {
+  .offline,
+  .draft {
     background: var(--color-fill);
     font-weight: var(--weight-semibold);
+  }
+
+  .draft :global(span) {
+    flex: 1;
   }
 
   .trouble {
