@@ -9,9 +9,10 @@ const household = (on: boolean) =>
 
 function serve(handler: (method: string, body: unknown) => Response | Promise<Response>) {
   const calls: { method: string; body: unknown }[] = [];
-  vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
     const body = init.body ? JSON.parse(String(init.body)) : undefined;
-    calls.push({ method: String(init.method), body });
+    // Only the household calls count: the offline check of an earlier test may ask for the version.
+    if (url === '/api/v1/household') calls.push({ method: String(init.method), body });
     return handler(String(init.method), body);
   });
   return calls;
@@ -88,5 +89,31 @@ describe('Cook mode’s per-step ingredients switch (a household setting)', () =
     expect(prefs.perStep).toBe(false);
     expect(calls.every((c) => c.method === 'GET')).toBe(true);
     expect(localStorage.getItem(OLD_PER_STEP_KEY)).toBeNull();
+  });
+
+  it('the error line clears after a later flip that works', async () => {
+    let fail = true;
+    serve(() => (fail ? new Response('{"detail":"no"}', { status: 500 }) : household(true)));
+    const prefs = new CookPrefs();
+    await prefs.setPerStep(true);
+    expect(prefs.problem).toBe('Couldn’t save. Try again.');
+    fail = false;
+    await prefs.setPerStep(true);
+    expect(prefs.problem).toBeNull();
+    expect(prefs.perStep).toBe(true);
+  });
+
+  it('a read that comes back after the person flipped the switch is ignored', async () => {
+    let release: (r: Response) => void = () => {};
+    const slow = new Promise<Response>((resolve) => (release = resolve));
+    const prefs = new CookPrefs();
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) =>
+      init.method === 'GET' ? slow : household(true)
+    );
+    const loading = prefs.load();
+    await prefs.setPerStep(true);
+    release(household(false)); // the old answer, from before the flip
+    await loading;
+    expect(prefs.perStep).toBe(true);
   });
 });

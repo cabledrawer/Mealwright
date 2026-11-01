@@ -20,10 +20,18 @@ export class CookPrefs {
   /** Whether each step shows the ingredients guessed for it. */
   perStep = $state(false);
 
+  /** The one line when the switch went back; cleared by the next flip that works. */
+  problem = $state<string | null>(null);
+
+  /** Counts the flips, so a read that started before one can be told from a fresh one. */
+  #flips = 0;
+
   /** Read the household's setting (each time Cook mode opens). A failure leaves what it was. */
   async load(): Promise<void> {
+    const flips = this.#flips;
     try {
-      this.perStep = (await getHousehold()).cook_per_step;
+      const on = (await getHousehold()).cook_per_step;
+      if (flips === this.#flips) this.perStep = on; // a flip since then is newer than this reply
     } catch {
       // Cook mode still works; the switch keeps what it had.
     }
@@ -37,13 +45,16 @@ export class CookPrefs {
   /** Switch it for the household. Returns the one short line to show if it went back, else null. */
   async setPerStep(on: boolean): Promise<string | null> {
     const before = this.perStep;
+    this.#flips++;
     this.perStep = on;
     try {
       this.perStep = (await changeCookPerStep(on)).cook_per_step;
+      this.problem = null;
       return null;
     } catch (error) {
       this.perStep = before;
-      return cantReach(error) ? nothingChanged(network.deviceOffline) : COULDNT_SAVE;
+      this.problem = cantReach(error) ? nothingChanged(network.deviceOffline) : COULDNT_SAVE;
+      return this.problem;
     }
   }
 }

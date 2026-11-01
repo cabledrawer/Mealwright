@@ -30,8 +30,6 @@
   let recipe = $state<Recipe | null>(null);
   let gone = $state(false);
   let problem = $state<string | null>(null);
-  /** The one line when the per-step switch went back (the server couldn't take it). */
-  let switchProblem = $state<string | null>(null);
   /** Set when the person has chosen to leave: the next navigation goes through. */
   let leaving = false;
 
@@ -139,11 +137,8 @@
     perStep={cookPrefs.perStep}
     {notice}
     oncooked={meal ? openCooked : null}
-    problem={switchProblem}
-    onperstep={async (on) => {
-      const line = await cookPrefs.setPerStep(on);
-      if (line) switchProblem = line;
-    }}
+    problem={cookPrefs.problem}
+    onperstep={(on) => void cookPrefs.setPerStep(on)}
     onexit={exit}
   />
 {:else if gone}
