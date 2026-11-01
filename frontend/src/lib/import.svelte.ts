@@ -4,6 +4,7 @@
 
 import { ApiError, cantReach } from './api';
 import { changeDraft, keepDraft, type DraftBody, type DraftOut } from './client/drafts';
+import { listFoods } from './client/foods';
 import { deletePhoto } from './client/recipes';
 import { drafts } from './drafts.svelte';
 import {
@@ -17,9 +18,11 @@ import {
   type SaveBody,
   type SaveLine
 } from './client/imports';
-import type { CountedAs, Pints, Ref } from './client/types';
+import type { CountedAs, FoodRow, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
+import { undoHistory, type UndoEntry } from './undo.svelte';
 import { MOST_STEPS, splitStep } from './importSteps';
+import { unitFor } from './recipeAmounts';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -443,6 +446,127 @@ export class ImportFlow {
     this.sharedFrom = from;
   }
 
+  // --- Taking a line out, or making it two (F105, F109) ---------------------------------------
+
+  /** The Undo entries for lines taken out or split, so leaving the screen can forget them. */
+  #takenOut: UndoEntry[] = [];
+
+  /** Lines moved to other places: the choices and the "also used for" notes follow them. `to`
+   *  gives a line's new place, or null when the line is gone (its choice and notes go too). */
+  #remap(to: (place: number) => number | null): void {
+    const choices: Record<number, Choice> = {};
+    for (const [i, kept] of Object.entries(this.choices)) {
+      const place = to(Number(i));
+      if (place !== null) choices[place] = kept;
+    }
+    const notes: Record<number, number> = {};
+    for (const [i, from] of Object.entries(this.sharedFrom)) {
+      const place = to(Number(i));
+      const source = to(from);
+      if (place !== null && source !== null) notes[place] = source;
+    }
+    this.choices = choices;
+    this.sharedFrom = notes;
+    this.saveProblem = null;
+  }
+
+  /** Take `gone` (which stand in `at`) out of the review and put `put` there instead, with an
+   *  Undo that reverses it. Lines are found again by themselves, not by number: other lines
+   *  may have moved since. The one line taken out keeps its choice for the Undo. */
+  #swap(at: number, gone: ReviewLine[], put: ReviewLine[], label: string): void {
+    const review = this.review;
+    if (!review) return;
+    const lines = review.lines;
+    const choice = gone.length === 1 ? this.choices[at] : undefined;
+    const source =
+      gone.length === 1 && this.sharedFrom[at] !== undefined ? lines[this.sharedFrom[at]!] : null;
+    const followers = gone.length === 1 ? this.followers(at).map((j) => lines[j]!) : [];
+    const after = lines[at + gone.length];
+    const moved = put.length - gone.length;
+    lines.splice(at, gone.length, ...put);
+    // The lines as the review now holds them (what is stored can differ from what was handed in).
+    const placed = lines.slice(at, at + put.length);
+    this.#remap((i) => (i >= at + gone.length ? i + moved : i >= at ? null : i));
+
+    const entry: UndoEntry = {
+      label,
+      undo: () => {
+        const now = this.review?.lines;
+        if (this.review !== review || !now) return false; // another recipe is on the screen now
+        const first = placed.length ? now.indexOf(placed[0]!) : -1;
+        if (first >= 0 && placed.some((line, k) => now[first + k] !== line)) return false;
+        let from = first;
+        if (from < 0) {
+          const next = after ? now.indexOf(after) : now.length;
+          from = next >= 0 ? next : Math.min(at, now.length);
+        }
+        now.splice(from, first < 0 ? 0 : placed.length, ...gone);
+        const gap = first < 0 ? 0 : placed.length;
+        const shift = gone.length - gap;
+        this.#remap((i) => (i >= from + gap ? i + shift : i >= from ? null : i));
+        if (choice) {
+          this.choices = { ...this.choices, [from]: choice };
+          const origin = source ? now.indexOf(source) : -1;
+          if (origin >= 0) this.sharedFrom = { ...this.sharedFrom, [from]: origin };
+        }
+        for (const follower of followers) {
+          const j = now.indexOf(follower);
+          if (j >= 0 && this.choices[j]) this.sharedFrom = { ...this.sharedFrom, [j]: from };
+        }
+      }
+    };
+    this.#takenOut.push(entry);
+    undoHistory.record(entry);
+  }
+
+  /** Split into two: one line that is really two ingredients ("water and broth") becomes two
+   *  lines with the names given, each with no amount and the note "4½ cups together" when the
+   *  line had one. The two are looked up in the household's ingredients by exact name, as the
+   *  reader does for its own. False when the names can't be used. */
+  async splitLine(index: number, names: [string, string]): Promise<boolean> {
+    const review = this.review;
+    const line = review?.lines[index];
+    if (!review || !line || line.kind !== 'ingredient') return false;
+    const [first, second] = names.map((n) => n.replace(/\s+/g, ' ').trim());
+    if (!first || !second || first.toLowerCase() === second.toLowerCase()) return false;
+    const found = await Promise.all([first, second].map((name) => exactIngredient(name)));
+    // A slow answer for a screen that has moved on: nothing to change.
+    if (this.review !== review || review.lines[index] !== line) return false;
+    const note = [togetherNote(line), keptNote(line)].filter(Boolean).join(', ') || null;
+    const made = [first, second].map((name, n): ReviewLine => ({
+      kind: 'ingredient',
+      written: line.written,
+      words: name,
+      amount: null,
+      amount_text: null,
+      unit: null,
+      size: null,
+      note,
+      readable: true,
+      label: found[n] ? (found[n]!.staple ? 'staple' : 'matched') : 'needs_you',
+      food: found[n] ? { id: found[n]!.id, name: found[n]!.name } : null,
+      place: found[n]?.place?.name ?? null,
+      matched_by: found[n] ? name : null,
+      counts: false,
+      new_ingredient: {
+        name: name[0]!.toUpperCase() + name.slice(1),
+        counted_as: 'weight',
+        place: null
+      },
+      learn_name: null,
+      pint_ml: null
+    }));
+    this.#swap(index, [line], made, `Split “${shorter(line.written)}” into two`);
+    return true;
+  }
+
+  /** Forget the Undo for lines taken out: the screen is going, and they would have nowhere to
+   *  go back to. */
+  forgetTakenOut(): void {
+    this.#takenOut.forEach((entry) => undoHistory.forget(entry));
+    this.#takenOut = [];
+  }
+
   /** The ingredient a line will be tied to, or null: a choice, else a match. */
   linkOf(index: number): Choice | null {
     const chosen = this.choices[index];
@@ -672,6 +796,50 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
     note: line.note,
     link: sent
   };
+}
+
+/** The ingredient with exactly this name (or another name of it), or null: the household's own,
+ *  from the server's search. A search that fails is no match: the line asks the person. */
+async function exactIngredient(name: string): Promise<FoodRow | null> {
+  try {
+    const key = name.toLocaleLowerCase();
+    const { foods } = await listFoods({ q: name, limit: 8 });
+    return (
+      foods.find(
+        (food) =>
+          food.name.toLocaleLowerCase() === key ||
+          food.other_names.some((other) => other.toLocaleLowerCase() === key)
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** "4½ cups together": the amount a line had, now shared by the two it was split into. */
+function togetherNote(line: ReviewLine): string {
+  if (line.amount === null) return '';
+  const number = line.amount_text ?? amountWords(line.amount);
+  const word = line.size
+    ? line.amount > 1
+      ? line.size.plural
+      : line.size.name
+    : line.unit
+      ? unitFor(line.unit, line.amount)
+      : '';
+  return `${number}${word ? `\u00a0${word}` : ''} together`;
+}
+
+/** The line's own note, but not the "as written" copy of an amount that is gone. */
+function keptNote(line: ReviewLine): string {
+  return line.note && !line.note.startsWith('as written:') ? line.note : '';
+}
+
+/** A line as it reads in a toast: cut at 40 characters, at a word where it can. */
+function shorter(text: string): string {
+  const one = text.replace(/\s+/g, ' ').trim();
+  if (one.length <= 40) return one;
+  return `${(one.slice(0, 40).replace(/\s+\S*$/, '') || one.slice(0, 40)).trimEnd()}…`;
 }
 
 /** "4 lines after “Tips” were left out": the sentence for the review (spec Q17). */

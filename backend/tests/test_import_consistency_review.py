@@ -328,3 +328,36 @@ def test_a_one_megabyte_hostile_ingredient_line_does_not_freeze_the_import(
     assert time.perf_counter() - started < 1.0
     assert len(shown["lines"]) >= 1
 
+
+def test_f109_water_and_broth_is_two_lines_and_no_name_is_learned_from_an_and(
+    kitchen: TestClient, web: Web
+) -> None:
+    """F109 (cabledrawer 31 Oct): two lines, no amount, the note "4½ cups together"; a line with
+    "and" in its name offers "Same as" without learning the name."""
+    text = (
+        "Soup\nIngredients\n4 1/2 cups water and broth (see instructions)\n"
+        "1 cup half and half\n1 cup cream\nMethod\n1. Cook.\n"
+    )
+    lines = lines_of(review(kitchen, text))
+    assert [line["words"] for line in lines] == ["water", "broth", "half and half", "cream"]
+    for line in lines[:2]:
+        assert (line["amount"], line["unit"], line["counts"]) == (None, None, False)
+        assert line["note"] == "4½\u00a0cups together, see instructions"
+        assert line["written"] == "4 1/2 cups water and broth (see instructions)"
+        assert line["learn_name"] == line["words"]
+    assert lines[2]["learn_name"] is None  # the name joins two: never another name
+    assert lines[3]["learn_name"] == "cream"
+
+
+def test_f109_save_never_learns_a_name_that_joins_two(kitchen: TestClient, web: Web) -> None:
+    """Even a draft kept before this change, or a hand-made request, cannot teach one."""
+    shown = review(kitchen, "Soup\nIngredients\n1 cup cream\nMethod\n1. Cook.\n")
+    made = kitchen.post(f"{API}/foods", json={"name": "Water", "counted_as": "volume"})
+    assert made.status_code == 201, made.text
+    food_id = made.json()["food"]["id"]
+    link = {"kind": "ingredient", "food_id": food_id, "learn": "water and broth"}
+    saved = ok(save(kitchen, to_save(shown, {0: link})), 201)
+    assert saved["learned"] == 0
+    other = {**link, "learn": "tap water"}
+    again = ok(save(kitchen, to_save(shown, {0: other})), 201)
+    assert again["learned"] == 1

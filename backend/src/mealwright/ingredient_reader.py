@@ -30,7 +30,7 @@ What it reads without asking:
 import re
 import unicodedata
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
 
@@ -1182,7 +1182,85 @@ def read_lines(
         reads = [read_line(part, extra, pint_ml) for part in parts]
         if all(read.readable for read in reads):
             return reads
-    return [read_line(text, extra, pint_ml)]
+    whole = read_line(text, extra, pint_ml)
+    return _share_amount(whole) or [whole]
+
+
+# --- One amount for two ingredients (F109) ----------------------------------------------------
+
+# "and" and its likes between two names. A name with one of these in it is two things, so it is
+# never learned as another name for one ingredient: "water and broth" must not make "broth" mean
+# Water later (F109, cabledrawer 31 Oct).
+_JOINERS = re.compile(r"\s(?:and|&|plus|\+)\s", re.IGNORECASE)
+# Names that are one thing though they have "and" in them: kept as one line.
+ONE_THING_WITH_AND = (
+    "half and half", "pork and beans", "black and white", "salt and vinegar", "oil and vinegar",
+    "bread and butter", "fish and chips", "mac and cheese", "macaroni and cheese",
+    "sweet and sour", "peaches and cream", "cookies and cream", "sour cream and onion",
+    "rice and peas", "surf and turf", "rum and raisin",
+)  # fmt: skip
+# Plural only above one, as the screens write it ("½ cup", "1½ cups").
+_PLURAL_UNITS = {"cup": "cups", "pinch": "pinches"}
+
+
+def joins_two_names(name: str) -> bool:
+    """The name has "and", "&", "plus" or "+" between words ("water and broth")."""
+    return _JOINERS.search(f" {name} ") is not None
+
+
+def _share_amount(whole: ReadLine) -> list[ReadLine] | None:
+    """ "4 1/2 cups water and broth (see instructions)": one amount for two ingredients is two
+    lines, Water and Broth, each with no amount and the note "4½ cups together" (F109, cabledrawer
+    31 Oct). Only a line with an amount and a unit or size ("2 cans"), one "and" between two
+    short names, nothing else with a number in it, and not a name that is one thing
+    (`ONE_THING_WITH_AND`, `_one_name`). "or" is not touched (F11): the first choice is the line."""
+    if not whole.readable or whole.amount is None or whole.other_names:
+        return None
+    if whole.unit is None and whole.size_word is None:
+        return None
+    if any(c.isdigit() for c in whole.name):
+        return None
+    sides = [side.strip() for side in _AND.split(whole.name)]
+    if len(sides) != 2 or not all(_short_side(side) for side in sides):
+        return None
+    if sides[0].lower() == sides[1].lower() or _one_name(sides):
+        return None
+    if any(phrase in whole.name.lower() for phrase in ONE_THING_WITH_AND):
+        return None
+    word = whole.unit or whole.size_word or ""
+    if whole.unit in _PLURAL_UNITS and whole.amount > 1:
+        word = _PLURAL_UNITS[whole.unit]
+    amount = _fraction_text(whole.amount)
+    together = f"{amount}\u00a0{word} together"
+    note = ", ".join(part for part in (together, whole.note) if part)
+    return [
+        replace(
+            whole,
+            amount=None,
+            unit=None,
+            size_word=None,
+            name=side,
+            name_as_written=side,
+            note=_cap(note, MAX_NOTE_CHARS),
+            counts=False,
+            chosen=False,
+            pints=None,
+            pint_unit=None,
+        )
+        for side in sides
+    ]
+
+
+def _fraction_text(amount: Decimal) -> str:
+    """4.5 → "4½", 0.25 → "¼", 3 → "3", 1.2 → "1.2" (the way the screens write an amount)."""
+    milli = int((amount * 1000).to_integral_value(ROUND_HALF_UP))
+    whole, part = divmod(milli, 1000)
+    glyph = {250: "¼", 500: "½", 750: "¾"}.get(part)
+    if part == 0:
+        return str(whole)
+    if glyph:
+        return f"{whole or ''}{glyph}"
+    return format(amount.normalize(), "f")
 
 
 def _trim(value: Fraction) -> str:

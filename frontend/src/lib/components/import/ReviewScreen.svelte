@@ -91,6 +91,9 @@
     if (target) void goOn(target);
   }
 
+  // A removed line's Undo has nowhere to go once this screen is gone.
+  $effect(() => () => flow.forgetTakenOut());
+
   const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
@@ -214,7 +217,7 @@
           </p>
         {/if}
         <ul>
-          {#each review.lines as line, index (index)}
+          {#each review.lines as line, index (line)}
             <ReviewLineRow
               {flow}
               {index}

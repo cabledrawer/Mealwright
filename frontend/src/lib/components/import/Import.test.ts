@@ -6,6 +6,8 @@ import type { ImportReview } from '#lib/client/imports.js';
 import { ImportFlow } from '#lib/import.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
 import { PINTS_REVIEW, reviewFlow } from '#lib/testing/importSamples.js';
@@ -548,6 +550,56 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText('Basmati rice', { exact: true })).toBeVisible();
       expect(page.getByText(/also called basmati rice/i).elements()).toHaveLength(0);
       expect(page.getByText(/also called/).elements()).toHaveLength(1);
+    });
+
+    it('Split into two on any line: two names, then two lines (F109)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.lines[1] = {
+        ...flow.review!.lines[1]!,
+        written: '4 1/2 cups water and broth',
+        words: 'water and broth',
+        amount: 4.5,
+        amount_text: '4½',
+        unit: 'cup',
+        note: null,
+        learn_name: null
+      };
+      fakeApi({
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS],
+        'GET /foods?q=water&limit=8': [200, { foods: [] }],
+        'GET /foods?q=broth&limit=8': [200, { foods: [] }]
+      });
+      flushSync();
+      await page
+        .getByRole('button', { name: /^Split into two: 4 1\/2 cups water and broth/ })
+        .click();
+      // The name is cut at its "and" for the boxes.
+      await expect.element(page.getByLabelText('First ingredient')).toHaveValue('water');
+      await expect.element(page.getByLabelText('Second ingredient')).toHaveValue('broth');
+      await expect.element(page.getByText(/“4½ cups together” goes in its note/)).toBeVisible();
+      await page.getByRole('button', { name: 'Split', exact: true }).click();
+      await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(4));
+      expect(flow.review!.lines.map((l) => l.words)).toEqual([
+        'thuvaram paruppu',
+        'water',
+        'broth',
+        'asafoetida'
+      ]);
+      expect(toasts.current?.message).toBe('Split “4 1/2 cups water and broth” into two');
+    });
+
+    it('a name that is not two things is left alone: Cancel closes the boxes (F109)', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: /^Split into two: ¼ tsp asafoetida/ }).click();
+      await expect.element(page.getByLabelText('First ingredient')).toHaveValue('asafoetida');
+      await expect.element(page.getByLabelText('Second ingredient')).toHaveValue('');
+      await page.getByRole('button', { name: 'Split', exact: true }).click();
+      await expect.element(page.getByText('Type two different names.')).toBeVisible();
+      await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+      expect(page.getByLabelText('First ingredient').elements()).toHaveLength(0);
     });
 
     it('numbers the steps through the method, never counting a heading (F112)', async () => {

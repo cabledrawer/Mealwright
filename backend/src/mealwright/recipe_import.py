@@ -59,7 +59,13 @@ from mealwright.foods import find as find_food
 from mealwright.foods import name_owner, name_taken, refresh_table_key
 from mealwright.history import FoodEdit
 from mealwright.ingredient_match import KnownIngredients, Match, kitchen_of, match_line
-from mealwright.ingredient_reader import FIXED_COUNTS, ReadLine, read_lines, working_text
+from mealwright.ingredient_reader import (
+    FIXED_COUNTS,
+    ReadLine,
+    joins_two_names,
+    read_lines,
+    working_text,
+)
 from mealwright.line_prep import (
     clean_recipe_name,
     is_abbreviated_heading,
@@ -666,7 +672,8 @@ def _review_line(
         for home in ingredients.places:
             if home.id == guess.place_id:
                 place = Ref(id=home.id, name=home.name)
-    learn = read.name if read.readable else None
+    # A name that joins two ("water and broth") is never learned as another name (F109).
+    learn = read.name if read.readable and not joins_two_names(read.name) else None
     return ReviewLine(
         kind="ingredient",
         written=written,
@@ -936,7 +943,7 @@ def _learn(
             continue
         food = existing[link.food_id or 0]
         key = fold(link.learn)
-        if key in taken or not key:
+        if key in taken or not key or joins_two_names(link.learn):
             continue
         taken.add(key)
         db.add(FoodName(household_id=kitchen.household_id, food_id=food.id, name=link.learn))

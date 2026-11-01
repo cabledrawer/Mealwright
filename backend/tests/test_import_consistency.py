@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from mealwright.ingredient_reader import ReadLine, read_line
+from mealwright.ingredient_reader import ReadLine, joins_two_names, read_line, read_lines
 
 D = Decimal
 PINT_UK = 568
@@ -292,7 +292,8 @@ def test_f26_plus_and_and_make_two_lines() -> None:
     assert [r.name for r in read_lines("salt and pepper to taste")] == ["salt", "pepper"]
     # An "and" that is part of one name, or has amounts, is not split.
     assert len(read_lines("macaroni and cheese")) == 1
-    assert len(read_lines("2 tbsp salt and pepper")) == 1
+    # One amount for both is two lines with the amount in each note (F109).
+    assert [r.name for r in read_lines("2 tbsp salt and pepper")] == ["salt", "pepper"]
     assert len(read_lines("half and half")) == 1
 
 
@@ -761,3 +762,81 @@ def test_variety_regex_is_whole_words_and_site_tail_keeps_taste() -> None:
     assert clean_recipe_name("Pancakes - Taste the difference") == "Pancakes - Taste the difference"
     assert clean_recipe_name("Pancakes - Kitchen sink") == "Pancakes - Kitchen sink"
 
+
+# --- F109: one amount for two ingredients ------------------------------------------------------
+
+
+def test_f109_water_and_broth_is_two_lines_with_the_amount_in_the_note() -> None:
+    """F109 (cabledrawer 31 Oct): "4 1/2 cups water and broth (see instructions)" is Water and Broth,
+    each with no amount and the note "4½ cups together"."""
+    water, broth = read_lines("4 1/2 cups water and broth (see instructions)")
+    assert (water.name, broth.name) == ("water", "broth")
+    for line in (water, broth):
+        assert (line.amount, line.unit, line.size_word, line.counts) == (None, None, None, False)
+        assert line.note == "4½\u00a0cups together, see instructions"
+        assert line.readable and not line.chosen
+        assert line.text == "4 1/2 cups water and broth (see instructions)"
+
+
+def test_f109_the_amount_is_worded_as_the_screens_word_it() -> None:
+    for text, note in (
+        ("1 cup butter and flour", "1\u00a0cup together"),  # one cup, not cups
+        ("½ cup butter and flour", "½\u00a0cup together"),
+        ("1 1/2 cups butter and flour", "1½\u00a0cups together"),
+        ("100 g butter and flour", "100\u00a0g together"),
+        ("2 tbsp butter and flour", "2\u00a0tbsp together"),
+        ("2 cans chickpeas and tomatoes", "2\u00a0cans together"),
+        ("1.2 l water and stock", "1.2\u00a0l together"),
+    ):
+        reads = read_lines(text)
+        assert len(reads) == 2, text
+        assert {read.note for read in reads} == {note}, text
+
+
+def test_f109_prep_words_stay_in_each_note() -> None:
+    reads = read_lines("1 cup chopped carrots and celery")
+    assert [(r.name, r.note) for r in reads] == [
+        ("carrots", "1\u00a0cup together, chopped"),
+        ("celery", "1\u00a0cup together, chopped"),
+    ]
+
+
+def test_f109_only_a_clear_pair_is_split() -> None:
+    for text in (
+        "1 cup half and half",
+        "1 can pork and beans",
+        "1 cup mac and cheese",
+        "2 cups black and white beans",  # "black and white" is one name
+        "1 cup sweet and sour sauce",
+        "2 tbsp oil and vinegar dressing",
+        "2 onions and 3 carrots",  # another number in it: not one amount for both
+        "3 carrots and onions",  # a count with no unit has nothing to say "together" about
+        "salt and pepper",  # no amount: nothing to share
+        "1 cup cream and chicken and mushroom soup",  # two "and"s
+        "1 cup a and a",  # the same name twice
+        "1 cup soup and the salad and croutons with a very long extra name here",
+    ):
+        assert len(read_lines(text)) == 1, text
+
+
+def test_f109_or_and_the_other_joiners_are_as_they_were() -> None:
+    # "or": the first choice is the line, the other choice is the note (F11).
+    (line,) = read_lines("2 tbsp butter or ghee")
+    assert (line.amount, line.name, line.note) == (2, "butter", "or ghee")
+    # A spaced "+" still gives a line each, with an amount each (F26).
+    reads = read_lines("2 cups water + 1 cup broth")
+    assert [(r.amount, r.name) for r in reads] == [(2, "water"), (1, "broth")]
+    # "&" and "plus" are not split: one line, as before (a follow-up for cabledrawer).
+    assert [r.name for r in read_lines("1 tsp salt & pepper")] == ["salt & pepper"]
+    assert [r.name for r in read_lines("1 cup water plus broth")] == ["water plus broth"]
+
+
+def test_f109_a_name_that_joins_two_is_never_learned() -> None:
+    assert joins_two_names("water and broth")
+    assert joins_two_names("salt & pepper")
+    assert joins_two_names("Water AND broth")
+    assert joins_two_names("water plus broth")
+    assert not joins_two_names("water")
+    assert not joins_two_names("brandy")  # "and" inside a word
+    assert not joins_two_names("sandwich bread")
+    assert not joins_two_names("black pepper")

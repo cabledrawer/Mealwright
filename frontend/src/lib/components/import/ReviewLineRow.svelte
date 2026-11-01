@@ -94,6 +94,28 @@
     if (!placesAndShops.places.length) void placesAndShops.load().catch(() => {});
   });
 
+  // --- Split into two (F109) --------------------------------------------------------------
+  let splitting = $state(false);
+  let splitNames = $state<[string, string]>(['', '']);
+  let splitError = $state(false);
+
+  /** The line's name cut at its joiner ("water and broth"), else the whole name and a blank. */
+  function twoNames(words: string): [string, string] {
+    const cut = /\s(?:and|&|plus|\+)\s|\s*[,/]\s*/i.exec(words);
+    if (!cut) return [words, ''];
+    return [words.slice(0, cut.index).trim(), words.slice(cut.index + cut[0].length).trim()];
+  }
+
+  function openSplit() {
+    splitNames = twoNames(line.words);
+    splitError = false;
+    splitting = !splitting;
+  }
+
+  async function doSplit() {
+    splitError = !(await flow.splitLine(index, splitNames));
+  }
+
   function pick(food: Ref) {
     picking = false;
     flow.sameAs(index, food);
@@ -286,6 +308,45 @@
         </p>
       {/if}
 
+      {#if splitting}
+        <div class="fields">
+          <label class="field" for="{uid}-split-1">
+            <span>First ingredient</span>
+            <input
+              id="{uid}-split-1"
+              class="mw-input"
+              type="text"
+              maxlength="100"
+              autocomplete="off"
+              bind:value={splitNames[0]}
+            />
+          </label>
+          <label class="field" for="{uid}-split-2">
+            <span>Second ingredient</span>
+            <input
+              id="{uid}-split-2"
+              class="mw-input"
+              type="text"
+              maxlength="100"
+              autocomplete="off"
+              bind:value={splitNames[1]}
+            />
+          </label>
+        </div>
+        {#if splitError}<p class="error" role="alert">Type two different names.</p>{/if}
+        <p class="done-row">
+          <span class="hint"
+            >{line.amount === null
+              ? 'Two lines, one for each.'
+              : `Each gets no amount: “${quantity} together” goes in its note.`}</span
+          >
+          <span class="two-buttons">
+            <button type="button" class="quiet" onclick={() => (splitting = false)}>Cancel</button>
+            <button type="button" class="done" onclick={() => void doSplit()}>Split</button>
+          </span>
+        </p>
+      {/if}
+
       {#if choice && choice.kind === 'ingredient'}
         {#if line.learn_name}
           <p class="hint">
@@ -388,8 +449,10 @@
         {:else}
           <p class="buttons">
             {#if line.label === 'to_confirm' && line.food}
-              <button type="button" class="chip primary" onclick={() => flow.sameAs(index, line.food!)}
-                >Same as “{line.food.name}”</button
+              <button
+                type="button"
+                class="chip primary"
+                onclick={() => flow.sameAs(index, line.food!)}>Same as “{line.food.name}”</button
               >
               <button type="button" class="chip" onclick={() => (picking = true)}
                 >Pick another</button
@@ -425,19 +488,28 @@
       {/if}
       {#if problem}<p class="error" role="alert">{problem}</p>{/if}
     </div>
-    <span class="state" class:staple={status === 'staple'}>
-      {#if choice}
-        {choice.kind === 'ingredient'
-          ? 'Same as'
-          : choice.kind === 'staple'
-            ? 'New staple'
-            : 'New ingredient'}
-      {:else if line.label === 'staple'}
-        Staple
-      {:else if line.label === 'matched'}
-        <Icon name="check" size={14} stroke={2.6} />{line.place ?? 'In your ingredients'}
-      {/if}
-    </span>
+    <div class="side">
+      <span class="state" class:staple={status === 'staple'}>
+        {#if choice}
+          {choice.kind === 'ingredient'
+            ? 'Same as'
+            : choice.kind === 'staple'
+              ? 'New staple'
+              : 'New ingredient'}
+        {:else if line.label === 'staple'}
+          Staple
+        {:else if line.label === 'matched'}
+          <Icon name="check" size={14} stroke={2.6} />{line.place ?? 'In your ingredients'}
+        {/if}
+      </span>
+      <button
+        type="button"
+        class="remove"
+        aria-expanded={splitting}
+        aria-label="Split into two: {line.written}"
+        onclick={openSplit}>Split into two</button
+      >
+    </div>
   </li>
 {/if}
 
@@ -577,6 +649,26 @@
 
   b.bad {
     font-size: var(--text-base);
+  }
+
+  .side {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: flex-end;
+  }
+
+  .remove {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    text-decoration: underline;
+    cursor: pointer;
   }
 
   .state {

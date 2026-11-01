@@ -4,6 +4,8 @@ import { network } from '#lib/network.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
 import type { DraftOut } from './client/drafts';
 import { PINTS_REVIEW } from '#lib/testing/importSamples.js';
+import { toasts } from './toast.svelte';
+import { undoHistory } from './undo.svelte';
 import { amountWords, DRAFT_OFFLINE, ImportFlow, leftOutWords, volumeWords } from './import.svelte';
 
 const line = (over: Partial<ReviewLine>): ReviewLine => ({
@@ -618,6 +620,90 @@ describe('importer consistency on Check (0.7)', () => {
       flow.unchoose(1);
       expect(flow.choices[1]).toBeUndefined();
       expect(flow.followers(0)).toEqual([]);
+    });
+  });
+
+  describe('F109: Split into two', () => {
+    const joined = () =>
+      icing({
+        written: '4 1/2 cups water and broth',
+        words: 'water and broth',
+        amount: 4.5,
+        amount_text: '4½',
+        unit: 'cup',
+        note: 'see instructions',
+        learn_name: null
+      });
+    const foods = (rows: object[]) =>
+      fakeApi({
+        'GET /foods?q=water&limit=8': [200, { foods: rows }],
+        'GET /foods?q=broth&limit=8': [200, { foods: [] }]
+      });
+    beforeEach(() => {
+      undoHistory.clear();
+      toasts.dismiss();
+    });
+
+    it('makes two lines with no amount and the amount in each note, looked up by exact name', async () => {
+      foods([
+        { id: 5, name: 'Water', other_names: [], place: null, staple: true },
+        { id: 6, name: 'Water chestnuts', other_names: [], place: null, staple: false }
+      ]);
+      const flow = flowOf({ lines: [joined(), icing({ written: '1 egg', words: 'egg' })] });
+      expect(await flow.splitLine(0, ['water', 'Broth'])).toBe(true);
+      const lines = flow.review!.lines;
+      expect(lines.map((l) => l.words)).toEqual(['water', 'Broth', 'egg']);
+      for (const l of lines.slice(0, 2)) {
+        expect(l).toMatchObject({ amount: null, amount_text: null, unit: null, counts: false });
+        expect(l.note).toBe('4½\u00a0cups together, see instructions');
+        expect(l.written).toBe('4 1/2 cups water and broth');
+      }
+      expect(lines[0]).toMatchObject({ label: 'staple', food: { id: 5, name: 'Water' } });
+      expect(lines[1]).toMatchObject({ label: 'needs_you', food: null });
+      expect(flow.body()!.lines.map((l) => l.amount)).toEqual([null, null, 1]);
+      expect(toasts.current?.message).toBe('Split “4 1/2 cups water and broth” into two');
+    });
+
+    it('keeps the choices of the lines after it, and Undo puts the one line back', async () => {
+      foods([]);
+      const flow = flowOf({ lines: [joined(), icing({ written: '1 egg', words: 'egg' })] });
+      flow.newIngredient(1);
+      flow.sameAs(0, { id: 3, name: 'Stock' }); // the joined line's own choice
+      await flow.splitLine(0, ['water', 'broth']);
+      expect(flow.choices[0]).toBeUndefined();
+      expect(flow.choices[1]).toBeUndefined();
+      expect(flow.choices[2]).toMatchObject({ kind: 'new' });
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.lines.map((l) => l.words)).toEqual(['water and broth', 'egg']);
+      expect(flow.choices[0]).toMatchObject({ kind: 'ingredient', food: { id: 3 } });
+      expect(flow.choices[1]).toMatchObject({ kind: 'new' });
+    });
+
+    it('says no to a blank or repeated name, and a line with no amount gets no “together”', async () => {
+      foods([]);
+      const flow = flowOf({
+        lines: [
+          icing({
+            written: 'salt and pepper',
+            words: 'salt and pepper',
+            note: null,
+            amount: null,
+            amount_text: null
+          })
+        ]
+      });
+      expect(await flow.splitLine(0, ['salt', ''])).toBe(false);
+      expect(await flow.splitLine(0, ['salt', ' SALT '])).toBe(false);
+      expect(flow.review!.lines).toHaveLength(1);
+      expect(await flow.splitLine(0, ['salt', 'pepper'])).toBe(true);
+      expect(flow.review!.lines.map((l) => l.note)).toEqual([null, null]);
+    });
+
+    it('goes on with no match when the search fails', async () => {
+      fakeApi({});
+      const flow = flowOf({ lines: [joined()] });
+      expect(await flow.splitLine(0, ['water', 'broth'])).toBe(true);
+      expect(flow.review!.lines.map((l) => l.label)).toEqual(['needs_you', 'needs_you']);
     });
   });
 

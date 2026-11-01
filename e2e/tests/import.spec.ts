@@ -420,6 +420,8 @@ test('the review: if only the large copy can’t be fetched, the list copy shows
   await expect(img).toHaveAttribute('src', photo.list_url);
   await loadedPicture(page);
   await expect(page.getByRole('img', { name: 'No photo' })).toHaveCount(0);
+  // Each line has its own buttons now: look at the end of the page, clear of the floating Save bar.
+  await page.locator('ol li').last().scrollIntoViewIfNeeded();
   await checkPage(page);
 });
 
@@ -428,6 +430,8 @@ test('the review: if neither copy can be fetched, the "No photo" box shows, neve
   await withDownloadedPhoto(page);
   await expect(page.getByRole('img', { name: 'No photo' })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Downloaded from the page' })).toHaveCount(0);
+  // Each line has its own buttons now: look at the end of the page, clear of the floating Save bar.
+  await page.locator('ol li').last().scrollIntoViewIfNeeded();
   await checkPage(page);
 });
 
@@ -658,4 +662,47 @@ test('a site that refuses says how to paste the recipe, and the box is empty and
   await checkPage(page);
   await inTheme(page, 'dark');
   await checkPage(page, { themes: ['dark'] });
+});
+
+test('Split into two turns one line into two, and Undo puts it back (F109)', async ({ page }) => {
+  const water = unique('Waterx');
+  const broth = unique('Brothx');
+  await checking(page, {
+    lines: [
+      {
+        kind: 'ingredient',
+        written: '4 1/2 cups water and broth',
+        words: `${water} and ${broth}`,
+        amount: 4.5,
+        amount_text: '4½',
+        unit: 'cup',
+        size: null,
+        note: null,
+        readable: true,
+        label: 'needs_you',
+        food: null,
+        place: null,
+        matched_by: null,
+        counts: true,
+        new_ingredient: { name: `${water} and ${broth}`, counted_as: 'volume', place: null },
+        learn_name: null,
+      },
+    ],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+  });
+  await expect(page.getByText('1 needs you')).toBeVisible();
+  await page.getByRole('button', { name: /^Split into two: 4 1\/2 cups water and broth/ }).click();
+  await expect(page.getByLabel('First ingredient')).toHaveValue(water);
+  await expect(page.getByLabel('Second ingredient')).toHaveValue(broth);
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Split', exact: true }).click();
+  await expect(page.getByText(/^Split “4 1\/2 cups water and broth” into two/)).toBeVisible();
+  await expect(page.getByText('2 need you')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Ingredients/ })).toContainText('2');
+  await expect(page.getByRole('button', { name: /^Amount|^No amount/ })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Note 4½.cups together/ })).toHaveCount(2);
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText('1 needs you')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Split into two: 4 1\/2 cups water and broth/ })).toBeVisible();
 });
