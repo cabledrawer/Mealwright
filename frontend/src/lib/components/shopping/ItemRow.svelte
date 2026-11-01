@@ -52,6 +52,7 @@
     if (!placing) addingPlace = false;
   });
   let packButton = $state<HTMLElement>();
+  let newPlaceButton = $state<HTMLElement>();
   let nameButton = $state<HTMLButtonElement>();
   let rowEl = $state<HTMLElement>();
 
@@ -297,11 +298,20 @@
             addingPlace = false;
             void model.putAway(item, added.id);
           }}
-          oncancel={() => (addingPlace = false)}
+          oncancel={() => {
+            // The "+ Place" that opened the box was gone while it was open: focus the new one.
+            addingPlace = false;
+            void afterUpdate().then(() => newPlaceButton?.focus());
+          }}
         />
       </div>
     {:else}
-      <button type="button" class="pack" onclick={() => (addingPlace = true)}>+ Place</button>
+      <button
+        type="button"
+        class="pack"
+        bind:this={newPlaceButton}
+        onclick={() => (addingPlace = true)}>+ Place</button
+      >
     {/if}
     <button
       type="button"

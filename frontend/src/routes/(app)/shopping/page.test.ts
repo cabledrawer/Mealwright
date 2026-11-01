@@ -447,6 +447,19 @@ describe('the Shopping page', () => {
     );
   });
 
+  it('phone: Cancel or Escape in the + Place box under Change puts focus back on + Place (L3)', async () => {
+    await render(390);
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await page.getByRole('button', { name: 'Change' }).click();
+    for (const close of ['Cancel', 'Escape']) {
+      await page.getByRole('button', { name: '+ Place' }).click();
+      await expect.element(page.getByRole('textbox', { name: 'Place’s name' })).toHaveFocus();
+      if (close === 'Cancel') await page.getByRole('button', { name: 'Cancel' }).click();
+      else await userEvent.keyboard('{Escape}');
+      await expect.element(page.getByRole('button', { name: '+ Place' })).toHaveFocus();
+    }
+  });
+
   it('desktop: the Put away panel shows the last tick and where it went', async () => {
     await render(1300);
     await expect.element(page.getByRole('heading', { name: 'Put away' })).toBeVisible();
