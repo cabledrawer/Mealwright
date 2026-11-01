@@ -1175,3 +1175,38 @@ def test_meal_eaters_migration_adds_one_table_and_goes_back_and_forward(tmp_path
     assert _row_counts(engine, skip) == after
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
+
+
+MEAL_EATERS_MIGRATION = "f27b95d1c8a3"  # 0.7 P1's meal eaters: the one just before cook_per_step
+
+
+def test_cook_per_step_migration_adds_one_column_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.7 K4: every household starts with the per-step switch off; going back drops only the
+    column and keeps every other row; going forward again puts every household back to off."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"alembic_version"}
+    before = _row_counts(engine, skip)
+    with engine.connect() as connection:
+        households = connection.exec_driver_sql("SELECT count(*) FROM household").scalar_one()
+        found = connection.exec_driver_sql("SELECT cook_per_step FROM household").scalars().all()
+    assert found == [0] * households
+    migrate.downgrade(engine, MEAL_EATERS_MIGRATION)
+    assert "cook_per_step" not in {c["name"] for c in inspect(engine).get_columns("household")}
+    assert migrate_head(engine) == MEAL_EATERS_MIGRATION
+    assert _row_counts(engine, skip) == before
+    with engine.begin() as connection:  # a household made while it was gone has none
+        connection.exec_driver_sql(
+            "INSERT INTO household (name, created_at) VALUES ('Next', 'now')"
+        )
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    column = next(
+        c for c in inspect(engine).get_columns("household") if c["name"] == "cook_per_step"
+    )
+    assert not column["nullable"]
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT cook_per_step FROM household").scalars().all()
+    assert found == [0] * (households + 1)

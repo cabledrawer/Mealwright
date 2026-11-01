@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import func, select
 
 from mealwright import amounts
@@ -91,6 +91,7 @@ class HouseholdOut(BaseModel):
     cup_ml: int | None
     cup_ml_used: int
     pints: Literal["uk", "us"]
+    cook_per_step: bool
     undo_days: int
     history_months: int
     use_soon_days: int
@@ -123,6 +124,7 @@ def _household(kitchen: Here) -> HouseholdOut:
         cup_ml=household.cup_ml,
         cup_ml_used=cup_ml(household),
         pints=household_pints(household.pints),
+        cook_per_step=household.cook_per_step,
         undo_days=household.undo_days,
         history_months=household.history_months,
         use_soon_days=household.use_soon_days,
@@ -140,19 +142,27 @@ def get_household(kitchen: Here) -> HouseholdOut:
 
 
 class HouseholdChange(BaseModel):
-    """A setting changed on purpose (Settings). Only what is sent changes. Admins only."""
+    """A setting changed on purpose. Only what is sent changes. The pint is for admins only;
+    `cook_per_step` may be changed by any signed-in person of the household."""
 
     # Which pint a recipe's "pint" is: "uk" (568 ml) or "us" (473 ml) (0.6; proposed, for cabledrawer).
     pints: Literal["uk", "us"] | None = None
+    # Cook mode's per-step ingredients (Experimental; 0.7 K4, cabledrawer 1 Nov). Proposed, for
+    # cabledrawer: any signed-in person of the household may change this one (it changes only what
+    # Cook mode shows), while `pints` stays admins only.
+    cook_per_step: StrictBool | None = None
 
 
 @router.patch("/household")
 def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
-    """Admins only. Changes the signed-in person's own household's settings: today the pint
-    (`pints`). Answers with the settings as stored."""
-    kitchen.admin_only()
+    """Changes the signed-in person's own household's settings: the pint (`pints`, admins
+    only) and Cook mode's per-step ingredients (`cook_per_step`, any person of the household).
+    Answers with the settings as stored."""
     if body.pints is not None:
+        kitchen.admin_only()
         kitchen.household.pints = body.pints
+    if body.cook_per_step is not None:
+        kitchen.household.cook_per_step = body.cook_per_step
     kitchen.db.commit()
     return _household(kitchen)
 
