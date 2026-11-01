@@ -81,32 +81,15 @@ const planned = async (page: Page, recipeId: number, day: string, slotId: number
     meal_id: number;
   };
 
-/** A batch cooked on `day` at dinner, with its tubs the next day (two: lunch and dinner; or one at lunch). */
-async function batchWithTubs(
-  page: Page,
-  name: string,
-  day: string,
-  slot: Record<string, number>,
-  options: { tubsOnTheNextDay: boolean } = { tubsOnTheNextDay: true }
-) {
+/** A batch cooked on `day` at dinner, its one tub in no meal (so no other day gets anything). */
+async function cookedOnce(page: Page, name: string, day: string, slot: Record<string, number>) {
   const cook = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
-  const next = addDays(day, 1);
-  await call(
-    page,
-    'POST',
-    `/plan/items/${cook.item_id}/batch`,
-    options.tubsOnTheNextDay
-      ? {
-          tub_count: 2,
-          pattern: 'pick',
-          placements: [
-            { date: next, slot_id: slot.Lunch },
-            { date: next, slot_id: slot.Dinner }
-          ]
-        }
-      : { tub_count: 1, pattern: 'pick', placements: [{ date: next, slot_id: slot.Lunch }] }
-  );
-  return { cook, next };
+  await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, {
+    tub_count: 1,
+    pattern: 'pick',
+    placements: [null]
+  });
+  return cook;
 }
 
 /** The first day of the next month that has six weeks on the Month (weeks start on Monday). */
@@ -324,7 +307,7 @@ test.describe('on a computer', () => {
       await page.setViewportSize({ width, height: 800 });
       const { today, slot } = await setup(page);
       const day = dayFor(today, 'A');
-      await batchWithTubs(page, `${stamp()} Curry`, day, slot);
+      await cookedOnce(page, `${stamp()} Curry`, day, slot);
 
       await openMonthOf(page, today, day);
       const cooking = page.getByTestId(`day-${day}`);
@@ -369,10 +352,7 @@ test.describe('on a computer', () => {
     const { today, slot } = await setup(page);
     const day = dayFor(today, 'B');
     const word = stamp();
-    const { cook } = await batchWithTubs(page, `${word} Curry`, day, slot, {
-      tubsOnTheNextDay: false
-    });
-    expect(cook.item_id).toBeTruthy();
+    await cookedOnce(page, `${word} Curry`, day, slot);
     await planned(page, await makeRecipe(page, `${word} Porridge`), day, slot.Breakfast);
     await planned(page, await makeRecipe(page, `${word} Salad`), day, slot.Lunch);
     await planned(page, await makeRecipe(page, `${word} Soup`), day, slot.Lunch);
