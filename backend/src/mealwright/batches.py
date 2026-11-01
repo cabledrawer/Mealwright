@@ -445,6 +445,12 @@ def place_tub(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) -> Change:
             "tub_eaten",
             "That tub has been eaten.",  # proposed, for cabledrawer
         )
+    if day > tub.use_by:  # a tub is no good past its own use-by
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "after_use_by",
+            "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+        )
     steps: list[dict[str, Any]] = []
     _put_tub_in_meal(kitchen, tub, (day, slot_id), steps)
     return _finish(
@@ -591,13 +597,43 @@ def refuse_cooked(kitchen: Kitchen, batches: list[BatchCook]) -> None:
             )  # proposed, for cabledrawer
 
 
+def is_cook_item(kitchen: Kitchen, item: MealItem, meal: Meal) -> bool:
+    """Whether this item is the recipe a batch was cooked for, in that batch's cook meal."""
+    if item.kind != "recipe":
+        return False
+    return any(
+        (
+            b.recipe_id == item.recipe_id
+            if item.recipe_id is not None
+            else b.recipe_name == item.name
+        )
+        for b in batches_cooked_at(kitchen, meal)
+    )
+
+
 def move_cook_day(
-    kitchen: Kitchen, batches: list[BatchCook], day: date, steps: list[dict[str, Any]]
+    kitchen: Kitchen, batches: list[BatchCook], meal: Meal, day: date, steps: list[dict[str, Any]]
 ) -> None:
-    """The cook meal moved to `day` (spec: dragging a COOK card moves the cooking): the batch is
+    """The cook meal moves to `day` (spec: dragging a COOK card moves the cooking): the batch is
     cooked on that day now, and its tubs' use-by dates keep their distance from it. What is
-    changed is kept in the steps, so Undo puts every date back exactly."""
+    changed is kept in the steps, so Undo puts every date back exactly, as long as the meal is
+    back where it was (and nothing was cooked since)."""
     db = kitchen.db
+    if batches:
+        ids = [b.id for b in batches]
+        there = db.scalar(
+            select(func.count(BatchCook.id)).where(
+                BatchCook.household_id == kitchen.household_id,
+                BatchCook.cooked_on == day,
+                BatchCook.id.not_in(ids),
+            )
+        )
+        if (there or 0) + len(batches) > MOST_BATCHES_A_DAY:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "too_many_batches",
+                f"At most {MOST_BATCHES_A_DAY} batches can be cooked on one day.",  # proposed
+            )
     for batch in batches:
         tubs = list(
             db.scalars(
@@ -610,6 +646,8 @@ def move_cook_day(
             {
                 "op": "batch_day",
                 "batch": batch.id,
+                "meal": meal.id,
+                "meal_day": meal.day.isoformat(),
                 "from": batch.cooked_on.isoformat(),
                 "tubs": [[t.id, t.use_by.isoformat()] for t in tubs],
             }
@@ -1157,7 +1195,14 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         return True
     if op == "batch_day":
         batch = _own(kitchen, BatchCook, step["batch"])
-        if batch is None:
+        meal = _own(kitchen, Meal, step["meal"])
+        if batch is None or meal is None:
+            return False
+        # The dates follow the meal: only when it is back where it was, and the batch has not
+        # been cooked since (a cooked batch keeps its cook day).
+        if meal.day != date.fromisoformat(step["meal_day"]):
+            return False
+        if cooked.for_batch(db, kitchen.household_id, batch.id) is not None:
             return False
         batch.cooked_on = date.fromisoformat(step["from"])
         complete = True

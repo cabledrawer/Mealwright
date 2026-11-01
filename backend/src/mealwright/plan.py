@@ -482,10 +482,21 @@ def move_meal(
                 "nothing_to_copy",
                 "Nothing in that meal can be copied.",  # proposed, for cabledrawer
             )
+    if target is not None and cooking:
+        # Folding the cooking into a meal that is already planned would leave the batch with no
+        # cook meal (proposed, for cabledrawer).
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "cooking_needs_empty_meal",
+            "Cooking can only move to an empty meal.",
+        )
     if target is not None:
         _room(kitchen, target, len(items))
     elif mode == "move":
-        # Nothing there yet: the meal itself moves, so it keeps its place in a batch cook.
+        # Nothing there yet: the meal itself moves, so it keeps its place in a batch cook. The
+        # batch's dates go first in the steps, so Undo (newest first) moves the meal back before
+        # it asks whether the dates may follow.
+        batches.move_cook_day(kitchen, cooking, meal, day, steps)
         steps.append(
             {
                 "op": "move_meal",
@@ -497,7 +508,6 @@ def move_meal(
         where_from = _where(kitchen, meal.day, meal.slot_id)
         meal.day, meal.slot_id = day, slot_id
         kitchen.db.flush()
-        batches.move_cook_day(kitchen, cooking, day, steps)
         return _finish(
             kitchen,
             "plan_moved",
@@ -544,6 +554,11 @@ def move_item(
     _planned(source)
     if (source.day, source.slot_id) == (day, slot_id):
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That’s already there.")
+    from mealwright import batches
+
+    if mode == "move" and batches.is_cook_item(kitchen, item, source):
+        # The cooking and its meal move as one (proposed, for cabledrawer): the cook day follows.
+        return move_meal(kitchen, source, day, slot_id, mode, if_none_left)
     if mode != "move" and item.tub_id is not None:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

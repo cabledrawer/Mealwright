@@ -1035,10 +1035,146 @@ def test_moving_one_households_cook_meal_leaves_the_other_households_batch_alone
 ) -> None:
     made = make(kitchen, cook["item_id"])
     with db_of(kitchen) as db:
-        theirs = db.scalars(select(BatchCook).where(BatchCook.household_id == 2)).all()
-    assert theirs == []  # the neighbour has no batch yet
-    assert neighbour.post(
+        theirs = BatchCook(
+            household_id=2,
+            recipe_name="Their stew",
+            cooked_on=D1,
+            tub_count=1,
+            pattern="pick",
+            colour="blue",
+        )
+        db.add(theirs)
+        db.flush()
+        db.add(Tub(household_id=2, batch_id=theirs.id, use_by=D1 + timedelta(days=3)))
+        db.commit()
+        their_id = theirs.id
+    assert _batch_row(neighbour, their_id) == (D1, [D1 + timedelta(days=3)])
+    moved = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
+    assert moved.status_code == 200
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=5)
+    assert _batch_row(neighbour, their_id) == (D1, [D1 + timedelta(days=3)])
+    # The neighbour cannot move my meal: 404, and nothing of mine changes.
+    r = _move_meal(neighbour, cook["meal_id"], day(7), slots["Dinner"])
+    assert r.status_code == 404
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=5)
+
+
+def test_a_partly_undone_move_leaves_the_dates_with_the_meal(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    moved = _move_meal(kitchen, cook["meal_id"], day(3), slots["Dinner"])
+    assert moved.status_code == 200
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])  # the old place is planned meanwhile
+    undo(kitchen, moved.json())
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, cook["meal_id"])
+        batch = db.get(BatchCook, made["batch_id"])
+        assert meal is not None and batch is not None
+        assert meal.day == batch.cooked_on  # the meal stayed, so the cooking did
+
+
+def test_undo_after_the_batch_was_cooked_leaves_the_dates(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    from mealwright.models import CookedRecord
+
+    made = make(kitchen, cook["item_id"])
+    moved = _move_meal(kitchen, cook["meal_id"], day(3), slots["Dinner"])
+    with db_of(kitchen) as db:
+        db.add(
+            CookedRecord(
+                household_id=1, batch_id=made["batch_id"], portions=4, snapshot={"name": "x"}
+            )
+        )
+        db.commit()
+    undo(kitchen, moved.json())
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=3)
+
+
+def test_cooking_does_not_move_onto_a_meal_that_is_planned(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    plan_recipe(kitchen, stuff["dosa"], D1 + timedelta(days=3), slots["Dinner"])
+    r = _move_meal(kitchen, cook["meal_id"], day(3), slots["Dinner"])
+    assert r.status_code == 409 and r.json()["code"] == "cooking_needs_empty_meal"
+    assert r.json()["detail"] == "Cooking can only move to an empty meal."
+    with db_of(kitchen) as db:
+        batch = db.get(BatchCook, made["batch_id"])
+        assert batch is not None
+        assert batch.cook_meal_id == cook["meal_id"] and batch.cooked_on == D1
+
+
+def test_copies_and_leftovers_of_the_cooking_leave_the_batch_as_it_is(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    before = _batch_row(kitchen, made["batch_id"])
+    copied = kitchen.post(
         f"{API}/plan/meals/{cook['meal_id']}/move",
-        json={"date": day(5), "slot_id": slots["Dinner"], "mode": "move"},
-    ).status_code in (404, 422)
-    assert _batch_row(kitchen, made["batch_id"])[0] == D1
+        json={"date": day(6), "slot_id": slots["Lunch"], "mode": "copy"},
+    )
+    assert copied.status_code == 200, copied.text
+    with db_of(kitchen) as db:
+        batch = db.get(BatchCook, made["batch_id"])
+        assert batch is not None and batch.cook_meal_id == cook["meal_id"]
+    assert _batch_row(kitchen, made["batch_id"]) == before
+
+
+def test_moving_the_cook_item_alone_moves_its_whole_meal(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])  # a second thing in the cook meal
+    r = kitchen.post(
+        f"{API}/plan/items/{cook['item_id']}/move",
+        json={"date": day(4), "slot_id": slots["Dinner"], "mode": "move"},
+    )
+    assert r.status_code == 200, r.text
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, cook["meal_id"])
+        batch = db.get(BatchCook, made["batch_id"])
+        assert meal is not None and batch is not None
+        assert meal.day == D1 + timedelta(days=4) == batch.cooked_on
+        assert batch.cook_meal_id == meal.id
+        assert len(db.scalars(select(MealItem).where(MealItem.meal_id == meal.id)).all()) == 2
+
+
+def test_a_tub_is_not_placed_after_its_use_by(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    make(kitchen, cook["item_id"], pattern="pick", tub_count=1)
+    tubs_left = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]
+    tub = tubs_left[0]
+    late = (date.fromisoformat(tub["use_by"]) + timedelta(days=1)).isoformat()
+    r = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place", json={"date": late, "slot_id": slots["Lunch"]}
+    )
+    assert r.status_code == 422 and r.json()["code"] == "after_use_by"
+    ok = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place",
+        json={"date": tub["use_by"], "slot_id": slots["Lunch"]},
+    )
+    assert ok.status_code == 200, ok.text
+
+
+def test_a_cook_meal_cannot_move_to_a_day_with_ten_batches(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    make(kitchen, cook["item_id"])
+    with db_of(kitchen) as db:
+        for n in range(10):
+            db.add(
+                BatchCook(
+                    household_id=1,
+                    recipe_name=f"Other {n}",
+                    cooked_on=D1 + timedelta(days=5),
+                    tub_count=1,
+                    pattern="pick",
+                    colour="blue",
+                )
+            )
+        db.commit()
+    r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
+    assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
