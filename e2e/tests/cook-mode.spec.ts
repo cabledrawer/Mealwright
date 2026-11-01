@@ -86,14 +86,25 @@ async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean } = {
       }
     }
     w.AudioContext = FakeAudio;
-    w.__wake = { asked: 0, released: 0 };
+    w.__wake = {
+      asked: 0,
+      released: 0,
+      listeners: [] as (() => void)[],
+      /** What a browser does when the page is hidden: it lets go of the lock by itself. */
+      drop() {
+        this.listeners.splice(0).forEach((f: () => void) => f());
+      },
+    };
     Object.defineProperty(navigator, 'wakeLock', {
       configurable: true,
       value: wakeLock
         ? {
             request: async () => {
               w.__wake.asked++;
-              return { release: async () => void w.__wake.released++, addEventListener() {} };
+              return {
+                release: async () => void w.__wake.released++,
+                addEventListener: (_t: string, f: () => void) => void w.__wake.listeners.push(f),
+              };
             },
           }
         : undefined,
@@ -259,9 +270,9 @@ test('Keep screen awake turns on with Cook mode and lets go on leaving; greyed w
   await page.goto(`/recipes/${id}/cook`);
   const sw = page.getByRole('switch', { name: 'Keep screen awake' });
   await expect(sw).toHaveAttribute('aria-checked', 'true');
-  expect(await page.evaluate(() => (window as any).__wake)).toEqual({ asked: 1, released: 0 });
+  expect(await page.evaluate(() => { const { asked, released } = (window as any).__wake; return { asked, released }; })).toEqual({ asked: 1, released: 0 });
   await page.getByRole('button', { name: 'Leave Cook mode' }).click();
-  await expect.poll(() => page.evaluate(() => (window as any).__wake)).toEqual({ asked: 1, released: 1 });
+  await expect.poll(() => page.evaluate(() => { const { asked, released } = (window as any).__wake; return { asked, released }; })).toEqual({ asked: 1, released: 1 });
 });
 
 test('Keep screen awake is greyed with the words where the browser cannot keep the screen on', async ({ page }) => {
@@ -348,4 +359,33 @@ test('passes the accessibility checks in both themes, and at 200% text nothing s
     await expect(page.getByRole('button', { name: 'Leave Cook mode' })).toBeVisible();
   }
   await inTheme(page, 'light');
+});
+
+test('coming back to the front asks for the screen lock again and shows the right time; leaving stops every timer', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  await next(page).click();
+  await expect(page.getByRole('switch', { name: 'Keep screen awake' })).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Start timer for 10 minutes' }).click();
+  const asked = () => page.evaluate(() => (window as any).__wake.asked);
+  expect(await asked()).toBe(1);
+  const show = (state: 'hidden' | 'visible') =>
+    page.evaluate((st) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => st });
+      if (st === 'hidden') (window as any).__wake.drop();
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, state);
+  await show('hidden');
+  // Two minutes pass while the page is hidden (the test clock moves; nothing ticks for it).
+  await page.clock.runFor(120_000);
+  await show('visible');
+  await expect.poll(asked).toBe(2);
+  await expect(page.getByTestId('timer')).toContainText(/0(7:5\d|8:00)/);
+  // Leave (the timer question first), then let the time the timer would have ended pass: nothing sounds.
+  await page.getByRole('button', { name: 'Leave Cook mode' }).click();
+  await page.getByRole('dialog', { name: 'Stop the timer and leave?' }).getByRole('button', { name: 'Leave', exact: true }).click();
+  await expect(page).toHaveURL(`/recipes/${id}`);
+  await page.clock.runFor(700_000);
+  expect((await page.evaluate(() => (window as any).__chime)).oscillators).toBe(0);
 });

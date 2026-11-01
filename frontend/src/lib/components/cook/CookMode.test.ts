@@ -417,6 +417,14 @@ describe('Cook mode', () => {
       await shows(box, has('No ingredient guessed for this step.'));
     });
 
+    it('draws the flask on the switch’s row in the Experimental pink', async () => {
+      open(recipe(FOUR));
+      const flask = document.querySelector('.options .what svg')!;
+      const probe = document.body.appendChild(document.createElement('span'));
+      probe.style.color = 'var(--color-experimental)';
+      expect(getComputedStyle(flask).color).toBe(getComputedStyle(probe).color);
+    });
+
     it('uses the links the recipe holds for a step instead of guessing', async () => {
       const held = recipe([
         { ...step(1, 'Fry everything.'), lines: [{ line_id: 4, line: 3, kind: 'by_hand' }] }
@@ -468,6 +476,19 @@ describe('Cook mode', () => {
       await expect.element(page.getByText('This browser can’t keep the screen on')).toBeVisible();
       expect(sw.element().getAttribute('aria-describedby')).toBeTruthy();
     });
+  });
+
+  it('has no button under 44 px, the sheet’s Done included', async () => {
+    open(recipe(FOUR));
+    await page.getByRole('button', { name: 'Show ingredients' }).click();
+    for (const el of document.querySelectorAll('button:not([role="switch"])')) {
+      const box = el.getBoundingClientRect();
+      if (box.width === 0) continue;
+      expect(
+        box.height,
+        `${el.textContent?.trim() || el.getAttribute('aria-label')}`
+      ).toBeGreaterThanOrEqual(44);
+    }
   });
 
   it('sets the page title and has the recipe’s name as its one heading 1', async () => {

@@ -10,7 +10,7 @@ export const CHIME_GAP = 1.1;
 /** How long one chime rings. */
 export const CHIME_RING = 0.9;
 
-/** The two sine waves of one chime: a soft bell note and a quieter one an octave and a half up. */
+/** The two sine waves of one chime: a soft bell note and a quieter one an octave above. */
 const PARTIALS: { hertz: number; level: number }[] = [
   { hertz: 659.25, level: 0.22 },
   { hertz: 1318.5, level: 0.07 }

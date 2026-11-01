@@ -626,6 +626,10 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 - Cook mode shows the recipe's own amounts, not the servings chosen on the recipe page.
 - The per-step guess is made on the screen only; nothing is written when a recipe is saved.
 
+**K4 fix round 1 (proposed, for cabledrawer):**
+- **Escape** leaves Cook mode, asking **Stop the timer and leave?** first when a timer is running.
+- Screen-reader names: the row of timers started on other steps is **Timers on other steps**; the row with Keep screen awake and Ingredients for each step is **Options**.
+
 ## 30. Portions, Serves, who's eating and Notes (0.7 P1; proposed, for cabledrawer unless the mockup or spec has the words)
 
 Written by Claude Code on 1 Nov from the mockup `Leftovers07-Phone` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" and "A "Note" plan item". cabledrawer's own words (spec, 28 Oct): "Portions", "Leftovers on…", "No portions left", "Cook more", "Add anyway", "Serves − N +", and the Note examples "eating out", "takeaway", "at Amma's".

@@ -283,7 +283,7 @@
       <KeepAwake {awake} />
       <div class="row">
         <span class="what" id="{uid}-perstep">
-          <Icon name="flask" size={18} />Ingredients for each step
+          <span class="flask"><Icon name="flask" size={18} /></span>Ingredients for each step
           <span class="badge small">Experimental</span>
         </span>
         <Switch checked={perStep} labelledby="{uid}-perstep" onchange={onperstep} />
@@ -611,6 +611,11 @@
     font-weight: 800;
   }
 
+  .flask {
+    display: inline-flex;
+    color: var(--color-experimental);
+  }
+
   .badge.small {
     padding: 2px var(--space-4);
     font-size: var(--text-xs);
@@ -764,7 +769,7 @@
   }
 
   .done {
-    min-height: 40px;
+    min-height: var(--touch-target);
     padding: 0 var(--space-7);
     border: none;
     border-radius: var(--radius-full);
