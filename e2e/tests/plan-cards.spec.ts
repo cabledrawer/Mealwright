@@ -6,7 +6,7 @@ import { uploadPhoto } from '../review/photos.ts';
 // their content (F42), a COOK card is dragged with its EAT card and Undo puts it back, tubs that
 // land before the cook day are flagged, the keyboard moves a card, the tray wraps and drags by the
 // photo (F39, F40), and the words of F49 and F65. Computer only. Every test plans in weeks of its
-// own (30 to 35 weeks ahead), named with a word no other test uses. The tests' day is a Saturday;
+// own (weeks 80 to 83 ahead), named with a word no other test uses. The tests' day is a Saturday;
 // the day after (Sunday) is in the same week.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
@@ -17,8 +17,10 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
   return (await response.json()) as Record<string, any>;
 }
 
-// Weeks 30 to 40 ahead (k 0 to 10). The plan allows at most 104 weeks ahead (DAYS_AHEAD 731), so a block from week 140 up cannot be planned in.
-const far = (today: string, k: number) => addDays(today, 7 * (30 + k));
+// Weeks 80 to 83 ahead, no other plan test's (past weeks cannot hold a batch: its tubs would be in the
+// past). Test k (0 to 10) takes week 80 + k % 4, and two days earlier for each 4 tests, so
+// no two tests share a day.
+const far = (today: string, k: number) => addDays(today, 7 * (80 + (k % 4)) - 2 * Math.floor(k / 4));
 const stamp = () => `Cards${Date.now().toString(36)}`;
 
 function addDays(iso: string, days: number): string {
@@ -45,10 +47,14 @@ async function planRange(page: Page, from: string, to: string) {
 
 async function openWeekOf(page: Page, today: string, day: string) {
   await page.goto('/plan');
-  const ahead = Math.round((new Date(`${day}T12:00:00Z`).getTime() - new Date(`${today}T12:00:00Z`).getTime()) / 86_400_000 / 7);
-  for (let i = 0; i < ahead; i++) await page.getByRole('button', { name: 'Next week' }).click();
+  // Whole weeks from this week's Monday to the day's week.
+  const here = new Date(`${today}T12:00:00Z`);
+  const days = Math.round((new Date(`${day}T12:00:00Z`).getTime() - here.getTime()) / 86_400_000);
+  const ahead = Math.floor((days + ((here.getUTCDay() + 6) % 7)) / 7);
+  for (let i = 0; i < Math.abs(ahead); i++) await page.getByRole('button', { name: ahead > 0 ? 'Next week' : 'Previous week' }).click();
 }
 
+const weekdayLong = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 const cell = (page: Page, day: string, slotId: number) => page.getByTestId(`cell-${day}-${slotId}`);
 
 async function centre(locator: Locator, down = 0.5) {
@@ -225,7 +231,7 @@ test('moving a card with the keyboard only: Enter, arrows for the day, Shift and
   await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('Shift+ArrowLeft');
   await page.keyboard.press('Shift+ArrowRight');
-  await expect(menu.getByRole('status').filter({ hasText: 'Move to' })).toContainText(/Sunday.* · Dinner/);
+  await expect(menu.getByRole('status').filter({ hasText: 'Move to' })).toContainText(new RegExp(`${weekdayLong.format(new Date(`${sun}T12:00:00Z`))}.* · Dinner`));
   await page.keyboard.press('Enter');
   await expect(menu).toBeHidden();
   const there = cell(page, sun, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) });
@@ -266,6 +272,8 @@ test('F40: a recipe is dragged from its photo as well as from its name', async (
   const { today, slot } = await setup(page);
   const name = `${stamp()} Photo`;
   const day = far(today, 7);
+  // Tall enough that the tray and the target are both on screen, whatever else is in this week.
+  await page.setViewportSize({ width: 1440, height: 1500 });
   const photo = await uploadPhoto(page.request, 'dish');
   await call(page, 'POST', '/recipes', { name, photo_id: photo, steps: [{ text: 'Stir.' }] });
   await openWeekOf(page, today, day);
@@ -379,9 +387,10 @@ test('at 1100 px wide and 200% text the cards and the keyboard picker keep their
     for (const text of ['100%', '200%']) {
       await page.evaluate((size) => (document.documentElement.style.fontSize = size), text);
       const broken = () =>
-        page.evaluate(() => {
+        page.evaluate(([d1, d2]) => {
           const out: string[] = [];
-          for (const area of document.querySelectorAll('.week, dialog[open]')) {
+          const own = [`[data-testid^="cell-${d1}"]`, `[data-testid^="cell-${d2}"]`, 'dialog[open]'].join(',');
+          for (const area of document.querySelectorAll(own)) {
             const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT);
             for (let node = walker.nextNode(); node; node = walker.nextNode()) {
               const el = node.parentElement;
@@ -396,7 +405,7 @@ test('at 1100 px wide and 200% text the cards and the keyboard picker keep their
             }
           }
           return out;
-        });
+        }, [day, sun]);
       await expect.poll(broken, { message: `words broken in the week, ${theme}, ${text}` }).toEqual([]);
       await expectNoSidewaysScroll(page);
       // The keyboard picker.
