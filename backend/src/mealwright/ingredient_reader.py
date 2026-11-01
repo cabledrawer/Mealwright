@@ -48,7 +48,7 @@ MAX_NOTE_CHARS = 200  # the recipe editor's limit for a line's note
 
 # Prep words (and a few plain descriptors) that are taken out of a name and kept in the
 # note. A short, closed list: a word is here only if taking it out never turns one
-# ingredient into another. Left out on purpose: dried, ground, powder, whole, frozen, cooked,
+# ingredient into another. Left out on purpose: dried, ground, powder, frozen, cooked,
 # roasted, smoked, red, green, baby, extra... (they are part of what the ingredient is).
 PREP_WORDS = frozenset(
     {
@@ -71,6 +71,9 @@ PREP_WORDS = frozenset(
 DESCRIPTOR_WORDS = frozenset(
     {"fresh", "large", "medium", "small", "big", "ripe", "firm", "organic", "optional"}
 )
+
+# Taken out of a name, and kept in the note, wherever it stands (F103).
+WHOLE = "whole"
 
 # Words that name a size an ingredient may be bought or measured in. A line with one
 # ("1 bunch coriander") counts only if the matched ingredient has a size of that name.
@@ -1005,6 +1008,14 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         size_word in CONTAINER_WORDS or singular(size_word) in CONTAINER_WORDS
     )
     kept, removed = _strip_prep(tokens, DESCRIPTOR_WORDS if packaged else PREP_WORDS)
+    # "whole allspice berries" is Allspice berries, "8 whole cloves" is 8 cloves: "whole" comes out
+    # of every "whole X" name and stays in the note (F103, cabledrawer 31 Oct). Not when it is all
+    # there is ("1 whole"). This is the F87 rule, one step on: F87 keeps a word before "cloves"
+    # from being read as the name, and "whole" is now no longer a word to keep.
+    others = [token for token in kept if _clean_token(token) != WHOLE]
+    if others and len(others) < len(kept):
+        removed = [*removed, WHOLE]
+        kept = others
     name = _tidy(" ".join(kept))
     parts = name.split()
     if (

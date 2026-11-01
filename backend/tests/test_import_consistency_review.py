@@ -93,10 +93,8 @@ def test_f89_cloves_are_cloves_never_garlic(kitchen: TestClient, web: Web) -> No
         None,
         "1 bunch",
     )
-    assert (read["8 whole cloves"]["words"], read["8 whole cloves"]["amount"]) == (
-        "whole cloves",
-        8,
-    )
+    assert (read["8 whole cloves"]["words"], read["8 whole cloves"]["amount"]) == ("cloves", 8)
+    assert read["8 whole cloves"]["note"] == "whole"  # F103
 
 
 def test_f89_garlic_with_a_clove_size_counts_that_size(kitchen: TestClient, web: Web) -> None:

@@ -485,6 +485,23 @@ describe('Import a recipe', () => {
       expect(flow.review!.steps).toHaveLength(1);
     });
 
+    it('says "also called" for another name, never for the line’s own (F103)', async () => {
+      const flow = await reviewing();
+      // A ready line says which name it matched by, as before.
+      await expect.element(page.getByText('· also called thuvaram paruppu')).toBeVisible();
+      // A line that matched by its own words: the bold name is those words, so no repeat.
+      flow.review!.lines[1] = {
+        ...flow.review!.lines[1]!,
+        words: 'Basmati rice',
+        matched_by: 'basmati rice',
+        food: { id: 9, name: 'Rice' }
+      };
+      flushSync();
+      await expect.element(page.getByText('Basmati rice', { exact: true })).toBeVisible();
+      expect(page.getByText(/also called basmati rice/i).elements()).toHaveLength(0);
+      expect(page.getByText(/also called/).elements()).toHaveLength(1);
+    });
+
     it('numbers the steps through the method, never counting a heading (F112)', async () => {
       const flow = await reviewing();
       flow.review!.steps = [

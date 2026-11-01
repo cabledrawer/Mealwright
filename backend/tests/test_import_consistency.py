@@ -95,10 +95,10 @@ def test_f8_one_14_ounce_can_and_half_a_jar() -> None:
 def test_f87_a_word_before_cloves_is_part_of_the_name_not_the_name() -> None:
     """F87 (cabledrawer 31 Oct): "8 whole cloves" is the spice, never a new ingredient "Whole"."""
     for text, name in (
-        ("8 whole cloves", "whole cloves"),
+        ("8 whole cloves", "cloves"),  # "whole" itself comes out (F103)
         ("8 dried cloves", "dried cloves"),
         ("4 ground cloves", "ground cloves"),
-        ("2 whole sprigs thyme", "whole sprigs thyme"),
+        ("2 whole sprigs thyme", "sprigs thyme"),
     ):
         line = read_line(text)
         assert (line.amount, line.size_word, line.name) == (D(text[0]), None, name), text
@@ -106,6 +106,26 @@ def test_f87_a_word_before_cloves_is_part_of_the_name_not_the_name() -> None:
     # A name before the clove still makes it the size word.
     for text in ("2 garlic cloves", "2 whole garlic cloves"):
         assert read_line(text).size_word == "cloves", text
+
+
+def test_f103_whole_comes_out_of_every_whole_name_and_stays_in_the_note() -> None:
+    """F103 (cabledrawer 31 Oct): "whole allspice berries" is Allspice berries; "whole" is kept in
+    the note, wherever it stands. The other words that are part of what it is stay (F87)."""
+    for text, name in (
+        ("1 tsp whole allspice berries", "allspice berries"),
+        ("1 tbsp whole black peppercorns", "black peppercorns"),
+        ("8 whole cloves", "cloves"),
+        ("2 whole dried red chillies", "dried red chillies"),
+        ("1 can whole tomatoes", "tomatoes"),
+        ("1 tsp black whole peppercorns", "black peppercorns"),
+    ):
+        line = read_line(text)
+        assert line.name == name, text
+        assert line.note == "whole", text
+    # A line of nothing else keeps its word, and a word only containing "whole" is not it.
+    assert read_line("1 whole").name == "whole"
+    assert read_line("2 cups wholemeal flour").name == "wholemeal flour"
+    assert read_line("2 cups whole-wheat flour").name == "whole-wheat flour"
 
 
 def test_follow_up_5_one_and_a_half_cups_flour() -> None:
@@ -204,7 +224,7 @@ def test_f32_a_variety_in_brackets_is_part_of_the_name() -> None:
 def test_f35_a_colour_in_brackets_is_a_note_not_another_name() -> None:
     line = read_line("6 whole cardamom pods (green)")
     assert line.other_names == ()
-    assert line.note == "green"
+    assert line.note == "whole, green"
 
 
 def test_f17_footnote_marks_are_dropped() -> None:
@@ -250,8 +270,8 @@ def test_and_cut_into_chunks_is_a_note() -> None:
 
 def test_f11_or_gives_the_first_choice_and_a_note() -> None:
     line = read_line("100ml whole milk or 50ml milk and 50ml cream")
-    assert (line.amount, line.unit, line.name) == (D(100), "ml", "whole milk")
-    assert line.note == "or 50ml milk and 50ml cream"
+    assert (line.amount, line.unit, line.name) == (D(100), "ml", "milk")  # "whole" is a note (F103)
+    assert line.note == "whole, or 50ml milk and 50ml cream"
     same("1 tbsp ghee or butter", "1 tbsp ghee")
     assert read_line("1 tbsp ghee or butter").note == "or butter"
     assert read_line("1 tsp black or white pepper").name == "black pepper"

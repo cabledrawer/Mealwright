@@ -165,11 +165,16 @@
     }
   }
 
-  const alsoCalled = $derived(
-    line.matched_by && line.food && line.matched_by.toLowerCase() !== line.food.name.toLowerCase()
-      ? line.matched_by
-      : null
-  );
+  /** "also called …": the name the line matched by, when it is not the name shown in bold (the
+   *  ingredient's own, or on an open line the line's own words): it never repeats it (F103). A
+   *  ready line shows the ingredient's name, so "Toor dal · also called thuvaram paruppu" stays. */
+  const alsoCalled = $derived.by(() => {
+    const matched = line.matched_by;
+    if (!matched || !line.food) return null;
+    const same = (a: string, b: string) =>
+      a.trim().replace(/\s+/g, ' ').toLowerCase() === b.trim().replace(/\s+/g, ' ').toLowerCase();
+    return same(matched, line.food.name) || same(matched, name) ? null : matched;
+  });
   const followers = $derived(flow.followers(index));
   /** What a new ingredient would be, for the buttons: “Milk”. */
   const guess = $derived(flow.guessFor(index));
