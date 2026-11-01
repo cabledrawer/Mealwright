@@ -31,6 +31,9 @@ function addDays(iso: string, days: number): string {
 }
 const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 const month = new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' });
+const weekdayShort = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' });
+/** "Sun 18": how the Leftovers sheet writes a day. */
+const dayWords = (iso: string) => `${weekdayShort.format(new Date(`${iso}T12:00:00Z`))} ${new Date(`${iso}T12:00:00Z`).getUTCDate()}`;
 const dayName = (iso: string) => {
   const d = new Date(`${iso}T12:00:00Z`);
   return `${weekday.format(d)} ${d.getUTCDate()} ${month.format(d)}`;
@@ -282,9 +285,9 @@ test('Leftovers here makes a tub of the meal’s batch cook; Undo takes it back'
     await mealButton(page, day, 'Dinner', slot.Dinner, name).click();
     const sheet = page.getByRole('dialog', { name });
     await sheet.getByRole('button', { name: 'Leftovers on…' }).click();
-    await sheet.getByRole('button', { name: dayName(sun) }).click();
-    await sheet.getByRole('button', { name: 'Lunch' }).click();
-    await sheet.getByRole('button', { name: 'Plan leftovers here' }).click();
+    // 0.7 P1: tick the meals (several can be ticked at once), then plan them.
+    await sheet.getByRole('checkbox', { name: `${dayWords(sun)} · Lunch` }).check();
+    await sheet.getByRole('button', { name: 'Plan 1 tub' }).click();
   } else {
     await mouseDrag(page, mealButton(page, day, 'Dinner', slot.Dinner, name), cell(page, sun, slot.Lunch), 'leftovers');
   }
@@ -311,11 +314,10 @@ test('F50: Leftovers on… and Cook once offer nothing before the cooking or in 
   const sheet = page.getByRole('dialog', { name });
   await sheet.getByRole('button', { name: 'Leftovers on…' }).click();
   // The day before the cooking is not offered; the cook day is, with only the meals after lunch.
-  await expect(sheet.getByRole('button', { name: dayName(before) })).toHaveCount(0);
-  await sheet.getByRole('button', { name: dayName(day) }).click();
-  for (const word of ['Breakfast', 'Lunch']) await expect(sheet.getByRole('button', { name: word, exact: true })).toHaveCount(0);
-  for (const word of ['Snack', 'Dinner']) await expect(sheet.getByRole('button', { name: word, exact: true })).toBeVisible();
-  await expect(sheet.getByRole('button', { name: dayName(addDays(day, 1)) })).toBeVisible();
+  await expect(sheet.getByRole('checkbox', { name: new RegExp(`^${dayWords(before)} `) })).toHaveCount(0);
+  for (const word of ['Breakfast', 'Lunch']) await expect(sheet.getByRole('checkbox', { name: `${dayWords(day)} · ${word}` })).toHaveCount(0);
+  for (const word of ['Snack', 'Dinner']) await expect(sheet.getByRole('checkbox', { name: `${dayWords(day)} · ${word}` })).toBeVisible();
+  await expect(sheet.getByRole('checkbox', { name: `${dayWords(addDays(day, 1))} · Breakfast` })).toBeVisible();
   // The server says no as well.
   const refused = await page.request.post(`/api/v1/plan/items/${item.item_id}/batch`, {
     data: { tub_count: 1, pattern: 'pick', placements: [{ date: before, slot_id: slot.Lunch }] },
