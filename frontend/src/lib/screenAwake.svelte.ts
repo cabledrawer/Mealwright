@@ -1,8 +1,8 @@
-// "Keep screen awake" on the recipe page (cabledrawer 19 Oct, question 32): the switch starts off
-// every time the page opens, turns itself off when the person leaves the page, and is hidden
-// on browsers that can't do it. It uses the browser's own Screen Wake Lock: nothing is sent
-// anywhere and nothing is remembered. (The setting that keeps the screen awake in Cook mode is
-// Cook mode's, in 0.7.)
+// "Keep screen awake" in Cook mode (cabledrawer 19 Oct, question 32, moved from the recipe page by
+// the spec's "Cook mode timers"): the switch starts off, and Cook mode turns it on when it opens;
+// it turns itself off when the person leaves, and where the browser can't do it the switch is
+// greyed with the reason. It uses the browser's own Screen Wake Lock: nothing is sent anywhere
+// and nothing is remembered.
 
 interface Sentinel {
   release(): Promise<void>;
@@ -20,7 +20,7 @@ const wakeLock = (): WakeLockApi | null =>
     : null;
 
 export class ScreenAwake {
-  /** Whether this browser can keep the screen awake: the switch is hidden when it can't. */
+  /** Whether this browser can keep the screen awake: the switch is greyed when it can't. */
   readonly supported = wakeLock() !== null;
   /** The switch. */
   on = $state(false);

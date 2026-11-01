@@ -279,7 +279,7 @@
       <Icon name="note" size={18} stroke={2.2} />Show ingredients
     </button>
 
-    <section class="options" aria-label="Cook mode options">
+    <section class="options" aria-label="Options">
       <KeepAwake {awake} />
       <div class="row">
         <span class="what" id="{uid}-perstep">

@@ -8,7 +8,14 @@ import CookMode from './CookMode.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
-vi.mock('#lib/chime', () => ({ primeChime: vi.fn(), playChime: vi.fn(() => []) }));
+vi.mock('#lib/chime.js', () => ({ primeChime: vi.fn(), playChime: vi.fn(() => []) }));
+
+/** A part of the text: the matcher alone wants all of it. */
+const has = (part: string) => new RegExp(part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+/** The text of an element holds this (the matcher on its own wants all of it). */
+const shows = (where: { element(): Element }, part: RegExp) =>
+  vi.waitFor(() => expect(where.element().textContent ?? '').toMatch(part));
 
 const step = (id: number, text: string): RecipeStep => ({ id, kind: 'step', text });
 const heading = (id: number, text: string): RecipeStep => ({ id, kind: 'heading', text });
@@ -118,14 +125,14 @@ describe('Cook mode', () => {
   describe('the steps', () => {
     it('shows one big step at a time, with Back and Next', async () => {
       open(recipe(FOUR));
-      await expect.element(count()).toHaveTextContent('Step 1 of 4');
-      await expect.element(text()).toHaveTextContent('Boil the dal.');
+      await shows(count(), has('Step 1 of 4'));
+      await shows(text(), has('Boil the dal.'));
       await expect.element(back()).toBeDisabled();
       await next().click();
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
-      await expect.element(text()).toHaveTextContent('Soak the tamarind');
+      await shows(count(), has('Step 2 of 4'));
+      await shows(text(), has('Soak the tamarind'));
       await back().click();
-      await expect.element(count()).toHaveTextContent('Step 1 of 4');
+      await shows(count(), has('Step 1 of 4'));
       // Big: well over the size of the page's body text.
       expect(parseFloat(getComputedStyle(text().element()).fontSize)).toBeGreaterThanOrEqual(28);
     });
@@ -133,13 +140,13 @@ describe('Cook mode', () => {
     it('moves with the arrow keys', async () => {
       open(recipe(FOUR));
       await userEvent.keyboard('{ArrowRight}');
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
+      await shows(count(), has('Step 2 of 4'));
       await userEvent.keyboard('{ArrowRight}{ArrowRight}');
-      await expect.element(count()).toHaveTextContent('Step 4 of 4');
+      await shows(count(), has('Step 4 of 4'));
       await userEvent.keyboard('{ArrowRight}');
-      await expect.element(count()).toHaveTextContent('Step 4 of 4');
+      await shows(count(), has('Step 4 of 4'));
       await userEvent.keyboard('{ArrowLeft}');
-      await expect.element(count()).toHaveTextContent('Step 3 of 4');
+      await shows(count(), has('Step 3 of 4'));
     });
 
     it('moves with a swipe, and a short or mostly downward drag does nothing', async () => {
@@ -165,22 +172,22 @@ describe('Cook mode', () => {
         flushSync();
       };
       swipe(-120);
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
+      await shows(count(), has('Step 2 of 4'));
       swipe(20);
       swipe(-100, 200);
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
+      await shows(count(), has('Step 2 of 4'));
       swipe(120);
-      await expect.element(count()).toHaveTextContent('Step 1 of 4');
+      await shows(count(), has('Step 1 of 4'));
     });
 
     it('shows a heading as the title of its section and never counts it', async () => {
       open(
         recipe([heading(1, 'The dal'), step(2, 'Boil.'), heading(3, 'The tadka'), step(4, 'Fry.')])
       );
-      await expect.element(count()).toHaveTextContent('Step 1 of 2');
+      await shows(count(), has('Step 1 of 2'));
       await expect.element(page.getByRole('heading', { name: 'The dal' })).toBeVisible();
       await next().click();
-      await expect.element(count()).toHaveTextContent('Step 2 of 2');
+      await shows(count(), has('Step 2 of 2'));
       await expect.element(page.getByRole('heading', { name: 'The tadka' })).toBeVisible();
       expect(page.getByRole('heading', { name: 'The dal' }).elements()).toHaveLength(0);
     });
@@ -208,13 +215,13 @@ describe('Cook mode', () => {
         'Method 2: pressure cooker: Cook for 3 whistles.',
         'Method 2: pressure cooker: Serve warm.'
       ]);
-      await expect.element(count()).toHaveTextContent('Step 4 of 4');
+      await shows(count(), has('Step 4 of 4'));
     });
 
     it('says so for a recipe with no steps, and still lets you leave and open the ingredients', async () => {
       open(recipe([heading(1, 'Only a heading')]));
-      await expect.element(count()).toHaveTextContent('No steps');
-      await expect.element(text()).toHaveTextContent('This recipe has no steps yet.');
+      await shows(count(), has('No steps'));
+      await shows(text(), has('This recipe has no steps yet.'));
       await expect.element(page.getByRole('button', { name: 'Show ingredients' })).toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Not now' })).toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
@@ -223,7 +230,7 @@ describe('Cook mode', () => {
 
     it('shows the last-step buttons at once for a one-step recipe', async () => {
       open(recipe([step(1, 'Just stir.')]));
-      await expect.element(count()).toHaveTextContent('Step 1 of 1');
+      await shows(count(), has('Step 1 of 1'));
       await expect.element(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
       expect(next().elements()).toHaveLength(0);
     });
@@ -267,13 +274,13 @@ describe('Cook mode', () => {
       await page.getByRole('button', { name: 'Show ingredients' }).click();
       const sheet = page.getByRole('dialog', { name: 'All ingredients' });
       await expect.element(sheet).toBeVisible();
-      await expect.element(sheet).toHaveTextContent('For the dal');
-      await expect.element(sheet).toHaveTextContent(/30\sg/);
-      await expect.element(sheet).toHaveTextContent('tamarind');
-      await expect.element(sheet).toHaveTextContent('15');
+      await shows(sheet, has('For the dal'));
+      await shows(sheet, /30\sg/);
+      await shows(sheet, has('tamarind'));
+      await shows(sheet, has('15'));
       // The arrow keys do not turn the page behind the sheet.
       await userEvent.keyboard('{ArrowRight}');
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
+      await shows(count(), has('Step 2 of 4'));
       await page.getByRole('button', { name: 'Done' }).click();
       await vi.waitFor(() => expect(document.querySelector('dialog[open]')).toBeNull());
     });
@@ -282,24 +289,27 @@ describe('Cook mode', () => {
   describe('timers', () => {
     it('starts one from the step’s words on a tap, counts down on screen, and ends with the chime', async () => {
       vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
-      const { playChime } = await import('#lib/chime');
+      const { playChime } = await import('#lib/chime.js');
       open(recipe(FOUR));
       await next().click();
       const card = page.getByTestId('timer');
-      await expect.element(card).toHaveTextContent('10 minutes');
-      await expect.element(card).toHaveTextContent('10:00');
+      const said = () => card.element().textContent ?? '';
+      expect(said()).toContain('10 minutes');
+      expect(said()).toContain('10:00');
       await page.getByRole('button', { name: 'Start timer for 10 minutes' }).click();
       await vi.advanceTimersByTimeAsync(65_000);
-      await expect.element(card).toHaveTextContent('08:55');
+      flushSync();
+      expect(said()).toContain('08:55');
       expect(playChime).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(540_000);
-      await expect.element(card).toHaveTextContent('Time’s up');
+      flushSync();
+      expect(said()).toContain('Time’s up');
       expect(playChime).toHaveBeenCalledTimes(1);
-      await expect
-        .element(page.getByRole('status'))
-        .toHaveTextContent('Timer finished: 10 minutes');
+      const spoken = [...document.querySelectorAll('[role="status"]')].map((el) => el.textContent);
+      expect(spoken.join(' ')).toContain('Timer finished: 10 minutes');
       await page.getByRole('button', { name: 'Done with the timer for 10 minutes' }).click();
-      await expect.element(card).toHaveTextContent('10:00');
+      flushSync();
+      expect(said()).toContain('10:00');
     });
 
     it('says there is no alarm when the phone is locked or the app is in the background', async () => {
@@ -318,11 +328,11 @@ describe('Cook mode', () => {
       await next().click();
       await page.getByRole('button', { name: 'Start timer for 10 minutes' }).click();
       await next().click();
-      await expect.element(count()).toHaveTextContent('Step 3 of 4');
+      await shows(count(), has('Step 3 of 4'));
       const link = page.getByRole('button', { name: /Step 2 ·/ });
       await expect.element(link).toBeVisible();
       await link.click();
-      await expect.element(count()).toHaveTextContent('Step 2 of 4');
+      await shows(count(), has('Step 2 of 4'));
     });
   });
 
@@ -389,11 +399,11 @@ describe('Cook mode', () => {
       open(recipe(FOUR), { perStep: true });
       await next().click();
       const box = page.getByTestId('per-step');
-      await expect.element(box).toHaveTextContent('For this step');
-      await expect.element(box).toHaveTextContent('Experimental · guessed');
-      await expect.element(box).toHaveTextContent('tamarind');
-      await expect.element(box).toHaveTextContent(/3\sonions/);
-      await expect.element(box).toHaveTextContent('Wrong? Fix it when you edit the recipe.');
+      await shows(box, has('For this step'));
+      await shows(box, has('Experimental · guessed'));
+      await shows(box, has('tamarind'));
+      await shows(box, /3\sonions/);
+      await shows(box, has('Wrong? Fix it when you edit the recipe.'));
       // The icon is the pink flask: its colour is the Experimental one.
       const badge = box.element().querySelector('.badge')!;
       const probe = document.body.appendChild(document.createElement('span'));
@@ -401,10 +411,10 @@ describe('Cook mode', () => {
       expect(getComputedStyle(badge).color).toBe(getComputedStyle(probe).color);
       // Another step guesses other ingredients; none found says so.
       await next().click();
-      await expect.element(box).toHaveTextContent('shallots');
+      await shows(box, has('shallots'));
       expect(box.element().textContent).not.toContain('tamarind');
       await next().click();
-      await expect.element(box).toHaveTextContent('No ingredient guessed for this step.');
+      await shows(box, has('No ingredient guessed for this step.'));
     });
 
     it('uses the links the recipe holds for a step instead of guessing', async () => {
@@ -412,7 +422,7 @@ describe('Cook mode', () => {
         { ...step(1, 'Fry everything.'), lines: [{ line_id: 4, line: 3, kind: 'by_hand' }] }
       ]);
       open(held, { perStep: true });
-      await expect.element(page.getByTestId('per-step')).toHaveTextContent('shallots');
+      await shows(page.getByTestId('per-step'), has('shallots'));
     });
   });
 

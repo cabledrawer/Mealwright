@@ -23,11 +23,15 @@ async function food(page: Page, name: string) {
 }
 
 type Step = { kind?: 'heading'; text: string };
+/** The names of the two ingredients every test recipe has (each test's own, the server is shared). */
+type Names = { tamarind: string; onion: string };
 
 /** A recipe with steps, and a tamarind and an onion line the steps mention. */
-async function makeRecipe(page: Page, steps: Step[], name = `Sambar ${stamp()}`) {
-  const tamarind = await food(page, `Tamarind ${stamp()}`);
-  const onion = await food(page, `Onion ${stamp()}`);
+async function makeRecipe(page: Page, steps: Step[] | ((names: Names) => Step[]), name = `Sambar ${stamp()}`) {
+  const tamarindName = `Tamarind ${stamp()}`;
+  const onionName = `Onion ${stamp()}`;
+  const tamarind = await food(page, tamarindName);
+  const onion = await food(page, onionName);
   const recipe = await call(page, '/recipes', {
     name,
     serves: 4,
@@ -36,19 +40,20 @@ async function makeRecipe(page: Page, steps: Step[], name = `Sambar ${stamp()}`)
       { words: 'tamarind', food_id: tamarind, amount: 30, unit: 'g' },
       { words: 'onion', food_id: onion, amount: 3 },
     ],
-    steps,
+    steps: typeof steps === 'function' ? steps({ tamarind: tamarindName, onion: onionName }) : steps,
   });
   return { id: recipe.id as number, name, tamarind, onion };
 }
 
-const FOUR: Step[] = [
+/** Four steps; the second uses both ingredients and asks for 10 minutes. */
+const FOUR = (n: Names): Step[] => [
   { text: 'Boil the dal.' },
-  { text: 'Soak the tamarind for 10 minutes, then chop the onion.' },
+  { text: `Soak the ${n.tamarind} for 10 minutes, then chop the ${n.onion}.` },
   { text: 'Fry the mustard seeds.' },
   { text: 'Serve hot.' },
 ];
 
-const cook = (page: Page) => page.getByRole('region', { name: 'Cook mode' });
+const cook = (page: Page) => page.getByRole('region', { name: 'Cook mode', exact: true });
 const count = (page: Page) => page.getByTestId('step-count');
 const text = (page: Page) => page.getByTestId('step-text');
 const next = (page: Page) => page.getByRole('button', { name: 'Next →' });
@@ -184,8 +189,8 @@ test('Show ingredients opens the whole list on any step', async ({ page }) => {
   await page.getByRole('button', { name: 'Show ingredients' }).click();
   const sheet = page.getByRole('dialog', { name: 'All ingredients' });
   await expect(sheet).toContainText('For the base');
-  await expect(sheet).toContainText(/30\sg\stamarind/);
-  await expect(sheet).toContainText(/3\sonion/);
+  await expect(sheet).toContainText(/30\sg\sTamarind/);
+  await expect(sheet).toContainText(/3\sOnion/);
   await sheet.getByRole('button', { name: 'Done' }).click();
   await expect(sheet).toBeHidden();
   await expect(count(page)).toHaveText('Step 2 of 4');
@@ -280,8 +285,8 @@ test('per-step ingredients are off, then guessed from the step once switched on 
   const box = page.getByTestId('per-step');
   await expect(box).toContainText('For this step');
   await expect(box).toContainText('Experimental · guessed');
-  await expect(box).toContainText(/tamarind/);
-  await expect(box).toContainText(/onion/);
+  await expect(box).toContainText(/Tamarind/);
+  await expect(box).toContainText(/Onion/);
   await expect(box).toContainText('Wrong? Fix it when you edit the recipe.');
   await next(page).click();
   await expect(box).toContainText('No ingredient guessed for this step.');
@@ -323,7 +328,7 @@ test('no outside request and no policy violation while cooking', async ({ page }
 
 test('passes the accessibility checks in both themes, and at 200% text nothing scrolls sideways', async ({ page }) => {
   await fakeBrowserThings(page);
-  const long = 'Stir the pot slowly and keep stirring until it thickens, about 10 minutes. '.repeat(6).trim();
+  const long = `${'Stir the pot slowly and keep stirring until it thickens. '.repeat(6)}Take about 10 minutes.`;
   const { id } = await makeRecipe(page, [
     { kind: 'heading', text: 'A section with quite a long name that has to wrap on a phone' },
     { text: long },
