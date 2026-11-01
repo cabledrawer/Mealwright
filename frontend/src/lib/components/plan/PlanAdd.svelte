@@ -8,6 +8,7 @@
   import { listFoods } from '#lib/client/foods.js';
   import type { TubLeft } from '#lib/client/plan.js';
   import { useByWords } from '#lib/planMeals.js';
+  import { tubsForDay } from '#lib/planTubs.js';
   import type { FoodRow } from '#lib/client/types.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
@@ -35,6 +36,8 @@
   // A note ("Eating out", "At Amma’s"; 0.7 P1) instead of a recipe or an ingredient.
   let noting = $state(false);
   let noteText = $state('');
+  // "Cook once here…" (F52): the recipe picked is planned in this meal and Cook once opens for it.
+  let cooking = $state(false);
 
   $effect(() => {
     if (target !== null && !dialog.open) dialog.showModal();
@@ -50,6 +53,7 @@
       foods = [];
       noting = false;
       noteText = '';
+      cooking = false;
       slotId = wanted ?? (model.slotsOn.length === 1 ? (model.slotsOn[0]?.id ?? null) : null);
       recipes.query = '';
       void recipes.load();
@@ -104,6 +108,26 @@
     if (!target || slotId === null || actions.readonly || !clean) return;
     void model.addNote(clean, target.day, slotId);
     onclose();
+  }
+
+  /** The tubs this day offers: the oldest freezer tub first; fridge tubs past their use-by left out. */
+  const offer = $derived(tubsForDay(model.tubsLeft, target?.day ?? ''));
+
+  /** Plan the recipe in this meal, then open Cook once for it. */
+  async function cookHere(recipe: { id: number; name: string }) {
+    if (!target || slotId === null || actions.readonly) return;
+    const [day, slot] = [target.day, slotId];
+    const outcome = await model.add({ recipe }, day, slot);
+    onclose();
+    if (!outcome.ok || outcome.value.meal_id === null || outcome.value.item_id === null) return;
+    const [mealId, itemId] = [outcome.value.meal_id, outcome.value.item_id];
+    // The plan is fetched again after the change; the meal is there once that has come back.
+    for (let tries = 0; tries < 3; tries++) {
+      await model.load();
+      const meal = model.plan?.meals.find((m) => m.id === mealId);
+      const item = meal?.items.find((i) => i.id === itemId);
+      if (meal && item) return actions.openCookOnce(meal, item);
+    }
   }
 
   function putTub(tub: TubLeft) {
@@ -185,7 +209,20 @@
           aria-label="Find a recipe or an ingredient"
           bind:value={query}
         />
-        <button type="button" class="add-note" onclick={() => (noting = true)}>+ Note</button>
+        <div class="extras">
+          {#if !cooking}
+            <button type="button" class="add-note" onclick={() => (noting = true)}>+ Note</button>
+          {/if}
+          <button
+            type="button"
+            class="add-note"
+            disabled={actions.readonly}
+            onclick={() => (cooking = !cooking)}>{cooking ? 'Back' : 'Cook once here…'}</button
+          >
+        </div>
+        {#if cooking}
+          <p class="note" role="status">Pick the recipe to cook once here.</p>
+        {/if}
       {/if}
 
       {#if actions.readonly}
@@ -195,10 +232,10 @@
       {/if}
       {#if problem}<p class="note problem" role="alert">{problem}</p>{/if}
 
-      {#if !noting && model.tubsLeft.length && !query.trim()}
-        <h3 class="group">Tubs left</h3>
+      {#if !noting && !cooking && offer.tubs.length && !query.trim()}
+        <h3 class="group">Use a tub</h3>
         <ul class="results" aria-label="Tubs left">
-          {#each model.tubsLeft.slice(0, 12) as tub (tub.id)}
+          {#each offer.tubs.slice(0, 12) as tub (tub.id)}
             <li>
               <button
                 type="button"
@@ -216,6 +253,9 @@
             </li>
           {/each}
         </ul>
+        {#if offer.pastUseBy > 0}
+          <p class="none">Fridge tubs that are past their use-by by then aren’t offered.</p>
+        {/if}
       {/if}
 
       {#if !noting}
@@ -225,7 +265,10 @@
               <button
                 type="button"
                 disabled={slotId === null || actions.readonly}
-                onclick={() => pick({ recipe: { id: recipe.id, name: recipe.name } })}
+                onclick={() =>
+                  cooking
+                    ? void cookHere({ id: recipe.id, name: recipe.name })
+                    : pick({ recipe: { id: recipe.id, name: recipe.name } })}
               >
                 <span class="name">{recipe.name}</span>
                 <span class="meta"
@@ -239,7 +282,7 @@
               </button>
             </li>
           {/each}
-          {#each foods as food (food.id)}
+          {#each cooking ? [] : foods as food (food.id)}
             <li>
               <button
                 type="button"
@@ -256,7 +299,7 @@
           <p class="none">
             {query.trim() ? 'Nothing matches.' : 'You have no recipes yet. Add one under Recipes.'}
           </p>
-        {:else if !query.trim()}
+        {:else if !query.trim() && !cooking}
           <p class="none">Type to find an ingredient, such as Fruit.</p>
         {/if}
       {/if}
@@ -453,6 +496,17 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .extras {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .add-note:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .note-form {
