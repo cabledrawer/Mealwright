@@ -421,8 +421,18 @@ test('Cook now adds nothing to the plan when the recipe is already planned today
   const { id } = await makeRecipe(page, FOUR);
   const today = ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
   const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; position: number; enabled: boolean }[];
-  const last = slots.filter((s) => s.enabled).sort((a, b) => a.position - b.position).at(-1)!;
-  await call(page, '/plan/items', { date: today, slot_id: last.id, recipe_id: id });
+  // Another test may have dealt with a meal today already: plan into the last one still open.
+  const open = slots.filter((s) => s.enabled).sort((a, b) => b.position - a.position);
+  let placed = false;
+  for (const slot of open) {
+    const response = await page.request.fetch('/api/v1/plan/items', { method: 'POST', data: { date: today, slot_id: slot.id, recipe_id: id }, headers: key() });
+    if (response.ok()) {
+      placed = true;
+      break;
+    }
+    expect(((await response.json()) as { code: string }).code).toBe('meal_done');
+  }
+  expect(placed, 'every meal today has been dealt with').toBe(true);
   expect(await plannedToday(page, id)).toHaveLength(1);
   await page.goto(`/recipes/${id}`);
   await page.getByRole('link', { name: 'Cook now' }).click();
