@@ -12,6 +12,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- **Import Check: step numbers skip no more at a heading (0.7 alpha 2, F112).** A method with headings now reads 1, 2, 3 ... through the whole method, as the recipe page does; a heading takes no number. The "N steps found" count was already right.
 - **Import: "2 cloves garlic" reads as 2 cloves, not 2 garlic (0.7 alpha 2, F89).** The Check screen shows "2 cloves" in the note, as it does for "1 bunch coriander", and the line is not counted, so nothing is ever taken for "2 garlic". "2 garlic cloves" and "garlic, 2 cloves, minced" read the same. If the ingredient already has a "clove" size, the line is still 2 of that size. Learning the size comes later.
 - **Import: "Recipe" and "How to Make ..." are dropped from names everywhere (0.7 alpha 2, F91).** "Sambar Recipe, How to Make Sambar" is "Sambar" and "Lemon Rice Recipe (Chitranna)" is "Lemon Rice (Chitranna)"; "Classic" stays. Links and pasted text use the same tidy.
 - **Import: Discard on the Check screen deletes its waiting photo at once (0.7 alpha 2, F92).** Ten reads that were never saved no longer block the eleventh with "Too many photos waiting".

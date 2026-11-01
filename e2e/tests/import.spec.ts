@@ -586,3 +586,33 @@ test('Check is three columns on a wide computer and one column on a phone, and l
     await expectNoSidewaysScroll(page);
   }
 });
+
+// --- Import Check fixes from real use (0.7, PR A4) ---------------------------------------------
+
+/** Open the Check screen on a review the browser makes up. */
+async function checking(page: Page, over: Json = {}, names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') }) {
+  await answer(page, 200, review({ name: unique('Sambar'), ...over }, names));
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+}
+
+test('the method numbers its steps through the headings, which take no number (F112)', async ({ page }) => {
+  await checking(page, {
+    steps: [
+      { kind: 'step', text: 'Soak the rice.' },
+      { kind: 'heading', text: 'For the batter' },
+      { kind: 'step', text: 'Grind it.' },
+      { kind: 'step', text: 'Ferment it.' },
+      { kind: 'heading', text: 'To serve' },
+      { kind: 'step', text: 'Fry it.' },
+    ],
+  });
+  await expect(page.getByText('Method · 4 steps found')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'For the batter' })).toBeVisible();
+  // Each run of steps starts at the right number, and no heading is a list item.
+  const starts = await page.locator('.method ol').evaluateAll((lists) => lists.map((ol) => [ol.getAttribute('start'), ol.children.length]));
+  expect(starts).toEqual([['1', 1], ['2', 2], ['4', 1]]);
+  expect(await page.locator('.method li.heading').count()).toBe(0);
+});

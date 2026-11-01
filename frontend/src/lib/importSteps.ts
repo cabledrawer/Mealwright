@@ -46,3 +46,31 @@ export function splitStep(text: string): string[] | null {
 export function sentenceCount(text: string): number {
   return sentences(text).length;
 }
+
+/** The method in runs, as the recipe page shows it: a heading, then the steps under it. `start` is
+ *  the number of the run's first step, counted through the whole method, so a heading takes no
+ *  number (F112). `at` is the item's place in the full list, which the split buttons refer to. */
+export type StepRun = {
+  heading: { text: string; at: number } | null;
+  start: number;
+  steps: { text: string; at: number }[];
+};
+
+export function stepRuns(steps: { kind: 'step' | 'heading'; text: string }[]): StepRun[] {
+  const runs: StepRun[] = [];
+  let counted = 0;
+  steps.forEach((step, at) => {
+    if (step.kind === 'heading') {
+      runs.push({ heading: { text: step.text, at }, start: counted + 1, steps: [] });
+      return;
+    }
+    let run = runs.at(-1);
+    if (!run) {
+      run = { heading: null, start: counted + 1, steps: [] };
+      runs.push(run);
+    }
+    run.steps.push({ text: step.text, at });
+    counted++;
+  });
+  return runs;
+}

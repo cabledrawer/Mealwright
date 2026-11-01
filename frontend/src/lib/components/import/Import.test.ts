@@ -485,6 +485,24 @@ describe('Import a recipe', () => {
       expect(flow.review!.steps).toHaveLength(1);
     });
 
+    it('numbers the steps through the method, never counting a heading (F112)', async () => {
+      const flow = await reviewing();
+      flow.review!.steps = [
+        { kind: 'step', text: 'Soak the rice.' },
+        { kind: 'heading', text: 'For the batter' },
+        { kind: 'step', text: 'Grind it.' },
+        { kind: 'step', text: 'Ferment it.' },
+        { kind: 'heading', text: 'To serve' },
+        { kind: 'step', text: 'Fry it.' }
+      ];
+      flushSync();
+      await expect.element(page.getByRole('heading', { name: 'For the batter' })).toBeVisible();
+      const lists = Array.from(document.querySelectorAll('.method ol'));
+      expect(lists.map((ol) => ol.getAttribute('start'))).toEqual(['1', '2', '4']);
+      expect(document.querySelectorAll('.method ol li')).toHaveLength(4);
+      expect(document.querySelectorAll('.method li.heading')).toHaveLength(0);
+    });
+
     it('says how many lines will be saved without an ingredient', async () => {
       await reviewing();
       await expect

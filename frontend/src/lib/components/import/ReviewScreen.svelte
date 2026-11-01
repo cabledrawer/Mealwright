@@ -14,7 +14,7 @@
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
-  import { sentenceCount } from '#lib/importSteps.js';
+  import { sentenceCount, stepRuns } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
@@ -243,38 +243,51 @@
             {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
           >
         </h2>
-        <ol>
-          {#each review.steps as step, i (i)}
-            {@const pieces = flow.splitOf(i)}
-            <li class:heading={step.kind === 'heading'}>
-              {step.text}
-              {#if pieces && flow.previewStep !== i}
-                <span class="long">
-                  <span class="long-note">A long step ({sentenceCount(step.text)} sentences)</span>
-                  <button type="button" class="chip" onclick={() => (flow.previewStep = i)}
-                    >Split into shorter steps</button
-                  >
-                </span>
-              {/if}
-              {#if pieces && flow.previewStep === i}
-                <span class="preview" role="group" aria-label="Preview of the split">
-                  <span class="preview-title">Preview: this step as {pieces.length} steps</span>
-                  {#each pieces as piece, n (n)}
-                    <span class="piece"><b>{n + 1}.</b> {piece}</span>
-                  {/each}
-                  <span class="preview-buttons">
-                    <button type="button" class="keep" onclick={() => flow.keepSplit(i)}
-                      >Keep the split</button
-                    >
-                    <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
-                      >Keep as one</button
-                    >
-                  </span>
-                </span>
-              {/if}
-            </li>
-          {/each}
-        </ol>
+        {#each stepRuns(review.steps) as run, r (r)}
+          {#if run.heading}<h3 class="step-heading">{run.heading.text}</h3>{/if}
+          {#if run.steps.length}
+            <!-- A heading is not in the numbered list, so it takes no number (F112). -->
+            <ol start={run.start}>
+              {#each run.steps as step (step.at)}
+                {@const pieces = flow.splitOf(step.at)}
+                <li>
+                  {step.text}
+                  {#if pieces && flow.previewStep !== step.at}
+                    <span class="long">
+                      <span class="long-note"
+                        >A long step ({sentenceCount(step.text)} sentences)</span
+                      >
+                      <button
+                        type="button"
+                        class="chip"
+                        onclick={() => (flow.previewStep = step.at)}
+                        >Split into shorter steps</button
+                      >
+                    </span>
+                  {/if}
+                  {#if pieces && flow.previewStep === step.at}
+                    <span class="preview" role="group" aria-label="Preview of the split">
+                      <span class="preview-title">Preview: this step as {pieces.length} steps</span>
+                      {#each pieces as piece, n (n)}
+                        <span class="piece"><b>{n + 1}.</b> {piece}</span>
+                      {/each}
+                      <span class="preview-buttons">
+                        <button type="button" class="keep" onclick={() => flow.keepSplit(step.at)}
+                          >Keep the split</button
+                        >
+                        <button
+                          type="button"
+                          class="quiet"
+                          onclick={() => (flow.previewStep = null)}>Keep as one</button
+                        >
+                      </span>
+                    </span>
+                  {/if}
+                </li>
+              {/each}
+            </ol>
+          {/if}
+        {/each}
         {#if flow.stepsBefore}
           <p class="note">
             Some long steps were split into shorter ones.
@@ -687,10 +700,12 @@
     overflow-wrap: anywhere;
   }
 
-  .method li.heading {
-    margin-left: calc(-1 * var(--space-8));
-    list-style: none;
+  .method .step-heading {
+    padding-bottom: var(--space-4);
+    font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .note {
