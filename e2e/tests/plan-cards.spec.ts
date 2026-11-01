@@ -187,3 +187,51 @@ test('the cards pass the accessibility check in both themes', async ({ page }) =
     await expectNoAxeViolations(page, `Plan cards, ${theme}`);
   }
 });
+
+test('moving a card with the keyboard only: Enter, arrows for the day, Shift and arrows for the meal, Enter, Escape, Undo', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `${stamp()} Pasta`;
+  const day = far(today, 5);
+  const sun = addDays(day, 1);
+  const item = await planned(page, await makeRecipe(page, name), day, slot.Lunch);
+  await openWeekOf(page, today, day);
+  const here = cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) });
+
+  // Escape cancels: nothing moves, and the focus is back on the card.
+  await here.focus();
+  await page.keyboard.press('Enter');
+  const menu = page.getByRole('dialog', { name });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('button', { name: 'Move to…' }).focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowRight');
+  await expect(menu.getByRole('status').filter({ hasText: 'Move to' })).toContainText('· Lunch');
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(here).toBeFocused();
+  expect(((await planRange(page, day, day)).meals as { date: string }[]).filter((m) => m.date === day).length).toBeGreaterThan(0);
+
+  // Arrow keys pick the day (one day on, the same meal), Shift and arrows the meal; Enter confirms.
+  await page.keyboard.press('Enter');
+  await menu.getByRole('button', { name: 'Move to…' }).focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(menu.getByRole('status').filter({ hasText: 'Move to' })).toContainText(/Sunday.* · Dinner/);
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeHidden();
+  const there = cell(page, sun, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) });
+  await expect(there).toBeVisible();
+  await expect(there).toBeFocused(); // focus returns to the moved card
+  await expect(page.getByRole('status').filter({ hasText: 'Moved' })).toBeVisible();
+  await expect.poll(async () => {
+    const meals = (await planRange(page, sun, sun)).meals as { id: number; slot_id: number }[];
+    return meals.find((m) => m.id === item.meal_id)?.slot_id;
+  }).toBe(slot.Dinner);
+
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+});

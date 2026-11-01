@@ -263,10 +263,96 @@
       void model.add({ recipe: target.recipe }, day, slotId);
     } else if (target.kind === 'meal') {
       void model.drop({ meal: target.meal.id }, day, slotId, mode as DropMode);
+      focusCard(day, slotId, mode === 'move' ? target.meal.items.map((i) => i.id) : []);
     } else if (target.kind === 'item') {
       void model.drop({ item: target.item.id }, day, slotId, mode as DropMode);
+      focusCard(day, slotId, mode === 'move' ? [target.item.id] : []);
     }
     onclose();
+  }
+
+  // --- The keyboard way to move a card (spec "Moving plan cards with the keyboard") ---------------
+  // Enter on a card opens this menu; Move to… / Copy to… then take the arrow keys: Left and Right
+  // (or Up and Down) pick the day, Shift with them picks the meal, Enter confirms, Escape cancels.
+  // The picker holds the focus (the button that opened it is gone), so the keys reach it.
+  let picker = $state<HTMLElement | null>(null);
+  $effect(() => {
+    if (picker && document.activeElement !== picker) picker.focus();
+  });
+
+  /** Where the arrow keys start from: the card's own place, else the first meal of the week. */
+  const origin = $derived.by(() => {
+    if (target && (target.kind === 'meal' || target.kind === 'item'))
+      return { day: target.meal.date, slot: target.meal.slot_id };
+    return { day: model.anchor || model.today, slot: model.slotsOn[0]?.id ?? null };
+  });
+
+  function stepDay(by: 1 | -1) {
+    let next = day ?? origin.day;
+    for (let i = 0; i < 400; i++) {
+      next = addDays(next, by);
+      if (dayShown(next)) break;
+    }
+    if (!dayShown(next)) return;
+    day = next;
+    weekOf = weekStart(next, model.startsOn);
+    if (slotId === null || !slotShown(slotId)) {
+      const start = model.slotsOn.find((s) => s.id === origin.slot && slotShown(s.id));
+      slotId = (start ?? model.slotsOn.find((s) => slotShown(s.id)))?.id ?? null;
+    }
+  }
+
+  function stepSlot(by: 1 | -1) {
+    day ??= origin.day;
+    const shown = model.slotsOn.filter((s) => slotShown(s.id));
+    const at = shown.findIndex((s) => s.id === (slotId ?? origin.slot));
+    const next = shown[Math.min(Math.max(at + by, 0), shown.length - 1)];
+    if (next) slotId = next.id;
+  }
+
+  const ARROWS: Record<string, 1 | -1> = {
+    ArrowLeft: -1,
+    ArrowUp: -1,
+    ArrowRight: 1,
+    ArrowDown: 1
+  };
+
+  function pickKey(event: KeyboardEvent) {
+    if (event.target !== picker) return; // a button inside keeps its own Enter
+    if (event.key === 'Enter') {
+      if (!ready) return;
+      event.preventDefault();
+      choose();
+      return;
+    }
+    const by = ARROWS[event.key];
+    if (!by || event.altKey || event.ctrlKey || event.metaKey) return;
+    event.preventDefault();
+    if (event.shiftKey) stepSlot(by);
+    else stepDay(by);
+  }
+
+  /** What was picked, said out loud and shown ("Move to Tue 20 October · Dinner"). */
+  const picked = $derived(
+    day !== null && slotId !== null
+      ? `${question.replace('…', '')} ${dayFull(day)} · ${model.slotName(slotId)}`
+      : ''
+  );
+
+  /** After the keyboard moved a card, the focus goes to the card where it landed. */
+  function focusCard(toDay: string, toSlot: number, ids: number[]) {
+    let frames = 0;
+    const look = () => {
+      const place = document.querySelector(`[data-testid="cell-${toDay}-${toSlot}"]`);
+      if (!place) return; // the phone and the Month have no such card
+      const card =
+        (ids.length &&
+          place.querySelector<HTMLElement>(ids.map((i) => `[data-item="${i}"]`).join(','))) ||
+        place.querySelector<HTMLElement>('.card');
+      if (card && frames > 2) card.focus();
+      else if (frames++ < 60) requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
   }
 
   function remove() {
@@ -424,47 +510,64 @@
             <Picker {model} bind:day bind:slotId />
           {/await}
         {:else}
-          <div class="weekbar">
-            <button
-              type="button"
-              aria-label="Earlier week"
-              disabled={atEarliestWeek}
-              onclick={() => (weekOf = addDays(weekOf, -7))}
-              ><Icon name="back" size={22} stroke={2.4} /></button
-            >
-            <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
-            <button
-              type="button"
-              aria-label="Later week"
-              onclick={() => (weekOf = addDays(weekOf, 7))}
-              ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
-            >
+          <!-- The arrow keys pick the day (Shift: the meal), Enter confirms; the focus is on this box. -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <div
+            class="picker"
+            role="group"
+            aria-label="Pick the day and the meal with the arrow keys"
+            tabindex="-1"
+            bind:this={picker}
+            onkeydown={pickKey}
+          >
+            <div class="weekbar">
+              <button
+                type="button"
+                aria-label="Earlier week"
+                disabled={atEarliestWeek}
+                onclick={() => (weekOf = addDays(weekOf, -7))}
+                ><Icon name="back" size={22} stroke={2.4} /></button
+              >
+              <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
+              <button
+                type="button"
+                aria-label="Later week"
+                onclick={() => (weekOf = addDays(weekOf, 7))}
+                ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
+              >
+            </div>
+            <div class="days" role="group" aria-label="Day">
+              {#each weekDays(weekOf) as d (d)}
+                {#if dayShown(d)}
+                  <button
+                    type="button"
+                    aria-pressed={day === d}
+                    aria-label={dayFull(d)}
+                    onclick={() => (day = d)}
+                    ><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
+                  >
+                {:else}
+                  <span aria-hidden="true"></span>
+                {/if}
+              {/each}
+            </div>
+            <div class="slots" role="group" aria-label="Meal">
+              {#each model.slotsOn as slot (slot.id)}
+                {#if slotShown(slot.id)}
+                  <button
+                    type="button"
+                    aria-pressed={slotId === slot.id}
+                    onclick={() => (slotId = slot.id)}>{slot.name}</button
+                  >
+                {/if}
+              {/each}
+            </div>
           </div>
-          <div class="days" role="group" aria-label="Day">
-            {#each weekDays(weekOf) as d (d)}
-              {#if dayShown(d)}
-                <button
-                  type="button"
-                  aria-pressed={day === d}
-                  aria-label={dayFull(d)}
-                  onclick={() => (day = d)}><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
-                >
-              {:else}
-                <span aria-hidden="true"></span>
-              {/if}
-            {/each}
-          </div>
-          <div class="slots" role="group" aria-label="Meal">
-            {#each model.slotsOn as slot (slot.id)}
-              {#if slotShown(slot.id)}
-                <button
-                  type="button"
-                  aria-pressed={slotId === slot.id}
-                  onclick={() => (slotId = slot.id)}>{slot.name}</button
-                >
-              {/if}
-            {/each}
-          </div>
+          <p class="picked" role="status">{samePlace ? '' : picked}</p>
+          <p class="keys">
+            Arrow keys pick the day, Shift and arrow keys pick the meal, Enter confirms, Esc
+            cancels.
+          </p>
         {/if}
         {#if samePlace}<p class="note" role="status">
             It’s already there. Pick another day or meal.
@@ -601,6 +704,38 @@
   .list .remove {
     color: var(--color-warning-text);
     background: var(--color-warning);
+  }
+
+  .picker {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .picker:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 4px;
+    border-radius: var(--radius-md);
+  }
+
+  .picked {
+    margin: 0;
+    font-weight: var(--weight-bold);
+    min-height: 1lh;
+  }
+
+  /* The key hints are for a mouse and keyboard; a finger has no arrow keys. */
+  .keys {
+    margin: 0;
+    display: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  @media (pointer: fine) {
+    .keys {
+      display: block;
+    }
   }
 
   .weekbar {
