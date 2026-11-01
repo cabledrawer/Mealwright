@@ -178,7 +178,7 @@ describe('the "Cooked it" review', () => {
     const dal = dialog.getByTestId('cook-row').first();
     await has(dal, 'Toor dal');
     await has(dal, 'Fridge, Cupboard');
-    await has(dal, '800 g → 600 g');
+    await has(dal, '800 → 600 g');
     await has(dal, '−200 g');
     await expect.element(dialog.getByText('Not in pantry')).toBeVisible();
     await expect.element(dialog.getByText('Staples · not counted')).toBeVisible();

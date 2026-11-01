@@ -142,13 +142,16 @@
   <div class="ba">
     {#if view.before !== null && own}
       <span class="visually-hidden"
-        >Before {own.before.display}, after {amountWords(view.after ?? 0, row.unit)}</span
+        >Before {amountWords(view.before, row.unit)}, after {amountWords(
+          view.after ?? 0,
+          row.unit
+        )}</span
       >
       <span aria-hidden="true"
-        >{own.before.short} → <b>{amountWords(view.after ?? 0, row.unit)}</b></span
+        >{numberWords(view.before)} → <b>{amountWords(view.after ?? 0, row.unit)}</b></span
       >
     {:else if row.needed}
-      <span class="says">needs {row.needed.short}</span>
+      <span class="says">needs {amountWords(row.needed.amount, row.unit)}</span>
     {/if}
   </div>
 
@@ -342,7 +345,9 @@
 
   {#if row.in_freezer && row.status !== 'staple'}
     <div class="extra tick">
-      <span id="{uid}-f">Take from the freezer too ({row.in_freezer.short})</span>
+      <span id="{uid}-f"
+        >Take from the freezer too ({amountWords(row.in_freezer.amount, row.unit)})</span
+      >
       <Switch
         checked={fromFreezer}
         labelledby="{uid}-f"
@@ -359,8 +364,13 @@
   {#if row.list_amount && !mine?.bought}
     <div class="extra tick">
       <span id="{uid}-l">
-        {row.short ? `Short by ${row.short.short}.` : row.running_low ? 'Running low.' : ''} Add {row
-          .list_amount.short}
+        {row.short
+          ? `Short by ${amountWords(row.short.amount, row.unit)}.`
+          : row.running_low
+            ? 'Running low.'
+            : ''} Add {row.list_amount.as_sold
+          ? row.list_amount.short
+          : amountWords(row.list_amount.amount, row.unit)}
         to the shopping list
       </span>
       <Switch

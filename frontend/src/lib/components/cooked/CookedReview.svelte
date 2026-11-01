@@ -570,7 +570,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-    background: var(--color-tubs, var(--color-surface));
+    background: var(--color-tub-chip);
+    color: var(--color-tub-chip-text);
   }
 
   .row {
@@ -587,7 +588,6 @@
   }
 
   .hint {
-    color: var(--color-text-muted);
     font-size: var(--text-base);
   }
 
