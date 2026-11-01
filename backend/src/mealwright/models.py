@@ -1079,19 +1079,23 @@ class Tub(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-# Exactly one of recipe, tub or ingredient. A recipe or ingredient item whose recipe or
-# ingredient was deleted for good has no link left, only its kept name.
+# Exactly one of recipe, tub, ingredient or note. A recipe or ingredient item whose recipe or
+# ingredient was deleted for good has no link left, only its kept name. A note ("eating out",
+# "at Amma's"; 0.7 P1) has no link at all, only its text in `name`.
 MEAL_ITEM_ONE_OF = (
     "(kind = 'recipe' AND tub_id IS NULL AND food_id IS NULL"
     " AND (recipe_id IS NOT NULL OR name IS NOT NULL))"
     " OR (kind = 'ingredient' AND recipe_id IS NULL AND tub_id IS NULL"
     " AND (food_id IS NOT NULL OR name IS NOT NULL))"
     " OR (kind = 'tub' AND tub_id IS NOT NULL AND recipe_id IS NULL AND food_id IS NULL)"
+    " OR (kind = 'note' AND recipe_id IS NULL AND tub_id IS NULL AND food_id IS NULL"
+    " AND name IS NOT NULL)"
 )
 
 
 class MealItem(Base):
-    """One thing in a meal: a recipe, a tub or a plain ingredient ("Fruit"), exactly one.
+    """One thing in a meal: a recipe, a tub, a plain ingredient ("Fruit") or a note ("Eating
+    out"), exactly one.
     A recipe or ingredient deleted for good leaves its item with its name, so past meals still
     show what was eaten (cabledrawer 26 Oct, as batch cooks keep theirs); a purged tub takes its
     item. A removed recipe that can still be undone keeps its link."""
@@ -1128,7 +1132,7 @@ class MealItem(Base):
     )
     meal_id: Mapped[int] = mapped_column(Integer)
     position: Mapped[int] = mapped_column(Integer, default=0)
-    # recipe, tub or ingredient. Filled in from the link when left out.
+    # recipe, tub, ingredient or note. Filled in from the link when left out.
     kind: Mapped[str] = mapped_column(String(10))
     recipe_id: Mapped[int | None] = mapped_column(
         ForeignKey("recipe.id", ondelete="SET NULL"), index=True

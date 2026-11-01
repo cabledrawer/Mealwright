@@ -1045,3 +1045,71 @@ def test_cooked_records_migration_adds_one_table_and_goes_back_and_forward(
     assert "AUTOINCREMENT" in _table_sql(engine, "meal_item")
     migrate.upgrade(engine)
     assert _row_counts(engine, skip) == after
+
+
+COOKED_RECORDS_MIGRATION = "6612736d5aae"  # 0.7 K1's cooked records: the one just before notes
+
+
+def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.7 P1: a meal item may be a note (text in `name`, no link); every row, key and "never
+    reuse an id" stays; the old rule refuses a note; going back removes the notes (and a meal
+    that held nothing else) and keeps everything else."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    migrate.downgrade(engine, COOKED_RECORDS_MIGRATION)
+    old_sql = _table_sql(engine, "meal_item")
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        slot = connection.exec_driver_sql(
+            "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        for meal_id, day in ((1, "2026-11-02"), (2, "2026-11-03")):
+            connection.exec_driver_sql(
+                "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+                " VALUES (?, 1, ?, ?, 'planned', '2026-11-01')",
+                (meal_id, day, slot),
+            )
+        connection.exec_driver_sql(
+            "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
+            " VALUES (1, 1, 1, 0, 'recipe', 1)"
+        )
+        with pytest.raises(IntegrityError):  # the old rule knows no note
+            connection.exec_driver_sql(
+                "INSERT INTO meal_item (household_id, meal_id, position, kind, name)"
+                " VALUES (1, 2, 0, 'note', 'Eating out')"
+            )
+    skip = {"alembic_version"}
+    before = _row_counts(engine, skip)
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    sql = _table_sql(engine, "meal_item")
+    assert "AUTOINCREMENT" in sql and "ck_meal_item_one_of" in sql and "'note'" in sql
+    assert "'note'" not in old_sql
+    add = (
+        "INSERT INTO meal_item (household_id, meal_id, position, kind, name, recipe_id, food_id)"
+        " VALUES (1, ?, ?, 'note', ?, ?, ?)"
+    )
+    with engine.begin() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        for bad in ((2, 0, None, None, None), (2, 0, "Out", 1, None), (2, 0, "Out", None, 1)):
+            with pytest.raises(IntegrityError):  # a note is text and nothing else
+                connection.exec_driver_sql(add, bad)
+        connection.exec_driver_sql(add, (2, 0, "Eating out", None, None))  # alone in meal 2
+        connection.exec_driver_sql(add, (1, 1, "Then ice cream", None, None))  # beside a recipe
+        # A note can't reach into another household's meal.
+        with pytest.raises(IntegrityError):
+            connection.exec_driver_sql(
+                "INSERT INTO meal_item (household_id, meal_id, position, kind, name)"
+                " VALUES (2, 1, 0, 'note', 'Out')"
+            )
+    migrate.downgrade(engine, COOKED_RECORDS_MIGRATION)
+    assert _row_counts(engine, skip) == {**before, "meal": before["meal"] - 1}
+    with engine.connect() as connection:
+        kinds = connection.exec_driver_sql("SELECT kind FROM meal_item").all()
+        meals = connection.exec_driver_sql("SELECT id FROM meal ORDER BY id").all()
+    assert [k[0] for k in kinds] == ["recipe"]  # the notes are gone
+    assert [m[0] for m in meals] == [1]  # and the meal that held only a note
+    assert "AUTOINCREMENT" in _table_sql(engine, "meal_item")
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()

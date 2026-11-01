@@ -319,8 +319,10 @@ def add_item(
     recipe: Recipe | None,
     food: Food | None,
     servings: int | None,
+    note: str | None = None,
 ) -> Change:
-    """Plan a recipe or a plain ingredient. A filled meal gets it alongside."""
+    """Plan a recipe, a plain ingredient or a note ("Eating out"). A filled meal gets it
+    alongside."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     steps: list[dict[str, Any]] = []
@@ -334,6 +336,8 @@ def add_item(
         household_id=kitchen.household_id,
         meal_id=meal.id,
         position=_end(kitchen, meal),
+        kind="note" if note else None,
+        name=note,
         recipe_id=recipe.id if recipe else None,
         food_id=food.id if food else None,
         servings=servings if recipe else None,
@@ -341,7 +345,7 @@ def add_item(
     kitchen.db.add(item)
     kitchen.db.flush()
     steps.append({"op": "add_item", "item": item.id})
-    name = recipe.name if recipe else food.name if food else "an ingredient"
+    name = recipe.name if recipe else food.name if food else note or "an ingredient"
     return _finish(
         kitchen,
         "plan_added",
@@ -442,6 +446,8 @@ def move_meal(kitchen: Kitchen, meal: Meal, day: date, slot_id: int, mode: Mode)
     items = items_of(kitchen, meal)
     if mode != "move":
         items = [i for i in items if i.tub_id is None]  # a tub is in one meal at a time
+    if mode == "leftovers":
+        items = [i for i in items if i.kind != "note"]  # "Eating out" has no leftovers
         if not items:
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -507,6 +513,12 @@ def move_item(kitchen: Kitchen, item: MealItem, day: date, slot_id: int, mode: M
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "tub_once",
             "A tub can only be in one meal at a time.",  # proposed, for cabledrawer
+        )
+    if mode == "leftovers" and item.kind == "note":
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "note_no_leftovers",
+            "A note has no leftovers.",  # proposed, for cabledrawer
         )
     if mode == "leftovers":
         check_after_cook(kitchen, source, day, slot_id)

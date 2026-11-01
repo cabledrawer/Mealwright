@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
@@ -33,6 +33,7 @@ from mealwright.models import (
     RecipePhoto,
     Tub,
 )
+from mealwright.names import clean, one_line
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
@@ -40,6 +41,8 @@ router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
 # The longest range one call answers: two months covers the Month view with the days either
 # side of it (cabledrawer 26 Oct).
 MOST_DAYS = 62
+# The longest note ('Eating out'): the column holds 200.
+MOST_NOTE = 200
 
 
 class MealSlotOut(BaseModel):
@@ -75,7 +78,7 @@ class PlanIngredientRef(Ref):
 class PlanItemOut(BaseModel):
     id: int
     position: int
-    kind: Literal["recipe", "tub", "ingredient"]
+    kind: Literal["recipe", "tub", "ingredient", "note"]
     recipe: PlanRecipeRef | None
     tub_id: int | None
     ingredient: PlanIngredientRef | None
@@ -83,6 +86,8 @@ class PlanItemOut(BaseModel):
     # then null): its name, so past meals still show what was eaten.
     kept_name: str | None
     servings: int | None
+    # A note's text ("Eating out"); null for everything else.
+    note: str | None = None
 
 
 class PlanMealOut(BaseModel):
@@ -332,8 +337,11 @@ def get_plan(
             )
             if food
             else None,
-            kept_name=i.name if i.kind != "tub" and not (i.recipe_id or i.food_id) else None,
+            kept_name=i.name
+            if i.kind not in ("tub", "note") and not (i.recipe_id or i.food_id)
+            else None,
             servings=i.servings,
+            note=i.name if i.kind == "note" else None,
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}
@@ -433,12 +441,28 @@ def _run(kitchen: Kitchen, response: Response, make: Callable[[], Change | None]
 class PlanItemIn(BaseModel):
     date: date
     slot_id: StoredInt
-    # Exactly one of these two.
+    # Exactly one of these three.
     recipe_id: StoredInt | None = None
     ingredient_id: StoredInt | None = None
+    note: str | None = Field(
+        default=None,
+        description="A note instead of a recipe or ingredient: 'Eating out', 'Takeaway', 'At"
+        " Amma's' (1 to 200 letters, one line). It counts as a filled meal and needs nothing"
+        " bought.",
+    )
     servings: Annotated[int, Field(ge=1, le=99)] | None = Field(
         default=None, description="Recipes only. Left out: the recipe's own Serves."
     )
+
+    @field_validator("note")
+    @classmethod
+    def _checked_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = clean(one_line(value))
+        if not 1 <= len(text) <= MOST_NOTE:
+            raise ValueError(f"A note is 1 to {MOST_NOTE} letters.")  # proposed, for cabledrawer
+        return text
 
 
 @router.post("/plan/items", status_code=status.HTTP_201_CREATED)
@@ -446,11 +470,11 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     """Plan a recipe or a plain ingredient on a date and slot. An empty slot gets a new meal;
     a filled one gets it alongside (at most 20 things in a meal). A retry with the same
     `Idempotency-Key` plans nothing more."""
-    if (body.recipe_id is None) == (body.ingredient_id is None):
+    if sum(x is not None for x in (body.recipe_id, body.ingredient_id, body.note)) != 1:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "one_of",
-            "Pick a recipe or an ingredient to plan.",  # proposed, for cabledrawer
+            "Pick a recipe, an ingredient or a note to plan.",  # proposed, for cabledrawer
         )
 
     def make() -> Change:
@@ -465,7 +489,9 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
                 or food.merged_into_id is not None
             ):
                 raise not_found("That ingredient")
-        return plan.add_item(kitchen, body.date, body.slot_id, recipe, food, body.servings)
+        return plan.add_item(
+            kitchen, body.date, body.slot_id, recipe, food, body.servings, body.note
+        )
 
     out = _run(kitchen, response, make)
     if response.headers.get("Idempotent-Replayed"):

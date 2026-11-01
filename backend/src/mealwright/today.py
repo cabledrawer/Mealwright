@@ -33,7 +33,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.batches import (
@@ -283,6 +283,12 @@ def waiting_meals(kitchen: Kitchen) -> list[Meal]:
                 Meal.day < first,
                 Meal.day >= first - timedelta(days=WAITING_DAYS),
                 MealSlot.enabled.is_(True),
+                # A meal of only notes ("Eating out") is never asked about (0.7 P1).
+                exists().where(
+                    MealItem.household_id == Meal.household_id,
+                    MealItem.meal_id == Meal.id,
+                    MealItem.kind != "note",
+                ),
             )
         )
     )
