@@ -258,9 +258,7 @@ describe('the Ingredients page', () => {
       await expect.element(offer('tahini')).toBeVisible();
       requests.length = 0;
       await offer('tahini').click();
-      await expect
-        .element(page.getByRole('heading', { name: 'Pantry keeps it by' }))
-        .toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
       await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
       await page.getByRole('radio', { name: /One by one/ }).click();
       await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -349,9 +347,7 @@ describe('the Ingredients page', () => {
       await expect.element(offer('tahini')).toBeVisible();
       await search().click();
       await userEvent.keyboard('{Enter}');
-      await expect
-        .element(page.getByRole('heading', { name: 'Pantry keeps it by' }))
-        .toBeVisible();
+      await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
       await expect.element(page.getByText('tahini', { exact: true }).last()).toBeVisible();
     });
   });
