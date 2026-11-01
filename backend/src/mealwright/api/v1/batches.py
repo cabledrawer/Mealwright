@@ -356,7 +356,7 @@ class PortionsOut(BaseModel):
 @router.get("/plan/items/{plan_item_id}/portions")
 def get_portions(plan_item_id: StoredInt, kitchen: Here) -> PortionsOut:
     """How many portions the batch cooked for this recipe item makes, and how many are left to
-    plan (cabledrawer 28 Oct). Changes nothing."""
+    plan. Changes nothing."""
     item = plan.find_item(kitchen, plan_item_id)
     source = batches.recipe_meal_item(kitchen, item)
     batch = batches._batch_of(kitchen, source, item)
@@ -387,7 +387,7 @@ def get_portions(plan_item_id: StoredInt, kitchen: Here) -> PortionsOut:
     )
 
 
-class LeftoversIn(BaseModel):
+class PlanLeftoversIn(BaseModel):
     meals: Annotated[list[SpotIn], Field(min_length=1, max_length=batches.MOST_TUBS_IN_BATCH)]
     if_none_left: Literal["ask", "cook_more", "add_anyway"] = Field(
         default="ask",
@@ -399,7 +399,7 @@ class LeftoversIn(BaseModel):
 
 @router.post("/plan/items/{plan_item_id}/leftovers")
 def plan_leftovers(
-    plan_item_id: StoredInt, body: LeftoversIn, kitchen: Here, response: Response
+    plan_item_id: StoredInt, body: PlanLeftoversIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """ "Leftovers on…": several meals at once. Only meals after the cooking and not past the
     batch's use-by are accepted. A retry with the same `Idempotency-Key` plans nothing more."""

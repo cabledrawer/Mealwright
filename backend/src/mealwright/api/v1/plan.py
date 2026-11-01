@@ -553,7 +553,7 @@ def set_plan_item_servings(
 
 class EatersIn(BaseModel):
     login_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
-        description="Who is eating, by sign-in (proposed, for cabledrawer; member profiles come in"
+        description="Who is eating, by sign-in (proposed; member profiles come in"
         " 0.8). Empty: everyone."
     )
 

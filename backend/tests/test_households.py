@@ -231,6 +231,13 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     # Cook once (0.6 PR 4). Also tried in test_plan_batches.py, in both directions.
     ("POST", "/api/v1/plan/items/{plan_item_id}/batch/preview"): {"tub_count": 1},
     ("POST", "/api/v1/plan/items/{plan_item_id}/batch"): {"tub_count": 1},
+    ("GET", "/api/v1/plan/items/{plan_item_id}/portions"): None,
+    (
+        "POST",
+        "/api/v1/plan/items/{plan_item_id}/leftovers",
+    ): {"meals": [{"date": "2030-01-01", "slot_id": 1}]},
+    ("PATCH", "/api/v1/plan/items/{plan_item_id}"): {"servings": 2},
+    ("PUT", "/api/v1/plan/meals/{plan_meal_id}/eaters"): {"login_ids": []},
     ("DELETE", "/api/v1/plan/batches/{plan_batch_id}"): None,
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/place"): {"date": "2030-01-01", "slot_id": 1},
     ("PATCH", "/api/v1/plan/tubs/{plan_tub_id}"): {"use_by": "2030-01-01"},
