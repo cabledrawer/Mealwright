@@ -29,6 +29,7 @@ from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLo
 from mealwright.names import fold, search_match
 from mealwright.stock import (
     FREEZER_MONTHS,
+    MAX_LOTS,
     StockEdit,
     add_months,
     default_place,
@@ -43,7 +44,6 @@ from mealwright.stock import (
 
 router = APIRouter(tags=["pantry"], dependencies=[SameOrigin])
 
-MAX_LOTS = 50  # one request can't add more than 50 packets
 
 
 # --- Shapes ---------------------------------------------------------------------------------

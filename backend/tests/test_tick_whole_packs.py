@@ -3,6 +3,7 @@ exact need. 38 g ghee with a 500 g jar is 1 jar (500 g). Decided in ticks.tick (
 foods.pack_bought); every way a tick reaches the server (online, or queued and sent later)
 goes through that one function, and Undo takes out exactly what went in."""
 
+import time
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -42,7 +43,7 @@ def _line(
         pack, grams = size.split("=")
         sized = ok(
             s.kitchen.post(
-                f"{API}/foods/{made['id']}/sizes", json={"name": pack, "amount": int(grams)}
+                f"{API}/foods/{made['id']}/sizes", json={"name": pack, "amount": float(grams) if "." in grams else int(grams)}
             ),
             201,
         )
@@ -187,3 +188,86 @@ def test_a_queued_tick_sent_later_puts_the_jar_in_too(kitchen: TestClient) -> No
         device=PHONE_R,
     )
     assert s.total("Ghee") == 500
+
+
+# --- A cap on packets (review round 1): a tiny size can't make a million packets ----------
+
+
+def _lot_count(s: S0, name: str) -> int:
+    return len(s.lots(name))
+
+
+def test_a_tiny_size_and_a_huge_line_goes_in_as_listed_not_as_a_million_packets(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    _line(s, "Ghee", 1_000_000, "grain=0.001")
+    started = time.monotonic()
+    done = _tick(s, "Ghee")
+    assert time.monotonic() - started < 5
+    assert done["status"] == "applied"
+    assert s.lots("Ghee") == [("Cupboard", 1_000_000)]
+
+
+def test_twenty_thousand_grams_with_a_one_gram_size_is_quick_and_one_lot(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    _line(s, "Rock salt", 20_000, "pinch=1")
+    started = time.monotonic()
+    _tick(s, "Rock salt")
+    assert time.monotonic() - started < 5
+    assert s.lots("Rock salt") == [("Cupboard", 20_000)]
+
+
+def test_fifty_packs_still_round_up_and_fifty_one_does_not(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _line(s, "Ghee", 24_900, "jar=500")  # 49.8 jars -> 50 whole jars
+    _line(s, "Oil", 25_100, "jar=500")  # 50.2 jars -> over the cap, as listed
+    _tick(s, "Ghee")
+    _tick(s, "Oil")
+    assert _lot_count(s, "Ghee") == 50 and s.total("Ghee") == 25_000
+    assert s.lots("Oil") == [("Cupboard", 25_100)]
+
+
+def test_a_line_already_in_packs_is_capped_too(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    ghee = food(kitchen, "Ghee", counted_as="weight", place_id=s.places["Cupboard"])["id"]
+    made = ok(kitchen.post(f"{API}/foods/{ghee}/sizes", json={"name": "grain", "amount": 1}), 201)
+    item = new_id()
+    send(
+        kitchen,
+        action(
+            "add",
+            counter(kitchen),
+            list_id=s.main,
+            item_id=item,
+            food_id=ghee,
+            amount=20_000,
+            size_id=made["food"]["sizes"][0]["id"],
+        ),
+    )
+    s.foods["Ghee"], s.items["Ghee"] = ghee, item
+    _tick(s, "Ghee")
+    assert s.lots("Ghee") == [("Cupboard", 20_000)]
+
+
+def test_a_queued_tick_of_a_huge_line_is_capped_too(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _line(s, "Rock salt", 20_000, "pinch=1")
+    tick_id = new_id()
+    started = time.monotonic()
+    send(
+        kitchen,
+        action("tick", s.c0, id=tick_id, item_id=s.items["Rock salt"]),
+        action(
+            "put_away",
+            s.c0,
+            item_id=s.items["Rock salt"],
+            place_id=s.places["Cupboard"],
+            tick_ids=[tick_id],
+        ),
+        device=PHONE_R,
+    )
+    assert time.monotonic() - started < 5
+    assert s.lots("Rock salt") == [("Cupboard", 20_000)]

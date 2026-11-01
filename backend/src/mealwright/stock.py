@@ -195,12 +195,18 @@ def what_text(food: Food, milli: int, size: FoodSize | None) -> str:
 # --- Writing ----------------------------------------------------------------------------------
 
 
+MAX_LOTS = 50  # one request can't add more than 50 packets
+
+
 def lot_amounts(milli: int, size: FoodSize | None) -> list[int]:
     """How an amount is split into lots (api-0.2 section 3.5): one per whole packet, plus a
-    part packet; with no size, one lot."""
+    part packet; with no size, one lot. Above MAX_LOTS packets the amount goes in as one lot,
+    so a tiny size can't make a million packets."""
     if size is None or size.amount_milli <= 0:
         return [milli]
     whole, rest = divmod(milli, size.amount_milli)
+    if whole > MAX_LOTS:
+        return [milli]
     return [size.amount_milli] * whole + ([rest] if rest > 0 else [])
 
 

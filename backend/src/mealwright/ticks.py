@@ -34,6 +34,7 @@ from mealwright.models import (
 )
 from mealwright.shopping import Act, Batch, Refused, who
 from mealwright.stock import (
+    MAX_LOTS,
     StockEdit,
     default_place,
     lot_amounts,
@@ -205,8 +206,10 @@ def tick(act: Act) -> None:
         # in packs, and an ingredient with no size to buy in, go in as they are.
         pack = pack_bought(kitchen, food.id)
         if pack is not None and pack.amount_milli > 0:
-            milli = -(-milli // pack.amount_milli) * pack.amount_milli
-            size = pack
+            packs = -(-milli // pack.amount_milli)
+            if packs <= MAX_LOTS:  # a tiny size can't ask for a million packets
+                milli = packs * pack.amount_milli
+                size = pack
     row = ListTick(
         household_id=kitchen.household_id,
         id=act.id,
