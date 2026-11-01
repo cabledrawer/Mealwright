@@ -219,6 +219,35 @@ describe('signing out forgets the household’s shops and places', () => {
       expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
     });
 
+    it('an answer asked for before a place or shop was added keeps the new one', async () => {
+      await wrensLoaded({
+        'POST /places': [201, { id: 2, name: 'Garage fridge', kind: 'fridge' }],
+        'POST /shops': [201, { id: 2, name: 'Wren’s market' }]
+      });
+      let answer!: () => void;
+      const answered = new Promise<void>((done) => (answer = done));
+      const fetched = globalThis.fetch;
+      vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+        if ((args[1]?.method ?? 'GET') === 'GET') await answered;
+        return fetched(...args);
+      });
+      // The editor opens (fetching again), then "+ Place" and "+ Shop" answer first.
+      const loading = placesAndShops.load(true);
+      await placesAndShops.addPlace('Garage fridge', 'fridge');
+      await placesAndShops.addShop('Wren’s market');
+      answer();
+      await loading;
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Garage fridge']);
+      expect(placesAndShops.shops.map((s) => s.name)).toEqual([
+        'Wren’s corner shop',
+        'Wren’s market'
+      ]);
+      // A fetch asked for afterwards is the server's whole word.
+      fakeApi(WRENS);
+      await placesAndShops.load(true);
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
+    });
+
     it('a picker given a place that is not in the list fetches them again, once', async () => {
       await wrensLoaded();
       const requests = fakeApi(WITH_SHED);

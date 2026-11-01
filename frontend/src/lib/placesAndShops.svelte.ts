@@ -18,16 +18,21 @@ class PlacesAndShops {
   #generation = 0;
   /** Places already asked about by reloadFor(), so one the server lacks isn't asked about again. */
   #asked = new Set<number>();
+  /** Places and shops added here, in order, so a fetch asked for before one was added (and
+   * answering after it) keeps it. */
+  #addedPlaces: Place[] = [];
+  #addedShops: Shop[] = [];
 
   /** Fetch them (once; later calls wait for the same answer). */
   load(force = false): Promise<void> {
     if (!this.#loading || force) {
+      const [placesAsked, shopsAsked] = [this.#addedPlaces.length, this.#addedShops.length];
       const loading: Promise<void> = Promise.all([getPlaces(), getShops()])
         .then(([places, shops]) => {
           // Forgotten (signed out) while asking: the answer is the last login's, so it's dropped.
           if (this.#loading !== loading) return;
-          this.places = places;
-          this.shops = shops;
+          this.places = withLater(places, this.#addedPlaces.slice(placesAsked));
+          this.shops = withLater(shops, this.#addedShops.slice(shopsAsked));
         })
         .catch((error: unknown) => {
           if (this.#loading === loading) this.#loading = null;
@@ -55,6 +60,8 @@ class PlacesAndShops {
     this.#generation += 1;
     this.#loading = null;
     this.#asked.clear();
+    this.#addedPlaces = [];
+    this.#addedShops = [];
     this.places = [];
     this.shops = [];
   }
@@ -65,6 +72,7 @@ class PlacesAndShops {
     const shop = await addShop(name.trim());
     // Forgotten (signed out) while asking: the shop is the last login's, so it isn't kept.
     if (generation !== this.#generation) return shop;
+    this.#addedShops.push(shop);
     if (!this.shops.some((s) => s.id === shop.id)) this.shops = [...this.shops, shop];
     return shop;
   }
@@ -85,9 +93,18 @@ class PlacesAndShops {
     if (!this.#loading && generation === this.#generation) await this.load().catch(() => {});
     // Forgotten (signed out) while asking: the place is the last login's, so it isn't kept.
     if (generation !== this.#generation) return place;
+    this.#addedPlaces.push(place);
     if (!this.places.some((p) => p.id === place.id)) this.places = [...this.places, place];
     return place;
   }
+}
+
+/** A fetched list, with what was added after it was asked for and isn't in it yet, last. */
+function withLater<T extends { id: number }>(list: T[], later: T[]): T[] {
+  const missing = later.filter(
+    (a, i) => !list.some((x) => x.id === a.id) && later.findIndex((b) => b.id === a.id) === i
+  );
+  return [...list, ...missing];
 }
 
 /** The place a 409 `place_exists` names. */
