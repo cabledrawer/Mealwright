@@ -95,6 +95,17 @@ describe('the recipe page photo', () => {
     expect(errors).toEqual([]);
   });
 
+  it('an error fails the address the picture tried, not the photo shown by then', () => {
+    open({ photo: photo({ url: DISH, list_url: '/api/v1/recipes/photos/5/list' }) });
+    const img = document.querySelector('img')!;
+    // An error that arrives for an earlier address (the photo was replaced meanwhile) must not
+    // mark the large copy that is shown now as failed.
+    img.setAttribute('src', '/api/v1/recipes/photos/4/large');
+    img.dispatchEvent(new Event('error'));
+    flushSync();
+    expect(document.querySelector('img')!.getAttribute('width')).toBe('1600');
+  });
+
   it('shows the list copy when only the large copy can’t be fetched', async () => {
     open({ photo: photo({ url: '/api/v1/recipes/photos/404/large', list_url: DISH }) });
     await expect.poll(() => document.querySelector('img')?.getAttribute('src')).toBe(DISH);

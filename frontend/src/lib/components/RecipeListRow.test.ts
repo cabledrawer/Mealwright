@@ -95,6 +95,17 @@ describe('a recipe row', () => {
     expect([box.width, box.height]).toEqual([52, 52]);
   });
 
+  it('an error fails the address the picture tried, not the photo shown by then', () => {
+    open(row({ photo: photo() }));
+    const img = pictures()[0]!;
+    // An error that arrives for an earlier address (the photo was replaced meanwhile) must not
+    // take away the photo shown now.
+    img.setAttribute('src', '/api/v1/recipes/photos/4/list');
+    img.dispatchEvent(new Event('error'));
+    flushSync();
+    expect(pictures().length).toBe(1);
+  });
+
   it('tries a failed photo again when the connection comes back', async () => {
     const missing = '/api/v1/recipes/photos/404/list';
     open(row({ photo: photo({ list_url: missing }) }));

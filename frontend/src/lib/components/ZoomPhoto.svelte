@@ -22,7 +22,8 @@
     alt: string;
     /** The recipe's name, for the button's words. */
     name: string;
-    onerror?: () => void;
+    /** The picture couldn't be fetched: the event's target is the <img> that tried. */
+    onerror?: (event: Event) => void;
     /** Extra things drawn over the picture, inside the button. */
     children?: Snippet;
   } = $props();

@@ -53,7 +53,11 @@
         height={photo.list_height}
         loading="lazy"
         decoding="async"
-        onerror={() => (failed = { url: photo.list_url, back: network.backAgain })}
+        onerror={(event) => {
+          // The address this picture tried, not the photo shown by the time the error arrives.
+          const tried = event.currentTarget.getAttribute('src');
+          if (tried) failed = { url: tried, back: network.backAgain };
+        }}
       />
     {/if}
   </span>

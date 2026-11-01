@@ -35,9 +35,11 @@
       {name}
       width={shown.width}
       height={shown.height}
-      onerror={() => {
-        // A late error for a photo already gone (Discard, or both copies failed): nothing to fail.
-        if (shown) copy.fail(shown.url);
+      onerror={(event) => {
+        // Fail the address this picture tried, not whatever is shown by the time the error
+        // arrives (a late error from a photo already gone, or from one since replaced).
+        const tried = (event.currentTarget as HTMLImageElement).getAttribute('src');
+        if (tried) copy.fail(tried);
       }}
     />
   </div>
