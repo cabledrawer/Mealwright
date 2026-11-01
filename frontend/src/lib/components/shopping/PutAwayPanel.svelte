@@ -9,13 +9,16 @@
   let { model }: { model: ShoppingModel } = $props();
   const uid = $props.id();
   let addingPlace = $state(false);
-  $effect(() => {
-    void item?.id;
-    addingPlace = false;
-  });
 
   const last = $derived(model.lastTicked);
   const item = $derived(last ? model.item(last.itemId) : undefined);
+  // The row itself is rebuilt on every live update (a new object, the same id): only another
+  // row closes the box, so a live update doesn't (M2).
+  const itemId = $derived(item?.id);
+  $effect(() => {
+    void itemId;
+    addingPlace = false;
+  });
   const standing = $derived(item?.ticks.some((t) => t.standing) ?? false);
   // Offline the tick has no place yet: where it will go (its usual place) shows meanwhile.
   const placeId = $derived(item ? model.placeOf(item, last?.tickId) : null);

@@ -16,6 +16,7 @@ import type { ShoppingCopy } from '#lib/shopping/types.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { notHereText } from '#lib/shopping/store.svelte.js';
+import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import Shopping from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
@@ -464,6 +465,19 @@ describe('the Shopping page', () => {
     );
     await page.getByRole('button', { name: 'Undo last tick' }).click();
     await vi.waitFor(() => expect(server.actions.at(-1)).toMatchObject({ kind: 'undo' }));
+  });
+
+  it('desktop: a live update does not close the + Place box in the Put away panel (M2)', async () => {
+    await render(1300);
+    await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
+    await page.getByRole('combobox', { name: 'Where' }).selectOptions('+ Place');
+    const name = page.getByRole('textbox', { name: 'Place’s name' });
+    await expect.element(name).toBeVisible();
+    await name.fill('Gar');
+    // Another phone changed something: the copy is replaced (a new object for every row).
+    await shoppingSync.refresh(true);
+    await expect.element(name).toBeVisible();
+    await expect.element(name).toHaveValue('Gar');
   });
 
   it('Different pack? offers the planned pack and sends the one picked', async () => {
