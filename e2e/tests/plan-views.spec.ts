@@ -305,7 +305,9 @@ for (const width of [800, 1024]) {
     test.skip(isPhone(page), 'the computer layout');
     test.setTimeout(240_000);
     const k = await setup(page);
-    const day = far(k.today, width === 800 ? 3 : 4);
+    // Weeks no other test plans in (and nothing but this test's own meals in them), so every word on
+    // screen is one this test made.
+    const day = addDays(k.today, 7 * (width === 800 ? 81 : 82));
     const w = await seedWeek(page, k, day);
     await page.setViewportSize({ width, height: 900 });
     await openWeekOf(page, k.today, day);
