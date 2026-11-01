@@ -1,6 +1,6 @@
 <script lang="ts">
-  // "Keep screen awake" (mockup Recipe; cabledrawer 19 Oct, question 32): the one Switch, off every
-  // time the page opens. Not drawn at all where the browser can't do it.
+  // "Keep screen awake", now in Cook mode (spec "Cook mode timers"; cabledrawer 31 Oct): the one Switch.
+  // Where the browser can't do it the switch is greyed and says why, instead of vanishing.
   import { untrack } from 'svelte';
   import type { ScreenAwake } from '#lib/screenAwake.svelte.js';
   import Icon from './Icon.svelte';
@@ -11,19 +11,20 @@
   const supported = untrack(() => awake.supported);
 </script>
 
-{#if supported}
-  <div class="row">
-    <span class="what" id="{id}-label"><Icon name="light" size={18} />Keep screen awake</span>
-    <Switch
-      checked={awake.on}
-      labelledby="{id}-label"
-      describedby={awake.refused ? `${id}-refused` : undefined}
-      onchange={(on) => void awake.set(on)}
-    />
-  </div>
-  {#if awake.refused}
-    <p class="refused" id="{id}-refused" role="status">Couldn’t keep the screen awake.</p>
-  {/if}
+<div class="row" class:grey={!supported}>
+  <span class="what" id="{id}-label"><Icon name="light" size={18} />Keep screen awake</span>
+  <Switch
+    checked={awake.on}
+    disabled={!supported}
+    labelledby="{id}-label"
+    describedby={!supported ? `${id}-cant` : awake.refused ? `${id}-refused` : undefined}
+    onchange={(on) => void awake.set(on)}
+  />
+</div>
+{#if !supported}
+  <p class="refused" id="{id}-cant">This browser can’t keep the screen on</p>
+{:else if awake.refused}
+  <p class="refused" id="{id}-refused" role="status">Couldn’t keep the screen awake.</p>
 {/if}
 
 <style>
@@ -36,6 +37,10 @@
     padding: 0 14px;
     border-radius: var(--radius-lg);
     background: var(--reading-chip, var(--color-surface));
+  }
+
+  .grey .what {
+    color: var(--color-text-muted);
   }
 
   .what {

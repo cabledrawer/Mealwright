@@ -607,42 +607,19 @@ describe('the recipe page', () => {
     });
   });
 
-  describe('Keep screen awake (question 32)', () => {
-    function fakeLock() {
-      const released: number[] = [];
-      let n = 0;
-      Object.defineProperty(navigator, 'wakeLock', {
-        configurable: true,
-        value: {
-          request: async () => {
-            const id = ++n;
-            return { release: async () => void released.push(id), addEventListener: () => {} };
-          }
-        }
-      });
-      return released;
-    }
-
-    it('starts off, switches on, and turns itself off on leaving the page', async () => {
-      const released = fakeLock();
+  describe('Cook now (K4)', () => {
+    it('is the main button above the ingredients and opens Cook mode', async () => {
       await open();
-      const sw = page.getByRole('switch', { name: 'Keep screen awake' });
-      await expect.element(sw).toHaveAttribute('aria-checked', 'false');
-      await sw.click();
-      await expect.element(sw).toHaveAttribute('aria-checked', 'true');
-      expect(released).toEqual([]);
-      for (const component of mounted.splice(0)) unmount(component);
-      await vi.waitFor(() => expect(released).toEqual([1]));
-      // Back on the page: off again.
-      document.body.innerHTML = '';
-      await open();
-      await expect
-        .element(page.getByRole('switch', { name: 'Keep screen awake' }))
-        .toHaveAttribute('aria-checked', 'false');
+      const cook = page.getByRole('link', { name: 'Cook now' });
+      await expect.element(cook).toBeVisible();
+      expect(cook.element().getAttribute('href')).toMatch(/\/recipes\/1\/cook$/);
+      const ingredients = page.getByRole('heading', { name: 'Ingredients' }).element();
+      expect(
+        cook.element().compareDocumentPosition(ingredients) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
     });
 
-    it('is not shown where the browser can’t do it', async () => {
-      Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: undefined });
+    it('moved Keep screen awake into Cook mode: the recipe page has no such switch', async () => {
       await open();
       await expect.element(page.getByRole('heading', { name: 'Sambar' })).toBeVisible();
       expect(page.getByText('Keep screen awake').elements()).toHaveLength(0);

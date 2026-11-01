@@ -112,6 +112,8 @@ export interface RecipeStep {
   id: number;
   kind: 'step' | 'heading';
   text: string;
+  /** The ingredient lines the step uses (Cook mode's per-step ingredients); none for a heading. */
+  lines?: { line_id: number; line: number; kind: 'guessed' | 'by_hand' }[];
 }
 
 export interface Nutrition {

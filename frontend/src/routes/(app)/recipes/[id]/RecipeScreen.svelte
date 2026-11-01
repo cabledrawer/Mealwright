@@ -1,7 +1,6 @@
 <script lang="ts">
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
-  // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, whether the screen
-  // may sleep, nutrition per serving, the ingredients with where each one is and a − / + for
+  // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, Cook now, nutrition per serving, the ingredients with where each one is and a − / + for
   // servings (on screen only), "N missing · Add to the list", the method, tags and where it
   // came from. Online only, like Pantry and All recipes (question 33).
   //
@@ -9,14 +8,13 @@
   // editor does; mockups RecipeDelete-*). The photo is
   // above the name on a phone and beside the nutrition figures in the desktop's reading pane;
   // a recipe without one has no box. Hidden until they
-  // work, not stubbed: Plan it (0.6) and Start cooking and Cook once (0.7). "From: <site> ·
+  // work, not stubbed: Plan it and Cook once (0.7). "From: <site> ·
   // by <author>" shows for an imported recipe (0.5); a typed-in recipe's source note is shown as
   // typed, as a link if it is a web address.
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import Icon from '#lib/components/Icon.svelte';
-  import KeepAwake from '#lib/components/KeepAwake.svelte';
   import MissingBar from '#lib/components/MissingBar.svelte';
   import NutritionStrip from '#lib/components/NutritionStrip.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -37,7 +35,6 @@
   import { lineAmount, makesAmount } from '#lib/recipeAmounts.js';
   import { RecipeView, stepGroups } from '#lib/recipePage.svelte.js';
   import { markFor, toAdd } from '#lib/recipeStock.js';
-  import { ScreenAwake } from '#lib/screenAwake.svelte.js';
 
   /** A source note that is just a web address shows as a link (the person opens it). */
   const webAddress = (note: string) => /^https?:\/\/\S+$/i.test(note);
@@ -46,7 +43,6 @@
 
   const view = new RecipeView(untrack(() => id));
   const shopping = new PantryList();
-  const awake = new ScreenAwake();
 
   // Fetch again after any change in the kitchen (an ingredient edited from here, an Undo),
   // when the pantry changed on another phone, and when this page comes back to the front.
@@ -84,14 +80,9 @@
     if (document.visibilityState !== 'visible') return;
     void view.load();
     void shopping.refresh();
-    void awake.comeBack();
   }
 
-  // Leaving the page: the screen may sleep again (the switch always starts off).
-  onDestroy(() => {
-    view.stop();
-    void awake.leave();
-  });
+  onDestroy(() => view.stop());
 
   // In the desktop's three panes this is the reading pane (mockups Desktop-Recipe and
   // Dark-Recipe): wider, ingredients beside the method when there is room, and focus comes
@@ -185,7 +176,15 @@
         {/if}
       </header>
 
-      <KeepAwake {awake} />
+      {#if !network.offline}
+        <!-- Cook now: the main button above the ingredients (spec "Cook mode (K4)"; Plan it
+             comes beside it with the Plan redesign). Cook mode keeps the screen awake itself. -->
+        <div class="actions">
+          <a class="cook" href={resolve('/(app)/recipes/[id]/cook', { id: String(recipe.id) })}
+            >Cook now</a
+          >
+        </div>
+      {/if}
 
       {#if panes && recipe.photo}
         <!-- The photo beside the figures; narrower than the two together, they wrap. -->
@@ -347,6 +346,30 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     text-decoration: none;
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--space-5);
+  }
+
+  .cook {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-height: 54px;
+    padding: 0 var(--space-8);
+    border-radius: var(--radius-button);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-size: 1rem;
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .cook:hover {
+    color: var(--color-inverse-text);
   }
 
   .edit:hover {

@@ -69,6 +69,14 @@
   --color-changed: #f1f6fc; /* a line that the card's switch changes */
   --color-warning: #fde9e1; /* something needs attention, calmly */
   --color-warning-text: #9c320b;
+  /* Pink is used only for Experimental (cabledrawer 28 Oct, mockup Dark-Experimental07). */
+  --color-experimental: #b43d97;
+  --color-experimental-bg: #fbe8f6;
+  --color-experimental-text: #7d1f68;
+  /* A timer running in Cook mode (mockup CookMode-Phone). */
+  --color-timer: #fdf1d8;
+  --color-timer-text: #4f3500;
+  --color-timer-muted: #6e4a00;
   /* A button that removes something: white on this red passes AA (mockups ShopRows-*). */
   --color-danger: #b3261e;
   --color-danger-text: #ffffff;
@@ -266,6 +274,12 @@
   --color-changed: #1a2430;
   --color-warning: #3e2119;
   --color-warning-text: #ff9b76;
+  --color-experimental: #e38bd0;
+  --color-experimental-bg: #3a2238;
+  --color-experimental-text: #f2b5e4;
+  --color-timer: #3a2f14;
+  --color-timer-text: #ffe3a3;
+  --color-timer-muted: #e6c77a;
   --color-danger: #c8442f;
   --color-danger-text: #ffffff;
   --color-swipe-used: #2e7d5b;
