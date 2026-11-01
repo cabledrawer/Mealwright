@@ -3,13 +3,33 @@
 give the same result"). Each test writes one thing two ways and checks the reader gives the
 same amount, unit and name."""
 
+import gc
+import time
+from collections.abc import Callable
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
 from mealwright.ingredient_reader import ReadLine, joins_two_names, read_line, read_lines
 
 D = Decimal
+
+
+def _cpu_seconds(call: Callable[[], Any]) -> float:
+    """The processor time `call` takes, with Python's tidy-up of left-over objects paused.
+    Processor time, not clock time: these guards catch a pattern that takes seconds of work,
+    and must not fail because the machine is busy with other tests (a full check runs four
+    test workers beside the browser tests)."""
+    gc.disable()
+    try:
+        started = time.process_time()
+        call()
+        return time.process_time() - started
+    finally:
+        gc.enable()
+
+
 PINT_UK = 568
 PINT_US = 473
 
@@ -566,21 +586,16 @@ def test_converted_amounts_are_rounded_as_a_cook_writes_them() -> None:
 
 def test_scale_button_check_is_fast_on_long_lines() -> None:
     """Security: the scale-button pattern used to backtrack exponentially."""
-    import time
-
     from mealwright.line_prep import is_page_junk
 
     for line in ("x " * 5000, "x " * 24 + "y", "1x " * 5000 + "y", "½x" * 5000 + "!"):
-        started = time.perf_counter()
         assert not is_page_junk(line)
-        assert time.perf_counter() - started < 0.1, line[:20]
+        assert _cpu_seconds(lambda line=line: is_page_junk(line)) < 0.1, line[:20]
     assert is_page_junk("½x1×2×") and is_page_junk("1x 2x 3x")
 
 
 def test_every_new_pattern_is_fast_on_100_kb_of_its_own_pieces() -> None:
     """Security sweep: each pattern added in this PR against 100 kB of repeats of its pieces."""
-    import time
-
     from mealwright import ingredient_reader as reader
     from mealwright import line_prep as prep
 
@@ -603,13 +618,10 @@ def test_every_new_pattern_is_fast_on_100_kb_of_its_own_pieces() -> None:
             ("split_line", reader.split_line),
             ("read_lines", reader.read_lines),
         ):
-            started = time.perf_counter()
-            call(big)
-            assert time.perf_counter() - started < 1.0, (name, piece)
+            assert _cpu_seconds(lambda call=call, big=big: call(big)) < 1.0, (name, piece)
         # The reader's limit is a line of 1,000 characters: at that size it is fast, too.
-        started = time.perf_counter()
-        reader.read_line(big[:1000])
-        assert time.perf_counter() - started < 0.3, ("read_line", piece)
+        short = big[:1000]
+        assert _cpu_seconds(lambda short=short: reader.read_line(short)) < 0.3, ("read_line", piece)
 
 
 @pytest.mark.parametrize(
@@ -704,25 +716,17 @@ def test_a_site_name_after_the_title_is_dropped() -> None:
 
 
 def test_normalise_is_fast_on_a_run_of_open_brackets() -> None:
-    import time
-
     from mealwright.names import normalise
 
     for hostile in ("(" * 200_000, "[" * 200_000, "(note 1" * 30_000):
-        started = time.perf_counter()
-        normalise(hostile)
-        assert time.perf_counter() - started < 0.5, hostile[:8]
+        assert _cpu_seconds(lambda hostile=hostile: normalise(hostile)) < 0.5, hostile[:8]
     assert normalise("Flour (plain) [sifted]") == normalise("Flour")
 
 
 def test_the_empty_bracket_pattern_is_fast_on_non_breaking_spaces() -> None:
-    import time
-
     from mealwright.line_prep import strip_footnotes
 
-    started = time.perf_counter()
-    strip_footnotes("(" + " " * 100_000)
-    assert time.perf_counter() - started < 0.2
+    assert _cpu_seconds(lambda: strip_footnotes("(" + " " * 100_000)) < 0.2
 
 
 def test_and_between_two_seasonings_is_still_two_lines() -> None:

@@ -4,6 +4,7 @@ editing, made ahead, and tag suggestions. The loop guard is in test_recipe_loops
 ingredients and recipes work together in test_recipe_ingredients.py, and the other
 household in test_recipes_isolation.py."""
 
+import gc
 import time
 from datetime import timedelta
 from typing import Any
@@ -341,9 +342,16 @@ def test_a_very_long_amount_is_refused_before_it_is_read(kitchen: TestClient) ->
         ({"lines": [{"words": "x", "amount": huge}]}, "lines.0.amount"),
         ({"makes": {"amount": huge, "unit": "g"}}, "makes.amount"),
     ]:
-        started = time.monotonic()
-        problem = bad(kitchen, **fields)
-        assert time.monotonic() - started < 1
+        # Processor time, with the tidy-up of left-over objects paused: a busy machine (four
+        # test workers beside the browser tests) must not fail this, but reading the digits must.
+        gc.disable()
+        try:
+            started = time.process_time()
+            problem = bad(kitchen, **fields)
+            took = time.process_time() - started
+        finally:
+            gc.enable()
+        assert took < 1
         assert where(problem) == [place]
         assert BAD_AMOUNT in problem["detail"][0]["msg"]
 

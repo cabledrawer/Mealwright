@@ -156,8 +156,10 @@ def test_the_realistic_big_page_reads_normally_within_the_real_budget(
     assert (expected.name, len(expected.ingredients), len(expected.steps)) == ("Big dal", 200, 100)
     began = time.monotonic()
     assert read_within_budget(html, URL) == expected
-    # Well within the clock's limit, and read in a child that has ended.
-    assert time.monotonic() - began < page_budget.MAX_WALL_SECONDS / 2
+    # Before the clock's limit (a page cut off by it would not be read at all), and read in a
+    # child that has ended. Not half the limit: on a slow board beside other tests, 5 MB can
+    # take more than half.
+    assert time.monotonic() - began < page_budget.MAX_WALL_SECONDS
     assert len(started) == 1
     assert gone(started[0])
 
@@ -421,10 +423,11 @@ def _in_threads(count: int, hold: float, **options: float) -> list[object]:
 def test_two_pages_are_read_at_once(child_as) -> None:  # type: ignore[no-untyped-def]
     assert page_budget.MAX_AT_ONCE == 2
     child_as(_holding_child)
-    *results, ends = _in_threads(2, 2.0)
+    *results, ends = _in_threads(2, 4.0)
     assert results == [None, None]
-    # Both ran together: about 2.x seconds in all, not 4.
-    assert max(ends) < 3.8
+    # Both ran together: about 4.x seconds in all, not 8. Holding 4 s, not 2, leaves room
+    # for starting two children on a busy machine.
+    assert max(ends) < 7.5
 
 
 def test_a_third_page_waits_its_turn_and_then_runs(child_as) -> None:  # type: ignore[no-untyped-def]

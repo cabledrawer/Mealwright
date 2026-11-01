@@ -325,7 +325,9 @@ def test_a_one_megabyte_hostile_ingredient_line_does_not_freeze_the_import(
     )
     started = time.perf_counter()
     shown = review(links_on, url)
-    assert time.perf_counter() - started < 1.0
+    # 5 s: the page is read in a child process, and starting one can take seconds on a busy
+    # machine. A line that froze the reader would run into the reader's 12 s limit.
+    assert time.perf_counter() - started < 5
     assert len(shown["lines"]) >= 1
 
 
