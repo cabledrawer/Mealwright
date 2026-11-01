@@ -383,7 +383,7 @@
         {:else}
           <p class="buttons">
             {#if line.label === 'to_confirm' && line.food}
-              <button type="button" class="chip main" onclick={() => flow.sameAs(index, line.food!)}
+              <button type="button" class="chip primary" onclick={() => flow.sameAs(index, line.food!)}
                 >Same as “{line.food.name}”</button
               >
               <button type="button" class="chip" onclick={() => (picking = true)}
@@ -393,7 +393,7 @@
                 >New ingredient</button
               >
             {:else}
-              <button type="button" class="chip main needs" onclick={() => makeNew(false)}
+              <button type="button" class="chip primary needs" onclick={() => makeNew(false)}
                 >New ingredient{guess?.name ? ` “${guess.name}”` : ''}</button
               >
               <button type="button" class="chip" onclick={() => (picking = true)}
@@ -609,13 +609,13 @@
     cursor: pointer;
   }
 
-  .chip.main {
+  .chip.primary {
     border-color: transparent;
     background: var(--color-maybe-chip);
     color: var(--color-maybe-chip-text);
   }
 
-  .chip.main.needs {
+  .chip.primary.needs {
     background: var(--color-warning);
     color: var(--color-warning-text);
   }

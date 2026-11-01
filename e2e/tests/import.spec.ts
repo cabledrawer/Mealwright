@@ -616,3 +616,23 @@ test('the method numbers its steps through the headings, which take no number (F
   expect(starts).toEqual([['1', 1], ['2', 2], ['4', 1]]);
   expect(await page.locator('.method li.heading').count()).toBe(0);
 });
+
+test('the filled buttons keep their words in the middle (F104)', async ({ page }) => {
+  await checking(page);
+  const button = page.getByRole('button', { name: /^New ingredient “/ }).first();
+  await expect(button).toBeVisible();
+  const off = await button.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const text = range.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    return {
+      sideways: Math.abs(text.left + text.width / 2 - (box.left + box.width / 2)),
+      upDown: Math.abs(text.top + text.height / 2 - (box.top + box.height / 2)),
+      layout: getComputedStyle(el).flexDirection,
+    };
+  });
+  expect(off.upDown).toBeLessThan(3);
+  expect(off.sideways).toBeLessThan(3);
+  expect(off.layout).toBe('row');
+});
