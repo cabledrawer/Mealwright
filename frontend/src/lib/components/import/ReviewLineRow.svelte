@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
+  import { KEPT_BY, KEPT_BY_HINT, keptBySaid } from '#lib/keptByWords.js';
   // One ingredient line on the review, as a card (mockup Dark-ImportCheck07-Desktop, spec "The
   // labels", "Learning", "New ingredient from an import", "Treat as staple" and "Importer
   // consistency"): a status dot, the line as written, the name it read with its amount and note as
@@ -446,7 +446,7 @@
           {made.kind === 'staple'
             ? 'Made a staple when you save. It never counts towards stock.'
             : 'Made when you save. Nothing is added to the pantry.'}
-          Counted {COUNTED.find((c) => c.value === made.counted_as)?.label.toLowerCase()} · kept in
+          {keptBySaid(made.counted_as)} · kept in
           {placesAndShops.places.find((p) => p.id === made.place_id)?.name ??
             'nowhere in particular'}.
         </p>

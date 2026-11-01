@@ -4,6 +4,7 @@
   // New ingredient · Pick another · Treat as staple, with Skip this line, Back to Check and Save
   // anyway. A sheet on a phone, a dialog on a computer. Words proposed, for cabledrawer, except where
   // the mockup has them.
+  import { keptBySaid } from '#lib/keptByWords.js';
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
@@ -36,7 +37,6 @@
   /** Null on the last card, when every line has had its turn. */
   const line = $derived(flow.walkLine === null ? undefined : flow.review?.lines[index]);
   const guess = $derived(flow.guessFor(index));
-  const COUNTED = { weight: 'by weight', volume: 'by volume', count: 'one by one' } as const;
 
   const amount = $derived.by(() => {
     if (!line || line.amount === null) return '';
@@ -45,9 +45,7 @@
     return [text, shown.unit ? unitFor(shown.unit, shown.amount ?? 0) : ''].join(' ').trim();
   });
   const sub = $derived(
-    guess
-      ? `Counted ${COUNTED[guess.counted_as]}${guess.place ? ` · ${guess.place.name}` : ''}`
-      : ''
+    guess ? `${keptBySaid(guess.counted_as)}${guess.place ? ` · ${guess.place.name}` : ''}` : ''
   );
 
   // A new line starts with its buttons, not the picker.

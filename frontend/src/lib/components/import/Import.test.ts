@@ -522,6 +522,26 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText(/^Same choice as/)).toBeVisible();
     });
 
+    it('a settled new ingredient says “Pantry keeps it by”, as the question does (F119)', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect
+        .element(page.getByText(/Pantry keeps it by volume · kept in\s+nowhere/))
+        .toBeVisible();
+      await expect.element(page.getByText(/Counted by/)).not.toBeInTheDocument();
+    });
+
+    it('the Save sheet’s card says “Pantry keeps it by” for a new ingredient guess (F119)', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await sheet.getByRole('button', { name: 'Skip this line' }).click();
+      await expect.element(sheet.getByText('Line 2 of 2')).toBeVisible();
+      await expect.element(sheet.getByText('Pantry keeps it by volume')).toBeVisible();
+      await expect.element(sheet.getByText(/Counted by/)).not.toBeInTheDocument();
+    });
+
     it('goes through the lines with no ingredient when Save finds some (F4)', async () => {
       const flow = await reviewing();
       await page.getByRole('button', { name: 'Save recipe' }).click();
