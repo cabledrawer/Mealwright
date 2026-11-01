@@ -440,9 +440,13 @@ test('server down after the panes loaded: the open recipe stays, with the bar', 
   await expect(page.getByRole('link', { name: 'Shopping', exact: true }).first()).toBeVisible();
   await checkPage(page);
   // Back online: the bar goes, and the open recipe is as it was left.
+  // The app also checks again by itself, so under load the bar may go before Try now is clicked.
   await context.unroute('**/api/**');
-  await page.getByRole('button', { name: 'Try now' }).first().click();
-  await expect(page.getByTestId('connection-desktop')).toBeHidden({ timeout: 15_000 });
+  const bar = page.getByTestId('connection-desktop');
+  await expect(async () => {
+    if (await bar.isVisible()) await page.getByRole('button', { name: 'Try now' }).first().click({ timeout: 2_000 });
+    await expect(bar).toBeHidden({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   await expect(reading(page).getByRole('heading', { name: one!.name, level: 1 })).toBeVisible();
 });
 
