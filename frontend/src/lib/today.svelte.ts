@@ -167,6 +167,8 @@ export class TodayModel {
     send: (key: string) => ReturnType<typeof didntCook>;
     /** Also undone when this is: what "Cooked it" took from the pantry (one Undo for both). */
     alsoUndo?: () => Promise<string | void>;
+    /** Undone first (a tub put on a meal after "Cooked it", F65). */
+    firstUndo?: () => Promise<string | void>;
     /** Sent again with the same ID, and no toast of its own: the caller says it once. */
     changeId?: string;
     quiet?: boolean;
@@ -200,7 +202,8 @@ export class TodayModel {
             if (!change?.can_undo) return false;
             undoer ??= serverUndo(change.id);
             return (async () => {
-              const own = await undoer!();
+              const placed = await options.firstUndo?.();
+              const own = (await undoer!()) ?? placed;
               const more = await options.alsoUndo?.();
               return more ?? own;
             })();
@@ -218,7 +221,8 @@ export class TodayModel {
   cooked(
     waiting: WaitingMeal,
     leftovers: Leftovers | null,
-    undoCooked?: () => Promise<string | void>
+    undoCooked?: () => Promise<string | void>,
+    firstUndo?: () => Promise<string | void>
   ) {
     const name = this.nameOf(waiting);
     return sendTwice((changeId) =>
@@ -227,6 +231,7 @@ export class TodayModel {
         mealId: waiting.meal_id,
         send: (key) => cookedIt(waiting.meal_id, leftovers, key),
         alsoUndo: undoCooked,
+        firstUndo,
         changeId,
         quiet: true
       })

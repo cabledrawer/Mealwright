@@ -320,6 +320,48 @@ test('F65: "Any left over?" offers "Eat it on…" the next free meal, and the tu
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toBeHidden();
   await expect(cell(page, eatDay, Number(eatSlot)).getByRole('button', { name: new RegExp(`^${name} tub`) })).toBeVisible();
+  // One Undo takes back the placement and the cooking: no tub, no batch.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(cell(page, eatDay, Number(eatSlot)).getByRole('button', { name: new RegExp(`^${name} tub`) })).toHaveCount(0);
+  await expect.poll(async () => {
+    const plan = await planRange(page, cooked, addDays(eatDay, 1));
+    return (plan.batch_cooks as { recipe_name: string }[]).filter((b) => b.recipe_name === name).length;
+  }).toBe(0);
+  const left = (await (await page.request.get('/api/v1/plan/tubs-left')).json()) as { tubs: { recipe_name: string }[] };
+  expect(left.tubs.filter((t) => t.recipe_name === name)).toHaveLength(0);
+});
+
+test('F65 on Today: the same "Eat it on…", and Undo takes the placement back with the cook', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const waiting = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
+  for (const w of waiting.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/didnt`);
+  const name = `${stamp()} Soup`;
+  const cooked = addDays(today, -5);
+  await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
+  await page.goto('/');
+  await expect(page.getByTestId('did-you-cook').getByText(`Did you cook ${name}?`)).toBeVisible();
+  await page.getByTestId('did-you-cook').getByRole('button', { name: 'Cooked it' }).click();
+  const review = page.getByTestId('cooked-review');
+  await review.getByRole('button', { name: 'More tubs' }).click();
+  const eat = review.getByLabel('Eat it on…');
+  await expect(eat.locator('option').first()).toHaveText('Not planned yet');
+  await eat.selectOption({ index: 1 });
+  const [eatDay, eatSlot] = (await eat.inputValue()).split('|') as [string, string];
+  expect(eatDay >= today).toBe(true);
+  await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+  await expect(review).toBeHidden();
+  const tubsAt = async () => {
+    const plan = await planRange(page, eatDay, eatDay);
+    const meal = (plan.meals as { date: string; slot_id: number; items: { tub_id: number | null }[] }[]).find((m) => m.date === eatDay && m.slot_id === Number(eatSlot));
+    return meal?.items.filter((i) => i.tub_id !== null).length ?? 0;
+  };
+  await expect.poll(tubsAt).toBe(1);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect.poll(tubsAt).toBe(0);
+  await expect.poll(async () => {
+    const plan = await planRange(page, cooked, addDays(eatDay, 1));
+    return (plan.batch_cooks as { recipe_name: string }[]).filter((b) => b.recipe_name === name).length;
+  }).toBe(0);
 });
 
 test('at 1100 px wide and 200% text the cards and the keyboard picker keep their words whole, in both themes', async ({ page }) => {

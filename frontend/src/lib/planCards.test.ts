@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beforeCook, cookPlace, makesWords, weekCards } from './planCards';
+import { beforeCook, makesWords, weekCards } from './planCards';
 import { timeWords } from './timeWords';
 import { PEOPLE, SLOTS, samplePlan } from './testing/planViews';
 

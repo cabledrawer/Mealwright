@@ -22,7 +22,8 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { addDays, dayFull, dayShort, dayOfMonth } from '#lib/planDates.js';
-  import { colourOfBatch, itemName, tubOf, whoseTub } from '#lib/planMeals.js';
+  import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
+  import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
   import { dayWords, mealsWords, whenWords } from '#lib/todayWords.js';
@@ -72,6 +73,19 @@
   let answering = $state<WaitingMeal | null>(null);
   let leftover = $state<LeftoverOptions | null>(null);
 
+  /** F65: the next free meals in the week on Today, for "Eat it on…". */
+  function eatOnOptions(meal: PlanMeal) {
+    const data = model.data;
+    if (!data) return [];
+    const slots = data.slots
+      .filter((s) => s.enabled)
+      .sort((a, b) => a.position - b.position || a.id - b.id);
+    return nextFreeMeals(data.plan, slots, meal, data.today).map((f) => ({
+      ...f,
+      label: `${dayWords(f.day, data.today)} · ${model.slotName(f.slotId)}`
+    }));
+  }
+
   function openCooked(w: WaitingMeal, hasUseBy: boolean) {
     const meal = model.mealOf(w);
     if (!meal || !model.data) return;
@@ -81,6 +95,7 @@
         ? {
             itemId: w.leftover_item_id,
             today: model.data.today,
+            eatOn: eatOnOptions(meal),
             ...(hasUseBy ? { useByFridge: w.use_by_fridge, useByFreezer: w.use_by_freezer } : {})
           }
         : null;
@@ -311,10 +326,18 @@
   {leftover}
   readonly={model.readonly}
   onclose={closeCooked}
-  onconfirmed={async (leftovers, undoCooked) => {
+  onconfirmed={async (leftovers, undoCooked, eatOn) => {
     const waiting = answering;
     if (!waiting) return true;
-    return answered(await model.cooked(waiting, leftovers, undoCooked));
+    const placed: Placed = { undo: null };
+    const result = answered(
+      await model.cooked(waiting, leftovers, undoCooked, async () => placed.undo?.())
+    );
+    const meal = model.mealOf(waiting);
+    const name = meal?.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
+    if (result === true && meal && eatOn && leftovers && name)
+      await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
+    return result;
   }}
 />
 <MoveSheet {model} waiting={moving} onclose={() => (moving = null)} />

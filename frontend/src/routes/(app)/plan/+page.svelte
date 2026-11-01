@@ -25,6 +25,7 @@
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
+  import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
@@ -483,10 +484,13 @@
       onconfirmed={async (leftovers, undoCooked, eatOn) => {
         const meal = cookedMeal;
         if (!meal) return true;
-        const result = answered(await model.cooked(meal, leftovers, undoCooked));
+        const placed: Placed = { undo: null };
+        const result = answered(
+          await model.cooked(meal, leftovers, undoCooked, async () => placed.undo?.())
+        );
         const name = meal.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
         if (result === true && eatOn && leftovers && name)
-          void model.eatLeftover(name, meal.date, leftovers.count, eatOn.day, eatOn.slotId);
+          await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
         return result;
       }}
     />

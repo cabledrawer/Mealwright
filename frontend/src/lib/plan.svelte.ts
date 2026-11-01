@@ -211,6 +211,8 @@ export class PlanModel {
     send: (key: string) => Promise<PlanWrite>;
     /** Also undone when this is (what "Cooked it" took from the pantry). */
     alsoUndo?: () => Promise<string | void>;
+    /** Undone first (a tub put on a meal after "Cooked it", F65). */
+    firstUndo?: () => Promise<string | void>;
     /** Sent again with the same ID, and no toast of its own: the caller says it once. */
     changeId?: string;
     quiet?: boolean;
@@ -241,9 +243,10 @@ export class PlanModel {
             const change = value.change;
             if (!change?.can_undo) return false;
             undoer ??= serverUndo(change.id);
-            if (!options.alsoUndo) return undoer();
+            if (!options.alsoUndo && !options.firstUndo) return undoer();
             return (async () => {
-              const own = await undoer!();
+              const placed = await options.firstUndo?.();
+              const own = (await undoer!()) ?? placed;
               const more = await options.alsoUndo?.();
               return more ?? own;
             })();
@@ -390,43 +393,23 @@ export class PlanModel {
 
   /** Cooked it, for a meal on the Plan: the meal is answered, with "Any left over?" tubs if any.
    * The pantry was already changed by the review; this is Today's answer, as on Today. */
-  cooked(meal: PlanMeal, leftovers: Leftovers | null, undoCooked?: () => Promise<string | void>) {
+  cooked(
+    meal: PlanMeal,
+    leftovers: Leftovers | null,
+    undoCooked?: () => Promise<string | void>,
+    firstUndo?: () => Promise<string | void>
+  ) {
     const name = mealName(meal, this.plan);
     return sendTwice((changeId) =>
       this.#send({
         label: `Cooked ${name}`,
         send: (key) => cookedIt(meal.id, leftovers, key),
         alsoUndo: undoCooked,
+        firstUndo,
         changeId,
         quiet: true
       })
     );
-  }
-
-  /**
-   * F65, "Eat it on…" in "Any left over?": the first tub just made goes on the chosen meal. The
-   * tubs are the newest of that recipe cooked that day (the answer doesn't name them). No toast
-   * of its own: the one for "Cooked it" stays, and its Undo is the way back.
-   */
-  async eatLeftover(
-    recipeName: string,
-    cookedOn: string,
-    count: number,
-    day: string,
-    slotId: number
-  ) {
-    const left = await getTubsLeft();
-    const made = left.tubs
-      .filter((t) => t.recipe_name === recipeName && t.cooked_on === cookedOn)
-      .sort((a, b) => b.id - a.id)
-      .slice(0, count);
-    const tub = made.at(-1);
-    if (!tub) return;
-    await this.#send({
-      label: `Put ${recipeName} tub in ${this.slotName(slotId)}`,
-      send: (key) => placeTub(tub.id, { date: day, slot_id: slotId }, key),
-      quiet: true
-    });
   }
 
   /** Put a tub in a meal (from tubs left, or moving one that is in a meal already). */
