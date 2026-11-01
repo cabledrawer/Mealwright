@@ -75,6 +75,8 @@ class DraftChoice(BaseModel):
     def _make_sense(self) -> DraftChoice:
         if self.kind == "ingredient" and self.food is None:
             raise ValueError("Pick an ingredient.")
+        if self.kind == "here" and (self.food is not None or self.name or self.learn):
+            raise ValueError("Made in this recipe has no ingredient, name or learned name.")
         if self.kind in ("new", "staple") and not self.name:
             raise ValueError("Type a name for the new ingredient.")
         return self

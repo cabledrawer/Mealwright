@@ -7,7 +7,7 @@ import { ImportFlow } from '#lib/import.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
-import { undoHistory } from '#lib/undo.svelte.js';
+import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
 import { PINTS_REVIEW, reviewFlow } from '#lib/testing/importSamples.js';
@@ -432,6 +432,45 @@ describe('Import a recipe', () => {
       await expect.element(last.getByRole('button', { name: 'Back to Check' })).toHaveFocus();
       await last.getByRole('button', { name: 'Back to Check' }).click();
       await expect.element(last).not.toBeInTheDocument();
+    });
+
+    it('Ctrl+Z does nothing while the Save sheet is open, so no choice lands on a moved line (fix 1)', async () => {
+      undoHistory.clear();
+      const flow = await reviewing();
+      flow.removeLine(0); // the matched line: the two left are red onion and asafoetida
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await expect.element(sheet).toBeVisible();
+      const at = flow.walk!.queue.slice();
+      const key = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true });
+      handleUndoKey(key);
+      expect(key.defaultPrevented).toBe(false);
+      await Promise.resolve();
+      expect(flow.review!.lines).toHaveLength(2);
+      expect(flow.walk!.queue).toEqual(at);
+      // Closed again, the key works as before.
+      await sheet.getByRole('button', { name: 'Back to Check' }).click();
+      await expect.element(sheet).not.toBeInTheDocument();
+      const again = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true });
+      handleUndoKey(again);
+      expect(again.defaultPrevented).toBe(true);
+      await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(3));
+    });
+
+    it('the Save sheet offers Made in this recipe, first for a "from the …" line (F108)', async () => {
+      const flow = await reviewing();
+      flow.review!.lines[1] = { ...flow.review!.lines[1]!, note: 'from the spice blend' };
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      const buttons = Array.from(sheet.element().querySelectorAll('.choices button'));
+      expect(buttons[0]?.textContent?.trim()).toBe('Made in this recipe');
+      await sheet.getByRole('button', { name: 'Made in this recipe' }).click();
+      expect(flow.choices[1]).toEqual({ kind: 'here' });
+      expect(flow.walk!.at).toBe(1); // on to the next line
+      // The next line has it as one of its choices, not the first.
+      const next = Array.from(sheet.element().querySelectorAll('.choices button'));
+      expect(next.map((b) => b.textContent?.trim())).toContain('Made in this recipe');
+      expect(next[0]?.textContent).not.toContain('Made in this recipe');
     });
 
     it('offers Treat as staple on a line to confirm too (F21)', async () => {

@@ -4,6 +4,7 @@
   // computer. The server answered before fetching anything, so nothing was visited.
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
+  import { holdUndo } from '#lib/undo.svelte.js';
   import { resolve } from '$app/paths';
   import type { Already } from '#lib/import.svelte.js';
 
@@ -23,8 +24,10 @@
   let dialog: HTMLDialogElement;
 
   onMount(() => {
+    const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
     dialog.showModal();
     return () => {
+      letGo();
       if (dialog.open) dialog.close();
     };
   });

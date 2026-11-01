@@ -74,6 +74,12 @@ DESCRIPTOR_WORDS = frozenset(
 
 # Taken out of a name, and kept in the note, wherever it stands (F103).
 WHOLE = "whole"
+# "whole" stays when the next word makes it part of what the ingredient is: "whole urad dal" is
+# not "urad dal" (the split one), "whole wheat flour" is not plain wheat flour, "whole grain
+# mustard" is not "grain mustard". A short named list (proposed, for cabledrawer).
+WHOLE_IS_PART_OF_NAME = frozenset(
+    {"wheat", "grain", "urad", "moong", "mung", "masoor", "chana", "meal"}
+)
 
 # Words that name a size an ingredient may be bought or measured in. A line with one
 # ("1 bunch coriander") counts only if the matched ingredient has a size of that name.
@@ -1012,7 +1018,12 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     # of every "whole X" name and stays in the note (F103, cabledrawer 31 Oct). Not when it is all
     # there is ("1 whole"). This is the F87 rule, one step on: F87 keeps a word before "cloves"
     # from being read as the name, and "whole" is now no longer a word to keep.
-    others = [token for token in kept if _clean_token(token) != WHOLE]
+    others = [
+        token
+        for k, token in enumerate(kept)
+        if _clean_token(token) != WHOLE
+        or (k + 1 < len(kept) and _clean_token(kept[k + 1]) in WHOLE_IS_PART_OF_NAME)
+    ]
     if others and len(others) < len(kept):
         removed = [*removed, WHOLE]
         kept = others
@@ -1197,7 +1208,7 @@ ONE_THING_WITH_AND = (
     "half and half", "pork and beans", "black and white", "salt and vinegar", "oil and vinegar",
     "bread and butter", "fish and chips", "mac and cheese", "macaroni and cheese",
     "sweet and sour", "peaches and cream", "cookies and cream", "sour cream and onion",
-    "rice and peas", "surf and turf", "rum and raisin",
+    "rice and peas", "surf and turf", "rum and raisin", "cheese and onion",
 )  # fmt: skip
 # Plural only above one, as the screens write it ("½ cup", "1½ cups").
 _PLURAL_UNITS = {"cup": "cups", "pinch": "pinches"}
@@ -1252,14 +1263,17 @@ def _share_amount(whole: ReadLine) -> list[ReadLine] | None:
 
 
 def _fraction_text(amount: Decimal) -> str:
-    """4.5 → "4½", 0.25 → "¼", 3 → "3", 1.2 → "1.2" (the way the screens write an amount)."""
+    """4.5 → "4½", 0.25 → "¼", 1.333 → "1 1/3" (as a cook writes it), 3 → "3", 1.2 → "1.2"."""
     milli = int((amount * 1000).to_integral_value(ROUND_HALF_UP))
     whole, part = divmod(milli, 1000)
-    glyph = {250: "¼", 500: "½", 750: "¾"}.get(part)
     if part == 0:
         return str(whole)
+    glyph = {250: "¼", 500: "½", 750: "¾"}.get(part)
     if glyph:
         return f"{whole or ''}{glyph}"
+    near = Fraction(part, 1000).limit_denominator(8)
+    if near.denominator in (3, 6, 8) and abs(float(near) - part / 1000) < 0.0015:
+        return f"{whole} {near}" if whole else str(near)
     return format(amount.normalize(), "f")
 
 

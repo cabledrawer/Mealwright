@@ -6,6 +6,7 @@
   // the mockup has them.
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
+  import { holdUndo } from '#lib/undo.svelte.js';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import type { Ref } from '#lib/client/types.js';
   import type { ImportFlow } from '#lib/import.svelte.js';
@@ -20,8 +21,10 @@
   let picking = $state(false);
 
   onMount(() => {
+    const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
     dialog.showModal();
     return () => {
+      letGo();
       if (dialog.open) dialog.close();
     };
   });
@@ -66,6 +69,11 @@
 
   function newIngredient(staple: boolean) {
     flow.newIngredient(index, staple);
+    flow.walkNext();
+  }
+
+  function madeHere() {
+    flow.madeHere(index);
     flow.walkNext();
   }
 
@@ -131,6 +139,10 @@
         />
       {:else}
         <div class="choices">
+          {#if flow.offersMadeHere(index)}
+            <!-- The note says "from the …", or the name is a section heading (F108). -->
+            <button type="button" class="main" onclick={madeHere}>Made in this recipe</button>
+          {/if}
           {#if line.label === 'to_confirm' && line.food}
             <button type="button" class="main" onclick={() => pick(line.food!)}
               >Same as “{line.food.name}”</button
@@ -142,6 +154,9 @@
             </button>
           {/if}
           <div class="grid">
+            {#if !flow.offersMadeHere(index)}
+              <button type="button" class="outline" onclick={madeHere}>Made in this recipe</button>
+            {/if}
             <button type="button" class="outline" onclick={() => (picking = true)}
               >Pick another</button
             >

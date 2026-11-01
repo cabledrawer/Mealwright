@@ -1322,3 +1322,17 @@ def test_f108_an_old_draft_without_it_and_an_unknown_kind(
     assert [c["kind"] for c in got["choices"]["lines"].values()] == ["ingredient", "new", "staple"]
     refused = keep(kitchen, shown, choices={"lines": {"3": {"kind": "elsewhere"}}})
     assert refused.status_code == 422
+
+
+def test_f108_made_here_refuses_an_ingredient_a_name_or_a_learned_name(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, PASTED)
+    onion = shown["lines"][2]["food"]
+    for extra in ({"food": onion}, {"name": "Spice mix"}, {"learn": True}):
+        refused = keep(kitchen, shown, choices={"lines": {"3": {"kind": "here", **extra}}})
+        assert refused.status_code == 422, extra
+    assert (
+        keep(kitchen, shown, choices={"lines": {"3": {"kind": "here"}}}, key="ok").status_code
+        == 201
+    )

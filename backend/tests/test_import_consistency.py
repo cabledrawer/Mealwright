@@ -122,6 +122,22 @@ def test_f103_whole_comes_out_of_every_whole_name_and_stays_in_the_note() -> Non
         line = read_line(text)
         assert line.name == name, text
         assert line.note == "whole", text
+    # Where "whole" is part of what it is, it stays (proposed, for cabledrawer).
+    for text, name in (
+        ("1 cup whole urad dal", "whole urad dal"),
+        ("1 cup whole moong dal", "whole moong dal"),
+        ("1 cup whole mung beans", "whole mung beans"),
+        ("1 cup whole masoor", "whole masoor"),
+        ("1 cup whole chana", "whole chana"),
+        ("1 tbsp whole grain mustard", "whole grain mustard"),
+        ("2 cups whole wheat (atta) flour", "whole wheat flour"),
+        ("2 cups whole wheat flour", "whole wheat flour"),
+        ("2 cups whole meal flour", "whole meal flour"),
+    ):
+        line = read_line(text)
+        assert line.name == name, text
+        assert "whole" not in (line.note or ""), text
+    assert read_line("1 cup whole milk").name == "milk"  # milk is still Milk, noted "whole"
     # A line of nothing else keeps its word, and a word only containing "whole" is not it.
     assert read_line("1 whole").name == "whole"
     assert read_line("2 cups wholemeal flour").name == "wholemeal flour"
@@ -787,6 +803,10 @@ def test_f109_the_amount_is_worded_as_the_screens_word_it() -> None:
         ("2 tbsp butter and flour", "2\u00a0tbsp together"),
         ("2 cans chickpeas and tomatoes", "2\u00a0cans together"),
         ("1.2 l water and stock", "1.2\u00a0l together"),
+        ("1 1/3 cups water and broth", "1 1/3\u00a0cups together"),
+        ("2/3 cup water and broth", "2/3\u00a0cup together"),
+        ("1.333 cups water and broth", "1 1/3\u00a0cups together"),
+        ("1 1/8 cups water and broth", "1 1/8\u00a0cups together"),
     ):
         reads = read_lines(text)
         assert len(reads) == 2, text
@@ -806,6 +826,7 @@ def test_f109_only_a_clear_pair_is_split() -> None:
         "1 cup half and half",
         "1 can pork and beans",
         "1 cup mac and cheese",
+        "1 cup cheese and onion",
         "2 cups black and white beans",  # "black and white" is one name
         "1 cup sweet and sour sauce",
         "2 tbsp oil and vinegar dressing",

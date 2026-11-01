@@ -5,6 +5,7 @@
   // and then changed, the same three choices are worded for that (proposed, for cabledrawer): the
   // draft is saved over, or left as it was.
   import { onMount } from 'svelte';
+  import { holdUndo } from '#lib/undo.svelte.js';
 
   let {
     name,
@@ -31,8 +32,10 @@
   let dialog: HTMLDialogElement;
 
   onMount(() => {
+    const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
     dialog.showModal();
     return () => {
+      letGo();
       if (dialog.open) dialog.close();
     };
   });

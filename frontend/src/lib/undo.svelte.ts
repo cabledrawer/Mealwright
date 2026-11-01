@@ -156,12 +156,29 @@ export function isUndoKey(event: KeyboardEvent): boolean {
   );
 }
 
+/** How many sheets are open that must not have their lines moved from behind them. */
+let held = 0;
+
+/**
+ * Called by a sheet that is open over lines it is going through (the Save walk-through, "Save
+ * as draft?"): Ctrl+Z / Cmd+Z does nothing until it is closed. Returns the call that lets go.
+ */
+export function holdUndo(): () => void {
+  held += 1;
+  let let_go = false;
+  return () => {
+    if (!let_go) held -= 1;
+    let_go = true;
+  };
+}
+
 /**
  * The page's keydown handler: Ctrl+Z / Cmd+Z undoes your own last change, except in
  * a text box, where the browser undoes the typing as normal (spec, History and undo).
  */
 export function handleUndoKey(event: KeyboardEvent): void {
   if (event.defaultPrevented || event.repeat || !isUndoKey(event)) return;
+  if (held > 0) return; // a sheet that works on what the key would change is open
   if (isTextEntry(event.target)) return;
   if (undoHistory.size === 0 && !undoHistory.fallback) return;
   event.preventDefault();

@@ -862,7 +862,7 @@ describe('importer consistency on Check (0.7)', () => {
       expect(flow.offersMadeHere(0)).toBe(false); // a heading
     });
 
-    it('a line with a choice of its own is not followed into "made here" by another', () => {
+    it('made here is taken by a later line with the same name, as every other choice is (F6)', () => {
       const flow = flowOf({ lines: [spice(), spice()] });
       flow.madeHere(0);
       expect(flow.choices[1]).toEqual({ kind: 'here' }); // the same name: taken, as other choices are
