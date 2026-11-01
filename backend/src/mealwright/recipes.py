@@ -8,9 +8,11 @@ good; the lines of other recipes that used it keep their words meanwhile, marked
 removed", and Undo brings the link back by itself.
 """
 
+import shutil
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
@@ -58,7 +60,9 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import fold
-from mealwright.photos import delete_after_commit
+from mealwright.photos import delete_after_commit, delete_quietly, new_key, store_of
+from mealwright.photos import log as photos_log
+from mealwright.photos import paths as photo_paths
 
 CANT = "can\u2019t"
 
@@ -332,6 +336,135 @@ def save(
     return recipe
 
 
+COPY_SUFFIX = " (copy)"
+
+
+def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
+    """A copy of the recipe named "Sambar (copy)": everything in the recipe itself (words,
+    lines, steps and their ingredient links, tags, nutrition, where it came from, the photo
+    as a file of its own) and nothing of what happened to it (cooked history, the plan). The
+    caller holds the household's lock. Made ahead is copied; the copy's own pantry ingredient
+    takes the copy's name, so a second copy of a made-ahead recipe meets `name_taken`."""
+    db = kitchen.db
+    now = utcnow()
+    login_name = kitchen.login.name  # read first: loading it may flush
+    copy = Recipe(
+        household_id=kitchen.household_id,
+        name=source.name[: 200 - len(COPY_SUFFIX)].rstrip() + COPY_SUFFIX,
+        description=source.description,
+        time_minutes=source.time_minutes,
+        serves=source.serves,
+        makes_milli=source.makes_milli,
+        makes_unit=source.makes_unit,
+        made_ahead=False,
+        kcal_milli=source.kcal_milli,
+        protein_milli=source.protein_milli,
+        carbs_milli=source.carbs_milli,
+        fat_milli=source.fat_milli,
+        fibre_milli=source.fibre_milli,
+        source_note=source.source_note,
+        source_url=source.source_url,
+        imported_at=source.imported_at,
+        source_author=source.source_author,
+        version=1,
+        created_at=now,
+        updated_at=now,
+        updated_by_login_id=kitchen.login.id,
+        updated_by_name=login_name,
+    )
+    db.add(copy)
+    db.flush()
+    if kitchen.idempotency_key is not None:
+        kitchen.key_once = True
+        record(kitchen, "recipe_created", f"Saved {copy.name}", None, {"recipe_id": copy.id})
+
+    new_line: dict[int, int] = {}
+    for line in db.scalars(
+        select(RecipeLine).where(RecipeLine.recipe_id == source.id).order_by(RecipeLine.position)
+    ):
+        row = RecipeLine(
+            household_id=kitchen.household_id,
+            recipe_id=copy.id,
+            position=line.position,
+            kind=line.kind,
+            words=line.words,
+            amount_milli=line.amount_milli,
+            unit=line.unit,
+            size_id=line.size_id,
+            food_id=line.food_id,
+            sub_recipe_id=line.sub_recipe_id,
+            note=line.note,
+        )
+        db.add(row)
+        db.flush()
+        new_line[line.id] = row.id
+    for step in db.scalars(
+        select(RecipeStep).where(RecipeStep.recipe_id == source.id).order_by(RecipeStep.position)
+    ):
+        new_step = RecipeStep(
+            household_id=kitchen.household_id,
+            recipe_id=copy.id,
+            position=step.position,
+            kind=step.kind,
+            text=step.text,
+        )
+        db.add(new_step)
+        db.flush()
+        for link in db.scalars(select(RecipeStepLine).where(RecipeStepLine.step_id == step.id)):
+            if link.line_id in new_line:
+                db.add(
+                    RecipeStepLine(
+                        household_id=kitchen.household_id,
+                        step_id=new_step.id,
+                        line_id=new_line[link.line_id],
+                        kind=link.kind,
+                    )
+                )
+    for tag_id in db.scalars(select(RecipeTag.tag_id).where(RecipeTag.recipe_id == source.id)):
+        db.add(RecipeTag(household_id=kitchen.household_id, recipe_id=copy.id, tag_id=tag_id))
+    if source.made_ahead:
+        _link_homemade(kitchen, copy, source.makes_unit, None)
+    _copy_photo(kitchen, source, copy)
+    db.flush()
+    return copy
+
+
+def _copy_photo(kitchen: Kitchen, source: Recipe, copy: Recipe) -> None:
+    """The copy gets the photo as files and a record of its own, so removing or replacing the
+    photo on one recipe never touches the other. A missing file means no photo on the copy."""
+    db = kitchen.db
+    photo = db.scalar(select(RecipePhoto).where(RecipePhoto.recipe_id == source.id))
+    if photo is None:
+        return
+    store = store_of(db)
+    key = new_key()
+    from_large, from_small = photo_paths(store, photo.household_id, photo.file_key)
+    to_large, to_small = photo_paths(store, photo.household_id, key)
+    copied: list[Path] = []
+    try:
+        for before, after in ((from_large, to_large), (from_small, to_small)):
+            shutil.copyfile(before, after)
+            copied.append(after)
+    except OSError as e:
+        for path in copied:
+            delete_quietly(path)
+        photos_log.warning("Couldn't copy a recipe's photo for its copy: %s", type(e).__name__)
+        return
+    db.add(
+        RecipePhoto(
+            household_id=photo.household_id,
+            recipe_id=copy.id,
+            file_key=key,
+            width=photo.width,
+            height=photo.height,
+            list_width=photo.list_width,
+            list_height=photo.list_height,
+            bytes=photo.bytes,
+            added_by_name=kitchen.login.name,
+        )
+    )
+
+
 def _save_photo(kitchen: Kitchen, recipe: Recipe, photo_id: int | None) -> None:
     """Attach the photo the editor uploaded, keep the one it had, or (null) have none. A
     photo that's replaced or cleared is deleted, its files once the save is committed
@@ -521,12 +654,18 @@ def _save_made_ahead(kitchen: Kitchen, recipe: Recipe, body: RecipeIn) -> None:
         recipe.made_ahead = False
         recipe.homemade_food_id = None
         return
+    _link_homemade(kitchen, recipe, body.makes.unit if body.makes else None, body.homemade_name)
+
+
+def _link_homemade(
+    kitchen: Kitchen, recipe: Recipe, unit: str | None, homemade_name: str | None
+) -> None:
+    """Made ahead is on: link the recipe's own pantry ingredient, making it if it has none."""
     recipe.made_ahead = True
     if homemade_food(kitchen, recipe) is not None:
         return
-    unit = body.makes.unit if body.makes else None
     counted = MADE_AHEAD_COUNTED.get(unit or "") or ("count" if unit else None)
-    name = (body.homemade_name or recipe.name)[:100].strip()
+    name = (homemade_name or recipe.name)[:100].strip()
     # Made ahead off, then on again: the ingredient that was kept (with any pantry stock it
     # still has) is linked back, as long as no other recipe has it as its own (cabledrawer 19
     # Oct, R3). Otherwise a name another ingredient has is refused (`name_taken`).

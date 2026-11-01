@@ -101,6 +101,26 @@ def create_recipe(body: RecipeIn, kitchen: Here, response: Response) -> RecipeOu
     )
 
 
+@router.post("/recipes/{recipe_id}/duplicate", status_code=status.HTTP_201_CREATED)
+def duplicate_recipe(recipe_id: StoredInt, kitchen: Here, response: Response) -> RecipeOut:
+    """Make a copy named "<name> (copy)": everything in the recipe (lines, steps, tags,
+    nutrition, source, photo as a file of its own) but not its cooked history or the plan.
+    A retry with the same `Idempotency-Key` makes nothing more and answers with the copy
+    already made."""
+    lock_household(kitchen)
+    earlier = replayed(kitchen)
+    if earlier is None:
+        copy = recipes.duplicate(kitchen, recipes.find(kitchen, recipe_id))
+        earlier = commit(kitchen)
+        if earlier is None:
+            return recipes.recipe_out(kitchen, copy)
+    response.status_code = status.HTTP_200_OK
+    response.headers["Idempotent-Replayed"] = "true"
+    return recipes.recipe_out(
+        kitchen, recipes.find(kitchen, (earlier.undo_data or {}).get("recipe_id", 0))
+    )
+
+
 @router.get("/recipes/{recipe_id}")
 def get_recipe(recipe_id: StoredInt, kitchen: Here) -> RecipeOut:
     return recipes.recipe_out(kitchen, recipes.find(kitchen, recipe_id))

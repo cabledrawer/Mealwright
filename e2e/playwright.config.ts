@@ -128,6 +128,10 @@ export default defineConfig({
     { name: 'phone 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 plan views', testMatch: 'plan-views.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Paper cuts on the recipe screens: the editor carries on, Duplicate (0.7, PC1).
+    { name: 'phone 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'desktop 0.7 plan cards', testMatch: 'plan-cards.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
 

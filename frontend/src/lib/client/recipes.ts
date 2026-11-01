@@ -247,6 +247,10 @@ const key = (idempotencyKey: string) => ({ idempotencyKey });
 export const createRecipe = (body: RecipeIn, idempotencyKey: string) =>
   api<RecipeOut>('POST', '/recipes', body, key(idempotencyKey));
 
+/** A copy named "<name> (copy)": everything in the recipe, none of its cooked history or plan. */
+export const duplicateRecipe = (id: number, idempotencyKey: string) =>
+  api<RecipeOut>('POST', `/recipes/${id}/duplicate`, undefined, key(idempotencyKey));
+
 export const saveRecipe = (
   id: number,
   body: RecipeIn,

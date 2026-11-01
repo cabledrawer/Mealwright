@@ -680,7 +680,7 @@ test('Delete recipe in the recipe page’s ⋯ menu: at once, "Deleted …" with
   const recipe = await makeRecipe(page, { name });
   await page.goto(`/recipes/${recipe.id}`);
   await page.getByRole('button', { name: `More for ${name}` }).click();
-  await expect(page.getByRole('menuitem')).toHaveCount(1);
+  await expect(page.getByRole('menuitem')).toHaveText(['Duplicate', 'Delete recipe']);
   await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
   await expect(page).toHaveURL('/recipes');
   await expect(page.getByText(`Deleted ${name}`)).toBeVisible();

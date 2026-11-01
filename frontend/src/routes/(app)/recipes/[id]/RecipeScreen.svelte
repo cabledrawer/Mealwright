@@ -33,7 +33,9 @@
   import type { PlanModel } from '#lib/plan.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
-  import { go, RECIPES } from '#lib/recipes/paths.js';
+  import { go, RECIPES, editPage } from '#lib/recipes/paths.js';
+  import { newChangeId } from '#lib/changeId.js';
+  import { duplicateRecipe } from '#lib/client/recipes.js';
   import { removeRecipe } from '#lib/recipes/remove.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { ApiError } from '#lib/api.js';
@@ -186,6 +188,28 @@
   const empty = $derived(recipe !== null && !recipe.lines.length && !recipe.steps.length);
   const name = $derived(recipe?.name ?? 'Recipe');
 
+  /**
+   * Duplicate: the server makes "Sambar (copy)" (everything but cooked history and the plan)
+   * and the editor opens on it. The key is kept while a press is waiting, so a double press
+   * or a retry makes one copy.
+   */
+  let duplicating = false;
+  async function duplicate() {
+    if (!recipe || duplicating) return;
+    duplicating = true;
+    try {
+      const copy = await duplicateRecipe(recipe.id, newChangeId());
+      kitchen.changed();
+      void go(editPage(copy.id));
+    } catch (error) {
+      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t duplicate. Try again.', {
+        tone: 'problem'
+      });
+    } finally {
+      duplicating = false;
+    }
+  }
+
   /** Delete recipe: gone at once with "Deleted Sambar" and Undo, then the Recipes list. */
   async function remove() {
     if (!recipe) return;
@@ -217,7 +241,10 @@
       <a class="edit" href={resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}>Edit</a>
       <RowMenu
         name={recipe.name}
-        items={[{ label: 'Delete recipe', danger: true, divider: true, run: () => void remove() }]}
+        items={[
+          { label: 'Duplicate', run: () => void duplicate() },
+          { label: 'Delete recipe', danger: true, divider: true, run: () => void remove() }
+        ]}
       />
     {/if}
   </div>

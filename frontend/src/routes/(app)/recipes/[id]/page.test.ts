@@ -179,25 +179,48 @@ describe('the recipe page', () => {
     }
   });
 
-  describe('the ⋯ menu: Delete recipe', () => {
+  describe('the ⋯ menu: Duplicate and Delete recipe', () => {
     const change = { id: 31, summary: 'Deleted Sambar' };
 
-    it('opens with Delete recipe in red and no choice for things not built yet', async () => {
+    it('opens with Duplicate, then Delete recipe in red, and no choice for things not built yet', async () => {
       await open();
       const more = page.getByRole('button', { name: 'More for Sambar' });
       await expect.element(more).toHaveAttribute('aria-expanded', 'false');
       await more.click();
       const items = page.getByRole('menuitem');
-      await expect.element(items).toHaveLength(1);
-      await expect.element(items.first()).toHaveTextContent('Delete recipe');
+      await expect.element(items).toHaveLength(2);
+      await expect.element(items.first()).toHaveTextContent('Duplicate');
+      await expect.element(items.last()).toHaveTextContent('Delete recipe');
       const menu = document.querySelector('[role="menu"]')!;
       expect(menu.textContent).not.toContain('Cook mode');
       // Red: the warning text colour.
       const probe = document.body.appendChild(document.createElement('span'));
       probe.style.color = 'var(--color-warning-text)';
-      expect(getComputedStyle(menu.querySelector('[role="menuitem"]')!).color).toBe(
+      expect(getComputedStyle(menu.querySelectorAll('[role="menuitem"]')[1]!).color).toBe(
         getComputedStyle(probe).color
       );
+    });
+
+    it('Duplicate asks the server for a copy and opens it in the editor', async () => {
+      await open({}, STOCK, {
+        'POST /recipes/1/duplicate': [201, { id: 9, name: 'Sambar (copy)' }]
+      });
+      await page.getByRole('button', { name: 'More for Sambar' }).click();
+      await page.getByRole('menuitem', { name: 'Duplicate' }).click();
+      await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/9/edit'));
+      expect(
+        server.requests.filter((r) => r.method === 'POST' && r.path === '/recipes/1/duplicate')
+      ).toHaveLength(1);
+    });
+
+    it('Duplicate says so and stays when the server refuses', async () => {
+      await open({}, STOCK, {
+        'POST /recipes/1/duplicate': [409, { detail: 'Something went wrong. Try again.' }]
+      });
+      await page.getByRole('button', { name: 'More for Sambar' }).click();
+      await page.getByRole('menuitem', { name: 'Duplicate' }).click();
+      await expect.element(page.getByText('Something went wrong. Try again.')).toBeVisible();
+      expect(navigation.go).not.toHaveBeenCalled();
     });
 
     it('deletes at once with no question, says "Deleted Sambar" with Undo, and lands on Recipes', async () => {
