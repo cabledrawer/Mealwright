@@ -69,6 +69,8 @@ class PlanRecipeRef(Ref):
     photo_url: str | None = None
     time_minutes: int | None = None
     kcal: int | None = None
+    # The recipe's own default servings (F116); null when it has none.
+    serves: int | None = None
 
 
 class PlanIngredientRef(Ref):
@@ -348,6 +350,7 @@ def get_plan(
                 else None,
                 time_minutes=recipe.time_minutes,
                 kcal=kcal_of(recipe),
+                serves=recipe.serves,
             )
             if recipe
             else None,

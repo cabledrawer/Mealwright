@@ -109,6 +109,15 @@ def test_household_plan_settings_default(kitchen: TestClient) -> None:
     assert household["week_starts_on"] == 1
 
 
+def test_a_recipe_without_serves_sends_null(kitchen: TestClient) -> None:
+    ids = plan_one_day(kitchen)
+    with db_of(kitchen) as session:
+        session.get(Recipe, ids["recipe"]).serves = None
+        session.commit()
+    plan = kitchen.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-08"}).json()
+    assert plan["meals"][0]["items"][0]["recipe"]["serves"] is None
+
+
 def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> None:
     ids = plan_one_day(kitchen)
     plan = kitchen.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-08"}).json()
@@ -125,6 +134,8 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
         "photo_url": None,
         "time_minutes": None,
         "kcal": None,
+        # The recipe's own servings (F116): a meal planned without Serves shows these.
+        "serves": 4,
     }
     assert meal["items"][2]["ingredient"] == {
         "id": ids["food"],

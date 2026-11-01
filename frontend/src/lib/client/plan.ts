@@ -19,6 +19,8 @@ export interface PlanRecipe extends Ref {
   time_minutes: number | null;
   /** Per serving; null is unknown. */
   kcal: number | null;
+  /** The recipe's own default servings, or null. */
+  serves?: number | null;
 }
 
 export interface PlanItem {

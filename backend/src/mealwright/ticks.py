@@ -227,6 +227,13 @@ def tick(act: Act) -> None:
         put_in(kitchen, edit, food, place, lot_amounts(row.bought_milli, size), size)
         shown = size or usual_size(kitchen, food.id)
         summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
+        if food.counted_as == "count" and row.bought_size_id and shown is not None:
+            # A counted ingredient bought in a pack says the pack ("1 box Eggs"), not "6 Eggs"
+            # (F122, cabledrawer 31 Oct).
+            n, rest = divmod(row.bought_milli, shown.amount_milli)
+            if rest == 0:
+                word = shown.name if n == 1 else shown.plural
+                summary = f"Bought {n}\u00a0{word} {food.name} → {place.name}"
         data: dict[str, Any] = {"action": act.id}
         if revived:
             data["revived"] = revived  # an Undo of the tick removes it again (7.1)

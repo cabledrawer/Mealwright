@@ -24,12 +24,12 @@ export function tubWords(item: PlanItem, plan: Plan): string | null {
 
 /**
  * A recipe card's small line (F116): "serves 4 · 15 min · 123 kcal each", each part only when it
- * is known. The serves part follows the meal's own Serves; a meal that never had one set
- * (servings null) shows none here, because the plan does not send the recipe's own Serves yet.
+ * is known. The serves part follows the meal's own Serves, else the recipe's own.
  */
 export function recipeMeta(item: PlanItem): string {
   const parts: string[] = [];
-  if (item.servings) parts.push(`serves ${item.servings}`);
+  const serves = item.servings ?? item.recipe?.serves;
+  if (serves) parts.push(`serves ${serves}`);
   if (item.recipe?.time_minutes) parts.push(timeWords(item.recipe.time_minutes));
   if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal each`);
   return parts.join(' · ');

@@ -147,8 +147,9 @@ def test_a_line_already_in_packs_goes_in_as_it_is(kitchen: TestClient) -> None:
 def test_a_counted_ingredient_rounds_up_to_whole_boxes(kitchen: TestClient) -> None:
     s = s0(kitchen)
     _line(s, "Eggs for baking", 4, "box=6", counted_as="count")
-    _tick(s, "Eggs for baking")
+    done = _tick(s, "Eggs for baking")
     assert s.total("Eggs for baking") == 6
+    assert done["change"]["summary"] == "Bought 1\u00a0box Eggs for baking → Cupboard"
 
 
 def test_a_staple_still_puts_nothing_in(kitchen: TestClient) -> None:

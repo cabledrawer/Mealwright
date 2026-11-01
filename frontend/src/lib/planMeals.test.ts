@@ -84,6 +84,15 @@ describe('a meal card’s words', () => {
     expect(recipeMeta(dosa)).toBe('serves 4 · 15\u00a0min · 123 kcal each');
     dosa.recipe = { ...dosa.recipe!, time_minutes: 745 };
     expect(recipeMeta(dosa)).toBe('serves 4 · 12\u00a0h\u00a025\u00a0min · 123 kcal each');
+    // A meal with no Serves of its own shows the recipe's; a recipe without any, none.
+    const older = recipe(3, 'Rasam');
+    older.recipe = { ...older.recipe!, serves: 6, kcal: 80 };
+    expect(recipeMeta(older)).toBe('serves 6 · 80 kcal each');
+    older.servings = 4;
+    expect(recipeMeta(older)).toBe('serves 4 · 80 kcal each');
+    older.servings = null;
+    older.recipe = { ...older.recipe!, serves: null };
+    expect(recipeMeta(older)).toBe('80 kcal each');
     // Nothing known, nothing said; no Serves set on the meal, none shown.
     expect(recipeMeta(recipe(2, 'Chutney'))).toBe('');
   });
