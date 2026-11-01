@@ -35,7 +35,7 @@ export function recipeMeta(item: PlanItem): string {
   return parts.join(' · ');
 }
 
-/** "2 recipes · 590 kcal each", "1 ingredient", "3 things · 80 kcal". Proposed, for cabledrawer. */
+/** "2 recipes · 590 kcal each", "1 ingredient", "3 things · 80 kcal each". Proposed, for cabledrawer. */
 export function mealTotals(meal: PlanMeal): string {
   const n = meal.items.length;
   const all = (kind: PlanItem['kind']) => meal.items.every((i) => i.kind === kind);

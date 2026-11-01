@@ -118,7 +118,7 @@ Indexes: (`household_id`, `version`); (`list_id`); (`household_id`, `list_id`, `
 | `login_id`, `login_name`, `device_id` | | Who ticked, on which device. |
 | `ticked_at` | datetime | Server time it was applied. |
 | `place_id` | FK place | Where the stock went (and where `put_away` moved it). |
-| `bought_milli`, `bought_size_id` | | What this purchase put in: the item's amount at the tick, or what "Different pack?" said. Null = nothing (staple or no amount). |
+| `bought_milli`, `bought_size_id` | | What this purchase put in: the whole packs covering the item's amount at the tick (see 7.1 "Amount"), or what "Different pack?" said. Null = nothing (staple or no amount). |
 | `change_id` | FK change, null, SET NULL | The purchase's own `shopped` change: the tick's, or the one that put it back after an untick (7.5). Only an Undo of **this** change from Pantry unticks the item (5.8). Null for staples and items with no amount. |
 | `reversed_at`, `reversed_by_action_id` | null | Set by untick, "Just 1" or Undo. Cleared when an Undo puts the purchase back. |
 
@@ -451,7 +451,7 @@ Words: the change is "Moved {name} to {where}", where {where} is the list's name
 ### 7.1 A tick
 
 - **Place:** the item's `put_away_place_id` if one was chosen, else the ingredient's usual place, else the first `cupboard` place ("Cupboard"), using `stock.default_place` (spec L286).
-- **Amount:** the item's amount at the moment of the tick, stored on the purchase (`bought_milli`, `bought_size_id`). Lots are made as 0.2's add does (api-0.2 section 3.5): "2 packets" makes two one-packet lots, "1½ packets" a full and a half lot, "1 dozen" eggs one lot of 12, a typed amount one lot with no size. Reuse `stock.py`'s add, don't copy it.
+- **Amount:** stored on the purchase (`bought_milli`, `bought_size_id`). A line in plain grams, ml or items with a size to buy in (the ingredient's Usual size, else its only size; with several sizes and none Usual, none, so it goes in as listed) goes in as whole packs covering the list amount: 38 g ghee with a 500 g jar is 1 jar (500 g). At most 50 packets (`stock.MAX_LOTS`): above that the line goes in as listed, in one lot. A line already in packs, or an ingredient with no size, goes in as it is (also capped at 50 packets, else one lot). Lots are made as 0.2's add does (api-0.2 section 3.5): "2 packets" makes two one-packet lots, "1½ packets" a full and a half lot, "1 dozen" eggs one lot of 12, a typed amount one lot with no size. Reuse `stock.py`'s add, don't copy it.
 - **Use-by:** none (spec L286). 0.3 offers no use-by when shopping; `put_away`'s optional `use_by` is there so a later screen can add it without changing the protocol. Ticking into a freezer place sets no `frozen_on`.
 - **Staples** (L287) and **items with no amount**: no stock and no change. The tick is still recorded on the list.
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
