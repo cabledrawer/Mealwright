@@ -599,3 +599,7 @@ The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-
 - **Counted garlic (F89):** **2 cloves is how many bulbs of Garlic?** (no count word: *…how many Garlic?*), the box says *bulbs*; ¼, ½, ¾, 1½ and 1/2 are read.
 - **Refusal (server), API message:** **Bought some means Use is off, with no amount.**
 - **About half** of a counted packet with no size is half of what is left (3 onions → 1½).
+
+**K3 fix round 2 (all proposed, for cabledrawer):**
+- **Undo of an older cook** leaves a size that a later cook changed, and says (with the usual "partly" words): **A later cook changed the size of a clove, so it was left as it is.**
+- **A reply that was lost:** **Couldn’t reach the server. Some of “Cooked it” may be saved: check Recent changes.** Nothing is taken back then; each change that worked keeps its Undo.

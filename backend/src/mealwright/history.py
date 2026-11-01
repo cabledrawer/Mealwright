@@ -433,6 +433,8 @@ class Tally:
     skipped: int = 0
     # Something was left alone because the shopping line it joined has been bought since.
     joined_bought: bool = False
+    # Why something was left alone, when the generic words need adding to (proposed, for cabledrawer).
+    sentence: str | None = None
 
     @property
     def result(self) -> UndoResult:

@@ -293,3 +293,31 @@ def test_garlic_counted_by_number_asks_in_its_own_word_and_learns_a_fraction_of_
     ok(cook(kitchen, item, typed, answers=[clove]), 201)
     assert _sizes(kitchen, garlic["id"]) == {"clove": 250}
     assert amounts(kitchen, garlic["id"]) == [2_500]
+
+
+def test_an_older_cooks_undo_leaves_a_size_a_later_cook_changed_and_says_partly(
+    kitchen: TestClient,
+) -> None:
+    garlic = food(kitchen, "Zorba garlic")
+    stock(kitchen, garlic["id"], 100, "g")
+    ok(kitchen.post(f"{API}/foods/{garlic['id']}/sizes", json={"name": "clove", "amount": 4}), 201)
+    recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"], "note": "2 cloves"}])
+    key = f"food:{garlic['id']}"
+    typed = [{"key": key, "used": {"amount": 10, "unit": "g"}}]
+
+    def clove(grams: float) -> list[dict[str, Any]]:
+        return [{"kind": "size", "food_id": garlic["id"], "name": "clove", "amount": grams}]
+
+    first = ok(
+        cook(kitchen, plan_item(kitchen, recipe, servings=4, day=FAR), typed, answers=clove(5)), 201
+    )
+    later = plan_item(kitchen, recipe, servings=4, day=FAR + timedelta(days=1))
+    second = ok(cook(kitchen, later, typed, answers=clove(6)), 201)
+    undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
+    assert undone["result"] == "partly"
+    assert undone["message"].endswith(
+        "A later cook changed the size of a clove, so it was left as it is."
+    )
+    assert _sizes(kitchen, garlic["id"]) == {"clove": 6000}  # the later cook's size stays
+    assert ok(kitchen.post(f"{API}/changes/{second['change']['id']}/undo"))["result"] == "done"
+    assert _sizes(kitchen, garlic["id"]) == {"clove": 5000}

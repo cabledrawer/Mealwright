@@ -468,18 +468,28 @@ def undo_list(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch) -> N
     kitchen.db.flush()
 
 
-def forget_record(kitchen: Kitchen, change: Change) -> None:
-    """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
-    when the Undo was only partly done), and a size the cook replaced goes back to its old
-    amount (unless it has been changed since)."""
+def undo_sizes(kitchen: Kitchen, change: Change, tally: Tally) -> None:
+    """Undo of "Cooked it": a size the cook replaced goes back to its old amount, but only if
+    nothing has changed it since: an older cook's Undo leaves a size that a later cook changed,
+    and the Undo says "partly" with the reason. (Proposed, for cabledrawer.)"""
     for each in (change.undo_data or {}).get("sizes") or []:
         size = kitchen.db.get(FoodSize, each["id"])
-        if (
-            size is not None
-            and size.household_id == kitchen.household_id
-            and size.amount_milli == each["now"]
-        ):
+        if size is None or size.household_id != kitchen.household_id:
+            continue
+        if size.amount_milli == each["now"]:
             size.amount_milli = each["was"]
+            tally.done += 1
+        else:
+            tally.skipped += 1
+            tally.sentence = (
+                f"A later cook changed the size of a {size.name}, so it was left as it is."
+            )
+    kitchen.db.flush()
+
+
+def forget_record(kitchen: Kitchen, change: Change) -> None:
+    """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
+    when the Undo was only partly done)."""
     for record in kitchen.db.scalars(
         select(CookedRecord).where(
             CookedRecord.household_id == kitchen.household_id, CookedRecord.change_id == change.id

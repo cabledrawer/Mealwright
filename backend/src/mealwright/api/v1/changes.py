@@ -394,6 +394,8 @@ def undo_change(
     short = undo_lines(kitchen, change, tally)
     if data.get("listed"):
         cooking.undo_list(kitchen, change, tally, batch)
+    if data.get("sizes"):
+        cooking.undo_sizes(kitchen, change, tally)
     if data.get("foods") and not _still_needed(kitchen, change, data["foods"]):
         done_before = tally.done
         touched_foods = undo_foods(kitchen, data["foods"], tally)
@@ -414,6 +416,8 @@ def undo_change(
     back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
     named = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
     message = _message(kitchen, result, short, tally.joined_bought, named.name if named else None)
+    if tally.sentence and result != "done":
+        message = f"{message} {tally.sentence}"
     if back:
         message = back if result == "done" else f"{back} {message}"
     if draft_back:
