@@ -418,47 +418,54 @@
         />
       {:else}
         <h3>{question}</h3>
-        <div class="weekbar">
-          <button
-            type="button"
-            aria-label="Earlier week"
-            disabled={atEarliestWeek}
-            onclick={() => (weekOf = addDays(weekOf, -7))}
-            ><Icon name="back" size={22} stroke={2.4} /></button
-          >
-          <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
-          <button
-            type="button"
-            aria-label="Later week"
-            onclick={() => (weekOf = addDays(weekOf, 7))}
-            ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
-          >
-        </div>
-        <div class="days" role="group" aria-label="Day">
-          {#each weekDays(weekOf) as d (d)}
-            {#if dayShown(d)}
-              <button
-                type="button"
-                aria-pressed={day === d}
-                aria-label={dayFull(d)}
-                onclick={() => (day = d)}><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
-              >
-            {:else}
-              <span aria-hidden="true"></span>
-            {/if}
-          {/each}
-        </div>
-        <div class="slots" role="group" aria-label="Meal">
-          {#each model.slotsOn as slot (slot.id)}
-            {#if slotShown(slot.id)}
-              <button
-                type="button"
-                aria-pressed={slotId === slot.id}
-                onclick={() => (slotId = slot.id)}>{slot.name}</button
-              >
-            {/if}
-          {/each}
-        </div>
+        {#if target?.kind === 'recipe'}
+          <!-- The next 14 days, from the recipe page only; fetched when first asked for (size limit). -->
+          {#await import('./PlanItPicker.svelte') then { default: Picker }}
+            <Picker {model} bind:day bind:slotId />
+          {/await}
+        {:else}
+          <div class="weekbar">
+            <button
+              type="button"
+              aria-label="Earlier week"
+              disabled={atEarliestWeek}
+              onclick={() => (weekOf = addDays(weekOf, -7))}
+              ><Icon name="back" size={22} stroke={2.4} /></button
+            >
+            <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
+            <button
+              type="button"
+              aria-label="Later week"
+              onclick={() => (weekOf = addDays(weekOf, 7))}
+              ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
+            >
+          </div>
+          <div class="days" role="group" aria-label="Day">
+            {#each weekDays(weekOf) as d (d)}
+              {#if dayShown(d)}
+                <button
+                  type="button"
+                  aria-pressed={day === d}
+                  aria-label={dayFull(d)}
+                  onclick={() => (day = d)}><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b></button
+                >
+              {:else}
+                <span aria-hidden="true"></span>
+              {/if}
+            {/each}
+          </div>
+          <div class="slots" role="group" aria-label="Meal">
+            {#each model.slotsOn as slot (slot.id)}
+              {#if slotShown(slot.id)}
+                <button
+                  type="button"
+                  aria-pressed={slotId === slot.id}
+                  onclick={() => (slotId = slot.id)}>{slot.name}</button
+                >
+              {/if}
+            {/each}
+          </div>
+        {/if}
         {#if samePlace}<p class="note" role="status">
             It’s already there. Pick another day or meal.
           </p>{/if}

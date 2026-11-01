@@ -685,6 +685,26 @@ describe('the recipe page', () => {
       );
     });
 
+    it('offers the next 14 days from today in one view, with no week arrows (M2)', async () => {
+      await open({}, STOCK, planRoutes());
+      await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+      const sheet = page.getByRole('dialog', { name: 'Sambar' });
+      await expect
+        .element(sheet.getByRole('button', { name: 'Saturday 17 October' }))
+        .toBeVisible();
+      await expect.element(sheet.getByRole('button', { name: 'Friday 30 October' })).toBeVisible();
+      expect(sheet.getByRole('button', { name: 'Saturday 31 October' }).elements()).toHaveLength(0);
+      expect(sheet.getByRole('button', { name: 'Friday 16 October' }).elements()).toHaveLength(0);
+      expect(sheet.getByRole('group', { name: 'Day' }).getByRole('button').elements()).toHaveLength(
+        14
+      );
+      expect(sheet.getByRole('button', { name: 'Later week' }).elements()).toHaveLength(0);
+      expect(sheet.getByRole('button', { name: 'Earlier week' }).elements()).toHaveLength(0);
+      // The 14 days are read in one go.
+      const asked = server.requests.filter((r) => r.path === '/plan').at(-1)!;
+      expect(asked.url).toContain('2026-10-30');
+    });
+
     it('says so, and opens nothing, when the plan can’t be read', async () => {
       await open({}, STOCK, { ...planRoutes(), 'GET /plan': [500, { detail: 'no' }] });
       await page.getByRole('button', { name: 'Plan it', exact: true }).click();

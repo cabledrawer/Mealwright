@@ -80,7 +80,7 @@
       planModel = new PlanModel();
       planActions = pickerActions(planModel, () => network.offline);
     }
-    await planModel.load();
+    await planModel.loadAhead();
     planBusy = false;
     if (!planModel.loaded) {
       toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });

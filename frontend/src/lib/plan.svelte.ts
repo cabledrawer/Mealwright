@@ -125,6 +125,22 @@ export class PlanModel {
     }
   }
 
+  /** The recipe page's Plan it: today and the 13 days after, read in one go (the next 14). */
+  async loadAhead(): Promise<void> {
+    await this.load();
+    if (!this.loaded || !this.today) return;
+    const asked = ++this.#asked;
+    try {
+      const plan = await getPlan(this.today, addDays(this.today, 13));
+      if (asked === this.#asked) this.plan = plan;
+    } catch (error) {
+      if (asked === this.#asked) {
+        this.loaded = false;
+        this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the plan. Try again.';
+      }
+    }
+  }
+
   /** Tubs left and the people, beside the plan. A failure here leaves what is on screen. */
   async #loadTubs(): Promise<void> {
     try {

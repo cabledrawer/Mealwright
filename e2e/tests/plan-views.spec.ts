@@ -240,6 +240,27 @@ test('Plan it on the recipe page picks the day and the meal, plans the recipe th
   await expect.poll(where).toBe(0);
 });
 
+test('Plan it offers the next 14 days from today in one view, with no week arrows', async ({ page }) => {
+  const k = await setup(page);
+  const name = `Thoran ${stamp()}`;
+  const recipe = await makeRecipe(page, name);
+  await page.goto(`/recipes/${recipe}`);
+  await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name });
+  await expect(sheet.getByRole('heading', { name: 'Plan it on…' })).toBeVisible();
+  const days = sheet.getByRole('group', { name: 'Day' }).getByRole('button');
+  await expect(days).toHaveCount(14);
+  await expect(sheet.getByRole('button', { name: dayName(k.today), exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: dayName(addDays(k.today, 13)), exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: dayName(addDays(k.today, 14)), exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: dayName(addDays(k.today, -1)), exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Earlier week' })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Later week' })).toHaveCount(0);
+  // Day 14 can be planned on, in the second week, with no arrow pressed.
+  await sheet.getByRole('button', { name: dayName(addDays(k.today, 13)), exact: true }).click();
+  await expect(days.nth(13)).toHaveAttribute('aria-pressed', 'true');
+});
+
 // --- The phone Plan opens on today -----------------------------------------------------------------
 
 test('the phone Plan opens on today, with earlier days folded away and the date said once', async ({ page }) => {
