@@ -47,6 +47,14 @@ export interface Already {
 /** Several links in the box (F25). */
 export const LINKS_ONE_AT_A_TIME = 'Several links · one link at a time: only the first is read';
 
+/** What to do when a site wouldn't let the server read its page (F115, cabledrawer 31 Oct; the
+ *  wording is proposed, for cabledrawer). */
+export const PASTE_INSTEAD_STEPS = [
+  'Open the recipe in your browser. Tip: the page’s “Print recipe” button gives a cleaner copy.',
+  'Select from the title to the end of the method, and copy it.',
+  'Paste it here, in place of the link. Pasted text never goes online.'
+] as const;
+
 export const OFFLINE_NOTE =
   'Importing needs your Mealwright server. Try again when you’re back online.';
 /** Keeping a draft didn't reach the server (proposed, for cabledrawer). */
@@ -151,6 +159,9 @@ export class ImportFlow {
       switchedOff: error.code === 'import_switched_off',
       admin: body.admin === true
     };
+    // A site that refused the server: the link is cleared so the box is ready for the pasted
+    // text (F115). The other causes keep the link, so it can be fixed or tried again.
+    if (error.code === 'site_refused') this.text = '';
   }
 
   private show(review: ImportReview): void {

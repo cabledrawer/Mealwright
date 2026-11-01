@@ -9,7 +9,12 @@
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
-  import { LINKS_ONE_AT_A_TIME, OFFLINE_NOTE, type ImportFlow } from '#lib/import.svelte.js';
+  import {
+    LINKS_ONE_AT_A_TIME,
+    OFFLINE_NOTE,
+    PASTE_INSTEAD_STEPS,
+    type ImportFlow
+  } from '#lib/import.svelte.js';
 
   import '#lib/styles/fields.css';
   let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
@@ -19,6 +24,12 @@
   const reading = $derived(flow.phase === 'reading');
   const typed = $derived(flow.text.trim() !== '');
   const kind = $derived(!typed ? null : flow.isLink ? 'link' : 'text');
+
+  const refused = $derived(flow.problem?.code === 'site_refused');
+  // A refused site clears the link: the cursor goes to the empty box, ready for pasting (F115).
+  $effect(() => {
+    if (refused) void tick().then(() => box?.focus());
+  });
 
   /** "Paste text instead": empty the box of the link and put the cursor back in it. */
   async function pasteInstead() {
@@ -45,7 +56,7 @@
       rows="6"
       placeholder="https://… or the title, ingredients and method"
       aria-describedby="{uid}-kind"
-      aria-invalid={flow.problem && !flow.problem.switchedOff ? true : undefined}
+      aria-invalid={flow.problem && !flow.problem.switchedOff && !refused ? true : undefined}
       readonly={reading}
       bind:value={flow.text}></textarea>
 
@@ -95,6 +106,11 @@
       {:else}
         <div class="alert plain" role="alert">
           <p class="title">{flow.problem.message}</p>
+          {#if refused}
+            <ol class="how-to" aria-label="How to paste the recipe instead">
+              {#each PASTE_INSTEAD_STEPS as step (step)}<li>{step}</li>{/each}
+            </ol>
+          {/if}
           {#if flow.problem.code === 'import_switched_off' || /^(bad_link|not_a_page|no_recipe|cant_read)$/.test(flow.problem.code)}
             <p class="actions">
               <button type="button" class="ghost" onclick={() => void pasteInstead()}
@@ -216,6 +232,15 @@
     border-color: var(--color-danger);
     background: var(--color-surface);
     color: var(--color-text);
+  }
+
+  .how-to {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding-left: var(--space-8);
+    font-size: var(--text-md);
   }
 
   .actions {

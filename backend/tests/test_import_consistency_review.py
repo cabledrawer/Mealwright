@@ -327,3 +327,4 @@ def test_a_one_megabyte_hostile_ingredient_line_does_not_freeze_the_import(
     shown = review(links_on, url)
     assert time.perf_counter() - started < 1.0
     assert len(shown["lines"]) >= 1
+

@@ -760,3 +760,4 @@ def test_variety_regex_is_whole_words_and_site_tail_keeps_taste() -> None:
     assert read_line("4 dried red chilies (kashmiri variety)").name == "kashmiri dried red chilies"
     assert clean_recipe_name("Pancakes - Taste the difference") == "Pancakes - Taste the difference"
     assert clean_recipe_name("Pancakes - Kitchen sink") == "Pancakes - Kitchen sink"
+

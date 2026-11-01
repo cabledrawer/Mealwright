@@ -636,3 +636,26 @@ test('the filled buttons keep their words in the middle (F104)', async ({ page }
   expect(off.sideways).toBeLessThan(3);
   expect(off.layout).toBe('row');
 });
+
+test('a site that refuses says how to paste the recipe, and the box is empty and ready (F115)', async ({ page }) => {
+  await answer(page, 422, {
+    detail: 'That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.',
+    code: 'site_refused',
+  });
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('That site wouldn’t let Mealwright read the page.');
+  const steps = alert.getByRole('list', { name: 'How to paste the recipe instead' }).getByRole('listitem');
+  await expect(steps).toHaveText([
+    'Open the recipe in your browser. Tip: the page’s “Print recipe” button gives a cleaner copy.',
+    'Select from the title to the end of the method, and copy it.',
+    'Paste it here, in place of the link. Pasted text never goes online.',
+  ]);
+  await expect(box(page)).toHaveValue('');
+  await expect(box(page)).toBeFocused();
+  await checkPage(page);
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+});

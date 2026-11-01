@@ -150,6 +150,24 @@ describe('the import flow', () => {
     });
   });
 
+  it('clears the link when a site refuses the server, ready for pasted text (F115)', async () => {
+    fakeApi({
+      'POST /recipes/import': [
+        422,
+        {
+          detail:
+            'That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.',
+          code: 'site_refused'
+        }
+      ]
+    });
+    const flow = new ImportFlow();
+    flow.text = 'https://kitchen.example/dal';
+    await flow.read();
+    expect(flow.problem).toMatchObject({ code: 'site_refused' });
+    expect(flow.text).toBe('');
+  });
+
   it('says it needs the server when there is no connection, and queues nothing', async () => {
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')));
     const flow = new ImportFlow();

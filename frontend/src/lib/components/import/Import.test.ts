@@ -207,6 +207,54 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText('This link isn’t a web page.')).toBeVisible();
     });
 
+    it('tells how to paste the recipe when a site refuses, with the box empty and ready (F115)', async () => {
+      const flow = new ImportFlow();
+      flow.problem = {
+        code: 'site_refused',
+        message:
+          'That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.',
+        switchedOff: false,
+        admin: false
+      };
+      show(flow);
+      await expect
+        .element(page.getByText(/That site wouldn’t let Mealwright read the page/))
+        .toBeVisible();
+      const steps = page.getByRole('list', { name: 'How to paste the recipe instead' });
+      await expect.element(steps).toBeVisible();
+      await expect
+        .element(steps.getByRole('listitem').first())
+        .toHaveTextContent(
+          'Open the recipe in your browser. Tip: the page’s “Print recipe” button gives a cleaner copy.'
+        );
+      await expect
+        .element(steps.getByRole('listitem').nth(1))
+        .toHaveTextContent('Select from the title to the end of the method, and copy it.');
+      await expect
+        .element(steps.getByRole('listitem').nth(2))
+        .toHaveTextContent('Paste it here, in place of the link. Pasted text never goes online.');
+      const box = page.getByLabelText('Paste a link or the recipe’s text');
+      await expect.element(box).toHaveValue('');
+      await expect.element(box).toHaveFocus();
+    });
+
+    it('gives the how-to steps to a refusing site only, not to the other refusals (F115)', async () => {
+      const flow = new ImportFlow();
+      flow.problem = {
+        code: 'timeout',
+        message: 'That site took too long to answer. Try again later.',
+        switchedOff: false,
+        admin: false
+      };
+      show(flow);
+      await expect
+        .element(page.getByText('That site took too long to answer. Try again later.'))
+        .toBeVisible();
+      expect(
+        page.getByRole('list', { name: 'How to paste the recipe instead' }).elements()
+      ).toHaveLength(0);
+    });
+
     it('needs the server: offline, the button is off and the note says why', async () => {
       network.offline = true;
       network.deviceOffline = true;
