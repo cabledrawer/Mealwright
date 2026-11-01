@@ -284,16 +284,36 @@ test('Plan: a Cook once batch is cooked once for the cook day and its tubs, and 
   if (slotName === 'Snack') await call(page, 'PATCH', `/meal-slots/${k.slot.Snack}`, { enabled: true });
   const made = await k.plan(await k.recipe(name, [line(dal, 'dal', 200, 'g')]), k.today, k.slot[slotName]!);
   const batch = (await call(page, 'POST', `/plan/items/${made.item_id}/batch`, { tub_count: 3, pattern: 'pick' })).batch_id as number;
+  // A second recipe in the same meal: the meal's recipes go in one call, the batch in another.
+  const rice = await k.food(`Rice ${s}`);
+  await k.stock(rice, 1000);
+  const raita = `Raita ${s}`;
+  await k.plan(await k.recipe(raita, [line(rice, 'rice', 100, 'g')]), k.today, k.slot[slotName]!);
 
   await openMealOnPlan(page, k.today, k.today, k.slot[slotName]!, slotName, name);
   await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
-  const dialog = review(page, name);
+  const dialog = review(page, `${name} and ${raita}`);
+  await expect(dialog.getByRole('tab')).toHaveText([name, raita]);
   // One portion for the cook day and one for each tub.
   await expect(dialog.getByRole('group', { name: 'Portions cooked' })).toContainText('4');
   await expect(rowOf(dialog, `Dal ${s}`)).toContainText('2000 → 1800 g');
+
+  // The batch call fails after the meal's worked: the pantry is put back, the screen stays,
+  // and a second Confirm works.
+  await page.route('**/api/v1/plan/batches/*/cook', (route) =>
+    route.fulfill({ status: 409, json: { detail: 'Nope.', code: 'already_cooked' } }),
+  );
+  await confirm(dialog).click();
+  await expect(page.getByText('Couldn’t save “Cooked it”. Nothing was changed. Try again.')).toBeVisible();
+  await expect(dialog).toBeVisible();
+  expect(await have(page, `Dal ${s}`)).toBe(2000);
+  await expect.poll(() => have(page, `Rice ${s}`)).toBe(1000);
+  await page.unroute('**/api/v1/plan/batches/*/cook');
+
   await confirm(dialog).click();
   await expect(dialog).toBeHidden();
   await expect.poll(() => have(page, `Dal ${s}`)).toBe(1800);
+  await expect.poll(() => have(page, `Rice ${s}`)).toBe(900);
 
   // The cooked record is never lost: the batch can't be taken off until "Cooked it" is undone.
   const refused = await page.request.delete(`/api/v1/plan/batches/${batch}`, { headers: key() });
@@ -301,6 +321,7 @@ test('Plan: a Cook once batch is cooked once for the cook day and its tubs, and 
   expect(((await refused.json()) as { detail: string }).detail).toMatch(/^This was cooked on .* Undo “Cooked it” first\.$/);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(() => have(page, `Dal ${s}`)).toBe(2000);
+  await expect.poll(() => have(page, `Rice ${s}`)).toBe(1000);
   await call(page, 'DELETE', `/plan/batches/${batch}`);
 });
 
