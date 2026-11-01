@@ -22,7 +22,6 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import RecipePhoto from '#lib/components/RecipePhoto.svelte';
   import RecipeIngredient from '#lib/components/RecipeIngredient.svelte';
-  import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import RowMenu from '#lib/components/shopping/RowMenu.svelte';
   import ServingsStepper from '#lib/components/ServingsStepper.svelte';
   import { cookNow } from '#lib/cookNow.svelte.js';
@@ -31,8 +30,8 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { PantryList } from '#lib/pantryList.svelte.js';
-  import { PlanModel } from '#lib/plan.svelte.js';
-  import { pickerActions, type PlanTarget } from '#lib/planActions.js';
+  import type { PlanModel } from '#lib/plan.svelte.js';
+  import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
   import { go, RECIPES } from '#lib/recipes/paths.js';
   import { removeRecipe } from '#lib/recipes/remove.js';
@@ -63,8 +62,9 @@
   // Plan it: the Plan's own day-and-meal picker, then the recipe is planned there with an Undo
   // (the toast), like everywhere on the Plan. The plan is read when the button is pressed, so
   // the meals that are on, and today, are the household's.
-  const planModel = new PlanModel();
-  const planActions = pickerActions(planModel, () => network.offline);
+  // The picker's code is fetched when Plan it is first pressed (size limit).
+  let planModel: PlanModel | null = null;
+  let planActions = $state<PlanActions | null>(null);
   let planning = $state<PlanTarget | null>(null);
   let planBusy = $state(false);
 
@@ -72,6 +72,14 @@
     if (!recipe || planBusy) return;
     planBusy = true;
     const [wanted, wantedName] = [recipe.id, recipe.name];
+    if (!planModel || !planActions) {
+      const [{ PlanModel }, { pickerActions }] = await Promise.all([
+        import('#lib/plan.svelte.js'),
+        import('#lib/planActions.js')
+      ]);
+      planModel = new PlanModel();
+      planActions = pickerActions(planModel, () => network.offline);
+    }
     await planModel.load();
     planBusy = false;
     if (!planModel.loaded) {
@@ -351,7 +359,11 @@
   {/if}
 </div>
 
-<PlanSheet actions={planActions} target={planning} onclose={() => (planning = null)} />
+{#if planActions}
+  {#await import('#lib/components/plan/PlanSheet.svelte') then { default: PlanSheet }}
+    <PlanSheet actions={planActions} target={planning} onclose={() => (planning = null)} />
+  {/await}
+{/if}
 
 <style>
   .page {
