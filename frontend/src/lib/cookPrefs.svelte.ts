@@ -20,7 +20,7 @@ export class CookPrefs {
   /** Whether each step shows the ingredients guessed for it. */
   perStep = $state(false);
 
-  /** The one line when the switch went back; cleared by the next flip that works. */
+  /** The one line when the switch went back; cleared by the next flip that works, when Cook mode opens and when it is left. */
   problem = $state<string | null>(null);
 
   /** Counts the flips, so a read that started before one can be told from a fresh one. */
@@ -28,6 +28,7 @@ export class CookPrefs {
 
   /** Read the household's setting (each time Cook mode opens). A failure leaves what it was. */
   async load(): Promise<void> {
+    this.problem = null; // a failed flip's line belongs to that visit
     const flips = this.#flips;
     try {
       const on = (await getHousehold()).cook_per_step;
@@ -40,6 +41,11 @@ export class CookPrefs {
     } catch {
       // Storage blocked: nothing to tidy.
     }
+  }
+
+  /** Cook mode was left: a failed flip's line does not wait for the next visit. */
+  leave(): void {
+    this.problem = null;
   }
 
   /** Switch it for the household. Returns the one short line to show if it went back, else null. */

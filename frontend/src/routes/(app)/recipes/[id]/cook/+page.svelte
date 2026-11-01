@@ -123,6 +123,7 @@
 
   onDestroy(() => {
     cookNow.leave(); // the notice must not come back on a later visit
+    cookPrefs.leave(); // nor a failed switch's line
     timers.stopAll();
     void awake.leave();
   });

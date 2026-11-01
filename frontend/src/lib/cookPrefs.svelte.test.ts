@@ -103,6 +103,21 @@ describe('Cook mode’s per-step ingredients switch (a household setting)', () =
     expect(prefs.perStep).toBe(true);
   });
 
+  it('a failed flip’s error line is gone when Cook mode is opened again, and when it is left', async () => {
+    serve((method) =>
+      method === 'PATCH' ? new Response('{"detail":"no"}', { status: 500 }) : household(false)
+    );
+    const prefs = new CookPrefs();
+    await prefs.setPerStep(true);
+    expect(prefs.problem).toBe('Couldn’t save. Try again.');
+    prefs.leave();
+    expect(prefs.problem).toBeNull();
+    await prefs.setPerStep(true);
+    expect(prefs.problem).not.toBeNull();
+    await prefs.load(); // Cook mode opened again
+    expect(prefs.problem).toBeNull();
+  });
+
   it('a read that comes back after the person flipped the switch is ignored', async () => {
     let release: (r: Response) => void = () => {};
     const slow = new Promise<Response>((resolve) => (release = resolve));
