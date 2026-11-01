@@ -68,7 +68,13 @@
               : ''}, {where}{card.before ? ', before the cook day' : ''}. Open menu"
         >
           {#if item.recipe?.photo_url && solo}
-            <img class="photo" src={item.recipe.photo_url} alt="" loading="lazy" />
+            <img
+              class="photo"
+              src={item.recipe.photo_url}
+              alt=""
+              loading="lazy"
+              draggable="false"
+            />
           {/if}
           {#if card.eyebrow}
             <span class="eyebrow"
@@ -241,6 +247,8 @@
   }
 
   .photo {
+    pointer-events: none;
+    -webkit-user-drag: none;
     display: block;
     width: calc(100% + 2 * var(--space-6));
     height: 54px;

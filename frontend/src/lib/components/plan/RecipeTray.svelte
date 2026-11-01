@@ -152,7 +152,14 @@
               aria-label="{recipe.name}. Choose a day to plan it"
             >
               {#if recipe.photo}
-                <img src={recipe.photo.list_url} alt="" width="40" height="40" loading="lazy" />
+                <img
+                  src={recipe.photo.list_url}
+                  alt=""
+                  width="40"
+                  height="40"
+                  loading="lazy"
+                  draggable="false"
+                />
               {:else}
                 <span class="square" aria-hidden="true"></span>
               {/if}
@@ -262,13 +269,20 @@
     transform: rotate(180deg);
   }
 
+  /* The recipes wrap onto two lines; more than that scrolls up and down, with the mouse wheel
+     as well as a finger (F39). */
   .strip {
     display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
     gap: var(--space-4);
+    max-height: calc(2 * 3.4rem + var(--space-4));
     margin: 0;
     padding: 0 0 var(--space-2);
     list-style: none;
-    overflow-x: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: none;
   }
 
@@ -295,7 +309,7 @@
     -webkit-touch-callout: none;
   }
 
-  /* The strip scrolls sideways with a finger; a recipe is picked up only after a long press. */
+  /* The strip scrolls with a finger; a recipe is picked up only after a long press. */
   .recipe:not(:disabled) {
     touch-action: pan-x pan-y;
   }
@@ -303,6 +317,13 @@
   .recipe:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  /* The picture is part of the card: the browser's own picture drag must not take over (F40). */
+  img {
+    pointer-events: none;
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   img,

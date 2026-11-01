@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { expectNoAxeViolations, inTheme, setAccountTheme } from './a11y.ts';
+import { uploadPhoto } from '../review/photos.ts';
 
 // The Plan's cards in Both (0.7, P3): COOK and EAT are separate cards, cells are only as tall as
 // their content (F42), a COOK card is dragged with its EAT card and Undo puts it back, tubs that
@@ -234,4 +235,42 @@ test('moving a card with the keyboard only: Enter, arrows for the day, Shift and
 
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+});
+
+test('F39: the tray wraps onto two lines, and the mouse wheel scrolls the rest', async ({ page }) => {
+  const { today } = await setup(page);
+  const tag = stamp();
+  for (let i = 0; i < 16; i++) await makeRecipe(page, `${tag} Tray ${String(i).padStart(2, '0')}`);
+  await openWeekOf(page, today, far(today, 6));
+  const strip = page.getByRole('list', { name: 'Recipes to plan' });
+  await expect(strip.getByRole('button').first()).toBeVisible();
+  const lines = await strip.evaluate((el) => {
+    const tops = new Set([...el.querySelectorAll('li')].map((li) => (li as HTMLElement).offsetTop));
+    return { rows: tops.size, shown: el.clientHeight, whole: el.scrollHeight };
+  });
+  expect(lines.rows, 'more than one line of recipes').toBeGreaterThan(1);
+  expect(lines.whole, 'more recipes than two lines hold').toBeGreaterThan(lines.shown);
+  expect(lines.shown, 'two lines high').toBeLessThan(130);
+  const box = (await strip.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 120);
+  await expect.poll(() => strip.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+});
+
+test('F40: a recipe is dragged from its photo as well as from its name', async ({ page }) => {
+  const { today, slot } = await setup(page);
+  const name = `${stamp()} Photo`;
+  const day = far(today, 7);
+  const photo = await uploadPhoto(page.request, 'dish');
+  await call(page, 'POST', '/recipes', { name, photo_id: photo, steps: [{ text: 'Stir.' }] });
+  await openWeekOf(page, today, day);
+  await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(name);
+  const item = page.getByRole('list', { name: 'Recipes to plan' }).getByRole('button', { name: new RegExp(`^${name}`) });
+  await expect(item).toBeVisible();
+  const picture = item.locator('img');
+  await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  await mouseDrag(page, picture, cell(page, day, slot.Lunch));
+  await expect(page.getByRole('status').filter({ hasText: `Planned ${name}` })).toBeVisible();
+  await expect(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+  await expect(picture).toHaveAttribute('draggable', 'false');
 });
