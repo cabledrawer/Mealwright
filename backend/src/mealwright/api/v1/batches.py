@@ -334,3 +334,82 @@ def get_tubs_left(kitchen: Here, limit: Annotated[int, Query(ge=1, le=200)] = 10
         ],
         more=more,
     )
+
+
+# --- Portions and "Leftovers on…" (0.7, P1) -------------------------------------------------------
+
+
+class PortionsOut(BaseModel):
+    recipe_name: str
+    # No batch yet: the first leftovers make one, so there is no count to show.
+    has_batch: bool
+    batch_id: int | None
+    portions: int | None  # the tubs plus the cook-day meal
+    cook_day: int | None
+    tubs: int | None
+    in_meals: int | None  # tubs already planned in a meal
+    left: int | None  # portions left to plan
+    # The last day a tub of this batch can go in a meal.
+    use_by: date
+
+
+@router.get("/plan/items/{plan_item_id}/portions")
+def get_portions(plan_item_id: StoredInt, kitchen: Here) -> PortionsOut:
+    """How many portions the batch cooked for this recipe item makes, and how many are left to
+    plan (cabledrawer 28 Oct). Changes nothing."""
+    item = plan.find_item(kitchen, plan_item_id)
+    source = batches.recipe_meal_item(kitchen, item)
+    batch = batches._batch_of(kitchen, source, item)
+    name = batch.recipe_name if batch else plan._item_name(kitchen, item)
+    if batch is None:
+        return PortionsOut(
+            recipe_name=name,
+            has_batch=False,
+            batch_id=None,
+            portions=None,
+            cook_day=None,
+            tubs=None,
+            in_meals=None,
+            left=None,
+            use_by=batches.tub_use_by(kitchen, "fridge", source.day),
+        )
+    found = batches.portions_of(kitchen, batch)
+    return PortionsOut(
+        recipe_name=name,
+        has_batch=True,
+        batch_id=batch.id,
+        portions=found.total,
+        cook_day=found.cook_day,
+        tubs=found.tubs,
+        in_meals=found.in_meals,
+        left=found.left,
+        use_by=found.use_by,
+    )
+
+
+class LeftoversIn(BaseModel):
+    meals: Annotated[list[SpotIn], Field(min_length=1, max_length=batches.MOST_TUBS_IN_BATCH)]
+    if_none_left: Literal["ask", "cook_more", "add_anyway"] = Field(
+        default="ask",
+        description="What to do for the meals the portions left don't reach. ask: change nothing"
+        " and answer 409 `no_portions_left`. cook_more: a bigger batch, a tub for each. add_anyway:"
+        " plan the recipe there (one serving) and leave the batch as it is.",
+    )
+
+
+@router.post("/plan/items/{plan_item_id}/leftovers")
+def plan_leftovers(
+    plan_item_id: StoredInt, body: LeftoversIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """ "Leftovers on…": several meals at once. Only meals after the cooking and not past the
+    batch's use-by are accepted. A retry with the same `Idempotency-Key` plans nothing more."""
+    return _run(
+        kitchen,
+        response,
+        lambda: batches.leftovers_on(
+            kitchen,
+            plan.find_item(kitchen, plan_item_id),
+            [(m.date, m.slot_id) for m in body.meals],
+            body.if_none_left,
+        ),
+    )

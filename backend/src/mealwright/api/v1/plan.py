@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select
 
+from mealwright import batches as batch_service
 from mealwright import plan
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
@@ -105,6 +106,9 @@ class PlanBatchOut(BaseModel):
     pattern: Literal["lunches", "lunch_dinner", "dinners", "pick"]
     prep_note: str | None
     colour: str | None
+    # Portions (0.7): the tubs plus the cook-day meal, and how many of them are not planned yet.
+    portions: int
+    portions_left: int
 
 
 class PlanTubOut(BaseModel):
@@ -334,6 +338,7 @@ def get_plan(
 
     by_meal: dict[int, list[PlanItemOut]] = {}
     kcal_by_meal: dict[int, int] = {}
+    portions = batch_service.portions_by_batch(kitchen, batches)
     for i in items:
         by_meal.setdefault(i.meal_id, []).append(item_out(i))
         kcal = item_kcal(i)
@@ -364,6 +369,8 @@ def get_plan(
                 pattern=b.pattern,  # type: ignore[arg-type]
                 prep_note=b.prep_note,
                 colour=b.colour,
+                portions=portions[b.id].total,
+                portions_left=portions[b.id].left,
             )
             for b in batches
         ],

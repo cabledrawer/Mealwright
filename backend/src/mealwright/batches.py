@@ -34,12 +34,14 @@ from mealwright.models import (
     Tub,
 )
 from mealwright.plan import (
+    _KINDS,
     DAYS_AHEAD,
     DAYS_BACK,
     MOST_ITEMS_IN_MEAL,
     _drop_meal,
     _end,
     _finish,
+    _item_name,
     _make_meal,
     _own,
     _planned,
@@ -727,6 +729,181 @@ def leftover_tub(
     db.add(clone)
     db.flush()
     steps.append({"op": "add_item", "item": clone.id})
+
+
+# --- Portions (0.7, P1; cabledrawer 28 Oct) ----------------------------------------------------------
+#
+# A batch makes a fixed number of portions: its tubs plus the cook-day meal (the people eating
+# the cooking on the day; one when the meal has no number of its own, as Cook once and the
+# shopping list already count it). A portion is "left" while its tub is in no meal and not eaten.
+
+
+@dataclass
+class Portions:
+    cook_day: int
+    tubs: int
+    in_meals: int
+    left: int
+    # The last day a tub of this batch can go in a meal: the latest use-by of a tub still
+    # to place, else the household's fridge life from the cook day.
+    use_by: date
+
+    @property
+    def total(self) -> int:
+        return self.cook_day + self.tubs
+
+
+def _cook_item(kitchen: Kitchen, batch: BatchCook) -> MealItem | None:
+    if batch.cook_meal_id is None or batch.recipe_id is None:
+        return None
+    return kitchen.db.scalar(
+        select(MealItem)
+        .where(
+            MealItem.household_id == kitchen.household_id,
+            MealItem.meal_id == batch.cook_meal_id,
+            MealItem.recipe_id == batch.recipe_id,
+        )
+        .order_by(MealItem.id)
+        .limit(1)
+    )
+
+
+def portions_of(kitchen: Kitchen, batch: BatchCook) -> Portions:
+    db = kitchen.db
+    item = _cook_item(kitchen, batch)
+    cook_day = (item.servings if item else None) or 1
+    tubs = list(
+        db.execute(
+            select(
+                Tub.amount_quarters, Tub.use_by, exists().where(MealItem.tub_id == Tub.id)
+            ).where(Tub.household_id == kitchen.household_id, Tub.batch_id == batch.id)
+        )
+    )
+    spare = [use_by for quarters, use_by, in_meal in tubs if quarters > 0 and not in_meal]
+    fridge = tub_use_by(kitchen, "fridge", batch.cooked_on)
+    return Portions(
+        cook_day=cook_day,
+        tubs=batch.tub_count,
+        in_meals=sum(1 for _q, _u, in_meal in tubs if in_meal),
+        left=len(spare),
+        use_by=max(spare) if spare else fridge,
+    )
+
+
+def portions_by_batch(kitchen: Kitchen, found: list[BatchCook]) -> dict[int, Portions]:
+    """`portions_of` for the batches a plan read answers (a few queries each; a plan read has
+    at most the batches of 62 days)."""
+    return {b.id: portions_of(kitchen, b) for b in found}
+
+
+def _batch_of(kitchen: Kitchen, source: Meal, item: MealItem) -> BatchCook | None:
+    return kitchen.db.scalar(
+        select(BatchCook).where(
+            BatchCook.household_id == kitchen.household_id,
+            BatchCook.cook_meal_id == source.id,
+            BatchCook.recipe_id == item.recipe_id
+            if item.recipe_id is not None
+            else BatchCook.recipe_name == item.name,
+        )
+    )
+
+
+def recipe_meal_item(kitchen: Kitchen, item: MealItem) -> Meal:
+    """The planned meal of a recipe item that can have leftovers (a tub, a plain ingredient or
+    a note can't)."""
+    meal = kitchen.db.get(Meal, item.meal_id)
+    if meal is None:  # pragma: no cover (the database keeps every item in a meal)
+        raise not_found("That meal")
+    _planned(meal)
+    if item.kind != "recipe":
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_recipe",
+            "Only a recipe can have leftovers.",  # proposed, for cabledrawer
+        )
+    return meal
+
+
+def leftovers_on(kitchen: Kitchen, item: MealItem, spots: list[Spot], if_none_left: str) -> Change:
+    """ "Leftovers on…" with several meals ticked at once. Each meal gets a portion of the
+    batch cooked for the item's meal (the batch is made now if there is none). The earliest
+    meals take the portions left; for the rest, `ask` refuses with `no_portions_left` and
+    changes nothing, `cook_more` grows the batch by a tub each, and `add_anyway` plans the
+    recipe in those meals (one serving) and leaves the batch as it is."""
+    source = recipe_meal_item(kitchen, item)
+    if not spots:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "no_meals",
+            "Tick at least one meal.",  # proposed, for cabledrawer
+        )
+    if len(set(spots)) != len(spots):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "same_meal_twice",
+            "A meal is ticked twice.",  # proposed, for cabledrawer
+        )
+    slot_order = {s.id: (s.position, s.id) for s in meal_slots(kitchen.db, kitchen.household_id)}
+    batch = _batch_of(kitchen, source, item)
+    portions = portions_of(kitchen, batch) if batch else None
+    use_by = portions.use_by if portions else tub_use_by(kitchen, "fridge", source.day)
+    for day, slot_id in spots:
+        check_day(kitchen, day)
+        find_slot(kitchen, slot_id)
+        check_after_cook(kitchen, source, day, slot_id)
+        if day > use_by:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "after_use_by",
+                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+            )
+        target = meal_at(kitchen, day, slot_id)
+        if target is not None:
+            _planned(target)
+            _room(kitchen, target)
+    ordered = sorted(spots, key=lambda s: (s[0], slot_order.get(s[1], (0, s[1]))))
+    left = portions.left if portions else len(ordered)
+    short = ordered[left:]
+    if short and batch is not None and if_none_left == "ask":
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "no_portions_left",
+            "No portions left.",
+            left=left,
+            wanted=len(ordered),
+        )
+    steps: list[dict[str, Any]] = []
+    first: Meal | None = None
+    for index, (day, slot_id) in enumerate(ordered):
+        target = meal_at(kitchen, day, slot_id)
+        if target is None:
+            target = _make_meal(kitchen, day, slot_id, steps)
+        first = first or target
+        if batch is not None and index >= left and if_none_left == "add_anyway":
+            anyway = MealItem(
+                household_id=kitchen.household_id,
+                meal_id=target.id,
+                position=_end(kitchen, target),
+                kind="recipe",
+                recipe_id=item.recipe_id,
+                name=None if item.recipe_id else item.name,
+                servings=1,
+            )
+            kitchen.db.add(anyway)
+            kitchen.db.flush()
+            steps.append({"op": "add_item", "item": anyway.id})
+        else:
+            leftover_tub(kitchen, source, item, target, steps)
+            batch = batch or _batch_of(kitchen, source, item)
+    name = _item_name(kitchen, item)
+    where = ", ".join(_where(kitchen, d, s) for d, s in ordered)
+    return _finish(
+        kitchen,
+        _KINDS["leftovers"],
+        f"Planned leftovers of {name} on {where}",
+        steps,
+        meal_id=first.id if first else None,
+    )
 
 
 # --- Fill from freezer first ---------------------------------------------------------------------
