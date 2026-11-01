@@ -49,10 +49,15 @@
     model.onGone = () => onclose?.();
     model.onOpenOther = (id) => onopen?.(id);
     void model.load();
-    placesAndShops.load().catch(() => {});
+    // Fetched again on each opening: a place made on another phone has no live event.
+    placesAndShops.load(true).catch(() => {});
   });
 
   const food = $derived(model.food);
+  const livesIn = $derived(food?.place?.id);
+  $effect(() => {
+    void placesAndShops.reloadFor(livesIn);
+  });
 
   // Changed elsewhere (an Undo, a merge from the list): show the server's version.
   let seen = kitchen.elsewhere;

@@ -318,6 +318,21 @@ describe('Import a recipe', () => {
       return flow;
     }
 
+    it('fetches the places again when Check opens, for one made on another phone (M1)', async () => {
+      await placesAndShops.load();
+      expect(placesAndShops.places.map((p) => p.id)).not.toContain(9);
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      fakeApi({
+        'POST /recipes/import': [200, REVIEW],
+        'GET /places': [200, [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }]],
+        'GET /shops': [200, SHOPS]
+      });
+      await flow.read();
+      show(flow, ReviewScreen);
+      await vi.waitFor(() => expect(placesAndShops.places.map((p) => p.id)).toContain(9));
+    });
+
     it('shows the counts, each line as written, and Photo not downloaded', async () => {
       await reviewing();
       await expect.element(page.getByText('1 matched')).toBeVisible();

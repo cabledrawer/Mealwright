@@ -16,6 +16,8 @@ class PlacesAndShops {
   #loading: Promise<void> | null = null;
   /** Goes up each time they're forgotten, so an answer to an earlier login is dropped. */
   #generation = 0;
+  /** Places already asked about by reloadFor(), so one the server lacks isn't asked about again. */
+  #asked = new Set<number>();
 
   /** Fetch them (once; later calls wait for the same answer). */
   load(force = false): Promise<void> {
@@ -36,10 +38,23 @@ class PlacesAndShops {
     return this.#loading;
   }
 
+  /** A picker was given a place that isn't in the list (made on another phone: nothing tells
+   * this one): fetch them all again, once per place. Not asked for yet: the picker's own
+   * load() will bring them. */
+  async reloadFor(id: number | null | undefined): Promise<void> {
+    if (id == null || this.#asked.has(id) || !this.#loading) return;
+    const generation = this.#generation;
+    await this.#loading.catch(() => {});
+    if (generation !== this.#generation || this.places.some((p) => p.id === id)) return;
+    this.#asked.add(id);
+    await this.load(true).catch(() => {});
+  }
+
   /** Forget them (another login's household may be next): the next load() fetches again. */
   forget(): void {
     this.#generation += 1;
     this.#loading = null;
+    this.#asked.clear();
     this.places = [];
     this.shops = [];
   }

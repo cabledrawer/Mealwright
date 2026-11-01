@@ -17,6 +17,7 @@
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
+  import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -36,6 +37,10 @@
   const shown = $derived(copy.shown);
   const counts = $derived(flow.counts);
   const uid = $props.id();
+  // Fetched again as Check opens: a place made on another phone has no live event.
+  $effect(() => {
+    placesAndShops.load(true).catch(() => {});
+  });
   const usPints = $derived(flow.pints === 'us');
   const other = $derived(flow.otherPints);
   const ingredientCount = $derived(review.lines.filter((l) => l.kind === 'ingredient').length);

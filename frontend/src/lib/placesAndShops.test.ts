@@ -199,4 +199,45 @@ describe('signing out forgets the household’s shops and places', () => {
     await placesAndShops.addPlace('Shed', 'cupboard');
     expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
   });
+
+  describe('a place made on another phone (M1)', () => {
+    const WITH_SHED: Routes = {
+      'GET /places': [
+        200,
+        [
+          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+          { id: 5, name: 'Shed', kind: 'cupboard' }
+        ]
+      ],
+      'GET /shops': [200, []]
+    };
+
+    it('load(true) fetches again after they are loaded', async () => {
+      await wrensLoaded();
+      fakeApi(WITH_SHED);
+      await placesAndShops.load(true);
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
+    });
+
+    it('a picker given a place that is not in the list fetches them again, once', async () => {
+      await wrensLoaded();
+      const requests = fakeApi(WITH_SHED);
+      await placesAndShops.reloadFor(5);
+      expect(placesAndShops.places.map((p) => p.id)).toEqual([1, 5]);
+      const asked = requests.filter((r) => r.path === '/places').length;
+      expect(asked).toBe(1);
+      // A place the server does not have either isn't asked about again and again.
+      await placesAndShops.reloadFor(99);
+      await placesAndShops.reloadFor(99);
+      expect(requests.filter((r) => r.path === '/places')).toHaveLength(2);
+    });
+
+    it('a place that is in the list, or none, fetches nothing', async () => {
+      await wrensLoaded();
+      const requests = fakeApi(WITH_SHED);
+      await placesAndShops.reloadFor(1);
+      await placesAndShops.reloadFor(null);
+      expect(requests).toHaveLength(0);
+    });
+  });
 });

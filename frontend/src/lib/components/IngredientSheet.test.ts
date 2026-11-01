@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import {
   PLACES,
   SHOPS,
@@ -92,6 +93,19 @@ describe('the ingredient editor, opened from anywhere', () => {
     await expect.element(dialog.getByRole('heading', { name: 'Used in recipes' })).toBeVisible();
     await expect.element(dialog.getByText('Not in any recipe yet.')).toBeVisible();
     expect(dialog.getByText(/^Used in \d/).elements()).toHaveLength(0);
+  });
+
+  it('shows a place made on another phone since the list was last fetched (M1)', async () => {
+    await placesAndShops.load();
+    requests = fakeApi({
+      'GET /foods/7': () => [200, food],
+      'GET /places': [200, [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }]],
+      'GET /shops': [200, SHOPS]
+    });
+    const dialog = await openToorDal();
+    await expect
+      .element(dialog.getByLabelText(/^Lives in/).getByRole('option', { name: 'Garage freezer' }))
+      .toBeInTheDocument();
   });
 
   it('asks “Pantry keeps it by”, with its hint (F119)', async () => {

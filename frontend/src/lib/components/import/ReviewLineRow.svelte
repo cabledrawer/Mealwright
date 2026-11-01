@@ -105,6 +105,10 @@
   $effect(() => {
     if (!placesAndShops.places.length) void placesAndShops.load().catch(() => {});
   });
+  // A line made on another phone's new place (a saved draft): fetch them again.
+  $effect(() => {
+    void placesAndShops.reloadFor(made?.place_id);
+  });
 
   // --- Split into two (F109) --------------------------------------------------------------
   let splitting = $state(false);
