@@ -177,9 +177,12 @@ test.describe('the connection bar', () => {
     await tryNow.click();
     await expect(bar(page)).toBeVisible(); // still can't reach it
 
+    // The app also checks again by itself, so under load the bar may go before Try now is clicked.
     await context.unroute('**/api/**', blocked);
-    await tryNow.click();
-    await expect(bar(page)).toBeHidden({ timeout: 10_000 });
+    await expect(async () => {
+      if (await bar(page).isVisible()) await tryNow.click({ timeout: 2_000 });
+      await expect(bar(page)).toBeHidden({ timeout: 2_000 });
+    }).toPass({ timeout: 10_000 });
     await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible();
   });
 
