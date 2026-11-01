@@ -114,8 +114,9 @@ describe('the ingredient editor, opened from anywhere', () => {
       'GET /places': [200, PLACES],
       'GET /shops': [200, SHOPS],
       'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
-      'PATCH /foods/7': (request) => {
-        food = { ...food, ...(request.body as object) } as typeof food;
+      // The server answers with the food as stored: its place is the new one.
+      'PATCH /foods/7': () => {
+        food = { ...food, place: { id: 9, name: 'Garage freezer' } };
         return [200, { food, change: changeOf(900, 'Changed Toor dal') }];
       }
     });
