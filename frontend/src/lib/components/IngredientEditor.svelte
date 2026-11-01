@@ -20,6 +20,7 @@
   import { toasts } from '#lib/toast.svelte.js';
   import FoodPicker from './FoodPicker.svelte';
   import Icon from './Icon.svelte';
+  import NewPlace, { NEW_PLACE } from './NewPlace.svelte';
   import RemoveIngredient from './RemoveIngredient.svelte';
   import Switch from './Switch.svelte';
   import UsedInRecipes from './UsedInRecipes.svelte';
@@ -71,6 +72,7 @@
   let addingName = $state(false);
   let addingSize = $state(false);
   let addingShop = $state(false);
+  let addingPlace = $state(false);
   let picking = $state<'stand-in' | 'merge' | null>(null);
   let lowProblem = $state<string | null>(null);
   let sizeProblem = $state<string | null>(null);
@@ -189,7 +191,16 @@
   }
 
   function setPlace(event: Event) {
-    const id = Number(valueOf(event)) || null;
+    if (valueOf(event) === NEW_PLACE) {
+      // "+ Place": the box opens; the list shows the ingredient's place again meanwhile.
+      addingPlace = true;
+      (event.currentTarget as HTMLSelectElement).value = String(food?.place?.id ?? '');
+      return;
+    }
+    setPlaceTo(Number(valueOf(event)) || null);
+  }
+
+  function setPlaceTo(id: number | null) {
     const place = placesAndShops.places.find((p) => p.id === id) ?? null;
     void model.setField(
       { place_id: id },
@@ -546,8 +557,20 @@
             {#each placesAndShops.places as place (place.id)}
               <option value={place.id}>{place.name}</option>
             {/each}
+            <option value={NEW_PLACE}>+ Place</option>
           </select>
         </label>
+        {#if addingPlace}
+          <div class="wide">
+            <NewPlace
+              onadded={(place) => {
+                addingPlace = false;
+                setPlaceTo(place.id);
+              }}
+              oncancel={() => (addingPlace = false)}
+            />
+          </div>
+        {/if}
         {#if lowProblem}<p id="{uid}-low" class="problem wide" role="alert">{lowProblem}</p>{/if}
         <div class="shop wide">
           <label>

@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  /** The value of the "+ Place" choice at the end of a place picker. */
+  export const NEW_PLACE = 'new-place';
   export const NEEDS_SERVER =
     'A new place needs your Mealwright server. Try again when it answers.';
 </script>

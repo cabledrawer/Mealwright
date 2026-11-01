@@ -183,4 +183,20 @@ describe('signing out forgets the household’s shops and places', () => {
     expect(placesAndShops.places).toEqual([]);
     await arloSeesOnlyHis();
   });
+  it('a place added before the list was fetched leaves the whole list, not just the new place', async () => {
+    fakeApi({
+      ...WRENS,
+      'GET /places': [
+        200,
+        [
+          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+          { id: 2, name: 'Shed', kind: 'cupboard' }
+        ]
+      ],
+      'POST /places': [201, { id: 2, name: 'Shed', kind: 'cupboard' }]
+    });
+    expect(placesAndShops.places).toEqual([]);
+    await placesAndShops.addPlace('Shed', 'cupboard');
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
+  });
 });

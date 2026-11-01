@@ -9,6 +9,8 @@
   import { useByWords } from '#lib/dates.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { pickFor } from '#lib/picks.js';
+  import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+  import NewPlace from './NewPlace.svelte';
   import PackPicks from './PackPicks.svelte';
 
   let {
@@ -42,11 +44,18 @@
   let date = $state('');
 
   const baseUnit = $derived(countedAs === 'weight' ? 'g' : countedAs === 'volume' ? 'ml' : 'count');
-  const others = $derived(places.filter((p) => p.id !== place.id));
+  let addingPlace = $state(false);
+  /** The other places, and any made with "+ Place" before the pantry has reloaded. */
+  const others = $derived(
+    [...places, ...placesAndShops.places.filter((p) => !places.some((q) => q.id === p.id))].filter(
+      (p) => p.id !== place.id
+    )
+  );
 
   $effect(() => {
     if (lot && !dialog.open) {
       step = startAt;
+      addingPlace = false;
       date = lot.use_by ?? '';
       dialog.showModal();
       placeBy(anchor);
@@ -183,6 +192,16 @@
               >
             </li>
           {/each}
+          <li>
+            {#if addingPlace}
+              <NewPlace
+                onadded={(added) => act(() => model.move(id, name, added))}
+                oncancel={() => (addingPlace = false)}
+              />
+            {:else}
+              <button type="button" onclick={() => (addingPlace = true)}>+ Place</button>
+            {/if}
+          </li>
         </ul>
       {:else if step === 'date'}
         <form class="form" onsubmit={saveDate}>

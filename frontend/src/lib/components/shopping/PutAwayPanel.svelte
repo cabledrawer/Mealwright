@@ -4,9 +4,15 @@
   // also choose where the last one went, or Undo last tick. The phone has the toast
   // ("Coriander → Fridge · Change · Undo") instead.
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import NewPlace, { NEW_PLACE } from '../NewPlace.svelte';
 
   let { model }: { model: ShoppingModel } = $props();
   const uid = $props.id();
+  let addingPlace = $state(false);
+  $effect(() => {
+    void item?.id;
+    addingPlace = false;
+  });
 
   const last = $derived(model.lastTicked);
   const item = $derived(last ? model.item(last.itemId) : undefined);
@@ -33,15 +39,30 @@
           Where
           <select
             value={placeId}
-            onchange={(event) => void model.putAway(item, Number(event.currentTarget.value))}
+            onchange={(event) => {
+              if (event.currentTarget.value === NEW_PLACE) {
+                addingPlace = true;
+                event.currentTarget.value = String(placeId);
+              } else void model.putAway(item, Number(event.currentTarget.value));
+            }}
           >
-            {#each model.copy.places as place (place.id)}
+            {#each model.placeChoices as place (place.id)}
               <option value={place.id}>{place.name}</option>
             {/each}
+            <option value={NEW_PLACE}>+ Place</option>
           </select>
         </label>
       {/if}
     </div>
+    {#if addingPlace && placeId !== null}
+      <NewPlace
+        onadded={(added) => {
+          addingPlace = false;
+          void model.putAway(item, added.id);
+        }}
+        oncancel={() => (addingPlace = false)}
+      />
+    {/if}
     <button type="button" class="link" onclick={() => void undo()}>Undo last tick</button>
   {/if}
 </section>

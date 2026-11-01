@@ -66,6 +66,8 @@ class PlacesAndShops {
       if (!found) throw error;
       place = found;
     }
+    // Not fetched yet: fetch them all now (a list holding only this place would look loaded).
+    if (!this.#loading && generation === this.#generation) await this.load().catch(() => {});
     // Forgotten (signed out) while asking: the place is the last login's, so it isn't kept.
     if (generation !== this.#generation) return place;
     if (!this.places.some((p) => p.id === place.id)) this.places = [...this.places, place];

@@ -17,6 +17,7 @@
   import { tick } from 'svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import Icon from '#lib/components/Icon.svelte';
+  import NewPlace, { NEW_PLACE } from '#lib/components/NewPlace.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import type { ReviewLine } from '#lib/client/imports.js';
   import type { CountedAs, Ref } from '#lib/client/types.js';
@@ -38,6 +39,7 @@
   /** " · US pints" after a line that says pints: which pint it is read with. */
   const pintWords = $derived(line.pint_ml ? ` · ${flow.pints === 'us' ? 'US' : 'UK'} pints` : '');
   let picking = $state(false);
+  let addingPlace = $state(false);
   /** The amount, unit and note boxes are open. */
   let editing = $state(false);
   /** The New ingredient form is open (it closes with Done). */
@@ -411,15 +413,30 @@
               id="{uid}-place"
               class="mw-input"
               value={made.place_id ?? ''}
-              onchange={(e) =>
-                edit({ place_id: e.currentTarget.value ? Number(e.currentTarget.value) : null })}
+              onchange={(e) => {
+                if (e.currentTarget.value === NEW_PLACE) {
+                  addingPlace = true;
+                  e.currentTarget.value = String(made.place_id ?? '');
+                } else
+                  edit({ place_id: e.currentTarget.value ? Number(e.currentTarget.value) : null });
+              }}
             >
               <option value="">Nowhere in particular</option>
               {#each placesAndShops.places as place (place.id)}
                 <option value={place.id}>{place.name}</option>
               {/each}
+              <option value={NEW_PLACE}>+ Place</option>
             </select>
           </label>
+          {#if addingPlace}
+            <NewPlace
+              onadded={(place) => {
+                addingPlace = false;
+                edit({ place_id: place.id });
+              }}
+              oncancel={() => (addingPlace = false)}
+            />
+          {/if}
         </div>
         {#if nameError}<p class="error" role="alert">Type a name.</p>{/if}
         <p class="hint">

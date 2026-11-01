@@ -17,6 +17,7 @@
   import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';
   import MovePicker from './MovePicker.svelte';
+  import NewPlace from '../NewPlace.svelte';
   import PackSheet from './PackSheet.svelte';
   import PutAwayLine from './PutAwayLine.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
@@ -46,6 +47,10 @@
   let editing = $state(false);
   let asking = $state(false);
   let packOpen = $state(false);
+  let addingPlace = $state(false);
+  $effect(() => {
+    if (!placing) addingPlace = false;
+  });
   let packButton = $state<HTMLElement>();
   let nameButton = $state<HTMLButtonElement>();
   let rowEl = $state<HTMLElement>();
@@ -276,7 +281,7 @@
 
   {#if placing && trolley}
     <div class="places" role="radiogroup" aria-label="Where did {food.name} go?" use:radioKeys>
-      {#each model.copy.places as p (p.id)}
+      {#each model.placeChoices as p (p.id)}
         <button
           type="button"
           role="radio"
@@ -285,6 +290,19 @@
         >
       {/each}
     </div>
+    {#if addingPlace}
+      <div class="new-place">
+        <NewPlace
+          onadded={(added) => {
+            addingPlace = false;
+            void model.putAway(item, added.id);
+          }}
+          oncancel={() => (addingPlace = false)}
+        />
+      </div>
+    {:else}
+      <button type="button" class="pack" onclick={() => (addingPlace = true)}>+ Place</button>
+    {/if}
     <button
       type="button"
       class="pack"
@@ -524,6 +542,10 @@
 
   .pack {
     align-self: flex-start;
+    margin: 0 0 var(--space-4) 34px;
+  }
+
+  .new-place {
     margin: 0 0 var(--space-4) 34px;
   }
 

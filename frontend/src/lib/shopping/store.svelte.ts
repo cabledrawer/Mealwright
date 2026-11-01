@@ -7,6 +7,7 @@
 import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
 import { kitchen } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { newChangeId } from '#lib/changeId.js';
 import { getFood, listFoods } from '#lib/client/foods.js';
 import type { FoodRow } from '#lib/client/types.js';
@@ -135,7 +136,14 @@ export class ShoppingModel {
   }
 
   placeName(id: number | null): string | null {
-    return this.copy.places.find((p) => p.id === id)?.name ?? null;
+    return this.placeChoices.find((p) => p.id === id)?.name ?? null;
+  }
+
+  /** The places to pick from: the copy's, then any made here with "+ Place" that the copy
+   * hasn't heard of yet (the next answer from the server has them all). */
+  get placeChoices(): { id: number; name: string }[] {
+    const known = this.copy.places;
+    return [...known, ...placesAndShops.places.filter((p) => !known.some((k) => k.id === p.id))];
   }
 
   item(id: string): ListItem | undefined {

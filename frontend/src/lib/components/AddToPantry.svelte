@@ -13,7 +13,9 @@
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { amountExample } from '#lib/amountExample.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
+  import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import FoodPicker from './FoodPicker.svelte';
+  import NewPlace, { NEW_PLACE } from './NewPlace.svelte';
   import Icon from './Icon.svelte';
 
   let { model, places, today }: { model: PantryModel; places: Place[]; today: string } = $props();
@@ -31,6 +33,12 @@
   let picked = $state('');
   let dateInput = $state<HTMLInputElement>();
   let problem = $state<string | null>(null);
+  let addingPlace = $state(false);
+  /** The pantry's places, and any made here with "+ Place" before the pantry has reloaded. */
+  const allPlaces = $derived([
+    ...places,
+    ...placesAndShops.places.filter((p) => !places.some((q) => q.id === p.id))
+  ]);
 
   $effect(() => {
     if (addToPantry.open && !dialog.open) {
@@ -51,6 +59,7 @@
     when = 'none';
     picked = '';
     problem = null;
+    addingPlace = false;
   }
 
   const usual = $derived(food?.sizes.find((s) => s.usual) ?? food?.sizes[0]);
@@ -180,7 +189,7 @@
       amount = { amount: n, unit };
       words = unit === 'count' ? String(n) : `${n}\u00a0${typedUnit}`;
     }
-    const place = places.find((p) => p.id === placeId);
+    const place = allPlaces.find((p) => p.id === placeId);
     const stock = {
       food_id: food.id,
       amount,
@@ -286,10 +295,30 @@
 
           <section>
             <h3 id="{uid}-where">Where</h3>
-            <select class="where" aria-labelledby="{uid}-where" bind:value={placeId}>
-              {#each places as place (place.id)}<option value={place.id}>{place.name}</option
+            <select
+              class="where"
+              aria-labelledby="{uid}-where"
+              value={placeId}
+              onchange={(event) => {
+                if (event.currentTarget.value === NEW_PLACE) {
+                  addingPlace = true;
+                  event.currentTarget.value = String(placeId ?? '');
+                } else placeId = Number(event.currentTarget.value);
+              }}
+            >
+              {#each allPlaces as place (place.id)}<option value={place.id}>{place.name}</option
                 >{/each}
+              <option value={NEW_PLACE}>+ Place</option>
             </select>
+            {#if addingPlace}
+              <NewPlace
+                onadded={(place) => {
+                  placeId = place.id;
+                  addingPlace = false;
+                }}
+                oncancel={() => (addingPlace = false)}
+              />
+            {/if}
           </section>
 
           <section aria-labelledby="{uid}-when">
