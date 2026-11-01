@@ -18,9 +18,9 @@ async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', pat
 }
 
 // Weeks 80 to 83 ahead, no other plan test's (past weeks cannot hold a batch: its tubs would be in the
-// past). Test k (0 to 10) takes week 80 + k % 4, and two days earlier for each 4 tests, so
-// no two tests share a day.
-const far = (today: string, k: number) => addDays(today, 7 * (80 + (k % 4)) - 2 * Math.floor(k / 4));
+// past). Test k (0 to 10) takes week 80 + k % 4, and in it a day and the day after: the Saturday, the
+// Thursday or the Monday (k / 4 picks), so no two tests share a day.
+const far = (today: string, k: number) => addDays(today, 7 * (80 + (k % 4)) - [0, 2, 5][Math.floor(k / 4)]!);
 const stamp = () => `Cards${Date.now().toString(36)}`;
 
 function addDays(iso: string, days: number): string {
