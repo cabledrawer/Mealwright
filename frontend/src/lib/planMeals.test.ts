@@ -10,6 +10,7 @@ import {
   mealColour,
   mealName,
   mealTotals,
+  recipeMeta,
   tubOf,
   tubWords,
   useByWords,
@@ -71,14 +72,25 @@ describe('a note in a meal (0.7 P1)', () => {
 describe('a meal card’s words', () => {
   it('counts recipes and adds the kcal', () => {
     expect(mealTotals(meal([recipe(1, 'Dosa'), recipe(2, 'Chutney')], 590))).toBe(
-      '2 recipes · 590 kcal'
+      '2 recipes · 590 kcal each'
     );
     expect(mealTotals(meal([recipe(1, 'Dosa')]))).toBe('1 recipe');
   });
 
+  it('a recipe card says the servings, the time and the kcal each (F116)', () => {
+    const dosa = recipe(1, 'Dosa');
+    dosa.servings = 4;
+    dosa.recipe = { ...dosa.recipe!, time_minutes: 15, kcal: 123 };
+    expect(recipeMeta(dosa)).toBe('serves 4 · 15\u00a0min · 123 kcal each');
+    dosa.recipe = { ...dosa.recipe!, time_minutes: 745 };
+    expect(recipeMeta(dosa)).toBe('serves 4 · 12\u00a0h\u00a025\u00a0min · 123 kcal each');
+    // Nothing known, nothing said; no Serves set on the meal, none shown.
+    expect(recipeMeta(recipe(2, 'Chutney'))).toBe('');
+  });
+
   it('says ingredients, or things when they are mixed', () => {
     expect(mealTotals(meal([fruit]))).toBe('1 ingredient');
-    expect(mealTotals(meal([recipe(1, 'Dosa'), fruit], 230))).toBe('2 things · 230 kcal');
+    expect(mealTotals(meal([recipe(1, 'Dosa'), fruit], 230))).toBe('2 things · 230 kcal each');
   });
 
   it('names a recipe or ingredient deleted for good by the name it kept', () => {

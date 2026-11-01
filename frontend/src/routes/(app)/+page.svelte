@@ -227,7 +227,7 @@
               {/each}
             </div>
           {/if}
-          {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal</p>{/if}
+          {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal each</p>{/if}
           {#if meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe')}
             <button
               type="button"

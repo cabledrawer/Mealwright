@@ -2,6 +2,7 @@
 // on its own (planMeals.test.ts).
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } from './client/plan';
+import { timeWords } from './timeWords';
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
@@ -21,7 +22,20 @@ export function tubWords(item: PlanItem, plan: Plan): string | null {
   return tub && batch ? `Tub ${tub.number} of ${batch.tub_count}` : null;
 }
 
-/** "2 recipes · 590 kcal", "1 ingredient", "3 things · 80 kcal". Proposed, for cabledrawer. */
+/**
+ * A recipe card's small line (F116): "serves 4 · 15 min · 123 kcal each", each part only when it
+ * is known. The serves part follows the meal's own Serves; a meal that never had one set
+ * (servings null) shows none here, because the plan does not send the recipe's own Serves yet.
+ */
+export function recipeMeta(item: PlanItem): string {
+  const parts: string[] = [];
+  if (item.servings) parts.push(`serves ${item.servings}`);
+  if (item.recipe?.time_minutes) parts.push(timeWords(item.recipe.time_minutes));
+  if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal each`);
+  return parts.join(' · ');
+}
+
+/** "2 recipes · 590 kcal each", "1 ingredient", "3 things · 80 kcal". Proposed, for cabledrawer. */
 export function mealTotals(meal: PlanMeal): string {
   const n = meal.items.length;
   const all = (kind: PlanItem['kind']) => meal.items.every((i) => i.kind === kind);
@@ -40,7 +54,8 @@ export function mealTotals(meal: PlanMeal): string {
         : n === 1
           ? 'thing'
           : 'things';
-  const kcal = meal.kcal === null ? '' : ` · ${meal.kcal} kcal`;
+  // A meal's kcal is one serving of each recipe, so it reads "each" (F116, cabledrawer 31 Oct).
+  const kcal = meal.kcal === null ? '' : ` · ${meal.kcal} kcal each`;
   return `${n} ${noun}${kcal}`;
 }
 

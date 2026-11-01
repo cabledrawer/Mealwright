@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { timeWords } from '#lib/timeWords.js';
   // One meal's place in the week grid (mockup Desktop-Plan): the meal's things as little cards
   // ("Dosa · Fresh · 230 kcal"), "2 recipes · 590 kcal" and a + under them, or a dashed "+ Add"
   // when nothing is planned. Every card can be dragged by mouse or finger, and opened (a click,
@@ -14,6 +13,7 @@
     cookBatchOfItem,
     itemName,
     mealTotals,
+    recipeMeta,
     tubOf,
     whoseTub
   } from '#lib/planMeals.js';
@@ -44,10 +44,7 @@
   function meta(item: PlanItem): string {
     if (item.kind === 'tub') return tubMeta(item);
     if (item.kind === 'note') return 'Note';
-    const parts: string[] = [];
-    if (item.recipe?.time_minutes) parts.push(timeWords(item.recipe.time_minutes));
-    if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal`);
-    return parts.join(' · ');
+    return recipeMeta(item);
   }
 
   function cardFor(m: PlanMeal, item: PlanItem) {
