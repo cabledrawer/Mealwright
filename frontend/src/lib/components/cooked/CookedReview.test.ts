@@ -330,6 +330,32 @@ describe('the "Cooked it" review', () => {
     ]);
   });
 
+  it('the answer for the meal is given before the screen lets go of the meal', async () => {
+    // Today and the Plan keep "the meal being answered" and clear it when the screen closes.
+    let answering: string | null = 'Sambar';
+    const answered: (string | null)[] = [];
+    review = new CookReview();
+    component = mount(CookedReview, {
+      target: document.body,
+      props: {
+        review,
+        onclose: () => {
+          answering = null;
+          review.close();
+        },
+        onconfirmed: () => void answered.push(answering)
+      }
+    });
+    await review.open(target(['Sambar']));
+    flushSync();
+    await page
+      .getByRole('dialog', { name: 'Cooked Sambar' })
+      .getByRole('button', { name: 'Confirm · update pantry' })
+      .click();
+    await vi.waitFor(() => expect(answered).toHaveLength(1));
+    expect(answered).toEqual(['Sambar']);
+  });
+
   it('a meal with no recipe has nothing to take and can still be answered', async () => {
     review = new CookReview();
     confirmed = [];

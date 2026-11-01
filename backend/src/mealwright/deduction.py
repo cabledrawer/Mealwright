@@ -564,6 +564,8 @@ def work_out(
         row.add_to_list = default
         if row.list_milli > 0 and picked is not None and picked.add_to_list is not None:
             row.add_to_list = picked.add_to_list
+        if picked is not None and picked.bought:
+            row.add_to_list = False  # bought some: there is nothing to buy
     for row in rows:
         if row.status in ("take", "none_in_pantry"):
             row.use_default = bool(row.takes)  # nothing to take (or only the freezer): off
@@ -619,6 +621,8 @@ def offer_as_previewed(
             tick = picked[row.key].add_to_list
             if row.list_milli > 0 and tick is not None:
                 row.add_to_list = tick
+            if picked[row.key].bought:
+                row.add_to_list = False  # bought some: there is nothing to buy
 
 
 def _short_foods(rows: Iterable[Row]) -> set[int]:

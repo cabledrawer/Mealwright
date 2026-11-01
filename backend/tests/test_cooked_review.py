@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
 from test_cooking import FAR, _batch, cook
+from test_cooking_review import list_lines
 from test_deduction import plan_item, propose, recipe_of, row_of
 from test_plan import db_of
 from test_recipe_list import line, place_id, stock
@@ -176,6 +177,7 @@ def test_bought_some_takes_nothing_and_the_record_keeps_it(kitchen: TestClient) 
     assert chosen["bought"] is True and chosen["use"] is False and chosen["used_milli"] == 0
     with db_of(kitchen) as db:
         assert db.scalars(select(CookedRecord)).one().snapshot["choices"][0]["bought"] is True
+    assert list_lines(kitchen, shallot["id"]) == []  # bought: nothing is added to the list
     # Without it, the record says it was not bought.
     plain = plan_item(kitchen, recipe, servings=4, day=FAR + timedelta(days=1))
     done = ok(cook(kitchen, plain, []), 201)

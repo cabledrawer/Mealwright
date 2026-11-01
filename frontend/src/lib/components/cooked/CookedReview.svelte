@@ -96,8 +96,9 @@
             ...(chosen ? { use_by: chosen } : {})
           }
         : null;
-    onclose();
+    // The answer first: closing the screen lets go of what it was about.
     await onconfirmed?.(leftovers, undoAll(outcomes));
+    onclose();
   }
 
   function closeOnBackdrop(event: MouseEvent) {
