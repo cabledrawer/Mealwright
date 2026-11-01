@@ -185,7 +185,16 @@ class Pantry:
         return PlaceRef(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
     def lot_size(self, lot: StockLot) -> FoodSize | None:
-        return self.size(lot.size_id) or self.usual(lot.food_id)
+        size = self.size(lot.size_id)
+        if size is not None:
+            return size
+        usual = self.usual(lot.food_id)
+        # A lot with no size that holds more than one pack (a capped tick, or 2 kg added in
+        # grams with a 1 kg bag) isn't a packet: no "as sold", no ¼ ½ ¾ picks (proposed, for
+        # cabledrawer).
+        if usual is not None and lot.amount_milli > usual.amount_milli:
+            return None
+        return usual
 
     def lot_out(self, lot: StockLot) -> LotOut:
         food = self.food(lot.food_id)
@@ -457,7 +466,11 @@ def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response
             too_big = (
                 lot.size_id is None and size is not None and lot.amount_milli > size.amount_milli
             )
-            if size is None or too_big:  # no packet, or a lot bigger than one (a capped tick)
+            if size is not None and too_big:  # a lot bigger than one packet (a capped tick)
+                raise Problem(
+                    422, "needs_amount", f"That’s more than one {size.name}: type an amount."
+                )
+            if size is None:
                 raise Problem(
                     422, "needs_amount", f"{food.name} has no packet size: type an amount."
                 )

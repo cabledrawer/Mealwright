@@ -292,6 +292,7 @@ def test_a_capped_lot_has_no_size_and_no_quarter_picks(kitchen: TestClient) -> N
     # Three quarters of "a jar" would set 375 g on a 30 kg lot: it asks for an amount instead.
     refused = kitchen.post(f"{API}/stock/{lot}/left", json={"fraction": 0.75})
     assert refused.status_code == 422 and refused.json()["code"] == "needs_amount"
+    assert "more than one jar" in refused.json()["detail"]
     ok(kitchen.post(f"{API}/stock/{lot}/left", json={"amount": {"amount": 100, "unit": "g"}}))
     assert s.total("Ghee") == 100
 
@@ -322,3 +323,19 @@ def test_a_tick_within_the_cap_keeps_the_size_on_its_lots(kitchen: TestClient) -
     _line(s, "Ghee", 1_000, "jar=500")
     _tick(s, "Ghee")
     assert [size for _, size in _lot_ids(s, "Ghee")] == [s.sizes["Ghee"]] * 2
+
+
+def test_a_sizeless_lot_bigger_than_the_size_shows_no_packet_picks(kitchen: TestClient) -> None:
+    """Round 3: no as_sold and not open on a capped lot (or 2 kg added in grams with a 1 kg
+    bag), so the pantry offers no quarter picks; a normal packet still has them."""
+    s = s0(kitchen)
+    _line(s, "Ghee", 30_000, "jar=500")
+    _tick(s, "Ghee")
+    _line(s, "Oil", 500, "jar=500")
+    _tick(s, "Oil")
+    groups = [g for place in ok(kitchen.get(f"{API}/pantry"))["places"] for g in place["groups"]]
+    lots = {g["food"]["name"]: g["lots"] for g in groups}
+    [big] = lots["Ghee"]
+    assert big["stock"]["as_sold"] is None and big["open"] is False
+    [normal] = lots["Oil"]
+    assert normal["stock"]["as_sold"] is not None

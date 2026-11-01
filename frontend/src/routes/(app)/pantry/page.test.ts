@@ -691,6 +691,21 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('a pick the server answers needs_amount to opens the typed-amount step (round 3)', async () => {
+    await render(1300);
+    routes({
+      [`POST /stock/${sample.yoghurt.id}/left`]: [
+        422,
+        { detail: 'That’s more than one tub: type an amount.', code: 'needs_amount' }
+      ]
+    });
+    await page.getByRole('button', { name: /^Yoghurt/ }).click();
+    const picks = page.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
+    await picks.getByRole('radio', { name: '¼ left' }).click();
+    const menu = page.getByRole('dialog', { name: /Yoghurt/ });
+    await expect.element(menu.getByRole('textbox', { name: /What’s left/ })).toBeVisible();
+  });
+
   it('the packet menu of a packet with no size offers What’s left too (F122)', async () => {
     await render(1300);
     await page.getByRole('button', { name: /^Basmati rice/ }).click();

@@ -105,6 +105,13 @@
     menuFor = lot;
   }
 
+  /** A tap on a pick the server can't work out (needs_amount): open the typed-amount step. */
+  function needsAmount(lot: Lot) {
+    anchor = (document.activeElement as HTMLElement | null) ?? anchor;
+    menuStart = 'grams';
+    menuFor = lot;
+  }
+
   /** "About 250 g left": what is left of the single packet, as its line says it. */
   const leftWords = $derived.by(() => {
     const about = single?.stock.display.split(' · ').at(-1) ?? '';
@@ -241,7 +248,13 @@
         <div class="marks">
           {#if pickFor(single) !== undefined}
             <span class="small-label" id="{uid}-left">How much is left? Best guess is fine.</span>
-            <PackPicks lot={single} {name} {model} labelledby="{uid}-left" />
+            <PackPicks
+              lot={single}
+              {name}
+              {model}
+              labelledby="{uid}-left"
+              onneedsamount={() => needsAmount(single)}
+            />
           {/if}
           <span class="small-label"
             >{leftWords} ·
