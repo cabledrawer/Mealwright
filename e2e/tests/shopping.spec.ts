@@ -701,6 +701,119 @@ test("desktop: the Put away panel moves the last ticked item, and Undo last tick
   await expect.poll(() => stockOf(page, foodId)).toEqual({});
 });
 
+/** A short place name that no other test has used. */
+const newPlaceName = () => `Shed ${Date.now() % 1_000_000}`;
+
+/** "+ Place" in the box that opened: name it, say if it is kept cold, and add it. */
+async function typeNewPlace(page: Page, name: string, kind = "Fridge") {
+  const box = page.getByRole("group", { name: "New place" });
+  await box.getByRole("textbox", { name: "Place’s name" }).fill(name);
+  await box.getByRole("radio", { name: kind }).click();
+  await box.getByRole("button", { name: "Add place" }).click();
+}
+
+async function kindOf(page: Page, name: string) {
+  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+    name: string;
+    kind: string;
+  }[];
+  return places.find((p) => p.name === name)?.kind;
+}
+
+test("F101: + Place after a tick (the toast’s Change) makes the place and puts the item there", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone toast");
+  const name = `NewPlaceTick ${tag()}`;
+  const where = newPlaceName();
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page
+    .getByRole("status")
+    .getByRole("button", { name: "Change" })
+    .click();
+  await page.getByRole("button", { name: "+ Place" }).click();
+  await typeNewPlace(page, where);
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ [where]: 400 });
+  expect(await kindOf(page, where)).toBe("fridge");
+});
+
+test("F101: + Place in the Put away panel makes the place and moves the last ticked item there", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the desktop panel");
+  const name = `NewPlacePanel ${tag()}`;
+  const where = newPlaceName();
+  const { foodId } = await packs(page, name);
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Where" })
+    .selectOption({ label: "+ Place" });
+  await typeNewPlace(page, where, "Freezer");
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ [where]: 400 });
+  expect(await kindOf(page, where)).toBe("freezer");
+  // The panel shows the new place as where it went.
+  await expect(
+    page.getByRole("combobox", { name: "Where" }).locator("option:checked"),
+  ).toHaveText(where);
+});
+
+test("F101: a place name the household has is picked, not made twice", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the desktop panel");
+  const name = `NewPlaceTwice ${tag()}`;
+  const { foodId } = await packs(page, name);
+  const before = (await (await page.request.get("/api/v1/places")).json())
+    .length;
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await page
+    .getByRole("combobox", { name: "Where" })
+    .selectOption({ label: "+ Place" });
+  await typeNewPlace(page, "freezer", "Cupboard");
+  await expect.poll(() => stockOf(page, foodId)).toEqual({ Freezer: 400 });
+  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+    before,
+  );
+});
+
+test("F101: offline, + Place says it needs the server and makes nothing", async ({
+  page,
+  context,
+}) => {
+  test.skip(isPhone(page), "the desktop panel");
+  const name = `NewPlaceOffline ${tag()}`;
+  const where = newPlaceName();
+  await packs(page, name);
+  const before = (await (await page.request.get("/api/v1/places")).json())
+    .length;
+  await page.goto("/shopping");
+  await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await context.setOffline(true);
+  await page
+    .getByRole("combobox", { name: "Where" })
+    .selectOption({ label: "+ Place" });
+  await typeNewPlace(page, where);
+  await expect(page.getByRole("alert")).toContainText(
+    "A new place needs your Mealwright server.",
+  );
+  // Choosing a place that is there already still works offline.
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("combobox", { name: "Where" }).selectOption("Freezer");
+  await expect(
+    page.getByRole("combobox", { name: "Where" }).locator("option:checked"),
+  ).toHaveText("Freezer");
+  await context.setOffline(false);
+  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+    before,
+  );
+});
+
 test("unticking takes it back out of the pantry", async ({ page }) => {
   const name = `Untick ${tag()}`;
   const { foodId } = await packs(page, name);

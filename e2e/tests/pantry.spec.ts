@@ -247,6 +247,86 @@ test("Add to pantry adds what was chosen, where it lives", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("F101: + Place in Add to pantry makes the place and puts the stock there", async ({
+  page,
+}) => {
+  const food = await stocked(page, "Barley", null);
+  const where = `Shed ${Date.now() % 1_000_000}`;
+  await page.goto("/pantry");
+  await page
+    .getByRole("button", { name: /Add to pantry/ })
+    .first()
+    .click();
+  const sheet = page.getByRole("dialog", { name: "Add to pantry" });
+  await sheet
+    .getByRole("searchbox", { name: "Find an ingredient" })
+    .fill(food.name);
+  await sheet
+    .getByRole("button", { name: new RegExp(`^${food.name}`) })
+    .click();
+  await sheet.getByLabel(/^Where/).selectOption({ label: "+ Place" });
+  const box = sheet.getByRole("group", { name: "New place" });
+  await box.getByRole("textbox", { name: "Place’s name" }).fill(where);
+  // Cupboard is the first choice.
+  await expect(box.getByRole("radio", { name: "Cupboard" })).toBeChecked();
+  await box.getByRole("radio", { name: "Freezer" }).click();
+  await box.getByRole("button", { name: "Add place" }).click();
+  await expect(box).toHaveCount(0);
+  await expect(sheet.getByLabel(/^Where/).locator("option:checked")).toHaveText(
+    where,
+  );
+  await sheet.getByRole("button", { name: "Add to pantry" }).click();
+  await expect(
+    page.getByRole("status").getByText(new RegExp(`→ ${where}`)),
+  ).toBeVisible();
+  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+    name: string;
+    kind: string;
+  }[];
+  expect(places.at(-1)).toMatchObject({ name: where, kind: "freezer" });
+  const pantry = await (await page.request.get("/api/v1/pantry")).json();
+  const shed = pantry.places.find((p: { name: string }) => p.name === where);
+  expect(
+    shed.groups.map((g: { food: { id: number } }) => g.food.id),
+  ).toContain(food.id);
+});
+
+test("F101: + Place in Add to pantry can be cancelled, and a name the household has picks that place", async ({
+  page,
+}) => {
+  const food = await stocked(page, "Millet", null);
+  const before = (await (await page.request.get("/api/v1/places")).json())
+    .length;
+  await page.goto("/pantry");
+  await page
+    .getByRole("button", { name: /Add to pantry/ })
+    .first()
+    .click();
+  const sheet = page.getByRole("dialog", { name: "Add to pantry" });
+  await sheet
+    .getByRole("searchbox", { name: "Find an ingredient" })
+    .fill(food.name);
+  await sheet
+    .getByRole("button", { name: new RegExp(`^${food.name}`) })
+    .click();
+  const where = sheet.getByLabel(/^Where/);
+  const usual = await where.locator("option:checked").textContent();
+  await where.selectOption({ label: "+ Place" });
+  const box = sheet.getByRole("group", { name: "New place" });
+  await box.getByRole("button", { name: "Cancel" }).click();
+  await expect(box).toHaveCount(0);
+  // Cancelled: the sheet is still open and shows where it was.
+  await expect(sheet).toBeVisible();
+  await expect(where.locator("option:checked")).toHaveText(usual!);
+  await where.selectOption({ label: "+ Place" });
+  await box.getByRole("textbox", { name: "Place’s name" }).fill("spice RACK");
+  await box.getByRole("button", { name: "Add place" }).click();
+  await expect(where.locator("option:checked")).toHaveText("Spice rack");
+  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+    before,
+  );
+});
+
 test("Ctrl+Z undoes a pantry change on desktop", async ({ page }) => {
   test.skip(isPhone(page), "Ctrl+Z is a desktop keyboard shortcut");
   const food = await stocked(page, "Coriander", 0);
