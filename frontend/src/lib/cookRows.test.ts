@@ -9,6 +9,7 @@ import {
   isUsed,
   newRowState,
   numberWords,
+  recipeSays,
   shown,
   sizeAnswer,
   withAnswer
@@ -68,6 +69,18 @@ describe('the words', () => {
     expect(numberWords(0.33)).toBe('0.33');
     expect(amountWords(300, 'g')).toBe('300 g');
     expect(amountWords(2, 'count')).toBe('2');
+  });
+});
+
+describe("the recipe's side", () => {
+  it('says the amount, the unit and the words as the recipe has them', () => {
+    const jaggery = row({
+      lines: [
+        { id: 1, words: 'jaggery', amount: '1½', unit: 'tbsp' },
+        { id: 2, words: 'jaggery, grated' }
+      ]
+    });
+    expect(recipeSays(jaggery)).toBe('1½ tbsp jaggery + jaggery, grated');
   });
 });
 

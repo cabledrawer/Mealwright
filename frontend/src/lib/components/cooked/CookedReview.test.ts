@@ -20,7 +20,7 @@ function row(name: string, id: number, extra: Partial<CookRow> = {}): CookRow {
   return {
     key: `food:${id}`,
     status: 'take',
-    lines: [{ id, words: `200 g ${name.toLowerCase()}` }],
+    lines: [{ id, words: name.toLowerCase(), amount: '200', unit: 'g' }],
     food: { id, name },
     recipe: null,
     needed: amount(200),
@@ -346,7 +346,7 @@ describe('the "Cooked it" review', () => {
         takes: [],
         needed: null,
         use: true,
-        lines: [{ id: 1, words: '1½ tbsp jaggery' }],
+        lines: [{ id: 1, words: 'jaggery', amount: '1½', unit: 'tbsp' }],
         ask: cup,
         ask_need: { amount: 25, unit: 'ml' },
         half: amount(250),
@@ -356,7 +356,7 @@ describe('the "Cooked it" review', () => {
     it('asks in the pantry unit, learns the answer, and marks the amount an estimate', async () => {
       const worked = row('Jaggery', 1, {
         estimate: true,
-        lines: [{ id: 1, words: '1½ tbsp jaggery' }],
+        lines: [{ id: 1, words: 'jaggery', amount: '1½', unit: 'tbsp' }],
         takes: [
           {
             ...row('Jaggery', 1).takes[0]!,

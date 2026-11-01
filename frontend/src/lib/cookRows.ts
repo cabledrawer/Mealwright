@@ -179,7 +179,8 @@ export const unitLabel = (row: CookRow): string =>
   row.unit === 'g' || row.unit === 'ml' ? row.unit : '';
 
 /** The recipe's own words for a row, "1½ tbsp jaggery": each side keeps its own unit (F106). */
-export const recipeSays = (row: CookRow): string => row.lines.map((l) => l.words).join(' + ');
+export const recipeSays = (row: CookRow): string =>
+  row.lines.map((l) => [l.amount, l.unit, l.words].filter((part) => part).join(' ')).join(' + ');
 
 /** Whether a row's recipe side and pantry side are in different units (so it says both). */
 export const unitsDiffer = (row: CookRow): boolean =>

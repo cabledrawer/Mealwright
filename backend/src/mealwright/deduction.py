@@ -37,6 +37,7 @@ from sqlalchemy import select
 
 from mealwright.amounts import MILLI, TooBig, checked, round_half_up, unit_family, unit_size
 from mealwright.api.v1.context import Kitchen
+from mealwright.api.v1.recipe_schemas import amount_text
 from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
 from mealwright.conversions import AskOnce, UnitAmount, to_base_milli
 from mealwright.errors import Problem
@@ -652,6 +653,8 @@ def settle_meal(worked: list[Worked]) -> None:
 class RowLineOut(BaseModel):
     id: int
     words: str
+    amount: str | None = None  # the recipe's own amount as written: "1½"
+    unit: str | None = None  # and its unit: "tbsp"
 
 
 class LotTakeOut(BaseModel):
@@ -765,7 +768,15 @@ def row_out(kitchen: Kitchen, row: Row, names: dict[int, str]) -> RowOut:
     return RowOut(
         key=row.key,
         status=row.status,
-        lines=[RowLineOut(id=line.id, words=line.words) for line in row.lines],
+        lines=[
+            RowLineOut(
+                id=line.id,
+                words=line.words,
+                amount=amount_text(line.amount_milli),
+                unit=line.unit,
+            )
+            for line in row.lines
+        ],
         food=Ref(id=food.id, name=food.name) if food else None,
         recipe=Ref(id=row.inner.id, name=row.inner.name) if row.inner else None,
         needed=amount_out(food, row.needed, None) if food and row.needed is not None else None,

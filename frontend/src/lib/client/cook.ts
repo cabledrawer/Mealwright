@@ -34,7 +34,7 @@ export interface Need {
 export interface CookRow {
   key: string;
   status: RowStatus;
-  lines: { id: number; words: string }[];
+  lines: { id: number; words: string; amount?: string | null; unit?: string | null }[];
   food: Ref | null;
   recipe: Ref | null;
   needed: AmountOut | null;

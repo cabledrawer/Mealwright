@@ -572,3 +572,23 @@ These are the sentences the server sends back (`detail`); the review screen in K
 - A meal cooked together, in Recent changes: **Cooked Sambar and Rasam** (three or more: **Cooked Sambar, Rasam and Dosa**).
 - A meal's recipes: **There’s no recipe in this meal to cook.** · **A recipe can be chosen only once.**
 - Running low after cooking (the review's wording is K3's): the offer to add is not ticked; it adds one of the smallest size, else the running-low level.
+
+## 28. "Cooked it", the review (0.7 K3; proposed, for cabledrawer unless the mockup has the words)
+
+The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-Phone` and their dark twins have most of the words; the rest are proposed. This replaces the 0.6 sheet's "Your pantry isn’t changed by this yet." (section 22): the review is where the pantry changes.
+
+- **Header:** *Thu 15 Oct · dinner* · **Cooked Sambar** (a meal with several recipes: **Cooked Dosa and Chutney**) · *Check what comes out of the pantry* · Cancel.
+- **Tabs** (a meal with several recipes): one for each recipe, by its name; the screen reads them as *Recipes in this meal*.
+- **Portions:** **Portions cooked** · *as planned* (or *recipe × 1.5*) · Fewer portions · More portions.
+- **The table:** Ingredient · From · Before → after · Take · Use. A row: the ingredient, where it is (*Fridge, Cupboard*, or **Not in pantry**), *800 g → 600 g*, *−200 g*, the switch (*Take Toor dal from the pantry*). A recipe line in another unit than the pantry shows both: *Recipe says 1½ tbsp jaggery*. Instead of the ingredient: *Instead: Butter*. *nothing to take*.
+- **Estimate (F106, proposed):** a small tag **estimate** on a take that was worked out by changing units (title: *Worked out by changing units*).
+- **Used / Left:** **Used** · **Left** · Fewer Onions · More Onions; for an amount in g or ml, tap the amount (*Change how much*) for the box (*How much was used* / *How much is left*, in g or ml) and **As worked out**.
+- **Not in the pantry:** **Not in pantry** · **Bought some — used them** (the mockup's words; the switch is off and cannot be turned on).
+- **The question in the pantry's unit (F106, proposed):** **How much Jaggery did you use?** · box with *g* (or *ml*) · **Use this** · **About half** · **Skip** · **Remember for next time** (on). Too far off to be a real weight: **That doesn’t look right. Try another amount.** After Skip: *Skipped* · **Ask again**. When one number cannot settle it (cups against a count) the question is the existing one (section 7) with **Answer** · **Skip**.
+- **A line with "2 cloves" in its note and no amount (F89, proposed):** **How much Garlic is 2 cloves?** with the same buttons; the answer is kept as the ingredient's size *clove*.
+- **Freezer, list and recipes:** *Take from the freezer too (2 tubs)* · *Short by 200 g. Add 200 g to the shopping list* · *Running low. Add 1 packet to the shopping list* · *Make Sambar powder first?*.
+- **Footer:** *3 ingredients will change* (*1 ingredient will change*, *Nothing will be taken from the pantry*) · *1 tub → Fridge* · *Nothing changes until you confirm. You can undo it from the message that follows, or from Pantry → Recent changes.* · Cancel · **Confirm · update pantry** (**Saving…**).
+- **Other:** *Working out what to take…* · *Nothing in this recipe comes from the pantry.* · *Nothing in this meal comes from the pantry.* · *Staples · not counted*.
+- **Where it opens:** **Cooked it** on Today's "Did you cook…?" card, on a meal eaten today that is still planned, and in the Plan's menu for a meal whose day has come.
+- **Toast** (after Confirm, one Undo for the pantry and the meal): the server's sentence, e.g. *Cooked Sambar (Dinner on Sat 24 Oct)*, with Undo.
+- **Refusal (server):** taking a cooked batch off the plan: **This was cooked on Mon 2 Nov. Undo “Cooked it” first.**
