@@ -604,6 +604,22 @@ The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-
 - **Undo of an older cook** leaves a size that a later cook changed, and says (with the usual "partly" words): **A later cook changed the size of a clove, so it was left as it is.**
 - **A reply that was lost:** **Couldn’t reach the server. Some of “Cooked it” may be saved: check Recent changes.** Nothing is taken back then; each change that worked keeps its Undo.
 
+## 29. Cook mode (0.7 K4; proposed, for cabledrawer unless the spec or mockup has the words)
+
+The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Experimental07` have most of the words. Spec: section 6, "Cook mode timers", "Cook mode ingredients" and "Cook mode (K4)". The words marked (spec) are cabledrawer's; the rest are proposed.
+
+- **Recipe page:** **Cook now** (spec: a main button above the ingredients). The recipe page no longer has Keep screen awake.
+- **Top of Cook mode:** the cross (*Leave Cook mode*) · the recipe's name · *Step 2 of 4* (*No steps* when the method has none) · **Awake** while the screen is kept on.
+- **A step:** the heading of its section above it, as a title; the step's number, big; its words.
+- **Buttons:** **← Back** · **Next →** · **Show ingredients** · on the last step **Cooked it** (spec) and **Not now** (spec). **Cooked it** is not shown yet when Cook mode was opened with Cook now (see the pull request).
+- **Ingredients sheet:** **All ingredients** · **Done**.
+- **A recipe with no steps:** **This recipe has no steps yet.**
+- **Timers:** the words found ("10 minutes") · **Start timer** · while it runs, **Stop** · when it ends **Time’s up** and **Done** · for the screen reader *Timer finished: 10 minutes.* · on the other steps a button *Step 2 · 04:32* or *Step 2 · time’s up* · **No alarm if the phone is locked or Mealwright is in the background.** (the spec says Cook mode says so; these are the words).
+- **Keep screen awake:** the switch is **Keep screen awake**; where the browser can't, it is greyed with **This browser can’t keep the screen on** (spec); when the browser says no: *Couldn’t keep the screen awake.* (from 0.4).
+- **Experimental per-step ingredients:** the switch **Ingredients for each step** with the badge **Experimental** and the pink flask · under a step **For this step** · **Experimental · guessed** (mockup) · **Wrong? Fix it when you edit the recipe.** (mockup) · nothing guessed: **No ingredient guessed for this step.**
+- **Leaving with a timer running:** **Stop the timer and leave?** with **Stay** and **Leave** (spec).
+- **Page title:** *Cooking Sambar · Mealwright*.
+
 ## 30. Portions, Serves, who's eating and Notes (0.7 P1; proposed, for cabledrawer unless the mockup or spec has the words)
 
 Written by Claude Code on 1 Nov from the mockup `Leftovers07-Phone` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" and "A "Note" plan item". cabledrawer's own words (spec, 28 Oct): "Portions", "Leftovers on…", "No portions left", "Cook more", "Add anyway", "Serves − N +", and the Note examples "eating out", "takeaway", "at Amma's".

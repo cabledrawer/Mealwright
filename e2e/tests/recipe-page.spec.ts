@@ -158,50 +158,22 @@ test('a recipe that uses an unchecked recipe never says all in stock', async ({ 
   await expect(reader(page).getByText(/missing|all in stock/i)).toHaveCount(0);
 });
 
-// --- Keep screen awake ---------------------------------------------------------------------
+// --- Cook now ------------------------------------------------------------------------------
 
-/** A stand-in for the browser's Wake Lock that counts what is asked and let go. */
-async function fakeWakeLock(page: Page) {
-  await page.addInitScript(() => {
-    const state = { asked: 0, released: 0 };
-    (window as any).__wake = state;
-    Object.defineProperty(navigator, 'wakeLock', {
-      configurable: true,
-      value: {
-        request: async () => {
-          state.asked++;
-          return { release: async () => void state.released++, addEventListener: () => {} };
-        },
-      },
-    });
-  });
-}
-
-test('Keep screen awake starts off, switches on, and turns itself off on leaving the page', async ({ page }) => {
-  await fakeWakeLock(page);
-  const { recipe } = await sambar(page);
-  await page.goto(`/recipes/${recipe.id}`);
-  const keepAwake = page.getByRole('switch', { name: 'Keep screen awake' });
-  await expect(keepAwake).toHaveAttribute('aria-checked', 'false');
-  await keepAwake.click();
-  await expect(keepAwake).toHaveAttribute('aria-checked', 'true');
-  expect(await page.evaluate(() => (window as any).__wake)).toEqual({ asked: 1, released: 0 });
-  // Leave by the app's own link (no reload): the lock is let go.
-  await page.getByRole('link', { name: 'Recipes' }).first().click();
-  await expect(page).toHaveURL('/recipes');
-  await expect.poll(() => page.evaluate(() => (window as any).__wake)).toEqual({ asked: 1, released: 1 });
-  // Back on the page it is off again.
-  await page.goBack();
-  await expect(page.getByRole('switch', { name: 'Keep screen awake' })).toHaveAttribute('aria-checked', 'false');
-});
-
-test('Keep screen awake is not there when the browser can’t do it', async ({ page }) => {
-  await page.addInitScript(() => Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: undefined }));
+test('Cook now is the main button above the ingredients and opens Cook mode; the recipe page has no Keep screen awake', async ({ page }) => {
   const { recipe, name } = await sambar(page);
   await page.goto(`/recipes/${recipe.id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await expect(page.getByText('Keep screen awake')).toHaveCount(0);
-  await expect(page.getByRole('switch')).toHaveCount(0);
+  const above = await page.evaluate(() => {
+    const cook = [...document.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Cook now');
+    const heading = [...document.querySelectorAll('h2')].find((h) => h.textContent?.trim() === 'Ingredients');
+    return !!cook && !!heading && !!(cook.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(above).toBe(true);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}/cook`);
+  await expect(page.getByRole('region', { name: 'Cook mode' })).toBeVisible();
 });
 
 // --- The states of the screen ----------------------------------------------------------------
