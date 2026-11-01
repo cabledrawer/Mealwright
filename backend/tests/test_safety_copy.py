@@ -296,3 +296,29 @@ def test_a_part_file_that_cant_be_removed_doesnt_stop_the_start(
         migrate.upgrade(engine, backups=backups)
     assert migrate.current_revision(engine) == _head()
     assert "Couldn't remove the half-written copy" in caplog.text
+
+
+def test_an_unreadable_marker_stops_the_start_with_a_plain_message(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    (backups / migrate.UPGRADE_FAILED).mkdir(parents=True)  # a folder: reading it fails
+    engine = _old_database(tmp_path / "mealwright.db")
+    with pytest.raises(migrate.SafetyCopyFailed, match=r"Couldn't read .*The database was not"):
+        migrate.upgrade(engine, backups=backups)
+    assert migrate.current_revision(engine) == OLD
+
+
+def test_a_marker_that_cant_be_written_stops_the_start_before_any_upgrade(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = Path.write_text
+
+    def refuse(self: Path, *args: object, **kwargs: object) -> int:
+        if self.name == migrate.UPGRADE_FAILED:
+            raise PermissionError("read-only")
+        return real(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    engine = _old_database(tmp_path / "mealwright.db")
+    monkeypatch.setattr(Path, "write_text", refuse)
+    with pytest.raises(migrate.SafetyCopyFailed, match=r"Couldn't write .*not changed"):
+        migrate.upgrade(engine, backups=tmp_path / "backups")
+    assert migrate.current_revision(engine) == OLD
