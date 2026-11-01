@@ -4,8 +4,7 @@
 //
 // Which meal (meal slots have names and an order, no times):
 //   1. the recipe is already planned today in a meal that is not cooked yet: that meal, nothing
-//      new is planned, and "Cooked it" reviews only this recipe's item there (proposed, for
-//      cabledrawer, 1 Nov);
+//      new is planned, and "Cooked it" reviews only this recipe's item there (cabledrawer 1 Nov);
 //   2. else the first meal that is on today, in order, with no meal at all yet;
 //   3. else the first meal that is on today whose meal is still planned (the recipe is added to
 //      it, and "Cooked it" then reviews only this recipe, not the others in that meal);
@@ -94,7 +93,7 @@ export class CookNow {
       if (!spot) throw new Error('no meal is on');
       if (spot.kind === 'planned') {
         this.mealId = spot.meal.id; // already planned: nothing new is added
-        // Proposed, for cabledrawer (1 Nov): as in rule 3, Cooked it reviews only this recipe's item
+        // cabledrawer 1 Nov: as in rule 3, Cooked it reviews only this recipe's item
         // (the first one if the meal has it twice), not the other recipes in that meal.
         this.itemId =
           spot.meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === recipeId)?.id ?? null;

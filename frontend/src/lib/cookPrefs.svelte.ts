@@ -1,7 +1,7 @@
 // Cook mode's per-step ingredients (Experimental): a household setting, off by default (cabledrawer
 // 1 Nov: "Once on, it stays on for the household"). It is read from and saved to the household
 // (GET and PATCH /household). Another phone sees a change the next time it opens Cook mode.
-// Proposed, for cabledrawer: any signed-in person of the household may change it.
+// Any signed-in person of the household may change it (cabledrawer 1 Nov).
 //
 // The switch changes at once; if the server can't take it, it goes back to what it was and the
 // usual words for "nothing was changed" say so.
