@@ -22,6 +22,10 @@ import type { Answer } from './client/types';
 import { choicesOf, newRowState, withAnswer, type RowState } from './cookRows';
 import { kitchen } from './freshness.svelte';
 import { save, type Outcome } from './save';
+import { toasts } from './toast.svelte';
+import { undoHistory, type UndoEntry } from './undo.svelte';
+
+export const COULDNT_COOK = 'Couldn’t save “Cooked it”. Nothing was changed. Try again.';
 
 /** One recipe to cook: a meal item, or a Cook once batch. */
 export interface CookPart {
@@ -70,6 +74,8 @@ export class CookReview {
   loading = $state(false);
   saving = $state(false);
   problem = $state<string | null>(null);
+  /** An answer could not be kept: the server takes at most 20 at a time. */
+  tooMany = $state(false);
 
   #seq = 0;
 
@@ -82,6 +88,7 @@ export class CookReview {
     this.tabs = target.parts.map((part) => new CookTab(part));
     this.active = 0;
     this.answers = [];
+    this.tooMany = false;
     this.problem = null;
     this.saving = false;
     await this.refresh();
@@ -148,7 +155,10 @@ export class CookReview {
 
   /** An answer to a question (a weight, a size). A newer one for the same question replaces it. */
   addAnswer(answer: Answer, refresh = true): Promise<void> {
-    this.answers = withAnswer(this.answers, answer);
+    const kept = withAnswer(this.answers, answer);
+    this.tooMany = kept === this.answers;
+    this.answers = kept;
+    if (this.tooMany) return Promise.resolve();
     return refresh ? this.refresh() : Promise.resolve();
   }
 
@@ -157,11 +167,14 @@ export class CookReview {
    * Resolves with every outcome; nothing was taken for one that failed (its toast says why).
    */
   async confirm(
-    options: { undoable?: boolean } = {}
-  ): Promise<Outcome<CookedMealWrite | CookedWrite>[]> {
-    const undoable = options.undoable ?? true;
+    options: {
+      /** What follows the pantry (the meal's answer): false makes the whole confirm fail. */
+      after?: (outcomes: Outcome<CookedMealWrite | CookedWrite>[]) => Promise<boolean>;
+    } = {}
+  ): Promise<{ ok: boolean; outcomes: Outcome<CookedMealWrite | CookedWrite>[] }> {
+    const undoable = false; // one Undo for the lot is made below, or by the meal's answer
     const target = this.target;
-    if (!target) return [];
+    if (!target) return { ok: false, outcomes: [] };
     const outcomes: Outcome<CookedMealWrite | CookedWrite>[] = [];
     const items = this.tabs.filter((t) => t.part.itemId !== null);
     this.saving = true;
@@ -196,8 +209,54 @@ export class CookReview {
         )
       );
     }
+    let ok = outcomes.every((o) => o.ok);
+    if (ok && options.after) ok = await options.after(outcomes);
+    if (!ok) await this.#takeBack(outcomes);
+    else if (!options.after && outcomes.length > 0) {
+      const done = outcomes.flatMap((o) => (o.ok ? [o.value] : []));
+      undoHistory.record(
+        this.#undoEntry(done, done.length === 1 ? done[0]!.change.summary : label)
+      );
+    }
     this.saving = false;
-    return outcomes;
+    return { ok, outcomes };
+  }
+
+  #undoEntry(done: (CookedMealWrite | CookedWrite)[], label: string): UndoEntry {
+    const undoers = done.filter((v) => v.change.can_undo).map((v) => serverUndo(v.change.id));
+    return {
+      label,
+      needsServer: true,
+      undo: async () => {
+        let said: string | void = undefined;
+        for (const undo of undoers.reverse()) said = (await undo()) ?? said;
+        return said;
+      }
+    };
+  }
+
+  /**
+   * One call failed (or the meal's answer did): put back what the others took, last first, and
+   * say nothing was changed. Whatever cannot be put back (the server went away) keeps a normal
+   * Undo, so nothing is left without one. (Proposed, for cabledrawer.)
+   */
+  async #takeBack(outcomes: Outcome<CookedMealWrite | CookedWrite>[]): Promise<void> {
+    const worked = outcomes.flatMap((o) => (o.ok && o.value.change.can_undo ? [o.value] : []));
+    const stayed: (CookedMealWrite | CookedWrite)[] = [];
+    for (const value of worked.reverse()) {
+      try {
+        await serverUndo(value.change.id)();
+      } catch {
+        stayed.push(value);
+      }
+    }
+    if (stayed.length === 0) {
+      toasts.show(COULDNT_COOK, { tone: 'problem' });
+      return;
+    }
+    for (const value of stayed) {
+      undoHistory.record(this.#undoEntry([value], value.change.summary));
+    }
   }
 
   #send<T extends CookedMealWrite | CookedWrite>(
@@ -225,7 +284,7 @@ export class CookReview {
 
 /** The answers the person gave on the screen, then any the server asked for as the confirm went. */
 function withAsked<B extends { answers: Answer[] }>(body: B, asked: Answer[]): B {
-  return { ...body, answers: [...body.answers, ...asked].slice(0, 20) };
+  return { ...body, answers: asked.reduce(withAnswer, body.answers) };
 }
 
 /** One Undo for what the outcomes changed in the pantry (the meal's Undo runs it too). */

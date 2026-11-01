@@ -344,9 +344,10 @@
   {leftover}
   {readonly}
   onclose={closeCooked}
-  onconfirmed={(leftovers, undoCooked) => {
+  onconfirmed={async (leftovers, undoCooked) => {
     const meal = cookedMeal;
-    if (meal) void model.cooked(meal, leftovers, undoCooked);
+    if (!meal) return true;
+    return (await model.cooked(meal, leftovers, undoCooked)).ok;
   }}
 />
 <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />

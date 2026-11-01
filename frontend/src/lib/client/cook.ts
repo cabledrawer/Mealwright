@@ -58,6 +58,8 @@ export interface CookRow {
   bought: boolean;
   /** What the pantry counts the ingredient in. */
   unit: 'g' | 'ml' | 'count' | null;
+  /** A counted ingredient's word, plural ("bulbs"). */
+  unit_word?: string | null;
 }
 
 export interface Proposal {

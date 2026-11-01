@@ -9,6 +9,7 @@ import {
   isUsed,
   newRowState,
   numberWords,
+  parseAmountText,
   recipeSays,
   shown,
   sizeAnswer,
@@ -214,5 +215,32 @@ describe('learning from a typed amount (F106)', () => {
     const b = { ...a, grams: 220 };
     const other = { ...a, food_id: 2 };
     expect(withAnswer([a, other], b)).toEqual([other, b]);
+  });
+});
+
+describe('at most 20 answers', () => {
+  it('never drops one quietly: past 20 the list is left as it is, and a replacement still works', () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      kind: 'item_weight' as const,
+      food_id: i + 1,
+      grams: 5,
+      remember: true
+    }));
+    const extra = { kind: 'item_weight' as const, food_id: 99, grams: 5, remember: true };
+    expect(withAnswer(many, extra)).toBe(many);
+    const again = { ...many[3]!, grams: 6 };
+    expect(withAnswer(many, again)).toHaveLength(20);
+    expect(withAnswer(many, again).at(-1)).toEqual(again);
+  });
+
+  it('typed amounts take fractions', () => {
+    expect([
+      parseAmountText('¼'),
+      parseAmountText('1½'),
+      parseAmountText('1/2'),
+      parseAmountText('2,5')
+    ]).toEqual([0.25, 1.5, 0.5, 2.5]);
+    expect(parseAmountText('abc')).toBeNaN();
+    expect(parseAmountText('')).toBeNaN();
   });
 });

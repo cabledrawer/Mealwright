@@ -311,9 +311,10 @@
   {leftover}
   readonly={model.readonly}
   onclose={closeCooked}
-  onconfirmed={(leftovers, undoCooked) => {
+  onconfirmed={async (leftovers, undoCooked) => {
     const waiting = answering;
-    if (waiting) void model.cooked(waiting, leftovers, undoCooked);
+    if (!waiting) return true;
+    return (await model.cooked(waiting, leftovers, undoCooked)).ok;
   }}
 />
 <MoveSheet {model} waiting={moving} onclose={() => (moving = null)} />

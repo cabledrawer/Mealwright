@@ -592,3 +592,10 @@ The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-
 - **Where it opens:** **Cooked it** on Today's "Did you cook…?" card, on a meal eaten today that is still planned, and in the Plan's menu for a meal whose day has come.
 - **Toast** (after Confirm, one Undo for the pantry and the meal): the server's sentence, e.g. *Cooked Sambar (Dinner on Sat 24 Oct)*, with Undo.
 - **Refusal (server):** taking a cooked batch off the plan: **This was cooked on Mon 2 Nov. Undo “Cooked it” first.**
+
+**K3 fix round 1 (all proposed, for cabledrawer):**
+- **A confirm that fails:** **Couldn’t save “Cooked it”. Nothing was changed. Try again.** (what the first call or the meal's answer took is put back, the screen stays open). If the server goes away so that it can't be put back, each change that stayed has its normal Undo message (*Cooked Sambar (2 portions)* · Undo).
+- **Too many answers:** **Too many questions at once. Answer these first, then Confirm.**
+- **Counted garlic (F89):** **2 cloves is how many bulbs of Garlic?** (no count word: *…how many Garlic?*), the box says *bulbs*; ¼, ½, ¾, 1½ and 1/2 are read.
+- **Refusal (server), API message:** **Bought some means Use is off, with no amount.**
+- **About half** of a counted packet with no size is half of what is left (3 onions → 1½).

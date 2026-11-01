@@ -5,7 +5,7 @@
   // Confirm and one Undo. A meal with several recipes has one tab for each. Today's "Did you
   // cook…?" and the Plan's Cooked it open this same screen. The words are proposed, for cabledrawer.
   import type { Leftovers } from '#lib/client/today.js';
-  import { changeCount } from '#lib/cookRows.js';
+  import { TOO_MANY_ANSWERS, changeCount } from '#lib/cookRows.js';
   import { undoAll, type CookReview } from '#lib/cookReview.svelte.js';
   import { pickedDateWords } from '#lib/dates.js';
   import { downLine } from '#lib/downWords.js';
@@ -37,7 +37,7 @@
     onconfirmed?: (
       leftovers: Leftovers | null,
       undoCooked: () => Promise<string | void>
-    ) => void | Promise<void>;
+    ) => void | boolean | Promise<void | boolean>;
   } = $props();
 
   const uid = $props.id();
@@ -85,8 +85,6 @@
 
   async function confirm() {
     if (!target) return;
-    const outcomes = await review.confirm({ undoable: !onconfirmed });
-    if (outcomes.some((o) => !o.ok)) return; // the toast says why; the screen stays
     const leftovers: Leftovers | null =
       count > 0 && leftover
         ? {
@@ -96,9 +94,14 @@
             ...(chosen ? { use_by: chosen } : {})
           }
         : null;
-    // The answer first: closing the screen lets go of what it was about.
-    await onconfirmed?.(leftovers, undoAll(outcomes));
-    onclose();
+    // The meal's answer follows the pantry; if either fails the pantry is put back and the
+    // screen stays open, so Confirm can be pressed again.
+    const { ok } = await review.confirm({
+      after: onconfirmed
+        ? async (outcomes) => (await onconfirmed(leftovers, undoAll(outcomes))) !== false
+        : undefined
+    });
+    if (ok) onclose(); // the answer was given first: closing lets go of what it was about
   }
 
   function closeOnBackdrop(event: MouseEvent) {
@@ -160,6 +163,10 @@
           <p class="note" role="status">
             {downLine(network.deviceOffline, (b) => `Cooked it changes ${b.when}.`)}
           </p>
+        {/if}
+
+        {#if review.tooMany}
+          <p class="problem" role="alert">{TOO_MANY_ANSWERS}</p>
         {/if}
 
         {#if review.nothingToTake}

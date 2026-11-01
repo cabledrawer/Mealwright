@@ -166,17 +166,36 @@ export function sizeAnswer(
 }
 
 /** Keep one answer for each question: a newer one replaces the older (same ingredient and kind). */
+export const MOST_ANSWERS = 20;
+
+/** Say so when an answer cannot be kept because the server takes at most MOST_ANSWERS. */
+export const TOO_MANY_ANSWERS = 'Too many questions at once. Answer these first, then Confirm.';
+
 export function withAnswer(answers: Answer[], next: Answer): Answer[] {
   const same = (a: Answer) =>
     a.food_id === next.food_id &&
     a.kind === next.kind &&
     (a.kind !== 'size' || (next.kind === 'size' && a.name === next.name));
-  return [...answers.filter((a) => !same(a)), next];
+  const rest = answers.filter((a) => !same(a));
+  return rest.length >= MOST_ANSWERS ? answers : [...rest, next];
 }
 
 /** The unit word next to a typed amount: "g", "ml", or the ingredient's count word. */
 export const unitLabel = (row: CookRow): string =>
-  row.unit === 'g' || row.unit === 'ml' ? row.unit : '';
+  row.unit === 'g' || row.unit === 'ml' ? row.unit : (row.unit_word ?? row.food?.name ?? '');
+
+const GLYPHS: Record<string, number> = { '¼': 0.25, '½': 0.5, '¾': 0.75 };
+
+/** A typed amount: "2", "1,5", "¼", "1½", "1/2". NaN when it isn't one. */
+export function parseAmountText(text: string): number {
+  const t = text.trim().replace(',', '.');
+  if (t === '') return NaN;
+  const glyph = /^(\d+)?\s*([¼½¾])$/.exec(t);
+  if (glyph) return Number(glyph[1] ?? 0) + (GLYPHS[glyph[2]!] ?? 0);
+  const fraction = /^(\d+)?\s*(\d+)\/(\d+)$/.exec(t);
+  if (fraction) return Number(fraction[1] ?? 0) + Number(fraction[2]) / Number(fraction[3]);
+  return /^\d*\.?\d+$/.test(t) ? Number(t) : NaN;
+}
 
 /** The recipe's own words for a row, "1½ tbsp jaggery": each side keeps its own unit (F106). */
 export const recipeSays = (row: CookRow): string =>

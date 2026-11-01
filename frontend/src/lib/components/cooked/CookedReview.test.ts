@@ -498,6 +498,34 @@ describe('the "Cooked it" review', () => {
       await expect.element(dialog.getByRole('button', { name: 'Answer' })).toBeVisible();
     });
 
+    it('garlic counted by number asks in its own word, takes a fraction, and learns a clove as a part of one', async () => {
+      const garlic = row('Garlic', 4, {
+        status: 'no_amount',
+        takes: [],
+        needed: null,
+        use: false,
+        unit: 'count',
+        unit_word: 'bulbs',
+        lines: [{ id: 4, words: 'garlic' }],
+        count_note: { count: 2, word: 'clove' }
+      });
+      previews = [[proposal('Sambar', [garlic])]];
+      await show(['Sambar']);
+      const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });
+      await expect.element(dialog.getByText('2 cloves is how many bulbs of Garlic?')).toBeVisible();
+      await dialog.getByRole('textbox', { name: /^Your answer, in bulbs/ }).fill('¼');
+      await dialog.getByRole('button', { name: 'Use this' }).click();
+      await dialog.getByRole('button', { name: 'Confirm · update pantry' }).click();
+      await vi.waitFor(() => expect(confirmed).toHaveLength(1));
+      const sent = calls.find((c) => c.url.endsWith('/plan/meals/7/cook'))!;
+      expect(sent.body.items[0]!.choices).toEqual([
+        { key: 'food:4', use: true, used: { amount: 0.25, unit: 'count' } }
+      ]);
+      expect(sent.body.answers).toEqual([
+        { kind: 'size', food_id: 4, name: 'clove', amount: 0.125 }
+      ]);
+    });
+
     it('"2 cloves" asks in the pantry unit and learns the size of a clove', async () => {
       const garlic = row('Garlic', 4, {
         status: 'no_amount',

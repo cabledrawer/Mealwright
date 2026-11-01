@@ -10,6 +10,7 @@
     conversionAnswer,
     hasSwitch,
     numberWords,
+    parseAmountText,
     ownTake,
     recipeSays,
     shown,
@@ -65,7 +66,7 @@
   }
 
   const numberText = (n: number) => String(Math.round(n * 1000) / 1000);
-  const parse = (text: string) => Number(text.replace(',', '.'));
+  const parse = parseAmountText;
   const typedNumber = $derived(parse(typed));
 
   function setTyped(text: string) {
@@ -263,8 +264,15 @@
     <div class="extra ask" role="group" aria-labelledby="{uid}-q">
       <p id="{uid}-q" class="q">
         {#if countNote}
-          How much {name} is {numberWords(countNote.count)}
-          {countNote.word}{countNote.count === 1 ? '' : 's'}?
+          {#if counted}
+            {numberWords(countNote.count)}
+            {countNote.word}{countNote.count === 1 ? '' : 's'} is how many {row.unit_word
+              ? `${row.unit_word} of ${name}`
+              : name}?
+          {:else}
+            How much {name} is {numberWords(countNote.count)}
+            {countNote.word}{countNote.count === 1 ? '' : 's'}?
+          {/if}
         {:else}
           How much {name} did you use?
         {/if}
