@@ -48,10 +48,11 @@ class PlacesAndShops {
    * load() will bring them. */
   async reloadFor(id: number | null | undefined): Promise<void> {
     if (id == null || this.#asked.has(id) || !this.#loading) return;
+    // Marked before waiting, so several pickers given the same place fetch once.
+    this.#asked.add(id);
     const generation = this.#generation;
     await this.#loading.catch(() => {});
     if (generation !== this.#generation || this.places.some((p) => p.id === id)) return;
-    this.#asked.add(id);
     await this.load(true).catch(() => {});
   }
 

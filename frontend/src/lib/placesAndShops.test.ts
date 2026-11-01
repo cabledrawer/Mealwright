@@ -261,6 +261,14 @@ describe('signing out forgets the household’s shops and places', () => {
       expect(requests.filter((r) => r.path === '/places')).toHaveLength(2);
     });
 
+    it('several pickers given the same unknown place at once fetch once', async () => {
+      await wrensLoaded();
+      const requests = fakeApi(WITH_SHED);
+      await Promise.all([placesAndShops.reloadFor(5), placesAndShops.reloadFor(5)]);
+      expect(placesAndShops.places.map((p) => p.id)).toEqual([1, 5]);
+      expect(requests.filter((r) => r.path === '/places')).toHaveLength(1);
+    });
+
     it('a place that is in the list, or none, fetches nothing', async () => {
       await wrensLoaded();
       const requests = fakeApi(WITH_SHED);
