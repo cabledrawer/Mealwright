@@ -274,10 +274,14 @@
     outline-offset: 1px;
   }
 
+  /* The number and its tags (Today, COOK) wrap onto a second line in a narrow day, so none of
+     them reaches into the next day (F84). */
   .top {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
+    min-width: 0;
   }
 
   .num {
