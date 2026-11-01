@@ -108,6 +108,32 @@ describe('the ingredient editor, opened from anywhere', () => {
       .toBeInTheDocument();
   });
 
+  it('“+ Place” in Lives in makes the place and sets it as the ingredient’s place (L5)', async () => {
+    requests = fakeApi({
+      'GET /foods/7': () => [200, food],
+      'GET /places': [200, PLACES],
+      'GET /shops': [200, SHOPS],
+      'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
+      'PATCH /foods/7': (request) => {
+        food = { ...food, ...(request.body as object) } as typeof food;
+        return [200, { food, change: changeOf(900, 'Changed Toor dal') }];
+      }
+    });
+    const dialog = await openToorDal();
+    await dialog.getByLabelText(/^Lives in/).selectOptions('+ Place');
+    await page.getByRole('textbox', { name: 'Place’s name' }).fill('Garage freezer');
+    await page.getByRole('radio', { name: 'Freezer' }).click();
+    await page.getByRole('button', { name: 'Add place' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ place_id: 9 })
+    );
+    expect(requests.find((r) => r.method === 'POST' && r.path === '/places')?.body).toEqual({
+      name: 'Garage freezer',
+      kind: 'freezer'
+    });
+    await expect.element(dialog.getByLabelText(/^Lives in/)).toHaveDisplayValue('Garage freezer');
+  });
+
   it('asks “Pantry keeps it by”, with its hint (F119)', async () => {
     const dialog = await openToorDal();
     await expect.element(dialog.getByLabelText(/^Pantry keeps it by/)).toBeVisible();

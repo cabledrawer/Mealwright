@@ -520,6 +520,24 @@ describe('Import a recipe', () => {
       await expect.element(page.getByLabelText('Name').nth(1)).toBeVisible();
     });
 
+    it('“+ Place” in Usually kept in makes the place and keeps the new ingredient there (L5)', async () => {
+      const flow = await reviewing();
+      fakeApi({
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS],
+        'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }]
+      });
+      await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();
+      await page.getByRole('combobox', { name: 'Usually kept in' }).selectOptions('+ Place');
+      await page.getByRole('textbox', { name: 'Place’s name' }).fill('Garage freezer');
+      await page.getByRole('radio', { name: 'Freezer' }).click();
+      await page.getByRole('button', { name: 'Add place' }).click();
+      await vi.waitFor(() => expect(flow.choices[2]).toMatchObject({ place_id: 9 }));
+      await expect
+        .element(page.getByRole('combobox', { name: 'Usually kept in' }))
+        .toHaveDisplayValue('Garage freezer');
+    });
+
     it('will not close the form on an empty name', async () => {
       await reviewing();
       await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();

@@ -70,6 +70,7 @@ describe('the Pantry page', () => {
       'GET /foods/7': [200, toorDal()],
       'POST /foods/7/used': written('Used 200 g Toor dal'),
       'GET /places': [200, PLACES],
+      'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
       'POST /stock': [
         201,
         { change: changeOf(701, 'Added 2 packets Toor dal → Cupboard'), groups: [], short_by: null }
@@ -1163,6 +1164,26 @@ describe('the Pantry page', () => {
     await vi.waitFor(() =>
       expect(requests.find((r) => r.path === `/stock/${sample.paneer[0]!.id}/move`)?.body).toEqual({
         place_id: 2
+      })
+    );
+  });
+
+  it('a packet’s Move to… takes a new place made with + Place (L5)', async () => {
+    await render(1300);
+    await page
+      .getByRole('region', { name: 'What’s in the pantry' })
+      .getByRole('button', { name: /^Paneer/ })
+      .click();
+    await page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button').first().click();
+    const menu = page.getByRole('dialog', { name: /Paneer/ });
+    await menu.getByRole('button', { name: 'Move to…' }).click();
+    await menu.getByRole('button', { name: '+ Place' }).click();
+    await page.getByRole('textbox', { name: 'Place’s name' }).fill('Garage freezer');
+    await page.getByRole('radio', { name: 'Freezer' }).click();
+    await page.getByRole('button', { name: 'Add place' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.path === `/stock/${sample.paneer[0]!.id}/move`)?.body).toEqual({
+        place_id: 9
       })
     );
   });
