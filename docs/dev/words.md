@@ -622,7 +622,7 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 
 **Decisions for K4 (proposed, for cabledrawer; the lead's safest choices while the maintainer is away):**
 - ~~**Ingredients for each step** is remembered on this device.~~ Replaced by cabledrawer's 1 Nov decision: it is a household setting (see below).
-- **Cooked it** is not shown at the end of Cook mode when it was opened with Cook now (no meal in the plan to cook); only **Not now** is.
+- ~~**Cooked it** is not shown at the end of Cook mode when it was opened with Cook now (no meal in the plan to cook); only **Not now** is.~~ Replaced by cabledrawer's 1 Nov decision: Cook now plans the recipe first (see below); **Cooked it** is shown when the recipe was planned.
 - Cook mode shows the recipe's own amounts, not the servings chosen on the recipe page.
 - The per-step guess is made on the screen only; nothing is written when a recipe is saved.
 
