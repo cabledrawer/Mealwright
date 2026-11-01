@@ -169,12 +169,12 @@ describe('the recipe page', () => {
     // Numbered through the headings: the tempering starts at 2.
     const lists = document.querySelectorAll('ol');
     expect([...lists].map((ol) => ol.getAttribute('start'))).toEqual(['1', '2']);
-    // Edit opens the editor; Delete is in the ⋯ menu, shut here; the rest is not built yet.
+    // Edit opens the editor; Delete is in the ⋯ menu, shut here; Cook once is not built yet.
     await expect
       .element(page.getByRole('link', { name: 'Edit', exact: true }))
       .toHaveAttribute('href', '/recipes/1/edit');
     const text = document.body.textContent ?? '';
-    for (const hidden of ['Plan it', 'Start cooking', 'Cook once', 'Delete']) {
+    for (const hidden of ['Start cooking', 'Cook once', 'Delete']) {
       expect(text).not.toContain(hidden);
     }
   });
@@ -624,6 +624,72 @@ describe('the recipe page', () => {
       await expect.element(page.getByRole('heading', { name: 'Sambar' })).toBeVisible();
       expect(page.getByText('Keep screen awake').elements()).toHaveLength(0);
       expect(page.getByRole('switch').elements()).toHaveLength(0);
+    });
+  });
+
+  describe('Plan it (0.7)', () => {
+    const SLOTS = [
+      { id: 1, name: 'Breakfast', position: 1, enabled: true },
+      { id: 2, name: 'Dinner', position: 2, enabled: true }
+    ];
+    const change = {
+      id: 61,
+      kind: 'plan_add',
+      at: '2026-10-17T10:00:00Z',
+      who: { login_id: 1, name: 'Tess' },
+      summary: 'Planned Sambar for Dinner',
+      can_undo: true,
+      undo_until: null,
+      undone: null
+    };
+    const EMPTY_PLAN = {
+      start: '2026-10-12',
+      end: '2026-10-18',
+      meals: [],
+      batch_cooks: [],
+      tubs: []
+    };
+    const planRoutes = (): Parameters<typeof fakeShopping>[1] => ({
+      'GET /household': [200, { today: '2026-10-17', week_starts_on: 1 }],
+      'GET /meal-slots': [200, SLOTS],
+      'GET /plan': [200, EMPTY_PLAN],
+      'GET /plan/tubs-left': [200, { tubs: [], more: false }],
+      'GET /plan/people': [200, []],
+      'POST /plan/items': [200, { change, meal_id: 9, item_id: 10 }],
+      'POST /changes/61/undo': [200, { message: 'Undone', change: { ...change, undone: {} } }]
+    });
+
+    it('is a button beside Cook now', async () => {
+      await open({}, STOCK, planRoutes());
+      await expect
+        .element(page.getByRole('button', { name: 'Plan it', exact: true }))
+        .toBeVisible();
+      await expect.element(page.getByRole('link', { name: 'Cook now' })).toBeVisible();
+    });
+
+    it('asks for the day and the meal, plans the recipe there, and offers Undo', async () => {
+      await open({}, STOCK, planRoutes());
+      await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+      const sheet = page.getByRole('dialog', { name: 'Sambar' });
+      await expect.element(sheet.getByRole('heading', { name: 'Plan it on…' })).toBeVisible();
+      await sheet.getByRole('button', { name: 'Saturday 17 October' }).click();
+      await sheet.getByRole('button', { name: 'Dinner' }).click();
+      await sheet.getByRole('button', { name: 'Plan it here' }).click();
+      await expect.element(page.getByText('Planned Sambar for Dinner')).toBeVisible();
+      const posts = server.requests.filter((r) => r.method === 'POST' && r.path === '/plan/items');
+      expect(posts).toHaveLength(1);
+      expect(posts[0]!.body).toEqual({ date: '2026-10-17', slot_id: 2, recipe_id: 1 });
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await vi.waitFor(() =>
+        expect(server.requests.some((r) => r.path === '/changes/61/undo')).toBe(true)
+      );
+    });
+
+    it('says so, and opens nothing, when the plan can’t be read', async () => {
+      await open({}, STOCK, { ...planRoutes(), 'GET /plan': [500, { detail: 'no' }] });
+      await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+      await expect.element(page.getByText('Couldn’t load the plan. Try again.')).toBeVisible();
+      expect(page.getByRole('dialog').elements()).toHaveLength(0);
     });
   });
 

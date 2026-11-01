@@ -202,7 +202,7 @@
   .name {
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .totals,

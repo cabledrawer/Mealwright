@@ -92,7 +92,7 @@
     margin: 0;
     font-size: var(--text-2xl);
     font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   p {

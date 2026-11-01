@@ -34,6 +34,12 @@ const PAIRS: Pair[] = [
   ['--color-badge-text', '--color-badge-accent', 4.5],
   ['--color-badge-text', '--color-badge-warn', 4.5],
   ['--color-text', '--color-field', 4.5],
+  ['--color-cook-text', '--color-cook', 4.5], // Start cooking
+  ['--color-cook-on-soft', '--color-cook-soft', 4.5], // the COOK tag
+  ['--color-cook-on-soft', '--color-surface', 4.5], // "You cook today →"
+  ['--color-cook-on-soft', '--color-ground', 4.5],
+  ['--color-text', '--color-cook-soft', 4.5], // a batch's name and prep line
+  ['--color-text-muted', '--color-cook-soft', 4.5], // its "Makes 6 · cook × 1.5"
   ['--color-label', '--color-ground', 4.5],
   ['--color-label', '--color-surface', 4.5],
   ['--color-accent', '--color-field', 4.5], // "Show" in the password field

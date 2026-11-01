@@ -197,6 +197,13 @@
 
   /* One colour per batch cook in the Month view: the cook day is solid, its tubs a light tint
      (mockups Month-Desktop and Month-Phone). Six, taken in turn. */
+  /* Cooking is blue, with a pan icon, on every Cook view row and button (spec "The Plan redesign,
+     0.7.0"; mockups PlanCook07-*): a solid blue with white words, and a light blue for links. */
+  --color-cook: #1e4d7a;
+  --color-cook-text: #ffffff;
+  --color-cook-soft: #e1ecf6;
+  --color-cook-on-soft: #1e4d7a;
+
   --batch-1: #5b3e96;
   --batch-1-soft: #ede7f6;
   --batch-1-soft-text: #4a2f7a;
@@ -328,6 +335,11 @@
   --color-check-text: #e6c47a;
   --color-check-border: #a88a45; /* mockup #6b5526, lightened for 3:1 */
   --color-check-button: #4f3f1c;
+
+  --color-cook: #2b6299;
+  --color-cook-text: #ffffff;
+  --color-cook-soft: #1e2e3f;
+  --color-cook-on-soft: #7fb2e5;
 
   --batch-1: #7b5bb8;
   --batch-1-soft: #2d2540;

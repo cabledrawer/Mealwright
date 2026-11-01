@@ -337,4 +337,17 @@ describe('Cook now plans first', () => {
     expect(now.mealId).toBeNull();
     expect(now.text).toBe(NOT_PLANNED);
   });
+  it('Start cooking from the Plan: this item of this meal, no notice, and nothing planned', () => {
+    const planned = meal(7, 2, 'planned', [9, 5]);
+    const now = new CookNow();
+    now.open(5, 7, 71);
+    expect(now.noticeFor(5, 7)).toBeNull();
+    expect(now.canUndo).toBe(false);
+    expect(now.onlyItem(5, planned)?.id).toBe(71);
+    // Another recipe's Cook mode, or another meal: the whole meal.
+    expect(now.onlyItem(6, planned)).toBeNull();
+    expect(now.onlyItem(5, meal(8, 2, 'planned', [5]))).toBeNull();
+    now.leave();
+    expect(now.onlyItem(5, planned)).toBeNull();
+  });
 });

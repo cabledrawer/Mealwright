@@ -399,7 +399,7 @@
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   h2 {
@@ -600,12 +600,12 @@
     background: var(--c);
     color: #fff;
     font-weight: var(--weight-bold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .has {
     color: var(--color-text-muted);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .tub {
@@ -633,7 +633,7 @@
     min-width: 0;
     padding: 0 var(--space-4);
     text-align: left;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .tub .pick[aria-pressed='true'] {

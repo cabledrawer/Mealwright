@@ -9,7 +9,7 @@
   // editor does; mockups RecipeDelete-*). The photo is
   // above the name on a phone and beside the nutrition figures in the desktop's reading pane;
   // a recipe without one has no box. Hidden until they
-  // work, not stubbed: Plan it and Cook once (0.7). "From: <site> ·
+  // work, not stubbed: Cook once (0.7). Plan it opens the Plan's day-and-meal picker. "From: <site> ·
   // by <author>" shows for an imported recipe (0.5); a typed-in recipe's source note is shown as
   // typed, as a link if it is a web address.
   import { goto } from '$app/navigation';
@@ -22,6 +22,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import RecipePhoto from '#lib/components/RecipePhoto.svelte';
   import RecipeIngredient from '#lib/components/RecipeIngredient.svelte';
+  import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import RowMenu from '#lib/components/shopping/RowMenu.svelte';
   import ServingsStepper from '#lib/components/ServingsStepper.svelte';
   import { cookNow } from '#lib/cookNow.svelte.js';
@@ -30,6 +31,8 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { PantryList } from '#lib/pantryList.svelte.js';
+  import { PlanModel } from '#lib/plan.svelte.js';
+  import { pickerActions, type PlanTarget } from '#lib/planActions.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
   import { go, RECIPES } from '#lib/recipes/paths.js';
   import { removeRecipe } from '#lib/recipes/remove.js';
@@ -55,6 +58,27 @@
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(id) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(cookNow.mealId ? `${to}?meal=${cookNow.mealId}` : to);
+  }
+
+  // Plan it: the Plan's own day-and-meal picker, then the recipe is planned there with an Undo
+  // (the toast), like everywhere on the Plan. The plan is read when the button is pressed, so
+  // the meals that are on, and today, are the household's.
+  const planModel = new PlanModel();
+  const planActions = pickerActions(planModel, () => network.offline);
+  let planning = $state<PlanTarget | null>(null);
+  let planBusy = $state(false);
+
+  async function planIt() {
+    if (!recipe || planBusy) return;
+    planBusy = true;
+    const [wanted, wantedName] = [recipe.id, recipe.name];
+    await planModel.load();
+    planBusy = false;
+    if (!planModel.loaded) {
+      toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });
+      return;
+    }
+    planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName } };
   }
 
   const view = new RecipeView(untrack(() => id));
@@ -202,6 +226,9 @@
             aria-busy={cookNow.busy}
             onclick={cookNowClicked}>Cook now</a
           >
+          <button type="button" class="plan" aria-busy={planBusy} onclick={() => void planIt()}
+            >Plan it</button
+          >
         </div>
       {/if}
 
@@ -324,6 +351,8 @@
   {/if}
 </div>
 
+<PlanSheet actions={planActions} target={planning} onclose={() => (planning = null)} />
+
 <style>
   .page {
     display: flex;
@@ -385,6 +414,23 @@
     font-size: 1rem;
     font-weight: var(--weight-bold);
     text-decoration: none;
+  }
+
+  .plan {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-height: 54px;
+    padding: 0 var(--space-8);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 1rem;
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .cook:hover {

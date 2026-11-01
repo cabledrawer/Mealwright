@@ -96,6 +96,9 @@
   onMount(() => {
     void load();
     void cookPrefs.load(); // the household's per-step switch
+    // Start cooking from the Plan names the meal's day (?day=): the plan is read for that week.
+    const day = page.url.searchParams.get('day');
+    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) model.anchor = day;
     if (mealId) void model.load();
   });
 

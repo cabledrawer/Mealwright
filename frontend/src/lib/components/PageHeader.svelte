@@ -65,6 +65,8 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
+    /* The title keeps its words whole: at a large text size the buttons wrap under it. */
+    flex-wrap: wrap;
     gap: var(--space-6);
   }
 
@@ -130,7 +132,7 @@
     letter-spacing: var(--tracking-tight);
     word-spacing: normal;
     line-height: 1.15;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .settings {

@@ -147,6 +147,16 @@ export class CookNow {
     }
   }
 
+  /**
+   * "Start cooking" from the Plan: the recipe is already planned in this meal, so nothing is
+   * planned and there is no notice; Cook mode opens for this item and "Cooked it" reviews only it.
+   */
+  open(recipeId: number, mealId: number, itemId: number): void {
+    this.#reset(recipeId);
+    this.mealId = mealId;
+    this.itemId = itemId;
+  }
+
   /** The notice for a Cook mode page: only for this recipe and the ?meal= it was opened with
    *  (so a later visit, such as going back in history, shows none). */
   noticeFor(recipeId: number, mealId: number | null): { text: string; canUndo: boolean } | null {

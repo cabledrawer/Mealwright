@@ -300,7 +300,7 @@
     margin: 0;
     font-size: var(--text-2xl);
     font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .note {
@@ -464,7 +464,7 @@
   .what {
     flex: 1 1 8rem;
     font-weight: var(--weight-semibold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .what small {

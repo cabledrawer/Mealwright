@@ -524,7 +524,7 @@
   h2 {
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   h3 {

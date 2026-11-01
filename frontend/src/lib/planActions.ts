@@ -34,3 +34,27 @@ export type PlanTarget =
   | { kind: 'recipe'; recipe: { id: number; name: string } }
   | { kind: 'tubleft'; tub: TubLeft }
   | { kind: 'day'; day: string };
+
+/**
+ * The day-and-meal picker on its own, where there is no Plan screen around it (the recipe page's
+ * Plan it): only the model and whether the plan can be changed matter; nothing here opens a menu
+ * or drags.
+ */
+export function pickerActions(model: PlanModel, readonly: () => boolean): PlanActions {
+  const nothing = { label: '', zones: false, drop: () => {} };
+  return {
+    model,
+    get readonly() {
+      return readonly();
+    },
+    desktop: true,
+    openMeal: () => {},
+    openItem: () => {},
+    openCookOnce: () => {},
+    openCooked: () => {},
+    add: () => {},
+    openDay: () => {},
+    carryMeal: () => nothing,
+    carryItem: () => nothing
+  };
+}

@@ -308,7 +308,7 @@
   h2 {
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .slots {
@@ -381,7 +381,7 @@
   .name {
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   .meta,

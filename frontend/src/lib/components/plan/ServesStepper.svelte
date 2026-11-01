@@ -83,7 +83,7 @@
     flex: 1 1 6rem;
     font-size: var(--text-xl);
     font-weight: var(--weight-bold);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   button {

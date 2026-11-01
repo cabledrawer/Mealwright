@@ -2,13 +2,16 @@
   // Plan (mockups Plan, Desktop-Plan, Month-Desktop, Month-Phone and their dark twins).
   //   computer / iPad: the week grid or the month, a recipe tray under it; drag by mouse or finger
   //     (Alt copies), and a menu on click, Enter or a held finger that does all of it;
-  //   phone: the week as a list of days, the month as a dot grid; press and hold for the menu.
+  //   phone and anything under 1100 px: the week as a list of days, the month as a dot grid; press
+  //     and hold for the menu.
   // Online only, like the Pantry: offline the plan can be read but not changed. Cook once, eat for…
   // (PR 4) makes tubs, which can be placed, moved, given to someone and frozen.
   import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { browser } from '$app/env';
-  import { onMount, untrack } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import { onMount, tick, untrack } from 'svelte';
   import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -17,34 +20,90 @@
   import CookOnce from '#lib/components/plan/CookOnce.svelte';
   import NoPortions from '#lib/components/plan/NoPortions.svelte';
   import PlanAdd from '#lib/components/plan/PlanAdd.svelte';
+  import PlanCook from '#lib/components/plan/PlanCook.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
+  import PlanEat from '#lib/components/plan/PlanEat.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
   import PlanMonthPhone from '#lib/components/plan/PlanMonthPhone.svelte';
+  import PlanShowSwitch from '#lib/components/plan/PlanShowSwitch.svelte';
   import PlanSheet from '#lib/components/plan/PlanSheet.svelte';
   import PlanWeek from '#lib/components/plan/PlanWeek.svelte';
   import RecipeTray from '#lib/components/plan/RecipeTray.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
+  import { cookNow } from '#lib/cookNow.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
+  import type { CookEntry } from '#lib/planCook.js';
   import { dayFull, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
+  import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
 
   const model = new PlanModel();
   const recipes = new RecipeList();
 
+  // Two widths: the phone (under 768 px: bottom tabs), and "compact" (under 1100 px: the phone's
+  // lists instead of the week grid and the month grid, whose seven columns are too narrow for the
+  // words, with no tray to drag from). Between 768 and 1100 px the sidebar stays (spec: every Plan
+  // screen works at 768–1100 px wide, with no words breaking in the middle).
   const PHONE = '(max-width: 767px)';
+  const COMPACT = '(max-width: 1099px)';
   let phone = $state(browser && matchMedia(PHONE).matches);
+  let compact = $state(browser && matchMedia(COMPACT).matches);
   $effect(() => {
-    const media = matchMedia(PHONE);
-    const onChange = () => (phone = media.matches);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
+    const [small, medium] = [matchMedia(PHONE), matchMedia(COMPACT)];
+    const onSmall = () => (phone = small.matches);
+    const onMedium = () => (compact = medium.matches);
+    small.addEventListener('change', onSmall);
+    medium.addEventListener('change', onMedium);
+    return () => {
+      small.removeEventListener('change', onSmall);
+      medium.removeEventListener('change', onMedium);
+    };
   });
+
+  // Both · Eat · Cook: kept on this device; Eat opens first on the phone, Both on the computer.
+  let show = $state<PlanShow>(untrack(() => readShow(phone)));
+  function setShow(next: PlanShow) {
+    show = next;
+    keepShow(next);
+  }
+
+  /** Earlier days of the week are folded away on a list (the phone, Eat, Cook). */
+  let earlier = $state(false);
+  const listed = $derived(compact || show !== 'both');
+  const past = $derived(
+    model.view === 'week' && listed && model.days.includes(model.today)
+      ? model.days.filter((d) => d < model.today)
+      : []
+  );
+  const dayList = $derived(earlier ? model.days : model.days.filter((d) => !past.includes(d)));
+  // Another week starts folded again.
+  $effect(() => {
+    void model.anchor;
+    untrack(() => (earlier = false));
+  });
+
+  /** "You cook today →": the Cook view, at that day. */
+  async function showCook(day: string) {
+    show = 'cook';
+    if (past.includes(day)) earlier = true;
+    await tick();
+    document.getElementById(`cook-${day}`)?.scrollIntoView({ block: 'start' });
+  }
+
+  /** Start cooking: Cook mode for this plan item, so "Cooked it" is there at the last step. */
+  async function startCooking(entry: CookEntry) {
+    if (entry.recipeId === null) return;
+    cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
+    const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
+    await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
+  }
 
   const TRAY_KEY = 'mealwright.plan-tray';
   let trayOpen = $state(readTray());
@@ -156,7 +215,7 @@
       return readonly;
     },
     get desktop() {
-      return !phone;
+      return !compact;
     },
     openMeal: (meal) => (sheet = { kind: 'meal', meal }),
     openItem: (meal, item) => (sheet = { kind: 'item', meal, item }),
@@ -218,9 +277,12 @@
   }}
 />
 
-<div class="plan" class:fill={!phone}>
-  <PageHeader title="Plan" overline={phone ? range : undefined}>
+<div class="plan" class:fill={!compact}>
+  <PageHeader title="Plan">
     {#snippet actions()}
+      {#if model.view === 'week' && !compact}
+        <PlanShowSwitch value={show} onchange={setShow} />
+      {/if}
       <div class="view" role="group" aria-label="View">
         <button
           type="button"
@@ -235,6 +297,10 @@
       </div>
     {/snippet}
   </PageHeader>
+
+  {#if model.view === 'week' && compact}
+    <div class="showrow"><PlanShowSwitch value={show} onchange={setShow} /></div>
+  {/if}
 
   <div class="toolbar">
     <!-- Only once the plan knows which week it is: while it can't load, no empty ‹ › (F67). -->
@@ -307,23 +373,36 @@
       {#if empty && model.view === 'week'}
         <p class="empty">
           Nothing planned this week.
-          {phone
+          {compact
             ? 'Tap + Add on a day to plan a meal.'
             : 'Drag a recipe up from the tray, or press + Add.'}
         </p>
       {/if}
       {#if model.view === 'week'}
-        {#if phone}
-          <PlanDays {actions} days={model.days} />
+        {#if past.length}
+          <button
+            type="button"
+            class="earlier"
+            aria-expanded={earlier}
+            onclick={() => (earlier = !earlier)}
+            >{earlier ? 'Hide earlier days' : 'Show earlier days'}</button
+          >
+        {/if}
+        {#if show === 'cook'}
+          <PlanCook {actions} days={dayList} onstart={startCooking} />
+        {:else if show === 'eat'}
+          <PlanEat {actions} days={dayList} oncook={showCook} />
+        {:else if compact}
+          <PlanDays {actions} days={dayList} />
         {:else}
           <PlanWeek {actions} />
         {/if}
-      {:else if phone}
+      {:else if compact}
         <PlanMonthPhone {actions} selected={picked} onselect={(day) => (picked = day)} />
       {:else}
         <PlanMonth {actions} />
       {/if}
-      {#if !phone}
+      {#if !compact && (model.view === 'month' || show === 'both')}
         <RecipeTray
           list={recipes}
           disabled={readonly}
@@ -398,6 +477,7 @@
   }
 
   .nav button {
+    flex: none;
     width: var(--touch-target);
     height: var(--touch-target);
     border: none;
@@ -511,6 +591,30 @@
 
   .sw.fresh {
     border: 1px solid var(--color-add-border);
+  }
+
+  .showrow {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .showrow :global(.show) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .earlier {
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .view {

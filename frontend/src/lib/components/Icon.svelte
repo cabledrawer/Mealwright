@@ -34,7 +34,9 @@
     | 'place-freezer'
     | 'place-cupboard'
     | 'place-spice'
-    | 'flask';
+    | 'flask'
+    | 'pan'
+    | 'play';
 </script>
 
 <script lang="ts">
@@ -142,6 +144,11 @@
     <path d="M9 3h6v3H9zM8 6h8l1 3v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9z" />
   {:else if name === 'arrow-right'}
     <path d="M4 12h12M12 6l6 6-6 6" />
+  {:else if name === 'pan'}
+    <path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" />
+    <path d="M17 13h3" />
+  {:else if name === 'play'}
+    <path d="M8 5v14l11-7z" fill="currentColor" />
   {:else if name === 'search'}
     <circle cx="11" cy="11" r="7" />
     <path d="M20 20l-3.5-3.5" />
