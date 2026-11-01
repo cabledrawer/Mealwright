@@ -42,6 +42,7 @@
 
   function meta(item: PlanItem): string {
     if (item.kind === 'tub') return tubMeta(item);
+    if (item.kind === 'note') return 'Note';
     const parts: string[] = [];
     if (item.recipe?.time_minutes) parts.push(`${item.recipe.time_minutes} min`);
     if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal`);

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanItem, PlanMeal } from './client/plan';
-import { withItemDropped, withMealDropped, withoutItem, withoutMeal } from './planEdits';
+import {
+  withEaters,
+  withItemDropped,
+  withMealDropped,
+  withoutItem,
+  withoutMeal,
+  withServings
+} from './planEdits';
 
 const item = (id: number, name: string, kcal: number | null = null): PlanItem => ({
   id,
@@ -10,13 +17,16 @@ const item = (id: number, name: string, kcal: number | null = null): PlanItem =>
   tub_id: null,
   ingredient: null,
   kept_name: null,
-  servings: null
+  servings: null,
+  note: null,
+  eating: null
 });
 const meal = (id: number, date: string, slot: number, items: PlanItem[]): PlanMeal => ({
   id,
   date,
   slot_id: slot,
   status: 'planned',
+  eater_login_ids: [],
   items,
   kcal: null
 });
@@ -85,5 +95,29 @@ describe('the plan straight after a change', () => {
   it('does nothing when dropped where it already is', () => {
     expect(withMealDropped(plan(), 1, '2026-10-19', 3, 'move')).toEqual(plan());
     expect(withItemDropped(plan(), 11, '2026-10-19', 3, 'copy')).toEqual(plan());
+  });
+});
+
+describe('Serves - N + and who is eating, straight after a change', () => {
+  it('sets how many a recipe is for, on a meal planned before the update too', () => {
+    const before = plan();
+    expect(before.meals[0]?.items[0]?.servings).toBeNull(); // no number set
+    const next = withServings(before, 11, 6);
+    expect(next.meals[0]?.items[0]).toMatchObject({ servings: 6, eating: 6 });
+    expect(next.meals[0]?.items[1]).toMatchObject({ servings: null }); // only that recipe
+    expect(before.meals[0]?.items[0]?.servings).toBeNull(); // the old plan is not touched
+  });
+
+  it('leaves anything that is not a recipe alone', () => {
+    const base = plan();
+    base.meals[1]!.items[0] = { ...base.meals[1]!.items[0]!, kind: 'note', note: 'Eating out' };
+    expect(withServings(base, 21, 4).meals[1]?.items[0]).toMatchObject({ servings: null });
+  });
+
+  it('ticks people for a meal, in order, and an empty list is everyone', () => {
+    const next = withEaters(plan(), 1, [3, 1]);
+    expect(next.meals[0]?.eater_login_ids).toEqual([1, 3]);
+    expect(next.meals[1]?.eater_login_ids).toEqual([]);
+    expect(withEaters(next, 1, []).meals[0]?.eater_login_ids).toEqual([]);
   });
 });

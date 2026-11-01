@@ -24,7 +24,9 @@ const recipe = (id: number, name: string): PlanItem => ({
   tub_id: null,
   ingredient: null,
   kept_name: null,
-  servings: null
+  servings: null,
+  note: null,
+  eating: null
 });
 const fruit: PlanItem = {
   id: 9,
@@ -34,15 +36,36 @@ const fruit: PlanItem = {
   tub_id: null,
   ingredient: { id: 1, name: 'Banana', removed: false },
   kept_name: null,
-  servings: null
+  servings: null,
+  note: null,
+  eating: null
 };
 const meal = (items: PlanItem[], kcal: number | null = null): PlanMeal => ({
   id: 1,
   date: '2026-10-19',
   slot_id: 1,
   status: 'planned',
+  eater_login_ids: [],
   items,
   kcal
+});
+
+const note = (id: number, text: string): PlanItem => ({
+  ...fruit,
+  id,
+  kind: 'note',
+  ingredient: null,
+  note: text
+});
+
+describe('a note in a meal (0.7 P1)', () => {
+  it('is called by its text, and counted as a note', () => {
+    expect(itemName(note(5, 'Eating out'))).toBe('Eating out');
+    expect(mealName(meal([note(5, 'At Amma’s')]))).toBe('At Amma’s');
+    expect(mealTotals(meal([note(5, 'Takeaway')]))).toBe('1 note');
+    expect(mealTotals(meal([note(5, 'Takeaway'), note(6, 'Ice cream')]))).toBe('2 notes');
+    expect(mealTotals(meal([note(5, 'Takeaway'), recipe(1, 'Dosa')]))).toBe('2 things');
+  });
 });
 
 describe('a meal card’s words', () => {
@@ -85,7 +108,9 @@ describe('a meal card’s words', () => {
           tub_count: 4,
           pattern: 'pick',
           prep_note: null,
-          colour: null
+          colour: null,
+          portions: 1,
+          portions_left: 0
         }
       ],
       tubs: [
@@ -129,7 +154,9 @@ describe('a meal card’s words', () => {
       tub_count: 2,
       pattern: 'pick' as const,
       prep_note: null,
-      colour: 'green'
+      colour: 'green',
+      portions: 1,
+      portions_left: 0
     };
     const tub = {
       id: 7,
@@ -161,6 +188,7 @@ describe('a meal card’s words', () => {
       date: '2026-10-18',
       slot_id: 1,
       status: 'planned',
+      eater_login_ids: [],
       items: [],
       kcal: null
     });

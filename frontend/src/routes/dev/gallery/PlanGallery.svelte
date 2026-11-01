@@ -20,7 +20,9 @@
     tub_id: null,
     ingredient: null,
     kept_name: null,
-    servings: null
+    servings: null,
+    note: null,
+    eating: null
   });
   const plain = (id: number, name: string) => ({
     id,
@@ -30,7 +32,9 @@
     tub_id: null,
     ingredient: { id, name, removed: false },
     kept_name: null,
-    servings: null
+    servings: null,
+    note: null,
+    eating: null
   });
 
   const model = new PlanModel();
@@ -52,6 +56,7 @@
         date: '2026-10-12',
         slot_id: 1,
         status: 'planned',
+        eater_login_ids: [],
         kcal: 230,
         items: [recipe(1, 'Idli & podi', 230, 15)]
       },
@@ -60,6 +65,7 @@
         date: '2026-10-12',
         slot_id: 2,
         status: 'planned',
+        eater_login_ids: [],
         kcal: 290,
         items: [
           recipe(2, 'Dosa', 230, 20),
@@ -71,6 +77,7 @@
         date: '2026-10-14',
         slot_id: 4,
         status: 'planned',
+        eater_login_ids: [],
         kcal: null,
         items: [
           recipe(4, 'A recipe with a very long name that has to wrap inside its card', null, 45)
@@ -81,6 +88,7 @@
         date: '2026-10-17',
         slot_id: 4,
         status: 'planned',
+        eater_login_ids: [],
         kcal: 340,
         items: [recipe(5, 'Vegetable upma', 340, 20), plain(6, 'Fruit')]
       }

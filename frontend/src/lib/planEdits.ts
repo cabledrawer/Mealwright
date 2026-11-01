@@ -18,7 +18,8 @@ const fresh = (plan: Plan, day: string, slotId: number): PlanMeal => {
     slot_id: slotId,
     status: 'planned',
     items: [],
-    kcal: null
+    kcal: null,
+    eater_login_ids: []
   };
   plan.meals.push(meal);
   return meal;
@@ -105,4 +106,24 @@ export function withItemDropped(
     into.items.push(copyOf(item));
   }
   return tidy(next);
+}
+
+/** Serves − N +: the number a recipe in a meal is for. */
+export function withServings(plan: Plan, itemId: number, servings: number): Plan {
+  const next = clone(plan);
+  for (const meal of next.meals)
+    for (const item of meal.items)
+      if (item.id === itemId && item.kind === 'recipe') {
+        item.servings = servings;
+        item.eating = servings;
+      }
+  return next;
+}
+
+/** Who is eating a meal (an empty list: everyone). */
+export function withEaters(plan: Plan, mealId: number, loginIds: number[]): Plan {
+  const next = clone(plan);
+  const meal = next.meals.find((m) => m.id === mealId);
+  if (meal) meal.eater_login_ids = [...loginIds].sort((a, b) => a - b);
+  return next;
 }

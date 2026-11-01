@@ -33,6 +33,7 @@ const meal = (
   slot_id: slot,
   status,
   kcal: null,
+  eater_login_ids: [] as number[],
   items: [
     {
       id: id * 10,
@@ -42,7 +43,9 @@ const meal = (
       tub_id: null,
       ingredient: null,
       kept_name: null,
-      servings: null
+      servings: null,
+      note: null,
+      eating: null
     }
   ]
 });
@@ -87,7 +90,9 @@ describe('the words on Today', () => {
             tub_id: 9,
             ingredient: null,
             kept_name: null,
-            servings: null
+            servings: null,
+            note: null,
+            eating: null
           }
         ]
       }
@@ -102,7 +107,9 @@ describe('the words on Today', () => {
         tub_count: 3,
         pattern: 'pick',
         prep_note: null,
-        colour: null
+        colour: null,
+        portions: 1,
+        portions_left: 0
       }
     ];
     p.tubs = [

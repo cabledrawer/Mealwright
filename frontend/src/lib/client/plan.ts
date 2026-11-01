@@ -24,13 +24,21 @@ export interface PlanRecipe extends Ref {
 export interface PlanItem {
   id: number;
   position: number;
-  kind: 'recipe' | 'tub' | 'ingredient';
+  kind: 'recipe' | 'tub' | 'ingredient' | 'note';
   recipe: PlanRecipe | null;
   tub_id: number | null;
   ingredient: (Ref & { removed: boolean }) | null;
   /** The name of a recipe or ingredient deleted for good (recipe and ingredient are then null). */
   kept_name: string | null;
   servings: number | null;
+  /** A note's text ("Eating out"); null for anything else. */
+  note: string | null;
+  /**
+   * Serves − N +: how many people a recipe is for now. Its own `servings` once set; else the
+   * recipe's Serves (a meal planned before 0.7 has none set); one for a batch's cook meal.
+   * null for anything but a recipe, and for a recipe with no Serves.
+   */
+  eating: number | null;
 }
 
 export interface PlanMeal {
@@ -41,6 +49,8 @@ export interface PlanMeal {
   items: PlanItem[];
   /** One serving of each item added up; null when none has kcal. */
   kcal: number | null;
+  /** Who is eating, by sign-in (proposed, for cabledrawer; member profiles come in 0.8). Empty: everyone. */
+  eater_login_ids: number[];
 }
 
 export interface PlanBatch {
@@ -54,6 +64,9 @@ export interface PlanBatch {
   prep_note: string | null;
   /** A palette name ("purple", "amber", "green", "blue", "rose", "teal"), or null. */
   colour: string | null;
+  /** Portions (0.7): the tubs plus the cook-day meal, and how many are not planned yet. */
+  portions: number;
+  portions_left: number;
 }
 
 export interface PlanTub {
@@ -94,9 +107,28 @@ export const getPlan = (from: string, to: string) =>
   api<Plan>('GET', `/plan?from=${from}&to=${to}`);
 
 export const planItem = (
-  body: { date: string; slot_id: number; recipe_id?: number; ingredient_id?: number },
+  body: {
+    date: string;
+    slot_id: number;
+    recipe_id?: number;
+    ingredient_id?: number;
+    note?: string;
+  },
   key: string
 ) => api<PlanWrite>('POST', '/plan/items', body, { idempotencyKey: key });
+
+/** Serves − N +: how many people a planned recipe is for. */
+export const setPlanServings = (id: number, servings: number, key: string) =>
+  api<PlanWrite>('PATCH', `/plan/items/${id}`, { servings }, { idempotencyKey: key });
+
+/** Who is eating a meal (an empty list: everyone). */
+export const setPlanEaters = (mealId: number, loginIds: number[], key: string) =>
+  api<PlanWrite>(
+    'PUT',
+    `/plan/meals/${mealId}/eaters`,
+    { login_ids: loginIds },
+    { idempotencyKey: key }
+  );
 
 export const removePlanItem = (id: number, key: string) =>
   api<PlanWrite>('DELETE', `/plan/items/${id}`, undefined, { idempotencyKey: key });
@@ -206,3 +238,39 @@ export const tubToFreezer = (id: number, key: string) =>
 
 export const fillFromFreezer = (from: string, to: string, key: string) =>
   api<PlanWrite>('POST', '/plan/fill-from-freezer', { from, to }, { idempotencyKey: key });
+
+// --- Portions and "Leftovers on…" (0.7 P1) ------------------------------------------------------
+
+export interface Portions {
+  recipe_name: string;
+  /** false: no batch yet, the first leftovers make one (the counts are then null). */
+  has_batch: boolean;
+  batch_id: number | null;
+  /** The tubs plus the cook-day meal. */
+  portions: number | null;
+  cook_day: number | null;
+  tubs: number | null;
+  /** Tubs already planned in a meal. */
+  in_meals: number | null;
+  left: number | null;
+  /** The last day a tub of this batch can go in a meal. */
+  use_by: string;
+}
+
+export type WhenNoneLeft = 'ask' | 'cook_more' | 'add_anyway';
+
+export const getPortions = (itemId: number) =>
+  api<Portions>('GET', `/plan/items/${itemId}/portions`);
+
+export const planLeftovers = (
+  itemId: number,
+  meals: Spot[],
+  ifNoneLeft: WhenNoneLeft,
+  key: string
+) =>
+  api<PlanWrite>(
+    'POST',
+    `/plan/items/${itemId}/leftovers`,
+    { meals, if_none_left: ifNoneLeft },
+    { idempotencyKey: key }
+  );

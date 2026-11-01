@@ -31,6 +31,9 @@
   let slotId = $state<number | null>(null);
   let problem = $state<string | null>(null);
   let asked = 0;
+  // A note ("Eating out", "At Amma’s"; 0.7 P1) instead of a recipe or an ingredient.
+  let noting = $state(false);
+  let noteText = $state('');
 
   $effect(() => {
     if (target !== null && !dialog.open) dialog.showModal();
@@ -44,6 +47,8 @@
     untrack(() => {
       query = '';
       foods = [];
+      noting = false;
+      noteText = '';
       slotId = wanted ?? (model.slotsOn.length === 1 ? (model.slotsOn[0]?.id ?? null) : null);
       recipes.query = '';
       void recipes.load();
@@ -83,6 +88,20 @@
   function pick(what: Parameters<typeof model.add>[0]) {
     if (!target || slotId === null || actions.readonly) return;
     void model.add(what, target.day, slotId);
+    onclose();
+  }
+
+  /** Quick notes, so the common ones are one tap (words proposed, for cabledrawer). */
+  const QUICK_NOTES = ['Eating out', 'Takeaway'];
+
+  const noteReady = $derived(
+    noteText.trim().length > 0 && slotId !== null && !actions.readonly && target !== null
+  );
+
+  function addNote(text: string) {
+    const clean = text.trim();
+    if (!target || slotId === null || actions.readonly || !clean) return;
+    void model.addNote(clean, target.day, slotId);
     onclose();
   }
 
@@ -127,13 +146,46 @@
         </div>
       {/if}
 
-      <input
-        type="search"
-        class="find"
-        placeholder="Find a recipe or an ingredient"
-        aria-label="Find a recipe or an ingredient"
-        bind:value={query}
-      />
+      {#if noting}
+        <form
+          class="note-form"
+          onsubmit={(event) => {
+            event.preventDefault();
+            addNote(noteText);
+          }}
+        >
+          <input
+            type="text"
+            class="find"
+            maxlength="200"
+            placeholder="Eating out, takeaway, at Amma’s"
+            aria-label="Note"
+            bind:value={noteText}
+          />
+          <div class="quick">
+            {#each QUICK_NOTES as quick (quick)}
+              <button
+                type="button"
+                disabled={slotId === null || actions.readonly}
+                onclick={() => addNote(quick)}>{quick}</button
+              >
+            {/each}
+          </div>
+          <div class="pair">
+            <button type="button" class="quiet" onclick={() => (noting = false)}>Back</button>
+            <button type="submit" class="go" disabled={!noteReady}>Add note</button>
+          </div>
+        </form>
+      {:else}
+        <input
+          type="search"
+          class="find"
+          placeholder="Find a recipe or an ingredient"
+          aria-label="Find a recipe or an ingredient"
+          bind:value={query}
+        />
+        <button type="button" class="add-note" onclick={() => (noting = true)}>+ Note</button>
+      {/if}
 
       {#if actions.readonly}
         <p class="note" role="status">
@@ -142,7 +194,7 @@
       {/if}
       {#if problem}<p class="note problem" role="alert">{problem}</p>{/if}
 
-      {#if model.tubsLeft.length && !query.trim()}
+      {#if !noting && model.tubsLeft.length && !query.trim()}
         <h3 class="group">Tubs left</h3>
         <ul class="results" aria-label="Tubs left">
           {#each model.tubsLeft.slice(0, 12) as tub (tub.id)}
@@ -165,45 +217,47 @@
         </ul>
       {/if}
 
-      <ul class="results" aria-label="Results">
-        {#each recipes.recipes.slice(0, 12) as recipe (recipe.id)}
-          <li>
-            <button
-              type="button"
-              disabled={slotId === null || actions.readonly}
-              onclick={() => pick({ recipe: { id: recipe.id, name: recipe.name } })}
-            >
-              <span class="name">{recipe.name}</span>
-              <span class="meta"
-                >{[
-                  recipe.time_minutes ? `${recipe.time_minutes} min` : '',
-                  recipe.kcal != null ? `${recipe.kcal} kcal` : ''
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}</span
+      {#if !noting}
+        <ul class="results" aria-label="Results">
+          {#each recipes.recipes.slice(0, 12) as recipe (recipe.id)}
+            <li>
+              <button
+                type="button"
+                disabled={slotId === null || actions.readonly}
+                onclick={() => pick({ recipe: { id: recipe.id, name: recipe.name } })}
               >
-            </button>
-          </li>
-        {/each}
-        {#each foods as food (food.id)}
-          <li>
-            <button
-              type="button"
-              disabled={slotId === null || actions.readonly}
-              onclick={() => pick({ ingredient: { id: food.id, name: food.name } })}
-            >
-              <span class="name">{food.name}</span>
-              <span class="meta">Ingredient</span>
-            </button>
-          </li>
-        {/each}
-      </ul>
-      {#if recipes.loaded && !recipes.recipes.length && !foods.length}
-        <p class="none">
-          {query.trim() ? 'Nothing matches.' : 'You have no recipes yet. Add one under Recipes.'}
-        </p>
-      {:else if !query.trim()}
-        <p class="none">Type to find an ingredient, such as Fruit.</p>
+                <span class="name">{recipe.name}</span>
+                <span class="meta"
+                  >{[
+                    recipe.time_minutes ? `${recipe.time_minutes} min` : '',
+                    recipe.kcal != null ? `${recipe.kcal} kcal` : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}</span
+                >
+              </button>
+            </li>
+          {/each}
+          {#each foods as food (food.id)}
+            <li>
+              <button
+                type="button"
+                disabled={slotId === null || actions.readonly}
+                onclick={() => pick({ ingredient: { id: food.id, name: food.name } })}
+              >
+                <span class="name">{food.name}</span>
+                <span class="meta">Ingredient</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+        {#if recipes.loaded && !recipes.recipes.length && !foods.length}
+          <p class="none">
+            {query.trim() ? 'Nothing matches.' : 'You have no recipes yet. Add one under Recipes.'}
+          </p>
+        {:else if !query.trim()}
+          <p class="none">Type to find an ingredient, such as Fruit.</p>
+        {/if}
       {/if}
 
       <button type="button" class="close" onclick={onclose}>Close</button>
@@ -384,6 +438,75 @@
     .handle {
       display: none;
     }
+  }
+
+  .add-note {
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: 1px dashed var(--color-add-border);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .note-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .quick,
+  .pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .quick button {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-7);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .pair .quiet,
+  .pair .go {
+    min-height: 54px;
+    border: none;
+    border-radius: var(--radius-button);
+    font: inherit;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .pair .quiet {
+    padding: 0 var(--space-8);
+    background: var(--color-fill-strong);
+    color: var(--color-text);
+  }
+
+  .pair .go {
+    flex: 1;
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+  }
+
+  .quick button:disabled,
+  .pair .go:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 
   .group {

@@ -31,7 +31,10 @@
     useByWords
   } from '#lib/planMeals.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
+  import LeftoversOn from './LeftoversOn.svelte';
+  import MealWho from './MealWho.svelte';
   import PlanDays from './PlanDays.svelte';
+  import ServesStepper from './ServesStepper.svelte';
 
   let {
     actions,
@@ -96,6 +99,40 @@
     return null;
   });
   const tub = $derived(tubItem ? tubOf(model.plan, tubItem) : null);
+
+  /** The meal this menu is about (a meal, or the meal of one thing in it). */
+  const aboutMeal = $derived(
+    target && (target.kind === 'meal' || target.kind === 'item') ? target.meal : null
+  );
+
+  /** The recipes whose Serves can be changed here: those of a planned meal (0.7 P1, F57). */
+  const servesItems = $derived.by((): PlanItem[] => {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return [];
+    if (target.meal.status !== 'planned') return [];
+    const items = target.kind === 'item' ? [target.item] : target.meal.items;
+    return items.filter((i) => i.kind === 'recipe');
+  });
+
+  /** A note has no leftovers (it is "Eating out"), and no Serves. */
+  const noteOnly = $derived(
+    !!target &&
+      (target.kind === 'item'
+        ? target.item.kind === 'note'
+        : target.kind === 'meal' && target.meal.items.every((i) => i.kind === 'note'))
+  );
+
+  /**
+   * The one recipe "Leftovers on…" works from when it can tick several meals at once: the thing
+   * itself, or the only thing in a meal that is not a tub or a note. A meal of several things
+   * keeps the single-day picker (it copies the whole meal).
+   */
+  const leftoverItem = $derived.by((): PlanItem | null => {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return null;
+    if (target.meal.status !== 'planned') return null;
+    if (target.kind === 'item') return target.item.kind === 'recipe' ? target.item : null;
+    const things = target.meal.items.filter((i) => i.kind !== 'tub' && i.kind !== 'note');
+    return things.length === 1 && things[0]!.kind === 'recipe' ? things[0]! : null;
+  });
 
   /** The planned recipe Cook once can be made from, when the menu is about one. */
   const cookable = $derived.by((): PlanItem | null => {
@@ -273,6 +310,21 @@
       {#if target.kind === 'day'}
         <PlanDays {actions} days={[target.day]} />
       {:else if mode === null}
+        {#if servesItems.length || (aboutMeal && aboutMeal.status === 'planned' && model.people.length > 1)}
+          <div class="extras">
+            {#each servesItems as serving (serving.id)}
+              <ServesStepper
+                {model}
+                item={serving}
+                named={servesItems.length > 1}
+                disabled={actions.readonly}
+              />
+            {/each}
+            {#if aboutMeal && aboutMeal.status === 'planned' && !tub}
+              <MealWho {model} meal={aboutMeal} disabled={actions.readonly} />
+            {/if}
+          </div>
+        {/if}
         <div class="list">
           {#if tub}
             <p class="sub">
@@ -304,9 +356,11 @@
             <button type="button" disabled={actions.readonly} onclick={() => (mode = 'copy')}
               >Copy to…</button
             >
-            <button type="button" disabled={actions.readonly} onclick={() => (mode = 'leftovers')}
-              >Leftovers on…</button
-            >
+            {#if !noteOnly}
+              <button type="button" disabled={actions.readonly} onclick={() => (mode = 'leftovers')}
+                >Leftovers on…</button
+              >
+            {/if}
           {/if}
           {#if tub && tub.tub.place_kind !== 'freezer'}
             <button type="button" disabled={actions.readonly} onclick={toFreezer}>To freezer</button
@@ -354,6 +408,14 @@
             onclick={saveUseBy}>Save</button
           >
         </div>
+      {:else if mode === 'leftovers' && leftoverItem && aboutMeal}
+        <LeftoversOn
+          {actions}
+          meal={aboutMeal}
+          item={leftoverItem}
+          onback={() => (mode = null)}
+          {onclose}
+        />
       {:else}
         <h3>{question}</h3>
         <div class="weekbar">
@@ -496,10 +558,15 @@
     font-size: var(--text-base);
   }
 
-  .list {
+  .list,
+  .extras {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+
+  .extras {
+    gap: var(--space-5);
   }
 
   button {

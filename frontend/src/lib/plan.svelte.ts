@@ -3,7 +3,7 @@
 // through save() with its change ID, and is offered for Undo; then the plan is fetched
 // again so the server's version replaces the guess. Online only, like the Pantry.
 
-import { cantReachWords, cantReach } from './api';
+import { cantReachWords, cantReach, type ApiError } from './api';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
 import { cookedIt, type Leftovers } from './client/today';
@@ -20,8 +20,11 @@ import {
   movePlanMeal,
   placeTub,
   planItem,
+  planLeftovers,
   removePlanItem,
   removePlanMeal,
+  setPlanEaters,
+  setPlanServings,
   switchMealSlot,
   tubToFreezer,
   type BatchBody,
@@ -29,9 +32,12 @@ import {
   type MealSlot,
   type Person,
   type Plan,
+  type PlanItem,
   type PlanMeal,
   type PlanWrite,
-  type TubLeft
+  type Spot,
+  type TubLeft,
+  type WhenNoneLeft
 } from './client/plan';
 import { kitchen } from './freshness.svelte';
 import {
@@ -43,7 +49,14 @@ import {
   weekDays,
   weekStart
 } from './planDates';
-import { withItemDropped, withMealDropped, withoutItem, withoutMeal } from './planEdits';
+import {
+  withEaters,
+  withItemDropped,
+  withMealDropped,
+  withoutItem,
+  withoutMeal,
+  withServings
+} from './planEdits';
 import { itemName, mealName } from './planMeals';
 import { save } from './save';
 
@@ -185,6 +198,8 @@ export class PlanModel {
     /** Sent again with the same ID, and no toast of its own: the caller says it once. */
     changeId?: string;
     quiet?: boolean;
+    /** Deal with a refusal yourself (return true): no problem toast is shown. */
+    refused?: (error: ApiError) => boolean;
   }) {
     let before: Plan | null = null;
     let undoer: (() => Promise<string | void>) | null = null;
@@ -198,6 +213,7 @@ export class PlanModel {
           if (before) this.plan = before;
         },
         send: (key) => options.send(key),
+        refused: options.refused,
         // The screen fetches the plan again when the kitchen changes.
         saved: () => kitchen.changed(),
         quiet: options.quiet,
@@ -230,6 +246,45 @@ export class PlanModel {
     return this.#send({
       label: `Planned ${name} for ${this.slotName(slotId)}`,
       send: (key) => planItem({ date: day, slot_id: slotId, ...body }, key)
+    });
+  }
+
+  /** A note ("Eating out", "At Amma’s") on a day and meal. */
+  addNote(text: string, day: string, slotId: number) {
+    return this.#send({
+      label: `Planned ${text} for ${this.slotName(slotId)}`,
+      send: (key) => planItem({ date: day, slot_id: slotId, note: text }, key)
+    });
+  }
+
+  /** Serves − N +: how many people a planned recipe is for; amounts and the list follow. */
+  setServings(item: PlanItem, servings: number) {
+    return this.#send({
+      label: `Set ${itemName(item, this.plan)} for ${servings}`,
+      edit: (plan) => withServings(plan, item.id, servings),
+      send: (key) => setPlanServings(item.id, servings, key)
+    });
+  }
+
+  /** Who is eating a meal, by sign-in (an empty list: everyone). */
+  setEaters(meal: PlanMeal, loginIds: number[]) {
+    return this.#send({
+      label: `Changed who is eating ${mealName(meal, this.plan)}`,
+      edit: (plan) => withEaters(plan, meal.id, loginIds),
+      send: (key) => setPlanEaters(meal.id, loginIds, key)
+    });
+  }
+
+  /**
+   * "Leftovers on…" with several meals ticked at once. `whenNone` is what to do for the meals the
+   * portions left don't reach. A refusal "no portions left" (someone else took the last one) is
+   * left to the sheet, which asks again with the new numbers.
+   */
+  leftoversOn(item: PlanItem, spots: Spot[], whenNone: WhenNoneLeft) {
+    return this.#send({
+      label: `Planned leftovers of ${itemName(item, this.plan)}`,
+      send: (key) => planLeftovers(item.id, spots, whenNone, key),
+      refused: (error) => error.code === 'no_portions_left'
     });
   }
 

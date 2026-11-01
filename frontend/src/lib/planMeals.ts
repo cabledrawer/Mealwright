@@ -5,6 +5,7 @@ import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } f
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
+  if (item.note) return item.note; // "Eating out", "At Amma’s"
   if (item.recipe) return item.recipe.name;
   if (item.ingredient) return item.ingredient.name;
   if (item.kept_name) return item.kept_name; // deleted for good: past meals still say what it was
@@ -32,9 +33,13 @@ export function mealTotals(meal: PlanMeal): string {
       ? n === 1
         ? 'ingredient'
         : 'ingredients'
-      : n === 1
-        ? 'thing'
-        : 'things';
+      : all('note')
+        ? n === 1
+          ? 'note'
+          : 'notes'
+        : n === 1
+          ? 'thing'
+          : 'things';
   const kcal = meal.kcal === null ? '' : ` · ${meal.kcal} kcal`;
   return `${n} ${noun}${kcal}`;
 }
