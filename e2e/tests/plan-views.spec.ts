@@ -290,6 +290,36 @@ test('Plan it shows what is already planned at each meal, and marks a day that h
   await expect(sheet.getByRole('button', { name: meal, exact: true })).not.toContainText(olan);
 });
 
+test('Plan it at 200% text shows a long meal name whole, wrapped, with nothing cut off', async ({ page }) => {
+  const k = await setup(page);
+  const s = short();
+  const long = `Roasted aubergine and chickpea stew with preserved lemon ${s}`;
+  const name = `Pickle ${stamp()}`;
+  const day = addDays(k.today, 13); // nothing but this test's own meal is on it
+  const meal = ['Dinner', 'Lunch', 'Breakfast'][projectIndex()]!;
+  await planned(page, await makeRecipe(page, long), day, k.slot[meal]!);
+  const recipe = await makeRecipe(page, name);
+  await page.goto(`/recipes/${recipe}`);
+  await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name });
+  await sheet.getByRole('button', { name: dayName(day), exact: true }).click();
+  const small = sheet.getByRole('button', { name: meal, exact: true }).locator('small');
+  await expect(small).toContainText(long);
+  // Whole: every line of it is shown (nothing hidden past the edge), inside the button and the screen.
+  const cut = await small.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const button = el.closest('button')!.getBoundingClientRect();
+    return {
+      clipped: el.scrollWidth > el.clientWidth || el.scrollHeight > el.clientHeight,
+      wraps: parseFloat(getComputedStyle(el).fontSize) * 2 < box.height,
+      outside: box.left < button.left - 1 || box.right > button.right + 1 || box.right > window.innerWidth
+    };
+  });
+  expect(cut).toEqual({ clipped: false, wraps: true, outside: false });
+  await expectNoSidewaysScroll(page);
+});
+
 // --- The phone Plan opens on today -----------------------------------------------------------------
 
 test('the phone Plan opens on today, with earlier days folded away and the date said once', async ({ page }) => {
