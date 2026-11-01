@@ -772,10 +772,26 @@ describe('the recipe page', () => {
           return [500, { detail: 'no' }];
         }
       });
+      // Note when the page has read the plan's answer, then wait on that (not on a fixed time).
+      const realFetch = globalThis.fetch;
+      let answerRead = false;
+      vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+        const response = await realFetch(...args);
+        if (!String(args[0]).includes('/plan')) return response;
+        const json = response.json.bind(response);
+        response.json = async () => {
+          try {
+            return await json();
+          } finally {
+            answerRead = true;
+          }
+        };
+        return response;
+      });
       await page.getByRole('button', { name: 'Plan it', exact: true }).click();
-      await vi.waitFor(() => expect(server.requests.some((r) => r.path === '/plan')).toBe(true));
-      // Nothing more is awaited to look for; give the answer's microtasks a turn.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await vi.waitFor(() => expect(answerRead).toBe(true));
+      // Nothing visible is left to wait for; one turn of the event loop lets the page act on the answer.
+      await new Promise((resolve) => setTimeout(resolve, 0));
       expect(page.getByText('Couldn’t load the plan. Try again.').elements()).toHaveLength(0);
       expect(page.getByRole('dialog').elements()).toHaveLength(0);
     });
