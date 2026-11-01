@@ -241,6 +241,8 @@ A phone offline can't ask the server an "ask once" question, so **actions only c
 
 Everything that isn't a list action, as in 0.2: the Pantry screen, the ingredient editor (including "New ingredient"), Undo from Pantry → Recent changes, Settings. Offline, those show "You're offline. This needs a connection." The Shopping screen works fully offline.
 
+**The plan stays online-only in 0.7 (spec section 2: "Plan changes need the server"), including the 0.7 P1 writes: "Leftovers on…" (`POST /plan/items/{id}/leftovers`), Serves (`PATCH /plan/items/{id}`), who's eating (`PUT /plan/meals/{id}/eaters`) and Notes (`POST /plan/items` with `note`).** They are not sync actions and have no offline queue: they go straight to the server with an `Idempotency-Key`, so a retry of the same press plans nothing twice, and the shopping list follows the plan on the server (`plan_update`, section 5.8). Two phones taking the last portion are two requests in the order the server gets them: the first gets the portion, the second is answered `409 no_portions_left` and its sheet asks again with the new numbers (tests: `backend/tests/test_plan_portions.py`). If the plan ever gets an offline queue, "Leftovers on…" needs a rule for the second phone's replayed press (it would be refused the same way, and the phone would show a quiet note).
+
 ## 5. The server
 
 ### 5.1 Endpoints (all under `/api/v1`, public, in OpenAPI)

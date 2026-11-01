@@ -185,6 +185,7 @@
               disabled={planned || actions.readonly}
               onchange={() => tick(key)}
             />
+            <span class="box" aria-hidden="true"></span>
             <span class="what"
               >{dayWords(row.day)} · {model.slotName(
                 row.slotId
@@ -215,8 +216,8 @@
     </p>
 
     {#if short.length}
-      <div class="shortage" role="alert">
-        <p>{alertWords}</p>
+      <div class="shortage">
+        <p role="alert">{alertWords}</p>
         <div class="choices">
           <button
             type="button"
@@ -400,11 +401,56 @@
     font-weight: var(--weight-bold);
   }
 
+  /* The real checkbox covers the whole row (a 44 px target); a drawn box shows its state. */
+  label {
+    position: relative;
+  }
+
   input[type='checkbox'] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  input[type='checkbox']:disabled {
+    cursor: default;
+  }
+
+  .box {
+    flex: none;
+    display: grid;
+    place-items: center;
     width: 20px;
     height: 20px;
-    margin: 0;
-    accent-color: var(--color-accent-hover);
+    border: 2px solid var(--color-field-border);
+    border-radius: 6px;
+    background: var(--color-field);
+    color: var(--color-inverse-text);
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  input:checked + .box {
+    border-color: var(--color-accent-hover);
+    background: var(--color-accent-hover);
+  }
+
+  input:checked + .box::after {
+    content: '✓';
+  }
+
+  label.over input:checked + .box {
+    border-color: var(--color-check-border);
+    background: var(--color-check-border);
+  }
+
+  input:focus-visible + .box {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   .what {

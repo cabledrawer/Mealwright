@@ -292,3 +292,35 @@ def test_another_households_item_is_404(
 def test_the_new_routes_need_signing_in(client: TestClient) -> None:
     assert client.get(f"{API}/plan/items/1/portions").status_code == 401
     assert client.post(f"{API}/plan/items/1/leftovers", json={"meals": []}).status_code == 401
+
+
+# --- The shopping list follows -----------------------------------------------------------------
+
+
+def test_cook_more_grows_what_the_list_buys_and_undo_takes_it_back(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    """Amounts and the shopping list follow a bigger batch (spec: Cook more)."""
+    from sync_kit import changes
+    from test_recipe_list import line
+    from test_recipes import food as new_food
+    from test_recipes import make as new_recipe
+
+    rice = new_food(kitchen, "Rice")
+    made = new_recipe(kitchen, "Pulao", lines=[line(rice["id"], 200, "g")], serves=4)
+
+    def bought() -> list[Any]:
+        return [
+            r["amount"]
+            for r in changes(kitchen)["items"]
+            if not r.get("deleted") and r["source"] == "plan"
+        ]
+
+    cook = plan_recipe(kitchen, int(made["id"]), D1, slots["Dinner"])
+    make(kitchen, cook["item_id"], tub_count=1, pattern="lunches")
+    assert bought() == [100]  # one cook-day portion and one tub of 4: 2/4 of 200 g
+    done = leftovers(kitchen, cook["item_id"], [spot(3, slots)], if_none_left="cook_more")
+    assert done.status_code == 200, done.text
+    assert bought() == [150]  # a third portion
+    assert undo(kitchen, done.json())["result"] == "done"
+    assert bought() == [100]

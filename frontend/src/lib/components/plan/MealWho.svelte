@@ -15,7 +15,9 @@
 
   /** The ticked people while taps are waiting to be sent (null: none waiting). */
   let draft = $state<number[] | null>(null);
-  const ticked = $derived(draft ?? meal.eater_login_ids);
+  // The meal as the plan holds it now (the menu's own copy goes stale after a change).
+  const live = $derived(model.plan?.meals.find((m) => m.id === meal.id) ?? meal);
+  const ticked = $derived(draft ?? live.eater_login_ids);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function send(): void {
@@ -24,9 +26,9 @@
     const wanted = draft;
     draft = null;
     if (wanted === null) return;
-    const now = [...meal.eater_login_ids].sort((a, b) => a - b);
+    const now = [...live.eater_login_ids].sort((a, b) => a - b);
     if (wanted.length !== now.length || wanted.some((id, i) => id !== now[i]))
-      void model.setEaters(meal, wanted);
+      void model.setEaters(live, wanted);
   }
 
   function set(next: number[]): void {

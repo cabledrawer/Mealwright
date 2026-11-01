@@ -19,7 +19,11 @@
   const MOST = 99;
   /** What the server holds, and what the buttons have made it since (null: no press yet). */
   let draft = $state<number | null>(null);
-  const shown = $derived(draft ?? item.eating ?? 1);
+  // The item as the plan holds it now (the menu's own copy goes stale after a change).
+  const live = $derived(
+    model.plan?.meals.flatMap((m) => m.items).find((i) => i.id === item.id) ?? item
+  );
+  const shown = $derived(draft ?? live.eating ?? 1);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function send(): void {
@@ -27,7 +31,7 @@
     timer = undefined;
     const wanted = draft;
     draft = null;
-    if (wanted !== null && wanted !== (item.eating ?? 1)) void model.setServings(item, wanted);
+    if (wanted !== null && wanted !== (live.eating ?? 1)) void model.setServings(live, wanted);
   }
 
   function change(by: number): void {
