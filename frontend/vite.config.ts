@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
@@ -22,7 +23,25 @@ export const svelteOptions = {
   compilerOptions: { runes: true }
 };
 
+/**
+ * The version this build shows in the sidebar foot and at the bottom of Settings on a phone
+ * ("Mealwright 0.7.0"). It is written into the code when the app is built, so showing it asks
+ * nothing of anyone (no network request). A test build can set MEALWRIGHT_VERSION; otherwise
+ * it is the one place the version lives, backend/pyproject.toml.
+ */
+function appVersion(): string {
+  const given = process.env.MEALWRIGHT_VERSION?.trim();
+  if (given) return given;
+  try {
+    const toml = readFileSync(new URL('../backend/pyproject.toml', import.meta.url), 'utf8');
+    return /^version\s*=\s*"([^"]+)"/m.exec(toml)?.[1] ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   plugins: [announcerWithoutInlineStyle(), sveltekit(svelteOptions)],
   build: {
     // Fonts stay as separate files instead of being inlined into the CSS.

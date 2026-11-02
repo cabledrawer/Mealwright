@@ -18,6 +18,7 @@
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PantrySwitch from '#lib/components/PantrySwitch.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import PantryGroup from '#lib/components/PantryGroup.svelte';
   import SwipeRow from '#lib/components/SwipeRow.svelte';
@@ -250,6 +251,8 @@
     {/if}
   {/snippet}
 </PageHeader>
+
+<PantrySwitch current="pantry" />
 
 {#snippet useSoonRow(lot: UseSoonLot, compact: boolean)}
   {@const words = lotWords(lot)}

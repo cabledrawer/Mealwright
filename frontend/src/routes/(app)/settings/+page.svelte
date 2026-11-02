@@ -21,6 +21,7 @@
     type Unreadable
   } from '#lib/offline/held.js';
   import { signOutHere, trySending, type Waiting } from '#lib/offline/signOut.js';
+  import { VERSION_WORDS } from '#lib/version.js';
   import { session } from '#lib/session.svelte.js';
 
   // Who is shown stays put while signing out (session.me goes first).
@@ -260,9 +261,23 @@
       </div>
     {/if}
   </section>
+  <!-- The sidebar shows the version on a computer; this is the phone's place for it (N1). -->
+  <p class="version">{VERSION_WORDS}</p>
 </div>
 
 <style>
+  .version {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  @media (min-width: 768px) {
+    .version {
+      display: none;
+    }
+  }
+
   .sections {
     display: flex;
     flex-direction: column;

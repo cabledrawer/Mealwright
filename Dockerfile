@@ -11,6 +11,8 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 RUN npm ci
 COPY frontend/ ./
+# The app shows its own version (written in at build time); the version lives in one place.
+COPY backend/pyproject.toml /src/backend/pyproject.toml
 RUN npm run build
 
 # --- 2. Install the backend into a virtual environment ----------------------------------

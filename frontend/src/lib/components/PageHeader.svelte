@@ -3,7 +3,7 @@
   // an optional line under it. A page inside another (Recipes › Ingredients) gets a
   // back link on phones and a breadcrumb on desktop.
   // On phones it stays put while the page scrolls under it (UX principle 14), and holds
-  // the round button to Settings, which is where phones find the theme switch.
+  // the round avatar and the cog, one link to Settings, which is where phones find the theme switch.
   import { resolve } from '$app/paths';
   import type { Snippet } from 'svelte';
   import { initial, session } from '#lib/session.svelte.js';
@@ -56,7 +56,8 @@
     aria-label="{session.me?.name ?? 'You'} · Settings"
     title="Settings"
   >
-    {initial(session.me?.name ?? '')}
+    <span class="avatar" aria-hidden="true">{initial(session.me?.name ?? '')}</span>
+    <span class="cog" aria-hidden="true"><Icon name="cog" size={22} stroke={2} /></span>
   </a>
 </header>
 
@@ -133,23 +134,39 @@
     overflow-wrap: break-word;
   }
 
+  /* One link to Settings: the avatar circle and, beside it, the cog (cabledrawer 28 Oct, F2). */
   .settings {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     flex: none;
+    gap: var(--space-3);
+    text-decoration: none;
+  }
+
+  .avatar,
+  .cog {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: var(--touch-target);
     height: var(--touch-target);
     border-radius: var(--radius-full);
+  }
+
+  .avatar {
     background: var(--color-avatar);
     color: var(--color-avatar-text);
     font-size: 1rem;
     font-weight: var(--weight-bold);
-    text-decoration: none;
   }
 
-  .settings:hover {
-    color: var(--color-avatar-text);
+  .cog {
+    background: var(--color-fill);
+    color: var(--color-text-soft);
+  }
+
+  .settings:hover .cog {
+    color: var(--color-text);
   }
 
   @media (max-width: 767px) {

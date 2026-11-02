@@ -14,6 +14,7 @@
   import type { FoodFilter, FoodRow, FoodWrite } from '#lib/client/types.js';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PantrySwitch from '#lib/components/PantrySwitch.svelte';
   import IngredientEditor from '#lib/components/IngredientEditor.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import RecentChanges from '#lib/components/RecentChanges.svelte';
@@ -25,6 +26,7 @@
   import { live } from '#lib/live.svelte.js';
   import { mergeTarget } from '#lib/maybeSame.js';
   import { network } from '#lib/network.svelte.js';
+  import { isPantryIngredients } from '#lib/pantrySide.svelte.js';
   import { columnWords, fullDateWords } from '#lib/restockWords.js';
   import { newNameFor } from '#lib/ingredientSearch.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
@@ -118,6 +120,9 @@
     void list.load();
     void recent.load();
   }
+
+  /** Reached from the Pantry tab's switch (phone): it shows the switch and no way up to Recipes. */
+  const fromPantry = $derived(isPantryIngredients(page.url.pathname, page.url.search));
 
   /** The staple whose whole restock date is showing (a tap on "Restocked 3 weeks ago"). */
   let dateShownFor = $state<number | null>(null);
@@ -244,7 +249,7 @@
 
 <PageHeader
   title="Ingredients"
-  parent={{ href: '/(app)/recipes', label: 'Recipes' }}
+  parent={fromPantry ? undefined : { href: '/(app)/recipes', label: 'Recipes' }}
   subtitle={list.loaded && !list.problem
     ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
     : undefined}
@@ -267,6 +272,8 @@
     {/if}
   {/snippet}
 </PageHeader>
+
+{#if fromPantry}<PantrySwitch current="ingredients" />{/if}
 
 {#if network.down && list.couldntLoad}
   <!-- From the first failure, so the words don't change when the bar comes (F67). -->

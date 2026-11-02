@@ -11,6 +11,7 @@
   import { PAGES, RECIPES_PAGES, appRoute, isCurrent, isCurrentRecipesPage } from '#lib/nav.js';
   import { initial, session } from '#lib/session.svelte.js';
   import { sidebar } from '#lib/sidebar.svelte.js';
+  import { VERSION_WORDS } from '#lib/version.js';
   import ConnectionStatus from './ConnectionStatus.svelte';
   import Icon from './Icon.svelte';
   import Logo from './Logo.svelte';
@@ -108,8 +109,10 @@
           <span class="name">{session.me?.name}</span>
           <span class="settings-label">Settings</span>
         </span>
+        <span class="cog" aria-hidden="true"><Icon name="cog" size={20} stroke={2} /></span>
       {/if}
     </a>
+    {#if !sidebar.collapsed}<p class="version">{VERSION_WORDS}</p>{/if}
   </div>
 </aside>
 
@@ -238,6 +241,13 @@
     margin-top: auto;
   }
 
+  /* Small grey text at the very foot (cabledrawer 28 Oct, N1). */
+  .version {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
   .settings {
     display: flex;
     align-items: center;
@@ -270,6 +280,26 @@
     color: var(--color-avatar-text);
     font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
+  }
+
+  /* The cog after the name, the size of the avatar circle (cabledrawer 28 Oct, F2). */
+  .cog {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin-left: auto;
+    border-radius: var(--radius-full);
+    flex: none;
+    background: var(--color-fill);
+    color: var(--color-text-soft);
+  }
+
+  .settings:hover .cog,
+  .settings[aria-current='page'] .cog {
+    background: var(--color-surface);
+    color: var(--color-text);
   }
 
   .who {

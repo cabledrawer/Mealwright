@@ -3,20 +3,40 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { PAGES, appRoute, isCurrent } from '#lib/nav.js';
+  import { FROM_PANTRY, isPantryIngredients, pantrySide } from '#lib/pantrySide.svelte.js';
   import Icon from './Icon.svelte';
 </script>
 
+<!-- The Pantry tab opens whichever of Pantry · Ingredients was chosen last (N1); Ingredients
+     reached that way (?from=pantry) is the Pantry tab's, not Recipes'. -->
 <nav class="tabbar" aria-label="Main">
   {#each PAGES as item (item.href)}
-    <a
-      href={resolve(appRoute(item.href))}
-      aria-current={isCurrent(item, page.url.pathname) ? 'page' : undefined}
-    >
-      <Icon name={item.icon} />
-      <span>{item.tabLabel}</span>
-    </a>
+    {@const viaPantry = isPantryIngredients(page.url.pathname, page.url.search)}
+    {@const current =
+      item.href === '/pantry'
+        ? viaPantry || isCurrent(item, page.url.pathname)
+        : item.href === '/recipes'
+          ? !viaPantry && isCurrent(item, page.url.pathname)
+          : isCurrent(item, page.url.pathname)}
+    {#if item.href === '/pantry' && pantrySide.value === 'ingredients'}
+      <a
+        href="{resolve('/(app)/recipes/ingredients')}?{FROM_PANTRY}"
+        aria-current={current ? 'page' : undefined}
+      >
+        {@render tab(item)}
+      </a>
+    {:else}
+      <a href={resolve(appRoute(item.href))} aria-current={current ? 'page' : undefined}>
+        {@render tab(item)}
+      </a>
+    {/if}
   {/each}
 </nav>
+
+{#snippet tab(item: (typeof PAGES)[number])}
+  <Icon name={item.icon} />
+  <span>{item.tabLabel}</span>
+{/snippet}
 
 <style>
   .tabbar {
