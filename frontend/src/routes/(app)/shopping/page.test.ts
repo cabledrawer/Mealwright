@@ -678,6 +678,8 @@ describe('the Shopping page', () => {
     const names = radioNames();
     expect(names).toEqual(['1', '2', '6', '12', 'Type an amount']);
     await page.getByRole('radio', { name: '6', exact: true }).click();
+    // Six whole things, not "1 pack · 6".
+    await expect.element(page.getByText('Pantry gets 6 items.')).toBeVisible();
     await page.getByRole('button', { name: 'Done' }).click();
     await vi.waitFor(() =>
       expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 6 })

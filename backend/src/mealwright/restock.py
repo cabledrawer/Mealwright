@@ -66,7 +66,10 @@ def day(household: Household, when: datetime | None) -> tuple[date | None, int |
     3 weeks ago"), so the screens never depend on the device's clock or time zone."""
     if when is None:
         return None, None
-    on = _aware(when).astimezone(zone(household)).date()  # type: ignore[union-attr]
+    try:
+        on = _aware(when).astimezone(zone(household)).date()  # type: ignore[union-attr]
+    except OverflowError:  # a stored value near year 1 or 9999 can't be shown: no date, no break
+        return None, None
     return on, max((today(household) - on).days, 0)
 
 

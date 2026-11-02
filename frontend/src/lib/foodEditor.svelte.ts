@@ -15,7 +15,6 @@ import {
   patchFood,
   patchSize,
   removeFood,
-  restockFood,
   removeOtherName,
   removeSize,
   removeStandIn,
@@ -143,15 +142,6 @@ export class FoodModel {
       label,
       edit,
       send: (key, answers) => patchFood(this.id, patch, key, answers)
-    });
-  }
-
-  /** Tap "Restocked" on a staple: its restock date is now. */
-  restocked() {
-    const name = this.food?.name ?? 'It';
-    return this.#write({
-      label: `${name} restocked`,
-      send: (key) => restockFood(this.id, key)
     });
   }
 

@@ -1,11 +1,11 @@
 <script lang="ts">
   // A staple's restock date in the ingredient editor (0.7 K5): the date it was last restocked
   // (a day field that stops at today, the household's own) and a "Restocked" button that sets
-  // it to now. Each saves as you go, with Undo. Loaded by IngredientEditor only when a staple is
-  // open, so none of this is in every page's code (the page size limit).
+  // it to today. Each saves as you go, with Undo. Both send the same thing, `restocked_on`.
+  // (The editor itself is fetched when one is first opened, see IngredientSheet.)
   import { getHousehold } from '#lib/client/household.js';
   import type { Food } from '#lib/client/types.js';
-  import { dayMonthWords } from '#lib/dates.js';
+  import { addDays, dayMonthWords } from '#lib/dates.js';
   import type { FoodModel } from '#lib/foodEditor.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { columnWords, fullDateWords } from '#lib/restockWords.js';
@@ -22,10 +22,24 @@
       .catch(() => {});
   });
 
-  function pickRestocked(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
+  /** A whole day in this century, not after the household's today (when that is known). */
+  function plausible(day: string): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+    if (Number(day.slice(0, 4)) < 2000 || Number.isNaN(Date.parse(`${day}T12:00:00Z`)))
+      return false;
+    if (addDays(day, 0) !== day) return false; // 2026-02-31 is no day
+    return !householdToday || day <= householdToday;
+  }
+
+  // Chrome fires "change" with every key typed in a date field, so a typed date is saved when
+  // the field is left or Enter is pressed; a day picked from the calendar saves at once.
+  let typing = false;
+
+  function commit(input: HTMLInputElement) {
+    typing = false;
     const day = input.value;
-    if (!day || day === food.restocked_on) {
+    if (day === (food.restocked_on ?? '')) return;
+    if (!plausible(day)) {
       input.value = food.restocked_on ?? '';
       return;
     }
@@ -38,6 +52,32 @@
       `${food.name} restocked ${dayMonthWords(day)}`
     );
   }
+
+  async function restockedToday() {
+    const day = householdToday ?? (await getHousehold()).today;
+    householdToday = day;
+    void model.setField(
+      { restocked_on: day },
+      (f) => {
+        f.restocked_on = day;
+        f.restocked_days_ago = null;
+      },
+      `${food.name} restocked`
+    );
+  }
+
+  /** How long ago, worked out here from the household's today while a save is on its way. */
+  const daysAgo = $derived.by(() => {
+    if (food.restocked_days_ago !== null) return food.restocked_days_ago;
+    if (!food.restocked_on || !householdToday) return null;
+    return Math.max(
+      Math.round(
+        (Date.parse(`${householdToday}T12:00:00Z`) - Date.parse(`${food.restocked_on}T12:00:00Z`)) /
+          86_400_000
+      ),
+      0
+    );
+  });
 </script>
 
 <section aria-labelledby="{uid}-restocked">
@@ -48,15 +88,23 @@
       aria-label="Date restocked"
       max={householdToday}
       value={food.restocked_on ?? ''}
-      onchange={pickRestocked}
+      disabled={network.offline}
+      onkeydown={(event) => {
+        if (event.key === 'Enter') commit(event.currentTarget);
+        else if (event.key !== 'Tab') typing = true;
+      }}
+      onchange={(event) => {
+        if (!typing) commit(event.currentTarget);
+      }}
+      onblur={(event) => commit(event.currentTarget)}
     />
-    <button type="button" disabled={network.offline} onclick={() => void model.restocked()}
+    <button type="button" disabled={network.offline} onclick={() => void restockedToday()}
       >Restocked</button
     >
   </div>
   <p class="hint" aria-live="polite">
-    {#if food.restocked_on && food.restocked_days_ago !== null}
-      {columnWords(food.restocked_days_ago)} · {fullDateWords(food.restocked_on)}
+    {#if food.restocked_on && daysAgo !== null}
+      {columnWords(daysAgo)} · {fullDateWords(food.restocked_on)}
     {:else}
       Not restocked yet. Ticking it off the shopping list or tapping Restocked sets the date.
     {/if}

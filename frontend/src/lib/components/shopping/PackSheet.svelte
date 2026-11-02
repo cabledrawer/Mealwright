@@ -210,7 +210,11 @@
   {/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
   {#if chosen}
-    <span class="gets" role="status">{pantryGets(chosen.count, chosen.pack, food.counted_as)}</span>
+    <span class="gets" role="status"
+      >{'ready' in chosen && chosen.ready && food.counted_as === 'count'
+        ? `Pantry gets ${chosen.pack} ${chosen.pack === 1 ? 'item' : 'items'}.`
+        : pantryGets(chosen.count, chosen.pack, food.counted_as)}</span
+    >
   {/if}
   <button type="button" class="done" onclick={done}>Done</button>
 </div>

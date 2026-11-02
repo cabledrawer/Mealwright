@@ -721,12 +721,26 @@ def _future() -> Problem:
     )
 
 
+# No restock date before this: a year-1 date is a slip of the keys, and breaks sums on dates.
+RESTOCK_EARLIEST = date(2000, 1, 1)
+
+
+def _too_old() -> Problem:
+    return Problem(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "restock_too_old",
+        "That date is too long ago. Pick a day in 2000 or later.",  # proposed, for cabledrawer
+    )
+
+
 def _restock_when(kitchen: Kitchen, body: FoodPatch) -> datetime:
     """The moment a PATCH asks for: the given one, or the noon of the given day."""
     if body.restocked_at is not None:
         return body.restocked_at
     if body.restocked_on is None:
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "restock_date_needed", "Pick a date.")
+    if body.restocked_on < RESTOCK_EARLIEST:
+        raise _too_old()
     if body.restocked_on > today(kitchen.household):
         raise _future()
     return restock.noon_on(kitchen.household, body.restocked_on)
@@ -743,7 +757,12 @@ def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
             "not_a_staple",
             f"{food.name} isn’t a staple. Make it a staple first.",
         )
-    when = when.replace(tzinfo=UTC) if when.tzinfo is None else when.astimezone(UTC)
+    try:
+        when = when.replace(tzinfo=UTC) if when.tzinfo is None else when.astimezone(UTC)
+    except OverflowError:  # a zone offset pushes it past year 1 or 9999
+        raise (_too_old() if when.year < 2000 else _future()) from None
+    if when.year < RESTOCK_EARLIEST.year:
+        raise _too_old()
     now = utcnow()
     if when > now + RESTOCK_GRACE:
         raise _future()
@@ -760,21 +779,6 @@ def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
         return None
     food.restocked_at = when
     return f"{food.name} restocked"
-
-
-@router.post("/foods/{food_id}/restock")
-def restock_food(food_id: StoredInt, kitchen: Here, response: Response) -> FoodWrite:
-    """Tap "Restocked" on a staple: its restock date is now. Can be undone."""
-
-    def apply() -> Change | None:
-        food = find(kitchen, food_id)
-        with FoodEdit(kitchen, [food.id]) as edit:
-            summary = _restock(kitchen, food, utcnow())
-            if summary is None:
-                return None
-        return edit.record("food_edited", summary, food.id)
-
-    return write(kitchen, response, apply)
 
 
 @router.patch("/foods/{food_id}")

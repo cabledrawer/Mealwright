@@ -28,7 +28,7 @@ from sync_kit import (
     tick,
 )
 
-from mealwright.models import Change, Food, ListTick, Place, StockLot, SyncAction, utcnow
+from mealwright.models import Change, Food, FoodSize, ListTick, Place, StockLot, SyncAction, utcnow
 
 BOTH = pytest.mark.parametrize("a_first", [True, False], ids=["A-B", "B-A"])
 
@@ -1133,3 +1133,30 @@ def test_sy62_tick_again_after_signing_back_in(kitchen: TestClient) -> None:
     (again,) = send(s.wren, queued, device=PHONE_R)["results"]
     assert (again["status"], again["reason"]) == ("ignored", "already_ticked")
     assert s.total("Toor dal") == 500 and _card(s.wren) == []
+
+
+def test_sy15c_a_count_with_no_amount_gets_n_items_and_no_pack_size(kitchen: TestClient) -> None:
+    """How much? for whole things (1 · 2 · 6 · 12) is N items, not "a pack of N" (K5, fix 1)."""
+    s = s0(kitchen)
+    onions = food(kitchen, "Spring onions", counted_as="count")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions))
+    t = one(kitchen, "tick", counter(kitchen), item_id=item)
+    done = one(
+        kitchen,
+        "different_pack",
+        counter(kitchen),
+        item_id=item,
+        tick_id=t["id"],
+        count=1,
+        pack=6,
+    )
+    assert done["status"] == "applied"
+    with db(kitchen) as session:
+        lots = [lot.amount_milli for lot in session.query(StockLot).filter_by(food_id=onions)]
+        assert [n for n in lots if n] == [6000]
+        assert session.query(FoodSize).filter_by(food_id=onions).count() == 0
+    answer = changes(kitchen)
+    row = next(f for f in answer["foods"] if f["id"] == onions)
+    assert row["sizes"] == []
+    assert "pack" not in done["change"]["summary"]

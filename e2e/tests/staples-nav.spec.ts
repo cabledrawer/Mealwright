@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { checkPage, expectTouchTargets, isPhone, setAccountTheme } from './a11y.ts';
+import { checkPage, expectNoSidewaysScroll, expectTouchTargets, isPhone, setAccountTheme } from './a11y.ts';
 
 // Restock dates, "How much?" and navigation (0.7: K5, N1, F113), against the real server, signed
 // in as the test admin. Runs on a phone, a desktop and WebKit.
@@ -266,4 +266,51 @@ test('the Pantry tab works with storage blocked: it opens Pantry', async ({ page
   await expect(page).toHaveURL(/\/pantry$/);
   await page.getByRole('navigation', { name: 'Pantry or Ingredients' }).getByRole('link', { name: 'Ingredients' }).click();
   await expect(page).toHaveURL(/\/recipes\/ingredients\?from=pantry$/);
+});
+
+test('on a 320 px phone, dark, at 200% text: header cog and avatar, the switch, the New recipe choice and the Restocked row fit', async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), 'a phone layout');
+  await setAccountTheme(page, 'dark');
+  await page.setViewportSize({ width: 320, height: 700 });
+  const big = () => page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  const tall = async (what: ReturnType<Page['locator']>) => {
+    await expect(what).toBeVisible();
+    expect((await what.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  };
+
+  await page.goto('/pantry');
+  await big();
+  await tall(page.getByRole('link', { name: /· Settings$/ }));
+  const settings = (await page.getByRole('link', { name: /· Settings$/ }).boundingBox())!;
+  expect(settings.x + settings.width).toBeLessThanOrEqual(320);
+  const switcher = page.getByRole('navigation', { name: 'Pantry or Ingredients' });
+  await tall(switcher.getByRole('link', { name: 'Pantry' }));
+  await tall(switcher.getByRole('link', { name: 'Ingredients' }));
+  await expectNoSidewaysScroll(page);
+
+  await page.goto('/recipes');
+  await big();
+  const button = page.getByRole('button', { name: 'New recipe', exact: true });
+  await tall(button);
+  await button.click();
+  await tall(page.getByRole('menuitem', { name: 'Add by hand' }));
+  await tall(page.getByRole('menuitem', { name: 'Import from a link' }));
+  await expectNoSidewaysScroll(page);
+
+  const name = unique('Saffron');
+  await makeStaple(page, name);
+  await page.goto('/recipes/ingredients');
+  await big();
+  await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(name);
+  await page.getByRole('region', { name: 'All ingredients' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  const editor = page.getByRole('dialog', { name: `Edit ${name}` });
+  const date = editor.getByLabel('Date restocked');
+  await date.scrollIntoViewIfNeeded();
+  await tall(date);
+  await tall(editor.getByRole('button', { name: 'Restocked', exact: true }));
+  await expectNoSidewaysScroll(page);
+  const box = (await date.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
 });

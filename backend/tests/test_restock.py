@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 from sync_kit import API, PHONE_R, changes, db, new_id, ok, one, s0, tick
@@ -145,6 +146,12 @@ def test_undo_of_a_merge_is_whole_when_the_date_was_raised_since(kitchen: TestCl
 # --- Changing the date by hand (0.7 K5) -------------------------------------------------------
 
 
+def _restock_now(client: TestClient, food: int) -> Any:
+    """What the Restocked button sends: the household's today as the day."""
+    today = ok(client.get(f"{API}/household"))["today"]
+    return ok(client.patch(f"{API}/foods/{food}", json={"restocked_on": today}))
+
+
 def _staple(client: TestClient, name: str = "Rock salt") -> int:
     made = ok(client.post(f"{API}/foods", json={"name": name, "staple": True}), 201)
     return int(made["food"]["id"])
@@ -163,7 +170,7 @@ def test_the_date_can_be_set_and_undone(kitchen: TestClient) -> None:
 
 def test_the_date_can_go_back_to_an_earlier_day(kitchen: TestClient) -> None:
     food = _staple(kitchen)
-    ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    _restock_now(kitchen, food)
     earlier = datetime.now(UTC) - timedelta(days=9)
     ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": earlier.isoformat()}))
     assert _close(_restocked(kitchen, food), earlier)
@@ -201,7 +208,8 @@ def test_only_a_staple_has_a_date_and_a_date_is_needed(kitchen: TestClient) -> N
     now = datetime.now(UTC).isoformat()
     sent = kitchen.patch(f"{API}/foods/{dal}", json={"restocked_at": now})
     assert sent.status_code == 422 and sent.json()["code"] == "not_a_staple"
-    assert kitchen.post(f"{API}/foods/{dal}/restock").status_code == 422
+    today = ok(kitchen.get(f"{API}/household"))["today"]
+    assert kitchen.patch(f"{API}/foods/{dal}", json={"restocked_on": today}).status_code == 422
     food = _staple(kitchen)
     none = kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": None})
     assert none.status_code == 422 and none.json()["code"] == "restock_date_needed"
@@ -211,7 +219,7 @@ def test_the_restocked_tap_sets_now_and_undo_puts_it_back(kitchen: TestClient) -
     food = _staple(kitchen)
     old = datetime.now(UTC) - timedelta(days=30)
     ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": old.isoformat()}))
-    done = ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    done = _restock_now(kitchen, food)
     assert _close(_restocked(kitchen, food), datetime.now(UTC))
     assert done["change"]["summary"] == "Rock salt restocked"
     ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
@@ -222,14 +230,17 @@ def test_another_household_gets_not_found(kitchen: TestClient, neighbour: TestCl
     food = _staple(kitchen)
     now = datetime.now(UTC).isoformat()
     assert neighbour.patch(f"{API}/foods/{food}", json={"restocked_at": now}).status_code == 404
-    assert neighbour.post(f"{API}/foods/{food}/restock").status_code == 404
+    assert (
+        neighbour.patch(f"{API}/foods/{food}", json={"restocked_on": "2026-10-01"}).status_code
+        == 404
+    )
     assert _restocked(kitchen, food) is None
 
 
 def test_the_pantry_gives_each_staple_its_date(kitchen: TestClient) -> None:
     food = _staple(kitchen)
     other = _staple(kitchen, "Black pepper")
-    ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    _restock_now(kitchen, food)
     staples = ok(kitchen.get(f"{API}/pantry"))["staples"]
     dates = {row["id"]: row["restocked_at"] for row in staples}
     assert dates[other] is None
@@ -260,3 +271,42 @@ def test_today_is_a_day_and_tomorrow_is_not(kitchen: TestClient) -> None:
     tomorrow = (datetime.fromisoformat(today) + timedelta(days=1)).date().isoformat()
     sent = kitchen.patch(f"{API}/foods/{food}", json={"restocked_on": tomorrow})
     assert sent.status_code == 422 and sent.json()["code"] == "restock_in_future"
+
+
+# --- Extreme dates (fix round 1) --------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("body", "code"),
+    [
+        ({"restocked_at": "0001-01-01T00:00:00+14:00"}, "restock_too_old"),
+        ({"restocked_at": "0001-01-01T00:00:00Z"}, "restock_too_old"),
+        ({"restocked_at": "1999-12-31T23:59:59Z"}, "restock_too_old"),
+        ({"restocked_at": "9999-12-31T23:59:59-14:00"}, "restock_in_future"),
+        ({"restocked_at": "9999-12-31T23:59:59Z"}, "restock_in_future"),
+        ({"restocked_on": "0001-01-01"}, "restock_too_old"),
+        ({"restocked_on": "1999-12-31"}, "restock_too_old"),
+        ({"restocked_on": "9999-12-31"}, "restock_in_future"),
+    ],
+)
+def test_an_extreme_date_is_a_422_not_a_500(kitchen: TestClient, body: Any, code: str) -> None:
+    food = _staple(kitchen)
+    sent = kitchen.patch(f"{API}/foods/{food}", json=body)
+    assert sent.status_code == 422 and sent.json()["code"] == code
+    assert _restocked(kitchen, food) is None
+
+
+def test_a_year_one_value_stored_directly_breaks_no_page_in_a_western_zone(
+    kitchen: TestClient,
+) -> None:
+    food = _staple(kitchen)
+    ok(kitchen.post(f"{API}/household/from-browser", json={"time_zone": "America/Los_Angeles"}))
+    with db(kitchen) as session:
+        session.execute(
+            update(Food).where(Food.id == food).values(restocked_at=datetime(1, 1, 1, tzinfo=UTC))
+        )
+        session.commit()
+    one = ok(kitchen.get(f"{API}/foods/{food}"))
+    assert one["restocked_on"] is None and one["restocked_days_ago"] is None
+    assert ok(kitchen.get(f"{API}/foods?limit=100"))["foods"]
+    assert any(row["id"] == food for row in ok(kitchen.get(f"{API}/pantry"))["staples"])
