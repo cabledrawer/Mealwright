@@ -36,6 +36,17 @@ describe('carrying the editor in the tab', () => {
     expect(fresh.dirty).toBe(true);
   });
 
+  it('a draft typed on an older version keeps that version, so Save meets the changed-recipe note', () => {
+    const typed = new RecipeDraft();
+    typed.opened = { version: 3 } as RecipeDraft['opened'];
+    typed.name = 'Mine';
+    const fresh = new RecipeDraft();
+    fresh.opened = { version: 5, photo: null } as RecipeDraft['opened'];
+    expect(fresh.applyCarried(typed.toCarried())).toBe(true);
+    expect(fresh.name).toBe('Mine');
+    expect(fresh.opened?.version).toBe(3);
+  });
+
   it('ignores something that is not a kept editor', () => {
     const fresh = new RecipeDraft();
     expect(fresh.applyCarried(null)).toBe(false);
