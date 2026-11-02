@@ -676,7 +676,7 @@ Written by Claude Code on 1 Nov from the mockup `PlanCards07-Desktop` (and its d
 - **F49:** the tub's button **Take off this meal (keep the tub)** (cabledrawer's example), not red, with the line **The tub stays in the fridge, in Tubs left.** / **… in the freezer, …** (proposed). The toast stays "Put Chana masala tub back in tubs left from …" (the server's words).
 - **F65:** in "Any left over?" with tubs picked: **Eat it on…** with **Not planned yet** first and then the next free meals, as **Sun 18 · Breakfast** (proposed); a tub that was chosen goes to that meal when Confirm is pressed.
 
-## 33. Month and day: one screen, a click on any day, Fill from freezer first (0.7 P4; proposed, for cabledrawer unless the spec or mockup has the words)
+## 33. Month and day: up to 3 a day, a click on any day, Fill from freezer first (0.7 P4; proposed, for cabledrawer unless the spec or mockup has the words)
 
 Written by Claude Code on 1 Nov from the mockup `Month07-Desktop` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" (Month and day, P4). cabledrawer's own words (spec, 28 Oct): "A full Month day shows up to 3 items, then "+N more"", "Filled Tue dinner, Thu lunch from freezer tubs (they run out soonest)", "The day sheet lists the oldest freezer tub first", "fridge tubs past their use-by aren't offered", **Cook once here**.
 
