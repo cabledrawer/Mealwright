@@ -644,7 +644,7 @@ def _overwritten(act: Act, item: ListItem, food: Food, place: Place) -> None:
 # --- different_pack (7.4) ------------------------------------------------------------------------
 
 
-def _pack_size(act: Act, food: Food, pack: int) -> FoodSize:
+def _pack_size(act: Act, food: Food, pack: int) -> FoodSize | None:
     kitchen = act.kitchen
     named = shopping.get_size(kitchen, food, act.payload.get("size_id"))
     if named is not None and named.amount_milli == pack:
@@ -652,6 +652,9 @@ def _pack_size(act: Act, food: Food, pack: int) -> FoodSize:
     same = next((s for s in sizes(kitchen, food.id) if s.amount_milli == pack), None)
     if same is not None:
         return same
+    if food.counted_as == "count":
+        # Whole things ("6 onions") are not a pack: no size is made up for them (K5, fix round 1).
+        return None
     usual = usual_size(kitchen, food.id)
     size = add_size(kitchen, food, usual.name if usual else "pack", pack, when_shopping=True)
     size.usual = False  # never made usual (7.4)
@@ -683,7 +686,8 @@ def different_pack(act: Act) -> None:
     except TooBig as err:
         raise Refused("too_big", "That amount is too big.") from err
     size = _pack_size(act, food, pack)
-    if [tick.bought_milli, tick.bought_size_id] == [total, size.id]:
+    size_id = size.id if size else None
+    if [tick.bought_milli, tick.bought_size_id] == [total, size_id]:
         act.ignore("no_change")
         return
     lots = purchase_lots(kitchen, tick)
@@ -710,7 +714,7 @@ def different_pack(act: Act) -> None:
             "op": "tick_bought",
             "tick_id": tick.id,
             "old": [tick.bought_milli, tick.bought_size_id],
-            "new": [total, size.id],
+            "new": [total, size_id],
         }
     ]
     change = edit.record(
@@ -720,7 +724,7 @@ def different_pack(act: Act) -> None:
         {"shopping": ops, "action": act.id},
     )
     change.tick_id = tick.id
-    tick.bought_milli, tick.bought_size_id = total, size.id
+    tick.bought_milli, tick.bought_size_id = total, size_id
     item.version = act.seq
     act.change = change
     _removed_list(act, item)
