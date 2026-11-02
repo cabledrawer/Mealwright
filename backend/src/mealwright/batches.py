@@ -915,7 +915,7 @@ def _cook_item(kitchen: Kitchen, batch: BatchCook) -> MealItem | None:
             MealItem.meal_id == batch.cook_meal_id,
             MealItem.recipe_id == batch.recipe_id,
         )
-        .order_by(MealItem.id)
+        .order_by(MealItem.position, MealItem.id)  # the first copy, as is_cook_item
         .limit(1)
     )
 
