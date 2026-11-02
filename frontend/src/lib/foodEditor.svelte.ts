@@ -42,13 +42,24 @@ export class FoodModel {
     this.id = id;
   }
 
+  /** Counts the loads, so an answer that comes after a newer load began is ignored. */
+  #loads = 0;
+
+  /**
+   * Fetch the food. If another load began while this one was waiting (Try again, or the food
+   * changed from elsewhere), only the newest answer counts: an older one that arrives late,
+   * a success or a failure, changes nothing (paper cuts, 0.7).
+   */
   async load(): Promise<void> {
+    const mine = ++this.#loads;
     try {
       const food = await getFood(this.id);
+      if (mine !== this.#loads) return;
       this.food = food;
       this.id = food.id; // a merged-away id answers with the food it went into
       this.problem = null;
     } catch (error) {
+      if (mine !== this.#loads) return;
       this.problem =
         error instanceof ApiError && error.status === 404
           ? 'This ingredient isn’t here any more.'
