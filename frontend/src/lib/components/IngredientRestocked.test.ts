@@ -130,10 +130,9 @@ describe('the editor’s Restocked date', () => {
 
   it('Enter saves a typed date', async () => {
     const dialog = start({ staple: true, restocked_on: '2026-10-12', restocked_days_ago: 21 });
-    const input = dialog.getByLabelText('Date restocked').element() as HTMLInputElement;
-    await expect
-      .element(dialog.getByLabelText('Date restocked'))
-      .toHaveAttribute('max', '2026-11-02');
+    const date = dialog.getByLabelText('Date restocked');
+    await expect.element(date).toHaveAttribute('max', '2026-11-02');
+    const input = date.element() as HTMLInputElement;
     input.focus();
     await userEvent.keyboard('1');
     input.value = '2026-10-30';
@@ -148,9 +147,10 @@ describe('the editor’s Restocked date', () => {
   });
 
   it('the date field is off while offline, like the Restocked button', async () => {
-    network.offline = true;
     try {
       const dialog = start({ staple: true, restocked_on: '2026-10-12', restocked_days_ago: 21 });
+      await expect.element(dialog.getByLabelText('Date restocked')).toBeEnabled();
+      network.offline = true;
       await expect.element(dialog.getByLabelText('Date restocked')).toBeDisabled();
       await expect
         .element(dialog.getByRole('button', { name: 'Restocked', exact: true }))
