@@ -73,12 +73,15 @@ test('shows the count, the rows and what is in stock, and passes the accessibili
   expect(names.map((n) => n.split('\n')[0])).toEqual([`${tag} one`, `${tag} three`, `${tag} two`]);
   await expect(page.locator('li a')).toHaveCount(3);
   await expect(page.locator('li button')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
-  // Not built yet, so not there: Planned. Import a recipe is (0.5), and so is Drafts: the phone has
-  // its button at the top of this page, a computer has it in the sidebar.
+  // "+ New recipe" is the one button on the list, and opens a small choice (N1).
+  await expect(page.getByRole('button', { name: 'New recipe', exact: true })).toHaveAttribute('aria-haspopup', 'menu');
+  // Not built yet, so not there: Planned. Import and Drafts are (0.5; Import its own item, F113): the
+  // phone has their buttons at the top of this page, a computer has them in the sidebar.
   await expect(page.getByRole('main').getByText(/Planned/)).toHaveCount(0);
   await expect(page.getByRole('main').getByRole('link', { name: /^Drafts/ })).toHaveCount(isPhone(page) ? 1 : 0);
-  await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Import', exact: true })).toHaveCount(isPhone(page) ? 1 : 0);
+  await expect(page.getByRole('link', { name: 'Import', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toHaveCount(0);
   await checkPage(page);
 });
 
@@ -323,9 +326,9 @@ test('empty: says No recipes yet, with New recipe to add one', async ({ page }) 
   await page.goto('/recipes');
   await expect(page.getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(page.getByText('Recipes you add will show here.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New recipe', exact: true })).toBeVisible();
   await expect(page.getByText(/Add a recipe/)).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Import', exact: true })).toBeVisible();
   await expect(page.getByRole('searchbox')).toHaveCount(0);
   await checkPage(page);
 });

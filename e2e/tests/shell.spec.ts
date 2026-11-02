@@ -281,11 +281,12 @@ test.describe('theme', () => {
 test.describe('desktop sidebar', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'desktop layout only');
 
-  test('Recipes’ tree is All recipes, Drafts and Ingredients (Drafts is back with import, 0.5)', async ({ page }) => {
+  test('Recipes’ tree is All recipes, Import, Drafts and Ingredients (Import is its own item, F113)', async ({ page }) => {
     await page.goto('/recipes/ingredients');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await expect(sidebar.getByRole('group', { name: 'Recipes' }).getByRole('link')).toHaveText([
       'All recipes',
+      'Import',
       /^Drafts\s*\d*$/,
       'Ingredients',
     ]);
@@ -327,7 +328,7 @@ test.describe('desktop sidebar', () => {
     await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
     await icon.click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Drafts', 'Ingredients']);
+    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Import', 'Drafts', 'Ingredients']);
     await expect(menu.getByRole('menuitem', { name: 'Ingredients' })).toHaveAttribute(
       'aria-current',
       'page',

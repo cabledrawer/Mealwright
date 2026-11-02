@@ -4,6 +4,7 @@ import { page } from 'vitest/browser';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
+import { VERSION_WORDS } from '#lib/version.js';
 import Sidebar from './Sidebar.svelte';
 import '../styles/tokens.css';
 import '../styles/base.css';
@@ -44,7 +45,7 @@ describe('the sidebar’s Drafts entry', () => {
     network.reset();
   });
 
-  it('is under Recipes between All recipes and Ingredients, with how many drafts there are', async () => {
+  it('is under Recipes after Import and before Ingredients, with how many drafts there are', async () => {
     await open({
       'GET /recipes/drafts': [200, { drafts: [brief(1), brief(2), brief(3)], count: 3 }]
     });
@@ -56,7 +57,7 @@ describe('the sidebar’s Drafts entry', () => {
         .getByRole('link')
         .elements()
         .map((link) => link.textContent?.replace(/\s+/g, ' ').trim())
-    ).toEqual(['All recipes', 'Drafts3', 'Ingredients']);
+    ).toEqual(['All recipes', 'Import', 'Drafts3', 'Ingredients']);
     await expect
       .element(page.getByRole('link', { name: 'Drafts 3' }))
       .toHaveAttribute('href', '/recipes/drafts');
@@ -70,5 +71,19 @@ describe('the sidebar’s Drafts entry', () => {
     drafts.forget();
     await open({ 'GET /recipes/drafts': [500, { detail: 'No.' }] });
     await expect.element(page.getByRole('link', { name: 'Drafts', exact: true })).toBeVisible();
+  });
+
+  it('has Import as its own item, linking to the import page (F113)', async () => {
+    await open({ 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });
+    await expect
+      .element(page.getByRole('group', { name: 'Recipes' }).getByRole('link', { name: 'Import' }))
+      .toHaveAttribute('href', '/recipes/import');
+  });
+
+  it('shows the build’s own version as small text at the foot, and a cog by the name (N1, F2)', async () => {
+    await open({ 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });
+    await expect.element(page.getByText(VERSION_WORDS)).toBeVisible();
+    expect(VERSION_WORDS).toMatch(/^Mealwright \d+\.\d+\.\d+/);
+    expect(document.querySelector('.settings .cog')).not.toBeNull();
   });
 });

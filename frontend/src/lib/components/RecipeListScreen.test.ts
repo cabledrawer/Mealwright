@@ -74,12 +74,11 @@ describe('All recipes as the middle pane', () => {
   it('has no Ingredients button and no page header, but keeps search, filters, rows and New recipe', async () => {
     open();
     await expect.element(page.getByText('Sambar')).toBeVisible();
+    // New recipe opens a small choice (N1); Import is in the sidebar, not on the list (F113).
     await expect
-      .element(page.getByRole('link', { name: 'New recipe' }))
-      .toHaveAttribute('href', '/recipes/new');
-    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|Planned/);
-    // Import a recipe sits beside New recipe (0.5).
-    await expect.element(page.getByRole('link', { name: 'Import a recipe' })).toBeVisible();
+      .element(page.getByRole('button', { name: 'New recipe' }))
+      .toHaveAttribute('aria-haspopup', 'menu');
+    expect(document.body.textContent).not.toMatch(/Ingredients|Drafts|Planned|Import/);
     expect(document.querySelector('.page-header')).toBeNull();
     await expect.element(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
     await expect.element(page.getByRole('group', { name: 'Show' })).toBeVisible();

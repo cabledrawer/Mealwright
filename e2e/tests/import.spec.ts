@@ -114,9 +114,9 @@ const answer = (page: Page, status: number, body: Json, delay = 0) =>
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   });
 
-test('Recipes has an Import a recipe button that opens the box', async ({ page }) => {
+test('Recipes has an Import item (the sidebar, or a button on a phone) that opens the box', async ({ page }) => {
   await page.goto('/recipes');
-  await page.getByRole('link', { name: 'Import a recipe', exact: true }).click();
+  await page.getByRole('link', { name: 'Import', exact: true }).click();
   await expect(page).toHaveURL(/\/recipes\/import$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import a recipe');
   await expect(read(page)).toBeDisabled();

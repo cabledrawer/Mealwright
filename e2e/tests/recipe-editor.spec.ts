@@ -47,7 +47,8 @@ test.beforeEach(async ({ page }) => {
 
 test('a new recipe: New recipe opens it, Save waits for a name, lands on the recipe, and Edit opens it again', async ({ page }) => {
   await page.goto('/recipes');
-  await page.getByRole('link', { name: 'New recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'New recipe', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Add by hand' }).click();
   await expect(page).toHaveURL(/\/recipes\/new$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('New recipe');
   await expect(save(page)).toBeDisabled();

@@ -97,7 +97,7 @@ describe('the All recipes page', () => {
     await expect.element(page.getByText('1 recipe', { exact: true })).toBeVisible();
   });
 
-  it('has the Drafts and Ingredients buttons and New recipe', async () => {
+  it('has the Import, Drafts and Ingredients buttons and New recipe', async () => {
     open();
     await expect
       .element(page.getByRole('link', { name: 'Drafts' }))
@@ -105,14 +105,23 @@ describe('the All recipes page', () => {
     await expect
       .element(page.getByRole('link', { name: 'Ingredients' }))
       .toHaveAttribute('href', '/recipes/ingredients');
+    // F113: Import is a button beside Drafts and Ingredients, first of the three.
     await expect
-      .element(page.getByRole('link', { name: 'New recipe' }))
-      .toHaveAttribute('href', '/recipes/new');
-    await expect.element(page.getByText('Sambar')).toBeVisible();
-    expect(document.body.textContent).not.toMatch(/Planned/);
-    await expect
-      .element(page.getByRole('link', { name: 'Import a recipe' }))
+      .element(page.getByRole('link', { name: 'Import', exact: true }))
       .toHaveAttribute('href', '/recipes/import');
+    expect(
+      page
+        .getByRole('navigation', { name: 'Recipes' })
+        .getByRole('link')
+        .elements()
+        .map((a) => a.textContent?.replace(/\s+/g, ' ').trim())
+    ).toEqual(['Import', 'Drafts', 'Ingredients']);
+    // N1: "New recipe" is the one button that stays on the list, and opens a small choice.
+    await expect
+      .element(page.getByRole('button', { name: 'New recipe' }))
+      .toHaveAttribute('aria-haspopup', 'menu');
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Planned|Import a recipe/);
   });
 
   it('shows how many drafts there are on the Drafts button, and no number for none', async () => {
@@ -265,12 +274,10 @@ describe('the All recipes page', () => {
     await expect.element(page.getByText('Recipes you add will show here.')).toBeVisible();
     await expect.element(page.getByText('0 recipes')).toBeVisible();
     expect(document.querySelector('[role="searchbox"], input[type="search"]')).toBeNull();
-    await expect
-      .element(page.getByRole('link', { name: 'New recipe' }))
-      .toHaveAttribute('href', '/recipes/new');
-    expect(document.body.textContent).not.toMatch(/Add a recipe/);
-    await expect.element(page.getByRole('link', { name: 'Import a recipe' })).toBeVisible();
-    expect(document.querySelectorAll('main button, button')).toHaveLength(0);
+    await expect.element(page.getByRole('button', { name: 'New recipe' })).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/Add a recipe|Import a recipe/);
+    // New recipe is the only button.
+    expect(document.querySelectorAll('main button, button')).toHaveLength(1);
   });
 
   it('says Loading… while the first answer is on its way', async () => {

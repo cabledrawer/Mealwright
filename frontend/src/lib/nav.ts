@@ -27,21 +27,23 @@ export function isCurrent(page: Page, pathname: string): boolean {
 
 /** The pages under Recipes: a tree in the sidebar, buttons on the phone's Recipes page. */
 export interface RecipesPage {
-  href: '/recipes' | '/recipes/drafts' | '/recipes/ingredients';
+  href: '/recipes' | '/recipes/import' | '/recipes/drafts' | '/recipes/ingredients';
   label: string;
 }
 
 // Drafts (/recipes/drafts) was left out of the menu in 0.4, when there was nothing to put in it;
 // it is back with 0.5's import (spec "Recipes navigation": All recipes · Drafts · Ingredients).
+// Import is its own item between All recipes and Drafts (cabledrawer 31 Oct, F113).
 export const RECIPES_PAGES: readonly RecipesPage[] = [
   { href: '/recipes', label: 'All recipes' },
+  { href: '/recipes/import', label: 'Import' },
   { href: '/recipes/drafts', label: 'Drafts' },
   { href: '/recipes/ingredients', label: 'Ingredients' }
 ];
 
 /**
  * Whether `sub` is the current page under Recipes. Anything under /recipes that isn't
- * Drafts or Ingredients (a recipe's own page, the editor, importing) belongs to All recipes.
+ * Import, Drafts or Ingredients (a recipe's own page, the editor) belongs to All recipes.
  */
 export function isCurrentRecipesPage(sub: RecipesPage, pathname: string): boolean {
   const under = (href: string) => pathname === href || pathname.startsWith(href + '/');

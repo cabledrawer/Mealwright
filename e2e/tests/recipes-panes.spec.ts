@@ -65,7 +65,7 @@ test('/recipes shows the list beside a calm empty reading pane, and passes the a
     'aria-current',
     'page',
   );
-  await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toHaveAttribute('href', '/recipes/new');
+  await expect(list(page).getByRole('button', { name: 'New recipe', exact: true })).toHaveAttribute('aria-haspopup', 'menu');
   // Hidden until they work: not drawn, not stubbed (Drafts is in the sidebar, not in the panes).
   await expect(
     page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
@@ -406,9 +406,10 @@ test('empty household: the list says No recipes yet, New recipe is there, and th
   await page.goto('/recipes');
   await expect(list(page).getByRole('heading', { name: 'No recipes yet' })).toBeVisible();
   await expect(reading(page).getByText('Choose a recipe')).toHaveCount(0);
-  await expect(list(page).getByRole('link', { name: 'New recipe', exact: true })).toBeVisible();
-  // Import a recipe is there since 0.5 (its own link, beside New recipe).
-  await expect(list(page).getByRole('link', { name: 'Import a recipe', exact: true })).toBeVisible();
+  await expect(list(page).getByRole('button', { name: 'New recipe', exact: true })).toBeVisible();
+  // Import is the sidebar's own item (F113), no longer a link on the list.
+  await expect(list(page).getByRole('link', { name: /Import/ })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Recipes' }).getByRole('link', { name: 'Import', exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByText(/Add a recipe/)).toHaveCount(0);
   await checkPage(page);
 });

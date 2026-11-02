@@ -136,6 +136,10 @@ export default defineConfig({
     { name: 'phone 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 paper cuts', testMatch: 'paper-cuts.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Restock dates, "How much?" and navigation (K5, N1, F113).
+    { name: 'phone 0.7 staples nav', testMatch: 'staples-nav.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 staples nav', testMatch: 'staples-nav.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 staples nav', testMatch: 'staples-nav.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Live updates, the connection bar and the installable app (0.3, PR 5).
     { name: 'desktop 0.7 plan cards', testMatch: 'plan-cards.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Month and day: the tags in their day, one screen, a click on any day (0.7, P4).

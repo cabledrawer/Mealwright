@@ -10,9 +10,11 @@
   // recipe's row marked, and it scrolls on its own. The panes' layout keeps this component
   // alive while recipes open beside it, so the search, the filter and the scroll stay.
   //
-  // Each row opens the recipe page; "New recipe" opens the editor (under the search on a phone,
-  // under the title in the pane, as the mockups have it). The phone's Drafts button (with the
-  // number of drafts, as the mockup has it) is back with 0.5's import. Hidden until it works,
+  // Each row opens the recipe page; "+ New recipe" (under the search on a phone, under the title
+  // in the pane, as the mockups have it) opens a small choice, Add by hand · Import from a link
+  // (N1). Import is also its own item in the sidebar and a button on the phone (F113). The
+  // phone's Drafts button (with the number of drafts, as the mockup has it) is back with 0.5's
+  // import. Hidden until it works,
   // not stubbed: "Planned Sun" (0.6). Online only, like Pantry (cabledrawer 19 Oct).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -21,6 +23,7 @@
   import EmptyState from './EmptyState.svelte';
   import FilterChips from './FilterChips.svelte';
   import Icon from './Icon.svelte';
+  import NewRecipeChoice from './NewRecipeChoice.svelte';
   import OfflineNote from './OfflineNote.svelte';
   import PageHeader from './PageHeader.svelte';
   import RecipeListRow from './RecipeListRow.svelte';
@@ -144,14 +147,7 @@
 <svelte:document onvisibilitychange={onVisible} />
 
 {#snippet newRecipe()}
-  <div class="starts">
-    <a class="new" href={resolve('/(app)/recipes/new')}
-      ><Icon name="plus" size={20} stroke={2.4} />New recipe</a
-    >
-    <a class="import" href={resolve('/(app)/recipes/import')}
-      ><Icon name="link" size={20} stroke={2.2} />Import a recipe</a
-    >
-  </div>
+  <NewRecipeChoice />
 {/snippet}
 
 {#snippet found()}
@@ -230,9 +226,10 @@
   {#if network.down && list.couldntLoad}
     <OfflineNote screen="Recipes" />
   {:else}
-    <!-- Phone: the Drafts and Ingredients buttons sit at the top of All recipes. Desktop has
-         them in the sidebar, under Recipes. -->
+    <!-- Phone: the Import, Drafts and Ingredients buttons sit at the top of All recipes. Desktop
+         has them in the sidebar, under Recipes. -->
     <nav class="more" aria-label="Recipes">
+      <a href={resolve('/(app)/recipes/import')}>Import</a>
       <a href={resolve('/(app)/recipes/drafts')}
         >Drafts{#if drafts.count}<span class="drafts-count">{drafts.count}</span>{/if}</a
       >
@@ -245,6 +242,7 @@
 <style>
   .more {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--space-3);
     margin-top: -10px;
   }
@@ -276,58 +274,6 @@
   .more a:hover {
     background: var(--color-fill);
     color: var(--color-text);
-  }
-
-  /* New recipe and Import a recipe: two buttons, side by side when there is room. */
-  .starts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-  }
-
-  .starts > a {
-    flex: 1 1 11rem;
-  }
-
-  .import {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-3);
-    min-height: 52px;
-    padding: 0 18px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-field);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    text-decoration: none;
-  }
-
-  .import:hover {
-    background: var(--color-fill);
-    color: var(--color-text);
-  }
-
-  /* The mockups' dark button, as wide as the column. */
-  .new {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-3);
-    min-height: 52px;
-    padding: 0 18px;
-    border-radius: var(--radius-field);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    text-decoration: none;
-  }
-
-  .new:hover {
-    color: var(--color-inverse-text);
   }
 
   .screen {
