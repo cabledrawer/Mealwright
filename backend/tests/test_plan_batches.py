@@ -757,6 +757,22 @@ def test_fill_from_freezer_one_tub_and_many_tubs_are_worded_to_fit(
     assert text.count("dinner") == 6 and len(text) < 300
 
 
+def test_fill_from_freezer_never_puts_a_tub_on_a_day_after_its_use_by(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    """Two tubs that both run out on the first empty day: only that day is filled."""
+    make(kitchen, cook["item_id"], tub_count=2, pattern="pick", extras_to_freezer=True)
+    for tub in view(kitchen)["tubs"]:
+        r = kitchen.patch(f"{API}/plan/tubs/{tub['id']}", json={"use_by": day(1)})
+        assert r.status_code == 200, r.text
+    filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(1), "to": day(3)})
+    assert filled.status_code == 200, filled.text
+    placed = [w for w in where_tubs_are(kitchen, slots) if w[2] == "Dinner"]
+    assert placed == [(1, day(1), "Dinner")]
+    assert filled.json()["change"]["summary"].startswith("Filled ")
+    assert filled.json()["change"]["summary"].count("dinner") == 1
+
+
 def test_fill_from_freezer_leaves_out_days_too_far_ahead_to_plan(
     kitchen: TestClient,
     cook: dict[str, Any],

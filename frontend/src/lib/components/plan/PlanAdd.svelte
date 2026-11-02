@@ -8,7 +8,9 @@
   import { listFoods } from '#lib/client/foods.js';
   import type { TubLeft } from '#lib/client/plan.js';
   import { useByWords } from '#lib/planMeals.js';
-  import { tubsForDay } from '#lib/planTubs.js';
+  import { cookTargetOf } from '#lib/cookHere.js';
+  import { toasts } from '#lib/toast.svelte.js';
+  import { tubsForDay, tubsListed } from '#lib/planTubs.js';
   import type { FoodRow } from '#lib/client/types.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull } from '#lib/planDates.js';
@@ -54,6 +56,7 @@
       noting = false;
       noteText = '';
       cooking = false;
+      allTubs = false;
       slotId = wanted ?? (model.slotsOn.length === 1 ? (model.slotsOn[0]?.id ?? null) : null);
       recipes.query = '';
       void recipes.load();
@@ -110,23 +113,35 @@
     onclose();
   }
 
+  let allTubs = $state(false);
+  const listed = $derived(tubsListed(offer.tubs, allTubs));
+
   /** The tubs this day offers: the oldest freezer tub first; fridge tubs past their use-by left out. */
   const offer = $derived(tubsForDay(model.tubsLeft, target?.day ?? ''));
 
-  /** Plan the recipe in this meal, then open Cook once for it. */
+  /** Cook once here: the recipe buttons wait while the recipe is being planned (no second plan). */
+  let planning = $state(false);
+
+  /** Plan the recipe in this meal, then open Cook once for it from what the add answered. */
   async function cookHere(recipe: { id: number; name: string }) {
-    if (!target || slotId === null || actions.readonly) return;
+    if (!target || slotId === null || actions.readonly || planning) return;
     const [day, slot] = [target.day, slotId];
-    const outcome = await model.add({ recipe }, day, slot);
-    onclose();
-    if (!outcome.ok || outcome.value.meal_id === null || outcome.value.item_id === null) return;
-    const [mealId, itemId] = [outcome.value.meal_id, outcome.value.item_id];
-    // The plan is fetched again after the change; the meal is there once that has come back.
-    for (let tries = 0; tries < 3; tries++) {
-      await model.load();
-      const meal = model.plan?.meals.find((m) => m.id === mealId);
-      const item = meal?.items.find((i) => i.id === itemId);
-      if (meal && item) return actions.openCookOnce(meal, item);
+    planning = true;
+    try {
+      const outcome = await model.add({ recipe }, day, slot);
+      if (!outcome.ok) return; // the failure has said why (a toast), and this sheet stays open
+      onclose();
+      const next = cookTargetOf(outcome.value, day, slot, recipe);
+      if (next) actions.openCookOnce(next.meal, next.item);
+      else
+        toasts.show(
+          `Planned ${recipe.name}, but Cook once didn’t open. Open its menu to try again.`,
+          {
+            tone: 'problem'
+          }
+        ); // proposed, for cabledrawer
+    } finally {
+      planning = false;
     }
   }
 
@@ -191,7 +206,7 @@
             {#each QUICK_NOTES as quick (quick)}
               <button
                 type="button"
-                disabled={slotId === null || actions.readonly}
+                disabled={slotId === null || actions.readonly || planning}
                 onclick={() => addNote(quick)}>{quick}</button
               >
             {/each}
@@ -235,11 +250,11 @@
       {#if !noting && !cooking && offer.tubs.length && !query.trim()}
         <h3 class="group">Use a tub</h3>
         <ul class="results" aria-label="Tubs left">
-          {#each offer.tubs.slice(0, 12) as tub (tub.id)}
+          {#each listed.shown as tub (tub.id)}
             <li>
               <button
                 type="button"
-                disabled={slotId === null || actions.readonly}
+                disabled={slotId === null || actions.readonly || planning}
                 onclick={() => putTub(tub)}
               >
                 <span class="name">{tub.recipe_name} · tub {tub.number} of {tub.tub_count}</span>
@@ -253,6 +268,11 @@
             </li>
           {/each}
         </ul>
+        {#if listed.hidden > 0}
+          <button type="button" class="add-note" onclick={() => (allTubs = true)}
+            >+{listed.hidden} more tubs</button
+          >
+        {/if}
         {#if offer.pastUseBy > 0}
           <p class="none">Fridge tubs that are past their use-by by then aren’t offered.</p>
         {/if}
@@ -264,7 +284,7 @@
             <li>
               <button
                 type="button"
-                disabled={slotId === null || actions.readonly}
+                disabled={slotId === null || actions.readonly || planning}
                 onclick={() =>
                   cooking
                     ? void cookHere({ id: recipe.id, name: recipe.name })
@@ -286,7 +306,7 @@
             <li>
               <button
                 type="button"
-                disabled={slotId === null || actions.readonly}
+                disabled={slotId === null || actions.readonly || planning}
                 onclick={() => pick({ ingredient: { id: food.id, name: food.name } })}
               >
                 <span class="name">{food.name}</span>

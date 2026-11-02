@@ -1091,6 +1091,7 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
                 Tub.household_id == kitchen.household_id,
                 Tub.place_id == freezer.id,
                 Tub.amount_quarters > 0,
+                Tub.use_by >= first,
                 ~exists().where(MealItem.tub_id == Tub.id),
             )
             .order_by(Tub.use_by, Tub.id)
@@ -1122,10 +1123,14 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
     day = first
     while day <= last and tubs:
         if day not in busy and day not in held:
-            check_day(kitchen, day)
-            tub = tubs.pop(0)
-            _put_tub_in_meal(kitchen, tub, (day, slot.id), steps)
-            filled.append(day)
+            # The tubs are in use-by order: the first one still in date on this day (a tub is no
+            # good past its own use-by, as place_tub says).
+            pick = next((i for i, t in enumerate(tubs) if t.use_by >= day), None)
+            if pick is not None:
+                check_day(kitchen, day)
+                tub = tubs.pop(pick)
+                _put_tub_in_meal(kitchen, tub, (day, slot.id), steps)
+                filled.append(day)
         day += timedelta(days=1)
     if not filled:
         return None

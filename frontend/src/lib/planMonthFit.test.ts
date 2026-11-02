@@ -16,25 +16,25 @@ describe('chipsThatFit (F47)', () => {
   });
 
   it('shows fewer in a short day, and keeps room for "+N more"', () => {
-    // 3 + 20 + 3 chips (76) + 26 for "+N more" + 3 = 128; two chips need 102, one needs 76
-    expect(chipsThatFit(128, 5)).toBe(3);
-    expect(chipsThatFit(127, 5)).toBe(2);
-    expect(chipsThatFit(102, 5)).toBe(2);
-    expect(chipsThatFit(101, 5)).toBe(1);
-    expect(chipsThatFit(76, 5)).toBe(1);
-    expect(chipsThatFit(75, 5)).toBe(0);
+    // 3 + 22 + 3 chips (76) + 26 for "+N more" + 3 = 130; two chips need 104, one needs 78
+    expect(chipsThatFit(130, 5)).toBe(3);
+    expect(chipsThatFit(129, 5)).toBe(2);
+    expect(chipsThatFit(104, 5)).toBe(2);
+    expect(chipsThatFit(103, 5)).toBe(1);
+    expect(chipsThatFit(78, 5)).toBe(1);
+    expect(chipsThatFit(77, 5)).toBe(0);
   });
 
   it('needs no "+N more" row when everything fits', () => {
-    // three chips and nothing else: 3 + 20 + 76 + 3 = 102
-    expect(chipsThatFit(102, 3)).toBe(3);
-    // one short: three do not fit, so "+N more" is needed, and two chips with it need 102
-    expect(chipsThatFit(101, 3)).toBe(1);
+    // three chips and nothing else: 3 + 22 + 76 + 3 = 104
+    expect(chipsThatFit(104, 3)).toBe(3);
+    // one short: three do not fit, so "+N more" is needed, and two chips with it need 104
+    expect(chipsThatFit(103, 3)).toBe(1);
   });
 
   it('never shows more than three, and grows with the text size', () => {
     expect(chipsThatFit(500, 9)).toBe(3);
-    expect(chipsThatFit(128, 5, 2)).toBe(0);
-    expect(chipsThatFit(256, 5, 2)).toBe(3);
+    expect(chipsThatFit(130, 5, 2)).toBe(0);
+    expect(chipsThatFit(260, 5, 2)).toBe(3);
   });
 });

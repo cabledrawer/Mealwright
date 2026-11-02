@@ -345,8 +345,6 @@ async function thingsOn(page: Page, day: string): Promise<number> {
 
 test('F45 and F46: Month shows the cooking first and "+N more", and a batch whose tubs run into the month', async ({ page }) => {
   test.skip(isPhone(page), 'the phone Month is a dot grid');
-  // Three things and "+N more" need a tall day: a short one (six weeks on a small screen) shows fewer (P4, F47).
-  await page.setViewportSize({ width: 1280, height: 1200 });
   const { slot } = await setup(page);
   const name = `Stew ${stamp()}`;
   const others = `Rice ${stamp()}`;
@@ -365,9 +363,15 @@ test('F45 and F46: Month shows the cooking first and "+N more", and a batch whos
   await page.getByRole('button', { name: 'Next month' }).click(); // October → November
   const cell = page.getByTestId(`day-${day}`);
   const chips = cell.getByRole('button', { name: /Open menu$/ });
-  await expect(chips).toHaveCount(3);
   await expect(chips.first()).toContainText(name); // the cooking, though lunch comes after breakfast
-  await expect(cell.getByRole('button', { name: `+${before + 4 - 3} more` })).toBeVisible();
+  // A day shows up to three things and the rest are "+N more"; a short day (this month has six weeks
+  // on a screen 900 px high) shows fewer than three, so what is shown plus N is what is planned.
+  const more = cell.getByRole('button', { name: /^\+\d+ more$/ });
+  await expect(more).toBeVisible();
+  await expect
+    .poll(async () => (await chips.count()) + Number((await more.textContent())!.replace(/\D/g, '')))
+    .toBe(before + 4);
+  expect(await chips.count()).toBeLessThanOrEqual(3);
   // December: the batch cooked on 30 November, whose tub is eaten in December, is listed.
   await page.getByRole('button', { name: 'Next month' }).click();
   await expect(page.getByRole('heading', { level: 3, name: 'Batches this month' }).locator('..')).toContainText(`${name} late`);

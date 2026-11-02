@@ -156,20 +156,16 @@
               >+{chips.length - shown} more</button
             >
           {/if}
-          {#if over && drag.carried}
-            <div class="zones" class:one={!drag.carried.zones} aria-hidden="true">
-              {#if drag.carried.zones}
-                <span data-drop-zone="move" class:on={drag.over?.mode === 'move'}>Move</span>
-                <span data-drop-zone="copy" class:on={drag.over?.mode === 'copy'}
-                  >Copy <small>Alt</small></span
+          {#if over && drag.carried?.zones}
+            <div class="zones" aria-hidden="true">
+              <span data-drop-zone="move" class:on={drag.over?.mode === 'move'}>Move</span>
+              <span data-drop-zone="copy" class:on={drag.over?.mode === 'copy'}
+                >Copy <small>Alt</small></span
+              >
+              {#if drag.carried.leftoversOk?.(day, null) ?? true}
+                <span data-drop-zone="leftovers" class:on={drag.over?.mode === 'leftovers'}
+                  >Leftovers here</span
                 >
-                {#if drag.carried.leftoversOk?.(day, null) ?? true}
-                  <span data-drop-zone="leftovers" class:on={drag.over?.mode === 'leftovers'}
-                    >Leftovers here</span
-                  >
-                {/if}
-              {:else}
-                <span class="on">Drop a recipe</span>
               {/if}
             </div>
           {/if}
@@ -290,6 +286,12 @@
     cursor: pointer;
   }
 
+  /* The day clips what overflows it, so the focus ring is drawn inside it. */
+  .hit:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: -4px;
+  }
+
   .hit:hover:not(:disabled) {
     background: var(--color-accent-soft);
   }
@@ -326,14 +328,14 @@
     align-items: center;
     gap: 0 var(--space-2);
     min-width: 0;
-    min-height: 18px;
+    min-height: 1.25rem;
   }
 
   .num {
     padding: 0 var(--space-2);
     font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
-    line-height: 18px;
+    line-height: 1.25rem;
   }
 
   .now,
@@ -343,7 +345,7 @@
     font-size: var(--text-xs);
     font-weight: var(--weight-extrabold);
     letter-spacing: var(--tracking-overline);
-    line-height: 16px;
+    line-height: 1.25;
   }
 
   .now {
@@ -362,7 +364,7 @@
     flex: none;
     display: flex;
     align-items: center;
-    height: 24px;
+    height: 1.5rem;
     padding: 0 var(--space-3);
     border: none;
     border-radius: var(--radius-sm);
@@ -371,7 +373,7 @@
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-    line-height: 16px;
+    line-height: 1.25;
     text-align: left;
     cursor: pointer;
     user-select: none;
@@ -397,15 +399,16 @@
 
   .more {
     flex: none;
-    height: 24px;
+    height: 1.5rem;
     padding: 0 var(--space-2);
+    white-space: nowrap;
     border: none;
     background: none;
     color: var(--color-accent);
     font: inherit;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-    line-height: 24px;
+    line-height: 1.5rem;
     text-align: left;
     cursor: pointer;
   }
@@ -442,15 +445,6 @@
     color: var(--color-inverse-text);
   }
 
-  .zones.one {
-    inset: var(--space-2);
-  }
-
-  .zones.one span {
-    flex: 1;
-    justify-content: center;
-  }
-
   .zones small {
     font-weight: var(--weight-medium);
   }
@@ -458,6 +452,7 @@
   .side {
     flex: none;
     width: 240px;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: var(--space-6);

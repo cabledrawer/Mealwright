@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
-import { setAccountTheme } from './a11y.ts';
+import { inTheme, setAccountTheme } from './a11y.ts';
+import { chipsThatFit } from '../../frontend/src/lib/planMonthFit.ts';
 
 // The Plan's Month and day (0.7, P4): the COOK and Today tags stay inside their day (F84), the
 // month fits one screen and a full day shows 3 items then "+N more" (F47), a click anywhere in a
@@ -9,12 +10,16 @@ import { setAccountTheme } from './a11y.ts';
 // The days (all far ahead, since a batch's tubs cannot be in the past). Plan weeks 80 to 83 ahead
 // are shared with plan-cards.spec.ts (computer only: Sat/Sun, Thu/Fri and, in weeks 80 to 82,
 // Mon/Tue), so this spec takes only Wednesdays, and in week 83 the Monday and Tuesday too:
-//   computer: A (F84) Wednesday of week 80, B (F47) week 81, D (tub, Cook once here) week 82;
-//   WebKit:   A Monday of week 83, B Tuesday of week 83, D Wednesday of week 83;
+//   computer: A (F84) and D (Cook once here) Wednesday of week 80, B (F47) week 81,
+//             L (leftovers dragged between days) Monday to Tuesday of week 83;
+//   WebKit:   A and D Wednesday of week 83, B Wednesday of week 82;
 //   phone:    D Wednesday of week 80 (the phone has no month grid, so no A or B).
-// The click-a-day-and-pick-a-recipe test (C) plans on a day in the past (it needs no batch), in a
-// week of the project's own: 9, 14 or 19 weeks back. Everything is named with a word no other
-// test uses ("Moon…"). The test that mocks "Fill from freezer first" plans nothing.
+// A and D only look at their own names and boxes, so they can share a day. The tests of tubs plan
+// on past days (a freezer tub lasts three months, a fridge tub three days): T, and U seven weeks
+// before it, 10 / 25 / 40 weeks back for the computer / WebKit / phone. The click-a-day-and-pick-
+// a-recipe test (C) is on a past day too, 9, 14 or 19 weeks back. Everything is named with a word
+// no other test uses ("Moon…"). The test that mocks "Fill from freezer first" plans nothing. A
+// test that counts what is on its day clears the day first, so a retry starts from the same day.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
@@ -39,7 +44,7 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-type Which = 'A' | 'B' | 'C' | 'D' | 'T';
+type Which = 'A' | 'B' | 'C' | 'D' | 'L' | 'T' | 'U';
 const kind = () => {
   const name = test.info().project.name;
   return name.startsWith('phone') ? 'phone' : name.startsWith('webkit') ? 'webkit' : 'computer';
@@ -47,11 +52,23 @@ const kind = () => {
 /** The test's own day. Today is a Saturday, so today + 7 × weeks is one too; Wednesday is 3 before. */
 function dayFor(today: string, which: Which): string {
   const wed = (week: number) => addDays(today, 7 * week - 3);
+  if (which === 'U') return addDays(dayFor(today, 'T'), -49);
   if (which === 'T') return addDays(today, -7 * { computer: 10, webkit: 25, phone: 40 }[kind()]);
   if (which === 'C') return addDays(today, -7 * { computer: 9, webkit: 14, phone: 19 }[kind()] + 1);
-  if (kind() === 'computer') return wed({ A: 80, B: 81, D: 82 }[which]);
-  if (kind() === 'webkit') return addDays(wed(83), { A: -2, B: -1, D: 0 }[which]);
+  if (which === 'L') return addDays(wed(83), -2); // Monday; the day after is the target
+  if (kind() === 'computer') return wed({ A: 80, B: 81, D: 80 }[which]);
+  if (kind() === 'webkit') return wed({ A: 83, B: 82, D: 83 }[which]);
   return wed(80);
+}
+
+/** Take everything off a day, so a test that counts what is there starts from nothing on a retry. */
+async function clearDay(page: Page, day: string) {
+  const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+    meals: { id: number; date: string }[];
+  };
+  for (const meal of plan.meals.filter((m) => m.date === day)) {
+    await call(page, 'DELETE', `/plan/meals/${meal.id}`);
+  }
 }
 
 const stamp = () => `Moon${kind()}${Date.now().toString(36)}`;
@@ -119,6 +136,13 @@ async function openMonthOf(page: Page, today: string, day: string) {
       })
       .click();
   }
+}
+
+/** The middle of a thing, or a point part-way down it. */
+async function centre(locator: Locator, down = 0.5) {
+  await locator.scrollIntoViewIfNeeded();
+  const box = (await locator.boundingBox())!;
+  return { x: box.x + box.width / 2, y: box.y + box.height * down };
 }
 
 const inside = async (inner: Locator, outer: Locator) => {
@@ -242,16 +266,22 @@ test('F52: the day offers the oldest freezer tub first, leaves out a fridge tub 
     .getByRole('status')
     .filter({ hasText: new RegExp(`Put .*${word} Oldest.* in Lunch`) });
   await expect(planned).toBeVisible();
+  // Found by this test's own batch, so a retry (which has put another tub there) still passes.
   await expect
     .poll(async () => {
       const plan = (await (
         await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)
       ).json()) as {
-        meals: { slot_id: number; items: { kind: string }[] }[];
+        meals: { slot_id: number; items: { tub_id: number | null }[] }[];
+        tubs: { id: number; batch_id: number }[];
+        batch_cooks: { id: number; recipe_name: string }[];
       };
-      return plan.meals.find((m) => m.slot_id === slot.Lunch)?.items.map((i) => i.kind);
+      const batch = plan.batch_cooks.find((b) => b.recipe_name === `${word} Oldest`);
+      const mine = new Set(plan.tubs.filter((t) => t.batch_id === batch?.id).map((t) => t.id));
+      const lunch = plan.meals.find((m) => m.slot_id === slot.Lunch);
+      return lunch?.items.some((i) => i.tub_id !== null && mine.has(i.tub_id));
     })
-    .toEqual(['tub']);
+    .toBe(true);
 });
 
 test('F52: "Cook once here…" plans the recipe in the meal and opens Cook once, eat for…', async ({
@@ -266,7 +296,8 @@ test('F52: "Cook once here…" plans the recipe in the meal and opens Cook once,
   await expect(add.getByText('Pick the recipe to cook once here.')).toBeVisible();
   await expect(add.getByRole('list', { name: 'Tubs left' })).toHaveCount(0);
   await add.getByRole('searchbox', { name: 'Find a recipe or an ingredient' }).fill(name);
-  await add.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  // A double click plans it once: the recipes wait while it is being planned.
+  await add.getByRole('button', { name: new RegExp(`^${name}`) }).dblclick();
   const cook = page.getByRole('dialog', { name: 'Cook once, eat for…' });
   await expect(cook).toBeVisible();
   await expect(cook).toContainText(name);
@@ -274,8 +305,72 @@ test('F52: "Cook once here…" plans the recipe in the meal and opens Cook once,
     meals: { slot_id: number; items: { recipe: { name: string } | null }[] }[];
   };
   expect(
-    meals.meals.find((m) => m.slot_id === slot.Breakfast)?.items.map((i) => i.recipe?.name)
-  ).toContain(name);
+    meals.meals
+      .find((m) => m.slot_id === slot.Breakfast)
+      ?.items.map((i) => i.recipe?.name)
+      .filter((n) => n === name)
+  ).toEqual([name]);
+});
+
+test('F52: when Cook once here cannot plan the recipe, the sheet stays and says why', async ({
+  page
+}) => {
+  const { today } = await setup(page);
+  const day = dayFor(today, 'D');
+  const name = `${stamp()} Kesari`;
+  await makeRecipe(page, name);
+  const add = await openDay(page, today, day, 'Breakfast');
+  await add.getByRole('button', { name: 'Cook once here…' }).click();
+  await add.getByRole('searchbox', { name: 'Find a recipe or an ingredient' }).fill(name);
+  await expect(add.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+  await page.route('**/api/v1/plan/items', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({
+          status: 422,
+          json: { code: 'meal_off', detail: 'That meal is switched off.' }
+        })
+      : route.fallback()
+  );
+  await add.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'That meal is switched off.' })
+  ).toBeVisible();
+  await expect(add).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Cook once, eat for…' })).toHaveCount(0);
+});
+
+test('F52: a long freezer list never hides a fridge tub; "+N more tubs" lists the rest', async ({
+  page
+}) => {
+  const { today, slot } = await setup(page);
+  const day = dayFor(today, 'U');
+  const word = stamp();
+  // Seven batches of two tubs in the freezer (fourteen, the oldest first), and one in the fridge.
+  for (let n = 0; n < 7; n++) {
+    await pastBatch(page, `${word} Frozen${n}`, addDays(day, -2 - n), slot, 'freezer');
+  }
+  await pastBatch(page, `${word} Chilled`, addDays(day, -1), slot, 'fridge');
+  const add = await openDay(page, today, day, 'Lunch');
+  const tubs = add.getByRole('list', { name: 'Tubs left' });
+  await expect(
+    tubs
+      .getByRole('listitem')
+      .filter({ hasText: `${word} Chilled` })
+      .first()
+  ).toBeVisible();
+  const more = add.getByRole('button', { name: /^\+\d+ more tubs$/ });
+  await expect(more).toBeVisible();
+  const before = await tubs.getByRole('listitem').count();
+  expect(before).toBeLessThanOrEqual(12);
+  await more.click();
+  await expect(more).toHaveCount(0);
+  expect(await tubs.getByRole('listitem').count()).toBeGreaterThan(before);
+  await expect(
+    tubs
+      .getByRole('listitem')
+      .filter({ hasText: `${word} Frozen6` })
+      .first()
+  ).toBeVisible();
 });
 
 test('F47: at 1024×768 the month and the day beside it fit one screen with six weeks', async ({
@@ -348,18 +443,20 @@ test.describe('on a computer', () => {
     expect(room.lastBottom).toBeLessThanOrEqual(0);
   });
 
-  test('F47: a day of five things shows three and "+2 more", the cooking first', async ({
+  test('F47: a day of six things shows three and "+3 more" when it is tall, and as many as fit at 1280×900', async ({
     page
   }) => {
     await page.setViewportSize({ width: 1280, height: 1200 });
     const { today, slot } = await setup(page);
     const day = dayFor(today, 'B');
+    await clearDay(page, day);
     const word = stamp();
     await cookedOnce(page, `${word} Curry`, day, slot);
     await planned(page, await makeRecipe(page, `${word} Porridge`), day, slot.Breakfast);
     await planned(page, await makeRecipe(page, `${word} Salad`), day, slot.Lunch);
     await planned(page, await makeRecipe(page, `${word} Soup`), day, slot.Lunch);
     await planned(page, await makeRecipe(page, `${word} Fruit`), day, slot.Snack);
+    await planned(page, await makeRecipe(page, `${word} Rice`), day, slot.Snack);
 
     await openMonthOf(page, today, day);
     const where = page.getByTestId(`day-${day}`);
@@ -369,10 +466,125 @@ test.describe('on a computer', () => {
     await expect(chips.nth(0)).toContainText(`${word} Curry`);
     await expect(chips.nth(1)).toContainText(`${word} Porridge`);
     await expect(chips.nth(2)).toContainText(`${word} Salad`);
-    await where.getByRole('button', { name: '+2 more' }).click();
+    await where.getByRole('button', { name: '+3 more' }).click();
     const sheet = page.getByRole('dialog', { name: /^(Wednesday|Monday|Tuesday)/ });
     await expect(sheet).toContainText(`${word} Fruit`);
-    expect(await inside(where.getByRole('button', { name: '+2 more' }), where)).toBe(true);
+    await expect(sheet).toContainText(`${word} Rice`);
+    await page.keyboard.press('Escape');
+    expect(await inside(where.getByRole('button', { name: '+3 more' }), where)).toBe(true);
+
+    // The projects' own size, 1280×900: the day shows what planMonthFit says fits (the cooking
+    // first), and "+N more" says how many are left and opens the day.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect
+      .poll(async () => {
+        const box = (await where.boundingBox())!;
+        return (await chips.count()) === chipsThatFit(box.height, 6);
+      })
+      .toBe(true);
+    const shown = await chips.count();
+    expect(shown).toBeGreaterThanOrEqual(1);
+    await expect(chips.first()).toContainText(`${word} Curry`);
+    await where.getByRole('button', { name: `+${6 - shown} more` }).click();
+    await expect(page.getByRole('dialog', { name: /^(Wednesday|Monday|Tuesday)/ })).toContainText(
+      `${word} Rice`
+    );
+  });
+
+  test('F47: at 200% text a busy day still shows "+N more" inside its day, and the side panel scrolls', async ({
+    page
+  }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'B');
+    const word = stamp();
+    await cookedOnce(page, `${word} Curry`, day, slot);
+    for (const meal of [slot.Breakfast, slot.Lunch, slot.Lunch, slot.Snack]) {
+      await planned(page, await makeRecipe(page, `${word} ${meal}x${Math.random()}`), day, meal);
+    }
+    await openMonthOf(page, today, day);
+    const where = page.getByTestId(`day-${day}`);
+    await expect(where).toBeVisible();
+    await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+    const more = where.getByRole('button', { name: /^\+\d+ more$/ });
+    await expect(more).toBeVisible();
+    await expect
+      .poll(async () =>
+        page.evaluate(
+          () =>
+            [...document.querySelectorAll<HTMLElement>('[data-testid^="day-"]')].filter(
+              (c) => c.scrollHeight > c.clientHeight + 1
+            ).length
+        )
+      )
+      .toBe(0);
+    expect(await inside(more, where)).toBe(true);
+    expect(await inside(where.locator('.num'), where)).toBe(true);
+    // The panel beside the month is cut off at its own edge: it scrolls, so its last button is reachable.
+    const panel = page.getByRole('complementary', { name: 'This month' });
+    expect(await panel.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+    const fill = page.getByRole('button', { name: 'Fill from freezer first' });
+    await fill.scrollIntoViewIfNeeded();
+    await expect(fill).toBeInViewport();
+  });
+
+  test('the keyboard focus ring of a day is drawn inside it, in both themes', async ({ page }) => {
+    const { today } = await setup(page);
+    await openMonthOf(page, today, today);
+    const hit = page.getByTestId(`day-${today}`).getByRole('button', { name: /^Add to / });
+    for (const theme of ['light', 'dark'] as const) {
+      await inTheme(page, theme);
+      await page.keyboard.press('Shift'); // a key, so focus shows as it does to a keyboard user
+      await hit.focus();
+      const ring = await hit.evaluate((el) => {
+        const style = getComputedStyle(el);
+        const offset = parseFloat(style.outlineOffset);
+        return {
+          visible: el.matches(':focus-visible'),
+          style: style.outlineStyle,
+          width: parseFloat(style.outlineWidth),
+          offset
+        };
+      });
+      expect(ring.visible, theme).toBe(true);
+      expect(ring.style, theme).toBe('solid');
+      expect(ring.width, theme).toBeGreaterThanOrEqual(2);
+      // Negative: inside the button, which fills the day, so the day's clipping cannot cut it.
+      expect(ring.offset, theme).toBeLessThanOrEqual(-2);
+    }
+  });
+
+  test('a chip dragged to a later day with "Leftovers here" plans leftovers there, with Undo', async ({
+    page
+  }) => {
+    test.skip(kind() !== 'computer', 'the computer has the free pair of days');
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'L');
+    const next = addDays(day, 1);
+    await clearDay(page, day);
+    await clearDay(page, next);
+    const name = `${stamp()} Dosa`;
+    await planned(page, await makeRecipe(page, name), day, slot.Lunch);
+    await openMonthOf(page, today, day);
+    const chip = page
+      .getByTestId(`day-${day}`)
+      .getByRole('button', { name: new RegExp(`^${name}`) });
+    const target = page.getByTestId(`day-${next}`);
+    const a = await centre(chip);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(a.x + 12, a.y + 12, { steps: 3 });
+    const b = await centre(target, 0.2);
+    await page.mouse.move(b.x, b.y, { steps: 10 });
+    const zone = target.locator('[data-drop-zone="leftovers"]');
+    await expect(zone).toBeVisible();
+    const z = await centre(zone);
+    await page.mouse.move(z.x, z.y, { steps: 4 });
+    await page.mouse.up();
+    await expect(target).toContainText(name);
+    await expect(page.getByTestId(`day-${day}`)).toContainText(name);
+    await expect(page.getByRole('status').filter({ hasText: 'Leftovers' })).toBeVisible();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(target).not.toContainText(name);
   });
 
   test('"Fill from freezer first" says which meals it filled and why, with one Undo', async ({

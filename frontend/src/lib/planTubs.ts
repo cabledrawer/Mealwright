@@ -23,3 +23,29 @@ export function tubsForDay(tubs: readonly TubLeft[], day: string): TubOffer {
     pastUseBy: tubs.filter((t) => t.use_by < day && t.place_kind !== 'freezer').length
   };
 }
+
+/** The most tubs the day sheet lists before "+N more tubs". */
+export const MOST_TUBS_LISTED = 12;
+
+/**
+ * The tubs to list now. Every tub that is not in the freezer (the fridge ones, still in date) is
+ * always listed, so a long freezer list never hides them; the freezer tubs fill what is left of
+ * `limit`, the oldest first. The order stays as `tubsForDay` gave it. `hidden` is how many wait
+ * behind "+N more tubs".
+ */
+export function tubsListed(
+  tubs: readonly TubLeft[],
+  expanded: boolean,
+  limit = MOST_TUBS_LISTED
+): { shown: TubLeft[]; hidden: number } {
+  if (expanded || tubs.length <= limit) return { shown: [...tubs], hidden: 0 };
+  const others = tubs.filter((t) => t.place_kind !== 'freezer').length;
+  let room = Math.max(0, limit - others);
+  const shown = tubs.filter((t) => {
+    if (t.place_kind !== 'freezer') return true;
+    if (room <= 0) return false;
+    room--;
+    return true;
+  });
+  return { shown, hidden: tubs.length - shown.length };
+}

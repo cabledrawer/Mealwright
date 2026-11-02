@@ -7,7 +7,7 @@
 export const MOST_CHIPS = 3;
 
 const PAD = 3; // the day's padding, top and bottom each
-const TOP = 18 + 2; // the number row and the gap under it
+const TOP = 20 + 2; // the number row (20 px, so what is left of the day's button is 24 px) and the gap under it
 const CHIP = 24; // one chip: 24 px at least, or a pointer or a finger misses it (WCAG 2.2 target size)
 const GAP = 2; // between chips
 const MORE = 24; // the "+N more" row

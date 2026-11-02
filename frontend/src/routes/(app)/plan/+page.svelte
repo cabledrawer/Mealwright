@@ -541,7 +541,7 @@
   /* The month is exactly one screen tall (F47), whatever is planned in it: its days share what is
      left under the toolbar, and a busy day shows "+N more" instead of growing. */
   .plan.month {
-    height: max(calc(100dvh - 2 * var(--space-10)), 560px);
+    height: max(calc(100dvh - 2 * var(--space-10)), 35rem);
   }
 
   /* The title keeps its words whole: at a large text size the buttons wrap under it. */

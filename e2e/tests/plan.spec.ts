@@ -446,9 +446,14 @@ test.describe('on a computer', () => {
   test('pages: no accessibility violations in light and dark; no sideways scrolling', async ({ page }) => {
     const { today, slot } = await setup(page);
     await planned(page, await makeRecipe(page, `A11y ${stamp()}`), inWeek(today, 9), slot.Dinner);
+    // A busy day (5 things: three chips, "+2 more" and the number row) must pass axe in Month too (P4).
+    for (const meal of [slot.Breakfast, slot.Lunch, slot.Dinner, slot.Dinner]) {
+      await planned(page, await makeRecipe(page, `Busy ${stamp()}`), inWeek(today, 9), meal);
+    }
     await openWeekOf(page, today, inWeek(today, 9));
     await checkPage(page);
     await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Month' }).click();
+    await expect(page.getByTestId(`day-${inWeek(today, 9)}`).getByRole('button', { name: /^\+\d+ more$/ })).toBeVisible();
     await checkPage(page);
   });
 
