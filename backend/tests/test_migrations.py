@@ -1228,10 +1228,28 @@ def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
     with engine.connect() as connection:
         found = connection.exec_driver_sql("SELECT restock_typed_at FROM food").scalars().all()
     assert found and set(found) == {None}
+    with engine.begin() as connection:  # a typed date on one ingredient
+        connection.exec_driver_sql(
+            "UPDATE food SET restocked_at = '2026-10-28 11:00:00.000000',"
+            " restock_typed_at = '2026-11-01 09:30:00.000000' WHERE id = 1"
+        )
+
+    def foods() -> list[tuple[object, ...]]:
+        with engine.connect() as connection:
+            rows = connection.exec_driver_sql(
+                "SELECT id, household_id, name, counted_as, staple, place_id, shop_id, aisle,"
+                " running_low_milli, merged_into_id, removed_at, created_at, restocked_at"
+                " FROM food ORDER BY id"
+            )
+            return [tuple(row) for row in rows]
+
+    held = foods()
+    assert "2026-10-28 11:00:00.000000" in held[0]
     migrate.downgrade(engine, COOK_PER_STEP_MIGRATION)
     assert "restock_typed_at" not in {c["name"] for c in inspect(engine).get_columns("food")}
     assert migrate_head(engine) == COOK_PER_STEP_MIGRATION
     assert _row_counts(engine, skip) == before
+    assert foods() == held  # the date and every other value stay
     assert "AUTOINCREMENT" in _table_sql(engine, "food")  # the copy still never reuses an id
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
@@ -1241,4 +1259,5 @@ def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
         found = connection.exec_driver_sql("SELECT restock_typed_at FROM food").scalars().all()
     assert set(found) == {None}
     assert _row_counts(engine, skip) == before
+    assert foods() == held
     assert "AUTOINCREMENT" in _table_sql(engine, "food")
