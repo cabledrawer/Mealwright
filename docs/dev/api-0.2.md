@@ -398,7 +398,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 A merged-away id returns the food it was merged into (different `id`, plus `"merged_from": {"id": 40, "name": "Drumsticks (moringa)"}`), so old links keep working.
 
-`restocked_at` (0.7 K1, on the list and the editor; writable from 0.7 K5, see PATCH below): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back); with a typed date on either (0.7 K5), the ingredient that stays shows the newer of the two dates shown.
+`restocked_at` (0.7 K1, on the list and the editor; writable from 0.7 K5, see PATCH below): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back). With a typed date on either (0.7 K5), the ingredient that stays shows the newer of the two dates shown: it keeps the later typed moment, and a tick that counted but was made before that moment is folded into the kept date, so unticking that one no longer moves the date (a tick made after the moment still does). An Undo of a typed date or a merge never shows a date older than a purchase the tidy-up has deleted since.
 
 **`POST /api/v1/foods`** → `201`
 
