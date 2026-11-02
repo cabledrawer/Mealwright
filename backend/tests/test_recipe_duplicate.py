@@ -142,14 +142,24 @@ def test_no_photo_means_none_on_the_copy(kitchen: TestClient) -> None:
     assert copy["photo"] is None
 
 
-def test_a_made_ahead_recipe_gets_its_own_ingredient_and_a_second_copy_is_refused(
+def test_a_made_ahead_recipe_gets_its_own_ingredient_and_every_copy_a_new_name(
     kitchen: TestClient,
 ) -> None:
     mine = make(kitchen, "Sambar powder", made_ahead=True, makes={"amount": 200, "unit": "g"})
-    copy = ok(duplicate(kitchen, mine["id"]), 201)
-    assert copy["made_ahead"] and copy["homemade"]["name"] == "Sambar powder (copy)"
-    assert copy["homemade"]["id"] != mine["homemade"]["id"]
-    assert duplicate(kitchen, mine["id"]).status_code == 409
+    copies = [ok(duplicate(kitchen, mine["id"]), 201) for _ in range(3)]
+    names = ["Sambar powder (copy)", "Sambar powder (copy 2)", "Sambar powder (copy 3)"]
+    assert [c["name"] for c in copies] == names
+    assert [c["homemade"]["name"] for c in copies] == names
+    assert len({c["homemade"]["id"] for c in copies} | {mine["homemade"]["id"]}) == 4
+
+
+def test_a_plain_recipe_numbers_its_copies_the_same_way(kitchen: TestClient) -> None:
+    mine = make(kitchen)
+    names = [ok(duplicate(kitchen, mine["id"]), 201)["name"] for _ in range(3)]
+    assert names == ["Sambar (copy)", "Sambar (copy 2)", "Sambar (copy 3)"]
+    long = make(kitchen, "N" * 200)
+    first, second = (ok(duplicate(kitchen, long["id"]), 201)["name"] for _ in range(2))
+    assert len(first) <= 200 and len(second) <= 200 and second.endswith(" (copy 2)")
 
 
 def test_a_missing_or_removed_recipe_is_a_404(kitchen: TestClient) -> None:

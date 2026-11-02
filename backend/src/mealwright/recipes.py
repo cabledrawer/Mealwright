@@ -336,7 +336,20 @@ def save(
     return recipe
 
 
-COPY_SUFFIX = " (copy)"
+def _copy_name(kitchen: Kitchen, source: Recipe) -> str:
+    """ "Sambar (copy)"; if a recipe has that name already (or, for a Made ahead recipe, an
+    ingredient does), "Sambar (copy 2)", then "(copy 3)" and so on. Cut to 200 characters."""
+    taken = {fold(r.name) for r in live_recipes(kitchen).values()}
+    n = 1
+    while True:
+        suffix = " (copy)" if n == 1 else f" (copy {n})"
+        name = source.name[: 200 - len(suffix)].rstrip() + suffix
+        busy = fold(name) in taken or (
+            source.made_ahead and name_owner(kitchen, name[:100].strip()) is not None
+        )
+        if not busy:
+            return name
+        n += 1
 
 
 def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
@@ -344,13 +357,14 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
     lines, steps and their ingredient links, tags, nutrition, where it came from, the photo
     as a file of its own) and nothing of what happened to it (cooked history, the plan). The
     caller holds the household's lock. Made ahead is copied; the copy's own pantry ingredient
-    takes the copy's name, so a second copy of a made-ahead recipe meets `name_taken`."""
+    takes the copy's name. A name already used by a recipe (or that ingredient) gets
+    "(copy 2)", "(copy 3)"... instead, so a second copy never fails."""
     db = kitchen.db
     now = utcnow()
     login_name = kitchen.login.name  # read first: loading it may flush
     copy = Recipe(
         household_id=kitchen.household_id,
-        name=source.name[: 200 - len(COPY_SUFFIX)].rstrip() + COPY_SUFFIX,
+        name=_copy_name(kitchen, source),
         description=source.description,
         time_minutes=source.time_minutes,
         serves=source.serves,
