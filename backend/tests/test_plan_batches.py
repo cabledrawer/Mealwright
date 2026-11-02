@@ -1064,6 +1064,50 @@ def test_undo_of_moving_the_cook_meal_puts_the_dates_back_exactly(
     assert _batch_row(kitchen, made["batch_id"]) == before
 
 
+@pytest.mark.parametrize("use_by", ["9999-12-31", "0001-01-01"])
+def test_a_tubs_use_by_must_be_a_day_that_can_be_planned(
+    kitchen: TestClient, cook: dict[str, Any], use_by: str
+) -> None:
+    """Pre-beta review: a use-by in year 9999 was accepted and then made moving the cooking a
+    500. It is refused as a day too far from today, like Leftovers' use-by."""
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    tub = view(kitchen)["tubs"][0]
+    r = kitchen.patch(f"{API}/plan/tubs/{tub['id']}", json={"use_by": use_by})
+    assert r.status_code == 422 and r.json()["code"] == "bad_day", r.text
+    assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]
+
+
+@pytest.mark.parametrize(
+    ("stored", "to"), [(date(9999, 12, 31), 1), (date(1, 1, 1), -1)], ids=["9999", "0001"]
+)
+@pytest.mark.parametrize("where", ["in_a_meal", "unplaced", "in_the_cook_meal"])
+def test_moving_the_cooking_with_an_impossible_stored_use_by_is_refused(
+    kitchen: TestClient,
+    cook: dict[str, Any],
+    slots: dict[str, int],
+    stored: date,
+    to: int,
+    where: str,
+) -> None:
+    """A use-by stored before the check above (year 1 or 9999) makes moving the cooking a clean
+    refusal, never a 500, and nothing moves."""
+    pattern = "pick" if where == "unplaced" else "lunch_dinner"
+    made = make(kitchen, cook["item_id"], tub_count=1, pattern=pattern)
+    with db_of(kitchen) as db:
+        tub = db.scalar(select(Tub).where(Tub.batch_id == made["batch_id"]))
+        assert tub is not None
+        tub.use_by = stored
+        if where == "in_the_cook_meal":
+            item = db.scalar(select(MealItem).where(MealItem.tub_id == tub.id))
+            assert item is not None
+            item.meal_id = cook["meal_id"]
+        db.commit()
+    before = _batch_row(kitchen, made["batch_id"])
+    r = _move_meal(kitchen, cook["meal_id"], day(to), slots["Dinner"])
+    assert r.status_code == 422 and r.json()["code"] == "bad_day", r.text
+    assert _batch_row(kitchen, made["batch_id"]) == before
+
+
 def test_a_batch_that_was_cooked_keeps_its_cook_day(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:

@@ -61,14 +61,27 @@ def _words_day(day: date) -> str:
     return f"{day:%a} {day.day} {day:%b}"
 
 
+def _bad_day() -> Problem:
+    return Problem(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "bad_day",
+        "That day is too far from today to plan.",  # proposed, for cabledrawer
+    )
+
+
 def check_day(kitchen: Kitchen, day: date) -> None:
     now = today(kitchen.household)
     if day < now - timedelta(days=DAYS_BACK) or day > now + timedelta(days=DAYS_AHEAD):
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "bad_day",
-            "That day is too far from today to plan.",  # proposed, for cabledrawer
-        )
+        raise _bad_day()
+
+
+def shifted(day: date, shift: timedelta) -> date:
+    """A stored day moved by `shift`. A day that would leave the calendar (an old use-by stored
+    in year 1 or 9999) is refused as too far from today, never a 500."""
+    try:
+        return day + shift
+    except OverflowError:
+        raise _bad_day() from None
 
 
 def check_after_cook(kitchen: Kitchen, cook: Meal, day: date, slot_id: int) -> None:
@@ -487,7 +500,7 @@ def move_meal(
             use_by = tub.use_by if tub is not None else day
             for batch in cooking:  # a tub of the batch moving with its cooking moves its use-by
                 if tub is not None and tub.batch_id == batch.id:
-                    use_by += day - batch.cooked_on
+                    use_by = shifted(use_by, day - batch.cooked_on)
             if tub is not None and day > use_by:  # a tub is no good past its own use-by
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,

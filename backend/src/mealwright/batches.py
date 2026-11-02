@@ -53,6 +53,7 @@ from mealwright.plan import (
     find_slot,
     items_of,
     meal_at,
+    shifted,
 )
 from mealwright.stock import add_months
 
@@ -493,6 +494,7 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
         tub.member_login_id = new
     if "use_by" in fields and fields["use_by"] is not None:
         new_day = fields["use_by"]
+        check_day(kitchen, new_day)  # as Leftovers' use-by: never year 1 or 9999
         batch = kitchen.db.get(BatchCook, tub.batch_id)
         # Not before the cook day (cabledrawer 29 Oct).
         if batch is not None and new_day < batch.cooked_on:
@@ -682,7 +684,7 @@ def move_cook_day(
             if eaten_meal is None:
                 continue
             eaten_on = day if eaten_meal.id == meal.id else eaten_meal.day
-            if eaten_on > tub.use_by + (day - batch.cooked_on):
+            if eaten_on > shifted(tub.use_by, day - batch.cooked_on):
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
@@ -708,9 +710,10 @@ def move_cook_day(
             }
         )
         shift = day - batch.cooked_on
+        moved = [shifted(tub.use_by, shift) for tub in tubs]  # all checked before any moves
         batch.cooked_on = day
-        for tub in tubs:
-            tub.use_by = tub.use_by + shift
+        for tub, use_by in zip(tubs, moved, strict=True):
+            tub.use_by = use_by
     db.flush()
 
 
