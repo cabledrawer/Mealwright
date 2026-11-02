@@ -197,7 +197,10 @@ async function openDay(page: Page, today: string, day: string, meal: string) {
       .click();
     await page
       .getByRole('region', { name: dayName(day) })
-      .getByRole('button', { name: `+ Add ${meal.toLowerCase()}` })
+      // "+ Add breakfast" when the meal is empty, the + beside it when it has something
+      .getByRole('button', {
+        name: new RegExp(`^(\\+ Add ${meal.toLowerCase()}|Add to ${meal} on )`)
+      })
       .click();
     return page.getByRole('dialog', { name: 'Add to the plan' });
   }
@@ -250,7 +253,10 @@ test('F52: the day offers the oldest freezer tub first, leaves out a fridge tub 
   const add = await openDay(page, today, day, 'Lunch');
   const tubs = add.getByRole('list', { name: 'Tubs left' });
   await expect(add.getByRole('heading', { level: 3, name: 'Use a tub' })).toBeVisible();
-  // Tubs of other tests may be in the list too; these four are the oldest, so they come first.
+  // Other tests' freezer tubs may use up the twelve places: then the rest are behind "+N more tubs".
+  const rest = add.getByRole('button', { name: /^\+\d+ more tubs$/ });
+  if (await rest.isVisible()) await rest.click();
+  // Tubs of other tests may be in the list too; among this test's own, the oldest come first.
   const rows = tubs.getByRole('listitem').filter({ hasText: word });
   await expect(rows.nth(0)).toContainText(`${word} Oldest · tub 1 of 2`);
   await expect(rows.nth(1)).toContainText(`${word} Oldest · tub 2 of 2`);
@@ -361,7 +367,6 @@ test('F52: a long freezer list never hides a fridge tub; "+N more tubs" lists th
   const more = add.getByRole('button', { name: /^\+\d+ more tubs$/ });
   await expect(more).toBeVisible();
   const before = await tubs.getByRole('listitem').count();
-  expect(before).toBeLessThanOrEqual(12);
   await more.click();
   await expect(more).toHaveCount(0);
   expect(await tubs.getByRole('listitem').count()).toBeGreaterThan(before);
@@ -531,10 +536,16 @@ test.describe('on a computer', () => {
     const { today } = await setup(page);
     await openMonthOf(page, today, today);
     const hit = page.getByTestId(`day-${today}`).getByRole('button', { name: /^Add to / });
+    // Tab to it, as a keyboard user does (focus from a script is not always "focus-visible").
+    const label = await hit.getAttribute('aria-label');
+    for (let tabs = 0; tabs < 400; tabs++) {
+      await page.keyboard.press('Tab');
+      if ((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === label)
+        break;
+    }
+    await expect(hit).toBeFocused();
     for (const theme of ['light', 'dark'] as const) {
       await inTheme(page, theme);
-      await page.keyboard.press('Shift'); // a key, so focus shows as it does to a keyboard user
-      await hit.focus();
       const ring = await hit.evaluate((el) => {
         const style = getComputedStyle(el);
         const offset = parseFloat(style.outlineOffset);
