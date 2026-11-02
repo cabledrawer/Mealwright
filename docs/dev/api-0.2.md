@@ -398,7 +398,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 A merged-away id returns the food it was merged into (different `id`, plus `"merged_from": {"id": 40, "name": "Drumsticks (moringa)"}`), so old links keep working.
 
-`restocked_at` (0.7 K1, on the list and the editor; writable from 0.7 K5, see PATCH below): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back).
+`restocked_at` (0.7 K1, on the list and the editor; writable from 0.7 K5, see PATCH below): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back); with a typed date on either (0.7 K5), the ingredient that stays shows the newer of the two dates shown.
 
 **`POST /api/v1/foods`** → `201`
 
@@ -422,7 +422,7 @@ Only `name` is required. `counted_as` defaults from the bundled table match, els
 { "restocked_at": "2026-10-12T09:00:00Z" }   // a staple's restock date (0.7 K5); null is refused
 { "restocked_on": "2026-10-12" }               // the same, as the household's own day
 ```
-`restocked_at` (0.7 K5, additive; no database change): only a staple has one (`422 not_a_staple`); never before 2000 (`422 restock_too_old`) and never in the future (`422 restock_in_future`; a clock up to 5 minutes ahead is taken as now); not before the newest standing "Restocked" tick on Shopping, which would hide it (`422 restock_before_tick`); null → `422 restock_date_needed`. A foreign or missing food → `404`. The change reads "Rock salt restocked" and is undoable.
+`restocked_at` (0.7 K5, additive; one database column, `food.restock_typed_at`, migration `5fbd6d33c434`, keeps the moment a date was typed): only a staple has one (`422 not_a_staple`); never before 2000 (`422 restock_too_old`) and never in the future (`422 restock_in_future`; a clock up to 5 minutes ahead is taken as now); a date before the newest standing "Restocked" tick on Shopping is taken and shown: the date typed wins until a tick made after it (cabledrawer 2 Nov; the earlier `422 restock_before_tick` is gone); null → `422 restock_date_needed`. A foreign or missing food → `404`. The change reads "Rock salt restocked" and is undoable.
 
 The staple's "Restocked" tap is this PATCH with `restocked_on` set to the household's today (the server then stores now).
 
