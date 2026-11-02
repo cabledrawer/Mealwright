@@ -14,7 +14,7 @@ from test_plan_writes import D1, D2, plan_recipe, shape, undo, view
 from mealwright import batches as batches_module
 from mealwright import plan as plan_module
 from mealwright.auth import hash_password
-from mealwright.models import BatchCook, Household, Login, Meal, MealItem, Tub
+from mealwright.models import BatchCook, Household, Login, Meal, MealItem, MealSlot, Tub
 
 API = "/api/v1"
 D3 = D1 + timedelta(days=2)
@@ -152,9 +152,9 @@ def test_the_pattern_skips_meals_with_food_and_meals_that_are_off(
     assert [(t["date"], t["slot_id"]) for t in made["tubs"]] == [
         (day(2), slots["Lunch"]),
         (day(3), slots["Lunch"]),
-        (day(4), slots["Lunch"]),
+        (None, None),  # day 4 is past the tub's use-by (3 days): it waits in Tubs left
     ]
-    assert made["placed"] == 3
+    assert made["placed"] == 2
 
 
 def test_i_ll_pick_places_nothing_and_the_tubs_wait_in_the_fridge(
@@ -1343,3 +1343,36 @@ def test_cook_once_places_no_tub_past_its_use_by(
         },
     )
     assert r.status_code == 422 and r.json()["code"] == "after_use_by", r.text
+
+
+def test_fill_from_freezer_gives_every_empty_day_a_tub_when_older_tubs_do_not_fit(
+    kitchen: TestClient, cook: dict[str, Any], stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """Two freezer tubs that go off on day 1 can only fill day 1; the long-lasting tubs of
+    another batch must still fill the other days (no limit on how many are read first)."""
+    make(kitchen, cook["item_id"], tub_count=2, pattern="pick", extras_to_freezer=True)
+    for tub in view(kitchen)["tubs"]:
+        r = kitchen.patch(f"{API}/plan/tubs/{tub['id']}", json={"use_by": day(1)})
+        assert r.status_code == 200, r.text
+    other = plan_recipe(kitchen, stuff["dosa"], D1, slots["Lunch"])
+    make(kitchen, other["item_id"], tub_count=2, pattern="pick", extras_to_freezer=True)
+    filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(1), "to": day(3)})
+    assert filled.status_code == 200, filled.text
+    placed = [w for w in where_tubs_are(kitchen, slots) if w[1] is not None]
+    assert len(placed) == 3
+
+
+def test_fill_from_freezer_summary_keeps_its_reason_within_300_characters(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    long_name = "A very long meal name " * 3
+    with db_of(kitchen) as db:
+        slot = db.get(MealSlot, slots["Dinner"])
+        assert slot is not None
+        slot.name = long_name.strip()
+        db.commit()
+    make(kitchen, cook["item_id"], tub_count=12, pattern="pick", extras_to_freezer=True)
+    filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(1), "to": day(12)})
+    summary = filled.json()["change"]["summary"]
+    assert len(summary) <= 300 and summary.endswith("(they run out soonest)")
+    assert " more from freezer tubs" in summary

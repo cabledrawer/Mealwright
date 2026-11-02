@@ -175,7 +175,10 @@ def auto_spots(kitchen: Kitchen, meal: Meal, count: int, pattern: str) -> list[S
     cook_slot = kitchen.db.get(MealSlot, meal.slot_id)
     cook_key = (cook_slot.position, cook_slot.id) if cook_slot else (0, 0)
     last = min(
-        meal.day + timedelta(days=SEARCH_DAYS), today(kitchen.household) + timedelta(DAYS_AHEAD)
+        meal.day + timedelta(days=SEARCH_DAYS),
+        today(kitchen.household) + timedelta(DAYS_AHEAD),
+        # A tub is no good past its own use-by: the tubs that don't fit wait in Tubs left.
+        tub_use_by(kitchen, "fridge", meal.day),
     )
     busy = _taken(kitchen, meal.day, last)
     out: list[Spot | None] = []
@@ -1131,8 +1134,6 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
                 ~exists().where(MealItem.tub_id == Tub.id),
             )
             .order_by(Tub.use_by, Tub.id)
-            # One tub a day at most, so no more than that is ever needed.
-            .limit((last - first).days + 1)
         )
     )
     busy = {
@@ -1173,16 +1174,27 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
     # Which meals, and why (cabledrawer 28 Oct): the soonest use-by goes first, so the tubs that run
     # out soonest are eaten first.
     named = [f"{_WEEKDAYS[d.weekday()]} {d.day} {slot.name.lower()}" for d in filled]
-    if len(named) > _MOST_NAMED:  # the summary is at most 300 characters
-        named = [*named[:_MOST_NAMED], f"{len(named) - _MOST_NAMED} more"]
-    meals = ", ".join(named)
-    if len(filled) == 1:
-        summary = (
-            f"Filled {meals} from a freezer tub (it runs out soonest)"  # proposed, for cabledrawer
-        )
-    else:
-        summary = f"Filled {meals} from freezer tubs (they run out soonest)"
+    summary = _fill_summary(named)
     return _finish(kitchen, "plan_tub", summary, steps)
+
+
+def _fill_summary(named: list[str]) -> str:
+    """The Fill message. It is kept to 300 characters (the history keeps no more) by naming
+    fewer meals and counting the rest as "N more", so the reason always stays."""
+    for shown in range(min(len(named), _MOST_NAMED), -1, -1):
+        names = named[:shown]
+        if shown < len(named):
+            names = [*names, f"{len(named) - shown} more"]
+        meals = ", ".join(names)
+        if len(named) == 1:
+            summary = (
+                f"Filled {meals} from a freezer tub (it runs out soonest)"  # proposed, for cabledrawer
+            )
+        else:
+            summary = f"Filled {meals} from freezer tubs (they run out soonest)"
+        if len(summary) <= 300:
+            break
+    return summary
 
 
 _MOST_NAMED = 6
