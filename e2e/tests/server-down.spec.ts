@@ -83,6 +83,45 @@ for (const { name, path, notes, realTime: realTimePage } of PAGES) {
   });
 }
 
+// B3 L4 (cabledrawer 30 Oct: "The Try now timing case: fix in PC2"): the server comes back while a
+// check that began during the outage is still waiting for an answer. Try now must ask afresh;
+// before, it joined the old check and its failure said the server was still down.
+test('Try now while an older check is still waiting does not say the server is down when it is back', async ({ page }) => {
+  await page.goto('/recipes/ingredients');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+
+  await page.route('**/api/**', proxyGap);
+  // Checks of the server's version never get an answer: the one under way stays waiting.
+  const held: Route[] = [];
+  await page.route('**/api/v1/version', (route) => {
+    held.push(route);
+  });
+  await page.reload();
+  // The page's time moves on until the bar is up and a check is waiting.
+  await expect(async () => {
+    await page.clock.runFor(1000);
+    expect(held.length).toBeGreaterThan(0);
+    await expect(bar(page)).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 20_000 });
+  const waiting = held.length;
+
+  // The server is back (checks of its version now reach it); Try now is pressed while the old
+  // check is still waiting. Everything else stays down until the end, so nothing else clears the bar.
+  await page.unroute('**/api/v1/version');
+  await page.route('**/api/v1/version', (route) => route.continue());
+  await bar(page).getByRole('button', { name: /Try now/ }).click();
+  await expect(bar(page)).toBeHidden();
+  await expect(backOnline(page)).toBeVisible();
+  await page.unroute('**/api/v1/version');
+  await page.unroute('**/api/**', proxyGap);
+
+  // The old check, when its time is up, changes nothing; no new "down" either.
+  for (let n = 0; n < 10; n++) await page.clock.runFor(1000);
+  expect(held.length).toBe(waiting);
+  await expect(bar(page)).toBeHidden();
+});
+
 // F80 (0.7 alpha 1 hand test, cabledrawer 30 Oct): with a recipe open on the PC, about 20 seconds
 // after the server stopped, the open recipe was replaced by the "Can't reach" note, with no
 // typing and no reload. What is already on screen stays; the bar says the server is down.

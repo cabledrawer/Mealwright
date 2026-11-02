@@ -271,7 +271,7 @@ describe('the online check is gentle (F67)', () => {
     return check;
   };
 
-  it('never overlaps itself: a slow check is waited for, not joined by another', async () => {
+  it('never overlaps itself: a slow check is waited for, and "Try now" replaces it rather than joining it', async () => {
     const check = hanging();
     const stop = network.start(() => {});
     try {
@@ -279,10 +279,10 @@ describe('the online check is gentle (F67)', () => {
       // Checks start every 5 s, and each may take up to 8 s.
       await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS * 2 + 100);
       expect(check).toHaveBeenCalledTimes(1);
-      // "Try now" meanwhile joins the check under way.
+      // "Try now" meanwhile stops that check and asks afresh: still one asking at a time.
       void network.tryNow();
       await vi.advanceTimersByTimeAsync(0);
-      expect(check).toHaveBeenCalledTimes(1);
+      expect(check).toHaveBeenCalledTimes(2);
       // Once it has given up, the next one may start.
       await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS);
       await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS);
@@ -298,6 +298,63 @@ describe('the online check is gentle (F67)', () => {
       });
       await vi.advanceTimersByTimeAsync(60_000);
       expect(most).toBe(1);
+    } finally {
+      stop();
+    }
+  });
+
+  it('"Try now" during a check under way asks afresh, so a server that is back is not called down (B3 L4)', async () => {
+    let up = false;
+    const check = vi.fn((_url: string, init: RequestInit) =>
+      up
+        ? Promise.resolve(new Response('{}'))
+        : new Promise<Response>((_, reject) =>
+            init.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
+          )
+    );
+    vi.stubGlobal('fetch', check);
+    const reconnect = vi.fn();
+    const stop = network.start(reconnect);
+    try {
+      network.failed();
+      // The server is down: the bar comes, and the periodic check starts and hangs.
+      await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS + 100);
+      expect(network.offline).toBe(true);
+      expect(check).toHaveBeenCalledTimes(1);
+      // The server comes back while that check is still waiting; Try now is pressed.
+      up = true;
+      await network.tryNow();
+      expect(check).toHaveBeenCalledTimes(2);
+      expect(network.offline).toBe(false);
+      expect(network.down).toBe(false);
+      expect(reconnect).toHaveBeenCalled();
+      // The stopped check, when it ends, changes nothing.
+      await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS * 2);
+      expect(network.offline).toBe(false);
+      expect(network.down).toBe(false);
+    } finally {
+      stop();
+    }
+  });
+
+  it('"Try now" during a check under way still says down when the server is still down', async () => {
+    const check = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_, reject) =>
+          init.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
+        )
+    );
+    vi.stubGlobal('fetch', check);
+    const stop = network.start(() => {});
+    try {
+      network.failed();
+      await vi.advanceTimersByTimeAsync(CHECK_EVERY_MS + 100);
+      const trying = network.tryNow();
+      await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS);
+      await trying;
+      expect(check).toHaveBeenCalledTimes(2);
+      expect(network.down).toBe(true);
+      expect(network.trying).toBe(false);
     } finally {
       stop();
     }

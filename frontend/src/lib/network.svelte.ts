@@ -83,6 +83,10 @@ class Network {
   #reconnect: (() => void) | null = null;
   /** The check under way: another one waits for it rather than running alongside (F67). */
   #checking: Promise<void> | null = null;
+  /** Numbers the checks; only the newest one's answer counts ("Try now" replaces one under way). */
+  #asking = 0;
+  /** Stops the check under way, when "Try now" starts a fresh one. */
+  #stop: AbortController | null = null;
   /** Bumped by reset(): a check still under way from before then is ignored when it answers. */
   #round = 0;
   /** Reconnect the live stream after the check under way, whatever it finds ("Try now"). */
@@ -149,7 +153,9 @@ class Network {
     if (this.trying) return;
     this.trying = true;
     try {
-      await this.#check(true);
+      // A fresh check, not the one already under way: that one began before now and may have
+      // found the server down when it is back (B3 L4).
+      await this.#check(true, false, true);
     } finally {
       this.trying = false;
     }
@@ -205,39 +211,54 @@ class Network {
   /** Ask our server. Reconnect the stream if we were offline (or `always`). `online`: the
    *  browser has just said the connection is back. Only one check at a time: asked while one
    *  is under way, it waits for that one (a slow server never piles checks up). */
-  #check(always = false, online = false): Promise<void> {
+  #check(always = false, online = false, fresh = false): Promise<void> {
     if (always) this.#reconnectAfter = true;
     if (online) this.#browserBack = true;
+    // `fresh` ("Try now"): the check under way is stopped and forgotten, so there is still
+    // only ever one asking, and its old answer can't say "down" about a server that is back.
+    if (fresh && this.#checking) {
+      this.#stop?.abort();
+      this.#checking = null;
+    }
     if (!this.#checking) {
-      const checking: Promise<void> = this.#checkOnce(this.#round).finally(() => {
-        if (this.#checking === checking) this.#checking = null;
-      });
+      const stop = new AbortController();
+      this.#stop = stop;
+      const checking: Promise<void> = this.#checkOnce(this.#round, ++this.#asking, stop).finally(
+        () => {
+          if (this.#checking === checking) this.#checking = null;
+          if (this.#stop === stop) this.#stop = null;
+        }
+      );
       this.#checking = checking;
     }
     return this.#checking;
   }
 
-  async #checkOnce(round: number): Promise<void> {
+  async #checkOnce(round: number, asking: number, stop: AbortController): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
+    const giveUp = setTimeout(() => stop.abort(), CHECK_TIMEOUT_MS);
     try {
       // Signed out while offline: the server session ends before anything else is sent.
       if (!(await endPendingSignOut())) throw new Error('still unreachable');
       const response = await fetch('/api/v1/version', {
         cache: 'no-store',
         credentials: 'same-origin',
-        signal: AbortSignal.timeout(CHECK_TIMEOUT_MS)
+        signal: stop.signal
       });
-      // Forgotten (reset()) while it was asking: its answer belongs to before.
-      if (round !== this.#round) return;
+      // Forgotten (reset()) or replaced by a newer check while it was asking: its answer
+      // belongs to before.
+      if (round !== this.#round || asking !== this.#asking) return;
       // 502, 503 and 504 are the reverse proxy saying it can't reach Mealwright: still down
       // (F67: counting them as an answer flitted between the page and "You're offline", with
       // "Back online — all saved" while the server was stopped).
       if (proxyGap(response.status)) throw new Error('the proxy can’t reach the server');
     } catch {
-      if (round !== this.#round) return;
+      if (round !== this.#round || asking !== this.#asking) return;
       this.#reconnectAfter = this.#browserBack = false;
       this.failed();
       return;
+    } finally {
+      clearTimeout(giveUp);
     }
     const always = this.#reconnectAfter;
     const online = this.#browserBack;
@@ -260,6 +281,8 @@ class Network {
   reset(): void {
     this.#clearTimers();
     this.#failingSince = null;
+    this.#stop?.abort();
+    this.#stop = null;
     this.#checking = null;
     this.#round++;
     this.#reconnectAfter = this.#browserBack = false;
