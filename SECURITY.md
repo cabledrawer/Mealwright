@@ -27,4 +27,8 @@ Only the latest release gets security fixes. They ship as patch versions (for ex
 - Passwords are hashed with Argon2, and repeated wrong guesses slow down.
 - There is no default admin password. The first person to set up creates the admin account.
 - Recipe imports can't reach private or internal addresses unless the admin allows them.
-- Notification links and the single sign-on client secret are encrypted on the server.
+
+## What Mealwright does not do yet
+
+- **The database and its backups are not encrypted in 0.7.** Anyone who can read the server's data folder can read everything in it. Whether to encrypt the server's disk is the owner's choice: if you want that protection, switch on disk encryption on the server (for example full-disk encryption on the machine or volume that holds `/data`).
+- Notification links and the single sign-on client secret do not exist yet (they come in 0.8). When they do, they will be stored encrypted.
