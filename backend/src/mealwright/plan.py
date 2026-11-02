@@ -853,6 +853,15 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
     """Put the plan back as the change found it, newest step first. Steps that no longer fit
     are skipped; the result then says "partly" or "nothing"."""
     steps = (change.undo_data or {}).get("plan", [])
+    from mealwright import batches
+
+    # A cook meal moved, and its batch cooked since: the meal can't go back without the cook
+    # day, and the cook day stays while the cooked record stands. Refuse before anything moves.
+    for step in steps:
+        if step["op"] == "batch_day":
+            batch = _own(kitchen, BatchCook, step["batch"])
+            if batch is not None:
+                batches.refuse_cooked(kitchen, [batch])
     tally = Tally()
     remap: dict[int, int] = {}
     touched: set[int] = set()

@@ -1130,7 +1130,7 @@ def test_a_partly_undone_move_leaves_the_dates_with_the_meal(
         assert meal.day == batch.cooked_on  # the meal stayed, so the cooking did
 
 
-def test_undo_after_the_batch_was_cooked_leaves_the_dates(
+def test_undo_of_moving_the_cook_meal_is_refused_once_the_batch_was_cooked(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:
     from mealwright.models import CookedRecord
@@ -1144,7 +1144,13 @@ def test_undo_after_the_batch_was_cooked_leaves_the_dates(
             )
         )
         db.commit()
-    undo(kitchen, moved.json())
+    r = kitchen.post(f"{API}/changes/{moved.json()['change']['id']}/undo")
+    assert r.status_code == 409 and r.json()["code"] == "already_cooked"
+    assert "Undo “Cooked it” first." in r.json()["detail"]
+    # Nothing moved: the meal and the cook day are both still on the new day.
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, cook["meal_id"])
+        assert meal is not None and meal.day == D1 + timedelta(days=3)
     assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=3)
 
 
