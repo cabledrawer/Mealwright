@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sentenceCount, sentences, splitStep, stepRuns } from './importSteps';
+import { sentenceCount, sentences, splitStep, stepNumberAt, stepRuns } from './importSteps';
 
 const LONG =
   'Beat the butter and sugar until pale. Add the eggs one at a time, beating well. Fold in the flour and baking powder. Divide between the tins. Level the tops.';
@@ -65,5 +65,27 @@ describe('the method in runs (F112)', () => {
     expect(stepRuns([{ kind: 'heading', text: 'H' }])).toEqual([
       { heading: { text: 'H', at: 0 }, start: 1, steps: [] }
     ]);
+  });
+});
+
+describe('the number of a step', () => {
+  const steps: { kind: 'step' | 'heading'; text: string }[] = [
+    { kind: 'step', text: 'a' },
+    { kind: 'heading', text: 'For the dosa' },
+    { kind: 'step', text: 'b' },
+    { kind: 'step', text: 'c' }
+  ];
+
+  it('counts through the method and skips headings (F112)', () => {
+    expect(steps.map((_, at) => stepNumberAt(steps, at))).toEqual([1, null, 2, 3]);
+  });
+
+  it('follows a step taken out', () => {
+    const rest = steps.filter((_, at) => at !== 0);
+    expect(rest.map((_, at) => stepNumberAt(rest, at))).toEqual([null, 1, 2]);
+  });
+
+  it('is null where there is no step', () => {
+    expect(stepNumberAt(steps, 9)).toBeNull();
   });
 });

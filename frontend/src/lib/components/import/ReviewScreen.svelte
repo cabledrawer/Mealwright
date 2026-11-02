@@ -10,6 +10,7 @@
   // checking · Discard. A draft that was opened and not changed just leaves. Closing or
   // reloading the tab can't be asked about, so that leaves as it always did.
   import { downLine } from '#lib/downWords.js';
+  import { tick } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
@@ -94,6 +95,36 @@
   function discard() {
     void flow.dropPhoto(); // its waiting photo goes at once (F92)
     if (target) void goOn(target);
+  }
+
+  // --- Changing or removing a step or heading (F111) ------------------------------------------
+  // The place (in the full list of steps) of the one being changed. The box and the code that
+  // changes the steps load the first time one is asked for, so the page stays as small as before.
+  let editing = $state<number | null>(null);
+
+  function startEdit(at: number) {
+    flow.previewStep = null;
+    editing = at;
+  }
+
+  /** Close the box; the cursor goes back to the step it was opened from. */
+  async function closeEdit() {
+    const at = editing;
+    editing = null;
+    await tick();
+    document.querySelector<HTMLElement>(`[data-step-at="${at}"]`)?.focus();
+  }
+
+  /** Take a step or heading out, with Undo. The cursor stays in the method, on the step that took
+   *  its place. */
+  async function removeStep(at: number) {
+    const { removeStep: remove } = await import('#lib/importStepEdits.js');
+    editing = null;
+    remove(flow, at);
+    await tick();
+    const buttons = Array.from(document.querySelectorAll<HTMLElement>('[data-step-remove]'));
+    const same = buttons.find((b) => Number(b.dataset.stepRemove) >= at);
+    (same ?? buttons.at(-1))?.focus();
   }
 
   // A removed line's Undo has nowhere to go once this screen is gone.
@@ -266,14 +297,74 @@
           >
         </h2>
         {#each stepRuns(review.steps) as run, r (r)}
-          {#if run.heading}<h3 class="step-heading">{run.heading.text}</h3>{/if}
+          {#if run.heading}
+            {@const at = run.heading.at}
+            {#if editing === at}
+              {#await import('./StepEdit.svelte') then { default: StepEdit }}
+                <StepEdit
+                  {flow}
+                  {at}
+                  name="heading"
+                  onclose={() => void closeEdit()}
+                  onremove={() => void removeStep(at)}
+                />
+              {/await}
+            {:else}
+              <div class="step-row">
+                <h3 class="step-heading">
+                  <button
+                    type="button"
+                    class="step-text"
+                    data-step-at={at}
+                    title="Change heading"
+                    onclick={() => startEdit(at)}>{run.heading.text}</button
+                  >
+                </h3>
+                <button
+                  type="button"
+                  class="step-remove"
+                  data-step-remove={at}
+                  aria-label="Remove heading: {run.heading.text}"
+                  onclick={() => void removeStep(at)}>Remove</button
+                >
+              </div>
+            {/if}
+          {/if}
           {#if run.steps.length}
             <!-- A heading is not in the numbered list, so it takes no number (F112). -->
             <ol start={run.start}>
-              {#each run.steps as step (step.at)}
+              {#each run.steps as step, n (step.at)}
                 {@const pieces = flow.splitOf(step.at)}
+                {@const number = run.start + n}
                 <li>
-                  {step.text}
+                  {#if editing === step.at}
+                    {#await import('./StepEdit.svelte') then { default: StepEdit }}
+                      <StepEdit
+                        {flow}
+                        at={step.at}
+                        name="step {number}"
+                        onclose={() => void closeEdit()}
+                        onremove={() => void removeStep(step.at)}
+                      />
+                    {/await}
+                  {:else}
+                    <div class="step-row">
+                      <button
+                        type="button"
+                        class="step-text"
+                        data-step-at={step.at}
+                        aria-label="Change step {number}: {step.text}"
+                        onclick={() => startEdit(step.at)}>{step.text}</button
+                      >
+                      <button
+                        type="button"
+                        class="step-remove"
+                        data-step-remove={step.at}
+                        aria-label="Remove step {number}"
+                        onclick={() => void removeStep(step.at)}>Remove</button
+                      >
+                    </div>
+                  {/if}
                   {#if pieces && flow.previewStep !== step.at}
                     <span class="long">
                       <span class="long-note"
@@ -282,8 +373,10 @@
                       <button
                         type="button"
                         class="chip"
-                        onclick={() => (flow.previewStep = step.at)}
-                        >Split into shorter steps</button
+                        onclick={() => {
+                          editing = null;
+                          flow.previewStep = step.at;
+                        }}>Split into shorter steps</button
                       >
                     </span>
                   {/if}
@@ -294,8 +387,13 @@
                         <span class="piece"><b>{n + 1}.</b> {piece}</span>
                       {/each}
                       <span class="preview-buttons">
-                        <button type="button" class="keep" onclick={() => flow.keepSplit(step.at)}
-                          >Keep the split</button
+                        <button
+                          type="button"
+                          class="keep"
+                          onclick={() => {
+                            editing = null;
+                            flow.keepSplit(step.at);
+                          }}>Keep the split</button
                         >
                         <button
                           type="button"
@@ -723,11 +821,45 @@
   }
 
   .method .step-heading {
-    padding-bottom: var(--space-4);
+    flex: 1;
+    min-width: 0;
     font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
     line-height: 1.5;
     overflow-wrap: anywhere;
+  }
+
+  /* A step or heading: its words are a button (tap to change), with Remove beside it (F111). */
+  .step-row {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+
+  .step-text {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+
+  .step-remove {
+    flex: none;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .note {

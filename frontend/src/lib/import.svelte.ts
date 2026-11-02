@@ -582,6 +582,11 @@ export class ImportFlow {
     return true;
   }
 
+  /** An Undo for a step taken out (F111) joins the lines', so leaving the screen forgets it too. */
+  keepUndo(entry: UndoEntry): void {
+    this.#takenOut.push(entry);
+  }
+
   /** Forget the Undo for lines taken out: the screen is going, and they would have nowhere to
    *  go back to. */
   forgetTakenOut(): void {

@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import type { DraftOut } from '#lib/client/drafts.js';
 import type { ImportReview } from '#lib/client/imports.js';
 import { ImportFlow } from '#lib/import.svelte.js';
@@ -648,6 +648,135 @@ describe('Import a recipe', () => {
       expect(flow.review!.steps).toHaveLength(3);
       await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
       expect(flow.review!.steps).toHaveLength(1);
+    });
+
+    const METHOD: ImportReview['steps'] = [
+      { kind: 'step', text: 'Soak the rice.' },
+      { kind: 'heading', text: 'For the filling' },
+      { kind: 'step', text: 'Fry the onion.' },
+      { kind: 'step', text: 'Add the spices.' }
+    ];
+
+    it('changes a step’s words in a box: Enter is Done, Escape is Cancel, nothing is saved (F111)', async () => {
+      const flow = await reviewing();
+      flow.review!.steps = METHOD.map((s) => ({ ...s }));
+      flushSync();
+      await page.getByRole('button', { name: /^Change step 3/ }).click();
+      const box = page.getByRole('textbox', { name: 'Words of step 3' });
+      await expect.element(box).toHaveFocus();
+      await box.fill('Add the cumin and the chilli.');
+      // Escape: back as it was, focus back on the step.
+      await box.click();
+      await userEvent.keyboard('{Escape}');
+      expect(flow.review!.steps[3]!.text).toBe('Add the spices.');
+      await expect.element(page.getByRole('button', { name: /^Change step 3/ })).toHaveFocus();
+      // Enter: the new words.
+      await page.getByRole('button', { name: /^Change step 3/ }).click();
+      await page
+        .getByRole('textbox', { name: 'Words of step 3' })
+        .fill('Add the cumin and the chilli.');
+      await userEvent.keyboard('{Enter}');
+      expect(flow.review!.steps[3]!.text).toBe('Add the cumin and the chilli.');
+      await expect.element(page.getByRole('button', { name: /^Change step 3/ })).toHaveFocus();
+      // What Save sends has the new words, and nothing was sent to the server.
+      expect(flow.body()!.steps.map((s) => s.text)).toContain('Add the cumin and the chilli.');
+      expect(flow.saved).toBeNull();
+    });
+
+    it('can’t keep an empty step: says so and offers Remove (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = METHOD.map((s) => ({ ...s }));
+      flushSync();
+      await page.getByRole('button', { name: /^Change step 1/ }).click();
+      await page.getByRole('textbox', { name: 'Words of step 1' }).fill('   ');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByRole('alert').getByText(/can’t be empty/)).toBeVisible();
+      expect(flow.review!.steps[0]!.text).toBe('Soak the rice.');
+      await page.getByRole('button', { name: 'Remove step' }).click();
+      expect(flow.review!.steps).toHaveLength(3);
+      expect(toasts.current?.message).toBe('Removed step 1');
+    });
+
+    it('changes a heading, and the numbers do not move (F111, F112)', async () => {
+      const flow = await reviewing();
+      flow.review!.steps = METHOD.map((s) => ({ ...s }));
+      flushSync();
+      await page.getByRole('button', { name: 'For the filling' }).click();
+      await page.getByRole('textbox', { name: 'Words of heading' }).fill('For the masala');
+      await userEvent.keyboard('{Enter}');
+      expect(flow.review!.steps[1]).toEqual({ kind: 'heading', text: 'For the masala' });
+      await expect.element(page.getByRole('button', { name: /^Change step 3/ })).toBeVisible();
+    });
+
+    it('removes a step or a heading with Undo, back in its place, numbers following (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = METHOD.map((s) => ({ ...s }));
+      flushSync();
+      await page.getByRole('button', { name: 'Remove step 2' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(3));
+      expect(toasts.current?.message).toBe('Removed step 2');
+      // The step after it is step 2 now.
+      await expect
+        .element(page.getByRole('button', { name: /^Change step 2: Add the spices/ }))
+        .toBeVisible();
+      await page.getByRole('button', { name: 'Remove heading: For the filling' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      expect(toasts.current?.message).toBe('Removed “For the filling”');
+      // Undo goes newest first, each back where it was.
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.steps.map((s) => s.text)).toEqual([
+        'Soak the rice.',
+        'For the filling',
+        'Add the spices.'
+      ]);
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(METHOD.map((s) => s.text));
+    });
+
+    it('Undo of a removed step works out of order and after a split (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = [
+        { kind: 'step', text: 'One.' },
+        {
+          kind: 'step',
+          text: 'Beat the butter. Add the eggs. Fold in the flour. Divide between the tins. Level the tops.'
+        },
+        { kind: 'step', text: 'Three.' }
+      ];
+      flushSync();
+      // Take step 1 out, then split the long one into three, then Undo the first removal.
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await page.getByRole('button', { name: 'Keep the split' }).click();
+      expect(flow.review!.steps).toHaveLength(4);
+      // Remove the second part of the split, then Undo it: it goes back between its neighbours.
+      const parts = flow.review!.steps.map((s) => s.text);
+      await page.getByRole('button', { name: 'Remove step 2' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(3));
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(parts);
+      // The first removal's Undo: the step it followed was split away, so it goes to its old place.
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['One.', ...parts]);
+    });
+
+    it('Undo for a removed step is forgotten when the screen goes (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = METHOD.map((s) => ({ ...s }));
+      flushSync();
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(undoHistory.size).toBe(1));
+      flow.forgetTakenOut();
+      expect(undoHistory.size).toBe(0);
     });
 
     it('says "also called" for another name, never for the line’s own (F103)', async () => {

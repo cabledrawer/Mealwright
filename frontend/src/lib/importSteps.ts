@@ -74,3 +74,13 @@ export function stepRuns(steps: { kind: 'step' | 'heading'; text: string }[]): S
   });
   return runs;
 }
+
+/** The number the step at `at` shows (counted through the whole method, headings taking none),
+ *  or null when `at` is a heading or isn't there. */
+export function stepNumberAt(
+  steps: { kind: 'step' | 'heading'; text: string }[],
+  at: number
+): number | null {
+  if (steps[at]?.kind !== 'step') return null;
+  return steps.slice(0, at + 1).filter((s) => s.kind === 'step').length;
+}
