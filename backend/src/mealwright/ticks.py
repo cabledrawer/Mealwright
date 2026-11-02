@@ -20,6 +20,7 @@ from mealwright import shopping
 from mealwright.amounts import TooBig, checked
 from mealwright.api.v1.context import Kitchen
 from mealwright.foods import add_size, amount_out, pack_bought, sizes, usual_size
+from mealwright.history import as_utc
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -485,7 +486,7 @@ def _put_back_one(act: Act, tick: ListTick, undos: list[Change]) -> None:
             continue
         lot = db.get(StockLot, lot_id) if lot_id is not None else None
         if lot is None or lot.household_id != kitchen.household_id:
-            put_in(kitchen, edit, food, place, [amount], size)
+            put_in(kitchen, edit, food, place, [amount], size, added_at=as_utc(tick.ticked_at))
         else:
             edit.touch(lot).amount_milli += amount
     shown = size or usual_size(kitchen, food.id)
@@ -701,7 +702,9 @@ def different_pack(act: Act) -> None:
         if lot.amount_milli > 0:
             edit.touch(lot).amount_milli = 0
     place = get_place(kitchen, tick.place_id) or default_place(kitchen, food)
-    new_lots = put_in(kitchen, edit, food, place, [pack] * count, size)
+    new_lots = put_in(
+        kitchen, edit, food, place, [pack] * count, size, added_at=as_utc(tick.ticked_at)
+    )
     take(kitchen, edit, new_lots, used_since, include_freezer=True)
     old_size = _size(kitchen, tick.bought_size_id) or usual_size(kitchen, food.id)
     new = amount_out(food, total, size).display

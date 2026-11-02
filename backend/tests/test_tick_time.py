@@ -167,3 +167,47 @@ def test_undo_pressed_at_is_right_with_an_offset(hours: int) -> None:
     )
     found = pressed_at(act, applied)
     assert _near(found, pressed) and found.utcoffset() == timedelta(0)
+
+
+def _lot_dates(s: Any, name: str) -> list[datetime]:
+    with db(s.kitchen) as session:
+        lots = session.scalars(
+            select(StockLot).where(StockLot.food_id == s.foods[name], StockLot.amount_milli > 0)
+        ).all()
+        return [as_utc(lot.added_at) for lot in lots]
+
+
+def test_a_different_pack_keeps_the_ticks_date(kitchen: TestClient) -> None:
+    """Ticked offline 2 days back, then "Different pack?": the new lots keep that date."""
+    s = s0(kitchen)
+    monday = utcnow() - timedelta(days=2)
+    done = _tick_at(s.wren, s, "Paneer", monday.isoformat(), sent_at_now())
+    assert done["status"] == "applied"
+    row = action("different_pack", s.c0, item_id=s.items["Paneer"], tick_id=done["id"])
+    row.update(count=3, pack=150)
+    changed = send(s.wren, row, device=PHONE_R)["results"][0]
+    assert changed["status"] == "applied"
+    dates = _lot_dates(s, "Paneer")
+    assert len(dates) == 3 and all(_near(found, monday) for found in dates)
+
+
+def test_a_tick_put_back_keeps_its_date(kitchen: TestClient) -> None:
+    """Ticked a day back, unticked, then the untick undone ("Ticked again"): the new lot has
+    the tick's date, not the time of the Undo."""
+    s = s0(kitchen)
+    monday = utcnow() - timedelta(days=1)
+    done = _tick_at(s.wren, s, "Paneer", monday.isoformat(), sent_at_now())
+    off = send(
+        s.wren,
+        action("untick", s.c0, item_id=s.items["Paneer"], tick_ids=[done["id"]]),
+        device=PHONE_R,
+    )["results"][0]
+    assert _lot_dates(s, "Paneer") == []
+    with db(s.kitchen) as session:  # the lot is gone: put-back makes a new one
+        for lot in session.scalars(select(StockLot).where(StockLot.food_id == s.foods["Paneer"])):
+            session.delete(lot)
+        session.commit()
+    back = send(s.wren, action("undo", s.c0, undoes=off["id"]), device=PHONE_R)["results"][0]
+    assert back["status"] == "applied"
+    dates = _lot_dates(s, "Paneer")
+    assert dates and all(_near(found, monday) for found in dates)
