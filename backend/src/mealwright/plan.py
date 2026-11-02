@@ -375,11 +375,18 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
     _planned(meal)
     steps: list[dict[str, Any]] = []
     name, where = _item_name(kitchen, item), _where(kitchen, meal.day, meal.slot_id)
+    from mealwright import batches
+
+    cooking = batches.cook_batches_of(kitchen, item, meal)
     steps.append({"op": "del_item", "item": _snapshot_item(item)})
     kitchen.db.delete(item)
     kitchen.db.flush()
     if not items_of(kitchen, meal):
         _drop_meal(kitchen, meal, steps)
+    else:
+        # The meal stays without this cooking: the batch forgets its cook meal, so moving the
+        # rest of the meal leaves the cook day alone. Undo of the removal puts the link back.
+        batches.release_cook_link(kitchen, cooking, meal, steps)
     if item.kind == "tub":  # a tub is not thrown away: it goes back to "tubs left"
         return _finish(kitchen, "plan_removed", f"Put {name} back in tubs left from {where}", steps)
     return _finish(kitchen, "plan_removed", f"Removed {name} from {where}", steps)
@@ -474,6 +481,15 @@ def move_meal(
     items = items_of(kitchen, meal)
     if mode != "move":
         items = [i for i in items if i.tub_id is None]  # a tub is in one meal at a time
+    else:
+        for tub_item in items:
+            tub = _own(kitchen, Tub, tub_item.tub_id)
+            if tub is not None and day > tub.use_by:  # a tub is no good past its own use-by
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "after_use_by",
+                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                )
     if mode == "leftovers":
         items = [i for i in items if i.kind != "note"]  # "Eating out" has no leftovers
         if not items:
@@ -565,6 +581,14 @@ def move_item(
             "tub_once",
             "A tub can only be in one meal at a time.",  # proposed, for cabledrawer
         )
+    if item.tub_id is not None:
+        tub = _own(kitchen, Tub, item.tub_id)
+        if tub is not None and day > tub.use_by:  # a tub is no good past its own use-by
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "after_use_by",
+                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+            )
     if mode == "leftovers" and item.kind == "note":
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

@@ -290,6 +290,13 @@ def work_out(
             check_day(kitchen, spot[0])
             find_slot(kitchen, spot[1])
             check_after_cook(kitchen, meal, spot[0], spot[1])
+            if placements is not None and spot[0] > tub_use_by(kitchen, "fridge", meal.day):
+                # (a day the person chose; the automatic spread is left as it was)
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "after_use_by",
+                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                )
             target = meal_at(kitchen, spot[0], spot[1])
             if target is not None:
                 _planned(target)
@@ -597,18 +604,47 @@ def refuse_cooked(kitchen: Kitchen, batches: list[BatchCook]) -> None:
             )  # proposed, for cabledrawer
 
 
-def is_cook_item(kitchen: Kitchen, item: MealItem, meal: Meal) -> bool:
-    """Whether this item is the recipe a batch was cooked for, in that batch's cook meal."""
+def _cooks(batch: BatchCook, item: MealItem) -> bool:
+    """Whether this item is the recipe the batch was cooked for."""
     if item.kind != "recipe":
         return False
-    return any(
-        (
-            b.recipe_id == item.recipe_id
-            if item.recipe_id is not None
-            else b.recipe_name == item.name
-        )
-        for b in batches_cooked_at(kitchen, meal)
-    )
+    if item.recipe_id is not None:
+        return batch.recipe_id == item.recipe_id
+    return batch.recipe_name == item.name
+
+
+def cook_batches_of(kitchen: Kitchen, item: MealItem, meal: Meal) -> list[BatchCook]:
+    """The batches this item is the cook item of. Only one item per batch is: the first (by
+    position, then id) of the recipe in the batch's cook meal, so a second copy of the same
+    recipe in that meal is an ordinary item."""
+    if item.kind != "recipe":
+        return []
+    found = []
+    for batch in batches_cooked_at(kitchen, meal):
+        first = next((i for i in items_of(kitchen, meal) if _cooks(batch, i)), None)
+        if first is not None and first.id == item.id:
+            found.append(batch)
+    return found
+
+
+def is_cook_item(kitchen: Kitchen, item: MealItem, meal: Meal) -> bool:
+    """Whether this item is the recipe a batch was cooked for, in that batch's cook meal."""
+    return bool(cook_batches_of(kitchen, item, meal))
+
+
+def release_cook_link(
+    kitchen: Kitchen, cooking: list[BatchCook], meal: Meal, steps: list[dict[str, Any]]
+) -> None:
+    """A cook item was taken out of a meal that keeps other items: a batch with no other copy of
+    its recipe left in the meal forgets the meal (its cook day stays as it is). The step lets
+    Undo put the link back."""
+    left = items_of(kitchen, meal)
+    for batch in cooking:
+        if any(_cooks(batch, i) for i in left):
+            continue  # a second copy of the recipe is the cook item now
+        steps.append({"op": "batch_link", "batch": batch.id, "meal": meal.id})
+        batch.cook_meal_id = None
+    kitchen.db.flush()
 
 
 def move_cook_day(
@@ -1206,6 +1242,14 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         if batch is None or db.scalar(select(Tub.id).where(Tub.batch_id == batch.id).limit(1)):
             return False  # tubs of it are still about (one sits in a meal that was dealt with)
         db.delete(batch)
+        db.flush()
+        return True
+    if op == "batch_link":
+        batch = _own(kitchen, BatchCook, step["batch"])
+        linked = _own(kitchen, Meal, remap.get(step["meal"], step["meal"]))
+        if batch is None or linked is None or batch.cook_meal_id is not None:
+            return False
+        batch.cook_meal_id = linked.id
         db.flush()
         return True
     if op == "batch_day":

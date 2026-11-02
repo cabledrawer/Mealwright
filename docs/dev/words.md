@@ -675,6 +675,7 @@ Written by Claude Code on 1 Nov from the mockup `PlanCards07-Desktop` (and its d
 - **Moving with the keyboard:** under **Move to…** / **Copy to…** the picked place is said as **Move to Tue 20 October · Dinner** / **Copy to …** (proposed), and on a computer a hint line: **Arrow keys pick the day, Shift and arrow keys pick the meal, Enter confirms, Esc cancels.** (proposed; the spec's own words are the keys). The box is read aloud as "Pick the day and the meal with the arrow keys".
 - **F49:** the tub's button **Take off this meal (keep the tub)** (cabledrawer's example), not red, with the line **The tub stays in the fridge, in Tubs left.** / **… in the freezer, …** (proposed). The toast stays "Put Chana masala tub back in tubs left from …" (the server's words).
 - **F65:** in "Any left over?" with tubs picked: **Eat it on…** with **Not planned yet** first and then the next free meals, as **Sun 18 · Breakfast** (proposed); a tub that was chosen goes to that meal when Confirm is pressed.
+- **P3 follow-up (proposed, for cabledrawer):** no new sentence. The three gaps use words that already exist: Undo of a cook-meal move after the batch was cooked says **This was cooked on … Undo “Cooked it” first.** (as the forward move does), and a tub moved, or chosen by hand in Cook once, after its use-by says **That is after the use-by date of this batch.**
 
 ## 33. Month and day: up to 3 a day, a click on any day, Fill from freezer first (0.7 P4; proposed, for cabledrawer unless the spec or mockup has the words)
 

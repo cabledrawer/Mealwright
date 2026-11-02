@@ -543,7 +543,7 @@ def test_a_recipe_deleted_for_good_leaves_the_batch_and_its_tubs_by_name(
     # The tubs can still be moved, and the batch taken off, by its kept name.
     tub = plan["tubs"][0]["id"]
     put = kitchen.post(
-        f"{API}/plan/tubs/{tub}/place", json={"date": day(4), "slot_id": slots["Lunch"]}
+        f"{API}/plan/tubs/{tub}/place", json={"date": day(3), "slot_id": slots["Lunch"]}
     )
     assert put.status_code == 200
 
@@ -1240,3 +1240,106 @@ def test_a_cook_meal_cannot_move_to_a_day_with_ten_batches(
         db.commit()
     r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
     assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
+
+
+def _cook_meal_of(kitchen: TestClient, batch_id: int) -> int | None:
+    with db_of(kitchen) as db:
+        batch = db.get(BatchCook, batch_id)
+        assert batch is not None
+        return batch.cook_meal_id
+
+
+def test_removing_the_cook_item_from_a_meal_that_stays_frees_the_cook_day(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
+    before = _batch_row(kitchen, made["batch_id"])
+    removed = kitchen.delete(f"{API}/plan/items/{cook['item_id']}")
+    assert removed.status_code == 200, removed.text
+    assert _cook_meal_of(kitchen, made["batch_id"]) is None
+    # What is left of the meal moves; the cook day and the use-by dates stay.
+    moved = _move_meal(kitchen, cook["meal_id"], day(4), slots["Dinner"])
+    assert moved.status_code == 200, moved.text
+    assert _batch_row(kitchen, made["batch_id"]) == before
+    # Undo of the removal puts the item and the link back (the meal is back first).
+    assert undo(kitchen, moved.json())["result"] == "done"
+    assert undo(kitchen, removed.json())["result"] == "done"
+    assert _cook_meal_of(kitchen, made["batch_id"]) == cook["meal_id"]
+    again = _move_meal(kitchen, cook["meal_id"], day(4), slots["Dinner"])
+    assert again.status_code == 200, again.text
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=4)
+
+
+def test_two_copies_of_the_cooked_recipe_make_only_the_first_the_cook_item(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    second = plan_recipe(kitchen, stuff["biryani"], D1, slots["Dinner"])
+    # Moving the second copy moves just that copy; the cooking stays where it is.
+    r = kitchen.post(
+        f"{API}/plan/items/{second['item_id']}/move",
+        json={"date": day(4), "slot_id": slots["Lunch"], "mode": "move"},
+    )
+    assert r.status_code == 200, r.text
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, cook["meal_id"])
+        assert meal is not None and meal.day == D1
+        item = db.get(MealItem, second["item_id"])
+        assert item is not None and item.meal_id != cook["meal_id"]
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1
+
+
+def test_removing_the_first_copy_keeps_the_link_while_a_second_copy_stays(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"])
+    plan_recipe(kitchen, stuff["biryani"], D1, slots["Dinner"])
+    removed = kitchen.delete(f"{API}/plan/items/{cook['item_id']}")
+    assert removed.status_code == 200, removed.text
+    assert _cook_meal_of(kitchen, made["batch_id"]) == cook["meal_id"]
+
+
+def test_a_tub_in_a_meal_is_not_moved_past_its_use_by(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"], pattern="pick", tub_count=1)
+    tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]
+    ok = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place",
+        json={"date": tub["use_by"], "slot_id": slots["Lunch"]},
+    )
+    assert ok.status_code == 200, ok.text
+    with db_of(kitchen) as db:
+        item = db.scalar(select(MealItem).where(MealItem.tub_id == tub["id"]))
+        assert item is not None
+        item_id, meal_id = item.id, item.meal_id
+    late = (date.fromisoformat(tub["use_by"]) + timedelta(days=1)).isoformat()
+    body = {"date": late, "slot_id": slots["Lunch"], "mode": "move"}
+    r = kitchen.post(f"{API}/plan/items/{item_id}/move", json=body)
+    assert r.status_code == 422 and r.json()["code"] == "after_use_by"
+    # The same for the whole meal the tub is in.
+    r = _move_meal(kitchen, meal_id, late, slots["Lunch"])
+    assert r.status_code == 422 and r.json()["code"] == "after_use_by"
+    soon = (date.fromisoformat(tub["use_by"]) - timedelta(days=1)).isoformat()
+    r = kitchen.post(
+        f"{API}/plan/items/{item_id}/move", json={**body, "date": soon, "slot_id": slots["Dinner"]}
+    )
+    assert r.status_code == 200, r.text
+    assert made["batch_id"]
+
+
+def test_cook_once_places_no_tub_past_its_use_by(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    # The person's own placement past the fridge life (3 days) is refused, saved or previewed.
+    far = (D1 + timedelta(days=4)).isoformat()
+    r = kitchen.post(
+        f"{API}/plan/items/{cook['item_id']}/batch",
+        json={
+            "tub_count": 1,
+            "pattern": "pick",
+            "placements": [{"date": far, "slot_id": slots["Lunch"]}],
+        },
+    )
+    assert r.status_code == 422 and r.json()["code"] == "after_use_by", r.text
