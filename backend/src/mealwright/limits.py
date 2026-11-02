@@ -25,6 +25,13 @@ BIGGER = {
 }
 
 
+def _over(value: bytes, limit: int) -> bool:
+    """Whether a Content-Length of ASCII digits is above the limit. Very long digit strings are
+    over without being turned into a number (Python refuses an int of thousands of digits)."""
+    digits = value.lstrip(b"0")
+    return len(digits) > 18 or int(digits or b"0") > limit
+
+
 class BodyTooBig(HTTPException):
     """Raised while the body is read; an HTTPException, so FastAPI passes it on as is."""
 
@@ -51,7 +58,7 @@ class BodyLimitMiddleware:
             (self.max_bytes, TOO_BIG, "body_too_big"),
         )
         for name, value in scope.get("headers", []):
-            if name == b"content-length" and value.isdigit() and int(value) > limit:
+            if name == b"content-length" and value.isdigit() and _over(value, limit):
                 await too_big_response(detail, code)(scope, receive, send)
                 return
         received = 0

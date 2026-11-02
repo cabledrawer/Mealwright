@@ -101,3 +101,13 @@ def test_every_method_with_a_body_is_limited(kitchen: TestClient) -> None:
             method, path, content=big, headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 413, (method, path, response.status_code)
+
+
+def test_a_content_length_that_is_not_a_sane_number_never_gives_a_500(kitchen: TestClient) -> None:
+    from mealwright.limits import _over
+
+    assert _over(b"9" * 5000, 100) is True
+    assert _over(b"0" * 5000 + b"5", 100) is False
+    assert _over(b"101", 100) is True
+    assert _over(b"100", 100) is False
+    assert post(kitchen, b"{}", **{"Content-Length": "9" * 5000}).status_code == 413
