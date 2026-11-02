@@ -363,6 +363,14 @@ def test_put_away_with_a_use_by(kitchen: TestClient, use_by: str, place: str) ->
     # 1 or 9999, Undo puts the old one back, the screens still read, and the next act applies.
     s = s0(kitchen)
     t = tick(kitchen, s, "Coriander")
+
+    def use_bys() -> list[str]:
+        with db(kitchen) as session:
+            query = select(StockLot).where(StockLot.food_id == s.foods["Coriander"])
+            return [str(row.use_by) for row in session.scalars(query)]
+
+    was = use_bys()
+    assert was != [use_by]
     answer = send(
         kitchen,
         action(
@@ -378,13 +386,12 @@ def test_put_away_with_a_use_by(kitchen: TestClient, use_by: str, place: str) ->
     put, after = answer["results"]
     assert put["status"] == "applied" and after["status"] == "applied"
     assert s.lots("Coriander") == [(place, 1)]
-    with db(kitchen) as session:
-        lot = session.scalars(select(StockLot).where(StockLot.food_id == s.foods["Coriander"]))
-        assert [str(row.use_by) for row in lot] == [use_by]
+    assert use_bys() == [use_by]
     for path in ("/pantry", "/today", "/changes", "/shopping/changes?since=0"):
         assert kitchen.get(API + path).status_code == 200, path
     assert _undo(kitchen, put["id"])["status"] == "applied"
     assert s.lots("Coriander") == [("Fridge", 1)]
+    assert use_bys() == was  # Undo brings back the old use-by too
 
 
 @pytest.mark.parametrize("use_by", ["not a date", "2026-02-30", "10000-01-01", 20261201])
