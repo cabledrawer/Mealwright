@@ -185,6 +185,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/foods/{food_id}/left"): {"amount": {"amount": 0, "unit": "g"}},
     ("POST", "/api/v1/foods/{food_id}/used"): {"amount": {"amount": 10, "unit": "g"}},
     ("POST", "/api/v1/foods/{food_id}/merge"): {"into_id": 0},
+    ("POST", "/api/v1/foods/{food_id}/restock"): None,
     ("POST", "/api/v1/foods/{food_id}/not-the-same"): {"food_id": 0},
     ("POST", "/api/v1/foods/{food_id}/other-names"): {"name": "tuvar"},
     ("DELETE", "/api/v1/foods/{food_id}/other-names/{name_id}"): None,

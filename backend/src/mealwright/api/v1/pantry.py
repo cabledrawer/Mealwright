@@ -100,16 +100,16 @@ class PantryCounts(BaseModel):
     running_low: int
 
 
-class StapleOut(Ref):
+class PantryStaple(Ref):
     # When it was last restocked (0.7 K5); null if never. Read-only here: see PATCH /foods/{id}.
     restocked_at: datetime | None = None
     restocked_on: date | None = None  # the household's own day of it
     restocked_days_ago: int | None = None
 
 
-def staple_out(kitchen: Kitchen, food: Food, at: datetime | None) -> StapleOut:
+def pantry_staple(kitchen: Kitchen, food: Food, at: datetime | None) -> PantryStaple:
     on, days_ago = restock.day(kitchen.household, at)
-    return StapleOut(
+    return PantryStaple(
         id=food.id, name=food.name, restocked_at=at, restocked_on=on, restocked_days_ago=days_ago
     )
 
@@ -118,7 +118,7 @@ class PantryOut(BaseModel):
     today: date
     counts: PantryCounts
     places: list[PlaceOut]
-    staples: list[StapleOut]
+    staples: list[PantryStaple]
 
 
 class UseSoonLot(LotOut):
@@ -324,7 +324,7 @@ def pantry(
             )
             for place in view.places.values()
         ],
-        staples=[staple_out(kitchen, f, dates.get(f.id)) for f in staple_foods],
+        staples=[pantry_staple(kitchen, f, dates.get(f.id)) for f in staple_foods],
     )
 
 
