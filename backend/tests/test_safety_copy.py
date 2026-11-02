@@ -322,3 +322,10 @@ def test_a_marker_that_cant_be_written_stops_the_start_before_any_upgrade(
     with pytest.raises(migrate.SafetyCopyFailed, match=r"Couldn't write .*not changed"):
         migrate.upgrade(engine, backups=tmp_path / "backups")
     assert migrate.current_revision(engine) == OLD
+
+
+def test_the_backups_folder_is_for_the_owner_only(tmp_path: Path) -> None:
+    engine = _old_database(tmp_path / "mealwright.db")
+    backups = tmp_path / "backups"
+    assert migrate.safety_copy(engine, backups) is not None
+    assert backups.stat().st_mode & 0o777 == 0o700

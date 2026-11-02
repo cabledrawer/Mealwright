@@ -112,7 +112,7 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     # (with the process ID, so two Mealwrights started at once never write the same file).
     partial = target.with_name(f"{target.name}.{os.getpid()}.part")
     try:
-        backups.mkdir(parents=True, exist_ok=True)
+        backups.mkdir(mode=0o700, parents=True, exist_ok=True)
         partial.unlink(missing_ok=True)
         raw = engine.raw_connection()
         try:
