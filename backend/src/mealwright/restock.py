@@ -9,12 +9,13 @@ purchases, the newest restock among them is kept on the ingredient (`food.restoc
 """
 
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.models import Food, ListItem, ListTick
+from mealwright.household import today, zone
+from mealwright.models import Food, Household, ListItem, ListTick
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -53,6 +54,28 @@ def restocked(db: DbSession, household_id: int, foods: Iterable[Food]) -> dict[i
         if dates:
             found[food_id] = max(dates)
     return found
+
+
+def ticked_at(db: DbSession, household_id: int, food_id: int) -> datetime | None:
+    """The newest "Restocked" tick on Shopping that still stands for this food, if any."""
+    return _aware(_ticked(db, household_id, [food_id]).get(food_id))
+
+
+def day(household: Household, when: datetime | None) -> tuple[date | None, int | None]:
+    """The household's own day of a restock, and how many days ago that was ("Restocked
+    3 weeks ago"), so the screens never depend on the device's clock or time zone."""
+    if when is None:
+        return None, None
+    on = _aware(when).astimezone(zone(household)).date()  # type: ignore[union-attr]
+    return on, max((today(household) - on).days, 0)
+
+
+def noon_on(household: Household, on: date) -> datetime:
+    """A day picked in the editor, as a moment: the household's noon that day (it can't
+    slip into the day before or after), or right now if the day is today."""
+    if on == today(household):
+        return datetime.now(UTC)
+    return datetime.combine(on, time(12), tzinfo=zone(household)).astimezone(UTC)
 
 
 def newer(into: Food, gone: Food) -> datetime | None:

@@ -398,7 +398,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 A merged-away id returns the food it was merged into (different `id`, plus `"merged_from": {"id": 40, "name": "Drumsticks (moringa)"}`), so old links keep working.
 
-`restocked_at` (0.7 K1, on the list and the editor, read-only): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back).
+`restocked_at` (0.7 K1, on the list and the editor; writable from 0.7 K5, see PATCH below): when a staple was last restocked (its shopping-list line ticked, and still ticked); null when it isn't a staple or hasn't been restocked yet. A merge keeps the newer of the two stored dates on the ingredient that stays (a ticked line moves across with its tick, so unticking it still puts the date back).
 
 **`POST /api/v1/foods`** → `201`
 
@@ -419,7 +419,12 @@ Only `name` is required. `counted_as` defaults from the bundled table match, els
 { "running_low_at": { "amount": 0.5, "unit": "packet" } }   // null clears
 { "cup_weight": 200 }                 // grams per household cup; null forgets the household answer
 { "item_weight": 150 }                // grams per item; null forgets
+{ "restocked_at": "2026-10-12T09:00:00Z" }   // a staple's restock date (0.7 K5); null is refused
 ```
+`restocked_at` (0.7 K5, additive; no database change): only a staple has one (`422 not_a_staple`); never in the future (`422 restock_in_future`; a clock up to 5 minutes ahead is taken as now); not before the newest standing "Restocked" tick on Shopping, which would hide it (`422 restock_before_tick`); null → `422 restock_date_needed`. A foreign or missing food → `404`. The change reads "Rock salt restocked" and is undoable.
+
+**`POST /api/v1/foods/{id}/restock`** (0.7 K5) — the staple's "Restocked" tap: sets its restock date to the server's now. No body. Same answer, errors and Undo as the PATCH.
+
 Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now 200 g"), undoable. Answer: `{ "food": {…}, "change": {…} }`. If the field already had that value, nothing is recorded and `change` is null. More or fewer than one field → `422 one_field`.
 
 - Changing `counted_as` when the food has stock or sizes converts them; if a conversion is missing → `409 ask_once` (send `answers` alongside the field).
@@ -587,7 +592,7 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
       ]
     }
   ],
-  "staples": [ { "id": 3, "name": "Salt" }, { "id": 4, "name": "Turmeric" } ]
+  "staples": [ { "id": 3, "name": "Salt", "restocked_at": "2026-10-12T09:00:00Z" }, { "id": 4, "name": "Turmeric", "restocked_at": null } ]
 }
 ```
 

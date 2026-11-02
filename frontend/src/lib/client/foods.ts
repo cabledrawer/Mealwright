@@ -55,6 +55,10 @@ export function patchFood(
   return api<FoodWrite>('PATCH', `/foods/${id}`, body, key(idempotencyKey));
 }
 
+/** Tap "Restocked" on a staple: its restock date is now (the server's clock). */
+export const restockFood = (id: number, idempotencyKey: string) =>
+  api<FoodWrite>('POST', `/foods/${id}/restock`, undefined, key(idempotencyKey));
+
 export const removeFood = (id: number, idempotencyKey: string) =>
   api<{ change: FoodWrite['change']; food?: Food }>(
     'DELETE',

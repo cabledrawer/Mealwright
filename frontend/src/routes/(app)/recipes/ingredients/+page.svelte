@@ -25,6 +25,7 @@
   import { live } from '#lib/live.svelte.js';
   import { mergeTarget } from '#lib/maybeSame.js';
   import { network } from '#lib/network.svelte.js';
+  import { columnWords, fullDateWords } from '#lib/restockWords.js';
   import { newNameFor } from '#lib/ingredientSearch.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import { save } from '#lib/save.js';
@@ -118,11 +119,18 @@
     void recent.load();
   }
 
+  /** The staple whose whole restock date is showing (a tap on "Restocked 3 weeks ago"). */
+  let dateShownFor = $state<number | null>(null);
+
   /** The quiet line under a food's name. */
   function note(food: FoodRow, phone: boolean): string {
     const maybe = mergeTarget(food);
     if (maybe) return `Maybe the same as “${maybe.name}”`;
-    if (phone) return [food.counted_as_display, food.place?.name].filter(Boolean).join(' · ');
+    if (phone) {
+      const restocked =
+        food.staple && food.restocked_days_ago != null ? columnWords(food.restocked_days_ago) : '';
+      return [food.counted_as_display, restocked, food.place?.name].filter(Boolean).join(' · ');
+    }
     if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;
     if (food.other_names.length) return `also: ${food.other_names.join(', ')}`;
     const standIn = food.stand_ins[0];
@@ -329,8 +337,24 @@
                   {#if desk}<span class="note desk">{desk}</span>{/if}
                 </button>
                 <span class="col">
-                  {#if food.staple}<span class="staple">Staple</span
-                    >{:else}{food.counted_as_display}{/if}
+                  {#if food.staple}
+                    <span class="stack">
+                      <span class="staple">Staple</span>
+                      {#if food.restocked_on && food.restocked_days_ago != null}
+                        <!-- The whole date on hover, and on tap (a title alone doesn't show on a touch screen). -->
+                        <button
+                          type="button"
+                          class="when"
+                          title={fullDateWords(food.restocked_on)}
+                          aria-expanded={dateShownFor === food.id}
+                          onclick={() => (dateShownFor = dateShownFor === food.id ? null : food.id)}
+                          >{dateShownFor === food.id
+                            ? `Restocked ${fullDateWords(food.restocked_on)}`
+                            : columnWords(food.restocked_days_ago)}</button
+                        >
+                      {/if}
+                    </span>
+                  {:else}{food.counted_as_display}{/if}
                 </span>
                 <span class="col">{food.place?.name ?? ''}</span>
                 <span class="end">
@@ -659,6 +683,26 @@
   .col,
   .desk {
     display: none;
+  }
+
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  /* "Restocked 3 weeks ago": a button, so a tap shows the date (a hover title would not). */
+  .when {
+    min-height: var(--touch-target);
+    margin-block: calc(-1 * var(--space-3));
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font: var(--weight-medium) var(--text-sm) var(--font-ui);
+    text-align: left;
+    cursor: pointer;
   }
 
   .staple {

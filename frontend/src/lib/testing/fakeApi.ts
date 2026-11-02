@@ -85,6 +85,8 @@ export function toorDal(overrides: Partial<Food> = {}): Food {
     used_in_recipes: 0,
     used_in: [],
     made_by: null,
+    restocked_on: null,
+    restocked_days_ago: null,
     ...overrides
   };
 }

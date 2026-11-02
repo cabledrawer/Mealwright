@@ -140,3 +140,123 @@ def test_undo_of_a_merge_is_whole_when_the_date_was_raised_since(kitchen: TestCl
     undone = ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
     assert undone["result"] == "done"
     assert _close(_restocked(kitchen, kept), older)
+
+
+# --- Changing the date by hand (0.7 K5) -------------------------------------------------------
+
+
+def _staple(client: TestClient, name: str = "Rock salt") -> int:
+    made = ok(client.post(f"{API}/foods", json={"name": name, "staple": True}), 201)
+    return int(made["food"]["id"])
+
+
+def test_the_date_can_be_set_and_undone(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    when = datetime.now(UTC) - timedelta(days=20)
+    done = ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": when.isoformat()}))
+    assert _close(_restocked(kitchen, food), when)
+    assert _close(datetime.fromisoformat(done["food"]["restocked_at"]), when)
+    assert _listed(kitchen, food) is not None
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert _restocked(kitchen, food) is None
+
+
+def test_the_date_can_go_back_to_an_earlier_day(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    earlier = datetime.now(UTC) - timedelta(days=9)
+    ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": earlier.isoformat()}))
+    assert _close(_restocked(kitchen, food), earlier)
+
+
+def test_a_date_in_the_future_is_refused(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    later = datetime.now(UTC) + timedelta(days=1)
+    sent = kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": later.isoformat()})
+    assert sent.status_code == 422 and sent.json()["code"] == "restock_in_future"
+    assert _restocked(kitchen, food) is None
+
+
+def test_a_clock_a_little_fast_is_taken_as_now(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    a_bit = datetime.now(UTC) + timedelta(minutes=2)
+    ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": a_bit.isoformat()}))
+    kept = _restocked(kitchen, food)
+    assert kept is not None and kept <= datetime.now(UTC) + timedelta(seconds=1)
+
+
+def test_a_date_before_the_last_restock_on_shopping_is_refused(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    tick(kitchen, s, "Salt")
+    before = datetime.now(UTC) - timedelta(days=3)
+    sent = kitchen.patch(f"{API}/foods/{salt}", json={"restocked_at": before.isoformat()})
+    assert sent.status_code == 422 and sent.json()["code"] == "restock_before_tick"
+    assert _close(_restocked(kitchen, salt), datetime.now(UTC))
+
+
+def test_only_a_staple_has_a_date_and_a_date_is_needed(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    dal = s.foods["Toor dal"]
+    now = datetime.now(UTC).isoformat()
+    sent = kitchen.patch(f"{API}/foods/{dal}", json={"restocked_at": now})
+    assert sent.status_code == 422 and sent.json()["code"] == "not_a_staple"
+    assert kitchen.post(f"{API}/foods/{dal}/restock").status_code == 422
+    food = _staple(kitchen)
+    none = kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": None})
+    assert none.status_code == 422 and none.json()["code"] == "restock_date_needed"
+
+
+def test_the_restocked_tap_sets_now_and_undo_puts_it_back(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    old = datetime.now(UTC) - timedelta(days=30)
+    ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": old.isoformat()}))
+    done = ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    assert _close(_restocked(kitchen, food), datetime.now(UTC))
+    assert done["change"]["summary"] == "Rock salt restocked"
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert _close(_restocked(kitchen, food), old)
+
+
+def test_another_household_gets_not_found(kitchen: TestClient, neighbour: TestClient) -> None:
+    food = _staple(kitchen)
+    now = datetime.now(UTC).isoformat()
+    assert neighbour.patch(f"{API}/foods/{food}", json={"restocked_at": now}).status_code == 404
+    assert neighbour.post(f"{API}/foods/{food}/restock").status_code == 404
+    assert _restocked(kitchen, food) is None
+
+
+def test_the_pantry_gives_each_staple_its_date(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    other = _staple(kitchen, "Black pepper")
+    ok(kitchen.post(f"{API}/foods/{food}/restock"))
+    staples = ok(kitchen.get(f"{API}/pantry"))["staples"]
+    dates = {row["id"]: row["restocked_at"] for row in staples}
+    assert dates[other] is None
+    assert _close(datetime.fromisoformat(dates[food]).astimezone(UTC), datetime.now(UTC))
+
+
+def test_a_day_picked_in_the_editor_is_the_households_own_day(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    ok(kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Auckland"}))
+    today = ok(kitchen.get(f"{API}/household"))["today"]
+    day = (datetime.fromisoformat(today) - timedelta(days=22)).date().isoformat()
+    done = ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_on": day}))
+    assert done["food"]["restocked_on"] == day
+    assert done["food"]["restocked_days_ago"] == 22
+    listed = next(
+        row for row in ok(kitchen.get(f"{API}/foods?limit=100"))["foods"] if row["id"] == food
+    )
+    assert (listed["restocked_on"], listed["restocked_days_ago"]) == (day, 22)
+    pantry = ok(kitchen.get(f"{API}/pantry"))["staples"]
+    assert next(row for row in pantry if row["id"] == food)["restocked_on"] == day
+
+
+def test_today_is_a_day_and_tomorrow_is_not(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    today = ok(kitchen.get(f"{API}/household"))["today"]
+    done = ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_on": today}))
+    assert done["food"]["restocked_on"] == today and done["food"]["restocked_days_ago"] == 0
+    tomorrow = (datetime.fromisoformat(today) + timedelta(days=1)).date().isoformat()
+    sent = kitchen.patch(f"{API}/foods/{food}", json={"restocked_on": tomorrow})
+    assert sent.status_code == 422 and sent.json()["code"] == "restock_in_future"

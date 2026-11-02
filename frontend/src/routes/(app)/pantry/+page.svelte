@@ -24,6 +24,7 @@
   import UsedSheet from '#lib/components/UsedSheet.svelte';
   import RecentChanges from '#lib/components/RecentChanges.svelte';
   import { compactDateWords, dateWords } from '#lib/dates.js';
+  import { chipWords } from '#lib/restockWords.js';
   import type { Name as IconName } from '#lib/components/Icon.svelte';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -406,16 +407,25 @@
     <ul class="staple-chips">
       {#each pantry?.staples ?? [] as staple (staple.id)}
         {@const listed = shopping.onList(staple.id)}
+        {@const restocked =
+          staple.restocked_on && staple.restocked_days_ago != null
+            ? chipWords(staple.restocked_on, staple.restocked_days_ago)
+            : ''}
         <li>
           <button
             type="button"
             class="chip"
             class:listed
-            aria-label={listLabel(staple.name, listed)}
+            aria-label={restocked
+              ? `${listLabel(staple.name, listed)}. ${restocked}`
+              : listLabel(staple.name, listed)}
             onclick={() => void shopping.tap({ ...staple, staple: true })}
           >
-            {staple.name}
-            {#if listed}<Icon name="check" size={14} stroke={3} />{/if}
+            <span class="chip-name">
+              {staple.name}
+              {#if listed}<Icon name="check" size={14} stroke={3} />{/if}
+            </span>
+            {#if restocked}<span class="restocked">{restocked}</span>{/if}
           </button>
         </li>
       {/each}
@@ -970,8 +980,27 @@
      it’s on the list. */
   .staple-chips .chip {
     display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding-block: var(--space-2);
+  }
+
+  .chip-name {
+    display: inline-flex;
     align-items: center;
     gap: var(--space-2);
+  }
+
+  /* "Restocked 12 Oct": a quiet second line (0.7 K5). */
+  .restocked {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+  }
+
+  .staple-chips .chip.listed .restocked {
+    color: var(--color-accent-on-soft);
   }
 
   .staple-chips .chip.listed {

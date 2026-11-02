@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal, cast
 
@@ -65,7 +65,7 @@ from mealwright.history import (
     fix_usual_sizes,
     replayed,
 )
-from mealwright.household import cup_ml
+from mealwright.household import cup_ml, today
 from mealwright.models import (
     Change,
     Food,
@@ -171,6 +171,9 @@ class FoodOut(BaseModel):
     # A staple's last restock on Shopping (0.7; mealwright.restock). Null: not a staple, or
     # never restocked. Read-only.
     restocked_at: datetime | None = None
+    # The household's own day of it, and how many days ago ("Restocked 12 Oct", "3 weeks ago").
+    restocked_on: date | None = None
+    restocked_days_ago: int | None = None
 
 
 class FoodWrite(BaseModel):
@@ -191,6 +194,8 @@ class FoodListItem(BaseModel):
     maybe_same: list[MaybeSame]
     used_in_recipes: int
     restocked_at: datetime | None = None  # as on FoodOut
+    restocked_on: date | None = None
+    restocked_days_ago: int | None = None
 
 
 class FoodCounts(BaseModel):
@@ -335,6 +340,8 @@ def _stock(kitchen: Kitchen, food: Food, usual: FoodSize | None) -> AmountOut:
 
 def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> FoodOut:
     db = kitchen.db
+    restocked_at = restock.restocked(db, kitchen.household_id, [food]).get(food.id)
+    restocked_on, restocked_days_ago = restock.day(kitchen.household, restocked_at)
     food_sizes = sizes(kitchen, food.id)
     usual = next((s for s in food_sizes if s.usual), None)
     stand_ins, stands_in_for = stand_in_links(kitchen, food.id)
@@ -402,7 +409,9 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         used_in_recipes=len(using),
         used_in=using,
         made_by=Ref(id=maker.id, name=maker.name) if maker else None,
-        restocked_at=restock.restocked(db, kitchen.household_id, [food]).get(food.id),
+        restocked_at=restocked_at,
+        restocked_on=restocked_on,
+        restocked_days_ago=restocked_days_ago,
     )
 
 
@@ -521,6 +530,7 @@ def list_foods(
     )
     items = []
     for _rank, _key, food, matched in page:
+        on, days_ago = restock.day(kitchen.household, restocked.get(food.id))
         place = places.get(food.place_id) if food.place_id else None
         items.append(
             FoodListItem(
@@ -539,6 +549,8 @@ def list_foods(
                 maybe_same=same_out(food, same.get(food.id, set()), by_id, stocked),
                 used_in_recipes=in_recipes.get(food.id, 0),
                 restocked_at=restocked.get(food.id),
+                restocked_on=on,
+                restocked_days_ago=days_ago,
             )
         )
     more = start + limit < len(scored)
@@ -621,6 +633,10 @@ class FoodPatch(BaseModel):
     running_low_at: AmountIn | None = None
     cup_weight: CupGrams | None = None  # grams in one household cup
     item_weight: ItemGrams | None = None  # grams in one item
+    # A staple's restock date, changed in the editor (0.7 K5). Never in the future; a clock a
+    # little fast is fine (RESTOCK_GRACE).
+    restocked_at: datetime | None = None
+    restocked_on: date | None = None  # the day, in the household's own time zone (the editor)
     answers: list[Answer] = Field(default_factory=list, max_length=5)
 
     @field_validator("name")
@@ -645,6 +661,8 @@ FIELD_NAMES = (
     "running_low_at",
     "cup_weight",
     "item_weight",
+    "restocked_at",
+    "restocked_on",
 )
 COUNTED_WORDS = {"weight": "by weight", "volume": "by volume", "count": "by number"}
 
@@ -689,6 +707,74 @@ def _change_counted_as(
         moved[str(lot.id)] = [lot.amount_milli, milli, source]
         lot.amount_milli = milli
     return moved
+
+
+# A phone's clock can run a little fast: a restock date up to this far ahead is taken as "now".
+RESTOCK_GRACE = timedelta(minutes=5)
+
+
+def _future() -> Problem:
+    return Problem(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "restock_in_future",
+        "That date is in the future. Pick today or an earlier day.",
+    )
+
+
+def _restock_when(kitchen: Kitchen, body: FoodPatch) -> datetime:
+    """The moment a PATCH asks for: the given one, or the noon of the given day."""
+    if body.restocked_at is not None:
+        return body.restocked_at
+    if body.restocked_on is None:
+        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "restock_date_needed", "Pick a date.")
+    if body.restocked_on > today(kitchen.household):
+        raise _future()
+    return restock.noon_on(kitchen.household, body.restocked_on)
+
+
+def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
+    """Set a staple's restock date (0.7 K5) and say what happened; None if it is already so.
+
+    The date shown is the newest of this one and the standing "Restocked" ticks on Shopping
+    (mealwright.restock), so a date before the newest tick would not show: it is refused."""
+    if not food.staple:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_staple",
+            f"{food.name} isn’t a staple. Make it a staple first.",
+        )
+    when = when.replace(tzinfo=UTC) if when.tzinfo is None else when.astimezone(UTC)
+    now = utcnow()
+    if when > now + RESTOCK_GRACE:
+        raise _future()
+    when = min(when, now)
+    ticked = restock.ticked_at(kitchen.db, kitchen.household_id, food.id)
+    if ticked is not None and when < ticked:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "restock_before_tick",
+            "Shopping shows a later restock than that. Pick a later day.",
+        )
+    kept = restock.restocked(kitchen.db, kitchen.household_id, [food]).get(food.id)
+    if kept is not None and abs(kept - when) < timedelta(seconds=1):
+        return None
+    food.restocked_at = when
+    return f"{food.name} restocked"
+
+
+@router.post("/foods/{food_id}/restock")
+def restock_food(food_id: StoredInt, kitchen: Here, response: Response) -> FoodWrite:
+    """Tap "Restocked" on a staple: its restock date is now. Can be undone."""
+
+    def apply() -> Change | None:
+        food = find(kitchen, food_id)
+        with FoodEdit(kitchen, [food.id]) as edit:
+            summary = _restock(kitchen, food, utcnow())
+            if summary is None:
+                return None
+        return edit.record("food_edited", summary, food.id)
+
+    return write(kitchen, response, apply)
 
 
 @router.patch("/foods/{food_id}")
@@ -808,6 +894,11 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
                     )
                     grams = exact_text(amounts.to_milli(body.cup_weight), "weight")
                     summary = f"Weight of 1{NBSP}cup of {name} is now {grams}"
+            elif field_name in ("restocked_at", "restocked_on"):
+                said = _restock(kitchen, food, _restock_when(kitchen, body))
+                if said is None:
+                    return None
+                summary = said
             else:  # item_weight
                 if body.item_weight is None:
                     if "item_weight" not in household_conversions(kitchen, food.id):

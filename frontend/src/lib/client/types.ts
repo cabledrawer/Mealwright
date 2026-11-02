@@ -98,6 +98,9 @@ export interface FoodRow extends Ref {
   place: Ref | null;
   stand_ins: Ref[];
   maybe_same: MaybeSame[];
+  /** A staple's last restock: the household's own day and how many days ago (0.7 K5). */
+  restocked_on?: string | null;
+  restocked_days_ago?: number | null;
   /** How many recipes have a line for it (0.4). Left out of the rows the shopping list's search builds on the phone. */
   used_in_recipes?: number;
 }
@@ -147,6 +150,10 @@ export interface Food extends Ref {
   used_in: Ref[];
   /** The recipe whose own made-ahead ingredient this is: it can't be removed while that is on. */
   made_by: Ref | null;
+  /** A staple's last restock (0.7 K5): the household's own day, and how many days ago. Null for
+   * an ingredient that isn't a staple or was never restocked. */
+  restocked_on: string | null;
+  restocked_days_ago: number | null;
 }
 
 /** The answer to every food write. `change` is null when nothing changed. */
@@ -165,7 +172,9 @@ export type FoodPatch =
   | { shop_id: number | null }
   | { running_low_at: AmountIn | null }
   | { cup_weight: number | null }
-  | { item_weight: number | null };
+  | { item_weight: number | null }
+  /** A staple's restock day, the household's own ("2026-10-12"; never in the future). */
+  | { restocked_on: string };
 
 export interface UndoResult {
   /** done: all of it; partly: some (message says what); nothing: nothing could be put back. */
@@ -238,11 +247,17 @@ export interface PantryPlace extends Place {
 
 export type PantryFilter = 'all' | 'use_soon' | 'running_low' | 'staples';
 
+/** A staple chip: when it was last restocked, if ever (0.7 K5). */
+export interface Staple extends Ref {
+  restocked_on?: string | null;
+  restocked_days_ago?: number | null;
+}
+
 export interface Pantry {
   today: string;
   counts: { items: number; tubs: number; use_soon: number; running_low: number };
   places: PantryPlace[];
-  staples: Ref[];
+  staples: Staple[];
 }
 
 export interface UseSoonLot {

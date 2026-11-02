@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
+from mealwright import restock
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import (
@@ -99,11 +100,25 @@ class PantryCounts(BaseModel):
     running_low: int
 
 
+class StapleOut(Ref):
+    # When it was last restocked (0.7 K5); null if never. Read-only here: see PATCH /foods/{id}.
+    restocked_at: datetime | None = None
+    restocked_on: date | None = None  # the household's own day of it
+    restocked_days_ago: int | None = None
+
+
+def staple_out(kitchen: Kitchen, food: Food, at: datetime | None) -> StapleOut:
+    on, days_ago = restock.day(kitchen.household, at)
+    return StapleOut(
+        id=food.id, name=food.name, restocked_at=at, restocked_on=on, restocked_days_ago=days_ago
+    )
+
+
 class PantryOut(BaseModel):
     today: date
     counts: PantryCounts
     places: list[PlaceOut]
-    staples: list[Ref]
+    staples: list[StapleOut]
 
 
 class UseSoonLot(LotOut):
@@ -289,6 +304,8 @@ def pantry(
         )
         .order_by(Food.name)
     )
+    staple_foods = list(staples)
+    dates = restock.restocked(kitchen.db, kitchen.household_id, staple_foods)
     return PantryOut(
         today=view.today,
         counts=PantryCounts(
@@ -307,7 +324,7 @@ def pantry(
             )
             for place in view.places.values()
         ],
-        staples=[Ref(id=f.id, name=f.name) for f in staples],
+        staples=[staple_out(kitchen, f, dates.get(f.id)) for f in staple_foods],
     )
 
 
