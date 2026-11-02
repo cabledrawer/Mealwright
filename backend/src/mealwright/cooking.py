@@ -32,6 +32,7 @@ from mealwright import cooked, plan
 from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
+from mealwright.batches import cook_batches_of, cook_item_of
 from mealwright.deduction import (
     Choice,
     Pool,
@@ -111,13 +112,10 @@ def _item_checked(kitchen: Kitchen, item: MealItem) -> tuple[Recipe, Meal]:
 
 
 def _batch_of_item(kitchen: Kitchen, item: MealItem) -> BatchCook | None:
-    return kitchen.db.scalar(
-        select(BatchCook).where(
-            BatchCook.household_id == kitchen.household_id,
-            BatchCook.cook_meal_id == item.meal_id,
-            BatchCook.recipe_id == item.recipe_id,
-        )
-    )
+    """The batch this item is the cooking of (the first copy of the recipe in its cook meal)."""
+    meal = kitchen.db.get(Meal, item.meal_id)
+    found = cook_batches_of(kitchen, item, meal) if meal is not None else []
+    return found[0] if found else None
 
 
 def _batch_checked(kitchen: Kitchen, batch: BatchCook) -> Recipe:
@@ -134,13 +132,7 @@ def item_portions(item: MealItem, recipe: Recipe) -> int:
 
 def batch_portions(kitchen: Kitchen, batch: BatchCook, recipe: Recipe) -> int:
     """The cook-day eaters (the meal's servings, else one) plus a portion for each tub."""
-    item = kitchen.db.scalar(
-        select(MealItem).where(
-            MealItem.household_id == kitchen.household_id,
-            MealItem.meal_id == batch.cook_meal_id,
-            MealItem.recipe_id == recipe.id,
-        )
-    )
+    item = cook_item_of(kitchen, batch)
     eaters = (item.servings if item else None) or 1
     return min(eaters + batch.tub_count, MOST_PORTIONS)
 

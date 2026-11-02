@@ -323,14 +323,24 @@ def get_plan(
             return kcal_of(batch_recipe.get(tub_batch[i.tub_id]))
         return None
 
-    cook_meals = {(b.cook_meal_id, b.recipe_id) for b in batches if b.cook_meal_id is not None}
+    # The cooking is the first copy of the recipe in a batch's cook meal (items are in order).
+    cook_items: set[int] = set()
+    for b in batches:
+        if b.cook_meal_id is None:
+            continue
+        first = next(
+            (i for i in items if i.meal_id == b.cook_meal_id and batch_service.cooks_item(b, i)),
+            None,
+        )
+        if first is not None:
+            cook_items.add(first.id)
 
     def eating_of(i: MealItem, recipe: Recipe | None) -> int | None:
         if i.kind != "recipe":
             return None
         if i.servings is not None:
             return i.servings
-        if (i.meal_id, i.recipe_id) in cook_meals:
+        if i.id in cook_items:
             return 1
         return recipe.serves if recipe else None
 

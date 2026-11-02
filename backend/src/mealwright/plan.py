@@ -484,7 +484,11 @@ def move_meal(
     else:
         for tub_item in items:
             tub = _own(kitchen, Tub, tub_item.tub_id)
-            if tub is not None and day > tub.use_by:  # a tub is no good past its own use-by
+            use_by = tub.use_by if tub is not None else day
+            for batch in cooking:  # a tub of the batch moving with its cooking moves its use-by
+                if tub is not None and tub.batch_id == batch.id:
+                    use_by += day - batch.cooked_on
+            if tub is not None and day > use_by:  # a tub is no good past its own use-by
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",

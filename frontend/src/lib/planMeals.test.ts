@@ -205,20 +205,29 @@ describe('a meal card’s words', () => {
       }
     };
     const tubItem: PlanItem = { ...fruit, kind: 'tub', ingredient: null, tub_id: 7 };
-    const meal = (id: number): PlanMeal => ({
+    const meal = (id: number, items: PlanItem[] = []): PlanMeal => ({
       id,
       date: '2026-10-18',
       slot_id: 1,
       status: 'planned',
       eater_login_ids: [],
-      items: [],
+      items,
       kcal: null
     });
     expect(tubOf(plan, tubItem)).toEqual({ tub, batch });
     expect(tubOf(plan, fruit)).toBeNull();
-    expect(cookBatchOfItem(plan, meal(50), recipeItem)).toEqual(batch);
-    expect(cookBatchOfItem(plan, meal(51), recipeItem)).toBeNull();
-    expect(cookBatchOfItem(plan, meal(50), fruit)).toBeNull();
+    expect(cookBatchOfItem(plan, meal(50, [recipeItem]), recipeItem)).toEqual(batch);
+    expect(cookBatchOfItem(plan, meal(51, [recipeItem]), recipeItem)).toBeNull();
+    expect(cookBatchOfItem(plan, meal(50, [fruit]), fruit)).toBeNull();
+    // Two copies of the cooked recipe: only the first (by position, then id) is the cooking.
+    const copy: PlanItem = {
+      ...recipeItem,
+      id: recipeItem.id + 100,
+      position: recipeItem.position + 1
+    };
+    const both = meal(50, [copy, recipeItem]);
+    expect(cookBatchOfItem(plan, both, recipeItem)).toEqual(batch);
+    expect(cookBatchOfItem(plan, both, copy)).toBeNull();
     // A meal's colour: the batch's, whether it holds the tub or was the cook day.
     expect(mealColour(plan, { ...meal(50) })).toBe(3);
     expect(mealColour(plan, { ...meal(60), items: [tubItem] })).toBe(3);

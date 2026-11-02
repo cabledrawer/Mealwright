@@ -1042,10 +1042,10 @@ def test_moving_the_cook_meal_moves_the_cooking_across_a_week_and_back(
     there = view(kitchen, D1 + timedelta(days=8), days=3)
     assert [b["id"] for b in there["batch_cooks"]] == [made["batch_id"]]
     assert there["batch_cooks"][0]["cooked_on"] == day(9)
-    # And back, to before where it was.
-    back = _move_meal(kitchen, cook["meal_id"], day(-2), slots["Dinner"])
+    # And back, to an earlier day (the placed tubs would be past their use-by if it went before).
+    back = _move_meal(kitchen, cook["meal_id"], day(1), slots["Breakfast"])
     assert back.status_code == 200, back.text
-    assert _batch_row(kitchen, made["batch_id"])[0] == D1 - timedelta(days=2)
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=1)
 
 
 def test_undo_of_moving_the_cook_meal_puts_the_dates_back_exactly(
@@ -1376,3 +1376,78 @@ def test_fill_from_freezer_summary_keeps_its_reason_within_300_characters(
     summary = filled.json()["change"]["summary"]
     assert len(summary) <= 300 and summary.endswith("(they run out soonest)")
     assert " more from freezer tubs" in summary
+
+
+def test_undo_of_removing_the_cook_item_is_skipped_once_the_rest_of_the_meal_moved(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    """Two phones: one removes the cooking, the other moves the rest of the meal, then the first
+    Undoes. The link would split the cook day from the meal, so that step is skipped."""
+    made = make(kitchen, cook["item_id"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
+    removed = kitchen.delete(f"{API}/plan/items/{cook['item_id']}")
+    assert _move_meal(kitchen, cook["meal_id"], day(4), slots["Dinner"]).status_code == 200
+    undone = undo(kitchen, removed.json())
+    assert undone["result"] == "partly"
+    assert _cook_meal_of(kitchen, made["batch_id"]) is None
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1
+
+
+def test_moving_the_cook_meal_earlier_is_refused_when_a_placed_tub_would_be_past_its_use_by(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(
+        kitchen,
+        cook["item_id"],
+        tub_count=1,
+        pattern="pick",
+        placements=[{"date": day(3), "slot_id": slots["Lunch"]}],
+    )
+    before = _batch_row(kitchen, made["batch_id"])
+    r = _move_meal(kitchen, cook["meal_id"], day(-1), slots["Dinner"])
+    assert r.status_code == 422 and r.json()["code"] == "after_use_by"
+    assert _batch_row(kitchen, made["batch_id"]) == before
+    with db_of(kitchen) as db:
+        meal = db.get(Meal, cook["meal_id"])
+        assert meal is not None and meal.day == D1
+    # A shorter move that keeps the tub in date is fine.
+    ok = _move_meal(kitchen, cook["meal_id"], day(1), slots["Dinner"])
+    assert ok.status_code == 200, ok.text
+
+
+def test_a_tub_in_the_cook_meal_moves_with_it_and_keeps_its_distance_from_the_cook_day(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    made = make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]
+    put = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place", json={"date": day(0), "slot_id": slots["Dinner"]}
+    )
+    assert put.status_code == 200, put.text
+    r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])  # past the OLD use-by
+    assert r.status_code == 200, r.text
+    assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=5)
+
+
+def test_only_the_first_copy_of_the_cooked_recipe_is_the_cooking_everywhere(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int], stuff: dict[str, int]
+) -> None:
+    """The plan's "eating" number, cooking the item on its own, and the batch's portions all
+    treat the first copy as the cooking and a second copy as an ordinary item."""
+    made = make(kitchen, cook["item_id"], tub_count=2, pattern="pick")
+    second = plan_recipe(kitchen, stuff["biryani"], D1, slots["Dinner"])
+    meal = next(m for m in view(kitchen)["meals"] if m["date"] == D1.isoformat())
+    eating = {i["id"]: i["eating"] for i in meal["items"]}
+    assert eating[cook["item_id"]] == 1 and eating[second["item_id"]] != 1
+    # The second copy can be cooked on its own; the first is "cook the batch instead".
+    first_try = kitchen.post(f"{API}/plan/items/{cook['item_id']}/cook/preview", json={})
+    assert first_try.status_code == 409 and first_try.json()["code"] == "cook_the_batch"
+    other_try = kitchen.post(f"{API}/plan/items/{second['item_id']}/cook/preview", json={})
+    assert other_try.json().get("code") != "cook_the_batch"
+    # The batch's portions count the first copy's servings, not either.
+    first = kitchen.patch(f"{API}/plan/items/{cook['item_id']}", json={"servings": 3})
+    assert first.status_code == 200, first.text
+    kitchen.patch(f"{API}/plan/items/{second['item_id']}", json={"servings": 5})
+    shown = kitchen.post(f"{API}/plan/batches/{made['batch_id']}/cook/preview", json={})
+    assert shown.status_code == 200, shown.text
+    assert shown.json()["portions"] == 3 + 2

@@ -104,19 +104,27 @@ export function tubOf(
 export const cookBatchOf = (plan: Plan | null, meal: PlanMeal): PlanBatch | null =>
   plan?.batch_cooks.find((b) => b.cook_meal_id === meal.id) ?? null;
 
-/** The batch cook that a recipe item was cooked for (its meal is the batch's cook meal). */
+/**
+ * The batch cook that a recipe item was cooked for (its meal is the batch's cook meal). Only
+ * one item is the cooking: the first copy of the recipe by position, then id, as on the server;
+ * a second copy of the same recipe in that meal is an ordinary item.
+ */
 export const cookBatchOfItem = (
   plan: Plan | null,
   meal: PlanMeal,
   item: PlanItem
-): PlanBatch | null =>
-  item.kind !== 'recipe'
-    ? null
-    : (plan?.batch_cooks.find(
-        (b) =>
-          b.cook_meal_id === meal.id &&
-          (item.recipe ? b.recipe_id === item.recipe.id : b.recipe_name === item.kept_name)
-      ) ?? null);
+): PlanBatch | null => {
+  if (item.kind !== 'recipe') return null;
+  const cooks = (batch: PlanBatch, other: PlanItem) =>
+    other.kind === 'recipe' &&
+    (other.recipe ? batch.recipe_id === other.recipe.id : batch.recipe_name === other.kept_name);
+  const batch = plan?.batch_cooks.find((b) => b.cook_meal_id === meal.id && cooks(b, item));
+  if (!batch) return null;
+  const first = [...meal.items]
+    .sort((a, b) => a.position - b.position || a.id - b.id)
+    .find((other) => cooks(batch, other));
+  return first?.id === item.id ? batch : null;
+};
 
 /** The names of the batch colours, in the order of the design's tokens --batch-1 … --batch-6. */
 export const BATCH_PALETTE = ['purple', 'amber', 'green', 'blue', 'rose', 'teal'];

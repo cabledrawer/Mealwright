@@ -293,8 +293,7 @@ def work_out(
             check_day(kitchen, spot[0])
             find_slot(kitchen, spot[1])
             check_after_cook(kitchen, meal, spot[0], spot[1])
-            if placements is not None and spot[0] > tub_use_by(kitchen, "fridge", meal.day):
-                # (a day the person chose; the automatic spread is left as it was)
+            if spot[0] > tub_use_by(kitchen, "fridge", meal.day):
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
@@ -607,7 +606,7 @@ def refuse_cooked(kitchen: Kitchen, batches: list[BatchCook]) -> None:
             )  # proposed, for cabledrawer
 
 
-def _cooks(batch: BatchCook, item: MealItem) -> bool:
+def cooks_item(batch: BatchCook, item: MealItem) -> bool:
     """Whether this item is the recipe the batch was cooked for."""
     if item.kind != "recipe":
         return False
@@ -624,7 +623,7 @@ def cook_batches_of(kitchen: Kitchen, item: MealItem, meal: Meal) -> list[BatchC
         return []
     found = []
     for batch in batches_cooked_at(kitchen, meal):
-        first = next((i for i in items_of(kitchen, meal) if _cooks(batch, i)), None)
+        first = next((i for i in items_of(kitchen, meal) if cooks_item(batch, i)), None)
         if first is not None and first.id == item.id:
             found.append(batch)
     return found
@@ -643,7 +642,7 @@ def release_cook_link(
     Undo put the link back."""
     left = items_of(kitchen, meal)
     for batch in cooking:
-        if any(_cooks(batch, i) for i in left):
+        if any(cooks_item(batch, i) for i in left):
             continue  # a second copy of the recipe is the cook item now
         steps.append({"op": "batch_link", "batch": batch.id, "meal": meal.id})
         batch.cook_meal_id = None
@@ -673,6 +672,22 @@ def move_cook_day(
                 "too_many_batches",
                 f"At most {MOST_BATCHES_A_DAY} batches can be cooked on one day.",  # proposed
             )
+    for batch in batches:
+        # A tub in a meal can't be left past its new use-by (same rule as placing a tub).
+        for tub in db.scalars(
+            select(Tub).where(Tub.household_id == kitchen.household_id, Tub.batch_id == batch.id)
+        ):
+            eaten = item_of_tub(kitchen, tub)
+            eaten_meal = db.get(Meal, eaten.meal_id) if eaten is not None else None
+            if eaten_meal is None:
+                continue
+            eaten_on = day if eaten_meal.id == meal.id else eaten_meal.day
+            if eaten_on > tub.use_by + (day - batch.cooked_on):
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "after_use_by",
+                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                )
     for batch in batches:
         tubs = list(
             db.scalars(
@@ -905,7 +920,7 @@ class Portions:
         return self.cook_day + self.tubs
 
 
-def _cook_item(kitchen: Kitchen, batch: BatchCook) -> MealItem | None:
+def cook_item_of(kitchen: Kitchen, batch: BatchCook) -> MealItem | None:
     if batch.cook_meal_id is None or batch.recipe_id is None:
         return None
     return kitchen.db.scalar(
@@ -922,7 +937,7 @@ def _cook_item(kitchen: Kitchen, batch: BatchCook) -> MealItem | None:
 
 def portions_of(kitchen: Kitchen, batch: BatchCook) -> Portions:
     db = kitchen.db
-    item = _cook_item(kitchen, batch)
+    item = cook_item_of(kitchen, batch)
     cook_day = (item.servings if item else None) or 1
     tubs = list(
         db.execute(
@@ -1261,6 +1276,8 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         linked = _own(kitchen, Meal, remap.get(step["meal"], step["meal"]))
         if batch is None or linked is None or batch.cook_meal_id is not None:
             return False
+        if linked.day != batch.cooked_on:
+            return False  # the meal moved on since: it would be split from its cook day
         batch.cook_meal_id = linked.id
         db.flush()
         return True
