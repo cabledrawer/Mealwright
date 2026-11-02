@@ -180,7 +180,7 @@
 
   <div class="today">
     <div class="stats" data-testid="today-stats">
-      <div class="stat tubs">
+      <div class="stat tubs" class:none={tubsLeft === '0'}>
         <b>{tubsLeft}</b><span>tubs left</span>
       </div>
       <div class="stat soon">
@@ -415,6 +415,11 @@
 
   .stat.tubs b {
     color: var(--color-tubs);
+  }
+
+  /* "0 tubs left" is not a warm number: nothing to look at (0.7 paper cuts). */
+  .stat.tubs.none b {
+    color: var(--color-text-muted);
   }
 
   .stat.soon b {

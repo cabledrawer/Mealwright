@@ -133,6 +133,55 @@ test('Move it to tomorrow adds alongside a meal that has food', async ({ page })
     .toBe('moved');
 });
 
+// "0 tubs left" is not in the warm tubs colour; with a tub left it is (0.7 paper cuts).
+test.describe('the tubs left number', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  const colours = (page: Page) =>
+    page.evaluate(() => {
+      const paint = (value: string) => {
+        const probe = document.body.appendChild(document.createElement('span'));
+        probe.style.color = value;
+        const colour = getComputedStyle(probe).color;
+        probe.remove();
+        return colour;
+      };
+      const number = document.querySelector('[data-testid="today-stats"] .stat.tubs b')!;
+      return {
+        now: getComputedStyle(number).color,
+        tubs: paint('var(--color-tubs)'),
+        muted: paint('var(--color-text-muted)'),
+      };
+    });
+
+  const withTubs = async (page: Page, tubs: unknown[]) => {
+    await page.route('**/api/v1/today', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, first_day: false, tubs_left: tubs, tubs_left_more: false } });
+    });
+    await page.goto('/');
+  };
+
+  test('0 is quiet', async ({ page }) => {
+    await withTubs(page, []);
+    await expect(stat(page, 'tubs left')).toHaveText('0');
+    const c = await colours(page);
+    expect(c.now).toBe(c.muted);
+    expect(c.now).not.toBe(c.tubs);
+  });
+
+  test('1 or more keeps the warm colour', async ({ page }) => {
+    const real = await page.request.get('/api/v1/today');
+    const sample = ((await real.json()) as { tubs_left: unknown[] }).tubs_left[0];
+    // The shared household may have no tub left: borrow a plain object, the number only counts them.
+    await withTubs(page, [sample ?? { id: 1 }]);
+    await expect(stat(page, 'tubs left')).toHaveText('1');
+    const c = await colours(page);
+    expect(c.now).toBe(c.tubs);
+  });
+});
+
 // No service worker here: on WebKit, once it controls the page, page.route stops seeing its
 // requests (see import-pints.spec.ts).
 test.describe('an empty household', () => {
