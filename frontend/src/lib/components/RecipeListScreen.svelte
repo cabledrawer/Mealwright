@@ -23,7 +23,6 @@
   import EmptyState from './EmptyState.svelte';
   import FilterChips from './FilterChips.svelte';
   import Icon from './Icon.svelte';
-  import NewRecipeChoice from './NewRecipeChoice.svelte';
   import OfflineNote from './OfflineNote.svelte';
   import PageHeader from './PageHeader.svelte';
   import RecipeListRow from './RecipeListRow.svelte';
@@ -147,7 +146,13 @@
 <svelte:document onvisibilitychange={onVisible} />
 
 {#snippet newRecipe()}
-  <NewRecipeChoice />
+  <!-- Loaded when the list opens, so its code isn't in every Recipes page (the page size limit);
+       the slot keeps the button's room meanwhile. -->
+  <div class="new-slot">
+    {#await import('./NewRecipeChoice.svelte') then { default: NewRecipeChoice }}
+      <NewRecipeChoice />
+    {/await}
+  </div>
 {/snippet}
 
 {#snippet found()}
@@ -240,6 +245,10 @@
 {/if}
 
 <style>
+  .new-slot {
+    min-height: 52px;
+  }
+
   .more {
     display: flex;
     flex-wrap: wrap;

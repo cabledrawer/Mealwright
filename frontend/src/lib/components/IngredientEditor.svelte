@@ -15,9 +15,6 @@
   import { FoodModel } from '#lib/foodEditor.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { cantReachWords } from '#lib/api.js';
-  import { getHousehold } from '#lib/client/household.js';
-  import { dayMonthWords } from '#lib/dates.js';
-  import { columnWords, fullDateWords } from '#lib/restockWords.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -25,6 +22,7 @@
   import Icon from './Icon.svelte';
   import NewPlace, { NEW_PLACE } from './NewPlace.svelte';
   import RemoveIngredient from './RemoveIngredient.svelte';
+  import RestockedSection from './RestockedSection.svelte';
   import Switch from './Switch.svelte';
   import UsedInRecipes from './UsedInRecipes.svelte';
 
@@ -74,32 +72,6 @@
   $effect(() => {
     onname?.(food?.name ?? '');
   });
-
-  // A staple's restock date: the day picker stops at today, the household's own (0.7 K5).
-  let householdToday = $state<string>();
-  $effect(() => {
-    if (!food?.staple || householdToday) return;
-    getHousehold()
-      .then((h) => (householdToday = h.today))
-      .catch(() => {});
-  });
-
-  function pickRestocked(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const day = input.value;
-    if (!food || !day || day === food.restocked_on) {
-      input.value = food?.restocked_on ?? '';
-      return;
-    }
-    void model.setField(
-      { restocked_on: day },
-      (f) => {
-        f.restocked_on = day;
-        f.restocked_days_ago = null;
-      },
-      `${food.name} restocked ${dayMonthWords(day)}`
-    );
-  }
 
   let renaming = $state(false);
   let splitting = $state<Ref | null>(null);
@@ -659,33 +631,7 @@
       </div>
 
       {#if food.staple}
-        <section class="restocked" aria-labelledby="{uid}-restocked">
-          <h3 id="{uid}-restocked">Restocked</h3>
-          <div class="restock-row">
-            <input
-              class="restock-date"
-              type="date"
-              aria-label="Date restocked"
-              max={householdToday}
-              value={food.restocked_on ?? ''}
-              onchange={pickRestocked}
-            />
-            <button
-              type="button"
-              class="quiet"
-              disabled={network.offline}
-              onclick={() => void model.restocked()}>Restocked</button
-            >
-          </div>
-          <p class="hint" aria-live="polite">
-            {#if food.restocked_on && food.restocked_days_ago !== null}
-              {columnWords(food.restocked_days_ago)} · {fullDateWords(food.restocked_on)}
-            {:else}
-              Not restocked yet. Ticking it off the shopping list or tapping Restocked sets the
-              date.
-            {/if}
-          </p>
-        </section>
+        <RestockedSection {food} {model} />
       {/if}
 
       <section aria-labelledby="{uid}-instead">
@@ -1163,23 +1109,6 @@
 
   .shop label {
     flex: 1;
-  }
-
-  .restock-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  .restock-date {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-field);
-    background: var(--color-field);
-    color: var(--color-text);
-    font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
   .switch-row {

@@ -2,8 +2,6 @@
 // whichever of the two was chosen last. The choice is kept in this browser only; if it can't be
 // kept (private window, blocked storage) the tab simply opens Pantry.
 
-import { SvelteURLSearchParams } from 'svelte/reactivity';
-
 export type PantrySide = 'pantry' | 'ingredients';
 
 const KEY = 'mealwright.pantry-side';
@@ -34,8 +32,5 @@ export const FROM_PANTRY = 'from=pantry';
 
 /** Whether this address is Ingredients seen as the Pantry tab's second view. */
 export function isPantryIngredients(pathname: string, search: string): boolean {
-  return (
-    pathname === '/recipes/ingredients' &&
-    new SvelteURLSearchParams(search).get('from') === 'pantry'
-  );
+  return pathname === '/recipes/ingredients' && /[?&]from=pantry(&|$)/.test(search);
 }
