@@ -118,6 +118,55 @@ test('the editor changes the date, refuses tomorrow, and Restocked sets it to no
   await expect(editor.getByText('Restocked 5 days ago · ')).toBeVisible();
 });
 
+test('a day typed under a newer Shopping tick wins: the chip shows the typed day (cabledrawer 2 Nov)', async ({
+  page,
+}) => {
+  const name = unique('Fenugreek');
+  const id = await makeStaple(page, name);
+  // Ticked on Shopping just now (another phone): the staple is restocked today.
+  const login = ((await (await page.request.get('/api/v1/me')).json()) as Json).id;
+  const { lists } = (await (await page.request.get('/api/v1/shopping/lists')).json()) as Json;
+  const list = lists.find((l: Json) => l.main).id;
+  const item = crypto.randomUUID();
+  for (const fields of [
+    { kind: 'add', list_id: list, item_id: item, food_id: id },
+    { kind: 'tick', item_id: item },
+  ]) {
+    const sent = await page.request.post('/api/v1/shopping/actions', {
+      data: {
+        protocol: 1,
+        device_id: '11111111-2222-4333-8444-555555555555',
+        login_id: login,
+        since: 0,
+        sent_at: new Date().toISOString(),
+        actions: [{ id: crypto.randomUUID(), made_at: new Date().toISOString(), seen: 0, ...fields }],
+      },
+    });
+    expect(sent.ok(), await sent.text()).toBe(true);
+  }
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${id}`)).json()) as Json).restocked_days_ago)
+    .toBe(0);
+
+  // An earlier day typed in the editor is kept, and shown.
+  await page.goto('/recipes/ingredients');
+  await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(name);
+  await page.getByRole('region', { name: 'All ingredients' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  const editor = isPhone(page)
+    ? page.getByRole('dialog', { name: `Edit ${name}` })
+    : page.getByRole('complementary', { name: `Edit ${name}` });
+  const four = await daysAgo(page, 4);
+  await editor.getByLabel('Date restocked').fill(four.iso);
+  await expect(editor.getByText('Restocked 4 days ago · ', { exact: false })).toBeVisible();
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${id}`)).json()) as Json).restocked_on)
+    .toBe(four.iso);
+
+  await page.goto('/pantry');
+  const chip = page.getByRole('button', { name: new RegExp(`^(Add )?${name}`) });
+  await expect(chip).toContainText(`Restocked ${four.words}`);
+});
+
 test('How much? for a new ingredient offers 100 g · 250 g · 500 g · 1 kg, then Type an amount, and a choice is kept', async ({
   page,
 }) => {
