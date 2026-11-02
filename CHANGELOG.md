@@ -82,6 +82,7 @@ The cooking milestone: "Cooked it" takes what a meal used from the pantry, with 
 The security passes on each 0.7 pull request and on the pre-beta fixes found these before release; cabledrawer's own household is the only one each could reach.
 - **Sync:** an Undo sent with an impossible phone clock (year 1 against year 9999) gave a server error and stopped that phone's queue; an impossible clock is now ignored. A "put away" with a use-by date did the same and now sets the date. Every date and time a phone sends was tried at the extremes and in odd forms (1,089 batches): no server error, and the next change in the queue always goes through.
 - **Extreme dates:** a staple's restock date in year 1 or 9999 could break the Pantry and Ingredients pages for the whole household; dates before 2000 and in the future are now refused, and a bad stored date breaks no page. A tub's use-by in year 9999 could break moving the cooking; a tub's use-by must now be a day that can be planned.
+- **Cooking:** a note like "99999999999999999999999999999 cloves" (or in other kinds of digits) gave a server error on "Cooked it" for that recipe; a count is now one to four plain digits. A choice sent with a made-up ingredient key ("food:²", or a 30-digit number) gave a server error and is now refused cleanly. A very long Content-Length header could do the same and now gets the "too much" answer. The folder of safety copies is now for the owner only, like the logs and photos.
 
 ### Tests
 
