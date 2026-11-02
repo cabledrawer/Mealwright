@@ -408,7 +408,10 @@ def pressed_at(act: Act, applied_at: datetime) -> datetime:
     now = utcnow()
     if act.made_at is None or act.sent_at is None:
         return now
-    moment = as_utc(act.made_at) + (now - as_utc(act.sent_at))
+    try:
+        moment = as_utc(act.made_at) + (now - as_utc(act.sent_at))
+    except OverflowError:
+        return now  # an impossible phone clock (year 1 or 9999) is ignored, as a missing one
     return min(max(moment, as_utc(applied_at)), now)
 
 

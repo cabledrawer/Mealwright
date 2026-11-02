@@ -538,6 +538,39 @@ def test_sy63_undo_window_with_a_wrong_clock(kitchen: TestClient, skew: int) -> 
     assert s.total("Toor dal") == 0 and s.total("Paneer") == 400
 
 
+# An impossible phone clock (year 1 or 9999) is ignored, as a missing one: never a 500, and the
+# queue behind it still goes through (pre-beta security fix).
+FIRST, LAST = "0001-01-01T00:00:00Z", "9999-12-31T23:59:59Z"
+EAST, WEST = "0001-01-01T00:00:00+05:00", "9999-12-31T23:59:59-05:00"
+
+
+@pytest.mark.parametrize(
+    ("made", "sent"),
+    [(FIRST, LAST), (LAST, FIRST), (EAST, WEST), (WEST, EAST), (FIRST, FIRST), (LAST, LAST)],
+    ids=["1-9999", "9999-1", "1east-9999west", "9999west-1east", "1-1", "9999-9999"],
+)
+def test_undo_with_an_impossible_clock(kitchen: TestClient, made: str, sent: str) -> None:
+    s = s0(kitchen)
+    first = tick(s.wren, s, "Toor dal", PHONE_R)
+    _age(kitchen, first["id"], 3)
+    second = tick(s.wren, s, "Paneer", PHONE_R)
+    _age(kitchen, second["id"], 10)
+    answer = send(
+        s.wren,
+        action("undo", 0, undoes=first["id"], made_at=made),
+        action("undo", 0, undoes=second["id"], made_at=made),
+        action("tick", 0, item_id=s.items["Coriander"], made_at=made),
+        device=PHONE_R,
+        sent_at=sent,
+    )
+    done, late, after = answer["results"]
+    assert done["status"] == "applied"  # pressed now: 3 days is inside the window
+    assert (late["status"], late["reason"]) == ("ignored", "too_old")  # 10 days is not
+    assert after["status"] == "applied"  # the next act in the queue still goes through
+    assert s.total("Toor dal") == 0 and s.total("Paneer") == 400
+    assert s.lots("Coriander") == [("Fridge", 1)]
+
+
 # --- The card's answers (L-4) --------------------------------------------------------------------
 
 
