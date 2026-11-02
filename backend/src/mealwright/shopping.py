@@ -1290,17 +1290,13 @@ def _where_to(kitchen: Kitchen, list_id: str, shop_id: int | None, moved_list: b
 
 def _ticked_first(act: Act, item: ListItem, food: Food) -> None:
     """N10: a move that came after someone's tick is not made (only unticked lines move)."""
+    from mealwright.ticks import ticks_of  # ticks.py imports this module
+
     kitchen = act.kitchen
-    tick = kitchen.db.scalar(
-        select(ListTick)
-        .where(
-            ListTick.household_id == kitchen.household_id,
-            ListTick.item_id == item.id,
-            ListTick.reversed_at.is_(None),
-        )
-        .order_by(ListTick.ticked_at)
-        .limit(1)
-    )
+    # The first in server order, not by the phone's time: a back-dated tick synced later
+    # must not become "who ticked first".
+    standing = ticks_of(kitchen, item.id)
+    tick = standing[0] if standing else None
     if tick is None or tick.device_id == act.device_id or act.plain:
         return
     me = kitchen.login.id

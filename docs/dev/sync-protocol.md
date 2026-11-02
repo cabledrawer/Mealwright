@@ -116,7 +116,7 @@ Indexes: (`household_id`, `version`); (`list_id`); (`household_id`, `list_id`, `
 | `id` | str(64), PK with `household_id` | The `tick` action's ID. |
 | `household_id`, `item_id` | | |
 | `login_id`, `login_name`, `device_id` | | Who ticked, on which device. |
-| `ticked_at` | datetime | When the purchase was made: the phone's time, corrected for its clock (section 9), or the server's time when that is missing, in the future or more than 7 days old (7.1). |
+| `ticked_at` | datetime | When the purchase was made: the phone's time, corrected for its clock (section 9), stored in UTC (a time sent with a +14:00 offset is the same moment, not wall-clock time), or the server's time when that is missing, in the future or more than 7 days old (7.1). |
 | `place_id` | FK place | Where the stock went (and where `put_away` moved it). |
 | `bought_milli`, `bought_size_id` | | What this purchase put in: the whole packs covering the item's amount at the tick (see 7.1 "Amount"), or what "Different pack?" said. Null = nothing (staple or no amount). |
 | `change_id` | FK change, null, SET NULL | The purchase's own `shopped` change: the tick's, or the one that put it back after an untick (7.5). Only an Undo of **this** change from Pantry unticks the item (5.8). Null for staples and items with no amount. |

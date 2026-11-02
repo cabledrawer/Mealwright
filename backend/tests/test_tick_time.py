@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sync_kit import API, PHONE_R, action, db, ok, s0, send
+from sync_kit import API, PHONE_A, PHONE_B, PHONE_R, action, db, ok, s0, send
 
 from mealwright.history import as_utc
 from mealwright.models import ListItem, ListTick, StockLot, utcnow
@@ -211,3 +211,28 @@ def test_a_tick_put_back_keeps_its_date(kitchen: TestClient) -> None:
     assert back["status"] == "applied"
     dates = _lot_dates(s, "Paneer")
     assert dates and all(_near(found, monday) for found in dates)
+
+
+def test_the_move_note_names_the_first_tick_in_server_order(kitchen: TestClient) -> None:
+    """An online tick from one phone, then a back-dated offline tick from another synced
+    later: N10 is decided against the first tick the server took, not the oldest by time."""
+    s = s0(kitchen)
+    first = send(kitchen, action("tick", s.c0, item_id=s.items["Paneer"]), device=PHONE_A)
+    assert first["results"][0]["status"] == "applied"
+    old = (utcnow() - timedelta(days=3)).isoformat()
+    later = _tick_at(s.wren, s, "Paneer", old, sent_at_now())
+    assert later["status"] == "applied"
+    move = send(
+        kitchen,
+        action(
+            "move",
+            s.c0,
+            item_id=s.items["Paneer"],
+            list_id=s.main,
+            shop_id=s.shops["Indian grocer"],
+        ),
+        device=PHONE_B,
+    )["results"][0]
+    assert (move["status"], move["reason"]) == ("ignored", "ticked")
+    (note,) = ok(kitchen.get(f"{API}/shopping/changes?since=0"))["notes"]
+    assert note["text"] == "Your other phone had ticked Paneer, so it wasn’t moved."

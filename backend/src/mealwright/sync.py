@@ -408,9 +408,11 @@ CANNOT_UNDO = ("undo", "dismiss_note", "untick_by_undo", "place_by_undo", "purge
 PHONE_CLOCK_MAX_AGE = timedelta(days=7)
 
 
-def in_utc(moment: datetime) -> datetime | None:
+def in_utc(moment: datetime | None) -> datetime | None:
     """A phone's time as UTC, so a stored value never keeps a +14:00 as wall-clock time; None
     when it can't be (year 1 or 9999 with an offset)."""
+    if moment is None:
+        return None
     try:
         return as_utc(moment).astimezone(UTC)
     except OverflowError:
