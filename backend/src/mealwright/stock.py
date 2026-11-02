@@ -294,8 +294,11 @@ def put_in(
     amounts: list[int],
     size: FoodSize | None,
     use_by: date | None = None,
+    added_at: datetime | None = None,
 ) -> list[StockLot]:
-    """New lots of these amounts in `place`, recorded in `edit`."""
+    """New lots of these amounts in `place`, recorded in `edit`. `added_at` dates them (an
+    offline purchase keeps the moment it was made); left out, it is now."""
+    when = {} if added_at is None else {"added_at": added_at}
     return [
         edit.new(
             StockLot(
@@ -305,6 +308,7 @@ def put_in(
                 amount_milli=milli,
                 size_id=size.id if size else None,
                 use_by=use_by,
+                **when,
             )
         )
         for milli in amounts

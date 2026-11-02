@@ -116,7 +116,7 @@ Indexes: (`household_id`, `version`); (`list_id`); (`household_id`, `list_id`, `
 | `id` | str(64), PK with `household_id` | The `tick` action's ID. |
 | `household_id`, `item_id` | | |
 | `login_id`, `login_name`, `device_id` | | Who ticked, on which device. |
-| `ticked_at` | datetime | Server time it was applied. |
+| `ticked_at` | datetime | When the purchase was made: the phone's time, corrected for its clock (section 9), or the server's time when that is missing, in the future or more than 7 days old (7.1). |
 | `place_id` | FK place | Where the stock went (and where `put_away` moved it). |
 | `bought_milli`, `bought_size_id` | | What this purchase put in: the whole packs covering the item's amount at the tick (see 7.1 "Amount"), or what "Different pack?" said. Null = nothing (staple or no amount). |
 | `change_id` | FK change, null, SET NULL | The purchase's own `shopped` change: the tick's, or the one that put it back after an untick (7.5). Only an Undo of **this** change from Pantry unticks the item (5.8). Null for staples and items with no amount. |
@@ -133,7 +133,7 @@ Indexes: (`household_id`, `version`); (`list_id`); (`household_id`, `list_id`, `
 | `device_id` | str(36), null | Null for server-made actions. |
 | `list_id`, `item_id` | null | What it acted on (after following `merged_into_id`). Index (`household_id`, `item_id`, `seq`). |
 | `seen` | BigInteger, null | The device's cursor when it was made. Null → treated as "saw everything" (no clash notes). |
-| `made_at` | datetime, null | Phone clock. Shown nowhere except the Undo window (section 9). |
+| `made_at` | datetime, null | Phone clock. Used for the Undo window (section 9) and a tick's moment (7.1); shown nowhere. |
 | `applied_at` | datetime | Server time. |
 | `payload`, `payload_hash` | JSON, str(64) | The action as received (minus the envelope) and its SHA-256 over sorted-key JSON, to spot an ID reused for something else. |
 | `status`, `reason` | str(10), str(30) null | `applied` · `merged` · `ignored` (section 5.4). |
@@ -199,7 +199,7 @@ POST /api/v1/shopping/actions
 - `login_id`: the login that queued these actions. It must be the signed-in login, or nothing is applied (`409 other_login`, section 5.6).
 - `since`: the device's cursor. The answer includes everything that changed after it (5.5).
 - `device_id`: a lower-case UUID (3.8), checked in the batch, on each action and on `GET …/changes`; anything else is a 422. It is the default for the batch. An action may carry its own `device_id` (the app always sends the one stored with the queue entry, 11.1), and the server uses that one.
-- `sent_at`: the device's clock when it sent the batch. Used only to correct `made_at` for Undo's 7-day window (section 9).
+- `sent_at`: the device's clock when it sent the batch. Used only to correct `made_at`, for Undo's 7-day window (section 9) and a tick's moment (7.1).
 - Every action has `id`, `kind`, `made_at` and `seen`, plus the fields for its kind. At most 100 actions per batch.
 
 ### 4.2 The action kinds
@@ -264,7 +264,7 @@ Everything that isn't a list action, as in 0.2: the Pantry screen, the ingredien
 - Only an action that is **recorded** (applied, merged or ignored) takes the next number, handed out in memory. Repeats and refusals take none. Every row the action changes gets `version = seq`. Just before commit, the last number used is written back to `household.list_seq`. So a batch of nothing but repeats or refusals leaves the counter unchanged, and numbers never have gaps (SY-17, SY-43).
 - Every writer that numbers list changes (this endpoint, the server-made changes in 5.8, the tidy-up in 3.9) uses one helper, `lock_household`, that takes the lock first in the same way.
 - The answer's `changes` (5.5) are read inside the same transaction, after the last action, so they match the numbers just given out.
-- `made_at` is never used for order. A queue from three days ago is applied now, in the order it arrives, after whatever already happened.
+- `made_at` is never used for order (a tick's `ticked_at` is only a tie-break after `seq`, 7.1). A queue from three days ago is applied now, in the order it arrives, after whatever already happened.
 - **Server order** of an item's purchases ("Just 1" keeps the first, the card lists them) is the order of the `seq` of the actions that made them (PR 3).
 
 ### 5.3 Repeats (same action ID)
@@ -453,6 +453,7 @@ Words: the change is "Moved {name} to {where}", where {where} is the list's name
 - **Place:** the item's `put_away_place_id` if one was chosen, else the ingredient's usual place, else the first `cupboard` place ("Cupboard"), using `stock.default_place` (spec L286).
 - **Amount:** stored on the purchase (`bought_milli`, `bought_size_id`). A line in plain grams, ml or items with a size to buy in (the ingredient's Usual size, else its only size; with several sizes and none Usual, none, so it goes in as listed) goes in as whole packs covering the list amount: 38 g ghee with a 500 g jar is 1 jar (500 g). At most 50 packets (`stock.MAX_LOTS`): above that the line goes in as listed, in one lot (whole packs and the cap: cabledrawer 1 Nov). A line already in packs, or an ingredient with no size, goes in as it is (also capped at 50 packets, else one lot). Lots are made as 0.2's add does (api-0.2 section 3.5): "2 packets" makes two one-packet lots, "1½ packets" a full and a half lot, "1 dozen" eggs one lot of 12, a typed amount one lot with no size. Reuse `stock.py`'s add, don't copy it.
 - **Use-by:** none (spec L286). 0.3 offers no use-by when shopping; `put_away`'s optional `use_by` is there so a later screen can add it without changing the protocol. Ticking into a freezer place sets no `frozen_on`.
+- **When it happened (cabledrawer 2 Nov):** a tick keeps the moment it was pressed. `ticked_at` (and the item's copy) and the `added_at` of the lots it puts in are the phone's `made_at + (server time − sent_at)`, the same correction as Undo (section 9), or the server's time when `made_at` or `sent_at` is missing or impossible (year 1 or 9999), the result is in the future, or it is more than 7 days old (a named constant, proposed for cabledrawer). So "bought" on Pantry and a staple's restock date show the day it was bought, and a tick made before a typed restock date was typed does not count. The order of purchases still goes by `seq` first; the `shopped` change keeps the server's time.
 - **Staples** (L287) and **items with no amount**: no stock and no change. The tick is still recorded on the list.
 - **Change log:** one `shopped` change per purchase, `login` = the action's login, `at` = server time, `idempotency_key` = the action ID, summary "Bought 2 packets Toor dal → Cupboard" (same pattern as "Added … → Cupboard"), one `change_line` per lot. It appears in Pantry → Recent changes with Undo like any change.
 - **Two ticks = two purchases** (L272): each has its own lots and `shopped` change.

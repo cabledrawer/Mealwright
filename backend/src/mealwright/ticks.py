@@ -185,6 +185,9 @@ def tick(act: Act) -> None:
     if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
         act.ignore("already_ticked")
         return
+    from mealwright import sync  # sync imports this module's callers: a late import
+
+    when = sync.happened_at(act)  # the phone's time, else the server's (cabledrawer 2 Nov)
     listed = food
     revived: dict[str, Any] = {}
     if food.removed_at is not None and not food.staple and item.amount_milli:
@@ -218,7 +221,7 @@ def tick(act: Act) -> None:
         login_id=kitchen.login.id,
         login_name=kitchen.login.name,
         device_id=act.device_id,
-        ticked_at=utcnow(),
+        ticked_at=when,
         place_id=place.id,
         bought_milli=milli or None,
         bought_size_id=size.id if size and milli else None,
@@ -232,7 +235,7 @@ def tick(act: Act) -> None:
         # Past the cap the amount is one big lot: it isn't a packet, so it carries no size
         # (a "¾" would otherwise be three quarters of one jar, not of the lot).
         one_big = size is not None and len(amounts) == 1 and amounts[0] > size.amount_milli
-        put_in(kitchen, edit, food, place, amounts, None if one_big else size)
+        put_in(kitchen, edit, food, place, amounts, None if one_big else size, added_at=when)
         shown = size or usual_size(kitchen, food.id)
         summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
         if food.counted_as == "count" and row.bought_size_id and shown is not None:

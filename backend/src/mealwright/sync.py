@@ -403,15 +403,40 @@ def plain(
 CANNOT_UNDO = ("undo", "dismiss_note", "untick_by_undo", "place_by_undo", "purge")
 
 
-def pressed_at(act: Act, applied_at: datetime) -> datetime:
-    """When the person pressed Undo, corrected for the phone's clock (section 9)."""
-    now = utcnow()
+# A phone time older than this is "clearly wrong" and the server's time is used (proposed, for
+# cabledrawer): an offline tick is rarely more than a week old when it syncs.
+PHONE_CLOCK_MAX_AGE = timedelta(days=7)
+
+
+def corrected_phone_time(act: Act, now: datetime) -> datetime | None:
+    """When the phone says the action was made, corrected for its clock (`made_at + (now -
+    sent_at)`, section 9); None when it sent no usable time (missing, or year 1 or 9999)."""
     if act.made_at is None or act.sent_at is None:
-        return now
+        return None
     try:
-        moment = as_utc(act.made_at) + (now - as_utc(act.sent_at))
+        return as_utc(act.made_at) + (now - as_utc(act.sent_at))
     except OverflowError:
-        return now  # an impossible phone clock (year 1 or 9999) is ignored, as a missing one
+        return None
+
+
+def happened_at(act: Act) -> datetime:
+    """When the person pressed this, for an action that keeps its moment (an offline tick,
+    cabledrawer 2 Nov): the phone's corrected time, or the server's time when that is missing,
+    in the future, or more than `PHONE_CLOCK_MAX_AGE` ago."""
+    now = utcnow()
+    moment = corrected_phone_time(act, now)
+    if moment is None or moment > now or moment < now - PHONE_CLOCK_MAX_AGE:
+        return now
+    return moment
+
+
+def pressed_at(act: Act, applied_at: datetime) -> datetime:
+    """When the person pressed Undo, corrected for the phone's clock (section 9), and never
+    earlier than the action it undoes."""
+    now = utcnow()
+    moment = corrected_phone_time(act, now)
+    if moment is None:
+        return now  # a missing or impossible phone clock is ignored
     return min(max(moment, as_utc(applied_at)), now)
 
 

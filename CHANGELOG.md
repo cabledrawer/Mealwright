@@ -33,6 +33,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Changed
 
+- **An offline Shopping tick keeps the phone's time (0.7.0; cabledrawer 2 Nov, PR 118).** A tick made offline and synced later is dated when it was pressed: the phone's time, corrected for its clock like Undo, or the server's time when that time is in the future, more than 7 days old or missing. The pantry stock it puts in is dated the same, and a tick made before a typed restock date was typed no longer counts. Backend tests.
 - **"+ Add to pantry" and the import screens say why, by cause (0.7.0, PC2; cabledrawer 30 Oct).** With a network but no answer from the server they say "Can’t reach your Mealwright server. Try again when it’s back." (the import box, a read or a save that can't reach it, keeping a draft, the Pantry's "+ Add to pantry" and an ingredient that can't be loaded in its sheet). With no network on the device they keep their offline wording. Unit and browser tests for both causes. The failure toast after pressing Add ("Couldn’t save. Try again.") is the shared one and is unchanged.
 - **Today: "0 tubs left" is in the quiet text colour, not the tubs colour (0.7.0, PC2).** One or more tubs keep the warm colour. Browser test.
 - **SECURITY.md claims no encryption that does not exist (0.7.0, PC2).** It said notification links and the single sign-on secret are encrypted on the server; neither exists yet (0.8). It now says the database and backups are not encrypted in 0.7, and that disk encryption on the server is the owner's choice.
