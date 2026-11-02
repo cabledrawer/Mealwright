@@ -10,6 +10,7 @@ changes; putting it back puts back exactly what that took out, lot by lot (7.5).
 import uuid
 from collections import defaultdict
 from collections.abc import Callable, Iterable
+from datetime import date
 from typing import Any, NamedTuple
 
 from sqlalchemy import Select, and_, select
@@ -548,7 +549,9 @@ def put_away(act: Act) -> None:
     chosen = place.id if place is not None else None  # a place that's gone (SY-55)
     if place is None:
         place = default_place(kitchen, food)
-    use_by = payload.get("use_by")
+    # The payload is the checked action as JSON, so a use-by date arrives as text.
+    raw_use_by = payload.get("use_by")
+    use_by = date.fromisoformat(raw_use_by) if raw_use_by is not None else None
     tombstoned = item.deleted_at is not None
     place_op: list[dict[str, Any]] = []
     if not tombstoned and item.put_away_place_id != chosen:

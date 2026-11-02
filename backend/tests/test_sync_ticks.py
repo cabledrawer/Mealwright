@@ -355,6 +355,59 @@ def test_sy14_tick_then_put_away(kitchen: TestClient) -> None:
     assert row["ticks"][0]["place_id"] == s.places["Freezer"]
 
 
+@pytest.mark.parametrize("use_by", ["2026-12-01", "0001-01-01", "9999-12-31"])
+@pytest.mark.parametrize("place", ["Fridge", "Freezer"])
+def test_put_away_with_a_use_by(kitchen: TestClient, use_by: str, place: str) -> None:
+    # Pre-beta sweep: a put_away carrying `use_by` gave a 500 for any date (it reached the
+    # database as text) and stalled the phone's queue. It sets the purchase's use-by, even year
+    # 1 or 9999, Undo puts the old one back, the screens still read, and the next act applies.
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Coriander")
+    answer = send(
+        kitchen,
+        action(
+            "put_away",
+            s.c0,
+            item_id=s.items["Coriander"],
+            place_id=s.places[place],
+            tick_ids=[t["id"]],
+            use_by=use_by,
+        ),
+        action("tick", s.c0, item_id=s.items["Paneer"]),
+    )
+    put, after = answer["results"]
+    assert put["status"] == "applied" and after["status"] == "applied"
+    assert s.lots("Coriander") == [(place, 1)]
+    with db(kitchen) as session:
+        lot = session.scalars(select(StockLot).where(StockLot.food_id == s.foods["Coriander"]))
+        assert [str(row.use_by) for row in lot] == [use_by]
+    for path in ("/pantry", "/today", "/changes", "/shopping/changes?since=0"):
+        assert kitchen.get(API + path).status_code == 200, path
+    assert _undo(kitchen, put["id"])["status"] == "applied"
+    assert s.lots("Coriander") == [("Fridge", 1)]
+
+
+@pytest.mark.parametrize("use_by", ["not a date", "2026-02-30", "10000-01-01", 20261201])
+def test_put_away_with_an_unreadable_use_by_is_refused(kitchen: TestClient, use_by: Any) -> None:
+    s = s0(kitchen)
+    t = tick(kitchen, s, "Coriander")
+    answer = send(
+        kitchen,
+        action(
+            "put_away",
+            s.c0,
+            item_id=s.items["Coriander"],
+            place_id=s.places["Freezer"],
+            tick_ids=[t["id"]],
+            use_by=use_by,
+        ),
+        action("tick", s.c0, item_id=s.items["Paneer"]),
+    )
+    put, after = answer["results"]
+    assert put["status"] == "refused" and after["status"] == "applied"
+    assert s.lots("Coriander") == [("Fridge", 1)]
+
+
 def test_sy15_different_pack(kitchen: TestClient) -> None:
     s = s0(kitchen)
     t = tick(kitchen, s, "Paneer")
