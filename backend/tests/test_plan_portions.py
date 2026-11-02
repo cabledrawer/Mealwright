@@ -13,7 +13,7 @@ from test_plan import add_recipe, db_of, slot_ids
 from test_plan_batches import day, make, where_tubs_are
 from test_plan_writes import D1, plan_recipe, shape, undo, view
 
-from mealwright.models import MealItem, Tub
+from mealwright.models import Household, MealItem, Tub
 
 API = "/api/v1"
 
@@ -241,6 +241,11 @@ def test_some_left_some_short_the_earliest_meals_take_the_portions(
 def test_cook_more_stops_at_a_full_batch(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:
+    with db_of(kitchen) as db:  # a long fridge life, so all 12 lunches are before the use-by
+        household = db.get(Household, 1)
+        assert household is not None
+        household.tub_fridge_days = 30
+        db.commit()
     make(kitchen, cook["item_id"], tub_count=12, pattern="lunches")
     # The tubs went to 12 lunches; one more portion would be the 13th tub.
     r = leftovers(kitchen, cook["item_id"], [spot(3, slots, "Dinner")], if_none_left="cook_more")
