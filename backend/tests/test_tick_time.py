@@ -1,7 +1,7 @@
 """An offline Shopping tick keeps the phone's time, unless that time is in the future or clearly
 wrong, then the server's time (cabledrawer 2 Nov; sync-protocol.md, ticks)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -132,3 +132,38 @@ def test_a_missing_phone_time_is_the_servers() -> None:
     for made, sent in ((None, utcnow()), (utcnow(), None), (None, None)):
         act: Any = SimpleNamespace(made_at=made, sent_at=sent)
         assert _near(happened_at(act), datetime.now(UTC))
+
+
+def _zone(moment: datetime, hours: int) -> str:
+    """The same moment written with a UTC offset, as a phone in another zone sends it."""
+    return moment.astimezone(timezone(timedelta(hours=hours))).isoformat()
+
+
+@pytest.mark.parametrize("hours", [14, -12], ids=["plus-14", "minus-12"])
+def test_a_phone_time_with_an_offset_lands_at_the_real_moment(
+    kitchen: TestClient, hours: int
+) -> None:
+    """A made_at and sent_at written with +14:00 or -12:00 are the same moment as in UTC: the
+    tick is not stored as wall-clock time, up to 14 hours late (security pass, 2 Nov)."""
+    s = s0(kitchen)
+    pressed = utcnow() - timedelta(hours=3)
+    _tick_at(s.wren, s, "Toor dal", _zone(pressed, hours), _zone(utcnow(), hours))
+    ticked, copy, added = _times(s, "Toor dal")
+    assert _near(ticked, pressed) and ticked == copy == added
+    assert ticked <= datetime.now(UTC)
+
+
+@pytest.mark.parametrize("hours", [14, -12], ids=["plus-14", "minus-12"])
+def test_undo_pressed_at_is_right_with_an_offset(hours: int) -> None:
+    from types import SimpleNamespace
+
+    from mealwright.sync import pressed_at
+
+    applied = utcnow() - timedelta(hours=5)
+    pressed = utcnow() - timedelta(hours=1)
+    act: Any = SimpleNamespace(
+        made_at=datetime.fromisoformat(_zone(pressed, hours)),
+        sent_at=datetime.fromisoformat(_zone(utcnow(), hours)),
+    )
+    found = pressed_at(act, applied)
+    assert _near(found, pressed) and found.utcoffset() == timedelta(0)

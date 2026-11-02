@@ -8,7 +8,7 @@ one-at-a-time list requests, so online and offline writes share one path (5.1).
 
 import uuid
 from collections.abc import Callable
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -344,7 +344,7 @@ def run(act: Act, handler: Callable[[Act], None]) -> dict[str, Any]:
                 list_id=act.list_id,
                 item_id=act.item_id,
                 seen=act.seen,
-                made_at=act.made_at,
+                made_at=in_utc(act.made_at),
                 applied_at=utcnow(),
                 payload=act.payload,
                 payload_hash=hashed,
@@ -408,13 +408,22 @@ CANNOT_UNDO = ("undo", "dismiss_note", "untick_by_undo", "place_by_undo", "purge
 PHONE_CLOCK_MAX_AGE = timedelta(days=7)
 
 
+def in_utc(moment: datetime) -> datetime | None:
+    """A phone's time as UTC, so a stored value never keeps a +14:00 as wall-clock time; None
+    when it can't be (year 1 or 9999 with an offset)."""
+    try:
+        return as_utc(moment).astimezone(UTC)
+    except OverflowError:
+        return None
+
+
 def corrected_phone_time(act: Act, now: datetime) -> datetime | None:
     """When the phone says the action was made, corrected for its clock (`made_at + (now -
     sent_at)`, section 9); None when it sent no usable time (missing, or year 1 or 9999)."""
     if act.made_at is None or act.sent_at is None:
         return None
     try:
-        return as_utc(act.made_at) + (now - as_utc(act.sent_at))
+        return (as_utc(act.made_at) + (now - as_utc(act.sent_at))).astimezone(UTC)
     except OverflowError:
         return None
 
