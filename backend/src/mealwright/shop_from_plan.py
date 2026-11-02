@@ -245,6 +245,11 @@ def work_out(kitchen: Kitchen) -> Worked:
     ):
         if meal_id is not None and recipe_id is not None:
             tubs[(meal_id, recipe_id)] = count
+    # Only the cook item gets the batch's portions: the first copy of the recipe in its cook
+    # meal, by position then id (batches.cook_batches_of). A second copy is an ordinary item.
+    cook_item: dict[tuple[int, int], int] = {}
+    for item, meal_id in sorted(rows, key=lambda row: (row[0].position, row[0].id)):
+        cook_item.setdefault((meal_id, item.recipe_id or 0), item.id)
     recipes = live_recipes(kitchen)
     foods = worked.foods
     stock = Stock(kitchen, foods)
@@ -284,7 +289,8 @@ def work_out(kitchen: Kitchen) -> Worked:
         for food_id in uses_staples:
             staple_names[food_id].add(recipe.name)
             staple_items[food_id].add(item.id)
-        servings = servings_for(item, recipe, tubs.get((meal_id, recipe.id)))
+        cooks = cook_item.get((meal_id, recipe.id)) == item.id
+        servings = servings_for(item, recipe, tubs.get((meal_id, recipe.id)) if cooks else None)
         for food_id, part in per_food.items():
             total = needs[food_id]
             if part.unknown:

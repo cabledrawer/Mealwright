@@ -31,6 +31,7 @@ from mealwright.models import (
     Household,
     ListItem,
     Meal,
+    MealItem,
     StapleCheck,
     SyncAction,
 )
@@ -325,6 +326,55 @@ def test_a_cook_meal_with_its_own_servings_buys_for_those_people_plus_the_tubs(
         201,
     )
     assert amounts(kitchen) == {rice["id"]: 500}  # 10/4 of 200 g
+
+
+@pytest.mark.parametrize(("servings", "expected"), [(None, 550), (2, 450)], ids=["serves", "for-2"])
+def test_a_second_copy_of_the_cooked_recipe_buys_for_itself_not_for_the_batch(
+    kitchen: TestClient, rice: dict[str, Any], servings: int | None, expected: int
+) -> None:
+    # PR 114's left-over (pre-beta): only the cook item (the first copy, by position then id, as
+    # cook_batches_of says) gets the batch's portions; a second copy of the same recipe in the
+    # cook meal is an ordinary item. 1 + 6 tubs = 7/4 of 200 g = 350 g for the cook item, and
+    # the copy its own: 4 (the recipe's serves) = 200 g, or 2 = 100 g. Before the fix the copy
+    # was bought for the batch too: 700 g.
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
+    cook = plan(kitchen, sambar, 1)
+    ok(
+        kitchen.post(
+            f"{API}/plan/items/{cook['item_id']}/batch",
+            json={"tub_count": 6, "pattern": "lunch_dinner"},
+        ),
+        201,
+    )
+    extra = {} if servings is None else {"servings": servings}
+    copy = plan(kitchen, sambar, 1, **extra)
+    assert copy["meal_id"] == cook["meal_id"]  # the same meal: a second copy, not a new meal
+    assert amounts(kitchen) == {rice["id"]: expected}
+
+
+def test_the_cook_item_is_the_first_copy_by_position(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
+    sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
+    first = plan(kitchen, sambar, 1)
+    ok(
+        kitchen.post(
+            f"{API}/plan/items/{first['item_id']}/batch",
+            json={"tub_count": 6, "pattern": "lunch_dinner"},
+        ),
+        201,
+    )
+    copy = plan(kitchen, sambar, 1, servings=2)
+    with db(kitchen) as session:
+        a, b = session.get(MealItem, first["item_id"]), session.get(MealItem, copy["item_id"])
+        assert a is not None and b is not None
+        assert a.position < b.position
+        a.position, b.position = b.position, a.position
+        session.commit()
+    from_plan(kitchen)  # the list is worked out again after a plan change; this was none
+    # The copy for 2 is first now, so it is the cook item: 2 + 6 tubs = 8/4 of 200 g = 400 g;
+    # the other is an ordinary meal at the recipe's serves, 200 g.
+    assert amounts(kitchen) == {rice["id"]: 600}
 
 
 def test_leftovers_are_bought_for_on_top_of_the_meal(
