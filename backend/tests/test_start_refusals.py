@@ -62,12 +62,27 @@ def test_a_worker_started_by_a_supervisor_is_refused(tmp_path: Path) -> None:
             child.terminate()
 
 
-def test_the_server_says_why_and_stops(tmp_path: Path) -> None:
-    env = {
-        **os.environ,
-        "MEALWRIGHT_DATA_DIR": str(tmp_path),
-        "MEALWRIGHT_DATABASE_URL": "postgresql://db/mealwright",
-    }
+@pytest.mark.parametrize(
+    ("setting", "what_is_wrong", "how_to_fix"),
+    [
+        (
+            {"MEALWRIGHT_DATABASE_URL": "postgresql://db/mealwright"},
+            "Not starting: MEALWRIGHT_DATABASE_URL must be a SQLite address",
+            "Leave it unset to use /data/mealwright.db.",
+        ),
+        (
+            {"WEB_CONCURRENCY": "4"},
+            "Not starting: Mealwright runs as one worker.",
+            "Start it with `python -m mealwright`",
+        ),
+    ],
+)
+def test_the_server_says_why_and_stops(
+    tmp_path: Path, setting: dict[str, str], what_is_wrong: str, how_to_fix: str
+) -> None:
+    """The log has one plain line saying what is wrong and how to fix it, no traceback, and
+    the process ends with a non-zero code (cabledrawer 28 Oct)."""
+    env = {**os.environ, "MEALWRIGHT_DATA_DIR": str(tmp_path), **setting}
     run = subprocess.run(
         [sys.executable, "-m", "mealwright"],
         env=env,
@@ -78,5 +93,7 @@ def test_the_server_says_why_and_stops(tmp_path: Path) -> None:
     )
     assert run.returncode == 1
     output = run.stdout + run.stderr
-    assert "Not starting: MEALWRIGHT_DATABASE_URL must be a SQLite address" in output
+    assert what_is_wrong in output
+    assert how_to_fix in output
+    assert output.count("Not starting") == 1
     assert "Traceback" not in output
