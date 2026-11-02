@@ -25,7 +25,6 @@
   import ZoomPhoto from '#lib/components/ZoomPhoto.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
-  import WalkSheet from './WalkSheet.svelte';
 
   import '#lib/styles/fields.css';
   let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
@@ -464,7 +463,10 @@
 </div>
 
 {#if flow.walk}
-  <WalkSheet {flow} onsave={async () => finish(await flow.saveAnyway())} />
+  <!-- Loaded when first needed, so the page stays small (F111). -->
+  {#await import('./WalkSheet.svelte') then { default: WalkSheet }}
+    <WalkSheet {flow} onsave={async () => finish(await flow.saveAnyway())} />
+  {/await}
 {/if}
 
 {#if asking}

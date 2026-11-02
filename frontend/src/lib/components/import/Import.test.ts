@@ -500,6 +500,7 @@ describe('Import a recipe', () => {
       flow.review!.lines[1] = { ...flow.review!.lines[1]!, note: 'from the spice blend' };
       await page.getByRole('button', { name: 'Save recipe' }).click();
       const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await expect.element(sheet).toBeVisible(); // the sheet loads when first needed
       const buttons = Array.from(sheet.element().querySelectorAll('.choices button'));
       expect(buttons[0]?.textContent?.trim()).toBe('Made in this recipe');
       await sheet.getByRole('button', { name: 'Made in this recipe' }).click();
