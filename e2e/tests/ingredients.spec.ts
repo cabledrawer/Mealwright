@@ -183,7 +183,8 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
 }) => {
   test.skip(isPhone(page), 'desktop layout');
   for (let i = 0; i < 14; i++) await makeFood(page, `Long list ${i}`);
-  await page.setViewportSize({ width: 1280, height: 520 });
+  // 600 high, not 520: the Import item (F113) makes the sidebar one row taller.
+  await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto('/recipes/ingredients');
   const list = page.getByRole('region', { name: 'All ingredients' });
   await list.getByRole('button').first().waitFor();

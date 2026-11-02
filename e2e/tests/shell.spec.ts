@@ -371,7 +371,7 @@ test.describe('desktop sidebar', () => {
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     await sidebar.getByRole('button', { name: 'Recipes' }).click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    await expect(menu.getByRole('menuitem')).toHaveCount(3);
+    await expect(menu.getByRole("menuitem")).toHaveCount(4);
 
     // Whatever is at the middle of each menu item is that item, not a row underneath.
     for (const item of await menu.getByRole('menuitem').all()) {

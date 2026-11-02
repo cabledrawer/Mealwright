@@ -701,6 +701,7 @@
 
   /* "Restocked 3 weeks ago": a button, so a tap shows the date (a hover title would not). */
   .when {
+    position: relative; /* above the row’s click area */
     min-height: var(--touch-target);
     margin-block: calc(-1 * var(--space-3));
     padding: 0;

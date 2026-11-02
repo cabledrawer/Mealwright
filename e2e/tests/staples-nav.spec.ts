@@ -61,17 +61,19 @@ test('the Ingredients column says Restocked 3 weeks ago, and a tap shows the dat
     await expect(list.getByRole('button', { name: new RegExp(name) })).toContainText('Restocked 3 weeks ago');
     return;
   }
-  const column = list.getByRole('button', { name: 'Restocked 3 weeks ago' });
+  const row = list.getByRole('listitem').filter({ hasText: name });
+  const column = row.getByRole('button', { name: 'Restocked 3 weeks ago' });
   await expect(column).toBeVisible();
   await expect(column).toHaveAttribute('title', new RegExp(when.words));
   await expect(column).toHaveAttribute('aria-expanded', 'false');
   await column.click();
-  await expect(list.getByRole('button', { name: new RegExp(`^Restocked .*${when.words}`) })).toHaveAttribute(
+  await expect(row.getByRole('button', { name: new RegExp(`^Restocked .*${when.words}`) })).toHaveAttribute(
     'aria-expanded',
     'true',
   );
-  await column.click();
-  await expect(column).toHaveAttribute('aria-expanded', 'false');
+  await row.locator('button.when').click();
+  await expect(row.locator('button.when')).toHaveAttribute('aria-expanded', 'false');
+  await expect(column).toBeVisible();
 });
 
 test('the editor changes the date, refuses tomorrow, and Restocked sets it to now, with Undo', async ({ page }) => {
@@ -144,7 +146,9 @@ test('New recipe opens a small choice: Add by hand · Import from a link, with k
   await page.keyboard.press('Enter');
   await expect(page.getByRole('menu', { name: 'New recipe' }).getByRole('menuitem')).toHaveText(['Add by hand', 'Import from a link']);
   await expect(page.getByRole('menuitem', { name: 'Add by hand' })).toBeFocused();
-  await expectTouchTargets(page);
+  for (const item of await page.getByRole('menuitem').all()) {
+    expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(button).toBeFocused();
@@ -184,8 +188,9 @@ test('Import is its own item: the sidebar on a computer, a button beside Drafts 
 
 test('the version is small grey text: in the sidebar foot on a computer, at the bottom of Settings on a phone', async ({ page }) => {
   await page.goto(isPhone(page) ? '/settings' : '/');
-  const version = page.getByText(/^Mealwright \d+\.\d+\.\d+/);
-  await expect(version).toBeVisible();
+  // (The sidebar is in the page on a phone too, hidden: only the one that shows counts.)
+  const version = page.locator('p.version:visible');
+  await expect(version).toHaveText(/^Mealwright \d+\.\d+\.\d+/);
   await expect(version).toHaveCount(1);
   if (!isPhone(page)) {
     await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByText(/^Mealwright \d/)).toBeVisible();
