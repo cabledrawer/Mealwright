@@ -244,28 +244,26 @@ test("Cook once: the sheet previews, a tub is taken out, added and moved; Save m
 
   // Dinners only: Sunday's dinner holds tub 1, Monday's tub 2.
   await sheet.getByRole("button", { name: "Dinners" }).click();
+  // The fourth dinner is past the tub's use-by (3 days in the fridge), so tub 4 waits in tubs left.
+  await expect(summary).toContainText("3 of 4 placed");
   const sunDinner = sheet.getByTestId(`cook-cell-${sun}-${slot.Dinner}`);
   const monDinner = sheet.getByTestId(`cook-cell-${mon}-${slot.Dinner}`);
   await expect(sunDinner).toContainText("Tub 1");
   await expect(monDinner).toContainText("Tub 2");
   // ✕ sends a tub back to "tubs left"; + Add a tub puts the next one in the meal.
   await sunDinner.getByRole("button", { name: /^Take tub 1 out of/ }).click();
-  await expect(summary).toContainText("3 of 4 placed");
-  await expect(summary).toContainText("Tub 1 → Fridge");
+  await expect(summary).toContainText("2 of 4 placed");
+  await expect(summary).toContainText("Tubs 1 and 4 → Fridge");
   await expect(sunDinner).not.toContainText("Tub 1");
   await sunDinner.getByRole("button", { name: /^Add a tub to / }).click();
-  await expect(summary).toContainText("4 of 4 placed");
+  await expect(summary).toContainText("3 of 4 placed");
   // Tap a tub, then the meal it should go to: a keyboard and finger way to move it.
   await sunDinner.getByRole("button", { name: /^Tub 1.*Move it$/ }).click();
   await monDinner.getByRole("button", { name: /^Put tub 1 in / }).click();
   await expect(monDinner).toContainText("Tub 1");
   await expect(monDinner).toContainText("Tub 2");
   await expect(sunDinner).not.toContainText("Tub 1");
-  await expect(summary).toContainText("4 of 4 placed");
-  // The pattern skips meals that have food, but a tub may still be added to one by hand.
-  await expect(
-    monDinner.getByRole("button", { name: /^Add a tub too to / }),
-  ).toBeDisabled(); // every tub is placed
+  await expect(summary).toContainText("3 of 4 placed");
 
   await sheet.getByRole("button", { name: "Add 4 tubs to the plan" }).click();
   await expect(sheet).toBeHidden();
