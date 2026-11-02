@@ -249,6 +249,10 @@ class Food(Base):
     # (`list_tick.restock`), so an untick or Undo puts the date back by itself. This keeps the
     # newest one among purchases the tidy-up has already deleted (`mealwright.restock`).
     restocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The moment a restock date was typed (or Restocked pressed) in the editor (0.7 K5,
+    # cabledrawer 2 Nov: "the date I type wins"). While set, `restocked_at` holds that date and a
+    # tick counts only if it was ticked after this moment.
+    restock_typed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class FoodName(Base):

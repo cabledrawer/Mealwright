@@ -1210,3 +1210,35 @@ def test_cook_per_step_migration_adds_one_column_and_goes_back_and_forward(
     with engine.connect() as connection:
         found = connection.exec_driver_sql("SELECT cook_per_step FROM household").scalars().all()
     assert found == [0] * (households + 1)
+
+
+COOK_PER_STEP_MIGRATION = "d2e6a4b81c37"  # 0.7 K4's switch: the one just before restock_typed_at
+
+
+def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.7 K5 (cabledrawer 2 Nov, the date typed wins): every ingredient starts with no typed
+    moment, so every date shown stays as it was; going back drops only the column and keeps
+    every row and "never reuse an id"; going forward again adds it empty."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"alembic_version"}
+    before = _row_counts(engine, skip)
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT restock_typed_at FROM food").scalars().all()
+    assert found and set(found) == {None}
+    migrate.downgrade(engine, COOK_PER_STEP_MIGRATION)
+    assert "restock_typed_at" not in {c["name"] for c in inspect(engine).get_columns("food")}
+    assert migrate_head(engine) == COOK_PER_STEP_MIGRATION
+    assert _row_counts(engine, skip) == before
+    assert "AUTOINCREMENT" in _table_sql(engine, "food")  # the copy still never reuses an id
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    column = next(c for c in inspect(engine).get_columns("food") if c["name"] == "restock_typed_at")
+    assert column["nullable"]
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT restock_typed_at FROM food").scalars().all()
+    assert set(found) == {None}
+    assert _row_counts(engine, skip) == before
+    assert "AUTOINCREMENT" in _table_sql(engine, "food")
