@@ -15,12 +15,13 @@ it, or Undo, brings the typed date back."""
 
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, time
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.household import today, zone
-from mealwright.models import Food, Household, ListItem, ListTick, utcnow
+from mealwright.models import Change, Food, Household, ListItem, ListTick, utcnow
 
 
 def aware(value: datetime | None) -> datetime | None:
@@ -147,6 +148,7 @@ def keep_before_tidy_up(db: DbSession, household_id: int, item_ids: list[str]) -
             continue
         if food_id not in newest or newest[food_id] < when:
             newest[food_id] = when
+    _fold_into_undo(db, household_id, newest)
     for food_id, at in newest.items():
         food = db.get(Food, food_id)
         if food is None or food.household_id != household_id:
@@ -159,3 +161,48 @@ def keep_before_tidy_up(db: DbSession, household_id: int, item_ids: list[str]) -
         kept = aware(food.restocked_at)
         if kept is None or kept < at:
             food.restocked_at = at
+
+
+def _parsed(value: Any) -> datetime | None:
+    return aware(datetime.fromisoformat(value)) if isinstance(value, str) else None
+
+
+def _fold_into_undo(db: DbSession, household_id: int, newest: dict[int, datetime]) -> None:
+    """The purchases the tidy-up deletes can't speak for themselves any more, so an Undo
+    that puts back a restock date from before a change (a typed date, a merge) would forget
+    them. Each such Undo's date-before is raised to the newest deleted purchase that counted
+    then (no typed moment then, or ticked after it), so an Undo never shows an older date
+    than a real purchase (fix round 1)."""
+    if not newest:
+        return
+    pending = db.scalars(
+        select(Change).where(
+            Change.household_id == household_id,
+            Change.undone_by_change_id.is_(None),
+            Change.undo_data.is_not(None),
+        )
+    )
+    for change in pending:
+        data = change.undo_data or {}
+        foods = data.get("foods")
+        if not isinstance(foods, dict) or not isinstance(foods.get("fields"), dict):
+            continue
+        fields: dict[str, Any] = foods["fields"]
+        raised = dict(fields)
+        for food_id, at in newest.items():
+            pair = fields.get(f"{food_id}:restocked_at")
+            if not isinstance(pair, list) or len(pair) != 2:
+                continue
+            moment_pair = fields.get(f"{food_id}:restock_typed_at")
+            if isinstance(moment_pair, list) and len(moment_pair) == 2:
+                moment_then = _parsed(moment_pair[0])
+            else:  # not changed by it: as it is now
+                food = db.get(Food, food_id)
+                moment_then = aware(food.restock_typed_at) if food is not None else None
+            if moment_then is not None and at <= moment_then:
+                continue  # it didn't count before the change either
+            before = _parsed(pair[0])
+            if before is None or before < at:
+                raised[f"{food_id}:restocked_at"] = [at.isoformat(), pair[1]]
+        if raised != fields:
+            change.undo_data = {**data, "foods": {**foods, "fields": raised}}
