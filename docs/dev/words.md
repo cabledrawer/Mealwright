@@ -694,3 +694,4 @@ Written by Claude Code on 2 Nov from the spec's "Import Check (PR A4)" (F111, ca
 - **An empty step or heading can't be kept:** **A step can’t be empty. Write something, or remove it.** (heading: **A heading can’t be empty. …**), with **Remove step** (or **Remove heading**) beside Done and Cancel.
 - **Remove** on each step and heading (screen readers: **Remove step 3**, **Remove heading: For the filling**). The toast **Removed step 3** or **Removed “For the filling”** (a long heading is cut at 40 characters with “…”) with Undo, then **Undone: Removed step 3**. Undo puts it back in its place. The step numbers follow, and a heading takes no number (F112).
 - **Unchanged:** **Nothing is saved until you choose.**, **Split into shorter steps**, **Put the steps back as they were**.
+- **Put the steps back as they were** (after Split into shorter steps) is a reset: it also drops any step edits and removals made since (proposed, for cabledrawer).

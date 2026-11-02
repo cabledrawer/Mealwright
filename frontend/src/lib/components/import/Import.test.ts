@@ -695,7 +695,7 @@ describe('Import a recipe', () => {
       await expect.element(page.getByRole('alert').getByText(/can’t be empty/)).toBeVisible();
       expect(flow.review!.steps[0]!.text).toBe('Soak the rice.');
       await page.getByRole('button', { name: 'Remove step' }).click();
-      expect(flow.review!.steps).toHaveLength(3);
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(3));
       expect(toasts.current?.message).toBe('Removed step 1');
     });
 
