@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.household import today, zone
-from mealwright.models import Food, Household, ListItem, ListTick
+from mealwright.models import Food, Household, ListItem, ListTick, utcnow
 
 
 def _aware(value: datetime | None) -> datetime | None:
@@ -77,7 +77,7 @@ def noon_on(household: Household, on: date) -> datetime:
     """A day picked in the editor, as a moment: the household's noon that day (it can't
     slip into the day before or after), or right now if the day is today."""
     if on == today(household):
-        return datetime.now(UTC)
+        return utcnow()
     return datetime.combine(on, time(12), tzinfo=zone(household)).astimezone(UTC)
 
 

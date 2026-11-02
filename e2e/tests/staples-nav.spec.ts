@@ -91,8 +91,10 @@ test('the editor changes the date, refuses tomorrow, and Restocked sets it to no
   const five = await daysAgo(page, 5);
   await date.fill(five.iso);
   await expect(editor.getByText(`Restocked 5 days ago · `, { exact: false })).toBeVisible();
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${id}`)).json()) as Json).restocked_on)
+    .toBe(five.iso);
   const saved = await (await page.request.get(`/api/v1/foods/${id}`)).json();
-  expect(saved.restocked_on).toBe(five.iso);
   expect(saved.restocked_days_ago).toBe(5);
 
   // The date field stops at today.
@@ -106,6 +108,10 @@ test('the editor changes the date, refuses tomorrow, and Restocked sets it to no
 
   await editor.getByRole('button', { name: 'Restocked', exact: true }).click();
   await expect(editor.getByText('Restocked today · ')).toBeVisible();
+  // Saved: the toast is then the server's, with its Undo.
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${id}`)).json()) as Json).restocked_days_ago)
+    .toBe(0);
   const status = page.getByRole('status').filter({ hasText: `${name} restocked` });
   await expect(status).toBeVisible();
   await status.getByRole('button', { name: 'Undo' }).click();
@@ -302,10 +308,11 @@ test('on a 320 px phone, dark, at 200% text: header cog and avatar, the switch, 
   const name = unique('Saffron');
   await makeStaple(page, name);
   await page.goto('/recipes/ingredients');
-  await big();
   await page.getByRole('searchbox', { name: 'Search ingredients' }).fill(name);
   await page.getByRole('region', { name: 'All ingredients' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
   const editor = page.getByRole('dialog', { name: `Edit ${name}` });
+  await expect(editor.getByLabel('Date restocked')).toBeVisible();
+  await big();
   const date = editor.getByLabel('Date restocked');
   await date.scrollIntoViewIfNeeded();
   await tall(date);

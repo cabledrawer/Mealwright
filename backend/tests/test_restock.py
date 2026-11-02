@@ -310,3 +310,15 @@ def test_a_year_one_value_stored_directly_breaks_no_page_in_a_western_zone(
     assert one["restocked_on"] is None and one["restocked_days_ago"] is None
     assert ok(kitchen.get(f"{API}/foods?limit=100"))["foods"]
     assert any(row["id"] == food for row in ok(kitchen.get(f"{API}/pantry"))["staples"])
+
+
+def test_restocked_today_follows_the_servers_own_clock(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The browser tests move the server's clock: "today" as the day must not be 'future'."""
+    from mealwright import models
+
+    monkeypatch.setattr(models, "TEST_CLOCK_SHIFT", timedelta(days=-10))
+    food = _staple(kitchen)
+    done = _restock_now(kitchen, food)
+    assert done["food"]["restocked_days_ago"] == 0
