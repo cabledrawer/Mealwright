@@ -247,7 +247,8 @@ class Food(Base):
     version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     # A staple's restock date (0.7, cabledrawer 20 Oct) is its newest standing "Restocked" tick
     # (`list_tick.restock`), so an untick or Undo puts the date back by itself. This keeps the
-    # newest one among purchases the tidy-up has already deleted (`mealwright.restock`).
+    # newest one among purchases the tidy-up has already deleted, or the date typed in the
+    # editor (`mealwright.restock`).
     restocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # The moment a restock date was typed (or Restocked pressed) in the editor (0.7 K5,
     # cabledrawer 2 Nov: "the date I type wins"). While set, `restocked_at` holds that date and a

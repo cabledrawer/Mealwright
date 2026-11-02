@@ -749,8 +749,8 @@ def _restock_when(kitchen: Kitchen, body: FoodPatch) -> datetime:
 def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
     """Set a staple's restock date (0.7 K5) and say what happened; None if it is already so.
 
-    The date shown is the newest of this one and the standing "Restocked" ticks on Shopping
-    (mealwright.restock), so a date before the newest tick would not show: it is refused."""
+    The date typed wins, even over a newer "Restocked" tick on Shopping, until a tick made
+    after it (cabledrawer 2 Nov; mealwright.restock)."""
     if not food.staple:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -767,17 +767,11 @@ def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
     if when > now + RESTOCK_GRACE:
         raise _future()
     when = min(when, now)
-    ticked = restock.ticked_at(kitchen.db, kitchen.household_id, food.id)
-    if ticked is not None and when < ticked:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "restock_before_tick",
-            "Shopping shows a later restock than that. Pick a later day.",
-        )
     kept = restock.restocked(kitchen.db, kitchen.household_id, [food]).get(food.id)
-    if kept is not None and abs(kept - when) < timedelta(seconds=1):
-        return None
-    food.restocked_at = when
+    already = food.restock_typed_at is not None and kept == restock.aware(food.restocked_at)
+    if already and kept is not None and abs(kept - when) < timedelta(seconds=1):
+        return None  # that typed date is the one shown already
+    restock.typed(food, when)
     return f"{food.name} restocked"
 
 
@@ -1343,7 +1337,7 @@ def merge_foods(
     into.place_id = into.place_id or gone.place_id
     into.shop_id = into.shop_id or gone.shop_id
     # The kept one is restocked as recently as either was (0.7 K1).
-    into.restocked_at = restock.newer(into, gone)
+    restock.merged(db, kitchen.household_id, into, gone)
     gone.merged_into_id = into.id
     db.flush()
     fix_usual_sizes(kitchen, [into.id])

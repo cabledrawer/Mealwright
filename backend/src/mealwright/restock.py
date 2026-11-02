@@ -6,28 +6,34 @@ A staple isn't counted, so ticking it on Shopping puts nothing into the pantry: 
 date is the newest such tick that still stands, so unticking it, or Undo, puts the date back
 to the one before without anything else to keep in step. When the tidy-up deletes old
 purchases, the newest restock among them is kept on the ingredient (`food.restocked_at`).
-"""
+
+A date typed in the editor (or Restocked pressed there) wins (0.7 K5; cabledrawer 2 Nov: "when I
+type a restock date, the pantry shows that date even if a Shopping tick is newer"): it is kept
+in `food.restocked_at`, with the moment it was typed in `food.restock_typed_at`, and a tick
+counts only if it was ticked after that moment. So a newer purchase wins again, and unticking
+it, or Undo, brings the typed date back."""
 
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, time
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.household import today, zone
 from mealwright.models import Food, Household, ListItem, ListTick, utcnow
 
 
-def _aware(value: datetime | None) -> datetime | None:
+def aware(value: datetime | None) -> datetime | None:
     # SQLite gives back naive datetimes; every time Mealwright stores is UTC.
     if value is None or value.tzinfo is not None:
         return value
     return value.replace(tzinfo=UTC)
 
 
-def _ticked(db: DbSession, household_id: int, food_ids: list[int]) -> dict[int, datetime]:
+def _ticks(db: DbSession, household_id: int, food_ids: list[int]) -> list[tuple[int, datetime]]:
+    """Every standing "Restocked" tick of these foods, as (food id, when ticked)."""
     rows = db.execute(
-        select(ListItem.food_id, func.max(ListTick.ticked_at))
+        select(ListItem.food_id, ListTick.ticked_at)
         .join(ListItem, ListItem.id == ListTick.item_id)
         .where(
             ListTick.household_id == household_id,
@@ -36,29 +42,44 @@ def _ticked(db: DbSession, household_id: int, food_ids: list[int]) -> dict[int, 
             ListTick.restock.is_(True),
             ListTick.reversed_at.is_(None),
         )
-        .group_by(ListItem.food_id)
     )
-    return {food_id: at for food_id, at in rows if at is not None}
+    return [(food_id, at) for food_id, at in rows if food_id is not None and at is not None]
+
+
+def _counted(db: DbSession, household_id: int, foods: dict[int, Food]) -> dict[int, datetime]:
+    """Each food's newest standing tick that counts: any, or with a typed date, only one
+    ticked after the moment it was typed (cabledrawer 2 Nov)."""
+    found: dict[int, datetime] = {}
+    for food_id, at in _ticks(db, household_id, list(foods)):
+        when = aware(at)
+        moment = aware(foods[food_id].restock_typed_at)
+        if when is None or (moment is not None and when <= moment):
+            continue
+        if food_id not in found or found[food_id] < when:
+            found[food_id] = when
+    return found
 
 
 def restocked(db: DbSession, household_id: int, foods: Iterable[Food]) -> dict[int, datetime]:
     """When each staple among `foods` was last restocked; a food never restocked, or not a
-    staple, is left out."""
+    staple, is left out. The newer of the kept date and the newest tick that counts."""
     staples = {f.id: f for f in foods if f.staple and f.household_id == household_id}
     if not staples:
         return {}
     found: dict[int, datetime] = {}
-    ticked = _ticked(db, household_id, list(staples))
+    ticked = _counted(db, household_id, staples)
     for food_id, food in staples.items():
-        dates = [d for d in (_aware(food.restocked_at), _aware(ticked.get(food_id))) if d]
+        dates = [d for d in (aware(food.restocked_at), ticked.get(food_id)) if d]
         if dates:
             found[food_id] = max(dates)
     return found
 
 
-def ticked_at(db: DbSession, household_id: int, food_id: int) -> datetime | None:
-    """The newest "Restocked" tick on Shopping that still stands for this food, if any."""
-    return _aware(_ticked(db, household_id, [food_id]).get(food_id))
+def typed(food: Food, when: datetime) -> None:
+    """A date typed (or Restocked pressed) in the editor: it is shown from now on, until a
+    tick made after this moment (cabledrawer 2 Nov: "the date I type wins")."""
+    food.restocked_at = when
+    food.restock_typed_at = utcnow()
 
 
 def day(household: Household, when: datetime | None) -> tuple[date | None, int | None]:
@@ -67,7 +88,7 @@ def day(household: Household, when: datetime | None) -> tuple[date | None, int |
     if when is None:
         return None, None
     try:
-        on = _aware(when).astimezone(zone(household)).date()  # type: ignore[union-attr]
+        on = aware(when).astimezone(zone(household)).date()  # type: ignore[union-attr]
     except OverflowError:  # a stored value near year 1 or 9999 can't be shown: no date, no break
         return None, None
     return on, max((today(household) - on).days, 0)
@@ -81,19 +102,36 @@ def noon_on(household: Household, on: date) -> datetime:
     return datetime.combine(on, time(12), tzinfo=zone(household)).astimezone(UTC)
 
 
-def newer(into: Food, gone: Food) -> datetime | None:
-    """For a merge of `gone` into `into`: the restock date to keep on `into`, the newer of
-    the two kept dates. Live ticks aren't copied: they move with their shopping-list lines to
-    `into` and speak for themselves, so unticking one still puts the date back."""
-    dates = [d for d in (_aware(into.restocked_at), _aware(gone.restocked_at)) if d]
-    return max(dates) if dates else None
+def merged(db: DbSession, household_id: int, into: Food, gone: Food) -> None:
+    """For a merge of `gone` into `into`: the kept one shows the newer of the two dates shown.
+
+    Live ticks aren't copied: they move with their shopping-list lines to `into` and speak for
+    themselves, so unticking one still puts the date back. With a typed date on either, the
+    later typed moment is kept, and a tick that counted but was ticked before it is folded into
+    the kept date (it would no longer count by itself)."""
+    moments = [m for m in (aware(into.restock_typed_at), aware(gone.restock_typed_at)) if m]
+    moment = max(moments) if moments else None
+    dates = [d for d in (aware(into.restocked_at), aware(gone.restocked_at)) if d]
+    if moment is not None:
+        foods = {into.id: into, gone.id: gone}
+        for food_id, at in _ticks(db, household_id, list(foods)):
+            when = aware(at)
+            own = aware(foods[food_id].restock_typed_at)
+            if when is None or (own is not None and when <= own):
+                continue  # it didn't count before the merge either
+            if when <= moment:
+                dates.append(when)
+    into.restocked_at = max(dates) if dates else None
+    into.restock_typed_at = moment
 
 
 def keep_before_tidy_up(db: DbSession, household_id: int, item_ids: list[str]) -> None:
     """The tidy-up is about to delete these items' purchases: keep each staple's newest
-    standing restock among them on the ingredient."""
+    standing restock among them that counts on the ingredient, so the date shown never
+    changes. A tick at or before a typed date's moment doesn't count and is let go; one after
+    it beats the typed date for good, so the kept date is no longer a typed one."""
     rows = db.execute(
-        select(ListItem.food_id, func.max(ListTick.ticked_at))
+        select(ListItem.food_id, ListTick.ticked_at)
         .join(ListItem, ListItem.id == ListTick.item_id)
         .where(
             ListTick.household_id == household_id,
@@ -101,13 +139,23 @@ def keep_before_tidy_up(db: DbSession, household_id: int, item_ids: list[str]) -
             ListTick.restock.is_(True),
             ListTick.reversed_at.is_(None),
         )
-        .group_by(ListItem.food_id)
     )
+    newest: dict[int, datetime] = {}
     for food_id, at in rows:
-        food = db.get(Food, food_id)
-        if food is None or food.household_id != household_id or at is None:
+        when = aware(at)
+        if food_id is None or when is None:
             continue
-        at = at if at.tzinfo is not None else at.replace(tzinfo=UTC)
-        kept = _aware(food.restocked_at)
+        if food_id not in newest or newest[food_id] < when:
+            newest[food_id] = when
+    for food_id, at in newest.items():
+        food = db.get(Food, food_id)
+        if food is None or food.household_id != household_id:
+            continue
+        moment = aware(food.restock_typed_at)
+        if moment is not None:
+            if at <= moment:
+                continue
+            food.restock_typed_at = None
+        kept = aware(food.restocked_at)
         if kept is None or kept < at:
             food.restocked_at = at

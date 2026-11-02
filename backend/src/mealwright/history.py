@@ -266,7 +266,9 @@ FIELDS = (
     "running_low_milli",
     "merged_into_id",
     "restocked_at",  # kept as text in the snapshot (0.7 K1: a merge can move it on)
+    "restock_typed_at",  # the moment it was typed, as text too (0.7 K5, cabledrawer 2 Nov)
 )
+RESTOCK_FIELDS = ("restocked_at", "restock_typed_at")
 SIZE_FIELDS = (
     "food_id",
     "name",
@@ -487,7 +489,7 @@ def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
     revived = name == "merged_into_id" and value is None and shown
     if revived and _name_taken(kitchen, food.name, food.id):
         return False
-    if name == "restocked_at" and value is not None:
+    if name in RESTOCK_FIELDS and value is not None:
         value = datetime.fromisoformat(value)
     setattr(food, name, value)
     return True
@@ -710,9 +712,11 @@ def undo_foods(
             now = current.get(collection, {}).get(key)
             if now == old:
                 continue  # already back the way it was
-            if collection == "fields" and key.endswith(":restocked_at") and now != new:
+            restock_field = key.split(":")[-1] in RESTOCK_FIELDS
+            if collection == "fields" and restock_field and now != new:
                 # Raised since (a restock kept by the tidy-up): it still goes back to the date
-                # before the merge, and isn't counted as something left alone (0.7 K1).
+                # before the merge, and isn't counted as something left alone (0.7 K1). The
+                # typed moment goes back with it (0.7 K5).
                 _restore_field(kitchen, key, old)
                 kitchen.db.flush()
                 continue

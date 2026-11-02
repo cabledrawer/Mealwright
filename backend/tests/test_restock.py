@@ -192,14 +192,174 @@ def test_a_clock_a_little_fast_is_taken_as_now(kitchen: TestClient) -> None:
     assert kept is not None and kept <= datetime.now(UTC) + timedelta(seconds=1)
 
 
-def test_a_date_before_the_last_restock_on_shopping_is_refused(kitchen: TestClient) -> None:
+# --- The date typed wins (cabledrawer 2 Nov) ------------------------------------------------------
+
+
+def _backdate_ticks(client: TestClient, item_id: str, when: datetime) -> None:
+    with db(client) as session:
+        session.execute(update(ListTick).where(ListTick.item_id == item_id).values(ticked_at=when))
+        session.commit()
+
+
+def _type(client: TestClient, food: int, when: datetime) -> Any:
+    return ok(client.patch(f"{API}/foods/{food}", json={"restocked_at": when.isoformat()}))
+
+
+def _on_pantry(client: TestClient, food: int) -> datetime | None:
+    staples = ok(client.get(f"{API}/pantry"))["staples"]
+    found = next(row for row in staples if row["id"] == food)["restocked_at"]
+    return datetime.fromisoformat(found).astimezone(UTC) if found else None
+
+
+def test_a_typed_date_under_a_newer_tick_is_shown_everywhere(kitchen: TestClient) -> None:
+    """Tick Monday, type the Saturday before: Saturday is shown on Pantry and Ingredients."""
     s = s0(kitchen)
     salt = s.foods["Salt"]
     tick(kitchen, s, "Salt")
-    before = datetime.now(UTC) - timedelta(days=3)
-    sent = kitchen.patch(f"{API}/foods/{salt}", json={"restocked_at": before.isoformat()})
-    assert sent.status_code == 422 and sent.json()["code"] == "restock_before_tick"
+    monday = utcnow() - timedelta(days=2)
+    _backdate_ticks(kitchen, s.items["Salt"], monday)
+    saturday = utcnow() - timedelta(days=4)
+    done = _type(kitchen, salt, saturday)
+    assert done["change"]["summary"] == "Salt restocked"
+    assert _close(_restocked(kitchen, salt), saturday)
+    assert _close(datetime.fromisoformat(_listed(kitchen, salt)).astimezone(UTC), saturday)
+    assert _close(_on_pantry(kitchen, salt), saturday)
+
+
+def test_a_tick_after_the_typing_wins_and_its_untick_brings_the_typed_date_back(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    saturday = utcnow() - timedelta(days=4)
+    _type(kitchen, salt, saturday)
+    tick_id = new_id()
+    tick(kitchen, s, "Salt", id=tick_id)
     assert _close(_restocked(kitchen, salt), datetime.now(UTC))
+    assert _close(_on_pantry(kitchen, salt), datetime.now(UTC))
+    seen = int(changes(kitchen)["cursor"])
+    one(kitchen, "untick", seen, item_id=s.items["Salt"], tick_ids=[tick_id])
+    assert _close(_restocked(kitchen, salt), saturday)
+    assert _close(_on_pantry(kitchen, salt), saturday)
+
+
+def test_undo_of_the_typed_date_shows_the_tick_again(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    tick(kitchen, s, "Salt")
+    monday = utcnow() - timedelta(days=2)
+    _backdate_ticks(kitchen, s.items["Salt"], monday)
+    done = _type(kitchen, salt, utcnow() - timedelta(days=4))
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert _close(_restocked(kitchen, salt), monday)
+    with db(kitchen) as session:
+        food = session.get(Food, salt)
+        assert food is not None and food.restock_typed_at is None and food.restocked_at is None
+
+
+def test_the_same_typed_date_again_is_no_change(kitchen: TestClient) -> None:
+    food = _staple(kitchen)
+    when = utcnow() - timedelta(days=4)
+    _type(kitchen, food, when)
+    again = ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_at": when.isoformat()}))
+    assert again["change"] is None
+
+
+def _tidy(client: TestClient, item_id: str) -> None:
+    with db(client) as session:
+        session.execute(
+            update(ListItem)
+            .where(ListItem.id == item_id)
+            .values(deleted_at=utcnow() - timedelta(days=400))
+        )
+        session.commit()
+        tidy_lists(session, session.get(Household, 1))
+        assert session.query(ListTick).filter(ListTick.item_id == item_id).count() == 0
+
+
+def test_the_tidy_up_keeps_a_typed_date_under_an_older_tick(kitchen: TestClient) -> None:
+    """A tick made before the typing didn't count; deleting it changes nothing shown."""
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    tick(kitchen, s, "Salt")
+    _backdate_ticks(kitchen, s.items["Salt"], utcnow() - timedelta(days=2))
+    saturday = utcnow() - timedelta(days=4)
+    _type(kitchen, salt, saturday)
+    _tidy(kitchen, s.items["Salt"])
+    assert _close(_restocked(kitchen, salt), saturday)
+    assert _close(_on_pantry(kitchen, salt), saturday)
+
+
+def test_the_tidy_up_keeps_a_tick_made_after_the_typing(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    _type(kitchen, salt, utcnow() - timedelta(days=4))
+    tick(kitchen, s, "Salt")
+    shown = _restocked(kitchen, salt)
+    assert _close(shown, datetime.now(UTC))
+    _tidy(kitchen, s.items["Salt"])
+    assert shown is not None and _close(_restocked(kitchen, salt), shown)
+    with db(kitchen) as session:
+        food = session.get(Food, salt)
+        assert food is not None and food.restock_typed_at is None  # no longer a typed date
+
+
+def test_a_merge_keeps_what_was_shown_when_a_tick_hid_under_a_typed_date(
+    kitchen: TestClient,
+) -> None:
+    """Salt: ticked 2 days ago, typed 10 days ago (shown: 10). Rock salt: 6 days ago. Merged,
+    Rock salt shows 6 days ago: Salt's hidden tick doesn't come back; Undo puts both back."""
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    tick(kitchen, s, "Salt")
+    _backdate_ticks(kitchen, s.items["Salt"], utcnow() - timedelta(days=2))
+    ten = utcnow() - timedelta(days=10)
+    _type(kitchen, salt, ten)
+    rock = _staple(kitchen)
+    six = utcnow() - timedelta(days=6)
+    with db(kitchen) as session:
+        session.execute(update(Food).where(Food.id == rock).values(restocked_at=six))
+        session.commit()
+    merged = ok(kitchen.post(f"{API}/foods/{salt}/merge", json={"into_id": rock}))
+    assert _close(_restocked(kitchen, rock), six)
+    assert _close(_on_pantry(kitchen, rock), six)
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert _close(_restocked(kitchen, rock), six)
+    assert _close(_restocked(kitchen, salt), ten)
+
+
+def test_a_merge_keeps_a_newer_tick_over_a_typed_date(kitchen: TestClient) -> None:
+    """Rock salt: typed 10 days ago. Salt: ticked 3 days ago (shown: 3). Merged into Rock salt,
+    3 days ago is shown; Undo puts both back."""
+    s = s0(kitchen)
+    salt = s.foods["Salt"]
+    rock = _staple(kitchen)
+    ten = utcnow() - timedelta(days=10)
+    _type(kitchen, rock, ten)
+    tick(kitchen, s, "Salt")
+    three = utcnow() - timedelta(days=3)
+    _backdate_ticks(kitchen, s.items["Salt"], three)
+    assert _close(_restocked(kitchen, salt), three)
+    merged = ok(kitchen.post(f"{API}/foods/{salt}/merge", json={"into_id": rock}))
+    assert _close(_restocked(kitchen, rock), three)
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert _close(_restocked(kitchen, rock), ten)
+    assert _close(_restocked(kitchen, salt), three)
+
+
+def test_another_household_cant_see_or_set_a_typed_date(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    food = _staple(kitchen)
+    when = utcnow() - timedelta(days=4)
+    _type(kitchen, food, when)
+    assert neighbour.get(f"{API}/foods/{food}").status_code == 404
+    staples = ok(neighbour.get(f"{API}/pantry"))["staples"]
+    assert all(row["id"] != food for row in staples)
+    later = (utcnow() - timedelta(days=1)).isoformat()
+    sent = neighbour.patch(f"{API}/foods/{food}", json={"restocked_at": later})
+    assert sent.status_code == 404
+    assert _close(_restocked(kitchen, food), when)
 
 
 def test_only_a_staple_has_a_date_and_a_date_is_needed(kitchen: TestClient) -> None:
