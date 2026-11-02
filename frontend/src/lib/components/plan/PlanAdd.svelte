@@ -114,10 +114,10 @@
   }
 
   let allTubs = $state(false);
-  const listed = $derived(tubsListed(offer.tubs, allTubs));
 
   /** The tubs this day offers: the oldest freezer tub first; fridge tubs past their use-by left out. */
   const offer = $derived(tubsForDay(model.tubsLeft, target?.day ?? ''));
+  const listed = $derived(tubsListed(offer.tubs, allTubs));
 
   /** Cook once here: the recipe buttons wait while the recipe is being planned (no second plan). */
   let planning = $state(false);
