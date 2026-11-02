@@ -6,7 +6,15 @@ import type { DraftChoice, DraftOut } from './client/drafts';
 import { PINTS_REVIEW } from '#lib/testing/importSamples.js';
 import { toasts } from './toast.svelte';
 import { undoHistory } from './undo.svelte';
-import { amountWords, DRAFT_OFFLINE, ImportFlow, leftOutWords, volumeWords } from './import.svelte';
+import {
+  amountWords,
+  DRAFT_OFFLINE,
+  ImportFlow,
+  leftOutWords,
+  OFFLINE_NOTE,
+  volumeWords
+} from './import.svelte';
+import { SERVER_DOWN_TRY_LATER } from './downWords';
 
 const line = (over: Partial<ReviewLine>): ReviewLine => ({
   kind: 'ingredient',
@@ -170,14 +178,30 @@ describe('the import flow', () => {
     expect(flow.text).toBe('');
   });
 
-  it('says it needs the server when there is no connection, and queues nothing', async () => {
+  it('device offline: says it needs the server, and queues nothing', async () => {
+    network.deviceOffline = true;
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')));
     const flow = new ImportFlow();
     flow.text = 'https://kitchen.example/dal';
     await flow.read();
     expect(flow.phase).toBe('start');
     expect(flow.problem?.code).toBe('offline');
-    expect(flow.problem?.message).toContain('needs your Mealwright server');
+    expect(flow.problem?.message).toBe(OFFLINE_NOTE);
+  });
+
+  it('server down (a network, but no answer or the proxy’s 502): says so in the server-down words', async () => {
+    for (const down of [
+      () => Promise.reject(new TypeError('Failed to fetch')),
+      async () => new Response('', { status: 502 })
+    ]) {
+      vi.stubGlobal('fetch', down);
+      const flow = new ImportFlow();
+      flow.text = 'https://kitchen.example/dal';
+      await flow.read();
+      expect(flow.phase).toBe('start');
+      expect(flow.problem?.code).toBe('offline');
+      expect(flow.problem?.message).toBe(SERVER_DOWN_TRY_LATER);
+    }
   });
 
   it('offers Open it and Import again as a copy for the same link', async () => {
@@ -290,6 +314,17 @@ describe('the import flow', () => {
       await flow.save();
       // The same save, tried again, is the same change.
       expect(requests[0]!.headers['idempotency-key']).toBe(requests[1]!.headers['idempotency-key']);
+    });
+
+    it('a save that can’t reach the server says why, by cause, and keeps the review', async () => {
+      const flow = await reviewing();
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+      expect(await flow.save()).toBeNull();
+      expect(flow.saveProblem).toEqual({ message: SERVER_DOWN_TRY_LATER, line: null });
+      network.deviceOffline = true;
+      expect(await flow.save()).toBeNull();
+      expect(flow.saveProblem).toEqual({ message: OFFLINE_NOTE, line: null });
+      expect(flow.phase).toBe('review');
     });
 
     it('refuses an empty name or a bad number before asking the server', async () => {
@@ -417,11 +452,19 @@ describe('the import flow', () => {
       expect(flow.unkept).toBe(true);
     });
 
-    it('says it needs the server when there is no connection', async () => {
+    it('device offline: says it needs the server when there is no connection', async () => {
       const flow = await reviewing();
+      network.deviceOffline = true;
       vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')));
       expect(await flow.keepAsDraft()).toBe(false);
       expect(flow.draftProblem).toBe(DRAFT_OFFLINE);
+    });
+
+    it('server down: says so in the server-down words', async () => {
+      const flow = await reviewing();
+      vi.stubGlobal('fetch', async () => new Response('', { status: 502 }));
+      expect(await flow.keepAsDraft()).toBe(false);
+      expect(flow.draftProblem).toBe(SERVER_DOWN_TRY_LATER);
     });
 
     it('saves from a draft by sending its id, and the same change ID on a retry', async () => {

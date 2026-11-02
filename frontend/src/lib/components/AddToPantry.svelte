@@ -4,6 +4,8 @@
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
   // which opens the device's own date picker and then shows the date it chose).
   // A sheet from the bottom on phones, a dialog on desktop.
+  import { cantReach } from '#lib/api.js';
+  import { cantReachText, needsServer } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
   import { addToPantry } from '#lib/addToPantry.svelte.js';
@@ -92,8 +94,11 @@
             : (loaded.count_word_plural ?? 'items');
       placeId =
         loaded.place?.id ?? places.find((p) => p.kind === 'cupboard')?.id ?? places[0]?.id ?? null;
-    } catch {
-      problem = 'Couldn’t load that ingredient. Try again.';
+    } catch (error) {
+      // The words follow the cause, like the pages (cabledrawer 30 Oct).
+      problem = cantReach(error)
+        ? needsServer(network.deviceOffline, cantReachText(true))
+        : 'Couldn’t load that ingredient. Try again.';
     } finally {
       loading = false;
     }

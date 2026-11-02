@@ -11,7 +11,7 @@
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import {
     LINKS_ONE_AT_A_TIME,
-    OFFLINE_NOTE,
+    offlineNote,
     PASTE_INSTEAD_STEPS,
     type ImportFlow
   } from '#lib/import.svelte.js';
@@ -78,7 +78,7 @@
     </p>
 
     {#if network.offline}
-      <p class="offline" role="status">{OFFLINE_NOTE}</p>
+      <p class="offline" role="status">{offlineNote()}</p>
     {/if}
 
     {#if flow.problem}

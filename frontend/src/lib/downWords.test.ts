@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { cantReachText, downBody, downLine, downTitle } from './downWords';
+import {
+  cantReachText,
+  downBody,
+  downLine,
+  downTitle,
+  needsServer,
+  SERVER_DOWN_TRY_LATER
+} from './downWords';
 
 // cabledrawer 30 Oct: "the device has no network → "You're offline…"; the network is fine but the
 // server doesn't answer → "Can't reach your Mealwright server…". Same wording on every page."
@@ -24,6 +31,18 @@ describe('the words while the server can’t be reached', () => {
       'Can’t reach your Mealwright server. it can’t be changed until it answers again.'
     );
     expect(cantReachText(false)).toBe('Can’t reach your Mealwright server. Check your connection.');
+  });
+
+  it('“+ Add to pantry” and the import screens: the server’s words by cause, the screen’s own offline sentence for the device', () => {
+    expect(SERVER_DOWN_TRY_LATER).toBe(
+      'Can’t reach your Mealwright server. Try again when it’s back.'
+    );
+    expect(needsServer(false, 'Importing needs it. Try again when you’re back online.')).toBe(
+      SERVER_DOWN_TRY_LATER
+    );
+    expect(needsServer(true, 'Importing needs it. Try again when you’re back online.')).toBe(
+      'Importing needs it. Try again when you’re back online.'
+    );
   });
 
   it('never says “offline” about the server, or “server” about the device', () => {

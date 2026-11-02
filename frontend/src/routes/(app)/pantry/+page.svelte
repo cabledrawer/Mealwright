@@ -29,7 +29,7 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
-  import { cantReachWords } from '#lib/api.js';
+  import { needsServer } from '#lib/downWords.js';
   import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { PantryModel } from '#lib/pantry.svelte.js';
   import { PantryList, listLabel } from '#lib/pantryList.svelte.js';
@@ -188,9 +188,10 @@
     if (network.offline) {
       // The words follow the cause: no network on the device, or no answer from the server.
       toasts.show(
-        network.deviceOffline
-          ? 'Adding to the pantry needs your Mealwright server. Try again when you’re back online.'
-          : cantReachWords()
+        needsServer(
+          network.deviceOffline,
+          'Adding to the pantry needs your Mealwright server. Try again when you’re back online.'
+        )
       );
       return;
     }

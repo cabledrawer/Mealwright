@@ -111,6 +111,22 @@ describe('the online-only screens, offline', () => {
     });
   }
 
+  it('server down (the device has a network): the tap says the server can’t be reached, and opens no sheet', async () => {
+    network.deviceOffline = false;
+    await page.viewport(390, 800);
+    toasts.dismiss();
+    addToPantry.close();
+    show(Pantry);
+    const button = page.getByRole('button', { name: 'Add to pantry', exact: true });
+    await expect.element(button).toBeVisible();
+    await button.click();
+    expect(toasts.current?.message).toBe(
+      'Can’t reach your Mealwright server. Try again when it’s back.'
+    );
+    expect(addToPantry.open).toBe(false);
+    toasts.dismiss();
+  });
+
   it('Pantry fetches again once the connection is back', async () => {
     show(Pantry);
     await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();

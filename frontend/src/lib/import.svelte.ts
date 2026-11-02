@@ -7,6 +7,8 @@ import { changeDraft, keepDraft, type DraftBody, type DraftOut } from './client/
 import { listFoods } from './client/foods';
 import { deletePhoto } from './client/recipes';
 import { drafts } from './drafts.svelte';
+import { needsServer } from './downWords';
+import { network } from './network.svelte';
 import {
   saveImport,
   startImport,
@@ -61,11 +63,17 @@ export const PASTE_INSTEAD_STEPS = [
   'Paste it here, in place of the link. Pasted text never goes online.'
 ] as const;
 
+/** The device has no network. With a network but no answer from the server the words are
+ *  SERVER_DOWN_TRY_LATER instead: use `offlineNote()` (cabledrawer 30 Oct). */
 export const OFFLINE_NOTE =
   'Importing needs your Mealwright server. Try again when you’re back online.';
-/** Keeping a draft didn't reach the server (proposed, for cabledrawer). */
+/** Keeping a draft didn't reach the server (proposed, for cabledrawer): the device has no network. */
 export const DRAFT_OFFLINE =
   'Saving a draft needs your Mealwright server. Try again when you’re back online.';
+/** What importing says when the server can't be reached, chosen by the cause. */
+export const offlineNote = (): string => needsServer(network.deviceOffline, OFFLINE_NOTE);
+/** The same for keeping a draft. */
+export const draftOfflineNote = (): string => needsServer(network.deviceOffline, DRAFT_OFFLINE);
 const COULDNT = 'Couldn’t read that. Try again.';
 
 export class ImportFlow {
@@ -145,7 +153,7 @@ export class ImportFlow {
 
   private fail(error: ApiError): void {
     if (cantReach(error)) {
-      this.problem = problemOf('offline', OFFLINE_NOTE);
+      this.problem = problemOf('offline', offlineNote());
       return;
     }
     const body = (error.body ?? {}) as Record<string, unknown>;
@@ -269,7 +277,7 @@ export class ImportFlow {
       this.draftProblem =
         error instanceof ApiError
           ? cantReach(error)
-            ? DRAFT_OFFLINE
+            ? draftOfflineNote()
             : error.detail
           : 'Couldn’t keep the draft. Try again.';
       return false;
@@ -776,7 +784,7 @@ export class ImportFlow {
       if (error instanceof ApiError) {
         const line = (error.body as { line?: unknown } | null)?.line;
         this.saveProblem = {
-          message: cantReach(error) ? OFFLINE_NOTE : error.detail,
+          message: cantReach(error) ? offlineNote() : error.detail,
           line: typeof line === 'number' ? line : null
         };
       } else {

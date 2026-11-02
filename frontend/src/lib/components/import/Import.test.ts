@@ -267,6 +267,19 @@ describe('Import a recipe', () => {
       await expect.element(page.getByRole('button', { name: 'Read the recipe' })).toBeDisabled();
     });
 
+    it('server down: the note says the server can’t be reached, not that the device is offline', async () => {
+      network.offline = true;
+      network.deviceOffline = false;
+      const flow = new ImportFlow();
+      flow.text = 'Sambar\n1 onion';
+      show(flow);
+      await expect
+        .element(page.getByText('Can’t reach your Mealwright server. Try again when it’s back.'))
+        .toBeVisible();
+      expect(document.body.textContent).not.toMatch(/back online/);
+      await expect.element(page.getByRole('button', { name: 'Read the recipe' })).toBeDisabled();
+    });
+
     it('says Reading… while the server works', async () => {
       const flow = new ImportFlow();
       flow.text = 'https://kitchen.example/dal';

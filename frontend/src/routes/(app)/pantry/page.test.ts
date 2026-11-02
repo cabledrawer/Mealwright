@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { addToPantry } from '#lib/addToPantry.svelte.js';
+import { network } from '#lib/network.svelte.js';
 import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { samplePantry } from '#lib/testing/fakePantry.js';
 import { toasts } from '#lib/toast.svelte.js';
@@ -254,6 +255,36 @@ describe('the Pantry page', () => {
       unmount(question);
     }
   });
+
+  for (const [cause, device, words] of [
+    ['server down', false, 'Can’t reach your Mealwright server. Try again when it’s back.'],
+    ['device offline', true, 'You’re offline. Check your connection.']
+  ] as const) {
+    it(`Add to pantry: an ingredient that can’t be loaded, ${cause}, says why by cause`, async () => {
+      network.reset();
+      routes({ 'GET /foods/7': [502, {}] });
+      // A 502 is an answer (the device has a network); no answer at all is the device offline.
+      const fake = globalThis.fetch;
+      if (device) {
+        vi.stubGlobal('fetch', (input: string, init?: RequestInit) =>
+          String(input).endsWith('/foods/7')
+            ? Promise.reject(new TypeError('Failed to fetch'))
+            : fake(input, init)
+        );
+      }
+      await render(390);
+      await page.getByRole('button', { name: 'Add to pantry' }).click();
+      const sheet = page.getByRole('dialog', { name: 'Add to pantry' });
+      await sheet.getByRole('searchbox', { name: 'Find an ingredient' }).fill('toor');
+      const result = sheet.getByRole('button', { name: /Toor dal/ });
+      await expect.element(result).toBeVisible();
+      // Any answer clears it, so it is set once the search has been answered.
+      network.deviceOffline = device;
+      await result.click();
+      await expect.element(sheet.getByRole('alert')).toHaveTextContent(words);
+      network.reset();
+    });
+  }
 
   it('Add to pantry: Cancel on Pantry keeps it by makes nothing and stays in the sheet', async () => {
     routes({

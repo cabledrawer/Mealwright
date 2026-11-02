@@ -339,8 +339,22 @@ test('Pantry: "+ Add to pantry" says why while the server is down', async ({ pag
   for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
   await expect(bar(page)).toBeVisible();
   await page.getByRole('button', { name: /Add to pantry/ }).first().click();
-  await expect(page.getByText('Can’t reach your Mealwright server. Check your connection.').last()).toBeVisible();
+  await expect(page.getByText('Can’t reach your Mealwright server. Try again when it’s back.').last()).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Add to pantry' })).toHaveCount(0);
+});
+
+test('Import: while the server is down the box says it can’t reach the server, in the server-down words', async ({ page }) => {
+  await page.goto('/recipes/import');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await page.getByRole('textbox').first().fill('https://bananaleaf.example/sambar/');
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/**', proxyGap);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
+  await expect(bar(page)).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Can’t reach your Mealwright server. Try again when it’s back.' })).toBeVisible();
+  await expect(page.getByText(/back online/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Read the recipe' })).toBeDisabled();
 });
 
 test('Shopping: a tick’s Undo still works while the server is down (it is queued)', async ({ page }) => {

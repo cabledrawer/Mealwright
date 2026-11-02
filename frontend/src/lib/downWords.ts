@@ -34,6 +34,17 @@ export const cantReachText = (device: boolean): string =>
     ? 'You’re offline. Check your connection.'
     : 'Can’t reach your Mealwright server. Check your connection.';
 
+/** "+ Add to pantry" and the import screens when the server can't be reached (cabledrawer 30 Oct:
+ *  "Server down → "Can't reach your Mealwright server. Try again when it's back."; device
+ *  offline → keep the offline wording."). */
+export const SERVER_DOWN_TRY_LATER =
+  'Can’t reach your Mealwright server. Try again when it’s back.';
+
+/** The device has no network: `offlineWords`, that screen's own sentence. The network is fine
+ *  but the server doesn't answer: the one sentence above. */
+export const needsServer = (device: boolean, offlineWords: string): string =>
+  device ? offlineWords : SERVER_DOWN_TRY_LATER;
+
 /** A change that couldn't be sent and was put back (a switch flips back). */
 export const nothingChanged = (device: boolean): string =>
   `${downTitle(device)} Nothing was changed.`;
