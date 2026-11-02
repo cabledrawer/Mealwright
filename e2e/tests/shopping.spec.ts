@@ -1204,7 +1204,7 @@ test("Add amount on a ticked row with no amount gives it a first amount, and Rec
   const row = page.getByRole("listitem").filter({ hasText: name });
   // F62: ticking a line with no amount asks "How much?" by itself.
   await expect(row.getByText("How much?")).toBeVisible();
-  await row.getByRole("radio", { name: "Other…" }).click();
+  await row.getByRole("radio", { name: "Type an amount" }).click();
   await row.getByRole("textbox", { name: "Size of one" }).fill("1");
   await row.getByRole("combobox", { name: "Unit" }).selectOption("kg");
   await row.getByRole("button", { name: "Done" }).click();

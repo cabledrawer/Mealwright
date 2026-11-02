@@ -621,8 +621,8 @@ describe('the Shopping page', () => {
     await render(1300);
     await page.getByRole('checkbox', { name: 'Tick Kitchen roll' }).click();
     await expect.element(page.getByText('How much?')).toBeVisible();
-    await expect.element(page.getByRole('radio', { name: '1 × 500 g' })).toBeVisible();
-    await page.getByRole('radio', { name: '1 × 500 g' }).click();
+    await expect.element(page.getByRole('radio', { name: '500 g', exact: true })).toBeVisible();
+    await page.getByRole('radio', { name: '500 g', exact: true }).click();
     await page.getByRole('button', { name: 'Done' }).click();
     await vi.waitFor(() =>
       expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 500 })
@@ -631,21 +631,80 @@ describe('the Shopping page', () => {
     expect(server.actions.map((a) => a.kind)).toEqual(['tick', 'different_pack']);
   });
 
-  it('How much? for a new ingredient offers ready-made sizes, and picking one sends it', async () => {
+  /** The words on the radio buttons, with no-break spaces as plain spaces. */
+  const radioNames = () =>
+    page
+      .getByRole('radio')
+      .elements()
+      .map((e) => e.textContent?.replace(/\u00a0/g, ' ').trim());
+
+  it('How much? for a new weight ingredient offers 100 g · 250 g · 500 g · 1 kg, then Type an amount', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
     await render(1300);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     await expect.element(page.getByText('How much?')).toBeVisible();
-    await expect.element(page.getByRole('radio', { name: '1 × 250 g' })).toBeVisible();
-    await expect.element(page.getByRole('radio', { name: '1 × 500 g' })).toBeVisible();
-    await expect.element(page.getByRole('radio', { name: '1 × 1 kg' })).toBeVisible();
-    await page.getByRole('radio', { name: '1 × 500 g' }).click();
+    const names = radioNames();
+    expect(names).toEqual(['100 g', '250 g', '500 g', '1 kg', 'Type an amount']);
+    await page.getByRole('radio', { name: '500 g', exact: true }).click();
     await expect.element(page.getByText('Pantry gets 1 pack · 500 g.')).toBeVisible();
     await page.getByRole('button', { name: 'Done' }).click();
     await vi.waitFor(() =>
       expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 500 })
     );
+  });
+
+  it('How much? for a new liquid ingredient offers 250 ml · 500 ml · 1 L, then Type an amount', async () => {
+    copy.foods.find((f) => f.id === 6)!.counted_as = 'volume';
+    copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 1' }).click();
+    await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
+    const names = radioNames();
+    expect(names).toEqual(['250 ml', '500 ml', '1 L', 'Type an amount']);
+    await page.getByRole('radio', { name: '1 L', exact: true }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 1000 })
+    );
+  });
+
+  it('How much? for a new counted ingredient offers 1 · 2 · 6 · 12, then Type an amount', async () => {
+    copy.foods.find((f) => f.id === 6)!.counted_as = 'count';
+    copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 1' }).click();
+    await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
+    const names = radioNames();
+    expect(names).toEqual(['1', '2', '6', '12', 'Type an amount']);
+    await page.getByRole('radio', { name: '6', exact: true }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() =>
+      expect(server.actions.at(-1)).toMatchObject({ kind: 'different_pack', count: 1, pack: 6 })
+    );
+  });
+
+  it('How much? offers the ingredient’s own sizes first, with no ready amounts beside them', async () => {
+    copy.foods.find((f) => f.id === 6)!.sizes = [
+      { id: 9, name: 'roll', plural: 'rolls', amount: 2, usual: true }
+    ];
+    copy.foods.find((f) => f.id === 6)!.counted_as = 'count';
+    copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 1' }).click();
+    await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
+    await expect.element(page.getByRole('radio', { name: '1 × 2' })).toBeVisible();
+    const names = radioNames();
+    expect(names).toEqual(['1 × 2', 'Type an amount']);
+  });
+
+  it('Different pack? keeps “Other…” (only How much? says Type an amount)', async () => {
+    await render(1300);
+    await page.getByRole('button', { name: 'In the trolley · 2' }).click();
+    await openChange('Paneer');
+    await page.getByRole('button', { name: 'Different pack?' }).click();
+    await expect.element(page.getByRole('radio', { name: 'Other…' })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Type an amount');
   });
 
   it('“Did you buy 2?” is a card with Yes, 2 and Just 1', async () => {

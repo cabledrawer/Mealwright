@@ -2,7 +2,8 @@
   import { untrack } from 'svelte';
   // "Different pack?" (mockup Shop): "What did you buy?" with the planned pack, one pack of
   // the planned amount, the ingredient's own sizes, and Other…; "Pantry gets 1 pack · 400 g."
-  // and Done. The same panel, titled "How much?", for an item with no amount (spec L303).
+  // and Done. The same panel, titled "How much?", for an item with no amount (spec L303): its
+  // own sizes first; with none, ready amounts by kind; then "Type an amount".
   import { baseFrom } from '#lib/shopping/amountBox.js';
   import { baseText, packText, pantryGets, unitsFor } from '#lib/shopping/format.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
@@ -27,8 +28,13 @@
     onclose: () => void;
   } = $props();
 
-  /** 250 g · 500 g · 1 kg, or 250 ml · 500 ml · 1 L (the base unit is g or ml). */
-  const READY_MADE = [250, 500, 1000];
+  /** For an ingredient with no sizes yet (spec, K5): 100 g · 250 g · 500 g · 1 kg, 250 ml ·
+   * 500 ml · 1 L, or 1 · 2 · 6 · 12 (the base unit is g, ml or items). */
+  const READY_MADE = {
+    weight: [100, 250, 500, 1000],
+    volume: [250, 500, 1000],
+    count: [1, 2, 6, 12]
+  };
 
   const uid = $props.id();
   let sizes = $state<FoodSize[]>([]);
@@ -37,6 +43,8 @@
     count: number;
     pack: number;
     sizeId: number | null;
+    /** A ready-made choice for a new ingredient: named by its amount alone ("500 g"). */
+    ready?: boolean;
   }
   let picked = $state<string | null>(null);
   let tickId = $state('');
@@ -72,11 +80,11 @@
   const choices = $derived.by(() => {
     const out: Choice[] = [];
     const seen: string[] = [];
-    const add = (count: number, pack: number, sizeId: number | null) => {
+    const add = (count: number, pack: number, sizeId: number | null, ready = false) => {
       const key = `${count}x${pack}`;
       if (seen.includes(key) || !(pack > 0)) return;
       seen.push(key);
-      out.push({ key, count, pack, sizeId });
+      out.push({ key, count, pack, sizeId, ready });
     };
     const planned = item.amount;
     const size = sizes.find((s) => s.id === item.size_id);
@@ -88,9 +96,9 @@
     }
     for (const s of sizes) add(1, s.amount, s.id);
     // A line with no amount and an ingredient that has no sizes yet (a new one): ready-made
-    // sizes to pick, so "How much?" isn't only a blank box. Whole things are counted in "Other…".
-    if (!planned && !sizes.length && food.counted_as !== 'count') {
-      for (const pack of READY_MADE) add(1, pack, null);
+    // amounts to pick by kind, so "How much?" isn't only a blank box; then "Type an amount".
+    if (!planned && !sizes.length) {
+      for (const pack of READY_MADE[food.counted_as]) add(1, pack, null, true);
     }
     return out;
   });
@@ -163,14 +171,16 @@
         role="radio"
         aria-checked={picked === choice.key}
         onclick={() => (picked = choice.key)}
-        >{packText(choice.count, choice.pack, food.counted_as)}</button
+        >{choice.ready
+          ? baseText(choice.pack, food.counted_as)
+          : packText(choice.count, choice.pack, food.counted_as)}</button
       >
     {/each}
     <button
       type="button"
       role="radio"
       aria-checked={picked === 'other'}
-      onclick={() => (picked = 'other')}>Other…</button
+      onclick={() => (picked = 'other')}>{item.amount ? 'Other…' : 'Type an amount'}</button
     >
   </div>
   {#if picked === 'other'}
