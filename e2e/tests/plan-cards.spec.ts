@@ -34,7 +34,7 @@ async function call(
 }
 
 // Weeks 80 to 83 ahead, no other plan test's (past weeks cannot hold a batch: its tubs would be in the
-// past). Test k (0 to 10) takes week 80 + k % 4, and in it a day and the day after: the Saturday, the
+// past). Test k (0 to 11) takes week 80 + k % 4, and in it a day and the day after: the Saturday, the
 // Thursday or the Monday (k / 4 picks), so no two tests share a day.
 const far = (today: string, k: number) =>
   addDays(today, 7 * (80 + (k % 4)) - [0, 2, 5][Math.floor(k / 4)]!);
@@ -765,7 +765,7 @@ test("a second copy of the cooked recipe in the cook meal is not a COOK card, an
 }) => {
   const { today, slot } = await setup(page);
   const name = `${stamp()} Dal`;
-  const day = far(today, 12);
+  const day = far(today, 11);
   const sun = addDays(day, 1);
   const recipe = await makeRecipe(page, name);
   const cook = await planned(page, recipe, day, slot.Dinner);
@@ -776,10 +776,12 @@ test("a second copy of the cooked recipe in the cook meal is not a COOK card, an
   });
   await openWeekOf(page, today, day);
   const dinner = cell(page, day, slot.Dinner);
-  await expect(cookCard(dinner)).toHaveCount(1); // one cooking, not one for each copy
-  const others = dinner.getByRole("button", { name: /\(eating\)/ });
-  await expect(others).toHaveCount(2); // the cooking's EAT card and the copy
-  await mouseDrag(page, others.last(), cell(page, sun, slot.Snack));
+  await expect(cookCard(dinner).filter({ hasText: name })).toHaveCount(1); // one cooking, not one for each copy
+  const others = dinner.getByRole("button", {
+    name: new RegExp(`^${name}, Dinner`),
+  });
+  await expect(others).toHaveCount(1); // the copy is an ordinary card
+  await mouseDrag(page, others, cell(page, sun, slot.Snack));
   await expect
     .poll(async () => {
       const meals = (await planRange(page, day, sun)).meals as {
