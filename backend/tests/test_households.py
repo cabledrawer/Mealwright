@@ -214,6 +214,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/{recipe_id}"): None,
     ("PUT", "/api/v1/recipes/{recipe_id}"): {"name": "Mine now", "version": 1},
     ("DELETE", "/api/v1/recipes/{recipe_id}"): None,
+    ("POST", "/api/v1/recipes/{recipe_id}/duplicate"): None,
     ("GET", "/api/v1/recipes/{recipe_id}/cannot-use"): None,
     ("GET", "/api/v1/recipes/{recipe_id}/stock"): None,
     ("GET", "/api/v1/recipes/photos/{photo_id}/{copy}"): None,
