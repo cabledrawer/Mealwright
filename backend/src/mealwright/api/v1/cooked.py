@@ -2,6 +2,7 @@
 (K2): the proposal of what it would take from the pantry, and the confirm that takes it, each for a
 meal item and for a batch cook. The review screen that uses them is K3."""
 
+import re
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
@@ -169,7 +170,7 @@ def _choices(
         for name, typed in (("used_milli", one.used), ("left_milli", one.left)):
             if typed is None:
                 continue
-            if not (one.key.startswith("food:") and one.key[5:].isdigit()):
+            if not re.fullmatch(r"food:[0-9]{1,18}", one.key):
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "no_ingredient",

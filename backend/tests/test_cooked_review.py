@@ -321,3 +321,32 @@ def test_an_older_cooks_undo_leaves_a_size_a_later_cook_changed_and_says_partly(
     assert _sizes(kitchen, garlic["id"]) == {"clove": 6000}  # the later cook's size stays
     assert ok(kitchen.post(f"{API}/changes/{second['change']['id']}/undo"))["result"] == "done"
     assert _sizes(kitchen, garlic["id"]) == {"clove": 5000}
+
+
+def test_a_note_count_that_is_too_long_or_not_plain_digits_is_not_a_count(
+    kitchen: TestClient,
+) -> None:
+    garlic = food(kitchen, "Zorba garlic")
+    stock(kitchen, garlic["id"], 100, "g")
+    for note in (f"{'9' * 29} cloves", "٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣٣ cloves", "12345 cloves"):
+        recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"], "note": note}])
+        item = plan_item(kitchen, recipe, servings=4, day=FAR)
+        row = row_of(propose(kitchen, item), "Zorba garlic")
+        assert row["count_note"] is None, note
+        assert cook(kitchen, item, []).status_code == 201, note
+    recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"], "note": "3 cloves"}])
+    item = plan_item(kitchen, recipe, servings=4, day=FAR)
+    assert row_of(propose(kitchen, item), "Zorba garlic")["count_note"] == {
+        "count": 3,
+        "word": "clove",
+    }
+
+
+def test_a_choice_key_that_is_not_plain_digits_is_refused_cleanly(kitchen: TestClient) -> None:
+    garlic = food(kitchen, "Zorba garlic")
+    recipe = recipe_of(kitchen, [{"words": "garlic", "food_id": garlic["id"]}])
+    item = plan_item(kitchen, recipe, servings=4, day=FAR)
+    for key in ("food:²", "food:" + "9" * 30, "food:٣", "food:-1", "food:"):
+        reply = cook(kitchen, item, [{"key": key, "used": {"amount": 1, "unit": "g"}}])
+        assert reply.status_code == 422, key
+        assert reply.json()["code"] == "no_ingredient", key

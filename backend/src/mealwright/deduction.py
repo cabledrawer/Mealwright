@@ -190,7 +190,8 @@ def _note_asked(row: Row, line: RecipeLine, kitchen: Kitchen) -> None:
 
 
 COUNT_WORDS = re.compile(
-    r"^\s*(?P<n>\d+(?:\.\d+)?)?\s*(?P<frac>[½¼¾])?\s+(?P<word>cloves?|sprigs?)\b", re.IGNORECASE
+    r"^\s*(?P<n>[0-9]{1,4}(?:\.[0-9]{1,3})?)?\s*(?P<frac>[½¼¾])?\s+(?P<word>cloves?|sprigs?)\b",
+    re.IGNORECASE,
 )
 FRACTIONS = {"½": 500, "¼": 250, "¾": 750}
 
