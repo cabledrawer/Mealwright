@@ -1,6 +1,7 @@
 """Duplicate a recipe (0.7 paper cuts; spec, "Paper cuts"): "Sambar (copy)" with everything in
 the recipe, none of its cooked history or plan, and a photo file of its own."""
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +136,29 @@ def test_the_photo_is_a_file_of_the_copys_own(kitchen: TestClient) -> None:
     assert len(list(folder.iterdir())) == 2
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalar(select(func.count()).select_from(RecipePhoto)) == 1
+
+
+def test_a_photo_copy_that_fails_halfway_leaves_no_file_and_a_whole_recipe(
+    kitchen: TestClient, monkeypatch: Any
+) -> None:
+    mine = make(kitchen)
+    photo = kit.uploaded(kitchen)
+    mine = ok(save(kitchen, mine, photo_id=photo["id"]))
+    real = shutil.copyfile
+    calls = []
+
+    def half(before: Path, after: Path) -> None:
+        calls.append(after)
+        if len(calls) == 2:  # the small file: a few bytes written, then the disk fails
+            Path(after).write_bytes(b"part")
+            raise OSError("disk full")
+        real(before, after)
+
+    monkeypatch.setattr(shutil, "copyfile", half)
+    copy = ok(duplicate(kitchen, mine["id"]), 201)
+    assert copy["photo"] is None and copy["name"] == mine["name"] + " (copy)"
+    folder = Path(kitchen.app.state.settings.data_dir) / "photos" / "1"  # type: ignore[attr-defined]
+    assert len(list(folder.iterdir())) == 2  # only the original's two files
 
 
 def test_no_photo_means_none_on_the_copy(kitchen: TestClient) -> None:

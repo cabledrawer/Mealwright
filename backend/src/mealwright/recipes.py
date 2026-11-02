@@ -457,8 +457,9 @@ def _copy_photo(kitchen: Kitchen, source: Recipe, copy: Recipe) -> None:
     copied: list[Path] = []
     try:
         for before, after in ((from_large, to_large), (from_small, to_small)):
-            shutil.copyfile(before, after)
+            # Listed before copying, so a copy that fails halfway leaves no part-written file.
             copied.append(after)
+            shutil.copyfile(before, after)
     except OSError as e:
         for path in copied:
             delete_quietly(path)
