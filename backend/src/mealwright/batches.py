@@ -686,7 +686,8 @@ def move_cook_day(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
-                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                    # cabledrawer 2 Nov
+                    "Can’t move it earlier: a tub planned later would be past its use-by.",
                 )
     for batch in batches:
         tubs = list(

@@ -1406,6 +1406,9 @@ def test_moving_the_cook_meal_earlier_is_refused_when_a_placed_tub_would_be_past
     before = _batch_row(kitchen, made["batch_id"])
     r = _move_meal(kitchen, cook["meal_id"], day(-1), slots["Dinner"])
     assert r.status_code == 422 and r.json()["code"] == "after_use_by"
+    assert r.json()["detail"] == (
+        "Can’t move it earlier: a tub planned later would be past its use-by."
+    )
     assert _batch_row(kitchen, made["batch_id"]) == before
     with db_of(kitchen) as db:
         meal = db.get(Meal, cook["meal_id"])
