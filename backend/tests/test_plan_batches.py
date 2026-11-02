@@ -727,7 +727,8 @@ def test_fill_from_freezer_says_which_meals_it_filled_and_why(
     before = shape(kitchen)
     filled = kitchen.post(f"{API}/plan/fill-from-freezer", json={"from": day(0), "to": day(3)})
     weekdays = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-    names = [f"{weekdays[(D1 + timedelta(days=i)).weekday()]} dinner" for i in (1, 2, 3)]
+    dates = [D1 + timedelta(days=i) for i in (1, 2, 3)]
+    names = [f"{weekdays[d.weekday()]} {d.day} dinner" for d in dates]
     expected = f"Filled {', '.join(names)} from freezer tubs (they run out soonest)"
     assert filled.json()["change"]["summary"] == expected
     assert undo(kitchen, filled.json())["result"] == "done"

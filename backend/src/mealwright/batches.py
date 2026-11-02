@@ -1136,7 +1136,7 @@ def fill_from_freezer(kitchen: Kitchen, first: date, last: date) -> Change | Non
         return None
     # Which meals, and why (cabledrawer 28 Oct): the soonest use-by goes first, so the tubs that run
     # out soonest are eaten first.
-    named = [f"{_WEEKDAYS[d.weekday()]} {slot.name.lower()}" for d in filled]
+    named = [f"{_WEEKDAYS[d.weekday()]} {d.day} {slot.name.lower()}" for d in filled]
     if len(named) > _MOST_NAMED:  # the summary is at most 300 characters
         named = [*named[:_MOST_NAMED], f"{len(named) - _MOST_NAMED} more"]
     meals = ", ".join(named)

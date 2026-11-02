@@ -60,6 +60,8 @@ export interface Change<T> {
     label: string;
     /** The server's own words once it answers ("Changed weight of 1 cup to 200 g"). */
     labelFrom?: (saved: T) => string | undefined;
+    /** The toast button's words, when not "Undo". */
+    buttonLabel?: string;
     run: (saved: T) => Promise<string | void | false> | string | void | false;
     /** True when the server says nothing actually changed: then there's nothing to undo. */
     skip?: (saved: T) => boolean;
@@ -104,9 +106,10 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
   let outcome: Promise<Outcome<T>>;
   let entry: UndoEntry | undefined;
   if (change.undo) {
-    const { label, run } = change.undo;
+    const { label, run, buttonLabel } = change.undo;
     entry = {
       label,
+      undoLabel: buttonLabel,
       needsServer: true,
       undo: async () => {
         const result = await outcome;
@@ -139,7 +142,7 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
         if (entry && toastHidden) {
           const shown = entry;
           toastId = toasts.show(shown.label, {
-            action: { label: 'Undo', run: () => void undoHistory.undo(shown) }
+            action: { label: shown.undoLabel ?? 'Undo', run: () => void undoHistory.undo(shown) }
           });
         } else if (entry && label && toastId !== undefined) {
           toasts.update(toastId, label);

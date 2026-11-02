@@ -1,9 +1,8 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { inTheme, setAccountTheme } from './a11y.ts';
-import { chipsThatFit } from '../../frontend/src/lib/planMonthFit.ts';
 
 // The Plan's Month and day (0.7, P4): the COOK and Today tags stay inside their day (F84), the
-// month fits one screen and a full day shows 3 items then "+N more" (F47), a click anywhere in a
+// month scrolls rather than squeeze a day, which shows 3 items then "+N more" (F47), a click anywhere in a
 // day opens it (F53) and offers the meal, a recipe, a freezer tub and Cook once here (F52), and
 // "Fill from freezer first" says which meals it filled and why, with one Undo.
 //
@@ -422,79 +421,69 @@ test.describe('on a computer', () => {
     });
   }
 
-  test('F47: the month fits one screen at 1280×800 with six weeks, and a short day never spills', async ({
-    page
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    const { today } = await setup(page);
-    const first = sixWeekMonth(today);
-    await openMonthOf(page, today, first);
-    await expect(page.getByTestId(`day-${first}`)).toBeVisible();
-    expect(await page.getByTestId(/^day-/).count()).toBe(42);
-    // The days are measured once the page has laid them out, so a day with more than fits takes a
-    // moment to show fewer: wait for that, then look.
-    const measure = () =>
-      page.evaluate(() => {
-        const cells = [...document.querySelectorAll<HTMLElement>('[data-testid^="day-"]')];
-        return {
-          pageScroll: document.documentElement.scrollHeight - innerHeight,
-          lastBottom: cells.at(-1)!.getBoundingClientRect().bottom - innerHeight,
-          clipped: cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length
-        };
-      });
-    await expect.poll(async () => (await measure()).clipped).toBe(0);
-    const room = await measure();
-    expect(room.pageScroll).toBeLessThanOrEqual(0);
-    expect(room.lastBottom).toBeLessThanOrEqual(0);
-  });
+  for (const [width, height] of [
+    [1280, 800],
+    [1366, 768]
+  ] as const) {
+    test(`F47: a six-week month at ${width}×${height} scrolls, and no day clips what is in it`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height });
+      const { today } = await setup(page);
+      const first = sixWeekMonth(today);
+      await openMonthOf(page, today, first);
+      await expect(page.getByTestId(`day-${first}`)).toBeVisible();
+      expect(await page.getByTestId(/^day-/).count()).toBe(42);
+      // cabledrawer 2 Nov: three things a day matter more than one screen, so the page scrolls.
+      const clipped = () =>
+        page.evaluate(
+          () =>
+            [...document.querySelectorAll<HTMLElement>('[data-testid^="day-"]')].filter(
+              (c) => c.scrollHeight > c.clientHeight + 1
+            ).length
+        );
+      expect(await clipped()).toBe(0);
+      expect(await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)).toBe(
+        true
+      );
+      await page.getByTestId(`day-${addDays(first, 35)}`).scrollIntoViewIfNeeded();
+      await expect(page.getByTestId(`day-${addDays(first, 35)}`)).toBeInViewport();
+    });
+  }
 
-  test('F47: a day of six things shows three and "+3 more" when it is tall, and as many as fit at 1280×900', async ({
-    page
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 1200 });
-    const { today, slot } = await setup(page);
-    const day = dayFor(today, 'B');
-    await clearDay(page, day);
-    const word = stamp();
-    await cookedOnce(page, `${word} Curry`, day, slot);
-    await planned(page, await makeRecipe(page, `${word} Porridge`), day, slot.Breakfast);
-    await planned(page, await makeRecipe(page, `${word} Salad`), day, slot.Lunch);
-    await planned(page, await makeRecipe(page, `${word} Soup`), day, slot.Lunch);
-    await planned(page, await makeRecipe(page, `${word} Fruit`), day, slot.Snack);
-    await planned(page, await makeRecipe(page, `${word} Rice`), day, slot.Snack);
+  for (const [width, height] of [
+    [1280, 800],
+    [1366, 768]
+  ] as const) {
+    test(`F47: a day of five things shows three and "+2 more" at ${width}×${height}, the cooking first`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height });
+      const { today, slot } = await setup(page);
+      const day = dayFor(today, 'B');
+      await clearDay(page, day);
+      const word = stamp();
+      await cookedOnce(page, `${word} Curry`, day, slot);
+      await planned(page, await makeRecipe(page, `${word} Porridge`), day, slot.Breakfast);
+      await planned(page, await makeRecipe(page, `${word} Salad`), day, slot.Lunch);
+      await planned(page, await makeRecipe(page, `${word} Soup`), day, slot.Lunch);
+      await planned(page, await makeRecipe(page, `${word} Fruit`), day, slot.Snack);
 
-    await openMonthOf(page, today, day);
-    const where = page.getByTestId(`day-${day}`);
-    const chips = where.getByRole('button', { name: /Open menu$/ });
-    await expect(chips).toHaveCount(3);
-    // The cooking is first although dinner comes after breakfast and lunch.
-    await expect(chips.nth(0)).toContainText(`${word} Curry`);
-    await expect(chips.nth(1)).toContainText(`${word} Porridge`);
-    await expect(chips.nth(2)).toContainText(`${word} Salad`);
-    await where.getByRole('button', { name: '+3 more' }).click();
-    const sheet = page.getByRole('dialog', { name: /^(Wednesday|Monday|Tuesday)/ });
-    await expect(sheet).toContainText(`${word} Fruit`);
-    await expect(sheet).toContainText(`${word} Rice`);
-    await page.keyboard.press('Escape');
-    expect(await inside(where.getByRole('button', { name: '+3 more' }), where)).toBe(true);
-
-    // The projects' own size, 1280×900: the day shows what planMonthFit says fits (the cooking
-    // first), and "+N more" says how many are left and opens the day.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await expect
-      .poll(async () => {
-        const box = (await where.boundingBox())!;
-        return (await chips.count()) === chipsThatFit(box.height, 6);
-      })
-      .toBe(true);
-    const shown = await chips.count();
-    expect(shown).toBeGreaterThanOrEqual(1);
-    await expect(chips.first()).toContainText(`${word} Curry`);
-    await where.getByRole('button', { name: `+${6 - shown} more` }).click();
-    await expect(page.getByRole('dialog', { name: /^(Wednesday|Monday|Tuesday)/ })).toContainText(
-      `${word} Rice`
-    );
-  });
+      await openMonthOf(page, today, day);
+      const where = page.getByTestId(`day-${day}`);
+      const chips = where.getByRole('button', { name: /Open menu$/ });
+      await expect(chips).toHaveCount(3);
+      // The cooking is first although dinner comes after breakfast and lunch.
+      await expect(chips.nth(0)).toContainText(`${word} Curry`);
+      await expect(chips.nth(1)).toContainText(`${word} Porridge`);
+      await expect(chips.nth(2)).toContainText(`${word} Salad`);
+      expect(await inside(where.getByRole('button', { name: '+2 more' }), where)).toBe(true);
+      await where.getByRole('button', { name: '+2 more' }).click();
+      const sheet = page.getByRole('dialog', { name: /^(Wednesday|Monday|Tuesday)/ });
+      await expect(sheet).toContainText(`${word} Soup`);
+      await expect(sheet).toContainText(`${word} Fruit`);
+    });
+  }
 
   test('F47: at 200% text a busy day still shows "+N more" inside its day, and the side panel scrolls', async ({
     page
@@ -606,7 +595,7 @@ test.describe('on a computer', () => {
     // A tub in the freezer, so the button is on (the fill itself is answered by the test, below:
     // the real one would put tubs on other tests' empty days).
     await pastBatch(page, `${stamp()} Freezer`, addDays(dayFor(today, 'T'), -28), slot, 'freezer');
-    const summary = 'Filled Tue dinner, Thu lunch from freezer tubs (they run out soonest)';
+    const summary = 'Filled Tue 3 dinner, Thu 5 lunch from freezer tubs (they run out soonest)';
     const change = {
       id: 999_999,
       kind: 'plan_tub',
@@ -631,8 +620,9 @@ test.describe('on a computer', () => {
     await page.getByRole('button', { name: 'Fill from freezer first' }).click();
     const toast = page.getByRole('status').filter({ hasText: summary });
     await expect(toast).toBeVisible();
-    await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(1);
-    await toast.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(toast.getByRole('button', { name: 'Undo all', exact: true })).toHaveCount(1);
+    await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+    await toast.getByRole('button', { name: 'Undo all', exact: true }).click();
     await expect.poll(() => undone).toBe(1);
   });
 });

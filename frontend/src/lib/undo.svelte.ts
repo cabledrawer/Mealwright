@@ -18,6 +18,8 @@ export interface UndoEntry {
   /** Taking it back is a call to the server that isn't queued. While the server can't be
    *  reached it isn't tried: the usual words, and the change stays on the list. */
   needsServer?: boolean;
+  /** The toast button's words when they are not "Undo" ("Undo all" for a change of many meals). */
+  undoLabel?: string;
 }
 
 /** How many of your own changes Ctrl+Z can walk back through. */
@@ -54,7 +56,7 @@ class UndoHistory {
     this.size = this.#entries.length;
     if (options.toast === false) return undefined;
     return toasts.show(entry.label, {
-      action: { label: 'Undo', run: () => void this.undo(entry) }
+      action: { label: entry.undoLabel ?? 'Undo', run: () => void this.undo(entry) }
     });
   }
 

@@ -219,6 +219,8 @@ export class PlanModel {
     /** Sent again with the same ID, and no toast of its own: the caller says it once. */
     changeId?: string;
     quiet?: boolean;
+    /** The toast button's words when they are not "Undo". */
+    undoButton?: string;
     /** Deal with a refusal yourself (return true): no problem toast is shown. */
     refused?: (error: ApiError) => boolean;
   }) {
@@ -240,6 +242,7 @@ export class PlanModel {
         quiet: options.quiet,
         undo: {
           label: options.label,
+          buttonLabel: options.undoButton,
           labelFrom: (value) => value.change?.summary,
           skip: (value) => value.change === null,
           run: (value) => {
@@ -457,6 +460,7 @@ export class PlanModel {
   fillFromFreezer(from: string, to: string) {
     return this.#send({
       label: 'Filled empty days from the freezer',
+      undoButton: 'Undo all', // one Undo takes back every meal it filled
       send: (key) => fillFromFreezer(from, to, key)
     });
   }

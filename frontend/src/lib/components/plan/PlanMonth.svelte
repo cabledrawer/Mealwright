@@ -1,7 +1,6 @@
 <script lang="ts">
-  // The month on a computer or iPad (mockup Month07-Desktop): whole weeks of day cells that share
-  // the height, so the month fits one screen (F47), each with up to three chips (the cooking
-  // first, then "+N more"), a COOK tag on cook days, one colour per batch, and a side panel with
+  // The month on a computer or iPad (mockup Month07-Desktop): whole weeks of day cells, each with up
+  // to three chips (the cooking first, then "+N more"), a COOK tag on cook days, one colour per batch, and a side panel with
   // "Batches this month" and "Empty days ahead". A click anywhere in a day opens it (F53). A chip
   // drags to another day (it keeps its meal, so a dinner stays a dinner); Alt copies; the
   // Leftovers zone plans leftovers. There is no recipe tray here: the day's own sheet offers the
@@ -10,25 +9,14 @@
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
   import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf } from '#lib/planMeals.js';
-  import { chipsThatFit } from '#lib/planMonthFit.js';
   import type { PlanBatch, PlanItem, PlanMeal } from '#lib/client/plan.js';
 
   let { actions }: { actions: PlanActions } = $props();
   const model = $derived(actions.model);
   const can = $derived(actions.desktop && !actions.readonly);
 
-  // The month fits one screen (F47): the days share the height, and a short day shows fewer than
-  // three things (the rest are "+N more"), so nothing is cut off.
-  let cellsHeight = $state(0);
-  let scale = $state(1);
-  $effect(() => {
-    void cellsHeight; // measured again whenever the text size or the window changes
-    scale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16 || 1;
-  });
-  const dayHeight = $derived.by(() => {
-    const rows = model.days.length / 7;
-    return rows > 0 && cellsHeight > 0 ? (cellsHeight - (rows - 1) * 3 * scale) / rows : 0;
-  });
+  /** A day shows up to three things, the cooking first, then "+N more" (cabledrawer 28 Oct, 2 Nov). */
+  const SHOWN = 3;
 
   const inMonth = (day: string) => day.slice(0, 7) === model.anchor.slice(0, 7);
   const mealsOn = (day: string): PlanMeal[] =>
@@ -95,10 +83,10 @@
     <div class="head" aria-hidden="true">
       {#each model.days.slice(0, 7) as day (day)}<span>{dayShort(day).toUpperCase()}</span>{/each}
     </div>
-    <div class="cells" style:--rows={model.days.length / 7} bind:clientHeight={cellsHeight}>
+    <div class="cells">
       {#each model.days as day (day)}
         {@const chips = chipsOn(day)}
-        {@const shown = chipsThatFit(dayHeight, chips.length, scale)}
+        {@const shown = Math.min(SHOWN, chips.length)}
         {@const over = drag.isOver(day, null)}
         <div
           class="day"
@@ -256,11 +244,12 @@
     letter-spacing: var(--tracking-overline);
   }
 
-  /* The weeks share the height (F47): the month fits one screen, whether it has five weeks or six. */
+  /* A day is tall enough for three things and "+N more" (8.5 rem, which grows with the text size),
+     and the weeks share any height left over. On a short screen the page scrolls (cabledrawer 2 Nov:
+     three things matter more than one screen). */
   .cells {
     flex: 1;
-    min-height: 0;
-    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+    grid-auto-rows: minmax(8.5rem, 1fr);
   }
 
   .day {
