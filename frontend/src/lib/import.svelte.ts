@@ -22,6 +22,7 @@ import {
 } from './client/imports';
 import type { CountedAs, FoodRow, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
+import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
@@ -185,6 +186,7 @@ export class ImportFlow {
     this.walk = null;
     this.previewStep = null;
     this.stepsBefore = null;
+    this.#stepUndos = [];
     this.pints = review.pints?.reading ?? 'uk';
     this.name = review.name;
     this.serves = review.serves === null ? '' : String(review.serves);
@@ -583,9 +585,14 @@ export class ImportFlow {
   }
 
   /** An Undo for a step taken out (F111) joins the lines', so leaving the screen forgets it too. */
-  keepUndo(entry: UndoEntry): void {
+  keepStepUndo(entry: UndoEntry): void {
     this.#takenOut.push(entry);
+    this.#stepUndos.push(entry);
   }
+
+  /** The Undo entries for steps taken out since the review was read; Put the steps back as they
+   *  were makes them stale, so it forgets them. */
+  #stepUndos: UndoEntry[] = [];
 
   /** Forget the Undo for lines taken out: the screen is going, and they would have nowhere to
    *  go back to. */
@@ -763,6 +770,12 @@ export class ImportFlow {
     this.review.steps = this.stepsBefore;
     this.stepsBefore = null;
     this.previewStep = null;
+    // A reset: the steps taken out since can't be put back into steps that are not those any more.
+    for (const entry of this.#stepUndos) {
+      undoHistory.forget(entry);
+      if (toasts.current?.message === entry.label) toasts.dismiss();
+    }
+    this.#stepUndos = [];
   }
 
   async save(): Promise<Saved | null> {

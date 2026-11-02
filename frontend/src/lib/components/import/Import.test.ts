@@ -768,6 +768,128 @@ describe('Import a recipe', () => {
       expect(flow.review!.steps.map((s) => s.text)).toEqual(['One.', ...parts]);
     });
 
+    const ABC = (): ImportReview['steps'] => [
+      { kind: 'step', text: 'A.' },
+      { kind: 'step', text: 'B.' },
+      { kind: 'step', text: 'C.' }
+    ];
+
+    it('an open box stays on its own step when Undo moves the list (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = ABC();
+      flushSync();
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      await page.getByRole('button', { name: /^Change step 2: C\./ }).click(); // C
+      expect(await undoHistory.undoLast()).toBe(true); // A comes back before B: C is step 3 now
+      flushSync();
+      await page.getByRole('textbox', { name: /^Words of/ }).fill('C changed.');
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['A.', 'B.', 'C changed.']);
+    });
+
+    it('Put the steps back closes a box open on a split piece; Done changes nothing (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      const long =
+        'Beat the butter. Add the eggs. Fold in the flour. Divide between the tins. Level the tops.';
+      flow.review!.steps = [
+        { kind: 'step', text: long },
+        { kind: 'step', text: 'C.' }
+      ];
+      flushSync();
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await page.getByRole('button', { name: 'Keep the split' }).click();
+      await page.getByRole('button', { name: /^Change step 2/ }).click();
+      await expect.element(page.getByRole('textbox', { name: /^Words of/ })).toBeVisible();
+      await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
+      await expect
+        .element(page.getByRole('textbox', { name: /^Words of/ }))
+        .not.toBeInTheDocument();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual([long, 'C.']);
+    });
+
+    it('Ctrl+Z with the cursor on Done does not put the words on another step (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = ABC();
+      flushSync();
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      await page.getByRole('button', { name: /^Change step 2: C\./ }).click();
+      await page.getByRole('textbox', { name: /^Words of/ }).fill('C changed.');
+      const done = page.getByRole('button', { name: 'Done' }).element() as HTMLElement;
+      done.focus();
+      const key = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true });
+      done.dispatchEvent(key);
+      handleUndoKey(key); // its target is the Done button, not a text box
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(3));
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['A.', 'B.', 'C changed.']);
+    });
+
+    it('Undo after Put the steps back puts nothing back twice (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      const long =
+        'Beat the butter. Add the eggs. Fold in the flour. Divide between the tins. Level the tops.';
+      flow.review!.steps = [
+        { kind: 'step', text: 'A.' },
+        { kind: 'step', text: long },
+        { kind: 'step', text: 'C.' }
+      ];
+      flushSync();
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await page.getByRole('button', { name: 'Keep the split' }).click();
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(4));
+      await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['A.', long, 'C.']);
+      expect(undoHistory.size).toBe(0);
+      expect(toasts.current?.message).not.toBe('Removed step 1');
+      expect(await undoHistory.undoLast()).toBe(false);
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['A.', long, 'C.']);
+    });
+
+    it('an Undo that finds neither neighbour says so and puts nothing back (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = ABC();
+      flushSync();
+      await page.getByRole('button', { name: 'Remove step 2' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      flow.review!.steps = [
+        { kind: 'step', text: 'X.' },
+        { kind: 'step', text: 'Y.' }
+      ];
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(toasts.current?.message).toBe('Couldn’t put it back: the steps have changed.');
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['X.', 'Y.']);
+    });
+
+    it('Remove on another step keeps the box open with what was typed (F111)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      flow.review!.steps = ABC();
+      flushSync();
+      await page.getByRole('button', { name: /^Change step 3/ }).click();
+      await page.getByRole('textbox', { name: /^Words of/ }).fill('C half typed');
+      await page.getByRole('button', { name: 'Remove step 1' }).click();
+      await vi.waitFor(() => expect(flow.review!.steps).toHaveLength(2));
+      await expect
+        .element(page.getByRole('textbox', { name: /^Words of/ }))
+        .toHaveValue('C half typed');
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['B.', 'C half typed']);
+    });
+
     it('Undo for a removed step is forgotten when the screen goes (F111)', async () => {
       undoHistory.clear();
       toasts.dismiss();

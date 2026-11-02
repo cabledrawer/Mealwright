@@ -419,6 +419,33 @@ describe('the import flow', () => {
       ).toHaveLength(1);
     });
 
+    it('a draft keeps an edited and a removed step, and opens with them (F111)', async () => {
+      const flow = await reviewing();
+      flow.review!.steps = [
+        { kind: 'step', text: 'Soak.' },
+        { kind: 'heading', text: 'For the filling' },
+        { kind: 'step', text: 'Fry.' }
+      ];
+      flow.review!.steps[2]!.text = 'Fry until golden.'; // as the step box does
+      flow.review!.steps.splice(0, 1); // as Remove does
+      const requests = fakeApi({
+        'POST /recipes/drafts': [201, DRAFT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      expect(await flow.keepAsDraft()).toBe(true);
+      const sent = requests[0]!.body as {
+        review: DraftOut['review'];
+        choices: DraftOut['choices'];
+      };
+      const again = new ImportFlow();
+      again.load({ ...DRAFT, review: sent.review, choices: sent.choices });
+      expect(again.review!.steps).toEqual([
+        { kind: 'heading', text: 'For the filling' },
+        { kind: 'step', text: 'Fry until golden.' }
+      ]);
+      expect(again.unkept).toBe(false);
+    });
+
     it('opens a draft with every choice made so far, and nothing changed', () => {
       const flow = new ImportFlow();
       flow.load(DRAFT);

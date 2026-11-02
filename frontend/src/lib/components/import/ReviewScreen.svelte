@@ -97,28 +97,36 @@
   }
 
   // --- Changing or removing a step or heading (F111) ------------------------------------------
-  // The place (in the full list of steps) of the one being changed. The box and the code that
-  // changes the steps load the first time one is asked for, so the page stays as small as before.
-  let editing = $state<number | null>(null);
+  // The step being changed, held as the step itself and not its place: the list can move under an
+  // open box (Undo, Put the steps back), and the words must land on the step the box was opened
+  // for. The box and the code that changes the steps load the first time one is asked for, so the
+  // page stays as small as before.
+  type Step = (typeof review.steps)[number];
+  let editing = $state<Step | null>(null);
 
-  function startEdit(at: number) {
+  // The step went from the list (taken out, split, or put back as it was): the box goes with it.
+  $effect(() => {
+    if (editing && !review.steps.includes(editing)) editing = null;
+  });
+
+  function startEdit(step: Step) {
     flow.previewStep = null;
-    editing = at;
+    editing = step;
   }
 
   /** Close the box; the cursor goes back to the step it was opened from. */
   async function closeEdit() {
-    const at = editing;
+    const step = editing;
     editing = null;
     await tick();
+    const at = step ? review.steps.indexOf(step) : -1;
     document.querySelector<HTMLElement>(`[data-step-at="${at}"]`)?.focus();
   }
 
   /** Take a step or heading out, with Undo. The cursor stays in the method, on the step that took
-   *  its place. */
+   *  its place. A box open for another step stays open with what was typed. */
   async function removeStep(at: number) {
     const { removeStep: remove } = await import('#lib/importStepEdits.js');
-    editing = null;
     remove(flow, at);
     await tick();
     const buttons = Array.from(document.querySelectorAll<HTMLElement>('[data-step-remove]'));
@@ -295,14 +303,15 @@
             {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
           >
         </h2>
-        {#each stepRuns(review.steps) as run, r (r)}
+        <!-- Keyed by the step itself, so a box open on one stays (with what was typed) when others move. -->
+        {#each stepRuns(review.steps) as run (run.heading ? review.steps[run.heading.at] : 'start')}
           {#if run.heading}
             {@const at = run.heading.at}
-            {#if editing === at}
+            {#if editing === review.steps[at]}
               {#await import('./StepEdit.svelte') then { default: StepEdit }}
                 <StepEdit
                   {flow}
-                  {at}
+                  step={review.steps[at]!}
                   name="heading"
                   onclose={() => void closeEdit()}
                   onremove={() => void removeStep(at)}
@@ -316,7 +325,7 @@
                     class="step-text"
                     data-step-at={at}
                     title="Change heading"
-                    onclick={() => startEdit(at)}>{run.heading.text}</button
+                    onclick={() => startEdit(review.steps[at]!)}>{run.heading.text}</button
                   >
                 </h3>
                 <button
@@ -332,15 +341,15 @@
           {#if run.steps.length}
             <!-- A heading is not in the numbered list, so it takes no number (F112). -->
             <ol start={run.start}>
-              {#each run.steps as step, n (step.at)}
+              {#each run.steps as step, n (review.steps[step.at])}
                 {@const pieces = flow.splitOf(step.at)}
                 {@const number = run.start + n}
                 <li>
-                  {#if editing === step.at}
+                  {#if editing === review.steps[step.at]}
                     {#await import('./StepEdit.svelte') then { default: StepEdit }}
                       <StepEdit
                         {flow}
-                        at={step.at}
+                        step={review.steps[step.at]!}
                         name="step {number}"
                         onclose={() => void closeEdit()}
                         onremove={() => void removeStep(step.at)}
@@ -353,7 +362,7 @@
                         class="step-text"
                         data-step-at={step.at}
                         aria-label="Change step {number}: {step.text}"
-                        onclick={() => startEdit(step.at)}>{step.text}</button
+                        onclick={() => startEdit(review.steps[step.at]!)}>{step.text}</button
                       >
                       <button
                         type="button"
@@ -373,7 +382,6 @@
                         type="button"
                         class="chip"
                         onclick={() => {
-                          editing = null;
                           flow.previewStep = step.at;
                         }}>Split into shorter steps</button
                       >
@@ -390,7 +398,6 @@
                           type="button"
                           class="keep"
                           onclick={() => {
-                            editing = null;
                             flow.keepSplit(step.at);
                           }}>Keep the split</button
                         >

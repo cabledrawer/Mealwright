@@ -9,13 +9,13 @@
 
   let {
     flow,
-    at,
+    step,
     name,
     onclose,
     onremove
   }: {
     flow: ImportFlow;
-    at: number;
+    step: { kind: 'step' | 'heading'; text: string };
     /** "step 3" or "heading": what the box is for. */
     name: string;
     onclose: () => void;
@@ -23,10 +23,10 @@
   } = $props();
 
   const uid = $props.id();
-  const heading = $derived(flow.review?.steps[at]?.kind === 'heading');
+  const heading = $derived(step.kind === 'heading');
   // The box starts with the words as they are now.
   // svelte-ignore state_referenced_locally
-  let text = $state(flow.review?.steps[at]?.text ?? '');
+  let text = $state(step.text);
   let empty = $state(false);
   let box: HTMLTextAreaElement | undefined = $state();
 
@@ -35,7 +35,7 @@
   });
 
   function done() {
-    if (changeStep(flow, at, text)) onclose();
+    if (changeStep(flow, step, text)) onclose();
     else empty = true;
   }
 

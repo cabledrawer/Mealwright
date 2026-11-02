@@ -13,26 +13,30 @@ function shorter(text: string): string {
   return `${(one.slice(0, 40).replace(/\s+\S*$/, '') || one.slice(0, 40)).trimEnd()}…`;
 }
 
-/** Change the text of the step or heading at `at`. False when the text is empty (an empty step
- *  can't be kept: the caller says so and offers Remove). The words are tidied at the ends only. */
-export function changeStep(flow: ImportFlow, at: number, text: string): boolean {
-  const step = flow.review?.steps[at];
+type Step = { kind: 'step' | 'heading'; text: string };
+
+/** Change the text of `step` (the step itself, not its place: the list may have moved while the
+ *  box was open). False when the text is empty (an empty step can't be kept: the caller says so
+ *  and offers Remove) or the step is no longer in the list. The words are tidied at the ends only. */
+export function changeStep(flow: ImportFlow, step: Step, text: string): boolean {
   const words = text.trim();
-  if (!step) return false;
-  if (!words) return false;
+  if (!words || !flow.review?.steps.includes(step)) return false;
   step.text = words;
   flow.previewStep = null; // the split preview was of the old words
   return true;
 }
 
 /** Take the step or heading at `at` out, with an Undo (toast and Ctrl+Z) that puts it back where
- *  it was. It is found again by itself, not by number: other steps may have moved since. */
+ *  it was. It is found again by its neighbours, not by number: other steps may have moved since.
+ *  When neither neighbour is there any more (Put the steps back as they were), nothing is put
+ *  back: the Undo says so rather than guess a place. */
 export function removeStep(flow: ImportFlow, at: number): void {
   const review = flow.review;
   const gone = review?.steps[at];
   if (!review || !gone) return;
   const number = stepNumberAt(review.steps, at);
   const label = number === null ? `Removed “${shorter(gone.text)}”` : `Removed step ${number}`;
+  const before = review.steps[at - 1];
   const after = review.steps[at + 1];
   review.steps.splice(at, 1);
   flow.previewStep = null; // its number was an index into the steps that were
@@ -41,11 +45,23 @@ export function removeStep(flow: ImportFlow, at: number): void {
     undo: () => {
       const now = flow.review?.steps;
       if (flow.review !== review || !now) return false; // another recipe is on the screen now
-      const next = after ? now.indexOf(after) : now.length;
-      now.splice(next >= 0 ? next : Math.min(at, now.length), 0, gone);
+      const behind = before ? now.indexOf(before) : -1;
+      const ahead = after ? now.indexOf(after) : -1;
+      let place: number;
+      if (behind >= 0) place = behind + 1;
+      else if (!before)
+        place = 0; // it was first
+      else if (ahead >= 0) place = ahead;
+      else if (!after)
+        place = now.length; // it was last
+      else return CANT_PUT_BACK;
+      now.splice(place, 0, gone);
       flow.previewStep = null;
     }
   };
-  flow.keepUndo(entry);
+  flow.keepStepUndo(entry);
   undoHistory.record(entry);
 }
+
+/** Said when an Undo finds neither of the step's neighbours (proposed, for cabledrawer). */
+export const CANT_PUT_BACK = 'Couldn’t put it back: the steps have changed.';
