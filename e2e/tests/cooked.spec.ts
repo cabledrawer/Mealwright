@@ -445,7 +445,7 @@ test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past 
       .evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value.split('|')[0]).filter(Boolean));
     expect(days.length).toBeGreaterThan(0);
     for (const day of days) expect(day! > useBy).toBe(true);
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await dialog.getByRole('button', { name: 'Cancel' }).first().click();
     await expect(dialog).toBeHidden();
   } finally {
     for (const made of mine) await call(page, 'DELETE', `/plan/items/${made.item_id}`);
