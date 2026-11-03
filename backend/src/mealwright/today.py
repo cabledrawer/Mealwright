@@ -35,6 +35,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import exists, func, select
 
+from mealwright import together
 from mealwright.api.v1.context import Kitchen
 from mealwright.batches import (
     MOST_TUBS_IN_BATCH,
@@ -213,7 +214,9 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     summary = f"Cooked {name} ({where})"
     if made:
         summary += f" and kept {made} {'tub' if made == 1 else 'tubs'} of leftovers"
-    return _finish(kitchen, "plan_cooked", summary, steps, meal_id=meal.id)
+    change = _finish(kitchen, "plan_cooked", summary, steps, meal_id=meal.id)
+    together.join_answer(kitchen, meal, change)  # one "Cooked it", one Undo (F125)
+    return change
 
 
 def didnt(kitchen: Kitchen, meal: Meal) -> Change:

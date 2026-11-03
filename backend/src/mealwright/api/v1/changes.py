@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import cooking, drafts, plan, recipes, shopping
+from mealwright import cooking, drafts, plan, recipes, shopping, together
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -499,7 +499,51 @@ def undo_run(
     kitchen: Kitchen, change: Change, batch: shopping.Batch, stock: Callable[[], Change]
 ) -> Change:
     """Do the Undo, by the kind of change: one place for both ways in, so they cannot drift.
-    `stock` is the caller's way of undoing a stock or list change."""
+    `stock` is the caller's way of undoing a stock or list change. A change of one "Cooked it"
+    takes the others back with it, newest first (F125, `together.py`); the answer is this
+    change's own Undo, with the others' words when one of them was only partly done."""
+    others = together.members(kitchen, change)
+    if not others:
+        return _undo_one(kitchen, change, stock)
+    from mealwright.ticks import pantry_undo
+
+    def other(member: Change) -> Change:
+        # No key (it is the asked-for Undo's only), and its own stretch of list writing, so
+        # its sync-log row says what it undoes.
+        kept, kitchen.idempotency_key = kitchen.idempotency_key, None
+        own_batch = shopping.Batch(kitchen)
+        done = _undo_one(kitchen, member, lambda: pantry_undo(kitchen, member, own_batch))
+        own_batch.finish()
+        kitchen.idempotency_key = kept
+        return done
+
+    said = [other(member) for member in others if member.id > change.id]
+    own = _undo_one(kitchen, change, stock)
+    said += [other(member) for member in others if member.id < change.id]
+    _say_for_all(own, said)
+    return own
+
+
+def _say_for_all(own: Change, others: list[Change]) -> None:
+    """The one Undo's answer: its own words, unless it was all done and another of the same
+    press was not (or brought an ingredient back): then those (the pantry's first)."""
+    data = own.undo_data or {}
+    if data.get("result", "done") != "done":
+        return
+    ranked = sorted(others, key=lambda u: (u.undo_data or {}).get("undoes_kind") != "cooked")
+    for undo in ranked:
+        theirs = undo.undo_data or {}
+        if theirs.get("result", "done") != "done" or theirs.get("brought_back"):
+            own.undo_data = {
+                **data,
+                "result": theirs.get("result", "done"),
+                "message": theirs.get("message", data.get("message")),
+                "brought_back": [*data.get("brought_back", []), *theirs.get("brought_back", [])],
+            }
+            return
+
+
+def _undo_one(kitchen: Kitchen, change: Change, stock: Callable[[], Change]) -> Change:
     if change.kind == "recipe_removed":
         return recipes.undo_removal(kitchen, change)
     if change.kind == "draft_removed":

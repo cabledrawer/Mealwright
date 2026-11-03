@@ -120,6 +120,35 @@ test('Today: the review shows what comes out, Confirm takes it, one Undo gives i
   await expect.poll(() => have(page, `Toor dal ${s}`)).toBe(800);
 });
 
+test('F125: Undo of Cooked it in Pantry → Recent changes also undoes the meal’s Cooked', async ({ page }) => {
+  test.skip(projectIndex() !== 0, 'Chromium on the computer; the others share the waiting card');
+  const k = await setup(page);
+  await clearWaiting(page);
+  const s = stamp();
+  const dal = await k.food(`Moong dal ${s}`);
+  await k.stock(dal, 800);
+  const name = `Khichdi ${s}`;
+  await k.plan(await k.recipe(name, [line(dal, 'moong dal', 200, 'g')]), waitingDay(k.today), k.slot.Dinner);
+
+  await openToday(page, name);
+  await confirm(review(page, name)).click();
+  await expect(card(page)).toHaveCount(0);
+  await expect.poll(() => have(page, `Moong dal ${s}`)).toBe(600);
+
+  // One "Cooked it", one line in Recent changes, one Undo.
+  await page.goto('/pantry');
+  const recent = page.getByRole('region', { name: 'Recent changes' });
+  const undo = recent.getByRole('button', { name: `Undo: Cooked ${name} (4 portions)` });
+  await expect(undo).toHaveCount(1);
+  await undo.click();
+  await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${name}`);
+  await expect.poll(() => have(page, `Moong dal ${s}`)).toBe(800);
+
+  // The meal is asked about again, as after the toast's Undo.
+  await page.goto('/');
+  await expect(card(page).getByText(`Did you cook ${name}?`)).toBeVisible();
+});
+
 test('a counted ingredient can be set by Used or Left, and Portions cooked updates every row', async ({ page }) => {
   const k = await setup(page);
   const s = stamp();

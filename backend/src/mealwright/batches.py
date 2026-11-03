@@ -15,7 +15,7 @@ from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import aliased
 
-from mealwright import cooked
+from mealwright import cooked, together
 from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
@@ -463,13 +463,15 @@ def place_tub(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) -> Change:
         )
     steps: list[dict[str, Any]] = []
     _put_tub_in_meal(kitchen, tub, (day, slot_id), steps)
-    return _finish(
+    change = _finish(
         kitchen,
         "plan_tub",
         f"Put {tub_name(kitchen, tub)} in {_where(kitchen, day, slot_id)}",
         steps,
         meal_id=meal_at(kitchen, day, slot_id).id,  # type: ignore[union-attr]
     )
+    together.follow(kitchen, tub, change)  # "Eat it on…" goes with the Undo of Cooked it (F125)
+    return change
 
 
 def _tub_fields(tub: Tub) -> dict[str, Any]:

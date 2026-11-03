@@ -321,7 +321,11 @@ function withAsked<B extends { answers: Answer[] }>(body: B, asked: Answer[]): B
   return { ...body, answers: asked.reduce(withAnswer, body.answers) };
 }
 
-/** One Undo for what the outcomes changed in the pantry (the meal's Undo runs it too). */
+/**
+ * One Undo for what the outcomes changed in the pantry (the meal's Undo runs it too). The
+ * server keeps one "Cooked it" together (F125): the meal's Undo already takes the pantry back,
+ * so a change it finds already undone is passed over quietly, never undone twice.
+ */
 export function undoAll(
   outcomes: Outcome<CookedMealWrite | CookedWrite>[]
 ): () => Promise<string | void> {
@@ -330,7 +334,13 @@ export function undoAll(
   );
   return async () => {
     let said: string | void = undefined;
-    for (const undo of [...undoers].reverse()) said = (await undo()) ?? said;
+    for (const undo of [...undoers].reverse()) {
+      try {
+        said = (await undo()) ?? said;
+      } catch (error) {
+        if (!(error instanceof ApiError && error.code === 'already_undone')) throw error;
+      }
+    }
     return said;
   };
 }
