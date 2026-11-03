@@ -541,6 +541,8 @@ cabledrawer OK'd the C1 readings on 31 Oct ("C1 readings: OK"). The UK/US quart,
 
 ## 19. Check before saving, 0.7.0 (C2; proposed, for cabledrawer unless the mockup has the words)
 
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
+
 From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cabledrawer, 30 Oct). Words not in a mockup are marked proposed.
 
 - **Status dot** (screen readers): Ready · To confirm · Needs you · Staple.
@@ -564,6 +566,8 @@ From the mockups `Dark-ImportCheck07-Desktop` and `Dark-ImportSave07-Phone` (cab
 
 ## 27. "Cooked it" deductions: API messages (0.7 K2; proposed, for cabledrawer)
 
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
+
 These are the sentences the server sends back (`detail`); the review screen in K3 shows them or words of its own. The ask-once questions are the existing ones (section 7).
 
 - Cooked change in Recent changes: **Cooked Sambar (2 portions)** · **Cooked Sambar (1 portion)**.
@@ -577,6 +581,8 @@ These are the sentences the server sends back (`detail`); the review screen in K
 - Running low after cooking (the review's wording is K3's): the offer to add is not ticked; it adds one of the smallest size, else the running-low level.
 
 ## 28. "Cooked it", the review (0.7 K3; proposed, for cabledrawer unless the mockup has the words)
+
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
 
 The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-Phone` and their dark twins have most of the words; the rest are proposed. This replaces the 0.6 sheet's "Your pantry isn’t changed by this yet." (section 22): the review is where the pantry changes.
 
@@ -608,6 +614,8 @@ The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-
 - **A reply that was lost:** **Couldn’t reach the server. Some of “Cooked it” may be saved: check Recent changes.** Nothing is taken back then; each change that worked keeps its Undo.
 
 ## 29. Cook mode (0.7 K4; proposed, for cabledrawer unless the spec or mockup has the words)
+
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
 
 The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Experimental07` have most of the words. Spec: section 6, "Cook mode timers", "Cook mode ingredients" and "Cook mode (K4)". The words marked (spec) are cabledrawer's; the rest are proposed.
 
@@ -643,6 +651,8 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 
 ## 30. Portions, Serves, who's eating and Notes (0.7 P1; proposed, for cabledrawer unless the mockup or spec has the words)
 
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
+
 Written by Claude Code on 1 Nov from the mockup `Leftovers07-Phone` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" and "A "Note" plan item". cabledrawer's own words (spec, 28 Oct): "Portions", "Leftovers on…", "No portions left", "Cook more", "Add anyway", "Serves − N +", and the Note examples "eating out", "takeaway", "at Amma's".
 
 - **Leftovers on… (a recipe with one thing in its meal):** heading "Leftovers of Veg biryani"; subtitle "Cooked Sun 18 · dinner · keeps in the fridge until Wed 21"; the portions line "Makes 6 · 2 eaten Sun · 3 tubs planned · 2 picked, only 1 left" (also "· 1 left", "· 1 picked, 0 left", "· 1 picked, none left"); the bar is read aloud as "6 portions: 2 eaten on the cook day, 3 tubs planned, 1 left"; a row is "Mon 19 · Lunch" with "tub 1 · planned" (a tub of this batch is there already), "tub 4" (picked), "last day" (the use-by day) or what else is in that meal; the hint "Only meals after the cook and before the use-by are shown. To keep it longer, send a tub to the freezer."; the button "Plan 2 tubs" (or "Plan 1 tub"; it counts tubs only, so when every ticked meal is an Add anyway it reads "Plan 1 meal" / "Plan 2 meals"); Back. Loading and failure: "Loading the leftovers…" · "Couldn’t load the leftovers. Try again." · Try again.
@@ -652,9 +662,11 @@ Written by Claude Code on 1 Nov from the mockup `Leftovers07-Phone` (and its dar
 - **The meal's menu:** Serves (a row with "One fewer" and "One more", and the number; with several recipes in the meal, "Sambar serves"); Who’s eating? (Everyone · each person's name; not asked when only one person signs in, as in Cook once).
 - **Notes:** "+ Note" (in + Add, beside the search box); the box is read aloud as "Note" with the hint "Eating out, takeaway, at Amma’s"; quick notes "Eating out" · "Takeaway"; Add note · Back; a note's card says "Note" under its text, and "1 note" / "2 notes" in the meal's total. A note has Move to… · Copy to… · Remove; no Serves, no Leftovers on….
 - **Toasts (the server's own sentence, with Undo):** Planned leftovers of Veg biryani on Lunch on Wed 21 Oct, … · Set Sambar for 6 on Dinner on Mon 19 Oct · Changed who is eating Sambar (Mon dinner) · Planned At Amma’s for Dinner on Sat 24 Oct.
-- **Refusals (server):** No portions left. (shown by the sheet itself, not as a toast) · That is after the use-by date of this batch. · Tick at least one meal. · A meal is ticked twice. · Only a recipe can have leftovers. · A note has no leftovers. · Only a recipe has a number of servings. · A note is 1 to 200 letters. · Pick a recipe, an ingredient or a note to plan.
+- **Refusals (server):** No portions left. (shown by the sheet itself, not as a toast) · That’s after this batch’s use-by date. (cabledrawer 2 Nov) · Tick at least one meal. · A meal is ticked twice. · Only a recipe can have leftovers. · A note has no leftovers. · Only a recipe has a number of servings. · A note can be up to 200 letters. (cabledrawer 2 Nov) · Pick a recipe, an ingredient or a note to plan.
 
 ## 31. The Plan: Both · Eat · Cook, Plan it, earlier days (0.7 P2; proposed, for cabledrawer unless the spec or mockup has the words)
+
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
 
 Written by Claude Code on 1 Nov from the mockups `PlanEat07-Phone`, `PlanCook07-Desktop` and `PlanCook07-Phone` (and their dark twins) and the spec's "The Plan redesign, 0.7.0". cabledrawer's own words (spec, 28 Oct): the switch **Both · Eat · Cook**; "2 tubs from Thu · Tess, Wren"; **You cook today →**; "fresh meals and batches, how much (× scale, makes N, eat N now, where each tub goes, spare tubs), prep ahead, still to buy"; **Start cooking**; **Plan it** ("pick the day and the meal").
 
@@ -667,6 +679,8 @@ Written by Claude Code on 1 Nov from the mockups `PlanEat07-Phone`, `PlanCook07-
 
 ## 32. The Plan's cards: COOK and EAT, moving by keyboard, tray, F49, F65 (0.7 P3; proposed, for cabledrawer unless the spec or mockup has the words)
 
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
+
 Written by Claude Code on 1 Nov from the mockup `PlanCards07-Desktop` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" and "Moving plan cards with the keyboard". cabledrawer's own words (spec, 28 Oct): **COOK** and **EAT** cards, "Take off this meal (keep the tub)", "Eat it on… [the next free meal]", **Before the cook day**.
 
 - **Cards in Both:** a COOK card says **Cook · 1 h** (the recipe's time; **Cook** alone with none) and, under the name, **Makes 6 · 4 tubs** (the mockup's words). An EAT card says **Eat**, **Eat · tub 2 of 4** or **Eat · last tub** (the mockup's), with the people's names in white chips. A fresh meal says **Fresh · 15 min** (the mockup's) with the usual small line after "Fresh · " (serves, time, kcal each: F116). The card is read aloud as "Chana masala (cooking), Thu 15 October · Dinner. Open menu" / "(eating)" (proposed); a tub as "Chana masala tub, …".
@@ -675,9 +689,11 @@ Written by Claude Code on 1 Nov from the mockup `PlanCards07-Desktop` (and its d
 - **Moving with the keyboard:** under **Move to…** / **Copy to…** the picked place is said as **Move to Tue 20 October · Dinner** / **Copy to …** (proposed), and on a computer a hint line: **Arrow keys pick the day, Shift and arrow keys pick the meal, Enter confirms, Esc cancels.** (proposed; the spec's own words are the keys). The box is read aloud as "Pick the day and the meal with the arrow keys".
 - **F49:** the tub's button **Take off this meal (keep the tub)** (cabledrawer's example), not red, with the line **The tub stays in the fridge, in Tubs left.** / **… in the freezer, …** (proposed). The toast stays "Put Chana masala tub back in tubs left from …" (the server's words).
 - **F65:** in "Any left over?" with tubs picked: **Eat it on…** with **Not planned yet** first and then the next free meals, as **Sun 18 · Breakfast** (proposed); a tub that was chosen goes to that meal when Confirm is pressed.
-- **P3 follow-up (proposed, for cabledrawer, apart from cabledrawer's 2 Nov sentence at the end):** the three gaps use words that already exist: Undo of a cook-meal move after the batch was cooked says **This was cooked on … Undo “Cooked it” first.** (as the forward move does), and a tub moved, or chosen by hand in Cook once, after its use-by says **That is after the use-by date of this batch.** Moving the cooking earlier, when a tub planned later would then be past its use-by, is refused with **Can’t move it earlier: a tub planned later would be past its use-by.** (cabledrawer 2 Nov).
+- **P3 follow-up (proposed, for cabledrawer, apart from cabledrawer's 2 Nov sentence at the end):** the three gaps use words that already exist: Undo of a cook-meal move after the batch was cooked says **This was cooked on … Undo “Cooked it” first.** (as the forward move does), and a tub moved, or chosen by hand in Cook once, after its use-by says **That’s after this batch’s use-by date. (cabledrawer 2 Nov)** Moving the cooking earlier, when a tub planned later would then be past its use-by, is refused with **Can’t move it earlier: a tub planned later would be past its use-by.** (cabledrawer 2 Nov).
 
 ## 33. Month and day: up to 3 a day, a click on any day, Fill from freezer first (0.7 P4; proposed, for cabledrawer unless the spec or mockup has the words)
+
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
 
 Written by Claude Code on 1 Nov from the mockup `Month07-Desktop` (and its dark twin) and the spec's "The Plan redesign, 0.7.0" (Month and day, P4). cabledrawer's own words (spec, 28 Oct): "A full Month day shows up to 3 items, then "+N more"", "Filled Tue dinner, Thu lunch from freezer tubs (they run out soonest)", "The day sheet lists the oldest freezer tub first", "fridge tubs past their use-by aren't offered", **Cook once here**.
 
@@ -688,6 +704,8 @@ Written by Claude Code on 1 Nov from the mockup `Month07-Desktop` (and its dark 
 - **Fill from freezer first** (existing button), its Undo toast now says which meals and why: **Filled Tue 3 dinner, Thu 5 lunch from freezer tubs (they run out soonest)** (cabledrawer 2 Nov: it names the dates); for one tub **Filled Tue 3 dinner from a freezer tub (it runs out soonest)** (proposed); with more than six meals the first six are named and the rest counted: **Filled Mon 2 dinner, Tue 3 dinner, … 6 more from freezer tubs (they run out soonest)** (proposed). The toast's button says **Undo all** (cabledrawer 2 Nov, the mockup) and takes back every meal it filled; after it, "Undone: " and the same words.
 
 ## 34. Paper cuts (0.7 PC1, PC2; proposed, for cabledrawer unless the spec has the words)
+
+**OK'd by cabledrawer 2 Nov** (with his two changes: "That’s after this batch’s use-by date." and "A note can be up to 200 letters.").
 
 Written by Claude Code on 2 Nov from the spec's "Paper cuts" (cabledrawer 28 Oct) and "Server down (F67)" (cabledrawer 30 Oct). cabledrawer's own words are marked.
 
