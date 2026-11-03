@@ -26,7 +26,8 @@
     closing,
     onclose,
     onsave,
-    onseeall
+    onseeall,
+    onleave
   }: {
     flow: ImportFlow;
     /** Keeping the draft is on its way. */
@@ -34,6 +35,8 @@
     onclose: () => void;
     onsave: () => void;
     onseeall: () => void;
+    /** Leave without keeping the draft (the leave sheet's Discard). */
+    onleave: () => void;
   } = $props();
 
   const review = $derived(flow.review!);
@@ -250,7 +253,13 @@
           Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}
         </p>
       {/if}
-      {#if flow.draftProblem}<p class="error" role="alert">{flow.draftProblem}</p>{/if}
+      {#if flow.draftProblem}
+        <p class="error" role="alert">{flow.draftProblem}</p>
+        <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
+        <button type="button" class="leave" onclick={onleave}
+          >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
+        >
+      {/if}
       <div class="buttons">
         {#if item}
           <button
@@ -528,6 +537,16 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     font-weight: var(--weight-extrabold);
+  }
+
+  .leave {
+    min-height: var(--touch-target);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .back:disabled,

@@ -196,6 +196,20 @@ describe('Focus (the phone’s default)', () => {
     );
   });
 
+  it('when the draft can’t be kept, Discard is the way out and lands on Recipes', async () => {
+    show(reviewFlow(), true);
+    fakeApi({
+      'POST /recipes/drafts': [
+        409,
+        { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+      ]
+    });
+    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+    expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
+  });
+
   it('leaves the menu back when Check goes', async () => {
     show(reviewFlow(), true);
     expect(document.documentElement.hasAttribute('data-full-page')).toBe(true);
@@ -538,6 +552,20 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
+    });
+
+    it('when the draft can’t be kept, Discard is the way out and lands on Recipes', async () => {
+      await opened();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
     });
 
     it('See all shows the whole list (Focus) for this visit', async () => {

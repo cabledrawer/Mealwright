@@ -122,6 +122,13 @@
     if (target) void goOn(target);
   }
 
+  /** Close couldn't keep the draft, so the leave sheet's Discard is offered there: the same two
+   *  things, then Recipes. */
+  function discardAndLeave() {
+    void flow.dropPhoto();
+    void goOn(new URL(resolve('/(app)/recipes'), window.location.href));
+  }
+
   // --- Changing or removing a step or heading (F111) ------------------------------------------
   // The step being changed, held as the step itself and not its place: the list can move under an
   // open box (Undo, Put the steps back), and the words must land on the step the box was opened
@@ -493,6 +500,7 @@
       onclose={() => void close()}
       onsave={() => void save()}
       onseeall={() => (seeAll = true)}
+      onleave={discardAndLeave}
     />
   {/await}
 {:else if mode === 'focus'}
@@ -528,7 +536,13 @@
             Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}
           </p>
         {/if}
-        {#if flow.draftProblem}<p class="error" role="alert">{flow.draftProblem}</p>{/if}
+        {#if flow.draftProblem}
+          <p class="error" role="alert">{flow.draftProblem}</p>
+          <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
+          <button type="button" class="leave" onclick={discardAndLeave}
+            >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
+          >
+        {/if}
         <div class="buttons">
           <button
             type="button"
@@ -1031,6 +1045,16 @@
   .fbar .muted,
   .fbar .error {
     text-align: center;
+  }
+
+  .leave {
+    min-height: var(--touch-target);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
   }
 
   .close {
