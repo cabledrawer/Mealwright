@@ -847,7 +847,8 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 - **Security problems:** reported privately through GitHub's private vulnerability reporting, never as public issues; `SECURITY.md` explains how.
 - **Contributions:** cabledrawer reviews and merges everything. Anything bigger than a small fix starts as an issue first. `CONTRIBUTING.md` covers the DCO sign-off, the ethos rules (no telemetry; no new outbound connection unless behind a Privacy switch) and the UX rule "phone breaks ties".
 - **AI help must be disclosed (cabledrawer 17 Oct):** contributors say in the pull request when code was written with AI help (alongside the project's own AI disclosure).
-- **Code written by a local model (cabledrawer 3 Nov):** commits with code a local model wrote carry two trailers: "Assisted-by: Claude Code" and "Assisted-by: Qwen3.5 9B (local)".
+- **Code written by a local model (cabledrawer 3 Nov):** commits with code a local model wrote carry two trailers: "Assisted-by: Claude Code" and "Assisted-by: Qwen3.5 9B (local)" The trailers follow what really happened: a commit keeps the local-model trailer only if some of that model's code is in it; otherwise it has "Assisted-by: Claude Code" alone (cabledrawer 3 Nov).
+- **Local model paused (cabledrawer 3 Nov):** after the 3 Nov trial, no local model writes Mealwright code until cabledrawer says otherwise. Work it didn't finish is done by Claude helpers as normal fixes.
 - **Expectations (cabledrawer 17 Oct):** the README says Mealwright is a spare-time project and replies may take a week or so.
 
 **Lessons from other self-hosted apps (cabledrawer 17 Oct).** Taken from how Mealie, Immich, Paperless-ngx, Tandoor, KitchenOwl and Actual Budget grew up. All six adopted by cabledrawer.
