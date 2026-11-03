@@ -2,7 +2,12 @@
   // The review's page: its header (a phone says "Step 2 of 3" under the title; a computer has the
   // three steps beside it, mockups Import05-Phone and Import05-Desktop) and the review itself.
   // Used by Import a recipe, and by a draft being carried on.
+  //
+  // On a phone the choice in Settings → Appearance (F141, cabledrawer 3 Nov) picks the page: Focus
+  // (the default) or One at a time. Both are pages of their own, with their own header and the
+  // app's menu hidden, so no PageHeader here. A computer keeps this screen, whatever the choice.
   import type { ComponentProps } from 'svelte';
+  import { checkMode } from '#lib/checkMode.svelte.js';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import PageHeader from '../PageHeader.svelte';
   import ImportSteps from './ImportSteps.svelte';
@@ -18,13 +23,18 @@
     /** The page above this one: Recipes, or Drafts for a draft. */
     parent?: ComponentProps<typeof PageHeader>['parent'];
   } = $props();
+
+  const layout = $derived(phone ? checkMode.choice : 'full');
 </script>
 
-{#if phone}
+<svelte:head><title>Check before saving · Mealwright</title></svelte:head>
+{#if layout !== 'full'}
+  <!-- Focus and One at a time draw their own header. -->
+{:else if phone}
   <PageHeader title="Check before saving" {parent} subtitle="Step 2 of 3" />
 {:else}
   <PageHeader title="Check before saving" {parent}>
     {#snippet actions()}<ImportSteps step={2} pasted={flow.review?.source.kind} />{/snippet}
   </PageHeader>
 {/if}
-<ReviewScreen {flow} {phone} />
+<ReviewScreen {flow} {phone} {layout} />

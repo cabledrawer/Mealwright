@@ -23,11 +23,27 @@
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import ZoomPhoto from '#lib/components/ZoomPhoto.svelte';
+  import CheckFrame from './CheckFrame.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
 
   import '#lib/styles/fields.css';
-  let { flow, phone = false }: { flow: ImportFlow; phone?: boolean } = $props();
+  let {
+    flow,
+    phone = false,
+    layout = 'full'
+  }: {
+    flow: ImportFlow;
+    phone?: boolean;
+    /** full: the whole screen (a computer, and what this always was). focus and one are the
+     *  phone's own pages (F141): the whole list with the app's menu hidden, and one line or step
+     *  at a time. Only ReviewPage chooses them, and only on a phone. */
+    layout?: 'full' | 'focus' | 'one';
+  } = $props();
+
+  /** "See all" on One at a time shows Focus for the rest of this visit. */
+  let seeAll = $state(false);
+  const mode = $derived(layout === 'one' && seeAll ? 'focus' : layout);
 
   const review = $derived(flow.review!);
   // The large copy, or the list copy if only that fails; neither means the "No photo" box.
@@ -58,6 +74,16 @@
 
   function leave() {
     void goto(resolve('/(app)/recipes'));
+  }
+
+  /** Close (Focus and One at a time, F141): the recipe stays in Drafts with the choices made so
+   *  far (the same draft save as "Save draft"), and Recipes → Drafts opens. A draft that was
+   *  opened and not changed just leaves. When the draft can't be kept (offline, or 50 drafts) the
+   *  reason shows and nothing is left behind. */
+  async function close() {
+    if (flow.keeping) return;
+    if (flow.unkept && !(await flow.keepAsDraft())) return;
+    await goto(resolve('/(app)/recipes/drafts'));
   }
 
   // --- Leaving without saving -------------------------------------------------------------
@@ -141,6 +167,7 @@
   // control that is scrolled to, by a tap, Tab or a find, must stop above them, not hide behind.
   let barHeight = $state(0);
   $effect(() => {
+    if (mode !== 'full') return;
     const root = document.documentElement;
     root.style.scrollPaddingBottom = `calc(${barHeight}px + ${phone ? 'var(--tabbar-height) + env(safe-area-inset-bottom) + var(--offline-offset)' : '0px'} + var(--space-4))`;
     return () => root.style.removeProperty('scroll-padding-bottom');
@@ -149,115 +176,117 @@
   const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
-<div class="wrap">
-  <div class="review" class:phone>
-    <div class="col">
-      <section class="top" aria-label="Recipe details">
-        {#if review.photo.state === 'downloaded' && shown}
-          <div class="photo">
-            <ZoomPhoto
-              src={shown.url}
-              width={shown.width}
-              height={shown.height}
-              alt="Downloaded from the page"
-              name={flow.name.trim() || 'this recipe'}
-              onerror={(event) => {
-                // Fail the address this picture tried, not whatever is shown by the time the error
-                // arrives (a late error from a photo already gone, or from one since replaced).
-                const tried = (event.currentTarget as HTMLImageElement).getAttribute('src');
-                if (tried) copy.fail(tried);
-              }}
-            />
-          </div>
-        {:else if review.photo.state !== 'none'}
-          <div class="photo none" role="img" aria-label="No photo">
-            <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
-          </div>
-        {/if}
-        <div class="fields">
-          <label class="field" for="{uid}-name">
-            <span>Name</span>
+{#snippet left()}
+  <div class="col">
+    <section class="top" aria-label="Recipe details">
+      {#if review.photo.state === 'downloaded' && shown}
+        <div class="photo">
+          <ZoomPhoto
+            src={shown.url}
+            width={shown.width}
+            height={shown.height}
+            alt="Downloaded from the page"
+            name={flow.name.trim() || 'this recipe'}
+            onerror={(event) => {
+              // Fail the address this picture tried, not whatever is shown by the time the error
+              // arrives (a late error from a photo already gone, or from one since replaced).
+              const tried = (event.currentTarget as HTMLImageElement).getAttribute('src');
+              if (tried) copy.fail(tried);
+            }}
+          />
+        </div>
+      {:else if review.photo.state !== 'none'}
+        <div class="photo none" role="img" aria-label="No photo">
+          <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
+        </div>
+      {/if}
+      <div class="fields">
+        <label class="field" for="{uid}-name">
+          <span>Name</span>
+          <input
+            id="{uid}-name"
+            class="mw-input title"
+            type="text"
+            maxlength="200"
+            bind:value={flow.name}
+          />
+        </label>
+        <div class="two">
+          <label class="field" for="{uid}-serves">
+            <span>Serves</span>
             <input
-              id="{uid}-name"
-              class="mw-input title"
+              id="{uid}-serves"
+              class="mw-input"
               type="text"
-              maxlength="200"
-              bind:value={flow.name}
+              inputmode="numeric"
+              maxlength="2"
+              bind:value={flow.serves}
             />
           </label>
-          <div class="two">
-            <label class="field" for="{uid}-serves">
-              <span>Serves</span>
-              <input
-                id="{uid}-serves"
-                class="mw-input"
-                type="text"
-                inputmode="numeric"
-                maxlength="2"
-                bind:value={flow.serves}
-              />
-            </label>
-            <label class="field" for="{uid}-time">
-              <span>Minutes</span>
-              <input
-                id="{uid}-time"
-                class="mw-input"
-                type="text"
-                inputmode="numeric"
-                maxlength="5"
-                bind:value={flow.minutes}
-              />
-            </label>
-          </div>
-          {#if review.nutrition.kcal !== null}
-            <p class="found">Nutrition found · {review.nutrition.kcal} kcal per serving</p>
-          {/if}
-          {#if review.source.kind === 'link' && review.source.site}
-            <p class="muted">
-              From {review.source.site}{review.author ? ` · by ${review.author}` : ''}
-            </p>
-          {/if}
-        </div>
-      </section>
-
-      {#if review.photo.state === 'off' || review.photo.state === 'failed'}
-        <p class="photo-note">
-          {#if review.photo.state === 'off'}
-            <b>Photo not downloaded.</b> Photo downloads are off in
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-            <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
-          {:else}
-            <b>Photo not downloaded</b>
-            — {review.photo.message} You can add your own photo later.
-          {/if}
-        </p>
-      {/if}
-
-      {#if flow.offersPints}
-        <!-- A US page: its pints are read as US pints, for this recipe only (mockup ImportPints-*;
-         words proposed, for cabledrawer). -->
-        <section class="pints" aria-labelledby="{uid}-pints">
-          <div class="pints-row">
-            <p class="pints-words">
-              <span class="pints-title">This looks like a US recipe</span>
-              <span id="{uid}-pints">Read its pints as US pints (473 ml)</span>
-            </p>
-            <Switch
-              checked={usPints}
-              labelledby="{uid}-pints"
-              onchange={(on) => (flow.pints = on ? 'us' : 'uk')}
+          <label class="field" for="{uid}-time">
+            <span>Minutes</span>
+            <input
+              id="{uid}-time"
+              class="mw-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="5"
+              bind:value={flow.minutes}
             />
-          </div>
-          <p class="pints-foot">For this recipe only. Your setting stays UK pints.</p>
-        </section>
-      {/if}
-    </div>
+          </label>
+        </div>
+        {#if review.nutrition.kcal !== null}
+          <p class="found">Nutrition found · {review.nutrition.kcal} kcal per serving</p>
+        {/if}
+        {#if review.source.kind === 'link' && review.source.site}
+          <p class="muted">
+            From {review.source.site}{review.author ? ` · by ${review.author}` : ''}
+          </p>
+        {/if}
+      </div>
+    </section>
 
-    <div class="col middle">
-      <section class="lines" aria-labelledby="{uid}-ingredients">
-        <!-- The counts sit in the heading row, as the mockup (ImportCheck07-Desktop). -->
-        <div class="lines-head">
-          <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
+    {#if review.photo.state === 'off' || review.photo.state === 'failed'}
+      <p class="photo-note">
+        {#if review.photo.state === 'off'}
+          <b>Photo not downloaded.</b> Photo downloads are off in
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
+          <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
+        {:else}
+          <b>Photo not downloaded</b>
+          — {review.photo.message} You can add your own photo later.
+        {/if}
+      </p>
+    {/if}
+
+    {#if flow.offersPints}
+      <!-- A US page: its pints are read as US pints, for this recipe only (mockup ImportPints-*;
+         words proposed, for cabledrawer). -->
+      <section class="pints" aria-labelledby="{uid}-pints">
+        <div class="pints-row">
+          <p class="pints-words">
+            <span class="pints-title">This looks like a US recipe</span>
+            <span id="{uid}-pints">Read its pints as US pints (473 ml)</span>
+          </p>
+          <Switch
+            checked={usPints}
+            labelledby="{uid}-pints"
+            onchange={(on) => (flow.pints = on ? 'us' : 'uk')}
+          />
+        </div>
+        <p class="pints-foot">For this recipe only. Your setting stays UK pints.</p>
+      </section>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet middle()}
+  <div class="col middle">
+    <section class="lines" aria-labelledby="{uid}-ingredients">
+      <!-- The counts sit in the heading row, as the mockup (ImportCheck07-Desktop). -->
+      <div class="lines-head">
+        <h2 id="{uid}-ingredients">Ingredients <span class="muted">· {ingredientCount}</span></h2>
+        {#if mode !== 'focus'}
           <div class="counts" aria-label="What was found">
             <span class="count good">{counts.matched} matched</span>
             <span class="count warn">{counts.to_confirm} to confirm</span>
@@ -267,207 +296,292 @@
             >
             <span class="count">{counts.staple} {counts.staple === 1 ? 'staple' : 'staples'}</span>
           </div>
-        </div>
-        {#if !phone}
-          <p class="columns" aria-hidden="true">
-            <span>As written → how Mealwright reads it → in your kitchen</span>
-          </p>
         {/if}
-        <ul>
-          {#each review.lines as line, index (line)}
-            <ReviewLineRow
-              {flow}
-              {index}
-              line={flow.withPints(line)}
-              problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
-            />
-          {/each}
-        </ul>
-        {#if flow.offersPints && other}
-          <p class="pints-hint">
-            Switch it {usPints ? 'off' : 'on'} and the {other.words} reads {other.reads}
-            ({other.kind === 'us' ? 'US' : 'UK'} pints).
-          </p>
-        {/if}
-        {#if review.lines_cut}
-          <p class="note">The page had more than 200 ingredient lines. The first 200 are here.</p>
-        {/if}
-      </section>
-    </div>
+      </div>
+      {#if !phone}
+        <p class="columns" aria-hidden="true">
+          <span>As written → how Mealwright reads it → in your kitchen</span>
+        </p>
+      {/if}
+      <ul>
+        {#each review.lines as line, index (line)}
+          <ReviewLineRow
+            {flow}
+            {index}
+            line={flow.withPints(line)}
+            problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
+          />
+        {/each}
+      </ul>
+      {#if flow.offersPints && other}
+        <p class="pints-hint">
+          Switch it {usPints ? 'off' : 'on'} and the {other.words} reads {other.reads}
+          ({other.kind === 'us' ? 'US' : 'UK'} pints).
+        </p>
+      {/if}
+      {#if review.lines_cut}
+        <p class="note">The page had more than 200 ingredient lines. The first 200 are here.</p>
+      {/if}
+    </section>
+  </div>
+{/snippet}
 
-    <div class="col">
-      <section class="method" aria-labelledby="{uid}-method">
-        <h2 id="{uid}-method">
-          Method <span class="muted"
-            >· {review.steps.filter((s) => s.kind === 'step').length}
-            {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
-          >
-        </h2>
-        <!-- Keyed by the step itself, so a box open on one stays (with what was typed) when others move. -->
-        {#each stepRuns(review.steps) as run (run.heading ? review.steps[run.heading.at] : 'start')}
-          {#if run.heading}
-            {@const at = run.heading.at}
-            {#if editing === review.steps[at]}
-              {#await import('./StepEdit.svelte') then { default: StepEdit }}
-                <StepEdit
-                  {flow}
-                  step={review.steps[at]!}
-                  name="heading"
-                  onclose={() => void closeEdit()}
-                  onremove={() => void removeStep(at)}
-                />
-              {/await}
-            {:else}
-              <div class="step-row">
-                <h3 class="step-heading">
-                  <button
-                    type="button"
-                    class="step-text"
-                    data-step-at={at}
-                    title="Change heading"
-                    onclick={() => startEdit(review.steps[at]!)}>{run.heading.text}</button
-                  >
-                </h3>
+{#snippet right()}
+  <div class="col">
+    <section class="method" aria-labelledby="{uid}-method">
+      <h2 id="{uid}-method">
+        Method <span class="muted"
+          >· {review.steps.filter((s) => s.kind === 'step').length}
+          {review.steps.filter((s) => s.kind === 'step').length === 1 ? 'step' : 'steps'} found</span
+        >
+      </h2>
+      <!-- Keyed by the step itself, so a box open on one stays (with what was typed) when others move. -->
+      {#each stepRuns(review.steps) as run (run.heading ? review.steps[run.heading.at] : 'start')}
+        {#if run.heading}
+          {@const at = run.heading.at}
+          {#if editing === review.steps[at]}
+            {#await import('./StepEdit.svelte') then { default: StepEdit }}
+              <StepEdit
+                {flow}
+                step={review.steps[at]!}
+                name="heading"
+                onclose={() => void closeEdit()}
+                onremove={() => void removeStep(at)}
+              />
+            {/await}
+          {:else}
+            <div class="step-row">
+              <h3 class="step-heading">
                 <button
                   type="button"
-                  class="step-remove"
-                  data-step-remove={at}
-                  aria-label="Remove heading: {run.heading.text}"
-                  onclick={() => void removeStep(at)}>Remove</button
+                  class="step-text"
+                  data-step-at={at}
+                  title="Change heading"
+                  onclick={() => startEdit(review.steps[at]!)}>{run.heading.text}</button
                 >
-              </div>
-            {/if}
+              </h3>
+              <button
+                type="button"
+                class="step-remove"
+                data-step-remove={at}
+                aria-label="Remove heading: {run.heading.text}"
+                onclick={() => void removeStep(at)}>Remove</button
+              >
+            </div>
           {/if}
-          {#if run.steps.length}
-            <!-- A heading is not in the numbered list, so it takes no number (F112). -->
-            <ol start={run.start}>
-              {#each run.steps as step, n (review.steps[step.at])}
-                {@const pieces = flow.splitOf(step.at)}
-                {@const number = run.start + n}
-                <li>
-                  {#if editing === review.steps[step.at]}
-                    {#await import('./StepEdit.svelte') then { default: StepEdit }}
-                      <StepEdit
-                        {flow}
-                        step={review.steps[step.at]!}
-                        name="step {number}"
-                        onclose={() => void closeEdit()}
-                        onremove={() => void removeStep(step.at)}
-                      />
-                    {/await}
-                  {:else}
-                    <div class="step-row">
+        {/if}
+        {#if run.steps.length}
+          <!-- A heading is not in the numbered list, so it takes no number (F112). -->
+          <ol start={run.start}>
+            {#each run.steps as step, n (review.steps[step.at])}
+              {@const pieces = flow.splitOf(step.at)}
+              {@const number = run.start + n}
+              <li>
+                {#if editing === review.steps[step.at]}
+                  {#await import('./StepEdit.svelte') then { default: StepEdit }}
+                    <StepEdit
+                      {flow}
+                      step={review.steps[step.at]!}
+                      name="step {number}"
+                      onclose={() => void closeEdit()}
+                      onremove={() => void removeStep(step.at)}
+                    />
+                  {/await}
+                {:else}
+                  <div class="step-row">
+                    <button
+                      type="button"
+                      class="step-text"
+                      data-step-at={step.at}
+                      aria-label="Change step {number}: {step.text}"
+                      onclick={() => startEdit(review.steps[step.at]!)}>{step.text}</button
+                    >
+                    <button
+                      type="button"
+                      class="step-remove"
+                      data-step-remove={step.at}
+                      aria-label="Remove step {number}"
+                      onclick={() => void removeStep(step.at)}>Remove</button
+                    >
+                  </div>
+                {/if}
+                {#if pieces && flow.previewStep !== step.at}
+                  <span class="long">
+                    <span class="long-note">A long step ({sentenceCount(step.text)} sentences)</span
+                    >
+                    <button
+                      type="button"
+                      class="chip"
+                      onclick={() => {
+                        flow.previewStep = step.at;
+                      }}>Split into shorter steps</button
+                    >
+                  </span>
+                {/if}
+                {#if pieces && flow.previewStep === step.at}
+                  <span class="preview" role="group" aria-label="Preview of the split">
+                    <span class="preview-title">Preview: this step as {pieces.length} steps</span>
+                    {#each pieces as piece, n (n)}
+                      <span class="piece"><b>{n + 1}.</b> {piece}</span>
+                    {/each}
+                    <span class="preview-buttons">
                       <button
                         type="button"
-                        class="step-text"
-                        data-step-at={step.at}
-                        aria-label="Change step {number}: {step.text}"
-                        onclick={() => startEdit(review.steps[step.at]!)}>{step.text}</button
-                      >
-                      <button
-                        type="button"
-                        class="step-remove"
-                        data-step-remove={step.at}
-                        aria-label="Remove step {number}"
-                        onclick={() => void removeStep(step.at)}>Remove</button
-                      >
-                    </div>
-                  {/if}
-                  {#if pieces && flow.previewStep !== step.at}
-                    <span class="long">
-                      <span class="long-note"
-                        >A long step ({sentenceCount(step.text)} sentences)</span
-                      >
-                      <button
-                        type="button"
-                        class="chip"
+                        class="keep"
                         onclick={() => {
-                          flow.previewStep = step.at;
-                        }}>Split into shorter steps</button
+                          flow.keepSplit(step.at);
+                        }}>Keep the split</button
+                      >
+                      <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
+                        >Keep as one</button
                       >
                     </span>
-                  {/if}
-                  {#if pieces && flow.previewStep === step.at}
-                    <span class="preview" role="group" aria-label="Preview of the split">
-                      <span class="preview-title">Preview: this step as {pieces.length} steps</span>
-                      {#each pieces as piece, n (n)}
-                        <span class="piece"><b>{n + 1}.</b> {piece}</span>
-                      {/each}
-                      <span class="preview-buttons">
-                        <button
-                          type="button"
-                          class="keep"
-                          onclick={() => {
-                            flow.keepSplit(step.at);
-                          }}>Keep the split</button
-                        >
-                        <button
-                          type="button"
-                          class="quiet"
-                          onclick={() => (flow.previewStep = null)}>Keep as one</button
-                        >
-                      </span>
-                    </span>
-                  {/if}
-                </li>
-              {/each}
-            </ol>
-          {/if}
-        {/each}
-        {#if flow.stepsBefore}
-          <p class="note">
-            Some long steps were split into shorter ones.
-            <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
-              >Put the steps back as they were</button
-            >
-          </p>
+                  </span>
+                {/if}
+              </li>
+            {/each}
+          </ol>
         {/if}
-        {#if review.steps_cut}
-          <p class="note">The page had more than 100 steps. The first 100 are here.</p>
-        {/if}
-        {#if review.steps_shortened}
-          <p class="note">
-            {review.steps_shortened}
-            {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
-          </p>
-        {/if}
-        {#each review.left_out as left (left.heading)}
-          <p class="note">{leftOutWords(left.heading, left.lines)}. You can add them by hand.</p>
-        {/each}
-      </section>
+      {/each}
+      {#if flow.stepsBefore}
+        <p class="note">
+          Some long steps were split into shorter ones.
+          <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
+            >Put the steps back as they were</button
+          >
+        </p>
+      {/if}
+      {#if review.steps_cut}
+        <p class="note">The page had more than 100 steps. The first 100 are here.</p>
+      {/if}
+      {#if review.steps_shortened}
+        <p class="note">
+          {review.steps_shortened}
+          {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
+        </p>
+      {/if}
+      {#each review.left_out as left (left.heading)}
+        <p class="note">{leftOutWords(left.heading, left.lines)}. You can add them by hand.</p>
+      {/each}
+    </section>
+  </div>
+{/snippet}
+
+{#snippet reviewBody()}
+  <div class="wrap">
+    <div class="review" class:phone class:focus={mode === 'focus'}>
+      {#if mode === 'focus'}
+        <!-- Focus puts the ingredients first, so they get the screen (proposed, for cabledrawer). -->
+        {@render middle()}
+        {@render left()}
+        {@render right()}
+      {:else}
+        {@render left()}
+        {@render middle()}
+        {@render right()}
+      {/if}
     </div>
   </div>
-</div>
+{/snippet}
 
-<div class="bar" class:phone bind:offsetHeight={barHeight}>
-  <p class="muted">Nothing is saved until you choose.</p>
-  {#if flow.unlinked > 0}
-    <p class="muted" role="status">
-      {flow.unlinked}
-      {flow.unlinked === 1 ? 'line' : 'lines'} will be saved without an ingredient. You can link
-      {flow.unlinked === 1 ? 'it' : 'them'} in the recipe.
-    </p>
-  {/if}
-  {#if flow.saveProblem && flow.saveProblem.line === null}
-    <p class="error" role="alert">{flow.saveProblem.message}</p>
-  {:else if flow.saveProblem && flow.saveProblem.line !== null}
-    <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
-  {/if}
-  <div class="buttons">
-    <button type="button" class="cancel" onclick={leave}>Cancel</button>
-    <button
-      type="button"
-      class="save"
-      disabled={flow.saving || network.offline}
-      onclick={() => void save()}
-    >
-      {flow.saving ? 'Saving…' : 'Save recipe'}
-    </button>
+{#if mode === 'one'}
+  <!-- One at a time loads the first time it is asked for, so the import page stays small. -->
+  {#await import('./OneAtATime.svelte') then { default: OneAtATime }}
+    <OneAtATime
+      {flow}
+      closing={flow.keeping}
+      onclose={() => void close()}
+      onsave={() => void save()}
+      onseeall={() => (seeAll = true)}
+    />
+  {/await}
+{:else if mode === 'focus'}
+  <CheckFrame>
+    {#snippet header()}
+      <div class="fhead">
+        <h1>Check before saving</h1>
+        <span class="muted">Step 2 of 3 · nothing saved yet</span>
+      </div>
+      <div class="counts" aria-label="What was found">
+        <span class="count good">{counts.matched} ok</span>
+        <span class="count warn">{counts.to_confirm} to confirm</span>
+        <span class="count bad"
+          >{counts.needs_you} {counts.needs_you === 1 ? 'needs' : 'need'} you</span
+        >
+        <span class="count">{counts.staple} {counts.staple === 1 ? 'staple' : 'staples'}</span>
+      </div>
+    {/snippet}
+    {@render reviewBody()}
+    {#snippet footer()}
+      <div class="fbar">
+        {#if flow.unlinked > 0}
+          <p class="muted" role="status">
+            {flow.unlinked}
+            {flow.unlinked === 1 ? 'line' : 'lines'} will be saved without an ingredient. You can link
+            {flow.unlinked === 1 ? 'it' : 'them'} in the recipe.
+          </p>
+        {/if}
+        {#if flow.saveProblem && flow.saveProblem.line === null}
+          <p class="error" role="alert">{flow.saveProblem.message}</p>
+        {:else if flow.saveProblem && flow.saveProblem.line !== null}
+          <p class="error" role="alert">
+            Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}
+          </p>
+        {/if}
+        {#if flow.draftProblem}<p class="error" role="alert">{flow.draftProblem}</p>{/if}
+        <div class="buttons">
+          <button type="button" class="close" disabled={flow.keeping} onclick={() => void close()}>
+            Close <span class="sub">Kept in Drafts</span>
+          </button>
+          <button
+            type="button"
+            class="save"
+            disabled={flow.saving || network.offline}
+            onclick={() => void save()}
+          >
+            {flow.saving ? 'Saving…' : 'Save recipe'}
+          </button>
+        </div>
+        {#if network.offline}
+          <p class="muted" role="status">
+            {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
+          </p>
+        {/if}
+      </div>
+    {/snippet}
+  </CheckFrame>
+{:else}
+  {@render reviewBody()}
+  <div class="bar" class:phone bind:offsetHeight={barHeight}>
+    <p class="muted">Nothing is saved until you choose.</p>
+    {#if flow.unlinked > 0}
+      <p class="muted" role="status">
+        {flow.unlinked}
+        {flow.unlinked === 1 ? 'line' : 'lines'} will be saved without an ingredient. You can link
+        {flow.unlinked === 1 ? 'it' : 'them'} in the recipe.
+      </p>
+    {/if}
+    {#if flow.saveProblem && flow.saveProblem.line === null}
+      <p class="error" role="alert">{flow.saveProblem.message}</p>
+    {:else if flow.saveProblem && flow.saveProblem.line !== null}
+      <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
+    {/if}
+    <div class="buttons">
+      <button type="button" class="cancel" onclick={leave}>Cancel</button>
+      <button
+        type="button"
+        class="save"
+        disabled={flow.saving || network.offline}
+        onclick={() => void save()}
+      >
+        {flow.saving ? 'Saving…' : 'Save recipe'}
+      </button>
+    </div>
+    {#if network.offline}
+      <p class="muted" role="status">{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</p>
+    {/if}
   </div>
-  {#if network.offline}
-    <p class="muted" role="status">{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</p>
-  {/if}
-</div>
+{/if}
 
 {#if flow.walk}
   <!-- Loaded when first needed, so the page stays small (F111). -->
@@ -879,6 +993,71 @@
 
   .bar:not(.phone) {
     max-width: none;
+  }
+
+  /* Focus (F141, mockup Dark-ImportCheckFocus07-Phone): the counts are in the header. */
+  .review.focus {
+    max-width: none;
+  }
+
+  .fhead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .fhead h1 {
+    font-size: var(--text-xl);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .fhead .muted {
+    text-align: right;
+  }
+
+  .fbar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .fbar .muted,
+  .fbar .error {
+    text-align: center;
+  }
+
+  .close {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text);
+    font-size: 1rem;
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .close:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .close .sub {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .fbar .save {
+    flex: 1.4;
+    border-radius: var(--radius-full);
   }
 
   /* On a phone the bottom tabs are fixed over the foot of the screen: the bar rests on top of
