@@ -507,6 +507,7 @@
   <CheckFrame>
     {#snippet header()}
       <div class="fhead">
+        <!-- "Check before saving" as the Focus h1: proposed, for cabledrawer. -->
         <h1>Check before saving</h1>
         <span class="muted">Step 2 of 3 · nothing saved yet</span>
       </div>
