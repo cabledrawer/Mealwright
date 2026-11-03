@@ -403,8 +403,8 @@ def plain(
 CANNOT_UNDO = ("undo", "dismiss_note", "untick_by_undo", "place_by_undo", "purge")
 
 
-# A phone time older than this is "clearly wrong" and the server's time is used (proposed, for
-# cabledrawer): an offline tick is rarely more than a week old when it syncs.
+# A phone time older than this is "clearly wrong" and the server's time is used (cabledrawer 2 Nov:
+# "7 days OK"): an offline tick is rarely more than a week old when it syncs.
 PHONE_CLOCK_MAX_AGE = timedelta(days=7)
 
 

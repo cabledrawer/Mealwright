@@ -505,7 +505,7 @@ def move_meal(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
-                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                    "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
                 )
     if mode == "leftovers":
         items = [i for i in items if i.kind != "note"]  # "Eating out" has no leftovers
@@ -604,7 +604,7 @@ def move_item(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
             )
     if mode == "leftovers" and item.kind == "note":
         raise Problem(

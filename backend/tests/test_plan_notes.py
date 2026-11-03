@@ -54,6 +54,11 @@ def test_a_note_needs_text_and_nothing_else(kitchen: TestClient, slots: dict[str
         json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "note": "Out", "recipe_id": 1},
     )
     assert both.status_code == 422 and both.json()["code"] == "one_of"
+    too_long = kitchen.post(
+        f"{API}/plan/items",
+        json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "note": "x" * 201},
+    )
+    assert "A note can be up to 200 letters." in too_long.text  # cabledrawer 2 Nov
     assert view(kitchen)["meals"] == []
     assert add_note(kitchen, D1, slots["Dinner"], "x" * 200)["item_id"]
 

@@ -298,7 +298,7 @@ def work_out(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
-                    "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                    "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
                 )
             target = meal_at(kitchen, spot[0], spot[1])
             if target is not None:
@@ -459,7 +459,7 @@ def place_tub(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) -> Change:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "after_use_by",
-            "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+            "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
         )
     steps: list[dict[str, Any]] = []
     _put_tub_in_meal(kitchen, tub, (day, slot_id), steps)
@@ -875,7 +875,7 @@ def leftover_tub(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
             )
         spare = Tub(
             household_id=kitchen.household_id,
@@ -1089,7 +1089,7 @@ def leftovers_on(kitchen: Kitchen, item: MealItem, spots: list[Spot], if_none_le
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That is after the use-by date of this batch.",  # proposed, for cabledrawer
+                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
             )
         target = meal_at(kitchen, day, slot_id)
         if target is not None:

@@ -494,7 +494,7 @@ class PlanItemIn(BaseModel):
     note: str | None = Field(
         default=None,
         description="A note instead of a recipe or ingredient: 'Eating out', 'Takeaway', 'At"
-        " Amma's' (1 to 200 letters, one line). It counts as a filled meal and needs nothing"
+        " Amma's' (up to 200 letters, one line). It counts as a filled meal and needs nothing"
         " bought.",
     )
     servings: Annotated[int, Field(ge=1, le=99)] | None = Field(
@@ -508,7 +508,7 @@ class PlanItemIn(BaseModel):
             return None
         text = clean(one_line(value))
         if not 1 <= len(text) <= MOST_NOTE:
-            raise ValueError(f"A note is 1 to {MOST_NOTE} letters.")  # proposed, for cabledrawer
+            raise ValueError(f"A note can be up to {MOST_NOTE} letters.")  # cabledrawer 2 Nov
         return text
 
 

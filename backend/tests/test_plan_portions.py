@@ -142,6 +142,7 @@ def test_only_meals_after_the_cook_and_before_the_use_by_are_accepted(
     assert early.status_code == 422 and early.json()["code"] == "not_after_cook"
     late = leftovers(kitchen, cook["item_id"], [spot(4, slots)])
     assert late.status_code == 422 and late.json()["code"] == "after_use_by"
+    assert late.json()["detail"] == "That’s after this batch’s use-by date."  # cabledrawer 2 Nov
     last = leftovers(kitchen, cook["item_id"], [spot(3, slots, "Dinner")])  # the use-by day itself
     assert last.status_code == 200, last.text
     # A refused tick changes nothing.
