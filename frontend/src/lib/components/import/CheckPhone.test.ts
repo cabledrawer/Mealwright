@@ -177,6 +177,25 @@ describe('Focus (the phone’s default)', () => {
     expect(nav.goto).not.toHaveBeenCalled();
   });
 
+  it('Close waits while a step box is open, and works after Done with the edit kept', async () => {
+    const flow = reviewFlow();
+    show(flow, true);
+    fakeApi({
+      'POST /recipes/drafts': [201, KEPT],
+      'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+    });
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    const box = page.getByLabelText('Words of step 1');
+    await box.fill('Boil the dal for 20 minutes.');
+    await expect.element(page.getByRole('button', { name: /^Close/ })).toBeDisabled();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByRole('button', { name: /^Close/ }).click();
+    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+    expect(flow.review!.steps.find((x) => x.kind === 'step')!.text).toBe(
+      'Boil the dal for 20 minutes.'
+    );
+  });
+
   it('leaves the menu back when Check goes', async () => {
     show(reviewFlow(), true);
     expect(document.documentElement.hasAttribute('data-full-page')).toBe(true);
@@ -500,6 +519,25 @@ describe('One at a time', () => {
         .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
         .toBeVisible();
       expect(nav.goto).not.toHaveBeenCalled();
+    });
+
+    it('Close waits while a step box is open, and works after Done with the edit kept', async () => {
+      const flow = await opened();
+      fakeApi({
+        'POST /recipes/drafts': [201, KEPT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      await next().click(); // line 2
+      await next().click(); // step 1
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
+      await expect
+        .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+        .toBeDisabled();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
     });
 
     it('See all shows the whole list (Focus) for this visit', async () => {

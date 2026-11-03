@@ -530,7 +530,12 @@
         {/if}
         {#if flow.draftProblem}<p class="error" role="alert">{flow.draftProblem}</p>{/if}
         <div class="buttons">
-          <button type="button" class="close" disabled={flow.keeping} onclick={() => void close()}>
+          <button
+            type="button"
+            class="close"
+            disabled={flow.keeping || editing !== null}
+            onclick={() => void close()}
+          >
             Close <span class="sub">Kept in Drafts</span>
           </button>
           <button

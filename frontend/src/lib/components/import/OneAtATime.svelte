@@ -96,7 +96,7 @@
         type="button"
         class="x"
         aria-label="Close (kept in Drafts)"
-        disabled={closing}
+        disabled={closing || editing !== null}
         onclick={onclose}><Icon name="close" size={18} stroke={2.4} /></button
       >
       <div class="titles">
