@@ -423,6 +423,52 @@ describe('One at a time', () => {
     });
   });
 
+  it('the focus goes to the top of the screen after Next, Back, Remove line and Split into two', async () => {
+    const flow = await opened();
+    const region = () => document.activeElement?.classList.contains('one');
+    await next().click();
+    expect(region()).toBe(true);
+    await back().click();
+    expect(region()).toBe(true);
+    await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
+    await vi.waitFor(() => expect(region()).toBe(true));
+    expect(await undoHistory.undoLast()).toBe(true);
+    flushSync();
+    fakeApi({
+      'GET /places': [200, PLACES],
+      'GET /shops': [200, SHOPS],
+      'GET /foods?q=red&limit=8': [200, { foods: [] }],
+      'GET /foods?q=onion&limit=8': [200, { foods: [] }]
+    });
+    flow.review!.lines[1] = {
+      ...flow.review!.lines[1]!,
+      written: '2 cups red and white onion',
+      words: 'red and white onion'
+    };
+    flushSync();
+    await page.getByRole('button', { name: /^Split into two:/ }).click();
+    await page.getByLabelText('Second ingredient').fill('onion');
+    await page.getByRole('button', { name: 'Split', exact: true }).click();
+    await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(4));
+    await vi.waitFor(() => expect(region()).toBe(true));
+  });
+
+  it('the focus is on the screen after Next reaches the last screen, with Save recipe in Next’s place', async () => {
+    await opened();
+    for (let i = 0; i < 4; i++) await next().click();
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
+    expect(document.activeElement?.classList.contains('one')).toBe(true);
+  });
+
+  it('the focus goes to the top of the screen after Keep the split', async () => {
+    await opened();
+    await next().click();
+    for (let i = 0; i < 2; i++) await next().click();
+    await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+    await page.getByRole('button', { name: 'Keep the split' }).click();
+    await vi.waitFor(() => expect(document.activeElement?.classList.contains('one')).toBe(true));
+  });
+
   describe('a step, with the Check screen’s own options', () => {
     async function onStep(n: number) {
       const flow = await opened();

@@ -77,12 +77,32 @@
 
   // A new screen starts at its top, with no preview open for another step.
   let region: HTMLElement | undefined = $state();
-  function go(to: number) {
+  async function go(to: number) {
     editing = null;
     flow.previewStep = null;
     pos = to;
     region?.scrollIntoView({ block: 'start' });
+    await tick();
+    region?.focus();
   }
+
+  // A line or step that went (Remove line, Split into two, Keep the split) takes the focused
+  // button with it, so the focus goes to the top of the screen, as after Back and Next.
+  let shown: unknown = undefined;
+  $effect(() => {
+    const now = item
+      ? item.kind === 'line'
+        ? review.lines[item.at]
+        : review.steps[item.at]
+      : null;
+    const changed = shown !== undefined && now !== shown;
+    shown = now;
+    if (!changed) return;
+    void tick().then(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) region?.focus();
+    });
+  });
 
   async function takeOut() {
     if (stepAt < 0) return;
@@ -266,21 +286,17 @@
             type="button"
             class="back"
             disabled={at === 0 || editing !== null}
-            onclick={() => go(at - 1)}>← Back</button
+            onclick={() => void go(at - 1)}>← Back</button
           >
         {/if}
-        {#if last}
-          <button
-            type="button"
-            class="next"
-            disabled={flow.saving || network.offline || editing !== null}
-            onclick={onsave}>{flow.saving ? 'Saving…' : 'Save recipe'}</button
-          >
-        {:else}
-          <button type="button" class="next" disabled={editing !== null} onclick={() => go(at + 1)}
-            >Next →</button
-          >
-        {/if}
+        <!-- One button for Next and Save recipe, so the focus stays on it at the last screen. -->
+        <button
+          type="button"
+          class="next"
+          disabled={editing !== null || (last && (flow.saving || network.offline))}
+          onclick={() => (last ? onsave() : void go(at + 1))}
+          >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</button
+        >
       </div>
       {#if network.offline && last}
         <p class="muted" role="status">
