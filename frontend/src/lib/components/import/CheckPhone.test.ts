@@ -10,7 +10,10 @@ import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
-import { reviewFlow } from '#lib/testing/importSamples.js';
+import { SAMPLE_LINES, reviewFlow } from '#lib/testing/importSamples.js';
+import { walkItems } from '#lib/importWalk.js';
+import type { ImportReview } from '#lib/client/imports.js';
+import { handleUndoKey } from '#lib/undo.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import ReviewPage from './ReviewPage.svelte';
@@ -199,5 +202,351 @@ describe('a computer', () => {
       unmount(component!);
       component = null;
     }
+  });
+});
+
+// --- One at a time -------------------------------------------------------------------------------
+
+const LONG =
+  'Heat the ghee. Add the cumin. Add the garlic. Add the chillies. Pour it over the dal.';
+/** Three lines (a ready one, one to confirm, one that needs you) and four steps under a heading. */
+function oneReview(): Partial<ImportReview> {
+  const [, matched, , onion, asafoetida] = SAMPLE_LINES;
+  return {
+    lines: [matched!, onion!, asafoetida!].map((l) => ({ ...l })),
+    steps: [
+      { kind: 'heading', text: 'The tempering' },
+      { kind: 'step', text: 'Boil the dal.' },
+      { kind: 'step', text: LONG },
+      { kind: 'step', text: 'Eat it.' }
+    ],
+    counts: { matched: 1, to_confirm: 1, needs_you: 1, staple: 0 },
+    left_out: []
+  };
+}
+
+describe('One at a time', () => {
+  beforeEach(() => {
+    checkMode.set('one');
+    undoHistory.clear();
+    toasts.dismiss();
+  });
+
+  const heading = () => page.getByRole('heading', { level: 1 });
+  const next = () => page.getByRole('button', { name: /^Next/ });
+  const back = () => page.getByRole('button', { name: /^← Back/ });
+
+  async function opened(over: Partial<ImportReview> = oneReview()) {
+    const flow = reviewFlow(over);
+    show(flow, true);
+    await expect.element(heading()).toBeVisible();
+    return flow;
+  }
+
+  it('starts on the first line that needs you, as drawn, with the menu hidden', async () => {
+    await opened();
+    expect(document.documentElement.hasAttribute('data-full-page')).toBe(true);
+    await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+    await expect.element(page.getByText('Sambar · nothing saved yet')).toBeVisible();
+    await expect.element(page.getByText('Lines that need you · 1 of 2')).toBeVisible();
+    await expect.element(page.getByText(/1 red onion, sliced/).first()).toBeVisible();
+    await expect.element(back()).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'See all' })).toBeVisible();
+    await expect
+      .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+      .toBeVisible();
+    // The ready line is not on a card of its own.
+    expect(document.body.textContent).not.toContain('thuvaram paruppu');
+  });
+
+  it('walks the lines that need you, then every step, then Save recipe', async () => {
+    const flow = await opened();
+    const seen: string[] = [];
+    const items = walkItems(flow.review!);
+    for (let n = 0; n < items.length; n++) {
+      seen.push(heading().element().textContent!);
+      if (n < items.length - 1) await next().click();
+    }
+    expect(seen).toEqual([
+      'Ingredients · 1 of 2 to check',
+      'Ingredients · 2 of 2 to check',
+      'Method · step 1 of 3',
+      'Method · step 2 of 3',
+      'Method · step 3 of 3'
+    ]);
+    // Next is Save recipe on the last screen, and Back goes the way it came.
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
+    expect(next().elements()).toEqual([]);
+    await back().click();
+    await expect.element(heading()).toHaveTextContent('Method · step 2 of 3');
+  });
+
+  it('shows the step with its heading, and says the long one is long', async () => {
+    await opened();
+    await next().click();
+    await next().click();
+    await expect.element(page.getByText('The tempering')).toBeVisible();
+    await expect.element(page.getByText('Boil the dal.')).toBeVisible();
+    await expect.element(page.getByText('Every step · 1 of 3')).toBeVisible();
+    await next().click();
+    await expect.element(page.getByText('A long step (5 sentences)')).toBeVisible();
+  });
+
+  describe('a line, with the Check screen’s own options', () => {
+    it('Same as “Onions” (a line to confirm), and Change takes it back', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: 'Same as “Onions”' }).click();
+      expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', food: { id: 2 } });
+      // The line stays in the walk: Next still goes on to the second.
+      await expect.element(page.getByText('Same as', { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Change', exact: true }).click();
+      expect(flow.choices[1]).toBeUndefined();
+    });
+
+    it('Pick another opens the picker for this line', async () => {
+      await opened();
+      await page.getByRole('button', { name: 'Pick another' }).click();
+      await expect
+        .element(page.getByLabelText('Pick an ingredient for 1 red onion, sliced'))
+        .toBeVisible();
+    });
+
+    it('New ingredient opens its form, with Done', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: 'New ingredient', exact: true }).click();
+      expect(flow.choices[1]).toMatchObject({ kind: 'new' });
+      await expect.element(page.getByLabelText('Name')).toBeVisible();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByText('New ingredient:')).toBeVisible();
+    });
+
+    it('Treat as staple, on a line that needs you', async () => {
+      const flow = await opened();
+      await next().click();
+      await expect.element(heading()).toHaveTextContent('Ingredients · 2 of 2 to check');
+      await page.getByRole('button', { name: 'Treat as staple', exact: true }).click();
+      expect(flow.choices[2]).toMatchObject({ kind: 'staple' });
+    });
+
+    it('Made in this recipe, offered first for a “from the …” line', async () => {
+      const over = oneReview();
+      over.lines![1] = { ...over.lines![1]!, note: 'from the spice blend' };
+      const flow = await opened(over);
+      const first = document.querySelector('.line .buttons button');
+      expect(first?.textContent?.trim()).toBe('Made in this recipe');
+      await page.getByRole('button', { name: 'Made in this recipe' }).click();
+      expect(flow.choices[1]).toEqual({ kind: 'here' });
+    });
+
+    it('Remove line takes it out with Undo, and the next line takes its place', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
+      expect(flow.review!.lines).toHaveLength(2);
+      expect(toasts.current?.message).toBe('Removed “1 red onion, sliced”');
+      // The only other line that needs you is now the first and last of the lines.
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 1 to check');
+      await expect.element(page.getByText(/¼ tsp asafoetida/).first()).toBeVisible();
+      expect(await undoHistory.undoLast()).toBe(true);
+      flushSync();
+      expect(flow.review!.lines).toHaveLength(3);
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+    });
+
+    it('Split into two opens the two names, and splits the line', async () => {
+      const flow = await opened();
+      fakeApi({
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS],
+        'GET /foods?q=red&limit=8': [200, { foods: [] }],
+        'GET /foods?q=onion&limit=8': [200, { foods: [] }]
+      });
+      flow.review!.lines[1] = {
+        ...flow.review!.lines[1]!,
+        written: '2 cups red and white onion',
+        words: 'red and white onion'
+      };
+      flushSync();
+      await page.getByRole('button', { name: /^Split into two:/ }).click();
+      await expect.element(page.getByLabelText('First ingredient')).toHaveValue('red');
+      await page.getByLabelText('Second ingredient').fill('onion');
+      await page.getByRole('button', { name: 'Split', exact: true }).click();
+      await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(4));
+      expect(toasts.current?.message).toContain('into two');
+    });
+
+    it('the amount and note boxes open from the chips', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: /^Amount 1/ }).click();
+      await page.getByLabelText('Amount', { exact: true }).fill('3');
+      expect(flow.review!.lines[1]).toMatchObject({ amount: 3 });
+    });
+
+    it('Ctrl+Z undoes a removed line here as on the Check screen', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
+      expect(flow.review!.lines).toHaveLength(2);
+      handleUndoKey(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true }));
+      await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(3));
+    });
+  });
+
+  describe('a step, with the Check screen’s own options', () => {
+    async function onStep(n: number) {
+      const flow = await opened();
+      await next().click(); // line 2
+      for (let i = 0; i <= n; i++) await next().click();
+      return flow;
+    }
+
+    it('Change the words: nothing is saved, the step changes, Back and Next wait for Done', async () => {
+      const flow = await onStep(0);
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      const box = page.getByLabelText('Words of step 1');
+      await expect.element(box).toHaveValue('Boil the dal.');
+      await expect.element(next()).toBeDisabled();
+      await box.fill('Boil the dal for 20 minutes.');
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
+      await expect.element(page.getByText('Boil the dal for 20 minutes.')).toBeVisible();
+      await expect.element(next()).toBeEnabled();
+    });
+
+    it('tapping the step’s words opens the same box, and Cancel leaves them', async () => {
+      const flow = await onStep(0);
+      await page.getByRole('button', { name: 'Change step 1: Boil the dal.' }).click();
+      await page.getByLabelText('Words of step 1').fill('Nothing');
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      expect(flow.review!.steps[1]!.text).toBe('Boil the dal.');
+    });
+
+    it('an empty step can’t be kept, and offers Remove step', async () => {
+      const flow = await onStep(0);
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText('Words of step 1').fill('  ');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect
+        .element(page.getByText('A step can’t be empty. Write something, or remove it.'))
+        .toBeVisible();
+      await page.getByRole('button', { name: 'Remove step' }).click();
+      expect(flow.review!.steps.map((s) => s.text)).not.toContain('Boil the dal.');
+    });
+
+    it('Remove step takes it out with Undo, and the next step takes its place', async () => {
+      const flow = await onStep(0);
+      await page.getByRole('button', { name: 'Remove step' }).click();
+      expect(toasts.current?.message).toBe('Removed step 1');
+      expect(flow.review!.steps.map((s) => s.text)).toEqual(['The tempering', LONG, 'Eat it.']);
+      await expect.element(heading()).toHaveTextContent('Method · step 1 of 2');
+      await expect.element(page.getByText('A long step (5 sentences)')).toBeVisible();
+      expect(await undoHistory.undoLast()).toBe(true);
+      flushSync();
+      expect(flow.review!.steps.map((s) => s.text)).toEqual([
+        'The tempering',
+        'Boil the dal.',
+        LONG,
+        'Eat it.'
+      ]);
+      await expect.element(heading()).toHaveTextContent('Method · step 1 of 3');
+    });
+
+    it('Split into shorter steps shows the preview, Keep the split makes more steps, and they can be put back', async () => {
+      const flow = await onStep(1);
+      await expect.element(page.getByText('A long step (5 sentences)')).toBeVisible();
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await expect.element(page.getByText('Preview: this step as 3 steps')).toBeVisible();
+      // Keep as one leaves it.
+      await page.getByRole('button', { name: 'Keep as one' }).click();
+      expect(flow.review!.steps).toHaveLength(4);
+      await page.getByRole('button', { name: 'Split into shorter steps' }).click();
+      await page.getByRole('button', { name: 'Keep the split' }).click();
+      expect(flow.review!.steps).toHaveLength(6);
+      // Step 2 of 5 is now the first piece, and Next walks the new steps too.
+      await expect.element(heading()).toHaveTextContent('Method · step 2 of 5');
+      await expect.element(page.getByText('Heat the ghee. Add the cumin.')).toBeVisible();
+      await page.getByRole('button', { name: 'Put the steps back as they were' }).click();
+      expect(flow.review!.steps).toHaveLength(4);
+      expect(flow.review!.steps[2]!.text).toBe(LONG);
+      await expect.element(heading()).toHaveTextContent('Method · step 2 of 3');
+    });
+  });
+
+  describe('Close, See all and Save', () => {
+    it('Close keeps the draft with the choices so far, and opens Drafts', async () => {
+      const flow = await opened();
+      const requests = fakeApi({
+        'POST /recipes/drafts': [201, KEPT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      await page.getByRole('button', { name: 'Same as “Onions”' }).click();
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      const keep = requests.find((r) => r.method === 'POST' && r.path === '/recipes/drafts')!;
+      const body = keep.body as { choices: { lines: Record<string, { kind: string }> } };
+      expect(body.choices.lines['1']?.kind).toBe('ingredient');
+      expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes\/drafts$/);
+      expect(flow.draftId).toBe(7);
+    });
+
+    it('Close says why when the draft can’t be kept, and stays', async () => {
+      await opened();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await expect
+        .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
+        .toBeVisible();
+      expect(nav.goto).not.toHaveBeenCalled();
+    });
+
+    it('See all shows the whole list (Focus) for this visit', async () => {
+      await opened();
+      await page.getByRole('button', { name: 'See all' }).click();
+      await expect.element(page.getByRole('button', { name: /^Close Kept/ })).toBeVisible();
+      await expect.element(page.getByText('Toor dal').first()).toBeVisible();
+      expect(next().elements()).toEqual([]);
+    });
+
+    it('Save recipe on the last screen goes through the same Save: unlinked lines are asked about', async () => {
+      const flow = await opened();
+      for (let n = 0; n < 4; n++) await next().click();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      await expect
+        .element(page.getByRole('dialog', { name: '2 lines aren’t linked yet' }))
+        .toBeVisible();
+      expect(flow.walk?.queue).toHaveLength(2);
+    });
+
+    it('Save recipe sends the recipe once every line has a choice', async () => {
+      const flow = await opened();
+      flow.sameAs(1, { id: 2, name: 'Onions' });
+      flow.madeHere(2);
+      flushSync();
+      for (let n = 0; n < 4; n++) await next().click();
+      const requests = fakeApi({
+        'POST /recipes/import/save': [
+          500,
+          { detail: 'Couldn’t save. Try again.', code: 'server_error' }
+        ]
+      });
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
+      expect(requests.find((r) => r.method === 'POST')!.path).toContain('/recipes/import');
+    });
+
+    it('with nothing to look at, says so and offers Save recipe', async () => {
+      await opened({
+        lines: [{ ...SAMPLE_LINES[1]! }],
+        steps: [],
+        counts: { matched: 1, to_confirm: 0, needs_you: 0, staple: 0 },
+        left_out: []
+      });
+      await expect.element(heading()).toHaveTextContent('Nothing to check');
+      await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
+      expect(back().elements()).toEqual([]);
+    });
   });
 });
