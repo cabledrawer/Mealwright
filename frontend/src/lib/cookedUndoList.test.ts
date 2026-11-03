@@ -26,7 +26,7 @@ describe('Undo of Cooked it in Pantry → Recent changes', () => {
     const before = kitchen.version;
     await undoFromList(COOKED, list);
     expect(paths(requests)).toEqual(['POST /changes/70/undo']);
-    expect(list.changes[0].can_undo).toBe(false);
+    expect(list.changes[0]?.can_undo).toBe(false);
     expect(kitchen.version).toBeGreaterThan(before);
     expect(toasts.current?.message).toBe('Undone: Cooked Dal curry');
   });
