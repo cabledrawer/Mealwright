@@ -38,7 +38,7 @@ const webkit = {
   launchOptions: { args: [] as string[] },
 };
 // Safari's engine at phone size, only for the screens a phone changes most (Check on the phone, F141).
-const webkitPhone = { ...webkit, viewport: { width: 390, height: 844 } };
+const webkitPhone = { ...webkit, viewport: { width: 390, height: 844 }, hasTouch: true };
 
 // E2E_PROJECTS picks one half of the projects (./check runs the two halves side by side, each
 // with its own servers): "phone" is every phone and WebKit project, "desktop" is all the rest.

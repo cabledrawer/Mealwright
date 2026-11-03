@@ -591,9 +591,10 @@ test('Check is three columns on a wide computer and one column on a phone, and l
   });
   const now = await boxes();
   if (onPhone()) {
-    // One column: each below the one before.
-    expect(now.lines.y).toBeGreaterThan(now.details.y + now.details.height - 1);
-    expect(now.method.y).toBeGreaterThan(now.lines.y + now.lines.height - 1);
+    // One column: each below the one before. The phone's Check (Focus, F141) puts the ingredients
+    // first, then the recipe's details, then the method.
+    expect(now.details.y).toBeGreaterThan(now.lines.y + now.lines.height - 1);
+    expect(now.method.y).toBeGreaterThan(now.details.y + now.details.height - 1);
   } else {
     // Details, ingredients, method side by side, from the same top.
     expect(now.lines.x).toBeGreaterThan(now.details.x + now.details.width - 1);

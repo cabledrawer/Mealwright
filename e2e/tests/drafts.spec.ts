@@ -135,13 +135,14 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await reviewOf(page, title, hing, masala);
   await page.getByRole('button', { name: 'Treat as staple' }).first().click();
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
-  await page.getByLabel('Name', { exact: true }).first().fill(`${title} (mine)`);
+  // The recipe's own Name box (on a phone the ingredients come first, with their own Name boxes).
+  await page.getByRole('region', { name: 'Recipe details' }).getByLabel('Name', { exact: true }).fill(`${title} (mine)`);
   await keepDraft(page);
   await expect(page.getByText(`${title} (mine)`)).toBeVisible();
   await page.getByRole('link', { name: `Carry on ${title} (mine)` }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts\/\d+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
-  await expect(page.getByLabel('Name', { exact: true }).first()).toHaveValue(`${title} (mine)`);
+  await expect(page.getByRole('region', { name: 'Recipe details' }).getByLabel('Name', { exact: true })).toHaveValue(`${title} (mine)`);
   await expect(page.getByText(/Made a staple when you save/)).toBeVisible();
   await expect(page.getByText(/Made when you save/)).toBeVisible();
   await checkPage(page);
