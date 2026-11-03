@@ -260,6 +260,29 @@ describe('Cook mode', () => {
       expect(onexit).toHaveBeenCalledTimes(1);
     });
 
+    it('has ← Back on the last step too (F138)', async () => {
+      open(recipe(FOUR));
+      await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+      expect(back().elements()).toHaveLength(1);
+      await expect.element(back()).toBeEnabled();
+      await back().click();
+      await expect.element(count()).toHaveTextContent('Step 3 of 4');
+    });
+
+    it('Back is there but off on a one-step recipe (F138)', async () => {
+      open(recipe([step(1, 'Stir.')]), { cooked: false });
+      await expect.element(back()).toBeDisabled();
+    });
+
+    it('the finished part of the progress bar is 5 px tall (F126)', async () => {
+      open(recipe(FOUR));
+      await userEvent.keyboard('{ArrowRight}');
+      const spans = document.querySelectorAll<HTMLElement>('.progress span');
+      for (const span of spans) {
+        expect(span.getBoundingClientRect().height).toBe(5);
+      }
+    });
+
     it('has Not now alone where nothing has been planned to cook', async () => {
       open(recipe([step(1, 'Stir.')]), { cooked: false });
       await expect.element(page.getByRole('button', { name: 'Not now' })).toBeVisible();

@@ -191,7 +191,7 @@
     {#if steps.length}
       <div class="progress" aria-hidden="true">
         {#each steps as s, i (s.number)}
-          <span class:done={i <= index}></span>
+          <span class:filled={i <= index}></span>
         {/each}
       </div>
     {/if}
@@ -304,8 +304,14 @@
     </section>
   </div>
 
-  <footer>
+  <footer class:three={last && !!oncooked}>
     {#if last}
+      <button
+        type="button"
+        class="quiet-button"
+        disabled={index === 0}
+        onclick={() => go(index - 1)}>← Back</button
+      >
       <button type="button" class="quiet-button" onclick={leave}>Not now</button>
       {#if oncooked}
         <button type="button" class="main" onclick={oncooked}>Cooked it</button>
@@ -475,8 +481,17 @@
     background: var(--color-fill-strong);
   }
 
-  .progress span.done {
+  .progress span.filled {
     background: var(--color-accent);
+  }
+
+  footer.three {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
+  }
+
+  footer.three .quiet-button {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
   }
 
   .body {
