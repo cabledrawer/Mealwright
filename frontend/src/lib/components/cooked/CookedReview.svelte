@@ -11,6 +11,7 @@
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import { useByWords } from '#lib/planMeals.js';
+  import { eatOnUpTo } from '#lib/tubUseBy.js';
   import { tubsWords } from '#lib/todayWords.js';
   import CookRowView from './CookRowView.svelte';
 
@@ -77,11 +78,9 @@
     chosen ?? (place === 'fridge' ? leftover?.useByFridge : leftover?.useByFreezer) ?? ''
   );
 
-  /** "Eat it on…": not past the tub's use-by (the Plan and Today give the fridge's; a chosen
-   * date wins). With no use-by known, every free meal is offered. */
-  const eatChoices = $derived(
-    (leftover?.eatOn ?? []).filter((option) => !useBy || option.day <= useBy)
-  );
+  /** "Eat it on…": not past the tub's use-by, the fridge's or the freezer's as the place says (a
+   * chosen date wins). With no use-by known, none: never a meal the server will refuse (F128). */
+  const eatChoices = $derived(eatOnUpTo(leftover?.eatOn ?? [], useBy));
   $effect(() => {
     if (eatAt && !eatChoices.some((o) => `${o.day}|${o.slotId}` === eatAt)) eatAt = '';
   });

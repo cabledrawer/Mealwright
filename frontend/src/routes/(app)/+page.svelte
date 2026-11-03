@@ -24,6 +24,8 @@
   import { addDays, dayFull, dayShort, dayOfMonth } from '#lib/planDates.js';
   import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
+  import { getHousehold } from '#lib/client/household.js';
+  import { eatOnUntil, leftoverUseBy, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
   import { dayWords, mealsWords, whenWords } from '#lib/todayWords.js';
@@ -86,37 +88,52 @@
     }));
   }
 
-  function openCooked(w: WaitingMeal, hasUseBy: boolean) {
+  function openCooked(w: WaitingMeal) {
     const meal = model.mealOf(w);
     if (!meal || !model.data) return;
     answering = w;
+    // F128: "Eat it on…" only up to the tub's use-by, the fridge's or the freezer's as the
+    // review's place says; with none known, no meal is offered.
+    const useBy = {
+      ...(w.use_by_fridge ? { useByFridge: w.use_by_fridge } : {}),
+      ...(w.use_by_freezer ? { useByFreezer: w.use_by_freezer } : {})
+    };
+    const until = eatOnUntil(useBy);
     leftover =
       w.leftover_item_id !== null
         ? {
             itemId: w.leftover_item_id,
             today: model.data.today,
-            eatOn: eatOnOptions(meal, hasUseBy ? w.use_by_fridge : null),
-            ...(hasUseBy ? { useByFridge: w.use_by_fridge, useByFreezer: w.use_by_freezer } : {})
+            eatOn: until ? eatOnOptions(meal, until) : [],
+            ...useBy
           }
         : null;
     const when = `${whenWords(w.date, model.data.today)} · ${model.slotName(w.slot_id).toLowerCase()}`;
     void review.open(cookTarget(model.data.plan, meal, when));
   }
 
-  /** A meal eaten today that is still planned: the same review (the server counts a tub's use-by). */
-  function cookEating(meal: PlanMeal) {
+  /**
+   * A meal eaten today that is still planned: the same review. Its tub's use-by is counted from
+   * the household's tub life, as the server counts it (F128).
+   */
+  async function cookEating(meal: PlanMeal) {
     const first = meal.items.find((i) => i.kind === 'recipe');
-    openCooked(
-      {
-        meal_id: meal.id,
-        date: meal.date,
-        slot_id: meal.slot_id,
-        leftover_item_id: first?.id ?? null,
-        use_by_fridge: '',
-        use_by_freezer: ''
-      },
-      false
-    );
+    let life: TubLife | null = null;
+    try {
+      const household = await getHousehold();
+      life = { fridgeDays: household.tub_fridge_days, freezerMonths: household.tub_freezer_months };
+    } catch {
+      // Not reached: the review still opens, with no "Eat it on…" meals and the usual use-by.
+    }
+    const useBy = leftoverUseBy(meal.date, life);
+    openCooked({
+      meal_id: meal.id,
+      date: meal.date,
+      slot_id: meal.slot_id,
+      leftover_item_id: first?.id ?? null,
+      use_by_fridge: useBy.useByFridge ?? '',
+      use_by_freezer: useBy.useByFreezer ?? ''
+    });
   }
 
   function closeCooked() {
@@ -195,7 +212,7 @@
       <WaitingCard
         {model}
         waiting={model.asking}
-        oncooked={() => model.asking && openCooked(model.asking, true)}
+        oncooked={() => model.asking && openCooked(model.asking)}
         onmove={() => (moving = model.asking)}
       />
     {/if}
@@ -248,7 +265,7 @@
               type="button"
               class="cooked-it"
               disabled={model.readonly}
-              onclick={() => cookEating(meal)}>Cooked it</button
+              onclick={() => void cookEating(meal)}>Cooked it</button
             >
           {/if}
         </div>

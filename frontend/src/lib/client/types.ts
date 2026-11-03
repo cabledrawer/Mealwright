@@ -204,6 +204,8 @@ export interface Household {
   use_soon_days: number;
   /** How many days a tub keeps in the fridge. */
   tub_fridge_days: number;
+  /** How many months a tub keeps in the freezer. */
+  tub_freezer_months: number;
   /** 1 is Monday … 7 is Sunday. */
   week_starts_on: number;
   /** Today, in the household's own time zone ("2026-10-17"). */

@@ -36,8 +36,14 @@ export async function eatLeftover(
     if (written.change?.can_undo) placed.undo = serverUndo(written.change.id);
     kitchen.changed();
   } catch (error) {
-    // The tub stays in Tubs left, where it was made; the server's words say why. A server that
-    // can't be reached has its own message everywhere else, so nothing is added to it here.
-    if (error instanceof ApiError) toasts.show(error.detail, { tone: 'problem' });
+    // The tub stays in Tubs left, where it was made; the server's words say why, after saying
+    // plainly that Cooked it itself is saved (F128). A server that can't be reached has its own
+    // message everywhere else, so nothing is added to it here.
+    if (error instanceof ApiError) toasts.show(refusedWords(error.detail), { tone: 'problem' });
   }
+}
+
+/** Proposed, for cabledrawer (F128): the cooking stands; only the tub's meal was refused. */
+export function refusedWords(reason: string): string {
+  return `Cooked it is saved, but the tub isn’t planned. ${reason} It stays in Tubs left.`;
 }

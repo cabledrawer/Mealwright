@@ -77,6 +77,8 @@ export class PlanModel {
   startsOn = $state(1);
   /** Days a tub keeps in the fridge (its default use-by), from the household. */
   tubFridgeDays = $state(0);
+  /** Months a tub keeps in the freezer, from the household. */
+  tubFreezerMonths = $state(0);
   slots = $state<MealSlot[]>([]);
   plan = $state<Plan | null>(null);
   /** Tubs in no meal, soonest use-by first (the tray's "Tubs left"). */
@@ -110,6 +112,7 @@ export class PlanModel {
         this.today = household.today;
         this.startsOn = household.week_starts_on || 1;
         this.tubFridgeDays = household.tub_fridge_days ?? 0;
+        this.tubFreezerMonths = household.tub_freezer_months ?? 0;
         this.anchor ||= household.today;
       }
       const first = this.days[0];

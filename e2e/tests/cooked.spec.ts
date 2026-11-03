@@ -406,3 +406,48 @@ test('Today: a meal eaten today has its own Cooked it, which opens the same revi
   await expect.poll(() => have(page, `Rice ${s}`)).toBe(800);
   await expect(meal.getByText('Cooked', { exact: true })).toBeVisible();
 });
+
+test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past the tub’s use-by', async ({ page }) => {
+  test.skip(projectIndex() !== 0, 'one project plans the days ahead; the others share the server');
+  const k = await setup(page);
+  const household = (await (await page.request.get('/api/v1/household')).json()) as { tub_fridge_days: number };
+  const useBy = addDays(k.today, household.tub_fridge_days); // the fridge tub's last day
+  const s = stamp();
+  const rice = await k.food(`Rice ${s}`);
+  await k.stock(rice, 1000);
+  const name = `Lemon rice ${s}`;
+  const mine = [await k.plan(await k.recipe(name, [line(rice, 'rice', 200, 'g')]), k.today, k.slot.Lunch)];
+  // Every meal from today's lunch to the use-by is taken, so the next free ones are after it.
+  const filler = await k.recipe(`Filler ${s}`, []);
+  const plan = (await (await page.request.get(`/api/v1/plan?from=${k.today}&to=${useBy}`)).json()) as {
+    meals: { date: string; slot_id: number }[];
+  };
+  const on = ['Breakfast', 'Lunch', 'Dinner'].map((n) => k.slot[n]!);
+  try {
+    for (let day = k.today; day <= useBy; day = addDays(day, 1))
+      for (const slotId of on)
+        if (!plan.meals.some((m) => m.date === day && m.slot_id === slotId) && !(day === k.today && slotId !== k.slot.Dinner))
+          mine.push(await k.plan(filler, day, slotId));
+
+    await page.goto('/');
+    const meal = page.getByTestId('today-eating').locator('.card', { hasText: name });
+    await meal.getByRole('button', { name: 'Cooked it' }).click();
+    const dialog = review(page, name);
+    await dialog.getByRole('button', { name: 'More tubs' }).click();
+    await expect(dialog.getByText(/^Use by /)).toBeVisible();
+    // In the fridge: no free meal is on or before the use-by, so there is nothing to offer.
+    await expect(dialog.getByText('Eat it on…')).toHaveCount(0);
+    // In the freezer the tub keeps for months: the meals after the fridge's use-by are offered.
+    await dialog.getByRole('button', { name: 'Freezer' }).click();
+    const days = await dialog
+      .getByRole('combobox')
+      .locator('option')
+      .evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value.split('|')[0]).filter(Boolean));
+    expect(days.length).toBeGreaterThan(0);
+    for (const day of days) expect(day! > useBy).toBe(true);
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    for (const made of mine) await call(page, 'DELETE', `/plan/items/${made.item_id}`);
+  }
+});

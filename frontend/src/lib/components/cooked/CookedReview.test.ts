@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { CookRow, Proposal } from '#lib/client/cook.js';
 import { CookReview, type CookTarget } from '#lib/cookReview.svelte.js';
-import CookedReview from './CookedReview.svelte';
+import CookedReview, { type LeftoverOptions } from './CookedReview.svelte';
 import '../../styles/tokens.css';
 import '../../styles/base.css';
 
@@ -145,14 +145,14 @@ describe('the "Cooked it" review', () => {
   let review: CookReview;
   let confirmed: unknown[] = [];
 
-  async function show(names: string[], leftover: boolean | null = null) {
+  async function show(names: string[], leftover: boolean | LeftoverOptions | null = null) {
     review = new CookReview();
     confirmed = [];
     component = mount(CookedReview, {
       target: document.body,
       props: {
         review,
-        leftover: leftover ? { itemId: 100, today: '2026-10-16' } : null,
+        leftover: leftover === true ? { itemId: 100, today: '2026-10-16' } : leftover || null,
         onclose: () => review.close(),
         onconfirmed: (l: unknown) => void confirmed.push(l)
       }
@@ -307,6 +307,43 @@ describe('the "Cooked it" review', () => {
     await dialog.getByRole('button', { name: 'Confirm · update pantry' }).click();
     await vi.waitFor(() => expect(confirmed).toHaveLength(1));
     expect(confirmed[0]).toEqual({ count: 1, place_kind: 'freezer', item_id: 100 });
+  });
+
+  describe('"Eat it on…" offers only meals up to the tub’s use-by (F128)', () => {
+    const at = (day: string) => ({ day, slotId: 3, label: `${day} · Dinner` });
+    const eatOn = ['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20'].map(at);
+    const offered = async () => {
+      const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });
+      await dialog.getByRole('button', { name: 'More tubs' }).click();
+      flushSync();
+      return dialog;
+    };
+    const days = () =>
+      [...document.querySelectorAll<HTMLOptionElement>('.eaton option')]
+        .map((o) => o.value.split('|')[0])
+        .filter(Boolean);
+
+    it('the fridge’s use-by day is offered, the day after is not; the freezer’s go further', async () => {
+      await show(['Sambar'], {
+        itemId: 100,
+        today: '2026-10-16',
+        useByFridge: '2026-10-18',
+        useByFreezer: '2027-01-16',
+        eatOn
+      });
+      const dialog = await offered();
+      expect(days()).toEqual(['2026-10-17', '2026-10-18']);
+      await dialog.getByRole('button', { name: 'Freezer' }).click();
+      flushSync();
+      expect(days()).toEqual(['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20']);
+    });
+
+    it('with no use-by known, no meal is offered (never one the server will refuse)', async () => {
+      await show(['Sambar'], { itemId: 100, today: '2026-10-16', eatOn });
+      const dialog = await offered();
+      await expect.element(dialog.getByText('Use by the usual number of days')).toBeVisible();
+      expect(days()).toEqual([]);
+    });
   });
 
   it('a line with no amount can be switched on and given one', async () => {

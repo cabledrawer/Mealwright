@@ -26,11 +26,12 @@
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
+  import { eatOnUntil, leftoverUseBy } from '#lib/tubUseBy.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
-  import { addDays, dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
+  import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
@@ -206,7 +207,13 @@
       `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`
     );
     const first = meal.items.find((i) => i.kind === 'recipe');
-    const useByFridge = model.tubFridgeDays ? addDays(meal.date, model.tubFridgeDays) : '';
+    // A new tub keeps the household's tub life from the cook day, in the fridge or the
+    // freezer: "Eat it on…" offers no meal past it (F128).
+    const useBy = leftoverUseBy(meal.date, {
+      fridgeDays: model.tubFridgeDays,
+      freezerMonths: model.tubFreezerMonths
+    });
+    const until = eatOnUntil(useBy);
     cookedMeal = meal;
     // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
     leftover =
@@ -214,19 +221,13 @@
         ? {
             itemId: first.id,
             today: model.today,
-            // A new fridge tub keeps tubFridgeDays from the cook day: not past that.
-            ...(useByFridge ? { useByFridge } : {}),
-            eatOn: nextFreeMeals(
-              model.plan,
-              model.slotsOn,
-              meal,
-              model.today,
-              4,
-              useByFridge || null
-            ).map((f) => ({
-              ...f,
-              label: `${dayWords(f.day)} · ${model.slotName(f.slotId)}`
-            }))
+            ...useBy,
+            eatOn: until
+              ? nextFreeMeals(model.plan, model.slotsOn, meal, model.today, 4, until).map((f) => ({
+                  ...f,
+                  label: `${dayWords(f.day)} · ${model.slotName(f.slotId)}`
+                }))
+              : []
           }
         : null;
     void review.open(target);
