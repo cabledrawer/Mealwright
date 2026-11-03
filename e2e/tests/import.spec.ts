@@ -18,7 +18,8 @@ const onPhone = () => test.info().project.name.startsWith('phone');
 /** The three steps: "Step N of 3" under the title on a phone, the numbered steps beside it on a computer. */
 async function expectStep(page: Page, step: 1 | 2, pasted = 'Link pasted') {
   if (onPhone()) {
-    await expect(page.getByText(`Step ${step} of 3`, { exact: true })).toBeVisible();
+    // On the Check screen the phone's own header says it, with "nothing saved yet" (F141).
+    await expect(page.getByText(step === 2 ? 'Step 2 of 3 · nothing saved yet' : `Step ${step} of 3`, { exact: true })).toBeVisible();
     await expect(page.getByRole('list', { name: 'Import steps' })).toHaveCount(0);
     return;
   }
@@ -227,12 +228,14 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
   await expectStep(page, 2);
-  await expect(page.getByText('0 matched')).toBeVisible();
+  // The phone's header counts say "ok" (mockup Dark-ImportCheckFocus07-Phone).
+  await expect(page.getByText(onPhone() ? '0 ok' : '0 matched')).toBeVisible();
   await expect(page.getByText('1 to confirm')).toBeVisible();
   await expect(page.getByText('2 need you')).toBeVisible();
   await expect(page.getByText('Photo not downloaded.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Settings → Privacy' })).toBeVisible();
-  await expect(page.getByText('Nothing is saved until you choose.').first()).toBeVisible();
+  // The phone's Check says it in its header ("nothing saved yet"), the computer's has it by Save.
+  if (!onPhone()) await expect(page.getByText('Nothing is saved until you choose.').first()).toBeVisible();
   await expect(page.getByText('4 lines after “Tips” were left out. You can add them by hand.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByText(/plan it/i)).toHaveCount(0); // Save & plan it waits for 0.6
@@ -243,20 +246,22 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await checkPage(page);
 });
 
-test('the review: on a phone the Save bar rests above the bottom tabs, so Save is never hidden behind them', async ({ page }) => {
-  test.skip(!onPhone(), 'the bottom tabs are a phone layout');
+test('the review: on a phone the menu is hidden, and Close and Save stay at the foot of the screen', async ({ page }) => {
+  test.skip(!onPhone(), 'the phone’s own Check page (Focus, F141)');
   await answer(page, 200, review());
   await page.goto('/recipes/import');
   await box(page).fill('https://bananaleaf.example/sambar/');
   await read(page).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
-  // Part-way down the page, where the bar floats over the list rather than sitting after it.
-  await page.evaluate(() => window.scrollTo(0, 0));
+  // No bottom tabs: Close and Save are at the foot, in view, whatever the list is scrolled to.
+  await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
   const save = page.getByRole('button', { name: 'Save recipe' });
-  const tabs = page.getByRole('navigation', { name: 'Main' });
-  const [saveBox, tabsBox] = await Promise.all([save.boundingBox(), tabs.boundingBox()]);
-  expect(saveBox && tabsBox && saveBox.y + saveBox.height <= tabsBox.y + 0.5).toBe(true);
+  const close = page.getByRole('button', { name: /^Close/ });
   await expect(save).toBeInViewport({ ratio: 1 });
+  await expect(close).toBeInViewport({ ratio: 1 });
+  await page.locator('ol li').last().scrollIntoViewIfNeeded();
+  await expect(save).toBeInViewport({ ratio: 1 });
+  await expect(close).toBeInViewport({ ratio: 1 });
 });
 
 test('the review: long names and text at 200% never scroll sideways', async ({ page }) => {

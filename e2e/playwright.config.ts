@@ -37,6 +37,8 @@ const webkit = {
   viewport: { width: 1280, height: 900 },
   launchOptions: { args: [] as string[] },
 };
+// Safari's engine at phone size, only for the screens a phone changes most (Check on the phone, F141).
+const webkitPhone = { ...webkit, viewport: { width: 390, height: 844 } };
 
 // E2E_PROJECTS picks one half of the projects (./check runs the two halves side by side, each
 // with its own servers): "phone" is every phone and WebKit project, "desktop" is all the rest.
@@ -120,6 +122,10 @@ export default defineConfig({
     { name: 'phone 0.7 check steps', testMatch: 'import-steps.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 check steps', testMatch: 'import-steps.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 check steps', testMatch: 'import-steps.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Check on the phone: Focus and One at a time, chosen in Settings (0.7, F141).
+    { name: 'phone 0.7 check phone', testMatch: 'import-check-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.7 check phone', testMatch: 'import-check-phone.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.7 check phone', testMatch: 'import-check-phone.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
     // Pints: the household's pint in Settings, and the review's US-recipe card (0.6, PR 7).
     { name: 'phone 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.6 pints', testMatch: 'import-pints.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },

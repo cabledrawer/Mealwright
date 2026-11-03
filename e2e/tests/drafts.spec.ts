@@ -18,16 +18,40 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
 });
 
+/** Open Import. On a phone it is reached from All recipes, so the review has a page to go back to
+ *  inside the app (the browser's Back is then asked about leaving, as a tap on a link is). */
+async function openImport(page: Page) {
+  if (isPhone(page)) {
+    await page.goto('/recipes');
+    await page.getByRole('link', { name: 'Import', exact: true }).click();
+    await expect(page).toHaveURL(/\/recipes\/import$/);
+  } else await page.goto('/recipes/import');
+}
+
+/** Leave the review for the Recipes list. A computer has Cancel; the phone's Check has Close
+ *  instead (which keeps the draft at once, F141), so what asks "Save as draft?" there is the
+ *  browser's Back. */
+async function leaveCheck(page: Page) {
+  if (isPhone(page)) await page.goBack();
+  else await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+}
+
 /** Paste a recipe and read it: the review, with its lines still to settle. */
 async function reviewOf(page: Page, title: string, hing: string, masala: string) {
-  await page.goto('/recipes/import');
+  await openImport(page);
   await box(page).fill(`${title}\nIngredients\n¼ tsp ${hing}\n1 tsp ${masala}\nMethod\n1. Boil.\n2. Fry.\n`);
   await page.getByRole('button', { name: 'Read the recipe' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
 }
 
-/** Leave the review for the Recipes list and keep it as a draft: it lands on Drafts. */
+/** Leave the review and keep it as a draft: it lands on Drafts. On a phone that is Close, which
+ *  keeps it without asking. */
 async function keepDraft(page: Page) {
+  if (isPhone(page)) {
+    await page.getByRole('button', { name: /^Close/ }).click();
+    await expect(page).toHaveURL(/\/recipes\/drafts$/);
+    return;
+  }
   await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save draft' }).click();
@@ -71,7 +95,7 @@ test('leaving the review asks “Save as draft?”; Save draft keeps it and land
   const masala = unique('Garam masala');
   await reviewOf(page, title, hing, masala);
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  await leaveCheck(page);
   const dialog = page.getByRole('dialog', { name: 'Save as draft?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(`You haven’t finished checking ${title}.`);
@@ -98,7 +122,7 @@ test('leaving the review asks “Save as draft?”; Save draft keeps it and land
 test('Discard leaves without keeping anything', async ({ page }) => {
   const title = unique('Rava dosa');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  await leaveCheck(page);
   await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(page).toHaveURL(/\/recipes$/);
   expect(await draftsNamed(page, title)).toHaveLength(0);
@@ -121,8 +145,9 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await expect(page.getByText(/Made a staple when you save/)).toBeVisible();
   await expect(page.getByText(/Made when you save/)).toBeVisible();
   await checkPage(page);
-  // Nothing changed: leaving doesn't ask.
-  await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
+  // Nothing changed: leaving doesn't ask (on a phone, Close just leaves).
+  if (isPhone(page)) await page.getByRole('button', { name: /^Close/ }).click();
+  else await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await page.getByRole('link', { name: `Carry on ${title} (mine)` }).click();
   await page.getByRole('button', { name: 'Save recipe' }).click();
@@ -145,7 +170,8 @@ test('changing a draft and leaving asks to save the draft over; the days start a
   await keepDraft(page);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
   await page.getByLabel('Serves').fill('6');
-  await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
+  if (isPhone(page)) await page.goBack();
+  else await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Save your changes?' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Discard changes' })).toBeVisible();
@@ -289,7 +315,7 @@ test('offline, Drafts shows what it last had and cannot be changed', async ({ pa
 test('a draft in the dark theme passes the accessibility scan, on the review and the leave sheet', async ({ page }) => {
   const title = unique('Pongal');
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  await leaveCheck(page);
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await inTheme(page, 'dark');
   await checkPage(page, { themes: ['dark'] });

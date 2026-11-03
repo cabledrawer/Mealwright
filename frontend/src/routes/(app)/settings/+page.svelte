@@ -208,6 +208,7 @@
               checked={checkMode.choice === option.value}
               onchange={() => checkMode.set(option.value)}
             />
+            <span class="dot" aria-hidden="true"></span>
             <span class="choice-words">
               <span class="choice-name">{option.label}</span>
               <span class="choice-hint">{option.hint}</span>
@@ -471,12 +472,39 @@
     background: var(--color-accent-soft);
   }
 
+  .choice {
+    position: relative;
+  }
+
+  /* The real radio is invisible and covers the card (so the whole card is the target); the dot
+     draws it. */
   .choice input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .dot {
     flex: none;
     width: 22px;
     height: 22px;
-    margin: 2px 0 0;
-    accent-color: var(--color-accent);
+    margin-top: 2px;
+    border: 2px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    box-sizing: border-box;
+  }
+
+  .choice input:checked + .dot {
+    border: 6px solid var(--color-accent);
+  }
+
+  .choice input:focus-visible + .dot {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 
   .choice-words {
