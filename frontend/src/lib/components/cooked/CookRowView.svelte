@@ -17,6 +17,7 @@
     sizeAnswer,
     unitLabel,
     unitsDiffer,
+    roundForScreen,
     type RowState
   } from '#lib/cookRows.js';
   import type { CookReview, CookTab } from '#lib/cookReview.svelte.js';
@@ -65,7 +66,7 @@
     editing = true;
   }
 
-  const numberText = (n: number) => String(Math.round(n * 1000) / 1000);
+  const numberText = (n: number) => String(roundForScreen(n, row.unit));
   const parse = parseAmountText;
   const typedNumber = $derived(parse(typed));
 
@@ -149,7 +150,8 @@
         )}</span
       >
       <span aria-hidden="true"
-        >{numberWords(view.before)} → <b>{amountWords(view.after ?? 0, row.unit)}</b></span
+        >{numberWords(view.before, row.unit)} →
+        <b>{amountWords(view.after ?? 0, row.unit)}</b></span
       >
     {:else if row.needed}
       <span class="says">needs {amountWords(row.needed.amount, row.unit)}</span>

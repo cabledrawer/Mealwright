@@ -13,7 +13,8 @@ import {
   recipeSays,
   shown,
   sizeAnswer,
-  withAnswer
+  withAnswer,
+  roundForScreen
 } from './cookRows';
 
 const amount = (n: number, unit: 'g' | 'ml' | 'count' = 'g') => ({
@@ -70,6 +71,21 @@ describe('the words', () => {
     expect(numberWords(0.33)).toBe('0.33');
     expect(amountWords(300, 'g')).toBe('300 g');
     expect(amountWords(2, 'count')).toBe('2');
+  });
+
+  it('g and ml are rounded for the screen (F132)', () => {
+    expect(amountWords(0.63, 'ml')).toBe('0.6\u00a0ml');
+    expect(amountWords(149.94, 'g')).toBe('150\u00a0g');
+    expect(amountWords(199.98, 'g')).toBe('200\u00a0g');
+    expect(amountWords(9.96, 'g')).toBe('10\u00a0g');
+    expect(amountWords(2.04, 'ml')).toBe('2\u00a0ml');
+    expect(amountWords(0.01, 'g')).toBe('0.1\u00a0g');
+    expect(amountWords(0, 'g')).toBe('0\u00a0g');
+    expect(numberWords(312.5, 'g')).toBe('313');
+    expect(numberWords(1.5)).toBe('1½');
+    expect(roundForScreen(0.63, 'ml')).toBe(0.6);
+    expect(roundForScreen(149.94, 'g')).toBe(150);
+    expect(roundForScreen(1.234, 'count')).toBe(1.23);
   });
 });
 

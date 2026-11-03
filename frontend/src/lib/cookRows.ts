@@ -28,8 +28,22 @@ export const newRowState = (): RowState => ({
   fromFreezer: false
 });
 
-/** 1.5 as "1½", 0.5 as "½", 2 as "2"; anything else to two places. */
-export function numberWords(n: number): string {
+/** g and ml: under 10 to one place (at least 0.1), from 10 whole; counts to two places (F132). */
+export function roundForScreen(n: number, unit: 'g' | 'ml' | 'count' | null = null): number {
+  if (unit === 'count' || unit == null) return Math.round(n * 100) / 100;
+  if (n === 0) return 0;
+  const sign = n < 0 ? -1 : 1;
+  const abs = Math.abs(n);
+  if (abs < 10) {
+    const rounded = Math.round(abs * 10) / 10;
+    return sign * (rounded === 0 ? 0.1 : rounded);
+  }
+  return sign * Math.round(abs);
+}
+
+/** 1.5 as "1½", 0.5 as "½", 2 as "2"; anything else to two places. g and ml use roundForScreen. */
+export function numberWords(n: number, unit: 'g' | 'ml' | 'count' | null = null): string {
+  if (unit === 'g' || unit === 'ml') return String(roundForScreen(n, unit));
   const whole = Math.floor(n + 1e-9);
   const rest = Math.round((n - whole) * 100) / 100;
   const part = ({ 0.25: '¼', 0.5: '½', 0.75: '¾' } as Record<number, string>)[rest];
@@ -40,7 +54,7 @@ export function numberWords(n: number): string {
 
 /** "300 g", "250 ml", or just the number for a count. */
 export function amountWords(n: number, unit: 'g' | 'ml' | 'count' | null): string {
-  const text = numberWords(n);
+  const text = numberWords(n, unit);
   return unit === 'g' || unit === 'ml' ? `${text}${NBSP}${unit}` : text;
 }
 
