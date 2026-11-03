@@ -196,6 +196,7 @@ Core loop: recipe → plan → shopping list → pantry → cook.
 - Staples: assumed in stock, not quantity-tracked; when a shopping list is generated, show the staples the plan uses as a "check you have these" section with one tap to add any to the list (and Got it / dismiss); user can mark/unmark any food as a staple
 - Count foods (cabledrawer 17 Oct): things like onions, eggs, lemons are tracked by number in the pantry ("5 onions"), not converted to grams. A recipe that says "2 onions" takes 2; a recipe that gives grams for a count food is converted using the per-item weight and shown/rounded as a count (to the nearest half).
 - "How much did you use / how much is left?" (cabledrawer 17 Oct): the user can always override the calculation — enter what they used ("used 1½ onions") or what's left ("3 left") — both in the "Cooked it" review and directly on any pantry item.
+- **Amounts on screen are rounded (F132, cabledrawer 3 Nov):** in Cook mode's Cooked review, g and ml under 10 show to one place, 10 and over whole; an amount above 0 never shows as 0 (it shows as 0.1), and 0 stays 0. Counts are unchanged (¼ ½ ¾, else two places). Only the screen changes; the stored numbers don't.
 
 **Cooking — how deduction works (agreed 17 Oct)**
 
@@ -846,6 +847,7 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 - **Security problems:** reported privately through GitHub's private vulnerability reporting, never as public issues; `SECURITY.md` explains how.
 - **Contributions:** cabledrawer reviews and merges everything. Anything bigger than a small fix starts as an issue first. `CONTRIBUTING.md` covers the DCO sign-off, the ethos rules (no telemetry; no new outbound connection unless behind a Privacy switch) and the UX rule "phone breaks ties".
 - **AI help must be disclosed (cabledrawer 17 Oct):** contributors say in the pull request when code was written with AI help (alongside the project's own AI disclosure).
+- **Code written by a local model (cabledrawer 3 Nov):** commits with code a local model wrote carry two trailers: "Assisted-by: Claude Code" and "Assisted-by: Qwen3.5 9B (local)".
 - **Expectations (cabledrawer 17 Oct):** the README says Mealwright is a spare-time project and replies may take a week or so.
 
 **Lessons from other self-hosted apps (cabledrawer 17 Oct).** Taken from how Mealie, Immich, Paperless-ngx, Tandoor, KitchenOwl and Actual Budget grew up. All six adopted by cabledrawer.
