@@ -210,6 +210,19 @@ describe('Focus (the phone’s default)', () => {
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
   });
 
+  it('Close and Save recipe each wait while the other runs', async () => {
+    const flow = reviewFlow();
+    show(flow, true);
+    flow.saving = true;
+    flushSync();
+    await expect.element(page.getByRole('button', { name: /^Close/ })).toBeDisabled();
+    flow.saving = false;
+    flow.keeping = true;
+    flushSync();
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+    flow.keeping = false;
+  });
+
   it('leaves the menu back when Check goes', async () => {
     show(reviewFlow(), true);
     expect(document.documentElement.hasAttribute('data-full-page')).toBe(true);
@@ -612,6 +625,21 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Discard', exact: true }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
+    });
+
+    it('Close and Save recipe each wait while the other runs', async () => {
+      const flow = await opened();
+      for (let i = 0; i < 4; i++) await next().click();
+      flow.saving = true;
+      flushSync();
+      await expect
+        .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+        .toBeDisabled();
+      flow.saving = false;
+      flow.keeping = true;
+      flushSync();
+      await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+      flow.keeping = false;
     });
 
     it('See all shows the whole list (Focus) for this visit', async () => {

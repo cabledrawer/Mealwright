@@ -119,7 +119,7 @@
         type="button"
         class="x"
         aria-label="Close (kept in Drafts)"
-        disabled={closing || editing !== null}
+        disabled={closing || flow.saving || editing !== null}
         onclick={onclose}><Icon name="close" size={18} stroke={2.4} /></button
       >
       <div class="titles">
@@ -293,7 +293,7 @@
         <button
           type="button"
           class="next"
-          disabled={editing !== null || (last && (flow.saving || network.offline))}
+          disabled={editing !== null || (last && (flow.saving || closing || network.offline))}
           onclick={() => (last ? onsave() : void go(at + 1))}
           >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</button
         >

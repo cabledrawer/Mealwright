@@ -547,7 +547,7 @@
           <button
             type="button"
             class="close"
-            disabled={flow.keeping || editing !== null}
+            disabled={flow.keeping || flow.saving || editing !== null}
             onclick={() => void close()}
           >
             Close <span class="sub">Kept in Drafts</span>
@@ -555,7 +555,7 @@
           <button
             type="button"
             class="save"
-            disabled={flow.saving || network.offline}
+            disabled={flow.saving || flow.keeping || network.offline}
             onclick={() => void save()}
           >
             {flow.saving ? 'Saving…' : 'Save recipe'}
