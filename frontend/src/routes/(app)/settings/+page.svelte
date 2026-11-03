@@ -11,6 +11,7 @@
   import { ApiError, cantReach } from '#lib/api.js';
   import { nothingChanged } from '#lib/downWords.js';
   import { changePints, getHousehold } from '#lib/client/household.js';
+  import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
   import type { Pints } from '#lib/client/types.js';
   import { network } from '#lib/network.svelte.js';
   import {
@@ -32,6 +33,20 @@
   let pints = $state<Pints | null>(null);
   let pintsProblem = $state<string | null>(null);
   const admin = who?.role === 'admin';
+
+  /** The two ways Check can look on the phone (F141; words are the mockup's). */
+  const CHECK_MODE_CHOICES: { value: CheckMode; label: string; hint: string }[] = [
+    {
+      value: 'focus',
+      label: 'Focus',
+      hint: 'The whole list, with the app’s menu hidden. Close keeps it in Drafts.'
+    },
+    {
+      value: 'one',
+      label: 'One at a time',
+      hint: 'Each line that needs you, then every step of the method. Back and Next.'
+    }
+  ];
 
   function readPints() {
     getHousehold().then(
@@ -177,6 +192,30 @@
         <span class="label">Theme</span>
         <ThemeSwitch variant="pill" />
       </div>
+      <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
+           phone, kept on this device. Shown at every width; the line under it says a computer
+           always shows the whole list (the mockup is phone-only, so showing it on a computer too is
+           proposed, for cabledrawer). -->
+      <fieldset class="check-mode">
+        <legend>Checking a recipe on the phone</legend>
+        <span class="detail">How the Check screen looks after an import.</span>
+        {#each CHECK_MODE_CHOICES as option (option.value)}
+          <label class="choice" class:on={checkMode.choice === option.value}>
+            <input
+              type="radio"
+              name="checkmode"
+              value={option.value}
+              checked={checkMode.choice === option.value}
+              onchange={() => checkMode.set(option.value)}
+            />
+            <span class="choice-words">
+              <span class="choice-name">{option.label}</span>
+              <span class="choice-hint">{option.hint}</span>
+            </span>
+          </label>
+        {/each}
+        <span class="detail small">On a computer, Check always shows the whole list.</span>
+      </fieldset>
     </div>
   </section>
 
@@ -391,5 +430,69 @@
   .label {
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
+  }
+
+  .check-mode {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+    margin: 0;
+    padding: var(--space-5) 0 var(--space-6);
+    border: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .check-mode legend {
+    padding: 0;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .check-mode .small {
+    font-size: var(--text-xs);
+  }
+
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-6);
+    min-height: var(--touch-target);
+    padding: var(--space-6);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface);
+    cursor: pointer;
+  }
+
+  .choice.on {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+  }
+
+  .choice input {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin: 2px 0 0;
+    accent-color: var(--color-accent);
+  }
+
+  .choice-words {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .choice-name {
+    font-size: var(--text-base);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .choice-hint {
+    color: var(--color-text-soft);
+    font-size: var(--text-sm);
+    line-height: 1.45;
   }
 </style>

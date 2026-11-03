@@ -4,6 +4,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { CHECK_MODE_STORAGE_KEY, checkMode } from '#lib/checkMode.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { phoneDatabaseName, setMeta } from '#lib/offline/phone.js';
 import { SIGN_OUT_PENDING_KEY, signOutPending } from '#lib/offline/signOutPending.js';
@@ -453,5 +454,52 @@ describe('the pint switch (Amounts)', () => {
     network.backAgain++;
     flushSync();
     await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+  });
+});
+
+describe('Checking a recipe on the phone (Appearance, F141)', () => {
+  const mounted: ReturnType<typeof mount>[] = [];
+
+  beforeEach(() => {
+    session.me = { ...ME };
+    network.reset();
+    localStorage.removeItem(CHECK_MODE_STORAGE_KEY);
+    checkMode.reload();
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+    const target = document.body.appendChild(document.createElement('div'));
+    mounted.push(mount(Settings, { target }));
+    flushSync();
+  });
+
+  afterEach(() => {
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+    localStorage.removeItem(CHECK_MODE_STORAGE_KEY);
+    checkMode.reload();
+  });
+
+  const focus = () => page.getByRole('radio', { name: /^Focus/ });
+  const one = () => page.getByRole('radio', { name: /^One at a time/ });
+
+  it('offers Focus and One at a time, with Focus chosen until it is changed', async () => {
+    await expect.element(page.getByText('Checking a recipe on the phone')).toBeVisible();
+    await expect.element(focus()).toBeChecked();
+    await expect.element(one()).not.toBeChecked();
+    await expect
+      .element(page.getByText('On a computer, Check always shows the whole list.'))
+      .toBeVisible();
+  });
+
+  it('keeps One at a time on this device, and Focus puts the default back', async () => {
+    await one().click();
+    await expect.element(one()).toBeChecked();
+    expect(localStorage.getItem(CHECK_MODE_STORAGE_KEY)).toBe('one');
+    expect(checkMode.choice).toBe('one');
+    await focus().click();
+    await expect.element(focus()).toBeChecked();
+    expect(localStorage.getItem(CHECK_MODE_STORAGE_KEY)).toBeNull();
+    expect(checkMode.choice).toBe('focus');
   });
 });
