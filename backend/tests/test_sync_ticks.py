@@ -1188,3 +1188,22 @@ def test_sy15d_a_count_is_worded_without_left(kitchen: TestClient) -> None:
         kitchen, "different_pack", counter(kitchen), item_id=item, tick_id=t["id"], count=1, pack=12
     )
     assert again["change"]["summary"] == "Spring onions: bought 12 instead of 6"
+
+
+def test_sy15e_an_undo_for_a_count_is_worded_without_left(kitchen: TestClient) -> None:
+    """The Undo message for whole things never says "1 left" (job 3 review, L2)."""
+    s = s0(kitchen)
+    onions = food(kitchen, "Spring onions", counted_as="count")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions))
+    t = one(kitchen, "tick", counter(kitchen), item_id=item)
+    first = one(
+        kitchen, "different_pack", counter(kitchen), item_id=item, tick_id=t["id"], count=1, pack=6
+    )
+    used = {"amount": {"amount": 2, "unit": "count"}}
+    ok(kitchen.post(f"{API}/foods/{onions}/used", json=used))
+    done = _undo(kitchen, first["id"])
+    assert done["status"] == "applied", done
+    assert done["message"] == (
+        "Spring onions is back to 1. Some had been used since, so check how much is left."
+    )

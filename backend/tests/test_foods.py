@@ -270,6 +270,13 @@ def test_running_low_in_sizes(kitchen: TestClient) -> None:
     assert body["change"]["summary"] == "Toor dal runs low at ½\u00a0packet"
 
 
+def test_running_low_for_a_count_never_says_left(kitchen: TestClient) -> None:
+    """A whole thing's level reads "runs low at 6", not "6 left" (job 3 review, M1)."""
+    food = add(kitchen, "Spring onions", counted_as="count")
+    body = patch(kitchen, food["id"], running_low_at={"amount": 6, "unit": "count"})
+    assert body["change"]["summary"] == "Spring onions runs low at 6"
+
+
 def test_counted_as_change_converts_sizes(kitchen: TestClient) -> None:
     food = add(kitchen, "Toor dal")
     kitchen.post(f"{API}/foods/{food['id']}/sizes", json={"name": "packet", "amount": 500})

@@ -875,7 +875,7 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
                         return None
                     food.running_low_milli = milli
                     shown = amount_out(food, milli, usual_size(kitchen, food.id))
-                    summary = f"{name} runs low at {shown.short}"
+                    summary = f"{name} runs low at {shown.short.removesuffix(f'{NBSP}left')}"
             elif field_name == "cup_weight":
                 cup = cup_ml(kitchen.household)
                 if body.cup_weight is None:
