@@ -259,7 +259,7 @@ def list_changes(
     view = Pantry(kitchen)
     items = []
     for c in page:
-        shown = together.press(kitchen, c) if not mine else [c]
+        shown = _row_of(kitchen, c) if not mine else [c]
         items.append(
             ChangeItem(
                 **change_out(kitchen, c).model_dump(),
@@ -268,6 +268,27 @@ def list_changes(
             )
         )
     return ChangeList(changes=items, next=str(page[-1].id) if len(rows) > limit and page else None)
+
+
+def _row_of(kitchen: Kitchen, change: Change) -> list[Change]:
+    """The changes one row of Recent changes adds up: a "Cooked it" press's pantry changes, or,
+    for the Undo of its first, the Undos of all of them (review 2, M), oldest first."""
+    if change.kind != "undo" or change.undoes_change_id is None:
+        return together.press(kitchen, change)
+    undone = kitchen.db.get(Change, change.undoes_change_id)
+    if undone is None or undone.household_id != kitchen.household_id:
+        return [change]
+    members = together.press(kitchen, undone)
+    if members[0].id != undone.id:
+        return [change]
+    found = {change.id: change}
+    for member in members:
+        if member.undone_by_change_id is None:
+            continue
+        undo = kitchen.db.get(Change, member.undone_by_change_id)
+        if undo is not None and undo.household_id == kitchen.household_id:
+            found[undo.id] = undo
+    return sorted(found.values(), key=lambda c: c.id)
 
 
 def _folded(kitchen: Kitchen, query: Any, change: Change) -> bool:

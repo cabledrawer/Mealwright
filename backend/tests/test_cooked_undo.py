@@ -282,5 +282,9 @@ def test_a_meal_with_a_batch_and_a_recipe_is_one_row_with_one_undo(kitchen: Test
     assert status_of(kitchen, meal) == "planned"
     rows = pantry_list(kitchen)
     assert [c["id"] for c in rows if c["kind"] == "undo"] == [said["change"]["id"]]
+    # The Undo row reads the whole press back, as the pantry is now (review 2, M).
+    undo_row = next(c for c in rows if c["kind"] == "undo")
+    back = [t for t in undo_row["totals"] if t["food_id"] == dal["id"]]
+    assert [(t["before"]["amount"], t["after"]["amount"]) for t in back] == [(left / 1000, 900)]
     assert [c["id"] for c in rows if c["kind"] == "cooked"] == [own["change"]["id"]]
     assert not any(c["can_undo"] for c in rows if c["kind"] == "cooked")
