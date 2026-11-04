@@ -110,14 +110,26 @@ class ChangeList(BaseModel):
     next: str | None
 
 
-def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
+def _lines_of(kitchen: Kitchen, changes: list[Change]) -> list[ChangeLine]:
+    """The packet lines of these changes (one row of Recent changes), oldest change first."""
+    return list(
+        kitchen.db.scalars(
+            select(ChangeLine)
+            .where(ChangeLine.change_id.in_([c.id for c in changes]))
+            .order_by(ChangeLine.change_id, ChangeLine.id)
+        )
+    )
+
+
+def _totals(kitchen: Kitchen, view: Pantry, changes: list[Change]) -> list[TotalOut]:
     # Per ingredient and place pair: the packets touched added up (the old way, and still
-    # how a move reads), and the whole-place amounts the change saved (0.2.1 onwards).
+    # how a move reads), and the whole-place amounts the change saved (0.2.1 onwards). A row
+    # of more than one change (one "Cooked it", together.press) runs from the first change's
+    # before to the last one's after.
     sums: dict[tuple[int, int | None, int | None], list[int]] = {}
     whole: dict[tuple[int, int | None, int | None], list[int] | None] = {}
-    for line in kitchen.db.scalars(
-        select(ChangeLine).where(ChangeLine.change_id == change.id).order_by(ChangeLine.id)
-    ):
+    first_of: dict[tuple[int, int | None, int | None], int] = {}
+    for line in _lines_of(kitchen, changes):
         key = (line.food_id, line.place_before_id, line.place_after_id)
         entry = sums.setdefault(key, [0, 0])
         entry[0] += line.amount_before_milli
@@ -125,11 +137,16 @@ def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
         saved = line.total_before_milli is not None and line.total_after_milli is not None
         stays = line.place_before_id is None or line.place_before_id == line.place_after_id
         if key not in whole:
+            first_of[key] = line.change_id
             whole[key] = (
                 [line.total_before_milli or 0, line.total_after_milli or 0]
                 if saved and stays
                 else None
             )
+        elif line.change_id != first_of[key]:
+            shown = whole[key]
+            if shown is not None and saved and stays:
+                shown[1] = line.total_after_milli or 0
 
     def place(place_id: int | None) -> Ref | None:
         found = view.places.get(place_id) if place_id is not None else None
@@ -156,11 +173,9 @@ def _totals(kitchen: Kitchen, view: Pantry, change: Change) -> list[TotalOut]:
     return result
 
 
-def _lines(kitchen: Kitchen, view: Pantry, change: Change) -> list[LineOut]:
+def _lines(kitchen: Kitchen, view: Pantry, changes: list[Change]) -> list[LineOut]:
     result = []
-    for line in kitchen.db.scalars(
-        select(ChangeLine).where(ChangeLine.change_id == change.id).order_by(ChangeLine.id)
-    ):
+    for line in _lines_of(kitchen, changes):
         food = view.food(line.food_id)
         lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
         size = view.lot_size(lot) if lot is not None else view.usual(food.id)
@@ -231,18 +246,44 @@ def list_changes(
             Change.kind != "undo",
             Change.kind.not_in(NOTE_KINDS),
         )
-    rows = list(kitchen.db.scalars(query.order_by(Change.id.desc()).limit(limit + 1)))
+    rows: list[Change] = []
+    cursor: int | None = None
+    while len(rows) <= limit:
+        older = query if cursor is None else query.where(Change.id < cursor)
+        chunk = list(kitchen.db.scalars(older.order_by(Change.id.desc()).limit(limit + 1)))
+        rows += [c for c in chunk if mine or not _folded(kitchen, query, c)]
+        if len(chunk) <= limit:
+            break
+        cursor = chunk[-1].id
     page = rows[:limit]
     view = Pantry(kitchen)
-    items = [
-        ChangeItem(
-            **change_out(kitchen, c).model_dump(),
-            totals=_totals(kitchen, view, c),
-            lines=_lines(kitchen, view, c),
+    items = []
+    for c in page:
+        shown = together.press(kitchen, c) if not mine else [c]
+        items.append(
+            ChangeItem(
+                **change_out(kitchen, c).model_dump(),
+                totals=_totals(kitchen, view, shown),
+                lines=_lines(kitchen, view, shown),
+            )
         )
-        for c in page
-    ]
     return ChangeList(changes=items, next=str(page[-1].id) if len(rows) > limit and page else None)
+
+
+def _folded(kitchen: Kitchen, query: Any, change: Change) -> bool:
+    """One "Cooked it" is one row with one Undo (F125, review 1, L1): a later pantry change of
+    the same press, or the Undo of one, is shown in the row of the press's first, when this list
+    has that one too."""
+    target = change
+    if change.kind == "undo" and change.undoes_change_id is not None:
+        undone = kitchen.db.get(Change, change.undoes_change_id)
+        if undone is None or undone.household_id != kitchen.household_id:
+            return False
+        target = undone
+    first = together.press(kitchen, target)[0]
+    if first.id == target.id:
+        return False
+    return kitchen.db.scalar(query.where(Change.id == first.id)) is not None
 
 
 class UndoOut(BaseModel):

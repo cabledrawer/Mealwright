@@ -16,6 +16,9 @@ between. An answer given first, or a cook with another change in between, stays 
 A tub that "Eat it on…" (F65) then puts on a meal follows the answer: it is the login's very next
 change, for a tub the answer made. The Undo of "Cooked it" takes it off that meal first (the tub
 can't go while it is in one); the Undo of the placing alone only takes it off.
+
+A meal of a Cook once batch and an ordinary recipe records more than one pantry change in its one
+press: Recent changes folds them into one row, the oldest's, so there is one Undo (`press`).
 """
 
 from typing import Any
@@ -127,3 +130,21 @@ def members(kitchen: Kitchen, change: Change) -> list[Change]:
         key=lambda c: c.id,
         reverse=True,
     )
+
+
+def press(kitchen: Kitchen, change: Change) -> list[Change]:
+    """The pantry changes (`cooked`) of the "Cooked it" press this one is part of, oldest first:
+    one for the meal's recipes and one for each batch cooked (review 1, L1). Recent changes
+    shows them as one row, the oldest's, with one Undo. Just this change when it is on its own."""
+    if change.kind != "cooked":
+        return [change]
+    found = {change.id: change}
+    for change_id in (change.undo_data or {}).get("together", []):
+        other = kitchen.db.get(Change, change_id)
+        if (
+            other is not None
+            and other.household_id == kitchen.household_id
+            and other.kind == "cooked"
+        ):
+            found[other.id] = other
+    return sorted(found.values(), key=lambda c: c.id)

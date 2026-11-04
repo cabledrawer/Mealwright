@@ -18,7 +18,7 @@ from test_deduction import recipe_of
 from test_history import wren  # noqa: F401 (a fixture)
 from test_plan import db_of, slot_ids
 from test_recipe_list import line, stock
-from test_recipes import food
+from test_recipes import food, make
 
 from mealwright.models import Change, CookedRecord, Household, Meal, SyncAction, Tub
 
@@ -230,3 +230,57 @@ def test_a_sync_undo_of_cooked_it_also_takes_back_the_meals_cooked(kitchen: Test
     assert one(kitchen, "undo", 0, PHONE_A, undoes=action_id)["status"] == "applied"
     assert amounts(kitchen, dal["id"]) == [60_000]
     assert status_of(kitchen, planned["meal_id"]) == "planned"
+
+
+def test_a_meal_with_a_batch_and_a_recipe_is_one_row_with_one_undo(kitchen: TestClient) -> None:
+    """Review 1, L1: a meal of a Cook once batch and an ordinary recipe records two `cooked`
+    changes in one press (the meal's recipes, then the batch). Recent changes shows them as one
+    row, with the whole press's amounts and one Undo; the Undo's own rows are one row too."""
+    dal = food(kitchen, "Zorba dal")
+    stock(kitchen, dal["id"], 900, "g")
+    items = []
+    for name in ("Zorba sambar", "Zorba rasam"):
+        planned = ok(
+            kitchen.post(
+                f"{API}/plan/items",
+                json={
+                    "date": date.today().isoformat(),
+                    "slot_id": slot_ids(kitchen)["Dinner"],
+                    "recipe_id": make(kitchen, name, serves=4, lines=[line(dal["id"], 200, "g")])[
+                        "id"
+                    ],
+                    "servings": 4,
+                },
+            ),
+            201,
+        )
+        items.append(planned["item_id"])
+    meal = int(planned["meal_id"])
+    batch = ok(
+        kitchen.post(
+            f"{API}/plan/items/{items[0]}/batch", json={"tub_count": 2, "pattern": "pick"}
+        ),
+        201,
+    )["batch_id"]
+    # The review's one Confirm: the meal's recipes, then the batch, then the meal's answer.
+    own = ok(
+        kitchen.post(f"{API}/plan/meals/{meal}/cook", json={"items": [{"item_id": items[1]}]}), 201
+    )
+    ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)
+    answer_cooked(kitchen, meal)
+    left = sum(amounts(kitchen, dal["id"]))
+    assert left < 700_000  # both took some
+
+    listed = [c for c in pantry_list(kitchen) if c["kind"] == "cooked"]
+    assert [c["id"] for c in listed] == [own["change"]["id"]]
+    totals = [t for t in listed[0]["totals"] if t["food_id"] == dal["id"]]
+    assert [(t["before"]["amount"], t["after"]["amount"]) for t in totals] == [(900, left / 1000)]
+
+    said = ok(undo(kitchen, own["change"]["id"]))
+    assert said["result"] == "done"
+    assert sum(amounts(kitchen, dal["id"])) == 900_000
+    assert status_of(kitchen, meal) == "planned"
+    rows = pantry_list(kitchen)
+    assert [c["id"] for c in rows if c["kind"] == "undo"] == [said["change"]["id"]]
+    assert [c["id"] for c in rows if c["kind"] == "cooked"] == [own["change"]["id"]]
+    assert not any(c["can_undo"] for c in rows if c["kind"] == "cooked")
