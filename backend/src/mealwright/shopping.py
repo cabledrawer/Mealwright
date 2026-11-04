@@ -23,7 +23,7 @@ from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.aisles import DEFAULT_AISLE
-from mealwright.amounts import MILLI, TooBig, checked, to_milli
+from mealwright.amounts import MILLI, NBSP, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
@@ -1179,7 +1179,7 @@ def set_amount(act: Act) -> None:
         and unseen(act, overwritten)
         and amount_milli is not None
     ):
-        short = amount_out(food, amount_milli, size).short
+        short = amount_out(food, amount_milli, size).short.removesuffix(f"{NBSP}left")
         note(
             act,
             "N3",

@@ -1047,7 +1047,11 @@ def card_words(kitchen: Kitchen, question: DoubleTick, for_login_id: int) -> Car
     total = sum(tick.bought_milli or 0 for tick in shown)
     size_id = next((tick.bought_size_id for tick in shown if tick.bought_size_id), None)
     size = db.get(FoodSize, size_id) if size_id else None
-    went = amount_out(food, total, size).short if food is not None and total else str(count)
+    went = (
+        amount_out(food, total, size).short.removesuffix(f"{NBSP}left")
+        if food is not None and total
+        else str(count)
+    )
     if len(people) <= 1:
         text = f"{start}, so {went} went into the pantry."
     else:

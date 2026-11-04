@@ -372,6 +372,18 @@ def test_sy12_two_amounts(kitchen: TestClient, a_first: bool) -> None:
     assert s.item(kitchen, "Milk")["amount"] == mine
 
 
+def test_sy12b_a_count_in_the_note_never_says_left(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    onions = food(kitchen, "Spring onions", counted_as="count")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions, amount=1))
+    seen = counter(kitchen)
+    one(kitchen, "set_amount", seen, item_id=item, amount=3)
+    one(s.wren, "set_amount", seen - 1, PHONE_R, item_id=item, amount=6)
+    (note,) = changes(kitchen)["notes"]
+    assert note["text"] == "Wren changed Spring onions to 6"
+
+
 def test_sy44_typed_then_hand_edited(kitchen: TestClient) -> None:
     s = s0(kitchen)
     item = new_id()

@@ -91,6 +91,17 @@ def test_sy02_ticked_on_two_phones_of_one_login(kitchen: TestClient, a_first: bo
     assert _card(s.wren) == []
 
 
+def test_sy02b_a_count_on_two_phones_never_says_left(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    onions = food(kitchen, "Spring onions", counted_as="count")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions, amount=6))
+    one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=item)
+    one(kitchen, "tick", counter(kitchen), PHONE_B, item_id=item)
+    (card,) = _card(kitchen)
+    assert card["text"] == "This was ticked on two phones, so 12 went into the pantry."
+
+
 def test_sy03_ticked_twice_on_one_phone(kitchen: TestClient) -> None:
     s = s0(kitchen)
     assert tick(kitchen, s, "Toor dal")["status"] == "applied"
