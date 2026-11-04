@@ -425,11 +425,20 @@ test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past 
   const plan = (await (await page.request.get(`/api/v1/plan?from=${k.today}&to=${useBy}`)).json()) as {
     meals: { date: string; slot_id: number }[];
   };
-  const on = ['Breakfast', 'Lunch', 'Dinner'].map((n) => k.slot[n]!);
+  // Other tests on this server switch Snack on (none switches a meal off), so switch it on here too
+  // and fill every meal that is on, whatever ran first; today, only the meals after lunch.
+  await call(page, 'PATCH', `/meal-slots/${k.slot.Snack}`, { enabled: true });
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as {
+    id: number;
+    position: number;
+    enabled: boolean;
+  }[];
+  const lunch = slots.find((x) => x.id === k.slot.Lunch)!.position;
+  const on = slots.filter((x) => x.enabled);
   try {
     for (let day = k.today; day <= useBy; day = addDays(day, 1))
-      for (const slotId of on)
-        if (!plan.meals.some((m) => m.date === day && m.slot_id === slotId) && !(day === k.today && slotId !== k.slot.Dinner))
+      for (const { id: slotId, position } of on)
+        if (!plan.meals.some((m) => m.date === day && m.slot_id === slotId) && !(day === k.today && position <= lunch))
           mine.push(await k.plan(filler, day, slotId));
 
     await page.goto('/');
