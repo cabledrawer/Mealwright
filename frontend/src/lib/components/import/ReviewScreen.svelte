@@ -540,7 +540,7 @@
         {#if flow.draftProblem}
           <p class="error" role="alert">{flow.draftProblem}</p>
           <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
-          <button type="button" class="leave" onclick={discardAndLeave}
+          <button type="button" class="leave" disabled={flow.saving} onclick={discardAndLeave}
             >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
           >
         {/if}

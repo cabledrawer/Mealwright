@@ -210,6 +210,22 @@ describe('Focus (the phone’s default)', () => {
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
   });
 
+  it('Discard waits while Save recipe runs', async () => {
+    const flow = reviewFlow();
+    show(flow, true);
+    fakeApi({
+      'POST /recipes/drafts': [
+        409,
+        { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+      ]
+    });
+    await page.getByRole('button', { name: /^Close/ }).click();
+    flow.saving = true;
+    flushSync();
+    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeDisabled();
+    flow.saving = false;
+  });
+
   it('Close and Save recipe each wait while the other runs', async () => {
     const flow = reviewFlow();
     show(flow, true);
@@ -611,6 +627,33 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
+    });
+
+    it('See all waits while a step box is open', async () => {
+      await opened();
+      await next().click(); // line 2
+      await next().click(); // step 1
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await expect.element(page.getByRole('button', { name: 'See all' })).toBeDisabled();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByRole('button', { name: 'See all' })).toBeEnabled();
+    });
+
+    it('Discard waits while Save recipe runs', async () => {
+      const flow = await opened();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      flow.saving = true;
+      flushSync();
+      await expect
+        .element(page.getByRole('button', { name: 'Discard', exact: true }))
+        .toBeDisabled();
+      flow.saving = false;
     });
 
     it('when the draft can’t be kept, Discard is the way out and lands on Recipes', async () => {

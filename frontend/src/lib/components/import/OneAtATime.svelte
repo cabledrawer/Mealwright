@@ -127,7 +127,10 @@
         <h1 aria-live="polite">{title}</h1>
         <span class="muted">{name} · nothing saved yet</span>
       </div>
-      <button type="button" class="see-all" onclick={onseeall}>See all</button>
+      <!-- Waits while a step box is open, as Close does: the box keeps its words until Done. -->
+      <button type="button" class="see-all" disabled={editing !== null} onclick={onseeall}
+        >See all</button
+      >
     </div>
   {/snippet}
 
@@ -277,7 +280,7 @@
       {#if flow.draftProblem}
         <p class="error" role="alert">{flow.draftProblem}</p>
         <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
-        <button type="button" class="leave" onclick={onleave}
+        <button type="button" class="leave" disabled={flow.saving} onclick={onleave}
           >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
         >
       {/if}
