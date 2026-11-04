@@ -1160,3 +1160,20 @@ def test_sy15c_a_count_with_no_amount_gets_n_items_and_no_pack_size(kitchen: Tes
     row = next(f for f in answer["foods"] if f["id"] == onions)
     assert row["sizes"] == []
     assert "pack" not in done["change"]["summary"]
+
+
+def test_sy15d_a_count_is_worded_without_left(kitchen: TestClient) -> None:
+    """Whole things read "bought 12 instead of 6", never "6 left" (trial job 3)."""
+    s = s0(kitchen)
+    onions = food(kitchen, "Spring onions", counted_as="count")["id"]
+    item = new_id()
+    send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions))
+    t = one(kitchen, "tick", counter(kitchen), item_id=item)
+    first = one(
+        kitchen, "different_pack", counter(kitchen), item_id=item, tick_id=t["id"], count=1, pack=6
+    )
+    assert first["change"]["summary"] == "Spring onions: bought 6 instead of 1"
+    again = one(
+        kitchen, "different_pack", counter(kitchen), item_id=item, tick_id=t["id"], count=1, pack=12
+    )
+    assert again["change"]["summary"] == "Spring onions: bought 12 instead of 6"

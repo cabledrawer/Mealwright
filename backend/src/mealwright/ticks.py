@@ -17,7 +17,7 @@ from sqlalchemy import Select, and_, select
 from sqlalchemy.orm import aliased
 
 from mealwright import shopping
-from mealwright.amounts import TooBig, checked
+from mealwright.amounts import NBSP, TooBig, checked
 from mealwright.api.v1.context import Kitchen
 from mealwright.foods import add_size, amount_out, pack_bought, sizes, usual_size
 from mealwright.history import as_utc
@@ -413,7 +413,7 @@ def repack_back(kitchen: Kitchen, change: Change, done: list[Change]) -> str | N
     if not isinstance(old, list) or len(old) != 2 or food is None:
         return None
     size = _size(kitchen, old[1]) or usual_size(kitchen, food.id)
-    shown = amount_out(food, old[0] or 0, size).display
+    shown = amount_out(food, old[0] or 0, size).display.removesuffix(f"{NBSP}left")
     return f"{food.name} is back to {shown}. Some had been used since, so check how much is left."
 
 
@@ -707,9 +707,9 @@ def different_pack(act: Act) -> None:
     )
     take(kitchen, edit, new_lots, used_since, include_freezer=True)
     old_size = _size(kitchen, tick.bought_size_id) or usual_size(kitchen, food.id)
-    new = amount_out(food, total, size).display
+    new = amount_out(food, total, size).display.removesuffix(f"{NBSP}left")
     if tick.bought_milli:
-        old = amount_out(food, tick.bought_milli, old_size).display
+        old = amount_out(food, tick.bought_milli, old_size).display.removesuffix(f"{NBSP}left")
         summary = f"{food.name}: bought {new} instead of {old}"
     else:
         # A purchase that had no amount gets its first one; "instead of 0 g" read oddly
