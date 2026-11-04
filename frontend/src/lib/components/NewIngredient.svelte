@@ -6,6 +6,7 @@
   // Escape = Cancel.
   import { api, ApiError } from '#lib/api.js';
   import type { CountedAs } from '#lib/client/types.js';
+  import { cantReachText, needsServer } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import { newIngredient, type HowCounted, type NewSize } from '#lib/newIngredient.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
@@ -39,6 +40,10 @@
   let busy = $state(false);
 
   const typed = $derived(name.trim());
+  // Shopping only chooses (it queues the new ingredient), so it works with the server down;
+  // the other callers make the ingredient on the server and say why Add is off (F130).
+  const needsNetwork = $derived(pending?.mode !== 'choose' && network.offline);
+  const offlineReason = $derived(needsServer(network.deviceOffline, cantReachText(true)));
   const ordered = $derived(
     guess
       ? [OPTIONS.find((o) => o.value === guess)!, ...OPTIONS.filter((o) => o.value !== guess)]
@@ -257,8 +262,14 @@
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
       <div class="buttons">
         <button type="button" class="quiet" onclick={() => newIngredient.cancel()}>Cancel</button>
-        <button type="submit" class="main" disabled={!typed || busy || network.offline}>Add</button>
+        <button
+          type="submit"
+          class="main"
+          aria-describedby={needsNetwork ? `${uid}-down` : undefined}
+          disabled={!typed || busy || needsNetwork}>Add</button
+        >
       </div>
+      {#if needsNetwork}<p class="hint down" id="{uid}-down">{offlineReason}</p>{/if}
     </form>
   {/if}
 </dialog>
