@@ -128,7 +128,7 @@ test('F125: Undo of Cooked it in Pantry → Recent changes also undoes the meal�
   const dal = await k.food(`Moong dal ${s}`);
   await k.stock(dal, 800);
   const name = `Khichdi ${s}`;
-  await k.plan(await k.recipe(name, [line(dal, 'moong dal', 200, 'g')]), waitingDay(k.today), k.slot.Dinner);
+  await k.plan(await k.recipe(name, [line(dal, 'moong dal', 200, 'g')]), waitingDay(k.today), k.slot.Lunch);
 
   await openToday(page, name);
   await confirm(review(page, name)).click();
@@ -322,7 +322,7 @@ test('Plan: a Cook once batch is cooked once for the cook day and its tubs, and 
   const rice = await k.food(`Rice ${s}`);
   await k.stock(rice, 1000);
   const raita = `Raita ${s}`;
-  await k.plan(await k.recipe(raita, [line(rice, 'rice', 100, 'g')]), k.today, k.slot[slotName]!);
+  const raitaItem = await k.plan(await k.recipe(raita, [line(rice, 'rice', 100, 'g')]), k.today, k.slot[slotName]!);
 
   await openMealOnPlan(page, k.today, k.today, k.slot[slotName]!, slotName, name);
   await page.getByRole('dialog').getByRole('button', { name: 'Cooked it' }).click();
@@ -357,6 +357,8 @@ test('Plan: a Cook once batch is cooked once for the cook day and its tubs, and 
   await expect.poll(() => have(page, `Dal ${s}`)).toBe(2000);
   await expect.poll(() => have(page, `Rice ${s}`)).toBe(1000);
   await call(page, 'DELETE', `/plan/batches/${batch}`);
+  // Today's meal is left empty again: the F128 test plans a meal of today in the computer's run.
+  for (const item of [made.item_id, raitaItem.item_id]) await call(page, 'DELETE', `/plan/items/${item}`);
 });
 
 test('the review at 200% text in both themes: nothing scrolls sideways and Confirm stays in reach', async ({ page }) => {
@@ -409,6 +411,7 @@ test('Today: a meal eaten today has its own Cooked it, which opens the same revi
 
 test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past the tub’s use-by', async ({ page }) => {
   test.skip(projectIndex() !== 0, 'one project plans the days ahead; the others share the server');
+  test.setTimeout(90_000); // a plan call for every free meal up to the use-by, and one to take each off
   const k = await setup(page);
   const household = (await (await page.request.get('/api/v1/household')).json()) as { tub_fridge_days: number };
   const useBy = addDays(k.today, household.tub_fridge_days); // the fridge tub's last day
