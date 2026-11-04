@@ -208,6 +208,37 @@ test('F63: offline, "2 l milk" in the add box joins the 1 L line, and the server
   expect((lines[0] as unknown as { amount: { amount: number } }).amount.amount).toBe(3000);
 });
 
+test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and the ingredient is made once when the server is back', async ({
+  page,
+  context,
+}) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
+  const name = `Curry leaves ${tag()}`;
+  await signIn(page);
+  await start(page);
+
+  await context.setOffline(true);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  await page.getByRole('button', { name: `+ New ingredient: “${name}”` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pantry keeps it by' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('radio', { name: /One by one/ }).click();
+  await expect(dialog.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+  await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
+    timeout: 15_000,
+  });
+  expect((await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(1);
+  const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
+  expect(foods.filter((f: { name: string; counted_as: string }) => f.name === name)).toHaveLength(1);
+  expect(foods.find((f: { name: string }) => f.name === name).counted_as).toBe('count');
+});
+
 test('F62: offline, ticking a line with no amount still asks How much?, and the answer is a second queued change', async ({
   page,
   context,
