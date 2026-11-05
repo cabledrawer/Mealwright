@@ -736,6 +736,33 @@ describe('One at a time', () => {
       await expect.element(page.getByRole('dialog')).toBeVisible();
     });
 
+    it('a box left behind by a change of screen does not hold the page (F143)', async () => {
+      // The phone turned (or the choice changed) with a box open: that screen and its box are gone,
+      // so leaving asks the leave sheet's question as usual, rather than staying put for good.
+      await opened();
+      await next().click(); // line 2
+      await next().click(); // step 1
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await expect.element(page.getByLabelText('Words of step 1')).toBeVisible();
+      checkMode.set('focus');
+      flushSync();
+      await expect.element(page.getByLabelText('Words of step 1')).not.toBeInTheDocument();
+      expect(leaveFor()).toHaveBeenCalledTimes(1);
+      await expect.element(page.getByRole('dialog')).toBeVisible();
+    });
+
+    it('a box on the whole list does not hold the page once One at a time shows (F143)', async () => {
+      checkMode.set('focus');
+      show(reviewFlow(oneReview()), true);
+      await page.getByRole('button', { name: /^Change step 1/ }).click();
+      await expect.element(page.getByLabelText('Words of step 1')).toBeVisible();
+      checkMode.set('one');
+      flushSync();
+      await expect.element(page.getByLabelText('Words of step 1')).not.toBeInTheDocument();
+      expect(leaveFor()).toHaveBeenCalledTimes(1);
+      await expect.element(page.getByRole('dialog')).toBeVisible();
+    });
+
     it('Discard waits while a step box is open, and works after Done (F143)', async () => {
       const flow = await opened();
       fakeApi({

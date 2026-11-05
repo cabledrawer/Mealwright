@@ -77,6 +77,8 @@
 
   $effect.pre(() => {
     boxOpen = editing !== null;
+    // This screen goes (the phone turned to a wide screen): its box goes with it.
+    return () => (boxOpen = false);
   });
 
   // The step being changed went from the list (taken out, split or put back): the box goes too.

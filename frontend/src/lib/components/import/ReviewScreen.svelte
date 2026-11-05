@@ -96,8 +96,9 @@
   beforeNavigate((navigation) => {
     // A step's box is open (F143): typed words would be lost, and the leave sheet's Save draft
     // keeps only what is already in the steps. Stay, with the cursor back in the box, until Done
-    // or Cancel. Closing the tab is the browser's own.
-    if (editing !== null || oneBox) {
+    // or Cancel. Closing the tab is the browser's own. Only the box of the screen showing counts:
+    // after a turn of the phone (One at a time <-> the whole list) the other screen's box is gone.
+    if (mode === 'one' ? oneBox : editing !== null) {
       if (navigation.willUnload) return;
       navigation.cancel();
       document.querySelector<HTMLElement>('.edit textarea')?.focus();
