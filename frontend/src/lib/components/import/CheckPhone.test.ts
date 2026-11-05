@@ -805,6 +805,13 @@ describe('One at a time', () => {
         left_out: []
       });
       await expect.element(heading()).toHaveTextContent('Nothing to check');
+      await expect
+        .element(
+          page.getByText(
+            'Nothing to check here. Press Save recipe, or See all to look at the whole recipe.'
+          )
+        )
+        .toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
       expect(back().elements()).toEqual([]);
     });

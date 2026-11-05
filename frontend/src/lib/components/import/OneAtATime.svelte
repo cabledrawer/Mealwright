@@ -8,8 +8,8 @@
   // the words, Remove step (with Undo), Split into shorter steps and Put the steps back as they
   // were. Back and Next; Next on the last screen is Save recipe. Close keeps the recipe in
   // Drafts. Loaded the first time it is chosen, so the import page stays small.
-  // Words are the mockups', except those marked "proposed, for cabledrawer". Also proposed, for
-  // cabledrawer: the label "Close (kept in Drafts)" on the X.
+  // Words are the mockups', except those marked "proposed, for cabledrawer". The label
+  // "Close (kept in Drafts)" on the X is cabledrawer 5 Nov (F141).
   import { tick } from 'svelte';
   import { downLine } from '#lib/downWords.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
@@ -244,10 +244,9 @@
         </div>
       {/if}
     {:else}
-      <!-- Nothing needs the person and there is no method: proposed, for cabledrawer. -->
+      <!-- Nothing needs the person and there is no method: words cabledrawer 5 Nov (F141). -->
       <p class="empty">
-        Nothing needs you here, and there are no steps to look at. Press Save recipe, or See all to
-        look at the whole recipe.
+        Nothing to check here. Press Save recipe, or See all to look at the whole recipe.
       </p>
     {/if}
 

@@ -195,7 +195,7 @@
       <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
            phone, kept on this device. Shown at every width; the line under it says a computer
            always shows the whole list (the mockup is phone-only, so showing it on a computer too is
-           proposed, for cabledrawer). -->
+           cabledrawer 5 Nov). -->
       <fieldset class="check-mode">
         <legend>Checking a recipe on the phone</legend>
         <span class="detail">How the Check screen looks after an import.</span>

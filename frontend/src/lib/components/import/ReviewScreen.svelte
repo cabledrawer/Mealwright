@@ -478,7 +478,7 @@
   <div class="wrap">
     <div class="review" class:phone class:focus={mode === 'focus'}>
       {#if mode === 'focus'}
-        <!-- Focus puts the ingredients first, so they get the screen (proposed, for cabledrawer). -->
+        <!-- Focus puts the ingredients first, so they get the screen (cabledrawer 5 Nov, F141). -->
         {@render middle()}
         {@render left()}
         {@render right()}
@@ -507,7 +507,7 @@
   <CheckFrame>
     {#snippet header()}
       <div class="fhead">
-        <!-- "Check before saving" as the Focus h1: proposed, for cabledrawer. -->
+        <!-- "Check before saving" as the Focus h1: cabledrawer 5 Nov (F141). -->
         <h1>Check before saving</h1>
         <span class="muted">Step 2 of 3 · nothing saved yet</span>
       </div>
