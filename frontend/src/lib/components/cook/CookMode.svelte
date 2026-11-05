@@ -3,7 +3,7 @@
   // "Cook mode", "Cook mode timers", "Cook mode ingredients" and "Cook mode (K4)", cabledrawer 17, 28
   // and 31 Oct): big text, one step at a time, Back and Next (the arrow keys and a swipe do the
   // same), "Show ingredients" always, timers found in the step's words, Keep screen awake, and
-  // per-step ingredients as an Experimental option. The last step ends with Cooked it and Not now.
+  // per-step ingredients as an Experimental option. The last step ends with Cooked it and Not cooked yet (Close where no meal is planned).
   // A heading in the method is a section title, never a step. All the words here are proposed,
   // for cabledrawer, unless the spec gives them.
   import { tick, untrack } from 'svelte';
@@ -34,7 +34,7 @@
     /** Whether per-step ingredients (Experimental) are on, and the household's way to change it. */
     perStep: boolean;
     onperstep: (on: boolean) => void;
-    /** Leave Cook mode (Not now, or the cross). Asked first when a timer is running. */
+    /** Leave Cook mode (Not cooked yet, Close, or the cross). Asked first when a timer is running. */
     onexit: () => void;
     /** "Cooked it": into the review. Not there when nothing has been planned to cook. */
     oncooked?: (() => void) | null;
@@ -73,7 +73,7 @@
     void tick().then(() => body?.scrollTo({ top: 0 }));
   }
 
-  /** The cross or Not now: straight out, or asks first when a timer is running. */
+  /** The cross, Not cooked yet or Close: straight out, or asks first when a timer is running. */
   function leave() {
     if (timers.running) askingLeave = true;
     else onexit();
@@ -312,7 +312,9 @@
         disabled={index === 0}
         onclick={() => go(index - 1)}>← Back</button
       >
-      <button type="button" class="quiet-button" onclick={leave}>Not now</button>
+      <button type="button" class="quiet-button" onclick={leave}
+        >{oncooked ? 'Not cooked yet' : 'Close'}</button
+      >
       {#if oncooked}
         <button type="button" class="main" onclick={oncooked}>Cooked it</button>
       {/if}

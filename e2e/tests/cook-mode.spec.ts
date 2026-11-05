@@ -191,7 +191,7 @@ test('headings are section titles and a recipe with two method sections shows ev
     'Method 2: pressure cooker | Cook for 3 whistles.',
     'Method 2: pressure cooker | Serve warm.',
   ]);
-  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
 });
 
 test('a recipe with no steps, and one with only a heading, do not break', async ({ page }) => {
@@ -203,7 +203,7 @@ test('a recipe with no steps, and one with only a heading, do not break', async 
   const heading = await makeRecipe(page, [{ kind: 'heading', text: 'Only a heading' }]);
   await page.goto(`/recipes/${heading.id}/cook`);
   await expect(count(page)).toHaveText('No steps');
-  await page.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page).toHaveURL(`/recipes/${heading.id}`);
 });
 
@@ -378,7 +378,7 @@ async function lastStep(page: Page) {
   while ((await next(page).count()) > 0) await next(page).click();
 }
 
-test('Cook now plans the recipe into today\'s next meal first, then Cooked it is there; Undo takes it out and leaves Not now', async ({ page }) => {
+test('Cook now plans the recipe into today\'s next meal first, then Cooked it is there; Undo takes it out and leaves Close', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   await page.goto(`/recipes/${id}`);
@@ -390,11 +390,11 @@ test('Cook now plans the recipe into today\'s next meal first, then Cooked it is
   expect(await plannedToday(page, id)).toHaveLength(1);
   await lastStep(page);
   await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Not cooked yet' })).toBeVisible();
   await notice.getByRole('button', { name: 'Undo' }).click();
   await expect(notice).toHaveText('Taken out of today’s plan.');
   await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
   expect(await plannedToday(page, id)).toHaveLength(0);
 });
 
@@ -457,18 +457,18 @@ test('when the plan cannot be written Cook mode still opens, without Cooked it, 
   await expect(page.getByTestId('cook-notice')).toHaveText('This recipe wasn’t planned.');
   await lastStep(page);
   await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Not now' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
   expect(await plannedToday(page, id)).toHaveLength(0);
 });
 
-test('the last step ends with Not now, back to the recipe', async ({ page }) => {
+test('the last step ends with Close (no meal), back to the recipe', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   await page.goto(`/recipes/${id}/cook`);
   for (let i = 0; i < 3; i++) await next(page).click();
   await expect(count(page)).toHaveText('Step 4 of 4');
   await expect(next(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page).toHaveURL(`/recipes/${id}`);
 });
 
