@@ -94,6 +94,15 @@
   let allowed = false;
 
   beforeNavigate((navigation) => {
+    // A step's box is open (F143): typed words would be lost, and the leave sheet's Save draft
+    // keeps only what is already in the steps. Stay, with the cursor back in the box, until Done
+    // or Cancel. Closing the tab is the browser's own.
+    if (editing !== null || oneBox) {
+      if (navigation.willUnload) return;
+      navigation.cancel();
+      document.querySelector<HTMLElement>('.edit textarea')?.focus();
+      return;
+    }
     if (allowed || flow.saved || !flow.unkept || !navigation.to) return;
     if (navigation.willUnload) return; // closing the tab: the browser's own, nothing to ask
     navigation.cancel();
@@ -136,6 +145,8 @@
   // page stays as small as before.
   type Step = (typeof review.steps)[number];
   let editing = $state<Step | null>(null);
+  /** One at a time keeps its own box; it tells this screen whether one is open. */
+  let oneBox = $state(false);
 
   // The step went from the list (taken out, split, or put back as it was): the box goes with it.
   $effect(() => {
@@ -145,6 +156,11 @@
   function startEdit(step: Step) {
     flow.previewStep = null;
     editing = step;
+    // The box loads on first use. If it can't load, nothing is left open and waiting (Save,
+    // Close and Discard wait while a box is open).
+    import('./StepEdit.svelte').catch(() => {
+      if (editing === step) editing = null;
+    });
   }
 
   /** Close the box; the cursor goes back to the step it was opened from. */
@@ -355,6 +371,8 @@
                 onclose={() => void closeEdit()}
                 onremove={() => void removeStep(at)}
               />
+            {:catch}
+              <!-- Cleared in startEdit. -->
             {/await}
           {:else}
             <div class="step-row">
@@ -393,6 +411,8 @@
                       onclose={() => void closeEdit()}
                       onremove={() => void removeStep(step.at)}
                     />
+                  {:catch}
+                    <!-- Cleared in startEdit. -->
                   {/await}
                 {:else}
                   <div class="step-row">
@@ -496,6 +516,7 @@
   {#await import('./OneAtATime.svelte') then { default: OneAtATime }}
     <OneAtATime
       {flow}
+      bind:boxOpen={oneBox}
       closing={flow.keeping}
       onclose={() => void close()}
       onsave={() => void save()}

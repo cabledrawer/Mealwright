@@ -25,6 +25,8 @@
   let {
     flow,
     closing,
+    // eslint-disable-next-line no-useless-assignment -- only written, for the parent's bind:
+    boxOpen = $bindable(false),
     onclose,
     onsave,
     onseeall,
@@ -33,6 +35,8 @@
     flow: ImportFlow;
     /** Keeping the draft is on its way. */
     closing: boolean;
+    /** A step's box is open: the Check screen keeps the page from being left meanwhile (F143). */
+    boxOpen?: boolean;
     onclose: () => void;
     onsave: () => void;
     onseeall: () => void;
@@ -70,6 +74,10 @@
   const pieces = $derived(step ? flow.splitOf(stepAt) : null);
   const previewing = $derived(pieces !== null && flow.previewStep === stepAt);
   let editing = $state<NonNullable<typeof step> | null>(null);
+
+  $effect.pre(() => {
+    boxOpen = editing !== null;
+  });
 
   // The step being changed went from the list (taken out, split or put back): the box goes too.
   $effect(() => {

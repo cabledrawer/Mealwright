@@ -77,6 +77,14 @@ afterEach(() => {
   checkMode.reload();
 });
 
+/** Someone clicks away (a link, the browser's Back): the page's guard is asked. */
+function leaveFor(path = '/recipes') {
+  const cancel = vi.fn();
+  nav.guard?.({ to: { url: new URL(path, location.href) }, cancel, willUnload: false });
+  flushSync();
+  return cancel;
+}
+
 describe('Focus (the phone’s default)', () => {
   it('hides the app’s menu and shows the header, the counts, Close and Save as drawn', async () => {
     show(reviewFlow(), true);
@@ -250,6 +258,20 @@ describe('Focus (the phone’s default)', () => {
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
   });
 
+  it('leaving the page waits while a step box is open, and keeps the typed words (F143)', async () => {
+    show(reviewFlow(), true);
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    const box = page.getByLabelText('Words of step 1');
+    await box.fill('Boil the dal for 20 minutes.');
+    expect(leaveFor()).toHaveBeenCalledTimes(1);
+    await expect.element(box).toHaveValue('Boil the dal for 20 minutes.');
+    await expect.element(box).toHaveFocus();
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    await page.getByRole('button', { name: 'Done' }).click();
+    expect(leaveFor()).toHaveBeenCalledTimes(1); // the leave sheet's question, as before
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+  });
+
   it('Close and Save recipe each wait while the other runs', async () => {
     const flow = reviewFlow();
     show(flow, true);
@@ -273,6 +295,21 @@ describe('Focus (the phone’s default)', () => {
 });
 
 describe('a computer', () => {
+  it('leaving the page waits while a step box is open, and keeps the typed words (F143)', async () => {
+    await page.viewport(1280, 900);
+    show(reviewFlow(), false);
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    const box = page.getByLabelText('Words of step 1');
+    await box.fill('Boil the dal for 20 minutes.');
+    expect(leaveFor()).toHaveBeenCalledTimes(1);
+    await expect.element(box).toHaveValue('Boil the dal for 20 minutes.');
+    await expect.element(box).toHaveFocus();
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    await page.getByRole('button', { name: 'Done' }).click();
+    expect(leaveFor()).toHaveBeenCalledTimes(1); // the leave sheet's question, as before
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+  });
+
   it('Save recipe and Cancel wait while a step box is open, and work after Done (F143)', async () => {
     await page.viewport(1280, 900);
     const flow = reviewFlow();
@@ -681,6 +718,22 @@ describe('One at a time', () => {
       await expect.element(page.getByRole('button', { name: 'See all' })).toBeDisabled();
       await page.getByRole('button', { name: 'Done' }).click();
       await expect.element(page.getByRole('button', { name: 'See all' })).toBeEnabled();
+    });
+
+    it('leaving the page waits while a step box is open, and keeps the typed words (F143)', async () => {
+      await opened();
+      await next().click(); // line 2
+      await next().click(); // step 1
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      const box = page.getByLabelText('Words of step 1');
+      await box.fill('Boil the dal for 20 minutes.');
+      expect(leaveFor()).toHaveBeenCalledTimes(1);
+      await expect.element(box).toHaveValue('Boil the dal for 20 minutes.');
+      await expect.element(box).toHaveFocus();
+      await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(leaveFor()).toHaveBeenCalledTimes(1); // the leave sheet's question, as before
+      await expect.element(page.getByRole('dialog')).toBeVisible();
     });
 
     it('Discard waits while a step box is open, and works after Done (F143)', async () => {
