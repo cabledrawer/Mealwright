@@ -540,7 +540,11 @@
         {#if flow.draftProblem}
           <p class="error" role="alert">{flow.draftProblem}</p>
           <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
-          <button type="button" class="leave" disabled={flow.saving} onclick={discardAndLeave}
+          <button
+            type="button"
+            class="leave"
+            disabled={flow.saving || editing !== null}
+            onclick={discardAndLeave}
             >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
           >
         {/if}
@@ -556,7 +560,7 @@
           <button
             type="button"
             class="save"
-            disabled={flow.saving || flow.keeping || network.offline}
+            disabled={flow.saving || flow.keeping || editing !== null || network.offline}
             onclick={() => void save()}
           >
             {flow.saving ? 'Saving…' : 'Save recipe'}
@@ -587,11 +591,13 @@
       <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
     {/if}
     <div class="buttons">
-      <button type="button" class="cancel" onclick={leave}>Cancel</button>
+      <button type="button" class="cancel" disabled={editing !== null} onclick={leave}
+        >Cancel</button
+      >
       <button
         type="button"
         class="save"
-        disabled={flow.saving || network.offline}
+        disabled={flow.saving || editing !== null || network.offline}
         onclick={() => void save()}
       >
         {flow.saving ? 'Saving…' : 'Save recipe'}

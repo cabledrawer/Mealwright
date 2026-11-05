@@ -226,6 +226,30 @@ describe('Focus (the phone’s default)', () => {
     flow.saving = false;
   });
 
+  it('Save recipe and Discard wait while a step box is open, and work after Done with the words kept (F143)', async () => {
+    const flow = reviewFlow();
+    show(flow, true);
+    fakeApi({
+      'POST /recipes/drafts': [
+        409,
+        { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+      ]
+    });
+    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeEnabled();
+    expect(flow.review!.steps.find((x) => x.kind === 'step')!.text).toBe(
+      'Boil the dal for 20 minutes.'
+    );
+    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+  });
+
   it('Close and Save recipe each wait while the other runs', async () => {
     const flow = reviewFlow();
     show(flow, true);
@@ -249,6 +273,26 @@ describe('Focus (the phone’s default)', () => {
 });
 
 describe('a computer', () => {
+  it('Save recipe and Cancel wait while a step box is open, and work after Done (F143)', async () => {
+    await page.viewport(1280, 900);
+    const flow = reviewFlow();
+    show(flow, false);
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+    // The box has a Cancel of its own; the bar's is the last one.
+    const cancel = () => page.getByRole('button', { name: 'Cancel' }).last();
+    await expect.element(cancel()).toBeDisabled();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
+    await expect.element(cancel()).toBeEnabled();
+    expect(flow.review!.steps.find((x) => x.kind === 'step')!.text).toBe(
+      'Boil the dal for 20 minutes.'
+    );
+    await cancel().click();
+    await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+  });
+
   it('keeps today’s Check screen whatever the phone’s choice is', async () => {
     for (const choice of ['focus', 'one'] as const) {
       checkMode.set(choice);
@@ -637,6 +681,39 @@ describe('One at a time', () => {
       await expect.element(page.getByRole('button', { name: 'See all' })).toBeDisabled();
       await page.getByRole('button', { name: 'Done' }).click();
       await expect.element(page.getByRole('button', { name: 'See all' })).toBeEnabled();
+    });
+
+    it('Discard waits while a step box is open, and works after Done (F143)', async () => {
+      const flow = await opened();
+      fakeApi({
+        'POST /recipes/drafts': [
+          409,
+          { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
+        ]
+      });
+      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await next().click(); // line 2
+      await next().click(); // step 1
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
+      await expect
+        .element(page.getByRole('button', { name: 'Discard', exact: true }))
+        .toBeDisabled();
+      await page.getByRole('button', { name: 'Done' }).click();
+      expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
+      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+    });
+
+    it('Save recipe on the last screen waits while a step box is open, and works after Done (F143)', async () => {
+      const flow = await opened();
+      for (let i = 0; i < 4; i++) await next().click();
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText(/^Words of step/).fill('Last step, changed.');
+      await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
+      expect(flow.review!.steps.map((x) => x.text)).toContain('Last step, changed.');
     });
 
     it('Discard waits while Save recipe runs', async () => {
