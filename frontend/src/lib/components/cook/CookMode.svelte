@@ -496,6 +496,19 @@
     padding-right: var(--space-3);
   }
 
+  /* A narrow screen (a 320 px phone): Back and Not cooked yet share the first row, and Cooked it
+     has the row under them, so the words have room and the button grows rather than the text
+     shrinking. */
+  @media (max-width: 26rem) {
+    footer.three {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    footer.three .main {
+      grid-column: 1 / -1;
+    }
+  }
+
   .body {
     display: flex;
     flex: 1 1 auto;

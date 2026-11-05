@@ -546,3 +546,27 @@ test('coming back to the front asks for the screen lock again and shows the righ
   await page.clock.runFor(700_000);
   expect((await page.evaluate(() => (window as any).__chime)).oscillators).toBe(0);
 });
+
+test('on a 320 px screen the last step from a meal fits: Not cooked yet stays inside its button (F147)', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto(`/recipes/${id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
+  await expect(cook(page)).toBeVisible();
+  await lastStep(page);
+  const notCooked = page.getByRole('button', { name: 'Not cooked yet' });
+  await expect(notCooked).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+  // The words fit inside the button (a second line is fine), none spills out of it.
+  const fits = await notCooked.evaluate((button) => {
+    const range = document.createRange();
+    range.selectNodeContents(button);
+    const text = range.getBoundingClientRect();
+    const box = button.getBoundingClientRect();
+    return text.left >= box.left - 0.5 && text.right <= box.right + 0.5 && text.top >= box.top - 0.5 && text.bottom <= box.bottom + 0.5;
+  });
+  expect(fits).toBe(true);
+});
