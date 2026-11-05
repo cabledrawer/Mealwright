@@ -11,7 +11,7 @@
   // alive while recipes open beside it, so the search, the filter and the scroll stay.
   //
   // Each row opens the recipe page; "+ New recipe" (under the search on a phone, under the title
-  // in the pane, as the mockups have it) opens a small choice, Add by hand · Import from a link
+  // in the pane, as the mockups have it) opens a small choice, Add by hand · Import recipe
   // (N1). Import is also its own item in the sidebar and a button on the phone (F113). The
   // phone's Drafts button (with the number of drafts, as the mockup has it) is back with 0.5's
   // import. Hidden until it works,

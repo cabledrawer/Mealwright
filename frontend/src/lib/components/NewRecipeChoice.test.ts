@@ -41,17 +41,17 @@ describe('“+ New recipe” and its small choice (N1)', () => {
     expect(menu().elements()).toHaveLength(0);
   });
 
-  it('a tap opens Add by hand · Import from a link, as real links', async () => {
+  it('a tap opens Add by hand · Import recipe, as real links', async () => {
     const { button, menu } = render();
     await button.click();
     await expect.element(menu()).toBeVisible();
     await expect.element(button).toHaveAttribute('aria-expanded', 'true');
-    expect(names()).toEqual(['Add by hand', 'Import from a link']);
+    expect(names()).toEqual(['Add by hand', 'Import recipe']);
     await expect
       .element(page.getByRole('menuitem', { name: 'Add by hand' }))
       .toHaveAttribute('href', '/recipes/new');
     await expect
-      .element(page.getByRole('menuitem', { name: 'Import from a link' }))
+      .element(page.getByRole('menuitem', { name: 'Import recipe' }))
       .toHaveAttribute('href', '/recipes/import');
     for (const item of page.getByRole('menuitem').elements()) {
       expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
@@ -65,11 +65,11 @@ describe('“+ New recipe” and its small choice (N1)', () => {
     const item = (name: string) => page.getByRole('menuitem', { name });
     await expect.element(item('Add by hand')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');
-    await expect.element(item('Import from a link')).toHaveFocus();
+    await expect.element(item('Import recipe')).toHaveFocus();
     await userEvent.keyboard('{ArrowDown}');
     await expect.element(item('Add by hand')).toHaveFocus();
     await userEvent.keyboard('{End}');
-    await expect.element(item('Import from a link')).toHaveFocus();
+    await expect.element(item('Import recipe')).toHaveFocus();
     await userEvent.keyboard('{Home}');
     await expect.element(item('Add by hand')).toHaveFocus();
   });
@@ -78,7 +78,7 @@ describe('“+ New recipe” and its small choice (N1)', () => {
     const { button } = render();
     (button.element() as HTMLElement).focus();
     await userEvent.keyboard('{ArrowUp}');
-    await expect.element(page.getByRole('menuitem', { name: 'Import from a link' })).toHaveFocus();
+    await expect.element(page.getByRole('menuitem', { name: 'Import recipe' })).toHaveFocus();
   });
 
   it('Esc closes it and focus goes back to the button', async () => {

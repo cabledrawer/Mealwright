@@ -194,12 +194,12 @@ test('How much? for a new ingredient offers 100 g · 250 g · 500 g · 1 kg, the
     .toContain('100');
 });
 
-test('New recipe opens a small choice: Add by hand · Import from a link, with keys and focus', async ({ page }) => {
+test('New recipe opens a small choice: Add by hand · Import recipe, with keys and focus', async ({ page }) => {
   await page.goto('/recipes');
   const button = page.getByRole('button', { name: 'New recipe', exact: true });
   await button.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('menu', { name: 'New recipe' }).getByRole('menuitem')).toHaveText(['Add by hand', 'Import from a link']);
+  await expect(page.getByRole('menu', { name: 'New recipe' }).getByRole('menuitem')).toHaveText(['Add by hand', 'Import recipe']);
   await expect(page.getByRole('menuitem', { name: 'Add by hand' })).toBeFocused();
   for (const item of await page.getByRole('menuitem').all()) {
     expect((await item.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -208,7 +208,7 @@ test('New recipe opens a small choice: Add by hand · Import from a link, with k
   await expect(page.getByRole('menu')).toHaveCount(0);
   await expect(button).toBeFocused();
   await button.click();
-  await page.getByRole('menuitem', { name: 'Import from a link' }).click();
+  await page.getByRole('menuitem', { name: 'Import recipe' }).click();
   await expect(page).toHaveURL(/\/recipes\/import$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import a recipe');
   // The sidebar (or the phone's button) marks Import as the current page.
@@ -351,7 +351,7 @@ test('on a 320 px phone, dark, at 200% text: header cog and avatar, the switch, 
   await tall(button);
   await button.click();
   await tall(page.getByRole('menuitem', { name: 'Add by hand' }));
-  await tall(page.getByRole('menuitem', { name: 'Import from a link' }));
+  await tall(page.getByRole('menuitem', { name: 'Import recipe' }));
   await expectNoSidewaysScroll(page);
 
   const name = unique('Saffron');

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // "+ New recipe": a button that opens a small choice, Add by hand · Import from a link
+  // "+ New recipe": a button that opens a small choice, Add by hand · Import recipe
   // (spec section 6, N1, cabledrawer 28 Oct). A menu button (WAI-ARIA), like the Recipes pop-out:
   // Enter, Space or the Down arrow open it, with focus on the first choice; Up and Down move
   // (Home and End jump); Esc closes it and puts focus back on the button; clicking elsewhere or
@@ -107,7 +107,7 @@
         href={resolve('/(app)/recipes/import')}
         role="menuitem"
         tabindex="-1"
-        onclick={() => hide(false)}>Import from a link</a
+        onclick={() => hide(false)}>Import recipe</a
       >
     </div>
   {/if}
