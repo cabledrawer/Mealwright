@@ -16,7 +16,7 @@ COPY backend/pyproject.toml /src/backend/pyproject.toml
 RUN npm run build
 
 # --- 2. Install the backend into a virtual environment ----------------------------------
-FROM python:3.14-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS api
+FROM python:3.14-slim-trixie@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0f48ed71090949dd7cb1d AS api
 COPY --from=ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_NO_CACHE=1
 WORKDIR /app/backend
@@ -28,7 +28,7 @@ COPY backend/ ./
 RUN uv sync --frozen --no-dev --no-editable --no-build-package pillow
 
 # --- 3. The image that runs --------------------------------------------------------------
-FROM python:3.14-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+FROM python:3.14-slim-trixie@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0f48ed71090949dd7cb1d
 LABEL org.opencontainers.image.title="Mealwright" \
       org.opencontainers.image.description="Self-hosted meal planning, pantry and shopping." \
       org.opencontainers.image.licenses="AGPL-3.0-only"
