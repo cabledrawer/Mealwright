@@ -239,7 +239,8 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await expect(page.getByText('4 lines after “Tips” were left out. You can add them by hand.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByText(/plan it/i)).toHaveCount(0); // Save & plan it waits for 0.6
-  await expect(page.getByRole('status').filter({ hasText: '3 lines will be saved without an ingredient' })).toBeVisible();
+  await expect(page.getByText(/without an ingredient/)).toHaveCount(0); // F152: no note
+  await expect(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
   // The Save bar floats over the foot of the screen: look at the end of the page, where it sits below
   // the content, so the scan is not about which chip happens to be under it at the top.
   await page.locator('ol li').last().scrollIntoViewIfNeeded();
@@ -686,23 +687,23 @@ test('a site that refuses says how to paste the recipe, and the box is empty and
   await checkPage(page, { themes: ['dark'] });
 });
 
-test('Remove line takes a line out of the counts and the Save note, and Undo brings it back (F105)', async ({ page }) => {
+test('Remove line takes a line out of the counts, and Undo brings it back (F105)', async ({ page }) => {
   await checking(page);
   await expect(page.getByText('1 to confirm')).toBeVisible();
   await expect(page.getByText('2 need you')).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: '3 lines will be saved without an ingredient' })).toBeVisible();
+  await expect(page.getByText(/without an ingredient/)).toHaveCount(0); // F152: no note
   await expect(page.getByRole('heading', { name: /^Ingredients/ })).toContainText('3');
   await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
   await expect(page.getByText('Removed “1 red onion, sliced”')).toBeVisible();
   await expect(page.getByText('0 to confirm')).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: '2 lines will be saved without an ingredient' })).toBeVisible();
+  await expect(page.getByText(/without an ingredient/)).toHaveCount(0); // F152: no note
   await expect(page.getByRole('heading', { name: /^Ingredients/ })).toContainText('2');
   await expect(page.locator('.written').filter({ hasText: '1 red onion, sliced' })).toHaveCount(0);
   await checkPage(page);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText('Undone: Removed “1 red onion, sliced”')).toBeVisible();
   await expect(page.getByText('1 to confirm')).toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: '3 lines will be saved without an ingredient' })).toBeVisible();
+  await expect(page.getByText(/without an ingredient/)).toHaveCount(0); // F152: no note
 });
 
 test('Split into two turns one line into two, and Undo puts it back (F109)', async ({ page }) => {

@@ -523,13 +523,6 @@
     {@render reviewBody()}
     {#snippet footer()}
       <div class="fbar">
-        {#if flow.unlinked > 0}
-          <p class="muted" role="status">
-            {flow.unlinked}
-            {flow.unlinked === 1 ? 'line' : 'lines'} will be saved without an ingredient. You can link
-            {flow.unlinked === 1 ? 'it' : 'them'} in the recipe.
-          </p>
-        {/if}
         {#if flow.saveProblem && flow.saveProblem.line === null}
           <p class="error" role="alert">{flow.saveProblem.message}</p>
         {:else if flow.saveProblem && flow.saveProblem.line !== null}
@@ -578,13 +571,6 @@
   {@render reviewBody()}
   <div class="bar" class:phone bind:offsetHeight={barHeight}>
     <p class="muted">Nothing is saved until you choose.</p>
-    {#if flow.unlinked > 0}
-      <p class="muted" role="status">
-        {flow.unlinked}
-        {flow.unlinked === 1 ? 'line' : 'lines'} will be saved without an ingredient. You can link
-        {flow.unlinked === 1 ? 'it' : 'them'} in the recipe.
-      </p>
-    {/if}
     {#if flow.saveProblem && flow.saveProblem.line === null}
       <p class="error" role="alert">{flow.saveProblem.message}</p>
     {:else if flow.saveProblem && flow.saveProblem.line !== null}

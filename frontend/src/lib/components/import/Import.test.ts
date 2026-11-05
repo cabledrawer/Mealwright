@@ -923,16 +923,12 @@ describe('Import a recipe', () => {
       undoHistory.clear();
       toasts.dismiss();
       const flow = await reviewing();
-      await expect
-        .element(page.getByText('2 lines will be saved without an ingredient.', { exact: false }))
-        .toBeVisible();
+      expect(page.getByText(/without an ingredient/).elements()).toHaveLength(0); // F152
       expect(page.getByRole('button', { name: /^Remove line/ }).elements()).toHaveLength(3);
       await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
       expect(flow.review!.lines).toHaveLength(2);
       expect(toasts.current?.message).toBe('Removed “1 red onion, sliced”');
-      await expect
-        .element(page.getByText('1 line will be saved without an ingredient.', { exact: false }))
-        .toBeVisible();
+      expect(page.getByText(/without an ingredient/).elements()).toHaveLength(0); // F152
       await expect.element(page.getByText('0 to confirm')).toBeVisible();
       expect(document.querySelector('.lines h2')?.textContent).toContain('2');
       expect(page.getByText('1 red onion, sliced').elements()).toHaveLength(0);
@@ -944,9 +940,7 @@ describe('Import a recipe', () => {
       // Undo brings it back in the same place.
       expect(await undoHistory.undoLast()).toBe(true);
       flushSync();
-      await expect
-        .element(page.getByText('2 lines will be saved without an ingredient.', { exact: false }))
-        .toBeVisible();
+      expect(page.getByText(/without an ingredient/).elements()).toHaveLength(0); // F152
       expect(flow.review!.lines.map((l) => l.written)).toEqual([
         '1 cup (200 g) thuvaram paruppu',
         '1 red onion, sliced',
@@ -1049,11 +1043,9 @@ describe('Import a recipe', () => {
       expect(document.querySelectorAll('.method li.heading')).toHaveLength(0);
     });
 
-    it('says how many lines will be saved without an ingredient', async () => {
+    it('has no note about lines saved without an ingredient, and Save recipe is on (F152)', async () => {
       await reviewing();
-      await expect
-        .element(page.getByText('2 lines will be saved without an ingredient.', { exact: false }))
-        .toBeVisible();
+      expect(page.getByText(/without an ingredient/).elements()).toHaveLength(0); // F152
     });
 
     it('keeps Save off while offline, and says so', async () => {
