@@ -113,6 +113,17 @@
     return items.filter((i) => i.kind === 'recipe' && !i.cooked);
   });
 
+  /**
+   * Something in this menu was cooked (F157): the meal is still planned, but a cooked recipe
+   * can't be moved or taken off while its record stands. Cooked it's Undo frees it.
+   */
+  const holdsCooked = $derived(
+    !!target &&
+      (target.kind === 'item' || target.kind === 'meal') &&
+      target.meal.status === 'planned' &&
+      (target.kind === 'item' ? !!target.item.cooked : target.meal.items.some((i) => i.cooked))
+  );
+
   /** A note has no leftovers (it is "Eating out"), and no Serves. */
   const noteOnly = $derived(
     !!target &&
@@ -438,9 +449,11 @@
               >Cook once, eat for…</button
             >
           {/if}
-          <button type="button" disabled={actions.readonly} onclick={() => (mode = 'move')}
-            >Move to…</button
-          >
+          {#if !holdsCooked}
+            <button type="button" disabled={actions.readonly} onclick={() => (mode = 'move')}
+              >Move to…</button
+            >
+          {/if}
           {#if !tub}
             <button type="button" disabled={actions.readonly} onclick={() => (mode = 'copy')}
               >Copy to…</button
@@ -456,14 +469,21 @@
             >
           {/if}
           <!-- F49: taking a tub off a meal keeps the tub, so it isn't red and it says so. -->
-          <button
-            type="button"
-            class:remove={!tub}
-            disabled={actions.readonly}
-            onclick={remove}
-            aria-describedby={tub ? 'take-off-hint' : undefined}
-            >{tub ? 'Take off this meal (keep the tub)' : 'Remove'}</button
-          >
+          {#if holdsCooked}
+            <!-- Proposed, for cabledrawer. -->
+            <p class="hint" data-testid="cooked-stays">
+              This was cooked. Undo “Cooked it” to move or remove it.
+            </p>
+          {:else}
+            <button
+              type="button"
+              class:remove={!tub}
+              disabled={actions.readonly}
+              onclick={remove}
+              aria-describedby={tub ? 'take-off-hint' : undefined}
+              >{tub ? 'Take off this meal (keep the tub)' : 'Remove'}</button
+            >
+          {/if}
           {#if tub}
             <p id="take-off-hint" class="hint">
               The tub stays in the {tub.tub.place_kind === 'freezer' ? 'freezer' : 'fridge'}, in

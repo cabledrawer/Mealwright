@@ -96,7 +96,8 @@ export class CookNow {
         // cabledrawer 1 Nov: as in rule 3, Cooked it reviews only this recipe's item
         // (the first one if the meal has it twice), not the other recipes in that meal.
         this.itemId =
-          spot.meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === recipeId)?.id ?? null;
+          spot.meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === recipeId && !i.cooked)
+            ?.id ?? null;
         return;
       }
       const body = { date: today, slot_id: spot.slotId, recipe_id: recipeId };

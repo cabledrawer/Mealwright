@@ -16,7 +16,8 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
-  import { cookedTitle, cookTarget } from '#lib/cookTargets.js';
+  import CookedParts from '#lib/components/CookedParts.svelte';
+  import { cookTarget } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -117,7 +118,8 @@
    * the household's tub life, as the server counts it (F128).
    */
   async function cookEating(meal: PlanMeal) {
-    const first = meal.items.find((i) => i.kind === 'recipe');
+    // The first recipe not cooked yet, never one cooked before (F157 review).
+    const first = meal.items.find((i) => i.kind === 'recipe' && !i.cooked);
     let life: TubLife | null = null;
     try {
       const household = await getHousehold();
@@ -242,12 +244,7 @@
             </div>
             {#if meal.status === 'cooked'}<span class="muted">Cooked</span>{/if}
           </div>
-          {#if meal.status === 'planned' && meal.items.some((i) => i.cooked)}
-            <!-- Proposed, for cabledrawer: a meal cooked in parts says which are done. -->
-            <p class="muted" data-testid="today-cooked-parts">
-              {cookedTitle(meal.items.filter((i) => i.cooked).map((i) => itemName(i, data.plan)))}
-            </p>
-          {/if}
+          <CookedParts {meal} plan={data.plan} />
           {#if meal.items.some((i) => i.kind === 'tub')}
             <div class="chips">
               {#each meal.items.filter((i) => i.kind === 'tub') as item (item.id)}

@@ -178,6 +178,11 @@
   const leftoversOk = (meal: PlanMeal) => (day: string, slot: number | null) =>
     afterCook(day, slot ?? meal.slot_id, meal, model.today, model.slotsOn);
 
+  /** A recipe that was cooked can't be moved while its record stands (F157 review). */
+  function cookedStays() {
+    toasts.show('This was cooked. Undo “Cooked it” first.', { tone: 'problem' }); // proposed, for cabledrawer
+  }
+
   function carryMeal(meal: PlanMeal): Carried {
     return {
       label: mealName(meal, model.plan),
@@ -186,6 +191,7 @@
       drop: (day, slot, mode) => {
         const to = slot ?? meal.slot_id;
         if (day === meal.date && to === meal.slot_id) return; // dropped where it was
+        if (mode === 'move' && meal.items.some((i) => i.cooked)) return cookedStays();
         void model.drop({ meal: meal.id }, day, to, mode);
       }
     };
@@ -206,7 +212,8 @@
       meal,
       `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`
     );
-    const first = meal.items.find((i) => i.kind === 'recipe');
+    // The first recipe this review cooks, never one cooked before (F157 review).
+    const first = target.parts.find((p) => p.itemId !== null);
     // A new tub keeps the household's tub life from the cook day, in the fridge or the
     // freezer: "Eat it on…" offers no meal past it (F128).
     const useBy = leftoverUseBy(meal.date, {
@@ -219,7 +226,7 @@
     leftover =
       first && target.parts.every((p) => p.batchId === null)
         ? {
-            itemId: first.id,
+            itemId: first.itemId as number,
             today: model.today,
             ...useBy,
             eatOn: until
@@ -262,6 +269,7 @@
       drop: (day, slot) => {
         const to = slot ?? meal.slot_id;
         if (day === meal.date && to === meal.slot_id) return;
+        if (meal.items.some((i) => i.cooked)) return cookedStays();
         if (model.mealAt(day, to)) {
           toasts.show('Cooking can only move to an empty meal.', { tone: 'problem' });
           return;
@@ -276,6 +284,7 @@
       drop: (day, slot, mode) => {
         const to = slot ?? meal.slot_id;
         if (day === meal.date && to === meal.slot_id) return;
+        if (mode === 'move' && item.cooked) return cookedStays();
         void model.drop({ item: item.id }, day, to, mode);
       }
     })

@@ -203,6 +203,16 @@ describe('Cook now plans first', () => {
     expect(now.itemId).toBe(71); // the first item of recipe 5 (meal 7, position 1)
   });
 
+  it('the same recipe twice, the first cooked: Cooked it reviews the second copy', async () => {
+    const twice = meal(7, 2, 'planned', [5, 5]);
+    twice.items[0]!.cooked = true;
+    serve([twice]);
+    const now = new CookNow();
+    await now.start(5);
+    expect(now.mealId).toBe(7);
+    expect(now.itemId).toBe(71);
+  });
+
   it('when every meal today is cooked, nothing is written and the one line says so', async () => {
     const calls = serve([
       meal(1, 1, 'cooked', [9]),

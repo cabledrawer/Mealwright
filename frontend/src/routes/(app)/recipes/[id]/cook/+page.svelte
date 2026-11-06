@@ -62,18 +62,23 @@
   function openCooked() {
     if (!meal) return;
     // Cook now added this recipe to the meal: Cooked it reviews only it, not the others there.
-    const only = cookNow.onlyItem(id, meal);
+    // Reloaded, or opened from the address: this recipe's first item not cooked yet in that
+    // meal (cabledrawer 1 Nov; 6 Nov), never the whole meal.
+    const only =
+      cookNow.onlyItem(id, meal) ??
+      meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === id && !i.cooked) ??
+      null;
     const target = cookTarget(
       model.plan,
       meal,
       `${dayFull(meal.date)} · ${model.slotName(meal.slot_id)}`,
       only
     );
-    const first = only ?? meal.items.find((i) => i.kind === 'recipe');
+    const first = target.parts.find((p) => p.itemId !== null);
     // A batch cooked once makes its own tubs, so there are no leftovers to ask about.
     leftover =
       first && target.parts.every((p) => p.batchId === null)
-        ? { itemId: first.id, today: model.today }
+        ? { itemId: first.itemId as number, today: model.today }
         : null;
     void review.open(target);
   }
