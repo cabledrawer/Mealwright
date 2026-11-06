@@ -521,15 +521,28 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
     await call(page, 'POST', `/plan/meals/${a.meal_id}/cooked`, {});
     await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', bread);
     const sheet = page.getByRole('dialog');
-    const list = sheet.getByTestId('plan-sheet-parts');
-    await expect(list.locator('li')).toHaveCount(2);
-    await expect(list.locator('li', { hasText: bread }).getByText('Cooked', { exact: true })).toBeVisible();
-    await expect(list.locator('li', { hasText: soup }).getByText('Cooked', { exact: true })).toHaveCount(0);
-    await expect(sheet.getByTestId('cooked-stays')).toHaveText(`${bread} was cooked. Undo its Cooked it to move or remove it.`);
-    await expect(sheet.getByRole('button', { name: 'Move to…' })).toHaveCount(0);
-    await expect(sheet.getByRole('button', { name: `Remove ${bread}` })).toHaveCount(0);
-    await checkPage(page); // both themes
-    await sheet.getByRole('button', { name: `Remove ${soup}` }).click();
+    if (isPhone(page)) {
+      // The phone's card is the meal: its recipes are listed, the cooked one tagged.
+      const list = sheet.getByTestId('plan-sheet-parts');
+      await expect(list.locator('li')).toHaveCount(2);
+      await expect(list.locator('li', { hasText: bread }).getByText('Cooked', { exact: true })).toBeVisible();
+      await expect(list.locator('li', { hasText: soup }).getByText('Cooked', { exact: true })).toHaveCount(0);
+      await expect(sheet.getByTestId('cooked-stays')).toHaveText(`${bread} was cooked. Undo its Cooked it to move or remove it.`);
+      await expect(sheet.getByRole('button', { name: 'Move to…' })).toHaveCount(0);
+      await expect(sheet.getByRole('button', { name: `Remove ${bread}` })).toHaveCount(0);
+      await checkPage(page); // both themes
+      await sheet.getByRole('button', { name: `Remove ${soup}` }).click();
+    } else {
+      // The computer's card is one recipe: the cooked one says so and is locked; the other can go.
+      await expect(sheet.getByTestId('cooked-stays')).toHaveText(`${bread} was cooked. Undo its Cooked it to move or remove it.`);
+      await expect(sheet.getByRole('button', { name: 'Move to…' })).toHaveCount(0);
+      await expect(sheet.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
+      await checkPage(page); // both themes
+      await page.keyboard.press('Escape');
+      await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', soup);
+      await expect(page.getByRole('dialog').getByTestId('cooked-stays')).toHaveCount(0);
+      await page.getByRole('dialog').getByRole('button', { name: 'Remove', exact: true }).click();
+    }
     await expect(page.getByRole('status')).toContainText(`Removed ${soup}`);
     await expect
       .poll(async () => {
