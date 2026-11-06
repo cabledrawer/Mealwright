@@ -168,12 +168,15 @@ def press(kitchen: Kitchen, change: Change) -> list[Change]:
     if change.kind != "cooked":
         return [change]
     found = {change.id: change}
-    for change_id in (change.undo_data or {}).get("together", []):
-        other = kitchen.db.get(Change, change_id)
-        if (
-            other is not None
-            and other.household_id == kitchen.household_id
-            and other.kind == "cooked"
+    ids = (change.undo_data or {}).get("together", [])
+    if ids:
+        # One query for the whole press, not one per part (a press of 21 parts was 21).
+        for other in kitchen.db.scalars(
+            select(Change).where(
+                Change.id.in_(ids),
+                Change.household_id == kitchen.household_id,
+                Change.kind == "cooked",
+            )
         ):
             found[other.id] = other
     return sorted(found.values(), key=lambda c: c.id)

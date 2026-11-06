@@ -175,9 +175,20 @@ def _totals(kitchen: Kitchen, view: Pantry, changes: list[Change]) -> list[Total
 
 def _lines(kitchen: Kitchen, view: Pantry, changes: list[Change]) -> list[LineOut]:
     result = []
-    for line in _lines_of(kitchen, changes):
+    rows = _lines_of(kitchen, changes)
+    lot_ids = {line.lot_id for line in rows if line.lot_id is not None}
+    # One query for all the packets, not one per line.
+    lots = (
+        {
+            lot.id: lot
+            for lot in kitchen.db.scalars(select(StockLot).where(StockLot.id.in_(lot_ids)))
+        }
+        if lot_ids
+        else {}
+    )
+    for line in rows:
         food = view.food(line.food_id)
-        lot = kitchen.db.get(StockLot, line.lot_id) if line.lot_id is not None else None
+        lot = lots.get(line.lot_id) if line.lot_id is not None else None
         size = view.lot_size(lot) if lot is not None else view.usual(food.id)
 
         def place(place_id: int | None) -> Ref | None:
@@ -251,7 +262,8 @@ def list_changes(
     while len(rows) <= limit:
         older = query if cursor is None else query.where(Change.id < cursor)
         chunk = list(kitchen.db.scalars(older.order_by(Change.id.desc()).limit(limit + 1)))
-        rows += [c for c in chunk if mine or not _folded(kitchen, query, c)]
+        folded = set() if mine else _folded(kitchen, query, chunk)
+        rows += [c for c in chunk if c.id not in folded]
         if len(chunk) <= limit:
             break
         cursor = chunk[-1].id
@@ -291,20 +303,62 @@ def _row_of(kitchen: Kitchen, change: Change) -> list[Change]:
     return sorted(found.values(), key=lambda c: c.id)
 
 
-def _folded(kitchen: Kitchen, query: Any, change: Change) -> bool:
-    """One "Cooked it" is one row with one Undo (F125, review 1, L1): a later pantry change of
-    the same press, or the Undo of one, is shown in the row of the press's first, when this list
-    has that one too."""
-    target = change
-    if change.kind == "undo" and change.undoes_change_id is not None:
-        undone = kitchen.db.get(Change, change.undoes_change_id)
-        if undone is None or undone.household_id != kitchen.household_id:
-            return False
-        target = undone
-    first = together.press(kitchen, target)[0]
-    if first.id == target.id:
-        return False
-    return kitchen.db.scalar(query.where(Change.id == first.id)) is not None
+def _folded(kitchen: Kitchen, query: Any, chunk: list[Change]) -> set[int]:
+    """Which of these changes are not rows of their own. One "Cooked it" is one row with one Undo
+    (F125, review 1, L1): a later pantry change of the same press, or the Undo of one, is shown in
+    the row of the press's first, when this list has that one too. The whole chunk is worked out
+    in a few queries, not a few per change (0.7 security review, L1: a press of 21 parts)."""
+    db = kitchen.db
+    undone_ids = {
+        c.undoes_change_id for c in chunk if c.kind == "undo" and c.undoes_change_id is not None
+    }
+    undone = (
+        {c.id: c for c in db.scalars(select(Change).where(Change.id.in_(undone_ids)))}
+        if undone_ids
+        else {}
+    )
+    targets: dict[int, Change] = {}  # a change's id → the change whose press decides its row
+    for change in chunk:
+        if change.kind != "undo" or change.undoes_change_id is None:
+            targets[change.id] = change
+            continue
+        target = undone.get(change.undoes_change_id)
+        if target is not None and target.household_id == kitchen.household_id:
+            targets[change.id] = target
+    wanted = {
+        i
+        for t in targets.values()
+        if t.kind == "cooked"
+        for i in (t.undo_data or {}).get("together", [])
+    }
+    parts = (
+        {
+            c.id
+            for c in db.scalars(
+                select(Change).where(
+                    Change.id.in_(wanted),
+                    Change.household_id == kitchen.household_id,
+                    Change.kind == "cooked",
+                )
+            )
+        }
+        if wanted
+        else set()
+    )
+    first_of: dict[int, int] = {}  # a change's id → the first of its press
+    for key, target in targets.items():
+        together_ids = (
+            (target.undo_data or {}).get("together", []) if target.kind == "cooked" else []
+        )
+        first = min([target.id, *(i for i in together_ids if i in parts)])
+        if first != target.id:
+            first_of[key] = first
+    if not first_of:
+        return set()
+    listed = set(
+        db.scalars(query.with_only_columns(Change.id).where(Change.id.in_(set(first_of.values()))))
+    )
+    return {key for key, first in first_of.items() if first in listed}
 
 
 class UndoOut(BaseModel):
