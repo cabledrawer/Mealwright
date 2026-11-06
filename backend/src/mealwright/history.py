@@ -821,12 +821,13 @@ UNDO_MESSAGES: dict[UndoResult, str] = {
 }
 
 
-def undo_message(result: UndoResult, thing: str | None = None) -> str:
+def undo_message(result: UndoResult, thing: str | None = None, name_partly: bool = False) -> str:
     """What an Undo says. When it did nothing it names the thing: "Nothing to put back for
-    Banana bread (Mon breakfast): it has changed again since." (F44; proposed, for cabledrawer)."""
+    Banana bread (Mon breakfast): it has changed again since." (F44; proposed, for cabledrawer).
+    A plan change also names the meal when only some of it was put back (F140, `name_partly`)."""
     if result == "nothing" and thing:
         return f"Nothing to put back for {thing}: it has changed again since."
-    if result == "partly" and thing:
+    if name_partly and result == "partly" and thing:
         return f"Put back what could be for {thing}: some of it has changed again since."
     return UNDO_MESSAGES[result]
 

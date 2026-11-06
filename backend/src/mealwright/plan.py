@@ -1008,7 +1008,9 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
         None,
         {
             "result": tally.result,
-            "message": undo_message(tally.result, (change.undo_data or {}).get("thing")),
+            "message": undo_message(
+                tally.result, (change.undo_data or {}).get("thing"), name_partly=True
+            ),
             "undoes_kind": change.kind,
             "undoes_at": as_utc(change.at).isoformat(),
         },
