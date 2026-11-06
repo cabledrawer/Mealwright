@@ -243,6 +243,8 @@ describe('Cook mode', () => {
       expect(stillMoving()).toBe(true);
       (next().element() as HTMLElement).click();
       flushSync();
+      // The press did nothing of its own: the step is still the one the swipe left.
+      expect(count().element().textContent).toContain('Step 1 of 4');
       await rest();
       await shows(count(), has('Step 2 of 4'));
       await next().click();
