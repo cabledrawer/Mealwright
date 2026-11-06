@@ -140,12 +140,11 @@ def test_undo_of_cooked_it_asks_about_the_meal_again(
     assert meal_status(kitchen, meal) == "cooked"
 
 
-def test_only_a_meal_whose_day_has_come_can_be_answered(
+def test_didnt_and_move_it_wait_for_the_meals_day_cooked_it_does_not(
     kitchen: TestClient, sambar: int, slots: dict[str, int]
 ) -> None:
     tomorrow = plan_recipe(kitchen, sambar, ahead(kitchen, 1), slots["Dinner"])["meal_id"]
-    for what, body in (("cooked", {}), ("didnt", None)):
-        assert answer(kitchen, tomorrow, what, body, 422)["code"] == "not_yet"
+    assert answer(kitchen, tomorrow, "didnt", None, 422)["code"] == "not_yet"
     to = {"date": str(ahead(kitchen, 2)), "slot_id": slots["Dinner"]}
     assert answer(kitchen, tomorrow, "moved", to, 422)["code"] == "not_yet"
     assert meal_status(kitchen, tomorrow) == "planned"

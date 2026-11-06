@@ -107,8 +107,8 @@ def get_today(kitchen: Here) -> TodayOut:
                 date=meal.day,
                 slot_id=meal.slot_id,
                 leftover_item_id=recipe.id if recipe else None,
-                use_by_fridge=tub_use_by(kitchen, "fridge", meal.day),
-                use_by_freezer=tub_use_by(kitchen, "freezer", meal.day),
+                use_by_fridge=tub_use_by(kitchen, "fridge", answers.cooking_day(kitchen, meal)),
+                use_by_freezer=tub_use_by(kitchen, "freezer", answers.cooking_day(kitchen, meal)),
             )
         )
     cook = db.execute(

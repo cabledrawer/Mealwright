@@ -21,11 +21,14 @@ meal's food is counted again at its new day).
 
 Proposed, for cabledrawer (each is one rule here, easy to change later):
 
-- A meal can be answered on its own day or after it, never before (`not_yet`).
+- Didn't it and Move it can be answered on the meal's own day or after it, never before
+  (`not_yet`). Cooked it can be answered before too: cooking ahead (cabledrawer 6 Nov, F159); the
+  meal stays on its day.
 - "Any left over?" is about one recipe: the one named by `item_id`, else the meal's first recipe.
   A meal with no recipe in it has no leftovers to keep (`no_recipe`).
 - The tubs' use-by counts from the meal's day, as the mockup does ("Sat dinner … use by Tue
-  27 Oct · 3 days"), not from the day it is answered.
+  27 Oct · 3 days"), not from the day it is answered, except that a meal cooked ahead counts
+  from the day it was really cooked: `min(meal day, today)` (cabledrawer 6 Nov, F159).
 """
 
 from dataclasses import dataclass
@@ -46,7 +49,17 @@ from mealwright.batches import (
 )
 from mealwright.errors import Problem, not_found
 from mealwright.household import today
-from mealwright.models import BatchCook, Change, CookedRecord, Meal, MealItem, MealSlot, Recipe, Tub
+from mealwright.models import (
+    BatchCook,
+    Change,
+    CookedRecord,
+    Meal,
+    MealItem,
+    MealSlot,
+    Place,
+    Recipe,
+    Tub,
+)
 from mealwright.plan import (
     _bring,
     _copy_of,
@@ -83,15 +96,42 @@ class Leftovers:
     item_id: int | None = None  # which recipe in the meal; left out: the first one
 
 
-def answerable(kitchen: Kitchen, meal: Meal) -> None:
-    """A planned meal whose day has come."""
+def answerable(kitchen: Kitchen, meal: Meal, ahead: bool = False) -> None:
+    """A planned meal whose day has come (Cooked it, `ahead`, may also be on an earlier day)."""
     _planned(meal)  # already answered (or moved by hand): locked
-    if meal.day > today(kitchen.household):
+    if not ahead and meal.day > today(kitchen.household):
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_yet",
             "That meal hasn’t happened yet.",  # proposed, for cabledrawer
         )
+
+
+def cooking_day(kitchen: Kitchen, meal: Meal) -> date:
+    """The day a meal's tubs count from: its own day, or today when it is cooked ahead."""
+    return min(meal.day, today(kitchen.household))
+
+
+def _early_tubs(
+    kitchen: Kitchen, meal: Meal, batch_ids: set[int], steps: list[dict[str, Any]]
+) -> None:
+    """A Cook once batch cooked before its day: its tubs, still on the household's tub life from
+    the planned day, count from today instead (a tub the person gave another date is left)."""
+    cooked_on = cooking_day(kitchen, meal)
+    if cooked_on == meal.day or not batch_ids:
+        return
+    changed: list[list[Any]] = []
+    for tub in kitchen.db.scalars(
+        select(Tub).where(Tub.household_id == kitchen.household_id, Tub.batch_id.in_(batch_ids))
+    ):
+        place = kitchen.db.get(Place, tub.place_id) if tub.place_id else None
+        kind = place.kind if place is not None and place.kind == "freezer" else "fridge"
+        if tub.use_by == tub_use_by(kitchen, kind, meal.day):
+            changed.append([tub.id, tub.use_by.isoformat()])
+            tub.use_by = tub_use_by(kitchen, kind, cooked_on)
+    if changed:
+        kitchen.db.flush()
+        steps.append({"op": "tub_early", "tubs": changed})
 
 
 def _set_status(meal: Meal, new: str, steps: list[dict[str, Any]], kitchen: Kitchen) -> None:
@@ -156,7 +196,7 @@ def _make_tubs(
     if use_by is not None:
         check_day(kitchen, use_by)
     else:
-        use_by = tub_use_by(kitchen, leftovers.place_kind, meal.day)
+        use_by = tub_use_by(kitchen, leftovers.place_kind, cooking_day(kitchen, meal))
     recipe = _own(kitchen, Recipe, item.recipe_id) if item.recipe_id else None
     batch = db.scalar(
         select(BatchCook).where(
@@ -226,7 +266,7 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     """Cooked it. The meal becomes cooked when every recipe in it has been (F157): one press
     of a meal with several recipes cooks only the ones it reviewed. An answer with no pantry
     change of its own (nothing was reviewed) still cooks the whole meal."""
-    answerable(kitchen, meal)
+    answerable(kitchen, meal, ahead=True)
     steps: list[dict[str, Any]] = []
     where = _where(kitchen, meal.day, meal.slot_id)
     press = together.press_changes(kitchen, meal)
@@ -252,6 +292,7 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
         for item in items_of(kitchen, meal):
             if any(b.id in batch_ids for b in batches.cook_batches_of(kitchen, item, meal)):
                 pressed.append(item.id)
+    _early_tubs(kitchen, meal, batch_ids, steps)
     made = _make_tubs(kitchen, meal, leftovers, steps, pressed) if leftovers else 0
     if whole:
         _set_status(meal, "cooked", steps, kitchen)

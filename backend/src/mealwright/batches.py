@@ -1310,6 +1310,16 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
             tub.use_by = date.fromisoformat(use_by)
         db.flush()
         return complete
+    if op == "tub_early":
+        done = True
+        for tub_id, use_by in step["tubs"]:
+            tub = _own(kitchen, Tub, tub_id)
+            if tub is None:
+                done = False
+                continue
+            tub.use_by = date.fromisoformat(use_by)
+        db.flush()
+        return done
     if op == "new_tub":
         tub = _own(kitchen, Tub, step["tub"])
         if tub is None or item_of_tub(kitchen, tub) is not None:
