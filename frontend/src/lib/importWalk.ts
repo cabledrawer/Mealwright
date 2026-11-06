@@ -14,11 +14,18 @@ export function needsYou(line: ImportReview['lines'][number]): boolean {
 }
 
 /** The lines that need the person, in order, then every step in order (headings are not steps:
- *  they show above the steps under them). `at` is the place in the review's own list. */
-export function walkItems(review: Pick<ImportReview, 'lines' | 'steps'>): WalkItem[] {
+ *  they show above the steps under them). `at` is the place in the review's own list.
+ *  `also` is a line outside that walk which the walk has to show anyway: a line the save
+ *  refused, ready or not. It stands among the lines in the review's own order. */
+export function walkItems(
+  review: Pick<ImportReview, 'lines' | 'steps'>,
+  also: number | null = null
+): WalkItem[] {
   const items: WalkItem[] = [];
   review.lines.forEach((line, at) => {
-    if (needsYou(line)) items.push({ kind: 'line', at });
+    if (needsYou(line) || (at === also && line.kind === 'ingredient')) {
+      items.push({ kind: 'line', at });
+    }
   });
   review.steps.forEach((step, at) => {
     if (step.kind === 'step') items.push({ kind: 'step', at });

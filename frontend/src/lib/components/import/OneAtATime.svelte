@@ -10,17 +10,19 @@
   // Drafts. Loaded the first time it is chosen, so the import page stays small.
   // Words are the mockups', except those marked "proposed, for cabledrawer". The label
   // "Close (kept in Drafts)" on the X is cabledrawer 5 Nov (F141).
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { downLine } from '#lib/downWords.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { removeStep } from '#lib/importStepEdits.js';
   import { sentenceCount } from '#lib/importSteps.js';
   import { headingAbove, walkItems } from '#lib/importWalk.js';
   import { network } from '#lib/network.svelte.js';
+  import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import CheckFrame from './CheckFrame.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
   import StepEdit from './StepEdit.svelte';
+  import '#lib/styles/fields.css';
 
   let {
     flow,
@@ -44,8 +46,15 @@
     onleave: () => void;
   } = $props();
 
+  const uid = $props.id();
+  const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
   const review = $derived(flow.review!);
-  const items = $derived(walkItems(review));
+  /** A line the save refused that is not one of the lines that need the person: the walk shows
+   *  it too, once the refusal names it, and keeps it for the rest of the visit. Held as the line
+   *  itself, so a line taken out before it doesn't make it another line. */
+  let refused = $state.raw<(typeof review.lines)[number] | null>(null);
+  const refusedAt = $derived(refused ? review.lines.indexOf(refused) : -1);
+  const items = $derived(walkItems(review, refusedAt >= 0 ? refusedAt : null));
   /** Where the person is. It holds a number, so after a line or step is taken out the next one
    *  takes its place, and after the last is taken out the one before shows. */
   let pos = $state(0);
@@ -66,6 +75,50 @@
         ? `Ingredients · ${nth} of ${total} to check`
         : `Method · step ${nth} of ${total}`
   );
+
+  // A save refused for a line: the walk goes to that line, which says what is wrong (the line may
+  // be one the walk doesn't stop at, or one the person has gone past).
+  $effect(() => {
+    const line = flow.saveProblem?.line;
+    if (line === null || line === undefined) return;
+    untrack(() => {
+      const row = review.lines[line];
+      if (!row || row.kind !== 'ingredient') return;
+      refused = row;
+      void tick().then(() => {
+        const to = items.findIndex((i) => i.kind === 'line' && review.lines[i.at] === row);
+        if (to >= 0 && to !== at) void go(to);
+      });
+    });
+  });
+
+  // Undo (or anything else) putting a line or step back, or taking one out, doesn't move the
+  // person: the screen stays on the same line or step, though its place in the walk has changed.
+  // The exception is the line or step that was just taken out while its neighbour stood in its
+  // place: Undo brings it straight back to where it was (the toast says what it did).
+  let onScreen: unknown = null;
+  let tookItsPlace = false;
+  const thing = (i: (typeof items)[number] | undefined) =>
+    i ? (i.kind === 'line' ? review.lines[i.at] : review.steps[i.at]) : null;
+  $effect.pre(() => {
+    const list = items;
+    untrack(() => {
+      if (!onScreen) return;
+      const found = list.findIndex((i) => thing(i) === onScreen);
+      if (found < 0) {
+        tookItsPlace = true; // taken out: the next one stands in its place
+      } else if (found !== pos) {
+        if (!(tookItsPlace && found === pos + 1)) pos = found;
+        tookItsPlace = false;
+      }
+    });
+  });
+  $effect.pre(() => {
+    const now = thing(item ?? undefined);
+    untrack(() => {
+      if (now !== onScreen) onScreen = now;
+    });
+  });
 
   // --- A step ---------------------------------------------------------------------------------
   const step = $derived(item?.kind === 'step' ? review.steps[item.at] : undefined);
@@ -91,6 +144,7 @@
   async function go(to: number) {
     editing = null;
     flow.previewStep = null;
+    tookItsPlace = false;
     pos = to;
     region?.scrollIntoView({ block: 'start' });
     await tick();
@@ -145,6 +199,58 @@
   {/snippet}
 
   <div class="one" bind:this={region} tabindex="-1">
+    {#if at === 0}
+      <!-- The recipe's name, Serves and minutes, and the photo note, at the top of the first
+           screen, as Focus shows them (F141 follow-up, cabledrawer 6 Nov). -->
+      <section class="details" aria-label="Recipe details">
+        <label class="field" for="{uid}-name">
+          <span>Name</span>
+          <input
+            id="{uid}-name"
+            class="mw-input title"
+            type="text"
+            maxlength="200"
+            bind:value={flow.name}
+          />
+        </label>
+        <div class="two">
+          <label class="field" for="{uid}-serves">
+            <span>Serves</span>
+            <input
+              id="{uid}-serves"
+              class="mw-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="2"
+              bind:value={flow.serves}
+            />
+          </label>
+          <label class="field" for="{uid}-time">
+            <span>Minutes</span>
+            <input
+              id="{uid}-time"
+              class="mw-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="5"
+              bind:value={flow.minutes}
+            />
+          </label>
+        </div>
+        {#if review.photo.state === 'off' || review.photo.state === 'failed'}
+          <p class="photo-note">
+            {#if review.photo.state === 'off'}
+              <b>Photo not downloaded.</b> Photo downloads are off in
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
+              <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
+            {:else}
+              <b>Photo not downloaded</b>
+              — {review.photo.message} You can add your own photo later.
+            {/if}
+          </p>
+        {/if}
+      </section>
+    {/if}
     {#if item}
       <div class="progress">
         <span class="overline"
@@ -260,6 +366,16 @@
       </p>
     {/if}
 
+    <!-- The notes the whole list shows, on the screen they are about. -->
+    {#if review.lines_cut && (item?.kind === 'line' ? nth === total : at === 0 && lineTotal === 0)}
+      <p class="hint">The page had more than 200 ingredient lines. The first 200 are here.</p>
+    {/if}
+    {#if review.steps_shortened && item?.kind === 'step' && last}
+      <p class="hint">
+        {review.steps_shortened}
+        {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
+      </p>
+    {/if}
     {#if review.steps_cut && item?.kind === 'step' && last}
       <p class="hint">The page had more than 100 steps. The first 100 are here.</p>
     {/if}
@@ -307,7 +423,7 @@
           >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</button
         >
       </div>
-      {#if network.offline && last}
+      {#if network.offline}
         <p class="muted" role="status">
           {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
         </p>
@@ -366,6 +482,54 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    border-radius: var(--radius-2xl);
+    background: var(--color-surface);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .title {
+    font: var(--weight-semibold) 1.375rem var(--font-reading);
+  }
+
+  /* Boxes are 16 px or more, so a phone doesn't zoom in on them. */
+  .two input {
+    font-size: 1rem;
+  }
+
+  .two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+  }
+
+  .photo-note {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+
+  .photo-note b {
+    color: var(--color-text);
+  }
+
+  .photo-note a {
+    color: var(--color-accent);
+    font-weight: var(--weight-bold);
   }
 
   .one {

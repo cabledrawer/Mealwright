@@ -36,6 +36,19 @@ describe('the order of One at a time', () => {
     expect(lines.map((i) => i.at)).toEqual([...lines.map((i) => i.at)].sort((a, b) => a - b));
   });
 
+  it('stops at a ready line the save refused, among the lines in the review’s own order', () => {
+    const r = review();
+    const ready = r.lines.findIndex((l) => l.kind === 'ingredient' && l.label === 'matched');
+    expect(walkItems(r).some((i) => i.kind === 'line' && i.at === ready)).toBe(false);
+    const items = walkItems(r, ready);
+    const lines = items.filter((i) => i.kind === 'line').map((i) => i.at);
+    expect(lines).toContain(ready);
+    expect(lines).toEqual([...lines].sort((a, b) => a - b));
+    // A heading is never a stop, whatever the save said.
+    const heading = r.lines.findIndex((l) => l.kind === 'heading');
+    expect(walkItems(r, heading)).toEqual(walkItems(r));
+  });
+
   it('walks every step, not only the long ones', () => {
     const r = review({
       steps: [

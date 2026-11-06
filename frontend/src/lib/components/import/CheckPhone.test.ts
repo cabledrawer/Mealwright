@@ -484,7 +484,8 @@ describe('One at a time', () => {
       const flow = await opened();
       await page.getByRole('button', { name: 'New ingredient', exact: true }).click();
       expect(flow.choices[1]).toMatchObject({ kind: 'new' });
-      await expect.element(page.getByLabelText('Name')).toBeVisible();
+      // The recipe's own Name box is at the top of this first screen; the form's is the last.
+      await expect.element(page.getByLabelText('Name').last()).toBeVisible();
       await page.getByRole('button', { name: 'Done' }).click();
       await expect.element(page.getByText('New ingredient:')).toBeVisible();
     });
@@ -919,6 +920,109 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Save recipe' }).click();
       await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
       expect(requests.find((r) => r.method === 'POST')!.path).toContain('/recipes/import');
+    });
+
+    describe('what Focus shows, here on the screen it belongs to (F141 follow-ups, cabledrawer 6 Nov)', () => {
+      const boxes = () => ({
+        name: page.getByLabelText('Name').first(),
+        serves: page.getByLabelText('Serves'),
+        minutes: page.getByLabelText('Minutes')
+      });
+
+      it('shows the recipe’s name, Serves and minutes at the top of the first screen only', async () => {
+        const flow = await opened();
+        const { name, serves, minutes } = boxes();
+        await expect.element(name).toHaveValue('Sambar');
+        await expect.element(serves).toHaveValue('4');
+        await expect.element(minutes).toHaveValue('50');
+        await name.fill('Sambar, my way');
+        await serves.fill('6');
+        expect(flow.name).toBe('Sambar, my way');
+        expect(flow.serves).toBe('6');
+        // Above the first line, and gone on the next screen.
+        const top = name.element().getBoundingClientRect().top;
+        const line = page
+          .getByText(/1 red onion, sliced/)
+          .first()
+          .element();
+        expect(top).toBeLessThan(line.getBoundingClientRect().top);
+        await next().click();
+        expect(page.getByLabelText('Serves').elements()).toEqual([]);
+        await back().click();
+        await expect.element(page.getByLabelText('Serves')).toBeVisible();
+      });
+
+      it('shows the photo note on the first screen only', async () => {
+        await opened();
+        await expect
+          .element(page.getByText('Photo not downloaded', { exact: false }))
+          .toBeVisible();
+        await next().click();
+        expect(page.getByText('Photo not downloaded', { exact: false }).elements()).toEqual([]);
+      });
+
+      it('says “first 200 lines” on the last ingredient screen and “shortened” on the last step', async () => {
+        await opened({ ...oneReview(), lines_cut: true, steps_shortened: 2 });
+        const first200 = page.getByText(
+          'The page had more than 200 ingredient lines. The first 200 are here.'
+        );
+        const shortened = page.getByText('2 steps were shortened to 5,000 characters.');
+        expect(first200.elements()).toEqual([]);
+        await next().click(); // line 2 of 2: the last
+        await expect.element(first200).toBeVisible();
+        await next().click(); // step 1
+        expect(first200.elements()).toEqual([]);
+        expect(shortened.elements()).toEqual([]);
+        await next().click();
+        await next().click(); // the last step
+        await expect.element(shortened).toBeVisible();
+        expect(first200.elements()).toEqual([]);
+      });
+    });
+
+    it('the offline line shows on every screen while offline, not only the last', async () => {
+      await opened();
+      network.offline = true;
+      network.deviceOffline = true;
+      flushSync();
+      const words = () => document.querySelector('.foot [role="status"]')?.textContent ?? '';
+      for (let n = 0; n < 4; n++) {
+        await vi.waitFor(() => expect(words()).toMatch(/^You’re offline\. Save /));
+        await next().click();
+      }
+      // The last screen (Save recipe) says it too.
+      await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+      expect(words()).toMatch(/^You’re offline\. Save /);
+    });
+
+    it('a save problem on a line outside the walk goes to that line and says what is wrong', async () => {
+      const flow = await opened();
+      // The first line (thuvaram paruppu) is ready, so the walk doesn't stop at it.
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+      await next().click();
+      await next().click(); // step 1
+      flow.saveProblem = { line: 0, message: 'That amount is too big.' };
+      flushSync();
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 3 to check');
+      await expect.element(page.getByText(/thuvaram paruppu/).first()).toBeVisible();
+      await expect.element(page.getByText('That amount is too big.').first()).toBeVisible();
+      // The walk went on to hold it: the other lines still follow, then the steps.
+      await next().click();
+      await expect.element(heading()).toHaveTextContent('Ingredients · 2 of 3 to check');
+    });
+
+    it('Undo of a removed line does not move the walk off the screen the person is on', async () => {
+      const flow = await opened();
+      await page.getByRole('button', { name: /^Remove line: 1 red onion, sliced/ }).click();
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 1 to check');
+      await next().click(); // step 1, "Boil the dal."
+      await expect.element(heading()).toHaveTextContent('Method · step 1 of 3');
+      expect(await undoHistory.undoLast()).toBe(true);
+      flushSync();
+      expect(flow.review!.lines).toHaveLength(3);
+      // Still on step 1, though the line that came back is now ahead of it in the walk.
+      await expect.element(heading()).toHaveTextContent('Method · step 1 of 3');
+      await expect.element(page.getByText('Boil the dal.').first()).toBeVisible();
     });
 
     it('with nothing to look at, says so and offers Save recipe', async () => {
