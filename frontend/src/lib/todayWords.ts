@@ -66,3 +66,8 @@ export const mealsWords = (count: number) =>
 /** How many are waiting behind the one on the card: "1 more meal to answer". */
 export const moreWords = (count: number) =>
   count === 1 ? '1 more meal to answer' : `${count} more meals to answer`;
+
+/** The header of a meal cooked in parts (F160, cabledrawer 6 Nov): "1 of 2 cooked", "All cooked".
+ * Nothing before the first one is cooked (proposed, for cabledrawer). */
+export const partsCooked = (done: number, total: number) =>
+  done === 0 ? '' : done >= total ? 'All cooked' : `${done} of ${total} cooked`;

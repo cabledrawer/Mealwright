@@ -102,7 +102,8 @@ export function cookDays(
       }
     }
     if (!entries.length) continue;
-    const times = entries.flatMap((e) => (e.minutes === null ? [] : [e.minutes]));
+    // Time at the stove is for what is still to cook (F164).
+    const times = entries.flatMap((e) => (e.minutes === null || e.cooked ? [] : [e.minutes]));
     out.push({
       day,
       entries,
@@ -120,4 +121,12 @@ export function stillToBuy(stock: RecipeStock): string[] {
     if (!names.includes(line.food.name)) names.push(line.food.name);
   }
   return names;
+}
+
+/** The day's header: "2 things to cook · 45 min", or "All cooked" when none is left (F164). */
+export function cookDayTotal(day: CookDay, timeWords: (minutes: number) => string): string {
+  const left = day.entries.filter((e) => !e.cooked).length;
+  if (left === 0) return 'All cooked';
+  const things = left === 1 ? '1 thing to cook' : `${left} things to cook`;
+  return day.minutes === null ? things : `${things} · ${timeWords(day.minutes)}`;
 }

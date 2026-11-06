@@ -31,6 +31,7 @@
     useByWords
   } from '#lib/planMeals.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
+  import { cookedStaysNote } from '#lib/cookTargets.js';
   import LeftoversOn from './LeftoversOn.svelte';
   import MealWho from './MealWho.svelte';
   import PlanDays from './PlanDays.svelte';
@@ -123,6 +124,21 @@
       target.meal.status === 'planned' &&
       (target.kind === 'item' ? !!target.item.cooked : target.meal.items.some((i) => i.cooked))
   );
+
+  /** The recipes of a meal cooked in parts, for the list in its menu (F163). */
+  const partRecipes = $derived.by((): PlanItem[] => {
+    if (!target || target.kind !== 'meal' || !holdsCooked) return [];
+    const recipes = target.meal.items.filter((i) => i.kind === 'recipe');
+    return recipes.length > 1 ? recipes : [];
+  });
+
+  /** The cooked recipes the note names: the one pressed, or those of the meal. */
+  const cookedNames = $derived.by((): string[] => {
+    if (!target || !holdsCooked) return [];
+    const items =
+      target.kind === 'item' ? [target.item] : target.kind === 'meal' ? target.meal.items : [];
+    return items.filter((i) => i.cooked).map((i) => itemName(i, model.plan));
+  });
 
   /** A note has no leftovers (it is "Eating out"), and no Serves. */
   const noteOnly = $derived(
@@ -425,6 +441,16 @@
             {/if}
           </div>
         {/if}
+        {#if partRecipes.length}
+          <ul class="parts" data-testid="plan-sheet-parts">
+            {#each partRecipes as recipe (recipe.id)}
+              <li>
+                <span>{itemName(recipe, model.plan)}</span>
+                {#if recipe.cooked}<span class="tag">Cooked</span>{/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
         <div class="list">
           {#if tub}
             <p class="sub">
@@ -472,8 +498,20 @@
           {#if holdsCooked}
             <!-- Proposed, for cabledrawer. -->
             <p class="hint" data-testid="cooked-stays">
-              This was cooked. Undo “Cooked it” to move or remove it.
+              {cookedStaysNote(cookedNames)}
             </p>
+            {#each partRecipes.filter((r) => !r.cooked) as left (left.id)}
+              <!-- A recipe not cooked yet can go on its own; only cooked ones are locked. -->
+              <button
+                type="button"
+                class="remove"
+                disabled={actions.readonly}
+                onclick={() => {
+                  void model.removeItem(left.id);
+                  onclose();
+                }}>Remove {itemName(left, model.plan)}</button
+              >
+            {/each}
           {:else}
             <button
               type="button"
@@ -734,6 +772,33 @@
     font-size: var(--text-xl);
     font-weight: var(--weight-bold);
     text-align: left;
+  }
+
+  .parts {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .parts li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: 44px;
+    border-bottom: 1px solid var(--color-divider);
+    font-weight: var(--weight-bold);
+  }
+
+  .tag {
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
   }
 
   .hint {

@@ -16,7 +16,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
-  import CookedParts from '#lib/components/CookedParts.svelte';
+  import MealRecipes from '#lib/components/today/MealRecipes.svelte';
   import { cookTarget } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
@@ -29,8 +29,8 @@
   import { eatOnUntil, leftoverUseBy, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
-  import { dayWords, mealsWords, whenWords } from '#lib/todayWords.js';
-  import type { PlanMeal } from '#lib/client/plan.js';
+  import { dayWords, mealsWords, partsCooked, whenWords } from '#lib/todayWords.js';
+  import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import type { WaitingMeal } from '#lib/client/today.js';
 
   const model = new TodayModel();
@@ -89,7 +89,7 @@
     }));
   }
 
-  function openCooked(w: WaitingMeal) {
+  function openCooked(w: WaitingMeal, only: PlanItem | null = null) {
     const meal = model.mealOf(w);
     if (!meal || !model.data) return;
     answering = w;
@@ -110,16 +110,16 @@
           }
         : null;
     const when = `${whenWords(w.date, model.data.today)} · ${model.slotName(w.slot_id).toLowerCase()}`;
-    void review.open(cookTarget(model.data.plan, meal, when));
+    void review.open(cookTarget(model.data.plan, meal, when, only));
   }
 
   /**
    * A meal eaten today that is still planned: the same review. Its tub's use-by is counted from
    * the household's tub life, as the server counts it (F128).
    */
-  async function cookEating(meal: PlanMeal) {
-    // The first recipe not cooked yet, never one cooked before (F157 review).
-    const first = meal.items.find((i) => i.kind === 'recipe' && !i.cooked);
+  async function cookEating(meal: PlanMeal, only: PlanItem | null = null) {
+    // The recipe pressed, else the first not cooked yet, never one cooked before (F157 review).
+    const first = only ?? meal.items.find((i) => i.kind === 'recipe' && !i.cooked);
     let life: TubLife | null = null;
     try {
       const household = await getHousehold();
@@ -128,14 +128,17 @@
       // Not reached: the review still opens, with no "Eat it on…" meals and the usual use-by.
     }
     const useBy = leftoverUseBy(meal.date, life);
-    openCooked({
-      meal_id: meal.id,
-      date: meal.date,
-      slot_id: meal.slot_id,
-      leftover_item_id: first?.id ?? null,
-      use_by_fridge: useBy.useByFridge ?? '',
-      use_by_freezer: useBy.useByFreezer ?? ''
-    });
+    openCooked(
+      {
+        meal_id: meal.id,
+        date: meal.date,
+        slot_id: meal.slot_id,
+        leftover_item_id: first?.id ?? null,
+        use_by_fridge: useBy.useByFridge ?? '',
+        use_by_freezer: useBy.useByFreezer ?? ''
+      },
+      only
+    );
   }
 
   function closeCooked() {
@@ -166,6 +169,14 @@
         })
       : []
   );
+
+  /** F160: a meal with several recipes shows one line for each. */
+  const parts = (meal: PlanMeal) => meal.items.filter((i) => i.kind === 'recipe').length > 1;
+  const partsWords = (meal: PlanMeal) => {
+    const recipes = meal.items.filter((i) => i.kind === 'recipe');
+    const done = recipes.filter((i) => i.cooked).length;
+    return partsCooked(done, recipes.length);
+  };
 
   const nothingToday = $derived(!!data && model.eating.length === 0);
 </script>
@@ -242,9 +253,18 @@
                 >{meal.items.map((i) => itemName(i, data.plan)).join(' & ') || 'Empty meal'}</span
               >
             </div>
-            {#if meal.status === 'cooked'}<span class="muted">Cooked</span>{/if}
+            {#if parts(meal)}
+              {#if partsWords(meal)}<span class="muted nowrap">{partsWords(meal)}</span>{/if}
+            {:else if meal.status === 'cooked'}<span class="muted">Cooked</span>{/if}
           </div>
-          <CookedParts {meal} plan={data.plan} />
+          {#if parts(meal)}
+            <MealRecipes
+              {meal}
+              plan={data.plan}
+              disabled={model.readonly}
+              oncook={(item) => void cookEating(meal, item)}
+            />
+          {/if}
           {#if meal.items.some((i) => i.kind === 'tub')}
             <div class="chips">
               {#each meal.items.filter((i) => i.kind === 'tub') as item (item.id)}
@@ -263,7 +283,7 @@
             </div>
           {/if}
           {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal each</p>{/if}
-          {#if meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe' && !i.cooked)}
+          {#if !parts(meal) && meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe' && !i.cooked)}
             <button
               type="button"
               class="cooked-it"
@@ -350,8 +370,9 @@
     const waiting = answering;
     if (!waiting) return true;
     const placed: Placed = { undo: null };
+    const title = review.target?.title; // F161: only what this press cooked
     const result = answered(
-      await model.cooked(waiting, leftovers, undoCooked, async () => placed.undo?.())
+      await model.cooked(waiting, leftovers, undoCooked, async () => placed.undo?.(), title)
     );
     const meal = model.mealOf(waiting);
     const name = meal?.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
@@ -528,6 +549,10 @@
   .muted {
     color: var(--color-text-muted);
     font-size: var(--text-base);
+  }
+
+  .nowrap {
+    white-space: nowrap;
   }
 
   .chips {

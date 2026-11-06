@@ -2,7 +2,7 @@
 whole meal cooked. The meal is Cooked when every recipe in it (and every Cook once batch it
 uses) has been cooked; each press marks, takes and undoes only what it cooked."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -279,3 +279,27 @@ def test_the_same_recipe_twice_is_cooked_when_both_are(kitchen: TestClient) -> N
     assert status_of(kitchen, meal) == "planned"  # the second copy is not cooked
     press(kitchen, meal, again)
     assert status_of(kitchen, meal) == "cooked"
+
+
+def test_move_it_on_a_part_cooked_meal_names_only_what_moves(kitchen: TestClient) -> None:
+    """F162: the change says "Moved Zorba khichdi", not "... and 1 more"."""
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    press(kitchen, meal, soup)
+    tomorrow = date.today() + timedelta(days=2)
+    body = {"date": tomorrow.isoformat(), "slot_id": slot_ids(kitchen)["Dinner"]}
+    moved = ok(kitchen.post(f"{API}/plan/meals/{meal}/moved", json=body))["change"]
+    assert moved["summary"].startswith("Moved Zorba khichdi from Dinner on ")
+    assert "more" not in moved["summary"] and khichdi
+
+
+def test_a_recipe_not_cooked_yet_can_be_changed_and_removed_on_its_own(
+    kitchen: TestClient,
+) -> None:
+    """F163: only cooked recipes are locked in a part-cooked meal."""
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    press(kitchen, meal, soup)
+    ok(kitchen.patch(f"{API}/plan/items/{khichdi}", json={"servings": 3}))
+    locked = kitchen.delete(f"{API}/plan/items/{soup}")
+    assert locked.status_code == 409 and locked.json()["code"] == "already_cooked"
+    ok(kitchen.delete(f"{API}/plan/items/{khichdi}"))
+    assert status_of(kitchen, meal) == "planned"

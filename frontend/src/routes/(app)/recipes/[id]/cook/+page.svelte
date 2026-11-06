@@ -168,7 +168,9 @@
   onconfirmed={async (leftovers, undoCooked) => {
     const planned = meal;
     if (!planned) return true;
-    const result = answered(await model.cooked(planned, leftovers, undoCooked));
+    const result = answered(
+      await model.cooked(planned, leftovers, undoCooked, undefined, review.target?.title)
+    );
     if (result === true) confirmed = true;
     return result;
   }}

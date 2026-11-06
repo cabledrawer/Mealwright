@@ -7,6 +7,7 @@ import {
   colourOfBatch,
   cookBatchOfItem,
   itemName,
+  leftName,
   mealColour,
   mealName,
   mealTotals,
@@ -339,5 +340,15 @@ describe('nextFreeMeals stops at the tub’s use-by', () => {
     expect(found.every((f) => f.day <= '2026-10-18')).toBe(true);
     expect(found).toHaveLength(3);
     expect(nextFreeMeals(plan, slots, cook, '2026-10-20', 20, '2026-10-18')).toEqual([]);
+  });
+});
+
+describe('a meal cooked in parts (F162)', () => {
+  it('names only the things not cooked yet for an answer or a move', () => {
+    const soup = { ...recipe(2, 'Lentil soup'), cooked: true };
+    const bread = recipe(1, 'Banana bread');
+    expect(leftName(meal([soup, bread]))).toBe('Banana bread');
+    expect(leftName(meal([bread, recipe(3, 'Raita'), soup]))).toBe('Banana bread and 1 more');
+    expect(leftName(meal([{ ...bread, cooked: true }]))).toBe('Banana bread');
   });
 });

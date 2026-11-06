@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanBatch, PlanItem, PlanMeal } from './client/plan';
-import { cookTarget, cookedTitle } from './cookTargets';
+import { cookTarget, cookedStaysNote, cookedTitle } from './cookTargets';
 
 const recipe = (id: number, name: string, recipeId = id): PlanItem => ({
   id,
@@ -83,5 +83,16 @@ describe('what "Cooked it" is about', () => {
   it('says the names in a sentence', () => {
     expect(cookedTitle(['A'])).toBe('Cooked A');
     expect(cookedTitle(['A', 'B', 'C'])).toBe('Cooked A, B and C');
+  });
+});
+
+describe('the Plan panel’s note for cooked recipes (F163)', () => {
+  it('names the cooked recipes, in both forms', () => {
+    expect(cookedStaysNote(['Banana bread'])).toBe(
+      'Banana bread was cooked. Undo its Cooked it to move or remove it.'
+    );
+    expect(cookedStaysNote(['Banana bread', 'Lentil soup'])).toBe(
+      'Banana bread and Lentil soup were cooked. Undo their Cooked it to move or remove them.'
+    );
   });
 });

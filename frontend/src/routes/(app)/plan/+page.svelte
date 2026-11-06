@@ -507,8 +507,9 @@
         const meal = cookedMeal;
         if (!meal) return true;
         const placed: Placed = { undo: null };
+        const title = review.target?.title; // F161: only what this press cooked
         const result = answered(
-          await model.cooked(meal, leftovers, undoCooked, async () => placed.undo?.())
+          await model.cooked(meal, leftovers, undoCooked, async () => placed.undo?.(), title)
         );
         const name = meal.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
         if (result === true && eatOn && leftovers && name)

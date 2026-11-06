@@ -65,6 +65,7 @@ from mealwright.plan import (
     _copy_of,
     _finish,
     _make_meal,
+    _item_name as plan_item_name,
     _meal_name,
     _own,
     _planned,
@@ -330,8 +331,12 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
             "Pick today or a later day.",  # cabledrawer 27 Oct
         )
     steps: list[dict[str, Any]] = []
-    name, where_from = _meal_name(kitchen, meal), _where(kitchen, meal.day, meal.slot_id)
+    where_from = _where(kitchen, meal.day, meal.slot_id)
     items = items_of(kitchen, meal)
+    # Only what moves is named: a recipe cooked already stays (F162, cabledrawer 6 Nov).
+    left = [i for i in items if i.tub_id is not None or cooked_record_of(kitchen, i, meal) is None]
+    names = [plan_item_name(kitchen, i) for i in left or items]
+    name = names[0] if len(names) == 1 else f"{names[0]} and {len(names) - 1} more"
     target = meal_at(kitchen, day, slot_id)
     if target is not None:
         _planned(target)

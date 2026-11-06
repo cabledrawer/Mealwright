@@ -140,3 +140,12 @@ describe('the words on Today', () => {
     expect(moreWords(3)).toBe('3 more meals to answer');
   });
 });
+
+import { partsCooked } from './todayWords';
+describe('partsCooked (F160)', () => {
+  it('counts the cooked recipes and says when none is left', () => {
+    expect(partsCooked(0, 2)).toBe('');
+    expect(partsCooked(1, 2)).toBe('1 of 2 cooked');
+    expect(partsCooked(2, 2)).toBe('All cooked');
+  });
+});

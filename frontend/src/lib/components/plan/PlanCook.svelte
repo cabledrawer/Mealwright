@@ -7,7 +7,7 @@
   import { getRecipeStock } from '#lib/client/recipes.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
-  import { cookDays, stillToBuy, type CookEntry } from '#lib/planCook.js';
+  import { cookDays, cookDayTotal, stillToBuy, type CookEntry } from '#lib/planCook.js';
   import { colourOfBatch } from '#lib/planMeals.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayWords } from '#lib/planDates.js';
@@ -67,8 +67,6 @@
     return names?.length ? `Still to buy: ${names.join(', ')}` : null;
   };
 
-  const things = (n: number) => (n === 1 ? '1 thing to cook' : `${n} things to cook`);
-
   // --- The week at a glance, beside the days ------------------------------------------------
 
   const batches = $derived(week.flatMap((d) => d.entries).filter((e) => e.batch));
@@ -86,11 +84,7 @@
       <section class="day" class:today id="cook-{cook.day}" aria-label={dayFull(cook.day)}>
         <div class="head">
           <h3>{today ? `Today · ${dayWords(cook.day)}` : dayWords(cook.day)}</h3>
-          <span class="total"
-            >{things(cook.entries.length)}{cook.minutes === null
-              ? ''
-              : ` · ${timeWords(cook.minutes)}`}</span
-          >
+          <span class="total">{cookDayTotal(cook, timeWords)}</span>
         </div>
         {#each cook.entries as entry (entry.key)}
           <div class="entry" class:batch={entry.batch !== null}>

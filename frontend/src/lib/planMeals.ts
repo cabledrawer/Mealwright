@@ -59,6 +59,16 @@ export function mealTotals(meal: PlanMeal): string {
   return `${n} ${noun}${kcal}`;
 }
 
+/** What a meal's answer is about: its things not cooked yet (F162), else all of them. */
+export function leftName(meal: PlanMeal, plan: Plan | null = null): string {
+  const left = meal.items.filter((i) => !i.cooked);
+  const items = left.length ? left : meal.items;
+  const first = items[0];
+  if (!first) return 'Empty meal';
+  const name = itemName(first, plan);
+  return items.length === 1 ? name : `${name} and ${items.length - 1} more`;
+}
+
 /** A meal's name for the screen reader and the toast: its first thing, "and 1 more". */
 export function mealName(meal: PlanMeal, plan: Plan | null = null): string {
   const first = meal.items[0];

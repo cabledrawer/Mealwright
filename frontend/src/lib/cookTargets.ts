@@ -17,6 +17,19 @@ function partOf(plan: Plan | null, meal: PlanMeal, item: PlanItem): CookPart {
     : { itemId: item.id, batchId: null, name };
 }
 
+/** "A", "A and B", "A, B and C". */
+export function joinNames(names: string[]): string {
+  return names.length <= 1
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** The Plan panel's note for a meal with cooked recipes in it (F163, cabledrawer 6 Nov). */
+export function cookedStaysNote(names: string[]): string {
+  const one = names.length === 1;
+  return `${joinNames(names)} ${one ? 'was' : 'were'} cooked. Undo ${one ? 'its' : 'their'} Cooked it to move or remove ${one ? 'it' : 'them'}.`;
+}
+
 /** "Cooked Sambar", "Cooked Sambar and Rasam": the title, and the toast's start. */
 export function cookedTitle(names: string[]): string {
   if (names.length === 0) return 'Cooked it';

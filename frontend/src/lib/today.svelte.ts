@@ -21,7 +21,7 @@ import { sendTwice } from './sendTwice';
 import { network } from './network.svelte';
 import { rememberedLogin } from './offline/device';
 import { wipePending } from './offline/wipePending.svelte';
-import { mealName } from './planMeals';
+import { leftName } from './planMeals';
 import { save } from './save';
 import { session } from './session.svelte';
 
@@ -158,7 +158,7 @@ export class TodayModel {
 
   nameOf(waiting: WaitingMeal): string {
     const meal = this.mealOf(waiting);
-    return meal ? mealName(meal, this.data?.plan ?? null) : 'it';
+    return meal ? leftName(meal, this.data?.plan ?? null) : 'it';
   }
 
   #send(options: {
@@ -222,12 +222,14 @@ export class TodayModel {
     waiting: WaitingMeal,
     leftovers: Leftovers | null,
     undoCooked?: () => Promise<string | void>,
-    firstUndo?: () => Promise<string | void>
+    firstUndo?: () => Promise<string | void>,
+    /** What this press cooked, "Cooked A and B" (the review's title), never the whole meal's name. */
+    title?: string
   ) {
     const name = this.nameOf(waiting);
     return sendTwice((changeId) =>
       this.#send({
-        label: `Cooked ${name}`,
+        label: title ?? `Cooked ${name}`,
         mealId: waiting.meal_id,
         send: (key) => cookedIt(waiting.meal_id, leftovers, key),
         alsoUndo: undoCooked,

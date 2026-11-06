@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RecipeStock } from './client/recipes';
-import { cookDays, scaleWords, stillToBuy } from './planCook';
+import { cookDays, cookDayTotal, scaleWords, stillToBuy } from './planCook';
 import { mealOf, recipeItem, samplePlan, SLOTS } from './testing/planViews';
 
 const DAYS = ['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20'];
@@ -124,5 +124,26 @@ describe('still to buy', () => {
       stock_unchecked: false
     };
     expect(stillToBuy(stock)).toEqual(['Saffron', 'Mint']);
+  });
+});
+
+describe('the day header counts only what is not cooked (F164)', () => {
+  const plan = samplePlan();
+  const [day] = cookDays(plan, SLOTS, DAYS);
+  const words = (m: number) => `${m} min`;
+
+  it('counts what is left and its time', () => {
+    expect(cookDayTotal(day!, words)).toBe('1 thing to cook · 30 min');
+  });
+
+  it('says All cooked when nothing is left, and leaves cooked time out', () => {
+    const done = { ...day!, entries: day!.entries.map((e) => ({ ...e, cooked: true })) };
+    expect(cookDayTotal(done, words)).toBe('All cooked');
+    // The time of a cooked thing is left out of the day's time.
+    const cooked = samplePlan();
+    for (const meal of cooked.meals) for (const item of meal.items) item.cooked = true;
+    const [first] = cookDays(cooked, SLOTS, DAYS);
+    expect(first!.minutes).toBeNull();
+    expect(cookDayTotal(first!, words)).toBe('All cooked');
   });
 });

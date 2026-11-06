@@ -57,7 +57,7 @@ import {
   withoutMeal,
   withServings
 } from './planEdits';
-import { cookBatchOfItem, itemName, mealName } from './planMeals';
+import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
 import { save } from './save';
 
 export type PlanView = 'week' | 'month';
@@ -365,7 +365,7 @@ export class PlanModel {
     const name = !meal
       ? 'it'
       : 'meal' in what
-        ? mealName(meal, this.plan)
+        ? leftName(meal, this.plan)
         : itemName(
             meal.items.find((i) => i.id === what.item)!,
             this.plan
@@ -413,12 +413,14 @@ export class PlanModel {
     meal: PlanMeal,
     leftovers: Leftovers | null,
     undoCooked?: () => Promise<string | void>,
-    firstUndo?: () => Promise<string | void>
+    firstUndo?: () => Promise<string | void>,
+    /** What this press cooked, "Cooked A and B" (the review's title), never the whole meal's name. */
+    title?: string
   ) {
     const name = mealName(meal, this.plan);
     return sendTwice((changeId) =>
       this.#send({
-        label: `Cooked ${name}`,
+        label: title ?? `Cooked ${name}`,
         send: (key) => cookedIt(meal.id, leftovers, key),
         alsoUndo: undoCooked,
         firstUndo,
