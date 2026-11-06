@@ -50,23 +50,35 @@ export type AxeOptions = {
 /**
  * Wait until every fade, slide and colour change that will end has ended, so a scan never sees
  * a page half-way through one (on a busy machine a 180 ms fade can still be running when the
- * scan starts, and its half-faded colours fail the contrast rule). Animations that never end
- * (a spinner) are left alone, and the wait is cut off after 3 s.
+ * scan starts, and its half-faded colours fail the contrast rule, or its half-way boxes
+ * overlap and fail the touch-target rule). A change made just now has not started its
+ * animation until the browser's next frame, which on a busy machine can be after this runs, so
+ * it waits for two frames first, and again after each round of animations ends, until a frame
+ * finds none left. Animations that never end (a spinner) are left alone, and the wait is cut
+ * off after 3 s.
  */
 export async function waitForAnimations(page: Page) {
-  // Wait at most 3 s (in the page), so a paused animation can't hold the test until its own
-  // timeout. The scan runs afterwards either way.
-  await page.evaluate(() =>
-    Promise.race([
-      Promise.all(
-        document
+  // Done in the page, so a paused animation can't hold the test until its own timeout. The scan
+  // runs afterwards either way.
+  await page.evaluate(() => {
+    const frames = (count: number) =>
+      new Promise<void>((resolve) => {
+        const next = (left: number) => (left === 0 ? resolve() : requestAnimationFrame(() => next(left - 1)));
+        next(count);
+      });
+    const settle = async () => {
+      await frames(2);
+      for (;;) {
+        const running = document
           .getAnimations()
-          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-          .map((a) => a.finished.catch(() => undefined)),
-      ),
-      new Promise((resolve) => setTimeout(resolve, 3000)),
-    ]),
-  );
+          .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+        if (running.length === 0) return;
+        await Promise.all(running.map((a) => a.finished.catch(() => undefined)));
+        await frames(2);
+      }
+    };
+    return Promise.race([settle(), new Promise((resolve) => setTimeout(resolve, 3000))]);
+  });
 }
 
 /** Run axe with the WCAG 2 A and AA rules and fail with a readable list of problems. */
