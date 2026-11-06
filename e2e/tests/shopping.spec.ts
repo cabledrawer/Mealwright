@@ -37,7 +37,6 @@ async function mainList(page: Page): Promise<string> {
   return lists.find((l: { main: boolean }) => l.main).id;
 }
 
-/** An ingredient on the main list (by weight, in grams). */
 /**
  * An accessibility scan of the page frame and of this test's own rows. The shopping list is
  * shared by every test on the server, so it holds rows other tests left, and the toast, the top
@@ -67,6 +66,7 @@ async function scanOwn(
   });
 }
 
+/** An ingredient on the main list (by weight, in grams). */
 async function onList(page: Page, name: string, amountG = 500) {
   const { food } = await call(page, "POST", "/foods", {
     name,
