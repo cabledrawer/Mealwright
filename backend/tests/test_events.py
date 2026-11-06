@@ -1,10 +1,12 @@
 """Live updates (docs/dev/sync-protocol.md section 10): who hears what, and when."""
 
 import asyncio
-from collections.abc import Awaitable
+import time
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import S0, db, s0, tick
@@ -162,8 +164,21 @@ def token(client: TestClient) -> str:
     return found
 
 
-async def lines(client: TestClient, wait: float, keepalive: float = 0.05) -> list[str]:
-    """What the stream sends over `wait` seconds (or until it ends)."""
+# The stream is read until it has sent what the test is about, never for a stretch of the clock:
+# under load the same stretch holds fewer keep-alives. GUARD only ends a stream that never sends
+# it (the test then fails); it is never what a test waits for.
+GUARD = 30
+KEEP_ALIVE = ": keep-alive\n\n"
+
+
+async def lines(
+    client: TestClient,
+    until: Callable[[list[str]], bool] | None = None,
+    each: Callable[[list[str]], None] | None = None,
+    keepalive: float = 0.05,
+) -> list[str]:
+    """What the stream sends until `until(parts so far)` says enough or the stream ends.
+    `each` is called after every part."""
     hub = broadcaster(client)
     sub = hub.subscribe(1)
     out: list[str] = []
@@ -176,21 +191,45 @@ async def lines(client: TestClient, wait: float, keepalive: float = 0.05) -> lis
         keepalive,
     )
     try:
-        async with asyncio.timeout(wait):
+        async with asyncio.timeout(GUARD):
             async for part in generator:
                 out.append(part)
-    except TimeoutError:
-        pass
+                if each is not None:
+                    each(out)
+                if until is not None and until(out):
+                    break
     finally:
         await generator.aclose()
     assert hub.count() == 0  # unsubscribed cleanly
     return out
 
 
+def keep_alives(count: int) -> Callable[[list[str]], bool]:
+    return lambda out: out.count(KEEP_ALIVE) >= count
+
+
 def test_keep_alive_comments_while_signed_in(kitchen: TestClient) -> None:
-    out = run(lines(kitchen, 0.4))
+    out = run(lines(kitchen, until=keep_alives(2)))
     assert out[0] == "retry: 5000\n\n"
-    assert out.count(": keep-alive\n\n") >= 2
+    assert out.count(KEEP_ALIVE) == 2
+
+
+def test_keep_alives_come_however_slow_the_sign_in_check_is(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The count is of what the stream sent, not of what fitted in a stretch of the clock: a
+    slow machine (here, a slow check) only takes longer."""
+    from mealwright.api.v1 import events
+
+    real = events._still_signed_in
+
+    def slow(*args: Any) -> bool:
+        time.sleep(0.3)
+        return real(*args)
+
+    monkeypatch.setattr(events, "_still_signed_in", slow)
+    out = run(lines(kitchen, until=keep_alives(2)))
+    assert out.count(KEEP_ALIVE) == 2
 
 
 def test_signed_out_when_the_session_runs_out(kitchen: TestClient) -> None:
@@ -198,21 +237,21 @@ def test_signed_out_when_the_session_runs_out(kitchen: TestClient) -> None:
         row = session.scalars(select(Session)).one()
         row.expires_at = utcnow() - timedelta(seconds=1)
         session.commit()
-    out = run(lines(kitchen, 2))
+    out = run(lines(kitchen))
     assert out[-1] == "event: signed_out\ndata: {}\n\n"
-    assert ": keep-alive\n\n" not in out
+    assert KEEP_ALIVE not in out
 
 
 def test_signed_out_after_signing_out_elsewhere(kitchen: TestClient) -> None:
-    async def scenario() -> list[str]:
-        task = asyncio.create_task(lines(kitchen, 2))
-        await asyncio.sleep(0.15)
-        with db(kitchen) as session:
-            session.delete(session.scalars(select(Session)).one())
-            session.commit()
-        return await task
+    def sign_out_after_the_first_keep_alive(out: list[str]) -> None:
+        if out.count(KEEP_ALIVE) == 1 and out[-1] == KEEP_ALIVE:
+            with db(kitchen) as session:
+                session.delete(session.scalars(select(Session)).one())
+                session.commit()
 
-    assert run(scenario())[-1] == "event: signed_out\ndata: {}\n\n"
+    out = run(lines(kitchen, each=sign_out_after_the_first_keep_alive))
+    assert out.count(KEEP_ALIVE) == 1
+    assert out[-1] == "event: signed_out\ndata: {}\n\n"
 
 
 def test_the_check_does_not_extend_the_session(kitchen: TestClient) -> None:
@@ -224,8 +263,7 @@ def test_the_check_does_not_extend_the_session(kitchen: TestClient) -> None:
         row.last_seen_at, row.expires_at, row.remember = old, soon, False
         session.commit()
         before = (old.replace(tzinfo=None), soon.replace(tzinfo=None))
-    out = run(lines(kitchen, 0.4))
-    assert out.count(": keep-alive\n\n") >= 2
+    run(lines(kitchen, until=keep_alives(2)))
     with db(kitchen) as session:
         row = session.scalars(select(Session)).one()
         assert (row.last_seen_at, row.expires_at) == before
