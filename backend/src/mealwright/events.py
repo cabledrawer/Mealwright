@@ -120,6 +120,11 @@ def _note(session: Session, kind: str, household_id: int) -> None:
     session.info.setdefault(PENDING, {}).setdefault(kind, set()).add(household_id)
 
 
+def note_pantry(session: Session, household_id: int) -> None:
+    """Tell the open screens the pantry side changed (a change that moved no stock)."""
+    _note(session, PANTRY, household_id)
+
+
 def _after_flush(session: Session, _context: object) -> None:
     for obj in session.dirty:
         if (

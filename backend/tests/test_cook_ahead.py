@@ -89,3 +89,36 @@ def test_leftover_tubs_of_an_early_cook_count_from_the_cooking_day(kitchen: Test
     answer_cooked(kitchen, meal, tubs=2)
     with db_of(kitchen) as db:
         assert {t.use_by for t in db.scalars(select(Tub))} == {date.today() + timedelta(days=3)}
+
+
+def test_a_batch_cooked_early_counts_later_tubs_from_the_day_it_was_cooked(
+    kitchen: TestClient,
+) -> None:
+    """F159 review L4: the use-by a new tub gets (and the after-use-by check) follows the day
+    the batch was really cooked, not its planned cook day."""
+    from mealwright.api.v1.context import Kitchen
+    from mealwright.batches import portions_of, really_cooked_on
+    from mealwright.models import BatchCook, Household, Login
+
+    _dal, meal, item, day = plan_ahead(kitchen)
+    batch_id = ok(
+        kitchen.post(f"{API}/plan/items/{item}/batch", json={"tub_count": 2, "pattern": "pick"}),
+        201,
+    )["batch_id"]
+    ok(kitchen.post(f"{API}/plan/batches/{batch_id}/cook", json={}), 201)
+    answer_cooked(kitchen, meal)
+    with db_of(kitchen) as db:
+        for tub in db.scalars(select(Tub)):
+            tub.amount_quarters = 0  # none spare: a new tub's use-by is worked out afresh
+        db.commit()
+        here = Kitchen(
+            db=db,
+            login=db.scalars(select(Login)).first(),  # type: ignore[arg-type]
+            household=db.scalars(select(Household)).first(),  # type: ignore[arg-type]
+            idempotency_key=None,
+            request="",
+        )
+        batch = db.get(BatchCook, batch_id)
+        assert batch is not None and batch.cooked_on == day
+        assert really_cooked_on(here, batch) == date.today()
+        assert portions_of(here, batch).use_by == date.today() + timedelta(days=3)

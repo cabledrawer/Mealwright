@@ -94,6 +94,15 @@ def tub_use_by(kitchen: Kitchen, kind: str, from_day: date) -> date:
     return from_day + timedelta(days=household.tub_fridge_days)
 
 
+def really_cooked_on(kitchen: Kitchen, batch: BatchCook) -> date:
+    """The day a batch's tubs count from: its cook day, or the earlier day it was really cooked
+    on (cooked ahead, F159)."""
+    record = cooked.for_batch(kitchen.db, kitchen.household_id, batch.id)
+    if record is None:
+        return batch.cooked_on
+    return min(batch.cooked_on, today(kitchen.household, as_utc(record.cooked_at)))
+
+
 def next_colour(kitchen: Kitchen, day: date) -> str:
     """The first palette name no batch cooked within two weeks of this day is using."""
     used = set(
@@ -872,7 +881,7 @@ def leftover_tub(
                 f"{batch.recipe_name} already has {MOST_TUBS_IN_BATCH} tubs.",  # proposed
             )
         fridge = places_of_kind(db, kitchen.household_id, "fridge")
-        use_by = tub_use_by(kitchen, "fridge", batch.cooked_on)
+        use_by = tub_use_by(kitchen, "fridge", really_cooked_on(kitchen, batch))
         if target.day > use_by:  # a new fridge tub is no good past its own use-by
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -953,7 +962,7 @@ def portions_of(kitchen: Kitchen, batch: BatchCook) -> Portions:
         )
     )
     spare = [use_by for quarters, use_by, in_meal in tubs if quarters > 0 and not in_meal]
-    fridge = tub_use_by(kitchen, "fridge", batch.cooked_on)
+    fridge = tub_use_by(kitchen, "fridge", really_cooked_on(kitchen, batch))
     return Portions(
         cook_day=cook_day,
         tubs=batch.tub_count,

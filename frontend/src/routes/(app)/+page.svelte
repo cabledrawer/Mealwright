@@ -17,7 +17,7 @@
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import MealRecipes from '#lib/components/today/MealRecipes.svelte';
-  import { cookTarget } from '#lib/cookTargets.js';
+  import { cookTarget, isCookable } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -26,7 +26,7 @@
   import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { getHousehold } from '#lib/client/household.js';
-  import { eatOnUntil, leftoverUseBy, type TubLife } from '#lib/tubUseBy.js';
+  import { cookingDay, eatOnUntil, leftoverUseBy, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
   import { dayWords, mealsWords, partsCooked, whenWords } from '#lib/todayWords.js';
@@ -119,7 +119,7 @@
    */
   async function cookEating(meal: PlanMeal, only: PlanItem | null = null) {
     // The recipe pressed, else the first not cooked yet, never one cooked before (F157 review).
-    const first = only ?? meal.items.find((i) => i.kind === 'recipe' && !i.cooked);
+    const first = only ?? meal.items.find((i) => isCookable(i) && !i.cooked);
     let life: TubLife | null = null;
     try {
       const household = await getHousehold();
@@ -127,7 +127,7 @@
     } catch {
       // Not reached: the review still opens, with no "Eat it on…" meals and the usual use-by.
     }
-    const useBy = leftoverUseBy(meal.date, life);
+    const useBy = leftoverUseBy(cookingDay(meal.date, model.data?.today ?? meal.date), life);
     openCooked(
       {
         meal_id: meal.id,
@@ -173,7 +173,7 @@
   /** F160: a meal with several recipes shows one line for each. */
   const parts = (meal: PlanMeal) => meal.items.filter((i) => i.kind === 'recipe').length > 1;
   const partsWords = (meal: PlanMeal) => {
-    const recipes = meal.items.filter((i) => i.kind === 'recipe');
+    const recipes = meal.items.filter(isCookable);
     const done = recipes.filter((i) => i.cooked).length;
     return partsCooked(done, recipes.length);
   };
@@ -283,7 +283,7 @@
             </div>
           {/if}
           {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal each</p>{/if}
-          {#if !parts(meal) && meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe' && !i.cooked)}
+          {#if !parts(meal) && meal.status === 'planned' && meal.items.some((i) => isCookable(i) && !i.cooked)}
             <button
               type="button"
               class="cooked-it"

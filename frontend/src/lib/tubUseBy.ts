@@ -21,6 +21,9 @@ export function addMonths(iso: string, months: number): string {
   return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
 }
 
+/** The day a meal's tubs count from: its own day, or today when it is cooked ahead (F159). */
+export const cookingDay = (mealDay: string, today: string) => (mealDay < today ? mealDay : today);
+
 export function tubUseBy(kind: 'fridge' | 'freezer', fromDay: string, life: TubLife): string {
   return kind === 'freezer'
     ? addMonths(fromDay, life.freezerMonths)

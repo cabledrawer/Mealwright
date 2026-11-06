@@ -29,7 +29,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import or_, select
 
-from mealwright import cooked, plan
+from mealwright import cooked, events, plan
 from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
@@ -568,24 +568,8 @@ def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:
             healed = True
     if healed:
         db.flush()
+        events.note_pantry(db, hid)  # the other screens hear of it as they do of Cooked it
     return healed
-
-
-def _has_record(kitchen: Kitchen, meal: Meal) -> bool:
-    db, hid = kitchen.db, kitchen.household_id
-    ids = [i.id for i in plan.items_of(kitchen, meal)]
-    batches = [b.id for b in batches_cooked_at(kitchen, meal)]
-    return (
-        db.scalar(
-            select(CookedRecord.id)
-            .where(
-                CookedRecord.household_id == hid,
-                or_(CookedRecord.meal_item_id.in_(ids), CookedRecord.batch_id.in_(batches)),
-            )
-            .limit(1)
-        )
-        is not None
-    )
 
 
 def forget_record(kitchen: Kitchen, change: Change) -> None:
@@ -613,8 +597,8 @@ def forget_record(kitchen: Kitchen, change: Change) -> None:
         meal = db.get(Meal, meal_id)
         if meal is None or meal.household_id != hid or meal.status != "cooked":
             continue
-        # A meal cooked by its answer alone (no records) stays cooked; one that records say
-        # was cooked in parts is not cooked any more.
-        if _has_record(kitchen, meal) and not meal_all_cooked(kitchen, meal):
+        # Any Undo of a Cooked it leaves the meal planned while it is no longer all cooked,
+        # whether records are left or not (F158 review: also a meal the heal set right).
+        if not meal_all_cooked(kitchen, meal):
             meal.status = "planned"
     db.flush()

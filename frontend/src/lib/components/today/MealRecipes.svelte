@@ -3,6 +3,7 @@
   // recipe. A cooked one has a tick and a Cooked chip; one still to cook has an empty circle and
   // its own Cooked it, which reviews that recipe only.
   import type { Plan, PlanItem, PlanMeal } from '#lib/client/plan.js';
+  import { isCookable } from '#lib/cookTargets.js';
   import { itemName } from '#lib/planMeals.js';
 
   let {
@@ -39,6 +40,10 @@
         </span>
         <span class="recipe">{name}</span>
         <span class="chip">Cooked</span>
+      {:else if !isCookable(item)}
+        <!-- A recipe taken out of the recipe list can't be cooked: a line, no button (F158). -->
+        <span class="circle gone" aria-hidden="true"></span>
+        <span class="recipe">{name}</span>
       {:else}
         <span class="circle" aria-hidden="true"></span>
         <span class="recipe">{name}</span>
@@ -97,6 +102,10 @@
 
   .circle {
     border: 2px solid var(--color-border-strong);
+  }
+
+  .circle.gone {
+    opacity: 0.4;
   }
 
   .chip {

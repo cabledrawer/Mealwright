@@ -792,6 +792,12 @@ test('F159: Plan, Cook, a later day\'s meal, Start cooking, Confirm: it is cooke
     await expect(review).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: `Cooked ${soup.name} (` })).toBeVisible();
     await expect(page.getByText(/Couldn.t save/)).toHaveCount(0);
+    // F158: Cook mode has closed, and the toast with its Undo is still there a moment later.
+    await expect(page).not.toHaveURL(/\/cook/);
+    const stayed = Date.now();
+    await expect.poll(() => Date.now() - stayed, { timeout: 5000 }).toBeGreaterThan(1500);
+    await expect(page.getByRole('status').filter({ hasText: `Cooked ${soup.name} (` })).toBeVisible();
+    await expect(page.getByRole('status').getByRole('button', { name: 'Undo' })).toBeVisible();
     const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
       meals: { id: number; status: string; items: { id: number; cooked: boolean }[] }[];
     };

@@ -54,3 +54,16 @@ describe('how far "Eat it on…" looks', () => {
     expect(eatOnUntil({})).toBeNull();
   });
 });
+
+describe('cooking ahead counts from the day it was cooked (F159 review)', () => {
+  it('uses the earlier of the meal’s day and today', async () => {
+    const { cookingDay, leftoverUseBy } = await import('./tubUseBy');
+    expect(cookingDay('2026-11-07', '2026-11-06')).toBe('2026-11-06');
+    expect(cookingDay('2026-11-04', '2026-11-06')).toBe('2026-11-04');
+    const ahead = leftoverUseBy(cookingDay('2026-11-07', '2026-11-06'), {
+      fridgeDays: 3,
+      freezerMonths: 3
+    });
+    expect(ahead).toEqual({ useByFridge: '2026-11-09', useByFreezer: '2027-02-06' });
+  });
+});

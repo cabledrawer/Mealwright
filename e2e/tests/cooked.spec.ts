@@ -505,3 +505,42 @@ test('F160: Today shows a meal cooked in parts one line per recipe, with its own
     for (const made of [a, b]) await call(page, 'DELETE', `/plan/items/${made.item_id}`);
   }
 });
+
+
+test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooked on the cooked one, says which, and lets the other be removed alone', async ({ page }) => {
+  const k = await setup(page);
+  const s = stamp();
+  const bread = `Banana bread ${s}`;
+  const soup = `Lentil soup ${s}`;
+  const day = addDays(k.today, -(15 + projectIndex() * 2));
+  const a = await k.plan(await k.recipe(bread, []), day, k.slot.Dinner!);
+  const b = await k.plan(await k.recipe(soup, []), day, k.slot.Dinner!);
+  try {
+    // The bread is cooked (the pantry's part and the meal's answer); the soup is not.
+    await call(page, 'POST', `/plan/items/${a.item_id}/cook`, { choices: [] });
+    await call(page, 'POST', `/plan/meals/${a.meal_id}/cooked`, {});
+    await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', bread);
+    const sheet = page.getByRole('dialog');
+    const list = sheet.getByTestId('plan-sheet-parts');
+    await expect(list.locator('li')).toHaveCount(2);
+    await expect(list.locator('li', { hasText: bread }).getByText('Cooked', { exact: true })).toBeVisible();
+    await expect(list.locator('li', { hasText: soup }).getByText('Cooked', { exact: true })).toHaveCount(0);
+    await expect(sheet.getByTestId('cooked-stays')).toHaveText(`${bread} was cooked. Undo its Cooked it to move or remove it.`);
+    await expect(sheet.getByRole('button', { name: 'Move to…' })).toHaveCount(0);
+    await expect(sheet.getByRole('button', { name: `Remove ${bread}` })).toHaveCount(0);
+    await checkPage(page); // both themes
+    await sheet.getByRole('button', { name: `Remove ${soup}` }).click();
+    await expect(page.getByRole('status')).toContainText(`Removed ${soup}`);
+    const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+      meals: { items: { id: number }[] }[];
+    };
+    expect(plan.meals.flatMap((m) => m.items.map((i) => i.id))).toEqual([a.item_id]);
+  } finally {
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(s)))
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
+  }
+});

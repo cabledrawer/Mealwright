@@ -63,4 +63,13 @@ describe('Today’s lines for a meal cooked in parts (F160)', () => {
     await button.click();
     expect(pressed).toEqual([1]);
   });
+
+  it('gives a recipe taken out of the recipe list no Cooked it (F158 review)', async () => {
+    const gone = item(3, 'Old stew', false);
+    gone.recipe!.removed = true;
+    show('planned', [item(1, 'Khichdi', false), gone]);
+    await expect.element(page.getByRole('button', { name: 'Cooked it: Khichdi' })).toBeVisible();
+    expect(page.getByRole('button').elements()).toHaveLength(1);
+    expect(page.getByTestId('today-cooked-parts').element().textContent).toContain('Old stew');
+  });
 });

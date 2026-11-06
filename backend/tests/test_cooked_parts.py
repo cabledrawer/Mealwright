@@ -5,6 +5,7 @@ uses) has been cooked; each press marks, takes and undoes only what it cooked.""
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
@@ -344,3 +345,51 @@ def test_cooking_a_whole_meal_leaves_a_deleted_recipe_out(kitchen: TestClient) -
         db.commit()
     shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={"answers": []}))
     assert [i["item_id"] for i in shown["items"]] == [soup]
+
+
+def test_undo_after_a_healed_meal_leaves_it_planned_with_stock_back_once(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """F158 review H1: lost reply -> the read heals the meal -> Undo of a Cooked it: the meal is
+    planned again, Cooked it is offered, the stock is back once; the heal tells other screens."""
+    dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    ok(cook(kitchen, soup), 201)
+    last = ok(cook(kitchen, khichdi), 201)["change"]  # the answer never arrived
+    with db_of(kitchen) as db:
+        for record in db.scalars(select(CookedRecord)):
+            record.cooked_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+    heard: list[Any] = []
+    hub = kitchen.app.state.events  # type: ignore[attr-defined]
+    real = hub.publish
+    monkeypatch.setattr(
+        hub, "publish", lambda household, event: (heard.append(event), real(household, event))
+    )
+    today = date.today().isoformat()
+    plan = ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
+    assert [m["status"] for m in plan["meals"] if m["id"] == meal] == ["cooked"]
+    assert [e.name for e in heard] == ["pantry"]
+    assert ok(undo(kitchen, last["id"]))["result"] == "done"
+    assert status_of(kitchen, meal) == "planned"
+    assert cooked_flags(kitchen) == {khichdi: False, soup: True}
+    assert sum(amounts(kitchen, dal["id"])) == 800_000  # the khichdi's 100 g, back once
+    answer = press(kitchen, meal, khichdi)[1]  # Cooked it is offered again
+    assert status_of(kitchen, meal) == "cooked" and answer
+
+
+def test_undo_of_the_only_press_of_a_healed_meal_leaves_it_planned(kitchen: TestClient) -> None:
+    """F158 review H1: no record is left after this Undo, and the meal is still planned again."""
+    dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    ok(kitchen.delete(f"{API}/plan/items/{soup}"))
+    cooked_change = ok(cook(kitchen, khichdi), 201)["change"]
+    with db_of(kitchen) as db:
+        for record in db.scalars(select(CookedRecord)):
+            record.cooked_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+    today = date.today().isoformat()
+    ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
+    assert status_of(kitchen, meal) == "cooked"
+    ok(undo(kitchen, cooked_change["id"]))
+    assert status_of(kitchen, meal) == "planned"
+    assert records(kitchen) == set()
+    assert sum(amounts(kitchen, dal["id"])) == 900_000
