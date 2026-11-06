@@ -755,6 +755,56 @@ describe('One at a time', () => {
       }
     });
 
+    describe('swiping (F145)', () => {
+      const swipe = (dx: number, dy = 0, target?: Element) => {
+        const el = target ?? document.querySelector('.one')!;
+        const fire = (type: string, x: number, y: number) =>
+          el.dispatchEvent(
+            new PointerEvent(type, { clientX: x, clientY: y, pointerId: 1, bubbles: true })
+          );
+        fire('pointerdown', 200, 300);
+        fire('pointerup', 200 + dx, 300 + dy);
+        flushSync();
+      };
+
+      it('left is Next and right is Back; short, downward and past-the-end swipes do nothing', async () => {
+        await opened();
+        await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+        swipe(20);
+        swipe(-100, 200);
+        swipe(120); // no screen before the first
+        await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+        swipe(-120);
+        await expect.element(heading()).toHaveTextContent('Ingredients · 2 of 2 to check');
+        swipe(120);
+        await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+        for (let n = 0; n < 6; n++) swipe(-120);
+        // The last screen: a swipe does not save, it stays.
+        await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
+        expect(nav.goto).not.toHaveBeenCalled();
+      });
+
+      it('a swipe that starts on a button or box is not a swipe', async () => {
+        await opened();
+        swipe(-120, 0, page.getByRole('button', { name: 'Treat as staple' }).element());
+        await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+      });
+
+      it('waits while a step box is open, and works after Done', async () => {
+        await opened();
+        await next().click(); // line 2
+        await next().click(); // step 1
+        await page.getByRole('button', { name: 'Change the words' }).click();
+        swipe(-120);
+        swipe(120);
+        await expect.element(page.getByLabelText('Words of step 1')).toBeVisible();
+        await expect.element(heading()).toHaveTextContent('Method · step 1 of 3');
+        await page.getByRole('button', { name: 'Done' }).click();
+        swipe(-120);
+        await expect.element(heading()).toHaveTextContent('Method · step 2 of 3');
+      });
+    });
+
     it('See all waits while a step box is open', async () => {
       await opened();
       await next().click(); // line 2

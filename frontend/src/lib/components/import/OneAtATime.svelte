@@ -169,6 +169,30 @@
     });
   });
 
+  // Swiping sideways does what Next and Back do, and waits while a step's box is open, as they
+  // do (F145, cabledrawer 6 Nov). The buttons stay: they are the way for the keyboard and screen
+  // readers. Mostly sideways and far enough that a tap or a scroll is never read as a swipe.
+  const SWIPE_FAR = 60;
+  let down: { x: number; y: number; id: number } | null = null;
+  function pointerdown(event: PointerEvent) {
+    if (
+      (event.target as HTMLElement).closest('button, a, input, textarea, select, [role="switch"]')
+    )
+      return;
+    down = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  }
+  function pointerup(event: PointerEvent) {
+    const start = down;
+    down = null;
+    if (!start || start.id !== event.pointerId || editing !== null || !item) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_FAR || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const to = dx < 0 ? at + 1 : at - 1;
+    if (to < 0 || to >= items.length) return;
+    void go(to);
+  }
+
   async function takeOut() {
     if (stepAt < 0) return;
     removeStep(flow, stepAt);
@@ -198,7 +222,16 @@
     </div>
   {/snippet}
 
-  <div class="one" bind:this={region} tabindex="-1">
+  <!-- The swipe is the extra; Back and Next are the way for the keyboard and screen readers. -->
+  <div
+    class="one"
+    role="presentation"
+    bind:this={region}
+    tabindex="-1"
+    onpointerdown={pointerdown}
+    onpointerup={pointerup}
+    onpointercancel={() => (down = null)}
+  >
     {#if at === 0}
       <!-- The recipe's name, Serves and minutes, and the photo note, at the top of the first
            screen, as Focus shows them (F141 follow-up, cabledrawer 6 Nov). -->
@@ -533,6 +566,8 @@
   }
 
   .one {
+    min-height: 100%;
+    touch-action: pan-y;
     display: flex;
     flex-direction: column;
     gap: var(--space-7);

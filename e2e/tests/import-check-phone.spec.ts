@@ -216,3 +216,33 @@ test('One at a time: the first screen starts with the recipe’s name, Serves an
   await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByLabel('Serves')).toHaveCount(0);
 });
+
+test('One at a time: a swipe left is Next, right is Back, and it waits while a step box is open (F145)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  await checking(page, unique('Rava'), unique('Hing'), unique('Masala'));
+  const header = page.getByRole('heading', { level: 1 });
+  const swipe = async (dx: number) => {
+    const y = 600;
+    const x = dx < 0 ? 340 : 50;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y, { steps: 6 });
+    await page.mouse.up();
+  };
+  await expect(header).toHaveText('Ingredients · 1 of 2 to check');
+  await swipe(-250);
+  await expect(header).toHaveText('Ingredients · 2 of 2 to check');
+  await swipe(250);
+  await expect(header).toHaveText('Ingredients · 1 of 2 to check');
+  await swipe(-250);
+  await swipe(-250);
+  await expect(header).toHaveText('Method · step 1 of 2');
+  await page.getByRole('button', { name: 'Change the words' }).click();
+  await swipe(-250);
+  await expect(page.getByLabel('Words of step 1')).toBeVisible();
+  await expect(header).toHaveText('Method · step 1 of 2');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await swipe(-250);
+  await expect(header).toHaveText('Method · step 2 of 2');
+});
