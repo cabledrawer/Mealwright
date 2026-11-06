@@ -531,10 +531,14 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
     await checkPage(page); // both themes
     await sheet.getByRole('button', { name: `Remove ${soup}` }).click();
     await expect(page.getByRole('status')).toContainText(`Removed ${soup}`);
-    const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
-      meals: { items: { id: number }[] }[];
-    };
-    expect(plan.meals.flatMap((m) => m.items.map((i) => i.id))).toEqual([a.item_id]);
+    await expect
+      .poll(async () => {
+        const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+          meals: { items: { id: number }[] }[];
+        };
+        return plan.meals.flatMap((m) => m.items.map((i) => i.id));
+      })
+      .toEqual([a.item_id]);
   } finally {
     const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
       changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
