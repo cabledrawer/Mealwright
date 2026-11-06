@@ -311,7 +311,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Shape (cabledrawer 2 Nov):** everything a private-trial tester needs to install, sign in, set up and trust Mealwright with their data.
 
-**Build** (each moved unchanged from the old 0.8.0, in this order: the bullets starting):
+**Build:**
 
 - Members (profiles without logins), Admin/Member roles, portions assigned to members. Optional "Who's this?" picker for shared logins.
 - OIDC sign-in with Authlib (PKCE, refresh tokens), auto-create on first login, group → role mapping, option to turn off password logins (Sign in then shows only the SSO button).
