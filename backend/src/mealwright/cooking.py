@@ -572,6 +572,40 @@ def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:
     return healed
 
 
+def _has_record(kitchen: Kitchen, meal: Meal) -> bool:
+    db, hid = kitchen.db, kitchen.household_id
+    ids = [i.id for i in plan.items_of(kitchen, meal)]
+    batches = [b.id for b in batches_cooked_at(kitchen, meal)]
+    return (
+        db.scalar(
+            select(CookedRecord.id)
+            .where(
+                CookedRecord.household_id == hid,
+                or_(CookedRecord.meal_item_id.in_(ids), CookedRecord.batch_id.in_(batches)),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
+def _answered(kitchen: Kitchen, meal: Meal) -> bool:
+    """Did a "Cooked it" answer of the screen make this meal cooked (it left a status step)?"""
+    for change in kitchen.db.scalars(
+        select(Change).where(
+            Change.household_id == kitchen.household_id,
+            Change.kind == "plan_cooked",
+        )
+    ):
+        data = change.undo_data or {}
+        if data.get("meal_id") != meal.id:
+            continue
+        steps = data.get("plan", [])
+        if any(s.get("op") == "status" and s.get("to") == "cooked" for s in steps):
+            return True
+    return False
+
+
 def forget_record(kitchen: Kitchen, change: Change) -> None:
     """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
     when the Undo was only partly done). A meal that was Cooked is no longer, as a recipe of it
@@ -597,8 +631,11 @@ def forget_record(kitchen: Kitchen, change: Change) -> None:
         meal = db.get(Meal, meal_id)
         if meal is None or meal.household_id != hid or meal.status != "cooked":
             continue
-        # Any Undo of a Cooked it leaves the meal planned while it is no longer all cooked,
-        # whether records are left or not (F158 review: also a meal the heal set right).
-        if not meal_all_cooked(kitchen, meal):
+        # No longer all cooked: planned again. A meal the screen's own answer marked cooked
+        # stays cooked when no record is left (answered before its review); one the read
+        # healed has no such answer, so Undo always puts it back (F158 review).
+        if not meal_all_cooked(kitchen, meal) and (
+            _has_record(kitchen, meal) or not _answered(kitchen, meal)
+        ):
             meal.status = "planned"
     db.flush()
