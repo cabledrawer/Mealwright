@@ -131,22 +131,111 @@
   }
 
   // Swiping the step sideways: left for the next step, right for the one before. The buttons do
-  // the same (cabledrawer 21 Oct: every swipe has a visible button). Mostly sideways, and far enough
-  // that a tap or a scroll is never read as one.
+  // the same (cabledrawer 21 Oct: every swipe has a visible button). The step follows the finger,
+  // slides out and the next slides in; a swipe that doesn't go far enough springs back, and one
+  // at the first or last step does too (F145, cabledrawer 6 Nov). With "reduce motion" on, nothing
+  // slides: the step just changes. Mostly sideways, and far enough that a tap or a scroll is
+  // never read as one.
   const SWIPE_FAR = 60;
-  let down: { x: number; y: number; id: number } | null = null;
+  const LOOK = 10;
+  let down: { x: number; y: number; id: number; sideways: boolean | null } | null = null;
+  /** How far the step is moved from the middle, in px; 0 when at rest. */
+  let drag = $state(0);
+  /** The step is moving by itself (sliding out or in, or springing back). */
+  let sliding = $state(false);
+  let busy = $state(false);
+  let slide: HTMLElement | undefined;
+
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function pointerdown(event: PointerEvent) {
-    if ((event.target as HTMLElement).closest('button, a, input, [role="switch"]')) return;
-    down = { x: event.clientX, y: event.clientY, id: event.pointerId };
+    if (busy || (event.target as HTMLElement).closest('button, a, input, [role="switch"]')) return;
+    down = { x: event.clientX, y: event.clientY, id: event.pointerId, sideways: null };
   }
+
+  function pointermove(event: PointerEvent) {
+    if (!down || down.id !== event.pointerId) return;
+    const dx = event.clientX - down.x;
+    const dy = event.clientY - down.y;
+    if (down.sideways === null) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < LOOK) return;
+      down.sideways = Math.abs(dx) >= Math.abs(dy) * 1.5;
+    }
+    if (!down.sideways) return;
+    sliding = false;
+    // Where there is no step to go to, the step gives a little and no more.
+    const to = index + (dx < 0 ? 1 : -1);
+    drag = to < 0 || to >= steps.length ? dx / 4 : dx;
+  }
+
+  function pointercancel() {
+    down = null;
+    if (drag) void springBack();
+  }
+
   function pointerup(event: PointerEvent) {
     const start = down;
     down = null;
     if (!start || start.id !== event.pointerId) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.abs(dx) < SWIPE_FAR || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    go(dx < 0 ? index + 1 : index - 1);
+    const to = index + (dx < 0 ? 1 : -1);
+    const far = Math.abs(dx) >= SWIPE_FAR && Math.abs(dx) >= Math.abs(dy) * 1.5;
+    if (!far || to < 0 || to >= steps.length) {
+      if (drag) void springBack();
+      return;
+    }
+    if (reducedMotion()) {
+      drag = 0;
+      go(to);
+      return;
+    }
+    void slideTo(to, dx < 0 ? -1 : 1);
+  }
+
+  /** Resolves when the step has finished moving (or soon after, where nothing moves). */
+  function arrived(): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => {
+        slide?.removeEventListener('transitionend', done);
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(done, 400);
+      slide?.addEventListener('transitionend', done);
+    });
+  }
+
+  async function springBack() {
+    if (reducedMotion()) {
+      drag = 0;
+      return;
+    }
+    busy = true;
+    sliding = true;
+    drag = 0;
+    await arrived();
+    sliding = false;
+    busy = false;
+  }
+
+  /** Slide the step out the way the finger went (`way` -1: left), change step, slide the next in. */
+  async function slideTo(to: number, way: 1 | -1) {
+    busy = true;
+    const width = slide?.offsetWidth ?? window.innerWidth;
+    sliding = true;
+    drag = way * width;
+    await arrived();
+    sliding = false;
+    go(to);
+    drag = -way * width;
+    await tick();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    sliding = true;
+    drag = 0;
+    await arrived();
+    sliding = false;
+    busy = false;
   }
 
   // The screen stays on while cooking (turns itself on with Cook mode; "Keep screen awake" is
@@ -199,6 +288,11 @@
         {/each}
       </div>
     {/if}
+    {#if awake.refused}
+      <p class="asleep" role="status" data-testid="cook-asleep">
+        <Icon name="dark" size={18} stroke={2.2} />Couldn’t keep the screen awake.
+      </p>
+    {/if}
     {#if notice}
       <p class="notice" role="status" data-testid="cook-notice">
         <span>{notice.text}</span>
@@ -214,7 +308,9 @@
     role="presentation"
     bind:this={body}
     onpointerdown={pointerdown}
+    onpointermove={pointermove}
     onpointerup={pointerup}
+    onpointercancel={pointercancel}
   >
     {#if elsewhere.length}
       <ul class="elsewhere" aria-label="Timers on other steps">
@@ -230,50 +326,64 @@
       </ul>
     {/if}
 
-    {#if step}
-      {#if step.section}<h2 class="section">{step.section}</h2>{/if}
-      <span class="big" aria-hidden="true">{step.number}</span>
-      <p class="text" data-testid="step-text">{step.text}</p>
+    <div
+      class="slide"
+      bind:this={slide}
+      class:sliding
+      style:transform={drag ? `translateX(${drag}px)` : undefined}
+      data-testid="slide"
+      data-moving={busy}
+    >
+      {#if step}
+        {#if step.section}<h2 class="section">{step.section}</h2>{/if}
+        <span class="big" aria-hidden="true">{step.number}</span>
+        <p class="text" data-testid="step-text">{step.text}</p>
 
-      {#each found as t, i (i)}
-        {@const timer = timers.get(keyOf(step.number, i))}
-        <div class="timer" class:ended={timer?.state === 'ended'} data-testid="timer">
-          <span class="when">
-            <span class="label">{t.words}</span>
-            <span class="clock" role="timer"
-              >{#if timer?.state === 'ended'}Time’s up{:else}{clock(
-                  timer ? timer.left : t.seconds
-                )}{/if}</span
-            >
-          </span>
-          {#if !timer}
-            <button
-              type="button"
-              class="go"
-              onclick={() => timers.start(keyOf(step.number, i), t.words, t.seconds)}
-              >Start timer<span class="visually-hidden"> for {t.words}</span></button
-            >
-          {:else if timer.state === 'running'}
-            <button type="button" class="go" onclick={() => timers.clear(timer.key)}
-              >Stop<span class="visually-hidden"> the timer for {t.words}</span></button
-            >
-          {:else}
-            <button type="button" class="go" onclick={() => timers.clear(timer.key)}
-              >Done<span class="visually-hidden"> with the timer for {t.words}</span></button
-            >
-          {/if}
-        </div>
-      {/each}
-      {#if found.length || elsewhere.length}<p class="quiet">{timerNote}</p>{/if}
+        {#each found as t, i (i)}
+          {@const timer = timers.get(keyOf(step.number, i))}
+          <div class="timer" class:ended={timer?.state === 'ended'} data-testid="timer">
+            <span class="when">
+              <span class="label">{t.words}</span>
+              <span class="clock" role="timer"
+                >{#if timer?.state === 'ended'}Time’s up{:else}{clock(
+                    timer ? timer.left : t.seconds
+                  )}{/if}</span
+              >
+            </span>
+            {#if !timer}
+              <button
+                type="button"
+                class="go"
+                onclick={() => timers.start(keyOf(step.number, i), t.words, t.seconds)}
+                >Start timer<span class="visually-hidden"> for {t.words}</span></button
+              >
+            {:else if timer.state === 'running'}
+              <button type="button" class="go" onclick={() => timers.clear(timer.key)}
+                >Stop<span class="visually-hidden"> the timer for {t.words}</span></button
+              >
+            {:else}
+              <button type="button" class="go" onclick={() => timers.clear(timer.key)}
+                >Done<span class="visually-hidden"> with the timer for {t.words}</span></button
+              >
+            {/if}
+          </div>
+        {/each}
+        {#if found.length || elsewhere.length}<p class="quiet">{timerNote}</p>{/if}
+      {:else}
+        <p class="text" data-testid="step-text">This recipe has no steps yet.</p>
+      {/if}
+    </div>
 
+    <section class="perstep" aria-label="Ingredients for each step">
+      <div class="head">
+        <span class="what" id="{uid}-perstep">
+          <span class="label">Ingredients for each step</span>
+          <span class="badge"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+        </span>
+        <Switch checked={perStep} large labelledby="{uid}-perstep" onchange={onperstep} />
+      </div>
       {#if perStep}
-        <div class="forstep" data-testid="per-step">
-          <p class="forhead">
-            <span class="lead">For this step</span>
-            <span class="badge"
-              ><Icon name="flask" size={14} stroke={2.4} />Experimental · guessed</span
-            >
-          </p>
+        <div class="guess" data-testid="per-step">
           {#if mine.length}
             <ul class="chips">
               {#each mine as line (line.id)}
@@ -283,14 +393,14 @@
               {/each}
             </ul>
           {:else}
-            <p class="quiet">No ingredient guessed for this step.</p>
+            <p class="note">No ingredient guessed for this step.</p>
           {/if}
-          <p class="quiet">Wrong? Fix it when you edit the recipe.</p>
+          <p class="note">
+            Guessed from the step, so it may be wrong. Fix it when you edit the recipe.
+          </p>
         </div>
       {/if}
-    {:else}
-      <p class="text" data-testid="step-text">This recipe has no steps yet.</p>
-    {/if}
+    </section>
 
     <button type="button" class="show" onclick={() => (sheetOpen = true)}>
       <Icon name="note" size={18} stroke={2.2} />Show ingredients
@@ -298,13 +408,6 @@
 
     <section class="options" aria-label="Options">
       <KeepAwake {awake} />
-      <div class="row">
-        <span class="what" id="{uid}-perstep">
-          <span class="flask"><Icon name="flask" size={18} /></span>Ingredients for each step
-          <span class="badge small">Experimental</span>
-        </span>
-        <Switch checked={perStep} labelledby="{uid}-perstep" onchange={onperstep} />
-      </div>
     </section>
   </div>
 
@@ -515,6 +618,36 @@
     overflow-wrap: anywhere;
   }
 
+  .slide {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .slide.sliding {
+    transition: transform 200ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.sliding {
+      transition: none;
+    }
+  }
+
+  .asleep {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--color-timer);
+    color: var(--color-timer-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    line-height: 1.35;
+  }
+
   .big {
     color: var(--color-accent-soft);
     font-size: 4rem;
@@ -631,26 +764,53 @@
     cursor: pointer;
   }
 
-  .forstep {
+  /* The "Ingredients for each step" box (mockup Dark-CookStep08-Phone, F148): the label on its
+     own line, the Experimental badge under it, the switch centred against both; the guesses
+     under a thin divider. */
+  .perstep {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    padding: var(--space-6) 14px;
-    border-radius: var(--radius-xl);
+    gap: var(--space-5);
+    padding: var(--space-7);
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
     background: var(--color-ground);
   }
 
-  .forhead {
+  .head {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-4);
-    margin: 0;
+    justify-content: space-between;
+    gap: var(--space-5);
   }
 
-  .lead {
+  .what {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+
+  .label {
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    line-height: 1.3;
+  }
+
+  .guess {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .note {
+    margin: 0;
+    color: var(--color-text-muted);
     font-size: var(--text-md);
-    font-weight: 800;
+    line-height: 1.45;
   }
 
   .badge {
@@ -663,18 +823,6 @@
     color: var(--color-experimental-text);
     font-size: var(--text-sm);
     font-weight: 800;
-  }
-
-  .flask {
-    display: inline-flex;
-    color: var(--color-experimental);
-  }
-
-  .badge.small {
-    padding: 2px var(--space-4);
-    font-size: var(--text-xs);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   }
 
   .chips {
@@ -712,26 +860,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-6);
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border-radius: var(--radius-lg);
-    background: var(--color-ground);
-  }
-
-  .what {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-4);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
   }
 
   .waiting {

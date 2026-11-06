@@ -150,34 +150,89 @@ describe('Cook mode', () => {
       await shows(count(), has('Step 3 of 4'));
     });
 
-    it('moves with a swipe, and a short or mostly downward drag does nothing', async () => {
-      open(recipe(FOUR));
-      const body = document.querySelector('.body')!;
-      const swipe = (dx: number, dy = 0) => {
+    /** A finger on the step: down, then each move, then up (no moves: a flick). */
+    const finger = (body: Element, moves: [number, number][], end?: [number, number]) => {
+      const event = (type: string, [dx, dy]: [number, number]) =>
         body.dispatchEvent(
-          new PointerEvent('pointerdown', {
-            clientX: 200,
-            clientY: 300,
-            pointerId: 1,
-            bubbles: true
-          })
-        );
-        body.dispatchEvent(
-          new PointerEvent('pointerup', {
+          new PointerEvent(type, {
             clientX: 200 + dx,
             clientY: 300 + dy,
             pointerId: 1,
             bubbles: true
           })
         );
-        flushSync();
-      };
-      swipe(-120);
+      event('pointerdown', [0, 0]);
+      for (const move of moves) event('pointermove', move);
+      if (end) event('pointerup', end);
+      flushSync();
+    };
+    const slide = () => document.querySelector<HTMLElement>('[data-testid="slide"]')!;
+    const stillMoving = () => slide().dataset.moving === 'true';
+    const rest = () => vi.waitFor(() => expect(stillMoving()).toBe(false));
+    const shift = () => new DOMMatrix(getComputedStyle(slide()).transform).m41;
+
+    it('moves with a swipe, and a short or mostly downward drag does nothing', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body')!;
+      finger(body, [], [-120, 0]);
       await shows(count(), has('Step 2 of 4'));
-      swipe(20);
-      swipe(-100, 200);
+      await rest();
+      finger(body, [], [20, 0]);
+      finger(body, [], [-100, 200]);
       await shows(count(), has('Step 2 of 4'));
-      swipe(120);
+      finger(body, [], [120, 0]);
+      await shows(count(), has('Step 1 of 4'));
+    });
+
+    it('follows the finger, then slides to the next step (F145)', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body')!;
+      finger(body, [
+        [-30, 0],
+        [-70, 2]
+      ]);
+      expect(shift()).toBe(-70);
+      await shows(count(), has('Step 1 of 4')); // not changed until the finger lifts
+      body.dispatchEvent(
+        new PointerEvent('pointerup', { clientX: 130, clientY: 302, pointerId: 1, bubbles: true })
+      );
+      flushSync();
+      await shows(count(), has('Step 2 of 4'));
+      await rest();
+      expect(shift()).toBe(0);
+    });
+
+    it('springs back when the swipe does not go far enough, or there is no step that way (F145)', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body')!;
+      finger(body, [[-30, 0]], [-30, 0]);
+      await rest();
+      expect(shift()).toBe(0);
+      await shows(count(), has('Step 1 of 4'));
+      // Right at the first step: the step gives a little, goes nowhere, and comes back.
+      finger(body, [[100, 0]]);
+      expect(shift()).toBe(25);
+      body.dispatchEvent(
+        new PointerEvent('pointerup', { clientX: 300, clientY: 300, pointerId: 1, bubbles: true })
+      );
+      flushSync();
+      await rest();
+      expect(shift()).toBe(0);
+      await shows(count(), has('Step 1 of 4'));
+    });
+
+    it('a mostly downward drag does not move the step (it is a scroll)', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body')!;
+      finger(
+        body,
+        [
+          [-20, 60],
+          [-30, 120]
+        ],
+        [-30, 120]
+      );
+      expect(shift()).toBe(0);
       await shows(count(), has('Step 1 of 4'));
     });
 
@@ -438,17 +493,18 @@ describe('Cook mode', () => {
       expect(onperstep).toHaveBeenCalledWith(true);
     });
 
-    it('shows the guessed ingredients under the step, labelled, once on', async () => {
+    it('shows the guessed ingredients in the box, under a divider, once on', async () => {
       open(recipe(FOUR), { perStep: true });
       await next().click();
       const box = page.getByTestId('per-step');
-      await shows(box, has('For this step'));
-      await shows(box, has('Experimental · guessed'));
       await shows(box, has('tamarind'));
       await shows(box, /3\sonions/);
-      await shows(box, has('Wrong? Fix it when you edit the recipe.'));
-      // The icon is the pink flask: its colour is the Experimental one.
-      const badge = box.element().querySelector('.badge')!;
+      await shows(
+        box,
+        has('Guessed from the step, so it may be wrong. Fix it when you edit the recipe.')
+      );
+      // The pink flask is on the badge: its colour is the Experimental one.
+      const badge = document.querySelector('.perstep .badge')!;
       const probe = document.body.appendChild(document.createElement('span'));
       probe.style.color = 'var(--color-experimental-text)';
       expect(getComputedStyle(badge).color).toBe(getComputedStyle(probe).color);
@@ -460,12 +516,32 @@ describe('Cook mode', () => {
       await shows(box, has('No ingredient guessed for this step.'));
     });
 
-    it('draws the flask on the switch’s row in the Experimental pink', async () => {
-      open(recipe(FOUR));
-      const flask = document.querySelector('.flask svg')!;
-      const probe = document.body.appendChild(document.createElement('span'));
-      probe.style.color = 'var(--color-experimental)';
-      expect(getComputedStyle(flask).color).toBe(getComputedStyle(probe).color);
+    it('lays the box out as the 0.8 mockup does (F148)', async () => {
+      open(recipe(FOUR), { perStep: true });
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      const style = getComputedStyle(document.querySelector('.perstep')!);
+      // 16 px padding and a thin border.
+      expect(style.paddingTop).toBe('16px');
+      expect(style.paddingLeft).toBe('16px');
+      expect(style.borderTopWidth).toBe('1px');
+      // The label on its own line, the badge under it with 8 px between, both on the left.
+      const label = rect('.perstep .label');
+      const badge = rect('.perstep .badge');
+      expect(badge.top - label.bottom).toBe(8);
+      expect(badge.left).toBe(label.left);
+      // The switch 52 × 32, centred against the two lines.
+      const sw = rect('.perstep [role="switch"]');
+      expect([sw.width, sw.height]).toEqual([52, 32]);
+      const middle = (label.top + badge.bottom) / 2;
+      expect(Math.abs(sw.top + sw.height / 2 - middle)).toBeLessThanOrEqual(1);
+      // The guesses sit under a thin divider; the note has line height 1.45.
+      expect(getComputedStyle(document.querySelector('.perstep .guess')!).borderTopWidth).toBe(
+        '1px'
+      );
+      const note = getComputedStyle(document.querySelector('.perstep .guess .note:last-child')!);
+      expect(parseFloat(note.lineHeight) / parseFloat(note.fontSize)).toBeCloseTo(1.45, 2);
+      // The label does not touch the top of its box.
+      expect(label.top - rect('.perstep').top).toBeGreaterThanOrEqual(16);
     });
 
     it('uses the links the recipe holds for a step instead of guessing', async () => {
@@ -507,6 +583,27 @@ describe('Cook mode', () => {
       await expect.element(sw).toHaveAttribute('aria-checked', 'true');
       for (const component of mounted.splice(0)) unmount(component);
       await vi.waitFor(() => expect(released).toEqual([1, 2]));
+    });
+
+    it('says “Couldn’t keep the screen awake.” on its own amber line under the progress bar, not in the box (F148)', async () => {
+      Object.defineProperty(navigator, 'wakeLock', {
+        configurable: true,
+        value: { request: async () => Promise.reject(new Error('no')) }
+      });
+      awake = new ScreenAwake();
+      open(recipe(FOUR), { perStep: true });
+      const line = page.getByTestId('cook-asleep');
+      await expect.element(line).toBeVisible();
+      await expect.element(line).toHaveTextContent('Couldn’t keep the screen awake.');
+      expect(line.element().closest('.perstep')).toBeNull();
+      expect(line.element().querySelector('svg')).not.toBeNull(); // the moon
+      const progress = document.querySelector('.progress')!.getBoundingClientRect();
+      const amber = line.element().getBoundingClientRect();
+      expect(amber.top).toBeGreaterThanOrEqual(progress.bottom);
+      const style = getComputedStyle(line.element());
+      expect([style.paddingTop, style.paddingLeft]).toEqual(['10px', '12px']);
+      // Nothing in the Awake pill while it is refused.
+      expect(document.querySelector('.awake:not(.spacer)')).toBeNull();
     });
 
     it('is greyed with the words when the browser can’t keep the screen on', async () => {

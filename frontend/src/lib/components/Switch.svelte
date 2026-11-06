@@ -11,6 +11,7 @@
     labelledby,
     describedby,
     disabled = false,
+    large = false,
     onchange
   }: {
     checked?: boolean;
@@ -18,6 +19,8 @@
     labelledby?: string;
     describedby?: string;
     disabled?: boolean;
+    /** 52 × 32 px, for a box where the switch stands alone (Cook mode, F148). */
+    large?: boolean;
     onchange?: (checked: boolean) => void;
   } = $props();
 
@@ -32,6 +35,7 @@
   type="button"
   role="switch"
   class="switch"
+  class:large
   aria-checked={checked}
   aria-label={labelledby ? undefined : label}
   aria-labelledby={labelledby}
@@ -72,6 +76,12 @@
     opacity: 0.5;
   }
 
+  .switch.large {
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+  }
+
   .knob {
     position: absolute;
     top: 2px;
@@ -86,6 +96,18 @@
 
   .switch[aria-checked='true'] .knob {
     transform: translateX(18px);
+  }
+
+  .large .knob {
+    top: 3px;
+    left: 3px;
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+  }
+
+  .large[aria-checked='true'] .knob {
+    transform: translateX(20px);
   }
 
   @media (forced-colors: active) {

@@ -1,6 +1,7 @@
 <script lang="ts">
   // "Keep screen awake", now in Cook mode (spec "Cook mode timers"; cabledrawer 31 Oct): the one Switch.
-  // Where the browser can't do it the switch is greyed and says why, instead of vanishing.
+  // Where the browser can't do it the switch is greyed and says why, instead of vanishing. When the
+  // browser says no, Cook mode shows "Couldn't keep the screen awake." under its progress bar (F148).
   import { untrack } from 'svelte';
   import type { ScreenAwake } from '#lib/screenAwake.svelte.js';
   import Icon from './Icon.svelte';
@@ -17,14 +18,12 @@
     checked={awake.on}
     disabled={!supported}
     labelledby="{id}-label"
-    describedby={!supported ? `${id}-cant` : awake.refused ? `${id}-refused` : undefined}
+    describedby={!supported ? `${id}-cant` : undefined}
     onchange={(on) => void awake.set(on)}
   />
 </div>
 {#if !supported}
   <p class="refused" id="{id}-cant">This browser can’t keep the screen on</p>
-{:else if awake.refused}
-  <p class="refused" id="{id}-refused" role="status">Couldn’t keep the screen awake.</p>
 {/if}
 
 <style>
