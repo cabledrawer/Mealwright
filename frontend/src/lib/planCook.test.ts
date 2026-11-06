@@ -64,11 +64,31 @@ describe('cooking by day', () => {
 
   it('shows a meal already cooked as cooked, and skips one that was not cooked or moved', () => {
     const done = samplePlan();
-    done.meals[0] = { ...done.meals[0]!, status: 'cooked' };
+    // As the server reads a cooked meal: every item of it is cooked.
+    const was = done.meals[0]!;
+    done.meals[0] = {
+      ...was,
+      status: 'cooked',
+      items: was.items.map((i) => ({ ...i, cooked: true }))
+    };
     done.meals.push(mealOf(20, '2026-10-19', 1, [recipeItem(20, 6, 'Upma')], { status: 'didnt' }));
     const out = cookDays(done, SLOTS, DAYS);
     expect(out[0]!.entries[0]!.cooked).toBe(true);
     expect(out.map((d) => d.day)).toEqual(['2026-10-17', '2026-10-18']);
+  });
+
+  it('shows Cooked on the recipe that was cooked, not on the others of its meal (F157)', () => {
+    const part = samplePlan();
+    const meal = part.meals[0]!;
+    meal.items = [
+      recipeItem(31, 5, 'Khichdi'),
+      { ...recipeItem(32, 6, 'Lentil soup'), cooked: true }
+    ];
+    const entries = cookDays(part, SLOTS, DAYS)[0]!.entries.filter((e) => e.meal.id === meal.id);
+    expect(entries.map((e) => [e.name, e.cooked])).toEqual([
+      ['Khichdi', false],
+      ['Lentil soup', true]
+    ]);
   });
 
   it('skips a meal that is switched off', () => {

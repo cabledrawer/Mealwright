@@ -739,7 +739,8 @@ describe('the recipe page', () => {
         kept_name: null,
         servings: null,
         note: null,
-        eating: null
+        eating: null,
+        cooked: false
       });
       const meals = [
         {

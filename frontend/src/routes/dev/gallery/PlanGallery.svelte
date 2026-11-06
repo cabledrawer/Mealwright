@@ -22,7 +22,8 @@
     kept_name: null,
     servings: null,
     note: null,
-    eating: null
+    eating: null,
+    cooked: false
   });
   const plain = (id: number, name: string) => ({
     id,
@@ -34,7 +35,8 @@
     kept_name: null,
     servings: null,
     note: null,
-    eating: null
+    eating: null,
+    cooked: false
   });
 
   const model = new PlanModel();

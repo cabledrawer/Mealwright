@@ -40,7 +40,7 @@ export const TAKEN_OUT = 'Taken out of today’s plan.';
 export type CookSpot = { kind: 'planned'; meal: PlanMeal } | { kind: 'new'; slotId: number } | null;
 
 const hasRecipe = (meal: PlanMeal, recipeId: number) =>
-  meal.items.some((i) => i.kind === 'recipe' && i.recipe?.id === recipeId);
+  meal.items.some((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === recipeId);
 
 /** Today's next meal for a recipe to be cooked in (see the top of this file). */
 export function cookSpot(

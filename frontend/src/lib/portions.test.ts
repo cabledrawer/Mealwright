@@ -42,7 +42,8 @@ const tubItem = (id: number, tub: number): PlanItem => ({
   kept_name: null,
   servings: null,
   note: null,
-  eating: null
+  eating: null,
+  cooked: false
 });
 const meal = (id: number, date: string, slot: number, items: PlanItem[]): PlanMeal => ({
   id,

@@ -28,7 +28,8 @@ const recipe = (id: number, name: string): PlanItem => ({
   kept_name: null,
   servings: null,
   note: null,
-  eating: null
+  eating: null,
+  cooked: false
 });
 const fruit: PlanItem = {
   id: 9,
@@ -40,7 +41,8 @@ const fruit: PlanItem = {
   kept_name: null,
   servings: null,
   note: null,
-  eating: null
+  eating: null,
+  cooked: false
 };
 const meal = (items: PlanItem[], kcal: number | null = null): PlanMeal => ({
   id: 1,

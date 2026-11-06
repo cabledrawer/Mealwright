@@ -44,7 +44,7 @@
           (m) =>
             m.id === mealId &&
             m.status === 'planned' &&
-            m.items.some((i) => i.kind === 'recipe' && i.recipe?.id === id)
+            m.items.some((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === id)
         ) ?? null)
       : null
   );

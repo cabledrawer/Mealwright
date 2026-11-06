@@ -97,7 +97,7 @@ export function cookDays(
           tubs: batch ? tubPlaces(plan, allSlots, batch) : [],
           spare: batch ? batch.portions_left : 0,
           prep: batch?.prep_note ?? null,
-          cooked: meal.status === 'cooked'
+          cooked: item.cooked
         });
       }
     }

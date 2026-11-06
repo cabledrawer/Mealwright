@@ -16,7 +16,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
-  import { cookTarget } from '#lib/cookTargets.js';
+  import { cookedTitle, cookTarget } from '#lib/cookTargets.js';
   import { dateWords } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
@@ -242,6 +242,12 @@
             </div>
             {#if meal.status === 'cooked'}<span class="muted">Cooked</span>{/if}
           </div>
+          {#if meal.status === 'planned' && meal.items.some((i) => i.cooked)}
+            <!-- Proposed, for cabledrawer: a meal cooked in parts says which are done. -->
+            <p class="muted" data-testid="today-cooked-parts">
+              {cookedTitle(meal.items.filter((i) => i.cooked).map((i) => itemName(i, data.plan)))}
+            </p>
+          {/if}
           {#if meal.items.some((i) => i.kind === 'tub')}
             <div class="chips">
               {#each meal.items.filter((i) => i.kind === 'tub') as item (item.id)}
@@ -260,7 +266,7 @@
             </div>
           {/if}
           {#if meal.kcal !== null}<p class="muted">{meal.kcal} kcal each</p>{/if}
-          {#if meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe')}
+          {#if meal.status === 'planned' && meal.items.some((i) => i.kind === 'recipe' && !i.cooked)}
             <button
               type="button"
               class="cooked-it"

@@ -29,7 +29,8 @@ export function cookTargetOf(
     kept_name: null,
     servings: null,
     note: null,
-    eating: null
+    eating: null,
+    cooked: false
   };
   const meal: PlanMeal = {
     id: write.meal_id,

@@ -42,13 +42,21 @@ function meal(
       kept_name: null,
       servings: null,
       note: null,
-      eating: null
+      eating: null,
+      cooked: false
     })),
     eater_login_ids: []
   };
 }
 
 describe('which meal today Cook now plans the recipe into', () => {
+  it('does not reuse a recipe of a part-cooked meal that is cooked already (F157)', () => {
+    const part = meal(7, 2, 'planned', [5, 9]);
+    part.items[0]!.cooked = true;
+    expect(cookSpot(TODAY, slots, [part], 5)).toEqual({ kind: 'new', slotId: 1 });
+    expect(cookSpot(TODAY, slots, [part], 9)).toEqual({ kind: 'planned', meal: part });
+  });
+
   it('uses the meal that already has the recipe, if it is not cooked yet, and plans nothing new', () => {
     const planned = meal(7, 2, 'planned', [5]);
     expect(cookSpot(TODAY, slots, [meal(6, 1, 'planned', [9]), planned], 5)).toEqual({

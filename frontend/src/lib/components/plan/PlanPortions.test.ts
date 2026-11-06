@@ -29,6 +29,7 @@ const recipeItem = (id: number, name: string, over: Partial<PlanItem> = {}): Pla
   servings: null,
   note: null,
   eating: 4,
+  cooked: false,
   ...over
 });
 const noteItem = (id: number, text: string): PlanItem => ({
@@ -36,7 +37,8 @@ const noteItem = (id: number, text: string): PlanItem => ({
   kind: 'note',
   recipe: null,
   note: text,
-  eating: null
+  eating: null,
+  cooked: false
 });
 const mealOf = (id: number, day: string, slot: number, items: PlanItem[]): PlanMeal => ({
   id,
@@ -180,6 +182,15 @@ describe('the meal’s menu (0.7 P1)', () => {
       const dialog = open({ kind: 'meal', meal: both });
       await expect.element(dialog.getByRole('group', { name: 'Sambar serves' })).toBeVisible();
       await expect.element(dialog.getByRole('group', { name: 'Rasam serves' })).toBeVisible();
+    });
+
+    it('is not offered on a recipe of the meal that is cooked already (F157)', async () => {
+      const done = recipeItem(12, 'Rasam', { servings: 2, eating: 2, cooked: true });
+      const part = mealOf(1, '2026-10-20', 4, [item, done]);
+      model.plan = plan([part]);
+      const dialog = open({ kind: 'meal', meal: part });
+      await expect.element(dialog.getByRole('group', { name: 'Serves' })).toBeVisible();
+      expect(dialog.getByRole('group', { name: 'Rasam serves' }).elements()).toHaveLength(0);
     });
 
     it('is not offered on a note, or on a meal that was already dealt with', async () => {

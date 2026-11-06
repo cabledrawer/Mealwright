@@ -34,7 +34,8 @@ export function cookTarget(
   subtitle: string,
   only: PlanItem | null = null
 ): CookTarget {
-  const items = (only ? [only] : meal.items).filter(isCookable);
+  // A recipe cooked already is not reviewed again (F157): a second open reviews what is left.
+  const items = (only ? [only] : meal.items).filter((i) => isCookable(i) && !i.cooked);
   const parts = items.map((item) => partOf(plan, meal, item));
   return {
     title: cookedTitle(parts.length ? parts.map((p) => p.name) : [mealNameOf(plan, meal)]),

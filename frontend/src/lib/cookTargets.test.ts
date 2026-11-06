@@ -12,7 +12,8 @@ const recipe = (id: number, name: string, recipeId = id): PlanItem => ({
   kept_name: null,
   note: null,
   servings: 4,
-  eating: null
+  eating: null,
+  cooked: false
 });
 
 const meal = (items: PlanItem[]): PlanMeal => ({
@@ -62,6 +63,15 @@ describe('what "Cooked it" is about', () => {
   it('only one recipe of the meal, from its own menu', () => {
     const m = meal([recipe(1, 'Dosa'), recipe(2, 'Chutney')]);
     expect(cookTarget(plan(), m, '', m.items[1]).parts.map((p) => p.name)).toEqual(['Chutney']);
+  });
+
+  it('leaves out a recipe already cooked, so a second open reviews what is left (F157)', () => {
+    const m = meal([{ ...recipe(1, 'Dosa'), cooked: true }, recipe(2, 'Chutney')]);
+    const t = cookTarget(plan(), m, '');
+    expect(t.title).toBe('Cooked Chutney');
+    expect(t.parts.map((p) => p.name)).toEqual(['Chutney']);
+    // Asked for the one that is cooked already: nothing to review.
+    expect(cookTarget(plan(), m, '', m.items[0]).parts).toEqual([]);
   });
 
   it('a tub or a plain ingredient takes nothing, and a meal without a recipe has no parts', () => {

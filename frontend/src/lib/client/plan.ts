@@ -41,6 +41,11 @@ export interface PlanItem {
    * null for anything but a recipe, and for a recipe with no Serves.
    */
   eating: number | null;
+  /**
+   * This recipe has been cooked (F157): its own "Cooked it", its Cook once batch's, or its meal was
+   * marked cooked before 0.7.0 (a meal with several recipes is cooked one at a time).
+   */
+  cooked: boolean;
 }
 
 export interface PlanMeal {

@@ -110,7 +110,7 @@
     if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return [];
     if (target.meal.status !== 'planned') return [];
     const items = target.kind === 'item' ? [target.item] : target.meal.items;
-    return items.filter((i) => i.kind === 'recipe');
+    return items.filter((i) => i.kind === 'recipe' && !i.cooked);
   });
 
   /** A note has no leftovers (it is "Eating out"), and no Serves. */
@@ -141,7 +141,8 @@
     const items =
       target.kind === 'item' ? [target.item] : target.meal.items.filter((i) => i.kind === 'recipe');
     const only = items.length === 1 ? items[0] : null;
-    if (!only || only.kind !== 'recipe' || !only.recipe || only.recipe.removed) return null;
+    if (!only || only.kind !== 'recipe' || only.cooked || !only.recipe || only.recipe.removed)
+      return null;
     return cookBatchOfItem(model.plan, target.meal, only) ? null : only;
   });
 
@@ -150,7 +151,9 @@
     if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return null;
     const meal = target.meal;
     if (meal.status !== 'planned' || meal.date > model.today) return null;
-    return meal.items.some((i) => i.kind === 'recipe' && i.recipe && !i.recipe.removed)
+    // Something in it still to cook (F157): a recipe cooked already is not asked about again.
+    const items = target.kind === 'item' ? [target.item] : meal.items;
+    return items.some((i) => i.kind === 'recipe' && i.recipe && !i.recipe.removed && !i.cooked)
       ? meal
       : null;
   });

@@ -47,6 +47,7 @@ export const recipeItem = (
   servings: null,
   note: null,
   eating: 2,
+  cooked: false,
   ...extra
 });
 
@@ -60,7 +61,8 @@ export const tubItem = (id: number, tubId: number): PlanItem => ({
   kept_name: null,
   servings: null,
   note: null,
-  eating: null
+  eating: null,
+  cooked: false
 });
 
 export const noteItem = (id: number, text: string): PlanItem => ({
@@ -73,7 +75,8 @@ export const noteItem = (id: number, text: string): PlanItem => ({
   kept_name: null,
   servings: null,
   note: text,
-  eating: null
+  eating: null,
+  cooked: false
 });
 
 export const mealOf = (

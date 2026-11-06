@@ -45,7 +45,8 @@ const meal = (
       kept_name: null,
       servings: null,
       note: null,
-      eating: null
+      eating: null,
+      cooked: false
     }
   ]
 });
@@ -92,7 +93,8 @@ describe('the words on Today', () => {
             kept_name: null,
             servings: null,
             note: null,
-            eating: null
+            eating: null,
+            cooked: false
           }
         ]
       }
