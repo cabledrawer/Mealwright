@@ -1167,4 +1167,11 @@
     background: transparent;
     color: var(--color-text);
   }
+
+  /* A blocked button looks blocked, the same as Save recipe (F154). */
+  .cancel:disabled,
+  .leave:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
 </style>

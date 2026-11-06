@@ -574,6 +574,10 @@
     cursor: pointer;
   }
 
+  /* A blocked button looks blocked, the same as Save recipe (F154): Close and See all too. */
+  .x:disabled,
+  .see-all:disabled,
+  .leave:disabled,
   .back:disabled,
   .next:disabled {
     opacity: 0.6;

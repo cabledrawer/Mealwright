@@ -85,6 +85,10 @@ function leaveFor(path = '/recipes') {
   return cancel;
 }
 
+/** How see-through a button is: a blocked one is greyed the same way Save recipe is (F154). */
+const faded = (button: ReturnType<typeof page.getByRole>) =>
+  Number(getComputedStyle(button.element()).opacity);
+
 describe('Focus (the phone’s default)', () => {
   it('hides the app’s menu and shows the header, the counts, Close and Save as drawn', async () => {
     show(reviewFlow(), true);
@@ -183,6 +187,17 @@ describe('Focus (the phone’s default)', () => {
       .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
       .toBeVisible();
     expect(nav.goto).not.toHaveBeenCalled();
+  });
+
+  it('Close and Save recipe both look greyed while a step box is open (F154)', async () => {
+    show(reviewFlow(), true);
+    const close = page.getByRole('button', { name: /^Close/ });
+    const save = page.getByRole('button', { name: 'Save recipe' });
+    expect(faded(close)).toBe(1);
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    await expect.element(close).toBeDisabled();
+    expect(faded(close)).toBeLessThan(1);
+    expect(faded(close)).toBe(faded(save));
   });
 
   it('Close waits while a step box is open, and works after Done with the edit kept', async () => {
@@ -308,6 +323,17 @@ describe('a computer', () => {
     await page.getByRole('button', { name: 'Done' }).click();
     expect(leaveFor()).toHaveBeenCalledTimes(1); // the leave sheet's question, as before
     await expect.element(page.getByRole('dialog')).toBeVisible();
+  });
+
+  it('Cancel looks greyed, as Save recipe does, while a step box is open (F154)', async () => {
+    show(reviewFlow(), false);
+    const cancel = page.getByRole('button', { name: 'Cancel' }).last();
+    const save = page.getByRole('button', { name: 'Save recipe' });
+    expect(faded(cancel)).toBe(1);
+    await page.getByRole('button', { name: /^Change step 1/ }).click();
+    await expect.element(cancel).toBeDisabled();
+    expect(faded(cancel)).toBeLessThan(1);
+    expect(faded(cancel)).toBe(faded(save));
   });
 
   it('Save recipe and Cancel wait while a step box is open, and work after Done (F143)', async () => {
@@ -708,6 +734,24 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
+    });
+
+    it('Close, See all, Back and Next all look greyed while a step box is open (F154)', async () => {
+      await opened();
+      await next().click(); // line 2
+      await next().click(); // step 1
+      const buttons = [
+        page.getByRole('button', { name: 'Close (kept in Drafts)' }),
+        page.getByRole('button', { name: 'See all' }),
+        back(),
+        next()
+      ];
+      for (const button of buttons) expect(faded(button)).toBe(1);
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      for (const button of buttons) {
+        await expect.element(button).toBeDisabled();
+        expect(faded(button)).toBeLessThan(1);
+      }
     });
 
     it('See all waits while a step box is open', async () => {
