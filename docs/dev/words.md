@@ -626,8 +626,8 @@ The mockups `CookMode-Phone`, `CookMode-Desktop`, their dark twins and `Dark-Exp
 - **Ingredients sheet:** **All ingredients** · **Done**.
 - **A recipe with no steps:** **This recipe has no steps yet.**
 - **Timers:** the words found ("10 minutes") · **Start timer** · while it runs, **Stop** · when it ends **Time’s up** and **Done** · for the screen reader *Timer finished: 10 minutes.* · on the other steps a button *Step 2 · 04:32* or *Step 2 · time’s up* · **No alarm if the phone is locked or Mealwright is in the background.** (the spec says Cook mode says so; these are the words).
-- **Keep screen awake:** the switch is **Keep screen awake**; where the browser can't, it is greyed with **This browser can’t keep the screen on** (spec); when the browser says no: *Couldn’t keep the screen awake.* (from 0.4).
-- **Experimental per-step ingredients:** the switch **Ingredients for each step** with the badge **Experimental** and the pink flask · under a step **For this step** · **Experimental · guessed** (mockup) · **Wrong? Fix it when you edit the recipe.** (mockup) · nothing guessed: **No ingredient guessed for this step.**
+- **Keep screen awake:** the switch is **Keep screen awake**; where the browser can't, it is greyed with **This browser can’t keep the screen on** (spec); when the browser says no: *Couldn’t keep the screen awake.* (from 0.4); from 0.8 on its own amber line under the progress bar, with a moon (mockup `Dark-CookStep08-Phone`, cabledrawer 6 Nov).
+- **Experimental per-step ingredients:** the switch **Ingredients for each step** with the badge **Experimental** and the pink flask · under a step, below a thin divider, the guessed chips and **Guessed from the step, so it may be wrong. Fix it when you edit the recipe.** (0.8 mockup `Dark-CookStep08-Phone`, cabledrawer 6 Nov; replaces 0.7's "For this step", "Experimental · guessed" and "Wrong? Fix it when you edit the recipe.") · nothing guessed: **No ingredient guessed for this step.**
 - **Leaving with a timer running:** **Stop the timer and leave?** with **Stay** and **Leave** (spec).
 - **Page title:** *Cooking Sambar · Mealwright*.
 
