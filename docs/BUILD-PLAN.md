@@ -13,6 +13,9 @@ Written 17 Oct 2026 from the finished planning spec (`docs/spec.md`). Owner: cab
 - **Code home during 0.x (cabledrawer 17 Oct): cabledrawer's own Forgejo** on his homelab, as a private repo. Repo: `https://<code server>/tess/mealwright` (the address is in `CLAUDE.local.md`, git-ignored). Use plain `git` over **HTTPS** (SSH is off on that Forgejo) and the `tea` CLI for pull requests and issues (not `gh`). Claude Code pushes as the restricted `claude` account, with a token limited to repository and issue access; `main` and `v*` tags are protected. **No self-hosted CI runner during 0.x (cabledrawer 17 Oct):** running untrusted build code on the homelab needs more isolation than it's worth for a one-person project. Instead, run `./check` before every pull request and paste its summary into the PR description. 0.x images are never pushed to any registry; cabledrawer builds each one, copies it to the test bed with `scp` and loads it with `docker load` (cabledrawer 18 Oct). The test bed is a test VM, not the code server's machine; Claude Code stays on WSL, and the move to the test VM's machine is on hold (cabledrawer 28 Oct; spec section 9). CI starts at 1.0 on GitHub Actions. GitHub becomes the public home at 1.0.0 (see 0.9 and 1.0).
 - **When to run `./check` (cabledrawer 17 Oct, from 0.3):** while working, run only the test file for the change plus lint and type checks for that side; run `./check --fast` after a chunk of work or a round of review fixes; run the full `./check` before opening each pull request, again on the final commit after the last fixes, for release pull requests, and whenever a dependency, lock file or the Dockerfile changes. The checker trusts a pasted summary whose commit matches the pull request's latest commit, and runs only the screenshot review and that feature's browser tests. See spec section 9.
 - **Models and effort (cabledrawer 17 Oct, from 0.3):** the lead runs on Opus at the usual effort. Helpers start fresh for each pull request and close when it merges. Use Opus at high effort for the hardest, riskiest work (in 0.3: the sync design, the server sync code, the device's offline queue, and the checker's reviews of those) and Sonnet for everything else. If usage gets tight, move the lead to Sonnet before taking Opus off the risky work. Helpers read only the spec sections their pull request needs, not the whole spec.
+- **Working method from 0.8 (cabledrawer 6 Nov; replaces "the lead runs on Opus" above):** Sonnet wherever possible, for the lead and every builder. Opus only for the reviews of security, sync, offline, sign-in, import, database and stock work. The lead's sessions only code and debug: planning, sorting findings, wording for the spec, BUILD-PLAN and `words.md`, hand-test lists and release notes are done with cabledrawer outside the repo and reach the lead as well-defined briefs, with any doc wording ready to commit unchanged. If a brief is unclear, ask cabledrawer rather than decide. Everything else in "Faster working" still holds.
+- **Lead sessions (cabledrawer 6 Nov):** every wave starts in a new lead session; a larger wave is split into several sessions, each planned beforehand with its PRs and brief. An overnight run may build several PRs in one session; they are reviewed and merged in the morning, then that session ends and a new one starts. Two hand-over points a day: a session winds up by 05:30 and is ready to hand over by 06:00 (overnight), or winds up by 18:00 and is ready to hand over by 18:30 (day).
+- **Docs-only pull requests with agreed wording (cabledrawer 6 Nov):** when a pull request only commits wording cabledrawer has already agreed (written outside the repo), it gets no reviewer and no `./check` (cabledrawer 6 Nov: `./check` has no docs-only step); the helper outside the repo checks the diff against the agreed wording before cabledrawer merges.
 - **Working lessons (cabledrawer 18 Oct, from 0.3):** see spec section 9, "Working lessons from 0.3": summaries for long design docs; decisions copied into `progress.md` and checked by the checker; all product questions before the first code pull request; side-by-side pull requests only when they don't overlap; mockups changed only before a screen is built.
 - **Keeping the UI good (cabledrawer 18 Oct, from 0.4):** follow spec "UX — CORE → Keeping the UI good". At the start of each milestone, sort the friction log (fix now, later, Not planned). Use the wording in `docs/dev/words.md`. Build every state of a screen, not just the full one. Add new components to `/dev/gallery`. End each milestone with a paper-cuts pull request before the release pull request.
 - **Faster working (cabledrawer 18 Oct, from 0.4):** see spec section 9, "Faster working": side by side only when pull requests touch separate parts; first ready merges first; up to three helpers with at most two builders; light and full review levels (the pull request says which); every full `./check` goes through the shared lock; added 19 Oct (cabledrawer 19 Oct): the lead (Opus, usual effort) is the only one cabledrawer talks to, and a fresh helper is started per pull request and closed when it merges; full review also covers permissions, imports, uploads (recipe photos too) and the outbound gate, and its verdict has a Security section; Opus at high effort for the security audit and its review and for any builder or checker on a full-review PR touching sign-in, households, sync or uploads, Sonnet otherwise (if usage gets tight, back to two helpers first); helpers only stop their own runs, by their own process, never with a broad command; helpers report in 10 lines or fewer and read only the spec sections their brief names; branch protection is on (`main` changes only through a pull request cabledrawer merges, and a local pre-commit check refuses commits on `main`; don't change or bypass either).
@@ -38,8 +41,10 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 | 0.5.0 | Recipe import and drafts |
 | 0.6.0 | Meal plan, batch cooks and Today |
 | 0.7.0 | 0.6.0 fixes; importer consistency (back in 0.7.0, cabledrawer 30 Oct); Cooking: Cook mode, "Cooked it", deductions; Plan redesign; navigation |
-| 0.8.0 | Household, settings, backups |
-| 0.9.0 | Mealie importer, docs, polish, pre-release checks |
+| 0.8.0 | Everyday features: 0.7.0 leftovers, Shopping and Pantry, recipes, two cooking methods and multi-day cooking, Batch cook (Experimental) (cabledrawer 2 Nov) |
+| 0.9.0 | What a tester needs: people and sign-in, the rest of Settings, onboarding, starter packs, backups, logs, update check, Report a problem, hardening, install docs (cabledrawer 2 Nov) |
+| 0.9.5 | Finishing for the public: Mealie importer, accessibility, speed, the rest of the docs, a public-safe repo, GitHub prep, upgrade tests, polish, pre-release checks (cabledrawer 2 Nov) |
+| trial | Private trial with 2–3 invited self-hosters, about a month, after 0.9.5; fixes as 0.9.x (cabledrawer 2 Nov) |
 | 1.0.0 | First public release |
 
 **Working pace (cabledrawer 18 Oct):** all of a milestone's questions in one sitting at its start, pull requests side by side when they don't overlap, and light review for low-risk pull requests. Not cut: the security audit, the full `./check` before every merge, and the two-device and household tests.
@@ -264,49 +269,84 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 ---
 
-## 0.8.0 Household, settings, backups
+## 0.8.0 Everyday features
 
-**Spec:** section 3 (Users and households), section 7 (all), Layout decisions (Onboarding, Settings, Settings additions, Sign-in, Sign-out warning).
+**Shape (cabledrawer 2 Nov):** 0.8 is the features cabledrawer needs for everyday use: the Shopping redesign, Pantry, Stocktake, pack sizes, two cooking methods and multi-day cooking, several links at once, tag management and Batch cook (Experimental). Settings only where these need it. People and sign-in, the rest of Settings, onboarding and backups moved to 0.9.0.
 
-**Build:**
+**Order, in waves (cabledrawer 6 Nov).** Each wave depends on the one before; mockups come before their wave's screens (dark first).
+
+1. **Kickoff (docs only):** this section, the spec's "Decided for 0.8.0" and the working method (spec section 9).
+2. **What 0.7.0 left** (then **`v0.8.0-alpha.1`**, so the F159 fix reaches cabledrawer's everyday copy early; cabledrawer 6 Nov): F159–F164 (spec, "Decided for 0.8.0"), F158 and its two side items, F127, F131, F133, F134, F135, F137, F139, F140, F142, F144, F145, F148, F149, F150, F151 (with the importer's doubled "((optional))"), F153, F154, putting shopping away giving one Undo per item instead of per press, Cook mode's label flicker while the plan loads, the lead's 0.7 follow-ups and the flaky tests (spec section 6, "Decided for 0.7.0", the "To 0.8" lines).
+3. **Shopping and Pantry**, then an alpha for cabledrawer's everyday use:
+   - **From the 0.6.0 hand test (cabledrawer 28 Oct):** the Shopping redesign (F59: a "plan shopping" view on the computer and an "in the shop" view on the phone; cabledrawer likes today's phone Shopping screen); shops added and managed from the Shopping screen and in Settings → Shops & places (F74); a shorter list (F54); put-away rows (F72, plus clearing one item, and swipes on the phone); the rest of F60. Pantry and Use soon: F64 quick actions and "Passed 3 days ago" on Today, F66 a compact Pantry on the computer, F78 the phone Use soon card, F79 the "How much?" sheet.
+   - F117, F120 and F121
+     - F117, with the Shopping redesign: "Add as bought" in Shopping's "Add an item" box, straight into the pantry (usual place, Change, Undo), working offline like a tick; "Already have it" on each list row: takes it off the list and puts the amount at home into the pantry (asks how much, starting from the list's amount), recorded as "found at home", not "bought".
+     - F120, with the Shopping redesign: with a known size, what to buy in whole packs plus the need ("Ghee · 1 jar (500 g) · 120 g needed"); with no size, common pack sizes from the bundled offline table ("200 g · 500 g · 1 kg"); a tap makes it the Usual size.
+     - F121: a "Pack" column on Ingredients ("jar · 500 g"; several sizes → the Usual one plus "+1"), a line under the name on the phone, "Add a pack" with the same suggestions when none.
+   - F118: a Stocktake for filling the pantry from what's already at home: place by place; per ingredient None · ¼ · ½ · ¾ · Full or Staple; the pack size asked once if unknown; stop and carry on later.
+   - From the review of v0.6.0
+     - Pantry: best-before (cupboard: dimmed, "probably fine", no To freezer) apart from use-by (fridge: red); one rule for rolling up packets everywhere (Today, Pantry, Use soon); Today's week strip shows the dinner's name.
+     - Shopping: buying amounts (rounded to packs or bunches from known sizes; tiny long-life amounts offered as staples); recipes inside recipes expanded on the list.
+   - **The Settings screen (cabledrawer 6 Nov):** the page and its sections in the spec order, building only **Appearance, Amounts (incl. tub use-by, remembered sizes), Meal slots, and Shops & places** now; Household, Privacy, Sign-in, Your data and About come in 0.9.0 with their features.
+   - **Tag: `v0.8.0-alpha.2` after this wave** (cabledrawer 6 Nov), for real use.
+4. **Recipes:**
+   - F110: several links read one after another, each into its own draft (Recipes → Drafts); one failing link doesn't stop the rest; the same switch and server-only fetching as now.
+   - "Nutrition possibly out of date" on an imported recipe, only when its ingredient lines or Serves actually change (cabledrawer 31 Oct: "only when the ingredient lines or Serves actually change. If that needs a database change, take it out of C1 and put it in BUILD-PLAN 0.8"). Needs a database change: a save must record whether the lines or Serves changed.
+   - Recipes: tag chips in one row with "more", and a screen to manage and merge tags.
+5. **Two cooking methods and multi-day cooking**. Screens wait for cabledrawer's mockups.
+   - F107 + F124 together: recipes with two cooking methods (Cook mode asks "How are you cooking it today?"; steps, timers and the time follow the pick) and multi-day cooking: "(1) A step can carry a wait ("Marinate · 4–24 h", "Ferment · 8–12 h", "Soak · overnight"), suggested by the importer and confirmed on the Check screen. (2) The time splits ("30 min active · plus 12 h fermenting"). (3) The plan works backwards: the Cook view and Today show it the day before ("Start tonight: soak and grind the dosa batter (for Sat breakfast)"). (4) Cook mode starts at the right step on day two. In-app only, no notifications." Screens wait for cabledrawer's mockups.
+6. **Batch cook (Experimental), last** (cabledrawer 6 Nov), built on wave 5's waiting steps and timings: spec section 6, "Batch cook (Experimental)". If 0.8 runs long, Batch cook moves to 0.8.5 rather than hold up the release (cabledrawer 6 Nov).
+
+**Each wave's screens** get the 768–1100 px pass (from the review of v0.6.0) as they are built.
+
+**Release:** at most two betas (cabledrawer 6 Nov), then `v0.8.0`. Every 0.x tag is a pre-release.
+
+**Done when (cabledrawer 6 Nov):** each finding in wave 2 has a test; Shopping works on the phone in the shop (offline as before) and on the computer for planning; Stocktake can stop and carry on; a recipe with two methods and an overnight step cooks right on both days; Batch cook never schedules two hands-on tasks at once or more hob rings than the kitchen has.
+
+**cabledrawer checks (cabledrawer 6 Nov):** a week of real use on the alpha (shopping, putting away, a stocktake), then the beta hand test: a dosa batter started the night before, and a Batch cook session.
+
+---
+
+## 0.9.0 What a tester needs
+
+**Shape (cabledrawer 2 Nov):** everything a private-trial tester needs to install, sign in, set up and trust Mealwright with their data.
+
+**Build** (each moved unchanged from the old 0.8.0, in this order: the bullets starting):
 
 - Members (profiles without logins), Admin/Member roles, portions assigned to members. Optional "Who's this?" picker for shared logins.
 - OIDC sign-in with Authlib (PKCE, refresh tokens), auto-create on first login, group → role mapping, option to turn off password logins (Sign in then shows only the SSO button).
 - API tokens: read-only or full, optional expiry.
-- "Nutrition possibly out of date" on an imported recipe, only when its ingredient lines or Serves actually change (cabledrawer 31 Oct: "only when the ingredient lines or Serves actually change. If that needs a database change, take it out of C1 and put it in BUILD-PLAN 0.8"). Needs a database change: a save must record whether the lines or Serves changed.
 - Full Onboarding (`Onboard-*`): admin account, then Amounts, Household and Shops; Skip always available after the admin step.
-- Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About.
+- Settings (`Settings-*`), every section in the spec order: Appearance, Amounts (incl. tub use-by, remembered sizes), Household, Meal slots, Shops & places, Privacy (every outside connection with its own switch), Sign-in, Your data, About. (the sections 0.8 didn't build: Household, Privacy, Sign-in, Your data, About)
 - Secrets (the SSO client secret) encrypted at rest.
 - Passwords and the sign-in cookie (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): new passwords need at least 12 characters (existing ones keep working); new passwords are checked against a bundled, offline list of leaked passwords under a licence on the allow list (never an online lookup) (lead's note: cabledrawer approves the list and its licence first); the sign-in cookie gets the `__Host-` name, which signs everyone out once (say so in the release notes) and can't work in plain-http mode (decide with cabledrawer what that mode does).
-- **Not in 0.8 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
+- **Not before 1.0 (cabledrawer 18 Oct):** notifications (ntfy/Apprise) are not built before 1.0. The Settings → Notifications section and anything that would call ntfy/Apprise are not built before 1.0.
 - Backups: daily, keep 7, into the data volume (adjustable). Export everything (optional password encryption).
 - Logs: errors and sign-ins only, 14 days, never content.
 - Updates: version-age note (no connection), admin "Check now", optional daily check (off by default, in Privacy). Requests go through the outbound gate and send nothing about the install.
 - "Report a problem" (About): report built on the server, shown in full with personal details removed, editable; Open on GitHub (pre-filled issue in the user's browser), Copy, or Download.
-- **From the 0.6.0 hand test (cabledrawer 28 Oct):** the Shopping redesign (F59: a "plan shopping" view on the computer and an "in the shop" view on the phone; cabledrawer likes today's phone Shopping screen); shops added and managed from the Shopping screen and in Settings → Shops & places (F74); a shorter list (F54); put-away rows (F72, plus clearing one item, and swipes on the phone); the rest of F60. Pantry and Use soon: F64 quick actions and "Passed 3 days ago" on Today, F66 a compact Pantry on the computer, F78 the phone Use soon card, F79 the "How much?" sheet.
-- **From cabledrawer's real use of v0.7.0-alpha.2 (cabledrawer 31 Oct):**
-  - F107 + F124 together: recipes with two cooking methods (Cook mode asks "How are you cooking it today?"; steps, timers and the time follow the pick) and multi-day cooking: "(1) A step can carry a wait ("Marinate · 4–24 h", "Ferment · 8–12 h", "Soak · overnight"), suggested by the importer and confirmed on the Check screen. (2) The time splits ("30 min active · plus 12 h fermenting"). (3) The plan works backwards: the Cook view and Today show it the day before ("Start tonight: soak and grind the dosa batter (for Sat breakfast)"). (4) Cook mode starts at the right step on day two. In-app only, no notifications." Screens wait for cabledrawer's mockups.
-  - F110: several links read one after another, each into its own draft (Recipes → Drafts); one failing link doesn't stop the rest; the same switch and server-only fetching as now.
-  - F117, with the Shopping redesign: "Add as bought" in Shopping's "Add an item" box, straight into the pantry (usual place, Change, Undo), working offline like a tick; "Already have it" on each list row: takes it off the list and puts the amount at home into the pantry (asks how much, starting from the list's amount), recorded as "found at home", not "bought".
-  - F120, with the Shopping redesign: with a known size, what to buy in whole packs plus the need ("Ghee · 1 jar (500 g) · 120 g needed"); with no size, common pack sizes from the bundled offline table ("200 g · 500 g · 1 kg"); a tap makes it the Usual size.
-  - F121: a "Pack" column on Ingredients ("jar · 500 g"; several sizes → the Usual one plus "+1"), a line under the name on the phone, "Add a pack" with the same suggestions when none.
-  - F118: a Stocktake for filling the pantry from what's already at home: place by place; per ingredient None · ¼ · ½ · ¾ · Full or Staple; the pack size asked once if unknown; stop and carry on later.
 - **The Undo-window setting (cabledrawer 28 Oct):** if `undo_days` becomes a setting and is raised, Undo of a recipe Save older than the old window brings the recipe back without its draft. Decide with cabledrawer when the setting is built.
 - Starter ingredient packs (spec section 2, cabledrawer 18 Oct): the optional onboarding step and the "Add a starter pack" button on Ingredients, with the four packs bundled as data files in the repo. cabledrawer agrees the item lists before the first code pull request.
-- **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0):**
-  - Pantry: best-before (cupboard: dimmed, "probably fine", no To freezer) apart from use-by (fridge: red); one rule for rolling up packets everywhere (Today, Pantry, Use soon); Today's week strip shows the dinner's name.
-  - Shopping: buying amounts (rounded to packs or bunches from known sizes; tiny long-life amounts offered as staples); recipes inside recipes expanded on the list.
-  - Recipes: tag chips in one row with "more", and a screen to manage and merge tags.
+- From the review of v0.6.0
   - Sign-in: a limit on Argon2 (a few hashes at a time); a per-username lock-out capped at about 60 s; change password; a sessions list; sign out everywhere; a one-time setup code for the first run; `X-Forwarded-Host` when a proxy is trusted; a one-time warning when `X-Forwarded-For` arrives from a proxy that isn't trusted.
   - Household: a roles table (Admin and Member) written before Settings is built; a local `reset-admin` command; removing a person; "Delete everything / start again"; restore written down (how, photos, a warning about backups on the same disk).
   - Update check and About: "new version ready — close every tab"; a total-time limit on `OutboundGate.request()`; About with the USDA credit, font licences and the AGPL source link.
-  - A mid-width pass (768–1100 px) on the other screens. How the private trial works is decided at the 0.8 kickoff.
+
+**Also from the old 0.9.0 (cabledrawer 2 Nov: hardening and install docs come here):**
+
+- Database file readable only by Mealwright (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): `mealwright.db` becomes readable only by the `mealwright` user, together with the backup docs (lead's note: once it's clear how backup tools read `/data`).
+- Install docs, HTTPS (cabledrawer 17 Oct): say plainly that HTTPS is required for sign-in on other devices, the installable app, offline shopping and keep-screen-awake, and why. Give short, tested reverse-proxy examples for Caddy, Traefik, nginx and Nginx Proxy Manager, each showing HTTPS, the forwarded headers and the matching `MEALWRIGHT_TRUSTED_PROXIES` value. (lead's note: say to give Mealwright its own host name, because HSTS covers every port on that name, so another plain-http service on the same name would be forced to https.)
+- Compose hardening (no-new-privileges, cap_drop, read_only with tmpfs, init, a memory limit, a commented `user:` line); Dockerfile OCI labels and layer order; `uv lock --check` in the build; SBOM and provenance.
 
 **Done when:** a member-only household, an SSO-only household and a mixed one all work; with every Privacy switch off, the outbound-gate test proves nothing leaves; backup → restore works on a fresh container.
 
+**cabledrawer checks:** a hand test including a restore on a fresh container.
+
 ---
 
-## 0.9.0 Mealie importer, docs, polish, pre-release checks
+## 0.9.5 Finishing for the public
+
+**Shape (cabledrawer 2 Nov):** the Mealie importer, accessibility, speed, the rest of the docs, a public-safe repo, GitHub prep, upgrade tests, polish and the pre-release checklist. Hardening and the install docs moved to 0.9.0.
 
 **Build:**
 
@@ -314,8 +354,6 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - Accessibility pass to WCAG AA: contrast in both themes, keyboard, screen reader labels, large text.
 - Performance pass: fast on a Raspberry Pi 4 class device and an older phone.
 - Docs: install (Docker / compose, both image names), upgrade, backups, SSO setup, reverse proxy, the API, and the **README Privacy section** listing every possible outbound connection. README notes that Mealwright is a spare-time project with replies taking about a week, plus the AI disclosure.
-- Database file readable only by Mealwright (spec section 7, "Decided after the 0.4 security audit", cabledrawer 19 Oct): `mealwright.db` becomes readable only by the `mealwright` user, together with the backup docs (lead's note: once it's clear how backup tools read `/data`).
-- Install docs, HTTPS (cabledrawer 17 Oct): say plainly that HTTPS is required for sign-in on other devices, the installable app, offline shopping and keep-screen-awake, and why. Give short, tested reverse-proxy examples for Caddy, Traefik, nginx and Nginx Proxy Manager, each showing HTTPS, the forwarded headers and the matching `MEALWRIGHT_TRUSTED_PROXIES` value. (lead's note: say to give Mealwright its own host name, because HSTS covers every port on that name, so another plain-http service on the same name would be forced to https.)
 - Prepare the move to GitHub (ready but unused): GitHub Actions workflows in `.github/workflows/` that run the same checks as `./check` (CI starts here, at 1.0: cabledrawer 17 Oct); add arm64 to image builds; a release workflow that, on a `v1.*` tag on GitHub, builds multi-arch and pushes to GHCR and Docker Hub with tags 1.2.3 / 1.2 / 1 / latest, and creates the GitHub release from `CHANGELOG.md`. Write `docs/dev/move-to-github.md` for cabledrawer: create the GitHub repo, set a push mirror in Forgejo, add secrets, turn on private vulnerability reporting, issue form and Discussions.
 - Pre-release checklist from spec section 8: licence allow list green and the food table checked by hand; a manual network-watch run with every Privacy switch off; trademark search (UK, EU, US) recorded by cabledrawer; scanners clean; web-app security checklist gone through.
 - **The 1.0 promise (spec section 8):** document and version the export format in `docs/`; add upgrade tests: a saved database from each earlier 0.x tag upgrades cleanly to the latest, with the 0.9 database kept as a fixture for later tests.
@@ -323,7 +361,6 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **README "Not planned" section:** built from spec section 1 non-goals, the ethos hard rules, "Not in v1" and spec section 8.
 - **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0):**
   - A repo safe to make public: homelab names and local paths move out of tracked files into a git-ignored local file, then a `./check` step fails on them.
-  - Compose hardening (no-new-privileges, cap_drop, read_only with tmpfs, init, a memory limit, a commented `user:` line); Dockerfile OCI labels and layer order; `uv lock --check` in the build; SBOM and provenance.
   - Browser tests in the pinned Playwright image; fonts latin and latin-ext only; a healthcheck that touches the database; no `Server` header; THIRD-PARTY-NOTICES.md.
   - Docs: install, upgrade, backup, reverse proxy, a table of environment variables, CONTRIBUTING. The install docs say "one worker only" (Mealwright can't see gunicorn's forked workers; no lock file; cabledrawer 30 Oct).
   - `./check` extras: hadolint, compose config, shellcheck, a smoke run of the built image, and an upgrade test from a saved real database for each tag.
@@ -332,7 +369,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 
 **Done when:** every "v1.0 must have" item in spec section 2 is built and ticked off in a checklist in `docs/`; the pre-release checklist is complete.
 
-**cabledrawer checks:** asks the self-hosting community for a review, runs a private trial with two or three invited self-hosters for about a month (how they get the build is decided then; no public image or release), and fixes what comes back (as 0.9.x patches). The non-technical prototype test (`docs/prototype-test-plan.md`) is run alongside the private trial (cabledrawer 19 Oct; it moved here from before 0.4).
+**Then the private trial (cabledrawer 2 Nov):** cabledrawer asks the self-hosting community for a review and runs a private trial with two or three invited self-hosters for about a month (how they get the build is decided before the trial; no public image or release), and fixes what comes back as 0.9.x patches. The non-technical prototype test (`docs/prototype-test-plan.md`) runs alongside the trial (cabledrawer 19 Oct).
 
 ---
 
