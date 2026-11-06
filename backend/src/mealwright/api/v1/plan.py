@@ -23,6 +23,7 @@ from mealwright.household import meal_slots
 from mealwright.models import (
     BatchCook,
     Change,
+    CookedRecord,
     Food,
     Login,
     Meal,
@@ -96,6 +97,10 @@ class PlanItemOut(BaseModel):
     # batch (how Cook once and the list count it); null for anything but a recipe, and for a
     # recipe with no Serves.
     eating: int | None = None
+    # Cooked (F157): this recipe has been cooked ("Cooked it"), or its meal was marked cooked
+    # (a meal from before 0.7 has no records). A meal with several recipes is cooked one at a
+    # time; the meal's `status` is "cooked" only when every recipe in it is.
+    cooked: bool = False
 
 
 class PlanMealOut(BaseModel):
@@ -335,6 +340,45 @@ def get_plan(
         if first is not None:
             cook_items.add(first.id)
 
+    # Which items are cooked (F157): their own record, or the records of the batches they cook.
+    in_items = select(MealItem.id).where(*in_meals)
+    item_done = set(
+        db.scalars(
+            select(CookedRecord.meal_item_id).where(
+                CookedRecord.household_id == household_id,
+                CookedRecord.meal_item_id.in_(in_items),
+            )
+        )
+    )
+    batch_done = set(
+        db.scalars(
+            select(CookedRecord.batch_id).where(
+                CookedRecord.household_id == household_id,
+                CookedRecord.batch_id.in_(batch_ids),
+            )
+        )
+    )
+    cook_of: dict[int, list[int]] = {}
+    for b in batches:
+        first = next(
+            (
+                i
+                for i in items
+                if b.cook_meal_id is not None
+                and i.meal_id == b.cook_meal_id
+                and batch_service.cooks_item(b, i)
+            ),
+            None,
+        )
+        if first is not None:
+            cook_of.setdefault(first.id, []).append(b.id)
+    meal_status = {m.id: m.status for m in meals}
+
+    def cooked_of(i: MealItem) -> bool:
+        if meal_status.get(i.meal_id) == "cooked" or i.id in item_done:
+            return True
+        return i.id in cook_of and all(b in batch_done for b in cook_of[i.id])
+
     def eating_of(i: MealItem, recipe: Recipe | None) -> int | None:
         if i.kind != "recipe":
             return None
@@ -376,6 +420,7 @@ def get_plan(
             servings=i.servings,
             note=i.name if i.kind == "note" else None,
             eating=eating_of(i, recipe),
+            cooked=cooked_of(i),
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}

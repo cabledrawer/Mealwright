@@ -35,7 +35,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import exists, func, select
 
-from mealwright import together
+from mealwright import cooking, together
 from mealwright.api.v1.context import Kitchen
 from mealwright.batches import (
     MOST_TUBS_IN_BATCH,
@@ -204,13 +204,25 @@ def _make_tubs(
     return leftovers.count
 
 
+def _joined(names: list[str]) -> str:
+    """ "A", "A and B", "A, B and C" (as the screens' `cookedTitle`)."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
-    """Cooked it. The pantry is not touched (0.7)."""
+    """Cooked it. The meal becomes cooked when every recipe in it has been (F157): one press
+    of a meal with several recipes cooks only the ones it reviewed. An answer with no pantry
+    change of its own (nothing was reviewed) still cooks the whole meal."""
     answerable(kitchen, meal)
     steps: list[dict[str, Any]] = []
-    name, where = _meal_name(kitchen, meal), _where(kitchen, meal.day, meal.slot_id)
+    where = _where(kitchen, meal.day, meal.slot_id)
+    press = together.press_changes(kitchen, meal)
+    names = together.cooked_names(kitchen, press, meal) if press else []
+    name = _joined(names) if names else _meal_name(kitchen, meal)
+    whole = not press or cooking.meal_all_cooked(kitchen, meal)  # before any new batch of leftovers
     made = _make_tubs(kitchen, meal, leftovers, steps) if leftovers else 0
-    _set_status(meal, "cooked", steps, kitchen)
+    if whole:
+        _set_status(meal, "cooked", steps, kitchen)
     summary = f"Cooked {name} ({where})"
     if made:
         summary += f" and kept {made} {'tub' if made == 1 else 'tubs'} of leftovers"

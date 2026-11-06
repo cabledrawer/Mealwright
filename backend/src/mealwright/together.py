@@ -54,22 +54,22 @@ def _cooked_for(kitchen: Kitchen, change: Change, meal: Meal) -> bool:
     return False
 
 
-def join_answer(kitchen: Kitchen, meal: Meal, answer: Change) -> None:
-    """The meal's "Cooked it" answer, just recorded: join it to the pantry changes of the same
-    press, if there are any."""
+def press_changes(kitchen: Kitchen, meal: Meal, answer: Change | None = None) -> list[Change]:
+    """The pantry changes (`cooked`) of the press that is being answered: this login's own, for
+    this meal, not undone, with nothing else of the login's in between. `answer` is the meal's
+    answer once recorded; before that, the press is everything up to now. Oldest first."""
     db = kitchen.db
     mine = (Change.household_id == kitchen.household_id) & (Change.login_id == kitchen.login.id)
-    before = db.scalar(
-        select(func.max(Change.id)).where(mine, Change.kind != "cooked", Change.id < answer.id)
-    )
-    pantry = [
+    below = (Change.id < answer.id,) if answer is not None else ()
+    before = db.scalar(select(func.max(Change.id)).where(mine, Change.kind != "cooked", *below))
+    return [
         change
         for change in db.scalars(
             select(Change)
             .where(
                 mine,
                 Change.kind == "cooked",
-                Change.id < answer.id,
+                *below,
                 Change.id > (before or 0),
                 Change.undone_by_change_id.is_(None),
             )
@@ -77,12 +77,41 @@ def join_answer(kitchen: Kitchen, meal: Meal, answer: Change) -> None:
         )
         if _cooked_for(kitchen, change, meal)
     ]
+
+
+def cooked_names(kitchen: Kitchen, changes: list[Change], meal: Meal) -> list[str]:
+    """What these pantry changes cooked for this meal, by name, in the order cooked: the meal's
+    recipes, or the recipe of a batch cooked for it."""
+    db = kitchen.db
+    hid = kitchen.household_id
+    names: list[str] = []
+    for change in changes:
+        for record in db.scalars(
+            select(CookedRecord)
+            .where(CookedRecord.household_id == hid, CookedRecord.change_id == change.id)
+            .order_by(CookedRecord.id)
+        ):
+            if record.meal_item_id is not None:
+                item = db.get(MealItem, record.meal_item_id)
+                if item is not None and item.household_id == hid and item.meal_id == meal.id:
+                    names.append(str(record.snapshot.get("name") or "a recipe"))
+            elif record.batch_id is not None:
+                batch = db.get(BatchCook, record.batch_id)
+                if batch is not None and batch.household_id == hid:
+                    names.append(str(record.snapshot.get("name") or batch.recipe_name))
+    return names
+
+
+def join_answer(kitchen: Kitchen, meal: Meal, answer: Change) -> None:
+    """The meal's "Cooked it" answer, just recorded: join it to the pantry changes of the same
+    press, if there are any."""
+    pantry = press_changes(kitchen, meal, answer)
     if not pantry:
         return
     ids = [change.id for change in pantry] + [answer.id]
     for change in [*pantry, answer]:
         _with(change, together=ids)
-    db.flush()
+    kitchen.db.flush()
 
 
 def follow(kitchen: Kitchen, tub: Tub, placed: Change) -> None:

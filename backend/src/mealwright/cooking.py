@@ -26,13 +26,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from mealwright import cooked, plan
 from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
-from mealwright.batches import cook_batches_of, cook_item_of
+from mealwright.batches import batches_cooked_at, cook_batches_of, cook_item_of
 from mealwright.deduction import (
     Choice,
     Pool,
@@ -479,13 +479,79 @@ def undo_sizes(kitchen: Kitchen, change: Change, tally: Tally) -> None:
     kitchen.db.flush()
 
 
+def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
+    """Has every recipe of the meal that can be cooked been cooked (F157)? A recipe is cooked
+    by its own record, or, when it is the cooking of a Cook once batch, by the batch's. A recipe
+    that was deleted (it can't be cooked), a tub, an ingredient and a note don't count. A meal
+    with nothing to cook is cooked."""
+    db, hid = kitchen.db, kitchen.household_id
+    items = [i for i in plan.items_of(kitchen, meal) if i.kind == "recipe"]
+    if not items:
+        return True
+    done_items = set(
+        db.scalars(
+            select(CookedRecord.meal_item_id).where(
+                CookedRecord.household_id == hid,
+                CookedRecord.meal_item_id.in_([i.id for i in items]),
+            )
+        )
+    )
+    for item in items:
+        if item.id in done_items:
+            continue
+        recipe = db.get(Recipe, item.recipe_id) if item.recipe_id is not None else None
+        if recipe is None or recipe.household_id != hid or recipe.removed_at:
+            continue  # can't be cooked
+        found = cook_batches_of(kitchen, item, meal)
+        if not found or any(cooked.for_batch(db, hid, b.id) is None for b in found):
+            return False
+    return True
+
+
+def _has_record(kitchen: Kitchen, meal: Meal) -> bool:
+    db, hid = kitchen.db, kitchen.household_id
+    ids = [i.id for i in plan.items_of(kitchen, meal)]
+    batches = [b.id for b in batches_cooked_at(kitchen, meal)]
+    return (
+        db.scalar(
+            select(CookedRecord.id)
+            .where(
+                CookedRecord.household_id == hid,
+                or_(CookedRecord.meal_item_id.in_(ids), CookedRecord.batch_id.in_(batches)),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
 def forget_record(kitchen: Kitchen, change: Change) -> None:
     """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
-    when the Undo was only partly done)."""
-    for record in kitchen.db.scalars(
+    when the Undo was only partly done). A meal that was Cooked is no longer, as a recipe of it
+    is not cooked any more (F157)."""
+    db, hid = kitchen.db, kitchen.household_id
+    meal_ids: set[int] = set()
+    for record in db.scalars(
         select(CookedRecord).where(
-            CookedRecord.household_id == kitchen.household_id, CookedRecord.change_id == change.id
+            CookedRecord.household_id == hid, CookedRecord.change_id == change.id
         )
     ):
-        kitchen.db.delete(record)
-    kitchen.db.flush()
+        if record.meal_item_id is not None:
+            item = db.get(MealItem, record.meal_item_id)
+            if item is not None:
+                meal_ids.add(item.meal_id)
+        elif record.batch_id is not None:
+            batch = db.get(BatchCook, record.batch_id)
+            if batch is not None and batch.cook_meal_id is not None:
+                meal_ids.add(batch.cook_meal_id)
+        db.delete(record)
+    db.flush()
+    for meal_id in meal_ids:
+        meal = db.get(Meal, meal_id)
+        if meal is None or meal.household_id != hid or meal.status != "cooked":
+            continue
+        # A meal cooked by its answer alone (no records) stays cooked; one that records say
+        # was cooked in parts is not cooked any more.
+        if _has_record(kitchen, meal) and not meal_all_cooked(kitchen, meal):
+            meal.status = "planned"
+    db.flush()

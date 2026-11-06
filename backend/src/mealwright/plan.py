@@ -873,6 +873,8 @@ def _undo_step(
         # Today's answer (cooked, didn't, moved): the meal is asked about again, if it still
         # carries the answer this change gave it (PR 6).
         meal = _own(kitchen, Meal, step["meal"])
+        if meal is not None and step["to"] == "cooked" and meal.status == step["from"]:
+            return True  # an earlier press's Undo already took the Cooked off (F157)
         if meal is None or meal.status != step["to"]:
             return False
         meal.status = step["from"]
