@@ -214,6 +214,17 @@ test.describe('theme', () => {
     return page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
   }
 
+  /**
+   * The choice is saved to the account in the background. A reload or a new page before that
+   * save has landed brings the account's old choice back over the new one ("the account's
+   * theme wins"), so a test that reloads waits for the save first, as a person who waits does.
+   */
+  async function savedToAccount(page: Page, choice: 'auto' | 'dark' | 'light') {
+    await expect
+      .poll(async () => ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme)
+      .toBe(choice);
+  }
+
   async function themeControls(page: Page) {
     if (isPhone(page)) {
       // Phones find the theme switch in Settings, behind the round button at the top.
@@ -249,6 +260,7 @@ test.describe('theme', () => {
       'true',
     );
     expect(await ground(page)).toBe(GROUND.dark);
+    await savedToAccount(page, 'dark');
 
     // Still dark after a reload, and already dark before the app has started.
     await page.goto('/plan', { waitUntil: 'commit' });
@@ -260,6 +272,7 @@ test.describe('theme', () => {
     const group2 = await themeControls(page);
     await group2.getByRole('button', { name: 'Light' }).click();
     expect(await ground(page)).toBe(GROUND.light);
+    await savedToAccount(page, 'light');
     await page.reload();
     expect(await ground(page)).toBe(GROUND.light);
 

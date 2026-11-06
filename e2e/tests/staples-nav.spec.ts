@@ -106,13 +106,20 @@ test('the editor changes the date, refuses tomorrow, and Restocked sets it to no
   const refused = await page.request.patch(`/api/v1/foods/${id}`, { data: { restocked_on: tomorrow.iso }, headers: key() });
   expect(refused.status()).toBe(422);
 
+  // The typed date's own save shows a toast too, and the server words both "<name> restocked".
+  // Mark that first toast, so the Undo pressed below is the Restocked button's, never the
+  // typed date's still on screen (or not yet shown, on a slow engine) under the same words.
+  const typedToast = page.getByRole('status').locator('.toast').filter({ hasText: `${name} restocked` });
+  await expect(typedToast).toBeVisible();
+  await typedToast.evaluate((el) => el.setAttribute('data-typed', ''));
+
   await editor.getByRole('button', { name: 'Restocked', exact: true }).click();
   await expect(editor.getByText('Restocked today · ')).toBeVisible();
   // Saved: the toast is then the server's, with its Undo.
   await expect
     .poll(async () => ((await (await page.request.get(`/api/v1/foods/${id}`)).json()) as Json).restocked_days_ago)
     .toBe(0);
-  const status = page.getByRole('status').filter({ hasText: `${name} restocked` });
+  const status = page.getByRole('status').locator('.toast:not([data-typed])').filter({ hasText: `${name} restocked` });
   await expect(status).toBeVisible();
   await status.getByRole('button', { name: 'Undo' }).click();
   await expect(editor.getByText('Restocked 5 days ago · ')).toBeVisible();
