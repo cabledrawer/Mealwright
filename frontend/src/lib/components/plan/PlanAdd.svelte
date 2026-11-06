@@ -13,7 +13,7 @@
   import { tubsForDay, tubsListed } from '#lib/planTubs.js';
   import type { FoodRow } from '#lib/client/types.js';
   import type { PlanActions } from '#lib/planActions.js';
-  import { dayFull } from '#lib/planDates.js';
+  import { dayFull, dayLong, dayOfMonth } from '#lib/planDates.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
   import { timeWords } from '#lib/timeWords.js';
 
@@ -89,8 +89,18 @@
     return () => clearTimeout(timer);
   });
 
-  const where = $derived(
-    target ? `${slotId === null ? 'a meal' : model.slotName(slotId)} · ${dayFull(target.day)}` : ''
+  // F127 (cabledrawer's words, proposed 2 Nov): before a meal is picked, small "Pick a meal, then
+  // what to add" over the full day; after, small "Add to" over "Dinner · Wednesday 11". The
+  // small line is what explains the greyed recipes.
+  const heading = $derived(
+    !target
+      ? { sub: '', title: '' }
+      : slotId === null
+        ? { sub: 'Pick a meal, then what to add', title: dayFull(target.day) }
+        : {
+            sub: 'Add to',
+            title: `${model.slotName(slotId)} · ${dayLong(target.day)} ${dayOfMonth(target.day)}`
+          }
   );
 
   function pick(what: Parameters<typeof model.add>[0]) {
@@ -173,8 +183,8 @@
     <div class="body">
       <span class="handle" aria-hidden="true"></span>
       <header>
-        <p class="sub">Add to</p>
-        <h2>{where}</h2>
+        <p class="sub">{heading.sub}</p>
+        <h2>{heading.title}</h2>
       </header>
 
       {#if slotId === null || model.slotsOn.length > 1}

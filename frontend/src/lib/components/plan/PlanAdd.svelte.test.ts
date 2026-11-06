@@ -86,3 +86,46 @@ describe('Cook once here… (F52) and a late answer', () => {
     expect(openCookOnce).not.toHaveBeenCalled();
   });
 });
+
+describe('the sheet’s title (F127)', () => {
+  function open(slotId: number | null) {
+    const model = {
+      slotsOn: [
+        { id: 1, name: 'Dinner' },
+        { id: 2, name: 'Lunch' }
+      ],
+      slotName: (id: number) => (id === 1 ? 'Dinner' : 'Lunch'),
+      tubsLeft: [],
+      today: '2026-11-02',
+      add: async () => ({ ok: true })
+    };
+    const actions = { model, readonly: false } as unknown as PlanActions;
+    component = mount(PlanAdd, {
+      target: document.body,
+      props: { actions, target: { day: '2026-11-11', slotId }, onclose: () => {} }
+    });
+    flushSync();
+  }
+
+  it('before a meal is picked: "Pick a meal, then what to add" over the full day', async () => {
+    open(null);
+    await expect.element(page.getByText('Pick a meal, then what to add')).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Wednesday 11 November' }))
+      .toBeVisible();
+    expect(document.body.textContent).not.toContain('a meal ·');
+  });
+
+  it('after picking: "Add to" over "Dinner · Wednesday 11"', async () => {
+    open(null);
+    await page.getByRole('button', { name: 'Dinner', exact: true }).click();
+    await expect.element(page.getByText('Add to', { exact: true })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Pick a meal, then what to add');
+  });
+
+  it('a meal already chosen on opening starts on "Add to"', async () => {
+    open(1);
+    await expect.element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' })).toBeVisible();
+  });
+});
