@@ -223,7 +223,9 @@ describe('Cook mode', () => {
       await shows(count(), has('No steps'));
       await shows(text(), has('This recipe has no steps yet.'));
       await expect.element(page.getByRole('button', { name: 'Show ingredients' })).toBeVisible();
-      await expect.element(page.getByRole('button', { name: 'Not cooked yet' })).toBeVisible();
+      expect(
+        page.getByRole('button', { name: /Not cooked yet|Close|Not now/ }).elements()
+      ).toHaveLength(0);
       await expect.element(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
       expect(next().elements()).toHaveLength(0);
     });
@@ -249,7 +251,7 @@ describe('Cook mode', () => {
   });
 
   describe('the last step', () => {
-    it('ends with Cooked it (into the review) and Not cooked yet (out)', async () => {
+    it('ends with Back and Cooked it (into the review) and nothing else (F155, F156)', async () => {
       open(recipe(FOUR));
       await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
       expect(next().elements()).toHaveLength(0);
@@ -257,7 +259,9 @@ describe('Cook mode', () => {
       expect(oncooked).toHaveBeenCalledTimes(1);
       expect(onexit).not.toHaveBeenCalled();
       expect(page.getByRole('button', { name: 'Not now' }).elements()).toHaveLength(0);
-      await page.getByRole('button', { name: 'Not cooked yet' }).click();
+      expect(page.getByRole('button', { name: /Not cooked yet|Close/ }).elements()).toHaveLength(0);
+      expect(document.querySelectorAll('footer button')).toHaveLength(2);
+      await page.getByRole('button', { name: 'Leave Cook mode' }).click();
       expect(onexit).toHaveBeenCalledTimes(1);
     });
 
@@ -284,13 +288,13 @@ describe('Cook mode', () => {
       }
     });
 
-    it('has Close alone where nothing has been planned to cook (F147)', async () => {
+    it('has Back alone where nothing has been planned to cook (F155, F156)', async () => {
       open(recipe([step(1, 'Stir.')]), { cooked: false });
-      await expect.element(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
-      expect(page.getByRole('button', { name: /Not now|Not cooked yet/ }).elements()).toHaveLength(
-        0
-      );
-      expect(page.getByRole('button', { name: 'Cooked it' }).elements()).toHaveLength(0);
+      expect(document.querySelectorAll('footer button')).toHaveLength(1);
+      await expect.element(back()).toBeVisible();
+      expect(
+        page.getByRole('button', { name: /Close|Not now|Not cooked yet|Cooked it/ }).elements()
+      ).toHaveLength(0);
     });
   });
 
@@ -387,10 +391,10 @@ describe('Cook mode', () => {
       expect(timers.running).toBe(false);
     });
 
-    it('asks the same before Not cooked yet on the last step, and when the page leaves by another way', async () => {
+    it('asks the same before the cross on the last step, and when the page leaves by another way', async () => {
       const cook = open(recipe([step(1, 'Simmer for 5 minutes.')]));
       await page.getByRole('button', { name: 'Start timer for 5 minutes' }).click();
-      await page.getByRole('button', { name: 'Not cooked yet' }).click();
+      await page.getByRole('button', { name: 'Leave Cook mode' }).click();
       await expect
         .element(page.getByRole('dialog', { name: 'Stop the timer and leave?' }))
         .toBeVisible();

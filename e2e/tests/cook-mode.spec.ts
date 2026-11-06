@@ -191,7 +191,8 @@ test('headings are section titles and a recipe with two method sections shows ev
     'Method 2: pressure cooker | Cook for 3 whistles.',
     'Method 2: pressure cooker | Serve warm.',
   ]);
-  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+  await expectNoLeaveButtons(page);
+  await expect(page.getByRole('button', { name: '← Back' })).toBeVisible();
 });
 
 test('a recipe with no steps, and one with only a heading, do not break', async ({ page }) => {
@@ -203,7 +204,7 @@ test('a recipe with no steps, and one with only a heading, do not break', async 
   const heading = await makeRecipe(page, [{ kind: 'heading', text: 'Only a heading' }]);
   await page.goto(`/recipes/${heading.id}/cook`);
   await expect(count(page)).toHaveText('No steps');
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Leave Cook mode' }).click();
   await expect(page).toHaveURL(`/recipes/${heading.id}`);
 });
 
@@ -374,11 +375,21 @@ async function plannedToday(page: Page, recipeId: number) {
   return plan.meals.flatMap((m) => m.items.filter((i) => i.kind === 'recipe' && i.recipe?.id === recipeId).map((i) => ({ mealId: m.id, itemId: i.id })));
 }
 
+async function expectNoLeaveButtons(page: Page) {
+  for (const name of ['Close', 'Not cooked yet', 'Not now']) {
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  }
+}
+
+function footerButtons(page: Page) {
+  return page.locator('footer button');
+}
+
 async function lastStep(page: Page) {
   while ((await next(page).count()) > 0) await next(page).click();
 }
 
-test('Cook now plans the recipe into today\'s next meal first, then Cooked it is there; Undo takes it out and leaves Close', async ({ page }) => {
+test('Cook now plans the recipe into today\'s next meal first, then Cooked it is there; Undo takes it out and leaves only Back', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   await page.goto(`/recipes/${id}`);
@@ -390,11 +401,13 @@ test('Cook now plans the recipe into today\'s next meal first, then Cooked it is
   expect(await plannedToday(page, id)).toHaveLength(1);
   await lastStep(page);
   await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Not cooked yet' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '← Back' })).toBeVisible();
+  await expectNoLeaveButtons(page);
   await notice.getByRole('button', { name: 'Undo' }).click();
   await expect(notice).toHaveText('Taken out of today’s plan.');
   await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+  await expectNoLeaveButtons(page);
+  await expect(footerButtons(page)).toHaveText(['← Back']);
   expect(await plannedToday(page, id)).toHaveLength(0);
 });
 
@@ -457,18 +470,21 @@ test('when the plan cannot be written Cook mode still opens, without Cooked it, 
   await expect(page.getByTestId('cook-notice')).toHaveText('This recipe wasn’t planned.');
   await lastStep(page);
   await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+  await expectNoLeaveButtons(page);
+  await expect(footerButtons(page)).toHaveText(['← Back']);
   expect(await plannedToday(page, id)).toHaveLength(0);
 });
 
-test('the last step ends with Close (no meal), back to the recipe', async ({ page }) => {
+test('the last step ends with Back alone (no meal); the cross goes back to the recipe', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   await page.goto(`/recipes/${id}/cook`);
   for (let i = 0; i < 3; i++) await next(page).click();
   await expect(count(page)).toHaveText('Step 4 of 4');
   await expect(next(page)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expectNoLeaveButtons(page);
+  await expect(footerButtons(page)).toHaveText(['← Back']);
+  await page.getByRole('button', { name: 'Leave Cook mode' }).click();
   await expect(page).toHaveURL(`/recipes/${id}`);
 });
 
@@ -547,26 +563,33 @@ test('coming back to the front asks for the screen lock again and shows the righ
   expect((await page.evaluate(() => (window as any).__chime)).oscillators).toBe(0);
 });
 
-test('on a 320 px screen the last step from a meal fits: Not cooked yet stays inside its button (F147)', async ({ page }) => {
-  await fakeBrowserThings(page);
-  const { id } = await makeRecipe(page, FOUR);
-  await page.setViewportSize({ width: 320, height: 640 });
-  await page.goto(`/recipes/${id}`);
-  await page.getByRole('link', { name: 'Cook now' }).click();
-  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
-  await expect(cook(page)).toBeVisible();
-  await lastStep(page);
-  const notCooked = page.getByRole('button', { name: 'Not cooked yet' });
-  await expect(notCooked).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
-  await expectNoSidewaysScroll(page);
-  // The words fit inside the button (a second line is fine), none spills out of it.
-  const fits = await notCooked.evaluate((button) => {
-    const range = document.createRange();
-    range.selectNodeContents(button);
-    const text = range.getBoundingClientRect();
-    const box = button.getBoundingClientRect();
-    return text.left >= box.left - 0.5 && text.right <= box.right + 0.5 && text.top >= box.top - 0.5 && text.bottom <= box.bottom + 0.5;
+for (const width of [320, 390, 428, 430]) {
+  test(`at ${width} px the last step from a meal is Back and Cooked it on one row (F155, F156)`, async ({ page }) => {
+    await fakeBrowserThings(page);
+    const { id } = await makeRecipe(page, FOUR);
+    await page.setViewportSize({ width, height: 700 });
+    await page.goto(`/recipes/${id}`);
+    await page.getByRole('link', { name: 'Cook now' }).click();
+    await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
+    await expect(cook(page)).toBeVisible();
+    await lastStep(page);
+    await expect(footerButtons(page)).toHaveText(['← Back', 'Cooked it']);
+    await expectNoLeaveButtons(page);
+    await expectNoSidewaysScroll(page);
+    const [back, cooked] = await footerButtons(page).evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const range = document.createRange();
+        range.selectNodeContents(button);
+        const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+        const box = button.getBoundingClientRect();
+        const text = range.getBoundingClientRect();
+        return { top: Math.round(box.top), width: box.width, lines, inside: text.left >= box.left - 0.5 && text.right <= box.right + 0.5 };
+      })
+    );
+    expect(back!.top).toBe(cooked!.top);
+    expect(back!.lines).toBe(1);
+    expect(cooked!.lines).toBe(1);
+    expect(back!.inside && cooked!.inside).toBe(true);
+    expect(cooked!.width).toBeGreaterThan(back!.width);
   });
-  expect(fits).toBe(true);
-});
+}

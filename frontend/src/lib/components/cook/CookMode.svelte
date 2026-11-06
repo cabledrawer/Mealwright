@@ -3,7 +3,7 @@
   // "Cook mode", "Cook mode timers", "Cook mode ingredients" and "Cook mode (K4)", cabledrawer 17, 28
   // and 31 Oct): big text, one step at a time, Back and Next (the arrow keys and a swipe do the
   // same), "Show ingredients" always, timers found in the step's words, Keep screen awake, and
-  // per-step ingredients as an Experimental option. The last step ends with Cooked it and Not cooked yet (Close where no meal is planned).
+  // per-step ingredients as an Experimental option. The last step ends with Back and Cooked it (Back alone where no meal is planned); the cross at the top leaves.
   // A heading in the method is a section title, never a step. All the words here are proposed,
   // for cabledrawer, unless the spec gives them.
   import { tick, untrack } from 'svelte';
@@ -34,7 +34,7 @@
     /** Whether per-step ingredients (Experimental) are on, and the household's way to change it. */
     perStep: boolean;
     onperstep: (on: boolean) => void;
-    /** Leave Cook mode (Not cooked yet, Close, or the cross). Asked first when a timer is running. */
+    /** Leave Cook mode (the cross, Escape, or the page leaving). Asked first when a timer is running. */
     onexit: () => void;
     /** "Cooked it": into the review. Not there when nothing has been planned to cook. */
     oncooked?: (() => void) | null;
@@ -73,7 +73,7 @@
     void tick().then(() => body?.scrollTo({ top: 0 }));
   }
 
-  /** The cross, Not cooked yet or Close: straight out, or asks first when a timer is running. */
+  /** The cross or Escape: straight out, or asks first when a timer is running. */
   function leave() {
     if (timers.running) askingLeave = true;
     else onexit();
@@ -304,16 +304,13 @@
     </section>
   </div>
 
-  <footer class:three={last && !!oncooked}>
+  <footer>
     {#if last}
       <button
         type="button"
         class="quiet-button"
         disabled={index === 0}
         onclick={() => go(index - 1)}>← Back</button
-      >
-      <button type="button" class="quiet-button" onclick={leave}
-        >{oncooked ? 'Not cooked yet' : 'Close'}</button
       >
       {#if oncooked}
         <button type="button" class="main" onclick={oncooked}>Cooked it</button>
@@ -485,28 +482,6 @@
 
   .progress span.filled {
     background: var(--color-accent);
-  }
-
-  footer.three {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
-  }
-
-  footer.three .quiet-button {
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
-  }
-
-  /* Most phones held upright (up to 26rem, about 416 px at the usual text size): Back and Not
-     cooked yet share the first row, and Cooked it has the row under them, so the words have room
-     and the button grows rather than the text shrinking. */
-  @media (max-width: 26rem) {
-    footer.three {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-
-    footer.three .main {
-      grid-column: 1 / -1;
-    }
   }
 
   .body {
