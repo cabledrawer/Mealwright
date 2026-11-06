@@ -5,13 +5,15 @@
   // drags to another day (it keeps its meal, so a dinner stays a dinner); Alt copies; the
   // Leftovers zone plans leftovers. There is no recipe tray here: the day's own sheet offers the
   // recipes and the tubs left.
+  import Icon from '#lib/components/Icon.svelte';
   import type { PlanActions } from '#lib/planActions.js';
+  import type { PlanShow } from '#lib/planShow.js';
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
   import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf } from '#lib/planMeals.js';
   import type { PlanBatch, PlanItem, PlanMeal } from '#lib/client/plan.js';
 
-  let { actions }: { actions: PlanActions } = $props();
+  let { actions, show }: { actions: PlanActions; show: PlanShow } = $props();
   const model = $derived(actions.model);
   const can = $derived(actions.desktop && !actions.readonly);
 
@@ -37,10 +39,12 @@
     return { meal, item, cook, colour: batch ? colourOfBatch(batch) : null };
   }
 
-  /** A day's chips: the cooking first, then the rest in meal order. */
+  /** A day's chips: the cooking first, then the rest in meal order. Cook (F149) shows only the
+   * cooking; Eat and Both show everything. */
   const chipsOn = (day: string): Chip[] => {
     const all = mealsOn(day).flatMap((meal) => meal.items.map((item) => chipOf(meal, item)));
-    return [...all.filter((c) => c.cook), ...all.filter((c) => !c.cook)];
+    const cooking = all.filter((c) => c.cook);
+    return show === 'cook' ? cooking : [...cooking, ...all.filter((c) => !c.cook)];
   };
 
   let fillNote = $state('');
@@ -121,6 +125,7 @@
               class="chip"
               class:batch={colour !== null}
               class:solid={chip.cook !== null}
+              class:cooking={show === 'cook'}
               style:--solid={colour ? `var(--batch-${colour})` : undefined}
               class:can
               style:--soft={colour ? `var(--batch-${colour}-soft)` : undefined}
@@ -136,7 +141,9 @@
                 item,
                 model.plan
               )}, {model.slotName(meal.slot_id)} on {dayFull(day)}. Open menu"
-              ><span class="chip-name">{itemName(item, model.plan)}</span></button
+              >{#if show === 'cook'}<Icon name="pan" size={13} stroke={2.4} />{/if}<span
+                class="chip-name">{itemName(item, model.plan)}</span
+              ></button
             >
           {/each}
           {#if chips.length > shown}
@@ -374,6 +381,13 @@
   .chip.solid {
     background: var(--solid);
     color: #fff;
+  }
+
+  /* Cook (F149): the cooking chips alone, blue with a pan. */
+  .chip.cooking {
+    gap: var(--space-2);
+    background: var(--color-cook);
+    color: var(--color-cook-text);
   }
 
   .chip.can {

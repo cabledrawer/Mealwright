@@ -203,3 +203,125 @@ test.describe('an empty household', () => {
     await checkPage(page);
   });
 });
+
+// F150: "This week" is a list of seven rows, today first, each with the day, the dinner's name (or the
+// day's last meal), how many meals, and a blue Cook mark on a day with cooking; an empty day says
+// Nothing planned with "+ Plan", which opens the Plan on that day's week. The plan is the test's
+// own (the server's answer is changed), so it does not depend on what other tests left.
+test.describe('F150: This week', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  const recipeItem = (id: number, name: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    position: 0,
+    kind: 'recipe',
+    recipe: { id: id + 500, name, removed: false, photo_url: null, time_minutes: null, kcal: null, serves: 2 },
+    tub_id: null,
+    ingredient: null,
+    kept_name: null,
+    servings: null,
+    note: null,
+    eating: 2,
+    cooked: false,
+    ...extra,
+  });
+  const meal = (id: number, date: string, slot_id: number, items: object[]) => ({
+    id,
+    date,
+    slot_id,
+    status: 'planned',
+    items,
+    kcal: null,
+    eater_login_ids: [] as number[],
+  });
+
+  async function openWithPlan(page: Page) {
+    const real = (await (await page.request.get('/api/v1/today')).json()) as { today: string; slots: { id: number; name: string }[] };
+    const slot = Object.fromEntries(real.slots.map((s) => [s.name, s.id])) as Record<string, number>;
+    const today = real.today;
+    const long = 'Roasted aubergine and chickpea stew with preserved lemon and tahini';
+    const plan = {
+      start: today,
+      end: addDays(today, 6),
+      meals: [
+        meal(9001, today, slot.Breakfast!, [recipeItem(9101, 'Upma')]),
+        meal(9002, today, slot.Lunch!, [recipeItem(9102, 'Lentil soup')]),
+        meal(9003, today, slot.Dinner!, [recipeItem(9103, 'Banana bread')]),
+        meal(9004, addDays(today, 1), slot.Lunch!, [recipeItem(9104, 'Lemon rice')]),
+        meal(9005, addDays(today, 1), slot.Dinner!, [recipeItem(9105, long)]),
+        meal(9006, addDays(today, 3), slot.Dinner!, [
+          { ...recipeItem(9106, ''), kind: 'tub', recipe: null, tub_id: 9201, eating: null },
+        ]),
+        meal(9007, addDays(today, 4), slot.Snack!, [recipeItem(9107, 'Fruit')]),
+      ],
+      batch_cooks: [
+        {
+          id: 9301, recipe_id: 1, recipe_name: 'Sambar', cook_meal_id: 9005, cooked_on: addDays(today, 1),
+          tub_count: 1, pattern: 'pick', prep_note: null, colour: null, portions: 2, portions_left: 0,
+        },
+      ],
+      tubs: [
+        { id: 9201, batch_id: 9301, amount_quarters: 4, number: 1, place_id: null, place_kind: 'fridge', member_login_id: null, use_by: addDays(today, 5) },
+      ],
+    };
+    await page.route('**/api/v1/today', async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      await route.fulfill({ response, json: { ...body, first_day: false, waiting: [], plan } });
+    });
+    await page.goto('/');
+    return { today, long };
+  }
+
+  const row = (page: Page, day: string) => page.getByTestId(`week-${day}`);
+
+  test('seven rows from today: the dinner’s name, the meal count, a Cook mark, and Nothing planned', async ({ page }) => {
+    const { today, long } = await openWithPlan(page);
+    const rows = page.locator('section.week li');
+    await expect(rows).toHaveCount(7);
+    await expect(rows.first()).toHaveAttribute('data-testid', `week-${today}`);
+
+    await expect(row(page, today)).toContainText('Today');
+    await expect(row(page, today)).toContainText('Banana bread');
+    await expect(row(page, today)).toContainText('3 meals');
+    await expect(row(page, today).getByText('Cook', { exact: true })).toHaveCount(1); // a fresh recipe is cooking
+
+    const tomorrow = row(page, addDays(today, 1));
+    await expect(tomorrow).toContainText('2 meals');
+    await expect(tomorrow.getByText('Cook', { exact: true })).toBeVisible();
+
+    // A tub: its recipe's name, and "tub · 1 meal"; nothing to cook.
+    const tub = row(page, addDays(today, 3));
+    await expect(tub).toContainText('Sambar');
+    await expect(tub).toContainText('tub · 1 meal');
+    await expect(tub.getByText('Cook', { exact: true })).toHaveCount(0);
+
+    // No dinner: the day's last meal.
+    await expect(row(page, addDays(today, 4))).toContainText('Fruit');
+
+    // An empty day.
+    const empty = row(page, addDays(today, 2));
+    await expect(empty).toContainText('Nothing planned');
+    await expect(empty.getByRole('link', { name: '+ Plan' })).toBeVisible();
+
+    // Rows are at least 44 px; a long name ends with an ellipsis; nothing runs sideways.
+    for (let i = 0; i < 7; i++) {
+      const box = (await rows.nth(i).boundingBox())!;
+      expect(box.height, `row ${i}`).toBeGreaterThanOrEqual(44);
+    }
+    const name = tomorrow.locator('.name');
+    await expect(name).toHaveText(long);
+    const cut = await name.evaluate((el) => ({ over: el.scrollWidth > el.clientWidth, style: getComputedStyle(el).textOverflow }));
+    expect(cut).toEqual({ over: true, style: 'ellipsis' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
+  test('+ Plan opens the Plan on that day’s week', async ({ page }) => {
+    const { today } = await openWithPlan(page);
+    const day = addDays(today, 2); // the Monday after today (a Saturday)
+    await row(page, day).getByRole('link', { name: '+ Plan' }).click();
+    await expect(page).toHaveURL(new RegExp(`/plan\\?day=${day}$`));
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled(); // not today's week
+    await expect(page.locator('.range')).toContainText(String(Number(day.slice(8))));
+  });
+});

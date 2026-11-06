@@ -42,6 +42,14 @@
   const model = new PlanModel();
   const recipes = new RecipeList();
 
+  // F150: Today's "+ Plan" opens the Plan on the week of that day ("/plan?day=2026-11-09").
+  if (browser) {
+    const wanted = new URLSearchParams(location.search).get('day');
+    if (wanted && /^\d{4}-\d{2}-\d{2}$/.test(wanted) && !Number.isNaN(Date.parse(wanted))) {
+      model.anchor = wanted;
+    }
+  }
+
   // Two widths: the phone (under 768 px: bottom tabs), and "compact" (under 1100 px: the phone's
   // lists instead of the week grid and the month grid, whose seven columns are too narrow for the
   // words, with no tray to drag from). Between 768 and 1100 px the sidebar stays (spec: every Plan
@@ -334,7 +342,7 @@
 <div class="plan" class:fill={!compact}>
   <PageHeader title="Plan">
     {#snippet actions()}
-      {#if model.view === 'week' && !compact}
+      {#if !compact}
         <PlanShowSwitch value={show} onchange={setShow} />
       {/if}
       <div class="view" role="group" aria-label="View">
@@ -352,7 +360,7 @@
     {/snippet}
   </PageHeader>
 
-  {#if model.view === 'week' && compact}
+  {#if compact}
     <div class="showrow"><PlanShowSwitch value={show} onchange={setShow} /></div>
   {/if}
 
@@ -459,9 +467,16 @@
           <PlanWeek {actions} />
         {/if}
       {:else if compact}
-        <PlanMonthPhone {actions} selected={picked} onselect={(day) => (picked = day)} />
+        <PlanMonthPhone
+          {actions}
+          {show}
+          selected={picked}
+          onselect={(day) => (picked = day)}
+          onstart={startCooking}
+          oncook={() => setShow('cook')}
+        />
       {:else}
-        <PlanMonth {actions} />
+        <PlanMonth {actions} {show} />
       {/if}
       <!-- Month has no tray: it must fit one screen (F47), and a day's own sheet offers the recipes
            and the tubs left (F53). -->

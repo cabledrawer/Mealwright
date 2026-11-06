@@ -120,12 +120,16 @@ describe('the sheet’s title (F127)', () => {
     open(null);
     await page.getByRole('button', { name: 'Dinner', exact: true }).click();
     await expect.element(page.getByText('Add to', { exact: true })).toBeVisible();
-    await expect.element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' }))
+      .toBeVisible();
     expect(document.body.textContent).not.toContain('Pick a meal, then what to add');
   });
 
   it('a meal already chosen on opening starts on "Add to"', async () => {
     open(1);
-    await expect.element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Dinner · Wednesday 11' }))
+      .toBeVisible();
   });
 });

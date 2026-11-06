@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
-import { inTheme, setAccountTheme } from './a11y.ts';
+import { expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
 
 // The Plan's Month and day (0.7, P4): the COOK and Today tags stay inside their day (F84), the
 // month scrolls rather than squeeze a day, which shows 3 items then "+N more" (F47), a click anywhere in a
@@ -208,11 +208,18 @@ async function openDay(page: Page, today: string, day: string, meal: string) {
   const box = (await where.boundingBox())!;
   await page.mouse.click(box.x + box.width - 5, box.y + box.height - 5); // the corner: no number, no chip
   const add = page.getByRole('dialog', { name: 'Add to the plan' });
-  await expect(add.getByRole('heading', { level: 2 })).toHaveText(`a meal · ${dayName(day)}`);
+  // F127: before a meal is picked, small "Pick a meal, then what to add" over the full day;
+  // after, small "Add to" over "Dinner · Wednesday 11".
+  await expect(add.getByRole('heading', { level: 2 })).toHaveText(dayName(day));
+  await expect(add.getByText('Pick a meal, then what to add')).toBeVisible();
   await add
     .getByRole('group', { name: 'Meal' })
     .getByRole('button', { name: meal, exact: true })
     .click();
+  await expect(add.getByRole('heading', { level: 2 })).toHaveText(
+    `${meal} · ${dayName(day).split(' ').slice(0, 2).join(' ')}`
+  );
+  await expect(add.getByText('Add to', { exact: true })).toBeVisible();
   return add;
 }
 
@@ -624,5 +631,204 @@ test.describe('on a computer', () => {
     await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
     await toast.getByRole('button', { name: 'Undo all', exact: true }).click();
     await expect.poll(() => undone).toBe(1);
+  });
+});
+
+// --- F149: Eat · Cook · Both on the Month (phone and computer) ----------------------------------
+
+/** A batch cooking (dinner) and a fresh meal (lunch) on the same day, with names of their own. */
+async function cookAndEat(page: Page, day: string, slot: Record<string, number>) {
+  const word = stamp();
+  const batch = `${word} Batch`;
+  const fresh = `${word} Fresh`;
+  await cookedOnce(page, batch, day, slot);
+  await planned(page, await makeRecipe(page, fresh), day, slot.Lunch);
+  return { batch, fresh };
+}
+
+const showSwitch = (page: Page) =>
+  page
+    .getByRole('group', { name: 'Show', exact: true })
+    .filter({ has: page.getByRole('button', { name: 'Both', exact: true }) });
+
+test.describe('F149: the Show switch on the Month', () => {
+  test.skip(() => kind() !== 'phone', 'the phone’s month (the computer’s is the next group)');
+
+  test('Eat shows dots and the day’s meals; Cook a blue ring and Start cooking; Both shows both', async ({
+    page
+  }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'D');
+    const { batch, fresh } = await cookAndEat(page, day, slot);
+    await openMonthOf(page, today, day);
+    const cell = page.getByRole('group', { name: 'Days' }).getByRole('button', {
+      name: dayName(day),
+      exact: true
+    });
+    await cell.click();
+    const ring = () => cell.evaluate((el) => getComputedStyle(el).borderTopColor);
+    const transparent = 'rgba(0, 0, 0, 0)';
+    const legend = page.getByTestId('month-legend');
+    const start = page.getByRole('button', { name: `Start cooking ${batch}` });
+    const meal = page.getByRole('button', { name: new RegExp(`^Lunch: ${fresh}`) });
+
+    // Both (the switch is kept from the Week: the same choice).
+    await expect(showSwitch(page)).toBeVisible();
+    await expect(showSwitch(page).getByRole('button', { name: 'Both', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(legend).toHaveText('Blue ring: a day you cook. Dots: meals planned.');
+    expect(await ring()).not.toBe(transparent);
+    await expect(cell.locator('.dot').first()).toBeVisible();
+    await expect(start).toBeVisible();
+    await expect(meal).toBeVisible();
+
+    // Cook: no dots, the ring, what is cooked with Start cooking, and no meals.
+    await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
+    await expect(legend).toHaveText('Blue ring: a day you cook.');
+    await expect(cell.locator('.dot')).toHaveCount(0);
+    expect(await ring()).not.toBe(transparent);
+    await expect(start).toBeVisible();
+    await expect(meal).toHaveCount(0);
+
+    // Eat: dots, no ring, the day’s meals, no Start cooking.
+    await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
+    await expect(legend).toHaveText('Dots: meals planned, in each batch’s colour.');
+    await expect(cell.locator('.dot').first()).toBeVisible();
+    expect(await ring()).toBe(transparent);
+    await expect(meal).toBeVisible();
+    await expect(start).toHaveCount(0);
+
+    // The choice is the Week’s too.
+    await page.getByRole('button', { name: 'Week', exact: true }).click();
+    await expect(showSwitch(page).getByRole('button', { name: 'Eat', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  test('both themes: the ring and the legend read', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'D');
+    await cookAndEat(page, day, slot);
+    await openMonthOf(page, today, day);
+    for (const theme of ['dark', 'light'] as const) {
+      await inTheme(page, theme);
+      await expect(page.getByTestId('month-legend')).toBeVisible();
+      await expectNoSidewaysScroll(page);
+    }
+  });
+});
+
+test.describe('F149: the Show switch on the computer’s Month', () => {
+  test.skip(() => kind() === 'phone', 'the computer’s month');
+
+  test('Cook shows only the cooking chips, blue with a pan; Eat and Both show every chip', async ({
+    page
+  }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'D');
+    const { batch, fresh } = await cookAndEat(page, day, slot);
+    await openMonthOf(page, today, day);
+    const where = page.getByTestId(`day-${day}`);
+    const chip = (name: string) => where.getByRole('button', { name: new RegExp(name) });
+    await expect(showSwitch(page)).toBeVisible();
+
+    await expect(chip(batch)).toBeVisible();
+    await expect(chip(fresh)).toBeVisible();
+
+    await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
+    await expect(chip(batch)).toBeVisible();
+    await expect(chip(fresh)).toHaveCount(0);
+    await expect(chip(batch).locator('svg')).toHaveCount(1); // the pan
+    const [chipColour, cookColour] = await page.evaluate((selector) => {
+      const probe = document.createElement('i');
+      probe.style.background = 'var(--color-cook)';
+      document.body.append(probe);
+      const cook = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      const el = document.querySelector(selector)!;
+      return [getComputedStyle(el).backgroundColor, cook];
+    }, `[data-testid="day-${day}"] button.chip`);
+    expect(chipColour).toBe(cookColour);
+
+    await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
+    await expect(chip(batch)).toBeVisible();
+    await expect(chip(fresh)).toBeVisible();
+    await expect(chip(batch).locator('svg')).toHaveCount(0);
+
+    await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
+    await expect(chip(fresh)).toBeVisible();
+  });
+});
+
+// --- F137: Week names at about 1100 px ----------------------------------------------------------
+
+test.describe('F137: a Week card’s name breaks between words only', () => {
+  test.skip(() => kind() === 'phone', 'the week grid is the computer’s');
+
+  test('at 1100 px a name never breaks inside a word; a name too long for its cell ends in an ellipsis and is whole on hover', async ({
+    page
+  }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'D');
+    const word = stamp();
+    const wordy = `${word} Chickpea Authentic Ingredient Curry`;
+    const huge = `Supercalifragilisticexpialidocious${word}`;
+    await planned(page, await makeRecipe(page, wordy), day, slot.Lunch);
+    await planned(page, await makeRecipe(page, huge), day, slot.Dinner);
+
+    await page.goto('/plan');
+    const weeks = Math.round(
+      (Date.parse(`${day}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000 / 7
+    );
+    for (let i = 0; i < weeks; i++) await page.getByRole('button', { name: 'Next week' }).click();
+
+    for (const theme of ['dark', 'light'] as const) {
+      await inTheme(page, theme);
+      const names = page.getByTestId(new RegExp(`^cell-${day}-`)).locator('.name');
+      await expect(names.filter({ hasText: wordy })).toBeVisible();
+      const report = await names.evaluateAll((els, mine) => {
+        const out: Record<string, unknown> = {};
+        for (const el of els) {
+          const text = el.textContent ?? '';
+          if (!mine.some((m) => text.includes(m))) continue;
+          const style = getComputedStyle(el);
+          const node = el.firstChild!;
+          const broken: string[] = [];
+          for (const m of text.matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, m.index!);
+            range.setEnd(node, m.index! + m[0].length);
+            const lines = new Set(
+              [...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top / 4))
+            );
+            if (lines.size > 1) broken.push(m[0]);
+          }
+          out[text] = {
+            wrap: style.overflowWrap,
+            breaks: style.wordBreak,
+            hyphens: style.hyphens,
+            ellipsis: style.textOverflow,
+            cut: el.scrollWidth > el.clientWidth,
+            broken,
+            title: el.closest('button')?.getAttribute('title')
+          };
+        }
+        return out;
+      }, [wordy, huge]);
+      const wordyReport = report[wordy] as Record<string, unknown>;
+      const hugeReport = report[huge] as Record<string, unknown>;
+      expect(wordyReport).toMatchObject({
+        wrap: 'normal',
+        breaks: 'normal',
+        hyphens: 'manual',
+        broken: [],
+        title: wordy
+      });
+      expect(hugeReport).toMatchObject({ ellipsis: 'ellipsis', cut: true, title: huge });
+    }
   });
 });

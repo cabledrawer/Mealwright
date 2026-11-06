@@ -2,9 +2,10 @@
 // (todayWords.test.ts). Dates are the household's ("2026-10-25"): nothing here reads this
 // device's clock or time zone. Every line is proposed, for cabledrawer (docs/dev/words.md section 22).
 
-import type { Plan } from './client/plan';
+import type { MealSlot, Plan, PlanMeal } from './client/plan';
 import { addDays } from './dates';
 import { dayLong, dayOfMonth, dayShort } from './planDates';
+import { cookDays } from './planCook';
 import { itemName } from './planMeals';
 
 /** The day a meal was planned for, from the card's point of view: "Yesterday", "Fri 23". */
@@ -71,3 +72,50 @@ export const moreWords = (count: number) =>
  * Nothing before the first one is cooked (proposed, for cabledrawer). */
 export const partsCooked = (done: number, total: number) =>
   done === 0 ? '' : done >= total ? 'All cooked' : `${done} of ${total} cooked`;
+
+/** One day of This week (F150): the day, the dinner's name (or the day's last meal), how many
+ * meals, and whether you cook. `name` is null on an empty day. */
+export interface WeekRow {
+  day: string;
+  isToday: boolean;
+  name: string | null;
+  /** "3 meals", "tub · 1 meal" (the shown meal is a tub); null on an empty day. */
+  count: string | null;
+  cooks: boolean;
+}
+
+/** The seven days from today. The name is the dinner's (the meal in the slot called Dinner),
+ * else the day's last meal in the order of the day (cabledrawer 28 Oct, 6 Nov). */
+export function weekRows(plan: Plan, slots: MealSlot[], today: string): WeekRow[] {
+  const order = slots
+    .filter((s) => s.enabled)
+    .sort((a, b) => a.position - b.position || a.id - b.id);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+  const cooking = new Set(cookDays(plan, order, days, slots).map((d) => d.day));
+  const at = (meal: PlanMeal) => order.findIndex((s) => s.id === meal.slot_id);
+  return days.map((day) => {
+    const meals = plan.meals
+      .filter((m) => m.date === day && (m.status === 'planned' || m.status === 'cooked'))
+      .filter((m) => m.items.length > 0)
+      .sort((a, b) => at(a) - at(b));
+    const dinnerSlot = order.find((s) => s.name.trim().toLowerCase() === 'dinner');
+    const shown =
+      meals.find((m) => dinnerSlot !== undefined && m.slot_id === dinnerSlot.id) ?? meals.at(-1);
+    if (!shown) return { day, isToday: day === today, name: null, count: null, cooks: false };
+    const tubs = shown.items.map((item) => {
+      const tub = plan.tubs.find((t) => t.id === item.tub_id);
+      return plan.batch_cooks.find((b) => b.id === tub?.batch_id)?.recipe_name ?? null;
+    });
+    const allTubs = tubs.every((name) => name !== null);
+    const name = shown.items
+      .map((item, i) => (allTubs ? tubs[i]! : itemName(item, plan)))
+      .join(' & ');
+    return {
+      day,
+      isToday: day === today,
+      name,
+      count: `${allTubs ? 'tub · ' : ''}${mealsWords(meals.length)}`,
+      cooks: cooking.has(day)
+    };
+  });
+}

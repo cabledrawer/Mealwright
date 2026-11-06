@@ -5,6 +5,7 @@
   // "Your kitchen is ready". Online only, like the Plan: offline it shows the copy saved last
   // time, with the answer buttons switched off. "Did you buy 2?" shows here as well as on
   // Shopping (spec, "Offline shopping-list sync"). Docs: docs/dev/api-0.2.md section 6.3c.
+  import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
@@ -22,14 +23,14 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
-  import { addDays, dayFull, dayShort, dayOfMonth } from '#lib/planDates.js';
+  import { dayFull, dayShort, dayOfMonth } from '#lib/planDates.js';
   import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { getHousehold } from '#lib/client/household.js';
   import { cookedUseBy, eatOnUntil, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
-  import { dayWords, mealsWords, partsCooked, whenWords } from '#lib/todayWords.js';
+  import { dayWords, partsCooked, weekRows, whenWords } from '#lib/todayWords.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import type { WaitingMeal } from '#lib/client/today.js';
 
@@ -157,18 +158,13 @@
 
   const daysLeft = (iso: string) => Math.round((Date.parse(iso) - Date.parse(today)) / 86_400_000);
 
-  /** The seven days from today, with how many meals are on each (This week, on a computer). */
-  const week = $derived(
-    data
-      ? Array.from({ length: 7 }, (_, i) => {
-          const day = addDays(today, i);
-          const count = data.plan.meals.filter(
-            (m) => m.date === day && (m.status === 'planned' || m.status === 'cooked')
-          ).length;
-          return { day, count };
-        })
-      : []
-  );
+  /** F150: the seven days from today, one row each. */
+  const week = $derived(data ? weekRows(data.plan, data.slots, today) : []);
+
+  /** "+ Plan": the Plan, on the week of that day. */
+  function planOn(day: string): string {
+    return `${resolve('/(app)/plan')}?day=${day}`;
+  }
 
   /** F160: a meal with several recipes shows one line for each. */
   const parts = (meal: PlanMeal) => meal.items.filter((i) => i.kind === 'recipe').length > 1;
@@ -350,13 +346,32 @@
       </div>
       <ul class="days">
         {#each week as d (d.day)}
-          <li class:today={d.day === today}>
-            <span>{dayShort(d.day)}</span><b>{dayOfMonth(d.day)}</b><span class="muted"
-              >{mealsWords(d.count)}</span
-            >
+          <li class:today={d.isToday} data-testid="week-{d.day}">
+            <span class="dow">
+              {d.isToday ? 'Today' : dayShort(d.day)}
+              <span
+                >{d.isToday ? `${dayShort(d.day)} ${dayOfMonth(d.day)}` : dayOfMonth(d.day)}</span
+              >
+            </span>
+            {#if d.name !== null}
+              <span class="what">
+                <span class="name">{d.name}</span>
+                <span class="more">{d.count}</span>
+              </span>
+              {#if d.cooks}
+                <span class="cooks" title="You cook"
+                  ><Icon name="pan" size={14} stroke={2.4} />Cook</span
+                >
+              {/if}
+            {:else}
+              <span class="what"><span class="name none">Nothing planned</span></span>
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved in planOn; only the query is added -->
+              <a class="plan" href={planOn(d.day)}>+ Plan</a>
+            {/if}
           </li>
         {/each}
       </ul>
+      <span class="note">The name is each day’s dinner (or its last meal).</span>
     </section>
   </div>
 {/if}
@@ -681,43 +696,100 @@
     white-space: nowrap;
   }
 
-  .week {
-    display: none;
-  }
-
+  /* F150 (mockup Dark-Today08-Phone): a row for each day inside one card, rows at least 44 px;
+     a long name ends with an ellipsis. The same rows on a computer. */
   .days {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: var(--space-3);
+    padding: 0 var(--space-7);
+    border-radius: var(--radius-2xl);
+    background: var(--color-surface);
   }
 
   .days li {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: var(--space-4) var(--space-2);
-    border-radius: var(--radius-xl);
-    background: var(--color-surface);
+    gap: var(--space-6);
+    min-height: var(--touch-target);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .days li:first-child {
+    border-top: none;
+  }
+
+  .days li.today .dow {
+    color: var(--color-accent-on-soft);
+  }
+
+  .dow {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 3.6rem;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .dow span {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .what {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .name {
+    overflow: hidden;
     font-size: var(--text-base);
-    text-align: center;
+    font-weight: var(--weight-bold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .days li.today {
-    outline: 2px solid var(--color-accent);
+  .name.none {
+    color: var(--color-text-muted);
+    font-weight: var(--weight-semibold);
   }
 
-  .days b {
-    font-size: var(--text-xl);
+  .more {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .cooks {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-cook-on-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+  }
+
+  a.plan {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    min-height: var(--touch-target);
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .week .note {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
   }
 
   @media (min-width: 768px) {
     .import {
       display: inline-flex;
-    }
-
-    .week {
-      display: flex;
     }
   }
 </style>

@@ -1,20 +1,45 @@
 <script lang="ts">
-  // The month on a phone (mockup Month-Phone): a dot grid, a ring on cook days, and tapping a day
-  // shows its meals underneath (the same rows as the week, with the long-press menu).
+  // The month on a phone (mockups Month-Phone, Dark-PlanMonth08-Phone; F149): a grid with a dot for
+  // each meal (Eat) and a blue ring on cook days (Cook), both in Both. Tapping a day shows what
+  // that switch says underneath: what is eaten, what is cooked (with Start cooking), or both.
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { cookedOn, mealColour } from '#lib/planMeals.js';
-  import PlanDays from './PlanDays.svelte';
+  import type { PlanShow } from '#lib/planShow.js';
+  import type { CookEntry } from '#lib/planCook.js';
 
   let {
     actions,
+    show,
     selected,
-    onselect
-  }: { actions: PlanActions; selected: string; onselect: (day: string) => void } = $props();
+    onselect,
+    onstart,
+    oncook
+  }: {
+    actions: PlanActions;
+    show: PlanShow;
+    selected: string;
+    onselect: (day: string) => void;
+    /** Start cooking: Cook mode for this recipe in this meal. */
+    onstart: (entry: CookEntry) => void;
+    /** "You cook today →": show Cook. */
+    oncook: () => void;
+  } = $props();
   const model = $derived(actions.model);
 
   const inMonth = (day: string) => day.slice(0, 7) === model.anchor.slice(0, 7);
   const dots = (day: string) => (model.plan?.meals.filter((m) => m.date === day) ?? []).slice(0, 4);
+  const eating = $derived(show !== 'cook');
+  const cooking = $derived(show !== 'eat');
+  const cooksOnSelected = $derived(cookedOn(model.plan, selected).length > 0);
+  /** What the marks mean (the mockup's words). */
+  const legend = $derived(
+    show === 'eat'
+      ? 'Dots: meals planned, in each batch’s colour.'
+      : show === 'cook'
+        ? 'Blue ring: a day you cook.'
+        : 'Blue ring: a day you cook. Dots: meals planned.'
+  );
   const colourOf = (meal: NonNullable<typeof model.plan>['meals'][number]) =>
     mealColour(model.plan, meal);
 </script>
@@ -30,25 +55,40 @@
         class="day"
         class:out={!inMonth(day)}
         class:today={day === model.today}
-        class:cook={cookedOn(model.plan, day).length > 0}
+        class:cook={cooking && cookedOn(model.plan, day).length > 0}
         aria-pressed={day === selected}
         aria-current={day === model.today ? 'date' : undefined}
         aria-label={dayFull(day)}
         onclick={() => onselect(day)}
       >
         <span class="num">{dayOfMonth(day)}</span>
-        <span class="dots" aria-hidden="true">
-          {#each dots(day) as meal (meal.id)}
-            {@const colour = colourOf(meal)}
-            <span class="dot" style:background={colour ? `var(--batch-${colour})` : undefined}
-            ></span>
-          {/each}
-        </span>
+        {#if eating}
+          <span class="dots" aria-hidden="true">
+            {#each dots(day) as meal (meal.id)}
+              {@const colour = colourOf(meal)}
+              <span class="dot" style:background={colour ? `var(--batch-${colour})` : undefined}
+              ></span>
+            {/each}
+          </span>
+        {/if}
       </button>
     {/each}
+    <p class="legend" data-testid="month-legend">{legend}</p>
   </div>
 
-  <div class="list"><PlanDays {actions} days={[selected]} /></div>
+  <div class="list">
+    <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
+    {#if show === 'cook' || (show === 'both' && cooksOnSelected)}
+      {#await import('./PlanCook.svelte') then { default: Cook }}
+        <Cook {actions} days={[selected]} {onstart} summary={false} />
+      {/await}
+    {/if}
+    {#if show !== 'cook'}
+      {#await import('./PlanEat.svelte') then { default: Eat }}
+        <Eat {actions} days={[selected]} {oncook} />
+      {/await}
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -116,8 +156,16 @@
     color: var(--color-text-muted);
   }
 
+  /* The blue ring: a day you cook. */
   .day.cook {
-    border-color: var(--color-inverse);
+    border-color: var(--color-cook-on-soft);
+  }
+
+  .legend {
+    grid-column: 1 / -1;
+    margin: var(--space-2) var(--space-2) 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .day.today .num {

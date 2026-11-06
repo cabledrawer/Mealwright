@@ -18,10 +18,13 @@
   let {
     actions,
     days,
-    onstart
+    onstart,
+    summary = true
   }: {
     actions: PlanActions;
     days: string[];
+    /** The "This week's cooking" box: not in the Month, whose days are not a week. */
+    summary?: boolean;
     /** Start cooking: Cook mode for this recipe in this meal. */
     onstart: (entry: CookEntry) => void;
   } = $props();
@@ -164,7 +167,7 @@
     {/each}
   </div>
 
-  {#if week.length}
+  {#if summary && week.length}
     <aside class="week" aria-label="This week’s cooking">
       <h3>This week’s cooking</h3>
       <dl>

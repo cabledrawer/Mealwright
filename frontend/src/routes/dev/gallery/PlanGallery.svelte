@@ -136,11 +136,18 @@
     <MealCell actions={offlineActions} day="2026-10-12" slot={model.slots[1]!} />
   </div>
   <h3>Month on a computer</h3>
-  <div class="month-demo"><PlanMonth {actions} /></div>
+  <div class="month-demo"><PlanMonth {actions} show="both" /></div>
   <h3>On a phone: the day list and the month</h3>
   <div class="phone-demo">
     <PlanDays actions={phoneActions} days={['2026-10-12', '2026-10-17']} />
-    <PlanMonthPhone actions={phoneActions} selected={picked} onselect={(day) => (picked = day)} />
+    <PlanMonthPhone
+      actions={phoneActions}
+      show="both"
+      selected={picked}
+      onselect={(day) => (picked = day)}
+      onstart={() => {}}
+      oncook={() => {}}
+    />
   </div>
   <p>
     <button type="button" onclick={() => (target = { kind: 'meal', meal: plan.meals[1]! })}
