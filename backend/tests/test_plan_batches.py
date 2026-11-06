@@ -116,7 +116,7 @@ def test_lunch_and_dinner_fills_the_next_meals_after_the_cook_meal(
         (3, day(2), "Lunch"),
         (4, day(2), "Dinner"),
     ]
-    assert made["batch_id"] and made["change"]["summary"].startswith("Cooked Veg biryani once")
+    assert made["batch_id"] and made["change"]["summary"].startswith("Planned Veg biryani once")
     batch = view(kitchen)["batch_cooks"][0]
     assert batch["cook_meal_id"] == cook["meal_id"] and batch["tub_count"] == 4
     assert batch["cooked_on"] == D1.isoformat() and batch["colour"] == "purple"

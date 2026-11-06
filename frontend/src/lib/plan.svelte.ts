@@ -402,7 +402,7 @@ export class PlanModel {
   cookOnce(itemId: number, recipeName: string, body: BatchBody) {
     const word = body.tub_count === 1 ? 'tub' : 'tubs';
     return this.#send({
-      label: `Cooked ${recipeName} once for ${body.tub_count} ${word}`,
+      label: `Planned ${recipeName} once for ${body.tub_count} ${word}`,
       send: (key) => makeBatch(itemId, body, key)
     });
   }

@@ -80,7 +80,7 @@ describe('Cook mode', () => {
 
   function open(
     r: Recipe,
-    extra: { perStep?: boolean; cooked?: boolean } = {}
+    extra: { perStep?: boolean; cooked?: boolean; settling?: boolean } = {}
   ): { leaveOr: (go: () => void) => void } {
     const target = document.body.appendChild(document.createElement('div'));
     const component = mount(CookMode, {
@@ -92,7 +92,8 @@ describe('Cook mode', () => {
         perStep: extra.perStep ?? false,
         onperstep,
         onexit,
-        oncooked: extra.cooked === false ? null : oncooked
+        oncooked: extra.cooked === false ? null : oncooked,
+        settling: extra.settling ?? false
       }
     });
     mounted.push(component);
@@ -263,6 +264,14 @@ describe('Cook mode', () => {
       expect(document.querySelectorAll('footer button')).toHaveLength(2);
       await page.getByRole('button', { name: 'Leave Cook mode' }).click();
       expect(onexit).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no buttons until the plan has loaded, so they do not change (F158)', async () => {
+      open(recipe(FOUR), { settling: true });
+      await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+      const footer = document.querySelector('footer') as HTMLElement;
+      expect(getComputedStyle(footer).visibility).toBe('hidden');
+      expect(footer.getAttribute('aria-busy')).toBe('true');
     });
 
     it('has ← Back on the last step too (F138)', async () => {

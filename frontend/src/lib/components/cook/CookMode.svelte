@@ -25,6 +25,7 @@
     onperstep,
     onexit,
     oncooked = null,
+    settling = false,
     notice = null,
     problem = null
   }: {
@@ -38,6 +39,9 @@
     onexit: () => void;
     /** "Cooked it": into the review. Not there when nothing has been planned to cook. */
     oncooked?: (() => void) | null;
+    /** The plan is still loading, so whether Cooked it is there isn't known yet: the last step's
+     * buttons keep their place but say nothing (F158 side item, no flicker). */
+    settling?: boolean;
     /** Where Cook now planned the recipe, with its Undo (the toast would be under this screen). */
     notice?: { text: string; undo?: () => void } | null;
     /** One short line, e.g. when the per-step switch went back. */
@@ -304,7 +308,7 @@
     </section>
   </div>
 
-  <footer>
+  <footer class:settling aria-busy={settling}>
     {#if last}
       <button
         type="button"
@@ -725,6 +729,10 @@
     gap: var(--space-4);
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
+  }
+
+  footer.settling {
+    visibility: hidden;
   }
 
   footer {

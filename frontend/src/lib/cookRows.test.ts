@@ -7,6 +7,7 @@ import {
   choicesOf,
   conversionAnswer,
   isUsed,
+  listAmountWords,
   newRowState,
   numberWords,
   parseAmountText,
@@ -261,5 +262,15 @@ describe('at most 20 answers', () => {
     expect(parseAmountText('2 1/0')).toBeNaN();
     expect(parseAmountText('abc')).toBeNaN();
     expect(parseAmountText('')).toBeNaN();
+  });
+});
+
+describe('the shopping list line says what it adds (F133)', () => {
+  it('turns a bare count into the ingredient’s name', () => {
+    expect(listAmountWords('2 left', 'Eggs')).toBe('2 eggs');
+    expect(listAmountWords('2', 'Eggs')).toBe('2 eggs');
+    expect(listAmountWords('1½', 'Bananas')).toBe('1½ bananas');
+    expect(listAmountWords('500 g', 'Flour')).toBe('500 g');
+    expect(listAmountWords('1 packet', 'Rice')).toBe('1 packet');
   });
 });

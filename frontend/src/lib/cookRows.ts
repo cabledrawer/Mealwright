@@ -58,6 +58,19 @@ export function amountWords(n: number, unit: 'g' | 'ml' | 'count' | null): strin
   return unit === 'g' || unit === 'ml' ? `${text}${NBSP}${unit}` : text;
 }
 
+/** An ingredient's name inside a sentence: "Eggs" is "eggs", "MSG" stays (F133). */
+export const nameInSentence = (name: string) =>
+  name.length > 1 && /[a-z]/.test(name[1]!) ? `${name[0]!.toLowerCase()}${name.slice(1)}` : name;
+
+/**
+ * What goes on the shopping list, for "Add … to the shopping list" (F133, cabledrawer 6 Nov): a bare
+ * count says what it counts, "2 left" is "2 eggs"; an amount with a unit or a size word stays.
+ */
+export function listAmountWords(amount: string, name: string): string {
+  const text = amount.replace(/[\s\u00a0]+left$/, '').trim();
+  return /^[\d.,½¼¾\s\u00a0]+$/.test(text) ? `${text} ${nameInSentence(name)}` : text;
+}
+
 /** The ingredient's own take: the first one that is not a stand-in. */
 export const ownTake = (row: CookRow) => row.takes.find((t) => !t.stand_in) ?? null;
 

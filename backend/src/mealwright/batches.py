@@ -384,7 +384,7 @@ def make_batch(
     return _finish(
         kitchen,
         "plan_batch",
-        f"Cooked {worked.recipe.name} once for {tub_count} {word} ({placed} in the plan)",
+        f"Planned {worked.recipe.name} once for {tub_count} {word} ({placed} in the plan)",
         steps,
         meal_id=worked.meal.id,
         batch_id=batch.id,

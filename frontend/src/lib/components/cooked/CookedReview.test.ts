@@ -576,7 +576,7 @@ describe('the "Cooked it" review', () => {
       previews = [[proposal('Sambar', [garlic])]];
       await show(['Sambar']);
       const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });
-      await expect.element(dialog.getByText('How much Garlic is 2 cloves?')).toBeVisible();
+      await expect.element(dialog.getByText('How much is 2 cloves of garlic?')).toBeVisible();
       await dialog.getByRole('textbox', { name: /^Your answer/ }).fill('10');
       await dialog.getByRole('button', { name: 'Use this' }).click();
       await dialog.getByRole('button', { name: 'Confirm · update pantry' }).click();

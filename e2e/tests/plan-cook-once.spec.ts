@@ -270,7 +270,7 @@ test("Cook once: the sheet previews, a tub is taken out, added and moved; Save m
   await expect(
     page
       .getByRole("status")
-      .filter({ hasText: `Cooked ${name} once for 4 tubs` }),
+      .filter({ hasText: `Planned ${name} once for 4 tubs` }),
   ).toBeVisible();
   // The toast shows at once; the batch is there when the server has answered.
   await expect

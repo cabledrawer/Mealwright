@@ -18,6 +18,8 @@
     unitLabel,
     unitsDiffer,
     roundForScreen,
+    listAmountWords,
+    nameInSentence,
     type RowState
   } from '#lib/cookRows.js';
   import type { CookReview, CookTab } from '#lib/cookReview.svelte.js';
@@ -272,8 +274,8 @@
               ? `${row.unit_word} of ${name}`
               : name}?
           {:else}
-            How much {name} is {numberWords(countNote.count)}
-            {countNote.word}{countNote.count === 1 ? '' : 's'}?
+            How much is {numberWords(countNote.count)}
+            {countNote.word}{countNote.count === 1 ? '' : 's'} of {nameInSentence(name)}?
           {/if}
         {:else}
           How much {name} did you use?
@@ -378,9 +380,12 @@
           ? `Short by ${amountWords(row.short.amount, row.unit)}.`
           : row.running_low
             ? 'Running low.'
-            : ''} Add {row.list_amount.as_sold
-          ? row.list_amount.short
-          : amountWords(row.list_amount.amount, row.unit)}
+            : ''} Add {listAmountWords(
+          row.list_amount.as_sold
+            ? (row.list_amount.short ?? '')
+            : amountWords(row.list_amount.amount, row.unit),
+          name
+        )}
         to the shopping list
       </span>
       <Switch

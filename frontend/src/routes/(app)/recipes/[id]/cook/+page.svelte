@@ -32,6 +32,8 @@
   let problem = $state<string | null>(null);
   /** Set when the person has chosen to leave: the next navigation goes through. */
   let leaving = false;
+  /** The plan is still loading: the last step's buttons wait, so they don't change under a thumb. */
+  let settling = $state(page.url.searchParams.get('meal') !== null);
 
   // "Cooked it" at the last step: only when this recipe is planned in a meal (Cook now plans it
   // first, or finds it planned today). The meal comes in the address (?meal=). The plan is read
@@ -104,7 +106,8 @@
     // Start cooking from the Plan names the meal's day (?day=): the plan is read for that week.
     const day = page.url.searchParams.get('day');
     if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) model.anchor = day;
-    if (mealId) void model.load();
+    if (mealId) void model.load().finally(() => (settling = false));
+    else settling = false;
   });
 
   function exit() {
@@ -143,6 +146,7 @@
     perStep={cookPrefs.perStep}
     {notice}
     oncooked={meal ? openCooked : null}
+    {settling}
     problem={cookPrefs.problem}
     onperstep={(on) => void cookPrefs.setPerStep(on)}
     onexit={exit}
