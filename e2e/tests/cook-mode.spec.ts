@@ -291,7 +291,8 @@ test('with “reduce motion” the step just changes: nothing slides (F145)', as
   const slide = page.getByTestId('slide');
   await expect(slide).toHaveAttribute('data-moving', 'false');
   expect(await slide.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
-  expect(await slide.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+  // The app's own reduce-motion rule makes every transition (almost) instant.
+  expect(await slide.evaluate((el) => parseFloat(getComputedStyle(el).transitionDuration))).toBeLessThan(0.001);
 });
 
 test('headings are section titles and a recipe with two method sections shows every step', async ({ page }) => {
