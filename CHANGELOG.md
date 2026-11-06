@@ -4,6 +4,20 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- **Cooking ahead (0.8.0, F159, cabledrawer 6 Nov).** Cooked it works on a meal planned for a later day (Plan → Cook → Start cooking → Confirm); the meal stays on its day. Stock is taken when it is really cooked, and a tub's use-by counts from the day it was really cooked (a Saturday batch cooked on Friday counts from Friday). Didn't is still refused before the meal's day; Move it is unchanged. No database change.
+- **Today: a meal cooked in parts (0.8.0, F160).** One line per recipe: a tick and a **Cooked** chip on each cooked one, a filled **Cooked it** button on each one still to cook; the header says "1 of 2 cooked", then "All cooked". It replaces 0.7's "Cooked <recipe>" line. A recipe removed from the recipe list shows as a plain line, without Cooked it.
+- **Plan: a meal cooked in parts (0.8.0, F162, F163).** The panel lists each recipe with a **Cooked** tag on cooked ones, and the note names them ("Banana bread was cooked. Undo its Cooked it to move or remove it."); a recipe not yet cooked can be removed or have its servings changed on its own. Move it names only what moves ("Moved Lentil soup from Dinner on Thu 5 Nov to Dinner on Sat 7 Nov").
+- **Cook view's day header (0.8.0, F164).** "N things to cook" counts only what is not cooked yet; when everything is cooked it says **All cooked**.
+- **Small words (0.8.0, F133).** "Add 2 eggs to the shopping list"; "How much is 1 sprig of curry leaves?"; a Cook once plan is logged as "Planned Sambar once for 3 tubs"; "Did you cook …?" lists every recipe and tub in the meal.
+
+### Fixed
+
+- **The first toast after Confirm (0.8.0, F161)** names only the recipes that press cooked.
+- **The toast with Undo after Confirm in Cook mode (0.8.0, F158)** stays its full time on the screen Cook mode returns to. A lost reply to Confirm no longer leaves an all-cooked meal "planned": the next load of Today or the Plan shows it cooked (once the press is a few minutes old), and Undo of it puts the meal back to planned. A recipe deleted from the recipe list is left out of the Cooked it review.
+- **Cook mode's labels (0.8.0)** no longer change for a moment while the plan loads.
+
 ## [0.7.0] - 2026-11-06
 
 The cooking milestone: "Cooked it" takes what a meal used from the pantry, with a review first; Cook mode walks through a recipe step by step; the Plan gets Both · Eat · Cook, COOK and EAT cards, portions and a Month view with "Fill from freezer first"; staples show when they were last restocked; and many import, shopping and pantry fixes from cabledrawer's hand tests. Words not yet confirmed by cabledrawer are marked "proposed, for cabledrawer" in `docs/dev/words.md`.
