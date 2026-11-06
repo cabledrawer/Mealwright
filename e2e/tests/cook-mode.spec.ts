@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { checkPage, expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
+import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // Cook mode (0.7, K4), against the real server: Cook now from the recipe page, big text one step
 // at a time with Back and Next (buttons, keys, swipe), headings as section titles, a recipe with
@@ -59,8 +59,8 @@ const text = (page: Page) => page.getByTestId('step-text');
 const next = (page: Page) => page.getByRole('button', { name: 'Next →' });
 
 /** Counts the oscillators the chime makes, and fakes the Wake Lock; no sound is made. */
-async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean } = {}) {
-  await page.addInitScript((wakeLock) => {
+async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean; refuse?: boolean } = {}) {
+  await page.addInitScript(({ wakeLock, refuse }) => {
     const w = window as any;
     w.__chime = { oscillators: 0, starts: [] as number[] };
     class FakeAudio {
@@ -101,6 +101,7 @@ async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean } = {
         ? {
             request: async () => {
               w.__wake.asked++;
+              if (refuse) throw new Error('Low power');
               return {
                 release: async () => void w.__wake.released++,
                 addEventListener: (_t: string, f: () => void) => void w.__wake.listeners.push(f),
@@ -109,7 +110,7 @@ async function fakeBrowserThings(page: Page, options: { wakeLock?: boolean } = {
           }
         : undefined,
     });
-  }, options.wakeLock ?? true);
+  }, { wakeLock: options.wakeLock ?? true, refuse: options.refuse ?? false });
 }
 
 /** The plan can't be written, so Cook now plans nothing (and leaves the shared plan alone). */
@@ -161,11 +162,136 @@ test('Cook mode shows one big step at a time, with Back, Next, keys and a swipe'
   await page.mouse.move(box.x + 10, y, { steps: 6 });
   await page.mouse.up();
   await expect(count(page)).toHaveText('Step 3 of 4');
+  await expect(page.getByTestId('slide')).toHaveAttribute('data-moving', 'false');
   await page.mouse.move(box.x + 10, y);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width - 20, y, { steps: 6 });
   await page.mouse.up();
   await expect(count(page)).toHaveText('Step 2 of 4');
+});
+
+test('the Ingredients for each step box is laid out as the 0.8 mockup, in both themes at 390 px (F148)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  await page.getByRole('switch', { name: /Ingredients for each step/ }).click();
+  const box = page.getByRole('region', { name: 'Ingredients for each step' });
+  await expect(box.getByTestId('per-step')).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await inTheme(page, theme);
+    const m = await box.evaluate((el) => {
+      const r = (q: string) => el.querySelector(q)!.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      const label = r('.label');
+      const badge = r('.badge');
+      const sw = r('[role="switch"]');
+      const note = getComputedStyle(el.querySelector('.guess .note:last-child')!);
+      return {
+        padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+        border: style.borderTopWidth,
+        gap: badge.top - label.bottom,
+        sameLeft: badge.left === label.left,
+        switchSize: [sw.width, sw.height],
+        centred: Math.abs(sw.top + sw.height / 2 - (label.top + badge.bottom) / 2),
+        labelFromTop: label.top - el.getBoundingClientRect().top,
+        divider: getComputedStyle(el.querySelector('.guess')!).borderTopWidth,
+        line: parseFloat(note.lineHeight) / parseFloat(note.fontSize),
+        inside: sw.right <= el.getBoundingClientRect().right,
+      };
+    });
+    expect(m.padding).toEqual(['16px', '16px', '16px', '16px']);
+    expect(m.border).toBe('1px');
+    expect(m.gap).toBe(8);
+    expect(m.sameLeft).toBe(true);
+    expect(m.switchSize).toEqual([52, 32]);
+    expect(m.centred).toBeLessThanOrEqual(1);
+    expect(m.labelFromTop).toBeGreaterThanOrEqual(16);
+    expect(m.divider).toBe('1px');
+    expect(m.line).toBeCloseTo(1.45, 2);
+    expect(m.inside).toBe(true);
+    await expectNoSidewaysScroll(page);
+  }
+  await inTheme(page, 'light');
+});
+
+test('"Couldn’t keep the screen awake." has its own amber line under the progress bar, not in the box (F148)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await fakeBrowserThings(page, { refuse: true });
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  await page.getByRole('switch', { name: /Ingredients for each step/ }).click();
+  const line = page.getByTestId('cook-asleep');
+  await expect(line).toHaveText('Couldn’t keep the screen awake.');
+  await expect(page.getByRole('region', { name: 'Ingredients for each step' }).getByText('Couldn’t keep')).toHaveCount(0);
+  const progress = (await page.locator('.progress').boundingBox())!;
+  const amber = (await line.boundingBox())!;
+  expect(amber.y).toBeGreaterThanOrEqual(progress.y + progress.height);
+  expect(await line.evaluate((el) => [getComputedStyle(el).paddingTop, getComputedStyle(el).paddingLeft])).toEqual(['10px', '12px']);
+  await expect(page.getByText('Awake', { exact: true })).toHaveCount(0);
+  await expectNoSidewaysScroll(page);
+});
+
+test('the step follows the finger, springs back when the swipe is short, and slides to the next when it is long (F145)', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  const slide = page.getByTestId('slide');
+  const shift = () => slide.evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+  const box = (await text(page).boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + 10;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 30, y, { steps: 3 });
+  expect(await shift()).toBeLessThan(-20); // the step is with the finger
+  await expect(count(page)).toHaveText('Step 1 of 4');
+  await page.mouse.up(); // 30 px is not far enough
+  await expect(slide).toHaveAttribute('data-moving', 'false');
+  expect(await shift()).toBe(0);
+  await expect(count(page)).toHaveText('Step 1 of 4');
+  // Far enough: on to step 2, whose text slides in.
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 150, y, { steps: 5 });
+  expect(await shift()).toBeLessThan(-100);
+  await page.mouse.up();
+  await expect(count(page)).toHaveText('Step 2 of 4');
+  await expect(slide).toHaveAttribute('data-moving', 'false');
+  expect(await shift()).toBe(0);
+  // At the first step a swipe to the right goes nowhere: it gives a little and comes back.
+  await next(page).click();
+  await page.getByRole('button', { name: '← Back' }).click();
+  await page.getByRole('button', { name: '← Back' }).click();
+  await expect(count(page)).toHaveText('Step 1 of 4');
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 120, y, { steps: 4 });
+  const given = await shift();
+  expect(given).toBeGreaterThan(0);
+  expect(given).toBeLessThan(60);
+  await page.mouse.up();
+  await expect(slide).toHaveAttribute('data-moving', 'false');
+  expect(await shift()).toBe(0);
+  await expect(count(page)).toHaveText('Step 1 of 4');
+});
+
+test('with “reduce motion” the step just changes: nothing slides (F145)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await fakeBrowserThings(page);
+  const { id } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}/cook`);
+  const box = (await text(page).boundingBox())!;
+  const y = box.y + 10;
+  await page.mouse.move(box.x + box.width - 20, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 10, y, { steps: 6 });
+  await page.mouse.up();
+  await expect(count(page)).toHaveText('Step 2 of 4');
+  const slide = page.getByTestId('slide');
+  await expect(slide).toHaveAttribute('data-moving', 'false');
+  expect(await slide.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await slide.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
 });
 
 test('headings are section titles and a recipe with two method sections shows every step', async ({ page }) => {
@@ -311,11 +437,9 @@ test('per-step ingredients are off, then guessed from the step once switched on 
   await expect(sw).toHaveAttribute('aria-checked', 'false');
   await sw.click();
   const box = page.getByTestId('per-step');
-  await expect(box).toContainText('For this step');
-  await expect(box).toContainText('Experimental · guessed');
   await expect(box).toContainText(/Tamarind/);
   await expect(box).toContainText(/Onion/);
-  await expect(box).toContainText('Wrong? Fix it when you edit the recipe.');
+  await expect(box).toContainText('Guessed from the step, so it may be wrong. Fix it when you edit the recipe.');
   await next(page).click();
   await expect(box).toContainText('No ingredient guessed for this step.');
 });

@@ -161,7 +161,7 @@
       if (Math.max(Math.abs(dx), Math.abs(dy)) < LOOK) return;
       down.sideways = Math.abs(dx) >= Math.abs(dy) * 1.5;
     }
-    if (!down.sideways) return;
+    if (!down.sideways || reducedMotion()) return;
     sliding = false;
     // Where there is no step to go to, the step gives a little and no more.
     const to = index + (dx < 0 ? 1 : -1);

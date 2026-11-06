@@ -163,3 +163,56 @@ test('a computer keeps today’s Check screen, whatever the phone’s choice is'
   await expect(page.getByRole('button', { name: /^Close/ })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Main' }).or(page.getByRole('navigation', { name: 'Sidebar' })).first()).toBeVisible();
 });
+
+const opacity = (button: ReturnType<Page['getByRole']>) => button.evaluate((el) => Number(getComputedStyle(el).opacity));
+
+test('Focus: with a step box open Close looks greyed like Save recipe (F154)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'focus');
+  await checking(page, unique('Pongal'), unique('Hing'), unique('Masala'));
+  const close = page.getByRole('button', { name: /^Close/ });
+  const save = page.getByRole('button', { name: 'Save recipe' });
+  expect(await opacity(close)).toBe(1);
+  await page.getByRole('button', { name: /^Change step 1/ }).click();
+  await expect(close).toBeDisabled();
+  await expect(save).toBeDisabled();
+  expect(await opacity(close)).toBeLessThan(1);
+  expect(await opacity(close)).toBe(await opacity(save));
+});
+
+test('One at a time: with a step box open Close, See all, Back and Next look greyed (F154)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  await checking(page, unique('Upma'), unique('Hing'), unique('Masala'));
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await page.getByRole('button', { name: /^Next/ }).click(); // step 1
+  const buttons = [
+    page.getByRole('button', { name: 'Close (kept in Drafts)' }),
+    page.getByRole('button', { name: 'See all' }),
+    page.getByRole('button', { name: /^← Back/ }),
+    page.getByRole('button', { name: /^Next/ }),
+  ];
+  for (const button of buttons) expect(await opacity(button)).toBe(1);
+  await page.getByRole('button', { name: 'Change the words' }).click();
+  for (const button of buttons) {
+    await expect(button).toBeDisabled();
+    expect(await opacity(button)).toBeLessThan(1);
+  }
+});
+
+test('One at a time: the first screen starts with the recipe’s name, Serves and minutes (F141 follow-up)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Kootu');
+  await checking(page, title, unique('Hing'), unique('Masala'));
+  const name = page.getByLabel('Name').first();
+  await expect(name).toHaveValue(title);
+  await expect(page.getByLabel('Serves')).toBeVisible();
+  await expect(page.getByLabel('Minutes')).toBeVisible();
+  const nameBox = (await name.boundingBox())!;
+  const lineBox = (await page.getByRole('button', { name: 'Treat as staple' }).boundingBox())!;
+  expect(nameBox.y).toBeLessThan(lineBox.y);
+  await checkPage(page);
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await expect(page.getByLabel('Serves')).toHaveCount(0);
+});
