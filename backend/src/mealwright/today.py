@@ -44,9 +44,10 @@ from mealwright.batches import (
     places_of_kind,
     tub_use_by,
 )
+from mealwright.cooked import for_meal_item
 from mealwright.errors import Problem, not_found
 from mealwright.household import today
-from mealwright.models import BatchCook, Change, Meal, MealItem, MealSlot, Recipe, Tub
+from mealwright.models import BatchCook, Change, CookedRecord, Meal, MealItem, MealSlot, Recipe, Tub
 from mealwright.plan import (
     _bring,
     _copy_of,
@@ -100,14 +101,24 @@ def _set_status(meal: Meal, new: str, steps: list[dict[str, Any]], kitchen: Kitc
     kitchen.db.flush()
 
 
-def _leftover_item(kitchen: Kitchen, meal: Meal, item_id: int | None) -> MealItem:
+def _leftover_item(
+    kitchen: Kitchen, meal: Meal, item_id: int | None, press_items: list[int] | None = None
+) -> MealItem:
     items = items_of(kitchen, meal)
     if item_id is not None:
         item = next((i for i in items if i.id == item_id), None)
         if item is None:
             raise not_found("That item")
     else:
-        item = next((i for i in items if i.kind == "recipe"), None)
+        recipes = [i for i in items if i.kind == "recipe"]
+        # The recipe this press cooked (its records, in order), else the first not cooked yet,
+        # never another press's (F157 review); nothing to tell them apart: the first.
+        by_id = {i.id: i for i in recipes}
+        pressed = [by_id[i] for i in (press_items or []) if i in by_id]
+        uncooked = [
+            i for i in recipes if for_meal_item(kitchen.db, kitchen.household_id, i.id) is None
+        ]
+        item = next(iter(pressed or uncooked or recipes), None)
         if item is None:
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -124,12 +135,16 @@ def _leftover_item(kitchen: Kitchen, meal: Meal, item_id: int | None) -> MealIte
 
 
 def _make_tubs(
-    kitchen: Kitchen, meal: Meal, leftovers: Leftovers, steps: list[dict[str, Any]]
+    kitchen: Kitchen,
+    meal: Meal,
+    leftovers: Leftovers,
+    steps: list[dict[str, Any]],
+    press_items: list[int] | None = None,
 ) -> int:
     """The tubs of "Any left over?". The recipe's batch cook for this meal if there is one,
     else a new batch cook. Returns how many were made."""
     db = kitchen.db
-    item = _leftover_item(kitchen, meal, leftovers.item_id)
+    item = _leftover_item(kitchen, meal, leftovers.item_id, press_items)
     place = places_of_kind(db, kitchen.household_id, leftovers.place_kind)
     if place is None:
         raise Problem(
@@ -220,7 +235,20 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     names = together.cooked_names(kitchen, press, meal) if press else []
     name = _joined(names) if names else _meal_name(kitchen, meal)
     whole = not press or cooking.meal_all_cooked(kitchen, meal)  # before any new batch of leftovers
-    made = _make_tubs(kitchen, meal, leftovers, steps) if leftovers else 0
+    pressed = [
+        r.meal_item_id
+        for change in press
+        for r in kitchen.db.scalars(
+            select(CookedRecord)
+            .where(
+                CookedRecord.household_id == kitchen.household_id,
+                CookedRecord.change_id == change.id,
+            )
+            .order_by(CookedRecord.id)
+        )
+        if r.meal_item_id is not None
+    ]
+    made = _make_tubs(kitchen, meal, leftovers, steps, pressed) if leftovers else 0
     if whole:
         _set_status(meal, "cooked", steps, kitchen)
     summary = f"Cooked {name} ({where})"
@@ -269,7 +297,8 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
     for item in items:
         if item.tub_id is not None:
             _bring(kitchen, item, target, steps)  # a tub is in one meal at a time
-        else:
+        elif for_meal_item(kitchen.db, kitchen.household_id, item.id) is None:
+            # An already-cooked recipe is not copied: it was eaten (proposed, for cabledrawer).
             _copy_of(kitchen, item, target, steps)
     _set_status(meal, "moved", steps, kitchen)
     return _finish(

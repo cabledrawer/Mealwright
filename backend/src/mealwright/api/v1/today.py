@@ -17,6 +17,7 @@ from mealwright.api.v1.pantry import UseSoonLot, use_soon
 from mealwright.api.v1.plan import MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
 from mealwright.batches import tub_use_by
+from mealwright.cooked import for_meal_item
 from mealwright.errors import StoredInt
 from mealwright.household import meal_slots
 from mealwright.household import today as household_today
@@ -83,13 +84,22 @@ def get_today(kitchen: Here) -> TodayOut:
     lots = use_soon(kitchen)
     waiting = []
     for meal in answers.waiting_meals(kitchen):
-        recipe = db.scalar(
-            select(MealItem)
-            .where(
-                MealItem.household_id == hid, MealItem.meal_id == meal.id, MealItem.kind == "recipe"
+        recipes = list(
+            db.scalars(
+                select(MealItem)
+                .where(
+                    MealItem.household_id == hid,
+                    MealItem.meal_id == meal.id,
+                    MealItem.kind == "recipe",
+                )
+                .order_by(MealItem.position, MealItem.id)
             )
-            .order_by(MealItem.position, MealItem.id)
-            .limit(1)
+        )
+        # The first recipe not cooked yet: a part-cooked meal's leftovers are not an
+        # already-cooked recipe's (F157 review).
+        recipe = next(
+            (r for r in recipes if for_meal_item(db, hid, r.id) is None),
+            recipes[0] if recipes else None,
         )
         waiting.append(
             WaitingOut(

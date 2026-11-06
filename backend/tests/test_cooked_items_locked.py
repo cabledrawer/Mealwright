@@ -7,8 +7,8 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from sync_kit import ok
-from test_cooked_parts import API, cooked_flags, press, records, two_in_a_meal
-from test_cooked_undo import status_of
+from test_cooked_parts import cooked_flags, press, records, two_in_a_meal
+from test_cooked_undo import API, status_of
 from test_history import wren  # noqa: F401 (a fixture)
 from test_plan import slot_ids
 

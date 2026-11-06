@@ -2,7 +2,7 @@
 whole meal cooked. The meal is Cooked when every recipe in it (and every Cook once batch it
 uses) has been cooked; each press marks, takes and undoes only what it cooked."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -22,7 +22,7 @@ from test_plan import db_of, slot_ids
 from test_recipe_list import line, stock
 from test_recipes import food, make
 
-from mealwright.models import CookedRecord, Meal
+from mealwright.models import CookedRecord, Meal, MealItem, Recipe
 
 
 def two_in_a_meal(client: TestClient, extra: int = 0) -> tuple[dict[str, Any], int, int, int]:
@@ -237,4 +237,45 @@ def test_leftovers_of_a_part_cooked_meal_dont_stop_it_being_cooked(kitchen: Test
     assert status_of(kitchen, meal) == "planned"
     assert cooked_flags(kitchen) == {khichdi: False, soup: True}
     press(kitchen, meal, khichdi)
+    assert status_of(kitchen, meal) == "cooked"
+
+
+def test_a_deleted_recipe_doesnt_stop_the_meal_being_cooked(kitchen: TestClient) -> None:
+    """A recipe deleted after planning can't be cooked, so it doesn't count (F157 review)."""
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    with db_of(kitchen) as db:
+        item = db.get(MealItem, khichdi)
+        assert item is not None and item.recipe_id is not None
+        recipe = db.get(Recipe, item.recipe_id)
+        assert recipe is not None
+        recipe.removed_at = datetime.now(UTC)
+        db.commit()
+    press(kitchen, meal, soup)
+    assert status_of(kitchen, meal) == "cooked"
+
+
+def test_the_same_recipe_twice_is_cooked_when_both_are(kitchen: TestClient) -> None:
+    """Two copies of one recipe are two items: each needs its own press (F157 review)."""
+    _dal, meal, khichdi, _soup = two_in_a_meal(kitchen)
+    with db_of(kitchen) as db:
+        item = db.get(MealItem, khichdi)
+        assert item is not None
+        recipe_id = item.recipe_id
+    again = ok(
+        kitchen.post(
+            f"{API}/plan/items",
+            json={
+                "date": date.today().isoformat(),
+                "slot_id": slot_ids(kitchen)["Dinner"],
+                "recipe_id": recipe_id,
+                "servings": 2,
+            },
+        ),
+        201,
+    )["item_id"]
+    soup = next(i for i in cooked_flags(kitchen) if i not in (khichdi, again))
+    press(kitchen, meal, khichdi)
+    press(kitchen, meal, soup)
+    assert status_of(kitchen, meal) == "planned"  # the second copy is not cooked
+    press(kitchen, meal, again)
     assert status_of(kitchen, meal) == "cooked"
