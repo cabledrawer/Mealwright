@@ -7,6 +7,7 @@ from fastapi import status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import cooked
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
@@ -139,6 +140,21 @@ def _planned(meal: Meal) -> None:
             "meal_done",
             "That meal has already been dealt with, so it can’t be changed here.",
         )
+
+
+def refuse_cooked_items(kitchen: Kitchen, items: list[MealItem]) -> None:
+    """A recipe that was cooked stays in its meal while its cooked record stands: taking it off,
+    moving it or changing its servings would lose the record (F157: a part-cooked meal is still
+    planned, so `_planned` no longer guards it). Same words as a cooked batch."""
+    for item in items:
+        record_ = cooked.for_meal_item(kitchen.db, kitchen.household_id, item.id)
+        if record_ is not None:
+            day = today(kitchen.household, as_utc(record_.cooked_at))
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "already_cooked",
+                f"This was cooked on {day:%a} {day.day} {day:%b}. Undo “Cooked it” first.",
+            )  # proposed, for cabledrawer
 
 
 def meal_at(kitchen: Kitchen, day: date, slot_id: int) -> Meal | None:
@@ -386,6 +402,7 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
     if meal is None:  # pragma: no cover (the database keeps every item in a meal)
         raise not_found("That meal")
     _planned(meal)
+    refuse_cooked_items(kitchen, [item])
     steps: list[dict[str, Any]] = []
     name, where = _item_name(kitchen, item), _where(kitchen, meal.day, meal.slot_id)
     from mealwright import batches
@@ -407,6 +424,7 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
 
 def remove_meal(kitchen: Kitchen, meal: Meal) -> Change:
     _planned(meal)
+    refuse_cooked_items(kitchen, items_of(kitchen, meal))
     steps: list[dict[str, Any]] = []
     name, where = _meal_name(kitchen, meal), _where(kitchen, meal.day, meal.slot_id)
     for item in items_of(kitchen, meal):
@@ -480,6 +498,8 @@ def move_meal(
     cooking = batches.batches_cooked_at(kitchen, meal) if mode == "move" else []
     batches.refuse_cooked(kitchen, cooking)  # before _planned: it says when it was cooked
     _planned(meal)
+    if mode == "move":
+        refuse_cooked_items(kitchen, items_of(kitchen, meal))
     if (meal.day, meal.slot_id) == (day, slot_id):
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That meal is already there."
@@ -585,6 +605,8 @@ def move_item(
     if source is None:  # pragma: no cover (the database keeps every item in a meal)
         raise not_found("That meal")
     _planned(source)
+    if mode == "move":
+        refuse_cooked_items(kitchen, [item])
     if (source.day, source.slot_id) == (day, slot_id):
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That’s already there.")
     from mealwright import batches
@@ -648,6 +670,7 @@ def set_servings(kitchen: Kitchen, item: MealItem, servings: int) -> Change | No
     if meal is None:  # pragma: no cover (the database keeps every item in a meal)
         raise not_found("That meal")
     _planned(meal)
+    refuse_cooked_items(kitchen, [item])
     if item.kind != "recipe":
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -762,6 +785,8 @@ def _undo_step(
         item = _own(kitchen, MealItem, step["item"])
         if item is None or _open(kitchen, item.meal_id) is None:
             return False
+        if cooked.for_meal_item(db, kitchen.household_id, item.id) is not None:
+            return False  # cooked since: its record stays
         touched.add(item.meal_id)
         db.delete(item)
         db.flush()
@@ -848,6 +873,8 @@ def _undo_step(
             return False
         if _open(kitchen, item.meal_id) is None:
             return False  # the item now sits in a meal that has been dealt with
+        if cooked.for_meal_item(db, kitchen.household_id, item.id) is not None:
+            return False
         touched.add(item.meal_id)
         item.meal_id, item.position = meal.id, step["position"]
         db.flush()
@@ -855,6 +882,8 @@ def _undo_step(
     if op == "servings":
         item = _own(kitchen, MealItem, step["item"])
         if item is None or _open(kitchen, item.meal_id) is None:
+            return False
+        if cooked.for_meal_item(db, kitchen.household_id, item.id) is not None:
             return False
         item.servings = step["from"]
         db.flush()
