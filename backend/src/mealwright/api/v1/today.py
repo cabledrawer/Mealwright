@@ -17,11 +17,11 @@ from mealwright.api.v1.pantry import UseSoonLot, use_soon
 from mealwright.api.v1.plan import MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
 from mealwright.batches import tub_use_by
-from mealwright.cooked import for_meal_item
 from mealwright.errors import StoredInt
 from mealwright.household import meal_slots
 from mealwright.household import today as household_today
 from mealwright.models import BatchCook, Meal, MealItem, Recipe, StockLot
+from mealwright.plan import cooked_record_of
 
 router = APIRouter(tags=["today"], dependencies=[SameOrigin])
 
@@ -98,7 +98,7 @@ def get_today(kitchen: Here) -> TodayOut:
         # The first recipe not cooked yet: a part-cooked meal's leftovers are not an
         # already-cooked recipe's (F157 review).
         recipe = next(
-            (r for r in recipes if for_meal_item(db, hid, r.id) is None),
+            (r for r in recipes if cooked_record_of(kitchen, r, meal) is None),
             recipes[0] if recipes else None,
         )
         waiting.append(

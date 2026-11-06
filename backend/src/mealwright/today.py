@@ -44,7 +44,6 @@ from mealwright.batches import (
     places_of_kind,
     tub_use_by,
 )
-from mealwright.cooked import for_meal_item
 from mealwright.errors import Problem, not_found
 from mealwright.household import today
 from mealwright.models import BatchCook, Change, CookedRecord, Meal, MealItem, MealSlot, Recipe, Tub
@@ -59,6 +58,7 @@ from mealwright.plan import (
     _room,
     _where,
     check_day,
+    cooked_record_of,
     find_slot,
     items_of,
     meal_at,
@@ -115,9 +115,7 @@ def _leftover_item(
         # never another press's (F157 review); nothing to tell them apart: the first.
         by_id = {i.id: i for i in recipes}
         pressed = [by_id[i] for i in (press_items or []) if i in by_id]
-        uncooked = [
-            i for i in recipes if for_meal_item(kitchen.db, kitchen.household_id, i.id) is None
-        ]
+        uncooked = [i for i in recipes if cooked_record_of(kitchen, i, meal) is None]
         item = next(iter(pressed or uncooked or recipes), None)
         if item is None:
             raise Problem(
@@ -297,7 +295,7 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
     for item in items:
         if item.tub_id is not None:
             _bring(kitchen, item, target, steps)  # a tub is in one meal at a time
-        elif for_meal_item(kitchen.db, kitchen.household_id, item.id) is None:
+        elif cooked_record_of(kitchen, item, meal) is None:
             # An already-cooked recipe is not copied: it was eaten (proposed, for cabledrawer).
             _copy_of(kitchen, item, target, steps)
     _set_status(meal, "moved", steps, kitchen)
