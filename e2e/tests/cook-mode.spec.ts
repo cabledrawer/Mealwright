@@ -648,65 +648,119 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
   const first = await planned(khichdi.id);
   const second = await planned(soup.id);
   const meal = first.meal_id as number;
-  const flags = async () => {
-    const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
-      meals: { id: number; status: string; items: { id: number; cooked: boolean }[] }[];
+  try {
+    const flags = async () => {
+      const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+        meals: { id: number; status: string; items: { id: number; cooked: boolean }[] }[];
+      };
+      const m = plan.meals.find((x) => x.id === meal)!;
+      return { status: m.status, cooked: m.items.map((i) => [i.id, i.cooked]) };
     };
-    const m = plan.meals.find((x) => x.id === meal)!;
-    return { status: m.status, cooked: m.items.map((i) => [i.id, i.cooked]) };
-  };
-  const cookView = async () => {
+    const cookView = async () => {
+      await page.goto('/plan');
+      await page.getByRole('button', { name: 'Previous week' }).click();
+      await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
+      return page.getByRole('region', { name: planDayName(day) });
+    };
+
+    // Start cooking the soup from the Plan, and confirm.
+    let card = await cookView();
+    await card.getByRole('button', { name: `Start cooking ${soup.name}` }).click();
+    await expect(cook(page)).toBeVisible();
+    await lastStep(page);
+    await page.getByRole('button', { name: 'Cooked it' }).click();
+    const review = page.getByRole('dialog', { name: `Cooked ${soup.name}`, exact: true });
+    await expect(review).toBeVisible();
+    await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+    await expect(review).toHaveCount(0);
+    // The toast names only what was cooked.
+    const toast = page.getByRole('status').filter({ hasText: `Cooked ${soup.name} (` });
+    await expect(toast).toBeVisible();
+    await expect(toast).not.toContainText('more');
+    expect(await flags()).toEqual({ status: 'planned', cooked: [[first.item_id, false], [second.item_id, true]] });
+
+    // The Plan: Cooked on the soup only; the khichdi keeps Start cooking.
+    card = await cookView();
+    await expect(card.getByRole('button', { name: `Start cooking ${khichdi.name}` })).toBeVisible();
+    await expect(card.getByRole('button', { name: `Start cooking ${soup.name}` })).toHaveCount(0);
+    await expect(card.getByText('Cooked', { exact: true })).toHaveCount(1);
+
+    // Reload of the cook address: the review lists only the khichdi, which is not cooked yet.
+    await card.getByRole('button', { name: `Start cooking ${khichdi.name}` }).click();
+    await expect(cook(page)).toBeVisible();
+    const address = new URL(page.url()).pathname + new URL(page.url()).search;
+    await page.goto(address);
+    await expect(cook(page)).toBeVisible();
+    await expect(next(page)).toBeVisible();
+    await lastStep(page);
+    await page.getByRole('button', { name: 'Cooked it' }).click();
+    const second_review = page.getByRole('dialog', { name: `Cooked ${khichdi.name}`, exact: true });
+    await expect(second_review).toBeVisible();
+    await second_review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+    await expect(second_review).toHaveCount(0);
+    expect((await flags()).status).toBe('cooked');
+
+    // Recent changes names each press on its own; the Undo of the first puts back only the soup.
+    await page.goto('/pantry');
+    const recent = page.getByRole('region', { name: 'Recent changes' });
+    await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${khichdi.name} \\(`) })).toHaveCount(1);
+    await recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${soup.name} \\(`) }).click();
+    await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${soup.name}`);
+    expect(await flags()).toEqual({ status: 'planned', cooked: [[first.item_id, true], [second.item_id, false]] });
+  } finally {
+    // Take back what this test cooked (a cooked recipe can't be removed), then clear the plan.
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && (c.summary.includes(khichdi.name) || c.summary.includes(soup.name)))) {
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    }
+    for (const id of [first.item_id as number, second.item_id as number]) {
+      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+    }
+  }
+});
+
+test('F157: reloading the cook address, Cooked it still reviews only this recipe, not the whole meal', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const index = ['desktop 0.7 cook mode', 'phone 0.7 cook mode', 'webkit 0.7 cook mode'].indexOf(test.info().project.name);
+  const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
+  const back = new Date(`${household.today}T12:00:00Z`);
+  back.setUTCDate(back.getUTCDate() - 7);
+  const day = back.toISOString().slice(0, 10);
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
+  const khichdi = await makeRecipe(page, FOUR, `Khichdi ${stamp()}`);
+  const soup = await makeRecipe(page, FOUR, `Lentil soup ${stamp()}`);
+  const planned = async (recipe: number) => await call(page, '/plan/items', { date: day, slot_id: slot, recipe_id: recipe, servings: 2 });
+  const first = await planned(khichdi.id);
+  const second = await planned(soup.id);
+  try {
     await page.goto('/plan');
     await page.getByRole('button', { name: 'Previous week' }).click();
     await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
-    return page.getByRole('region', { name: planDayName(day) });
-  };
-
-  // Start cooking the soup from the Plan, and confirm.
-  let card = await cookView();
-  await card.getByRole('button', { name: `Start cooking ${soup.name}` }).click();
-  await expect(cook(page)).toBeVisible();
-  await lastStep(page);
-  await page.getByRole('button', { name: 'Cooked it' }).click();
-  const review = page.getByRole('dialog', { name: `Cooked ${soup.name}`, exact: true });
-  await expect(review).toBeVisible();
-  await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
-  await expect(review).toHaveCount(0);
-  // The toast names only what was cooked.
-  const toast = page.getByRole('status').filter({ hasText: `Cooked ${soup.name} (` });
-  await expect(toast).toBeVisible();
-  await expect(toast).not.toContainText('more');
-  expect(await flags()).toEqual({ status: 'planned', cooked: [[first.item_id, false], [second.item_id, true]] });
-
-  // The Plan: Cooked on the soup only; the khichdi keeps Start cooking.
-  card = await cookView();
-  await expect(card.getByRole('button', { name: `Start cooking ${khichdi.name}` })).toBeVisible();
-  await expect(card.getByRole('button', { name: `Start cooking ${soup.name}` })).toHaveCount(0);
-  await expect(card.getByText('Cooked', { exact: true })).toHaveCount(1);
-
-  // Reload of the cook address: the review lists only the khichdi, which is not cooked yet.
-  await card.getByRole('button', { name: `Start cooking ${khichdi.name}` }).click();
-  await expect(cook(page)).toBeVisible();
-  const address = new URL(page.url()).pathname + new URL(page.url()).search;
-  await page.goto(address);
-  await expect(cook(page)).toBeVisible();
-  await expect(next(page)).toBeVisible();
-  await lastStep(page);
-  await page.getByRole('button', { name: 'Cooked it' }).click();
-  const second_review = page.getByRole('dialog', { name: `Cooked ${khichdi.name}`, exact: true });
-  await expect(second_review).toBeVisible();
-  await second_review.getByRole('button', { name: 'Confirm · update pantry' }).click();
-  await expect(second_review).toHaveCount(0);
-  expect((await flags()).status).toBe('cooked');
-
-  // Recent changes names each press on its own; the Undo of the first puts back only the soup.
-  await page.goto('/pantry');
-  const recent = page.getByRole('region', { name: 'Recent changes' });
-  await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${khichdi.name} \\(`) })).toHaveCount(1);
-  await recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${soup.name} \\(`) }).click();
-  await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${soup.name}`);
-  expect(await flags()).toEqual({ status: 'planned', cooked: [[first.item_id, true], [second.item_id, false]] });
-  for (const { id } of [first, second].map((x) => ({ id: x.item_id as number }))) {
-    await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+    await page.getByRole('region', { name: planDayName(day) }).getByRole('button', { name: `Start cooking ${soup.name}` }).click();
+    await expect(cook(page)).toBeVisible();
+    // Reload: the screen has forgotten what it was started from, but the address names the recipe.
+    await page.goto(new URL(page.url()).pathname + new URL(page.url()).search);
+    await expect(cook(page)).toBeVisible();
+    await expect(next(page)).toBeVisible();
+    await lastStep(page);
+    await page.getByRole('button', { name: 'Cooked it' }).click();
+    const review = page.getByRole('dialog', { name: `Cooked ${soup.name}`, exact: true });
+    await expect(review).toBeVisible();
+    await expect(review.getByText(khichdi.name)).toHaveCount(0);
+    await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+    await expect(review).toHaveCount(0);
+  } finally {
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(soup.name))) {
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    }
+    for (const id of [first.item_id as number, second.item_id as number]) {
+      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+    }
   }
 });
