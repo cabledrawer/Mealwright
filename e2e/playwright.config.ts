@@ -72,11 +72,11 @@ export default defineConfig({
     { name: 'phone', testMatch: 'shell.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop', testMatch: 'shell.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Ingredients, Pantry and Undo (0.2).
-    { name: 'phone 0.2', testMatch: /(pantry|ingredients|undo).*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
-    { name: 'desktop 0.2', testMatch: /(pantry|ingredients|undo).*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'phone 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // Shopping and the "Pantry keeps it by" question (0.3).
-    { name: 'phone 0.3', testMatch: /shopping.*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
-    { name: 'desktop 0.3', testMatch: /shopping.*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'phone 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // The All recipes page and its states (0.4).
     { name: 'phone 0.4 recipes', testMatch: 'recipes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 recipes', testMatch: 'recipes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
@@ -153,8 +153,8 @@ export default defineConfig({
     { name: 'desktop 0.7 plan month', testMatch: 'plan-month.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 plan month', testMatch: 'plan-month.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
 
-    { name: 'phone 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
-    { name: 'desktop 0.3 live', testMatch: /(live|installable)\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'phone 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // The server stopped behind the reverse proxy (502): one steady offline state (0.7, F67).
     { name: 'phone 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
@@ -165,14 +165,14 @@ export default defineConfig({
     // worker (offline.spec, installable.spec, version-check.spec) and the page shell with its
     // strict CSP (shell.spec). Everything else runs on Chromium only, to keep ./check quick (0.6).
     { name: 'webkit offline', testMatch: 'offline.spec.ts', use: webkit },
-    { name: 'webkit worker', testMatch: /(installable|version-check|shell)\.spec\.ts/, use: { ...webkit, storageState: AUTH_FILE } },
+    { name: 'webkit worker', testMatch: /(^|\/)(installable|version-check|shell)\.spec\.ts$/, use: { ...webkit, storageState: AUTH_FILE } },
     // The offline queue end to end (0.3, PR 6). No saved session: each test signs in its own,
     // because signing out must not end the one the other tests share.
     { name: 'phone 0.3 offline', testMatch: 'offline.spec.ts', use: phone },
     { name: 'desktop 0.3 offline', testMatch: 'offline.spec.ts', use: desktop },
     // The recipe editor (0.4).
-    { name: 'phone 0.4 editor', testMatch: /recipe-editor.*\.spec\.ts/, use: { ...phone, storageState: AUTH_FILE } },
-    { name: 'desktop 0.4 editor', testMatch: /recipe-editor.*\.spec\.ts/, use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'phone 0.4 editor', testMatch: /(^|\/)recipe-editor[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.4 editor', testMatch: /(^|\/)recipe-editor[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // Saved screenshots of Pantry and Shopping, phone-light and desktop-dark (0.4), at two device
     // pixels per screen pixel, so thin spaces and small text show as they do on a sharp screen.
     { name: 'screens phone-light', testMatch: 'screens.spec.ts', use: { ...phone, deviceScaleFactor: 2, colorScheme: 'light' as const } },
