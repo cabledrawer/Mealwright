@@ -106,7 +106,6 @@ test('One at a time: each line that needs you, then every step; Close keeps the 
   await expect(header).toHaveText('Method · step 1 of 2');
   await expect(page.getByText('Boil.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^Next/ }).click();
-  await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   // Back, then Close: the draft keeps the choice made on the first line.
   await page.getByRole('button', { name: /^← Back/ }).click();

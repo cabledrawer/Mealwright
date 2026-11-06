@@ -221,15 +221,15 @@ describe('Cook mode', () => {
       await shows(count(), has('Step 1 of 4'));
     });
 
-    it('a drag released outside the step ends and springs back (the step holds the pointer)', async () => {
+    it('a sideways drag holds the pointer, and a cancelled one springs back', async () => {
       open(recipe(FOUR));
       const body = document.querySelector('.body') as HTMLElement;
       const hold = vi.spyOn(body, 'setPointerCapture').mockImplementation(() => {});
       finger(body, [[-40, 0]]);
       expect(hold).toHaveBeenCalledWith(1);
       expect(shift()).toBe(-40);
-      // The mouse let go elsewhere: the browser says the step lost the pointer.
-      body.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1, bubbles: true }));
+      // Held by the step, the lift outside it still arrives here; so does a cancel.
+      body.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true }));
       flushSync();
       await rest();
       expect(shift()).toBe(0);

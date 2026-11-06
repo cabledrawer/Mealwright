@@ -165,7 +165,7 @@
       down.sideways = Math.abs(dx) >= Math.abs(dy) * 1.5;
     }
     if (!down.sideways || reducedMotion()) return;
-    // Held by the step, so a mouse released outside it still ends the drag.
+    // Held by the step, so a mouse released outside it still ends the drag (pointerup comes here).
     if (!captured) {
       captured = true;
       try {
@@ -325,7 +325,6 @@
     onpointermove={pointermove}
     onpointerup={pointerup}
     onpointercancel={pointercancel}
-    onlostpointercapture={pointercancel}
   >
     {#if elsewhere.length}
       <ul class="elsewhere" aria-label="Timers on other steps">
