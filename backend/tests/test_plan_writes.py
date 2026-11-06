@@ -338,6 +338,28 @@ def test_a_meal_of_two_items_moved_onto_a_filled_slot_is_named_with_and_one_more
         assert change.undo_data["thing"] == f"Sambar and 1 more ({D1:%a} breakfast)"
 
 
+def test_a_partly_undo_of_a_plan_change_names_the_meal(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """F140: "Put back what could be" names the meal as F81 did, when some of it was put back."""
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D1, slots["Breakfast"])
+    plan_recipe(kitchen, stuff["dosa"], D2, slots["Breakfast"])
+    moved = kitchen.post(
+        f"{API}/plan/meals/{a['meal_id']}/move",
+        json={"date": D2.isoformat(), "slot_id": slots["Breakfast"]},
+    ).json()
+    # Another device removes one of the two moved items from where they went.
+    gone = next(m for m in view(kitchen)["meals"] if m["date"] == D2.isoformat())["items"][-1]
+    assert kitchen.delete(f"{API}/plan/items/{gone['id']}").status_code in (200, 204)
+    result = undo(kitchen, moved)
+    assert result["result"] == "partly"
+    assert result["message"] == (
+        f"Put back what could be for Sambar and 1 more ({D1:%a} breakfast): "
+        "some of it has changed again since."
+    )
+
+
 def test_the_caps(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]) -> None:
     for _ in range(plan_module.MOST_ITEMS_IN_MEAL):
         plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])

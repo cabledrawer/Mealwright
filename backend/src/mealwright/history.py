@@ -826,6 +826,8 @@ def undo_message(result: UndoResult, thing: str | None = None) -> str:
     Banana bread (Mon breakfast): it has changed again since." (F44; proposed, for cabledrawer)."""
     if result == "nothing" and thing:
         return f"Nothing to put back for {thing}: it has changed again since."
+    if result == "partly" and thing:
+        return f"Put back what could be for {thing}: some of it has changed again since."
     return UNDO_MESSAGES[result]
 
 
