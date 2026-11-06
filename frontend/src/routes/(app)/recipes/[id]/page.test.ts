@@ -446,7 +446,15 @@ describe('the recipe page', () => {
 
     it('stop at 99×', async () => {
       await open({ serves: null, makes: { amount: 1, amount_text: '1', unit: 'dosa' } });
-      for (let i = 0; i < 98; i++) await page.getByRole('button', { name: 'Make more' }).click();
+      // 98 presses on the button itself, each followed by the page's update. A real click of
+      // the test browser checks the button over before every press, so 98 of them took longer
+      // than the test's time on a busy machine: how long the test took was what failed it.
+      await expect.element(page.getByRole('button', { name: 'Make more' })).toBeVisible();
+      const more = page.getByRole('button', { name: 'Make more' }).element() as HTMLButtonElement;
+      for (let i = 0; i < 98; i++) {
+        more.click();
+        flushSync();
+      }
       await expect.element(page.getByRole('button', { name: 'Make more' })).toBeDisabled();
       await expect.element(page.getByText(/^Makes 99/)).toBeVisible();
     });
