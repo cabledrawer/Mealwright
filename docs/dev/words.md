@@ -760,3 +760,10 @@ All cabledrawer's (5 Nov); no longer proposed.
 All cabledrawer's (6 Nov); no longer proposed.
 
 - **Cook mode's last step (F155, F156):** **← Back** · **Cooked it** (the wide one) when opened from a meal; only **← Back** when there is no meal (Cook now's planning undone or not written, or nothing open). No **Not cooked yet** and no **Close**: the X at the top left (**Leave Cook mode**) leaves, nothing marked, nothing taken, and still asks **Stop the timer and leave?** (Stay · Leave) while a timer runs. The two buttons share one row on every screen size.
+
+## 39. A meal with several recipes, cooked one at a time (F157, cabledrawer 6 Nov)
+
+All cabledrawer's (6 Nov); no longer proposed.
+
+- The toast and Pantry → Recent changes name only what that press cooked: **Cooked Beta3 Test Lentil Soup (Breakfast on Fri 6 Nov)**, never **Cooked Khichdi and 1 more (…)** when only the soup was cooked. Two recipes cooked in one press: **Cooked Sambar and Rasam (…)**; three: **Cooked Sambar, Rasam and Rice (…)**.
+- The Plan and Today show **Cooked** on each recipe that has been cooked; the other recipes of the meal keep **Start cooking**. The meal itself reads as cooked only once every recipe in it has been.
