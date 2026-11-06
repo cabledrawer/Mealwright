@@ -56,6 +56,7 @@
           style:--soft-text={card.colour ? `var(--batch-${card.colour}-soft-text)` : undefined}
           style:--dot={card.colour ? `var(--batch-${card.colour})` : undefined}
           disabled={actions.readonly}
+          title={card.shown}
           use:pressable={cardFor(meal, item, card.role === 'cook')}
           data-item={item.id}
           aria-label="{card.name}{card.role === 'cook'
@@ -266,6 +267,17 @@
   .name {
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
+    /* F137: a name breaks between words only; one too long for its cell is cut with an
+       ellipsis (the whole name is the card's title on hover, and shows when it has focus). */
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card:focus-visible .name {
+    overflow: visible;
     overflow-wrap: anywhere;
   }
 
