@@ -292,6 +292,7 @@ describe('Cook mode', () => {
       open(recipe([step(1, 'Stir.')]), { cooked: false });
       expect(document.querySelectorAll('footer button')).toHaveLength(1);
       await expect.element(back()).toBeVisible();
+      await expect.element(back()).toBeDisabled(); // a one-step recipe: nowhere to go back to
       expect(
         page.getByRole('button', { name: /Close|Not now|Not cooked yet|Cooked it/ }).elements()
       ).toHaveLength(0);

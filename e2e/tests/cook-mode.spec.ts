@@ -429,6 +429,35 @@ test('Cooked it from Cook now opens the review for the planned meal', async ({ p
   }
 });
 
+test('after Undo of Cooked it, Cook mode from the same meal ends with Back and Cooked it again (F155, F156)', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const { id, name } = await makeRecipe(page, FOUR);
+  await page.goto(`/recipes/${id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${id}/cook\\?meal=\\d+$`));
+  const cookUrl = new URL(page.url()).pathname + new URL(page.url()).search;
+  await expect(page.getByTestId('cook-notice')).toContainText('Planned for today’s');
+  await lastStep(page);
+  await page.getByRole('button', { name: 'Cooked it' }).click();
+  const review = page.getByRole('dialog', { name: new RegExp(`^Cooked .*${name}`) });
+  await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+  await expect(review).toHaveCount(0);
+  // Undo it from Pantry → Recent changes (the toast is gone once Cook mode has left).
+  await page.goto('/pantry');
+  const undo = page.getByRole('region', { name: 'Recent changes' }).getByRole('button', { name: new RegExp(`^Undo: Cooked ${name}`) });
+  await undo.click();
+  await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${name}`);
+  await page.goto(cookUrl);
+  await expect(cook(page)).toBeVisible();
+  await expect(next(page)).toBeVisible();
+  await lastStep(page);
+  await expect(footerButtons(page)).toHaveText(['← Back', 'Cooked it']);
+  await expectNoLeaveButtons(page);
+  for (const { itemId } of await plannedToday(page, id)) {
+    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key() });
+  }
+});
+
 test('Cook now adds nothing to the plan when the recipe is already planned today', async ({ page }) => {
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
