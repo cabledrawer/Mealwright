@@ -266,12 +266,14 @@ describe('Cook mode', () => {
       expect(onexit).toHaveBeenCalledTimes(1);
     });
 
-    it('shows no buttons until the plan has loaded, so they do not change (F158)', async () => {
-      open(recipe(FOUR), { settling: true });
+    it('keeps the place of Cooked it, but shows nothing, until the plan has loaded (F158)', async () => {
+      open(recipe(FOUR), { settling: true, cooked: false });
       await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
-      const footer = document.querySelector('footer') as HTMLElement;
-      expect(getComputedStyle(footer).visibility).toBe('hidden');
-      expect(footer.getAttribute('aria-busy')).toBe('true');
+      expect(page.getByRole('button', { name: 'Cooked it' }).elements()).toHaveLength(0);
+      const waiting = document.querySelector('footer .waiting') as HTMLElement;
+      expect(getComputedStyle(waiting).visibility).toBe('hidden');
+      expect(waiting.getAttribute('aria-hidden')).toBe('true');
+      expect(back().elements()).toHaveLength(1);
     });
 
     it('has ← Back on the last step too (F138)', async () => {

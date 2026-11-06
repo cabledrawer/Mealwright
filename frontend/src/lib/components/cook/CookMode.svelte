@@ -40,7 +40,7 @@
     /** "Cooked it": into the review. Not there when nothing has been planned to cook. */
     oncooked?: (() => void) | null;
     /** The plan is still loading, so whether Cooked it is there isn't known yet: the last step's
-     * buttons keep their place but say nothing (F158 side item, no flicker). */
+     * Cooked it keeps its place but shows nothing (no flicker). */
     settling?: boolean;
     /** Where Cook now planned the recipe, with its Undo (the toast would be under this screen). */
     notice?: { text: string; undo?: () => void } | null;
@@ -308,7 +308,7 @@
     </section>
   </div>
 
-  <footer class:settling aria-busy={settling}>
+  <footer>
     {#if last}
       <button
         type="button"
@@ -318,6 +318,9 @@
       >
       {#if oncooked}
         <button type="button" class="main" onclick={oncooked}>Cooked it</button>
+      {:else if settling}
+        <!-- Keeps Cooked it's place until the plan says whether it is there (no flicker). -->
+        <span class="main waiting" aria-hidden="true">Cooked it</span>
       {/if}
     {:else}
       <button
@@ -731,7 +734,7 @@
     font-weight: var(--weight-bold);
   }
 
-  footer.settling {
+  .waiting {
     visibility: hidden;
   }
 
