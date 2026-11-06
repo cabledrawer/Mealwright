@@ -595,6 +595,7 @@ def _answered(kitchen: Kitchen, meal: Meal) -> bool:
         select(Change).where(
             Change.household_id == kitchen.household_id,
             Change.kind == "plan_cooked",
+            Change.undone_by_change_id.is_(None),  # an undone answer answers nothing now
         )
     ):
         data = change.undo_data or {}

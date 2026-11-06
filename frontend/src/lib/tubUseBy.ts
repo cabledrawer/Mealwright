@@ -41,6 +41,10 @@ export function leftoverUseBy(
   };
 }
 
+/** The review's use-bys for a meal cooked now: counted from `cookingDay` (F159), as the server does. */
+export const cookedUseBy = (mealDay: string, today: string, life: TubLife | null) =>
+  leftoverUseBy(cookingDay(mealDay, today), life);
+
 /** The last day any "Eat it on…" meal can be: the later use-by (the freezer's). */
 export function eatOnUntil(useBy: { useByFridge?: string; useByFreezer?: string }): string | null {
   const days = [useBy.useByFridge, useBy.useByFreezer].filter((d): d is string => !!d);

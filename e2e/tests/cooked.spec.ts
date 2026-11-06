@@ -547,9 +547,9 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
     await expect
       .poll(async () => {
         const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
-          meals: { items: { id: number }[] }[];
+          meals: { id: number; items: { id: number }[] }[];
         };
-        return plan.meals.flatMap((m) => m.items.map((i) => i.id));
+        return plan.meals.filter((m) => m.id === a.meal_id).flatMap((m) => m.items.map((i) => i.id));
       })
       .toEqual([a.item_id]);
   } finally {

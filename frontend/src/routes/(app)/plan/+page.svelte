@@ -26,7 +26,7 @@
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
-  import { cookingDay, eatOnUntil, leftoverUseBy } from '#lib/tubUseBy.js';
+  import { cookedUseBy, eatOnUntil } from '#lib/tubUseBy.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
@@ -216,7 +216,7 @@
     const first = target.parts.find((p) => p.itemId !== null);
     // A new tub keeps the household's tub life from the cook day, in the fridge or the
     // freezer: "Eat it on…" offers no meal past it (F128).
-    const useBy = leftoverUseBy(cookingDay(meal.date, model.today), {
+    const useBy = cookedUseBy(meal.date, model.today, {
       fridgeDays: model.tubFridgeDays,
       freezerMonths: model.tubFreezerMonths
     });

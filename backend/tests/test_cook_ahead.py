@@ -14,7 +14,7 @@ from test_plan import db_of, slot_ids
 from test_recipe_list import line, stock
 from test_recipes import food, make
 
-from mealwright.models import Meal, Tub
+from mealwright.models import CookedRecord, Meal, Tub
 
 
 def plan_ahead(client: TestClient, days: int = 1) -> tuple[dict[str, Any], int, int, date]:
@@ -122,3 +122,27 @@ def test_a_batch_cooked_early_counts_later_tubs_from_the_day_it_was_cooked(
         assert batch is not None and batch.cooked_on == day
         assert really_cooked_on(here, batch) == date.today()
         assert portions_of(here, batch).use_by == date.today() + timedelta(days=3)
+
+
+def test_an_undone_answer_then_a_healed_cook_then_its_undo_leaves_the_meal_planned(
+    kitchen: TestClient,
+) -> None:
+    """F158 review: an answer that was undone no longer counts as the meal's answer."""
+    from datetime import UTC, datetime
+
+    dal, meal, item, _day = plan_ahead(kitchen, days=0)
+    first = ok(cook(kitchen, item), 201)["change"]
+    answer_cooked(kitchen, meal)
+    ok(undo(kitchen, first["id"]))
+    assert status_of(kitchen, meal) == "planned"
+    again = ok(cook(kitchen, item), 201)["change"]  # this time the answer's reply is lost
+    with db_of(kitchen) as db:
+        for record in db.scalars(select(CookedRecord)):
+            record.cooked_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+    today = date.today().isoformat()
+    ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
+    assert status_of(kitchen, meal) == "cooked"
+    ok(undo(kitchen, again["id"]))
+    assert status_of(kitchen, meal) == "planned"
+    assert sum(amounts(kitchen, dal["id"])) == 900_000

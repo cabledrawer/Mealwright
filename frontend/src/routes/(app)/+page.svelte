@@ -26,7 +26,7 @@
   import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { getHousehold } from '#lib/client/household.js';
-  import { cookingDay, eatOnUntil, leftoverUseBy, type TubLife } from '#lib/tubUseBy.js';
+  import { cookedUseBy, eatOnUntil, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
   import { dayWords, mealsWords, partsCooked, whenWords } from '#lib/todayWords.js';
@@ -127,7 +127,7 @@
     } catch {
       // Not reached: the review still opens, with no "Eat it on…" meals and the usual use-by.
     }
-    const useBy = leftoverUseBy(cookingDay(meal.date, model.data?.today ?? meal.date), life);
+    const useBy = cookedUseBy(meal.date, model.data?.today ?? meal.date, life);
     openCooked(
       {
         meal_id: meal.id,
