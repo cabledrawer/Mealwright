@@ -633,6 +633,10 @@
   }
 
   .slide {
+    /* A mouse drag across the words would select them and start dragging them (and cancel the
+       swipe); the step is for reading and swiping. */
+    user-select: none;
+    -webkit-user-select: none;
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
