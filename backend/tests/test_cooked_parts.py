@@ -303,3 +303,37 @@ def test_a_recipe_not_cooked_yet_can_be_changed_and_removed_on_its_own(
     assert locked.status_code == 409 and locked.json()["code"] == "already_cooked"
     ok(kitchen.delete(f"{API}/plan/items/{khichdi}"))
     assert status_of(kitchen, meal) == "planned"
+
+
+def test_a_meal_with_every_recipe_cooked_but_still_planned_reads_as_cooked(
+    kitchen: TestClient,
+) -> None:
+    """F158: a lost reply to Confirm left the meal planned; the next read sets it right."""
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    ok(cook(kitchen, soup), 201)
+    ok(cook(kitchen, khichdi), 201)  # the pantry was changed; the meal's answer never arrived
+    assert status_of(kitchen, meal) == "planned"
+    today = date.today().isoformat()
+    plan = ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
+    assert [m["status"] for m in plan["meals"] if m["id"] == meal] == ["cooked"]
+    assert status_of(kitchen, meal) == "cooked"
+    assert get_today_waiting(kitchen) == []
+
+
+def get_today_waiting(client: TestClient) -> list[Any]:
+    waiting: list[Any] = ok(client.get(f"{API}/today"))["waiting"]
+    return waiting
+
+
+def test_cooking_a_whole_meal_leaves_a_deleted_recipe_out(kitchen: TestClient) -> None:
+    """F158: the review of a whole meal doesn't list a recipe taken out of the recipe list."""
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    with db_of(kitchen) as db:
+        item = db.get(MealItem, khichdi)
+        assert item is not None and item.recipe_id is not None
+        recipe = db.get(Recipe, item.recipe_id)
+        assert recipe is not None
+        recipe.removed_at = datetime.now(UTC)
+        db.commit()
+    shown = ok(kitchen.post(f"{API}/plan/meals/{meal}/cook/preview", json={"answers": []}))
+    assert [i["item_id"] for i in shown["items"]] == [soup]

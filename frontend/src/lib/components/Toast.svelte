@@ -24,6 +24,17 @@
   });
 
   $effect(() => {
+    // F158: the dialog the toast sits in can leave the page while still open (Cook mode's
+    // review closes and the page goes at once, with no "close" event first). The toast then
+    // goes home instead of going with it.
+    const watch = new MutationObserver(() => {
+      if (!region.isConnected) place();
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
+    return () => watch.disconnect();
+  });
+
+  $effect(() => {
     // "close" doesn't bubble, so listen while it's on its way down.
     const onClose = () => queueMicrotask(place);
     document.addEventListener('close', onClose, true);

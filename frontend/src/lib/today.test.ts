@@ -98,3 +98,47 @@ describe('the saved copy of Today', () => {
     expect(localStorage.getItem(COPY_KEY)).toBeNull();
   });
 });
+
+describe('the first toast after Cooked it (F161)', () => {
+  it('names the recipes this press cooked, never the whole meal', async () => {
+    const { toasts } = await import('./toast.svelte');
+    const { changeOf, fakeApi } = await import('./testing/fakeApi');
+    fakeApi({
+      'POST /plan/meals/5/cooked': [
+        201,
+        {
+          change: {
+            ...changeOf(9, 'Cooked Lentil soup (Dinner on Fri 6 Nov)'),
+            kind: 'plan_cooked'
+          }
+        }
+      ]
+    });
+    const model = new TodayModel();
+    const item = (id: number, name: string) => ({
+      id,
+      kind: 'recipe',
+      recipe: { id, name },
+      cooked: id === 1
+    });
+    model.data = {
+      ...data(),
+      plan: {
+        ...data().plan,
+        meals: [
+          {
+            id: 5,
+            date: '2026-10-17',
+            slot_id: 1,
+            status: 'planned',
+            items: [item(1, 'Banana bread'), item(2, 'Lentil soup')]
+          }
+        ]
+      }
+    } as unknown as TodayData;
+    const waiting = { meal_id: 5, date: '2026-10-17', slot_id: 1 } as never;
+    void model.cooked(waiting, null, undefined, undefined, 'Cooked Lentil soup');
+    expect(toasts.current?.message).toBe('Cooked Lentil soup');
+    toasts.dismiss();
+  });
+});

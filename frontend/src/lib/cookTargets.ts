@@ -7,7 +7,9 @@ import type { CookPart, CookTarget } from './cookReview.svelte';
 import { cookBatchOfItem, itemName } from './planMeals';
 
 /** A recipe of a meal that can be cooked (a tub or a plain ingredient takes nothing). */
-export const isCookable = (item: PlanItem) => item.kind === 'recipe';
+/** A recipe taken out of the recipe list can't be cooked, so the review leaves it out (F158). */
+export const isCookable = (item: PlanItem) =>
+  item.kind === 'recipe' && !!item.recipe && !item.recipe.removed;
 
 function partOf(plan: Plan | null, meal: PlanMeal, item: PlanItem): CookPart {
   const batch: PlanBatch | null = cookBatchOfItem(plan, meal, item);
@@ -51,14 +53,15 @@ export function cookTarget(
   const items = (only ? [only] : meal.items).filter((i) => isCookable(i) && !i.cooked);
   const parts = items.map((item) => partOf(plan, meal, item));
   return {
-    title: cookedTitle(parts.length ? parts.map((p) => p.name) : [mealNameOf(plan, meal)]),
+    title: cookedTitle(parts.length ? parts.map((p) => p.name) : everyName(plan, meal)),
     subtitle,
     mealId: meal.id,
     parts
   };
 }
 
-function mealNameOf(plan: Plan | null, meal: PlanMeal): string {
-  const first = meal.items[0];
-  return first ? itemName(first, plan) : 'it';
+/** A meal with no recipe to cook (tubs, ingredients): its title names every thing in it. */
+function everyName(plan: Plan | null, meal: PlanMeal): string[] {
+  const names = meal.items.filter((i) => i.kind !== 'note').map((i) => itemName(i, plan));
+  return names.length ? names : ['it'];
 }

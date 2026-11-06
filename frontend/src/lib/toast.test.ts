@@ -142,4 +142,20 @@ describe('Toast', () => {
     await vi.waitFor(() => expect(dialog.contains(region)).toBe(false));
     dialog.remove();
   });
+
+  it('stays on screen when the sheet it sits in is taken off the page while still open (F158)', async () => {
+    render();
+    const dialog = document.createElement('dialog');
+    dialog.innerHTML = '<p>Review</p>';
+    document.body.append(dialog);
+    dialog.showModal();
+    toasts.show('Cooked Lentil soup', { action: { label: 'Undo', run: vi.fn() } });
+    flushSync();
+    const region = document.querySelector('[role="status"]')!;
+    expect(dialog.contains(region)).toBe(true);
+    dialog.remove(); // the page went, dialog and all, with no "close" first
+    await vi.waitFor(() => expect(region.isConnected).toBe(true));
+    expect(toasts.current?.message).toBe('Cooked Lentil soup');
+    await expect.element(page.getByText('Cooked Lentil soup')).toBeVisible();
+  });
 });

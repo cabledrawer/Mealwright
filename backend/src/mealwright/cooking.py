@@ -23,6 +23,7 @@ moved can't.
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from fastapi import status
@@ -83,6 +84,13 @@ def _recipe(kitchen: Kitchen, recipe_id: int | None) -> Recipe:
             "Only a recipe that is still there can be cooked.",  # proposed, for cabledrawer
         )
     return recipe
+
+
+def _usable(kitchen: Kitchen, recipe_id: int | None) -> bool:
+    recipe = kitchen.db.get(Recipe, recipe_id) if recipe_id is not None else None
+    return (
+        recipe is not None and recipe.household_id == kitchen.household_id and not recipe.removed_at
+    )
 
 
 def _item_checked(kitchen: Kitchen, item: MealItem) -> tuple[Recipe, Meal]:
@@ -181,6 +189,8 @@ def meal_entries(
     if meal.status not in ("planned", "cooked"):
         plan._planned(meal)
     items = [i for i in plan.items_of(kitchen, meal) if i.kind == "recipe"]
+    if wanted is None:  # a recipe taken out of the list can't be cooked: left out (F158)
+        items = [i for i in items if _usable(kitchen, i.recipe_id)]
     if wanted is not None:
         by_id = {i.id: i for i in items}
         for item_id in wanted:
@@ -506,6 +516,38 @@ def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
         if not found or any(cooked.for_batch(db, hid, b.id) is None for b in found):
             return False
     return True
+
+
+def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:
+    """A lost reply to Confirm can leave a meal with every recipe cooked still "planned" (F158,
+    cabledrawer 6 Nov): on a read, such a meal in these days is cooked. Returns whether any changed
+    (the caller then commits)."""
+    db, hid = kitchen.db, kitchen.household_id
+    in_days = (
+        Meal.household_id == hid,
+        Meal.status == "planned",
+        Meal.day >= start,
+        Meal.day <= end,
+    )
+    by_item = (
+        select(Meal)
+        .join(MealItem, MealItem.meal_id == Meal.id)
+        .join(CookedRecord, CookedRecord.meal_item_id == MealItem.id)
+    )
+    by_batch = (
+        select(Meal)
+        .join(BatchCook, BatchCook.cook_meal_id == Meal.id)
+        .join(CookedRecord, CookedRecord.batch_id == BatchCook.id)
+    )
+    meals = {m.id: m for q in (by_item, by_batch) for m in db.scalars(q.where(*in_days))}
+    healed = False
+    for meal in meals.values():
+        if meal_all_cooked(kitchen, meal):
+            meal.status = "cooked"
+            healed = True
+    if healed:
+        db.flush()
+    return healed
 
 
 def _has_record(kitchen: Kitchen, meal: Meal) -> bool:

@@ -96,3 +96,25 @@ describe('the Plan panel’s note for cooked recipes (F163)', () => {
     );
   });
 });
+
+describe('what the review leaves out and names (F158, F133)', () => {
+  it('leaves out a recipe taken out of the recipe list', () => {
+    const gone = recipe(2, 'Old stew');
+    gone.recipe!.removed = true;
+    const t = cookTarget(plan(), meal([recipe(1, 'Dosa'), gone]), '');
+    expect(t.parts.map((p) => p.name)).toEqual(['Dosa']);
+    expect(t.title).toBe('Cooked Dosa');
+  });
+
+  it('names every tub and recipe of a meal that has nothing to cook', () => {
+    const tub = (id: number): PlanItem => ({
+      ...recipe(id, ''),
+      kind: 'tub',
+      recipe: null,
+      tub_id: id
+    });
+    const t = cookTarget(plan(), meal([tub(1), tub(2)]), '');
+    expect(t.parts).toEqual([]);
+    expect(t.title).toBe('Cooked Tub and Tub');
+  });
+});

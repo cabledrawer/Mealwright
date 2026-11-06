@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
-from mealwright import plan
+from mealwright import cooking, plan
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, Ref
@@ -171,6 +171,8 @@ def get_plan(
             f"Ask for at most {MOST_DAYS} days at a time.",  # proposed, for cabledrawer
         )
     db, household_id = kitchen.db, kitchen.household_id
+    if cooking.heal_cooked(kitchen, start, end):  # F158: a lost Confirm reply, set right
+        db.commit()
     in_range = (Meal.household_id == household_id, Meal.day >= start, Meal.day <= end)
     meals = list(
         db.scalars(select(Meal).where(*in_range).order_by(Meal.day, Meal.slot_id, Meal.id))

@@ -65,7 +65,6 @@ from mealwright.plan import (
     _copy_of,
     _finish,
     _make_meal,
-    _item_name as plan_item_name,
     _meal_name,
     _own,
     _planned,
@@ -76,6 +75,9 @@ from mealwright.plan import (
     find_slot,
     items_of,
     meal_at,
+)
+from mealwright.plan import (
+    _item_name as plan_item_name,
 )
 
 # How far back Today looks for meals nobody answered (proposed, for cabledrawer): a week. Older
