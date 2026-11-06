@@ -35,7 +35,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import exists, func, select
 
-from mealwright import cooking, together
+from mealwright import batches, cooking, together
 from mealwright.api.v1.context import Kitchen
 from mealwright.batches import (
     MOST_TUBS_IN_BATCH,
@@ -233,8 +233,8 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     names = together.cooked_names(kitchen, press, meal) if press else []
     name = _joined(names) if names else _meal_name(kitchen, meal)
     whole = not press or cooking.meal_all_cooked(kitchen, meal)  # before any new batch of leftovers
-    pressed = [
-        r.meal_item_id
+    records = [
+        r
         for change in press
         for r in kitchen.db.scalars(
             select(CookedRecord)
@@ -244,8 +244,14 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
             )
             .order_by(CookedRecord.id)
         )
-        if r.meal_item_id is not None
     ]
+    # The recipes this press cooked: by their own record, or as the cook item of a batch it cooked.
+    batch_ids = {r.batch_id for r in records if r.batch_id is not None}
+    pressed = [r.meal_item_id for r in records if r.meal_item_id is not None]
+    if batch_ids:
+        for item in items_of(kitchen, meal):
+            if any(b.id in batch_ids for b in batches.cook_batches_of(kitchen, item, meal)):
+                pressed.append(item.id)
     made = _make_tubs(kitchen, meal, leftovers, steps, pressed) if leftovers else 0
     if whole:
         _set_status(meal, "cooked", steps, kitchen)

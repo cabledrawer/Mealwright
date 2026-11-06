@@ -796,6 +796,12 @@ def _open(kitchen: Kitchen, meal_id: int | None) -> Meal | None:
     return meal if meal is not None and meal.status == "planned" else None
 
 
+def batches_at(kitchen: Kitchen, meal: Meal) -> list[BatchCook]:
+    from mealwright import batches
+
+    return batches.batches_cooked_at(kitchen, meal)
+
+
 def _cooked_now(kitchen: Kitchen, item: MealItem) -> bool:
     meal = kitchen.db.get(Meal, item.meal_id)
     return meal is not None and cooked_record_of(kitchen, item, meal) is not None
@@ -866,11 +872,24 @@ def _undo_step(
             taken = db.scalar(select(MealItem.id).where(MealItem.tub_id == old["tub_id"]))
             if tub is None or taken is not None:
                 return False
+        position = old["position"]
+        if old["kind"] == "recipe" and any(
+            cooked.for_batch(db, kitchen.household_id, b.id) is not None
+            and (
+                b.recipe_id == old["recipe_id"]
+                if old["recipe_id"] is not None
+                else b.recipe_name == old["name"]
+            )
+            for b in batches_at(kitchen, meal)
+        ):
+            # A cooked batch has this recipe in this meal: the copy it was cooked through stays
+            # the first one, so the restored copy goes last (F157 review).
+            position = _end(kitchen, meal)
         db.add(
             MealItem(
                 household_id=kitchen.household_id,
                 meal_id=meal.id,
-                position=old["position"],
+                position=position,
                 kind=old["kind"],
                 name=old["name"],
                 recipe_id=old["recipe_id"],

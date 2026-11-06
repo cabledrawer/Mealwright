@@ -1274,6 +1274,8 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         batch = _own(kitchen, BatchCook, step["batch"])
         if batch is None or db.scalar(select(Tub.id).where(Tub.batch_id == batch.id).limit(1)):
             return False  # tubs of it are still about (one sits in a meal that was dealt with)
+        if cooked.for_batch(db, kitchen.household_id, batch.id) is not None:
+            return False  # cooked since: its record stays (the pantry was taken from)
         db.delete(batch)
         db.flush()
         return True
@@ -1313,6 +1315,8 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         if tub is None or item_of_tub(kitchen, tub) is not None:
             return False
         batch = db.get(BatchCook, tub.batch_id)
+        if cooked.for_batch(db, kitchen.household_id, tub.batch_id) is not None:
+            return False  # a cooked batch keeps its tubs
         db.delete(tub)
         db.flush()
         if batch is not None and step["count"] is not None:
