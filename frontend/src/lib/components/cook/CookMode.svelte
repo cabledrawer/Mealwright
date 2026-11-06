@@ -71,8 +71,10 @@
 
   const dialogOpen = () => sheetOpen || askingLeave;
 
-  function go(to: number) {
-    if (steps.length === 0) return;
+  /** Go to a step. A press (Back, Next, a key) while a swipe is still sliding is ignored: the
+   *  slide ends on the step it was heading for, and the press would only be overridden. */
+  function go(to: number, fromSlide = false) {
+    if (steps.length === 0 || (busy && !fromSlide)) return;
     at = Math.min(Math.max(to, 0), steps.length - 1);
     void tick().then(() => body?.scrollTo({ top: 0 }));
   }
@@ -144,6 +146,7 @@
   /** The step is moving by itself (sliding out or in, or springing back). */
   let sliding = $state(false);
   let busy = $state(false);
+  let captured = false;
   let slide: HTMLElement | undefined;
 
   const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -162,6 +165,15 @@
       down.sideways = Math.abs(dx) >= Math.abs(dy) * 1.5;
     }
     if (!down.sideways || reducedMotion()) return;
+    // Held by the step, so a mouse released outside it still ends the drag.
+    if (!captured) {
+      captured = true;
+      try {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      } catch {
+        // a pointer that is already gone: the lift or cancel below still ends the drag
+      }
+    }
     sliding = false;
     // Where there is no step to go to, the step gives a little and no more.
     const to = index + (dx < 0 ? 1 : -1);
@@ -170,12 +182,14 @@
 
   function pointercancel() {
     down = null;
-    if (drag) void springBack();
+    captured = false;
+    if (drag && !busy) void springBack();
   }
 
   function pointerup(event: PointerEvent) {
     const start = down;
     down = null;
+    captured = false;
     if (!start || start.id !== event.pointerId) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
@@ -227,7 +241,7 @@
     drag = way * width;
     await arrived();
     sliding = false;
-    go(to);
+    go(to, true);
     drag = -way * width;
     await tick();
     await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -311,6 +325,7 @@
     onpointermove={pointermove}
     onpointerup={pointerup}
     onpointercancel={pointercancel}
+    onlostpointercapture={pointercancel}
   >
     {#if elsewhere.length}
       <ul class="elsewhere" aria-label="Timers on other steps">
@@ -643,7 +658,7 @@
     border-radius: 14px;
     background: var(--color-timer);
     color: var(--color-timer-text);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     line-height: 1.35;
   }
@@ -770,7 +785,7 @@
   .perstep {
     display: flex;
     flex-direction: column;
-    gap: var(--space-5);
+    gap: var(--space-6);
     padding: var(--space-7);
     border: 1px solid var(--color-border);
     border-radius: 18px;
@@ -781,7 +796,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-5);
+    gap: var(--space-6);
   }
 
   .what {
@@ -793,7 +808,7 @@
   }
 
   .label {
-    font-size: var(--text-base);
+    font-size: 0.9375rem;
     font-weight: var(--weight-bold);
     line-height: 1.3;
   }

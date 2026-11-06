@@ -17,7 +17,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Cook mode: "Ingredients for each step" (0.8.0, F148).** The box is laid out as the mockup `Dark-CookStep08-Phone`: 16 px padding and a thin border, the label on its own line with the pink **Experimental** badge under it, the switch (52 × 32 px) centred against both, the guessed ingredients under a thin divider and the note "Guessed from the step, so it may be wrong. Fix it when you edit the recipe." (line height 1.45; this replaces "For this step · Experimental · guessed" and "Wrong? Fix it…"). "Couldn't keep the screen awake." moves out of the box to its own amber line, with a moon, under the progress bar.
 - **Swipes (0.8.0, F145).** In Cook mode the step follows the finger, slides out and the next slides in; a swipe that does not go far enough, or one at the first or last step, springs back. With "reduce motion" on, nothing slides: the step just changes. The Back and Next buttons and the arrow keys are unchanged.
 - **Import Check: a blocked button looks blocked (0.8.0, F154).** With a method step's box open, Cancel (the whole list), Close and Discard (Focus), and Close, See all, Discard, Back and Next (One at a time) are greyed the same way Save recipe is.
-- **Import Check, One at a time: the gaps (0.8.0, F141 follow-ups).** The first screen starts with the recipe's name, Serves and minutes (as Focus shows them) and the photo note; "The page had more than 200 ingredient lines" shows on the last ingredient screen and "steps were shortened" on the last step; the offline line shows on every screen while offline; a save problem on a line the walk does not stop at takes the walk to that line and says what is wrong; and Undo of a removed line or step no longer moves the walk off the screen you are on.
+- **Import Check, One at a time: the gaps (0.8.0, F141 follow-ups).** The first screen starts with the recipe's name, Serves and minutes (as Focus shows them) and the photo note; "The page had more than 200 ingredient lines" shows on the last ingredient screen and "steps were shortened" on the last step; the offline line shows on every screen while offline; a save problem on a line the walk does not stop at takes the walk to that line and says what is wrong; and Undo of a removed line or step never moves the walk off the screen you are on (the restored one is just before it, a Back away).
 
 ### Fixed
 
@@ -26,7 +26,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Cook mode's labels (0.8.0)** no longer change for a moment while the plan loads.
 - **Week meal names (0.8.0, F137)** break only between words, end with "…" when too long, and show in full on hover and focus.
 - **Undo of a plan change that could only put back part (0.8.0, F140)** names the meal: "Put back what could be for Banana bread (Sun breakfast): some of it has changed again since." Other Undos keep their words.
-- **Reader: "1 teaspoon (4) garlic" (0.8.0, F139).** It is 1 tsp garlic with the note "(4)", written before or after the name; it no longer reads as "1 tsp 4".
+- **Reader: "1 teaspoon (4) garlic" (0.8.0, F139).** It is 1 tsp garlic with the note "(4)" (also "(4-5)", "(4.5)", "(½)", "(1/2)"), written before or after the name; it no longer reads as "1 tsp 4".
 - **Reader: the doubled "((optional))" (0.8.0).** "2 tbsps raw papaya paste ((optional))" reads exactly as "(optional)": the note "optional", no extra brackets and no other name "(optional)".
 
 ## [0.7.0] - 2026-11-06

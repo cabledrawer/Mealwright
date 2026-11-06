@@ -664,6 +664,10 @@ def _names_something(bracket: str) -> bool:
     )
 
 
+# A bracket holding only a number, a range or a fraction: "(4)", "(4-5)", "(4.5)", "(½)", "(1/2)".
+_BARE_NUMBER = re.compile(rf"[\d{_G}][\d{_G}.,/\s\-\u2013]*")
+
+
 def _unwrapped(part: str) -> str:
     """ "(optional)" inside a bracket is "optional": a part that is nothing but one more bracket
     loses that pair (a variety written "((kashmiri) (less spicy))" has two, and is kept)."""
@@ -981,7 +985,7 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         else:
             # "1 teaspoon (4) garlic": a bare number stays in its bracket, so it can't be read
             # as part of the amount ("1 tsp 4"; F139).
-            notes.append(f"({part})" if part.isdigit() else part)
+            notes.append(f"({part})" if _BARE_NUMBER.fullmatch(part) else part)
 
     # After the first comma it's a note.
     head, comma, tail = rest.partition(",")

@@ -898,6 +898,15 @@ def test_f139_a_number_in_brackets_stays_a_bracketed_note(text: str) -> None:
     assert line.note == "(4)"
 
 
+@pytest.mark.parametrize("inside", ["4-5", "4.5", "½", "1/2"])
+def test_f139_a_range_or_fraction_in_brackets_is_kept_in_its_brackets_too(inside: str) -> None:
+    """Both ways of writing: before the name and after it give the same bracketed note."""
+    for text in (f"1 tsp ({inside}) garlic", f"1 tsp garlic ({inside})"):
+        line = read_line(text)
+        assert (line.amount, line.unit, line.name) == (D(1), "tsp", "garlic"), text
+        assert line.note == f"({inside})", text
+
+
 @pytest.mark.parametrize(
     "text",
     [

@@ -221,6 +221,34 @@ describe('Cook mode', () => {
       await shows(count(), has('Step 1 of 4'));
     });
 
+    it('a drag released outside the step ends and springs back (the step holds the pointer)', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body') as HTMLElement;
+      const hold = vi.spyOn(body, 'setPointerCapture').mockImplementation(() => {});
+      finger(body, [[-40, 0]]);
+      expect(hold).toHaveBeenCalledWith(1);
+      expect(shift()).toBe(-40);
+      // The mouse let go elsewhere: the browser says the step lost the pointer.
+      body.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1, bubbles: true }));
+      flushSync();
+      await rest();
+      expect(shift()).toBe(0);
+      await shows(count(), has('Step 1 of 4'));
+    });
+
+    it('Next pressed while a swipe is still sliding is ignored, not overridden (L4)', async () => {
+      open(recipe(FOUR));
+      const body = document.querySelector('.body')!;
+      finger(body, [], [-120, 0]); // slides to step 2
+      expect(stillMoving()).toBe(true);
+      (next().element() as HTMLElement).click();
+      flushSync();
+      await rest();
+      await shows(count(), has('Step 2 of 4'));
+      await next().click();
+      await shows(count(), has('Step 3 of 4'));
+    });
+
     it('a mostly downward drag does not move the step (it is a scroll)', async () => {
       open(recipe(FOUR));
       const body = document.querySelector('.body')!;
@@ -520,6 +548,10 @@ describe('Cook mode', () => {
       open(recipe(FOUR), { perStep: true });
       const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
       const style = getComputedStyle(document.querySelector('.perstep')!);
+      // The mockup's sizes: label 15 px, 12 px between the head and the guesses and in the head.
+      expect(getComputedStyle(document.querySelector('.perstep .label')!).fontSize).toBe('15px');
+      expect(style.rowGap).toBe('12px');
+      expect(getComputedStyle(document.querySelector('.perstep .head')!).columnGap).toBe('12px');
       // 16 px padding and a thin border.
       expect(style.paddingTop).toBe('16px');
       expect(style.paddingLeft).toBe('16px');
@@ -602,6 +634,7 @@ describe('Cook mode', () => {
       expect(amber.top).toBeGreaterThanOrEqual(progress.bottom);
       const style = getComputedStyle(line.element());
       expect([style.paddingTop, style.paddingLeft]).toEqual(['10px', '12px']);
+      expect(style.fontSize).toBe('14px');
       // Nothing in the Awake pill while it is refused.
       expect(document.querySelector('.awake:not(.spacer)')).toBeNull();
     });

@@ -100,7 +100,12 @@ test('One at a time: each line that needs you, then every step; Close keeps the 
   await expect(page.getByText('Removed step 1')).toBeVisible();
   await expect(header).toHaveText('Method · step 1 of 1');
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  // The walk stays on the step it was on; the restored one is before it.
+  await expect(header).toHaveText('Method · step 2 of 2');
+  await page.getByRole('button', { name: /^← Back/ }).click();
   await expect(header).toHaveText('Method · step 1 of 2');
+  await expect(page.getByText('Boil.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Next/ }).click();
   await page.getByRole('button', { name: /^Next/ }).click();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   // Back, then Close: the draft keeps the choice made on the first line.

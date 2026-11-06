@@ -78,26 +78,33 @@
 
   // A save refused for a line: the walk goes to that line, which says what is wrong (the line may
   // be one the walk doesn't stop at, or one the person has gone past).
-  $effect(() => {
+  /** The refused line the walk is to go to once no step box is open (going there would close
+   *  the box and lose the words typed in it). */
+  let jumpTo: (typeof review.lines)[number] | null = $state.raw(null);
+  // Before the screen is drawn, so the walk's new stop doesn't draw the wrong screen for a moment.
+  $effect.pre(() => {
     const line = flow.saveProblem?.line;
     if (line === null || line === undefined) return;
     untrack(() => {
       const row = review.lines[line];
       if (!row || row.kind !== 'ingredient') return;
       refused = row;
-      void tick().then(() => {
-        const to = items.findIndex((i) => i.kind === 'line' && review.lines[i.at] === row);
-        if (to >= 0 && to !== at) void go(to);
-      });
+      jumpTo = row;
+    });
+  });
+  $effect(() => {
+    const row = jumpTo;
+    if (!row || editing !== null) return;
+    jumpTo = null;
+    void tick().then(() => {
+      const to = items.findIndex((i) => i.kind === 'line' && review.lines[i.at] === row);
+      if (to >= 0 && to !== at) void go(to);
     });
   });
 
   // Undo (or anything else) putting a line or step back, or taking one out, doesn't move the
   // person: the screen stays on the same line or step, though its place in the walk has changed.
-  // The exception is the line or step that was just taken out while its neighbour stood in its
-  // place: Undo brings it straight back to where it was (the toast says what it did).
   let onScreen: unknown = null;
-  let tookItsPlace = false;
   const thing = (i: (typeof items)[number] | undefined) =>
     i ? (i.kind === 'line' ? review.lines[i.at] : review.steps[i.at]) : null;
   $effect.pre(() => {
@@ -105,12 +112,8 @@
     untrack(() => {
       if (!onScreen) return;
       const found = list.findIndex((i) => thing(i) === onScreen);
-      if (found < 0) {
-        tookItsPlace = true; // taken out: the next one stands in its place
-      } else if (found !== pos) {
-        if (!(tookItsPlace && found === pos + 1)) pos = found;
-        tookItsPlace = false;
-      }
+      // Taken out (found < 0): the next one stands in its place, at the same number.
+      if (found >= 0 && found !== pos) pos = found;
     });
   });
   $effect.pre(() => {
@@ -144,7 +147,6 @@
   async function go(to: number) {
     editing = null;
     flow.previewStep = null;
-    tookItsPlace = false;
     pos = to;
     region?.scrollIntoView({ block: 'start' });
     await tick();

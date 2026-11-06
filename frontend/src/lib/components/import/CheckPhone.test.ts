@@ -519,7 +519,9 @@ describe('One at a time', () => {
       expect(await undoHistory.undoLast()).toBe(true);
       flushSync();
       expect(flow.review!.lines).toHaveLength(3);
-      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 2 to check');
+      // The walk stays on the line it was on (F141); the one that came back is before it.
+      await expect.element(heading()).toHaveTextContent('Ingredients · 2 of 2 to check');
+      await expect.element(page.getByText(/¼ tsp asafoetida/).first()).toBeVisible();
     });
 
     it('Split into two opens the two names, and splits the line', async () => {
@@ -662,7 +664,37 @@ describe('One at a time', () => {
         LONG,
         'Eat it.'
       ]);
+      // Stays on the step it was on (the one that took the removed step's place).
+      await expect.element(heading()).toHaveTextContent('Method · step 2 of 3');
+      await expect.element(page.getByText('A long step (5 sentences)')).toBeVisible();
+    });
+
+    it('Undo with a step box open on the stand-in step keeps the screen, the box and the words', async () => {
+      const flow = await onStep(0); // step 1 of 3: "Boil the dal."
+      await page.getByRole('button', { name: 'Remove step' }).click(); // LONG stands in
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText(/^Words of step/).fill('Typed words');
+      expect(await undoHistory.undoLast()).toBe(true);
+      flushSync();
+      expect(flow.review!.steps.map((x) => x.text)).toContain('Boil the dal.');
+      await expect.element(heading()).toHaveTextContent('Method · step 2 of 3');
+      await expect.element(page.getByLabelText(/^Words of step/)).toHaveValue('Typed words');
+      await expect.element(next()).toBeDisabled();
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(next()).toBeEnabled();
+    });
+
+    it('a refused save while a step box is open leaves the box and its words, and goes to the line after Done', async () => {
+      const flow = await onStep(0);
+      await page.getByRole('button', { name: 'Change the words' }).click();
+      await page.getByLabelText('Words of step 1').fill('Typed words');
+      flow.saveProblem = { line: 0, message: 'That amount is too big.' };
+      flushSync();
+      await expect.element(page.getByLabelText('Words of step 1')).toHaveValue('Typed words');
       await expect.element(heading()).toHaveTextContent('Method · step 1 of 3');
+      await page.getByRole('button', { name: 'Done' }).click();
+      await expect.element(heading()).toHaveTextContent('Ingredients · 1 of 3 to check');
+      expect(flow.review!.steps.map((x) => x.text)).toContain('Typed words');
     });
 
     it('Split into shorter steps shows the preview, Keep the split makes more steps, and they can be put back', async () => {
