@@ -796,6 +796,21 @@ def _open(kitchen: Kitchen, meal_id: int | None) -> Meal | None:
     return meal if meal is not None and meal.status == "planned" else None
 
 
+def _restore_position(
+    kitchen: Kitchen, meal: Meal, kind: str, recipe_id: int | None, name: str | None, position: int
+) -> int:
+    """Where an Undo puts a recipe back in a meal: its old place, but last when a cooked batch
+    at this meal has the recipe (the copy it was cooked through stays first and keeps the lock;
+    F157 review)."""
+    if kind == "recipe" and any(
+        cooked.for_batch(kitchen.db, kitchen.household_id, b.id) is not None
+        and (b.recipe_id == recipe_id if recipe_id is not None else b.recipe_name == name)
+        for b in batches_at(kitchen, meal)
+    ):
+        return _end(kitchen, meal)
+    return position
+
+
 def batches_at(kitchen: Kitchen, meal: Meal) -> list[BatchCook]:
     from mealwright import batches
 
@@ -872,19 +887,9 @@ def _undo_step(
             taken = db.scalar(select(MealItem.id).where(MealItem.tub_id == old["tub_id"]))
             if tub is None or taken is not None:
                 return False
-        position = old["position"]
-        if old["kind"] == "recipe" and any(
-            cooked.for_batch(db, kitchen.household_id, b.id) is not None
-            and (
-                b.recipe_id == old["recipe_id"]
-                if old["recipe_id"] is not None
-                else b.recipe_name == old["name"]
-            )
-            for b in batches_at(kitchen, meal)
-        ):
-            # A cooked batch has this recipe in this meal: the copy it was cooked through stays
-            # the first one, so the restored copy goes last (F157 review).
-            position = _end(kitchen, meal)
+        position = _restore_position(
+            kitchen, meal, old["kind"], old["recipe_id"], old["name"], old["position"]
+        )
         db.add(
             MealItem(
                 household_id=kitchen.household_id,
@@ -922,7 +927,10 @@ def _undo_step(
         if _cooked_now(kitchen, item):
             return False
         touched.add(item.meal_id)
-        item.meal_id, item.position = meal.id, step["position"]
+        item.position = _restore_position(
+            kitchen, meal, item.kind, item.recipe_id, item.name, step["position"]
+        )
+        item.meal_id = meal.id
         db.flush()
         return True
     if op == "servings":

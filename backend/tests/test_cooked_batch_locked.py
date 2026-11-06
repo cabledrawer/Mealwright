@@ -178,3 +178,101 @@ def test_undoing_an_older_removal_keeps_the_cooked_copy_first(kitchen: TestClien
     assert flags[k2] is True and flags[restored] is False
     refused(kitchen.delete(f"{API}/plan/items/{k2}"))
     assert meal
+
+
+def tub_ids(client: TestClient) -> list[int]:
+    from sqlalchemy import select as sel
+    from test_plan import db_of
+
+    from mealwright.models import Tub
+
+    with db_of(client) as db:
+        return [t.id for t in db.scalars(sel(Tub))]
+
+
+def batch_tub_count(client: TestClient) -> int:
+    from sqlalchemy import select as sel
+    from test_plan import db_of
+
+    from mealwright.models import BatchCook
+
+    with db_of(client) as db:
+        return db.scalars(sel(BatchCook)).one().tub_count
+
+
+def test_undo_of_leftovers_added_to_a_cooked_batch_takes_them_back(kitchen: TestClient) -> None:
+    _dal, meal, khichdi, _soup = two_in_a_meal(kitchen)
+    batch = ok(
+        kitchen.post(f"{API}/plan/items/{khichdi}/batch", json={"tub_count": 1, "pattern": "pick"}),
+        201,
+    )["batch_id"]
+    ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)
+    assert len(tub_ids(kitchen)) == 1
+    answer = ok(
+        kitchen.post(
+            f"{API}/plan/meals/{meal}/cooked",
+            json={"leftovers": {"count": 2, "place_kind": "fridge"}},
+        )
+    )["change"]
+    assert len(tub_ids(kitchen)) == 3 and batch_tub_count(kitchen) == 3
+    result = ok(kitchen.post(f"{API}/changes/{answer['id']}/undo"))
+    assert result["result"] == "done", result
+    assert len(tub_ids(kitchen)) == 1 and batch_tub_count(kitchen) == 1
+
+
+def test_undo_of_an_answer_not_joined_to_a_press_takes_its_tubs_back(kitchen: TestClient) -> None:
+    _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
+    batch = ok(
+        kitchen.post(f"{API}/plan/items/{khichdi}/batch", json={"tub_count": 1, "pattern": "pick"}),
+        201,
+    )["batch_id"]
+    ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)
+    ok(cook(kitchen, soup), 201)  # another press in between
+    for _ in range(2):
+        answer = ok(
+            kitchen.post(
+                f"{API}/plan/meals/{meal}/cooked",
+                json={"leftovers": {"count": 2, "place_kind": "fridge", "item_id": khichdi}},
+            )
+        )["change"]
+        assert len(tub_ids(kitchen)) == 3
+        kitchen.post(f"{API}/changes/{answer['id']}/undo")
+        assert len(tub_ids(kitchen)) == 1 and batch_tub_count(kitchen) == 1
+
+
+def test_undo_of_an_older_item_move_keeps_the_cooked_copy_first(kitchen: TestClient) -> None:
+    from test_plan import db_of
+
+    from mealwright.models import MealItem
+
+    _dal, _meal, k1, _soup = two_in_a_meal(kitchen)
+    with db_of(kitchen) as db:
+        item = db.get(MealItem, k1)
+        assert item is not None
+        recipe_id = item.recipe_id
+    to = {
+        "date": (date.today() + timedelta(days=1)).isoformat(),
+        "slot_id": slot_ids(kitchen)["Dinner"],
+    }
+    moved = ok(kitchen.post(f"{API}/plan/items/{k1}/move", json={**to, "mode": "move"}))
+    k2 = ok(
+        kitchen.post(
+            f"{API}/plan/items",
+            json={
+                "date": date.today().isoformat(),
+                "slot_id": slot_ids(kitchen)["Dinner"],
+                "recipe_id": recipe_id,
+                "servings": 2,
+            },
+        ),
+        201,
+    )["item_id"]
+    batch = ok(
+        kitchen.post(f"{API}/plan/items/{k2}/batch", json={"tub_count": 1, "pattern": "pick"}),
+        201,
+    )["batch_id"]
+    ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)
+    kitchen.post(f"{API}/changes/{moved['change']['id']}/undo")
+    flags = cooked_flags(kitchen)
+    assert flags[k2] is True and flags[k1] is False
+    refused(kitchen.delete(f"{API}/plan/items/{k2}"))

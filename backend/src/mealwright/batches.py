@@ -1315,8 +1315,8 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         if tub is None or item_of_tub(kitchen, tub) is not None:
             return False
         batch = db.get(BatchCook, tub.batch_id)
-        if cooked.for_batch(db, kitchen.household_id, tub.batch_id) is not None:
-            return False  # a cooked batch keeps its tubs
+        if step["count"] is None and cooked.for_batch(db, kitchen.household_id, tub.batch_id):
+            return False  # a cooked batch keeps the tubs it was made with (later ones go)
         db.delete(tub)
         db.flush()
         if batch is not None and step["count"] is not None:
