@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Plan Month (0.8, F149)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.h{font-size:11px;font-weight:700;color:#A3AFA8;text-align:center;padding-bottom:2px}
+.c{height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:14px;font-weight:700;color:#E9EEEB;box-sizing:border-box;border:2px solid transparent}
+.o{color:#4A554E;font-weight:600}
+.p{color:#7E8A83}
+.dots{display:flex;gap:3px;height:5px}
+.dots i{width:5px;height:5px;border-radius:3px;background:#C99A3A}
+.dots i.v{background:#8C73BE}
+.dots i.g2{background:#6FA88C}
+.row{display:flex;gap:10px;align-items:center;min-height:44px}
+.row .m{width:66px;font-size:12px;font-weight:700;color:#A3AFA8;flex:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 56px 20px 16px; display: flex; flex-direction: column; gap: 14px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; color: #A3AFA8; font-weight: 500">November 2026</div>
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Plan</h1>
+</div>
+<div role="group" aria-label="Week or month" style="display: grid; grid-template-columns: 1fr 1fr; background: #252E29; border-radius: 999px; padding: 3px">
+<a href="Dark-PlanEat07-Phone.dc.html" style="border-radius: 999px; min-height: 38px; padding: 0 14px; font: 700 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; text-decoration: none; display: flex; align-items: center; justify-content: center">Week</a>
+<button aria-pressed="true" style="border: none; background: #3A4640; border-radius: 999px; min-height: 38px; padding: 0 14px; font: 800 13px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB">Month</button>
+</div>
+</div>
+
+<div role="group" aria-label="Show" style="display: grid; grid-template-columns: repeat(3, 1fr); background: #252E29; border-radius: 999px; padding: 3px">
+<button aria-pressed="{{ eatOn }}" onClick="{{ showEat }}" style="border: none; background: {{ eatBg }}; border-radius: 999px; min-height: 40px; font: 800 14px 'Plus Jakarta Sans', sans-serif; color: {{ eatFg }}; cursor: pointer">Eat</button>
+<button aria-pressed="{{ cookOn }}" onClick="{{ showCook }}" style="border: none; background: {{ cookBg }}; border-radius: 999px; min-height: 40px; font: 800 14px 'Plus Jakarta Sans', sans-serif; color: {{ cookFg }}; cursor: pointer">Cook</button>
+<button aria-pressed="{{ bothOn }}" onClick="{{ showBoth }}" style="border: none; background: {{ bothBg }}; border-radius: 999px; min-height: 40px; font: 800 14px 'Plus Jakarta Sans', sans-serif; color: {{ bothFg }}; cursor: pointer">Both</button>
+</div>
+
+<div style="background: #1B221F; border-radius: 18px; padding: 12px 10px; display: flex; flex-direction: column; gap: 4px">
+<div class="g"><span class="h">M</span><span class="h">T</span><span class="h">W</span><span class="h">T</span><span class="h">F</span><span class="h">S</span><span class="h">S</span></div>
+<div class="g">
+<span class="c o">26</span><span class="c o">27</span><span class="c o">28</span><span class="c o">29</span><span class="c o">30</span><span class="c o">31</span>
+<span class="c p" style="border-color: {{ ring }}">1<span class="dots" style="display: {{ dotsD }}"><i></i></span></span>
+<span class="c p">2<span class="dots" style="display: {{ dotsD }}"><i></i></span></span>
+<span class="c p">3<span class="dots" style="display: {{ dotsD }}"><i></i><i></i></span></span>
+<span class="c p">4<span class="dots" style="display: {{ dotsD }}"><i class="v"></i></span></span>
+<span class="c p">5<span class="dots" style="display: {{ dotsD }}"><i class="v"></i><i></i></span></span>
+<span class="c" style="background: #1F3A2D; color: #8FE0B5">6<span class="dots" style="display: {{ dotsD }}"><i class="v"></i><i></i><i></i></span></span>
+<button class="c" aria-label="Saturday 7, selected" style="background: #E9EEEB; color: #111614; border-color: {{ ring }}; font-family: inherit; cursor: pointer">7<span class="dots" style="display: {{ dotsD }}"><i class="g2"></i><i class="g2"></i></span></button>
+<span class="c">8<span class="dots" style="display: {{ dotsD }}"><i class="g2"></i></span></span>
+<span class="c">9<span class="dots" style="display: {{ dotsD }}"><i class="g2"></i></span></span>
+<span class="c" style="border-color: {{ ring }}">10<span class="dots" style="display: {{ dotsD }}"><i></i><i></i></span></span>
+<span class="c">11<span class="dots" style="display: {{ dotsD }}"><i></i></span></span>
+<span class="c">12<span class="dots" style="display: {{ dotsD }}"><i></i></span></span>
+<span class="c">13</span>
+<span class="c" style="border-color: {{ ring }}">14<span class="dots" style="display: {{ dotsD }}"><i class="v"></i></span></span>
+<span class="c">15<span class="dots" style="display: {{ dotsD }}"><i class="v"></i></span></span>
+<span class="c">16</span><span class="c">17</span><span class="c">18</span><span class="c">19</span><span class="c">20</span><span class="c">21</span><span class="c">22</span>
+<span class="c">23</span><span class="c">24</span><span class="c">25</span><span class="c">26</span><span class="c">27</span><span class="c">28</span><span class="c">29</span>
+<span class="c">30</span>
+</div>
+<span style="font-size: 12px; color: #A3AFA8; padding: 4px 4px 0">{{ legend }}</span>
+</div>
+
+<sc-if value="{{ showCookList }}" hint-placeholder-val="{{ false }}">
+<section aria-label="Cooking on Saturday 7" style="background: #1B221F; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 6px; color: #7FB2E5"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"></path><path d="M17 13h3"></path></svg><span style="color: #E9EEEB">You cook · Sat 7</span></h2>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Lemon rice · batch</span><span style="font-size: 13px; color: #A3AFA8">Makes 4 · eat 2 at lunch · 2 tubs (Sat dinner, Sun lunch) · 35 min</span></div>
+<a href="Dark-CookStep08-Phone.dc.html" style="align-self: flex-start; background: #E9EEEB; color: #111614; border-radius: 14px; min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center">Start cooking</a>
+</section>
+</sc-if>
+
+<sc-if value="{{ showEatList }}" hint-placeholder-val="{{ true }}">
+<section aria-label="Eating on Saturday 7" style="background: #1B221F; border-radius: 18px; padding: 8px 14px; display: flex; flex-direction: column">
+<h2 style="margin: 4px 0; font-size: 16px; font-weight: 800">Eating · Sat 7</h2>
+<div class="row"><span class="m">Breakfast</span><span style="flex: 1; font-size: 15px; font-weight: 700">Upma</span><span style="font-size: 12px; color: #A3AFA8">fresh</span></div>
+<div class="row"><span class="m">Lunch</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Lemon rice</span><span style="font-size: 12px; color: #9FDDBB; font-weight: 600">Freshly made · Tess, Wren</span></span></div>
+<div class="row"><span class="m">Dinner</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px; font-weight: 700">Lemon rice</span><span style="font-size: 12px; color: #9FDDBB; font-weight: 600">Tub from today · Tess, Wren</span></span></div>
+</section>
+</sc-if>
+
+</div>
+
+<nav aria-label="Main" style="height: 84px; background: #161C19; border-top: 1px solid #2A332E; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Dark-Today08-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Dark-PlanMonth08-Phone.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #6FCF9E; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Dark-Phone-Shop.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Dark-Phone-Pantry.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Dark-Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const v = s.view || 'eat';
+const on = (x) => v === x;
+const bg = (x) => on(x) ? '#E9EEEB' : 'transparent';
+const fg = (x) => on(x) ? '#111614' : '#E9EEEB';
+const showEat = v !== 'cook';
+const showCook = v !== 'eat';
+const legends = { eat: 'Dots: meals planned, in each batch’s colour.', cook: 'Blue ring: a day you cook.', both: 'Blue ring: a day you cook. Dots: meals planned.' };
+return {
+eatOn: on('eat') ? 'true' : 'false', cookOn: on('cook') ? 'true' : 'false', bothOn: on('both') ? 'true' : 'false',
+eatBg: bg('eat'), cookBg: bg('cook'), bothBg: bg('both'),
+eatFg: fg('eat'), cookFg: fg('cook'), bothFg: fg('both'),
+showEat: () => this.setState({ view: 'eat' }),
+showCook: () => this.setState({ view: 'cook' }),
+showBoth: () => this.setState({ view: 'both' }),
+dotsD: showEat ? 'flex' : 'none',
+ring: showCook ? '#7FB2E5' : 'transparent',
+showEatList: showEat,
+showCookList: showCook,
+legend: legends[v]
+};
+}
+}
+</script>
+</body>
+</html>
