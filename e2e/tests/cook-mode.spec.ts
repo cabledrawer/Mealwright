@@ -764,3 +764,46 @@ test('F157: reloading the cook address, Cooked it still reviews only this recipe
     }
   }
 });
+
+// --- Cooking ahead (F159, cabledrawer 6 Nov) -------------------------------------------------------
+
+test('F159: Plan, Cook, a later day\'s meal, Start cooking, Confirm: it is cooked, no error toast, and the meal stays on its day', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const index = ['desktop 0.7 cook mode', 'phone 0.7 cook mode', 'webkit 0.7 cook mode'].indexOf(test.info().project.name);
+  const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
+  const ahead = new Date(`${household.today}T12:00:00Z`);
+  ahead.setUTCDate(ahead.getUTCDate() + 2); // Monday: next week, whatever the project
+  const day = ahead.toISOString().slice(0, 10);
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
+  const soup = await makeRecipe(page, FOUR, `Lentil soup ${stamp()}`);
+  const planned = await call(page, '/plan/items', { date: day, slot_id: slot, recipe_id: soup.id, servings: 2 });
+  try {
+    await page.goto('/plan');
+    await page.getByRole('button', { name: 'Next week' }).click();
+    await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
+    await page.getByRole('region', { name: planDayName(day) }).getByRole('button', { name: `Start cooking ${soup.name}` }).click();
+    await expect(cook(page)).toBeVisible();
+    await lastStep(page);
+    await page.getByRole('button', { name: 'Cooked it' }).click();
+    const review = page.getByRole('dialog', { name: `Cooked ${soup.name}`, exact: true });
+    await expect(review).toBeVisible();
+    await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
+    await expect(review).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: `Cooked ${soup.name} (` })).toBeVisible();
+    await expect(page.getByText(/Couldn.t save/)).toHaveCount(0);
+    const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+      meals: { id: number; status: string; items: { id: number; cooked: boolean }[] }[];
+    };
+    const meal = plan.meals.find((m) => m.id === planned.meal_id)!;
+    expect(meal.status).toBe('cooked');
+  } finally {
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(soup.name))) {
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    }
+    await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key() });
+  }
+});
