@@ -876,3 +876,42 @@ def test_the_real_to_serve_line_is_read() -> None:
 def test_a_label_with_nothing_after_it_is_not_a_line() -> None:
     assert not read_line("optional:").readable
     assert not read_line("To serve: ").readable
+
+
+# --- W2b (0.8): a number in brackets, and a doubled "((optional))" ---------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1 teaspoon (4) garlic",
+        "1 teaspoon garlic (4)",
+        "1 tsp (4) garlic",
+        "1 tsp garlic (4)",
+        "1 tsp garlic, (4)",
+    ],
+)
+def test_f139_a_number_in_brackets_stays_a_bracketed_note(text: str) -> None:
+    """F139: "1 teaspoon (4) garlic" is 1 tsp garlic with "(4)" as the note, never "1 tsp 4"."""
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name) == (D(1), "tsp", "garlic")
+    assert line.note == "(4)"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2 tbsps raw papaya paste (optional)",
+        "2 tbsps raw papaya paste ((optional))",
+        "2 tbsps raw papaya paste ((optional)",
+        "2 tbsps raw papaya paste [(optional)]",
+        "2 tbsps raw papaya paste, optional",
+    ],
+)
+def test_a_note_that_already_has_brackets_gets_no_more(text: str) -> None:
+    """The importer's doubled "((optional))" reads exactly as "(optional)": one note, no other
+    name, no extra brackets (the same thing written two ways gives the same result)."""
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name) == (D(2), "tbsp", "raw papaya paste")
+    assert line.note == "optional"
+    assert line.other_names == ()

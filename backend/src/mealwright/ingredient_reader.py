@@ -664,6 +664,17 @@ def _names_something(bracket: str) -> bool:
     )
 
 
+def _unwrapped(part: str) -> str:
+    """ "(optional)" inside a bracket is "optional": a part that is nothing but one more bracket
+    loses that pair (a variety written "((kashmiri) (less spicy))" has two, and is kept)."""
+    while part[:1] in ("(", "[") and part[-1:] in (")", "]") and len(_brackets(part)[1]) == 1:
+        text, inner = _brackets(part)
+        if text.strip():
+            break
+        part = inner[0]
+    return part
+
+
 def _clean_token(token: str) -> str:
     return token.strip(_EDGE_PUNCT).lower()
 
@@ -891,6 +902,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     notes: list[str] = []
 
     rest, inside = _brackets(rest)
+    # "((optional))": a bracket that holds only another bracket is that bracket (one pair only).
+    inside = [_unwrapped(part) for part in inside]
     if (
         inside
         and not any(c.isalpha() for c in " ".join(_strip_prep(rest.split(), PREP_WORDS)[0]))
@@ -966,7 +979,9 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         ):
             names.append(part)
         else:
-            notes.append(part)
+            # "1 teaspoon (4) garlic": a bare number stays in its bracket, so it can't be read
+            # as part of the amount ("1 tsp 4"; F139).
+            notes.append(f"({part})" if part.isdigit() else part)
 
     # After the first comma it's a note.
     head, comma, tail = rest.partition(",")
