@@ -38,6 +38,35 @@ async function mainList(page: Page): Promise<string> {
 }
 
 /** An ingredient on the main list (by weight, in grams). */
+/**
+ * An accessibility scan of the page frame and of this test's own rows. The shopping list is
+ * shared by every test on the server, so it holds rows other tests left, and the toast, the top
+ * bar and the bottom tabs lie over some of them: axe counts a row that one of those half covers
+ * as a too-small target, which depends on what the earlier tests left behind. Other tests' rows
+ * are marked and left out, and the put-away/undo toast is waited out first (it goes by itself).
+ */
+async function scanOwn(
+  page: Page,
+  names: string | string[],
+  options: { exclude?: string[] } = {},
+) {
+  await expect(page.getByRole("status").locator(".toast")).toHaveCount(0, {
+    timeout: 15_000,
+  });
+  const own = Array.isArray(names) ? names : [names];
+  await page.evaluate((mine) => {
+    for (const li of document.querySelectorAll("main li")) {
+      const text = li.textContent ?? "";
+      if (mine.some((name) => text.includes(name))) li.removeAttribute("data-other-row");
+      else li.setAttribute("data-other-row", "");
+    }
+  }, own);
+  await checkPage(page, {
+    ...options,
+    exclude: [...(options.exclude ?? []), "[data-other-row]"],
+  });
+}
+
 async function onList(page: Page, name: string, amountG = 500) {
   const { food } = await call(page, "POST", "/foods", {
     name,
@@ -87,7 +116,7 @@ test("Shopping shows the list by shop and aisle, and passes the accessibility ch
   await expect(
     page.getByRole("heading", { level: 3, name: "Other" }).first(),
   ).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
 });
 
 test("the list picker makes, renames and removes an extra list, with Undo", async ({
@@ -163,7 +192,7 @@ test("a typed name that is not an ingredient asks Pantry keeps it by, with packe
   await expect(
     dialog.getByRole("radio", { name: /By weight/ }),
   ).toHaveAttribute("aria-checked", "true");
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
 
   await dialog.getByRole("button", { name: "+ Add a size" }).click();
   await dialog.getByRole("textbox", { name: "Name" }).fill("jar");
@@ -514,7 +543,7 @@ test("the list picker open and the amount editor open pass the accessibility che
   await expect(page.getByRole("group", { name: "Lists" })).toBeVisible();
   // The open menu lies over the top rows of the list; axe would count a row it half covers as
   // a too-small target. The rows are checked in the other tests.
-  await checkPage(page, { exclude: [".aisles"] }); // both themes
+  await scanOwn(page, name, { exclude: [".aisles"] }); // both themes
   // Escape closes it and puts focus back on the picker button.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("group", { name: "Lists" })).toHaveCount(0);
@@ -524,7 +553,7 @@ test("the list picker open and the amount editor open pass the accessibility che
   await expect(
     page.getByRole("form", { name: `Change ${name}` }),
   ).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
 });
 
 test("removing a line from the list keeps keyboard focus in the list", async ({
@@ -982,7 +1011,7 @@ test("ticked states pass the accessibility checks in both themes", async ({
   } else {
     await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
   }
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   // The trolley open, with its ticked row.
   await page.getByRole("button", { name: /^In the trolley/ }).click();
   const row = page.getByRole("listitem").filter({ hasText: name });
@@ -991,11 +1020,11 @@ test("ticked states pass the accessibility checks in both themes", async ({
   await expect(
     row.getByRole("button", { name: "Different pack?" }),
   ).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   // The Different pack? sheet.
   await row.getByRole("button", { name: "Different pack?" }).click();
   await expect(row.getByText("What did you buy?")).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   // The "Did you buy 2?" card.
   await act(
     page,
@@ -1006,7 +1035,7 @@ test("ticked states pass the accessibility checks in both themes", async ({
   await expect(
     page.getByRole("region", { name: "Did you buy 2?" }).first(),
   ).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
 });
 
 test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
@@ -1185,7 +1214,7 @@ test("a ticked row says where it went: with an amount, with none, and a staple",
   for (const n of [withAmount, bare, staple]) {
     await expect(row(n)).not.toContainText("→");
   }
-  await checkPage(page); // both themes
+  await scanOwn(page, [withAmount, bare, staple]); // both themes
   // The line's own Undo takes the tick back out of the pantry.
   await row(withAmount)
     .getByRole("button", { name: `Undo ticking ${withAmount}` })
@@ -1255,7 +1284,7 @@ test("removing asks first: Keep it keeps the line; Remove takes it off, with Und
   });
   await expect(ask).toBeVisible();
   await expect(ask.getByText("Nothing goes into the pantry.")).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   await ask.getByRole("button", { name: "Keep it" }).click();
   // Keep it leaves the amount box open on the same line.
   await expect(
@@ -1368,7 +1397,7 @@ test("F77 phone: swiping a row left shows a red Remove; a swipe alone removes no
   await expect(
     page.getByRole("checkbox", { name: `Tick ${name}` }),
   ).not.toBeChecked();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   await red.click();
   // Gone at once, no question first (cabledrawer 28 Oct), with Undo.
   await expect(page.getByRole("alertdialog")).toHaveCount(0);
@@ -1429,7 +1458,7 @@ test("F73 phone: while a row is swiped, its name and its amount stay on screen b
   });
   await expect(blue).toBeVisible();
   await clearOf(blue, "right");
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
 });
 
 test("phone: the row is a pill, the box is big enough to tap, and nothing sideways scrolls at 200% text", async ({
@@ -1441,12 +1470,12 @@ test("phone: the row is a pill, the box is big enough to tap, and nothing sidewa
   await page.goto("/shopping");
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
-  await checkPage(page);
+  await scanOwn(page, name);
   await page.getByRole("button", { name, exact: true }).click();
   await expect(
     page.getByRole("form", { name: `Change ${name}` }),
   ).toBeVisible();
-  await checkPage(page);
+  await scanOwn(page, name);
 });
 
 /** A finger sliding right over a row, for real: touch events through the browser. */
@@ -1487,7 +1516,7 @@ test("phone: swiping a row right shows a blue Move…, which moves it to another
   await swipeRight(page, name);
   const blue = page.getByRole("button", { name: new RegExp(`^Move… ${name}`) });
   await expect(blue).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   await blue.click();
   const sheet = page.getByRole("dialog", { name: `Move ${name} to…` });
   await expect(sheet).toBeVisible();
@@ -1495,7 +1524,7 @@ test("phone: swiping a row right shows a blue Move…, which moves it to another
     "aria-checked",
     "true",
   );
-  await checkPage(page);
+  await scanOwn(page, name);
   await sheet.getByRole("radio", { name: shop }).click();
   // It is under the new shop's heading, not ticked, and the toast offers Undo.
   await expect(
@@ -1528,7 +1557,7 @@ test("desktop: Move to… sits in the row's ⋯ menu, moves to another list, and
   await page.getByRole("menuitem", { name: "Move to…" }).click();
   const menu = page.getByRole("dialog", { name: `Move ${name} to…` });
   await expect(menu).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   await menu.getByRole("button", { name: new RegExp(other) }).click();
   await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
   await expect(
@@ -1560,7 +1589,7 @@ test("the Move picker at 200% text: nothing scrolls sideways and it passes the a
   const picker = page.getByRole("dialog", { name: `Move ${name} to…` });
   await expect(picker).toBeVisible();
   await expect(picker.getByRole("button", { name: "Cancel" })).toBeVisible();
-  await checkPage(page); // both themes
+  await scanOwn(page, name); // both themes
   // Every choice stays inside the window.
   const inside = await picker.evaluate((el) => {
     const box = el.getBoundingClientRect();
