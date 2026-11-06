@@ -23,7 +23,7 @@ moved can't.
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import status
@@ -57,6 +57,7 @@ from mealwright.models import (
     Meal,
     MealItem,
     Recipe,
+    utcnow,
 )
 from mealwright.names import fold
 from mealwright.shop_from_plan import PLAN_KIND, base_amount, round_up
@@ -518,6 +519,22 @@ def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
     return True
 
 
+HEAL_AFTER = timedelta(minutes=5)
+
+
+def _last_cooked_at(kitchen: Kitchen, meal: Meal) -> datetime:
+    db, hid = kitchen.db, kitchen.household_id
+    ids = [i.id for i in plan.items_of(kitchen, meal)]
+    batches = [b.id for b in batches_cooked_at(kitchen, meal)]
+    found = db.scalars(
+        select(CookedRecord.cooked_at).where(
+            CookedRecord.household_id == hid,
+            or_(CookedRecord.meal_item_id.in_(ids), CookedRecord.batch_id.in_(batches)),
+        )
+    ).all()
+    return max(found)
+
+
 def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:
     """A lost reply to Confirm can leave a meal with every recipe cooked still "planned" (F158,
     cabledrawer 6 Nov): on a read, such a meal in these days is cooked. Returns whether any changed
@@ -542,6 +559,10 @@ def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:
     meals = {m.id: m for q in (by_item, by_batch) for m in db.scalars(q.where(*in_days))}
     healed = False
     for meal in meals.values():
+        # Not while the screen is still on its way to the meal's answer (it follows the pantry
+        # at once): only a meal whose last press is a few minutes old.
+        if as_utc(_last_cooked_at(kitchen, meal)) > utcnow() - HEAL_AFTER:
+            continue
         if meal_all_cooked(kitchen, meal):
             meal.status = "cooked"
             healed = True

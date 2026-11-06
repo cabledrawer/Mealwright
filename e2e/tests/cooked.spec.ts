@@ -463,3 +463,45 @@ test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past 
     for (const made of mine) await call(page, 'DELETE', `/plan/items/${made.item_id}`);
   }
 });
+
+test('F160: Today shows a meal cooked in parts one line per recipe, with its own Cooked it, in both themes', async ({ page }) => {
+  const k = await setup(page);
+  const s = stamp();
+  const first = `Banana bread ${s}`;
+  const second = `Lentil soup ${s}`;
+  const a = await k.plan(await k.recipe(first, []), k.today, k.slot.Breakfast!);
+  const b = await k.plan(await k.recipe(second, []), k.today, k.slot.Breakfast!);
+  try {
+    await page.goto('/');
+    const meal = page.getByTestId('today-eating').locator('.card', { hasText: first });
+    const lines = meal.getByTestId('today-cooked-parts');
+    await expect(lines.locator('li')).toHaveCount(2);
+    await expect(meal.getByRole('button', { name: /^Cooked it/ })).toHaveCount(2);
+    for (const button of await meal.getByRole('button', { name: /^Cooked it/ }).all())
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // The first one: its review is for it alone, and afterwards it has a tick and a Cooked chip.
+    await meal.getByRole('button', { name: `Cooked it: ${first}` }).click();
+    const dialog = review(page, first);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(second)).toHaveCount(0);
+    await confirm(dialog).click();
+    await expect(dialog).toBeHidden();
+    await expect(meal.getByText('1 of 2 cooked')).toBeVisible();
+    await expect(lines.locator('li', { hasText: first }).getByText('Cooked', { exact: true })).toBeVisible();
+    await expect(meal.getByRole('button', { name: `Cooked it: ${first}` })).toHaveCount(0);
+    await expect(meal.getByRole('button', { name: `Cooked it: ${second}` })).toBeVisible();
+    await expectNoSidewaysScroll(page);
+    await checkPage(page); // both themes
+    await meal.getByRole('button', { name: `Cooked it: ${second}` }).click();
+    await confirm(review(page, second)).click();
+    await expect(meal.getByText('All cooked')).toBeVisible();
+    await expect(meal.getByRole('button', { name: /^Cooked it/ })).toHaveCount(0);
+  } finally {
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(s)))
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    for (const made of [a, b]) await call(page, 'DELETE', `/plan/items/${made.item_id}`);
+  }
+});

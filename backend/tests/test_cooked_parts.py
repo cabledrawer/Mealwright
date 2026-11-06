@@ -314,6 +314,13 @@ def test_a_meal_with_every_recipe_cooked_but_still_planned_reads_as_cooked(
     ok(cook(kitchen, khichdi), 201)  # the pantry was changed; the meal's answer never arrived
     assert status_of(kitchen, meal) == "planned"
     today = date.today().isoformat()
+    # Just pressed: the screen's own answer is still on its way, so a read leaves it be.
+    plan = ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
+    assert [m["status"] for m in plan["meals"] if m["id"] == meal] == ["planned"]
+    with db_of(kitchen) as db:
+        for record in db.scalars(select(CookedRecord)):
+            record.cooked_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
     plan = ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
     assert [m["status"] for m in plan["meals"] if m["id"] == meal] == ["cooked"]
     assert status_of(kitchen, meal) == "cooked"
