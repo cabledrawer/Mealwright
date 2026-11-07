@@ -24,6 +24,9 @@
   import { signOutHere, trySending, type Waiting } from '#lib/offline/signOut.js';
   import { VERSION_WORDS } from '#lib/version.js';
   import { session } from '#lib/session.svelte.js';
+  import MealSlots from './MealSlots.svelte';
+  import RecentSection from './RecentSection.svelte';
+  import ShopsPlaces from './ShopsPlaces.svelte';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
@@ -79,6 +82,30 @@
           ? error.detail
           : nothingChanged(network.deviceOffline);
     }
+  }
+
+  // --- The section list (cabledrawer 7 Nov): computer, a list on the left; phone, a list at the top.
+  // The sections follow one another in one scroll (spec: "phone: one grouped list"); choosing
+  // one in the list goes to it. Meal slots are for admins only: hidden for everyone else.
+  const SECTIONS = $derived(
+    [
+      { id: 'appearance', label: 'Appearance', show: true },
+      { id: 'amounts', label: 'Amounts', show: pints !== null },
+      { id: 'meal-slots', label: 'Meal slots', show: admin },
+      { id: 'shops-places', label: 'Shops & places', show: true },
+      { id: 'recent-changes', label: 'Recent changes', show: true },
+      { id: 'privacy', label: 'Privacy', show: true },
+      { id: 'sign-in', label: 'Sign-in', show: true }
+    ].filter((section) => section.show)
+  );
+  let current = $state('appearance');
+
+  async function goTo(id: string) {
+    current = id;
+    await tick();
+    const heading = document.getElementById(id);
+    heading?.scrollIntoView({ block: 'start' });
+    heading?.focus({ preventScroll: true });
   }
 
   let busy = $state(false);
@@ -176,133 +203,170 @@
 
 <PageHeader title="Settings" />
 
-<div class="sections">
-  <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
+<div class="layout">
+  <nav class="list" aria-label="Settings sections">
+    <ul>
+      {#each SECTIONS as section (section.id)}
+        <li>
+          <button
+            type="button"
+            aria-current={current === section.id ? 'true' : undefined}
+            onclick={() => void goTo(section.id)}>{section.label}</button
+          >
+        </li>
+      {/each}
+    </ul>
+    <p class="later">Household, Your data and About come in 0.9.</p>
+  </nav>
+  <div class="sections">
+    <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
        18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
        Once loaded, Amounts stays too, with its switch greyed out while the server can't be
        reached. Anything added later that needs the server is greyed out or hidden the same way. -->
-  {#if network.down && pints === null}
-    <OfflineNote screen="Settings" />
-  {/if}
-  <section class="section" aria-labelledby="appearance">
-    <h2 id="appearance">Appearance</h2>
-    <div class="card">
-      <div class="row">
-        <span class="label">Theme</span>
-        <ThemeSwitch variant="pill" />
-      </div>
-      <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
+    {#if network.down && pints === null}
+      <OfflineNote screen="Settings" />
+    {/if}
+    <section class="section" aria-labelledby="appearance">
+      <h2 id="appearance" tabindex="-1">Appearance</h2>
+      <div class="card">
+        <div class="row">
+          <span class="label">Theme</span>
+          <ThemeSwitch variant="pill" />
+        </div>
+        <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
            phone, kept on this device. Shown at every width; the line under it says a computer
            always shows the whole list (the mockup is phone-only, so showing it on a computer too is
            cabledrawer 5 Nov). -->
-      <fieldset class="check-mode">
-        <legend>Checking a recipe on the phone</legend>
-        <span class="detail">How the Check screen looks after an import.</span>
-        {#each CHECK_MODE_CHOICES as option (option.value)}
-          <label class="choice" class:on={checkMode.choice === option.value}>
-            <input
-              type="radio"
-              name="checkmode"
-              value={option.value}
-              checked={checkMode.choice === option.value}
-              onchange={() => checkMode.set(option.value)}
-            />
-            <span class="dot" aria-hidden="true"></span>
-            <span class="choice-words">
-              <span class="choice-name">{option.label}</span>
-              <span class="choice-hint">{option.hint}</span>
-            </span>
-          </label>
-        {/each}
-        <span class="detail small">On a computer, Check always shows the whole list.</span>
-      </fieldset>
-    </div>
-  </section>
+        <fieldset class="check-mode">
+          <legend>Checking a recipe on the phone</legend>
+          <span class="detail">How the Check screen looks after an import.</span>
+          {#each CHECK_MODE_CHOICES as option (option.value)}
+            <label class="choice" class:on={checkMode.choice === option.value}>
+              <input
+                type="radio"
+                name="checkmode"
+                value={option.value}
+                checked={checkMode.choice === option.value}
+                onchange={() => checkMode.set(option.value)}
+              />
+              <span class="dot" aria-hidden="true"></span>
+              <span class="choice-words">
+                <span class="choice-name">{option.label}</span>
+                <span class="choice-hint">{option.hint}</span>
+              </span>
+            </label>
+          {/each}
+          <span class="detail small">On a computer, Check always shows the whole list.</span>
+        </fieldset>
+      </div>
+    </section>
 
-  {#if pints !== null}
-    <section class="section" aria-labelledby="amounts">
-      <h2 id="amounts">Amounts</h2>
+    {#if pints !== null}
+      <section class="section" aria-labelledby="amounts">
+        <h2 id="amounts" tabindex="-1">Amounts</h2>
+        <div class="card">
+          <div class="row">
+            <span class="who">
+              <span class="label" id="pints-label">Read pints as US pints</span>
+              <span class="detail" id="pints-detail">
+                {pints === 'us'
+                  ? 'A pint is 473 ml (US).'
+                  : 'A pint is 568 ml (UK). Switch on for 473 ml (US).'}
+                {#if !admin}Only an admin can change this.{/if}
+              </span>
+            </span>
+            <Switch
+              bind:checked={() => pints === 'us', (on) => void setPints(on)}
+              labelledby="pints-label"
+              describedby="pints-detail"
+              disabled={!admin || network.offline}
+            />
+          </div>
+        </div>
+        {#if pintsProblem}<p class="warning-line" role="alert">{pintsProblem}</p>{/if}
+      </section>
+    {/if}
+
+    {#if admin}
+      <section class="section" aria-labelledby="meal-slots">
+        <h2 id="meal-slots" tabindex="-1">Meal slots</h2>
+        <MealSlots />
+      </section>
+    {/if}
+
+    <section class="section" aria-labelledby="shops-places">
+      <h2 id="shops-places" tabindex="-1">Shops &amp; places</h2>
+      <ShopsPlaces />
+    </section>
+
+    <section class="section" aria-labelledby="recent-changes">
+      <h2 id="recent-changes" tabindex="-1">Recent changes</h2>
+      <RecentSection />
+    </section>
+
+    <section class="section" aria-labelledby="privacy">
+      <h2 id="privacy" tabindex="-1">Privacy</h2>
+      <div class="card">
+        <a class="row to" href={resolve('/(app)/settings/privacy')}>
+          <span class="who">
+            <span class="label">Outside connections</span>
+            <span class="detail">Recipe import, recipe photos and your own network</span>
+          </span>
+          <Icon name="back" size={18} stroke={2.4} />
+        </a>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="sign-in">
+      <h2 id="sign-in" tabindex="-1">Sign-in</h2>
       <div class="card">
         <div class="row">
           <span class="who">
-            <span class="label" id="pints-label">Read pints as US pints</span>
-            <span class="detail" id="pints-detail">
-              {pints === 'us'
-                ? 'A pint is 473 ml (US).'
-                : 'A pint is 568 ml (UK). Switch on for 473 ml (US).'}
-              {#if !admin}Only an admin can change this.{/if}
-            </span>
+            <span class="label">{who?.name}</span>
+            <span class="detail">Signed in as {who?.username}</span>
           </span>
-          <Switch
-            bind:checked={() => pints === 'us', (on) => void setPints(on)}
-            labelledby="pints-label"
-            describedby="pints-detail"
-            disabled={!admin || network.offline}
-          />
+          <button
+            type="button"
+            class="sign-out"
+            disabled={busy || left > 0 || cantCheck}
+            onclick={leave}>Sign out</button
+          >
         </div>
       </div>
-      {#if pintsProblem}<p class="warning-line" role="alert">{pintsProblem}</p>{/if}
+      {#if cantCheck}
+        <div class="warning">
+          <p role="alert">{cantCheckText(device)}</p>
+          <Button disabled={busy} onclick={() => void tryAgain()}>
+            {trying ? 'Trying…' : 'Try again'}
+          </Button>
+          <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+          <button
+            type="button"
+            class="lose"
+            disabled={busy}
+            onclick={() => void signOutNow('anyway')}
+            >Sign out anyway. Anything waiting on this {device} may be lost</button
+          >
+        </div>
+      {:else if left > 0}
+        <div class="warning">
+          <p role="alert">
+            {loseOnSignOutText(left)}{#if stillCant}<br />{STILL_CANT_REACH}{/if}
+          </p>
+          <Button disabled={busy} onclick={() => void sendNow()}
+            >{busy ? 'Sending…' : 'Try sending now'}</Button
+          >
+          <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+          <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
+            >Sign out and lose {left === 1 ? 'it' : 'them'}</button
+          >
+        </div>
+      {/if}
     </section>
-  {/if}
-
-  <section class="section" aria-labelledby="privacy">
-    <h2 id="privacy">Privacy</h2>
-    <div class="card">
-      <a class="row to" href={resolve('/(app)/settings/privacy')}>
-        <span class="who">
-          <span class="label">Outside connections</span>
-          <span class="detail">Recipe import, recipe photos and your own network</span>
-        </span>
-        <Icon name="back" size={18} stroke={2.4} />
-      </a>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="sign-in">
-    <h2 id="sign-in">Sign-in</h2>
-    <div class="card">
-      <div class="row">
-        <span class="who">
-          <span class="label">{who?.name}</span>
-          <span class="detail">Signed in as {who?.username}</span>
-        </span>
-        <button
-          type="button"
-          class="sign-out"
-          disabled={busy || left > 0 || cantCheck}
-          onclick={leave}>Sign out</button
-        >
-      </div>
-    </div>
-    {#if cantCheck}
-      <div class="warning">
-        <p role="alert">{cantCheckText(device)}</p>
-        <Button disabled={busy} onclick={() => void tryAgain()}>
-          {trying ? 'Trying…' : 'Try again'}
-        </Button>
-        <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
-        <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow('anyway')}
-          >Sign out anyway. Anything waiting on this {device} may be lost</button
-        >
-      </div>
-    {:else if left > 0}
-      <div class="warning">
-        <p role="alert">
-          {loseOnSignOutText(left)}{#if stillCant}<br />{STILL_CANT_REACH}{/if}
-        </p>
-        <Button disabled={busy} onclick={() => void sendNow()}
-          >{busy ? 'Sending…' : 'Try sending now'}</Button
-        >
-        <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
-        <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
-          >Sign out and lose {left === 1 ? 'it' : 'them'}</button
-        >
-      </div>
-    {/if}
-  </section>
-  <!-- The sidebar shows the version on a computer; this is the phone's place for it (N1). -->
-  <p class="version">{VERSION_WORDS}</p>
+    <!-- The sidebar shows the version on a computer; this is the phone's place for it (N1). -->
+    <p class="version">{VERSION_WORDS}</p>
+  </div>
 </div>
 
 <style>
@@ -318,17 +382,73 @@
     }
   }
 
+  .layout {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-7);
+  }
+
+  @media (min-width: 768px) {
+    .layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 760px);
+      gap: 28px;
+      align-items: start;
+    }
+
+    .list {
+      position: sticky;
+      top: var(--space-7);
+    }
+  }
+
+  .list ul {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .list button {
+    width: 100%;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-field);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .list button[aria-current='true'] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+  }
+
+  .later {
+    margin: var(--space-3) 0 0;
+    padding: 0 var(--space-6);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
   .sections {
     display: flex;
     flex-direction: column;
     gap: var(--space-9);
+    min-width: 0;
   }
 
   .section {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    max-width: 640px;
+    max-width: 760px;
+    scroll-margin-top: var(--space-7);
   }
 
   h2 {

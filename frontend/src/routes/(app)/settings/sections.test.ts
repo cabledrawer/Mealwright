@@ -1,0 +1,489 @@
+// Settings: the section list, Meal slots, Shops & places and Recent changes (0.8, S1).
+
+import { flushSync, mount, unmount } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
+import { network } from '#lib/network.svelte.js';
+import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { changeOf, fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { ME } from '#lib/testing/fakeShopping.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
+import Settings from './+page.svelte';
+import '#lib/styles/tokens.css';
+import '#lib/styles/base.css';
+
+vi.mock('$app/navigation', () => ({ goto: vi.fn(async () => {}) }));
+
+const SLOTS = [
+  { id: 1, name: 'Breakfast', position: 0, enabled: true },
+  { id: 2, name: 'Lunch', position: 1, enabled: true },
+  { id: 3, name: 'Snack', position: 2, enabled: false },
+  { id: 4, name: 'Dinner', position: 3, enabled: true }
+];
+const SHOPS = [
+  { id: 1, name: 'Supermarket' },
+  { id: 2, name: 'Indian grocer' }
+];
+const write = (summary: string, id = 90) => [
+  200,
+  { change: { ...changeOf(id, summary), kind: 'shop_removed' } }
+];
+
+let mounted: ReturnType<typeof mount> | null = null;
+
+function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}): FakeRequest[] {
+  const requests = fakeApi({
+    'GET /household': [200, { name: 'Home', pints: 'uk' }],
+    'GET /meal-slots': [200, SLOTS],
+    'GET /shops': [200, SHOPS],
+    'GET /places': [200, PLACES],
+    'GET /changes': [200, { changes: [], next: null }],
+    ...routes
+  });
+  mounted = mount(Settings, { target: document.body.appendChild(document.createElement('div')) });
+  flushSync();
+  return requests;
+}
+
+const sections = () => page.getByRole('navigation', { name: 'Settings sections' });
+
+beforeEach(async () => {
+  session.me = { ...ME };
+  network.reset();
+  placesAndShops.forget();
+  undoHistory.clear();
+  await page.viewport(1300, 900);
+});
+
+afterEach(() => {
+  if (mounted) unmount(mounted);
+  mounted = null;
+  document.body.innerHTML = '';
+  vi.unstubAllGlobals();
+  network.reset();
+  toasts.dismiss();
+});
+
+describe('the section list', () => {
+  it('lists the sections in order, with what comes in 0.9', async () => {
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+    const names = sections()
+      .getByRole('button')
+      .elements()
+      .map((b) => b.textContent);
+    expect(names).toEqual([
+      'Appearance',
+      'Amounts',
+      'Meal slots',
+      'Shops & places',
+      'Recent changes',
+      'Privacy',
+      'Sign-in'
+    ]);
+    await expect
+      .element(sections().getByText('Household, Your data and About come in 0.9.'))
+      .toBeVisible();
+  });
+
+  it('goes to a section, and marks it as the current one', async () => {
+    open();
+    await sections().getByRole('button', { name: 'Shops & places' }).click();
+    await expect
+      .element(sections().getByRole('button', { name: 'Shops & places' }))
+      .toHaveAttribute('aria-current', 'true');
+    await expect.element(page.getByRole('heading', { name: 'Shops & places' })).toHaveFocus();
+  });
+
+  it('phone: the same list, at the top', async () => {
+    await page.viewport(390, 800);
+    open();
+    await expect.element(sections().getByRole('button', { name: 'Recent changes' })).toBeVisible();
+    const box = sections()
+      .getByRole('button', { name: 'Privacy' })
+      .element()
+      .getBoundingClientRect();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
+
+  it('hides Meal slots from a member', async () => {
+    session.me = { ...ME, role: 'member' };
+    const requests = open();
+    await expect.element(page.getByRole('heading', { name: 'Shops & places' })).toBeVisible();
+    expect(sections().getByRole('button', { name: 'Meal slots' }).elements()).toHaveLength(0);
+    expect(page.getByRole('heading', { name: 'Meal slots' }).elements()).toHaveLength(0);
+    expect(requests.some((r) => r.path === '/meal-slots')).toBe(false);
+    // Shops and places are still theirs to manage.
+    await expect.element(page.getByRole('button', { name: 'Remove Supermarket' })).toBeVisible();
+  });
+});
+
+describe('Meal slots', () => {
+  it('renames a meal in place, and says nothing is lost on Undo', async () => {
+    const requests = open({
+      'PATCH /meal-slots/2': [
+        200,
+        { change: { ...changeOf(91, 'Renamed Lunch to Midday meal'), kind: 'plan_slot' } }
+      ]
+    });
+    await page.getByRole('button', { name: 'Rename Lunch' }).click();
+    const box = page.getByRole('textbox', { name: 'Name of Lunch' });
+    await box.fill('Midday meal');
+    await userEvent.keyboard('{Enter}');
+    await expect.element(page.getByText('Midday meal', { exact: true })).toBeVisible();
+    const patch = requests.find((r) => r.method === 'PATCH')!;
+    expect(patch.body).toEqual({ name: 'Midday meal' });
+    expect(patch.headers['idempotency-key']).toBeTruthy();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Renamed Lunch to Midday meal'));
+    expect(toasts.current?.action?.label).toBe('Undo');
+  });
+
+  it('Move down puts a meal after the next one, and sends the whole order', async () => {
+    const requests = open({
+      'PUT /meal-slots/order': [200, { change: null }]
+    });
+    await page.getByRole('button', { name: 'Move Breakfast down' }).click();
+    const put = requests.find((r) => r.method === 'PUT')!;
+    expect(put.body).toEqual({ ids: [2, 1, 3, 4] });
+    const first = page.getByRole('region', { name: 'Meal slots' }).getByRole('listitem').first();
+    await expect.element(first).toHaveTextContent('Lunch');
+    // The first can't go up, the last can't go down.
+    await expect.element(page.getByRole('button', { name: 'Move Lunch up' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Move Dinner down' })).toBeDisabled();
+  });
+
+  it('puts the order back, and says why, when the server refuses it', async () => {
+    open({
+      'PUT /meal-slots/order': [
+        403,
+        { code: 'admins_only', detail: 'Only the household’s admin can change this.' }
+      ]
+    });
+    await page.getByRole('button', { name: 'Move Breakfast down' }).click();
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Only the household’s admin can change this.')
+    );
+    const first = page.getByRole('region', { name: 'Meal slots' }).getByRole('listitem').first();
+    await expect.element(first).toHaveTextContent('Breakfast');
+  });
+
+  it('drags a meal onto another to reorder', async () => {
+    const requests = open({ 'PUT /meal-slots/order': [200, { change: null }] });
+    const rows = page.getByRole('region', { name: 'Meal slots' }).getByRole('listitem');
+    await expect.element(rows.nth(3)).toBeVisible();
+    await rows.nth(3).dropTo(rows.nth(0));
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [4, 1, 2, 3] })
+    );
+  });
+
+  it('adds a meal, last', async () => {
+    const requests = open({
+      'POST /meal-slots': [201, { id: 9, name: 'Supper', position: 4, enabled: true }]
+    });
+    await page.getByRole('button', { name: '+ New meal' }).click();
+    await page.getByRole('textbox', { name: 'New meal' }).fill('Supper');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect.element(page.getByText('Supper', { exact: true })).toBeVisible();
+    expect(requests.find((r) => r.method === 'POST')?.body).toEqual({ name: 'Supper' });
+  });
+
+  it('says what the server said when the name is taken', async () => {
+    open({
+      'POST /meal-slots': [
+        409,
+        { code: 'slot_exists', detail: 'There’s already a meal called Dinner.' }
+      ]
+    });
+    await page.getByRole('button', { name: '+ New meal' }).click();
+    await page.getByRole('textbox', { name: 'New meal' }).fill('dinner');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect.element(page.getByText('There’s already a meal called Dinner.')).toBeVisible();
+  });
+
+  it('switches a meal off, and has no way to remove one', async () => {
+    const requests = open({
+      'PATCH /meal-slots/1': [
+        200,
+        { change: { ...changeOf(92, 'Hid Breakfast in the plan'), kind: 'plan_slot' } }
+      ]
+    });
+    await page.getByRole('switch', { name: 'Show Breakfast in the plan' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ enabled: false })
+    );
+    expect(page.getByRole('button', { name: /^Remove (Breakfast|Lunch)/ }).elements()).toHaveLength(
+      0
+    );
+  });
+});
+
+describe('Shops', () => {
+  it('renames a shop', async () => {
+    const requests = open({ 'PATCH /shops/1': [200, { id: 1, name: 'Tesco' }] });
+    await page.getByRole('button', { name: 'Rename Supermarket' }).click();
+    await page.getByRole('textbox', { name: 'Name of Supermarket' }).fill('Tesco');
+    await userEvent.keyboard('{Enter}');
+    await expect.element(page.getByText('Tesco', { exact: true })).toBeVisible();
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ name: 'Tesco' });
+  });
+
+  it('keeps the box open and says why when the name is taken', async () => {
+    open({
+      'PATCH /shops/1': [
+        409,
+        { code: 'shop_exists', detail: 'There’s already a shop called Indian grocer.' }
+      ]
+    });
+    await page.getByRole('button', { name: 'Rename Supermarket' }).click();
+    await page.getByRole('textbox', { name: 'Name of Supermarket' }).fill('indian grocer');
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .element(page.getByText('There’s already a shop called Indian grocer.'))
+      .toBeVisible();
+    await expect.element(page.getByRole('textbox', { name: 'Name of Supermarket' })).toBeVisible();
+  });
+
+  it('puts shops in order with Move down', async () => {
+    const requests = open({ 'PUT /shops/order': [200, [SHOPS[1], SHOPS[0]]] });
+    await page.getByRole('button', { name: 'Move Supermarket down' }).click();
+    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [2, 1] });
+  });
+
+  it('removes a shop at once, with an Undo that brings it back', async () => {
+    let gone = false;
+    const requests = open({
+      'DELETE /shops/1': () => {
+        gone = true;
+        return write('Removed the shop Supermarket') as [number, unknown];
+      },
+      'POST /changes/90/undo': () => {
+        gone = false;
+        return [
+          200,
+          { result: 'done', message: 'Undone.', brought_back: [], undone: changeOf(90, 'x') }
+        ];
+      },
+      'GET /shops': () => [200, gone ? [SHOPS[1]] : SHOPS]
+    });
+    await page.getByRole('button', { name: 'Remove Supermarket' }).click();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the shop Supermarket'));
+    expect(page.getByText('Supermarket', { exact: true }).elements()).toHaveLength(0);
+    expect(requests.find((r) => r.method === 'DELETE')?.headers['idempotency-key']).toBeTruthy();
+    expect(
+      page.getByText('Removing a shop moves its ingredients to “Any shop”, with Undo.')
+    ).toBeTruthy();
+    // No "Are you sure?" on the way: the toast's Undo is the way back.
+    toasts.current!.action!.run();
+    await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/90/undo')).toBe(true));
+    await expect.element(page.getByText('Supermarket', { exact: true })).toBeVisible();
+  });
+
+  it('puts the shop back and says why when the server will not remove it', async () => {
+    open({ 'DELETE /shops/1': [500, { detail: 'Something went wrong.' }] });
+    await page.getByRole('button', { name: 'Remove Supermarket' }).click();
+    await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
+    await expect.element(page.getByText('Supermarket', { exact: true })).toBeVisible();
+  });
+
+  it('adds a shop', async () => {
+    const requests = open({ 'POST /shops': [201, { id: 7, name: 'Farmers market' }] });
+    await page.getByRole('button', { name: '+ New shop' }).click();
+    await page.getByRole('textbox', { name: 'New shop' }).fill('Farmers market');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect.element(page.getByText('Farmers market', { exact: true })).toBeVisible();
+    expect(requests.find((r) => r.method === 'POST')?.body).toEqual({ name: 'Farmers market' });
+  });
+});
+
+describe('Places', () => {
+  it('shows each place’s kind', async () => {
+    open();
+    const places = page.getByRole('region', { name: 'Places at home' });
+    await expect.element(places).toMatchTextContent(/Freezer Freezer/);
+    await expect.element(places).toMatchTextContent(/Spice rack Cupboard/);
+  });
+
+  it('adds a place with a kind', async () => {
+    const requests = open({
+      'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }]
+    });
+    await page.getByRole('button', { name: '+ New place' }).click();
+    await page.getByRole('textbox', { name: 'New place' }).fill('Garage freezer');
+    await page.getByRole('combobox', { name: 'Kind' }).selectOptions('freezer');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect.element(page.getByText('Garage freezer', { exact: true })).toBeVisible();
+    expect(requests.find((r) => r.method === 'POST' && r.path === '/places')?.body).toEqual({
+      name: 'Garage freezer',
+      kind: 'freezer'
+    });
+  });
+
+  it('removes an empty place with Undo', async () => {
+    const requests = open({
+      'DELETE /places/4': [
+        200,
+        { change: { ...changeOf(95, 'Removed the place Spice rack'), kind: 'place_removed' } }
+      ]
+    });
+    await page.getByRole('button', { name: 'Remove Spice rack' }).click();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the place Spice rack'));
+    expect(toasts.current?.action?.label).toBe('Undo');
+    expect(requests.find((r) => r.method === 'DELETE')?.url).toBe('/places/4');
+  });
+
+  it('a place with things in it says how many and asks where to move them, then removes it', async () => {
+    const requests = open({
+      'DELETE /places/3': (request) =>
+        request.url.includes('move_to')
+          ? [
+              200,
+              { change: { ...changeOf(96, 'Removed the place Cupboard'), kind: 'place_removed' } }
+            ]
+          : [
+              409,
+              {
+                code: 'place_not_empty',
+                detail: 'Cupboard has 14 things in it. Move them to…',
+                things: 14
+              }
+            ]
+    });
+    await page.getByRole('button', { name: 'Remove Cupboard' }).click();
+    const ask = page.getByRole('form', { name: 'Move things out of Cupboard' });
+    await expect
+      .element(ask.getByText('Cupboard has 14 things in it. Move them to…'))
+      .toBeVisible();
+    // Cupboard stays on the list while it is asked.
+    await expect.element(page.getByRole('button', { name: 'Remove Cupboard' })).toBeVisible();
+    await ask.getByRole('combobox', { name: 'Move them to' }).selectOptions('4');
+    await ask.getByRole('button', { name: 'Move and remove' }).click();
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.method === 'DELETE').map((r) => r.url)).toEqual([
+        '/places/3',
+        '/places/3?move_to=4'
+      ])
+    );
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the place Cupboard'));
+    expect(page.getByRole('button', { name: 'Remove Cupboard' }).elements()).toHaveLength(0);
+  });
+
+  it('the last Fridge and the last Freezer can’t be removed, and the screen says why', async () => {
+    open();
+    await expect.element(page.getByRole('button', { name: 'Remove Fridge' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Remove Freezer' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Remove Cupboard' })).toBeEnabled();
+    await expect
+      .element(page.getByRole('region', { name: 'Places at home' }))
+      .toMatchTextContent(/Mealwright needs at least one Fridge and one Freezer\./);
+  });
+
+  it('a second Fridge can go', async () => {
+    open({
+      'GET /places': [200, [...PLACES, { id: 8, name: 'Garage fridge', kind: 'fridge' }]]
+    });
+    await expect.element(page.getByRole('button', { name: 'Remove Fridge' })).toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Remove Garage fridge' })).toBeEnabled();
+  });
+
+  it('puts places in order with Move up', async () => {
+    const requests = open({ 'PUT /places/order': [200, PLACES] });
+    await page.getByRole('button', { name: 'Move Spice rack up' }).click();
+    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [1, 2, 4, 3] });
+  });
+
+  it('renames a place', async () => {
+    const requests = open({
+      'PATCH /places/4': [200, { id: 4, name: 'Spices', kind: 'cupboard' }]
+    });
+    await page.getByRole('button', { name: 'Rename Spice rack' }).click();
+    await page.getByRole('textbox', { name: 'Name of Spice rack' }).fill('Spices');
+    await userEvent.keyboard('{Enter}');
+    await expect.element(page.getByText('Spices', { exact: true })).toBeVisible();
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ name: 'Spices' });
+  });
+});
+
+describe('Recent changes', () => {
+  const made = (id: number, kind: string, summary: string) => ({ ...changeOf(id, summary), kind });
+
+  it('lists every kind, newest first, and undoes one', async () => {
+    let undone = false;
+    const requests = open({
+      'GET /changes': () => [
+        200,
+        {
+          changes: [
+            made(50, 'plan_add', 'Planned Dal curry for Mon dinner'),
+            made(49, 'cooked', 'Cooked Sambar (2 portions)'),
+            made(48, 'recipe_imported', 'Imported Sambar, with 2 new ingredients'),
+            { ...made(47, 'used', 'Used 200 g Toor dal'), can_undo: !undone }
+          ],
+          next: null
+        }
+      ],
+      'POST /changes/47/undo': () => {
+        undone = true;
+        return [
+          200,
+          { result: 'done', message: 'Undone.', brought_back: [], undone: made(47, 'used', 'x') }
+        ];
+      }
+    });
+    const list = page.getByRole('region', { name: 'Recent changes' });
+    await expect.element(list.getByText('Planned Dal curry for Mon dinner')).toBeVisible();
+    const rows = list
+      .getByRole('listitem')
+      .elements()
+      .map((r) => r.textContent ?? '');
+    expect(rows[0]).toContain('Planned Dal curry');
+    expect(rows[1]).toContain('Cooked Sambar');
+    expect(rows[2]).toContain('Imported Sambar');
+    expect(rows[3]).toContain('Used 200 g Toor dal');
+    // The change's own kind of verb is in bold.
+    expect(list.getByText('Cooked', { exact: true }).element().tagName).toBe('B');
+    await list.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }).click();
+    await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/47/undo')).toBe(true));
+    await vi.waitFor(() =>
+      expect(
+        list.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }).elements()
+      ).toHaveLength(0)
+    );
+    // It asked for all kinds: no area.
+    expect(requests.find((r) => r.path === '/changes')?.url).toBe('/changes?limit=20');
+  });
+
+  it('pages with Show more, until there are no older changes', async () => {
+    const requests = open({
+      'GET /changes?limit=20': [
+        200,
+        { changes: [made(60, 'used', 'Used 100 g Rice')], next: '60' }
+      ],
+      'GET /changes?limit=20&before=60': [
+        200,
+        { changes: [made(59, 'cooked', 'Cooked Rasam (1 portion)')], next: null }
+      ]
+    });
+    const list = page.getByRole('region', { name: 'Recent changes' });
+    await expect.element(list.getByText('Used 100 g Rice')).toBeVisible();
+    await list.getByRole('button', { name: 'Show more' }).click();
+    await expect.element(list.getByText('Cooked Rasam (1 portion)')).toBeVisible();
+    expect(list.getByRole('button', { name: 'Show more' }).elements()).toHaveLength(0);
+    expect(requests.some((r) => r.url === '/changes?limit=20&before=60')).toBe(true);
+  });
+
+  it('says so when there is nothing yet, and when it can’t load', async () => {
+    open();
+    await expect
+      .element(page.getByText('Nothing yet. Changes show here, with Undo for 7 days.'))
+      .toBeVisible();
+    unmount(mounted!);
+    document.body.innerHTML = '';
+    mounted = null;
+    open({ 'GET /changes': [500, { detail: 'No.' }] });
+    await expect.element(page.getByText(/Couldn’t load the recent changes\./)).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+});

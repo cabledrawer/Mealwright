@@ -13,10 +13,18 @@ export interface ChangeList {
 }
 
 export function listChanges(
-  options: { mine?: boolean; area?: 'pantry' | 'ingredients'; foodId?: number; limit?: number } = {}
+  options: {
+    mine?: boolean;
+    area?: 'pantry' | 'ingredients';
+    foodId?: number;
+    limit?: number;
+    /** The page after this one: the previous answer's `next`. */
+    before?: string;
+  } = {}
 ): Promise<ChangeList> {
   const params = new URLSearchParams();
   if (options.limit) params.set('limit', String(options.limit));
+  if (options.before) params.set('before', options.before);
   if (options.mine) params.set('mine', 'true');
   if (options.area) params.set('area', options.area);
   if (options.foodId) params.set('food_id', String(options.foodId));

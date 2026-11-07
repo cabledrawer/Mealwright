@@ -3,6 +3,21 @@ import { startsWithVerb } from './changeVerb';
 
 const edit = (summary: string) => ({ kind: 'food_edited', summary });
 
+describe('the kinds in Settings → Recent changes (F172)', () => {
+  it('stock, plan, cooking and removals start with a verb', () => {
+    for (const kind of [
+      'used',
+      'cooked',
+      'plan_add',
+      'plan_slot',
+      'shop_removed',
+      'place_removed'
+    ]) {
+      expect(startsWithVerb({ kind, summary: 'Cooked Sambar' })).toBe(true);
+    }
+  });
+});
+
 describe('startsWithVerb', () => {
   it('is true for the kinds that always start with a verb', () => {
     for (const kind of ['food_created', 'food_removed', 'merged', 'split', 'undo']) {

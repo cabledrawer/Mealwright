@@ -12,7 +12,22 @@ const VERB_KINDS = new Set([
   'merged',
   'split',
   'undo',
-  'recipe_imported'
+  'recipe_imported',
+  // The rest of Settings → Recent changes (F172): stock, plan, cooking, recipes and removals.
+  'added',
+  'used',
+  'binned',
+  'set_left',
+  'moved',
+  'to_freezer',
+  'use_by',
+  'shopped',
+  'repacked',
+  'cooked',
+  'recipe_removed',
+  'draft_removed',
+  'shop_removed',
+  'place_removed'
 ]);
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */
@@ -29,7 +44,7 @@ const VERB_FIRST_EDIT = [
 
 /** Does the first word of this change's summary name what was done? */
 export function startsWithVerb(change: Pick<Change, 'kind' | 'summary'>): boolean {
-  if (VERB_KINDS.has(change.kind)) return true;
+  if (VERB_KINDS.has(change.kind) || change.kind.startsWith('plan_')) return true;
   // The edits worded verb first. An edit of an ingredient that happens to be called "Renamed
   // rice" starts with its name instead, which the ending gives away.
   return (
