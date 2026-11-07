@@ -648,7 +648,7 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
               "date_kind": "use_by", "use_soon": true, "lots_count": 2, "lot_ids": [41, 44], "…": "…" } ] }
 ```
 
-**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock).
+**Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock), `422 too_late_to_freeze` (To freezer on a Use by packet from the day after its date; Best before food can always be frozen).
 
 | Request | Body | Notes |
 |---|---|---|

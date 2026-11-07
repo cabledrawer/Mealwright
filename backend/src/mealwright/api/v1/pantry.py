@@ -698,7 +698,8 @@ def to_freezer(
     lot_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
 ) -> StockWrite:
     """Move the whole packet to the Freezer, with a new use-by 3 months away. With `soon`,
-    every packet of the Use soon row."""
+    every packet of the Use soon row. A Use by packet whose date has passed (from the day after)
+    is refused: `422 too_late_to_freeze`. Best before food can always be frozen."""
 
     def apply() -> tuple[Change, int]:
         lot = _lot(kitchen, lot_id)
@@ -712,8 +713,17 @@ def to_freezer(
             )
         day = today(kitchen.household)
         use_by = (body.use_by if body and body.use_by else None) or add_months(day, FREEZER_MONTHS)
+        moving = _soon_lots(kitchen, lot) if body and body.soon else [lot]
+        if Pantry(kitchen).kind(food) == date_kinds.USE_BY and any(
+            one.use_by is not None and one.use_by < day for one in moving
+        ):
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "too_late_to_freeze",
+                "Too late to freeze: the use by date has passed.",
+            )
         edit = StockEdit(kitchen)
-        for one in _soon_lots(kitchen, lot) if body and body.soon else [lot]:
+        for one in moving:
             edit.touch(one)
             one.place_id = freezer.id
             one.use_by = use_by

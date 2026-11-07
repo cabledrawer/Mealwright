@@ -2,8 +2,8 @@
   // Use soon on the Pantry page (0.8 mockups Dark-Pantry08-Desktop and Dark-UseSoon08-Phone):
   // a strip of four cards across the top on a computer, compact rows on the phone (3 shown, then
   // "Show all N"). One row per ingredient and place, the soonest first ("Toor dal · 2 packets");
-  // a passed Use by is red and says "don't eat" with Binned first; a passed Best before is grey
-  // and says "probably fine". Swipe a phone row right for Used…, left for Binned. Each row
+  // a passed Use by is red and says "don't eat" with Binned first and To freezer greyed out
+  // ("Too late to freeze"); a passed Best before is grey and says "probably fine". Swipe a phone row right for Used…, left for Binned. Each row
   // also has its buttons in `actions()` order, so a keyboard or a screen reader can reach
   // every one (SwipeRow's rule; S5 review r1 M2). Binned and To freezer take every packet the
   // row stands for, with one Undo (S5 review r1 M1).
@@ -13,6 +13,7 @@
   import { network } from '#lib/network.svelte.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { blockedWhileDown } from '#lib/serverNeeded.js';
+  import { TOO_LATE_TO_FREEZE, tooLateToFreeze } from '#lib/tooLateToFreeze.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import SwipeRow from './SwipeRow.svelte';
 
@@ -43,16 +44,17 @@
   /** What is on a row: place and amount ("Fridge · 2 packets"). */
   const what = (lot: UseSoonLot) => `${lot.place.name} · ${lot.stock.short ?? lot.stock.display}`;
 
-  /** Which buttons a row has, in order (cabledrawer 7 Nov): a passed Use by has Binned first; a
-   * passed Best before has no To freezer; anything else has Used, Binned and To freezer, as
-   * before (To freezer only outside the freezer). */
+  /** Which buttons a row has, in order (cabledrawer 7 Nov): a passed Use by has Binned first;
+   * anything else has Used, Binned and To freezer (To freezer only outside the freezer). A
+   * packet too late to freeze keeps To freezer, greyed out with its note. */
   function actions(lot: UseSoonLot): ('used' | 'binned' | 'freezer')[] {
     const passed = lot.days_left !== null && lot.days_left < 0;
     const freezer = lot.place.kind === 'freezer' ? [] : (['freezer'] as const);
     if (passed && lot.date_kind === 'use_by') return ['binned', 'used', ...freezer];
-    if (passed) return ['used', 'binned'];
     return ['used', 'binned', ...freezer];
   }
+
+  const tooLate = (lot: UseSoonLot) => tooLateToFreeze(lot.date_kind, lot.days_left);
 
   const LABEL = { used: 'Used…', binned: 'Binned', freezer: 'To freezer' } as const;
 
@@ -86,11 +88,19 @@
       <button
         type="button"
         class="pill"
-        aria-describedby="{uid}-n{lot.id}"
-        disabled={network.offline}
+        aria-describedby={action === 'freezer' && tooLate(lot)
+          ? `${uid}-n${lot.id} ${uid}-f${lot.id}`
+          : `${uid}-n${lot.id}`}
+        disabled={network.offline || (action === 'freezer' && tooLate(lot))}
         onclick={() => press(lot, action)}>{LABEL[action]}</button
       >
     {/each}
+  {/snippet}
+
+  {#snippet lateNote(lot: UseSoonLot)}
+    {#if tooLate(lot) && lot.place.kind !== 'freezer'}
+      <p class="late-note" id="{uid}-f{lot.id}">{TOO_LATE_TO_FREEZE}</p>
+    {/if}
   {/snippet}
 
   {#snippet when(lot: UseSoonLot)}
@@ -137,6 +147,7 @@
               {@render when(lot)}
             </div>
             <div class="btns row-btns">{@render pills(lot)}</div>
+            {@render lateNote(lot)}
           </SwipeRow>
         </li>
       {/each}
@@ -155,6 +166,7 @@
           >
           {@render when(lot)}
           <span class="btns">{@render pills(lot)}</span>
+          {@render lateNote(lot)}
         </li>
       {/each}
     </ul>
@@ -320,6 +332,12 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .late-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .pill:disabled {

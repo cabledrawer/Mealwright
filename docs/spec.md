@@ -719,6 +719,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Shops & places in Settings (cabledrawer 7 Nov):** shops in visiting order, renamed, added and removed (a removed shop's ingredients go to "Any shop", with Undo); places in order, each with a kind (Fridge, Freezer, Cupboard) that sets how long things last, renamed, added and removed once empty ("Move them to…" first); the last Fridge and the last Freezer stay. Anyone in the household can manage shops and places; Meal slots are for admins only.
 - **Recent changes (F172, cabledrawer 7 Nov):** one place, Settings → Recent changes, with every kind of change and its Undo; Ingredients and Pantry no longer have their own lists. The toast still offers Undo straight after each change.
 - **Use by and Best before (cabledrawer 7 Nov):** every ingredient has a date type, set from the pack-size table or from where it is kept, and changeable; only meat, fish and chilled dairy are always Use by (every other "use by" row of the table starts as Use by but can be switched). A passed Use by says "Use by passed: don't eat" and never "probably fine"; a passed Best before says "Best before passed · probably fine".
+- **Too late to freeze (cabledrawer 7 Nov):** once a Use by date has passed (from the day after), To freezer is shown greyed out with "Too late to freeze: the use by date has passed."; on the Use by day it still works, and Best before food can always be frozen.
 
 **From the v0.7.0 check (cabledrawer 6 Nov; findings F159–F164 in his friction log), wave 2:**
 

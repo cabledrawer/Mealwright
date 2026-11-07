@@ -1176,6 +1176,24 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('a packet past its Use by has To freezer greyed out in its menu, with the note', async () => {
+    const first = sample.paneer[0]!;
+    first.days_left = -1;
+    first.date_kind = 'use_by';
+    await render(1300);
+    await page
+      .getByRole('region', { name: 'What’s in the pantry' })
+      .getByRole('button', { name: /^Paneer/ })
+      .click();
+    await page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button').first().click();
+    const menu = page.getByRole('dialog', { name: /Paneer/ });
+    const freezer = menu.getByRole('button', { name: 'To freezer' });
+    await expect.element(freezer).toBeDisabled();
+    const note = menu.getByText('Too late to freeze: the use by date has passed.');
+    await expect.element(note).toBeVisible();
+    expect(freezer.element().getAttribute('aria-describedby')).toBe(note.element().id);
+  });
+
   it('a packet’s Move to… takes a new place made with + Place (L5)', async () => {
     await render(1300);
     await page
@@ -1230,6 +1248,35 @@ describe('the Pantry page', () => {
       expect(named?.textContent).toBe('Lemon');
     });
 
+    it('a passed Use by has To freezer greyed out, with the note tied to it (cabledrawer 7 Nov)', async () => {
+      sample.useSoon = [soonRow('Lemon', { days_left: -1, use_by: '2026-10-16' })];
+      await render(1300);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      const freezer = card.getByRole('button', { name: 'To freezer' });
+      await expect.element(freezer).toBeDisabled();
+      const note = 'Too late to freeze: the use by date has passed.';
+      await expect.element(card.getByText(note)).toBeVisible();
+      const noteId = card.getByText(note).element().id;
+      expect(freezer.element().getAttribute('aria-describedby')).toContain(noteId);
+      await expect.element(card.getByRole('button', { name: 'Binned', exact: true })).toBeEnabled();
+    });
+
+    it('on the Use by day itself To freezer works, with no note', async () => {
+      sample.useSoon = [soonRow('Lemon', { days_left: 0, use_by: '2026-10-17' })];
+      await render(1300);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await expect.element(card.getByRole('button', { name: 'To freezer' })).toBeEnabled();
+      expect(card.getByText(/Too late to freeze/).elements()).toHaveLength(0);
+    });
+
+    it('a passed Use by on the phone has the same greyed To freezer and note', async () => {
+      sample.useSoon = [soonRow('Lemon', { days_left: -2, use_by: '2026-10-15' })];
+      await render(390);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await expect.element(card.getByRole('button', { name: 'To freezer' })).toBeDisabled();
+      await expect.element(card.getByText(/Too late to freeze/)).toBeVisible();
+    });
+
     it('a phone row has its buttons too, in the same order, so a keyboard reaches them all (S5 review r1 M2)', async () => {
       sample.useSoon = [soonRow('Lemon', { days_left: -3, use_by: '2026-10-14' })];
       await render(390);
@@ -1269,7 +1316,7 @@ describe('the Pantry page', () => {
       });
     }
 
-    it('a passed Best before is grey, says probably fine, and has no To freezer', async () => {
+    it('a passed Best before is grey, says probably fine, and can still go to the freezer', async () => {
       sample.useSoon = [
         soonRow('Toor dal', { days_left: -3, use_by: '2026-10-14', date_kind: 'best_before' })
       ];
@@ -1277,7 +1324,8 @@ describe('the Pantry page', () => {
       const card = page.getByRole('region', { name: /^Use soon/ });
       await expect.element(card.getByText(/Best before passed · probably fine/)).toBeVisible();
       expect(card.getByText(/don’t eat/).elements()).toHaveLength(0);
-      expect(card.getByRole('button', { name: 'To freezer' }).elements()).toHaveLength(0);
+      await expect.element(card.getByRole('button', { name: 'To freezer' })).toBeEnabled();
+      expect(card.getByText(/Too late to freeze/).elements()).toHaveLength(0);
     });
 
     it('a Use by that is only close says the day', async () => {

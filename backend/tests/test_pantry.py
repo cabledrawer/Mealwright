@@ -311,13 +311,14 @@ def test_use_soon_rolls_packets_up_one_row_per_ingredient_and_place(kitchen: Tes
     assert pantry(kitchen)["counts"]["use_soon"] == 2
 
 
-def _two_soon_paneer(kitchen: TestClient) -> tuple[dict[str, Any], int]:
-    """Paneer in the Fridge: two packets soon (one passed), one not soon; the Use soon row."""
+def _two_soon_paneer(kitchen: TestClient, passed: bool = True) -> tuple[dict[str, Any], int]:
+    """Paneer in the Fridge: two packets soon (one passed, or due today with `passed` False),
+    one not soon; the Use soon row."""
     day = today(kitchen)
     paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
     size(kitchen, paneer["id"], "pack", 200)
     add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=1)))
-    add(kitchen, paneer["id"], 1, "pack", use_by=str(day - timedelta(days=2)))
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day - timedelta(days=2 if passed else 0)))
     add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=6)))  # not soon
     row = kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]
     assert row["lots_count"] == 2 and len(row["lot_ids"]) == 2 and row["lot_ids"][0] == row["id"]
@@ -351,8 +352,9 @@ def test_binned_soon_is_refused_with_an_amount(kitchen: TestClient) -> None:
 def test_to_freezer_on_a_use_soon_row_moves_every_soon_packet_with_one_undo(
     kitchen: TestClient,
 ) -> None:
-    """S5 review r1 M1: To freezer on a rolled-up row moves both soon packets."""
-    row, _ = _two_soon_paneer(kitchen)
+    """S5 review r1 M1: To freezer on a rolled-up row moves both soon packets (none passed:
+    a passed Use by one is too late to freeze)."""
+    row, _ = _two_soon_paneer(kitchen, passed=False)
     body = kitchen.post(f"{API}/stock/{row['id']}/to-freezer", json={"soon": True})
     assert body.status_code == 200, body.text
     freezer = place(kitchen, "Freezer")

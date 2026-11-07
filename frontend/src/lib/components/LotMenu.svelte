@@ -7,6 +7,7 @@
   import { tick } from 'svelte';
   import type { Lot, Place } from '#lib/client/types.js';
   import { useByWords } from '#lib/dates.js';
+  import { TOO_LATE_TO_FREEZE, tooLateToFreeze } from '#lib/tooLateToFreeze.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { pickFor } from '#lib/picks.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -168,9 +169,17 @@
           </li>
           {#if place.kind !== 'freezer'}
             <li>
-              <button type="button" onclick={() => act(() => model.toFreezer(id, name))}
-                >To freezer</button
+              <button
+                type="button"
+                disabled={tooLateToFreeze(lot.date_kind, lot.days_left)}
+                aria-describedby={tooLateToFreeze(lot.date_kind, lot.days_left)
+                  ? `${uid}-late`
+                  : undefined}
+                onclick={() => act(() => model.toFreezer(id, name))}>To freezer</button
               >
+              {#if tooLateToFreeze(lot.date_kind, lot.days_left)}
+                <p class="hint" id="{uid}-late">{TOO_LATE_TO_FREEZE}</p>
+              {/if}
             </li>
           {/if}
           {#if others.length}
@@ -304,9 +313,18 @@
     cursor: pointer;
   }
 
-  .actions button:hover,
+  .actions button:hover:not(:disabled),
   .cancel:hover {
     background: var(--color-fill);
+  }
+
+  .actions button:disabled {
+    color: var(--color-text-muted);
+    cursor: default;
+  }
+
+  .actions .hint {
+    padding: 0 var(--space-6) var(--space-3);
   }
 
   .cancel {
