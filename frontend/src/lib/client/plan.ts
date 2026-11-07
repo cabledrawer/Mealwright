@@ -231,8 +231,13 @@ export const previewBatch = (itemId: number, body: BatchBody) =>
 export const makeBatch = (itemId: number, body: BatchBody, key: string) =>
   api<PlanWrite>('POST', `/plan/items/${itemId}/batch`, body, { idempotencyKey: key });
 
-export const placeTub = (id: number, to: Spot, key: string) =>
-  api<PlanWrite>('POST', `/plan/tubs/${id}/place`, to, { idempotencyKey: key });
+export const placeTub = (id: number, to: Spot, key: string, fromTubsLeft = false) =>
+  api<PlanWrite>(
+    'POST',
+    `/plan/tubs/${id}/place`,
+    fromTubsLeft ? { ...to, from_tubs_left: true } : to,
+    { idempotencyKey: key }
+  );
 
 export const editTub = (
   id: number,

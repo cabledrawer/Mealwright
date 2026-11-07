@@ -448,12 +448,20 @@ def item_of_tub(kitchen: Kitchen, tub: Tub) -> MealItem | None:
     )
 
 
-def place_tub(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) -> Change:
+def place_tub(
+    kitchen: Kitchen, tub: Tub, day: date, slot_id: int, *, only_if_left: bool = False
+) -> Change:
     """Put a tub into a meal ("+ Add a tub", "+ Add a tub too", or a drag from tubs left). A
     tub already in a meal moves there instead: it is in one meal at a time."""
     from mealwright import plan
 
     existing = item_of_tub(kitchen, tub)
+    if existing is not None and only_if_left:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "tub_taken",
+            "That tub is already in a meal. Look again.",  # proposed, for cabledrawer
+        )
     if existing is not None:
         return plan.move_item(kitchen, existing, day, slot_id, "move")
     check_day(kitchen, day)

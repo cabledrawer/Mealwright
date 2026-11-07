@@ -1410,7 +1410,8 @@ describe('the Pantry page', () => {
             requests.find((r) => r.method === 'POST' && r.path === '/plan/tubs/51/place')?.body
           ).toEqual({
             date: '2026-10-18',
-            slot_id: 2
+            slot_id: 2,
+            from_tubs_left: true
           })
         );
         await expect
@@ -1425,6 +1426,43 @@ describe('the Pantry page', () => {
         await expect.element(card.getByText('Lemon rice')).toBeVisible();
         await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
         expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
+      });
+
+      it('on the phone Use soon shows when only tubs are soon (M1)', async () => {
+        sample.useSoon.length = 0;
+        sample.useSoonTubs = [tubCard()];
+        await render(390);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByText('Fridge · 2 tubs')).toBeVisible();
+        await expect.element(card.getByRole('button', { name: 'Eat it on…' })).toBeVisible();
+      });
+
+      it('a tub that went into a meal meanwhile is refused, the toast says so and the card is looked at again', async () => {
+        sample.useSoonTubs = [tubCard()];
+        routes({
+          'GET /meal-slots': [200, [{ id: 2, name: 'Dinner', position: 1, enabled: true }]],
+          'GET /plan': [
+            200,
+            { start: '2026-10-17', end: '2026-10-19', meals: [], batch_cooks: [], tubs: [] }
+          ],
+          'POST /plan/tubs/51/place': [
+            409,
+            { detail: 'That tub is already in a meal. Look again.', code: 'tub_taken' }
+          ]
+        });
+        await render(1300);
+        await page.getByRole('button', { name: 'Eat it on…' }).click();
+        const sheet = page.getByRole('dialog', { name: 'Eat Lemon rice on…' });
+        const before = requests.filter((r) => r.method === 'GET' && r.path === '/pantry').length;
+        await sheet.getByRole('button', { name: 'Tomorrow · Dinner' }).click();
+        await vi.waitFor(() =>
+          expect(requests.filter((r) => r.method === 'GET' && r.path === '/pantry').length).toBe(
+            before + 1
+          )
+        );
+        await vi.waitFor(() =>
+          expect(toasts.current?.message).toBe('That tub is already in a meal. Look again.')
+        );
       });
 
       it('on the phone a tub is a row with the same button', async () => {

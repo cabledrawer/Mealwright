@@ -192,6 +192,11 @@ def delete_batch(plan_batch_id: StoredInt, kitchen: Here, response: Response) ->
 class TubPlaceIn(BaseModel):
     date: date
     slot_id: StoredInt
+    from_tubs_left: bool = Field(
+        default=False,
+        description="The Pantry's Eat it on… sends true: a tub already in a meal is then "
+        "refused with 409 `tub_taken` instead of moved.",
+    )
 
 
 @router.post("/plan/tubs/{plan_tub_id}/place")
@@ -200,12 +205,17 @@ def place_tub(
 ) -> PlanWrite:
     """Put a tub in a meal ("+ Add a tub", "+ Add a tub too", a drag from tubs left). A tub
     that is in a meal already moves there: it is in one meal at a time. To send one back to
-    tubs left, take it out of its meal (`DELETE /plan/items/{id}`)."""
+    tubs left, take it out of its meal (`DELETE /plan/items/{id}`). With `from_tubs_left` a tub
+    already in a meal is refused (409 `tub_taken`) rather than moved."""
     return _run(
         kitchen,
         response,
         lambda: batches.place_tub(
-            kitchen, batches.find_tub(kitchen, plan_tub_id), body.date, body.slot_id
+            kitchen,
+            batches.find_tub(kitchen, plan_tub_id),
+            body.date,
+            body.slot_id,
+            only_if_left=body.from_tubs_left,
         ),
     )
 

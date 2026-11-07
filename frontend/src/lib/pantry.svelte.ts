@@ -233,7 +233,13 @@ export class PantryModel {
       rollback: () => {
         if (before) this.useSoonTubs = before;
       },
-      send: (key) => placeTub(tub.tub_id, { date: day, slot_id: slotId }, key),
+      send: (key) => placeTub(tub.tub_id, { date: day, slot_id: slotId }, key, true),
+      // The tub went into a meal since this card was drawn: the server refuses (the toast says
+      // so) and the card is looked at again.
+      refused: (error) => {
+        if (error.code === 'tub_taken') void this.load();
+        return false;
+      },
       saved: () => kitchen.changed(),
       undo: {
         label: `Put ${tub.recipe_name} in ${slotName}`,
