@@ -11,7 +11,7 @@ as it is now (docs/dev/sync-protocol.md 4.5).
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Response, status
@@ -494,7 +494,11 @@ def answer(
             if unit is None:
                 raise Problem(422, "not_counted", f"{food.name} isn’t counted one by one.")
             # Tins are whole ones; an ingredient counted as a count keeps its fractions.
-            count = body.count if food.counted_as == "count" else round(body.count)
+            count = (
+                body.count
+                if food.counted_as == "count"
+                else body.count.quantize(Decimal(1), ROUND_HALF_UP)
+            )
             target = round(count * unit[0])
         else:
             if unit is not None:
@@ -565,8 +569,9 @@ def _top_up(
     more: int,
     size: FoodSize | None,
 ) -> None:
-    """Put `more` into the place: fill the newest packet up to its size first, then new packets
-    (each its own, as bought). An ingredient with no packet gets one lot."""
+    """Put `more` into the place: fill a part-used packet up to its size first (the one that
+    goes off first, so no undated part-packet is made beside it; else the newest), then new
+    packets (each its own, as bought). An ingredient with no packet gets one lot."""
     if size is None or food.counted_as == "count":
         if lots:
             newest = max(lots, key=lambda lot: (lot.added_at, lot.id))
@@ -575,11 +580,15 @@ def _top_up(
             put_in(kitchen, edit, food, place, [more], None)
         return
     if lots:
-        newest = max(lots, key=lambda lot: (lot.added_at, lot.id))
-        room = max(size.amount_milli - newest.amount_milli, 0)
+        part = [lot for lot in lots if lot.amount_milli < size.amount_milli]
+        if part:
+            target = min(part, key=lambda lot: (lot.use_by is None, lot.use_by, lot.id))
+        else:
+            target = max(lots, key=lambda lot: (lot.added_at, lot.id))
+        room = max(size.amount_milli - target.amount_milli, 0)
         fill = min(room, more)
         if fill > 0:
-            edit.touch(newest).amount_milli += fill
+            edit.touch(target).amount_milli += fill
             more -= fill
     if more > 0:
         whole, rest = divmod(more, size.amount_milli)

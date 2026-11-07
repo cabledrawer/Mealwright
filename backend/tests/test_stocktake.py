@@ -511,6 +511,22 @@ def test_an_answer_that_matches_what_is_there_keeps_every_packet_and_date(
     assert down["row"]["answer"] == {"fraction": "0.75", "more": 2, "count": None}
 
 
+def test_half_then_three_quarters_fills_the_open_packet_and_keeps_every_date(
+    kitchen: TestClient,
+) -> None:
+    """S6 review r2 M1: going up from ½ tops up the part-used packet, never a new undated one."""
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    ids = dated_packs(kitchen, dal["id"], cupboard, [3, 5, 9])
+    answer(kitchen, cupboard, dal["id"], {"fraction": 0.5, "more": 2})
+    answer(kitchen, cupboard, dal["id"], {"fraction": 0.75, "more": 2})
+    after = {i: v for i, v in lots(kitchen, dal["id"], cupboard).items() if v[0] > 0}
+    assert set(after) == set(ids)
+    assert all(use_by is not None for _, use_by in after.values())
+    assert sum(a for a, _ in after.values()) == 2_750_000
+
+
 def test_a_staple_is_left_out_of_the_places_total(kitchen: TestClient) -> None:
     cupboard = place(kitchen, "Cupboard")
     rice = food(kitchen, "Basmati rice", staple=True, place_id=cupboard)
@@ -610,6 +626,8 @@ def test_a_tin_count_is_rounded_to_whole_tins(kitchen: TestClient) -> None:
     assert rows(kitchen, cupboard)["Beans"]["count_now"] == "2"
     answer(kitchen, cupboard, beans["id"], {"count": 1.4})
     assert total(kitchen, beans["id"], cupboard) == 400_000
+    answer(kitchen, cupboard, beans["id"], {"count": 2.5})  # half up, as the row reads
+    assert total(kitchen, beans["id"], cupboard) == 1_200_000
 
 
 def test_a_pack_size_of_tin_picked_while_counting_makes_the_row_counted(
