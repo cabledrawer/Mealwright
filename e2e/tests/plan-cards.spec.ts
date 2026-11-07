@@ -581,8 +581,9 @@ test('F65 on Today: the same "Eat it on…", and Undo takes the placement back w
   for (const w of waiting.waiting)
     await call(page, "POST", `/plan/meals/${w.meal_id}/didnt`);
   const name = `${stamp()} Soup`;
+  // Yesterday's Snack: phone today.spec plans and answers yesterday's Dinner on this server, and no other test plans this Snack.
   const cooked = addDays(today, -1);
-  await planned(page, await makeRecipe(page, name), cooked, slot.Dinner);
+  await planned(page, await makeRecipe(page, name), cooked, slot.Snack);
   await page.goto("/");
   await expect(
     page.getByTestId("did-you-cook").getByText(`Did you cook ${name}?`),
