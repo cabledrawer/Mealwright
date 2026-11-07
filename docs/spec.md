@@ -716,6 +716,8 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Cook now on a recipe already cooked today (cabledrawer 6 Nov: "second cook is fine"):** it plans a second copy, with a notice and Undo; the cooked copy stays locked.
 - **The F157 review fixes are cabledrawer's (6 Nov: yes to all):** see "F157 review fixes" in "Decided for 0.7.0", and `words.md` section 39. Kept in the CHANGELOG: the "0.7 alpha 1/2" tags (cabledrawer 6 Nov).
 - **Tubs on the cook day (cabledrawer 6 Nov):** a batch's tubs can cover the cook meal and later meals on the same day.
+- **Shops & places in Settings (cabledrawer 7 Nov):** shops in visiting order, renamed, added and removed (a removed shop's ingredients go to "Any shop", with Undo); places in order, each with a kind (Fridge, Freezer, Cupboard) that sets how long things last, renamed, added and removed once empty ("Move them to…" first); the last Fridge and the last Freezer stay. Anyone in the household can manage shops and places; Meal slots are for admins only.
+- **Recent changes (F172, cabledrawer 7 Nov):** one place, Settings → Recent changes, with every kind of change and its Undo; Ingredients and Pantry no longer have their own lists. The toast still offers Undo straight after each change.
 
 **From the v0.7.0 check (cabledrawer 6 Nov; findings F159–F164 in his friction log), wave 2:**
 
