@@ -1203,6 +1203,7 @@ describe('the Pantry page', () => {
     ): (typeof sample.useSoon)[number] => ({
       ...structuredClone(sample.useSoon[0]!),
       id: 800 + name.length,
+      lot_ids: [800 + name.length],
       food: { id: 800 + name.length, name },
       ...extra
     });
@@ -1224,6 +1225,45 @@ describe('the Pantry page', () => {
         'To freezer'
       ]);
     });
+
+    it('a phone row has its buttons too, in the same order, so a keyboard reaches them all (S5 review r1 M2)', async () => {
+      sample.useSoon = [soonRow('Lemon', { days_left: -3, use_by: '2026-10-14' })];
+      await render(390);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+      const buttons = card
+        .getByRole('button')
+        .elements()
+        .filter((b) => !b.closest('.actions, [aria-hidden="true"]'))
+        .map((b) => b.textContent?.trim());
+      expect(buttons.filter((b) => ['Binned', 'Used…', 'To freezer'].includes(b ?? ''))).toEqual([
+        'Binned',
+        'Used…',
+        'To freezer'
+      ]);
+    });
+
+    for (const [button, path, summary] of [
+      ['To freezer', 'to-freezer', 'Paneer → Freezer'],
+      ['Binned', 'binned', 'Binned 2 packs Paneer']
+    ] as const) {
+      it(`${button} on a row of 2 packets takes both, in one change (S5 review r1 M1)`, async () => {
+        const paneer = sample.useSoon[1]!;
+        routes({ [`POST /stock/${paneer.id}/${path}`]: written(summary) });
+        sample.useSoon = [paneer];
+        await render(1300);
+        await page
+          .getByRole('region', { name: /^Use soon/ })
+          .getByRole('button', { name: button })
+          .click();
+        await vi.waitFor(() =>
+          expect(
+            requests.find((r) => r.method === 'POST' && r.path === `/stock/${paneer.id}/${path}`)
+              ?.body
+          ).toEqual({ soon: true })
+        );
+      });
+    }
 
     it('a passed Best before is grey, says probably fine, and has no To freezer', async () => {
       sample.useSoon = [

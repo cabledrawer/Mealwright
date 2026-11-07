@@ -316,8 +316,9 @@ export interface UseSoonLot {
   date_kind: DateKind;
   use_soon: boolean;
   /** One row per ingredient and place (0.8): `stock` is all its packets that are soon ("2 packets"),
-   * `lots_count` how many, `id` the soonest. */
+   * `lots_count` how many, `id` the soonest, `lot_ids` all of them, soonest first. */
   lots_count: number;
+  lot_ids: number[];
 }
 
 /** The answer to every stock write: the change, and the food's groups as they are now. */

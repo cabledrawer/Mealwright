@@ -310,6 +310,64 @@ def test_use_soon_rolls_packets_up_one_row_per_ingredient_and_place(kitchen: Tes
     assert pantry(kitchen)["counts"]["use_soon"] == 2
 
 
+def _two_soon_paneer(kitchen: TestClient) -> tuple[dict[str, Any], int]:
+    """Paneer in the Fridge: two packets soon (one passed), one not soon; the Use soon row."""
+    day = today(kitchen)
+    paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
+    size(kitchen, paneer["id"], "pack", 200)
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=1)))
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day - timedelta(days=2)))
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=6)))  # not soon
+    row = kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]
+    assert row["lots_count"] == 2 and len(row["lot_ids"]) == 2 and row["lot_ids"][0] == row["id"]
+    return row, paneer["id"]
+
+
+def test_binned_on_a_use_soon_row_takes_every_soon_packet_with_one_undo(
+    kitchen: TestClient,
+) -> None:
+    """S5 review r1 M1: Binned on "Paneer · 2 packs" bins both soon packets, not just the
+    soonest; the packet that isn't soon stays; one Undo brings both back."""
+    row, _ = _two_soon_paneer(kitchen)
+    body = kitchen.post(f"{API}/stock/{row['id']}/binned", json={"soon": True})
+    assert body.status_code == 200, body.text
+    assert body.json()["change"]["summary"] == "Binned 2\u00a0packs Paneer"
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"] == []
+    assert group(kitchen, "Paneer")["lots_count"] == 1
+    kitchen.post(f"{API}/changes/{body.json()['change']['id']}/undo")
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]["lots_count"] == 2
+    assert group(kitchen, "Paneer")["lots_count"] == 3
+
+
+def test_binned_soon_is_refused_with_an_amount(kitchen: TestClient) -> None:
+    row, _ = _two_soon_paneer(kitchen)
+    body = {"soon": True, "amount": {"amount": 50, "unit": "g"}}
+    refused = kitchen.post(f"{API}/stock/{row['id']}/binned", json=body)
+    assert refused.status_code == 422
+    assert refused.json()["code"] == "soon_with_amount"
+
+
+def test_to_freezer_on_a_use_soon_row_moves_every_soon_packet_with_one_undo(
+    kitchen: TestClient,
+) -> None:
+    """S5 review r1 M1: To freezer on a rolled-up row moves both soon packets."""
+    row, _ = _two_soon_paneer(kitchen)
+    body = kitchen.post(f"{API}/stock/{row['id']}/to-freezer", json={"soon": True})
+    assert body.status_code == 200, body.text
+    freezer = place(kitchen, "Freezer")
+    moved = [g for p in pantry(kitchen)["places"] if p["id"] == freezer for g in p["groups"]]
+    assert [g["lots_count"] for g in moved] == [2]
+    assert group(kitchen, "Paneer")["place"]["name"] == "Fridge"  # the one not soon stays
+    kitchen.post(f"{API}/changes/{body.json()['change']['id']}/undo")
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]["lots_count"] == 2
+
+
+def test_binned_without_soon_still_takes_only_that_packet(kitchen: TestClient) -> None:
+    row, _ = _two_soon_paneer(kitchen)
+    kitchen.post(f"{API}/stock/{row['id']}/binned")
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]["lots_count"] == 1
+
+
 def test_editor_shows_the_stock(kitchen: TestClient, toor: dict[str, Any]) -> None:
     add(kitchen, toor["id"], 1.5, "packet")
     shown = kitchen.get(f"{API}/foods/{toor['id']}").json()

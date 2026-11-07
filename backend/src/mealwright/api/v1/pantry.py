@@ -145,11 +145,13 @@ class PantryOut(BaseModel):
 
 class UseSoonLot(LotOut):
     """One row per ingredient and place (0.8): `id` is its soonest packet that is Use soon,
-    `stock` the total of those packets, `lots_count` how many of them ("2 packets")."""
+    `stock` the total of those packets, `lots_count` how many of them ("2 packets") and
+    `lot_ids` which, soonest first (Binned and To freezer with `soon` take them all)."""
 
     food: FoodBrief
     place: PlaceRef
     lots_count: int
+    lot_ids: list[int]
 
 
 class UseSoonOut(BaseModel):
@@ -452,6 +454,7 @@ def use_soon(kitchen: Here) -> UseSoonOut:
                 food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
                 place=view.place_ref(place_id),
                 lots_count=len(soon),
+                lot_ids=[lot.id for lot in soon],
             )
         )
     found.sort(key=lambda lot: (lot.use_by or date.max, lot.food.name.casefold()))
@@ -611,6 +614,37 @@ class UsedSome(BaseModel):
     amount: AmountIn | None = None  # none: all of it
 
 
+class BinnedSome(UsedSome):
+    # Use soon's row (0.8): every packet of this ingredient in this place that counts for Use
+    # soon, not just this one, in one change with one Undo. Only with no amount.
+    soon: bool = False
+
+
+def _soon_lots(kitchen: Kitchen, lot: StockLot) -> list[StockLot]:
+    """The packets a Use soon row stands for: this ingredient's in this place that count as
+    soon (the same rule as `use_soon`), and always the packet named."""
+    view = Pantry(kitchen)
+    kind = view.kind(view.food(lot.food_id))
+    lots = [
+        other
+        for other in lots_of(kitchen, [lot.food_id], lot.place_id)
+        if other.id == lot.id or view.is_soon(other.use_by, kind)
+    ]
+    return sorted(lots, key=lambda other: (other.use_by or date.max, other.id))
+
+
+def _bin_soon(lot_id: int, kitchen: Kitchen) -> tuple[Change, int]:
+    lot = _lot(kitchen, lot_id)
+    food = find(kitchen, lot.food_id)
+    edit = StockEdit(kitchen)
+    total = 0
+    for other in _soon_lots(kitchen, lot):
+        total += other.amount_milli
+        edit.touch(other).amount_milli = 0
+    summary = f"Binned {what_text(food, total, usual_size(kitchen, food.id))}"
+    return edit.record("binned", summary, food.id), 0
+
+
 def _use(
     kind: Literal["used", "binned"], lot_id: int, body: UsedSome, kitchen: Kitchen
 ) -> tuple[Change, int]:
@@ -638,8 +672,17 @@ def used(
 
 @router.post("/stock/{lot_id}/binned")
 def binned(
-    lot_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
+    lot_id: StoredInt, kitchen: Here, response: Response, body: BinnedSome | None = None
 ) -> StockWrite:
+    """Binned it (all of it, or an amount). With `soon`, every packet of the Use soon row."""
+    if body and body.soon:
+        if body.amount is not None:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "soon_with_amount",
+                "Bin all of a Use soon row, or an amount of one packet.",
+            )
+        return stock_write(kitchen, response, lambda: _bin_soon(lot_id, kitchen))
     return stock_write(
         kitchen, response, lambda: _use("binned", lot_id, body or UsedSome(), kitchen)
     )
@@ -647,13 +690,15 @@ def binned(
 
 class ToFreezer(BaseModel):
     use_by: date | None = None  # default: 3 months from today
+    soon: bool = False  # every packet of the Use soon row (0.8), not just this one
 
 
 @router.post("/stock/{lot_id}/to-freezer")
 def to_freezer(
     lot_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
 ) -> StockWrite:
-    """Move the whole packet to the Freezer, with a new use-by 3 months away."""
+    """Move the whole packet to the Freezer, with a new use-by 3 months away. With `soon`,
+    every packet of the Use soon row."""
 
     def apply() -> tuple[Change, int]:
         lot = _lot(kitchen, lot_id)
@@ -666,14 +711,14 @@ def to_freezer(
                 status.HTTP_409_CONFLICT, "already_frozen", "That’s already in the freezer."
             )
         day = today(kitchen.household)
+        use_by = (body.use_by if body and body.use_by else None) or add_months(day, FREEZER_MONTHS)
         edit = StockEdit(kitchen)
-        edit.touch(lot)
-        lot.place_id = freezer.id
-        lot.use_by = (body.use_by if body and body.use_by else None) or add_months(
-            day, FREEZER_MONTHS
-        )
-        lot.frozen_on = day
-        summary = f"{food.name} → {freezer.name}, use by {_date(lot.use_by)}"
+        for one in _soon_lots(kitchen, lot) if body and body.soon else [lot]:
+            edit.touch(one)
+            one.place_id = freezer.id
+            one.use_by = use_by
+            one.frozen_on = day
+        summary = f"{food.name} → {freezer.name}, use by {_date(use_by)}"
         return edit.record("to_freezer", summary, food.id), 0
 
     return stock_write(kitchen, response, apply)

@@ -55,15 +55,17 @@ export const setLeft = (
 export const usedLot = (lotId: number, idempotencyKey: string) =>
   api<StockWrite>('POST', `/stock/${lotId}/used`, {}, key(idempotencyKey));
 
-export const binnedLot = (lotId: number, idempotencyKey: string) =>
-  api<StockWrite>('POST', `/stock/${lotId}/binned`, {}, key(idempotencyKey));
+/** Binned it all. `soon`: every packet of its Use soon row (0.8), in one change. */
+export const binnedLot = (lotId: number, idempotencyKey: string, soon = false) =>
+  api<StockWrite>('POST', `/stock/${lotId}/binned`, soon ? { soon } : {}, key(idempotencyKey));
 
-/** To the freezer, with a new use-by (3 months unless given). */
-export const toFreezer = (lotId: number, idempotencyKey: string, useBy?: string) =>
+/** To the freezer, with a new use-by (3 months unless given). `soon`: every packet of its Use
+ * soon row (0.8), in one change. */
+export const toFreezer = (lotId: number, idempotencyKey: string, useBy?: string, soon = false) =>
   api<StockWrite>(
     'POST',
     `/stock/${lotId}/to-freezer`,
-    useBy ? { use_by: useBy } : {},
+    { ...(useBy ? { use_by: useBy } : {}), ...(soon ? { soon } : {}) },
     key(idempotencyKey)
   );
 

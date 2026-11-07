@@ -163,6 +163,13 @@ export class PantryModel {
     };
   }
 
+  #goneAll(lotIds: number[]) {
+    return (pantry: Pantry, useSoon: UseSoonLot[]) => {
+      for (const id of lotIds) withoutLot(pantry, id);
+      return useSoon.filter((lot) => !lotIds.includes(lot.id));
+    };
+  }
+
   used(lotId: number, foodName: string) {
     return this.#act({
       label: `Used ${foodName}`,
@@ -184,6 +191,23 @@ export class PantryModel {
       label: `${foodName} → Freezer`,
       edit: this.#gone(lotId),
       send: (key) => toFreezer(lotId, key)
+    });
+  }
+
+  /** Binned / To freezer on a Use soon row (0.8): every packet the row stands for, one Undo. */
+  binnedRow(row: UseSoonLot) {
+    return this.#act({
+      label: `Binned ${row.food.name}`,
+      edit: this.#goneAll(row.lot_ids),
+      send: (key) => binnedLot(row.id, key, true)
+    });
+  }
+
+  toFreezerRow(row: UseSoonLot) {
+    return this.#act({
+      label: `${row.food.name} → Freezer`,
+      edit: this.#goneAll(row.lot_ids),
+      send: (key) => toFreezer(row.id, key, undefined, true)
     });
   }
 

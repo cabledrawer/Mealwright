@@ -640,12 +640,12 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 - `running_low`: the food's total in all places is at or below its running-low level.
 - Groups in a place are ordered by soonest use-by, then name.
 
-**`GET /api/v1/pantry/use-soon`** → **one row per ingredient and place** (0.8, cabledrawer 7 Nov; Today, Pantry and Use soon all use it), soonest first. A row's `id` is its soonest packet that is soon, `stock` the total of the packets that are soon in that place ("2 packs"), `use_by`/`days_left` the soonest, `lots_count` how many packets. The same rule as `use_soon` above (a Best before date counts only once passed):
+**`GET /api/v1/pantry/use-soon`** → **one row per ingredient and place** (0.8, cabledrawer 7 Nov; Today, Pantry and Use soon all use it), soonest first. A row's `id` is its soonest packet that is soon, `stock` the total of the packets that are soon in that place ("2 packs"), `use_by`/`days_left` the soonest, `lots_count` how many packets and `lot_ids` which, soonest first. The same rule as `use_soon` above (a Best before date counts only once passed):
 
 ```json
 { "lots": [ { "id": 501, "food": {"id": 20, "name": "Paneer"}, "place": {"id": 1, "name": "Fridge", "kind": "fridge"},
               "stock": {"display": "2 packs · 400 g", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
-              "date_kind": "use_by", "use_soon": true, "lots_count": 2, "…": "…" } ] }
+              "date_kind": "use_by", "use_soon": true, "lots_count": 2, "lot_ids": [41, 44], "…": "…" } ] }
 ```
 
 **Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock).
@@ -655,8 +655,8 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 | `POST /api/v1/stock` | `{ "food_id": 7, "amount": {"amount": 2, "unit": "packet"}, "place_id": 3, "use_by": "2026-11-20" }` | Add to pantry. `place_id` defaults to the food's place, else Cupboard. `use_by` optional. "2 packets" makes two lots. `201`. Staple foods → `409 staple` ("Turmeric is a staple, so it isn't counted."). |
 | `POST /api/v1/stock/{lot_id}/left` | `{ "fraction": 0.5 }` or `{ "amount": {"amount": 250, "unit": "g"} }` | Set what's left. `fraction` (0–1, the ¼ ½ ¾ Full picks) is of the lot's size; a lot with no size needs `amount`. Can go up (Full). 0 empties it. |
 | `POST /api/v1/stock/{lot_id}/used` | `{}` or `{ "amount": {…} }` | Empty body = used it all (Use soon → Used). More than is there → takes all, `short_by` says the rest. |
-| `POST /api/v1/stock/{lot_id}/binned` | `{}` or `{ "amount": {…} }` | As used, recorded as binned. |
-| `POST /api/v1/stock/{lot_id}/to-freezer` | `{}` or `{ "use_by": "2027-01-17" }` | Whole lot to the first freezer place; use-by today + 3 months unless given; `frozen_on` today. |
+| `POST /api/v1/stock/{lot_id}/binned` | `{}` or `{ "amount": {…} }` or `{ "soon": true }` | As used, recorded as binned. `soon` (0.8, a Use soon row): every packet of that ingredient in that place that counts as soon, binned in one change with one Undo; not with an amount (`422 soon_with_amount`). |
+| `POST /api/v1/stock/{lot_id}/to-freezer` | `{}` or `{ "use_by": "2027-01-17" }`, and `"soon": true` | Whole lot to the first freezer place; use-by today + 3 months unless given; `frozen_on` today. `soon` (0.8, a Use soon row): every packet of that ingredient in that place that counts as soon, in one change with one Undo. |
 | `POST /api/v1/stock/{lot_id}/move` | `{ "place_id": 2 }` | Whole lot. Moving into a freezer place this way doesn't change the use-by. |
 | `PATCH /api/v1/stock/{lot_id}` | `{ "use_by": "2026-10-22" }` (null clears) | Change the date. |
 | `POST /api/v1/foods/{id}/used` | `{ "amount": {"amount": 1.5, "unit": "count"}, "place_id": 1 }` | "How much did you use" on a group: takes from that food's lots, oldest/soonest first (3.5). `place_id` optional; without it freezer lots are skipped. Nothing to take from → `409 nothing_left` ("There's no Ghee left."), and nothing is recorded. |

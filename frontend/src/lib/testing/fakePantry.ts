@@ -130,7 +130,8 @@ export function samplePantry() {
       days_left: 0,
       date_kind: 'use_by',
       use_soon: true,
-      lots_count: 1
+      lots_count: 1,
+      lot_ids: [spinach.id]
     },
     {
       id: paneer[0]!.id,
@@ -141,7 +142,8 @@ export function samplePantry() {
       days_left: 2,
       date_kind: 'use_by',
       use_soon: true,
-      lots_count: 2
+      lots_count: 2,
+      lot_ids: paneer.map((lot) => lot.id)
     }
   ];
   return { pantry, useSoon, spinach, paneer, yoghurt };

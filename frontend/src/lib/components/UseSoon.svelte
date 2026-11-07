@@ -3,7 +3,10 @@
   // a strip of four cards across the top on a computer, compact rows on the phone (3 shown, then
   // "Show all N"). One row per ingredient and place, the soonest first ("Toor dal · 2 packets");
   // a passed Use by is red and says "don't eat" with Binned first; a passed Best before is grey
-  // and says "probably fine". Swipe a phone row right for Used…, left for Binned.
+  // and says "probably fine". Swipe a phone row right for Used…, left for Binned. Each row
+  // also has its buttons in `actions()` order, so a keyboard or a screen reader can reach
+  // every one (SwipeRow's rule; S5 review r1 M2). Binned and To freezer take every packet the
+  // row stands for, with one Undo (S5 review r1 M1).
   import { resolve } from '$app/paths';
   import type { UseSoonLot } from '#lib/client/types.js';
   import { whenWords } from '#lib/dates.js';
@@ -56,8 +59,8 @@
   function press(lot: UseSoonLot, action: 'used' | 'binned' | 'freezer') {
     if (blockedWhileDown()) return;
     if (action === 'used') onhowmuch(lot);
-    else if (action === 'binned') void model.binned(lot.id, lot.food.name);
-    else void model.toFreezer(lot.id, lot.food.name);
+    else if (action === 'binned') void model.binnedRow(lot);
+    else void model.toFreezerRow(lot);
   }
 </script>
 
@@ -118,7 +121,7 @@
               icon: 'trash',
               tone: 'danger',
               run: () => {
-                if (!blockedWhileDown()) void model.binned(lot.id, lot.food.name);
+                if (!blockedWhileDown()) void model.binnedRow(lot);
               }
             }}
           >
@@ -131,13 +134,8 @@
                 ><b>{lot.food.name}</b><span>{what(lot)}</span></button
               >
               {@render when(lot)}
-              <button
-                type="button"
-                class="pill act"
-                disabled={network.offline}
-                onclick={() => press(lot, 'used')}>Used…</button
-              >
             </div>
+            <div class="btns row-btns">{@render pills(lot)}</div>
           </SwipeRow>
         </li>
       {/each}
@@ -370,5 +368,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+
+  /* The phone: a row's buttons on their own line under its name. */
+  .row-btns {
+    padding-bottom: 10px;
   }
 </style>
