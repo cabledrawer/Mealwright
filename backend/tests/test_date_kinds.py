@@ -67,28 +67,43 @@ def test_with_no_table_row_it_follows_where_it_is_kept(kitchen: TestClient) -> N
     assert kind_of(kitchen, food(kitchen, "Odd thing")["id"]) == ("best_before", False)
 
 
-def test_meat_fish_and_dairy_are_always_use_by_and_cannot_be_switched(
-    kitchen: TestClient,
-) -> None:
-    chicken = food(kitchen, "Chicken breast", place_id=place(kitchen, "Cupboard"))
-    assert kind_of(kitchen, chicken["id"]) == ("use_by", True)
+def test_only_meat_fish_and_chilled_dairy_are_locked_to_use_by(kitchen: TestClient) -> None:
+    for name in ("Chicken breast", "Milk", "Paneer", "Salmon", "Double cream"):
+        item = food(kitchen, name, place_id=place(kitchen, "Cupboard"))
+        assert kind_of(kitchen, item["id"]) == ("use_by", True), name
+    chicken = food(kitchen, "Chicken thighs")
     refused = edit(kitchen, chicken["id"], date_kind="best_before")
     assert refused.status_code == 422
     assert refused.json()["code"] == "date_kind_locked"
     assert kind_of(kitchen, chicken["id"]) == ("use_by", True)
-    # With no table row, the aisle decides: Meat & fish and Dairy are locked, others aren't.
-    steak = food(kitchen, "Mystery steak", aisle="meat_fish")
-    cheese = food(kitchen, "Cave cheese", aisle="dairy")
-    veg = food(kitchen, "Mystery veg", aisle="veg_fruit")
-    assert kind_of(kitchen, steak["id"]) == ("use_by", True)
-    assert kind_of(kitchen, cheese["id"]) == ("use_by", True)
-    assert kind_of(kitchen, veg["id"]) == ("best_before", False)
-    assert edit(kitchen, cheese["id"], date_kind="best_before").status_code == 422
-    # A table row that says best before wins over the aisle (butter, eggs).
-    eggs = food(kitchen, "Eggs")
-    assert kitchen.get(f"{API}/foods/{eggs['id']}").json()["aisle"] == "dairy"
-    assert kind_of(kitchen, eggs["id"]) == ("best_before", False)
-    assert edit(kitchen, eggs["id"], date_kind="use_by").status_code == 200
+
+
+def test_other_use_by_rows_start_use_by_but_can_be_switched(kitchen: TestClient) -> None:
+    for name in ("Idli batter", "Tofu", "Spinach"):
+        # Idli batter is put in the Dairy aisle: still not chilled dairy.
+        item = food(kitchen, name, aisle="dairy" if name == "Idli batter" else "veg_fruit")
+        assert table().match(name).dates == "use by"  # type: ignore[union-attr]
+        assert kind_of(kitchen, item["id"]) == ("use_by", False), name
+        switched = edit(kitchen, item["id"], date_kind="best_before")
+        assert switched.status_code == 200, name
+        assert kind_of(kitchen, item["id"]) == ("best_before", False), name
+
+
+def test_butter_and_eggs_are_best_before_and_switchable(kitchen: TestClient) -> None:
+    for name in ("Butter", "Eggs"):
+        item = food(kitchen, name)
+        assert kind_of(kitchen, item["id"]) == ("best_before", False), name
+        assert edit(kitchen, item["id"], date_kind="use_by").status_code == 200
+        assert kind_of(kitchen, item["id"]) == ("use_by", False), name
+
+
+def test_a_dairy_aisle_food_with_no_table_row_is_not_locked(kitchen: TestClient) -> None:
+    for name, aisle in (("Cave cheese", "dairy"), ("Mystery steak", "meat_fish")):
+        item = food(kitchen, name, aisle=aisle)
+        assert table().match(name) is None
+        assert kind_of(kitchen, item["id"])[1] is False, name
+        assert edit(kitchen, item["id"], date_kind="use_by").status_code == 200
+        assert edit(kitchen, item["id"], date_kind="best_before").status_code == 200
 
 
 def test_it_can_be_changed_and_undone(kitchen: TestClient) -> None:
