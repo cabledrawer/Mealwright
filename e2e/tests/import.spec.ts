@@ -380,7 +380,8 @@ test('F144: an import is undone from Recent changes on Ingredients once its toas
   const id = Number(page.url().split('/').pop());
   const undo = page.getByRole('button', { name: 'Undo', exact: true });
   await expect(undo).toBeVisible();
-  await expect(undo).toBeHidden({ timeout: 30_000 }); // let the toast go
+  await page.mouse.move(0, 0); // a toast under the pointer waits; move it away
+  await expect(undo).toBeHidden({ timeout: 15_000 }); // let the toast go
   // Reach Ingredients the way a phone does: by the tabs, no typed address.
   if (onPhone()) {
     await page.getByRole('link', { name: 'Pantry', exact: true }).click();

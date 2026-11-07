@@ -57,15 +57,19 @@ def test_refused_with_two_names(kitchen: TestClient) -> None:
         201,
     )["item_id"]
     press(kitchen, meal, third)
+    before = change_count(kitchen)
     reply = answer(kitchen, meal)
     assert reply.status_code == 422
     assert reply.json()["detail"] == "Zorba khichdi and Zorba soup still need Cooked it."
+    assert change_count(kitchen) == before
+    assert status_of(kitchen, meal) == "planned"
     assert records(kitchen) == {third}
-    assert khichdi and soup
+    assert cooked_flags(kitchen) == {khichdi: False, soup: False, third: True}
 
 
 def test_a_meal_with_nothing_cooked_yet_is_cooked_whole(kitchen: TestClient) -> None:
     _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
     ok(answer(kitchen, meal))
     assert status_of(kitchen, meal) == "cooked"
-    assert khichdi and soup
+    assert records(kitchen) == set()  # as before: the meal is cooked, no per-recipe records
+    assert cooked_flags(kitchen) == {khichdi: True, soup: True}
