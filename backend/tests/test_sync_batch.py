@@ -377,7 +377,11 @@ def test_openapi_lists_the_sync_endpoints_and_every_kind(kitchen: TestClient) ->
         "answer_double_tick",
         "dismiss_note",
         "undo",
+        "found_at_home",  # "Already have it" (0.8, sync-protocol 7.6)
     }
+    found = schemas["FoundAtHome"]["properties"]
+    assert set(found) >= {"item_id", "amount", "size_id", "place_id"}
+    assert schemas["TickRow"]["properties"]["found"]["type"] == "boolean"
 
 
 # The schema names 0.2's endpoints had on main before PR 3 (generated clients use them).

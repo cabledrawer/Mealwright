@@ -213,7 +213,6 @@ test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and 
   page,
   context,
 }) => {
-  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
   const name = `Curry leaves ${tag()}`;
   await signIn(page);
   await start(page);
@@ -227,6 +226,8 @@ test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and 
   await expect(dialog.getByRole('button', { name: 'Add', exact: true })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(dialog).toBeHidden();
+  // One by one with no pack size asks "How many?" first (F134), also offline.
+  await page.getByRole('group', { name: `How many ${name}?` }).getByRole('button', { name: '1', exact: true }).click();
   await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
 
@@ -593,8 +594,11 @@ test('S4: Already have it offline: the amount at home is queued, and the pantry 
   await haveHalf(page, name);
   await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
   // Shown as found, in the trolley, at once.
-  await page.getByRole('button', { name: /^In the trolley/ }).first().click();
-  await expect(page.getByText('250 g · found at home')).toBeVisible();
+  // The phone folds "In the trolley"; Plan shopping (1100 px and wider) keeps it open.
+  if (isPhone(page)) await page.getByRole('button', { name: /^In the trolley/ }).first().click();
+  await expect(
+    page.getByRole('listitem').filter({ hasText: name }).getByText('250 g · found at home'),
+  ).toBeVisible();
 
   await context.setOffline(false);
   await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({ timeout: 15_000 });
@@ -606,6 +610,7 @@ test('S4: Already have it offline: the amount at home is queued, and the pantry 
 });
 
 test('S4: Already have it sent twice (the answer was lost) puts the amount in once', async ({ page }) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's page.route doesn't see requests made by the service worker in WebKit, so the answer can't be dropped there; the same repeat is proved at the API on every engine (backend test_found_sent_twice_is_applied_once)");
   const name = `Hing ${tag()}`;
   await signIn(page);
   await ingredient(page, name);
@@ -714,6 +719,7 @@ test('F130: the same new name added offline on two phones ends up as one ingredi
       await dialog.getByRole('radio', { name: /One by one/ }).click();
       await dialog.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(dialog).toBeHidden();
+      await p.getByRole('group', { name: `How many ${name}?` }).getByRole('button', { name: '2', exact: true }).click();
       await expect(bar(p)).toContainText(waitingText(p, 1), { timeout: 10_000 });
     }
     await context.setOffline(false);
@@ -721,8 +727,11 @@ test('F130: the same new name added offline on two phones ends up as one ingredi
     await otherContext.setOffline(false);
     await expect(bar(other)).toBeHidden({ timeout: 15_000 });
 
-    const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
-    expect(foods.filter((f: { name: string }) => f.name === name)).toHaveLength(1);
+    const made = async () => {
+      const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
+      return foods.filter((f: { name: string }) => f.name === name).length;
+    };
+    await expect.poll(made, { timeout: 15_000 }).toBe(1);
     // One line on the list: the second add joined the first (they are the same ingredient).
     expect((await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(1);
   } finally {

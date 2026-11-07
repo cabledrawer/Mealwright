@@ -22,6 +22,33 @@ async function mainList(page: Page): Promise<string> {
   return lists.find((l: { main: boolean }) => l.main).id;
 }
 
+/** Put a counted ingredient on the main list with a base amount, as a phone's `add` does. */
+async function addCounted(page: Page, foodId: number, amount: number) {
+  const me = await (await page.request.get('/api/v1/me')).json();
+  const sent = await page.request.post('/api/v1/shopping/actions', {
+    data: {
+      protocol: 1,
+      device_id: crypto.randomUUID(),
+      login_id: me.id,
+      since: 0,
+      sent_at: new Date().toISOString(),
+      actions: [
+        {
+          id: crypto.randomUUID(),
+          kind: 'add',
+          made_at: new Date().toISOString(),
+          seen: 0,
+          list_id: await mainList(page),
+          item_id: crypto.randomUUID(),
+          food_id: foodId,
+          amount,
+        },
+      ],
+    },
+  });
+  expect(sent.ok(), await sent.text()).toBe(true);
+}
+
 /** A new weighed ingredient on the main list (500 g unless said), or counted. */
 async function onList(
   page: Page,
@@ -32,10 +59,11 @@ async function onList(
     name,
     counted_as: options.counted ? 'count' : 'weight',
   });
-  if (options.listed !== false) {
+  if (options.listed !== false && options.counted) await addCounted(page, food.id, 3);
+  else if (options.listed !== false) {
     await call(page, 'POST', `/shopping/lists/${await mainList(page)}/items`, {
       food_id: food.id,
-      amount: options.counted ? { amount: 3 } : { amount: options.grams ?? 500, unit: 'g' },
+      amount: { amount: options.grams ?? 500, unit: 'g' },
     });
   }
   return food.id as number;
@@ -46,7 +74,7 @@ async function stock(page: Page, foodId: number): Promise<[number, string][]> {
   const pantry = await (await page.request.get('/api/v1/pantry')).json();
   const out: [number, string][] = [];
   for (const p of pantry.places)
-    for (const g of p.groups) if (g.food.id === foodId) out.push([g.stock.amount, p.place.name]);
+    for (const g of p.groups) if (g.food.id === foodId) out.push([g.stock.amount, p.name]);
   return out;
 }
 
@@ -70,11 +98,12 @@ async function openTrolleyOf(page: Page) {
   }
 }
 
-async function touchSwipe(page: Page, name: string, side: 'left' | 'right', rowName?: RegExp | string) {
-  const row = page
-    .getByRole('button', { name: rowName ?? name, exact: typeof (rowName ?? name) === 'string' })
-    .first()
-    .locator("xpath=ancestor::div[contains(@class,'slide')]");
+async function touchSwipe(page: Page, name: string, side: 'left' | 'right', inTrolley = false) {
+  // The name is a button on the list; in the trolley the row's tick is the thing to find it by.
+  const inside = inTrolley
+    ? page.getByRole('checkbox', { name: `Untick ${name}` })
+    : page.getByRole('button', { name, exact: true });
+  const row = inside.first().locator("xpath=ancestor::div[contains(@class,'slide')]");
   await row.evaluate((el) => el.scrollIntoView({ block: 'center' }));
   const box = (await row.boundingBox())!;
   const y = box.y + box.height / 2;
@@ -152,7 +181,6 @@ test('Add as bought: straight into the pantry, with where it goes and one Undo f
   await expect(page.getByRole('button', { name: `Change where ${name} went` }).or(page.getByRole('button', { name: `Add amount for ${name}` }))).toBeVisible();
   await toast.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: new RegExp(`${name}$`) })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^In the trolley/ })).toHaveCount(0);
   expect(await stock(page, id)).toEqual([]);
 });
 
@@ -197,7 +225,7 @@ test('swipe left in the trolley clears just that line, with Undo; Clear ticked i
   await open(page);
   for (const n of [a, b]) await page.getByRole('checkbox', { name: `Tick ${n}` }).click();
   await openTrolleyOf(page);
-  await touchSwipe(page, b, 'left', new RegExp(`^Untick ${b}$`));
+  await touchSwipe(page, b, 'left', true);
   const clear = page.getByRole('button', { name: new RegExp(`^Clear ${b}`) });
   await expect(clear).toBeVisible();
   await clear.click();
@@ -244,7 +272,7 @@ test('the amount box: a line with no amount offers quick amounts and shows its u
 test('Different pack? can go back to the planned amount after a different one was bought (F153)', async ({ page }) => {
   const name = `Spring onions ${tag()}`;
   const { food } = await call(page, 'POST', '/foods', { name, counted_as: 'count' });
-  await call(page, 'POST', `/shopping/lists/${await mainList(page)}/items`, { food_id: food.id, amount: { amount: 6 } });
+  await addCounted(page, food.id, 6);
   await open(page);
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
   await openTrolleyOf(page);

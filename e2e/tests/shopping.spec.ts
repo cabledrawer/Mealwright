@@ -1029,7 +1029,9 @@ test("ticked states pass the accessibility checks in both themes", async ({
   // The trolley open, with its ticked row.
   await openTrolley(page);
   const row = page.getByRole("listitem").filter({ hasText: name });
-  await expect(row.getByText(/^In the Fridge · /)).toBeVisible();
+  await expect(
+    row.getByRole("button", { name: `Change where ${name} went` }),
+  ).toHaveText(/→ Fridge/);
   await row.getByRole("button", { name: `Change where ${name} went` }).click();
   await expect(
     row.getByRole("button", { name: "Different pack?" }),
@@ -1074,10 +1076,12 @@ test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
     );
     expect(clipped).toBe(false);
     const box = await label.boundingBox();
-    const line = await page
-      .getByRole("group", { name: `Where ${name} went` })
+    const place = await page
+      .getByRole("button", { name: `Change where ${name} went` })
       .boundingBox();
-    expect(box!.y + box!.height).toBeLessThanOrEqual(line!.y + 1); // the status line sits under the name
+    // One line (F72): the place button is on screen beside the name, never pushed off the edge.
+    expect(box!.x + box!.width).toBeLessThanOrEqual(place!.x + 1);
+    expect(place!.x + place!.width).toBeLessThanOrEqual(width + 1);
   }
 });
 
@@ -1214,7 +1218,11 @@ test("a ticked row says where it went: with an amount, with none, and a staple",
   // The line with no amount asked "How much?", which opened the trolley by itself (F62).
   await expect(page.getByText("How much?")).toBeVisible();
   const row = (n: string) => page.getByRole("listitem").filter({ hasText: n });
-  await expect(row(withAmount).getByText(/^In the Fridge · /)).toBeVisible();
+  // One line (F72): what went in under the name, and the place as a button.
+  await expect(row(withAmount).getByText(/^2.packs/)).toBeVisible();
+  await expect(
+    row(withAmount).getByRole("button", { name: `Change where ${withAmount} went` }),
+  ).toHaveText(/→ Fridge/);
   await expect(
     row(bare).getByText("Not in the pantry yet. No amount."),
   ).toBeVisible();
@@ -1224,14 +1232,10 @@ test("a ticked row says where it went: with an amount, with none, and a staple",
   await expect(
     row(staple).getByText("Restocked · staples aren’t counted"),
   ).toBeVisible();
-  // No row says "→ Fridge" or "→ Cupboard" any more.
-  for (const n of [withAmount, bare, staple]) {
-    await expect(row(n)).not.toContainText("→");
-  }
   await scanOwn(page, [withAmount, bare, staple]); // both themes
-  // The line's own Undo takes the tick back out of the pantry.
+  // Unticking the box takes the tick back out of the pantry.
   await row(withAmount)
-    .getByRole("button", { name: `Undo ticking ${withAmount}` })
+    .getByRole("checkbox", { name: `Untick ${withAmount}` })
     .click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({});
 });

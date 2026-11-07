@@ -499,7 +499,7 @@ The person says purchase `tick_id` was really `count` × `pack`:
 - **Rules:** the same device sending it for a line it already ticked → `ignored already_ticked` (so a repeat of another ID is harmless); the same action ID twice → the stored answer, applied once (5.3); an unknown line → `ignored gone`; a line another phone removed still takes the stock in, as a tick does (L-9). A staple puts nothing in (it is only ticked). `amount` must be above 0 (`bad_action`).
 - **No "Did you buy 2?"** from a found purchase: it never opens the card, and is left out when a later bought tick counts purchases. "Different pack?" does not apply to it (`ignored no_change`).
 - **Add as bought** needs no new action: it is an `add` followed by a `tick` of the new item, both in the queue, with one Undo for the pair (two `undo` actions, tick first).
-- Tests: `backend/tests/test_sync_found.py` (applied once, repeat, same device twice, two phones with no card, Undo, untick then Undo, Pantry Undo); the browser tests offline, sent twice and two phones are in `e2e/tests/shopping-phone.spec.ts`.
+- Tests: `backend/tests/test_sync_found.py` (applied once, repeat, same device twice, two phones with no card, Undo, untick then Undo, Pantry Undo); the browser tests (offline, sent twice with the answer lost, two phones) are in `e2e/tests/offline.spec.ts` ("S4: …"), and the 390 px screen in `e2e/tests/shop-phone.spec.ts`.
 
 ## 8. Notes and the card
 

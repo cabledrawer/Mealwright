@@ -4,8 +4,9 @@
   // On a phone, swiping the row left shows a red Remove; on a computer a bin shows when the
   // pointer is over the row. The red Remove after a swipe goes at once, with Undo (F77, cabledrawer
   // 28 Oct); the bin, the ⋯ menu and "Remove from list" in the amount box ask first.
-  // In the trolley: a status line that says where the tick went (PutAwayLine), with "Change"
-  // for the place and "Different pack?" there. Notes for the item sit underneath.
+  // In the trolley (F72, F173): one line, tick · name with what went in under it · the place as a
+  // button ("→ Fridge ▾", tap to choose another); swipe left clears just this line. Notes for the
+  // item sit underneath.
   import { tick as afterUpdate, untrack } from 'svelte';
   import { keepFocus } from '#lib/focusNear.js';
   import { radioKeys } from '#lib/radioKeys.js';
@@ -623,13 +624,20 @@
     padding: 0 0 var(--space-4) 34px;
   }
 
+  .plan .picks .chip {
+    min-width: 0;
+    min-height: 34px;
+  }
+
   .picks .lead {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
   }
 
   .picks .chip {
-    min-height: 34px;
+    /* 44 px to tap on a phone; Plan shopping's rows are denser (a computer, mockup 36 px). */
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
     padding: 0 12px;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);
@@ -686,7 +694,7 @@
     flex: none;
     align-items: center;
     gap: var(--space-3);
-    min-height: 36px;
+    min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);
