@@ -552,7 +552,7 @@ def pack_suggestions(
 def pack_line_out(kitchen: Kitchen, food: Food, need_milli: int | None) -> PackLineOut | None:
     """The whole-packs wording for a list line (F120), with the common sizes to pick from when
     no size is known. Used by Shopping and by the phone's sync pull."""
-    usual = usual_size(kitchen, food.id)
+    usual = pack_bought(kitchen, food.id)  # F122: Usual, else the only size
     line = pack_line(food, need_milli, usual)
     if line is None:
         return None

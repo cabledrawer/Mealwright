@@ -110,6 +110,13 @@
     color: var(--color-text-soft);
   }
 
+  /* A phone has no hover: "+1" is a tap, so a full touch target (review r1 L3). */
+  @media (max-width: 767px) {
+    .plus {
+      min-height: var(--touch-target);
+    }
+  }
+
   .also {
     flex-basis: 100%;
     font-weight: var(--weight-medium);
