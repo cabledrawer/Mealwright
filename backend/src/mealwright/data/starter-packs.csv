@@ -1,0 +1,373 @@
+# Starter ingredient packs (draft, 0.8.0 helper chat, 7 Nov 2026; for cabledrawer). One row per ingredient in pack-sizes-draft.csv.
+# packs: the starter packs it is in, separated by ";". Cuisine packs also include the everyday items that cuisine needs (onion, garlic, ...).
+# Household items are staples ("Don't count it"). An ingredient already in the household is skipped when a pack is added.
+key,name,packs
+plain_flour,plain flour,Baking
+self_raising_flour,self-raising flour,Baking
+bread_flour,strong white flour,Baking
+wholemeal_flour,wholemeal flour,Baking
+chapati_flour,chapati flour,Indian
+cornflour,cornflour,Baking;Chinese
+semolina,semolina,Indian
+fine_rava,bombay rava,Indian
+rice_flour,rice flour,Indian
+gram_flour,gram flour,Indian
+ragi_flour,ragi flour,Indian
+cornmeal,cornmeal,Baking
+sugar,sugar,Household
+brown_sugar,brown sugar,Baking
+icing_sugar,icing sugar,Baking
+jaggery,jaggery,Indian
+honey,honey,Everyday basics
+maple_syrup,maple syrup,Baking
+golden_syrup,golden syrup,Baking
+cocoa,cocoa,Baking
+baking_powder,baking powder,Baking
+bicarbonate_of_soda,bicarbonate of soda,Baking
+dried_yeast,dried yeast,Baking
+chocolate_chips,chocolate chips,Baking
+breadcrumbs,breadcrumbs,Everyday basics
+vanilla_extract,vanilla extract,Baking
+skimmed_milk_powder,milk powder,Baking
+desiccated_coconut,desiccated coconut,Indian
+fresh_coconut,fresh coconut,Everyday basics;Indian
+frozen_grated_coconut,frozen grated coconut,Indian
+long_grain_rice,rice,Everyday basics
+basmati_rice,basmati rice,Indian
+sona_masoori,sona masoori,Indian
+idli_rice,idli rice,Indian
+brown_rice,brown rice,Everyday basics
+poha,poha,Indian
+oats,oats,Everyday basics
+quinoa,quinoa,Everyday basics
+couscous,couscous,Middle Eastern
+bulgur,bulgur,Middle Eastern
+pearl_barley,pearl barley,Everyday basics
+millet,millet,Indian
+vermicelli,vermicelli,Indian
+spaghetti,spaghetti,Everyday basics
+penne,penne,Everyday basics
+macaroni,macaroni,Everyday basics
+fusilli,fusilli,Everyday basics
+egg_noodles,noodles,Chinese
+red_lentils,red lentils,Everyday basics;Indian
+toor_dal,toor dal,Indian
+moong_dal,moong dal,Indian
+urad_dal,urad dal,Indian
+chana_dal,chana dal,Indian
+whole_moong,whole moong,Indian
+lentils,lentils,Everyday basics
+chickpeas,chickpeas,Everyday basics;Indian;Middle Eastern
+black_chickpeas,kala chana,Indian
+tinned_chickpeas,tinned chickpeas,Everyday basics;Middle Eastern
+kidney_beans,kidney beans,Indian
+tinned_kidney_beans,tinned kidney beans,Everyday basics
+black_beans,black beans,Everyday basics
+haricot_beans,haricot beans,Everyday basics
+black_eyed_beans,black eyed beans,Indian
+peanuts,peanuts,Everyday basics;Chinese
+almonds,almonds,Everyday basics
+ground_almonds,ground almonds,Baking
+flaked_almonds,flaked almonds,Baking
+cashews,cashews,Everyday basics;Indian
+walnuts,walnuts,Everyday basics
+pistachios,pistachios,Everyday basics;Middle Eastern
+sesame_seeds,sesame seeds,Everyday basics;Chinese;Japanese
+sunflower_seeds,sunflower seeds,Everyday basics
+pumpkin_seeds,pumpkin seeds,Everyday basics
+flaxseed,flaxseed,Everyday basics
+peanut_butter,peanut butter,Everyday basics
+raisins,raisins,Baking
+sultanas,sultanas,Baking
+dates,dates,Middle Eastern
+tamarind,tamarind,Indian
+tamarind_paste,tamarind paste,Indian
+milk,milk,Everyday basics
+semi_skimmed_milk,semi-skimmed milk,Everyday basics
+skimmed_milk,skimmed milk,Everyday basics
+double_cream,double cream,Everyday basics
+whipping_cream,whipping cream,Everyday basics
+single_cream,single cream,Everyday basics
+sour_cream,sour cream,Everyday basics
+creme_fraiche,creme fraiche,Everyday basics
+yoghurt,yoghurt,Everyday basics;Indian
+greek_yoghurt,greek yoghurt,Everyday basics;Middle Eastern
+butter,butter,Everyday basics
+unsalted_butter,unsalted butter,Baking
+ghee,ghee,Indian
+paneer,paneer,Indian
+cream_cheese,cream cheese,Everyday basics
+cheddar,cheddar,Everyday basics
+mozzarella,mozzarella,Everyday basics
+parmesan,parmesan,Everyday basics
+feta,feta,Everyday basics;Middle Eastern
+halloumi,halloumi,Middle Eastern
+eggs,eggs,Everyday basics;Japanese
+olive_oil,olive oil,Household;Middle Eastern
+sunflower_oil,sunflower oil,Household
+vegetable_oil,vegetable oil,Household
+rapeseed_oil,rapeseed oil,Household
+coconut_oil,coconut oil,Indian
+sesame_oil,sesame oil,Indian
+groundnut_oil,groundnut oil,Everyday basics;Chinese
+mustard_oil,mustard oil,Indian
+coconut_milk,coconut milk,Everyday basics;Indian
+coconut_cream,coconut cream,Everyday basics
+vinegar,vinegar,Household
+cider_vinegar,cider vinegar,Household
+red_wine_vinegar,red wine vinegar,Everyday basics
+balsamic_vinegar,balsamic vinegar,Everyday basics
+soy_sauce,soy sauce,Household;Chinese;Japanese
+tomato_puree,tomato puree,Everyday basics
+passata,passata,Everyday basics
+tinned_tomatoes,tinned tomatoes,Everyday basics;Indian
+ketchup,ketchup,Household
+mayonnaise,mayonnaise,Household
+jam,jam,Everyday basics
+lemon_juice,lemon juice,Household
+lime_juice,lime juice,Everyday basics
+pickle,pickle,Indian
+stock_cubes,stock cubes,Household
+salt,salt,Household
+black_pepper,black pepper,Household
+black_peppercorns,black peppercorns,Household
+cayenne,cayenne,Everyday basics
+chili_powder,chilli powder,Indian
+dried_red_chillies,dried red chillies,Indian
+chilli_flakes,chilli flakes,Household
+cinnamon,cinnamon,Everyday basics;Indian;Middle Eastern
+cloves,cloves,Everyday basics;Indian
+cumin_seeds,cumin seeds,Indian
+ground_cumin,ground cumin,Indian
+coriander_seeds,coriander seeds,Indian
+ground_coriander,ground coriander,Indian
+turmeric,turmeric,Indian
+mustard_seeds,mustard seeds,Indian
+fenugreek_seeds,fenugreek seeds,Indian
+kasuri_methi,kasuri methi,Indian
+asafoetida,asafoetida,Indian
+curry_powder,curry powder,Everyday basics
+garam_masala,garam masala,Indian
+sambar_powder,sambar powder,Indian
+rasam_powder,rasam powder,Indian
+chana_masala_powder,chana masala,Indian
+idli_podi,idli podi,Indian
+ground_ginger,ground ginger,Everyday basics
+garlic_powder,garlic powder,Household
+paprika,paprika,Household
+nutmeg,nutmeg,Everyday basics
+cardamom,cardamom,Indian
+black_cardamom,black cardamom,Indian
+fennel_seeds,fennel seeds,Indian
+ajwain,ajwain,Indian
+poppy_seeds,poppy seeds,Indian
+star_anise,star anise,Chinese
+bay_leaves,bay leaves,Indian
+saffron,saffron,Everyday basics;Indian
+dried_oregano,dried oregano,Household
+dried_thyme,dried thyme,Everyday basics
+dried_basil,dried basil,Everyday basics
+dried_rosemary,dried rosemary,Everyday basics
+dried_parsley,dried parsley,Everyday basics
+dried_mint,dried mint,Everyday basics;Middle Eastern
+mixed_herbs,mixed herbs,Household
+instant_coffee,instant coffee,Household
+filter_coffee,filter coffee,Indian
+tea,tea,Household
+loose_tea,loose tea,Indian
+onion,onion,Everyday basics;Indian
+shallots,shallots,Indian
+spring_onion,spring onion,Everyday basics;Chinese;Japanese
+garlic,garlic,Everyday basics;Indian;Chinese;Middle Eastern
+ginger,ginger,Everyday basics;Indian;Chinese;Japanese
+ginger_garlic_paste,ginger garlic paste,Indian
+tomato,tomato,Everyday basics;Indian;Middle Eastern
+cherry_tomatoes,cherry tomatoes,Everyday basics
+potato,potato,Everyday basics;Indian
+sweet_potato,sweet potato,Everyday basics
+carrot,carrot,Everyday basics
+celery,celery,Everyday basics
+red_pepper,red pepper,Everyday basics
+green_pepper,green pepper,Everyday basics
+green_chilli,green chilli,Indian
+red_chilli,red chilli,Everyday basics;Indian;Chinese
+aubergine,aubergine,Everyday basics;Middle Eastern
+baby_aubergine,baby aubergine,Indian
+courgette,courgette,Everyday basics
+cucumber,cucumber,Everyday basics;Japanese;Middle Eastern
+mushrooms,mushrooms,Everyday basics;Chinese;Japanese
+cauliflower,cauliflower,Everyday basics;Indian
+broccoli,broccoli,Everyday basics;Chinese
+cabbage,cabbage,Everyday basics;Chinese
+spinach,spinach,Everyday basics;Indian;Japanese
+frozen_spinach,frozen spinach,Everyday basics
+frozen_peas,frozen peas,Everyday basics
+frozen_mixed_veg,frozen mixed vegetables,Everyday basics
+sweetcorn,sweetcorn,Everyday basics
+green_beans,green beans,Everyday basics;Indian
+broad_beans,broad beans,Indian
+okra,okra,Indian
+beetroot,beetroot,Everyday basics
+radish,radish,Everyday basics
+mooli,mooli,Indian
+leek,leek,Everyday basics
+lettuce,lettuce,Everyday basics
+pumpkin,pumpkin,Everyday basics
+bottle_gourd,bottle gourd,Indian
+bitter_gourd,bitter gourd,Indian
+snake_gourd,snake gourd,Indian
+ash_gourd,ash gourd,Indian
+raw_banana,raw banana,Indian
+yam,yam,Indian
+taro,taro,Indian
+drumsticks,drumsticks,Indian
+coriander,coriander,Everyday basics;Indian
+curry_leaves,curry leaves,Indian
+mint,mint,Everyday basics;Indian;Middle Eastern
+parsley,parsley,Everyday basics;Middle Eastern
+basil,basil,Everyday basics
+methi_leaves,fresh fenugreek,Indian
+tofu,tofu,Chinese
+apple,apple,Everyday basics
+banana,banana,Everyday basics
+lemon,lemon,Everyday basics;Indian;Middle Eastern
+lime,lime,Everyday basics;Indian
+orange,orange,Everyday basics
+mango,mango,Everyday basics
+avocado,avocado,Everyday basics
+grapes,grapes,Everyday basics
+strawberries,strawberries,Everyday basics
+blueberries,blueberries,Everyday basics
+pomegranate,pomegranate,Everyday basics;Middle Eastern
+pineapple,pineapple,Everyday basics
+papad,papad,Indian
+idli_batter,idli batter,Indian
+bread,bread,Everyday basics
+naan,naan,Indian
+tortillas,tortilla wraps,Everyday basics
+urad_flour,urad flour,Indian
+idiyappam_flour,idiyappam flour,Indian
+sooji_idli_mix,rava idli mix,Indian
+sabudana,sabudana,Indian
+makhana,makhana,Indian
+mango_pulp,mango pulp,Indian
+fried_onions,fried onions,Indian
+kokum,kokum,Indian
+amchur,amchur,Indian
+chaat_masala,chaat masala,Indian
+kashmiri_chilli_powder,kashmiri chilli powder,Indian
+mdh_masala,kitchen king,Indian
+rice_mixes,rasam mix,Indian
+appalam_vathal,vadam,Indian
+frozen_paratha,paratha,Indian
+frozen_chapati,chapati,Indian
+khoya,khoya,Indian
+rose_syrup,rose syrup,Indian
+nylon_sev,sev,Indian
+murukku,murukku,Indian
+coconut_milk_powder,coconut milk powder,Indian
+tinned_jackfruit,jackfruit,Indian
+banana_leaf,banana leaf,Indian
+oyster_sauce,oyster sauce,Chinese
+hoisin_sauce,hoisin sauce,Chinese
+shaoxing_wine,shaoxing wine,Chinese
+rice_vinegar,rice vinegar,Chinese
+toasted_sesame_oil,toasted sesame oil,Chinese
+chilli_crisp,chilli crisp,Chinese
+doubanjiang,doubanjiang,Chinese
+black_bean_sauce,black bean sauce,Chinese
+sweet_chilli_sauce,sweet chilli sauce,Chinese
+sriracha,sriracha,Chinese
+five_spice,five spice,Chinese
+sichuan_pepper,sichuan pepper,Chinese
+dried_shiitake,dried shiitake,Chinese
+wood_ear,wood ear,Chinese
+rice_noodles,rice noodles,Chinese
+glass_noodles,glass noodles,Chinese
+wheat_noodles,wheat noodles,Chinese
+wonton_wrappers,wonton wrappers,Chinese
+bean_sprouts,bean sprouts,Chinese
+pak_choi,pak choi,Chinese
+chinese_cabbage,chinese leaf,Chinese
+water_chestnuts,water chestnuts,Chinese
+bamboo_shoots,bamboo shoots,Chinese
+jasmine_rice,jasmine rice,Chinese
+glutinous_rice,glutinous rice,Chinese
+potato_starch,potato starch,Chinese
+msg,msg,Chinese
+silken_tofu,silken tofu,Chinese
+tofu_puffs,tofu puffs,Chinese
+mirin,mirin,Japanese
+sake_cooking,sake,Japanese
+miso,miso,Japanese
+tamari_jp,tamari,Japanese
+sushi_rice,sushi rice,Japanese
+panko,panko,Japanese
+nori,nori,Japanese
+wakame,wakame,Japanese
+kombu,kombu,Japanese
+dashi_powder,dashi,Japanese
+bonito_flakes,bonito flakes,Japanese
+udon,udon,Japanese
+soba,soba,Japanese
+ramen,ramen,Japanese
+wasabi,wasabi,Japanese
+pickled_ginger,pickled ginger,Japanese
+furikake,furikake,Japanese
+japanese_mayonnaise,japanese mayonnaise,Japanese
+tonkatsu_sauce,tonkatsu sauce,Japanese
+teriyaki_sauce,teriyaki sauce,Japanese
+ponzu,ponzu,Japanese
+sesame_dressing,japanese sesame dressing,Japanese
+matcha,matcha,Japanese
+shichimi,shichimi togarashi,Japanese
+yuzu,yuzu juice,Japanese
+edamame,edamame,Japanese
+tempura_flour,tempura flour,Japanese
+konnyaku,konnyaku,Japanese
+tahini,tahini,Middle Eastern
+zaatar,za'atar,Middle Eastern
+sumac,sumac,Middle Eastern
+pomegranate_molasses,pomegranate molasses,Middle Eastern
+harissa,harissa,Middle Eastern
+rose_water,rose water,Middle Eastern
+orange_blossom_water,orange blossom water,Middle Eastern
+aleppo_pepper,aleppo pepper,Middle Eastern
+baharat,baharat,Middle Eastern
+ras_el_hanout,ras el hanout,Middle Eastern
+dried_limes,dried limes,Middle Eastern
+freekeh,freekeh,Middle Eastern
+mograbieh,giant couscous,Middle Eastern
+vermicelli_arabic,sha'riyah,Middle Eastern
+filo,filo,Middle Eastern
+labneh,labneh,Middle Eastern
+akkawi,akkawi,Middle Eastern
+hummus,hummus,Middle Eastern
+fava_beans,fava beans,Middle Eastern
+tinned_vine_leaves,vine leaves,Middle Eastern
+pitta,pitta,Middle Eastern
+dates_paste,date syrup,Middle Eastern
+halva,halva,Middle Eastern
+mahlab,mahlab,Middle Eastern
+mastic,mastic,Middle Eastern
+cardamom_coffee,arabic coffee,Middle Eastern
+freeze_dried_mint,dried mint leaves,Middle Eastern
+pistachio_kernels,pistachio kernels,Middle Eastern
+pine_nuts,pine nuts,Middle Eastern
+chicken_breast,chicken breast,Everyday basics
+chicken_thighs,chicken thighs,Everyday basics;Indian;Chinese
+whole_chicken,whole chicken,Everyday basics
+chicken_drumsticks,chicken drumsticks,Everyday basics
+lamb_mince,lamb mince,Everyday basics;Middle Eastern
+lamb,lamb,Everyday basics;Indian;Middle Eastern
+beef_mince,beef mince,Everyday basics
+diced_beef,diced beef,Everyday basics
+pork,pork,Everyday basics;Chinese
+bacon,bacon,Everyday basics
+sausages,sausages,Everyday basics
+ham,ham,Everyday basics
+salmon,salmon,Everyday basics;Japanese
+white_fish,cod,Everyday basics
+prawns,prawns,Everyday basics;Chinese
+smoked_salmon,smoked salmon,Everyday basics
+tinned_tuna,tuna,Everyday basics
