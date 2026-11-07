@@ -401,6 +401,19 @@ def test_the_last_fridge_and_the_last_freezer_stay(kitchen: TestClient) -> None:
     )
 
 
+def test_a_household_with_one_place_keeps_it(kitchen: TestClient) -> None:
+    # Review r1 L5: with data made outside the app (no Fridge or Freezer), a 409, not a 500.
+    from mealwright.models import Place
+
+    only = place_id(kitchen, "Cupboard")
+    with db(kitchen) as session:
+        for place in session.query(Place).filter(Place.id != only):
+            session.delete(place)
+        session.commit()
+    refused = kitchen.delete(f"{API}/places/{only}")
+    assert refused.status_code == 409 and refused.json()["code"] == "last_of_kind"
+
+
 def test_a_second_fridge_can_go_and_the_first_then_stays(kitchen: TestClient) -> None:
     garage = ok(
         kitchen.post(f"{API}/places", json={"name": "Garage fridge", "kind": "fridge"}), 201

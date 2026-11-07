@@ -125,6 +125,14 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
             .order_by(Place.position, Place.id)
         )
     ]
+    if not others:
+        # Only reachable with data made outside the app: Fridge and Freezer always stay.
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "last_of_kind",
+            f"{place.name} is your only place, so it stays.",
+            kind=place.kind,
+        )
     if place.kind in ("fridge", "freezer") and not any(p.kind == place.kind for p in others):
         raise Problem(
             status.HTTP_409_CONFLICT,
