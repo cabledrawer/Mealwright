@@ -1050,3 +1050,27 @@ def test_import_is_in_the_public_api_only(kitchen: TestClient) -> None:
 def test_signed_out_gets_nothing(client: TestClient) -> None:
     assert client.post(f"{API}/recipes/import", json={"text": "x"}).status_code == 401
     assert client.post(f"{API}/recipes/import/save", json={"name": "x"}).status_code == 401
+
+
+def test_a_new_ingredient_made_by_an_import_gets_the_suggested_shop(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]], web: Web
+) -> None:
+    del web
+    ok(kitchen.post(f"{API}/shops", json={"name": "Tesco"}), 201)
+    indian = ok(kitchen.post(f"{API}/shops", json={"name": "Indian grocer"}), 201)["id"]
+    shown = review(kitchen, PASTED)
+    lines = {line["written"]: index for index, line in enumerate(shown["lines"])}
+    choices = {
+        lines["1/4 tsp asafoetida"]: {
+            "kind": "new",
+            "name": "Mystery dust",
+            "counted_as": "weight",
+        },
+        lines["a sprig of curry leaves"]: {"kind": "staple", "name": "Curry leaves"},
+    }
+    ok(save(kitchen, to_save(shown, choices)), 201)
+    ids = {f["name"]: f["id"] for f in ok(kitchen.get(f"{API}/foods"))["foods"]}
+    foods = {name: ok(kitchen.get(f"{API}/foods/{i}")) for name, i in ids.items()}
+    # "Curry leaves" is specialist (Indian) in the pack-size table; "Mystery dust" is not.
+    assert foods["Curry leaves"]["shop"]["id"] == indian
+    assert foods["Mystery dust"]["shop"] is None

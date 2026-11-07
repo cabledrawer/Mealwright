@@ -56,7 +56,7 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import find as find_food
-from mealwright.foods import name_owner, name_taken, refresh_table_key
+from mealwright.foods import name_owner, name_taken, refresh_table_key, suggested_shop
 from mealwright.history import FoodEdit
 from mealwright.ingredient_match import KnownIngredients, Match, kitchen_of, match_line
 from mealwright.ingredient_reader import (
@@ -798,6 +798,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                 counted_as=link.counted_as or (row.counted_as if row else "weight"),
                 staple=link.kind == "staple",
                 place_id=place_id,
+                shop_id=suggested_shop(kitchen, link.name or ""),
                 aisle=row.aisle if row and row.aisle else DEFAULT_AISLE,
                 table_key=row.key if row else None,
             )

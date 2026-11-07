@@ -1003,3 +1003,10 @@ def test_absurd_numbers_are_a_422_never_a_server_error(kitchen: TestClient) -> N
         404,
         422,
     )
+
+
+def test_a_homemade_ingredient_gets_the_suggested_shop(kitchen: TestClient) -> None:
+    ok(kitchen.post(f"{API}/shops", json={"name": "Tesco"}), 201)
+    recipe = make(kitchen, "Ghee", made_ahead=True, makes={"amount": 500, "unit": "g"})
+    made = ok(kitchen.get(f"{API}/foods/{recipe['homemade']['id']}"))
+    assert made["shop"]["name"] == "Tesco"

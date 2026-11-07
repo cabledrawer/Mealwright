@@ -100,16 +100,40 @@ def test_where_to_buy() -> None:
 
 
 SHOPS = [(1, "Tesco"), (2, "Market stall"), (3, "Indian grocer")]
+CUISINE_SHOPS = [
+    (1, "Tesco"),
+    (2, "Sri Lankan corner"),
+    (3, "Oriental Market"),
+    (4, "Persian deli"),
+    (5, "Tokyo Japanese Foods"),
+    (6, "Beijing Chinese Mart"),
+]
 
 
-def test_specialist_goes_to_a_grocer_by_name() -> None:
-    assert suggest_shop_id("specialist", SHOPS) == 3
-    assert suggest_shop_id("specialist", [(4, "Middle Eastern shop"), *SHOPS]) == 4
+def test_specialist_goes_to_the_first_shop_matching_its_cuisine() -> None:
+    assert suggest_shop_id("specialist", CUISINE_SHOPS, "indian") == 2
+    assert suggest_shop_id("specialist", CUISINE_SHOPS, "chinese") == 3  # oriental, first
+    assert suggest_shop_id("specialist", CUISINE_SHOPS[3:], "chinese") == 6
+    assert suggest_shop_id("specialist", CUISINE_SHOPS, "japanese") == 3  # oriental, first
+    assert suggest_shop_id("specialist", CUISINE_SHOPS[3:], "japanese") == 5
+    assert suggest_shop_id("specialist", CUISINE_SHOPS, "middle eastern") == 4
+    assert suggest_shop_id("specialist", [(1, "Halal Butcher"), *SHOPS], "middle eastern") == 1
+    assert suggest_shop_id("specialist", [(1, "Desi Mart"), *SHOPS], "indian") == 1
+    assert (
+        suggest_shop_id("specialist", [(1, "Greek Mediterranean"), *SHOPS], "middle eastern") == 1
+    )
 
 
-def test_specialist_without_a_grocer_goes_to_the_first_shop_not_a_supermarket() -> None:
-    assert suggest_shop_id("specialist", SHOPS[:2]) == 2
-    assert suggest_shop_id("specialist", [(1, "Tesco"), (5, "Lidl")]) is None
+def test_specialist_ignores_shops_of_another_cuisine() -> None:
+    # A Chinese ingredient does not go to the Indian grocer when another shop isn't a supermarket.
+    assert suggest_shop_id("specialist", SHOPS, "chinese") == 2
+    assert suggest_shop_id("specialist", [(4, "Middle Eastern shop"), *SHOPS], "indian") == 3
+
+
+def test_specialist_without_a_match_goes_to_the_first_shop_not_a_supermarket() -> None:
+    assert suggest_shop_id("specialist", SHOPS[:2], "indian") == 2
+    assert suggest_shop_id("specialist", SHOPS[:2]) == 2  # no cuisine
+    assert suggest_shop_id("specialist", [(1, "Tesco"), (5, "Lidl")], "indian") is None
 
 
 def test_supermarket_and_world_aisle_go_to_the_first_shop() -> None:
@@ -119,10 +143,32 @@ def test_supermarket_and_world_aisle_go_to_the_first_shop() -> None:
     assert suggest_shop_id("supermarket", []) is None
 
 
-def test_grocer_words_match_whole_words_only() -> None:
-    # "Persiana" isn't "Persian"; "Thaiwan" isn't "Thai".
-    assert suggest_shop_id("specialist", [(2, "Thaiwan Deli"), (3, "Thai market")]) == 3
-    assert suggest_shop_id("specialist", [(2, "Persiana"), (3, "Thai market")]) == 3
+def test_cuisine_words_match_whole_words_only() -> None:
+    # "Persiana" isn't "Persian"; "Desired" isn't "Desi".
+    assert (
+        suggest_shop_id("specialist", [(2, "Persiana"), (3, "Persian deli")], "middle eastern") == 3
+    )
+    assert suggest_shop_id("specialist", [(2, "Desired"), (3, "Desi shop")], "indian") == 3
+
+
+def test_the_table_gives_each_row_its_cuisine() -> None:
+    rows = pack_sizes.table().rows
+    assert rows["chapati_flour"].cuisine == "indian"
+    assert rows["plain_flour"].cuisine == ""
+    assert {r.cuisine for r in rows.values()} == {
+        "",
+        "indian",
+        "chinese",
+        "japanese",
+        "middle eastern",
+    }
+    assert all(r.cuisine for r in rows.values() if r.where == "specialist")
+
+
+def test_usual_shop_id_by_the_table() -> None:
+    assert pack_sizes.usual_shop_id(["Plain flour"], CUISINE_SHOPS) == 1
+    assert pack_sizes.usual_shop_id(["Asafoetida"], CUISINE_SHOPS) == 2
+    assert pack_sizes.usual_shop_id(["Mystery"], CUISINE_SHOPS) is None
 
 
 def test_matching_is_quick() -> None:

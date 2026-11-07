@@ -30,25 +30,29 @@ GENERIC: dict[str, tuple[int, ...]] = {
     "count": (1, 2, 6, 12),
 }
 
-# Words in a shop's name that say it is a specialist grocer (cabledrawer 7 Nov).
-GROCER_WORDS = (
-    "indian",
-    "south asian",
-    "asian",
-    "chinese",
-    "japanese",
-    "korean",
-    "thai",
-    "oriental",
-    "middle eastern",
-    "arabic",
-    "turkish",
-    "persian",
-    "lebanese",
-    "polish",
-    "african",
-    "caribbean",
-)
+# Words in a shop's name that say it sells one cuisine's ingredients (cabledrawer 7 Nov).
+CUISINE_WORDS: dict[str, tuple[str, ...]] = {
+    "indian": (
+        "indian",
+        "south indian",
+        "tamil",
+        "desi",
+        "pakistani",
+        "bangladeshi",
+        "sri lankan",
+    ),
+    "chinese": ("chinese", "oriental", "asian"),
+    "japanese": ("japanese", "oriental", "asian"),
+    "middle eastern": (
+        "arabic",
+        "lebanese",
+        "turkish",
+        "middle eastern",
+        "persian",
+        "halal",
+        "mediterranean",
+    ),
+}
 _SUPERMARKET_WORDS = (
     "supermarket",
     "tesco",
@@ -92,6 +96,7 @@ class PackRow:
     sizes: tuple[Size, ...]
     where: Where
     dates: str
+    cuisine: str = ""  # indian, chinese, japanese, middle eastern, or empty
 
 
 @dataclass(frozen=True)
@@ -127,6 +132,8 @@ def table() -> PackTable:
         where = record["where"]
         if where not in ("supermarket", "world aisle", "specialist"):
             raise ValueError(f"{record['key']}: where {where!r}")
+        if (record.get("cuisine") or "") not in ("", *CUISINE_WORDS):
+            raise ValueError(f"{record['key']}: cuisine {record['cuisine']!r}")
         if record["key"] in rows:
             raise ValueError(f"{record['key']} twice")
         row = PackRow(
@@ -136,6 +143,7 @@ def table() -> PackTable:
             sizes=tuple(parse_size(size) for size in record["sizes"].split("|") if size),
             where=where,  # type: ignore[arg-type]
             dates=record["dates"],
+            cuisine=record.get("cuisine") or "",
         )
         rows[row.key] = row
         for name in (row.key.replace("_", " "), *row.names):
@@ -203,18 +211,27 @@ def _mentions(name: str, words: Iterable[str]) -> bool:
     return any(re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", text) for word in words)
 
 
-def suggest_shop_id(where: Where | None, shops: Sequence[tuple[int, str]]) -> int | None:
+def suggest_shop_id(
+    where: Where | None, shops: Sequence[tuple[int, str]], cuisine: str = ""
+) -> int | None:
     """A new ingredient's Usual shop (cabledrawer 7 Nov). `shops` are (id, name) in Settings
-    order. Specialist → the first shop whose name names a kind of grocer, else the first
-    that isn't a supermarket, else none; supermarket and world aisle → the first shop."""
+    order. Specialist → the first shop whose name matches its cuisine, else the first that
+    isn't a supermarket, else none; supermarket and world aisle → the first shop."""
     if where is None or not shops:
         return None
     if where != "specialist":
         return shops[0][0]
+    words = CUISINE_WORDS.get(cuisine, ())
     for shop_id, name in shops:
-        if _mentions(name, GROCER_WORDS):
+        if _mentions(name, words):
             return shop_id
     for shop_id, name in shops:
         if not _mentions(name, _SUPERMARKET_WORDS):
             return shop_id
     return None
+
+
+def usual_shop_id(names: Sequence[str], shops: Sequence[tuple[int, str]]) -> int | None:
+    """The Usual shop to suggest for a new ingredient with these names, by the table."""
+    row = table().match(*names)
+    return suggest_shop_id(row.where, shops, row.cuisine) if row else None

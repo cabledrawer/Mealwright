@@ -55,10 +55,11 @@ from mealwright.models import (
     FoodName,
     FoodSize,
     FoodStandIn,
+    Shop,
     utcnow,
 )
 from mealwright.names import fold
-from mealwright.pack_sizes import suggest_sizes
+from mealwright.pack_sizes import suggest_sizes, usual_shop_id
 
 # Words people type for units, beyond the units' own names.
 UNIT_WORDS = {
@@ -196,6 +197,25 @@ def name_taken(name: str, food: Food) -> Problem:
         f"There’s already an ingredient called {food.name}.",
         food_id=food.id,
     )
+
+
+def shop_choices(kitchen: Kitchen) -> list[tuple[int, str]]:
+    """The household's shops as (id, name), in Settings order."""
+    return [
+        (shop.id, shop.name)
+        for shop in kitchen.db.scalars(
+            select(Shop)
+            .where(Shop.household_id == kitchen.household_id)
+            .order_by(Shop.position, Shop.id)
+        )
+    ]
+
+
+def suggested_shop(kitchen: Kitchen, name: str) -> int | None:
+    """The Usual shop to suggest for a new ingredient (cabledrawer 7 Nov): by the pack-size
+    table's where-to-buy and cuisine. Every way an ingredient is made uses it when the
+    maker didn't choose a shop."""
+    return usual_shop_id([name], shop_choices(kitchen))
 
 
 def make_food(

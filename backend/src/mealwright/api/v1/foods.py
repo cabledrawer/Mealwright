@@ -56,6 +56,7 @@ from mealwright.foods import (
     size_out,
     sizes,
     stand_in_links,
+    suggested_shop,
     table_row,
     usual_size,
 )
@@ -85,7 +86,6 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import clean, clean_name, fold, normalise, one_line, search_match, size_name
-from mealwright.pack_sizes import suggest_shop_id, where_to_buy
 from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
 
@@ -462,18 +462,6 @@ def _place(kitchen: Kitchen, place_id: int) -> Place:
     return place
 
 
-def shop_choices(kitchen: Kitchen) -> list[tuple[int, str]]:
-    """The household's shops as (id, name), in Settings order."""
-    return [
-        (shop.id, shop.name)
-        for shop in kitchen.db.scalars(
-            select(Shop)
-            .where(Shop.household_id == kitchen.household_id)
-            .order_by(Shop.position, Shop.id)
-        )
-    ]
-
-
 def _shop(kitchen: Kitchen, shop_id: int) -> Shop:
     shop = kitchen.db.get(Shop, shop_id)
     if shop is None or shop.household_id != kitchen.household_id:
@@ -644,7 +632,7 @@ def create_food(body: NewFood, kitchen: Here, response: Response) -> FoodWrite:
             _shop(kitchen, shop_id)
         elif "shop_id" not in body.model_fields_set:
             # Not sent: the table's "where to buy" suggests the Usual shop (cabledrawer 7 Nov).
-            shop_id = suggest_shop_id(where_to_buy([body.name]), shop_choices(kitchen))
+            shop_id = suggested_shop(kitchen, body.name)
         return make_food(
             kitchen,
             body.name,

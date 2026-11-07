@@ -27,7 +27,7 @@ from mealwright.amounts import MILLI, NBSP, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import table
 from mealwright.errors import Problem, not_found
-from mealwright.foods import add_size, find, name_owner, usual_size
+from mealwright.foods import add_size, find, name_owner, suggested_shop, usual_size
 from mealwright.history import Tally, diff, record, record_back, snapshot
 from mealwright.household import undo_window
 from mealwright.models import (
@@ -863,6 +863,7 @@ def _new_food(act: Act, wanted: dict[str, Any]) -> tuple[Food, dict[str, Any], b
             name=name,
             counted_as=wanted.get("counted_as") or (row.counted_as if row else "weight"),
             staple=bool(wanted.get("staple", False)),
+            shop_id=suggested_shop(kitchen, name),
             aisle=row.aisle if row and row.aisle else DEFAULT_AISLE,
             table_key=row.key if row else None,
         )

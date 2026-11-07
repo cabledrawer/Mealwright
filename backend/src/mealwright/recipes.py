@@ -39,7 +39,7 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
-from mealwright.foods import make_food, name_owner, name_taken
+from mealwright.foods import make_food, name_owner, name_taken, suggested_shop
 from mealwright.foods import visible as food_visible
 from mealwright.history import Tally, as_utc, bump_recipes, bump_recipes_by, record
 from mealwright.household import undo_window
@@ -691,7 +691,7 @@ def _link_homemade(
             raise name_taken(name, kept)
         recipe.homemade_food_id = kept.id
         return
-    change = make_food(kitchen, name, counted_as=counted)
+    change = make_food(kitchen, name, counted_as=counted, shop_id=suggested_shop(kitchen, name))
     recipe.homemade_food_id = change.food_id
 
 

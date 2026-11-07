@@ -150,3 +150,34 @@ def test_undo_of_an_added_pack_takes_it_back(kitchen: TestClient) -> None:
     undone = kitchen.post(f"{API}/changes/{body['change']['id']}/undo")
     assert undone.status_code == 200, undone.text
     assert kitchen.get(f"{API}/foods/{ghee['id']}").json()["sizes"] == []
+
+
+def test_every_way_to_make_an_ingredient_suggests_its_shop(kitchen: TestClient) -> None:
+    """Shopping's add box (cabledrawer 7 Nov); the others are in their own test files."""
+    from sync_kit import main_id, new_id, one
+
+    tesco = shop(kitchen, "Tesco")
+    indian = shop(kitchen, "Indian grocer")
+    main = main_id(kitchen)
+    for name in ("Plain flour", "Curry leaves", "Mystery dust"):
+        result = one(
+            kitchen,
+            "add",
+            list_id=main,
+            item_id=new_id(),
+            new_food={"name": name, "counted_as": "weight"},
+        )
+        assert result["status"] == "applied", result
+    ids = {f["name"]: f["id"] for f in kitchen.get(f"{API}/foods").json()["foods"]}
+    foods = {name: kitchen.get(f"{API}/foods/{i}").json() for name, i in ids.items()}
+    assert foods["Plain flour"]["shop"]["id"] == tesco
+    assert foods["Curry leaves"]["shop"]["id"] == indian
+    assert foods["Mystery dust"]["shop"] is None
+
+
+def test_a_specialist_ingredient_goes_to_the_shop_of_its_cuisine(kitchen: TestClient) -> None:
+    shop(kitchen, "Tesco")
+    persian = shop(kitchen, "Persian deli")
+    indian = shop(kitchen, "Indian grocer")
+    assert add(kitchen, "Curry leaves")["shop"]["id"] == indian
+    assert add(kitchen, "Freekeh")["shop"]["id"] == persian
