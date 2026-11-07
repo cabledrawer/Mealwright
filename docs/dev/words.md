@@ -588,7 +588,7 @@ The mockups `Cooked-Desktop`, `Cooked-Phone`, `CookedMeal-Desktop`, `CookedMeal-
 
 - **Header:** *Thu 15 Oct · dinner* · **Cooked Sambar** (a meal with several recipes: **Cooked Dosa and Chutney**) · *Check what comes out of the pantry* · Cancel.
 - **Tabs** (a meal with several recipes): one for each recipe, by its name; the screen reads them as *Recipes in this meal*.
-- **Portions:** **Portions cooked** · *as planned* (or *recipe × 1.5*) · Fewer portions · More portions. A recipe with no Serves has no Portions cooked (nothing to scale by): **Add Serves to the recipe to scale it.** (F170, cabledrawer 7 Nov; the sentence is proposed, for cabledrawer).
+- **Portions:** **Portions cooked** · *as planned* (or *recipe × 1.5*) · Fewer portions · More portions. A recipe with no Serves has no Portions cooked (nothing to scale by): **Add Serves to the recipe to scale it.** (F170, cabledrawer 7 Nov).
 - **The table:** Ingredient · From · Before → after · Take · Use. A row: the ingredient, where it is (*Fridge, Cupboard*, or **Not in pantry**), *800 g → 600 g*, *−200 g*, the switch (*Take Toor dal from the pantry*). A recipe line in another unit than the pantry shows both: *Recipe says 1½ tbsp jaggery*. Instead of the ingredient: *Instead: Butter*. *nothing to take*.
 - **Estimate (F106, proposed):** a small tag **estimate** on a take that was worked out by changing units (title: *Worked out by changing units*).
 - **Used / Left:** **Used** · **Left** · Fewer Onions · More Onions; for an amount in g or ml, tap the amount (*Change how much*) for the box (*How much was used* / *How much is left*, in g or ml) and **As worked out**.
