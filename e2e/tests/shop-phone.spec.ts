@@ -226,7 +226,7 @@ test('swipe left in the trolley clears just that line, with Undo; Clear ticked i
   for (const n of [a, b]) await page.getByRole('checkbox', { name: `Tick ${n}` }).click();
   await openTrolleyOf(page);
   await touchSwipe(page, b, 'left', true);
-  const clear = page.getByRole('button', { name: new RegExp(`^Clear ${b}`) });
+  const clear = page.getByRole('button', { name: `Clear ${b} from the trolley` });
   await expect(clear).toBeVisible();
   await clear.click();
   await expect(page.getByRole('checkbox', { name: `Untick ${b}` })).toHaveCount(0);
@@ -252,6 +252,24 @@ test('Clear ticked clears them all in one press, and one Undo brings them all ba
   await openTrolleyOf(page);
   await expect(page.getByRole('checkbox', { name: `Untick ${a}` })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: `Untick ${b}` })).toBeVisible();
+});
+
+test('a trolley line has its own Clear button: Tab to it, Enter clears just that line', async ({ page }) => {
+  const t = tag();
+  const [a, b] = [`Ajwain ${t}`, `Basil ${t}`];
+  for (const n of [a, b]) await onList(page, n);
+  await open(page);
+  for (const n of [a, b]) await page.getByRole('checkbox', { name: `Tick ${n}` }).click();
+  await openTrolleyOf(page);
+  await page.getByRole('checkbox', { name: `Untick ${b}` }).focus();
+  for (let i = 0; i < 8; i++) {
+    if ((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === `Clear ${b}`) break;
+    await page.keyboard.press('Tab');
+  }
+  await expect(page.getByRole('button', { name: `Clear ${b}`, exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('checkbox', { name: `Untick ${b}` })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `Untick ${a}` })).toBeVisible();
 });
 
 test('the amount box: a line with no amount offers quick amounts and shows its unit (F60)', async ({ page }) => {

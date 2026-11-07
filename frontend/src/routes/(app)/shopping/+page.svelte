@@ -465,7 +465,7 @@
               {#if fold}
                 <ul class="card" id="{id}-trolley">
                   {#each group.trolley as view (view.item.id)}
-                    <ItemRow {model} {view} trolley notes={notesFor(view.item.id)} />
+                    <ItemRow {model} {view} trolley clear notes={notesFor(view.item.id)} />
                   {/each}
                 </ul>
               {/if}

@@ -2,7 +2,7 @@
 // the trolley most recent first, and the amount box's quick picks.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import Toast from '#lib/components/Toast.svelte';
 import { ME, fakeShopping, item, sampleCopy, tick } from '#lib/testing/fakeShopping.js';
 import { dropPhone, freshPhone } from '#lib/testing/phone.js';
@@ -305,6 +305,18 @@ describe('Shopping on the phone', () => {
         expect(
           page.getByRole('button', { name: 'Change where Paneer went' }).element().textContent
         ).toMatch(/→ Fridge/)
+      );
+    });
+
+    it('a line can be cleared with its own button, by keyboard (not only by swipe)', async () => {
+      await render();
+      await page.getByRole('button', { name: /^In the trolley · 3/ }).click();
+      const clear = page.getByRole('button', { name: 'Clear Paneer', exact: true });
+      await expect.element(clear).toBeVisible();
+      (clear.element() as HTMLElement).focus();
+      await userEvent.keyboard('{Enter}');
+      await vi.waitFor(() =>
+        expect(server.actions).toMatchObject([{ kind: 'clear_ticked', item_ids: ['i-paneer'] }])
       );
     });
 
