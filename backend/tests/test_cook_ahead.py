@@ -146,3 +146,23 @@ def test_an_undone_answer_then_a_healed_cook_then_its_undo_leaves_the_meal_plann
     ok(undo(kitchen, again["id"]))
     assert status_of(kitchen, meal) == "planned"
     assert sum(amounts(kitchen, dal["id"])) == 900_000
+
+
+def test_undo_of_an_early_cook_leaves_a_use_by_set_since(kitchen: TestClient) -> None:
+    """F165: a tub given its own use-by after the cook keeps it when the cook is undone."""
+    _dal, meal, item, day = plan_ahead(kitchen)
+    batch = ok(
+        kitchen.post(f"{API}/plan/items/{item}/batch", json={"tub_count": 2, "pattern": "pick"}),
+        201,
+    )["batch_id"]
+    cooked = ok(kitchen.post(f"{API}/plan/batches/{batch}/cook", json={}), 201)["change"]
+    answer_cooked(kitchen, meal)
+    with db_of(kitchen) as db:
+        first = db.scalars(select(Tub).order_by(Tub.id)).first()
+        assert first is not None
+        tub_id = first.id
+    mine = date.today() + timedelta(days=9)
+    ok(kitchen.patch(f"{API}/plan/tubs/{tub_id}", json={"use_by": mine.isoformat()}))
+    ok(undo(kitchen, cooked["id"]))
+    with db_of(kitchen) as db:
+        assert db.get(Tub, tub_id).use_by == mine  # type: ignore[union-attr]

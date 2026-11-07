@@ -493,7 +493,13 @@ def _leftovers_of(
 
 def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, Any]]) -> None:
     steps.append(
-        {"op": "move_item", "item": item.id, "from_meal": item.meal_id, "position": item.position}
+        {
+            "op": "move_item",
+            "item": item.id,
+            "from_meal": item.meal_id,
+            "position": item.position,
+            "to": meal.id,
+        }
     )
     item.meal_id = meal.id
     item.position = _end(kitchen, meal)
@@ -575,6 +581,7 @@ def move_meal(
                 "op": "move_meal",
                 "meal": meal.id,
                 "from": [meal.day.isoformat(), meal.slot_id],
+                "to": [day.isoformat(), slot_id],
             }
         )
         verb = "Moved"
@@ -707,7 +714,7 @@ def set_servings(kitchen: Kitchen, item: MealItem, servings: int) -> Change | No
         kitchen,
         "plan_servings",
         f"Set {_item_name(kitchen, item)} for {servings} on {where}",
-        [{"op": "servings", "item": item.id, "from": before}],
+        [{"op": "servings", "item": item.id, "from": before, "to": servings}],
         meal_id=meal.id,
         item_id=item.id,
     )
@@ -760,7 +767,7 @@ def set_eaters(kitchen: Kitchen, meal: Meal, login_ids: list[int]) -> Change | N
         kitchen,
         "plan_eaters",
         f"Changed who is eating {_meal_name(kitchen, meal)} ({when})",
-        [{"op": "eaters", "meal": meal.id, "login_ids": before}],
+        [{"op": "eaters", "meal": meal.id, "login_ids": before, "to": wanted}],
         meal_id=meal.id,
     )
 
@@ -775,7 +782,7 @@ def set_slot(kitchen: Kitchen, slot: MealSlot, enabled: bool) -> Change | None:
         kitchen,
         "plan_slot",
         f"{'Showed' if enabled else 'Hid'} {slot.name} in the plan",
-        [{"op": "slot", "slot": slot.id, "enabled": before}],
+        [{"op": "slot", "slot": slot.id, "enabled": before, "to": enabled}],
     )
 
 
@@ -912,6 +919,8 @@ def _undo_step(
             return False
         if _own(kitchen, MealSlot, step["from"][1]) is None:
             return False
+        if "to" in step and [meal.day.isoformat(), meal.slot_id] != step["to"]:
+            return False  # moved again since (F165): it stays where the later move put it
         if any(cooked_record_of(kitchen, i, meal) for i in items_of(kitchen, meal)):
             return False  # part-cooked since: it stays where the cooked recipe is
         meal.day, meal.slot_id = day, step["from"][1]
@@ -926,6 +935,8 @@ def _undo_step(
             return False  # the item now sits in a meal that has been dealt with
         if _cooked_now(kitchen, item):
             return False
+        if "to" in step and item.meal_id != remap.get(step["to"], step["to"]):
+            return False  # moved again since (F165)
         touched.add(item.meal_id)
         item.position = _restore_position(
             kitchen, meal, item.kind, item.recipe_id, item.name, step["position"]
@@ -939,6 +950,8 @@ def _undo_step(
             return False
         if _cooked_now(kitchen, item):
             return False
+        if "to" in step and item.servings != step["to"]:
+            return False  # set again since (F165)
         item.servings = step["from"]
         db.flush()
         return True
@@ -946,6 +959,8 @@ def _undo_step(
         meal = _open(kitchen, remap.get(step["meal"], step["meal"]))
         if meal is None:
             return False
+        if "to" in step and eaters_of(kitchen, meal) != step["to"]:
+            return False  # changed again since (F165)
         _write_eaters(
             kitchen,
             meal.id,
@@ -967,6 +982,8 @@ def _undo_step(
         slot = _own(kitchen, MealSlot, step["slot"])
         if slot is None:
             return False
+        if "to" in step and slot.enabled != step["to"]:
+            return False  # shown or hidden again since (F165)
         slot.enabled = step["enabled"]
         db.flush()
         return True

@@ -456,6 +456,8 @@ def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
     assert view(kitchen)["tubs"][0]["use_by"] == new_day
     assert undo(kitchen, late.json())["result"] == "done"
     assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]
+    assert undo(kitchen, nobody.json())["result"] == "done"  # F165: the later change first
+    assert view(kitchen)["tubs"][0]["member_login_id"] == wren
     assert undo(kitchen, whose.json())["result"] == "done"
     assert kitchen.patch(url, json={}).status_code == 422
 

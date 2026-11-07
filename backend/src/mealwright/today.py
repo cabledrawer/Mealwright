@@ -130,8 +130,9 @@ def _early_tubs(
         place = kitchen.db.get(Place, tub.place_id) if tub.place_id else None
         kind = place.kind if place is not None and place.kind == "freezer" else "fridge"
         if tub.use_by == tub_use_by(kitchen, kind, meal.day):
-            changed.append([tub.id, tub.use_by.isoformat()])
-            tub.use_by = tub_use_by(kitchen, kind, cooked_on)
+            new_use_by = tub_use_by(kitchen, kind, cooked_on)
+            changed.append([tub.id, tub.use_by.isoformat(), new_use_by.isoformat()])
+            tub.use_by = new_use_by
     if changed:
         kitchen.db.flush()
         steps.append({"op": "tub_early", "tubs": changed})

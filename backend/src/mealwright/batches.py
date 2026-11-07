@@ -496,12 +496,15 @@ def _tub_fields(tub: Tub) -> dict[str, Any]:
 def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | None:
     """Whose tub it is, or its use-by date. `fields` holds only what was sent."""
     steps = [_tub_fields(tub)]
+    left: dict[str, Any] = {}  # what each changed field now holds (F165)
     changed = False
     if "member_login_id" in fields:
         new = fields["member_login_id"]
         if new is not None:
             _own_logins(kitchen, [new])
         changed = changed or new != tub.member_login_id
+        if new != tub.member_login_id:
+            left["member_login_id"] = new
         tub.member_login_id = new
     if "use_by" in fields and fields["use_by"] is not None:
         new_day = fields["use_by"]
@@ -515,9 +518,12 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
                 "A tub’s use-by can’t be before the day it was cooked.",  # proposed, for cabledrawer
             )
         changed = changed or new_day != tub.use_by
+        if new_day != tub.use_by:
+            left["use_by"] = new_day.isoformat()
         tub.use_by = new_day
     if not changed:
         return None
+    steps[0]["to"] = left
     kitchen.db.flush()
     name = tub_name(kitchen, tub)
     if set(fields) == {"member_login_id"}:
@@ -722,6 +728,8 @@ def move_cook_day(
         )
         shift = day - batch.cooked_on
         moved = [shifted(tub.use_by, shift) for tub in tubs]  # all checked before any moves
+        steps[-1]["to_day"] = day.isoformat()
+        steps[-1]["to_tubs"] = [[t.id, u.isoformat()] for t, u in zip(tubs, moved, strict=True)]
         batch.cooked_on = day
         for tub, use_by in zip(tubs, moved, strict=True):
             tub.use_by = use_by
@@ -1309,22 +1317,25 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
             return False
         if cooked.for_batch(db, kitchen.household_id, batch.id) is not None:
             return False
+        left_tubs = dict(step.get("to_tubs", []))
+        if "to_day" in step and batch.cooked_on.isoformat() != step["to_day"]:
+            return False  # the cook day was changed again since (F165)
         batch.cooked_on = date.fromisoformat(step["from"])
         complete = True
         for tub_id, use_by in step["tubs"]:
             tub = _own(kitchen, Tub, tub_id)
-            if tub is None:
-                complete = False
+            if tub is None or (tub_id in left_tubs and tub.use_by.isoformat() != left_tubs[tub_id]):
+                complete = False  # gone, or given another date since (F165)
                 continue
             tub.use_by = date.fromisoformat(use_by)
         db.flush()
         return complete
     if op == "tub_early":
         done = True
-        for tub_id, use_by in step["tubs"]:
+        for tub_id, use_by, *left in step["tubs"]:
             tub = _own(kitchen, Tub, tub_id)
-            if tub is None:
-                done = False
+            if tub is None or (left and tub.use_by.isoformat() != left[0]):
+                done = False  # gone, or given another date since (F165)
                 continue
             tub.use_by = date.fromisoformat(use_by)
         db.flush()
@@ -1357,13 +1368,26 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         tub = _own(kitchen, Tub, step["tub"])
         if tub is None:
             return False
-        tub.place_id = step["place_id"] if _own(kitchen, Place, step["place_id"]) else None
-        tub.member_login_id = (
-            step["member_login_id"] if _own(kitchen, Login, step["member_login_id"]) else None
-        )
-        tub.use_by = date.fromisoformat(step["use_by"])
+        left = step.get("to")  # the fields this change set, with what they were set to (F165)
+        whole = True
+        if left is None or "member_login_id" in left:
+            if left is None or tub.member_login_id == left["member_login_id"]:
+                tub.member_login_id = (
+                    step["member_login_id"]
+                    if _own(kitchen, Login, step["member_login_id"])
+                    else None
+                )
+            else:
+                whole = False
+        if left is None or "use_by" in left:
+            if left is None or tub.use_by.isoformat() == left["use_by"]:
+                tub.use_by = date.fromisoformat(step["use_by"])
+            else:
+                whole = False
+        if left is None:
+            tub.place_id = step["place_id"] if _own(kitchen, Place, step["place_id"]) else None
         db.flush()
-        return True
+        return whole
     if op == "del_tub":
         old = step["tub"]
         if _own(kitchen, BatchCook, old["batch_id"]) is None:
