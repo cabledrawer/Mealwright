@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Stocktake (0.8, F118)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.item{background:#1B221F;border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.top b{font-size:16px;font-weight:700}
+.top span{font-size:12px;color:#A3AFA8}
+.seg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;background:#252E29;border-radius:14px;padding:3px}
+.seg button{border:none;background:transparent;color:#E9EEEB;border-radius:11px;min-height:44px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#E9EEEB;color:#111614;font-weight:800}
+.stp{align-self:flex-start;border:1px solid #6B5526;background:transparent;color:#F3D58C;border-radius:999px;padding:0 12px;min-height:36px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.chip{border:1px solid #39433D;background:#111614;border-radius:999px;padding:0 12px;min-height:36px;font:700 13px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="padding: 52px 20px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #2A332E">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<a href="Dark-UseSoon08-Phone.dc.html" style="font-size: 15px; font-weight: 700; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center">Stop, carry on later</a>
+<span style="font-size: 13px; color: #A3AFA8; font-weight: 600">Place 3 of 5</span>
+</div>
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Stocktake · Cupboard</h1>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px"><span style="height: 5px; border-radius: 3px; background: #6FCF9E"></span><span style="height: 5px; border-radius: 3px; background: #6FCF9E"></span><span style="height: 5px; border-radius: 3px; background: #8FE0B5; opacity: 0.6"></span><span style="height: 5px; border-radius: 3px; background: #2A332E"></span><span style="height: 5px; border-radius: 3px; background: #2A332E"></span></div>
+<span style="font-size: 13px; color: #A3AFA8">How much is there? A best guess is fine. 4 of 9 done here.</span>
+</div>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 10px">
+
+<div class="item">
+<div class="top"><b>Toor dal</b><span>bag · 1 kg</span></div>
+<div class="seg" role="group" aria-label="Toor dal"><button aria-pressed="false">None</button><button aria-pressed="false">¼</button><button aria-pressed="true">½</button><button aria-pressed="false">¾</button><button aria-pressed="false">Full</button></div>
+</div>
+
+<div class="item">
+<div class="top"><b>Basmati rice</b><span>staple</span></div>
+<span style="font-size: 13px; color: #C5CEC8">A staple: not counted. Restocked 3 Nov.</span>
+</div>
+
+<div class="item" style="border: 1px solid #2F6A4C">
+<div class="top"><b>Tamarind</b><span>no pack size yet</span></div>
+<span style="font-size: 13px; color: #C5CEC8">What does it come in? Asked once.</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><button class="chip">200 g</button><button class="chip" style="border-color: #6FCF9E; background: #1F3A2D; color: #8FE0B5">500 g</button><button class="chip">1 kg</button><button class="chip">Other…</button></div>
+<div class="seg" role="group" aria-label="Tamarind"><button aria-pressed="false">None</button><button aria-pressed="true">¼</button><button aria-pressed="false">½</button><button aria-pressed="false">¾</button><button aria-pressed="false">Full</button></div>
+</div>
+
+<div class="item">
+<div class="top"><b>Sambar powder</b><span>jar · 200 g</span></div>
+<div class="seg" role="group" aria-label="Sambar powder"><button aria-pressed="false">None</button><button aria-pressed="false">¼</button><button aria-pressed="false">½</button><button aria-pressed="false">¾</button><button aria-pressed="false">Full</button></div>
+<button class="stp">It's a staple</button>
+</div>
+
+<div class="item">
+<div class="top"><b>Coconut milk</b><span>tin · 400 ml · counted</span></div>
+<div style="display: flex; align-items: center; gap: 10px"><button aria-label="One fewer" style="width: 44px; height: 44px; border: none; border-radius: 22px; background: #252E29; color: #E9EEEB; font: 800 20px 'Plus Jakarta Sans', sans-serif">−</button><span style="font-size: 20px; font-weight: 800; min-width: 60px; text-align: center">2 tins</span><button aria-label="One more" style="width: 44px; height: 44px; border: none; border-radius: 22px; background: #252E29; color: #E9EEEB; font: 800 20px 'Plus Jakarta Sans', sans-serif">+</button></div>
+</div>
+
+<button style="border: 1px dashed #4A554E; background: transparent; border-radius: 14px; min-height: 48px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #A3AFA8">+ Something else in the Cupboard</button>
+</div>
+
+<div style="padding: 12px 16px 28px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; border-top: 1px solid #2A332E">
+<button style="border: none; background: #252E29; color: #E9EEEB; border-radius: 18px; min-height: 56px; font: 700 16px 'Plus Jakarta Sans', sans-serif">← Fridge</button>
+<button style="border: none; background: #E9EEEB; color: #111614; border-radius: 18px; min-height: 56px; font: 800 16px 'Plus Jakarta Sans', sans-serif">Next: Spice rack →</button>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

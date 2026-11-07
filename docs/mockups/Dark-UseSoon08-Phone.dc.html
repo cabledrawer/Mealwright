@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Pantry, Use soon and How much (0.8)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.card{background:#1B221F;border-radius:18px;padding:2px 14px}
+.r{display:flex;align-items:center;gap:10px;min-height:52px;border-bottom:1px solid #26302B}
+.r:last-child{border-bottom:none}
+.nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.nm b{font-size:15px;font-weight:600}
+.nm span{font-size:12px;color:#A3AFA8}
+.when{border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+.late{background:#3E2119;color:#FF9B76}
+.soon{background:#33291A;color:#F3C766}
+.bb{background:#252E29;color:#C5CEC8}
+.act{border:none;background:#252E29;color:#E9EEEB;border-radius:999px;padding:0 12px;min-height:36px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.h2{margin:0;font-size:13px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.06em}
+.pick{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:14px;min-height:52px;font:700 16px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.pick.on{border-color:#6FCF9E;background:#1F3A2D;color:#8FE0B5}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 56px 20px 24px; display: flex; flex-direction: column; gap: 16px">
+
+<div style="display: flex; justify-content: space-between; align-items: flex-end">
+<h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1>
+<a href="Dark-Stocktake08-Phone.dc.html" style="border: 1px solid #39433D; background: #1B221F; border-radius: 999px; padding: 0 14px; min-height: 40px; font-size: 14px; font-weight: 700; color: #E9EEEB; text-decoration: none; display: inline-flex; align-items: center">Stocktake</a>
+</div>
+
+<div role="group" aria-label="Show" style="display: grid; grid-template-columns: 1fr 1fr; background: #252E29; border-radius: 999px; padding: 3px">
+<button aria-pressed="true" style="border: none; background: #E9EEEB; color: #111614; border-radius: 999px; min-height: 40px; font: 800 14px 'Plus Jakarta Sans', sans-serif">Pantry</button>
+<button aria-pressed="false" style="border: none; background: transparent; color: #E9EEEB; border-radius: 999px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Ingredients</button>
+</div>
+
+<section aria-label="Use soon" style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 class="h2" style="color: #FF9B76">Use soon · 6</h2><a href="Dark-Recipes-Phone.dc.html" style="font-size: 13px; font-weight: 700; text-decoration: none">Recipes that use them</a></div>
+<div class="card" style="border: 1px solid #4A2A20">
+<div class="r"><span class="nm"><b>Lemon</b><span>Fridge · 1</span></span><span class="when late">Passed 3 days ago</span><button class="act" onClick="{{ openSheet }}">Used…</button></div>
+<div class="r"><span class="nm"><b>Toor dal</b><span>Cupboard · 2 packets</span></span><span class="when bb">Best before passed · probably fine</span></div>
+<div class="r"><span class="nm"><b>Spinach</b><span>Fridge · 200 g</span></span><span class="when soon">Use by Sun</span><button class="act" onClick="{{ openSheet }}">Used…</button></div>
+<button style="border: none; background: transparent; min-height: 44px; font: 700 14px 'Plus Jakarta Sans', sans-serif; color: #6FCF9E; text-align: left; padding: 0">Show all 6</button>
+</div>
+<span style="font-size: 12px; color: #A3AFA8">Swipe a row: right for Used, left for Binned or To freezer.</span>
+</section>
+
+<section aria-label="Fridge" style="display: flex; flex-direction: column; gap: 6px">
+<h2 class="h2">Fridge · 5</h2>
+<div class="card">
+<div class="r"><span class="nm"><b>Paneer</b><span>2 × 200 g · bought today</span></span><span style="font-size: 13px; color: #A3AFA8">Use by 12 Nov</span></div>
+<div class="r"><span class="nm"><b>Yoghurt</b><span>¾ tub · about 380 g · open</span></span><span style="font-size: 13px; color: #A3AFA8">Use by 9 Nov</span></div>
+<div class="r"><span class="nm"><b>Lemon rice</b><span>2 tubs · from Sat</span></span><span class="when soon">Use by Tue</span></div>
+</div>
+</section>
+
+</div>
+
+<sc-if value="{{ sheet }}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; justify-content: flex-end">
+<div role="dialog" aria-label="How much Spinach did you use?" style="background: #161C19; border-radius: 24px 24px 0 0; padding: 10px 20px 32px; display: flex; flex-direction: column; gap: 14px">
+<span style="width: 40px; height: 5px; border-radius: 3px; background: #39433D; align-self: center"></span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 18px; font-weight: 800">How much Spinach did you use?</span><span style="font-size: 13px; color: #A3AFA8">1 bag · 200 g</span></div>
+<div role="radiogroup" aria-label="How much" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<button role="radio" aria-checked="{{ a1 }}" class="pick" style="border-color: {{ b1 }}; background: {{ g1 }}; color: {{ f1 }}" onClick="{{ p1 }}">¼</button>
+<button role="radio" aria-checked="{{ a2 }}" class="pick" style="border-color: {{ b2 }}; background: {{ g2 }}; color: {{ f2 }}" onClick="{{ p2 }}">½</button>
+<button role="radio" aria-checked="{{ a3 }}" class="pick" style="border-color: {{ b3 }}; background: {{ g3 }}; color: {{ f3 }}" onClick="{{ p3 }}">¾</button>
+<button role="radio" aria-checked="{{ a4 }}" class="pick" style="border-color: {{ b4 }}; background: {{ g4 }}; color: {{ f4 }}" onClick="{{ p4 }}">All</button>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #A3AFA8">Or exactly<input type="text" inputmode="decimal" placeholder="g" style="width: 90px; min-height: 44px; border: 1px solid #39433D; border-radius: 12px; padding: 0 12px; background: #1B221F; color: #E9EEEB; font: 600 15px 'Plus Jakarta Sans', sans-serif; box-sizing: border-box">g</label>
+<button onClick="{{ closeSheet }}" style="border: none; background: #E9EEEB; color: #111614; border-radius: 16px; min-height: 52px; font: 800 16px 'Plus Jakarta Sans', sans-serif; cursor: pointer">{{ mainWords }}</button>
+<button onClick="{{ closeSheet }}" style="border: none; background: transparent; color: #E9EEEB; min-height: 44px; font: 700 15px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Cancel</button>
+</div>
+</div>
+</sc-if>
+
+<nav aria-label="Main" style="height: 84px; background: #161C19; border-top: 1px solid #2A332E; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 8px 6px 22px; box-sizing: border-box">
+<a href="Dark-Today08-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a>
+<a href="Dark-PlanMonth08-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a>
+<a href="Dark-ShopInShop08-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg>Shop</a>
+<a href="Dark-UseSoon08-Phone.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #6FCF9E; font-size: 11px; font-weight: 700"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v4H3z"></path><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"></path><path d="M10 12h4"></path></svg>Pantry</a>
+<a href="Dark-Recipes-Phone.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: #A3AFA8; font-size: 11px; font-weight: 600"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"></path><path d="M9 9h6M9 13h4"></path></svg>Recipes</a>
+</nav>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const pick = s.pick || 3;
+const words = { 1: 'Used ¼ bag', 2: 'Used ½ bag', 3: 'Used ¾ bag', 4: 'Used all of it' };
+const v = {
+sheet: s.sheet !== false,
+openSheet: () => this.setState({ sheet: true }),
+closeSheet: () => this.setState({ sheet: false }),
+mainWords: words[pick]
+};
+for (let i = 1; i <= 4; i++) {
+v['a' + i] = pick === i ? 'true' : 'false';
+v['b' + i] = pick === i ? '#6FCF9E' : '#39433D';
+v['g' + i] = pick === i ? '#1F3A2D' : '#1B221F';
+v['f' + i] = pick === i ? '#8FE0B5' : '#E9EEEB';
+v['p' + i] = () => this.setState({ pick: i });
+}
+return v;
+}
+}
+</script>
+</body>
+</html>

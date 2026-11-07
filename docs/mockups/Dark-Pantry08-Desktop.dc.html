@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Pantry (0.8)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden;background:#111614}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.nav a[aria-current="page"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.us{background:#1B221F;border:1px solid #4A2A20;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.us b{font-size:15px;font-weight:700}
+.us .s{font-size:12px;color:#A3AFA8}
+.when{align-self:flex-start;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:700}
+.late{background:#3E2119;color:#FF9B76}
+.soon{background:#33291A;color:#F3C766}
+.bb{background:#252E29;color:#C5CEC8}
+.btns{display:flex;gap:6px}
+.btn{border:none;background:#252E29;color:#E9EEEB;border-radius:999px;padding:0 10px;min-height:32px;font:700 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.place{background:#1B221F;border-radius:18px;padding:12px 16px;display:flex;flex-direction:column}
+.place h2{margin:0 0 4px;font-size:16px;font-weight:800;display:flex;justify-content:space-between}
+.place h2 span{font-size:13px;color:#A3AFA8;font-weight:600}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;min-height:42px;border-top:1px solid #26302B}
+.row .n{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .a{font-size:13px;color:#C5CEC8;white-space:nowrap}
+.row .d{font-size:12px;color:#A3AFA8;white-space:nowrap}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Dark-Today.dc.html">Today</a>
+<a href="Dark-Plan.dc.html">Plan</a>
+<a href="Dark-ShopPlan08-Desktop.dc.html"><span style="flex: 1">Shopping</span><span style="font-size: 12px">14</span></a>
+<a href="Dark-Pantry08-Desktop.dc.html" aria-current="page"><span style="flex: 1">Pantry</span><span style="font-size: 12px; color: #FF9B76">6</span></a>
+<a href="Dark-Recipe.dc.html">Recipes</a>
+<a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a>
+</nav>
+<a href="Dark-Settings08-Desktop.dc.html" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1B221F; color: #E9EEEB; text-decoration: none; font-size: 14px; font-weight: 700">Tess · Settings</a>
+</aside>
+
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 2px"><div style="font-size: 14px; color: #A3AFA8">5 places · 38 ingredients · 6 tubs</div><h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Pantry</h1></div>
+<div style="display: flex; gap: 8px"><a href="Dark-Stocktake08-Phone.dc.html" style="border: 1px solid #39433D; background: #1B221F; border-radius: 12px; padding: 0 16px; min-height: 44px; font-size: 14px; font-weight: 700; color: #E9EEEB; text-decoration: none; display: inline-flex; align-items: center">Stocktake</a><button style="border: none; background: #2E7D5B; color: #FFFFFF; border-radius: 12px; min-height: 44px; padding: 0 16px; font: 700 14px 'Plus Jakarta Sans', sans-serif">+ Add to pantry</button></div>
+</div>
+
+<section aria-label="Use soon" style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 13px; font-weight: 700; color: #FF9B76; text-transform: uppercase; letter-spacing: 0.06em">Use soon · 6</h2><span style="display: flex; gap: 16px"><a href="Dark-Recipe.dc.html" style="font-size: 13px; font-weight: 700; text-decoration: none">Recipes that use them</a><button onClick="{{ toggleAll }}" style="border: none; background: transparent; color: #6FCF9E; font: 700 13px 'Plus Jakarta Sans', sans-serif; padding: 0; min-height: 32px; cursor: pointer">{{ allWord }}</button></span></div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<div class="us"><b>Lemon</b><span class="s">Fridge · 1</span><span class="when late">Passed 3 days ago</span><span class="btns"><button class="btn">Used…</button><button class="btn">Binned</button></span></div>
+<div class="us"><b>Spinach</b><span class="s">Fridge · 200 g</span><span class="when soon">Use by Sun</span><span class="btns"><button class="btn">Used…</button><button class="btn">To freezer</button></span></div>
+<div class="us"><b>Lemon rice</b><span class="s">Fridge · 2 tubs</span><span class="when soon">Use by Tue</span><span class="btns"><button class="btn">Eat it on…</button></span></div>
+<div class="us" style="border-color: #2A332E"><b>Toor dal</b><span class="s">Cupboard · 2 packets</span><span class="when bb">Best before passed · probably fine</span><span class="btns"><button class="btn">Used…</button></span></div>
+<sc-if value="{{ allOpen }}" hint-placeholder-val="{{ false }}">
+<div class="us"><b>Yoghurt</b><span class="s">Fridge · ¾ tub</span><span class="when soon">Use by Mon</span><span class="btns"><button class="btn">Used…</button></span></div>
+<div class="us"><b>Coriander</b><span class="s">Fridge · ½ bunch</span><span class="when soon">Use by Mon</span><span class="btns"><button class="btn">Used…</button></span></div>
+</sc-if>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start">
+<section class="place" aria-label="Fridge"><h2>Fridge <span>8</span></h2>
+<div class="row"><span class="n">Paneer</span><span class="a">2 × 200 g</span><span class="d">use by 12 Nov</span></div>
+<div class="row"><span class="n">Yoghurt</span><span class="a">¾ tub · open</span><span class="d">use by 9 Nov</span></div>
+<div class="row"><span class="n">Ghee</span><span class="a">¼ jar</span><span class="d">bought 1 Nov</span></div>
+<div class="row"><span class="n">Lemon rice</span><span class="a">2 tubs</span><span class="d">use by 10 Nov</span></div>
+<div class="row"><span class="n">Milk</span><span class="a">1 l</span><span class="d">use by 8 Nov</span></div>
+<button style="border: none; background: transparent; color: #6FCF9E; font: 700 13px 'Plus Jakarta Sans', sans-serif; text-align: left; padding: 8px 0 0; min-height: 36px">3 more</button>
+</section>
+<section class="place" aria-label="Cupboard"><h2>Cupboard <span>14</span></h2>
+<div class="row"><span class="n">Toor dal</span><span class="a">2 packets</span><span class="d">best before 1 Nov</span></div>
+<div class="row"><span class="n">Basmati rice</span><span class="a">staple</span><span class="d">restocked 3 Nov</span></div>
+<div class="row"><span class="n">Coconut milk</span><span class="a">2 tins</span><span class="d">best before Mar</span></div>
+<div class="row"><span class="n">Tamarind</span><span class="a">¼ block</span><span class="d">bought 20 Oct</span></div>
+<div class="row"><span class="n">Ghee</span><span class="a">1 jar (500 g)</span><span class="d">bought 6 Nov</span></div>
+<button style="border: none; background: transparent; color: #6FCF9E; font: 700 13px 'Plus Jakarta Sans', sans-serif; text-align: left; padding: 8px 0 0; min-height: 36px">9 more</button>
+</section>
+<section class="place" aria-label="Freezer and spice rack" style="gap: 14px; background: transparent; padding: 0">
+<div class="place"><h2>Freezer <span>4</span></h2>
+<div class="row"><span class="n">Sambar</span><span class="a">3 tubs</span><span class="d">use by Jan</span></div>
+<div class="row"><span class="n">Peas</span><span class="a">½ bag</span><span class="d">best before Jun</span></div>
+</div>
+<div class="place"><h2>Spice rack <span>12</span></h2>
+<div class="row"><span class="n">Sambar powder</span><span class="a">½ jar</span><span class="d">bought 2 Oct</span></div>
+<div class="row"><span class="n">Turmeric</span><span class="a">staple</span><span class="d">restocked 28 Oct</span></div>
+</div>
+</section>
+</div>
+<span style="font-size: 12px; color: #A3AFA8">Ghee shows in both the Fridge and the Cupboard: each packet is where it is, and recipes and Shopping count them together.</span>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = !!s.all;
+return { allOpen: open, allWord: open ? 'Show fewer' : 'Show all 6', toggleAll: () => this.setState({ all: !open }) };
+}
+}
+</script>
+</body>
+</html>
