@@ -318,13 +318,17 @@ def found_at_home(act: Act) -> None:
     from mealwright import sync
 
     when = sync.happened_at(act)
+    listed = food
     revived: dict[str, Any] = {}
     if food.removed_at is not None and not food.staple:
         # As a tick does (7.1): stock needs an ingredient in the pantry, so a removed one
         # comes back (or the live one with that name is used), and Undo removes it again.
         food, revived = shopping.revive(act, food)
         act.food_id = food.id
-    milli = None if food.staple else shopping.milli_of(act.payload["amount"])
+    # As a tick does: the live ingredient with that name now is counted another way, so the
+    # amount found means nothing for it and nothing goes in (7.1).
+    recount = food.counted_as != listed.counted_as
+    milli = None if food.staple or recount else shopping.milli_of(act.payload["amount"])
     size = shopping.get_size(kitchen, food, act.payload.get("size_id"))
     place = get_place(kitchen, act.payload.get("place_id")) or get_place(
         kitchen, item.put_away_place_id
@@ -363,6 +367,35 @@ def found_at_home(act: Act) -> None:
         act.change = change
     sync_copy(kitchen, item, act.seq)
     _removed_list(act, item, ticked=bool(row.bought_milli))
+    if recount:
+        shopping.note(
+            act,
+            "N8",
+            kitchen.login.id,
+            f"{listed.name} is counted differently now, so nothing went into the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
+    if not row.bought_milli:
+        return
+    remover = _remover(act, item)
+    if remover is not None and remover.kind in ("delete", "move"):
+        # N1, as for a tick: the line was removed or moved by someone who hadn't seen the find.
+        me = kitchen.login.id
+        taken = "moved" if remover.kind == "move" else "removed"
+        shopping.note(
+            act,
+            "N1",
+            me,
+            f"{who(remover.login_id, remover.login_name, me)} had {taken} this."
+            " Your tick still went into the pantry.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+            undo=act.id,
+        )
 
 
 def _ask(act: Act, item: ListItem, new: ListTick) -> None:

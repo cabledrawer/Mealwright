@@ -1,6 +1,8 @@
 """Already have it (`found_at_home`, docs/dev/sync-protocol.md 4.2 and 7.6): the amount at home
 goes into the pantry as found, not bought; repeats, Undo, untick and two phones."""
 
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 from sync_kit import (
@@ -12,6 +14,7 @@ from sync_kit import (
     action,
     changes,
     db,
+    food,
     ok,
     one,
     s0,
@@ -19,7 +22,7 @@ from sync_kit import (
     tick,
 )
 
-from mealwright.models import Food
+from mealwright.models import Food, StockLot
 
 
 def _found(
@@ -215,3 +218,36 @@ def test_found_against_a_delete_tells_the_finder_like_a_tick(kitchen: TestClient
     one(kitchen, "delete", s.c0, PHONE_A, item_id=s.items["Milk"])
     (note,) = changes(s.wren)["notes"]
     assert note["text"] == "Tess had removed this. Your tick still went into the pantry."
+
+
+@pytest.mark.parametrize("a_first", [True, False], ids=["A-B", "B-A"])
+def test_found_against_a_delete(kitchen: TestClient, a_first: bool) -> None:
+    """Both orders: the find still goes in; the finder gets N1 whichever lands first."""
+    s = s0(kitchen)
+    item = s.items["Paneer"]
+    steps = [
+        lambda: _found(kitchen, s, "Paneer", 200, "Fridge"),
+        lambda: one(s.wren, "delete", s.c0, PHONE_R, item_id=item),
+    ]
+    for step in steps if a_first else steps[::-1]:
+        step()
+    assert s.lots("Paneer") == [("Fridge", 200)]
+    (note,) = changes(kitchen)["notes"]
+    assert note["text"] == "Wren had removed this. Your tick still went into the pantry."
+    assert changes(s.wren)["notes"] == []
+
+
+def test_found_into_an_ingredient_counted_differently_puts_nothing_in(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    new = food(kitchen, "Paneer", counted_as="count")["id"]
+    done: Any = _found(kitchen, s, "Paneer", 200, "Fridge")
+    assert done["status"] == "applied" and done["change"] is None
+    with db(kitchen) as session:
+        assert session.query(StockLot).filter(StockLot.amount_milli > 0).count() == 0
+    (note,) = changes(kitchen)["notes"]
+    assert note["text"] == "Paneer is counted differently now, so nothing went into the pantry."
+    assert (note["undo"], note["food_id"]) == (done["id"], new)
