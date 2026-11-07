@@ -414,7 +414,8 @@ def pantry(
         counts=PantryCounts(
             items=len(all_groups),
             tubs=sum(r.tubs for rows in all_tubs.values() for r in rows),
-            use_soon=sum(any(lot.use_soon for lot in g.lots) for g in all_groups),
+            use_soon=sum(any(lot.use_soon for lot in g.lots) for g in all_groups)
+            + sum(1 for rows in all_tubs.values() for r in rows if r.use_soon),
             running_low=len({g.food.id for g in all_groups if g.running_low}),
         ),
         places=[

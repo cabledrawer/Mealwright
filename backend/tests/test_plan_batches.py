@@ -1565,6 +1565,18 @@ def test_a_tub_that_is_soon_is_a_use_soon_card_with_the_tub_to_place(
     assert card["batch_id"] == left[0]["batch_id"]
 
 
+def test_the_use_soon_count_includes_soon_tub_rows(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    """The chip's number matches the strip's heading, tubs included (L3)."""
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    assert kitchen.get(f"{API}/pantry").json()["counts"]["use_soon"] == 0
+    _set_tub_use_by(kitchen, 1)
+    shown = kitchen.get(f"{API}/pantry").json()
+    soon = kitchen.get(f"{API}/pantry/use-soon").json()
+    assert shown["counts"]["use_soon"] == 1 == len(soon["lots"]) + len(soon["tubs"])
+
+
 def test_a_tub_past_its_use_by_stays_in_use_soon_as_passed(
     kitchen: TestClient, cook: dict[str, Any]
 ) -> None:
@@ -1586,3 +1598,25 @@ def test_a_tub_in_a_meal_is_not_in_use_soon(
     assert placed.status_code == 200, placed.text
     _set_tub_use_by(kitchen, 1)
     assert kitchen.get(f"{API}/pantry/use-soon").json()["tubs"] == []
+
+
+def test_eat_it_on_from_tubs_left_refuses_a_tub_that_is_in_a_meal(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=2, pattern="pick")
+    tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]["id"]
+    url = f"{API}/plan/tubs/{tub}/place"
+    first = {"date": day(1), "slot_id": slots["Lunch"], "from_tubs_left": True}
+    assert kitchen.post(url, json=first).status_code == 200
+    # Now in a meal: the Pantry's flag refuses, and nothing moves.
+    refused = kitchen.post(
+        url, json={"date": day(2), "slot_id": slots["Dinner"], "from_tubs_left": True}
+    )
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "tub_taken"
+    assert refused.json()["detail"] == "That tub is already in a meal. Look again."
+    assert where_tubs_are(kitchen, slots)[0] == (1, day(1), "Lunch")
+    # The plan's own Move (no flag) still moves it.
+    moved = kitchen.post(url, json={"date": day(2), "slot_id": slots["Dinner"]})
+    assert moved.status_code == 200
+    assert where_tubs_are(kitchen, slots)[0] == (1, day(2), "Dinner")
