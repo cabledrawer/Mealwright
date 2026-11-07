@@ -370,6 +370,10 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("AddStock", "food_id"): "test_households",
     ("AddStock", "place_id"): "test_households",
     ("Move", "place_id"): "test_households",
+    (
+        "StocktakeNewFood",
+        "food_id",
+    ): "test_stocktake.py: their own place with another household's ingredient",
     ("FoodAmount", "place_id"): "test_households",
     ("FoodLeft", "place_id"): "test_households",
     ("NewList", "id"): "test_households",

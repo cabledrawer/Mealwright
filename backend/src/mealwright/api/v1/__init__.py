@@ -20,6 +20,7 @@ from mealwright.api.v1 import (
     shopping,
     shopping_plan,
     starter_packs,
+    stocktake,
     sync,
     today,
     version,
@@ -32,6 +33,7 @@ router.include_router(kitchen.router)
 router.include_router(foods.router)
 router.include_router(starter_packs.router)
 router.include_router(pantry.router)
+router.include_router(stocktake.router)
 router.include_router(plan.router)
 router.include_router(batches.router)
 router.include_router(cooked.router)

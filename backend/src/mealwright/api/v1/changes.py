@@ -61,6 +61,7 @@ STOCK_KINDS = (
     "found",
     "repacked",
     "cooked",
+    "stocktake",
 )
 
 # Changes to ingredients, shown in Ingredients → Recent changes.

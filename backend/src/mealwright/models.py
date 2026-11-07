@@ -671,6 +671,43 @@ class DoubleTick(Base):
     version: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
+class StocktakePlace(Base):
+    """A place whose stocktake is finished (0.8 S6, cabledrawer 7 Nov). The household's stocktake
+    progress lives here and in `StocktakeEntry`, on the server, so any phone can carry on and
+    anyone in the household can finish it. A place with no row here is "not finished"; the
+    stocktake reopens at the first of those, in the Settings order."""
+
+    __tablename__ = "stocktake_place"
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), primary_key=True
+    )
+    place_id: Mapped[int] = mapped_column(
+        ForeignKey("place.id", ondelete="CASCADE"), primary_key=True
+    )
+    finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class StocktakeEntry(Base):
+    """One ingredient in one place, looked at in the stocktake: answered (an answer was
+    tapped, `change_id` its stock change, none when there was nothing to change), or only
+    added with "+ Something else in the Cupboard" (`answered` false). An Undo of the answer
+    makes it unanswered again. Starting a new stocktake deletes them all."""
+
+    __tablename__ = "stocktake_entry"
+    __table_args__ = (UniqueConstraint("place_id", "food_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    place_id: Mapped[int] = mapped_column(ForeignKey("place.id", ondelete="CASCADE"))
+    food_id: Mapped[int] = mapped_column(ForeignKey("food.id", ondelete="CASCADE"))
+    answered: Mapped[bool] = mapped_column(Boolean, default=False)
+    change_id: Mapped[int | None] = mapped_column(ForeignKey("change.id", ondelete="SET NULL"))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 # --- Recipes (docs/dev/api-0.4-recipes.md) -------------------------------------------------------
 # Amounts on a recipe line are thousandths of the unit the person typed (2 tbsp is 2000), not of
 # a base unit: the recipe keeps its own wording. Ids are never reused (sqlite_autoincrement), so
