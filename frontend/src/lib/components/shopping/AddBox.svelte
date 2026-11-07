@@ -167,8 +167,14 @@
       const shop = { ...food, sizes } as unknown as ShopFood;
       const usual = usualSize(shop);
       const pack = usual ? packParts(shop, usual.amount)?.buy : undefined;
-      const place = food.place?.name ?? 'Cupboard';
-      if (current) boughtHint = `Straight into the pantry · ${pack ? `${pack} ` : ''}→ ${place}`;
+      // The server's default (stock.py): the household's first cupboard place, by position.
+      const cupboard = model.copy.places
+        .filter((p) => p.kind === 'cupboard')
+        .sort((a, b) => a.position - b.position || a.id - b.id)[0];
+      const place = food.place?.name ?? cupboard?.name;
+      if (current)
+        boughtHint =
+          `Straight into the pantry · ${pack ? `${pack} ` : ''}${place ? `→ ${place}` : ''}`.trim();
     })();
     return () => (current = false);
   });

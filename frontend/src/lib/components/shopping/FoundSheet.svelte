@@ -6,7 +6,7 @@
   // the answer is one `found_at_home` action in the queue.
   import { tick } from 'svelte';
   import { radioKeys } from '#lib/radioKeys.js';
-  import { baseFrom, readDraft, unitChoices } from '#lib/shopping/amountBox.js';
+  import { readDraft, unitChoices } from '#lib/shopping/amountBox.js';
   import { localDisplay } from '#lib/shopping/applyLocal.js';
   import { baseText } from '#lib/shopping/format.js';
   import { packParts, usualSize, wholePacks } from '#lib/shopping/packLine.js';
@@ -150,7 +150,6 @@
       void tick().then(() => dialog.querySelector<HTMLElement>('[role="radio"]')?.focus());
     }
   });
-  void baseFrom;
 </script>
 
 <dialog

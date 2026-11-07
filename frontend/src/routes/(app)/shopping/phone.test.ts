@@ -97,6 +97,19 @@ describe('Shopping on the phone', () => {
       await vi.waitFor(() => expect(bought.element().textContent).toMatch(/→ Cupboard/));
     });
 
+    it('with no usual place, names the household\'s first cupboard place, not "Cupboard"', async () => {
+      copy.places = [
+        { id: 1, name: 'Chiller', kind: 'fridge', position: 0 },
+        { id: 9, name: 'Larder', kind: 'cupboard', position: 1 },
+        { id: 8, name: 'Dry shelf', kind: 'cupboard', position: 2 }
+      ];
+      await render({ 'GET /foods?q=tahini&limit=8': found([{ id: 7, name: 'Tahini' }]) });
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('tahini');
+      const bought = page.getByRole('button', { name: 'Add as bought' });
+      await vi.waitFor(() => expect(bought.element().textContent).toMatch(/→ Larder/));
+      expect(bought.element().textContent).not.toMatch(/Cupboard/);
+    });
+
     it('one Undo takes back the tick and the add', async () => {
       await render({ 'GET /foods?q=tahini&limit=8': found([{ id: 7, name: 'Tahini' }]) });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('tahini');
