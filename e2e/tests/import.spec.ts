@@ -367,6 +367,38 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   expect(after.foods).toHaveLength(0);
 });
 
+test('F144: an import is undone from Recent changes on Ingredients once its toast has gone, on a phone too', async ({ page }) => {
+  const title = unique('Dal tadka');
+  const spice = unique('Hing');
+  await page.goto('/recipes/import');
+  await box(page).fill(`${title}\nIngredients\n1 cup ${spice}\nMethod\n1. Boil it.\n`);
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'New ingredient' }).first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const undo = page.getByRole('button', { name: 'Undo', exact: true });
+  await expect(undo).toBeVisible();
+  await expect(undo).toBeHidden({ timeout: 30_000 }); // let the toast go
+  // Reach Ingredients the way a phone does: by the tabs, no typed address.
+  if (onPhone()) {
+    await page.getByRole('link', { name: 'Pantry', exact: true }).click();
+    await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
+    await page.getByRole('button', { name: 'Recent changes' }).click();
+  } else {
+    await page.goto('/recipes/ingredients');
+    await page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ }).click();
+  }
+  const recent = onPhone()
+    ? page.getByRole('dialog', { name: 'Recent changes' })
+    : page.getByRole('region', { name: 'Recent changes' });
+  await expect(recent.getByText(`Imported ${title}`, { exact: false })).toBeVisible();
+  await recent.getByRole('button', { name: new RegExp(`^Undo: Imported ${title}`) }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+  expect((await page.request.get(`/api/v1/recipes/${id}`)).status()).toBe(404);
+});
+
 test('a link import keeps where it came from: From: site · by author on the recipe page', async ({ page }) => {
   const names = { onion: unique('Red onion'), hing: unique('Hing'), curry: unique('Curry leaves') };
   const title = unique('Sambar');
