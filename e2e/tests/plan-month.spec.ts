@@ -187,6 +187,13 @@ async function pastBatch(
 }
 
 /**
+ * The phone's day under the dot grid. Not the day's cooking below it (PlanCook, `cook-<day>`), which
+ * has the same name once the day has any cooking: fresh cooking too since F167.
+ */
+const dayRegion = (page: Page, day: string) =>
+  page.getByRole('region', { name: dayName(day) }).and(page.locator(':not([id^="cook-"])'));
+
+/**
  * Open a day and its "Add to the plan" sheet, the way this layout does: on a computer a click
  * anywhere in the day (not on its number or a chip), on a phone a tap on the day in the dot grid
  * and then "+ Add <meal>" under it. `meal` is the one to put things in.
@@ -198,8 +205,7 @@ async function openDay(page: Page, today: string, day: string, meal: string) {
       .getByRole('group', { name: 'Days' })
       .getByRole('button', { name: dayName(day), exact: true })
       .click();
-    await page
-      .getByRole('region', { name: dayName(day) })
+    await dayRegion(page, day)
       // "+ Add breakfast" when the meal is empty, the + beside it when it has something
       .getByRole('button', {
         name: new RegExp(`^(\\+ Add ${meal.toLowerCase()}|Add to ${meal} on )`)
@@ -243,7 +249,7 @@ test('F53: a click anywhere in a day opens it, and a meal and a recipe plan it (
   await add.getByRole('searchbox', { name: 'Find a recipe or an ingredient' }).fill(name);
   await add.getByRole('button', { name: new RegExp(`^${name}`) }).click();
   if (kind() === 'phone')
-    await expect(page.getByRole('region', { name: dayName(day) })).toContainText(name);
+    await expect(dayRegion(page, day)).toContainText(name);
   else await expect(page.getByTestId(`day-${day}`)).toContainText(name);
 });
 

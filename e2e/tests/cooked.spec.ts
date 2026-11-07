@@ -594,7 +594,8 @@ test('F170: a recipe with no Serves has no Portions cooked and says how to scale
   await clearWaiting(page);
   const name = `Sandwich ${stamp()}`;
   const recipe = (await call(page, 'POST', '/recipes', { name, serves: null, lines: [] })).id as number; // no Serves
-  const planned = await k.plan(recipe, waitingDay(k.today), k.slot.Lunch);
+  // Breakfast: the waiting day's Dinner and Lunch are cooked by the tests above (F125 on the computer).
+  const planned = await k.plan(recipe, waitingDay(k.today), k.slot.Breakfast!);
   try {
     await openToday(page, name);
     const dialog = review(page, name);
