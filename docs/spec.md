@@ -768,6 +768,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **At the end:** one Cooked it review for the whole session (grouped by recipe), one group in Recent changes with Undo, and the tubs per recipe as in Cook once.
 - **Data, roughly:** a batch session (cook day, recipes, a snapshot of the schedule); per step: hands-on or waiting, minutes, equipment, and whether each was guessed or set by hand; per household: kitchen equipment. Words in `docs/dev/words.md`.
 - **Not before 1.0:** suggestions from the internet or an AI model, shopping or cost optimisation, and splitting tasks between two cooks.
+- **Undo of added ingredients (cabledrawer 7 Nov):** undoing an Add ingredient or a starter pack takes out only the ingredients not yet used anywhere (a recipe, the plan, the shopping list, the pantry, a staple); the ones in use stay, and the message says how many.
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
