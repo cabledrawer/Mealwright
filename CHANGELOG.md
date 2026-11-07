@@ -4,9 +4,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [0.8.0-alpha.1] - 2026-11-07
+
+The first 0.8.0 test version: wave 2, "what 0.7 left". Cooking a meal with several recipes one recipe at a time now reads right on Today, the Plan and the Cook view; Cooked it works on a meal planned for a later day; the Plan's Month gets Both · Eat · Cook; Today's This week shows seven days; Cook mode's per-step box is redrawn and its steps follow the finger; import Check gets swipes and the One at a time gaps filled; and slow or flaky tests are fixed. No database change: v0.7.0's data is used as it is, but back up first as always (`docs/dev/test-on-homelab.md` section 4.1).
+
 ### Changed
 
-- **Cooked it with nothing reviewed (0.8.0, cabledrawer 7 Nov).** An answer that reviews no recipe, on a meal where one recipe is cooked and others can still be cooked, is refused: "Lentil soup still needs Cooked it." (several: "Lentil soup and Rasam still need Cooked it."). A meal with nothing cooked yet is cooked whole, as before. No database change.
+- **Cooked it with nothing reviewed (0.8.0, cabledrawer 7 Nov).** An answer that reviews no recipe, on a meal where one recipe is cooked and others can still be cooked, is refused: "Lentil soup still needs Cooked it." (several: "Lentil soup and Rasam still need Cooked it."). The words show in the toast. A meal with nothing cooked yet is cooked whole, as before. No database change.
 - **Cooking ahead (0.8.0, F159, cabledrawer 6 Nov).** Cooked it works on a meal planned for a later day (Plan → Cook → Start cooking → Confirm); the meal stays on its day. Stock is taken when it is really cooked, and a tub's use-by counts from the day it was really cooked (a Saturday batch cooked on Friday counts from Friday). Didn't is still refused before the meal's day; Move it is unchanged. No database change.
 - **Today: a meal cooked in parts (0.8.0, F160).** One line per recipe: a tick and a **Cooked** chip on each cooked one, a filled **Cooked it** button on each one still to cook; the header says "1 of 2 cooked", then "All cooked". It replaces 0.7's "Cooked <recipe>" line. A recipe removed from the recipe list shows as a plain line, without Cooked it.
 - **Plan: a meal cooked in parts (0.8.0, F162, F163).** The panel lists each recipe with a **Cooked** tag on cooked ones, and the note names them ("Banana bread was cooked. Undo its Cooked it to move or remove it."); a recipe not yet cooked can be removed or have its servings changed on its own. Move it names only what moves ("Moved Lentil soup from Dinner on Thu 5 Nov to Dinner on Sat 7 Nov").
@@ -16,9 +20,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Today's This week (0.8.0, F150).** Seven rows from today (Today first): the day, the dinner's name (or the day's last meal), "3 meals" or "tub · 1 meal", and a blue **Cook** mark on a day with cooking; an empty day says **Nothing planned** with **+ Plan**, which opens the Plan on that day's week. Rows are at least 44 px and long names end with "…"; the same rows on the phone and the computer.
 - **The Plan's add sheet says what to do first (0.8.0, F127).** "Pick a meal, then what to add" over the day; after picking, "Add to" over "Dinner · Wednesday 11".
 - **Cook mode: "Ingredients for each step" (0.8.0, F148).** The box is laid out as the mockup `Dark-CookStep08-Phone`: 16 px padding and a thin border, the label on its own line with the pink **Experimental** badge under it, the switch (52 × 32 px) centred against both, the guessed ingredients under a thin divider and the note "Guessed from the step, so it may be wrong. Fix it when you edit the recipe." (line height 1.45; this replaces "For this step · Experimental · guessed" and "Wrong? Fix it…"). "Couldn't keep the screen awake." moves out of the box to its own amber line, with a moon, under the progress bar.
-- **Swipes (0.8.0, F145).** In Cook mode the step follows the finger, slides out and the next slides in; a swipe that does not go far enough, or one at the first or last step, springs back. With "reduce motion" on, nothing slides: the step just changes. The Back and Next buttons and the arrow keys are unchanged.
+- **Swipes (0.8.0, F145).** In Cook mode the step follows the finger, slides out and the next slides in; a swipe that does not go far enough, or one at the first or last step, springs back. With "reduce motion" on, nothing slides: the step just changes. The Back and Next buttons and the arrow keys are unchanged. In import Check's One at a time, a swipe left is Next and a swipe right is Back; it waits while a method step's box is open.
 - **Import Check: a blocked button looks blocked (0.8.0, F154).** With a method step's box open, Cancel (the whole list), Close and Discard (Focus), and Close, See all, Discard, Back and Next (One at a time) are greyed the same way Save recipe is.
 - **Import Check, One at a time: the gaps (0.8.0, F141 follow-ups).** The first screen starts with the recipe's name, Serves and minutes (as Focus shows them) and the photo note; "The page had more than 200 ingredient lines" shows on the last ingredient screen and "steps were shortened" on the last step; the offline line shows on every screen while offline; a save problem on a line the walk does not stop at takes the walk to that line and says what is wrong; and Undo of a removed line or step never moves the walk off the screen you are on (the restored one is just before it, a Back away).
+- **Pantry → Recent changes is quicker (0.8.0).** A "Cooked it" press of many parts is still one line, and it is now read with a fixed number of database reads per press, however many parts it has.
 
 ### Fixed
 
@@ -33,6 +38,11 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Security
 
 - **Reader: a line of many nested brackets (0.8.0, release security pass).** Only one extra pair of brackets is taken off a note, in one pass, so an imported page with hundreds of nested brackets on its ingredient lines can no longer make the import slow. "((optional))" still reads as "optional".
+
+### Tests
+
+- **Import undo on the phone (0.8.0, F144, cabledrawer 6 Nov).** A browser test on a 390 px screen: import a recipe, let the toast go, then Pantry → Ingredients → Recent changes → Undo, and the recipe is gone. This already worked; the test keeps it so.
+- **Steadier tests (0.8.0).** The live-updates test reads until it has what it checks instead of waiting a set time; the theme and Staples tests wait for what they need; the accessibility scans wait for animations to finish; and browser tests are matched by file name only.
 
 ## [0.7.0] - 2026-11-06
 
