@@ -278,18 +278,36 @@ def test_running_low(kitchen: TestClient, toor: dict[str, Any]) -> None:
 def test_use_soon_is_two_days_in_the_households_time_zone(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Kiritimati"})
     day = today(kitchen)  # UTC+14: often already tomorrow in UTC terms
-    spinach = food(kitchen, "Spinach")
-    for days in (-1, 0, 1, 2, 3):
-        add(kitchen, spinach["id"], 100, "g", use_by=str(day + timedelta(days=days)))
+    fridge = place(kitchen, "Fridge")
+    for days in (-1, 0, 1, 2, 3):  # a Use by date per ingredient (the fridge's default)
+        item = food(kitchen, f"Spinach {days}", place_id=fridge)
+        add(kitchen, item["id"], 100, "g", use_by=str(day + timedelta(days=days)))
     soon = kitchen.get(f"{API}/pantry/use-soon").json()
     assert soon["today"] == str(day)
     assert [lot["days_left"] for lot in soon["lots"]] == [-1, 0, 1, 2]
-    assert [(lot["position"], lot["of"]) for lot in soon["lots"]] == [
-        (1, 5),
-        (2, 5),
-        (3, 5),
-        (4, 5),
+    assert [lot["lots_count"] for lot in soon["lots"]] == [1, 1, 1, 1]
+    assert {lot["date_kind"] for lot in soon["lots"]} == {"use_by"}
+
+
+def test_use_soon_rolls_packets_up_one_row_per_ingredient_and_place(kitchen: TestClient) -> None:
+    """Item 4 (cabledrawer 7 Nov): two packets in one place are one row, "2 packets", dated by
+    the soonest; the same ingredient in another place is another row."""
+    day = today(kitchen)
+    fridge = place(kitchen, "Fridge")
+    paneer = food(kitchen, "Paneer", place_id=fridge)
+    size(kitchen, paneer["id"], "pack", 200)
+    first = add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=1)))
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day - timedelta(days=2)))
+    add(kitchen, paneer["id"], 1, "pack", use_by=str(day + timedelta(days=6)))  # not soon
+    add(kitchen, paneer["id"], 1, "pack", place_id=place(kitchen, "Freezer"), use_by=str(day))
+    soon = kitchen.get(f"{API}/pantry/use-soon").json()["lots"]
+    assert [(r["place"]["name"], r["lots_count"], r["days_left"]) for r in soon] == [
+        ("Fridge", 2, -2),
+        ("Freezer", 1, 0),
     ]
+    assert soon[0]["stock"]["short"] == "2\u00a0packs"
+    assert soon[0]["id"] != first["groups"][0]["lots"][0]["id"]  # the soonest packet's id
+    assert pantry(kitchen)["counts"]["use_soon"] == 2
 
 
 def test_editor_shows_the_stock(kitchen: TestClient, toor: dict[str, Any]) -> None:

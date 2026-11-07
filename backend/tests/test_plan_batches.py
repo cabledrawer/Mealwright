@@ -1500,3 +1500,36 @@ def test_only_the_first_copy_of_the_cooked_recipe_is_the_cooking_everywhere(
     shown = kitchen.post(f"{API}/plan/batches/{made['batch_id']}/cook/preview", json={})
     assert shown.status_code == 200, shown.text
     assert shown.json()["portions"] == 3 + 2
+
+
+# --- Tubs on the Pantry page (F131, 0.8) ----------------------------------------------------------
+
+
+def test_tubs_left_show_in_their_place_on_the_pantry_page(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    """Tubs show in Fridge or Freezer like packets (one row per batch and place, "2 tubs",
+    the soonest use-by); they count in `counts.tubs` and in the place's `items`; a search
+    finds them by the recipe's name; a tub in a meal isn't left, so it isn't shown."""
+    made = make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    shown = kitchen.get(f"{API}/pantry").json()
+    fridge = next(p for p in shown["places"] if p["kind"] == "fridge")
+    [row] = fridge["tubs"]
+    assert (row["recipe_name"], row["tubs"], row["words"]) == ("Veg biryani", 3, "3 tubs")
+    assert row["use_by"] and row["days_left"] >= 0 and row["batch_id"]
+    assert fridge["items"] == len(fridge["groups"]) + 1
+    assert shown["counts"]["tubs"] == 3
+    assert all(p["tubs"] == [] for p in shown["places"] if p["kind"] != "fridge")
+    tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]["id"]
+    kitchen.post(f"{API}/plan/tubs/{tub}/place", json={"date": day(1), "slot_id": slots["Lunch"]})
+    shown = kitchen.get(f"{API}/pantry").json()
+    assert shown["counts"]["tubs"] == 2
+    fridge = next(p for p in shown["places"] if p["kind"] == "fridge")
+    assert fridge["tubs"][0]["words"] == "2 tubs"
+    found = kitchen.get(f"{API}/pantry", params={"q": "biryani"}).json()
+    assert next(p for p in found["places"] if p["kind"] == "fridge")["tubs"]
+    nothing = kitchen.get(f"{API}/pantry", params={"q": "zzzz"}).json()
+    assert all(p["tubs"] == [] for p in nothing["places"])
+    low = kitchen.get(f"{API}/pantry", params={"filter": "running_low"}).json()
+    assert all(p["tubs"] == [] for p in low["places"])
+    assert made  # the batch was made

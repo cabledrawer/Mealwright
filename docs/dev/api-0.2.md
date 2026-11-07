@@ -379,6 +379,7 @@ The client shows the question with the "Remember for next time" switch (on by de
   "count_word": null, "count_word_plural": null,
   "place": { "id": 3, "name": "Cupboard" },
   "shop": { "id": 1, "name": "Spice Bazaar" },
+  "date_kind": "best_before", "date_kind_locked": false,   // 0.8: "use_by" | "best_before"; locked = always Use by
   "sizes": [
     { "id": 12, "name": "packet", "plural": "packets", "amount": 500, "display": "Packet = 500 g", "usual": true, "added_when_shopping": false },
     { "id": 13, "name": "bag", "plural": "bags", "amount": 1000, "display": "Bag = 1 kg", "usual": false, "added_when_shopping": true }
@@ -416,6 +417,7 @@ Only `name` is required. `counted_as` defaults from the bundled table match, els
 { "count_word": "slice" }            // plural made by the server; null clears
 { "place_id": 3 }                     // null clears
 { "shop_id": 1 }                      // null clears
+{ "date_kind": "use_by" }              // 0.8: "use_by" or "best_before" (see below); null is refused
 { "running_low_at": { "amount": 0.5, "unit": "packet" } }   // null clears
 { "cup_weight": 200 }                 // grams per household cup; null forgets the household answer
 { "item_weight": 150 }                // grams per item; null forgets
@@ -598,6 +600,8 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 - `POST /api/v1/plan/tubs/{plan_tub_id}/eat`, body `{ "quarters"?: 1 to 4 }` → `PlanWrite`. Eating a tub uses the tub, never the ingredients. Left out: all that is left of it. What is left stays where it is. Kind `plan_tub`, with Undo (as the stock Undo: it gives back the quarters it ate on top of what is there now, up to a whole tub, even if the tub was eaten from again since). `409 tub_eaten` (nothing left), `422 too_much` (more than is left).
 - The cooked record's `snapshot` has a new `choices` list (empty on a record made before this). No database change: the choices are inside the snapshot.
 
+**Use by or Best before (0.8, cabledrawer 7 Nov).** Every ingredient has a date type, `date_kind`. Nothing chosen (the database column `food.date_kind` is null) → the default: the bundled pack-size table's `dates` column when the name or another name matches a row, else from where it is usually kept (fridge: `use_by`; cupboard, freezer, spice rack or no place: `best_before`). **Meat, poultry, fish and chilled dairy are always `use_by`** (`date_kind_locked: true`): the table row says `use by`, or, with no table row, the ingredient's aisle is Meat & fish or Dairy; a table row that says best before (butter, eggs) wins over the aisle. `PATCH {"date_kind": "best_before"}` on a locked one → `422 date_kind_locked`. Choosing the type already in force without a stored choice changes nothing (`change: null`); otherwise it is one Recent changes line ("Homemade pickle is now Use by") with Undo. A stored choice is kept when the usual place changes.
+
 ### 6.4 Stock (the Pantry screen)
 
 **`GET /api/v1/pantry?filter=all&q=thuvaram`** — `filter`: `all` · `use_soon` · `running_low` · `staples`. `q` (from 0.2.1) searches by any name, other names too, with the same matching as `GET /foods?q=`; each place's `items` then counts only what is found, while `counts` stay for the whole pantry. One call gives the whole screen (the phone cards and the desktop columns use the same data).
@@ -629,17 +633,19 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 ```
 
 - A group is one food in one place; lots in it are ordered as they'd be used (oldest/soonest first); the group's `use_by` is its soonest.
-- `items` counts groups. `tubs` stays 0 until 0.6.
+- `items` counts groups, and (0.8) the place's tub rows. `counts.tubs` is the number of tubs left.
+- **Tubs (0.8, F131).** Each place has `tubs`: one row per batch and place for tubs left (in no meal) with some in them, soonest first: `{ batch_id, recipe_name, colour, tubs, words ("2 tubs", "¾ tub"), use_by, days_left, use_soon }`. A tub with no place is in the first fridge. `filter=use_soon` keeps the tubs whose use-by is soon; `running_low` and `staples` show none; `q` matches the recipe's name.
+- **`date_kind`** (0.8) is on every group and lot: `use_by` or `best_before`, the ingredient's. `use_soon` on a lot is true for a Use by date from the past up to today + `use_soon_days`, and for a Best before date only once it has passed; a group's is true when any lot's is. `counts.use_soon` counts groups (one per ingredient and place) with a lot that is soon.
 - `open`: the lot holds less than its size (shows the ¼ ½ ¾ Full picker).
 - `running_low`: the food's total in all places is at or below its running-low level.
 - Groups in a place are ordered by soonest use-by, then name.
 
-**`GET /api/v1/pantry/use-soon`** → lots with a use-by from the past up to today + `use_soon_days`, soonest first, each with its food, place and group size (for "Paneer · 1 of 2 packs"):
+**`GET /api/v1/pantry/use-soon`** → **one row per ingredient and place** (0.8, cabledrawer 7 Nov; Today, Pantry and Use soon all use it), soonest first. A row's `id` is its soonest packet that is soon, `stock` the total of the packets that are soon in that place ("2 packs"), `use_by`/`days_left` the soonest, `lots_count` how many packets. The same rule as `use_soon` above (a Best before date counts only once passed):
 
 ```json
 { "lots": [ { "id": 501, "food": {"id": 20, "name": "Paneer"}, "place": {"id": 1, "name": "Fridge", "kind": "fridge"},
-              "stock": {"display": "1 pack · 200 g", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
-              "position": 1, "of": 2 } ] }
+              "stock": {"display": "2 packs · 400 g", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
+              "date_kind": "use_by", "use_soon": true, "lots_count": 2, "…": "…" } ] }
 ```
 
 **Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock).

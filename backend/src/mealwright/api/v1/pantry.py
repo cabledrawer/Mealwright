@@ -4,13 +4,14 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
-from mealwright import restock
+from mealwright import batches, date_kinds, restock
+from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import (
@@ -61,11 +62,17 @@ class PlaceRef(BaseModel):
     kind: Literal["fridge", "freezer", "cupboard"]
 
 
+DateKindName = Literal["use_by", "best_before"]
+
+
 class LotOut(BaseModel):
     id: int
     stock: AmountOut
     use_by: date | None
     days_left: int | None
+    # Use by or Best before (0.8): the ingredient's date type decides the words and whether a
+    # date not yet passed counts as Use soon (a Best before one only once it has passed).
+    date_kind: DateKindName
     use_soon: bool
     added_on: date
     frozen_on: date | None
@@ -83,14 +90,29 @@ class GroupOut(BaseModel):
     dates_count: int
     use_by: date | None
     days_left: int | None
+    date_kind: DateKindName
     use_soon: bool
     running_low: bool
     lots: list[LotOut]
 
 
+class TubRow(BaseModel):
+    """The tubs of one batch in one place, as one row (F131, 0.8): "Lemon rice · 2 tubs"."""
+
+    batch_id: int
+    recipe_name: str
+    colour: str | None
+    tubs: int  # tubs with some left
+    words: str  # "2 tubs", "¾ tub"
+    use_by: date  # the soonest
+    days_left: int
+    use_soon: bool
+
+
 class PlaceOut(PlaceRef):
     items: int
     groups: list[GroupOut]
+    tubs: list[TubRow]
 
 
 class PantryCounts(BaseModel):
@@ -122,10 +144,12 @@ class PantryOut(BaseModel):
 
 
 class UseSoonLot(LotOut):
+    """One row per ingredient and place (0.8): `id` is its soonest packet that is Use soon,
+    `stock` the total of those packets, `lots_count` how many of them ("2 packets")."""
+
     food: FoodBrief
     place: PlaceRef
-    position: int  # "Paneer · 1 of 2 packs"
-    of: int
+    lots_count: int
 
 
 class UseSoonOut(BaseModel):
@@ -154,6 +178,16 @@ class Pantry:
         self._sizes: dict[int, FoodSize | None] = {}
         self._usual: dict[int, FoodSize | None] = {}
         self._totals: dict[int, int] | None = None
+        self._other_names: dict[int, list[str]] | None = None
+
+    def kind(self, food: Food) -> date_kinds.DateKind:
+        """Use by or Best before for this ingredient."""
+        if self._other_names is None:
+            self._other_names = names_by_food(self.kitchen)
+        place = self.places.get(food.place_id) if food.place_id is not None else None
+        return date_kinds.date_kind(
+            food, [food.name, *self._other_names.get(food.id, [])], place.kind if place else None
+        )
 
     def food(self, food_id: int) -> Food:
         if food_id not in self._foods:
@@ -192,8 +226,12 @@ class Pantry:
     def days_left(self, use_by: date | None) -> int | None:
         return (use_by - self.today).days if use_by is not None else None
 
-    def is_soon(self, use_by: date | None) -> bool:
-        return use_by is not None and use_by <= self.soon
+    def is_soon(self, use_by: date | None, kind: str = "use_by") -> bool:
+        """A Use by date from the past up to the Use soon days ahead; a Best before date only
+        once it has passed (cabledrawer 7 Nov)."""
+        if use_by is None or use_by > self.soon:
+            return False
+        return kind == "use_by" or use_by < self.today
 
     def place_ref(self, place_id: int) -> PlaceRef:
         place = self.places[place_id]
@@ -214,12 +252,14 @@ class Pantry:
     def lot_out(self, lot: StockLot) -> LotOut:
         food = self.food(lot.food_id)
         size = self.lot_size(lot)
+        kind = self.kind(food)
         return LotOut(
             id=lot.id,
             stock=amount_out(food, lot.amount_milli, size),
             use_by=lot.use_by,
             days_left=self.days_left(lot.use_by),
-            use_soon=self.is_soon(lot.use_by),
+            date_kind=kind,
+            use_soon=self.is_soon(lot.use_by, kind),
             added_on=as_utc(lot.added_at).astimezone(zone(self.kitchen.household)).date(),
             frozen_on=lot.frozen_on,
             size_id=lot.size_id,
@@ -231,6 +271,7 @@ class Pantry:
         lots = ordered(self.kitchen, [lot for lot in lots if lot.amount_milli > 0])
         dates = [lot.use_by for lot in lots if lot.use_by is not None]
         first = min(dates) if dates else None
+        kind = self.kind(food)
         return GroupOut(
             food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
             place=self.place_ref(place_id),
@@ -239,7 +280,8 @@ class Pantry:
             dates_count=len(set(dates)),
             use_by=first,
             days_left=self.days_left(first),
-            use_soon=self.is_soon(first),
+            date_kind=kind,
+            use_soon=any(self.is_soon(d, kind) for d in dates),
             running_low=self.running_low(food),
             lots=[self.lot_out(lot) for lot in lots],
         )
@@ -251,6 +293,45 @@ class Pantry:
             lots = lots_of(self.kitchen, [food_id], place_id)
             result.append(self.group(food_id, place_id, lots))
         return result
+
+
+def tub_rows(
+    view: Pantry, wanted: Callable[[str], bool] = lambda _: True
+) -> dict[int, list[TubRow]]:
+    """Tubs left (in no meal), one row per batch and place, soonest first, keyed by place.
+    A tub with no known place is shown in the first fridge. `wanted` keeps the recipe names
+    a search finds."""
+    found, _ = batches.tubs_left(view.kitchen, 1000)
+    fridge = next((p for p in view.places.values() if p.kind == "fridge"), None)
+    fallback = fridge or next(iter(view.places.values()), None)
+    by_row: dict[tuple[int, int], list[Any]] = defaultdict(list)
+    for left in found:
+        place = view.places.get(left.tub.place_id) if left.tub.place_id is not None else None
+        place = place or fallback
+        if place is not None and wanted(left.batch.recipe_name):
+            by_row[(place.id, left.batch.id)].append(left)
+    rows: dict[int, list[TubRow]] = defaultdict(list)
+    for (place_id, batch_id), tubs in by_row.items():
+        first = min(t.tub.use_by for t in tubs)
+        if len(tubs) == 1 and tubs[0].tub.amount_quarters < 4:
+            words = f"{quarters_text(tubs[0].tub.amount_quarters)} tub"
+        else:
+            words = f"{len(tubs)} {'tub' if len(tubs) == 1 else 'tubs'}"
+        rows[place_id].append(
+            TubRow(
+                batch_id=batch_id,
+                recipe_name=tubs[0].batch.recipe_name,
+                colour=tubs[0].batch.colour,
+                tubs=len(tubs),
+                words=words,
+                use_by=first,
+                days_left=(first - view.today).days,
+                use_soon=first <= view.soon,
+            )
+        )
+    for place_rows in rows.values():
+        place_rows.sort(key=lambda r: (r.use_by, r.recipe_name.casefold()))
+    return rows
 
 
 def _sort_key(group: GroupOut) -> tuple[bool, date, str]:
@@ -306,12 +387,22 @@ def pantry(
     )
     staple_foods = list(staples)
     dates = restock.restocked(kitchen.db, kitchen.household_id, staple_foods)
+    all_tubs = tub_rows(view)
+    tubs = (
+        tub_rows(view, lambda name: search_match(name, [], needle) is not None)
+        if needle
+        else all_tubs
+    )
+    if filter in ("running_low", "staples"):
+        tubs = {}
+    elif filter == "use_soon":
+        tubs = {pid: [r for r in rows if r.use_soon] for pid, rows in tubs.items()}
     return PantryOut(
         today=view.today,
         counts=PantryCounts(
             items=len(all_groups),
-            tubs=0,
-            use_soon=sum(lot.use_soon for g in all_groups for lot in g.lots),
+            tubs=sum(r.tubs for rows in all_tubs.values() for r in rows),
+            use_soon=sum(any(lot.use_soon for lot in g.lots) for g in all_groups),
             running_low=len({g.food.id for g in all_groups if g.running_low}),
         ),
         places=[
@@ -319,8 +410,9 @@ def pantry(
                 id=place.id,
                 name=place.name,
                 kind=place.kind,  # type: ignore[arg-type]
-                items=sum(1 for g in found if g.place.id == place.id),
+                items=sum(1 for g in found if g.place.id == place.id) + len(tubs.get(place.id, [])),
                 groups=sorted(groups.get(place.id, []), key=_sort_key),
+                tubs=tubs.get(place.id, []),
             )
             for place in view.places.values()
         ],
@@ -330,8 +422,11 @@ def pantry(
 
 @router.get("/pantry/use-soon")
 def use_soon(kitchen: Here) -> UseSoonOut:
-    """Packets with a use-by from the past up to the day after tomorrow (2 days, in the
-    household's own time zone), soonest first."""
+    """What to use up: one row per ingredient and place (0.8), soonest first.
+    A Use by date from the past up to the day after tomorrow (2 days, in the household's own
+    time zone) counts; a Best before date only once it has passed. A row's amount is all of
+    that ingredient's packets in the place that count ("2 packets"), and its date the
+    soonest."""
     view = Pantry(kitchen)
     by_group: dict[tuple[int, int], list[StockLot]] = defaultdict(list)
     for lot in lots_of(kitchen):
@@ -341,18 +436,24 @@ def use_soon(kitchen: Here) -> UseSoonOut:
     found = []
     for (food_id, place_id), lots in by_group.items():
         food = view.food(food_id)
-        group = ordered(kitchen, lots)
-        for position, lot in enumerate(group, start=1):
-            if view.is_soon(lot.use_by):
-                found.append(
-                    UseSoonLot(
-                        **view.lot_out(lot).model_dump(),
-                        food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
-                        place=view.place_ref(place_id),
-                        position=position,
-                        of=len(group),
-                    )
-                )
+        kind = view.kind(food)
+        soon = [lot for lot in ordered(kitchen, lots) if view.is_soon(lot.use_by, kind)]
+        if not soon:
+            continue
+        soon.sort(key=lambda lot: (lot.use_by or date.max, lot.id))
+        row = view.lot_out(soon[0])
+        if len(soon) > 1:
+            total = sum(lot.amount_milli for lot in soon)
+            row.stock = amount_out(food, total, view.usual(food.id))
+            row.open = False
+        found.append(
+            UseSoonLot(
+                **row.model_dump(),
+                food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
+                place=view.place_ref(place_id),
+                lots_count=len(soon),
+            )
+        )
     found.sort(key=lambda lot: (lot.use_by or date.max, lot.food.name.casefold()))
     return UseSoonOut(today=view.today, lots=found)
 

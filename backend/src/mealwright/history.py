@@ -267,6 +267,7 @@ FIELDS = (
     "merged_into_id",
     "restocked_at",  # kept as text in the snapshot (0.7 K1: a merge can move it on)
     "restock_typed_at",  # the moment it was typed, as text too (0.7 K5, cabledrawer 2 Nov)
+    "date_kind",
 )
 RESTOCK_FIELDS = ("restocked_at", "restock_typed_at")
 SIZE_FIELDS = (

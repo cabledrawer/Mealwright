@@ -1261,3 +1261,50 @@ def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
     assert _row_counts(engine, skip) == before
     assert foods() == held
     assert "AUTOINCREMENT" in _table_sql(engine, "food")
+
+
+RESTOCK_TYPED_AT_MIGRATION = "5fbd6d33c434"  # the one just before date_kind
+
+
+def test_date_kind_migration_adds_one_empty_column_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.8 (cabledrawer 7 Nov, Use by or Best before): every ingredient starts with no chosen date
+    type, so each gets its default; going back drops only the column and keeps every row and
+    "never reuse an id"; going forward again adds it empty."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {"alembic_version"}
+    before = _row_counts(engine, skip)
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT date_kind FROM food").scalars().all()
+    assert found and set(found) == {None}
+    with engine.begin() as connection:  # a choice made in the editor
+        connection.exec_driver_sql("UPDATE food SET date_kind = 'use_by' WHERE id = 1")
+
+    def foods() -> list[tuple[object, ...]]:
+        with engine.connect() as connection:
+            rows = connection.exec_driver_sql(
+                "SELECT id, household_id, name, counted_as, staple, place_id, shop_id, aisle,"
+                " running_low_milli, merged_into_id, removed_at, created_at, restocked_at"
+                " FROM food ORDER BY id"
+            )
+            return [tuple(row) for row in rows]
+
+    held = foods()
+    migrate.downgrade(engine, RESTOCK_TYPED_AT_MIGRATION)
+    assert "date_kind" not in {c["name"] for c in inspect(engine).get_columns("food")}
+    assert migrate_head(engine) == RESTOCK_TYPED_AT_MIGRATION
+    assert _row_counts(engine, skip) == before
+    assert foods() == held
+    assert "AUTOINCREMENT" in _table_sql(engine, "food")
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    column = next(c for c in inspect(engine).get_columns("food") if c["name"] == "date_kind")
+    assert column["nullable"]
+    with engine.connect() as connection:
+        found = connection.exec_driver_sql("SELECT date_kind FROM food").scalars().all()
+    assert set(found) == {None}
+    assert _row_counts(engine, skip) == before
+    assert foods() == held
+    assert "AUTOINCREMENT" in _table_sql(engine, "food")

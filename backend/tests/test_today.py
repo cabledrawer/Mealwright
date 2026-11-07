@@ -86,6 +86,12 @@ def yesterday(kitchen: TestClient, sambar: int, slots: dict[str, int]) -> dict[s
 # --- Cooked it --------------------------------------------------------------------------------
 
 
+def fridge_id(kitchen: TestClient) -> int:
+    """Packets of a fridge ingredient have a Use by date (0.8); in a cupboard it is Best before,
+    which Use soon counts only once passed."""
+    return next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["kind"] == "fridge")
+
+
 def test_cooked_it_marks_the_meal_and_locks_it(
     kitchen: TestClient, yesterday: dict[str, Any], slots: dict[str, int]
 ) -> None:
@@ -532,7 +538,7 @@ def test_today_reads_tubs_use_soon_and_the_next_cook(
         db.add(Tub(household_id=1, batch_id=batch.id, use_by=ahead(kitchen, 30)))
         db.commit()
     # A packet of paneer that goes off today.
-    paneer = new_food(kitchen, "Today paneer")
+    paneer = new_food(kitchen, "Today paneer", place_id=fridge_id(kitchen))
     ok(
         kitchen.post(
             f"{API}/stock",
@@ -636,7 +642,7 @@ def test_use_soon_follows_the_households_day(
 ) -> None:
     set_zone(kitchen, "Pacific/Auckland")
     at(monkeypatch, datetime(2027, 1, 10, 20, 0, tzinfo=UTC))  # 11 Jan there
-    paneer = new_food(kitchen, "Zone paneer")
+    paneer = new_food(kitchen, "Zone paneer", place_id=fridge_id(kitchen))
     ok(
         kitchen.post(
             f"{API}/stock",
@@ -648,7 +654,7 @@ def test_use_soon_follows_the_households_day(
         ),
         201,
     )
-    cheese = new_food(kitchen, "Zone cheese")
+    cheese = new_food(kitchen, "Zone cheese", place_id=fridge_id(kitchen))
     ok(
         kitchen.post(
             f"{API}/stock",

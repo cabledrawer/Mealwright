@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
-from mealwright import amounts, recipes, restock, shopping
+from mealwright import amounts, date_kinds, recipes, restock, shopping
 from mealwright.aisles import AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP, CountedAs, exact_text, from_milli
 from mealwright.api.v1.context import Here, Kitchen
@@ -38,6 +38,7 @@ from mealwright.conversions import (
     table,
     to_base_milli,
 )
+from mealwright.date_kinds import date_kind
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import (
     UNIT_WORDS,
@@ -100,6 +101,7 @@ from mealwright.stock import has_stock, lots_of
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
 
 Name = Annotated[str, Field(min_length=1, max_length=100)]
+DateKindName = Literal["use_by", "best_before"]
 AisleName = Literal[
     "veg_fruit",
     "meat_fish",
@@ -165,6 +167,10 @@ class FoodOut(BaseModel):
     shop: Ref | None
     aisle: AisleName  # a food with no aisle of its own shows under "other"
     aisle_name: str  # "Veg & fruit"
+    # Use by or Best before (0.8, cabledrawer 7 Nov): the one in force, and whether it is fixed
+    # (meat, poultry, fish and chilled dairy are always Use by).
+    date_kind: DateKindName
+    date_kind_locked: bool
     sizes: list[SizeOut]
     # Common sizes from the bundled table that it doesn't have yet (F120, F121).
     pack_suggestions: list[PackSuggestion]
@@ -320,6 +326,11 @@ def _place_ref(kitchen: Kitchen, place_id: int | None) -> Ref | None:
     return Ref(id=place.id, name=place.name) if place is not None else None
 
 
+def _place_kind(kitchen: Kitchen, place_id: int | None) -> str | None:
+    place = kitchen.db.get(Place, place_id) if place_id is not None else None
+    return place.kind if place is not None else None
+
+
 def _shop_ref(kitchen: Kitchen, shop_id: int | None) -> Ref | None:
     shop = kitchen.db.get(Shop, shop_id) if shop_id is not None else None
     return Ref(id=shop.id, name=shop.name) if shop is not None else None
@@ -380,6 +391,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
     same = maybe_same(kitchen, foods, names_by_food(kitchen)).get(food.id, set())
     by_id = {f.id: f for f in foods}
     cup_weight, item_weight = _conversion(kitchen, food)
+    food_names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
     using = recipes.recipes_using(kitchen, food.id)
     maker = recipes.made_ahead_of(kitchen, food.id)
     last = db.scalar(
@@ -406,6 +418,8 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         shop=_shop_ref(kitchen, food.shop_id),
         aisle=cast(AisleName, food.aisle or DEFAULT_AISLE),
         aisle_name=AISLE_LABELS[food.aisle or DEFAULT_AISLE],
+        date_kind=date_kind(food, food_names, _place_kind(kitchen, food.place_id)),
+        date_kind_locked=date_kinds.locked(food, food_names),
         sizes=[size_out(food, s) for s in food_sizes],
         pack_suggestions=pack_suggestions(kitchen, food, food_sizes),
         cup_weight=cup_weight,
@@ -664,6 +678,7 @@ class FoodPatch(BaseModel):
     place_id: StoredInt | None = None
     shop_id: StoredInt | None = None
     aisle: AisleName | None = None
+    date_kind: DateKindName | None = None
     running_low_at: AmountIn | None = None
     cup_weight: CupGrams | None = None  # grams in one household cup
     item_weight: ItemGrams | None = None  # grams in one item
@@ -692,12 +707,14 @@ FIELD_NAMES = (
     "place_id",
     "shop_id",
     "aisle",
+    "date_kind",
     "running_low_at",
     "cup_weight",
     "item_weight",
     "restocked_at",
     "restocked_on",
 )
+DATE_WORDS = {"use_by": "Use by", "best_before": "Best before"}
 COUNTED_WORDS = {"weight": "by weight", "volume": "by volume", "count": "by number"}
 
 
@@ -897,6 +914,21 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
                     return None
                 food.aisle = body.aisle
                 summary = f"{name} is now in {AISLE_LABELS[body.aisle]}"
+            elif field_name == "date_kind":
+                if body.date_kind is None:
+                    raise Problem(422, "date_kind_needed", "Choose Use by or Best before.")
+                food_names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
+                if date_kinds.locked(food, food_names) and body.date_kind != "use_by":
+                    raise Problem(
+                        422,
+                        "date_kind_locked",
+                        f"{name} is always Use by: it can’t be switched to Best before.",
+                    )
+                now = date_kind(food, food_names, _place_kind(kitchen, food.place_id))
+                if body.date_kind == now and food.date_kind in (None, body.date_kind):
+                    return None
+                food.date_kind = body.date_kind
+                summary = f"{name} is now {DATE_WORDS[body.date_kind]}"
             elif field_name == "running_low_at":
                 if body.running_low_at is None:
                     if food.running_low_milli is None:

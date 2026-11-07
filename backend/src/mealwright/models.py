@@ -243,6 +243,9 @@ class Food(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # Which aisle it's in (mealwright.aisles keys). Null shows under Other.
     aisle: Mapped[str | None] = mapped_column(String(20))
+    # "use_by" or "best_before" when the household chose one (0.8, cabledrawer 7 Nov); null: the
+    # default (mealwright.date_kinds).
+    date_kind: Mapped[str | None] = mapped_column(String(11))
     # The shopping-list counter value of the last change a list shows (sync protocol 3.7).
     version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     # A staple's restock date (0.7, cabledrawer 20 Oct) is its newest standing "Restocked" tick
