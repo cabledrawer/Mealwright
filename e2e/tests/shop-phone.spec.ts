@@ -165,6 +165,28 @@ test('swipe right shows Already have it and Move…; a swipe alone changes nothi
   await expect(page.getByRole('dialog', { name: `Already have ${name}` })).toBeVisible();
 });
 
+test('320 px: with both swipe-right buttons showing (208 px), the name is still readable, wrapped not cut (F73)', async ({ page }) => {
+  test.skip(!chromium(page), 'touch events come through the Chromium protocol');
+  const name = `Tamarind paste ${tag()}`;
+  await onList(page, name);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await open(page);
+  await touchSwipe(page, name, 'right');
+  await expect(page.getByRole('button', { name: new RegExp(`^Already have it ${name}`) })).toBeVisible();
+  const label = page.getByRole('button', { name, exact: true });
+  const box = (await label.boundingBox())!;
+  // Not squeezed to nothing: room for a few letters at least, and the whole name's text shows.
+  expect(box.width).toBeGreaterThanOrEqual(56);
+  const cut = await label.evaluate((el) => ({
+    clipped: el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
+    ellipsis: getComputedStyle(el).textOverflow === 'ellipsis',
+  }));
+  expect(cut).toEqual({ clipped: false, ellipsis: false });
+  // And it is inside the screen, not slid off its edge.
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
+});
+
 test('Add as bought: straight into the pantry, with where it goes and one Undo for the add and the tick', async ({ page }) => {
   const name = `Jaggery ${tag()}`;
   const id = await onList(page, name, { listed: false });
