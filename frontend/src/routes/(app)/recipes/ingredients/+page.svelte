@@ -7,7 +7,6 @@
   // the count, as in the mockups.
   import { browser } from '$app/env';
   import { page } from '$app/state';
-  import { tick } from 'svelte';
   import { cantReachWords } from '#lib/api.js';
   import { serverUndo } from '#lib/client/changes.js';
   import { mergeFood } from '#lib/client/foods.js';
@@ -17,13 +16,10 @@
   import PantrySwitch from '#lib/components/PantrySwitch.svelte';
   import IngredientEditor from '#lib/components/IngredientEditor.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import RecentChanges from '#lib/components/RecentChanges.svelte';
   import UsedCount from '#lib/components/UsedCount.svelte';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
-  import { IngredientChanges } from '#lib/ingredientChanges.svelte.js';
   import { IngredientsList } from '#lib/ingredients.svelte.js';
-  import { live } from '#lib/live.svelte.js';
   import { mergeTarget } from '#lib/maybeSame.js';
   import { network } from '#lib/network.svelte.js';
   import { isPantryIngredients } from '#lib/pantrySide.svelte.js';
@@ -34,13 +30,6 @@
   import { toasts } from '#lib/toast.svelte.js';
 
   const list = new IngredientsList();
-  const recent = new IngredientChanges();
-  const uid = $props.id();
-  let recentSheet: HTMLDialogElement;
-  /** Desktop: the side column shows the Recent changes list instead of the editor. */
-  let showRecent = $state(false);
-  let recentBar = $state<HTMLButtonElement>();
-  let recentClose = $state<HTMLButtonElement>();
   let selectedId = $state<number | null>(null);
   let panelName = $state('');
 
@@ -75,20 +64,6 @@
     return () => clearTimeout(timer);
   });
 
-  // Recent changes: fetch again after any change here or elsewhere, when stock moved (a
-  // purchase can bring an ingredient back), and when coming back to the tab.
-  $effect(() => {
-    void kitchen.version;
-    void live.pantry;
-    void recent.load();
-  });
-
-  // The sheet is for phones; if the window grows into a desktop, it closes (the side panel
-  // shows the same list).
-  $effect(() => {
-    if (desktop && recentSheet?.open) recentSheet.close();
-  });
-
   // Ingredients needs the server (spec section 6, "Opening the app offline"): offline it
   // shows a note pointing to Shopping, and fetches again once the connection is back. After a
   // short drop (no offline note yet) it fetches again too, whether its load has failed already
@@ -105,7 +80,6 @@
     if (wasOffline || again) {
       wasOffline = false;
       void list.load();
-      void recent.load();
     }
   });
 
@@ -118,7 +92,6 @@
   function onVisible() {
     if (document.visibilityState !== 'visible') return;
     void list.load();
-    void recent.load();
   }
 
   /** Reached from the Pantry tab's switch (phone): it shows the switch and no way up to Recipes. */
@@ -143,26 +116,6 @@
     return '';
   }
 
-  /** " · 9", " · 10+" when there are more than the list holds; nothing while loading, on an
-   * error, or when there is nothing to count. */
-  const recentCount = $derived(
-    !recent.loaded || recent.problem || recent.changes.length === 0
-      ? ''
-      : ` · ${recent.changes.length}${recent.more ? '+' : ''}`
-  );
-
-  async function openRecent() {
-    showRecent = true;
-    await tick();
-    recentClose?.focus();
-  }
-
-  async function closeRecent() {
-    showRecent = false;
-    await tick();
-    recentBar?.focus();
-  }
-
   function open(food: FoodRow) {
     // Editing needs the server: while it is down, say so instead of opening an editor.
     if (network.offline) {
@@ -172,7 +125,6 @@
     // Desktop edits beside the list; phones get the sheet.
     if (isDesktop()) {
       selectedId = food.id;
-      showRecent = false; // opening an ingredient shows its editor again
     } else ingredientEditor.open(food.id);
   }
 
@@ -228,24 +180,6 @@
 </script>
 
 <svelte:document onvisibilitychange={onVisible} />
-
-{#snippet changesList()}
-  {#if recent.problem && !recent.changes.length}
-    <div class="none" role="alert">
-      <p>{recent.problem}</p>
-      <button type="button" class="again" onclick={() => void recent.load()}>Try again</button>
-    </div>
-  {:else}
-    <RecentChanges
-      changes={recent.changes}
-      onundo={(change) => void recent.undo(change)}
-      verbFirst={false}
-      none={recent.loaded
-        ? 'Nothing yet. Changes to ingredients show here, with Undo.'
-        : 'Loading…'}
-    />
-  {/if}
-{/snippet}
 
 <PageHeader
   title="Ingredients"
@@ -304,13 +238,6 @@
               onclick={() => (list.filter = f.value)}>{f.label}{chipCount(f.value)}</button
             >
           {/each}
-          {#if !desktop}
-            <button
-              type="button"
-              class="filter recent-button"
-              onclick={() => recentSheet.showModal()}>Recent changes</button
-            >
-          {/if}
           {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
             <button
               type="button"
@@ -416,62 +343,23 @@
 
     {#if desktop}
       <div class="side">
-        {#if showRecent}
-          <section class="panel recent" aria-labelledby="{uid}-recent">
-            <div class="recent-head">
-              <h2 id="{uid}-recent">Recent changes</h2>
-              <button
-                type="button"
-                class="close"
-                bind:this={recentClose}
-                onclick={() => void closeRecent()}>Close</button
-              >
-            </div>
-            {@render changesList()}
-          </section>
-        {:else}
-          <button
-            type="button"
-            class="recent-bar"
-            bind:this={recentBar}
-            onclick={() => void openRecent()}
-            >Recent changes{recentCount}<Icon name="chevron-down" size={16} stroke={2.4} /></button
-          >
-          {#if selectedId !== null}
-            <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
-              {#key selectedId}
-                <IngredientEditor
-                  foodId={selectedId}
-                  variant="panel"
-                  onname={(n) => (panelName = n)}
-                  onclose={() => (selectedId = null)}
-                  onopen={(id) => (selectedId = id)}
-                />
-              {/key}
-            </aside>
-          {/if}
+        {#if selectedId !== null}
+          <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
+            {#key selectedId}
+              <IngredientEditor
+                foodId={selectedId}
+                variant="panel"
+                onname={(n) => (panelName = n)}
+                onclose={() => (selectedId = null)}
+                onopen={(id) => (selectedId = id)}
+              />
+            {/key}
+          </aside>
         {/if}
       </div>
     {/if}
   </div>
 {/if}
-
-<dialog
-  bind:this={recentSheet}
-  aria-labelledby="{uid}-sheet"
-  onclick={(event) => {
-    if (event.target === recentSheet) recentSheet.close();
-  }}
->
-  <div class="sheet-body">
-    <span class="handle" aria-hidden="true"></span>
-    <div class="sheet-head">
-      <h2 id="{uid}-sheet">Recent changes</h2>
-      <button type="button" class="close" onclick={() => recentSheet.close()}>Close</button>
-    </div>
-    {@render changesList()}
-  </div>
-</dialog>
 
 <style>
   .new-round {
@@ -777,94 +665,6 @@
     display: none;
   }
 
-  .none {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-  }
-
-  .recent-button {
-    color: var(--color-accent);
-  }
-
-  /* The phone's Recent changes sheet: from the bottom, like the ingredient editor. */
-  dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: min(680px, calc(100dvh - 120px));
-    margin: 0;
-    padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .sheet-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .sheet-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .recent-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .recent-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: var(--touch-target);
-    padding: 0 22px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .sheet-head h2,
-  .recent h2 {
-    margin: 0;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .close {
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-accent);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
   /* Desktop: a table-like list, and the editor beside it. */
   @media (min-width: 768px) {
     .card {
@@ -939,7 +739,7 @@
       text-align: left;
     }
 
-    /* The editor and Recent changes stay in view while the list scrolls. */
+    /* The editor stays in view while the list scrolls. */
     .side {
       position: sticky;
       top: var(--space-7);
@@ -960,12 +760,6 @@
       padding: var(--space-8) 22px;
       border-radius: var(--radius-panel);
       background: var(--color-surface);
-    }
-
-    .recent {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
     }
   }
 </style>

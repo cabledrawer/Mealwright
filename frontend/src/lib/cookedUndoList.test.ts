@@ -5,14 +5,14 @@ import { kitchen } from './freshness.svelte';
 import { changeOf, fakeApi } from './testing/fakeApi';
 import { toasts } from './toast.svelte';
 
-// F125 (cabledrawer 3 Nov): "Undo of "Cooked it" from Pantry → Recent changes must also undo the
+// F125 (cabledrawer 3 Nov): "Undo of "Cooked it" from Recent changes must also undo the
 // meal's "Cooked" (one change, one Undo, as the toast does)." The server takes the meal's
 // Cooked back with the pantry's; the list asks once and the screens fetch again.
 const COOKED = { ...changeOf(70, 'Cooked Dal curry'), kind: 'cooked' } as Change;
 const paths = (requests: { method: string; path: string }[]) =>
   requests.map((r) => `${r.method} ${r.path}`);
 
-describe('Undo of Cooked it in Pantry → Recent changes', () => {
+describe('Undo of Cooked it in Settings → Recent changes', () => {
   afterEach(() => toasts.dismiss());
 
   it('is one Undo: one request, the row loses its Undo, and Today and the Plan fetch again', async () => {

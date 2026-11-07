@@ -2,9 +2,9 @@
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
   // lead's rulings of 17 Oct):
   //   phone: search; jump chips; Use soon; a card per place (no place tabs, cabledrawer 24 Oct);
-  //          staples; Recent changes at the bottom (last 3, with Undo);
+  //          staples;
   //   desktop: search, filters, the places as 4 columns or 2 × 2, and a side panel with
-  //            Use soon, Staples and Recent changes.
+  //            Use soon and Staples. (Recent changes moved to Settings, F172.)
   // Tapping a staple, and "+ List" on a running-low row, add to the main shopping list
   // (0.3, PantryList). "Recipes for these" (desktop) and "Recipes that use them →" (phone) open
   // All recipes on its "Use soon" filter (0.4). Waiting for later milestones (spec "Decided for
@@ -23,7 +23,6 @@
   import PantryGroup from '#lib/components/PantryGroup.svelte';
   import SwipeRow from '#lib/components/SwipeRow.svelte';
   import UsedSheet from '#lib/components/UsedSheet.svelte';
-  import RecentChanges from '#lib/components/RecentChanges.svelte';
   import { compactDateWords, dateWords } from '#lib/dates.js';
   import { chipWords } from '#lib/restockWords.js';
   import type { Name as IconName } from '#lib/components/Icon.svelte';
@@ -59,8 +58,6 @@
   /** Phone: the Use soon card shows every item, not just the first. */
   let soonAll = $state(false);
   let addingStaple = $state(false);
-  /** Phone: Recent changes beyond the last 3. */
-  let moreChanges = $state(false);
   /** Place columns showing every food, not just the first few (desktop). */
   let expanded = $state<Record<number, boolean>>({});
   const FIRST = 8;
@@ -526,24 +523,6 @@
       {/if}
       {@render staples(false)}
     {/if}
-
-    <!-- The last 3, always; "Show more" for the rest. -->
-    <section class="recent" aria-labelledby="{uid}-precent">
-      <h2 id="{uid}-precent">Recent changes</h2>
-      <RecentChanges
-        changes={moreChanges ? model.changes : model.changes.slice(0, 3)}
-        onundo={(change) => void model.undo(change)}
-      />
-      {#if model.changes.length > 3}
-        <button
-          type="button"
-          class="link"
-          aria-expanded={moreChanges}
-          onclick={() => (moreChanges = !moreChanges)}
-          >{moreChanges ? 'Show fewer' : 'Show more'}</button
-        >
-      {/if}
-    </section>
   </div>
 {:else}
   <div class="desk">
@@ -580,7 +559,7 @@
       {/if}
     </section>
 
-    <aside class="side" aria-label="Use soon, staples and recent changes">
+    <aside class="side" aria-label="Use soon and staples">
       <section class="card side-card" aria-labelledby="{uid}-dsoon">
         <div class="side-head">
           <h2 id="{uid}-dsoon">Use soon</h2>
@@ -593,10 +572,6 @@
         {/if}
       </section>
       {@render staples(true)}
-      <section class="card side-card" aria-labelledby="{uid}-recent">
-        <h2 id="{uid}-recent">Recent changes</h2>
-        <RecentChanges changes={model.changes} onundo={(change) => void model.undo(change)} />
-      </section>
     </aside>
   </div>
 {/if}
@@ -1027,20 +1002,6 @@
     border: 1px dashed var(--color-add-border);
     background: transparent;
     color: var(--color-text-muted);
-  }
-
-  .recent {
-    padding: var(--space-2) 14px;
-    border-radius: var(--radius-xl);
-    background: var(--color-surface);
-  }
-
-  .recent h2 {
-    display: flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
   }
 
   .problem,

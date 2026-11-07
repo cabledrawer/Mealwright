@@ -1,10 +1,10 @@
-// The Pantry screen's data (contract 6.4): what's where, what to use soon and the
-// recent changes, fetched together. Every change shows at once (optimistic), goes
+// The Pantry screen's data (contract 6.4): what's where, and what to use soon,
+// fetched together. Every change shows at once (optimistic), goes
 // through save() with its change ID and Undo, and then the screen is fetched again so
 // the server's wording ("1½ packets · about 750 g") replaces any guess.
 
 import { ApiError, cantReachWords, cantReach } from './api';
-import { listChanges, serverUndo, undoFromList } from './client/changes';
+import { serverUndo } from './client/changes';
 import { createFood, listFoods, patchFood } from './client/foods';
 import {
   addStock,
@@ -23,7 +23,6 @@ import {
 import type {
   AmountIn,
   Answer,
-  Change,
   FoodRow,
   Group,
   Pantry,
@@ -34,9 +33,6 @@ import type {
 } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
-
-/** How many recent changes the Pantry shows (desktop panel; phones show 3). */
-export const RECENT = 8;
 
 /** Take a packet off the screen: it was used, binned or moved. */
 export function withoutLot(pantry: Pantry, lotId: number): void {
@@ -78,7 +74,6 @@ export function withGroups(pantry: Pantry, groups: Group[]): void {
 export class PantryModel {
   pantry = $state<Pantry | null>(null);
   useSoon = $state<UseSoonLot[]>([]);
-  changes = $state<Change[]>([]);
   filter = $state<PantryFilter>('all');
   /** What is typed in "Find in pantry". */
   query = $state('');
@@ -94,10 +89,9 @@ export class PantryModel {
     const asked = ++this.#asked;
     const query = this.query.trim();
     try {
-      const [pantry, useSoon, changes, found] = await Promise.all([
+      const [pantry, useSoon, found] = await Promise.all([
         getPantry(this.filter, this.query),
         getUseSoon(),
-        listChanges({ area: 'pantry', limit: RECENT }),
         // Which name matched, for "also called …". Without it the results still show.
         // Asked again on every reload, even for the same words: a new live or stock change can
         // bring in an ingredient that matches only by another name, which the last answer lacks.
@@ -108,7 +102,6 @@ export class PantryModel {
       this.searched = query;
       this.matches = found?.foods ?? [];
       this.useSoon = useSoon.lots;
-      this.changes = changes.changes;
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
@@ -309,10 +302,5 @@ export class PantryModel {
 
   add(stock: NewStock, label: string) {
     return this.#act({ label, send: (key, answers) => addStock(stock, key, answers) });
-  }
-
-  /** Undo from the Recent changes list (anyone's change, within the undo window). */
-  undo(change: Change): Promise<void> {
-    return undoFromList(change, this);
   }
 }

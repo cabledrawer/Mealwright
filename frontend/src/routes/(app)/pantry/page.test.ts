@@ -31,36 +31,9 @@ describe('the Pantry page', () => {
         200,
         { lots: sample.useSoon.filter((lot) => !gone.has(lot.id)) }
       ],
-      'GET /changes?limit=8&area=pantry': [
-        200,
-        {
-          changes: [
-            changeOf(31, 'Used 200 g Toor dal'),
-            {
-              ...changeOf(30, 'Undid: Binned 1 pack paneer'),
-              can_undo: false,
-              totals: [
-                {
-                  food_id: 21,
-                  name: 'Paneer',
-                  place_before: { id: 1, name: 'Fridge' },
-                  place_after: { id: 1, name: 'Fridge' },
-                  before: { amount: 0, display: '0 g' },
-                  after: { amount: 200, display: '1 pack · 200 g' }
-                }
-              ]
-            }
-          ],
-          next: null
-        }
-      ],
       'POST /changes/700/undo': [
         200,
         { result: 'done', message: '', change: changeOf(702, 'Undid'), food: null }
-      ],
-      'POST /changes/31/undo': [
-        200,
-        { result: 'done', message: '', change: changeOf(32, 'Undid'), food: null }
       ],
       [`POST /stock/${sample.spinach.id}/used`]: () => {
         gone.add(sample.spinach.id);
@@ -112,16 +85,13 @@ describe('the Pantry page', () => {
     vi.unstubAllGlobals();
   });
 
-  it('desktop: every place as a column, with Use soon, Staples and Recent changes beside', async () => {
+  it('desktop: every place as a column, with Use soon and Staples beside', async () => {
     await render(1300);
     for (const name of ['Fridge', 'Freezer', 'Cupboard', 'Spice rack']) {
       await expect.element(page.getByRole('heading', { name, level: 2 })).toBeVisible();
     }
     await expect.element(page.getByText('6 ingredients · 2 use soon')).toBeVisible();
     await expect.element(page.getByText(/300 g · running low/)).toBeVisible();
-    await expect
-      .element(page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }))
-      .toBeVisible();
     // "+ List" works in 0.3 (on running-low rows). Not until later milestones: the rest.
     await expect
       .element(page.getByRole('button', { name: 'Add Basmati rice to the shopping list' }))
@@ -766,15 +736,13 @@ describe('the Pantry page', () => {
     );
   });
 
-  it('Undo in Recent changes undoes that change', async () => {
+  it('has no Recent changes list: that is in Settings now (F172)', async () => {
     await render(1300);
-    await page.getByRole('button', { name: 'Undo: Used 200 g Toor dal' }).click();
-    await vi.waitFor(() => expect(requests.some((r) => r.path === '/changes/31/undo')).toBe(true));
-    // An Undo row has no Undo of its own, and shows what it did, before → after.
-    expect(
-      page.getByRole('button', { name: 'Undo: Undid: Binned 1 pack paneer' }).elements()
-    ).toHaveLength(0);
-    await expect.element(page.getByText('Paneer: 0 g → 1 pack · 200 g')).toBeVisible();
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    expect(page.getByRole('heading', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    expect(requests.filter((r) => r.path === '/changes')).toHaveLength(0);
+    await render(390);
+    expect(page.getByRole('heading', { name: 'Recent changes' }).elements()).toHaveLength(0);
   });
 
   it('phone: the round + button opens the Add to pantry sheet when online', async () => {
@@ -1132,33 +1100,6 @@ describe('the Pantry page', () => {
     await vi.waitFor(() =>
       expect(toasts.current?.message).toBe('There’s no Toor dal in the Cupboard to use.')
     );
-  });
-
-  it('phone: Recent changes shows the last 3, with Undo, and Show more', async () => {
-    routes({
-      'GET /changes?limit=8&area=pantry': [
-        200,
-        {
-          changes: [1, 2, 3, 4].map((n) => changeOf(40 + n, `Used ${n}00 g Toor dal`)),
-          next: null
-        }
-      ]
-    });
-    await render(390);
-    const recent = page.getByRole('region', { name: 'Recent changes' });
-    await expect
-      .element(recent.getByRole('button', { name: 'Undo: Used 100 g Toor dal' }))
-      .toBeVisible();
-    await expect
-      .element(recent.getByRole('button', { name: 'Undo: Used 300 g Toor dal' }))
-      .toBeVisible();
-    expect(
-      recent.getByRole('button', { name: 'Undo: Used 400 g Toor dal' }).elements()
-    ).toHaveLength(0);
-    await recent.getByRole('button', { name: 'Show more' }).click();
-    await expect
-      .element(recent.getByRole('button', { name: 'Undo: Used 400 g Toor dal' }))
-      .toBeVisible();
   });
 
   it('a packet’s menu: by keyboard, with Esc back to the packet, and Used', async () => {

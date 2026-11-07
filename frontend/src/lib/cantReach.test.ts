@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, cantReachWords, cantReach } from './api';
-import { IngredientChanges } from './ingredientChanges.svelte';
+import { AllChanges } from './allChanges.svelte';
 import { IngredientsList } from './ingredients.svelte';
 import { network } from './network.svelte';
 import { PantryModel } from './pantry.svelte';
@@ -55,7 +55,7 @@ describe('cantReach()', () => {
 describe('one wording on every page when the server can’t be reached (F67)', () => {
   const pages: [string, () => { load(): Promise<void>; problem: string | null }][] = [
     ['Ingredients', () => new IngredientsList()],
-    ['Ingredients, recent changes', () => new IngredientChanges()],
+    ['Settings, recent changes', () => new AllChanges()],
     ['Pantry', () => new PantryModel()],
     ['Recipes', () => new RecipeList()],
     ['a recipe', () => new RecipeView(7)],
