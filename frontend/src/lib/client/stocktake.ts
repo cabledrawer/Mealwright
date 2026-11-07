@@ -29,6 +29,13 @@ export interface StocktakeRow {
   pack: Size | null;
   pack_suggestions: PackSuggestion[];
   answer: StocktakeAnswer | null;
+  /** What is there now as the picks read it (answered or not): the open packet's share, and
+   *  the whole packets besides it. */
+  fraction_now: string | null;
+  more_now: number;
+  /** An ingredient counted one by one: its word ("tin", "tins"); null: none. */
+  count_word: string | null;
+  count_word_plural: string | null;
 }
 
 export interface StocktakeStep extends Place {

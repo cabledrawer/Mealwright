@@ -21,11 +21,25 @@ import {
 } from './client/stocktake';
 import type { PackSuggestion } from './client/types';
 import { kitchen } from './freshness.svelte';
-import { save } from './save';
+import { COULDNT_SAVE, save } from './save';
+import { toasts } from './toast.svelte';
 
 /** The pick that matches the row now: null while it isn't answered. */
 export const fractionOf = (row: StocktakeRow): number | null =>
   row.answer?.fraction != null ? Number(row.answer.fraction) : null;
+
+/** The whole packets besides the open one: the answer's, else what is there now. */
+export const moreOf = (row: StocktakeRow): number => row.answer?.more ?? row.more_now;
+
+/** The open packet's share: the answer's, else what is there now (0 when nothing is known). */
+export const shareOf = (row: StocktakeRow): number =>
+  fractionOf(row) ?? (row.fraction_now != null ? Number(row.fraction_now) : 0);
+
+/** "2 tins", "1 tin", or just "2" when the ingredient has no word of its own. */
+export function countWords(row: StocktakeRow, n: number): string {
+  const word = n === 1 ? row.count_word : (row.count_word_plural ?? row.count_word);
+  return word ? `${n}\u00a0${word}` : String(n);
+}
 
 export const countOf = (row: StocktakeRow): number | null =>
   row.answer?.count != null ? Number(row.answer.count) : null;
@@ -73,9 +87,20 @@ export class StocktakeModel {
   }
 
   /** Go to a place (Back, or Next once the one before is finished). */
-  async goTo(placeId: number): Promise<void> {
-    this.place = await getStocktakePlace(placeId);
-    this.overview = await getStocktake();
+  async goTo(placeId: number): Promise<boolean> {
+    try {
+      this.place = await getStocktakePlace(placeId);
+      this.overview = await getStocktake();
+      return true;
+    } catch {
+      return this.#failed();
+    }
+  }
+
+  /** The usual words when something could not be saved or opened; false, for the caller. */
+  #failed(): false {
+    toasts.show(COULDNT_SAVE, { tone: 'problem' });
+    return false;
   }
 
   /** "Next: Spice rack →": this place is finished; go on to the next. */
@@ -89,14 +114,19 @@ export class StocktakeModel {
       kitchen.changed({ elsewhere: true });
       return true;
     } catch {
-      return false;
+      return this.#failed();
     }
   }
 
-  async restart(): Promise<void> {
-    this.overview = await restartStocktake();
-    const first = this.overview.places[0];
-    if (first) this.place = await getStocktakePlace(first.id);
+  async restart(): Promise<boolean> {
+    try {
+      this.overview = await restartStocktake();
+      const first = this.overview.places[0];
+      if (first) this.place = await getStocktakePlace(first.id);
+      return true;
+    } catch {
+      return this.#failed();
+    }
   }
 
   #row(foodId: number): StocktakeRow | undefined {
@@ -244,10 +274,15 @@ export class StocktakeModel {
   }
 
   /** "+ Something else in the Cupboard": count this ingredient here too. */
-  async addHere(foodId: number): Promise<void> {
+  async addHere(foodId: number): Promise<boolean> {
     const place = this.place;
-    if (!place) return;
-    const write = await addSomethingElse(place.place.id, foodId);
+    if (!place) return false;
+    let write: StocktakeWrite;
+    try {
+      write = await addSomethingElse(place.place.id, foodId);
+    } catch {
+      return this.#failed();
+    }
     if (!place.rows.some((r) => r.food.id === write.row.food.id)) {
       place.rows = [...place.rows, write.row].sort((a, b) =>
         a.food.name.localeCompare(b.food.name, undefined, { sensitivity: 'base' })
@@ -256,5 +291,6 @@ export class StocktakeModel {
     place.answered = write.answered;
     place.total = write.total;
     kitchen.changed({ elsewhere: true });
+    return true;
   }
 }

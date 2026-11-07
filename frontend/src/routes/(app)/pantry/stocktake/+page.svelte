@@ -9,7 +9,14 @@
   import { resolve } from '$app/paths';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import { fractionOf, countOf, StocktakeModel } from '#lib/stocktake.svelte.js';
+  import {
+    countOf,
+    countWords,
+    fractionOf,
+    moreOf,
+    shareOf,
+    StocktakeModel
+  } from '#lib/stocktake.svelte.js';
   import type { StocktakeRow } from '#lib/client/stocktake.js';
   import type { PackSuggestion, Ref } from '#lib/client/types.js';
   import { live } from '#lib/live.svelte.js';
@@ -104,31 +111,29 @@
 
   async function pickedFood(food: Ref) {
     adding = false;
-    await model.addHere(food.id).catch(() => {});
+    await model.addHere(food.id);
   }
 
   async function createdFood(name: string) {
     const made = await newIngredient.ask(name);
     adding = false;
-    if (made) await model.addHere(made.id).catch(() => {});
+    if (made) await model.addHere(made.id);
   }
 
   // --- Moving on -----------------------------------------------------------------------------
 
   async function next() {
     if (blockedWhileDown()) return;
-    await model.next();
-    window.scrollTo({ top: 0 });
+    if (await model.next()) window.scrollTo({ top: 0 });
   }
 
   async function back(id: number) {
-    await model.goTo(id).catch(() => {});
-    window.scrollTo({ top: 0 });
+    if (await model.goTo(id)) window.scrollTo({ top: 0 });
   }
 
   async function again() {
     if (blockedWhileDown()) return;
-    await model.restart().catch(() => {});
+    await model.restart();
   }
 </script>
 
@@ -198,7 +203,8 @@
               onclick={() => void model.count(row.food.id, row.food.name, countNow(row) - 1)}
               >−</button
             >
-            <span class="number" class:unsaid={!row.answered}>{countNow(row)}</span>
+            <span class="number" class:unsaid={!row.answered}>{countWords(row, countNow(row))}</span
+            >
             <button
               type="button"
               aria-label="One more"
@@ -258,20 +264,26 @@
                 aria-checked={fraction === pick.value}
                 aria-label={pick.aria}
                 disabled={pick.value > 0 && !row.pack}
-                onclick={() => void model.pick(row.food.id, row.food.name, pick.value, 0)}
-                >{pick.label}</button
+                onclick={() =>
+                  void model.pick(
+                    row.food.id,
+                    row.food.name,
+                    pick.value,
+                    pick.value === 0 ? 0 : moreOf(row)
+                  )}>{pick.label}</button
               >
             {/each}
           </div>
-          {#if row.pack && fraction !== null && fraction > 0}
-            {@const more = row.answer?.more ?? 0}
+          {#if row.pack && (shareOf(row) > 0 || moreOf(row) > 0)}
+            {@const share = shareOf(row)}
+            {@const more = moreOf(row)}
             <div class="stepper small" role="group" aria-label="{row.food.name}: more packets">
               <span class="label">More {row.pack.plural} besides this one</span>
               <button
                 type="button"
                 aria-label="One fewer {row.pack.name}"
                 disabled={more <= 0}
-                onclick={() => void model.pick(row.food.id, row.food.name, fraction, more - 1)}
+                onclick={() => void model.pick(row.food.id, row.food.name, share, more - 1)}
                 >−</button
               >
               <span class="number">{more}</span>
@@ -279,7 +291,7 @@
                 type="button"
                 aria-label="One more {row.pack.name}"
                 disabled={more >= 20}
-                onclick={() => void model.pick(row.food.id, row.food.name, fraction, more + 1)}
+                onclick={() => void model.pick(row.food.id, row.food.name, share, more + 1)}
                 >+</button
               >
             </div>

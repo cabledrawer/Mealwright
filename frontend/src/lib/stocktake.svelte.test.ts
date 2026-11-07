@@ -13,7 +13,15 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock('./client/stocktake', () => api);
 
-import { countOf, fractionOf, StocktakeModel } from './stocktake.svelte';
+import { toasts } from './toast.svelte';
+import {
+  countOf,
+  countWords,
+  fractionOf,
+  moreOf,
+  shareOf,
+  StocktakeModel
+} from './stocktake.svelte';
 
 const stock = { amount: 0, display: '0 g' };
 
@@ -37,6 +45,10 @@ function row(id: number, name: string, extra: Partial<StocktakeRow> = {}): Stock
     },
     pack_suggestions: [],
     answer: null,
+    fraction_now: null,
+    more_now: 0,
+    count_word: null,
+    count_word_plural: null,
     ...extra
   };
 }
@@ -247,5 +259,41 @@ describe('the stocktake', () => {
     await model.addHere(6);
     expect(model.place!.rows.map((r) => r.food.name)).toEqual(['Atta', 'Jam', 'Toor dal']);
     expect(model.place!.total).toBe(3);
+  });
+
+  it('reads the packets there now until an answer says otherwise', () => {
+    const there = row(1, 'Dal', { fraction_now: '0.5', more_now: 2 });
+    expect([shareOf(there), moreOf(there)]).toEqual([0.5, 2]);
+    const said = row(1, 'Dal', {
+      fraction_now: '0.5',
+      more_now: 2,
+      answer: { fraction: '1', more: 0, count: null }
+    });
+    expect([shareOf(said), moreOf(said)]).toEqual([1, 0]);
+    expect(shareOf(row(1, 'Dal'))).toBe(0);
+  });
+
+  it('words a count with the ingredient’s own word', () => {
+    const tins = row(2, 'Tomatoes', { count_word: 'tin', count_word_plural: 'tins' });
+    expect(countWords(tins, 1)).toBe('1\u00a0tin');
+    expect(countWords(tins, 2)).toBe('2\u00a0tins');
+    expect(countWords(row(3, 'Onion'), 2)).toBe('2');
+  });
+
+  it('tells the person when adding, going back or going on cannot be saved', async () => {
+    api.getStocktake.mockResolvedValue(overview(3));
+    api.getStocktakePlace.mockResolvedValue(place([row(7, 'Toor dal')]));
+    const model = new StocktakeModel();
+    await model.open();
+    const show = vi.spyOn(toasts, 'show');
+    api.addSomethingElse.mockRejectedValue(new Error('down'));
+    expect(await model.addHere(6)).toBe(false);
+    api.getStocktakePlace.mockRejectedValue(new Error('down'));
+    expect(await model.goTo(4)).toBe(false);
+    api.finishPlace.mockRejectedValue(new Error('down'));
+    expect(await model.next()).toBe(false);
+    expect(show).toHaveBeenCalledTimes(3);
+    expect(show).toHaveBeenCalledWith('Couldn’t save. Try again.', { tone: 'problem' });
+    show.mockRestore();
   });
 });
