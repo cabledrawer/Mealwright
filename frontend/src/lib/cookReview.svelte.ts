@@ -29,6 +29,9 @@ import { undoHistory, type UndoEntry } from './undo.svelte';
 export const COULDNT_REACH_COOK =
   'Couldn’t reach the server. Some of “Cooked it” may be saved: check Recent changes.';
 export const COULDNT_COOK = 'Couldn’t save “Cooked it”. Nothing was changed. Try again.';
+/** The server's own words for a refused meal answer it explains (cabledrawer 7 Nov: "Lentil soup
+ * still needs Cooked it."), shown instead of COULDNT_COOK. */
+let refusedWords: string | null = null;
 
 /** One recipe to cook: a meal item, or a Cook once batch. */
 export interface CookPart {
@@ -182,6 +185,7 @@ export class CookReview {
   ): Promise<{ ok: boolean; outcomes: Outcomes }> {
     const target = this.target;
     if (!target) return { ok: false, outcomes: [] };
+    refusedWords = null;
     const outcomes: Outcomes = [];
     const items = this.tabs.filter((t) => t.part.itemId !== null);
     this.saving = true;
@@ -285,8 +289,10 @@ export class CookReview {
         stayed.push(value);
       }
     }
+    const words = refusedWords ?? COULDNT_COOK;
+    refusedWords = null;
     if (stayed.length === 0) {
-      toasts.show(notes.length ? notes.join(' ') : COULDNT_COOK, { tone: 'problem' });
+      toasts.show(notes.length ? notes.join(' ') : words, { tone: 'problem' });
       return;
     }
     for (const value of stayed) {
@@ -348,5 +354,7 @@ export function undoAll(
 /** What the meal's answer came to for the review: done, refused, or its reply never came. */
 export function answered(outcome: Outcome<unknown>): boolean | 'unsure' {
   if (outcome.ok) return true;
+  if (outcome.error instanceof ApiError && outcome.error.code === 'recipes_still_to_cook')
+    refusedWords = outcome.error.detail;
   return !outcome.cancelled && worthRetrying(outcome.error) ? 'unsure' : false;
 }

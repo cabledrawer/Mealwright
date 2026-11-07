@@ -2,12 +2,14 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { CookRow, Proposal } from '#lib/client/cook.js';
+import { ApiError } from '#lib/api.js';
 import { askOnce } from '#lib/askOnce.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import {
   COULDNT_COOK,
   COULDNT_REACH_COOK,
   CookReview,
+  answered,
   type CookTarget
 } from '#lib/cookReview.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
@@ -239,6 +241,28 @@ describe('a confirm that goes wrong leaves nothing changed, or an Undo for what 
       expect(undone()).toEqual(['POST /api/v1/changes/6/undo', 'POST /api/v1/changes/5/undo'])
     );
     await vi.waitFor(() => expect(toasts.current?.message).toBe(COULDNT_COOK));
+    await expect.element(page.getByRole('dialog', { name: target.title })).toBeVisible();
+  });
+
+  it('a meal answer the server refuses with its own words shows those words (cabledrawer 7 Nov)', async () => {
+    review = new CookReview();
+    const words = 'Lentil soup still needs Cooked it.';
+    component = mount(CookedReview, {
+      target: document.body,
+      props: {
+        review,
+        onclose: () => review.close(),
+        onconfirmed: async () =>
+          answered({
+            ok: false,
+            error: new ApiError(422, words, 'recipes_still_to_cook')
+          })
+      }
+    });
+    await review.open(target);
+    flushSync();
+    await confirm();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe(words));
     await expect.element(page.getByRole('dialog', { name: target.title })).toBeVisible();
   });
 
