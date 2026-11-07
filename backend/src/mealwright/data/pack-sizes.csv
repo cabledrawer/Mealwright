@@ -36,373 +36,374 @@
 # bought at that kind of grocer; empty for everyday ones. A specialist ingredient's Usual shop
 # is guessed from a shop name that matches its cuisine (indian, south indian, asian, chinese,
 # japanese, arabic, lebanese, turkish, middle eastern, persian, halal…).
-key,names,pack,sizes,where,dates,cuisine
-plain_flour,plain flour|all-purpose flour|flour|maida,bag,1.5 kg|500 g|1 kg,supermarket,best before,
-self_raising_flour,self-raising flour|self-rising flour,bag,1.5 kg|500 g,supermarket,best before,
-bread_flour,strong white flour|bread flour|strong flour,bag,1.5 kg|1 kg,supermarket,best before,
-wholemeal_flour,wholemeal flour|whole wheat flour,bag,1.5 kg|1 kg,supermarket,best before,
-chapati_flour,chapati flour|atta|chakki atta,bag,5 kg|10 kg|1.5 kg,specialist,best before,indian
-cornflour,cornflour|cornstarch,box,500 g|250 g,supermarket,best before,
-semolina,semolina|sooji|rava|suji,bag,500 g|1 kg|1.5 kg,world aisle,best before,indian
-fine_rava,bombay rava|upma rava|fine semolina,bag,1 kg|500 g,specialist,best before,indian
-rice_flour,rice flour|chawal ka atta,bag,1 kg|500 g|1.5 kg,world aisle,best before,indian
-gram_flour,gram flour|besan|chickpea flour,bag,1 kg|500 g|2 kg,world aisle,best before,indian
-ragi_flour,ragi flour|finger millet flour|nachni,bag,1 kg|500 g,specialist,best before,indian
-cornmeal,cornmeal|polenta,bag,500 g|1 kg,supermarket,best before,
-sugar,sugar|caster sugar|granulated sugar|white sugar,bag,1 kg|500 g|2 kg,supermarket,best before,
-brown_sugar,brown sugar|light brown sugar|dark brown sugar|demerara sugar|muscovado,bag,500 g|1 kg,supermarket,best before,
-icing_sugar,icing sugar|powdered sugar,bag,500 g|1 kg,supermarket,best before,
-jaggery,jaggery|gur|vellam,block,500 g|1 kg,specialist,best before,indian
-honey,honey,jar,340 g|454 g,supermarket,best before,
-maple_syrup,maple syrup,bottle,250 ml|500 ml,supermarket,best before,
-golden_syrup,golden syrup,tin,454 g|680 g,supermarket,best before,
-cocoa,cocoa|cocoa powder,tub,250 g|125 g,supermarket,best before,
-baking_powder,baking powder,tub,170 g|100 g,supermarket,best before,
-bicarbonate_of_soda,bicarbonate of soda|baking soda|bicarb,tub,200 g|100 g,supermarket,best before,
-dried_yeast,dried yeast|fast action yeast|instant yeast,packet,56 g|125 g,supermarket,best before,
-chocolate_chips,chocolate chips,bag,100 g|200 g,supermarket,best before,
-breadcrumbs,breadcrumbs,bag,250 g|200 g,supermarket,best before,
-vanilla_extract,vanilla extract|vanilla essence,bottle,38 ml|60 ml,supermarket,best before,
-skimmed_milk_powder,milk powder|skimmed milk powder,tin,340 g|400 g,supermarket,best before,
-desiccated_coconut,desiccated coconut|dried coconut|coconut powder,bag,200 g|500 g|1 kg,world aisle,best before,indian
-fresh_coconut,fresh coconut|coconut,each,1,supermarket,best before,
-frozen_grated_coconut,frozen grated coconut|frozen coconut|grated coconut,bag,400 g|1 kg,specialist,best before,indian
-long_grain_rice,rice|long grain rice|white rice,bag,1 kg|2 kg|5 kg,supermarket,best before,
-basmati_rice,basmati rice|basmati,bag,1 kg|5 kg|10 kg|500 g,world aisle,best before,indian
-sona_masoori,sona masoori|sona masuri|ponni rice|ponni,bag,5 kg|10 kg|20 kg,specialist,best before,indian
-idli_rice,idli rice|parboiled rice|boiled rice,bag,5 kg|10 kg|2 kg,specialist,best before,indian
-brown_rice,brown rice,bag,1 kg|500 g,supermarket,best before,
-poha,poha|aval|flattened rice|beaten rice,bag,500 g|1 kg,specialist,best before,indian
-oats,oats|porridge oats|rolled oats,bag,1 kg|500 g|1.5 kg,supermarket,best before,
-quinoa,quinoa,bag,300 g|500 g|1 kg,world aisle,best before,
-couscous,couscous,bag,500 g|1 kg,world aisle,best before,middle eastern
-bulgur,bulgur|bulgur wheat|cracked wheat|dalia,bag,500 g|1 kg,world aisle,best before,middle eastern
-pearl_barley,pearl barley|barley,bag,500 g,supermarket,best before,
-millet,millet|foxtail millet|thinai|bajra,bag,500 g|1 kg,world aisle,best before,indian
-vermicelli,vermicelli|semiya|sevai,packet,450 g|200 g|900 g,specialist,best before,indian
-spaghetti,spaghetti,packet,500 g|1 kg,supermarket,best before,
-penne,penne,bag,500 g|1 kg,supermarket,best before,
-macaroni,macaroni,bag,500 g|1 kg,supermarket,best before,
-fusilli,fusilli,bag,500 g|1 kg,supermarket,best before,
-egg_noodles,noodles|egg noodles,packet,250 g|300 g,world aisle,best before,chinese
-red_lentils,red lentils|masoor dal|masoor,bag,500 g|1 kg|2 kg,supermarket,best before,
-toor_dal,toor dal|tuvar dal|arhar dal|thuvaram paruppu|pigeon pea lentils,bag,1 kg|2 kg|500 g,world aisle,best before,indian
-moong_dal,moong dal|yellow moong dal|split mung|pasi paruppu,bag,1 kg|500 g|2 kg,world aisle,best before,indian
-urad_dal,urad dal|urid dal|ulundhu|split black gram|white urad,bag,1 kg|500 g|2 kg,specialist,best before,indian
-chana_dal,chana dal|bengal gram|kadalai paruppu|split chickpeas,bag,1 kg|500 g|2 kg,specialist,best before,indian
-whole_moong,whole moong|mung beans|green gram|pachai payaru,bag,1 kg|500 g,specialist,best before,indian
-lentils,lentils|green lentils|brown lentils|puy lentils,bag,500 g|1 kg,supermarket,best before,
-chickpeas,chickpeas|kabuli chana|dried chickpeas,bag,1 kg|500 g|2 kg,supermarket,best before,
-black_chickpeas,kala chana|black chickpeas|brown chickpeas|kondakadalai,bag,1 kg|500 g,specialist,best before,indian
-tinned_chickpeas,tinned chickpeas|chickpeas in water|canned chickpeas,tin,400 g,supermarket,best before,
-kidney_beans,kidney beans|rajma,bag,1 kg|500 g,supermarket,best before,indian
-tinned_kidney_beans,tinned kidney beans|canned kidney beans,tin,400 g,supermarket,best before,
-black_beans,black beans,tin,400 g,supermarket,best before,
-haricot_beans,haricot beans|baked beans,tin,400 g|415 g,supermarket,best before,
-black_eyed_beans,black eyed beans|black eyed peas|lobia|karamani,bag,500 g|1 kg,specialist,best before,indian
-peanuts,peanuts|groundnuts|raw peanuts|verkadalai,bag,500 g|1 kg|200 g,world aisle,best before,
-almonds,almonds|badam,bag,200 g|500 g|1 kg,supermarket,best before,
-ground_almonds,ground almonds|almond flour,bag,100 g|200 g,supermarket,best before,
-flaked_almonds,flaked almonds,bag,100 g,supermarket,best before,
-cashews,cashews|cashew nuts|kaju|mundhiri,bag,200 g|500 g|1 kg,world aisle,best before,
-walnuts,walnuts,bag,200 g|100 g,supermarket,best before,
-pistachios,pistachios,bag,200 g|500 g,supermarket,best before,
-sesame_seeds,sesame seeds|til|ellu,bag,100 g|300 g,world aisle,best before,
-sunflower_seeds,sunflower seeds,bag,200 g|500 g,supermarket,best before,
-pumpkin_seeds,pumpkin seeds,bag,200 g|500 g,supermarket,best before,
-flaxseed,flaxseed|linseed,bag,250 g|500 g,supermarket,best before,
-peanut_butter,peanut butter,jar,340 g|1 kg,supermarket,best before,
-raisins,raisins|kishmish,bag,500 g|200 g|1 kg,supermarket,best before,
-sultanas,sultanas,bag,500 g|1 kg,supermarket,best before,
-dates,dates|medjool dates,box,200 g|500 g|1 kg,world aisle,best before,middle eastern
-tamarind,tamarind|imli|puli|tamarind block,block,200 g|400 g|1 kg,specialist,best before,indian
-tamarind_paste,tamarind paste|tamarind concentrate,jar,200 g|400 g,specialist,best before,indian
-milk,milk|whole milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,
-semi_skimmed_milk,semi-skimmed milk|semi skimmed milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,
-skimmed_milk,skimmed milk,bottle,2.272 l|1.136 l,supermarket,use by,
-double_cream,double cream|heavy cream,pot,300 ml|600 ml|150 ml,supermarket,use by,
-whipping_cream,whipping cream,pot,300 ml|600 ml,supermarket,use by,
-single_cream,single cream|cooking cream,pot,300 ml|150 ml,supermarket,use by,
-sour_cream,sour cream|soured cream,pot,300 ml|150 ml,supermarket,use by,
-creme_fraiche,creme fraiche|crème fraîche,pot,300 ml|200 ml,supermarket,use by,
-yoghurt,yoghurt|yogurt|natural yoghurt|curd|thayir|dahi,tub,500 g|1 kg|2 kg,supermarket,use by,
-greek_yoghurt,greek yoghurt|greek yogurt,tub,500 g|1 kg,supermarket,use by,
-butter,butter|salted butter,block,250 g|500 g,supermarket,best before,
-unsalted_butter,unsalted butter,block,250 g,supermarket,best before,
-ghee,ghee|clarified butter|nei,jar,500 g|1 kg|2 kg,world aisle,best before,indian
-paneer,paneer|indian cottage cheese,block,226 g|200 g|1 kg,world aisle,use by,indian
-cream_cheese,cream cheese|soft cheese,tub,180 g|280 g,supermarket,use by,
-cheddar,cheddar|cheese,block,200 g|400 g|350 g,supermarket,best before,
-mozzarella,mozzarella,ball,125 g|250 g,supermarket,use by,
-parmesan,parmesan|parmigiano reggiano|grana padano,piece,200 g|100 g,supermarket,best before,
-feta,feta,block,200 g,supermarket,use by,
-halloumi,halloumi,block,225 g|250 g,world aisle,use by,middle eastern
-eggs,eggs|egg,box,6|12|15,supermarket,best before,
-olive_oil,olive oil|extra virgin olive oil,bottle,500 ml|1 l|250 ml,supermarket,best before,
-sunflower_oil,sunflower oil,bottle,1 l|3 l|5 l,supermarket,best before,
-vegetable_oil,vegetable oil|cooking oil,bottle,1 l|3 l|5 l,supermarket,best before,
-rapeseed_oil,rapeseed oil|canola oil,bottle,1 l|500 ml,supermarket,best before,
-coconut_oil,coconut oil|thengai ennai,jar,500 ml|1 l|300 ml,world aisle,best before,indian
-sesame_oil,sesame oil|gingelly oil|nallennai|til oil,bottle,500 ml|750 ml|1 l,world aisle,best before,indian
-groundnut_oil,groundnut oil|peanut oil,bottle,1 l|5 l,supermarket,best before,
-mustard_oil,mustard oil,bottle,500 ml|1 l,specialist,best before,indian
-coconut_milk,coconut milk,tin,400 ml|165 ml,world aisle,best before,
-coconut_cream,coconut cream,tin,400 ml|200 ml,world aisle,best before,
-vinegar,vinegar|white vinegar|distilled vinegar,bottle,568 ml|350 ml,supermarket,best before,
-cider_vinegar,cider vinegar|apple cider vinegar,bottle,500 ml,supermarket,best before,
-red_wine_vinegar,red wine vinegar,bottle,350 ml,supermarket,best before,
-balsamic_vinegar,balsamic vinegar,bottle,250 ml|500 ml,supermarket,best before,
-soy_sauce,soy sauce|light soy sauce|dark soy sauce|shoyu|kikkoman,bottle,150 ml|250 ml|500 ml|1 l,supermarket,best before,
-tomato_puree,tomato puree|tomato paste,tube,200 g|142 g,supermarket,best before,
-passata,passata,carton,500 g|690 g,supermarket,best before,
-tinned_tomatoes,tinned tomatoes|chopped tomatoes|canned tomatoes|plum tomatoes,tin,400 g|2.5 kg,supermarket,best before,
-ketchup,ketchup|tomato ketchup,bottle,460 g|910 g,supermarket,best before,
-mayonnaise,mayonnaise|mayo,jar,400 g|600 ml,supermarket,best before,
-jam,jam,jar,340 g|454 g,supermarket,best before,
-lemon_juice,lemon juice,bottle,250 ml,supermarket,best before,
-lime_juice,lime juice,bottle,250 ml,supermarket,best before,
-pickle,pickle|mango pickle|lime pickle|achar|oorugai,jar,300 g|400 g|1 kg,world aisle,best before,indian
-stock_cubes,stock cubes|vegetable stock cubes|bouillon,box,8|12|24,supermarket,best before,
-salt,salt|table salt|sea salt|rock salt,pack,750 g|1 kg|500 g,supermarket,best before,
-black_pepper,black pepper|ground black pepper,jar,100 g|400 g,supermarket,best before,
-black_peppercorns,black peppercorns|peppercorns|whole black pepper|milagu,bag,100 g|200 g|400 g,supermarket,best before,
-cayenne,cayenne|cayenne pepper,jar,100 g|400 g,supermarket,best before,
-chili_powder,chilli powder|chili powder|red chilli powder|mirchi powder|milagai thool,bag,100 g|400 g|1 kg,world aisle,best before,indian
-dried_red_chillies,dried red chillies|whole red chillies|red chillies dried|kashmiri chillies|vara milagai|byadgi chillies,bag,100 g|200 g|400 g,specialist,best before,indian
-chilli_flakes,chilli flakes|crushed chillies|red pepper flakes,jar,100 g|400 g,supermarket,best before,
-cinnamon,cinnamon|ground cinnamon|cinnamon sticks|dalchini|pattai,bag,100 g|50 g|400 g,world aisle,best before,
-cloves,cloves|whole cloves|laung|krambu|ground cloves,bag,50 g|100 g,world aisle,best before,
-cumin_seeds,cumin seeds|cumin|jeera|seeragam,bag,100 g|400 g|1 kg,world aisle,best before,indian
-ground_cumin,ground cumin|cumin powder|jeera powder,bag,100 g|400 g,supermarket,best before,indian
-coriander_seeds,coriander seeds|dhania seeds|kothamalli vidhai|whole coriander,bag,100 g|400 g|1 kg,world aisle,best before,indian
-ground_coriander,ground coriander|coriander powder|dhania powder|malli thool,bag,100 g|400 g|1 kg,world aisle,best before,indian
-turmeric,turmeric|turmeric powder|haldi|manjal,bag,100 g|300 g|400 g|1 kg,world aisle,best before,indian
-mustard_seeds,mustard seeds|black mustard seeds|rai|kadugu,bag,100 g|400 g|1 kg,world aisle,best before,indian
-fenugreek_seeds,fenugreek seeds|methi seeds|vendhayam,bag,100 g|400 g,specialist,best before,indian
-kasuri_methi,kasuri methi|dried fenugreek leaves|methi leaves,box,25 g|50 g|100 g,specialist,best before,indian
-asafoetida,asafoetida|hing|perungayam,tub,100 g|50 g|200 g,specialist,best before,indian
-curry_powder,curry powder,jar,100 g|400 g,world aisle,best before,
-garam_masala,garam masala,bag,100 g|400 g,world aisle,best before,indian
-sambar_powder,sambar powder|sambar masala|sambar podi,packet,200 g|100 g|500 g,specialist,best before,indian
-rasam_powder,rasam powder|rasam podi,packet,200 g|100 g,specialist,best before,indian
-chana_masala_powder,chana masala|chana masala powder,packet,100 g,specialist,best before,indian
-idli_podi,idli podi|gunpowder|milagai podi|chutney powder,packet,200 g|100 g,specialist,best before,indian
-ground_ginger,ground ginger|ginger powder|sonth,bag,100 g|400 g,supermarket,best before,
-garlic_powder,garlic powder,jar,100 g|400 g,supermarket,best before,
-paprika,paprika|smoked paprika,jar,100 g|400 g,supermarket,best before,
-nutmeg,nutmeg|whole nutmeg|ground nutmeg|jathikai,bag,50 g|100 g,supermarket,best before,
-cardamom,cardamom|green cardamom|cardamom pods|elaichi|elakkai|ground cardamom,bag,50 g|100 g,world aisle,best before,indian
-black_cardamom,black cardamom|badi elaichi,bag,50 g|100 g,specialist,best before,indian
-fennel_seeds,fennel seeds|saunf|sombu,bag,100 g|400 g,world aisle,best before,indian
-ajwain,ajwain|carom seeds|omam,bag,100 g|50 g,specialist,best before,indian
-poppy_seeds,poppy seeds|khus khus|kasa kasa,bag,100 g|200 g,specialist,best before,indian
-star_anise,star anise|chakra phool,bag,50 g|100 g,specialist,best before,chinese
-bay_leaves,bay leaves|tej patta|biryani leaf,bag,20 g|50 g,world aisle,best before,indian
-saffron,saffron|kesar|kungumapoo,box,1 g|2 g,world aisle,best before,
-dried_oregano,dried oregano|oregano,jar,10 g|50 g,supermarket,best before,
-dried_thyme,dried thyme,jar,10 g,supermarket,best before,
-dried_basil,dried basil,jar,10 g,supermarket,best before,
-dried_rosemary,dried rosemary,jar,20 g,supermarket,best before,
-dried_parsley,dried parsley,jar,10 g,supermarket,best before,
-dried_mint,dried mint,jar,10 g|50 g,supermarket,best before,
-mixed_herbs,mixed herbs|italian herbs,jar,10 g,supermarket,best before,
-instant_coffee,instant coffee|coffee,jar,100 g|200 g,supermarket,best before,
-filter_coffee,filter coffee|coffee powder|south indian coffee,packet,500 g|200 g|250 g,specialist,best before,indian
-tea,tea|tea bags|black tea,box,80|160|240,supermarket,best before,
-loose_tea,loose tea|tea dust|chai patti,packet,500 g|250 g|1 kg,specialist,best before,indian
-onion,onion|onions|brown onion|red onion|vengayam,each,1|3|6,supermarket,best before,
-shallots,shallots|small onions|sambar onions|chinna vengayam|pearl onions,bag,500 g|250 g|1 kg,specialist,best before,indian
-spring_onion,spring onion|spring onions|scallions|green onions,bunch,1|2,supermarket,best before,
-garlic,garlic|garlic bulb|poondu,each,1|4,supermarket,best before,
-ginger,ginger|fresh ginger|inji,piece,100 g|200 g|500 g,supermarket,best before,
-ginger_garlic_paste,ginger garlic paste,jar,300 g|1 kg,world aisle,best before,indian
-tomato,tomato|tomatoes|thakkali,each,1|6,supermarket,best before,
-cherry_tomatoes,cherry tomatoes,pack,250 g|330 g,supermarket,best before,
-potato,potato|potatoes|urulai,bag,2.5 kg|1 kg|5 kg,supermarket,best before,
-sweet_potato,sweet potato|sweet potatoes,each,1|3,supermarket,best before,
-carrot,carrot|carrots,bag,1 kg|500 g,supermarket,best before,
-celery,celery,each,1,supermarket,best before,
-red_pepper,red pepper|bell pepper|capsicum|peppers,each,1|3,supermarket,best before,
-green_pepper,green pepper,each,1|3,supermarket,best before,
-green_chilli,green chilli|green chillies|green chili|pachai milagai,bag,100 g|50 g|200 g,world aisle,best before,indian
-red_chilli,red chilli|fresh red chilli,bag,50 g|100 g,supermarket,best before,
-aubergine,aubergine|eggplant|brinjal|kathirikai,each,1|2,supermarket,best before,
-baby_aubergine,baby aubergine|small brinjal|indian brinjal,bag,500 g|1 kg,specialist,best before,indian
-courgette,courgette|zucchini,each,1|3,supermarket,best before,
-cucumber,cucumber|vellarikkai,each,1,supermarket,best before,
-mushrooms,mushrooms|button mushrooms|chestnut mushrooms,pack,250 g|400 g|500 g,supermarket,best before,
-cauliflower,cauliflower|gobi,each,1,supermarket,best before,
-broccoli,broccoli,head,350 g|500 g,supermarket,best before,
-cabbage,cabbage|white cabbage|muttaikose,each,1,supermarket,best before,
-spinach,spinach|palak|keerai,bag,200 g|250 g|500 g,supermarket,best before,
-frozen_spinach,frozen spinach,bag,1 kg|900 g,supermarket,best before,
-frozen_peas,frozen peas|peas|green peas|pattani,bag,1 kg|900 g|500 g,supermarket,best before,
-frozen_mixed_veg,frozen mixed vegetables|mixed veg,bag,1 kg|900 g,world aisle,best before,
-sweetcorn,sweetcorn|corn,tin,198 g|326 g,supermarket,best before,
-green_beans,green beans|french beans|beans,pack,200 g|250 g|500 g,supermarket,best before,
-broad_beans,broad beans|avarakkai|flat beans|papdi,bag,500 g|250 g,specialist,best before,indian
-okra,okra|ladies fingers|bhindi|vendakkai,bag,500 g|250 g|1 kg,world aisle,best before,indian
-beetroot,beetroot|beets,each,1|4,supermarket,best before,
-radish,radish|radishes,bunch,1,supermarket,best before,
-mooli,mooli|white radish|daikon|mullangi,each,1,world aisle,best before,indian
-leek,leek|leeks,each,1|2,supermarket,best before,
-lettuce,lettuce|romaine lettuce|iceberg lettuce,each,1,supermarket,best before,
-pumpkin,pumpkin|butternut squash|parangikai,each,1,supermarket,best before,
-bottle_gourd,bottle gourd|lauki|dudhi|sorakkai,each,1,specialist,best before,indian
-bitter_gourd,bitter gourd|karela|pavakkai,bag,500 g|250 g,specialist,best before,indian
-snake_gourd,snake gourd|pudalangai,each,1,specialist,best before,indian
-ash_gourd,ash gourd|white pumpkin|poosanikai,piece,1 kg|500 g,specialist,best before,indian
-raw_banana,raw banana|plantain|green banana|vazhakkai,each,1|2|4,specialist,best before,indian
-yam,yam|elephant foot yam|senai kizhangu,piece,1 kg|500 g,specialist,best before,indian
-taro,taro|colocasia|arbi|seppankizhangu,bag,500 g|1 kg,specialist,best before,indian
-drumsticks,drumsticks|moringa|murungakkai,bag,250 g|500 g,specialist,best before,indian
-coriander,coriander|fresh coriander|coriander leaves|cilantro|dhania|kothamalli,bunch,30 g|80 g|100 g,supermarket,best before,
-curry_leaves,curry leaves|kadi patta|karuveppilai,packet,5 g|20 g|50 g,specialist,best before,indian
-mint,mint|fresh mint|pudina,bunch,30 g|100 g,supermarket,best before,
-parsley,parsley|fresh parsley,bunch,30 g,supermarket,best before,
-basil,basil|fresh basil,pack,30 g,supermarket,best before,
-methi_leaves,fresh fenugreek|methi|vendhaya keerai,bunch,100 g,specialist,best before,indian
-tofu,tofu,block,280 g|400 g,world aisle,use by,chinese
-apple,apple|apples,each,1|6,supermarket,best before,
-banana,banana|bananas,each,1|5|6,supermarket,best before,
-lemon,lemon|lemons|elumichai,each,1|4,supermarket,best before,
-lime,lime|limes,each,1|4,supermarket,best before,
-orange,orange|oranges,each,1|5,supermarket,best before,
-mango,mango|mangoes|alphonso,each,1|6|12,supermarket,best before,
-avocado,avocado|avocados,each,1|2,supermarket,best before,
-grapes,grapes,pack,500 g,supermarket,best before,
-strawberries,strawberries,punnet,400 g|227 g,supermarket,best before,
-blueberries,blueberries,punnet,150 g|300 g,supermarket,best before,
-pomegranate,pomegranate,each,1,supermarket,best before,
-pineapple,pineapple,each,1,supermarket,best before,
-papad,papad|poppadom|appalam|pappadum,packet,200 g|400 g,specialist,best before,indian
-idli_batter,idli batter|dosa batter|idli dosa batter,tub,1 kg|500 g|2 kg,specialist,use by,indian
-bread,bread|sliced bread|loaf,loaf,800 g|400 g,supermarket,best before,
-naan,naan,pack,2|4,world aisle,best before,indian
-tortillas,tortilla wraps|wraps|tortillas,pack,8|6,supermarket,best before,
-urad_flour,urad flour|urad dal flour|ulundhu maavu,bag,1 kg|500 g,specialist,best before,indian
-idiyappam_flour,idiyappam flour|string hopper flour|rice flour roasted|puttu flour,bag,1 kg|500 g,specialist,best before,indian
-sooji_idli_mix,rava idli mix|idli mix|dosa mix,packet,500 g|200 g|1 kg,specialist,best before,indian
-sabudana,sabudana|sago|javvarisi|tapioca pearls,bag,500 g|375 g|1 kg,specialist,best before,indian
-makhana,makhana|fox nuts|lotus seeds|phool makhana,bag,100 g|200 g|250 g,specialist,best before,indian
-mango_pulp,mango pulp|alphonso mango pulp|kesar mango pulp,tin,850 g|450 g,world aisle,best before,indian
-fried_onions,fried onions|crispy onions|birista,tub,400 g|1 kg|100 g,world aisle,best before,indian
-kokum,kokum|kodampuli|garcinia,bag,100 g|200 g,specialist,best before,indian
-amchur,amchur|dry mango powder|aamchur,bag,100 g,specialist,best before,indian
-chaat_masala,chaat masala,box,100 g|500 g,world aisle,best before,indian
-kashmiri_chilli_powder,kashmiri chilli powder|kashmiri mirch|deggi mirch,bag,100 g|400 g|1 kg,world aisle,best before,indian
-mdh_masala,kitchen king|pav bhaji masala|biryani masala|tandoori masala|chole masala|rajma masala,box,100 g|500 g,world aisle,best before,indian
-rice_mixes,rasam mix|puliyogare mix|vathal kuzhambu mix|bisi bele bath mix,packet,100 g|200 g|500 g,specialist,best before,indian
-appalam_vathal,vadam|vathal|sundakkai vathal|manathakkali vathal|mor milagai,packet,100 g|200 g,specialist,best before,indian
-frozen_paratha,paratha|frozen paratha|malabar parotta|kerala parotta,pack,5|10|20,specialist,best before,indian
-frozen_chapati,chapati|frozen chapati|roti|phulka,pack,10|20,specialist,best before,indian
-khoya,khoya|mawa|khoa,pack,250 g|500 g|1 kg,specialist,use by,indian
-rose_syrup,rose syrup|rooh afza,bottle,750 ml|500 ml,specialist,best before,indian
-nylon_sev,sev|bombay mix|mixture|chivda|namkeen,bag,400 g|200 g|1 kg,specialist,best before,indian
-murukku,murukku|chakli|thattai,bag,200 g|400 g,specialist,best before,indian
-coconut_milk_powder,coconut milk powder,packet,300 g|150 g|1 kg,specialist,best before,indian
-tinned_jackfruit,jackfruit|young jackfruit|green jackfruit|chakka,tin,565 g|400 g,specialist,best before,indian
-banana_leaf,banana leaf|banana leaves|vazhai ilai,pack,1|5,specialist,best before,indian
-oyster_sauce,oyster sauce|vegetarian oyster sauce|vegetarian stir-fry sauce|mushroom stir-fry sauce,bottle,510 g|255 g,world aisle,best before,chinese
-hoisin_sauce,hoisin sauce|hoisin,jar,240 g|397 g|2.2 kg,world aisle,best before,chinese
-shaoxing_wine,shaoxing wine|chinese cooking wine|shaoxing rice wine,bottle,640 ml|750 ml,world aisle,best before,chinese
-rice_vinegar,rice vinegar|chinese rice vinegar|rice wine vinegar|black vinegar|chinkiang vinegar,bottle,150 ml|250 ml|500 ml,world aisle,best before,chinese
-toasted_sesame_oil,toasted sesame oil|pure sesame oil|chinese sesame oil,bottle,150 ml|500 ml|250 ml,world aisle,best before,chinese
-chilli_crisp,chilli crisp|crispy chilli in oil|lao gan ma|chilli oil,jar,210 g|280 g,world aisle,best before,chinese
-doubanjiang,doubanjiang|chilli bean paste|toban djan|broad bean chilli paste,jar,200 g|500 g,specialist,best before,chinese
-black_bean_sauce,black bean sauce|fermented black beans|douchi,jar,215 g|368 g,specialist,best before,chinese
-sweet_chilli_sauce,sweet chilli sauce,bottle,295 ml|700 ml|190 ml,world aisle,best before,chinese
-sriracha,sriracha|hot chilli sauce,bottle,455 ml|200 ml,world aisle,best before,chinese
-five_spice,five spice|chinese five spice|five spice powder,jar,30 g|100 g,world aisle,best before,chinese
-sichuan_pepper,sichuan pepper|sichuan peppercorns|szechuan pepper,bag,50 g|100 g,specialist,best before,chinese
-dried_shiitake,dried shiitake|dried mushrooms|shiitake mushrooms dried|black mushrooms,bag,50 g|100 g|200 g,world aisle,best before,chinese
-wood_ear,wood ear|black fungus|cloud ear,bag,50 g|100 g,specialist,best before,chinese
-rice_noodles,rice noodles|rice vermicelli|flat rice noodles|ho fun|pad thai noodles,packet,250 g|400 g|200 g,world aisle,best before,chinese
-glass_noodles,glass noodles|mung bean vermicelli|cellophane noodles|fen si,packet,100 g|250 g,specialist,best before,chinese
-wheat_noodles,wheat noodles|lo mein|chow mein noodles|dried noodles,packet,250 g|300 g|500 g,world aisle,best before,chinese
-wonton_wrappers,wonton wrappers|dumpling wrappers|gyoza wrappers|spring roll pastry,pack,250 g|300 g|500 g,specialist,use by,chinese
-bean_sprouts,bean sprouts|beansprouts,bag,300 g|200 g,world aisle,use by,chinese
-pak_choi,pak choi|bok choy|choi sum|gai lan|chinese broccoli,pack,200 g|250 g|400 g,world aisle,best before,chinese
-chinese_cabbage,chinese leaf|napa cabbage|chinese cabbage,each,1,specialist,best before,chinese
-water_chestnuts,water chestnuts,tin,225 g|567 g,world aisle,best before,chinese
-bamboo_shoots,bamboo shoots,tin,225 g|567 g,world aisle,best before,chinese
-jasmine_rice,jasmine rice|thai fragrant rice|thai rice,bag,1 kg|5 kg|10 kg|500 g,world aisle,best before,chinese
-glutinous_rice,glutinous rice|sticky rice|sweet rice,bag,1 kg|500 g,specialist,best before,chinese
-potato_starch,potato starch|potato flour,bag,500 g|1 kg,specialist,best before,chinese
-msg,msg|monosodium glutamate|aji-no-moto,bag,100 g|454 g|1 kg,specialist,best before,chinese
-silken_tofu,silken tofu,pack,300 g|349 g|400 g,world aisle,use by,chinese
-tofu_puffs,tofu puffs|fried tofu|tau pok,pack,100 g|200 g,specialist,use by,chinese
-mirin,mirin|aji-mirin|rice seasoning,bottle,150 ml|250 ml|500 ml|1 l,world aisle,best before,japanese
-sake_cooking,sake|cooking sake|ryorishu,bottle,300 ml|500 ml|720 ml|1 l,specialist,best before,japanese
-miso,miso|white miso|red miso|shiro miso|aka miso|miso paste,tub,300 g|400 g|1 kg|500 g,world aisle,best before,japanese
-tamari_jp,tamari|gluten free soy sauce,bottle,250 ml|150 ml|1 l,world aisle,best before,japanese
-sushi_rice,sushi rice|japanese rice|short grain rice|calrose,bag,500 g|1 kg|2 kg|5 kg,world aisle,best before,japanese
-panko,panko|panko breadcrumbs|japanese breadcrumbs,bag,180 g|200 g|1 kg,world aisle,best before,japanese
-nori,nori|sushi nori|seaweed sheets|yaki nori,pack,10|5|50,world aisle,best before,japanese
-wakame,wakame|dried wakame|seaweed,bag,25 g|50 g|100 g,world aisle,best before,japanese
-kombu,kombu|kelp|dashi kombu,bag,50 g|100 g,specialist,best before,japanese
-dashi_powder,dashi|dashi powder|hondashi|dashi stock,pack,50 g|100 g|500 g,specialist,best before,japanese
-bonito_flakes,bonito flakes|katsuobushi,bag,25 g|50 g|100 g,specialist,best before,japanese
-udon,udon|udon noodles|fresh udon|frozen udon,pack,200 g|600 g|1 kg,world aisle,use by,japanese
-soba,soba|soba noodles|buckwheat noodles,packet,300 g|250 g|720 g,world aisle,best before,japanese
-ramen,ramen|ramen noodles|fresh ramen,pack,200 g|500 g|1 kg,world aisle,use by,japanese
-wasabi,wasabi|wasabi paste,tube,43 g|90 g,world aisle,best before,japanese
-pickled_ginger,pickled ginger|sushi ginger|gari,jar,190 g|150 g|1 kg,world aisle,best before,japanese
-furikake,furikake|rice seasoning sprinkle,jar,45 g|50 g,specialist,best before,japanese
-japanese_mayonnaise,japanese mayonnaise|kewpie,bottle,355 g|500 g|130 g,specialist,best before,japanese
-tonkatsu_sauce,tonkatsu sauce|bulldog sauce|okonomiyaki sauce|takoyaki sauce,bottle,300 ml|500 ml,specialist,best before,japanese
-teriyaki_sauce,teriyaki sauce|teriyaki marinade,bottle,250 ml|150 ml,world aisle,best before,japanese
-ponzu,ponzu|ponzu sauce,bottle,250 ml|150 ml,specialist,best before,japanese
-sesame_dressing,japanese sesame dressing|goma dressing|sesame dressing,bottle,300 ml|1 l,specialist,best before,japanese
-matcha,matcha|matcha powder|green tea powder,tin,30 g|40 g|100 g,world aisle,best before,japanese
-shichimi,shichimi togarashi|shichimi|ichimi togarashi,jar,15 g|25 g,specialist,best before,japanese
-yuzu,yuzu juice|yuzu,bottle,100 ml|200 ml,specialist,best before,japanese
-edamame,edamame|soya beans frozen|edamame beans,bag,500 g|1 kg|200 g,world aisle,best before,japanese
-tempura_flour,tempura flour|tempura batter mix,bag,700 g|200 g|1 kg,specialist,best before,japanese
-konnyaku,konnyaku|shirataki|konjac noodles,pack,200 g|400 g,specialist,best before,japanese
-tahini,tahini|tahina|sesame paste,jar,300 g|500 g|1 kg|450 g,world aisle,best before,middle eastern
-zaatar,za'atar|zaatar|zatar|zahtar,jar,35 g|45 g|200 g|500 g,world aisle,best before,middle eastern
-sumac,sumac|sumak,jar,40 g|200 g|500 g,world aisle,best before,middle eastern
-pomegranate_molasses,pomegranate molasses|dibs rumman,bottle,250 ml|300 ml|500 ml|1 l,world aisle,best before,middle eastern
-harissa,harissa|rose harissa,jar,170 g|190 g|380 g,world aisle,best before,middle eastern
-rose_water,rose water|rosewater|maward,bottle,250 ml|500 ml|1 l,world aisle,best before,middle eastern
-orange_blossom_water,orange blossom water|orange flower water|mazaher,bottle,250 ml|500 ml,world aisle,best before,middle eastern
-aleppo_pepper,aleppo pepper|pul biber|turkish chilli flakes|kirmizi biber|urfa biber,jar,50 g|100 g|250 g,world aisle,best before,middle eastern
-baharat,baharat|seven spice|lebanese 7 spice|sabaa baharat,jar,40 g|100 g|250 g,world aisle,best before,middle eastern
-ras_el_hanout,ras el hanout,jar,40 g|100 g,world aisle,best before,middle eastern
-dried_limes,dried limes|loomi|black lime|noomi basra,bag,50 g|100 g|200 g,specialist,best before,middle eastern
-freekeh,freekeh|frikeh|green wheat,bag,200 g|500 g|1 kg,specialist,best before,middle eastern
-mograbieh,giant couscous|pearl couscous|mograbieh|maftoul,bag,500 g|1 kg,specialist,best before,middle eastern
-vermicelli_arabic,sha'riyah|shariyah|arabic vermicelli|egyptian vermicelli,bag,500 g|1 kg,specialist,best before,middle eastern
-filo,filo|filo pastry|phyllo|kataifi|kunafa dough,pack,270 g|250 g|400 g|500 g,world aisle,best before,middle eastern
-labneh,labneh|labna|strained yoghurt,tub,450 g|500 g|200 g|1 kg,world aisle,use by,middle eastern
-akkawi,akkawi|nabulsi|white cheese|jibneh,pack,250 g|400 g|1 kg,specialist,use by,middle eastern
-hummus,hummus|houmous,tub,200 g|300 g|1 kg,supermarket,use by,middle eastern
-fava_beans,fava beans|ful medames|foul medames|broad beans tinned,tin,400 g|450 g,world aisle,best before,middle eastern
-tinned_vine_leaves,vine leaves|grape leaves|warak enab|dolma leaves,jar,450 g|227 g|908 g,specialist,best before,middle eastern
-pitta,pitta|pitta bread|pita|arabic bread|khubz|flatbread,pack,6|5|10,world aisle,best before,middle eastern
-dates_paste,date syrup|dibs|date molasses,bottle,450 g|250 g|1 kg,specialist,best before,middle eastern
-halva,halva|halawa|tahini halva,tub,350 g|400 g|800 g,world aisle,best before,middle eastern
-mahlab,mahlab|mahleb|mahlepi,bag,50 g|100 g,specialist,best before,middle eastern
-mastic,mastic|mastika|arabic gum,jar,10 g|25 g,specialist,best before,middle eastern
-cardamom_coffee,arabic coffee|turkish coffee|coffee with cardamom,pack,200 g|250 g|500 g,specialist,best before,middle eastern
-freeze_dried_mint,dried mint leaves,bag,50 g|100 g,supermarket,best before,middle eastern
-pistachio_kernels,pistachio kernels|shelled pistachios|green pistachios,bag,100 g|200 g|1 kg,world aisle,best before,middle eastern
-pine_nuts,pine nuts|pine kernels|snobar,bag,100 g|70 g|200 g,world aisle,best before,middle eastern
-chicken_breast,chicken breast|chicken breasts|chicken breast fillets,pack,300 g|600 g|1 kg,supermarket,use by,
-chicken_thighs,chicken thighs|chicken thigh fillets|boneless chicken thighs,pack,500 g|1 kg,supermarket,use by,
-whole_chicken,whole chicken|chicken,each,1,supermarket,use by,
-chicken_drumsticks,chicken drumsticks|chicken legs,pack,1 kg|500 g,supermarket,use by,
-lamb_mince,lamb mince|minced lamb|keema,pack,500 g|400 g,supermarket,use by,
-lamb,lamb|lamb shoulder|diced lamb|mutton|goat,pack,500 g|1 kg,supermarket,use by,
-beef_mince,beef mince|minced beef|mince,pack,500 g|750 g|1 kg,supermarket,use by,
-diced_beef,diced beef|stewing beef|braising steak,pack,400 g|500 g,supermarket,use by,
-pork,pork|pork shoulder|pork belly|diced pork,pack,500 g|1 kg,supermarket,use by,
-bacon,bacon|streaky bacon|back bacon|lardons,pack,200 g|300 g|240 g,supermarket,use by,
-sausages,sausages,pack,6|8|12,supermarket,use by,
-ham,ham|cooked ham,pack,125 g|200 g,supermarket,use by,
-salmon,salmon|salmon fillets,pack,240 g|480 g,supermarket,use by,
-white_fish,cod|haddock|white fish|basa|pollock,pack,240 g|400 g,supermarket,use by,
-prawns,prawns|king prawns|shrimp,pack,150 g|180 g|300 g,supermarket,use by,
-smoked_salmon,smoked salmon,pack,100 g|200 g,supermarket,use by,
-tinned_tuna,tuna|tinned tuna,tin,145 g,supermarket,best before,
+# aisle (cabledrawer 7 Nov): the shop aisle, one of veg_fruit, meat_fish, dairy, bakery, dry_goods, tins_jars, spices, frozen, drinks, household, other (aisles.py); taken from food-conversions.csv where the key is there, filled by the 0.8.0 helper chat otherwise. Spinach: use by; Kasuri methi no longer has "methi leaves" as another name (cabledrawer 7 Nov).
+key,names,pack,sizes,where,dates,cuisine,aisle
+plain_flour,plain flour|all-purpose flour|flour|maida,bag,1.5 kg|500 g|1 kg,supermarket,best before,,dry_goods
+self_raising_flour,self-raising flour|self-rising flour,bag,1.5 kg|500 g,supermarket,best before,,dry_goods
+bread_flour,strong white flour|bread flour|strong flour,bag,1.5 kg|1 kg,supermarket,best before,,dry_goods
+wholemeal_flour,wholemeal flour|whole wheat flour,bag,1.5 kg|1 kg,supermarket,best before,,dry_goods
+chapati_flour,chapati flour|atta|chakki atta,bag,5 kg|10 kg|1.5 kg,specialist,best before,indian,dry_goods
+cornflour,cornflour|cornstarch,box,500 g|250 g,supermarket,best before,,dry_goods
+semolina,semolina|sooji|rava|suji,bag,500 g|1 kg|1.5 kg,world aisle,best before,indian,dry_goods
+fine_rava,bombay rava|upma rava|fine semolina,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+rice_flour,rice flour|chawal ka atta,bag,1 kg|500 g|1.5 kg,world aisle,best before,indian,dry_goods
+gram_flour,gram flour|besan|chickpea flour,bag,1 kg|500 g|2 kg,world aisle,best before,indian,dry_goods
+ragi_flour,ragi flour|finger millet flour|nachni,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+cornmeal,cornmeal|polenta,bag,500 g|1 kg,supermarket,best before,,dry_goods
+sugar,sugar|caster sugar|granulated sugar|white sugar,bag,1 kg|500 g|2 kg,supermarket,best before,,dry_goods
+brown_sugar,brown sugar|light brown sugar|dark brown sugar|demerara sugar|muscovado,bag,500 g|1 kg,supermarket,best before,,dry_goods
+icing_sugar,icing sugar|powdered sugar,bag,500 g|1 kg,supermarket,best before,,dry_goods
+jaggery,jaggery|gur|vellam,block,500 g|1 kg,specialist,best before,indian,dry_goods
+honey,honey,jar,340 g|454 g,supermarket,best before,,tins_jars
+maple_syrup,maple syrup,bottle,250 ml|500 ml,supermarket,best before,,tins_jars
+golden_syrup,golden syrup,tin,454 g|680 g,supermarket,best before,,tins_jars
+cocoa,cocoa|cocoa powder,tub,250 g|125 g,supermarket,best before,,dry_goods
+baking_powder,baking powder,tub,170 g|100 g,supermarket,best before,,dry_goods
+bicarbonate_of_soda,bicarbonate of soda|baking soda|bicarb,tub,200 g|100 g,supermarket,best before,,dry_goods
+dried_yeast,dried yeast|fast action yeast|instant yeast,packet,56 g|125 g,supermarket,best before,,dry_goods
+chocolate_chips,chocolate chips,bag,100 g|200 g,supermarket,best before,,dry_goods
+breadcrumbs,breadcrumbs,bag,250 g|200 g,supermarket,best before,,dry_goods
+vanilla_extract,vanilla extract|vanilla essence,bottle,38 ml|60 ml,supermarket,best before,,dry_goods
+skimmed_milk_powder,milk powder|skimmed milk powder,tin,340 g|400 g,supermarket,best before,,dry_goods
+desiccated_coconut,desiccated coconut|dried coconut|coconut powder,bag,200 g|500 g|1 kg,world aisle,best before,indian,dry_goods
+fresh_coconut,fresh coconut|coconut,each,1,supermarket,best before,,dry_goods
+frozen_grated_coconut,frozen grated coconut|frozen coconut|grated coconut,bag,400 g|1 kg,specialist,best before,indian,frozen
+long_grain_rice,rice|long grain rice|white rice,bag,1 kg|2 kg|5 kg,supermarket,best before,,dry_goods
+basmati_rice,basmati rice|basmati,bag,1 kg|5 kg|10 kg|500 g,world aisle,best before,indian,dry_goods
+sona_masoori,sona masoori|sona masuri|ponni rice|ponni,bag,5 kg|10 kg|20 kg,specialist,best before,indian,dry_goods
+idli_rice,idli rice|parboiled rice|boiled rice,bag,5 kg|10 kg|2 kg,specialist,best before,indian,dry_goods
+brown_rice,brown rice,bag,1 kg|500 g,supermarket,best before,,dry_goods
+poha,poha|aval|flattened rice|beaten rice,bag,500 g|1 kg,specialist,best before,indian,dry_goods
+oats,oats|porridge oats|rolled oats,bag,1 kg|500 g|1.5 kg,supermarket,best before,,dry_goods
+quinoa,quinoa,bag,300 g|500 g|1 kg,world aisle,best before,,dry_goods
+couscous,couscous,bag,500 g|1 kg,world aisle,best before,middle eastern,dry_goods
+bulgur,bulgur|bulgur wheat|cracked wheat|dalia,bag,500 g|1 kg,world aisle,best before,middle eastern,dry_goods
+pearl_barley,pearl barley|barley,bag,500 g,supermarket,best before,,dry_goods
+millet,millet|foxtail millet|thinai|bajra,bag,500 g|1 kg,world aisle,best before,indian,dry_goods
+vermicelli,vermicelli|semiya|sevai,packet,450 g|200 g|900 g,specialist,best before,indian,dry_goods
+spaghetti,spaghetti,packet,500 g|1 kg,supermarket,best before,,dry_goods
+penne,penne,bag,500 g|1 kg,supermarket,best before,,dry_goods
+macaroni,macaroni,bag,500 g|1 kg,supermarket,best before,,dry_goods
+fusilli,fusilli,bag,500 g|1 kg,supermarket,best before,,dry_goods
+egg_noodles,noodles|egg noodles,packet,250 g|300 g,world aisle,best before,chinese,dry_goods
+red_lentils,red lentils|masoor dal|masoor,bag,500 g|1 kg|2 kg,supermarket,best before,,dry_goods
+toor_dal,toor dal|tuvar dal|arhar dal|thuvaram paruppu|pigeon pea lentils,bag,1 kg|2 kg|500 g,world aisle,best before,indian,dry_goods
+moong_dal,moong dal|yellow moong dal|split mung|pasi paruppu,bag,1 kg|500 g|2 kg,world aisle,best before,indian,dry_goods
+urad_dal,urad dal|urid dal|ulundhu|split black gram|white urad,bag,1 kg|500 g|2 kg,specialist,best before,indian,dry_goods
+chana_dal,chana dal|bengal gram|kadalai paruppu|split chickpeas,bag,1 kg|500 g|2 kg,specialist,best before,indian,dry_goods
+whole_moong,whole moong|mung beans|green gram|pachai payaru,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+lentils,lentils|green lentils|brown lentils|puy lentils,bag,500 g|1 kg,supermarket,best before,,dry_goods
+chickpeas,chickpeas|kabuli chana|dried chickpeas,bag,1 kg|500 g|2 kg,supermarket,best before,,dry_goods
+black_chickpeas,kala chana|black chickpeas|brown chickpeas|kondakadalai,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+tinned_chickpeas,tinned chickpeas|chickpeas in water|canned chickpeas,tin,400 g,supermarket,best before,,tins_jars
+kidney_beans,kidney beans|rajma,bag,1 kg|500 g,supermarket,best before,indian,dry_goods
+tinned_kidney_beans,tinned kidney beans|canned kidney beans,tin,400 g,supermarket,best before,,tins_jars
+black_beans,black beans,tin,400 g,supermarket,best before,,dry_goods
+haricot_beans,haricot beans|baked beans,tin,400 g|415 g,supermarket,best before,,dry_goods
+black_eyed_beans,black eyed beans|black eyed peas|lobia|karamani,bag,500 g|1 kg,specialist,best before,indian,dry_goods
+peanuts,peanuts|groundnuts|raw peanuts|verkadalai,bag,500 g|1 kg|200 g,world aisle,best before,,dry_goods
+almonds,almonds|badam,bag,200 g|500 g|1 kg,supermarket,best before,,dry_goods
+ground_almonds,ground almonds|almond flour,bag,100 g|200 g,supermarket,best before,,dry_goods
+flaked_almonds,flaked almonds,bag,100 g,supermarket,best before,,dry_goods
+cashews,cashews|cashew nuts|kaju|mundhiri,bag,200 g|500 g|1 kg,world aisle,best before,,dry_goods
+walnuts,walnuts,bag,200 g|100 g,supermarket,best before,,dry_goods
+pistachios,pistachios,bag,200 g|500 g,supermarket,best before,,dry_goods
+sesame_seeds,sesame seeds|til|ellu,bag,100 g|300 g,world aisle,best before,,dry_goods
+sunflower_seeds,sunflower seeds,bag,200 g|500 g,supermarket,best before,,dry_goods
+pumpkin_seeds,pumpkin seeds,bag,200 g|500 g,supermarket,best before,,dry_goods
+flaxseed,flaxseed|linseed,bag,250 g|500 g,supermarket,best before,,dry_goods
+peanut_butter,peanut butter,jar,340 g|1 kg,supermarket,best before,,tins_jars
+raisins,raisins|kishmish,bag,500 g|200 g|1 kg,supermarket,best before,,dry_goods
+sultanas,sultanas,bag,500 g|1 kg,supermarket,best before,,dry_goods
+dates,dates|medjool dates,box,200 g|500 g|1 kg,world aisle,best before,middle eastern,dry_goods
+tamarind,tamarind|imli|puli|tamarind block,block,200 g|400 g|1 kg,specialist,best before,indian,dry_goods
+tamarind_paste,tamarind paste|tamarind concentrate,jar,200 g|400 g,specialist,best before,indian,tins_jars
+milk,milk|whole milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,,dairy
+semi_skimmed_milk,semi-skimmed milk|semi skimmed milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,,dairy
+skimmed_milk,skimmed milk,bottle,2.272 l|1.136 l,supermarket,use by,,dairy
+double_cream,double cream|heavy cream,pot,300 ml|600 ml|150 ml,supermarket,use by,,dairy
+whipping_cream,whipping cream,pot,300 ml|600 ml,supermarket,use by,,dairy
+single_cream,single cream|cooking cream,pot,300 ml|150 ml,supermarket,use by,,dairy
+sour_cream,sour cream|soured cream,pot,300 ml|150 ml,supermarket,use by,,dairy
+creme_fraiche,creme fraiche|crème fraîche,pot,300 ml|200 ml,supermarket,use by,,dairy
+yoghurt,yoghurt|yogurt|natural yoghurt|curd|thayir|dahi,tub,500 g|1 kg|2 kg,supermarket,use by,,dairy
+greek_yoghurt,greek yoghurt|greek yogurt,tub,500 g|1 kg,supermarket,use by,,dairy
+butter,butter|salted butter,block,250 g|500 g,supermarket,best before,,dairy
+unsalted_butter,unsalted butter,block,250 g,supermarket,best before,,dairy
+ghee,ghee|clarified butter|nei,jar,500 g|1 kg|2 kg,world aisle,best before,indian,tins_jars
+paneer,paneer|indian cottage cheese,block,226 g|200 g|1 kg,world aisle,use by,indian,dairy
+cream_cheese,cream cheese|soft cheese,tub,180 g|280 g,supermarket,use by,,dairy
+cheddar,cheddar|cheese,block,200 g|400 g|350 g,supermarket,best before,,dairy
+mozzarella,mozzarella,ball,125 g|250 g,supermarket,use by,,dairy
+parmesan,parmesan|parmigiano reggiano|grana padano,piece,200 g|100 g,supermarket,best before,,dairy
+feta,feta,block,200 g,supermarket,use by,,dairy
+halloumi,halloumi,block,225 g|250 g,world aisle,use by,middle eastern,dairy
+eggs,eggs|egg,box,6|12|15,supermarket,best before,,dairy
+olive_oil,olive oil|extra virgin olive oil,bottle,500 ml|1 l|250 ml,supermarket,best before,,tins_jars
+sunflower_oil,sunflower oil,bottle,1 l|3 l|5 l,supermarket,best before,,tins_jars
+vegetable_oil,vegetable oil|cooking oil,bottle,1 l|3 l|5 l,supermarket,best before,,tins_jars
+rapeseed_oil,rapeseed oil|canola oil,bottle,1 l|500 ml,supermarket,best before,,tins_jars
+coconut_oil,coconut oil|thengai ennai,jar,500 ml|1 l|300 ml,world aisle,best before,indian,tins_jars
+sesame_oil,sesame oil|gingelly oil|nallennai|til oil,bottle,500 ml|750 ml|1 l,world aisle,best before,indian,tins_jars
+groundnut_oil,groundnut oil|peanut oil,bottle,1 l|5 l,supermarket,best before,,tins_jars
+mustard_oil,mustard oil,bottle,500 ml|1 l,specialist,best before,indian,tins_jars
+coconut_milk,coconut milk,tin,400 ml|165 ml,world aisle,best before,,tins_jars
+coconut_cream,coconut cream,tin,400 ml|200 ml,world aisle,best before,,tins_jars
+vinegar,vinegar|white vinegar|distilled vinegar,bottle,568 ml|350 ml,supermarket,best before,,tins_jars
+cider_vinegar,cider vinegar|apple cider vinegar,bottle,500 ml,supermarket,best before,,tins_jars
+red_wine_vinegar,red wine vinegar,bottle,350 ml,supermarket,best before,,tins_jars
+balsamic_vinegar,balsamic vinegar,bottle,250 ml|500 ml,supermarket,best before,,tins_jars
+soy_sauce,soy sauce|light soy sauce|dark soy sauce|shoyu|kikkoman,bottle,150 ml|250 ml|500 ml|1 l,supermarket,best before,,tins_jars
+tomato_puree,tomato puree|tomato paste,tube,200 g|142 g,supermarket,best before,,tins_jars
+passata,passata,carton,500 g|690 g,supermarket,best before,,tins_jars
+tinned_tomatoes,tinned tomatoes|chopped tomatoes|canned tomatoes|plum tomatoes,tin,400 g|2.5 kg,supermarket,best before,,tins_jars
+ketchup,ketchup|tomato ketchup,bottle,460 g|910 g,supermarket,best before,,tins_jars
+mayonnaise,mayonnaise|mayo,jar,400 g|600 ml,supermarket,best before,,tins_jars
+jam,jam,jar,340 g|454 g,supermarket,best before,,tins_jars
+lemon_juice,lemon juice,bottle,250 ml,supermarket,best before,,tins_jars
+lime_juice,lime juice,bottle,250 ml,supermarket,best before,,tins_jars
+pickle,pickle|mango pickle|lime pickle|achar|oorugai,jar,300 g|400 g|1 kg,world aisle,best before,indian,tins_jars
+stock_cubes,stock cubes|vegetable stock cubes|bouillon,box,8|12|24,supermarket,best before,,dry_goods
+salt,salt|table salt|sea salt|rock salt,pack,750 g|1 kg|500 g,supermarket,best before,,spices
+black_pepper,black pepper|ground black pepper,jar,100 g|400 g,supermarket,best before,,spices
+black_peppercorns,black peppercorns|peppercorns|whole black pepper|milagu,bag,100 g|200 g|400 g,supermarket,best before,,spices
+cayenne,cayenne|cayenne pepper,jar,100 g|400 g,supermarket,best before,,spices
+chili_powder,chilli powder|chili powder|red chilli powder|mirchi powder|milagai thool,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+dried_red_chillies,dried red chillies|whole red chillies|red chillies dried|kashmiri chillies|vara milagai|byadgi chillies,bag,100 g|200 g|400 g,specialist,best before,indian,spices
+chilli_flakes,chilli flakes|crushed chillies|red pepper flakes,jar,100 g|400 g,supermarket,best before,,spices
+cinnamon,cinnamon|ground cinnamon|cinnamon sticks|dalchini|pattai,bag,100 g|50 g|400 g,world aisle,best before,,spices
+cloves,cloves|whole cloves|laung|krambu|ground cloves,bag,50 g|100 g,world aisle,best before,,spices
+cumin_seeds,cumin seeds|cumin|jeera|seeragam,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+ground_cumin,ground cumin|cumin powder|jeera powder,bag,100 g|400 g,supermarket,best before,indian,spices
+coriander_seeds,coriander seeds|dhania seeds|kothamalli vidhai|whole coriander,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+ground_coriander,ground coriander|coriander powder|dhania powder|malli thool,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+turmeric,turmeric|turmeric powder|haldi|manjal,bag,100 g|300 g|400 g|1 kg,world aisle,best before,indian,spices
+mustard_seeds,mustard seeds|black mustard seeds|rai|kadugu,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+fenugreek_seeds,fenugreek seeds|methi seeds|vendhayam,bag,100 g|400 g,specialist,best before,indian,spices
+kasuri_methi,kasuri methi|dried fenugreek leaves,box,25 g|50 g|100 g,specialist,best before,indian,spices
+asafoetida,asafoetida|hing|perungayam,tub,100 g|50 g|200 g,specialist,best before,indian,spices
+curry_powder,curry powder,jar,100 g|400 g,world aisle,best before,,spices
+garam_masala,garam masala,bag,100 g|400 g,world aisle,best before,indian,spices
+sambar_powder,sambar powder|sambar masala|sambar podi,packet,200 g|100 g|500 g,specialist,best before,indian,spices
+rasam_powder,rasam powder|rasam podi,packet,200 g|100 g,specialist,best before,indian,spices
+chana_masala_powder,chana masala|chana masala powder,packet,100 g,specialist,best before,indian,spices
+idli_podi,idli podi|gunpowder|milagai podi|chutney powder,packet,200 g|100 g,specialist,best before,indian,spices
+ground_ginger,ground ginger|ginger powder|sonth,bag,100 g|400 g,supermarket,best before,,spices
+garlic_powder,garlic powder,jar,100 g|400 g,supermarket,best before,,spices
+paprika,paprika|smoked paprika,jar,100 g|400 g,supermarket,best before,,spices
+nutmeg,nutmeg|whole nutmeg|ground nutmeg|jathikai,bag,50 g|100 g,supermarket,best before,,spices
+cardamom,cardamom|green cardamom|cardamom pods|elaichi|elakkai|ground cardamom,bag,50 g|100 g,world aisle,best before,indian,spices
+black_cardamom,black cardamom|badi elaichi,bag,50 g|100 g,specialist,best before,indian,spices
+fennel_seeds,fennel seeds|saunf|sombu,bag,100 g|400 g,world aisle,best before,indian,spices
+ajwain,ajwain|carom seeds|omam,bag,100 g|50 g,specialist,best before,indian,spices
+poppy_seeds,poppy seeds|khus khus|kasa kasa,bag,100 g|200 g,specialist,best before,indian,spices
+star_anise,star anise|chakra phool,bag,50 g|100 g,specialist,best before,chinese,spices
+bay_leaves,bay leaves|tej patta|biryani leaf,bag,20 g|50 g,world aisle,best before,indian,spices
+saffron,saffron|kesar|kungumapoo,box,1 g|2 g,world aisle,best before,,spices
+dried_oregano,dried oregano|oregano,jar,10 g|50 g,supermarket,best before,,spices
+dried_thyme,dried thyme,jar,10 g,supermarket,best before,,spices
+dried_basil,dried basil,jar,10 g,supermarket,best before,,spices
+dried_rosemary,dried rosemary,jar,20 g,supermarket,best before,,spices
+dried_parsley,dried parsley,jar,10 g,supermarket,best before,,spices
+dried_mint,dried mint,jar,10 g|50 g,supermarket,best before,,spices
+mixed_herbs,mixed herbs|italian herbs,jar,10 g,supermarket,best before,,spices
+instant_coffee,instant coffee|coffee,jar,100 g|200 g,supermarket,best before,,drinks
+filter_coffee,filter coffee|coffee powder|south indian coffee,packet,500 g|200 g|250 g,specialist,best before,indian,drinks
+tea,tea|tea bags|black tea,box,80|160|240,supermarket,best before,,drinks
+loose_tea,loose tea|tea dust|chai patti,packet,500 g|250 g|1 kg,specialist,best before,indian,drinks
+onion,onion|onions|brown onion|red onion|vengayam,each,1|3|6,supermarket,best before,,veg_fruit
+shallots,shallots|small onions|sambar onions|chinna vengayam|pearl onions,bag,500 g|250 g|1 kg,specialist,best before,indian,veg_fruit
+spring_onion,spring onion|spring onions|scallions|green onions,bunch,1|2,supermarket,best before,,veg_fruit
+garlic,garlic|garlic bulb|poondu,each,1|4,supermarket,best before,,veg_fruit
+ginger,ginger|fresh ginger|inji,piece,100 g|200 g|500 g,supermarket,best before,,veg_fruit
+ginger_garlic_paste,ginger garlic paste,jar,300 g|1 kg,world aisle,best before,indian,tins_jars
+tomato,tomato|tomatoes|thakkali,each,1|6,supermarket,best before,,veg_fruit
+cherry_tomatoes,cherry tomatoes,pack,250 g|330 g,supermarket,best before,,veg_fruit
+potato,potato|potatoes|urulai,bag,2.5 kg|1 kg|5 kg,supermarket,best before,,veg_fruit
+sweet_potato,sweet potato|sweet potatoes,each,1|3,supermarket,best before,,veg_fruit
+carrot,carrot|carrots,bag,1 kg|500 g,supermarket,best before,,veg_fruit
+celery,celery,each,1,supermarket,best before,,veg_fruit
+red_pepper,red pepper|bell pepper|capsicum|peppers,each,1|3,supermarket,best before,,veg_fruit
+green_pepper,green pepper,each,1|3,supermarket,best before,,veg_fruit
+green_chilli,green chilli|green chillies|green chili|pachai milagai,bag,100 g|50 g|200 g,world aisle,best before,indian,veg_fruit
+red_chilli,red chilli|fresh red chilli,bag,50 g|100 g,supermarket,best before,,veg_fruit
+aubergine,aubergine|eggplant|brinjal|kathirikai,each,1|2,supermarket,best before,,veg_fruit
+baby_aubergine,baby aubergine|small brinjal|indian brinjal,bag,500 g|1 kg,specialist,best before,indian,veg_fruit
+courgette,courgette|zucchini,each,1|3,supermarket,best before,,veg_fruit
+cucumber,cucumber|vellarikkai,each,1,supermarket,best before,,veg_fruit
+mushrooms,mushrooms|button mushrooms|chestnut mushrooms,pack,250 g|400 g|500 g,supermarket,best before,,veg_fruit
+cauliflower,cauliflower|gobi,each,1,supermarket,best before,,veg_fruit
+broccoli,broccoli,head,350 g|500 g,supermarket,best before,,veg_fruit
+cabbage,cabbage|white cabbage|muttaikose,each,1,supermarket,best before,,veg_fruit
+spinach,spinach|palak|keerai,bag,200 g|250 g|500 g,supermarket,use by,,veg_fruit
+frozen_spinach,frozen spinach,bag,1 kg|900 g,supermarket,best before,,frozen
+frozen_peas,frozen peas|peas|green peas|pattani,bag,1 kg|900 g|500 g,supermarket,best before,,frozen
+frozen_mixed_veg,frozen mixed vegetables|mixed veg,bag,1 kg|900 g,world aisle,best before,,frozen
+sweetcorn,sweetcorn|corn,tin,198 g|326 g,supermarket,best before,,veg_fruit
+green_beans,green beans|french beans|beans,pack,200 g|250 g|500 g,supermarket,best before,,veg_fruit
+broad_beans,broad beans|avarakkai|flat beans|papdi,bag,500 g|250 g,specialist,best before,indian,veg_fruit
+okra,okra|ladies fingers|bhindi|vendakkai,bag,500 g|250 g|1 kg,world aisle,best before,indian,veg_fruit
+beetroot,beetroot|beets,each,1|4,supermarket,best before,,veg_fruit
+radish,radish|radishes,bunch,1,supermarket,best before,,veg_fruit
+mooli,mooli|white radish|daikon|mullangi,each,1,world aisle,best before,indian,veg_fruit
+leek,leek|leeks,each,1|2,supermarket,best before,,veg_fruit
+lettuce,lettuce|romaine lettuce|iceberg lettuce,each,1,supermarket,best before,,veg_fruit
+pumpkin,pumpkin|butternut squash|parangikai,each,1,supermarket,best before,,veg_fruit
+bottle_gourd,bottle gourd|lauki|dudhi|sorakkai,each,1,specialist,best before,indian,veg_fruit
+bitter_gourd,bitter gourd|karela|pavakkai,bag,500 g|250 g,specialist,best before,indian,veg_fruit
+snake_gourd,snake gourd|pudalangai,each,1,specialist,best before,indian,veg_fruit
+ash_gourd,ash gourd|white pumpkin|poosanikai,piece,1 kg|500 g,specialist,best before,indian,veg_fruit
+raw_banana,raw banana|plantain|green banana|vazhakkai,each,1|2|4,specialist,best before,indian,veg_fruit
+yam,yam|elephant foot yam|senai kizhangu,piece,1 kg|500 g,specialist,best before,indian,veg_fruit
+taro,taro|colocasia|arbi|seppankizhangu,bag,500 g|1 kg,specialist,best before,indian,veg_fruit
+drumsticks,drumsticks|moringa|murungakkai,bag,250 g|500 g,specialist,best before,indian,veg_fruit
+coriander,coriander|fresh coriander|coriander leaves|cilantro|dhania|kothamalli,bunch,30 g|80 g|100 g,supermarket,best before,,veg_fruit
+curry_leaves,curry leaves|kadi patta|karuveppilai,packet,5 g|20 g|50 g,specialist,best before,indian,veg_fruit
+mint,mint|fresh mint|pudina,bunch,30 g|100 g,supermarket,best before,,spices
+parsley,parsley|fresh parsley,bunch,30 g,supermarket,best before,,veg_fruit
+basil,basil|fresh basil,pack,30 g,supermarket,best before,,spices
+methi_leaves,fresh fenugreek|methi|vendhaya keerai,bunch,100 g,specialist,best before,indian,veg_fruit
+tofu,tofu,block,280 g|400 g,world aisle,use by,chinese,veg_fruit
+apple,apple|apples,each,1|6,supermarket,best before,,veg_fruit
+banana,banana|bananas,each,1|5|6,supermarket,best before,,veg_fruit
+lemon,lemon|lemons|elumichai,each,1|4,supermarket,best before,,veg_fruit
+lime,lime|limes,each,1|4,supermarket,best before,,veg_fruit
+orange,orange|oranges,each,1|5,supermarket,best before,,veg_fruit
+mango,mango|mangoes|alphonso,each,1|6|12,supermarket,best before,,veg_fruit
+avocado,avocado|avocados,each,1|2,supermarket,best before,,veg_fruit
+grapes,grapes,pack,500 g,supermarket,best before,,veg_fruit
+strawberries,strawberries,punnet,400 g|227 g,supermarket,best before,,veg_fruit
+blueberries,blueberries,punnet,150 g|300 g,supermarket,best before,,veg_fruit
+pomegranate,pomegranate,each,1,supermarket,best before,,veg_fruit
+pineapple,pineapple,each,1,supermarket,best before,,veg_fruit
+papad,papad|poppadom|appalam|pappadum,packet,200 g|400 g,specialist,best before,indian,dry_goods
+idli_batter,idli batter|dosa batter|idli dosa batter,tub,1 kg|500 g|2 kg,specialist,use by,indian,dairy
+bread,bread|sliced bread|loaf,loaf,800 g|400 g,supermarket,best before,,bakery
+naan,naan,pack,2|4,world aisle,best before,indian,bakery
+tortillas,tortilla wraps|wraps|tortillas,pack,8|6,supermarket,best before,,bakery
+urad_flour,urad flour|urad dal flour|ulundhu maavu,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+idiyappam_flour,idiyappam flour|string hopper flour|rice flour roasted|puttu flour,bag,1 kg|500 g,specialist,best before,indian,dry_goods
+sooji_idli_mix,rava idli mix|idli mix|dosa mix,packet,500 g|200 g|1 kg,specialist,best before,indian,dry_goods
+sabudana,sabudana|sago|javvarisi|tapioca pearls,bag,500 g|375 g|1 kg,specialist,best before,indian,dry_goods
+makhana,makhana|fox nuts|lotus seeds|phool makhana,bag,100 g|200 g|250 g,specialist,best before,indian,dry_goods
+mango_pulp,mango pulp|alphonso mango pulp|kesar mango pulp,tin,850 g|450 g,world aisle,best before,indian,tins_jars
+fried_onions,fried onions|crispy onions|birista,tub,400 g|1 kg|100 g,world aisle,best before,indian,tins_jars
+kokum,kokum|kodampuli|garcinia,bag,100 g|200 g,specialist,best before,indian,dry_goods
+amchur,amchur|dry mango powder|aamchur,bag,100 g,specialist,best before,indian,spices
+chaat_masala,chaat masala,box,100 g|500 g,world aisle,best before,indian,spices
+kashmiri_chilli_powder,kashmiri chilli powder|kashmiri mirch|deggi mirch,bag,100 g|400 g|1 kg,world aisle,best before,indian,spices
+mdh_masala,kitchen king|pav bhaji masala|biryani masala|tandoori masala|chole masala|rajma masala,box,100 g|500 g,world aisle,best before,indian,spices
+rice_mixes,rasam mix|puliyogare mix|vathal kuzhambu mix|bisi bele bath mix,packet,100 g|200 g|500 g,specialist,best before,indian,dry_goods
+appalam_vathal,vadam|vathal|sundakkai vathal|manathakkali vathal|mor milagai,packet,100 g|200 g,specialist,best before,indian,dry_goods
+frozen_paratha,paratha|frozen paratha|malabar parotta|kerala parotta,pack,5|10|20,specialist,best before,indian,frozen
+frozen_chapati,chapati|frozen chapati|roti|phulka,pack,10|20,specialist,best before,indian,frozen
+khoya,khoya|mawa|khoa,pack,250 g|500 g|1 kg,specialist,use by,indian,dairy
+rose_syrup,rose syrup|rooh afza,bottle,750 ml|500 ml,specialist,best before,indian,drinks
+nylon_sev,sev|bombay mix|mixture|chivda|namkeen,bag,400 g|200 g|1 kg,specialist,best before,indian,dry_goods
+murukku,murukku|chakli|thattai,bag,200 g|400 g,specialist,best before,indian,dry_goods
+coconut_milk_powder,coconut milk powder,packet,300 g|150 g|1 kg,specialist,best before,indian,dry_goods
+tinned_jackfruit,jackfruit|young jackfruit|green jackfruit|chakka,tin,565 g|400 g,specialist,best before,indian,tins_jars
+banana_leaf,banana leaf|banana leaves|vazhai ilai,pack,1|5,specialist,best before,indian,veg_fruit
+oyster_sauce,oyster sauce|vegetarian oyster sauce|vegetarian stir-fry sauce|mushroom stir-fry sauce,bottle,510 g|255 g,world aisle,best before,chinese,tins_jars
+hoisin_sauce,hoisin sauce|hoisin,jar,240 g|397 g|2.2 kg,world aisle,best before,chinese,tins_jars
+shaoxing_wine,shaoxing wine|chinese cooking wine|shaoxing rice wine,bottle,640 ml|750 ml,world aisle,best before,chinese,tins_jars
+rice_vinegar,rice vinegar|chinese rice vinegar|rice wine vinegar|black vinegar|chinkiang vinegar,bottle,150 ml|250 ml|500 ml,world aisle,best before,chinese,tins_jars
+toasted_sesame_oil,toasted sesame oil|pure sesame oil|chinese sesame oil,bottle,150 ml|500 ml|250 ml,world aisle,best before,chinese,tins_jars
+chilli_crisp,chilli crisp|crispy chilli in oil|lao gan ma|chilli oil,jar,210 g|280 g,world aisle,best before,chinese,tins_jars
+doubanjiang,doubanjiang|chilli bean paste|toban djan|broad bean chilli paste,jar,200 g|500 g,specialist,best before,chinese,tins_jars
+black_bean_sauce,black bean sauce|fermented black beans|douchi,jar,215 g|368 g,specialist,best before,chinese,tins_jars
+sweet_chilli_sauce,sweet chilli sauce,bottle,295 ml|700 ml|190 ml,world aisle,best before,chinese,tins_jars
+sriracha,sriracha|hot chilli sauce,bottle,455 ml|200 ml,world aisle,best before,chinese,tins_jars
+five_spice,five spice|chinese five spice|five spice powder,jar,30 g|100 g,world aisle,best before,chinese,spices
+sichuan_pepper,sichuan pepper|sichuan peppercorns|szechuan pepper,bag,50 g|100 g,specialist,best before,chinese,spices
+dried_shiitake,dried shiitake|dried mushrooms|shiitake mushrooms dried|black mushrooms,bag,50 g|100 g|200 g,world aisle,best before,chinese,dry_goods
+wood_ear,wood ear|black fungus|cloud ear,bag,50 g|100 g,specialist,best before,chinese,dry_goods
+rice_noodles,rice noodles|rice vermicelli|flat rice noodles|ho fun|pad thai noodles,packet,250 g|400 g|200 g,world aisle,best before,chinese,dry_goods
+glass_noodles,glass noodles|mung bean vermicelli|cellophane noodles|fen si,packet,100 g|250 g,specialist,best before,chinese,dry_goods
+wheat_noodles,wheat noodles|lo mein|chow mein noodles|dried noodles,packet,250 g|300 g|500 g,world aisle,best before,chinese,dry_goods
+wonton_wrappers,wonton wrappers|dumpling wrappers|gyoza wrappers|spring roll pastry,pack,250 g|300 g|500 g,specialist,use by,chinese,frozen
+bean_sprouts,bean sprouts|beansprouts,bag,300 g|200 g,world aisle,use by,chinese,veg_fruit
+pak_choi,pak choi|bok choy|choi sum|gai lan|chinese broccoli,pack,200 g|250 g|400 g,world aisle,best before,chinese,veg_fruit
+chinese_cabbage,chinese leaf|napa cabbage|chinese cabbage,each,1,specialist,best before,chinese,veg_fruit
+water_chestnuts,water chestnuts,tin,225 g|567 g,world aisle,best before,chinese,tins_jars
+bamboo_shoots,bamboo shoots,tin,225 g|567 g,world aisle,best before,chinese,tins_jars
+jasmine_rice,jasmine rice|thai fragrant rice|thai rice,bag,1 kg|5 kg|10 kg|500 g,world aisle,best before,chinese,dry_goods
+glutinous_rice,glutinous rice|sticky rice|sweet rice,bag,1 kg|500 g,specialist,best before,chinese,dry_goods
+potato_starch,potato starch|potato flour,bag,500 g|1 kg,specialist,best before,chinese,dry_goods
+msg,msg|monosodium glutamate|aji-no-moto,bag,100 g|454 g|1 kg,specialist,best before,chinese,spices
+silken_tofu,silken tofu,pack,300 g|349 g|400 g,world aisle,use by,chinese,veg_fruit
+tofu_puffs,tofu puffs|fried tofu|tau pok,pack,100 g|200 g,specialist,use by,chinese,veg_fruit
+mirin,mirin|aji-mirin|rice seasoning,bottle,150 ml|250 ml|500 ml|1 l,world aisle,best before,japanese,tins_jars
+sake_cooking,sake|cooking sake|ryorishu,bottle,300 ml|500 ml|720 ml|1 l,specialist,best before,japanese,tins_jars
+miso,miso|white miso|red miso|shiro miso|aka miso|miso paste,tub,300 g|400 g|1 kg|500 g,world aisle,best before,japanese,tins_jars
+tamari_jp,tamari|gluten free soy sauce,bottle,250 ml|150 ml|1 l,world aisle,best before,japanese,tins_jars
+sushi_rice,sushi rice|japanese rice|short grain rice|calrose,bag,500 g|1 kg|2 kg|5 kg,world aisle,best before,japanese,dry_goods
+panko,panko|panko breadcrumbs|japanese breadcrumbs,bag,180 g|200 g|1 kg,world aisle,best before,japanese,dry_goods
+nori,nori|sushi nori|seaweed sheets|yaki nori,pack,10|5|50,world aisle,best before,japanese,dry_goods
+wakame,wakame|dried wakame|seaweed,bag,25 g|50 g|100 g,world aisle,best before,japanese,dry_goods
+kombu,kombu|kelp|dashi kombu,bag,50 g|100 g,specialist,best before,japanese,dry_goods
+dashi_powder,dashi|dashi powder|hondashi|dashi stock,pack,50 g|100 g|500 g,specialist,best before,japanese,dry_goods
+bonito_flakes,bonito flakes|katsuobushi,bag,25 g|50 g|100 g,specialist,best before,japanese,dry_goods
+udon,udon|udon noodles|fresh udon|frozen udon,pack,200 g|600 g|1 kg,world aisle,use by,japanese,dry_goods
+soba,soba|soba noodles|buckwheat noodles,packet,300 g|250 g|720 g,world aisle,best before,japanese,dry_goods
+ramen,ramen|ramen noodles|fresh ramen,pack,200 g|500 g|1 kg,world aisle,use by,japanese,dry_goods
+wasabi,wasabi|wasabi paste,tube,43 g|90 g,world aisle,best before,japanese,tins_jars
+pickled_ginger,pickled ginger|sushi ginger|gari,jar,190 g|150 g|1 kg,world aisle,best before,japanese,tins_jars
+furikake,furikake|rice seasoning sprinkle,jar,45 g|50 g,specialist,best before,japanese,spices
+japanese_mayonnaise,japanese mayonnaise|kewpie,bottle,355 g|500 g|130 g,specialist,best before,japanese,tins_jars
+tonkatsu_sauce,tonkatsu sauce|bulldog sauce|okonomiyaki sauce|takoyaki sauce,bottle,300 ml|500 ml,specialist,best before,japanese,tins_jars
+teriyaki_sauce,teriyaki sauce|teriyaki marinade,bottle,250 ml|150 ml,world aisle,best before,japanese,tins_jars
+ponzu,ponzu|ponzu sauce,bottle,250 ml|150 ml,specialist,best before,japanese,tins_jars
+sesame_dressing,japanese sesame dressing|goma dressing|sesame dressing,bottle,300 ml|1 l,specialist,best before,japanese,tins_jars
+matcha,matcha|matcha powder|green tea powder,tin,30 g|40 g|100 g,world aisle,best before,japanese,drinks
+shichimi,shichimi togarashi|shichimi|ichimi togarashi,jar,15 g|25 g,specialist,best before,japanese,spices
+yuzu,yuzu juice|yuzu,bottle,100 ml|200 ml,specialist,best before,japanese,tins_jars
+edamame,edamame|soya beans frozen|edamame beans,bag,500 g|1 kg|200 g,world aisle,best before,japanese,frozen
+tempura_flour,tempura flour|tempura batter mix,bag,700 g|200 g|1 kg,specialist,best before,japanese,dry_goods
+konnyaku,konnyaku|shirataki|konjac noodles,pack,200 g|400 g,specialist,best before,japanese,veg_fruit
+tahini,tahini|tahina|sesame paste,jar,300 g|500 g|1 kg|450 g,world aisle,best before,middle eastern,tins_jars
+zaatar,za'atar|zaatar|zatar|zahtar,jar,35 g|45 g|200 g|500 g,world aisle,best before,middle eastern,spices
+sumac,sumac|sumak,jar,40 g|200 g|500 g,world aisle,best before,middle eastern,spices
+pomegranate_molasses,pomegranate molasses|dibs rumman,bottle,250 ml|300 ml|500 ml|1 l,world aisle,best before,middle eastern,tins_jars
+harissa,harissa|rose harissa,jar,170 g|190 g|380 g,world aisle,best before,middle eastern,tins_jars
+rose_water,rose water|rosewater|maward,bottle,250 ml|500 ml|1 l,world aisle,best before,middle eastern,tins_jars
+orange_blossom_water,orange blossom water|orange flower water|mazaher,bottle,250 ml|500 ml,world aisle,best before,middle eastern,tins_jars
+aleppo_pepper,aleppo pepper|pul biber|turkish chilli flakes|kirmizi biber|urfa biber,jar,50 g|100 g|250 g,world aisle,best before,middle eastern,spices
+baharat,baharat|seven spice|lebanese 7 spice|sabaa baharat,jar,40 g|100 g|250 g,world aisle,best before,middle eastern,spices
+ras_el_hanout,ras el hanout,jar,40 g|100 g,world aisle,best before,middle eastern,spices
+dried_limes,dried limes|loomi|black lime|noomi basra,bag,50 g|100 g|200 g,specialist,best before,middle eastern,spices
+freekeh,freekeh|frikeh|green wheat,bag,200 g|500 g|1 kg,specialist,best before,middle eastern,dry_goods
+mograbieh,giant couscous|pearl couscous|mograbieh|maftoul,bag,500 g|1 kg,specialist,best before,middle eastern,dry_goods
+vermicelli_arabic,sha'riyah|shariyah|arabic vermicelli|egyptian vermicelli,bag,500 g|1 kg,specialist,best before,middle eastern,dry_goods
+filo,filo|filo pastry|phyllo|kataifi|kunafa dough,pack,270 g|250 g|400 g|500 g,world aisle,best before,middle eastern,bakery
+labneh,labneh|labna|strained yoghurt,tub,450 g|500 g|200 g|1 kg,world aisle,use by,middle eastern,dairy
+akkawi,akkawi|nabulsi|white cheese|jibneh,pack,250 g|400 g|1 kg,specialist,use by,middle eastern,dairy
+hummus,hummus|houmous,tub,200 g|300 g|1 kg,supermarket,use by,middle eastern,veg_fruit
+fava_beans,fava beans|ful medames|foul medames|broad beans tinned,tin,400 g|450 g,world aisle,best before,middle eastern,tins_jars
+tinned_vine_leaves,vine leaves|grape leaves|warak enab|dolma leaves,jar,450 g|227 g|908 g,specialist,best before,middle eastern,tins_jars
+pitta,pitta|pitta bread|pita|arabic bread|khubz|flatbread,pack,6|5|10,world aisle,best before,middle eastern,bakery
+dates_paste,date syrup|dibs|date molasses,bottle,450 g|250 g|1 kg,specialist,best before,middle eastern,tins_jars
+halva,halva|halawa|tahini halva,tub,350 g|400 g|800 g,world aisle,best before,middle eastern,tins_jars
+mahlab,mahlab|mahleb|mahlepi,bag,50 g|100 g,specialist,best before,middle eastern,spices
+mastic,mastic|mastika|arabic gum,jar,10 g|25 g,specialist,best before,middle eastern,spices
+cardamom_coffee,arabic coffee|turkish coffee|coffee with cardamom,pack,200 g|250 g|500 g,specialist,best before,middle eastern,drinks
+freeze_dried_mint,dried mint leaves,bag,50 g|100 g,supermarket,best before,middle eastern,spices
+pistachio_kernels,pistachio kernels|shelled pistachios|green pistachios,bag,100 g|200 g|1 kg,world aisle,best before,middle eastern,dry_goods
+pine_nuts,pine nuts|pine kernels|snobar,bag,100 g|70 g|200 g,world aisle,best before,middle eastern,dry_goods
+chicken_breast,chicken breast|chicken breasts|chicken breast fillets,pack,300 g|600 g|1 kg,supermarket,use by,,meat_fish
+chicken_thighs,chicken thighs|chicken thigh fillets|boneless chicken thighs,pack,500 g|1 kg,supermarket,use by,,meat_fish
+whole_chicken,whole chicken|chicken,each,1,supermarket,use by,,meat_fish
+chicken_drumsticks,chicken drumsticks|chicken legs,pack,1 kg|500 g,supermarket,use by,,meat_fish
+lamb_mince,lamb mince|minced lamb|keema,pack,500 g|400 g,supermarket,use by,,meat_fish
+lamb,lamb|lamb shoulder|diced lamb|mutton|goat,pack,500 g|1 kg,supermarket,use by,,meat_fish
+beef_mince,beef mince|minced beef|mince,pack,500 g|750 g|1 kg,supermarket,use by,,meat_fish
+diced_beef,diced beef|stewing beef|braising steak,pack,400 g|500 g,supermarket,use by,,meat_fish
+pork,pork|pork shoulder|pork belly|diced pork,pack,500 g|1 kg,supermarket,use by,,meat_fish
+bacon,bacon|streaky bacon|back bacon|lardons,pack,200 g|300 g|240 g,supermarket,use by,,meat_fish
+sausages,sausages,pack,6|8|12,supermarket,use by,,meat_fish
+ham,ham|cooked ham,pack,125 g|200 g,supermarket,use by,,meat_fish
+salmon,salmon|salmon fillets,pack,240 g|480 g,supermarket,use by,,meat_fish
+white_fish,cod|haddock|white fish|basa|pollock,pack,240 g|400 g,supermarket,use by,,meat_fish
+prawns,prawns|king prawns|shrimp,pack,150 g|180 g|300 g,supermarket,use by,,meat_fish
+smoked_salmon,smoked salmon,pack,100 g|200 g,supermarket,use by,,meat_fish
+tinned_tuna,tuna|tinned tuna,tin,145 g,supermarket,best before,,tins_jars
