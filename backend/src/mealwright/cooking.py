@@ -23,7 +23,7 @@ moved can't.
 
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from fastapi import status
@@ -538,7 +538,9 @@ def _last_cooked_at(kitchen: Kitchen, meal: Meal) -> datetime:
             or_(CookedRecord.meal_item_id.in_(ids), CookedRecord.batch_id.in_(batches)),
         )
     ).all()
-    return max(found)
+    # A meal with no record at all has no press to wait for (the callers find meals by their
+    # records, so this is a guard, not a path): it counts as long ago.
+    return max(found, default=datetime.min.replace(tzinfo=UTC))
 
 
 def heal_cooked(kitchen: Kitchen, start: date, end: date) -> bool:

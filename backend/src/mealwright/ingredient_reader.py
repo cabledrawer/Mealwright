@@ -616,10 +616,17 @@ def _amount_after_name(work: str, extra: frozenset[str]) -> str:
             and not any(c.isdigit() for c in name)
         ):
             return f"{spoken.group(1)} {name}{work[spoken.end() :]}"
+    # Where the first letter and the first digit are, found once: the name before a separator is
+    # `work[:start]`, so it has a letter when `first_letter < start`, and it only gets longer
+    # (L2: scanning it afresh at each separator was quadratic on a line of commas).
+    first_letter = next((i for i, c in enumerate(work) if c.isalpha()), len(work))
+    first_digit = next((i for i, c in enumerate(work) if c.isdigit()), len(work))
     for found in _AFTER_NAME.finditer(work, 1):
-        name = work[: found.start()]
-        if not any(c.isalpha() for c in name) or any(c.isdigit() for c in name):
+        if first_digit < found.start():
+            break  # a digit in the name now, and in every longer name after it
+        if first_letter >= found.start():
             continue
+        name = work[: found.start()]
         measure = _measure(work, found.end())
         if measure is None:
             continue
@@ -992,8 +999,15 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     head, comma, tail = rest.partition(",")
     # "4 skinless, boneless chicken breast halves": a comma after nothing but prep words
     # doesn't start the note.
-    while comma and head.split() and all(_is_prep(word, PREP_WORDS) for word in head.split()):
+    # The words are kept in a list and only the new ones are checked (L3: splitting the whole head
+    # at each comma was quadratic on a line of commas).
+    head_words = head.split()
+    all_prep = bool(head_words) and all(_is_prep(word, PREP_WORDS) for word in head_words)
+    while comma and all_prep:
         more, comma, tail = tail.partition(",")
+        new_words = more.split()
+        all_prep = all(_is_prep(word, PREP_WORDS) for word in new_words)
+        head_words += new_words
         head = f"{head} {more}"
     if comma and tail.strip():
         notes.append(tail.strip())

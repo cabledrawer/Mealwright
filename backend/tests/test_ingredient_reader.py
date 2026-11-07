@@ -937,3 +937,31 @@ def test_deeply_nested_brackets_read_fast() -> None:
     for _ in range(20):
         read_line(text)
     assert time.perf_counter() - started < 0.5
+
+
+# --- Hostile lines read in linear time (security pass L2, L3; 7 Nov) ------------------------------
+
+HOSTILE_LINES = [
+    ",".join(["a"] * 500),  # a separator at every second character (L2)
+    "1 big," + ",".join(["big"] * 190),  # a prep word at every comma (L3)
+    "1 big," + "big," * 240,
+]
+
+
+def test_two_hundred_hostile_lines_are_read_well_under_half_a_second() -> None:
+    import time
+
+    lines = [HOSTILE_LINES[n % len(HOSTILE_LINES)][:MAX_LINE_CHARS] for n in range(200)]
+    started = time.perf_counter()
+    for text in lines:
+        read_line(text)
+    spent = time.perf_counter() - started
+    assert spent < 0.5, f"{spent:.2f} s for 200 hostile lines"
+
+
+def test_a_line_of_commas_and_prep_words_reads_as_it_did() -> None:
+    """The same answers as before the speed-up, for the shapes it touches."""
+    chicken = read_line("4 skinless, boneless chicken breast halves")
+    assert (chicken.amount, chicken.name) == (Decimal(4), "chicken breast halves")
+    garlic = read_line("garlic, 2 cloves, minced")
+    assert (garlic.amount, garlic.size_word, garlic.name) == (Decimal(2), "cloves", "garlic")

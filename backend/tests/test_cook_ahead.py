@@ -150,7 +150,7 @@ def test_an_undone_answer_then_a_healed_cook_then_its_undo_leaves_the_meal_plann
 
 def test_undo_of_an_early_cook_leaves_a_use_by_set_since(kitchen: TestClient) -> None:
     """F165: a tub given its own use-by after the cook keeps it when the cook is undone."""
-    _dal, meal, item, day = plan_ahead(kitchen)
+    _dal, meal, item, _day = plan_ahead(kitchen)
     batch = ok(
         kitchen.post(f"{API}/plan/items/{item}/batch", json={"tub_count": 2, "pattern": "pick"}),
         201,
@@ -166,3 +166,25 @@ def test_undo_of_an_early_cook_leaves_a_use_by_set_since(kitchen: TestClient) ->
     ok(undo(kitchen, cooked["id"]))
     with db_of(kitchen) as db:
         assert db.get(Tub, tub_id).use_by == mine  # type: ignore[union-attr]
+
+
+def test_a_meal_with_no_cooked_record_counts_as_cooked_long_ago(kitchen: TestClient) -> None:
+    """Security pass L1: `_last_cooked_at` of a meal nothing was cooked for does not raise."""
+    from datetime import UTC, datetime
+
+    from mealwright.api.v1.context import Kitchen
+    from mealwright.cooking import _last_cooked_at
+    from mealwright.models import Household, Login
+
+    _dal, meal, _item, _day = plan_ahead(kitchen)
+    with db_of(kitchen) as db:
+        here = Kitchen(
+            db=db,
+            login=db.scalars(select(Login)).first(),  # type: ignore[arg-type]
+            household=db.scalars(select(Household)).first(),  # type: ignore[arg-type]
+            idempotency_key=None,
+            request="",
+        )
+        asked = db.get(Meal, meal)
+        assert asked is not None
+        assert _last_cooked_at(here, asked) < datetime(2000, 1, 1, tzinfo=UTC)
