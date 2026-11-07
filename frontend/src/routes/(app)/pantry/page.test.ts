@@ -1224,6 +1224,10 @@ describe('the Pantry page', () => {
         'Used…',
         'To freezer'
       ]);
+      // Each button names its row for a screen reader (S5 review r2 L2).
+      const binned = card.getByRole('button', { name: 'Binned', exact: true }).element();
+      const named = document.getElementById(binned.getAttribute('aria-describedby') ?? '');
+      expect(named?.textContent).toBe('Lemon');
     });
 
     it('a phone row has its buttons too, in the same order, so a keyboard reaches them all (S5 review r1 M2)', async () => {

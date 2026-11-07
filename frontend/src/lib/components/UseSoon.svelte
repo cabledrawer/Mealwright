@@ -86,6 +86,7 @@
       <button
         type="button"
         class="pill"
+        aria-describedby="{uid}-n{lot.id}"
         disabled={network.offline}
         onclick={() => press(lot, action)}>{LABEL[action]}</button
       >
@@ -131,7 +132,7 @@
                 class="name"
                 disabled={network.offline}
                 onclick={() => ingredientEditor.open(lot.food.id)}
-                ><b>{lot.food.name}</b><span>{what(lot)}</span></button
+                ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
               >
               {@render when(lot)}
             </div>
@@ -150,7 +151,7 @@
             class="name"
             disabled={network.offline}
             onclick={() => ingredientEditor.open(lot.food.id)}
-            ><b>{lot.food.name}</b><span>{what(lot)}</span></button
+            ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
           >
           {@render when(lot)}
           <span class="btns">{@render pills(lot)}</span>
