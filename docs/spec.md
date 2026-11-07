@@ -731,6 +731,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **A "Cooked it" with nothing reviewed, on a meal cooked in parts (cabledrawer 7 Nov):** refused while a recipe in the meal can still be cooked; the message names it ("Lentil soup still needs Cooked it."). A meal with nothing cooked yet works as before.
 - **Ingredient names in Shopping's words (cabledrawer 7 Nov):** used as typed, so "Add 1 eggs" can happen; a singular/plural rule is 0.9.5 polish.
 - **Cook mode's step text can't be selected (cabledrawer 7 Nov: OK),** so swiping works; copy a step from the recipe page.
+- **Pack sizes and where to buy (cabledrawer 7 Nov):** Mealwright bundles its own table of common UK pack sizes (369 ingredients, Indian, Chinese, Japanese and Middle Eastern included), with where each is usually bought (supermarket, world aisle or specialist grocer) and its date type; it suggests sizes and a new ingredient's Usual shop, and a tap changes either.
 
 **From the v0.8.0-alpha.1 hand test (cabledrawer 7 Nov), wave 3:**
 
