@@ -851,3 +851,9 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Recent changes** (spec, cabledrawer 7 Nov: "recorded as stocktake"; the words proposed): **Stocktake: Toor dal ½ bag in the Cupboard**, **Stocktake: no Toor dal in the Cupboard** (None), **Stocktake: Sambar powder is a staple in the Cupboard**, **Stocktake: Tamarind pack is 500 g** (the pack size asked once). After Undo: "Undone: " and those words.
 - **Round 1 additions (proposed):** a counted row reads **2 tins** (the ingredient's own word; just the number when it has none). Screen-reader names: **Common sizes for Tamarind**, **Tamarind: size of one pack**, **One more bag** / **One fewer bag**, **Tamarind: more packets**, **Tamarind: how many**, **¼ left**, **Ingredients in the Cupboard**. The "+ Something else" box says **e.g. toor dal**. When adding, going back or going on cannot be saved: **Couldn’t save. Try again.** (the app's usual words).
 - **Round 2 (cabledrawer 7 Nov; words proposed):** a row whose pack word is "tin" is counted whole, with − and + and **2 tins** (**1 tin**), and its small line reads **tin · 400 g · counted**; no new sentence. **Next** (and **Finish**) records the rows not answered as checked and correct, with no words and no entry in Recent changes.
+
+## 47. Undo of added ingredients (0.8 U1; cabledrawer 7 Nov)
+
+- **Some stay** (cabledrawer 7 Nov): **Took out what could be: 3 ingredients are already in use, so they stay.** One: **Took out what could be: 1 ingredient is already in use, so it stays.**
+- **All stay** (cabledrawer 7 Nov): **Nothing to take out: these ingredients are already in use.**
+- Shown in the Undo toast and after Undo in Recent changes. "In use" is a recipe line, the plan, the shopping list, the pantry, or a staple someone has checked or restocked. Nothing in use: the usual **Undone.**
