@@ -756,6 +756,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Tiny long-life amounts (cabledrawer 7 Nov; session 3b, not in this PR):** a Best-before ingredient whose need is under a twentieth of its smallest known pack gets a small "Make it a staple?" link on its Shopping row.
 - **Plan shopping (cabledrawer 6 Nov; the words and details are proposed, for cabledrawer):** from 1100 px wide Shopping is "Plan shopping": one column grouped by shop (headers only with more than one shop; Settings order; Any shop last), then aisle, one-line rows (tick, name, amount in packs, why it is there, ⋯) and a right-hand column (Add an item, Shops, Check you have these folded, In the trolley, Put away). Why it is there is worked out when the list is read: the planned recipes and days, "Added by you", "120 g needed" when the pack is bigger than the need. Under 1100 px it is the phone screen. A recipe used inside a planned recipe adds its ingredients (one batch) unless it is made ahead and enough is in the pantry. A new ingredient with no aisle takes the bundled table's aisle for its name (or a table name inside it), else Other.
 - **Shopping on the phone (cabledrawer 6–7 Nov):** "Add as bought" puts a new item straight into the pantry; "Already have it" takes a row off the list and puts what is at home into the pantry as found at home, not bought; both work offline. In the trolley lists the most recently ticked first (F173), one line each with its place as a button; swipe left clears one, Clear ticked clears all.
+- **Undo of added ingredients (cabledrawer 7 Nov):** undoing an Add ingredient or a starter pack takes out only the ingredients not yet used anywhere (a recipe, the plan, the shopping list, the pantry, a staple); the ones in use stay, and the message says how many.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
@@ -768,7 +769,6 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **At the end:** one Cooked it review for the whole session (grouped by recipe), one group in Recent changes with Undo, and the tubs per recipe as in Cook once.
 - **Data, roughly:** a batch session (cook day, recipes, a snapshot of the schedule); per step: hands-on or waiting, minutes, equipment, and whether each was guessed or set by hand; per household: kitchen equipment. Words in `docs/dev/words.md`.
 - **Not before 1.0:** suggestions from the internet or an AI model, shopping or cost optimisation, and splitting tasks between two cooks.
-- **Undo of added ingredients (cabledrawer 7 Nov):** undoing an Add ingredient or a starter pack takes out only the ingredients not yet used anywhere (a recipe, the plan, the shopping list, the pantry, a staple); the ones in use stay, and the message says how many.
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 

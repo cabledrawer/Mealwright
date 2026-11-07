@@ -856,4 +856,4 @@ All cabledrawer's (6 Nov); no longer proposed.
 
 - **Some stay** (cabledrawer 7 Nov): **Took out what could be: 3 ingredients are already in use, so they stay.** One: **Took out what could be: 1 ingredient is already in use, so it stays.**
 - **All stay** (cabledrawer 7 Nov): **Nothing to take out: these ingredients are already in use.**
-- Shown in the Undo toast and after Undo in Recent changes. "In use" is a recipe line, the plan, the shopping list, the pantry, or a staple someone has checked or restocked. Nothing in use: the usual **Undone.**
+- Shown in the Undo toast and after Undo in Recent changes. "In use" is a recipe line, the plan, the shopping list, the pantry, or a staple someone has checked or restocked. Nothing in use: the usual **Undone.** The same for the ingredient made with a new shopping-list item when its add is undone (the list item still goes).
