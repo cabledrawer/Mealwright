@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Plan shopping (0.8)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden;background:#111614}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.nav a[aria-current="page"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.shop{margin:0;font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px}
+.aisle{margin:0;font-size:12px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.06em;padding:10px 0 4px}
+.r{display:grid;grid-template-columns:24px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.2fr) 36px;align-items:center;gap:12px;min-height:44px;border-bottom:1px solid #26302B}
+.r input{width:20px;height:20px;accent-color:#6FCF9E;margin:0}
+.r .n{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r .a{font-size:14px;color:#C5CEC8;font-weight:600;white-space:nowrap}
+.r .why{font-size:13px;color:#A3AFA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.more{width:36px;height:36px;border:none;background:transparent;color:#A3AFA8;border-radius:10px;font:800 16px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.panel{background:#1B221F;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.chip{border:1px solid #39433D;background:#111614;border-radius:999px;padding:0 12px;min-height:34px;font:700 13px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;cursor:pointer}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Dark-Today.dc.html">Today</a>
+<a href="Dark-Plan.dc.html">Plan</a>
+<a href="Dark-ShopPlan08-Desktop.dc.html" aria-current="page"><span style="flex: 1">Shopping</span><span style="font-size: 12px">14</span></a>
+<a href="Dark-Pantry08-Desktop.dc.html"><span style="flex: 1">Pantry</span><span style="font-size: 12px; color: #FF9B76">6</span></a>
+<a href="Dark-Recipe.dc.html">Recipes</a>
+<a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a>
+</nav>
+<a href="Dark-Settings08-Desktop.dc.html" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1B221F; color: #E9EEEB; text-decoration: none; font-size: 14px; font-weight: 700">Tess · Settings</a>
+</aside>
+
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; color: #A3AFA8">This week · built from the plan · 14 to buy at 2 shops</div>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Plan shopping</h1>
+</div>
+<div style="display: flex; gap: 8px">
+<label for="addpc" style="position: absolute; left: -9999px">Add an item</label>
+<input id="addpc" type="text" placeholder="Add an item, e.g. 1 l milk" style="width: 300px; min-height: 44px; border: 1px solid #39433D; border-radius: 12px; padding: 0 14px; font: 500 15px 'Plus Jakarta Sans', sans-serif; background: #1B221F; color: #E9EEEB; box-sizing: border-box">
+<button style="border: none; background: #2E7D5B; color: #FFFFFF; border-radius: 12px; min-height: 44px; padding: 0 16px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Add</button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start">
+
+<section aria-label="The list" style="display: flex; flex-direction: column; gap: 22px; max-width: 860px">
+
+<div style="display: flex; flex-direction: column">
+<h2 class="shop"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6FCF9E"></span>Supermarket <span style="font-size: 14px; color: #A3AFA8; font-weight: 600">· 9</span></h2>
+<h3 class="aisle">Fruit &amp; veg</h3>
+<div class="r"><input type="checkbox" aria-label="Onions"><span class="n">Onions</span><span class="a">5</span><span class="why">Sambar (Tue) · Rasam (Thu)</span><button class="more" aria-label="More for Onions">⋯</button></div>
+<div class="r"><input type="checkbox" aria-label="Coriander"><span class="n">Coriander</span><span class="a">1 bunch</span><span class="why">Rasam (Thu)</span><button class="more" aria-label="More for Coriander">⋯</button></div>
+<div class="r"><input type="checkbox" aria-label="Spinach"><span class="n">Spinach</span><span class="a">1 bag (200 g)</span><span class="why">Palak paneer (Sat)</span><button class="more" aria-label="More for Spinach">⋯</button></div>
+<h3 class="aisle">Dairy</h3>
+<div class="r"><input type="checkbox" aria-label="Paneer"><span class="n">Paneer</span><span class="a">2 × 200 g</span><span class="why">Palak paneer (Sat)</span><button class="more" aria-label="More for Paneer">⋯</button></div>
+<div class="r"><input type="checkbox" aria-label="Milk"><span class="n">Milk</span><span class="a">2 l</span><span class="why">Added by you</span><button class="more" aria-label="More for Milk">⋯</button></div>
+<h3 class="aisle">Tins &amp; jars</h3>
+<div class="r"><input type="checkbox" aria-label="Ghee"><span class="n">Ghee</span><span class="a">1 jar (500 g)</span><span class="why">120 g needed · Sambar, Pongal</span><button class="more" aria-label="More for Ghee">⋯</button></div>
+<div class="r" style="border-bottom: none"><input type="checkbox" aria-label="Tamarind"><span class="n">Tamarind</span><span class="a">60 g</span><span class="why">Sambar (Tue) · no pack size</span><button class="more" aria-label="More for Tamarind">⋯</button></div>
+<div style="display: flex; align-items: center; gap: 6px; padding: 4px 0 10px 36px; border-bottom: 1px solid #26302B"><span style="font-size: 12px; color: #A3AFA8">Usual pack for Tamarind?</span><button class="chip">200 g</button><button class="chip">500 g</button><button class="chip">1 kg</button></div>
+</div>
+
+<div style="display: flex; flex-direction: column">
+<h2 class="shop"><span style="width: 10px; height: 10px; border-radius: 5px; background: #F3C766"></span>Indian grocer <span style="font-size: 14px; color: #A3AFA8; font-weight: 600">· 5</span></h2>
+<h3 class="aisle">Dry goods</h3>
+<div class="r"><input type="checkbox" aria-label="Toor dal"><span class="n">Toor dal</span><span class="a">1 bag (1 kg)</span><span class="why">Sambar (Tue)</span><button class="more" aria-label="More for Toor dal">⋯</button></div>
+<div class="r"><input type="checkbox" aria-label="Curry leaves"><span class="n">Curry leaves</span><span class="a">1 packet</span><span class="why">Sambar · Rasam · Lemon rice</span><button class="more" aria-label="More for Curry leaves">⋯</button></div>
+</div>
+
+</section>
+
+<aside style="display: flex; flex-direction: column; gap: 14px">
+<section class="panel" aria-label="Shops">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 800">Shops</h2><a href="Dark-Settings08-Desktop.dc.html" style="font-size: 13px; font-weight: 700; text-decoration: none">Manage</a></div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><button class="chip" aria-pressed="true" style="border-color: #6FCF9E; background: #1F3A2D; color: #8FE0B5">All · 14</button><button class="chip">Supermarket · 9</button><button class="chip">Indian grocer · 5</button><button class="chip" style="color: #6FCF9E">+ New shop</button></div>
+<span style="font-size: 12px; color: #A3AFA8">⋯ on a row moves it to another shop.</span>
+</section>
+
+<section class="panel" aria-label="Check you have these" style="background: #2B2416">
+<button onClick="{{ toggleStaples }}" aria-expanded="{{ staplesAria }}" style="display: flex; justify-content: space-between; align-items: center; border: none; background: transparent; padding: 0; min-height: 36px; font-family: inherit; color: #F3D58C; cursor: pointer"><span style="font-size: 15px; font-weight: 800">Check you have these · 4</span><span style="font-size: 13px; font-weight: 700">{{ staplesWord }}</span></button>
+<sc-if value="{{ staplesOpen }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px; color: #E9EEEB"><span style="font-size: 14px; font-weight: 600">Turmeric</span><span style="display: flex; gap: 6px"><button class="chip">Got it</button><button class="chip">+ Add</button></span></div>
+<div style="display: flex; justify-content: space-between; align-items: center; min-height: 40px; color: #E9EEEB"><span style="font-size: 14px; font-weight: 600">Sunflower oil</span><span style="display: flex; gap: 6px"><button class="chip">Got it</button><button class="chip">+ Add</button></span></div>
+</sc-if>
+</section>
+
+<section class="panel" aria-label="In the trolley">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 800">In the trolley · 2</h2><button class="chip">Clear ticked</button></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 40px"><span style="flex: 1; font-size: 14px; font-weight: 600">Yoghurt · 500 g</span><button class="chip">→ Fridge ▾</button><button class="more" aria-label="Clear Yoghurt">✕</button></div>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 40px"><span style="flex: 1; font-size: 14px; font-weight: 600">Rice flour · 1 kg</span><button class="chip">→ Cupboard ▾</button><button class="more" aria-label="Clear Rice flour">✕</button></div>
+</section>
+</aside>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const open = !!s.staples;
+return {
+staplesOpen: open,
+staplesAria: open ? 'true' : 'false',
+staplesWord: open ? 'Fold' : 'Show',
+toggleStaples: () => this.setState({ staples: !open })
+};
+}
+}
+</script>
+</body>
+</html>
