@@ -725,6 +725,10 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **F162 (cabledrawer 6 Nov):** Move it on a meal cooked in parts names what actually moves ("Move Lentil soup to…"), in the panel, the toast and the change.
 - **F163 (cabledrawer 6 Nov):** the Plan panel for a meal cooked in parts lists each recipe, with a "Cooked" tag on each cooked one, and the note names it ("Banana bread was cooked. Undo its Cooked it to move or remove it."; with several cooked: "Banana bread and Lentil soup were cooked. Undo their Cooked it to move or remove them."). A recipe not yet cooked can be removed or have its servings changed on its own; only cooked ones are locked.
 - **F164 (cabledrawer 6 Nov):** the Cook view's day header counts only what is still to cook; "All cooked" when nothing is left.
+- **F144 (cabledrawer 6 Nov):** an import can be undone from Recent changes on the phone, as on the computer.
+- **A "Cooked it" with nothing reviewed, on a meal cooked in parts (cabledrawer 7 Nov):** refused while a recipe in the meal can still be cooked; the message names it ("Lentil soup still needs Cooked it."). A meal with nothing cooked yet works as before.
+- **Ingredient names in Shopping's words (cabledrawer 7 Nov):** used as typed, so "Add 1 eggs" can happen; a singular/plural rule is 0.9.5 polish.
+- **Cook mode's step text can't be selected (cabledrawer 7 Nov: OK),** so swiping works; copy a step from the recipe page.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
