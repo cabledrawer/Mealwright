@@ -102,6 +102,8 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
     .toBe('Lunch');
   await slots.getByRole('button', { name: 'Move Breakfast up' }).click();
   await expect(slots.getByRole('listitem').first()).toContainText('Breakfast');
+  // Now first, its Move up greys out: the keyboard stays on the row, on Move down (review r1 L3).
+  await expect(slots.getByRole('button', { name: 'Move Breakfast down' })).toBeFocused();
   // Keyboard: Move down is a real button, reachable by Tab, and works with Enter.
   await slots.getByRole('button', { name: 'Move Lunch down' }).focus();
   await page.keyboard.press('Enter');
@@ -356,4 +358,16 @@ test('Pantry and Ingredients have no Recent changes of their own', async ({ page
   await page.goto('/recipes/ingredients');
   await expect(page.getByRole('heading', { name: 'Ingredients', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Recent changes/ })).toHaveCount(0);
+});
+
+test('on the Plan, a member sees the Meals switches greyed, with why (review r1 M1)', async ({ page }) => {
+  // The app can't add a member until 0.9, so the signed-in admin is shown as a member here.
+  await page.route('**/api/v1/me', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), role: 'member' } });
+  });
+  await page.goto('/plan');
+  const meals = page.getByRole('group', { name: 'Meals to show' });
+  await expect(meals.getByText('Only an admin can change this.')).toBeVisible();
+  for (const button of await meals.getByRole('button').all()) await expect(button).toBeDisabled();
 });

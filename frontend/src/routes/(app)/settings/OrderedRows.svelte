@@ -3,7 +3,7 @@
   // work from the keyboard and on a phone), renamed in place and, when asked, removed. Used by
   // Settings for meal slots, shops and places. It changes nothing itself: it says what was
   // asked (onorder, onrename, onremove) and the screen sends it.
-  import type { Snippet } from 'svelte';
+  import { tick, type Snippet } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
 
   let {
@@ -35,13 +35,20 @@
   let dragging = $state<number | null>(null);
   let over = $state<number | null>(null);
 
-  function move(id: number, by: -1 | 1) {
+  async function move(id: number, by: -1 | 1, pressed?: HTMLButtonElement) {
     const at = items.findIndex((i) => i.id === id);
     const to = at + by;
     if (at === -1 || to < 0 || to >= items.length) return;
     const ids = items.map((i) => i.id);
     [ids[at], ids[to]] = [ids[to]!, ids[at]!];
     onorder(ids);
+    // At the top or bottom now, the pressed button greys out: keep the keyboard on the row's
+    // other move button rather than losing it to the page (review r1 L3).
+    await tick();
+    if (pressed?.disabled) {
+      const other = by === -1 ? pressed.nextElementSibling : pressed.previousElementSibling;
+      if (other instanceof HTMLButtonElement) other.focus();
+    }
   }
 
   function drop(target: number) {
@@ -131,7 +138,7 @@
             class="icon"
             aria-label="Move {item.name} up"
             disabled={disabled || index === 0}
-            onclick={() => move(item.id, -1)}
+            onclick={(e) => void move(item.id, -1, e.currentTarget)}
           >
             <span class="flip"><Icon name="chevron-down" size={18} stroke={2.4} /></span>
           </button>
@@ -140,7 +147,7 @@
             class="icon"
             aria-label="Move {item.name} down"
             disabled={disabled || index === items.length - 1}
-            onclick={() => move(item.id, 1)}
+            onclick={(e) => void move(item.id, 1, e.currentTarget)}
           >
             <Icon name="chevron-down" size={18} stroke={2.4} />
           </button>

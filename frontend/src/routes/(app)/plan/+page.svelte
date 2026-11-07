@@ -35,6 +35,7 @@
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
+  import { session } from '#lib/session.svelte.js';
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -214,6 +215,8 @@
   }
 
   const readonly = $derived(network.offline);
+  // Which meals show is for admins only (cabledrawer 7 Nov); members see the switches, greyed.
+  const slotAdmin = $derived(session.me?.role === 'admin');
 
   /** "Leftovers here" is offered only on meals after this one, and not in the past (F50). */
   const leftoversOk = (meal: PlanMeal) => (day: string, slot: number | null) =>
@@ -428,10 +431,11 @@
           <button
             type="button"
             aria-pressed={slot.enabled}
-            disabled={readonly}
+            disabled={readonly || !slotAdmin}
             onclick={() => void model.switchSlot(slot, !slot.enabled)}>{slot.name}</button
           >
         {/each}
+        {#if session.me && !slotAdmin}<span class="meals-note">Only an admin can change this.</span>{/if}
       </div>
     {/if}
     {#if hasBatches}
@@ -671,6 +675,11 @@
     padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
     border-radius: var(--radius-full);
     background: var(--color-surface);
+  }
+
+  .meals-note {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .meals-label {
