@@ -52,6 +52,13 @@ const tamarind: FoodRow = {
   pack_suggestions: suggestions
 };
 
+const basmati: FoodRow = {
+  ...rowOf(toorDal({ id: 4, name: 'Basmati rice', other_names: [], staple: true })),
+  pack: size(4, 'bag', 5000, true),
+  more_sizes: [],
+  pack_suggestions: []
+};
+
 function asDesktop(on: boolean) {
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: on && query.includes('min-width: 768px'),
@@ -73,9 +80,9 @@ describe('the Pack column', () => {
       'GET /foods': [
         200,
         {
-          total: 3,
-          counts: { all: 3, staples: 0, unused: 0, maybe_same: 0, maybe_same_pairs: 0 },
-          foods: [ghee, dal, tamarind],
+          total: 4,
+          counts: { all: 4, staples: 0, unused: 0, maybe_same: 0, maybe_same_pairs: 0 },
+          foods: [ghee, dal, tamarind, basmati],
           next: null
         }
       ],
@@ -139,6 +146,11 @@ describe('the Pack column', () => {
       );
     });
   }
+
+  it('a staple shows its pack like any other ingredient (cabledrawer 7 Nov)', async () => {
+    open(false);
+    await expect.element(page.getByText('bag · 5 kg')).toBeVisible();
+  });
 
   it('a phone puts the pack on its own line under the name', async () => {
     open(false);

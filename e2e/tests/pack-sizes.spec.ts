@@ -61,6 +61,16 @@ test('the Pack column shows the Usual size and +1 for another', async ({ page })
   expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
+test('a staple shows its pack in the Pack column, like any other ingredient', async ({ page }) => {
+  const name = `Packed rice ${test.info().project.name} ${Date.now()}`;
+  const id = await makeFood(page, name, { staple: true });
+  await addSize(page, id, 'bag', 5000);
+  const list = await find(page, name);
+  const row = list.getByRole('listitem').filter({ hasText: name });
+  await expect(row.getByText('bag · 5 kg')).toBeVisible();
+  await expect(row.getByRole('button', { name: /^Add a pack/ })).toHaveCount(0);
+});
+
 test('Add a pack offers common sizes, and a tap makes one the Usual size', async ({ page }) => {
   const name = `Packed tamarind ${test.info().project.name} ${Date.now()}`;
   await makeFood(page, name);

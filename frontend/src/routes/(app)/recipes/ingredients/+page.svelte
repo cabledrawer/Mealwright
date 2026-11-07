@@ -111,7 +111,7 @@
       const restocked =
         food.staple && food.restocked_days_ago != null ? columnWords(food.restocked_days_ago) : '';
       // The pack has its own line under the name, so the first words only say how it's kept.
-      const kept = food.pack && !food.staple ? KEPT_WORD[food.counted_as] : food.counted_as_display;
+      const kept = food.pack ? KEPT_WORD[food.counted_as] : food.counted_as_display;
       return [kept, restocked, food.place?.name].filter(Boolean).join(' · ');
     }
     if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;

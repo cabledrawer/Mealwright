@@ -43,8 +43,8 @@
   }
 </script>
 
-{#if food.staple}
-  <!-- A staple isn't bought by the pack. -->
+{#if food.staple && !pack}
+  <!-- A staple with no pack has nothing to show (cabledrawer 7 Nov: one with a pack shows it). -->
 {:else if pack}
   <span class="pack">
     <span class="size">{text(pack)}</span>

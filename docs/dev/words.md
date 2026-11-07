@@ -787,6 +787,6 @@ All cabledrawer's (6 Nov); no longer proposed.
 
 - **Shopping line, Usual size known** (mockups Dark-ShopInShop08-Phone, Dark-ShopPlan08-Desktop): **1 jar (500 g) · 120 g needed**; several packs: **2 tins (400 ml) · 600 ml needed**. Number and word with a no-break space.
 - **Shopping line, no size:** **60 g needed · no pack size yet**; the quick picks are headed **Usual pack?** (desktop: **Usual pack for Tamarind?**) and read **200 g**, **500 g**, **1 kg** (the screens come in S3 and S4).
-- **Ingredients, Pack column** (mockup Dark-IngredientsPack08-Desktop): heading **Pack**; the Usual size **jar · 500 g**; another size **+1** (title and tap: **Also: tin · 1 kg**); none **Add a pack**, then **Common sizes:** with the sizes and **Other…** (opens the editor). Phone: the same, on a line under the name. A staple shows nothing.
+- **Ingredients, Pack column** (mockup Dark-IngredientsPack08-Desktop): heading **Pack**; the Usual size **jar · 500 g**; another size **+1** (title and tap: **Also: tin · 1 kg**); none **Add a pack**, then **Common sizes:** with the sizes and **Other…** (opens the editor). Phone: the same, on a line under the name. A staple shows its pack the same way (**bag · 5 kg**), and nothing when it has none.
 - **Toast after a tap:** **Tamarind: added Pack = 500 g** (the server's own words), with Undo.
 - The table's word is the size's name (jar, bag); with no table row the size is named **pack**.

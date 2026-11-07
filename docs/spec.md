@@ -740,6 +740,10 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **The version label (cabledrawer 7 Nov):** the sidebar keeps the name: "Mealwright v0.8.0-alpha.1".
 - **Month in Both (cabledrawer 7 Nov):** the computer matches the phone: the COOK tag goes on every cooking day, batch or fresh, in Cook and in Both.
 - **Cooked it in Recent changes (cabledrawer 7 Nov):** one Cooked it is one row, with one Undo (one action, one Undo).
+- **A specialist ingredient's Usual shop (cabledrawer 7 Nov):** the pack-size table says each ingredient's cuisine (Indian, Chinese, Japanese, Middle Eastern or none); a specialist ingredient's suggested shop is the first shop, in Settings order, whose name matches its cuisine (Indian: indian, south indian, tamil, desi, pakistani, bangladeshi, sri lankan; Chinese: chinese, oriental, asian; Japanese: japanese, oriental, asian; Middle Eastern: arabic, lebanese, turkish, middle eastern, persian, halal, mediterranean), else the first shop that isn't a supermarket, else none; an everyday ingredient's is the first shop.
+- **Suggested shop everywhere (cabledrawer 7 Nov):** every way a new ingredient is made (Ingredients, the Pantry, Shopping's add box, recipe import) suggests its Usual shop.
+- **A staple's pack (cabledrawer 7 Nov):** a staple shows its pack in the Pack column ("bag · 5 kg"), as any other ingredient.
+- **Tiny long-life amounts (cabledrawer 7 Nov; session 3b, not in this PR):** a Best-before ingredient whose need is under a twentieth of its smallest known pack gets a small "Make it a staple?" link on its Shopping row.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
