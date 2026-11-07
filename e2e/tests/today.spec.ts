@@ -284,6 +284,10 @@ test.describe('F150: This week', () => {
     await expect(row(page, today)).toContainText('Today');
     await expect(row(page, today)).toContainText('Banana bread');
     await expect(row(page, today)).toContainText('3 meals');
+    // The day sits beside its name (one line of the list, like the other rows), not above it.
+    const [dow, dinner] = [await row(page, today).locator('.dow').boundingBox(), await row(page, today).locator('.name').boundingBox()];
+    expect(dinner!.x).toBeGreaterThan(dow!.x + dow!.width - 1);
+    expect(Math.abs(dinner!.y - dow!.y)).toBeLessThan(30);
     await expect(row(page, today).getByText('Cook', { exact: true })).toHaveCount(1); // a fresh recipe is cooking
 
     const tomorrow = row(page, addDays(today, 1));

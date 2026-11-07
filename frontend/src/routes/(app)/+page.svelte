@@ -346,7 +346,7 @@
       </div>
       <ul class="days">
         {#each week as d (d.day)}
-          <li class:today={d.isToday} data-testid="week-{d.day}">
+          <li class:now={d.isToday} data-testid="week-{d.day}">
             <span class="dow">
               {d.isToday ? 'Today' : dayShort(d.day)}
               <span
@@ -717,7 +717,7 @@
     border-top: none;
   }
 
-  .days li.today .dow {
+  .days li.now .dow {
     color: var(--color-accent-on-soft);
   }
 
