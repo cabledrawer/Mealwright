@@ -11,12 +11,17 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Plan: a meal cooked in parts (0.8.0, F162, F163).** The panel lists each recipe with a **Cooked** tag on cooked ones, and the note names them ("Banana bread was cooked. Undo its Cooked it to move or remove it."); a recipe not yet cooked can be removed or have its servings changed on its own. Move it names only what moves ("Moved Lentil soup from Dinner on Thu 5 Nov to Dinner on Sat 7 Nov").
 - **Cook view's day header (0.8.0, F164).** "N things to cook" counts only what is not cooked yet; when everything is cooked it says **All cooked**.
 - **Small words (0.8.0, F133).** "Add 2 eggs to the shopping list"; "How much is 1 sprig of curry leaves?"; a Cook once plan is logged as "Planned Sambar once for 3 tubs"; "Did you cook …?" lists every recipe and tub in the meal.
+- **Plan Month: Both · Eat · Cook (0.8.0, F149, cabledrawer 6 Nov).** The switch shows on the Month too and is the same remembered choice as the Week's. Phone Month: Eat shows meal dots and the day's meals; Cook a blue ring on cooking days and the day's cooking with **Start cooking**; Both rings and dots and both lists, with a line under the grid saying what the marks mean. Computer Month: Cook shows only the cooking chips (blue, pan); Eat and Both as before.
+- **Today's This week (0.8.0, F150).** Seven rows from today (Today first): the day, the dinner's name (or the day's last meal), "3 meals" or "tub · 1 meal", and a blue **Cook** mark on a day with cooking; an empty day says **Nothing planned** with **+ Plan**, which opens the Plan on that day's week. Rows are at least 44 px and long names end with "…"; the same rows on the phone and the computer.
+- **The Plan's add sheet says what to do first (0.8.0, F127).** "Pick a meal, then what to add" over the day; after picking, "Add to" over "Dinner · Wednesday 11".
 
 ### Fixed
 
 - **The first toast after Confirm (0.8.0, F161)** names only the recipes that press cooked.
 - **The toast with Undo after Confirm in Cook mode (0.8.0, F158)** stays its full time on the screen Cook mode returns to. A lost reply to Confirm no longer leaves an all-cooked meal "planned": the next load of Today or the Plan shows it cooked (once the press is a few minutes old), and Undo of it puts the meal back to planned. A recipe deleted from the recipe list is left out of the Cooked it review.
 - **Cook mode's labels (0.8.0)** no longer change for a moment while the plan loads.
+- **Week meal names (0.8.0, F137)** break only between words, end with "…" when too long, and show in full on hover and focus.
+- **Undo of a plan change that could only put back part (0.8.0, F140)** names the meal: "Put back what could be for Banana bread (Sun breakfast): some of it has changed again since." Other Undos keep their words.
 
 ## [0.7.0] - 2026-11-06
 
