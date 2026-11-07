@@ -22,6 +22,7 @@ from mealwright.api.v1.schemas import (
     CountedAsName,
     CupGrams,
     ItemGrams,
+    PackSuggestion,
     PositiveNumber,
     Ref,
     ShortAmount,
@@ -47,6 +48,7 @@ from mealwright.foods import (
     name_owner,
     name_taken,
     other_names,
+    pack_suggestions,
     refresh_table_key,
     remember_answers,
     resolve,
@@ -83,6 +85,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import clean, clean_name, fold, normalise, one_line, search_match, size_name
+from mealwright.pack_sizes import suggest_shop_id, where_to_buy
 from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
 
@@ -155,6 +158,8 @@ class FoodOut(BaseModel):
     aisle: AisleName  # a food with no aisle of its own shows under "other"
     aisle_name: str  # "Veg & fruit"
     sizes: list[SizeOut]
+    # Common sizes from the bundled table that it doesn't have yet (F120, F121).
+    pack_suggestions: list[PackSuggestion]
     cup_weight: Conversion | None
     item_weight: Conversion | None
     running_low_at: AmountOut | None
@@ -189,6 +194,11 @@ class FoodListItem(BaseModel):
     counted_as: CountedAsName
     staple: bool
     counted_as_display: str
+    # The Pack column (F121): the Usual size ("jar", 500), how many other sizes there are, and
+    # (only with no size at all) common sizes to pick from.
+    pack: SizeOut | None = None
+    more_sizes: list[SizeOut] = Field(default_factory=list)
+    pack_suggestions: list[PackSuggestion] = Field(default_factory=list)
     place: Ref | None
     stand_ins: list[Ref]
     maybe_same: list[MaybeSame]
@@ -389,6 +399,7 @@ def food_out(kitchen: Kitchen, food: Food, merged_from: Food | None = None) -> F
         aisle=cast(AisleName, food.aisle or DEFAULT_AISLE),
         aisle_name=AISLE_LABELS[food.aisle or DEFAULT_AISLE],
         sizes=[size_out(food, s) for s in food_sizes],
+        pack_suggestions=pack_suggestions(kitchen, food, food_sizes),
         cup_weight=cup_weight,
         item_weight=item_weight,
         running_low_at=(
@@ -451,6 +462,18 @@ def _place(kitchen: Kitchen, place_id: int) -> Place:
     return place
 
 
+def shop_choices(kitchen: Kitchen) -> list[tuple[int, str]]:
+    """The household's shops as (id, name), in Settings order."""
+    return [
+        (shop.id, shop.name)
+        for shop in kitchen.db.scalars(
+            select(Shop)
+            .where(Shop.household_id == kitchen.household_id)
+            .order_by(Shop.position, Shop.id)
+        )
+    ]
+
+
 def _shop(kitchen: Kitchen, shop_id: int) -> Shop:
     shop = kitchen.db.get(Shop, shop_id)
     if shop is None or shop.household_id != kitchen.household_id:
@@ -475,11 +498,13 @@ def list_foods(
     names = names_by_food(kitchen)
     same = maybe_same(kitchen, foods, names)
     usual: dict[int, FoodSize] = {}
+    by_food: dict[int, list[FoodSize]] = defaultdict(list)
     for size in kitchen.db.scalars(
         select(FoodSize)
         .where(FoodSize.household_id == kitchen.household_id)
         .order_by(FoodSize.position, FoodSize.id)
     ):
+        by_food[size.food_id].append(size)
         if size.usual or size.food_id not in usual:
             usual[size.food_id] = size
     links: dict[int, list[int]] = defaultdict(list)
@@ -532,6 +557,8 @@ def list_foods(
     for _rank, _key, food, matched in page:
         on, days_ago = restock.day(kitchen.household, restocked.get(food.id))
         place = places.get(food.place_id) if food.place_id else None
+        have = by_food.get(food.id, [])
+        main = usual.get(food.id)
         items.append(
             FoodListItem(
                 id=food.id,
@@ -540,7 +567,14 @@ def list_foods(
                 matched_name=matched,
                 counted_as=cast(CountedAsName, food.counted_as),
                 staple=food.staple,
-                counted_as_display=counted_as_text(food, usual.get(food.id)),
+                counted_as_display=counted_as_text(food, main),
+                pack=size_out(food, main) if main else None,
+                more_sizes=[size_out(food, s) for s in have if s is not main],
+                pack_suggestions=(
+                    pack_suggestions(kitchen, food, have, names.get(food.id, []))
+                    if not have
+                    else []
+                ),
                 place=Ref(id=place.id, name=place.name) if place else None,
                 stand_ins=sorted(
                     (Ref(id=i, name=by_id[i].name) for i in links.get(food.id, []) if i in by_id),
@@ -605,15 +639,19 @@ def create_food(body: NewFood, kitchen: Here, response: Response) -> FoodWrite:
     def apply() -> Change:
         if body.place_id is not None:
             _place(kitchen, body.place_id)
-        if body.shop_id is not None:
-            _shop(kitchen, body.shop_id)
+        shop_id = body.shop_id
+        if shop_id is not None:
+            _shop(kitchen, shop_id)
+        elif "shop_id" not in body.model_fields_set:
+            # Not sent: the table's "where to buy" suggests the Usual shop (cabledrawer 7 Nov).
+            shop_id = suggest_shop_id(where_to_buy([body.name]), shop_choices(kitchen))
         return make_food(
             kitchen,
             body.name,
             counted_as=body.counted_as,
             staple=body.staple,
             place_id=body.place_id,
-            shop_id=body.shop_id,
+            shop_id=shop_id,
             aisle=body.aisle,
         )
 
@@ -1027,6 +1065,8 @@ class NewSize(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=40)]
     # In base units (500 for 500 g), or typed with a unit ({"amount": 1, "unit": "kg"}).
     amount: PositiveNumber | AmountIn
+    # Make it the Usual size at once (a tapped pack suggestion), not only when it is the first.
+    usual: Literal[True] | None = None
 
     _clean = field_validator("name")(size_name)
 
@@ -1067,6 +1107,9 @@ def add_food_size(
             raise Problem(422, "too_small", "That size is too small.")
         with FoodEdit(kitchen, [food.id]) as edit:
             size = add_size(kitchen, food, body.name, milli)
+            if body.usual:
+                for other in sizes(kitchen, food.id):
+                    other.usual = other.id == size.id
         return edit.record(
             "food_edited", f"{food.name}: added {size_out(food, size).display}", food.id
         )

@@ -27,6 +27,7 @@ from mealwright.api.v1.schemas import (
     Ask,
     AsSoldOut,
     ChangeOut,
+    PackSuggestion,
     SizeBrief,
     SizeOut,
     Undone,
@@ -55,6 +56,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import fold
+from mealwright.pack_sizes import suggest_sizes
 
 # Words people type for units, beyond the units' own names.
 UNIT_WORDS = {
@@ -510,6 +512,38 @@ def size_text(food: Food, size: FoodSize) -> str:
     else:
         count = exact_text(size.amount_milli, cast(CountedAs, food.counted_as))
     return f"{size.name[:1].upper()}{size.name[1:]} = {count}"
+
+
+def pack_suggestions(
+    kitchen: Kitchen, food: Food, have: list[FoodSize], names: list[str] | None = None
+) -> list[PackSuggestion]:
+    """Common sizes for the food from the bundled table (its name, then other names; no match
+    gives the generic sizes by kind), without any size it already has (F120, F121). A staple
+    isn't bought by a pack, so it has none."""
+    if food.staple:
+        return []
+    found = names if names is not None else [n.name for n in other_names(kitchen, food.id)]
+    counted = cast(CountedAs, food.counted_as)
+    taken = {size.amount_milli for size in have}
+    out: list[PackSuggestion] = []
+    for pick in suggest_sizes([food.name, *found], counted, food.table_key):
+        if pick.amount_milli in taken:
+            continue
+        word = pick.pack or "pack"
+        amount = (
+            f"{Decimal(pick.amount_milli) / MILLI:f}".rstrip("0").rstrip(".")
+            if counted == "count"
+            else exact_text(pick.amount_milli, counted)
+        )
+        out.append(
+            PackSuggestion(
+                pack=pick.pack,
+                name=word,
+                amount=from_milli(pick.amount_milli),
+                display=f"{word} · {amount}",
+            )
+        )
+    return out
 
 
 def size_out(food: Food, size: FoodSize) -> SizeOut:

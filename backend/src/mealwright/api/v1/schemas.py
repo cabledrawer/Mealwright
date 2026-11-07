@@ -74,6 +74,16 @@ class SizeOut(BaseModel):
     added_when_shopping: bool
 
 
+class PackSuggestion(BaseModel):
+    """A common size from the bundled table (F120, F121), for "Add a pack" and "Usual pack?".
+    A tap makes it the Usual size: POST /foods/{id}/sizes with `name`, `amount`, `usual`."""
+
+    pack: str | None  # "jar", "bag": the table's word; null for the generic sizes
+    name: str  # what to call the size when it is made: `pack`, else "pack"
+    amount: float  # base units (g, ml or items)
+    display: str  # "jar · 500 g", "pack · 250 g"
+
+
 class SizeBrief(BaseModel):
     id: int | None
     name: str
