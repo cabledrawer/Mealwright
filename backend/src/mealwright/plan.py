@@ -11,7 +11,7 @@ from mealwright import cooked
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
-from mealwright.household import today
+from mealwright.household import meal_slots, today
 from mealwright.models import (
     BatchCook,
     Change,
@@ -25,6 +25,7 @@ from mealwright.models import (
     Recipe,
     Tub,
 )
+from mealwright.names import fold
 
 
 def delete_meal(db: DbSession, meal: Meal) -> None:
@@ -786,6 +787,53 @@ def set_slot(kitchen: Kitchen, slot: MealSlot, enabled: bool) -> Change | None:
     )
 
 
+def rename_slot(kitchen: Kitchen, slot: MealSlot, name: str) -> Change | None:
+    """Rename a meal (Settings → Meal slots, admins). Its planned meals stay with it."""
+    if slot.name == name:
+        return None
+    for other in meal_slots(kitchen.db, kitchen.household_id):
+        if other.id != slot.id and fold(other.name) == fold(name):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "slot_exists",
+                f"There’s already a meal called {other.name}.",  # proposed, for cabledrawer
+            )
+    before = slot.name
+    slot.name = name
+    kitchen.db.flush()
+    return _finish(
+        kitchen,
+        "plan_slot",
+        f"Renamed {before} to {name}",
+        [{"op": "slot_name", "slot": slot.id, "old": before, "new": name}],
+    )
+
+
+def order_slots(kitchen: Kitchen, ids: list[int]) -> Change | None:
+    """Put the household's meals in this order (Settings → Meal slots, admins): `ids` must be
+    every one of them, once each."""
+    slots = meal_slots(kitchen.db, kitchen.household_id)
+    if sorted(ids) != sorted(s.id for s in slots):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_all_slots",
+            "Send every meal once, in the order you want.",  # proposed, for cabledrawer
+        )
+    old = {str(s.id): s.position for s in slots}
+    if [s.id for s in slots] == ids:
+        return None
+    by_id = {s.id: s for s in slots}
+    for position, slot_id in enumerate(ids):
+        by_id[slot_id].position = position
+    kitchen.db.flush()
+    return _finish(
+        kitchen,
+        "plan_slot",
+        "Changed the order of the meals",
+        [{"op": "slot_order", "old": old, "new": {str(i): p for p, i in enumerate(ids)}}],
+    )
+
+
 # --- Undo ----------------------------------------------------------------------------------------
 
 
@@ -985,6 +1033,24 @@ def _undo_step(
         if "to" in step and slot.enabled != step["to"]:
             return False  # shown or hidden again since (F165)
         slot.enabled = step["enabled"]
+        db.flush()
+        return True
+    if op == "slot_name":
+        slot = _own(kitchen, MealSlot, step["slot"])
+        if slot is None or slot.name != step["new"]:
+            return False
+        slot.name = step["old"]
+        db.flush()
+        return True
+    if op == "slot_order":
+        slots = {str(s.id): s for s in meal_slots(kitchen.db, kitchen.household_id)}
+        if any(
+            slots.get(key) is None or slots[key].position != at for key, at in step["new"].items()
+        ):
+            return False
+        for key, at in step["old"].items():
+            if key in slots:
+                slots[key].position = at
         db.flush()
         return True
     from mealwright import batches

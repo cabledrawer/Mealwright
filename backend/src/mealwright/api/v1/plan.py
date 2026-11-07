@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
@@ -19,7 +19,7 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
-from mealwright.household import meal_slots
+from mealwright.household import add_slot, meal_slots
 from mealwright.models import (
     BatchCook,
     Change,
@@ -35,7 +35,7 @@ from mealwright.models import (
     RecipePhoto,
     Tub,
 )
-from mealwright.names import clean, one_line
+from mealwright.names import clean, clean_name, fold, one_line
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
@@ -703,20 +703,87 @@ def move_plan_meal(
     )
 
 
-class SlotSwitchIn(BaseModel):
-    enabled: bool
+class SlotChangeIn(BaseModel):
+    """What to change about a meal. Only what is sent changes."""
+
+    enabled: StrictBool | None = None
+    name: Annotated[str, Field(min_length=1, max_length=40)] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the meal’s name.")  # proposed, for cabledrawer
+        return value
 
 
 @router.patch("/meal-slots/{plan_slot_id}")
-def switch_meal_slot(
-    plan_slot_id: StoredInt, body: SlotSwitchIn, kitchen: Here, response: Response
+def change_meal_slot(
+    plan_slot_id: StoredInt, body: SlotChangeIn, kitchen: Here, response: Response
 ) -> PlanWrite:
-    """Turn a meal (Breakfast, Lunch…) on or off for the household. Its planned meals are
-    kept while it is off."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_slot(
-            kitchen, plan.find_slot(kitchen, plan_slot_id, on=False), body.enabled
-        ),
-    )
+    """Turn a meal (Breakfast, Lunch…) on or off for the household, or rename it (admins only).
+    Its planned meals are kept while it is off and when it is renamed. With both, the answer
+    carries the last change made."""
+    kitchen.admin_only()
+    if body.enabled is None and body.name is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "nothing_to_change",
+            "Send `enabled` or `name`.",
+        )
+
+    def make() -> Change | None:
+        slot = plan.find_slot(kitchen, plan_slot_id, on=False)
+        change = None
+        if body.name is not None:
+            change = plan.rename_slot(kitchen, slot, body.name)
+        if body.enabled is not None:
+            change = plan.set_slot(kitchen, slot, body.enabled) or change
+        return change
+
+    return _run(kitchen, response, make)
+
+
+class NewSlot(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the meal’s name.")  # proposed, for cabledrawer
+        return value
+
+
+@router.post("/meal-slots", status_code=status.HTTP_201_CREATED)
+def add_meal_slot(body: NewSlot, kitchen: Here) -> MealSlotOut:
+    """Add a meal, last in the order and switched on (admins only). At most 12 meals; a name
+    the household already has is a 409 `slot_exists`. Not logged as a change, like "+ Shop"."""
+    kitchen.admin_only()
+    lock_household(kitchen)
+    for other in meal_slots(kitchen.db, kitchen.household_id):
+        if fold(other.name) == fold(body.name):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "slot_exists",
+                f"There’s already a meal called {other.name}.",  # proposed, for cabledrawer
+            )
+    slot = add_slot(kitchen.db, kitchen.household_id, body.name)
+    kitchen.db.commit()
+    return MealSlotOut(id=slot.id, name=slot.name, position=slot.position, enabled=slot.enabled)
+
+
+class SlotOrder(BaseModel):
+    ids: Annotated[list[StoredInt], Field(max_length=100)]
+
+
+@router.put("/meal-slots/order")
+def order_meal_slots(body: SlotOrder, kitchen: Here, response: Response) -> PlanWrite:
+    """Put the meals in this order: every id of the household's meals, once each (admins
+    only). Undo puts the old order back."""
+    kitchen.admin_only()
+    return _run(kitchen, response, lambda: plan.order_slots(kitchen, body.ids))

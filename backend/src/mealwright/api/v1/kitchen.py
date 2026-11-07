@@ -7,8 +7,8 @@ from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import func, select
 
-from mealwright import amounts
-from mealwright.api.v1.context import Here
+from mealwright import amounts, removals
+from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
@@ -34,7 +34,7 @@ class PlaceOut(BaseModel):
 
 @router.get("/places")
 def list_places(kitchen: Here) -> list[PlaceOut]:
-    """Where food lives at home, in order. Renaming and adding come in Settings (0.8)."""
+    """Where food lives at home, in order."""
     return [
         PlaceOut(id=p.id, name=p.name, kind=p.kind)  # type: ignore[arg-type]
         for p in places(kitchen.db, kitchen.household_id)
@@ -94,6 +94,104 @@ def add_place(body: NewPlace, kitchen: Here) -> PlaceOut:
     return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
 
+class RenamePlace(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the place’s name.")
+        return value
+
+
+def _find_place(kitchen: Kitchen, place_id: int) -> Place:
+    place = kitchen.db.get(Place, place_id)
+    if place is None or place.household_id != kitchen.household_id:
+        raise not_found("That place")
+    return place
+
+
+@router.patch("/places/{place_id}")
+def rename_place(place_id: StoredInt, body: RenamePlace, kitchen: Here) -> PlaceOut:
+    """Rename a place. Its kind (and so its rules) stays. A name another place of the
+    household has (ignoring case) is a 409 `place_exists`. Anyone in the household can."""
+    lock_db(kitchen.db, kitchen.household)
+    place = _find_place(kitchen, place_id)
+    for other in places(kitchen.db, kitchen.household_id):
+        if other.id != place.id and fold(other.name) == fold(body.name):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "place_exists",
+                f"There’s already a place called {other.name}.",
+                place={"id": other.id, "name": other.name, "kind": other.kind},
+            )
+    place.name = body.name
+    kitchen.db.commit()
+    return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
+
+
+class Order(BaseModel):
+    ids: Annotated[list[StoredInt], Field(max_length=200)]
+
+
+@router.put("/places/order")
+def order_places(body: Order, kitchen: Here) -> list[PlaceOut]:
+    """Put the places in this order: every id of the household's places, once each. Answers
+    with the places in their new order."""
+    lock_db(kitchen.db, kitchen.household)
+    existing = places(kitchen.db, kitchen.household_id)
+    if sorted(body.ids) != sorted(p.id for p in existing):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_all_places",
+            "Send every place once, in the order you want.",  # proposed, for cabledrawer
+        )
+    by_id = {p.id: p for p in existing}
+    for position, place_id in enumerate(body.ids):
+        by_id[place_id].position = position
+    kitchen.db.commit()
+    return list_places(kitchen)
+
+
+class Removed(BaseModel):
+    change: ChangeOut | None
+
+
+@router.delete("/places/{place_id}")
+def remove_place(
+    place_id: StoredInt,
+    kitchen: Here,
+    response: Response,
+    move_to: StoredInt | None = None,
+) -> Removed:
+    """Remove a place, once nothing is in it. With things in it: 409 `place_not_empty`
+    (carries `things`, how many); send `move_to` (another place's id) and they go there first.
+    The household's last Fridge and last Freezer can't go: 409 `last_of_kind`. Undo (the
+    answer's `change`) makes the place again and puts back what moved. Anyone in the
+    household can."""
+    earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        place = _find_place(kitchen, place_id)
+        target = None
+        if move_to is not None:
+            if move_to == place.id:
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "same_place",
+                    "Pick a different place to move them to.",  # proposed, for cabledrawer
+                )
+            target = _find_place(kitchen, move_to)
+        change = removals.remove_place(kitchen, place, target)
+        earlier = commit(kitchen)
+        if earlier is None:
+            return Removed(change=change_out(kitchen, change))
+    response.headers["Idempotent-Replayed"] = "true"
+    return Removed(change=change_out(kitchen, earlier))
+
+
 @router.get("/shops")
 def list_shops(kitchen: Here) -> list[Ref]:
     rows = kitchen.db.scalars(
@@ -136,6 +234,80 @@ def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
     kitchen.db.add(shop)
     kitchen.db.commit()
     return Ref(id=shop.id, name=shop.name)
+
+
+class RenameShop(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=60)]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the shop’s name.")
+        return value
+
+
+def _find_shop(kitchen: Kitchen, shop_id: int) -> Shop:
+    shop = kitchen.db.get(Shop, shop_id)
+    if shop is None or shop.household_id != kitchen.household_id:
+        raise not_found("That shop")
+    return shop
+
+
+@router.patch("/shops/{shop_id}")
+def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here) -> Ref:
+    """Rename a shop. A name another shop has (ignoring case) is a 409 `shop_exists` that
+    carries that shop. Anyone in the household can."""
+    lock_db(kitchen.db, kitchen.household)
+    shop = _find_shop(kitchen, shop_id)
+    for other in kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id)):
+        if other.id != shop.id and fold(other.name) == fold(body.name):
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "shop_exists",
+                f"There’s already a shop called {other.name}.",
+                shop={"id": other.id, "name": other.name},
+            )
+    shop.name = body.name
+    kitchen.db.commit()
+    return Ref(id=shop.id, name=shop.name)
+
+
+@router.put("/shops/order")
+def order_shops(body: Order, kitchen: Here) -> list[Ref]:
+    """Put the shops in the order you visit them: every id of the household's shops, once
+    each. Answers with the shops in their new order."""
+    lock_db(kitchen.db, kitchen.household)
+    existing = list(
+        kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
+    )
+    if sorted(body.ids) != sorted(s.id for s in existing):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_all_shops",
+            "Send every shop once, in the order you want.",  # proposed, for cabledrawer
+        )
+    by_id = {s.id: s for s in existing}
+    for position, shop_id in enumerate(body.ids):
+        by_id[shop_id].position = position
+    kitchen.db.commit()
+    return list_shops(kitchen)
+
+
+@router.delete("/shops/{shop_id}")
+def remove_shop(shop_id: StoredInt, kitchen: Here, response: Response) -> Removed:
+    """Remove a shop. Its ingredients, and the lines to buy in it, go to "Any shop". Undo (the
+    answer's `change`) makes the shop again and puts them back. Anyone in the household can."""
+    earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        change = removals.remove_shop(kitchen, _find_shop(kitchen, shop_id))
+        earlier = commit(kitchen)
+        if earlier is None:
+            return Removed(change=change_out(kitchen, change))
+    response.headers["Idempotent-Replayed"] = "true"
+    return Removed(change=change_out(kitchen, earlier))
 
 
 # --- Household --------------------------------------------------------------------------------

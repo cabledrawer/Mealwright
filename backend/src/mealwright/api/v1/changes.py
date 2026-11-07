@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import cooking, drafts, plan, recipes, shopping, together
+from mealwright import cooking, drafts, plan, recipes, removals, shopping, together
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -496,6 +496,8 @@ def undo_change(
     data = change.undo_data or {}
     if change.kind == "recipe_imported":
         recipes.check_import_undo(kitchen, data)  # at 50 drafts: refused before anything is done
+    if change.kind in removals.KINDS:
+        removals.restore(kitchen, change, batch)  # the shop or place first: the rest points at it
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.

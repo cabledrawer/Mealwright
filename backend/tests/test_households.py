@@ -229,6 +229,11 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/items/{plan_item_id}/move"): {"date": "2030-01-01", "slot_id": 1},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/move"): {"date": "2030-01-01", "slot_id": 1},
     ("PATCH", "/api/v1/meal-slots/{plan_slot_id}"): {"enabled": True},
+    # Settings → Shops & places (0.8). Also tried in test_settings_lists.py.
+    ("PATCH", "/api/v1/places/{place_id}"): {"name": "Mine now"},
+    ("DELETE", "/api/v1/places/{place_id}"): None,
+    ("PATCH", "/api/v1/shops/{shop_id}"): {"name": "Mine now"},
+    ("DELETE", "/api/v1/shops/{shop_id}"): None,
     # Cook once (0.6 PR 4). Also tried in test_plan_batches.py, in both directions.
     ("POST", "/api/v1/plan/items/{plan_item_id}/batch/preview"): {"tub_count": 1},
     ("POST", "/api/v1/plan/items/{plan_item_id}/batch"): {"tub_count": 1},
