@@ -43,7 +43,7 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-type Which = 'A' | 'B' | 'C' | 'D' | 'F' | 'L' | 'M' | 'T' | 'U';
+type Which = 'A' | 'B' | 'C' | 'D' | 'F' | 'K' | 'L' | 'M' | 'T' | 'U';
 const kind = () => {
   const name = test.info().project.name;
   return name.startsWith('phone') ? 'phone' : name.startsWith('webkit') ? 'webkit' : 'computer';
@@ -57,6 +57,8 @@ function dayFor(today: string, which: Which): string {
   if (which === 'L') return addDays(wed(83), -2); // Monday; the day after is the target
   // F (F167): a Wednesday of its own, with one fresh recipe and no batch, cleared before each test.
   if (which === 'F') return wed(84);
+  // K (F84): a Wednesday of its own, cleared before each test, so no other test's meals crowd it.
+  if (which === 'K') return wed(85);
   // M (F149, F137): a Wednesday no other test here uses, cleared before each test.
   if (which === 'M') return wed(kind() === 'computer' ? 82 : 81);
   if (kind() === 'computer') return wed({ A: 80, B: 81, D: 80 }[which]);
@@ -71,6 +73,19 @@ async function clearDay(page: Page, day: string) {
   };
   for (const meal of plan.meals.filter((m) => m.date === day)) {
     await call(page, 'DELETE', `/plan/meals/${meal.id}`);
+  }
+}
+
+/** Take off a day only what this test put there: its batches (by recipe name), then its items. */
+async function dropMine(page: Page, day: string, names: string[], items: number[]) {
+  const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as {
+    batch_cooks: { id: number; recipe_name: string }[];
+  };
+  for (const batch of plan.batch_cooks.filter((b) => names.includes(b.recipe_name))) {
+    await call(page, 'DELETE', `/plan/batches/${batch.id}`);
+  }
+  for (const id of items) {
+    await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
   }
 }
 
@@ -422,7 +437,8 @@ test.describe('on a computer', () => {
     }) => {
       await page.setViewportSize({ width, height: 800 });
       const { today, slot } = await setup(page);
-      const day = dayFor(today, 'A');
+      const day = dayFor(today, 'K');
+      await clearDay(page, day);
       await cookedOnce(page, `${stamp()} Curry`, day, slot);
 
       await openMonthOf(page, today, day);
@@ -430,11 +446,50 @@ test.describe('on a computer', () => {
       await expect(cooking.getByText('COOK', { exact: true })).toBeVisible();
       expect(await inside(cooking.getByText('COOK', { exact: true }), cooking)).toBe(true);
       expect(await inside(cooking.getByRole('button', { name: /^Add to / }), cooking)).toBe(true);
+    });
 
-      await page.getByRole('button', { name: 'Today', exact: true }).click();
-      const here = page.getByTestId(`day-${today}`);
-      await expect(here.getByText('Today', { exact: true })).toBeVisible();
-      expect(await inside(here.getByText('Today', { exact: true }), here)).toBe(true);
+    test(`F84: on a very full day the Today and COOK tags stay inside it at ${width} px`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 800 });
+      const { today, slot } = await setup(page);
+      // Its own full day: a cooking on today and a meal in every slot, so today shows three
+      // chips, "+N more", Today and COOK whatever other tests left there (more can't add to it).
+      // Its own meals only: today is everyone's, so nothing else is taken off it.
+      const curry = `${stamp()} Full curry`;
+      const mine: number[] = [];
+      try {
+        mine.push((await cookedOnce(page, curry, today, slot)).item_id);
+        for (const name of ['Breakfast', 'Lunch', 'Dinner', 'Snack']) {
+          mine.push((await planned(page, await makeRecipe(page, `${stamp()} ${name}`), today, slot[name]!)).item_id);
+        }
+        await openMonthOf(page, today, today);
+        const here = page.getByTestId(`day-${today}`);
+        await expect(here.getByText('Today', { exact: true })).toBeVisible();
+        await expect(here.getByText('COOK', { exact: true })).toBeVisible();
+        await expect(here.getByRole('button', { name: /^\+\d+ more$/ })).toBeVisible();
+        // Measured together in one go, once the day has its chips, so nothing moves between them.
+        for (const tag of ['Today', 'COOK']) {
+          await expect
+            .poll(() =>
+              here.evaluate((day, text) => {
+                const el = [...day.querySelectorAll('.top span')].find((s) => s.textContent?.trim() === text)!;
+                const [a, b] = [el.getBoundingClientRect(), day.getBoundingClientRect()];
+                const slack = 0.5;
+                return (
+                  a.left >= b.left - slack &&
+                  a.top >= b.top - slack &&
+                  a.right <= b.right + slack &&
+                  a.bottom <= b.bottom + slack
+                );
+              }, tag),
+              { message: `${tag} stays inside today` }
+            )
+            .toBe(true);
+        }
+      } finally {
+        await dropMine(page, today, [curry], mine);
+      }
     });
   }
 
