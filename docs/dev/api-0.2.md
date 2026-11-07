@@ -634,7 +634,7 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 
 - A group is one food in one place; lots in it are ordered as they'd be used (oldest/soonest first); the group's `use_by` is its soonest.
 - `items` counts groups, and (0.8) the place's tub rows. `counts.tubs` is the number of tubs left.
-- **Tubs (0.8, F131).** Each place has `tubs`: one row per batch and place for tubs left (in no meal) with some in them, soonest first: `{ batch_id, recipe_name, colour, tubs, words ("2 tubs", "¾ tub"), use_by, days_left, use_soon }`. A tub with no place is in the first fridge. `filter=use_soon` keeps the tubs whose use-by is soon; `running_low` and `staples` show none; `q` matches the recipe's name.
+- **Tubs (0.8, F131).** Each place has `tubs`: one row per batch and place for tubs left (in no meal) with some in them, soonest first: `{ batch_id, tub_id, recipe_name, colour, tubs, words ("2 tubs", "¾ tub"), use_by, days_left, use_soon }` (`tub_id`: its soonest tub, the one "Eat it on…" puts in a meal). A tub with no place is in the first fridge. `filter=use_soon` keeps the tubs whose use-by is soon; `running_low` and `staples` show none; `q` matches the recipe's name.
 - **`date_kind`** (0.8) is on every group and lot: `use_by` or `best_before`, the ingredient's. `use_soon` on a lot is true for a Use by date from the past up to today + `use_soon_days`, and for a Best before date only once it has passed; a group's is true when any lot's is. `counts.use_soon` counts groups (one per ingredient and place) with a lot that is soon.
 - `open`: the lot holds less than its size (shows the ¼ ½ ¾ Full picker).
 - `running_low`: the food's total in all places is at or below its running-low level.
@@ -645,8 +645,12 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 ```json
 { "lots": [ { "id": 501, "food": {"id": 20, "name": "Paneer"}, "place": {"id": 1, "name": "Fridge", "kind": "fridge"},
               "stock": {"display": "2 packs · 400 g", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
-              "date_kind": "use_by", "use_soon": true, "lots_count": 2, "lot_ids": [41, 44], "…": "…" } ] }
+              "date_kind": "use_by", "use_soon": true, "lots_count": 2, "lot_ids": [41, 44], "…": "…" } ],
+  "tubs": [ { "batch_id": 3, "tub_id": 12, "recipe_name": "Lemon rice", "words": "2 tubs", "use_by": "2026-10-20",
+              "days_left": 3, "use_soon": true, "place": {"id": 1, "name": "Fridge", "kind": "fridge"}, "…": "…" } ] }
 ```
+
+`tubs` (0.8, cabledrawer 7 Nov): the leftover tubs that are Use soon (a use-by up to the Use soon days ahead, or passed), one per batch and place, soonest first, as the Pantry's tub rows plus their `place`. The strip shows each as "Lemon rice · Fridge · 2 tubs" with "Eat it on…" (`POST /plan/tubs/{tub_id}/place`); a passed one has no button.
 
 **Writes.** All take `Idempotency-Key`, and all answer `{ "change": {…}, "groups": [ …the food's group in each place touched, as above… ], "short_by": null }`. A group that's now empty comes back with `stock.amount: 0` and no lots, so the client can remove it. An emptied or unknown lot is a 404. Other refusals: `409 staple` (adding a staple), `409 already_frozen`, `409 already_there` (moving to where it is), `409 no_change` ("3 left" when there are 3), `409 nothing_left` ("used" on a food with nothing left), `409 in_use` (removing a food that still has stock), `422 too_late_to_freeze` (To freezer on a Use by packet from the day after its date; Best before food can always be frozen).
 

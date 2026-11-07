@@ -7,6 +7,7 @@ import { PLACES, changeOf, fakeApi, toorDal, type FakeRequest } from '#lib/testi
 import { samplePantry } from '#lib/testing/fakePantry.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
+import type { UseSoonTub } from '#lib/client/types.js';
 import NewIngredient from '#lib/components/NewIngredient.svelte';
 import Pantry from './+page.svelte';
 import '#lib/styles/tokens.css';
@@ -29,7 +30,7 @@ describe('the Pantry page', () => {
       // Like the server: what was used is gone from Use soon.
       'GET /pantry/use-soon': () => [
         200,
-        { lots: sample.useSoon.filter((lot) => !gone.has(lot.id)) }
+        { lots: sample.useSoon.filter((lot) => !gone.has(lot.id)), tubs: sample.useSoonTubs }
       ],
       'POST /changes/700/undo': [
         200,
@@ -1328,6 +1329,113 @@ describe('the Pantry page', () => {
       expect(card.getByText(/Too late to freeze/).elements()).toHaveLength(0);
     });
 
+    describe('leftover tubs in Use soon (cabledrawer 7 Nov)', () => {
+      const tubCard = (extra: Partial<UseSoonTub> = {}): UseSoonTub => ({
+        batch_id: 5,
+        tub_id: 51,
+        recipe_name: 'Lemon rice',
+        colour: null,
+        tubs: 2,
+        words: '2 tubs',
+        use_by: '2026-10-19',
+        days_left: 2,
+        use_soon: true,
+        place: { id: 1, name: 'Fridge', kind: 'fridge' },
+        ...extra
+      });
+
+      it('a tub is a card with its place, tubs and day, and one button, Eat it on…', async () => {
+        sample.useSoonTubs = [tubCard()];
+        await render(1300);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByText('Lemon rice')).toBeVisible();
+        await expect.element(card.getByText('Fridge · 2 tubs')).toBeVisible();
+        await expect
+          .element(
+            card
+              .getByRole('listitem')
+              .filter({ hasText: 'Lemon rice' })
+              .getByText(/Use by mon/i)
+          )
+          .toBeVisible();
+        await expect.element(card.getByRole('button', { name: 'Eat it on…' })).toBeEnabled();
+        const named = document.getElementById(
+          card
+            .getByRole('button', { name: 'Eat it on…' })
+            .element()
+            .getAttribute('aria-describedby') ?? ''
+        );
+        expect(named?.textContent).toBe('Lemon rice');
+        // It counts in the heading, with the two packets.
+        await expect.element(card.getByRole('heading', { name: 'Use soon · 3' })).toBeVisible();
+      });
+
+      it('a tub sits among the packets by its day', async () => {
+        sample.useSoonTubs = [tubCard({ use_by: '2026-10-18', days_left: 1 })];
+        await render(1300);
+        await vi.waitFor(() => {
+          const names = [...document.querySelectorAll('.strip .name b')].map((b) => b.textContent);
+          expect(names).toEqual(['Spinach', 'Lemon rice', 'Paneer']);
+        });
+      });
+
+      it('Eat it on… offers free meals up to the tub’s use-by and puts the tub in the one chosen', async () => {
+        sample.useSoonTubs = [tubCard()];
+        routes({
+          'GET /meal-slots': [
+            200,
+            [
+              { id: 1, name: 'Lunch', position: 0, enabled: true },
+              { id: 2, name: 'Dinner', position: 1, enabled: true }
+            ]
+          ],
+          'GET /plan': [
+            200,
+            { start: '2026-10-17', end: '2026-10-19', meals: [], batch_cooks: [], tubs: [] }
+          ],
+          'POST /plan/tubs/51/place': [
+            200,
+            { change: changeOf(710, 'Put Lemon rice in Dinner'), meal_id: 9, item_id: 9 }
+          ]
+        });
+        await render(1300);
+        await page.getByRole('button', { name: 'Eat it on…' }).click();
+        const sheet = page.getByRole('dialog', { name: 'Eat Lemon rice on…' });
+        await expect.element(sheet.getByRole('button', { name: 'Today · Lunch' })).toBeVisible();
+        await expect.element(sheet.getByRole('button', { name: 'Monday · Dinner' })).toBeVisible();
+        expect(sheet.getByText(/Tuesday/).elements()).toHaveLength(0);
+        await sheet.getByRole('button', { name: 'Tomorrow · Dinner' }).click();
+        await vi.waitFor(() =>
+          expect(
+            requests.find((r) => r.method === 'POST' && r.path === '/plan/tubs/51/place')?.body
+          ).toEqual({
+            date: '2026-10-18',
+            slot_id: 2
+          })
+        );
+        await expect
+          .element(page.getByRole('dialog', { name: /Eat Lemon rice/ }))
+          .not.toBeInTheDocument();
+      });
+
+      it('a tub past its use-by is shown as passed, with no Eat it on…', async () => {
+        sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3 })];
+        await render(1300);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByText('Lemon rice')).toBeVisible();
+        await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+        expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
+      });
+
+      it('on the phone a tub is a row with the same button', async () => {
+        sample.useSoonTubs = [tubCard()];
+        await render(390);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByText('Fridge · 2 tubs')).toBeVisible();
+        await expect.element(card.getByRole('button', { name: 'Eat it on…' })).toBeVisible();
+      });
+    });
+
     it('a Use by that is only close says the day', async () => {
       await render(390);
       await expect
@@ -1354,6 +1462,7 @@ describe('the Pantry page', () => {
       sample.pantry.places[0]!.tubs = [
         {
           batch_id: 5,
+          tub_id: 51,
           recipe_name: 'Lemon rice',
           colour: null,
           tubs: 2,

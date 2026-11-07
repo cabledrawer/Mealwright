@@ -1,7 +1,15 @@
 // Stock: the Pantry screen and every change to what's in it (contract 6.4).
 
 import { api } from '#lib/api.js';
-import type { AmountIn, Answer, Pantry, PantryFilter, StockWrite, UseSoonLot } from './types';
+import type {
+  AmountIn,
+  Answer,
+  Pantry,
+  PantryFilter,
+  StockWrite,
+  UseSoonLot,
+  UseSoonTub
+} from './types';
 
 const key = (idempotencyKey: string) => ({ idempotencyKey });
 
@@ -19,7 +27,8 @@ export function getPantry(filter: PantryFilter = 'all', search = ''): Promise<Pa
   return api<Pantry>('GET', query ? `/pantry?${query}` : '/pantry');
 }
 
-export const getUseSoon = () => api<{ lots: UseSoonLot[] }>('GET', '/pantry/use-soon');
+export const getUseSoon = () =>
+  api<{ lots: UseSoonLot[]; tubs: UseSoonTub[] }>('GET', '/pantry/use-soon');
 
 export interface NewStock {
   food_id: number;

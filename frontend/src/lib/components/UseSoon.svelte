@@ -8,7 +8,7 @@
   // every one (SwipeRow's rule; S5 review r1 M2). Binned and To freezer take every packet the
   // row stands for, with one Undo (S5 review r1 M1).
   import { resolve } from '$app/paths';
-  import type { UseSoonLot } from '#lib/client/types.js';
+  import type { UseSoonLot, UseSoonTub } from '#lib/client/types.js';
   import { whenWords } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
@@ -19,22 +19,49 @@
 
   let {
     lots,
+    tubs = [],
     model,
     phone,
-    onhowmuch
+    onhowmuch,
+    oneaton
   }: {
     lots: UseSoonLot[];
+    /** Leftover tubs that are Use soon: a card each, with "Eat it on…" (cabledrawer 7 Nov). */
+    tubs?: UseSoonTub[];
     model: PantryModel;
     phone: boolean;
     /** "Used…": open the How much? sheet for this row. */
     onhowmuch: (lot: UseSoonLot) => void;
+    /** "Eat it on…": open the meal choice for this tub card. */
+    oneaton?: (tub: UseSoonTub) => void;
   } = $props();
 
   const uid = $props.id();
   /** The strip shows 4 cards and the phone 3 rows, until "Show all N". */
   const FIRST = $derived(phone ? 3 : 4);
   let all = $state(false);
-  const shown = $derived(all ? lots : lots.slice(0, FIRST));
+  /** Packets and tubs together, soonest first (the same order as the server's: date, then name). */
+  type Card = { key: string; lot?: UseSoonLot; tub?: UseSoonTub };
+  const cards = $derived.by(() => {
+    const found: { card: Card; by: string; name: string }[] = [
+      ...lots.map((lot) => ({
+        card: { key: `l${lot.id}`, lot },
+        by: lot.use_by ?? '9999-12-31',
+        name: lot.food.name
+      })),
+      ...tubs.map((tub) => ({
+        card: { key: `t${tub.tub_id}`, tub },
+        by: tub.use_by,
+        name: tub.recipe_name
+      }))
+    ];
+    found.sort(
+      (a, b) =>
+        a.by.localeCompare(b.by) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+    return found.map((one) => one.card);
+  });
+  const shown = $derived(all ? cards : cards.slice(0, FIRST));
   const swiped = $state<Record<number, 'left' | 'right' | null>>({});
 
   function words(lot: UseSoonLot) {
@@ -54,6 +81,10 @@
     return ['used', 'binned', ...freezer];
   }
 
+  const tubWhen = (tub: UseSoonTub) =>
+    whenWords('use_by', tub.use_by, tub.days_left, { capital: true, soon: true });
+  const tubWhat = (tub: UseSoonTub) => `${tub.place.name} · ${tub.words}`;
+
   const tooLate = (lot: UseSoonLot) => tooLateToFreeze(lot.date_kind, lot.days_left);
 
   const LABEL = { used: 'Used…', binned: 'Binned', freezer: 'To freezer' } as const;
@@ -68,15 +99,15 @@
 
 <section class="soon" class:phone aria-labelledby="{uid}-h">
   <div class="head">
-    <h2 id="{uid}-h">Use soon · {lots.length}</h2>
-    {#if lots.length}
+    <h2 id="{uid}-h">Use soon · {cards.length}</h2>
+    {#if cards.length}
       <span class="links">
         <a href="{resolve('/(app)/recipes')}?filter=use-soon"
           >{phone ? 'Recipes that use them →' : 'Recipes that use them'}</a
         >
-        {#if lots.length > FIRST}
+        {#if cards.length > FIRST}
           <button type="button" class="more" aria-expanded={all} onclick={() => (all = !all)}
-            >{all ? 'Show fewer' : `Show all ${lots.length}`}</button
+            >{all ? 'Show fewer' : `Show all ${cards.length}`}</button
           >
         {/if}
       </span>
@@ -103,8 +134,25 @@
     {/if}
   {/snippet}
 
+  {#snippet eatIt(tub: UseSoonTub)}
+    {#if tub.days_left >= 0}
+      <button
+        type="button"
+        class="pill"
+        aria-describedby="{uid}-nt{tub.tub_id}"
+        disabled={network.offline}
+        onclick={() => {
+          if (!blockedWhileDown()) oneaton?.(tub);
+        }}>Eat it on…</button
+      >
+    {/if}
+  {/snippet}
+
   {#snippet when(lot: UseSoonLot)}
-    {@const w = words(lot)}
+    {@render whenTag(words(lot))}
+  {/snippet}
+
+  {#snippet whenTag(w: ReturnType<typeof words>)}
     <span class="when {w.tone}"
       >{w.text}{#if w.ago}<span class="ago">{w.ago}</span>{/if}</span
     >
@@ -112,62 +160,86 @@
 
   {#if phone}
     <ul class="rows">
-      {#each shown as lot (lot.id)}
+      {#each shown as card (card.key)}
+        {@const lot = card.lot}
+        {@const tub = card.tub}
         <li>
-          <SwipeRow
-            bleed={0}
-            bind:open={() => swiped[lot.id] ?? null, (side) => (swiped[lot.id] = side)}
-            right={{
-              label: 'Used…',
-              describe: lot.food.name,
-              icon: 'check',
-              tone: 'used',
-              run: () => {
-                if (!blockedWhileDown()) onhowmuch(lot);
-              }
-            }}
-            left={{
-              label: 'Binned',
-              describe: lot.food.name,
-              icon: 'trash',
-              tone: 'danger',
-              run: () => {
-                if (!blockedWhileDown()) void model.binnedRow(lot);
-              }
-            }}
-          >
+          {#if tub}
             <div class="r">
-              <button
-                type="button"
-                class="name"
-                disabled={network.offline}
-                onclick={() => ingredientEditor.open(lot.food.id)}
-                ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
+              <span class="name"
+                ><b id="{uid}-nt{tub.tub_id}">{tub.recipe_name}</b><span>{tubWhat(tub)}</span></span
               >
-              {@render when(lot)}
+              {@render whenTag(tubWhen(tub))}
             </div>
-            <div class="btns row-btns">{@render pills(lot)}</div>
-            {@render lateNote(lot)}
-          </SwipeRow>
+            <div class="btns row-btns">{@render eatIt(tub)}</div>
+          {:else if lot}
+            <SwipeRow
+              bleed={0}
+              bind:open={() => swiped[lot.id] ?? null, (side) => (swiped[lot.id] = side)}
+              right={{
+                label: 'Used…',
+                describe: lot.food.name,
+                icon: 'check',
+                tone: 'used',
+                run: () => {
+                  if (!blockedWhileDown()) onhowmuch(lot);
+                }
+              }}
+              left={{
+                label: 'Binned',
+                describe: lot.food.name,
+                icon: 'trash',
+                tone: 'danger',
+                run: () => {
+                  if (!blockedWhileDown()) void model.binnedRow(lot);
+                }
+              }}
+            >
+              <div class="r">
+                <button
+                  type="button"
+                  class="name"
+                  disabled={network.offline}
+                  onclick={() => ingredientEditor.open(lot.food.id)}
+                  ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
+                >
+                {@render when(lot)}
+              </div>
+              <div class="btns row-btns">{@render pills(lot)}</div>
+              {@render lateNote(lot)}
+            </SwipeRow>
+          {/if}
         </li>
       {/each}
     </ul>
     <p class="note">Swipe a row: right for Used, left for Binned.</p>
-  {:else if lots.length}
+  {:else if cards.length}
     <ul class="strip">
-      {#each shown as lot (lot.id)}
-        <li class="card" class:late={words(lot).tone === 'late'}>
-          <button
-            type="button"
-            class="name"
-            disabled={network.offline}
-            onclick={() => ingredientEditor.open(lot.food.id)}
-            ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
-          >
-          {@render when(lot)}
-          <span class="btns">{@render pills(lot)}</span>
-          {@render lateNote(lot)}
-        </li>
+      {#each shown as card (card.key)}
+        {@const lot = card.lot}
+        {@const tub = card.tub}
+        {#if tub}
+          <li class="card" class:late={tubWhen(tub).tone === 'late'}>
+            <span class="name"
+              ><b id="{uid}-nt{tub.tub_id}">{tub.recipe_name}</b><span>{tubWhat(tub)}</span></span
+            >
+            {@render whenTag(tubWhen(tub))}
+            <span class="btns">{@render eatIt(tub)}</span>
+          </li>
+        {:else if lot}
+          <li class="card" class:late={words(lot).tone === 'late'}>
+            <button
+              type="button"
+              class="name"
+              disabled={network.offline}
+              onclick={() => ingredientEditor.open(lot.food.id)}
+              ><b id="{uid}-n{lot.id}">{lot.food.name}</b><span>{what(lot)}</span></button
+            >
+            {@render when(lot)}
+            <span class="btns">{@render pills(lot)}</span>
+            {@render lateNote(lot)}
+          </li>
+        {/if}
       {/each}
     </ul>
   {:else}
@@ -275,6 +347,10 @@
     text-align: left;
     cursor: pointer;
     justify-content: center;
+  }
+
+  span.name {
+    cursor: default;
   }
 
   .name b {

@@ -1,6 +1,6 @@
 // For tests only: a small pantry, as GET /pantry would answer (contract 6.4).
 
-import type { Group, Lot, Pantry, UseSoonLot } from '#lib/client/types.js';
+import type { Group, Lot, Pantry, UseSoonLot, UseSoonTub } from '#lib/client/types.js';
 
 let next = 500;
 
@@ -146,5 +146,6 @@ export function samplePantry() {
       lot_ids: paneer.map((lot) => lot.id)
     }
   ];
-  return { pantry, useSoon, spinach, paneer, yoghurt };
+  const useSoonTubs: UseSoonTub[] = [];
+  return { pantry, useSoon, useSoonTubs, spinach, paneer, yoghurt };
 }

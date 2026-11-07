@@ -1533,3 +1533,56 @@ def test_tubs_left_show_in_their_place_on_the_pantry_page(
     low = kitchen.get(f"{API}/pantry", params={"filter": "running_low"}).json()
     assert all(p["tubs"] == [] for p in low["places"])
     assert made  # the batch was made
+
+
+# --- Tubs in Use soon, the "Eat it on…" card (cabledrawer 7 Nov, 0.8) -----------------------------
+
+
+def _set_tub_use_by(kitchen: TestClient, days_from_today: int) -> str:
+    today = date.fromisoformat(kitchen.get(f"{API}/household").json()["today"])
+    use_by = today + timedelta(days=days_from_today)
+    with db_of(kitchen) as db:
+        for tub in db.scalars(select(Tub)):
+            tub.use_by = use_by
+        db.commit()
+    return use_by.isoformat()
+
+
+def test_a_tub_that_is_soon_is_a_use_soon_card_with_the_tub_to_place(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    """One card per batch and place: "Veg biryani · Fridge · 3 tubs", dated by its soonest tub,
+    carrying the soonest tub's id for Eat it on…; tubs not soon (Use soon days ahead) aren't."""
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["tubs"] == []  # a few days away
+    use_by = _set_tub_use_by(kitchen, 1)
+    [card] = kitchen.get(f"{API}/pantry/use-soon").json()["tubs"]
+    assert (card["recipe_name"], card["tubs"], card["words"]) == ("Veg biryani", 3, "3 tubs")
+    assert (card["use_by"], card["days_left"], card["use_soon"]) == (use_by, 1, True)
+    assert card["place"]["kind"] == "fridge" and card["place"]["name"]
+    left = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]
+    assert card["tub_id"] in [t["id"] for t in left]
+    assert card["batch_id"] == left[0]["batch_id"]
+
+
+def test_a_tub_past_its_use_by_stays_in_use_soon_as_passed(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=2, pattern="pick")
+    _set_tub_use_by(kitchen, -2)
+    [card] = kitchen.get(f"{API}/pantry/use-soon").json()["tubs"]
+    assert card["days_left"] == -2
+
+
+def test_a_tub_in_a_meal_is_not_in_use_soon(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    _set_tub_use_by(kitchen, 10)  # far enough for any meal
+    tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]["id"]
+    placed = kitchen.post(
+        f"{API}/plan/tubs/{tub}/place", json={"date": day(1), "slot_id": slots["Lunch"]}
+    )
+    assert placed.status_code == 200, placed.text
+    _set_tub_use_by(kitchen, 1)
+    assert kitchen.get(f"{API}/pantry/use-soon").json()["tubs"] == []

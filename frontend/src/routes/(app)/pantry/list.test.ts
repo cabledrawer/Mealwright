@@ -31,7 +31,7 @@ describe('Pantry → the shopping list', () => {
     const sample = samplePantry();
     server = fakeShopping(sampleCopy(), {
       'GET /pantry': [200, sample.pantry],
-      'GET /pantry/use-soon': [200, { lots: [] }],
+      'GET /pantry/use-soon': [200, { lots: [], tubs: [] }],
       'GET /changes?limit=8&area=pantry': [200, { changes: [], next: null }]
     });
     const working = fetch;
@@ -146,7 +146,7 @@ describe('Pantry → the shopping list', () => {
     copy.items.push({ ...copy.items[0]!, id: 'i-turmeric', food_id: 61, ticks: [] });
     server = fakeShopping(copy, {
       'GET /pantry': [200, sample.pantry],
-      'GET /pantry/use-soon': [200, { lots: [] }],
+      'GET /pantry/use-soon': [200, { lots: [], tubs: [] }],
       'GET /changes?limit=8&area=pantry': [200, { changes: [], next: null }]
     });
     mounted.push(mount(Pantry, { target: document.body }));

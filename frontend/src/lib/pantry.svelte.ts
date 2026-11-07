@@ -5,6 +5,7 @@
 
 import { ApiError, cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';
+import { placeTub, type PlanWrite } from './client/plan';
 import { createFood, listFoods, patchFood } from './client/foods';
 import {
   addStock,
@@ -29,7 +30,8 @@ import type {
   PantryFilter,
   Place,
   StockWrite,
-  UseSoonLot
+  UseSoonLot,
+  UseSoonTub
 } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
@@ -74,6 +76,8 @@ export function withGroups(pantry: Pantry, groups: Group[]): void {
 export class PantryModel {
   pantry = $state<Pantry | null>(null);
   useSoon = $state<UseSoonLot[]>([]);
+  /** Leftover tubs that are Use soon, as their own cards (cabledrawer 7 Nov). */
+  useSoonTubs = $state<UseSoonTub[]>([]);
   filter = $state<PantryFilter>('all');
   /** What is typed in "Find in pantry". */
   query = $state('');
@@ -102,6 +106,7 @@ export class PantryModel {
       this.searched = query;
       this.matches = found?.foods ?? [];
       this.useSoon = useSoon.lots;
+      this.useSoonTubs = useSoon.tubs;
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
@@ -208,6 +213,39 @@ export class PantryModel {
       label: `${row.food.name} → Freezer`,
       edit: this.#goneAll(row.lot_ids),
       send: (key) => toFreezer(row.id, key, undefined, true)
+    });
+  }
+
+  /** "Eat it on…" on a Use soon tub card: its soonest tub goes in that meal, one Undo. */
+  eatTubOn(tub: UseSoonTub, day: string, slotId: number, slotName: string) {
+    let before: UseSoonTub[] | null = null;
+    let undoer: (() => Promise<string | void>) | null = null;
+    return save<PlanWrite>({
+      apply: () => {
+        before = $state.snapshot(this.useSoonTubs) as UseSoonTub[];
+        this.useSoonTubs = this.useSoonTubs.flatMap((row) => {
+          if (row.tub_id !== tub.tub_id) return [row];
+          if (row.tubs <= 1) return [];
+          const tubs = row.tubs - 1;
+          return [{ ...row, tubs, words: `${tubs} ${tubs === 1 ? 'tub' : 'tubs'}` }];
+        });
+      },
+      rollback: () => {
+        if (before) this.useSoonTubs = before;
+      },
+      send: (key) => placeTub(tub.tub_id, { date: day, slot_id: slotId }, key),
+      saved: () => kitchen.changed(),
+      undo: {
+        label: `Put ${tub.recipe_name} in ${slotName}`,
+        labelFrom: (value) => value.change?.summary,
+        skip: (value) => value.change === null,
+        run: (value) => {
+          const change = value.change;
+          if (!change?.can_undo) return false;
+          undoer ??= serverUndo(change.id);
+          return undoer();
+        }
+      }
     });
   }
 

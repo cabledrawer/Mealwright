@@ -100,6 +100,7 @@ class TubRow(BaseModel):
     """The tubs of one batch in one place, as one row (F131, 0.8): "Lemon rice · 2 tubs"."""
 
     batch_id: int
+    tub_id: int  # the soonest tub of the row: the one "Eat it on…" puts in a meal
     recipe_name: str
     colour: str | None
     tubs: int  # tubs with some left
@@ -154,9 +155,17 @@ class UseSoonLot(LotOut):
     lot_ids: list[int]
 
 
+class UseSoonTub(TubRow):
+    """A batch's tubs in one place that are Use soon (a use-by up to the Use soon days ahead,
+    or passed), as the "Eat it on…" card (cabledrawer 7 Nov): "Lemon rice · Fridge · 2 tubs"."""
+
+    place: PlaceRef
+
+
 class UseSoonOut(BaseModel):
     today: date
     lots: list[UseSoonLot]
+    tubs: list[UseSoonTub] = []
 
 
 class StockWrite(BaseModel):
@@ -322,6 +331,7 @@ def tub_rows(
         rows[place_id].append(
             TubRow(
                 batch_id=batch_id,
+                tub_id=min(tubs, key=lambda t: (t.tub.use_by, t.tub.id)).tub.id,
                 recipe_name=tubs[0].batch.recipe_name,
                 colour=tubs[0].batch.colour,
                 tubs=len(tubs),
@@ -428,7 +438,8 @@ def use_soon(kitchen: Here) -> UseSoonOut:
     A Use by date from the past up to the day after tomorrow (2 days, in the household's own
     time zone) counts; a Best before date only once it has passed. A row's amount is all of
     that ingredient's packets in the place that count ("2 packets"), and its date the
-    soonest."""
+    soonest. Leftover tubs that are Use soon come as `tubs` (one per batch and place), soonest
+    first; a passed one has no Eat it on…."""
     view = Pantry(kitchen)
     by_group: dict[tuple[int, int], list[StockLot]] = defaultdict(list)
     for lot in lots_of(kitchen):
@@ -458,7 +469,14 @@ def use_soon(kitchen: Here) -> UseSoonOut:
             )
         )
     found.sort(key=lambda lot: (lot.use_by or date.max, lot.food.name.casefold()))
-    return UseSoonOut(today=view.today, lots=found)
+    soon_tubs = [
+        UseSoonTub(**row.model_dump(), place=view.place_ref(place_id))
+        for place_id, rows in tub_rows(view).items()
+        for row in rows
+        if row.use_soon
+    ]
+    soon_tubs.sort(key=lambda t: (t.use_by, t.recipe_name.casefold(), t.place.id))
+    return UseSoonOut(today=view.today, lots=found, tubs=soon_tubs)
 
 
 # --- Writing ----------------------------------------------------------------------------------

@@ -19,7 +19,8 @@
     PantryPlace,
     Ref,
     TubRow,
-    UseSoonLot
+    UseSoonLot,
+    UseSoonTub
   } from '#lib/client/types.js';
   import AddToPantry from '#lib/components/AddToPantry.svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
@@ -29,6 +30,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import PantryGroup from '#lib/components/PantryGroup.svelte';
   import PantryTub from '#lib/components/PantryTub.svelte';
+  import EatItOn from '#lib/components/EatItOn.svelte';
   import UseSoon from '#lib/components/UseSoon.svelte';
   import UsedSheet from '#lib/components/UsedSheet.svelte';
   import { whenWords } from '#lib/dates.js';
@@ -60,6 +62,8 @@
   /** The Use soon item whose "How much?" is open. */
   let usedFor = $state<UseSoonLot | null>(null);
   let usedOpen = $state(false);
+  /** The Use soon tub card whose "Eat it on…" is open. */
+  let eatingTub = $state<UseSoonTub | null>(null);
 
   let addingStaple = $state(false);
   /** Place columns showing every food, not just the first few (desktop). */
@@ -410,7 +414,14 @@
         </nav>
       {/if}
       {#if model.useSoon.length}
-        <UseSoon lots={model.useSoon} {model} phone onhowmuch={openUsed} />
+        <UseSoon
+          lots={model.useSoon}
+          tubs={model.useSoonTubs}
+          {model}
+          phone
+          onhowmuch={openUsed}
+          oneaton={(tub) => (eatingTub = tub)}
+        />
       {/if}
       {#if pantry.counts.items === 0}
         <div class="card first">
@@ -460,7 +471,14 @@
       {@render results()}
     {:else}
       <!-- Use soon: a strip of four cards across the top (F66, cabledrawer 6 Nov). -->
-      <UseSoon lots={model.useSoon} {model} phone={false} onhowmuch={openUsed} />
+      <UseSoon
+        lots={model.useSoon}
+        tubs={model.useSoonTubs}
+        {model}
+        phone={false}
+        onhowmuch={openUsed}
+        oneaton={(tub) => (eatingTub = tub)}
+      />
       {#if pantry.counts.items === 0 && pantry.counts.tubs === 0 && model.filter === 'all'}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
@@ -480,6 +498,17 @@
     {/if}
   </div>
 {/if}
+
+<EatItOn
+  tub={eatingTub}
+  today={pantry?.today ?? ''}
+  onclose={() => (eatingTub = null)}
+  onpick={(day, slotId, slotName) => {
+    const tub = eatingTub;
+    eatingTub = null;
+    if (tub && !blockedWhileDown()) void model.eatTubOn(tub, day, slotId, slotName);
+  }}
+/>
 
 {#if usedFor}
   {@const lot = usedFor}

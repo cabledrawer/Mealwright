@@ -275,6 +275,8 @@ export interface Group {
 /** The tubs of one batch in one place (F131, 0.8): "Lemon rice · 2 tubs · use by Tue". */
 export interface TubRow {
   batch_id: number;
+  /** Its soonest tub: the one "Eat it on…" puts in a meal. */
+  tub_id: number;
   recipe_name: string;
   colour: string | null;
   tubs: number;
@@ -319,6 +321,11 @@ export interface UseSoonLot {
    * `lots_count` how many, `id` the soonest, `lot_ids` all of them, soonest first. */
   lots_count: number;
   lot_ids: number[];
+}
+
+/** A Use soon tub card (0.8, cabledrawer 7 Nov): "Lemon rice · Fridge · 2 tubs · Use by Tue · Eat it on…". */
+export interface UseSoonTub extends TubRow {
+  place: Place;
 }
 
 /** The answer to every stock write: the change, and the food's groups as they are now. */
