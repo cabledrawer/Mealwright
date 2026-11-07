@@ -435,7 +435,8 @@
             onclick={() => void model.switchSlot(slot, !slot.enabled)}>{slot.name}</button
           >
         {/each}
-        {#if session.me && !slotAdmin}<span class="meals-note">Only an admin can change this.</span>{/if}
+        {#if session.me && !slotAdmin}<span class="meals-note">Only an admin can change this.</span
+          >{/if}
       </div>
     {/if}
     {#if hasBatches}

@@ -98,8 +98,14 @@ test('the Pantry refreshes live and keeps what is typed in an open form', async 
   await page.waitForTimeout(1500);
   await expect(sheet.getByRole('searchbox', { name: 'Find an ingredient' })).toHaveValue('half typed');
   // ...and the list behind it is up to date once it is closed.
-  await page.keyboard.press('Escape');
-  await expect(page.getByText(name).first()).toBeVisible({ timeout: 10_000 });
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toBeHidden();
+  // Recent changes is no longer on the Pantry (F172), so look in the place cards themselves;
+  // in the shared household they are long, and the new line may be behind "Show all".
+  await expect(async () => {
+    for (const all of await page.getByRole('button', { name: /^Show all \d+/ }).all()) await all.click();
+    await expect(page.getByText(name).first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
   await other.close();
 });
 

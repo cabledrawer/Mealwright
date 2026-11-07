@@ -36,6 +36,14 @@ async function placeId(page: Page, name: string) {
 }
 
 const section = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
+// A past day of its own for each project and test: other specs (and this one on the other
+// project) cook today's meals, and a meal that has been dealt with can't be planned again.
+const OWN_DAY: Record<string, number> = { phone: 0, desktop: 1 };
+function ownDay(today: string, offset: number): string {
+  const d = new Date(`${today}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - (60 + 2 * offset + (OWN_DAY[test.info().project.name.split(' ')[0]] ?? 0)));
+  return d.toISOString().slice(0, 10);
+}
 const rowOf = (page: Page, within: string, name: string) =>
   section(page, within).getByRole('listitem').filter({ hasText: name });
 
@@ -170,6 +178,7 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
     .toEqual(expect.arrayContaining([second, renamed]));
   const order = ((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name);
   expect(order.indexOf(second)).toBeLessThan(order.indexOf(renamed));
+  await checkPage(page); // before any toast is on screen (a toast can cover a row above)
   // Remove: at once, no "Are you sure?", with Undo.
   await shops.getByRole('button', { name: `Remove ${renamed}` }).click();
   await expect(rowOf(page, 'Shops', renamed)).toHaveCount(0);
@@ -186,7 +195,6 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
     await shops.getByRole('button', { name: `Remove ${name}` }).click();
     await expect(rowOf(page, 'Shops', name)).toHaveCount(0);
   }
-  await checkPage(page);
 });
 
 test('Places: add with a kind; a place with things in it asks where to move them; Undo puts it all back', async ({
@@ -250,6 +258,16 @@ test('Places: add with a kind; a place with things in it asks where to move them
 });
 
 test('Places: the last Fridge and the last Freezer stay, and the screen says why', async ({ page }) => {
+  // Other specs add their own fridges and freezers to the shared household; move their things
+  // into Fridge and Freezer and remove them, so those two are the last of their kind again.
+  const all = (await (await page.request.get('/api/v1/places')).json()) as Json[];
+  for (const [kind, keep] of [['fridge', 'Fridge'], ['freezer', 'Freezer']]) {
+    const kept = all.find((p) => p.name === keep)!;
+    for (const extra of all.filter((p) => p.kind === kind && p.id !== kept.id)) {
+      const gone = await page.request.delete(`/api/v1/places/${extra.id}?move_to=${kept.id}`, { headers: key() });
+      expect(gone.ok(), await gone.text()).toBe(true);
+    }
+  }
   await page.goto('/settings');
   const places = section(page, 'Places at home');
   await expect(places.getByRole('button', { name: 'Remove Fridge' })).toBeDisabled();
@@ -282,7 +300,7 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   const dinner = slots.find((x) => x.name === 'Dinner')!;
   const today = ((await (await page.request.get('/api/v1/household')).json()) as Json).today as string;
   const planned = await page.request.post('/api/v1/plan/items', {
-    data: { date: today, slot_id: dinner.id, ingredient_id: food.id },
+    data: { date: ownDay(today, 0), slot_id: dinner.id, ingredient_id: food.id },
     headers: key(),
   });
   expect(planned.status(), await planned.text()).toBe(201); // a plan change
@@ -337,7 +355,7 @@ test('one Cooked it is one row in Recent changes, with one Undo (cabledrawer 7 N
   };
   const name = `Khichdi ${s}`;
   const recipe = await post('/recipes', { name, serves: 4, lines: [{ words: 'moong', food_id: food.id, amount: 200, unit: 'g' }] }, 201);
-  const planned = await post('/plan/items', { date: today, slot_id: dinner.id, recipe_id: recipe.id }, 201);
+  const planned = await post('/plan/items', { date: ownDay(today, 1), slot_id: dinner.id, recipe_id: recipe.id }, 201);
   await post(`/plan/items/${planned.item_id}/cook`, { choices: [] }, 201);
   await post(`/plan/meals/${planned.meal_id}/cooked`, {}, 200); // the meal's own answer, the second change
 
