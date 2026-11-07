@@ -610,7 +610,13 @@ test('S4: Already have it offline: the amount at home is queued, and the pantry 
 });
 
 test('S4: Already have it sent twice (the answer was lost) puts the amount in once', async ({ page }) => {
-  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's page.route doesn't see requests made by the service worker in WebKit, so the answer can't be dropped there; the same repeat is proved at the API on every engine (backend test_found_sent_twice_is_applied_once)");
+  // Can't run on WebKit, tried the ways there are: the answer has to be dropped after the server
+  // has the action. page.route and context.route don't see a page's requests once the service
+  // worker controls it (measured 25 Oct, see the "slow network" test above), and setOffline
+  // blocks requests before the service worker sees them (proved 25 Oct), so neither can lose
+  // just the answer. The same repeat is proved at the API on every engine (backend
+  // test_found_sent_twice_is_applied_once) and on Chromium here, at 390 px and 1280 px.
+  test.skip(test.info().project.use.browserName === 'webkit', 'WebKit cannot drop just the answer: see the comment above');
   const name = `Hing ${tag()}`;
   await signIn(page);
   await ingredient(page, name);

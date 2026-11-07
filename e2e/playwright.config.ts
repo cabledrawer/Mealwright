@@ -182,6 +182,9 @@ export default defineConfig({
     // worker (offline.spec, installable.spec, version-check.spec) and the page shell with its
     // strict CSP (shell.spec). Everything else runs on Chromium only, to keep ./check quick (0.6).
     { name: 'webkit offline', testMatch: 'offline.spec.ts', use: webkit },
+    // Shopping on the phone offline (0.8, S4): Add as bought, Already have it and the F130 names
+    // at 390 px on WebKit, the layout those buttons are made for (the 1280 px run above is Plan shopping).
+    { name: 'webkit 0.8 offline phone', testMatch: 'offline.spec.ts', grep: /S4:|F130:/, use: webkitPhone },
     { name: 'webkit worker', testMatch: /(^|\/)(installable|version-check|shell)\.spec\.ts$/, use: { ...webkit, storageState: AUTH_FILE } },
     // The offline queue end to end (0.3, PR 6). No saved session: each test signs in its own,
     // because signing out must not end the one the other tests share.
