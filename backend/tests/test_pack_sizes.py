@@ -1,0 +1,132 @@
+"""The bundled pack-size table (F120, F121; cabledrawer 7 Nov)."""
+
+from __future__ import annotations
+
+import time
+
+import pytest
+
+from mealwright import pack_sizes
+from mealwright.pack_sizes import Size, parse_size, suggest_shop_id, suggest_sizes, where_to_buy
+
+
+def test_table_loads_every_row() -> None:
+    table = pack_sizes.table()
+    # The spec line: 369 ingredients.
+    assert len(table.rows) == 369
+    for row in table.rows.values():
+        assert row.sizes, row.key
+        assert row.where in ("supermarket", "world aisle", "specialist")
+        assert row.dates in ("best before", "use by"), row.key
+
+
+def test_table_is_the_checked_file_unchanged() -> None:
+    from importlib.resources import files
+
+    text = (files("mealwright") / "data" / "pack-sizes.csv").read_text(encoding="utf-8")
+    assert text.startswith("# Common pack sizes for Mealwright (F120, F121).")
+
+
+@pytest.mark.parametrize(
+    ("text", "size"),
+    [
+        ("500 g", Size("weight", 500_000)),
+        ("1.5 kg", Size("weight", 1_500_000)),
+        ("250 ml", Size("volume", 250_000)),
+        ("1 l", Size("volume", 1_000_000)),
+        ("12", Size("count", 12_000)),
+    ],
+)
+def test_parse_size(text: str, size: Size) -> None:
+    assert parse_size(text) == size
+
+
+def test_parse_size_refuses_unknown_units() -> None:
+    with pytest.raises(ValueError):
+        parse_size("2 cups")
+
+
+def test_matches_by_name_or_other_name_any_case() -> None:
+    plain = [s.amount_milli for s in suggest_sizes(["Plain flour"], "weight")]
+    maida = [s.amount_milli for s in suggest_sizes(["My flour", "MAIDA"], "weight")]
+    assert plain == maida == [1_500_000, 500_000, 1_000_000]
+    assert suggest_sizes(["Ghee"], "weight")[0].pack == "jar"
+
+
+def test_no_match_gives_the_generic_sizes_by_kind() -> None:
+    assert [s.amount_milli for s in suggest_sizes(["Mystery dust"], "weight")] == [
+        100_000,
+        250_000,
+        500_000,
+        1_000_000,
+    ]
+    assert [s.amount_milli for s in suggest_sizes(["Mystery"], "volume")] == [
+        250_000,
+        500_000,
+        1_000_000,
+    ]
+    assert [s.amount_milli for s in suggest_sizes(["Mystery"], "count")] == [
+        1_000,
+        2_000,
+        6_000,
+        12_000,
+    ]
+    assert all(s.pack is None for s in suggest_sizes(["Mystery"], "count"))
+
+
+def test_sizes_in_another_kind_are_converted_with_a_known_density() -> None:
+    by_weight = suggest_sizes(["Ghee"], "weight")
+    by_volume = suggest_sizes(["Ghee"], "volume")
+    assert len(by_volume) == len(by_weight)
+    # Ghee is lighter than water, so a 500 g jar holds more than 500 ml.
+    assert by_volume[0].amount_milli > by_weight[0].amount_milli
+
+
+def test_sizes_in_another_kind_are_skipped_without_a_density() -> None:
+    row = next(
+        r
+        for r in pack_sizes.table().rows.values()
+        if all(s.counted_as == "count" for s in r.sizes)
+        and pack_sizes.conversion_table().rows.get(r.key) is None
+        and pack_sizes.conversion_table().match(*r.names) is None
+    )
+    assert suggest_sizes([row.names[0]], "volume") == []
+
+
+def test_where_to_buy() -> None:
+    assert where_to_buy(["Plain flour"]) == "supermarket"
+    assert where_to_buy(["Asafoetida"]) == "specialist"
+    assert where_to_buy(["Mystery"]) is None
+
+
+SHOPS = [(1, "Tesco"), (2, "Market stall"), (3, "Indian grocer")]
+
+
+def test_specialist_goes_to_a_grocer_by_name() -> None:
+    assert suggest_shop_id("specialist", SHOPS) == 3
+    assert suggest_shop_id("specialist", [(4, "Middle Eastern shop"), *SHOPS]) == 4
+
+
+def test_specialist_without_a_grocer_goes_to_the_first_shop_not_a_supermarket() -> None:
+    assert suggest_shop_id("specialist", SHOPS[:2]) == 2
+    assert suggest_shop_id("specialist", [(1, "Tesco"), (5, "Lidl")]) is None
+
+
+def test_supermarket_and_world_aisle_go_to_the_first_shop() -> None:
+    assert suggest_shop_id("supermarket", SHOPS[::-1]) == 3
+    assert suggest_shop_id("world aisle", SHOPS) == 1
+    assert suggest_shop_id(None, SHOPS) is None
+    assert suggest_shop_id("supermarket", []) is None
+
+
+def test_grocer_words_match_whole_words_only() -> None:
+    # "Persiana" isn't "Persian"; "Thaiwan" isn't "Thai".
+    assert suggest_shop_id("specialist", [(2, "Thaiwan Deli"), (3, "Thai market")]) == 3
+    assert suggest_shop_id("specialist", [(2, "Persiana"), (3, "Thai market")]) == 3
+
+
+def test_matching_is_quick() -> None:
+    start = time.perf_counter()
+    for _ in range(1000):
+        suggest_sizes(["Basmati rice", "rice"], "weight")
+    assert time.perf_counter() - start < 1.0
