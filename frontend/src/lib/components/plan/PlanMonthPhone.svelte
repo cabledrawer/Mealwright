@@ -5,6 +5,7 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { cookedOn, mealColour } from '#lib/planMeals.js';
+  import PlanDays from './PlanDays.svelte';
   import type { PlanShow } from '#lib/planShow.js';
   import type { CookEntry } from '#lib/planCook.js';
 
@@ -83,10 +84,13 @@
         <Cook {actions} days={[selected]} {onstart} summary={false} />
       {/await}
     {/if}
-    {#if show !== 'cook'}
+    {#if show === 'eat'}
       {#await import('./PlanEat.svelte') then { default: Eat }}
         <Eat {actions} days={[selected]} {oncook} />
       {/await}
+    {:else if show === 'both'}
+      <!-- Both keeps the day's meals with their + (the phone's Both list), under the cooking. -->
+      <PlanDays {actions} days={[selected]} />
     {/if}
   </div>
 </div>

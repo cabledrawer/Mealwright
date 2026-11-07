@@ -239,7 +239,7 @@ test.describe('F150: This week', () => {
     const real = (await (await page.request.get('/api/v1/today')).json()) as { today: string; slots: { id: number; name: string }[] };
     const slot = Object.fromEntries(real.slots.map((s) => [s.name, s.id])) as Record<string, number>;
     const today = real.today;
-    const long = 'Roasted aubergine and chickpea stew with preserved lemon and tahini';
+    const long = Array(6).fill('Roasted aubergine and chickpea stew with preserved lemon and tahini').join(' ');
     const plan = {
       start: today,
       end: addDays(today, 6),

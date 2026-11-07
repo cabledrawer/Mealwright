@@ -776,6 +776,8 @@
     display: inline-flex;
     flex: none;
     align-items: center;
+    justify-content: center;
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
     color: var(--color-accent-on-soft);
     font-size: var(--text-sm);

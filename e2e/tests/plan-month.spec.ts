@@ -43,7 +43,7 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-type Which = 'A' | 'B' | 'C' | 'D' | 'L' | 'T' | 'U';
+type Which = 'A' | 'B' | 'C' | 'D' | 'L' | 'M' | 'T' | 'U';
 const kind = () => {
   const name = test.info().project.name;
   return name.startsWith('phone') ? 'phone' : name.startsWith('webkit') ? 'webkit' : 'computer';
@@ -55,6 +55,8 @@ function dayFor(today: string, which: Which): string {
   if (which === 'T') return addDays(today, -7 * { computer: 10, webkit: 25, phone: 40 }[kind()]);
   if (which === 'C') return addDays(today, -7 * { computer: 9, webkit: 14, phone: 19 }[kind()] + 1);
   if (which === 'L') return addDays(wed(83), -2); // Monday; the day after is the target
+  // M (F149, F137): a Wednesday no other test here uses, cleared before each test.
+  if (which === 'M') return wed(kind() === 'computer' ? 82 : 81);
   if (kind() === 'computer') return wed({ A: 80, B: 81, D: 80 }[which]);
   if (kind() === 'webkit') return wed({ A: 83, B: 82, D: 83 }[which]);
   return wed(80);
@@ -638,6 +640,7 @@ test.describe('on a computer', () => {
 
 /** A batch cooking (dinner) and a fresh meal (lunch) on the same day, with names of their own. */
 async function cookAndEat(page: Page, day: string, slot: Record<string, number>) {
+  await clearDay(page, day); // a retry starts from the same day
   const word = stamp();
   const batch = `${word} Batch`;
   const fresh = `${word} Fresh`;
@@ -658,7 +661,7 @@ test.describe('F149: the Show switch on the Month', () => {
     page
   }) => {
     const { today, slot } = await setup(page);
-    const day = dayFor(today, 'D');
+    const day = dayFor(today, 'M');
     const { batch, fresh } = await cookAndEat(page, day, slot);
     await openMonthOf(page, today, day);
     const cell = page.getByRole('group', { name: 'Days' }).getByRole('button', {
@@ -710,7 +713,7 @@ test.describe('F149: the Show switch on the Month', () => {
 
   test('both themes: the ring and the legend read', async ({ page }) => {
     const { today, slot } = await setup(page);
-    const day = dayFor(today, 'D');
+    const day = dayFor(today, 'M');
     await cookAndEat(page, day, slot);
     await openMonthOf(page, today, day);
     for (const theme of ['dark', 'light'] as const) {
@@ -728,7 +731,7 @@ test.describe('F149: the Show switch on the computer’s Month', () => {
     page
   }) => {
     const { today, slot } = await setup(page);
-    const day = dayFor(today, 'D');
+    const day = dayFor(today, 'M');
     const { batch, fresh } = await cookAndEat(page, day, slot);
     await openMonthOf(page, today, day);
     const where = page.getByTestId(`day-${day}`);
@@ -773,7 +776,8 @@ test.describe('F137: a Week card’s name breaks between words only', () => {
   }) => {
     await page.setViewportSize({ width: 1100, height: 900 });
     const { today, slot } = await setup(page);
-    const day = dayFor(today, 'D');
+    const day = dayFor(today, 'M');
+    await clearDay(page, day);
     const word = stamp();
     const wordy = `${word} Chickpea Authentic Ingredient Curry`;
     const huge = `Supercalifragilisticexpialidocious${word}`;
