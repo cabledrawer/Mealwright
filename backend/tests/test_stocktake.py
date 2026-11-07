@@ -568,3 +568,108 @@ def test_a_counted_row_carries_its_word(kitchen: TestClient) -> None:
         "tins",
     )
     assert found["Onion"]["count_word"] is None
+
+
+# --- cabledrawer's answers, 7 Nov ----------------------------------------------------------------
+
+
+def test_a_tin_is_counted_whole_and_a_jar_keeps_the_picks(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    milk = food(kitchen, "Chickpeas", place_id=cupboard)
+    packet(kitchen, milk["id"], "tin", 400)
+    jam = food(kitchen, "Jam", place_id=cupboard)
+    packet(kitchen, jam["id"], "jar", 450)
+    add(kitchen, milk["id"], 800, "g", cupboard)  # 2 tins
+    found = rows(kitchen, cupboard)
+    tin, jar = found["Chickpeas"], found["Jam"]
+    assert (tin["counted"], tin["count_now"]) == (True, "2")
+    assert (tin["count_word"], tin["count_word_plural"]) == ("tin", "tins")
+    assert (tin["fraction_now"], tin["more_now"], tin["pack_suggestions"]) == (None, 0, [])
+    assert (jar["counted"], jar["count_now"], jar["count_word"]) == (False, None, None)
+    # A tin takes a count of whole tins, and no fractions.
+    refused = answer(kitchen, cupboard, milk["id"], {"fraction": 0.5})
+    assert refused.status_code == 422, refused.text
+    done = answer(kitchen, cupboard, milk["id"], {"count": 3}).json()
+    assert total(kitchen, milk["id"], cupboard) == 1_200_000
+    assert done["row"]["answer"] == {"fraction": None, "more": 0, "count": "3"}
+    assert done["row"]["count_now"] == "3"
+    assert done["change"]["summary"].startswith("Stocktake: Chickpeas ")
+    undone = kitchen.post(f"{API}/changes/{done['change']['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    assert total(kitchen, milk["id"], cupboard) == 800_000
+    # A jar keeps its fractions, and refuses a count.
+    assert answer(kitchen, cupboard, jam["id"], {"fraction": 0.5}).status_code == 200
+    assert answer(kitchen, cupboard, jam["id"], {"count": 2}).status_code == 422
+
+
+def test_a_tin_count_is_rounded_to_whole_tins(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    beans = food(kitchen, "Beans", place_id=cupboard)
+    packet(kitchen, beans["id"], "tin", 400)
+    add(kitchen, beans["id"], 600, "g", cupboard)  # 1.5 tins: reads as 2
+    assert rows(kitchen, cupboard)["Beans"]["count_now"] == "2"
+    answer(kitchen, cupboard, beans["id"], {"count": 1.4})
+    assert total(kitchen, beans["id"], cupboard) == 400_000
+
+
+def test_a_pack_size_of_tin_picked_while_counting_makes_the_row_counted(
+    kitchen: TestClient,
+) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    peas = food(kitchen, "Peas", place_id=cupboard)
+    before = rows(kitchen, cupboard)["Peas"]
+    assert before["counted"] is False and before["pack"] is None
+    size = {"name": "tin", "amount": {"amount": 400, "unit": "g"}}
+    done = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{peas['id']}/size", json=size)
+    assert done.status_code == 200, done.text
+    assert done.json()["row"]["counted"] is True
+    assert done.json()["row"]["pack"]["name"] == "tin"
+
+
+def test_next_records_every_unanswered_row_as_checked_and_leaves_the_stock(
+    kitchen: TestClient,
+) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    add(kitchen, dal["id"], 700, "g", cupboard)
+    atta = food(kitchen, "Atta", place_id=cupboard)  # no pack size, no stock
+    rice = food(kitchen, "Rice", staple=True, place_id=cupboard)
+    said = food(kitchen, "Salt", place_id=cupboard)
+    packet(kitchen, said["id"], "bag", 1000)
+    add(kitchen, said["id"], 1000, "g", cupboard)
+    answer(kitchen, cupboard, said["id"], {"fraction": 0.5})  # answered by hand
+    changes = changes_count(kitchen)
+    stock = {f["id"]: total(kitchen, f["id"], cupboard) for f in (dal, atta, rice, said)}
+    shown = kitchen.get(f"{STOCKTAKE}/places/{cupboard}").json()
+    assert (shown["answered"], shown["total"]) == (1, 3)
+    assert kitchen.post(f"{STOCKTAKE}/places/{cupboard}/finish").status_code == 200
+    after = kitchen.get(f"{STOCKTAKE}/places/{cupboard}").json()
+    assert (after["answered"], after["total"]) == (3, 3)
+    assert all(r["answered"] for r in after["rows"] if not r["staple"])
+    assert {f["id"]: total(kitchen, f["id"], cupboard) for f in (dal, atta, rice, said)} == stock
+    assert changes_count(kitchen) == changes  # nothing in Recent changes for an unchanged row
+    # Stop, carry on later: the place is finished, the stocktake reopens at the next one.
+    reopened = kitchen.get(STOCKTAKE).json()
+    step = next(p for p in reopened["places"] if p["id"] == cupboard)
+    assert step["finished"] is True and reopened["current_place_id"] != cupboard
+    # Sending it again changes nothing.
+    assert kitchen.post(f"{STOCKTAKE}/places/{cupboard}/finish").status_code == 200
+    assert changes_count(kitchen) == changes
+
+
+def changes_count(kitchen: TestClient) -> int:
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        return len(db.scalars(select(Change.id)).all())
+
+
+def test_next_after_an_undone_answer_counts_that_row_as_checked_too(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    first = answer(kitchen, cupboard, dal["id"], {"fraction": 0.5}).json()
+    kitchen.post(f"{API}/changes/{first['change']['id']}/undo")
+    assert rows(kitchen, cupboard)["Toor dal"]["answered"] is False
+    kitchen.post(f"{STOCKTAKE}/places/{cupboard}/finish")
+    assert rows(kitchen, cupboard)["Toor dal"]["answered"] is True
+    assert total(kitchen, dal["id"], cupboard) == 0

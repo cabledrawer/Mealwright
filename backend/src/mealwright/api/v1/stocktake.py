@@ -62,9 +62,23 @@ router = APIRouter(tags=["stocktake"], dependencies=[SameOrigin])
 # The picks on a packet: None · ¼ · ½ · ¾ · Full.
 QUARTERS = (Decimal(0), Decimal("0.25"), Decimal("0.5"), Decimal("0.75"), Decimal(1))
 MORE_MOST = 20  # "more packets" besides the open one
+# A pack word that is counted whole ("2 tins", minus and plus; cabledrawer 7 Nov). Jars, bags,
+# bottles and the rest keep the picks. The one rule: kept here, sent to the screen on each row.
+COUNTED_WHOLE = frozenset({"tin"})
 
 
 # --- Shapes ---------------------------------------------------------------------------------
+
+
+def _counting(food: Food, size: FoodSize | None) -> tuple[int, str | None, str | None] | None:
+    """How the ingredient is counted whole, or None (it has the picks): (the amount of one,
+    its word, its plural). An ingredient counted as a count: one is 1; one whose pack word is
+    "tin": the tin's size."""
+    if food.counted_as == "count":
+        return 1000, food.count_word, food.count_word_plural
+    if size is not None and size.amount_milli > 0 and size.name.casefold() in COUNTED_WHOLE:
+        return size.amount_milli, size.name, size.plural
+    return None
 
 
 class StocktakeAnswerOut(BaseModel):
@@ -91,8 +105,11 @@ class StocktakeRow(BaseModel):
     # the whole packets besides it, so the count shows before a pick and a pick keeps it.
     fraction_now: Decimal | None
     more_now: int
-    # An ingredient counted one by one: its word ("slices"), for "2 slices"; null: none.
-    count_word: str | None
+    # Counted one by one (an ingredient counted as a count, or one whose pack is a tin): the
+    # screen shows minus and plus buttons with `count_now` and the word, and no fractions.
+    counted: bool
+    count_now: Decimal | None
+    count_word: str | None  # "tin", "slice": for "2 tins"; null: none
     count_word_plural: str | None
 
 
@@ -229,13 +246,26 @@ class Stocktake:
     def stock_in(self, place_id: int, food_id: int) -> int:
         return sum(lot.amount_milli for lot in self.lots.get(place_id, {}).get(food_id, []))
 
+    def counting(self, food: Food) -> tuple[int, str | None, str | None] | None:
+        return _counting(food, self.usual(food.id))
+
+    def count_now(self, food: Food, place_id: int) -> Decimal | None:
+        """How many there are now, for a counted row (tins to the nearest whole one)."""
+        unit = self.counting(food)
+        if unit is None:
+            return None
+        total = self.stock_in(place_id, food.id)
+        if food.counted_as == "count":
+            return Decimal(total) / 1000
+        return Decimal((2 * total + unit[0]) // (2 * unit[0]))
+
     def reading(self, food: Food, place_id: int) -> tuple[Decimal | None, int]:
         """What is in the place as the picks read it: (the open packet's share, whole packets
         besides it), to the nearest quarter. Unknown (no pack size, or counted one by one):
         (None, 0). 1.1 bags is Full, 2.7 bags is ¾ and 2 more."""
         total = self.stock_in(place_id, food.id)
         size = self.usual(food.id)
-        if food.counted_as == "count" or size is None or size.amount_milli <= 0:
+        if self.counting(food) is not None or size is None or size.amount_milli <= 0:
             return None, 0
         if total <= 0:
             return Decimal(0), 0
@@ -248,10 +278,8 @@ class Stocktake:
         return QUARTERS[quarters], whole
 
     def answer_of(self, food: Food, place_id: int) -> StocktakeAnswerOut | None:
-        if food.counted_as == "count":
-            return StocktakeAnswerOut(
-                fraction=None, more=0, count=Decimal(self.stock_in(place_id, food.id)) / 1000
-            )
+        if self.counting(food) is not None:
+            return StocktakeAnswerOut(fraction=None, more=0, count=self.count_now(food, place_id))
         fraction, more = self.reading(food, place_id)
         return StocktakeAnswerOut(fraction=fraction, more=more, count=None)
 
@@ -265,7 +293,8 @@ class Stocktake:
                 self.kitchen.household,
                 restock.restocked(self.db, self.kitchen.household_id, [food]).get(food.id),
             )
-        counted = food.counted_as == "count"
+        unit = self.counting(food)
+        counted = unit is not None
         now = self.reading(food, place_id)
         return StocktakeRow(
             food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
@@ -275,7 +304,9 @@ class Stocktake:
             added=food.place_id != place_id and not self.lots.get(place_id, {}).get(food.id),
             answered=answered,
             stock=amount_out(food, total, usual),
-            pack=size_out(food, usual) if usual is not None and not counted else None,
+            pack=(
+                size_out(food, usual) if usual is not None and food.counted_as != "count" else None
+            ),
             pack_suggestions=(
                 pack_suggestions(self.kitchen, food, [], self.names(food))
                 if usual is None and not counted and not food.staple
@@ -284,8 +315,10 @@ class Stocktake:
             answer=self.answer_of(food, place_id) if answered and not food.staple else None,
             fraction_now=now[0],
             more_now=now[1],
-            count_word=food.count_word if counted else None,
-            count_word_plural=food.count_word_plural if counted else None,
+            counted=counted,
+            count_now=self.count_now(food, place_id),
+            count_word=unit[1] if unit else None,
+            count_word_plural=unit[2] if unit else None,
         )
 
 
@@ -456,12 +489,15 @@ def answer(
                 status.HTTP_409_CONFLICT, "staple", f"{food.name} is a staple, so it isn’t counted."
             )
         size = _usual(kitchen, food.id)
+        unit = _counting(food, size)
         if body.count is not None:
-            if food.counted_as != "count":
+            if unit is None:
                 raise Problem(422, "not_counted", f"{food.name} isn’t counted one by one.")
-            target = round(body.count * 1000)
+            # Tins are whole ones; an ingredient counted as a count keeps its fractions.
+            count = body.count if food.counted_as == "count" else round(body.count)
+            target = round(count * unit[0])
         else:
-            if food.counted_as == "count":
+            if unit is not None:
                 raise Problem(422, "counted", f"{food.name} is counted one by one: give a count.")
             fraction = body.fraction or Decimal(0)
             if size is None and (fraction > 0 or body.more):
@@ -639,9 +675,11 @@ def add_something_else(
 
 @router.post("/stocktake/places/{place_id}/finish")
 def finish_place(place_id: StoredInt, kitchen: Here) -> StocktakeOut:
-    """ "Next: Spice rack →": this place is finished; the stocktake reopens at the first place
-    not finished. Sending it again changes nothing."""
+    """ "Next: Spice rack →" (or Finish): this place is finished, and every ingredient in it not
+    answered yet counts as checked and correct (stock untouched). The stocktake reopens at the
+    first place not finished. Sending it again changes nothing."""
     place = _place(kitchen, place_id)
+    _check_the_rest(kitchen, place)
     if kitchen.db.get(StocktakePlace, (kitchen.household_id, place.id)) is None:
         try:
             with kitchen.db.begin_nested():
@@ -651,6 +689,19 @@ def finish_place(place_id: StoredInt, kitchen: Here) -> StocktakeOut:
     note_pantry(kitchen.db, kitchen.household_id)
     kitchen.db.commit()
     return stocktake(kitchen)
+
+
+def _check_the_rest(kitchen: Kitchen, place: Place) -> None:
+    """Next means right (cabledrawer 7 Nov): every ingredient not answered yet is recorded as checked
+    and correct. No stock change and no change in Recent changes; the row counts as done."""
+    view = Stocktake(kitchen)
+    for food in view.members(place.id):
+        if food.staple or view.is_answered(place.id, food.id):
+            continue
+        entry = _entry(kitchen, place.id, food.id)
+        entry.answered = True
+        entry.change_id = None  # nothing was changed, so there is nothing to undo
+        entry.at = utcnow()
 
 
 @router.post("/stocktake/restart")
