@@ -542,6 +542,8 @@ The main shopping list is built from the plan: plan minus pantry stock minus sta
 - "+ Add" on the card is the ordinary `add` action (a typed line); the card then leaves out any staple that has a live line on the main list.
 - **Database:** one new table, `staple_check` (`food_id` primary key, `household_id`, `item_ids` (JSON list), `at`; both links cascade). Migration `a4c8e1f7b296`.
 
+**What to buy in whole packs (0.8, F120; cabledrawer 31 Oct and 7 Nov).** Each list item (`ItemOut`, and the sync pull's item rows) has `pack`, or null when there is nothing to say (no amount, a staple, or a counted ingredient with no size): `{ "packs": 1, "size_id": 12, "buy": "1 jar (500 g)", "need": "120 g needed", "line": "1 jar (500 g) · 120 g needed", "suggestions": [] }`. `packs` is the fewest whole packs of the Usual size that hold the need (`ceil(need / size)`, so packs × size ≥ need and (packs − 1) × size < need). With no size known: `packs`, `size_id`, `buy` are null, `line` is "60 g needed · no pack size yet", and `suggestions` are the common sizes ("Usual pack?"; the shape of `pack_suggestions` in 6.2, with `amount_text` "500 g" for the quick pick). The amount stored on the line stays the need.
+
 ### 6.3c Today (0.6 PR 6)
 
 What Today shows, and the three answers to "Did you cook Sambar yesterday?". Online only, like the Plan (the web app keeps the last answer to show while offline, with the answer buttons switched off). "Today" is the household's local day. The rules are in `mealwright/today.py`; the builder's choices are marked "proposed, for cabledrawer" there.

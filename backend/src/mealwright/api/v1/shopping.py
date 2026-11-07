@@ -23,10 +23,10 @@ from mealwright import shopping, sync
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Here, Kitchen
-from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, Ref, Who
+from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, PackLineOut, Ref, Who
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.foods import amount_out, change_out, find, resolve
+from mealwright.foods import amount_out, change_out, find, pack_line_out, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean_name, fold
@@ -62,6 +62,8 @@ class ItemOut(BaseModel):
     list_id: str
     food: Ref
     amount: AmountOut | None
+    # Whole packs to buy and the need, when there is an amount (F120). Null: nothing to say.
+    pack: PackLineOut | None = None
     shop: Ref | None
     aisle: str
     aisle_name: str
@@ -155,6 +157,7 @@ def _item_out(kitchen: Kitchen, item: ListItem, food: Food, shops: dict[int, Sho
         amount=(
             amount_out(food, item.amount_milli, size) if item.amount_milli is not None else None
         ),
+        pack=pack_line_out(kitchen, food, item.amount_milli),
         shop=Ref(id=shop.id, name=shop.name) if shop else None,
         aisle=aisle,
         aisle_name=AISLE_LABELS[aisle],

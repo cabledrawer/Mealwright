@@ -27,12 +27,14 @@ from mealwright.api.v1.schemas import (
     Ask,
     AsSoldOut,
     ChangeOut,
+    PackLineOut,
     PackSuggestion,
     SizeBrief,
     SizeOut,
     Undone,
     Who,
 )
+from mealwright.buying import pack_line
 from mealwright.conversions import (
     AskOnce,
     ConversionKind,
@@ -541,9 +543,27 @@ def pack_suggestions(
                 name=word,
                 amount=from_milli(pick.amount_milli),
                 display=f"{word} · {amount}",
+                amount_text=amount,
             )
         )
     return out
+
+
+def pack_line_out(kitchen: Kitchen, food: Food, need_milli: int | None) -> PackLineOut | None:
+    """The whole-packs wording for a list line (F120), with the common sizes to pick from when
+    no size is known. Used by Shopping and by the phone's sync pull."""
+    usual = usual_size(kitchen, food.id)
+    line = pack_line(food, need_milli, usual)
+    if line is None:
+        return None
+    return PackLineOut(
+        packs=line.packs,
+        size_id=line.size_id,
+        buy=line.buy,
+        need=line.need,
+        line=line.line,
+        suggestions=pack_suggestions(kitchen, food, []) if usual is None else [],
+    )
 
 
 def size_out(food: Food, size: FoodSize) -> SizeOut:

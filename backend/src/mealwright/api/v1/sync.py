@@ -17,10 +17,10 @@ from mealwright import sync, ticks
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, AISLES, DEFAULT_AISLE
 from mealwright.amounts import MILLI, NBSP
 from mealwright.api.v1.context import Here, Kitchen
-from mealwright.api.v1.schemas import ChangeOut, Who
+from mealwright.api.v1.schemas import ChangeOut, PackLineOut, Who
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.foods import amount_out, change_out
+from mealwright.foods import amount_out, change_out, pack_line_out
 from mealwright.models import (
     Change,
     DoubleTick,
@@ -110,6 +110,7 @@ class ItemRow(BaseModel):
     amount: int | float | None  # base amount: g, ml or items
     size_id: int | None
     display: str | None  # as-sold wording, "1 bunch"
+    pack: PackLineOut | None  # whole packs to buy and the need (F120); null: nothing to say
     source: str
     hand_edited: bool
     put_away_place_id: int | None
@@ -308,6 +309,7 @@ def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> It
         amount=_number(item.amount_milli) if item.amount_milli is not None else None,
         size_id=item.size_id,
         display=display,
+        pack=pack_line_out(kitchen, food, item.amount_milli) if food is not None else None,
         source=item.source,
         hand_edited=item.hand_edited,
         put_away_place_id=item.put_away_place_id,

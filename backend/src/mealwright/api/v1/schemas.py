@@ -82,6 +82,18 @@ class PackSuggestion(BaseModel):
     name: str  # what to call the size when it is made: `pack`, else "pack"
     amount: float  # base units (g, ml or items)
     display: str  # "jar · 500 g", "pack · 250 g"
+    amount_text: str  # "500 g": the quick pick's label on a Shopping line
+
+
+class PackLineOut(BaseModel):
+    """What to buy in whole packs for one list line (F120; mealwright.buying)."""
+
+    packs: int | None  # whole packs; null when no Usual size is known
+    size_id: int | None
+    buy: str | None  # "1 jar (500 g)"
+    need: str  # "120 g needed"
+    line: str  # "1 jar (500 g) · 120 g needed" or "60 g needed · no pack size yet"
+    suggestions: list[PackSuggestion]  # "Usual pack?": only when no size is known
 
 
 class SizeBrief(BaseModel):

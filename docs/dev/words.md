@@ -782,3 +782,11 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Moving and renaming rows:** the buttons are named **Move Aldi up**, **Move Aldi down**, **Rename Aldi** and **Remove Aldi**; the rename box is **Name of Aldi** with **Save**. Server words: **There’s already a shop called Aldi.** · **There’s already a place called Cupboard.** (the last is the existing 0.7 wording).
 - **Recent changes (F172, cabledrawer 7 Nov):** one list of every kind of change, newest first, each with **Undo** while it can be undone. **Show more** for older ones. Empty: **Nothing yet. Changes show here, with Undo for 7 days.** (proposed). **Couldn’t load the recent changes.** · **Couldn’t load more changes. Try again.** · **Try again**. Pantry and Ingredients no longer have a Recent changes list or button.
 - **Loading failures in Settings:** **Couldn’t load your meals.** · **Couldn’t load your shops and places.** each with **Try again** (proposed); when the server can’t be reached, the usual **Can’t reach your Mealwright server. Check your connection.** with no button, and the list loads again once the connection is back.
+
+## 41. Pack sizes and where to buy (0.8 S2, F120, F121; proposed, for cabledrawer unless the mockup or spec has the words)
+
+- **Shopping line, Usual size known** (mockups Dark-ShopInShop08-Phone, Dark-ShopPlan08-Desktop): **1 jar (500 g) · 120 g needed**; several packs: **2 tins (400 ml) · 600 ml needed**. Number and word with a no-break space.
+- **Shopping line, no size:** **60 g needed · no pack size yet**; the quick picks are headed **Usual pack?** (desktop: **Usual pack for Tamarind?**) and read **200 g**, **500 g**, **1 kg** (the screens come in S3 and S4).
+- **Ingredients, Pack column** (mockup Dark-IngredientsPack08-Desktop): heading **Pack**; the Usual size **jar · 500 g**; another size **+1** (title and tap: **Also: tin · 1 kg**); none **Add a pack**, then **Common sizes:** with the sizes and **Other…** (opens the editor). Phone: the same, on a line under the name. A staple shows nothing.
+- **Toast after a tap:** **Tamarind: added Pack = 500 g** (the server's own words), with Undo.
+- The table's word is the size's name (jar, bag); with no table row the size is named **pack**.

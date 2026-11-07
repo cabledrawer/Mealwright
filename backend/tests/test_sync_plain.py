@@ -17,6 +17,7 @@ ITEM_KEYS = {
     "list_id",
     "food",
     "amount",
+    "pack",
     "shop",
     "aisle",
     "aisle_name",
