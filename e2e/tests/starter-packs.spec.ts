@@ -152,3 +152,38 @@ test("Household items come in as staples", async ({ page }) => {
     )
     .toBe(0);
 });
+
+test("Undo of a pack keeps an ingredient a recipe uses and says so (cabledrawer 7 Nov)", async ({
+  page,
+}) => {
+  const before = new Set((await foods(page)).map((f) => f.name));
+  const dialog = await openPack(page, "Japanese");
+  const add = dialog.getByRole("button", { name: /^Add \d+ ingredients$/ });
+  const count = Number(/\d+/.exec(await add.innerText())![0]);
+  await add.click();
+  await expect(
+    page.getByText(`Added the Japanese starter pack: ${count} ingredients`),
+  ).toBeVisible();
+  const miso = (await foods(page)).find((f) => f.name === "miso")!;
+  const made = await page.request.post("/api/v1/recipes", {
+    data: {
+      name: "Undo keeps miso",
+      lines: [{ words: "miso", food_id: miso.id }],
+    },
+  });
+  expect(made.status()).toBe(201);
+  const recipe = (await made.json()) as { id: number };
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(
+    page.getByText(
+      "Took out what could be: 1 ingredient is already in use, so it stays.",
+    ),
+  ).toBeVisible();
+  const left = (await foods(page)).filter((f) => !before.has(f.name));
+  expect(left.map((f) => f.name)).toEqual(["miso"]);
+
+  // Leave the household as it was.
+  await page.request.delete(`/api/v1/recipes/${recipe.id}`);
+  await page.request.delete(`/api/v1/foods/${miso.id}`);
+});
