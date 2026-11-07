@@ -725,6 +725,8 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Binned on a past-date tub (cabledrawer 8 Nov):** a leftover tub whose Use by has passed shows **Binned** on its Use soon card (phone and computer), which throws away the card's soonest tub, one tub per press (cabledrawer 8 Nov: "Soonest tub only"), the way a packet is binned (a Recent changes line "Binned Veg biryani tub", with Undo). A tub planned for a meal can't be binned until it is taken out of the meal.
 - **"How much is left" wording (cabledrawer 8 Nov):** rounding is unchanged (counts to the nearest ½, packs to the nearest ¼). "Less than" replaces "under", and beside a weight or volume the amount comes first: less than half an onion; less than half left; ½ onion stays ½ onion; about 50 g · less than ¼ packet; about 63 g · ¼ packet; about 100 g · less than ¼ bag; a tiny amount (under 0.1 g); 3 ml stays 3 ml. The short forms that show only the pack part use the same words ("less than ¼ packet").
 - **Stocktake (F118, cabledrawer 31 Oct and 7 Nov):** place by place, each ingredient None · ¼ · ½ · ¾ · Full (or a count, or a staple), the pack size asked once when unknown; every answer is saved as it is tapped and can be undone; Stop, carry on later reopens at the first place not finished.
+- **Stocktake counts (cabledrawer 7 Nov):** tins are counted whole ("− 2 tins +"; a pack-size row whose pack word is "tin"); jars, bags, bottles and everything else keep ¼ / ½ / ¾ / Full plus the pack count.
+- **Stocktake Next (cabledrawer 7 Nov):** Next means right: moving on with Next without changing a row records it as checked and correct; no "That's right" button.
 
 **From the v0.7.0 check (cabledrawer 6 Nov; findings F159–F164 in his friction log), wave 2:**
 

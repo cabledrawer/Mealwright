@@ -723,7 +723,8 @@ Place by place, each ingredient answered None · ¼ · ½ · ¾ · Full (or a co
 - **`POST /api/v1/stocktake/places/{place_id}/foods/{food_id}/size`** body as `POST /foods/{id}/sizes` (`name`, `amount`): the pack size asked once; it becomes the Usual size, as one `stocktake` change. `409 has_size` when it has one, `422 no_pack` for a staple or an ingredient counted one by one.
 - **`POST /api/v1/stocktake/places/{place_id}/foods/{food_id}/staple`**: "It's a staple" (one `stocktake` change; Undo makes it a counted ingredient again). `409 already_staple`.
 - **`POST /api/v1/stocktake/places/{place_id}/foods`** body `{ "food_id" }` (`201`): "+ Something else in the Cupboard". The ingredient is made first with `POST /foods`, or picked. No stock change; again changes nothing.
-- **`POST /api/v1/stocktake/places/{place_id}/finish`**: "Next →": the place is finished. Answers `GET /stocktake`. Again changes nothing.
+- **`POST /api/v1/stocktake/places/{place_id}/finish`**: "Next →" (or Finish): the place is finished, and every non-staple ingredient in it not answered yet is recorded as checked and correct (cabledrawer 7 Nov: Next means right): no stock change and no change in Recent changes. Answers `GET /stocktake`. Again changes nothing.
+- **Counted rows (cabledrawer 7 Nov).** A row has `counted` (true for an ingredient counted as a count, and for one whose Usual size has the pack word "tin"), `count_now` (how many there are now; tins to the nearest whole one) and `count_word` / `count_word_plural`. A counted row is answered with `{ "count": n }` (a tin count is rounded to whole tins; `fraction` gives `422 counted`); every other row keeps the picks and `{ "count" }` gives `422 not_counted`. The rule is one server-side set (`COUNTED_WHOLE` in `stocktake.py`); the screen follows `counted`.
 - **`POST /api/v1/stocktake/restart`**: a new stocktake (forgets the progress; the stock stays). Answers `GET /stocktake`.
 
 ### 6.6 Other
