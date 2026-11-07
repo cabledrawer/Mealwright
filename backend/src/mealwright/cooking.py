@@ -490,15 +490,14 @@ def undo_sizes(kitchen: Kitchen, change: Change, tally: Tally) -> None:
     kitchen.db.flush()
 
 
-def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
-    """Has every recipe of the meal that can be cooked been cooked (F157)? A recipe is cooked
-    by its own record, or, when it is the cooking of a Cook once batch, by the batch's. A recipe
-    that was deleted (it can't be cooked), a tub, an ingredient and a note don't count. A meal
-    with nothing to cook is cooked."""
+def recipes_left(kitchen: Kitchen, meal: Meal) -> list[MealItem]:
+    """The recipes of the meal that can still be cooked (F157). A recipe is cooked by its own
+    record, or, when it is the cooking of a Cook once batch, by the batch's. A recipe that was
+    deleted (it can't be cooked), a tub, an ingredient and a note don't count."""
     db, hid = kitchen.db, kitchen.household_id
     items = [i for i in plan.items_of(kitchen, meal) if i.kind == "recipe"]
     if not items:
-        return True
+        return []
     done_items = set(
         db.scalars(
             select(CookedRecord.meal_item_id).where(
@@ -507,6 +506,7 @@ def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
             )
         )
     )
+    left: list[MealItem] = []
     for item in items:
         if item.id in done_items:
             continue
@@ -515,8 +515,14 @@ def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
             continue  # can't be cooked
         found = cook_batches_of(kitchen, item, meal)
         if not found or any(cooked.for_batch(db, hid, b.id) is None for b in found):
-            return False
-    return True
+            left.append(item)
+    return left
+
+
+def meal_all_cooked(kitchen: Kitchen, meal: Meal) -> bool:
+    """Has every recipe of the meal that can be cooked been cooked (F157)? A meal with nothing
+    to cook is cooked."""
+    return not recipes_left(kitchen, meal)
 
 
 HEAL_AFTER = timedelta(minutes=5)

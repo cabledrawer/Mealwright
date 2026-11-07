@@ -265,14 +265,35 @@ def _joined(names: list[str]) -> str:
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
+def _refuse_nothing_reviewed(kitchen: Kitchen, meal: Meal) -> None:
+    """A "Cooked it" that reviews no recipe, on a meal where one is cooked and others can still
+    be: it would cook them all unseen. Refused, naming them (cabledrawer 7 Nov)."""
+    left = cooking.recipes_left(kitchen, meal)
+    if not left:
+        return
+    items = items_of(kitchen, meal)
+    if not any(i.kind == "recipe" and cooked_record_of(kitchen, i, meal) for i in items):
+        return
+    names = [plan_item_name(kitchen, i) for i in left]
+    verb = "needs" if len(names) == 1 else "need"
+    raise Problem(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "recipes_still_to_cook",  # proposed, for cabledrawer
+        f"{_joined(names)} still {verb} Cooked it.",
+    )
+
+
 def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     """Cooked it. The meal becomes cooked when every recipe in it has been (F157): one press
     of a meal with several recipes cooks only the ones it reviewed. An answer with no pantry
-    change of its own (nothing was reviewed) still cooks the whole meal."""
+    change of its own (nothing was reviewed) cooks the whole meal, unless a recipe of it is
+    cooked already and others are left: then it is refused (cabledrawer 7 Nov)."""
     answerable(kitchen, meal, ahead=True)
     steps: list[dict[str, Any]] = []
     where = _where(kitchen, meal.day, meal.slot_id)
     press = together.press_changes(kitchen, meal)
+    if not press:
+        _refuse_nothing_reviewed(kitchen, meal)
     names = together.cooked_names(kitchen, press, meal) if press else []
     name = _joined(names) if names else _meal_name(kitchen, meal)
     whole = not press or cooking.meal_all_cooked(kitchen, meal)  # before any new batch of leftovers
