@@ -148,7 +148,7 @@
                   : null,
                 open: () => (whole ? actions.openMeal(meal) : actions.openItem(meal, item))
               }}
-              aria-label="{chip.cook ? 'Cooking ' : ''}{itemName(
+              aria-label="{chip.cook || show === 'cook' ? 'Cooking ' : ''}{itemName(
                 item,
                 model.plan
               )}, {model.slotName(meal.slot_id)} on {dayFull(day)}. Open menu"

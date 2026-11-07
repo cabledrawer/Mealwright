@@ -750,6 +750,8 @@ test.describe('F149: the Show switch on the computer’s Month', () => {
     await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
     await expect(chip(batch)).toBeVisible();
     await expect(chip(fresh)).toBeVisible(); // F167: fresh cooking is cooking too
+    // Review r1 L5: a screen reader hears it is cooking, as the pan shows.
+    await expect(chip(fresh)).toHaveAccessibleName(new RegExp(`^Cooking ${fresh}`));
     await expect(chip(note)).toHaveCount(0);
     await expect(chip(batch).locator('svg')).toHaveCount(1); // the pan
     await expect(chip(fresh).locator('svg')).toHaveCount(1);

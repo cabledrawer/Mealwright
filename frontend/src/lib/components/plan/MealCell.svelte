@@ -97,7 +97,7 @@
           {/if}
           {#if card.who.length}
             <span class="who"
-              >{#each card.who as person (person)}<span>{person}</span>{/each}</span
+              >{#each card.who as person (person)}<span title={person}>{person}</span>{/each}</span
             >
           {/if}
           {#if card.before}<span class="early">Before the cook day</span>{/if}

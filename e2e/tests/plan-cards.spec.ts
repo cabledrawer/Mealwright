@@ -819,6 +819,8 @@ test("F168: at 1101 px a person's name under a tub that is too wide for its card
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   const chips = cell(page, sun, slot.Lunch).locator(".who span");
   await expect(chips.first()).toBeVisible();
+  // Review r1 L6: the whole name shows on hover.
+  await expect(chips.first()).toHaveAttribute("title", /\S/);
   const report = await chips.first().evaluate((el) => {
     const style = getComputedStyle(el);
     const card = el.closest("button")!.getBoundingClientRect();
