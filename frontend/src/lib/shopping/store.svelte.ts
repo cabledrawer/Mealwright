@@ -4,7 +4,9 @@
 // while it can't be sent, and goes only if the server refuses it (UX principle 8). Undo is
 // in the toast (principle 6).
 
-import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+import { api, ApiError, cantReach, cantReachWords } from '#lib/api.js';
+import { serverUndo } from '#lib/client/changes.js';
+import { patchFood } from '#lib/client/foods.js';
 import { kitchen } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -12,7 +14,7 @@ import { newChangeId } from '#lib/changeId.js';
 import { getFood, listFoods } from '#lib/client/foods.js';
 import type { FoodRow } from '#lib/client/types.js';
 import type { Chosen } from '#lib/newIngredient.svelte.js';
-import { COULDNT_SAVE, type Outcome } from '#lib/save.js';
+import { COULDNT_SAVE, save, type Outcome } from '#lib/save.js';
 import { session } from '#lib/session.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { COULDNT_UNDO, undoHistory, undoneWords, type UndoEntry } from '#lib/undo.svelte.js';
@@ -129,6 +131,64 @@ export class ShoppingModel {
   readonly notes = $derived(
     this.list ? this.copy.notes.filter((n) => !n.gone && n.list_id === this.list!.id) : []
   );
+
+  // --- What only the server's list read says (Plan shopping, S3) -----------------------------
+
+  /** Why each line is there, and whether "Make it a staple?" is offered: from
+   * GET /shopping/lists/{id}, worked out from the plan when read. Online only; empty before
+   * the first answer and while offline. */
+  listRead = $state.raw<Record<string, { why: string; staple_offer: boolean }>>({});
+
+  /** Read the list again for the lines' why. A failure (offline) keeps what is there. */
+  async loadListRead(): Promise<void> {
+    const list = this.list;
+    if (!list || network.offline) return;
+    try {
+      const view = await api<{
+        shops: {
+          aisles: { items: { id: string; why: string; staple_offer: boolean }[] }[];
+          in_trolley: { id: string; why: string; staple_offer: boolean }[];
+        }[];
+      }>('GET', `/shopping/lists/${list.id}`);
+      const read: Record<string, { why: string; staple_offer: boolean }> = {};
+      for (const shop of view.shops) {
+        for (const row of [...shop.aisles.flatMap((a) => a.items), ...shop.in_trolley]) {
+          read[row.id] = { why: row.why, staple_offer: row.staple_offer };
+        }
+      }
+      this.listRead = read;
+    } catch {
+      // Keep the last answer.
+    }
+  }
+
+  /** The words for why a line is there. Offline a typed line still says so. */
+  whyOf(item: ListItem): string {
+    return this.listRead[item.id]?.why ?? (item.source === 'plan' ? '' : 'Added by you');
+  }
+
+  /** "Make it a staple?" is offered on the line (server's rule; never offline). */
+  stapleOffered(item: ListItem): boolean {
+    return !network.offline && (this.listRead[item.id]?.staple_offer ?? false);
+  }
+
+  /** One tap makes the ingredient a staple, with Undo (it leaves the list's offers by itself). */
+  async makeStaple(food: ShopFood): Promise<void> {
+    let undoer: (() => Promise<string | void>) | null = null;
+    const done = await save({
+      apply: () => {},
+      rollback: () => {},
+      send: (key) => patchFood(food.id, { staple: true }, key),
+      saved: () => kitchen.changed({ elsewhere: true }),
+      undo: {
+        label: `${food.name} is now a staple`,
+        labelFrom: (result) => result.change?.summary,
+        skip: (result) => result.change === null,
+        run: (result) => (result.change ? (undoer ??= serverUndo(result.change.id))() : false)
+      }
+    });
+    if (done.ok) void this.loadListRead();
+  }
 
   countsOf(listId: string) {
     const list = this.copy.lists.find((l) => l.id === listId);

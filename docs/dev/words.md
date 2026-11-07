@@ -790,3 +790,11 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Ingredients, Pack column** (mockup Dark-IngredientsPack08-Desktop): heading **Pack**; the Usual size **jar · 500 g**; another size **+1** (title and tap: **Also: tin · 1 kg**); none **Add a pack**, then **Common sizes:** with the sizes and **Other…** (opens the editor). Phone: the same, on a line under the name. A staple shows its pack the same way (**bag · 5 kg**), and nothing when it has none.
 - **Toast after a tap:** **Tamarind: added Pack = 500 g** (the server's own words), with Undo.
 - The table's word is the size's name (jar, bag); with no table row the size is named **pack**.
+
+## 42. Plan shopping (0.8 S3, F59; proposed, for cabledrawer unless the mockup or spec has the words)
+
+- **Title (1100 px and wider):** **Plan shopping** (under 1100 px: **Shopping**, as before). The line above is today's: "14 to buy · built from this week's plan".
+- **Row, why it is there:** the planned recipes and their days, **Sambar (Tue, Thu) · Rasam (Fri)**; **Added by you** for a typed item; **120 g needed** first when the pack bought is bigger than the need; **no pack size** last on a planned item with no Usual size; **From the plan** when the plan no longer explains a line (proposed). Days are Mon, Tue, Wed, Thu, Fri, Sat, Sun.
+- **Quick picks:** **Usual pack for Tamarind?** then **200 g**, **500 g**, **1 kg** (mockup).
+- **Right column:** panels **Shops** (link **Manage**; chips **All · 14**, **Supermarket · 9**, **+ New shop**; hint **⋯ on a row moves it to another shop.**), **Check you have these · 4** with **Show** / **Fold**, **In the trolley · 2** with **Clear ticked** and a ✕ on each row (**Clear Yoghurt**). New shop box (proposed): field **Shop name**, button **Add shop**.
+- **Make it a staple?** (cabledrawer 7 Nov): a small button on a row; after the tap the toast says **Cornmeal is now a staple** (proposed) with Undo.

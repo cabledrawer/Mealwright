@@ -18,6 +18,8 @@ ITEM_KEYS = {
     "food",
     "amount",
     "pack",
+    "why",
+    "staple_offer",
     "shop",
     "aisle",
     "aisle_name",

@@ -1,3 +1,5 @@
+import type { PackSuggestion } from '#lib/client/types.js';
+
 // The shopping copy the screen draws from. Its shape is the "changes since" answer of
 // docs/dev/sync-protocol.md section 5.5, so the offline copy (PR 6) can fill it directly.
 
@@ -33,6 +35,8 @@ export interface ListItem {
   size_id: number | null;
   /** The server's as-sold wording ("1 bunch"). */
   display: string | null;
+  /** Whole packs to buy and, with no Usual size, the common sizes to pick (F120). */
+  pack?: { suggestions: PackSuggestion[] } | null;
   source: string;
   hand_edited: boolean;
   put_away_place_id: number | null;

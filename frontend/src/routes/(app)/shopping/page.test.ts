@@ -70,7 +70,7 @@ describe('the Shopping page', () => {
   });
 
   it('splits by shop and aisle with the spec’s names, Any shop last', async () => {
-    await render(1300);
+    await render(1000);
     const headings = page
       .getByRole('heading', { level: 2 })
       .elements()
@@ -87,12 +87,12 @@ describe('the Shopping page', () => {
   });
 
   it('says what it is synced with', async () => {
-    await render(1300);
+    await render(1000);
     await expect.element(page.getByText('4 to buy · synced with Wren')).toBeVisible();
   });
 
   it('folds ticked items into In the trolley, with Different pack? and the place', async () => {
-    await render(1300);
+    await render(1000);
     const fold = page.getByRole('button', { name: 'In the trolley · 2' });
     await expect.element(fold).toHaveAttribute('aria-expanded', 'false');
     await fold.click();
@@ -106,7 +106,7 @@ describe('the Shopping page', () => {
   });
 
   it('Clear ticked sends the items shown, and offers Undo', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await page.getByRole('button', { name: 'Clear ticked' }).click();
     await vi.waitFor(() =>
@@ -144,7 +144,7 @@ describe('the Shopping page', () => {
 
   it('11.2: a tick shows at once and stays while the server can’t be reached', async () => {
     let tries = 0;
-    await render(1300, {
+    await render(1000, {
       'POST /shopping/actions': () => {
         tries++;
         return [503, { detail: 'Down for a moment' }];
@@ -188,7 +188,7 @@ describe('the Shopping page', () => {
 
   it('offline, desktop: the Put away panel shows the tick at once, at its usual place, and Undo last tick works', async () => {
     // Yoghurt lives in the Fridge.
-    await openOffline(1300, (here) => (here.foods[2]!.place_id = 1));
+    await openOffline(1000, (here) => (here.foods[2]!.place_id = 1));
     await page.getByRole('checkbox', { name: 'Tick Yoghurt' }).click();
     const where = page.getByRole('combobox', { name: 'Where' });
     await expect.element(where).toBeVisible();
@@ -255,7 +255,7 @@ describe('the Shopping page', () => {
   });
 
   it('11.2: only a refusal takes a change off the screen, saying why', async () => {
-    await render(1300, {
+    await render(1000, {
       'POST /shopping/actions': (request) => {
         const batch = request.body as { actions: { id: string }[] };
         return [
@@ -280,7 +280,7 @@ describe('the Shopping page', () => {
   });
 
   it('desktop: a tick the server ignores (another phone ticked it first) leaves the Put away panel', async () => {
-    await render(1300, {
+    await render(1000, {
       'POST /shopping/actions': (request) => {
         const batch = request.body as { actions: { id: string }[] };
         // Ticked on another phone meanwhile: this tick is ignored, and the copy comes again.
@@ -316,7 +316,7 @@ describe('the Shopping page', () => {
     const device = await loadDeviceId();
     const waiting = { id: 'w1', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick' as const };
     await addToQueue({ ...waiting, item_id: 'i-onions' }, ME.id, device);
-    await render(1300);
+    await render(1000);
     const asked = server.requests.map((r) => `${r.method} ${r.path}`);
     const sent = asked.indexOf('POST /shopping/actions');
     expect(sent).toBeGreaterThanOrEqual(0);
@@ -461,7 +461,7 @@ describe('the Shopping page', () => {
   });
 
   it('desktop: the Put away panel shows the last tick and where it went', async () => {
-    await render(1300);
+    await render(1000);
     await expect.element(page.getByRole('heading', { name: 'Put away' })).toBeVisible();
     await expect
       .element(
@@ -482,7 +482,7 @@ describe('the Shopping page', () => {
   });
 
   it('desktop: a live update does not close the + Place box in the Put away panel (M2)', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
     await page.getByRole('combobox', { name: 'Where' }).selectOptions('+ Place');
     const name = page.getByRole('textbox', { name: 'Place’s name' });
@@ -496,7 +496,7 @@ describe('the Shopping page', () => {
 
   it('desktop: a place added after another row was ticked goes to the row it was opened for (L3)', async () => {
     Object.assign(row('i-yoghurt')!, { amount: 500, display: '500 g' });
-    await render(1300, {
+    await render(1000, {
       'POST /places': [201, { id: 9, name: 'Garage', kind: 'cupboard' }]
     });
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
@@ -523,7 +523,7 @@ describe('the Shopping page', () => {
   });
 
   it('desktop: a place added after Undo last tick puts nothing away and does not fail (L3)', async () => {
-    await render(1300, {
+    await render(1000, {
       'POST /places': [201, { id: 9, name: 'Garage', kind: 'cupboard' }]
     });
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
@@ -554,7 +554,7 @@ describe('the Shopping page', () => {
   });
 
   it('Different pack? offers the planned pack and sends the one picked', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
@@ -577,7 +577,7 @@ describe('the Shopping page', () => {
   });
 
   it('Different pack? → Other… takes a whole number of packs and an amount', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
@@ -593,7 +593,7 @@ describe('the Shopping page', () => {
   });
 
   it('Different pack? → Other… sends 1005 for 1.005 kg, not 1004.9999999999999', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
@@ -609,7 +609,7 @@ describe('the Shopping page', () => {
 
   it('an item with no amount says so once ticked, and Add amount opens How much?', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await expect.element(page.getByText('Not in the pantry yet. No amount.')).toBeVisible();
     expect(document.body.textContent).not.toContain('→ Cupboard');
@@ -618,7 +618,7 @@ describe('the Shopping page', () => {
   });
 
   it('ticking an item with no amount asks How much? at once (F62), and the answer follows the tick', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('checkbox', { name: 'Tick Kitchen roll' }).click();
     await expect.element(page.getByText('How much?')).toBeVisible();
     await expect.element(page.getByRole('radio', { name: '500 g', exact: true })).toBeVisible();
@@ -640,7 +640,7 @@ describe('the Shopping page', () => {
 
   it('How much? for a new weight ingredient offers 100 g · 250 g · 500 g · 1 kg, then Type an amount', async () => {
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     await expect.element(page.getByText('How much?')).toBeVisible();
@@ -657,7 +657,7 @@ describe('the Shopping page', () => {
   it('How much? for a new liquid ingredient offers 250 ml · 500 ml · 1 L, then Type an amount', async () => {
     copy.foods.find((f) => f.id === 6)!.counted_as = 'volume';
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     const names = radioNames();
@@ -672,7 +672,7 @@ describe('the Shopping page', () => {
   it('How much? for a new counted ingredient offers 1 · 2 · 6 · 12, then Type an amount', async () => {
     copy.foods.find((f) => f.id === 6)!.counted_as = 'count';
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     const names = radioNames();
@@ -692,7 +692,7 @@ describe('the Shopping page', () => {
     ];
     copy.foods.find((f) => f.id === 6)!.counted_as = 'count';
     copy.items.find((i) => i.id === 'i-roll')!.ticks.push(tick('t-roll'));
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     await expect.element(page.getByRole('radio', { name: '1 × 2' })).toBeVisible();
@@ -701,7 +701,7 @@ describe('the Shopping page', () => {
   });
 
   it('Different pack? keeps “Other…” (only How much? says Type an amount)', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
@@ -720,7 +720,7 @@ describe('the Shopping page', () => {
       no: 'Just 1',
       open: true
     });
-    await render(1300);
+    await render(1000);
     await expect.element(page.getByText('Did you buy 2?')).toBeVisible();
     await page.getByRole('button', { name: 'Just 1' }).click();
     await vi.waitFor(() =>
@@ -742,7 +742,7 @@ describe('the Shopping page', () => {
       undo: 'abc',
       gone: false
     });
-    await render(1300);
+    await render(1000);
     await expect.element(page.getByText('Wren added Yoghurt too')).toBeVisible();
     await page.getByRole('button', { name: 'Dismiss: Wren added Yoghurt too' }).click();
     await vi.waitFor(() =>
@@ -1017,7 +1017,7 @@ describe('the Shopping page', () => {
       undo: null,
       gone: false
     });
-    await render(1300);
+    await render(1000);
     const shop = page.getByRole('region', { name: 'Supermarket' });
     await expect
       .element(
@@ -1050,7 +1050,7 @@ describe('the Shopping page', () => {
   });
 
   it('Different pack?: Escape closes the panel and returns focus; a bad Other… says why', async () => {
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     const opener = page.getByRole('button', { name: 'Different pack?' });
@@ -1075,7 +1075,7 @@ describe('the Shopping page', () => {
           bought: { amount: 400, display: '2 packs' }
         })
       );
-    await render(1300);
+    await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 2' }).click();
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
@@ -1115,7 +1115,7 @@ describe('the Shopping page', () => {
       undo: 'abc',
       gone: false
     });
-    await render(1300);
+    await render(1000);
     // The first copy has no tombstones: the note's own words.
     await expect.element(page.getByText(/^Yoghurt · Wren had removed this/)).toBeVisible();
     // Any later answer carries the tombstone.
@@ -1138,14 +1138,14 @@ describe('the Shopping page', () => {
         gone: false
       });
     }
-    await render(1300);
+    await render(1000);
     await expect.element(page.getByText(/counted differently now/)).toBeVisible();
     await expect.element(page.getByText(/counted another way, so check the amount/)).toBeVisible();
   });
 
   it('shows the server’s wording of an amount, such as 2 boxes', async () => {
     copy.items.find((i) => i.id === 'i-onions')!.display = '2 boxes';
-    await render(1300);
+    await render(1000);
     await expect
       .element(page.getByRole('button', { name: 'Change amount: Onions, 2 boxes' }))
       .toBeVisible();
@@ -1214,7 +1214,7 @@ describe('the Shopping page', () => {
       expect(server.actions).toEqual([]);
     });
 
-    for (const width of [390, 1300]) {
+    for (const width of [390, 1000]) {
       it(`${width === 390 ? 'phone' : 'computer'}: Edit ingredient saves the box, then opens the ingredient editor`, async () => {
         await render(width);
         await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
@@ -1323,7 +1323,7 @@ describe('the Shopping page', () => {
     });
 
     it('computer: the ⋯ menu has Change amount, Move to… and Remove from list…, which asks', async () => {
-      await render(1300);
+      await render(1000);
       await page.getByRole('button', { name: 'More for Yoghurt' }).click();
       const items = page
         .getByRole('menuitem')
@@ -1337,7 +1337,7 @@ describe('the Shopping page', () => {
     });
 
     it('computer: Escape closes the ⋯ menu and gives the focus back to its button', async () => {
-      await render(1300);
+      await render(1000);
       const more = page.getByRole('button', { name: 'More for Yoghurt' });
       await more.click();
       await expect.element(page.getByRole('menuitem', { name: 'Change amount' })).toHaveFocus();
@@ -1427,7 +1427,7 @@ describe('the Shopping page', () => {
       });
 
       it('computer: Move to… in the ⋯ menu opens the same choices; Esc leaves it as it was', async () => {
-        await render(1300);
+        await render(1000);
         await page.getByRole('button', { name: 'More for Yoghurt' }).click();
         await page.getByRole('menuitem', { name: 'Move to…' }).click();
         const sheet = page.getByRole('dialog', { name: 'Move Yoghurt to…' });
@@ -1461,7 +1461,7 @@ describe('the Shopping page', () => {
       });
 
       it('after a pick the row has gone, so the focus goes to a neighbour in the shop or its heading', async () => {
-        await render(1300);
+        await render(1000);
         await page.getByRole('button', { name: 'More for Yoghurt' }).click();
         await page.getByRole('menuitem', { name: 'Move to…' }).click();
         await page.getByRole('radio', { name: 'Indian grocer' }).click();
@@ -1488,7 +1488,7 @@ describe('the Shopping page', () => {
       });
 
       it('computer: Esc gives the focus back to the row’s ⋯ button', async () => {
-        await render(1300);
+        await render(1000);
         const more = page.getByRole('button', { name: 'More for Yoghurt' });
         await more.click();
         await page.getByRole('menuitem', { name: 'Move to…' }).click();
@@ -1552,7 +1552,7 @@ describe('the Shopping page', () => {
     });
 
     it('the Undo on a ticked row takes that tick back', async () => {
-      await render(1300);
+      await render(1000);
       await page.getByRole('button', { name: 'In the trolley · 2' }).click();
       await page.getByRole('button', { name: 'Undo ticking Paneer' }).click();
       await vi.waitFor(() =>

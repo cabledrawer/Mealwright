@@ -86,6 +86,8 @@ export default defineConfig({
 
     { name: 'phone 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
+    // Plan shopping (0.8, S3): 1280 and 1100 px, set in the tests.
+    { name: 'desktop 0.8 plan shopping', testMatch: 'plan-shopping.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // The All recipes page and its states (0.4).
     { name: 'phone 0.4 recipes', testMatch: 'recipes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 recipes', testMatch: 'recipes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },

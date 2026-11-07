@@ -57,7 +57,7 @@ describe('Shopping: the list from the plan', () => {
       mounted.push(mount(component, { target }));
     }
     flushSync();
-    await expect.element(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: /shopping/i, level: 1 })).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
   }
 
@@ -108,10 +108,16 @@ describe('Shopping: the list from the plan', () => {
     expect(box.width).toBeGreaterThanOrEqual(44);
   });
 
-  it('shows the card on a computer too', async () => {
+  it('shows the card on a computer too, folded until Show (Plan shopping)', async () => {
     await render(1300);
-    await expect.element(page.getByRole('heading', { name: 'Check you have these' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: /^Check you have these/ }))
+      .toBeVisible();
+    expect(page.getByRole('button', { name: '+ Add Sunflower oil' }).elements()).toEqual([]);
+    await page.getByRole('button', { name: /^Check you have these/ }).click();
     await expect.element(page.getByRole('button', { name: '+ Add Sunflower oil' })).toBeVisible();
+    await page.getByRole('button', { name: /^Check you have these/ }).click();
+    expect(page.getByRole('button', { name: '+ Add Sunflower oil' }).elements()).toEqual([]);
   });
 
   it('names the look-ahead when it is not a week', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { packLine, wholePacks } from './packLine';
+import { packLine, packParts, wholePacks } from './packLine';
 import type { ShopFood } from './types';
 
 const NBSP = ' ';
@@ -76,5 +76,16 @@ describe('what to buy in whole packs', () => {
     expect(packLine(food('weight', [size('jar', 'jars', 500)]), null)).toBeNull();
     expect(packLine(food('weight', [size('jar', 'jars', 500)], true), 120)).toBeNull();
     expect(packLine(undefined, 120)).toBeNull();
+  });
+});
+
+describe("the pack words alone, for Plan shopping's amount column", () => {
+  it('gives the buy words and the need words apart', () => {
+    const jar = food('weight', [size('jar', 'jars', 500)]);
+    expect(packParts(jar, 120)).toEqual({
+      buy: `1${NBSP}jar (500${NBSP}g)`,
+      need: `120${NBSP}g needed`
+    });
+    expect(packParts(food('weight', []), 120)).toBeNull();
   });
 });

@@ -30,6 +30,16 @@ async function call(
   return response.json();
 }
 
+/** Phone: the "In the trolley" fold is opened. Plan shopping (1100 px and wider): the panel is
+ * always open, so there is nothing to open. */
+async function openTrolley(page: Page) {
+  if (isPhone(page) || (page.viewportSize()?.width ?? 0) < 1100) {
+    await page.getByRole("button", { name: /^In the trolley/ }).click();
+  } else {
+    await expect(page.getByRole("region", { name: "In the trolley" })).toBeVisible();
+  }
+}
+
 async function mainList(page: Page): Promise<string> {
   const { lists } = await (
     await page.request.get("/api/v1/shopping/lists")
@@ -849,7 +859,7 @@ test("unticking takes it back out of the pantry", async ({ page }) => {
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await openTrolley(page);
   await page.getByRole("checkbox", { name: `Untick ${name}` }).click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({});
 });
@@ -862,7 +872,7 @@ test("Different pack? changes what the pantry got, and Undo puts it back", async
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await openTrolley(page);
   const row = page.getByRole("listitem").filter({ hasText: name });
   await row.getByRole("button", { name: `Change where ${name} went` }).click();
   await row.getByRole("button", { name: "Different pack?" }).click();
@@ -884,7 +894,7 @@ test("Clear ticked takes the ticked items off the list, and Undo brings them bac
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Fridge: 400 });
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await openTrolley(page);
   await page.getByRole("button", { name: "Clear ticked" }).click();
   // A ticked row's name is plain text (only unticked names are buttons that open the amount).
   const ticked = page.getByRole("checkbox", { name: `Untick ${name}` });
@@ -1014,7 +1024,7 @@ test("ticked states pass the accessibility checks in both themes", async ({
   }
   await scanOwn(page, name); // both themes
   // The trolley open, with its ticked row.
-  await page.getByRole("button", { name: /^In the trolley/ }).click();
+  await openTrolley(page);
   const row = page.getByRole("listitem").filter({ hasText: name });
   await expect(row.getByText(/^In the Fridge · /)).toBeVisible();
   await row.getByRole("button", { name: `Change where ${name} went` }).click();
@@ -1050,7 +1060,7 @@ test("phone: a ticked row keeps the whole item name at 320 and 390 px", async ({
     await page.goto("/shopping");
     if (width === 320)
       await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
-    await page.getByRole("button", { name: /^In the trolley/ }).click();
+    await openTrolley(page);
     const label = page
       .getByRole("listitem")
       .filter({ hasText: name })

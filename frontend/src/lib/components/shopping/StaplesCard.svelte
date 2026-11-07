@@ -9,7 +9,16 @@
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { network } from '#lib/network.svelte.js';
 
-  let { model }: { model: ShoppingModel } = $props();
+  let {
+    model,
+    foldable = false
+  }: {
+    model: ShoppingModel;
+    /** Plan shopping: folded to "Check you have these · 4  Show" until opened. */
+    foldable?: boolean;
+  } = $props();
+  let folded = $state(true);
+  const closed = $derived(foldable && folded);
   const uid = $props.id();
   const offline = $derived(network.offline);
 </script>
@@ -17,44 +26,64 @@
 {#if model.list?.main && model.staples.length}
   <section class="check" aria-labelledby="{uid}-t">
     <div class="head">
-      <div class="words">
-        <h2 id="{uid}-t">Check you have these</h2>
-        <p>{staplesLine(model.planCard?.days ?? null)}</p>
-      </div>
-      <button
-        type="button"
-        class="x"
-        aria-label="Dismiss staples check"
-        disabled={offline}
-        onclick={() => void model.gotAll()}><Icon name="close" size={18} stroke={2.2} /></button
-      >
-    </div>
-    <ul>
-      {#each model.staples as staple (staple.food.id)}
-        <li>
-          <span class="name"
-            >{staple.food.name}<span class="used">{usedIn(staple.used_in)}</span></span
+      {#if foldable}
+        <h2 id="{uid}-t" class="fold">
+          <button
+            type="button"
+            class="toggle"
+            aria-expanded={!folded}
+            aria-controls="{uid}-list"
+            onclick={() => (folded = !folded)}
+            ><span>Check you have these · {model.staples.length}</span><span class="word"
+              >{folded ? 'Show' : 'Fold'}</span
+            ></button
           >
-          <span class="buttons">
-            <button
-              type="button"
-              class="got"
-              disabled={offline}
-              aria-label="Got it, {staple.food.name}"
-              onclick={() => void model.gotIt(staple)}>Got it</button
+        </h2>
+      {:else}
+        <div class="words">
+          <h2 id="{uid}-t">Check you have these</h2>
+          <p>{staplesLine(model.planCard?.days ?? null)}</p>
+        </div>
+      {/if}
+      {#if !closed}
+        <button
+          type="button"
+          class="x"
+          aria-label="Dismiss staples check"
+          disabled={offline}
+          onclick={() => void model.gotAll()}><Icon name="close" size={18} stroke={2.2} /></button
+        >
+      {/if}
+    </div>
+    {#if foldable && !closed}<p class="line">{staplesLine(model.planCard?.days ?? null)}</p>{/if}
+    {#if !closed}
+      <ul id="{uid}-list">
+        {#each model.staples as staple (staple.food.id)}
+          <li>
+            <span class="name"
+              >{staple.food.name}<span class="used">{usedIn(staple.used_in)}</span></span
             >
-            <button
-              type="button"
-              class="add"
-              disabled={offline}
-              aria-label="+ Add {staple.food.name}"
-              onclick={() => void model.addStaple(staple)}>+ Add</button
-            >
-          </span>
-        </li>
-      {/each}
-    </ul>
-    {#if offline}
+            <span class="buttons">
+              <button
+                type="button"
+                class="got"
+                disabled={offline}
+                aria-label="Got it, {staple.food.name}"
+                onclick={() => void model.gotIt(staple)}>Got it</button
+              >
+              <button
+                type="button"
+                class="add"
+                disabled={offline}
+                aria-label="+ Add {staple.food.name}"
+                onclick={() => void model.addStaple(staple)}>+ Add</button
+              >
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    {#if offline && !closed}
       <p class="offline" role="status">
         {downLine(network.deviceOffline, (b) => `Got it and + Add work ${b.when}.`)}
       </p>
@@ -91,6 +120,32 @@
     margin: 0;
     color: var(--color-check-title);
     font: var(--weight-extrabold) 1rem var(--font-ui);
+  }
+
+  .fold {
+    flex: 1;
+  }
+
+  .toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: var(--weight-extrabold) 1rem var(--font-ui);
+    text-align: left;
+  }
+
+  .toggle .word {
+    font-size: var(--text-md);
+  }
+
+  .line {
+    margin: 0;
+    color: var(--color-check-text);
+    font-size: var(--text-sm);
   }
 
   .words p {

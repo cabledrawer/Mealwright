@@ -18,7 +18,13 @@
   import AmountBox from './AmountBox.svelte';
   import MovePicker from './MovePicker.svelte';
   import NewPlace from '../NewPlace.svelte';
-  import { packLine } from '#lib/shopping/packLine.js';
+  import { addSuggestedSize } from '#lib/client/foods.js';
+  import { serverUndo } from '#lib/client/changes.js';
+  import type { FoodWrite, PackSuggestion } from '#lib/client/types.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { network } from '#lib/network.svelte.js';
+  import { save } from '#lib/save.js';
+  import { packLine, packParts, usualSize } from '#lib/shopping/packLine.js';
   import PackSheet from './PackSheet.svelte';
   import PutAwayLine from './PutAwayLine.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
@@ -30,7 +36,9 @@
     trolley = false,
     notes = [],
     highlight = false,
-    swiped = false
+    swiped = false,
+    plan = false,
+    clear = false
   }: {
     model: ShoppingModel;
     view: ViewItem;
@@ -39,6 +47,10 @@
     highlight?: boolean;
     /** Start with the red Remove showing (the component gallery). */
     swiped?: boolean;
+    /** Plan shopping (1100 px and wider): one line, tick · name · amount · why · ⋯. */
+    plan?: boolean;
+    /** In the trolley panel of Plan shopping: a ✕ that clears just this row. */
+    clear?: boolean;
   } = $props();
 
   const item = $derived(view.item);
@@ -46,6 +58,34 @@
   const tick = $derived(view.ticks[0]);
   /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
   const packs = $derived(trolley ? null : packLine(food, item.amount));
+
+  /** Plan shopping: the pack words are the amount ("1 jar (500 g)"); the need goes in the why. */
+  const buy = $derived(plan && !trolley ? packParts(food, item.amount)?.buy : undefined);
+  const why = $derived(plan && !trolley ? model.whyOf(item) : '');
+  /** "Usual pack?": the common sizes, under a line with an amount and no size known. */
+  const picks = $derived(
+    plan && !trolley && item.amount && !food.staple && !usualSize(food)
+      ? (item.pack?.suggestions ?? [])
+      : []
+  );
+  let whyOpen = $state(false);
+  const offerStaple = $derived(plan && !trolley && model.stapleOffered(item));
+
+  function pick(choice: PackSuggestion) {
+    let undoer: (() => Promise<string | void>) | null = null;
+    void save<FoodWrite>({
+      apply: () => {},
+      rollback: () => {},
+      send: (key) => addSuggestedSize(food.id, choice, key),
+      saved: () => kitchen.changed({ elsewhere: true }),
+      undo: {
+        label: `${food.name}: added ${choice.display}`,
+        labelFrom: (result) => result.change?.summary,
+        skip: (result) => result.change === null,
+        run: (result) => (result.change ? (undoer ??= serverUndo(result.change.id))() : false)
+      }
+    });
+  }
 
   let editing = $state(false);
   let asking = $state(false);
@@ -170,7 +210,7 @@
   }
 </script>
 
-<li class="item" class:trolley class:highlight bind:this={rowEl}>
+<li class="item" class:trolley class:highlight class:plan bind:this={rowEl}>
   {#if editing && !trolley}
     <AmountBox
       {model}
@@ -246,12 +286,25 @@
               />
             {/if}
           </span>
+          {#if clear}
+            <button
+              type="button"
+              class="x"
+              aria-label="Clear {food.name}"
+              onclick={(event) => {
+                const back = keepFocus(event.currentTarget);
+                void model.clearTicked([item]);
+                back();
+              }}><Icon name="close" size={16} stroke={2.4} /></button
+            >
+          {/if}
         {:else}
           <button
             type="button"
             class="name"
             bind:this={nameButton}
             aria-expanded={editing}
+            title={plan ? food.name : undefined}
             onclick={openBox}>{food.name}</button
           >
           <span class="end">
@@ -264,7 +317,7 @@
                 : `Add amount for ${food.name}`}
               onclick={openBox}
             >
-              {item.display ?? 'Add amount'}
+              {buy ?? item.display ?? 'Add amount'}
               {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
             </button>
             {#if model.device === 'computer'}
@@ -278,10 +331,43 @@
               />
             {/if}
           </span>
-          {#if packs}<span class="packs">{packs}</span>{/if}
+          {#if plan}
+            {#if why}
+              <button
+                type="button"
+                class="why"
+                title={why}
+                aria-expanded={whyOpen}
+                onclick={() => (whyOpen = !whyOpen)}>{why}</button
+              >
+            {:else}
+              <span class="why"></span>
+            {/if}
+          {:else if packs}
+            <span class="packs">{packs}</span>
+          {/if}
         {/if}
       </div>
     </SwipeRow>
+  {/if}
+
+  {#if picks.length}
+    <div class="picks" role="group" aria-label="Usual pack for {food.name}?">
+      <span class="lead">Usual pack for {food.name}?</span>
+      {#each picks as choice (choice.amount)}
+        <button type="button" class="chip" disabled={network.offline} onclick={() => pick(choice)}
+          >{choice.amount_text}</button
+        >
+      {/each}
+    </div>
+  {/if}
+
+  {#if offerStaple}
+    <div class="picks">
+      <button type="button" class="chip" onclick={() => void model.makeStaple(food)}
+        >Make it a staple?</button
+      >
+    </div>
   {/if}
 
   {#if placing && trolley}
@@ -389,6 +475,115 @@
   .item:last-child :global(.swipe) {
     border-bottom-left-radius: var(--radius-xl);
     border-bottom-right-radius: var(--radius-xl);
+  }
+
+  /* Plan shopping: one line, tick · name · amount · why · ⋯ (mockup Dark-ShopPlan08-Desktop). */
+  .plan:not(.trolley) .line {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr) 40px;
+    align-items: center;
+    gap: 0 var(--space-6);
+    min-height: 48px;
+    padding: 0;
+  }
+
+  .plan:not(.trolley) .line .tick {
+    order: 1;
+    margin: 0 -10px;
+  }
+
+  .plan:not(.trolley) .line .name {
+    order: 2;
+    flex: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .plan:not(.trolley) .end {
+    display: contents;
+  }
+
+  .plan:not(.trolley) .amount {
+    order: 3;
+    justify-self: start;
+    max-width: 100%;
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-soft, var(--color-text));
+    font-size: var(--text-md);
+    white-space: nowrap;
+  }
+
+  .plan:not(.trolley) .why {
+    order: 4;
+  }
+
+  .plan:not(.trolley) .end > :global(.row-menu) {
+    order: 5;
+  }
+
+  .why {
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font: var(--weight-regular, 400) var(--text-md) var(--font-ui);
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The whole text on hover, on focus and after a tap. */
+  button.why {
+    cursor: pointer;
+  }
+
+  .why:hover,
+  .why:focus-visible,
+  .why[aria-expanded='true'] {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .picks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 0 var(--space-4) 34px;
+  }
+
+  .picks .lead {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .picks .chip {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .x {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    margin-left: auto;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
   }
 
   .highlight :global(.slide) {
