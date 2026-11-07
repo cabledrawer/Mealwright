@@ -4,7 +4,7 @@ inside recipes on the list, and a new ingredient's aisle (F54)."""
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sync_kit import main_id, new_id, ok, one
+from sync_kit import changes, main_id, new_id, ok, one
 from test_recipe_list import line, stock
 from test_recipes import food as new_food
 from test_recipes import make
@@ -194,3 +194,64 @@ def test_a_typed_new_ingredient_on_the_list_gets_a_guessed_aisle(kitchen: TestCl
 def test_openapi_says_every_item_has_a_why(kitchen: TestClient) -> None:
     schemas = kitchen.get(f"{API}/openapi.json").json()["components"]["schemas"]
     assert schemas["ItemOut"]["properties"]["why"]["type"] == "string"
+
+
+def test_a_quick_pick_size_reaches_the_next_pull_so_the_screen_follows(
+    kitchen: TestClient,
+) -> None:
+    """The computer's "Usual pack?" quick pick adds a size with POST /foods/{id}/sizes; the
+    list's next "changes since" must carry the ingredient (with its size) and the line."""
+    tamarind = new_food(kitchen, "Why pick tamarind")
+    plan(kitchen, recipe(kitchen, "Sambar", line(tamarind["id"], 60, "g")), 1)
+    before = changes(kitchen)
+    row = next(r for r in before["items"] if r["food_id"] == tamarind["id"])
+    pick = row["pack"]["suggestions"][0]
+    ok(
+        kitchen.post(
+            f"{API}/foods/{tamarind['id']}/sizes",
+            json={"name": pick["name"], "amount": pick["amount"], "usual": True},
+        ),
+        201,
+    )
+    after = changes(kitchen, since=before["cursor"])
+    food = next(f for f in before["foods"] if f["id"] == tamarind["id"])
+    newer = [f for f in after["foods"] if f["id"] == tamarind["id"]]
+    assert newer and any(s["usual"] for s in newer[0]["sizes"]), (food, after["foods"])
+
+
+# --- "Make it a staple?" (cabledrawer 7 Nov) ---------------------------------------------------------
+
+
+def offered(kitchen: TestClient, name: str) -> bool:
+    return bool(shown(kitchen)[name]["staple_offer"])
+
+
+def test_a_tiny_need_of_a_best_before_ingredient_offers_a_staple(kitchen: TestClient) -> None:
+    sugar = new_food(kitchen, "Sugar")  # the pack-size table says: best before, 500 g to 2 kg
+    plan(kitchen, recipe(kitchen, "Tea", line(sugar["id"], 5, "g")), 1)
+    assert offered(kitchen, "Sugar")
+
+
+def test_a_need_of_a_twentieth_or_more_does_not_offer_it(kitchen: TestClient) -> None:
+    sugar = new_food(kitchen, "Sugar")  # smallest pack 500 g: 25 g is exactly a twentieth
+    plan(kitchen, recipe(kitchen, "Tea", line(sugar["id"], 25, "g")), 1)
+    assert not offered(kitchen, "Sugar")
+
+
+def test_the_households_smaller_pack_counts(kitchen: TestClient) -> None:
+    sugar = new_food(kitchen, "Sugar")
+    size(kitchen, sugar["id"], "sachet", 10, usual=True)
+    plan(kitchen, recipe(kitchen, "Tea", line(sugar["id"], 5, "g")), 1)
+    assert not offered(kitchen, "Sugar")  # 5 g of a 10 g pack
+
+
+def test_use_by_and_unknown_ingredients_never_offer_it(kitchen: TestClient) -> None:
+
+    from mealwright.pack_sizes import table
+
+    use_by = next(r for r in table().rows.values() if r.dates == "use by" and r.sizes)
+    plain = new_food(kitchen, use_by.names[0] if use_by.names else use_by.key.replace("_", " "))
+    odd = new_food(kitchen, "Zzyzx qwerty")
+    plan(kitchen, recipe(kitchen, "Odd", line(plain["id"], 1, "g"), line(odd["id"], 1, "g")), 1)
+    view = shown(kitchen)
+    assert not any(row["staple_offer"] for row in view.values())

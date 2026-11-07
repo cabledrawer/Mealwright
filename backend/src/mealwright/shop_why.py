@@ -3,16 +3,19 @@
 Worked out each time the list is read, from the plan (`shop_from_plan.work_out`), so nothing
 is stored: the planned recipes that need the ingredient and their days ("Sambar (Tue) ·
 Rasam (Thu)"), "Added by you" for a typed item, "120 g needed" first when the pack bought is
-bigger than the need, and, on a plan item, "no pack size" when none is known. The words are made here so
-screens show them as they are.
+bigger than the need, and, on a plan item, "no pack size" when none is known. The words are
+made here so screens show them as they are.
 """
 
 from datetime import date
+from typing import cast
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import PackLineOut
-from mealwright.foods import pack_bought
+from mealwright.foods import other_names, pack_bought, sizes
 from mealwright.models import Food, ListItem
+from mealwright.pack_sizes import CountedAs, suggest_sizes
+from mealwright.pack_sizes import table as pack_table
 
 DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 SEP = " · "
@@ -52,3 +55,22 @@ def why_text(
     if item.source == "plan" and pack is not None and pack.packs is None:
         parts.append("no pack size")
     return SEP.join(parts)
+
+
+def tiny_need(kitchen: Kitchen, food: Food, need_milli: int | None) -> bool:
+    """Offer "Make it a staple?" (cabledrawer 7 Nov): a best-before ingredient (its pack-size table
+    row says "best before"; no row, or "use by", never) whose need is under a twentieth of its
+    smallest known pack (the household's sizes and the table's, in the need's unit)."""
+    if food.staple or need_milli is None or need_milli <= 0:
+        return False
+    names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
+    row = pack_table().match(*names)
+    if row is None or row.dates != "best before":
+        return False
+    known = [s.amount_milli for s in sizes(kitchen, food.id) if s.amount_milli > 0]
+    # The table matched, so these are its own sizes (never the generic ones).
+    known += [
+        p.amount_milli
+        for p in suggest_sizes(names, cast(CountedAs, food.counted_as), food.table_key)
+    ]
+    return bool(known) and need_milli * 20 < min(known)

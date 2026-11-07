@@ -31,7 +31,7 @@ from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean_name, fold
 from mealwright.shop_from_plan import work_out
-from mealwright.shop_why import why_text
+from mealwright.shop_why import tiny_need, why_text
 from mealwright.shopping import Act
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
@@ -69,6 +69,8 @@ class ItemOut(BaseModel):
     # Why it is on the list, ready to show (S3): the planned recipes and days, "Added by you",
     # "120 g needed" when the pack is bigger than the need, "no pack size". Never stored.
     why: str = ""
+    # "Make it a staple?" is offered on this row (a tiny need of a best-before ingredient).
+    staple_offer: bool = False
     shop: Ref | None
     aisle: str
     aisle_name: str
@@ -175,6 +177,7 @@ def _item_out(
         ),
         pack=pack,
         why=why_text(kitchen, item, food, pack, uses),
+        staple_offer=tiny_need(kitchen, food, item.amount_milli),
         shop=Ref(id=shop.id, name=shop.name) if shop else None,
         aisle=aisle,
         aisle_name=AISLE_LABELS[aisle],
