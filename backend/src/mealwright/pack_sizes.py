@@ -215,16 +215,17 @@ def suggest_shop_id(
     where: Where | None, shops: Sequence[tuple[int, str]], cuisine: str = ""
 ) -> int | None:
     """A new ingredient's Usual shop (cabledrawer 7 Nov). `shops` are (id, name) in Settings
-    order. Specialist → the first shop whose name matches its cuisine, else the first that
-    isn't a supermarket, else none; supermarket and world aisle → the first shop."""
+    order. An ingredient with a cuisine (specialist, world aisle or supermarket) → the first
+    shop whose name matches it. Otherwise: specialist → the first shop that isn't a
+    supermarket, else none; supermarket and world aisle → the first shop."""
     if where is None or not shops:
         return None
-    if where != "specialist":
-        return shops[0][0]
     words = CUISINE_WORDS.get(cuisine, ())
     for shop_id, name in shops:
         if _mentions(name, words):
             return shop_id
+    if where != "specialist":
+        return shops[0][0]
     for shop_id, name in shops:
         if not _mentions(name, _SUPERMARKET_WORDS):
             return shop_id

@@ -143,6 +143,20 @@ def test_supermarket_and_world_aisle_go_to_the_first_shop() -> None:
     assert suggest_shop_id("supermarket", []) is None
 
 
+def test_world_aisle_and_supermarket_with_a_cuisine_go_to_a_matching_shop() -> None:
+    # cabledrawer 7 Nov: basmati rice (world aisle, Indian) goes to the Indian grocer.
+    assert suggest_shop_id("world aisle", SHOPS, "indian") == 3
+    assert suggest_shop_id("supermarket", CUISINE_SHOPS, "japanese") == 3
+    # No matching shop: still the first shop, not the specialist fallback.
+    assert suggest_shop_id("world aisle", SHOPS, "middle eastern") == 1
+    assert suggest_shop_id("supermarket", [(1, "Tesco"), (5, "Lidl")], "indian") == 1
+
+
+def test_basmati_rice_is_suggested_the_indian_grocer() -> None:
+    assert pack_sizes.usual_shop_id(["basmati rice"], SHOPS) == 3
+    assert pack_sizes.usual_shop_id(["plain flour"], SHOPS) == 1
+
+
 def test_cuisine_words_match_whole_words_only() -> None:
     # "Persiana" isn't "Persian"; "Desired" isn't "Desi".
     assert (

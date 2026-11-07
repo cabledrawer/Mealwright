@@ -550,7 +550,8 @@ def test_an_undo_of_an_add_keeps_the_brought_back_ingredient_while_it_is_on_a_li
     Tess put the brought-back Ghee on the list for the Indian grocer too, so the Undo of
     Wren's add takes her line off but leaves Ghee in Ingredients."""
     s = s0(kitchen)
-    old = food(kitchen, "Ghee", counted_as="weight")["id"]
+    # No Usual shop, so Wren's line stays apart from the Indian grocer line below.
+    old = food(kitchen, "Ghee", counted_as="weight", shop_id=None)["id"]
     ok(kitchen.delete(f"{API}/foods/{old}"))
     added = one(
         s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
