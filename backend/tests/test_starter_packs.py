@@ -234,3 +234,23 @@ def test_another_household_neither_sees_nor_is_skipped_by_these(
     # Undoing one household's change is not the other's to do.
     mine = kitchen.get(f"{API}/changes").json()["changes"][0]
     assert neighbour.post(f"{API}/changes/{mine['id']}/undo").status_code == 404
+
+
+def test_what_is_there_already_is_read_under_the_household_lock(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two phones adding at once: each must see what the other added (review r1 L1)."""
+    from mealwright.api.v1 import starter_packs as api
+    from mealwright.shopping import LOCKED
+
+    seen: list[bool] = []
+    real = api._have
+
+    def watched(k: Any) -> Any:
+        seen.append(k.db.info.get(LOCKED) is not None)
+        return real(k)
+
+    pack = packs(kitchen)["baking"]
+    monkeypatch.setattr(api, "_have", watched)
+    assert add(kitchen, "baking", keys(pack)[:1]).status_code == 201
+    assert seen == [True]

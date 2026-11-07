@@ -22,6 +22,7 @@ from mealwright.history import FoodEdit, commit, replayed
 from mealwright.models import Change, Food, FoodName
 from mealwright.names import fold
 from mealwright.pack_sizes import usual_shop_id
+from mealwright.shopping import lock_household
 from mealwright.starter_packs import StarterItem
 
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
@@ -181,6 +182,8 @@ def add_pack(pack_id: str, body: AddPack, kitchen: Here, response: Response) -> 
             keys=unknown,
         )
     chosen = [in_pack[key] for key in dict.fromkeys(body.keys)]
+    # The lock first, so two phones adding at once can't both miss what the other adds.
+    lock_household(kitchen)
     have = _have(kitchen)
     skipped = sum(1 for item in chosen if _owner(item, have) is not None)
     change = _made(kitchen, pack_id, chosen, have, skipped)
