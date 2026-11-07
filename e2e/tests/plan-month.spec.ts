@@ -456,12 +456,33 @@ test.describe('on a computer', () => {
       // Its own full day: a cooking on today and a meal in every slot, so today shows three
       // chips, "+N more", Today and COOK whatever other tests left there (more can't add to it).
       // Its own meals only: today is everyone's, so nothing else is taken off it.
+      // Another test may already have dealt with one of today's meals (Cook now, Cooked it), and
+      // a dealt-with meal takes nothing more (409 meal_done), so each one goes in the first
+      // still-planned meal of today: the cooking, then four more, so "+N more" is always there.
       const curry = `${stamp()} Full curry`;
       const mine: number[] = [];
+      const order = ['Dinner', 'Lunch', 'Breakfast', 'Snack'].map((name) => slot[name]!);
+      const intoToday = async (recipeId: number) => {
+        for (const slotId of order) {
+          const response = await page.request.post('/api/v1/plan/items', {
+            data: { date: today, slot_id: slotId, recipe_id: recipeId },
+            headers: key()
+          });
+          if (response.ok()) return (await response.json()) as { item_id: number };
+          expect((await response.json()).code, `POST /plan/items into ${slotId}`).toBe('meal_done');
+        }
+        throw new Error('every meal today has been dealt with');
+      };
       try {
-        mine.push((await cookedOnce(page, curry, today, slot)).item_id);
-        for (const name of ['Breakfast', 'Lunch', 'Dinner', 'Snack']) {
-          mine.push((await planned(page, await makeRecipe(page, `${stamp()} ${name}`), today, slot[name]!)).item_id);
+        const cook = await intoToday(await makeRecipe(page, curry));
+        mine.push(cook.item_id);
+        await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, {
+          tub_count: 1,
+          pattern: 'pick',
+          placements: [null]
+        });
+        for (const name of ['One', 'Two', 'Three', 'Four']) {
+          mine.push((await intoToday(await makeRecipe(page, `${stamp()} ${name}`))).item_id);
         }
         await openMonthOf(page, today, today);
         const here = page.getByTestId(`day-${today}`);
