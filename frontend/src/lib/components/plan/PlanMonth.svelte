@@ -1,6 +1,6 @@
 <script lang="ts">
   // The month on a computer or iPad (mockup Month07-Desktop): whole weeks of day cells, each with up
-  // to three chips (the cooking first, then "+N more"), a COOK tag on cook days, one colour per batch, and a side panel with
+  // to three chips (the cooking first, then "+N more"), a COOK tag on cook days (in Cook and Both every cooking day, as the phone's ring; cabledrawer 7 Nov), one colour per batch, and a side panel with
   // "Batches this month" and "Empty days ahead". A click anywhere in a day opens it (F53). A chip
   // drags to another day (it keeps its meal, so a dinner stays a dinner); Alt copies; the
   // Leftovers zone plans leftovers. There is no recipe tray here: the day's own sheet offers the
@@ -124,7 +124,7 @@
           <div class="top">
             <span class="num">{dayOfMonth(day)}</span>
             {#if day === model.today}<span class="now">Today</span>{/if}
-            {#if show === 'cook' ? cooksOn(model.plan, day) : cookedOn(model.plan, day).length}
+            {#if show === 'eat' ? cookedOn(model.plan, day).length : cooksOn(model.plan, day)}
               <span class="cook" title="Cook day">COOK</span>
             {/if}
           </div>

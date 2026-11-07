@@ -693,7 +693,7 @@ test.describe('F149: the Show switch on the Month', () => {
       'true'
     );
     await expect(legend).toHaveText('Blue ring: a day you cook. Dots: meals planned.');
-    expect(await ring()).not.toBe(transparent);
+    await expect.poll(ring).not.toBe(transparent);
     await expect(cell.locator('.dot').first()).toBeVisible();
     await expect(start).toBeVisible();
     await expect(meal).toBeVisible();
@@ -702,7 +702,7 @@ test.describe('F149: the Show switch on the Month', () => {
     await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
     await expect(legend).toHaveText('Blue ring: a day you cook.');
     await expect(cell.locator('.dot')).toHaveCount(0);
-    expect(await ring()).not.toBe(transparent);
+    await expect.poll(ring).not.toBe(transparent);
     await expect(start).toBeVisible();
     await expect(meal).toHaveCount(0);
 
@@ -710,7 +710,7 @@ test.describe('F149: the Show switch on the Month', () => {
     await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
     await expect(legend).toHaveText('Dots: meals planned, in each batch’s colour.');
     await expect(cell.locator('.dot').first()).toBeVisible();
-    expect(await ring()).toBe(transparent);
+    await expect.poll(ring).toBe(transparent);
     await expect(meal).toBeVisible();
     await expect(start).toHaveCount(0);
 
@@ -808,12 +808,12 @@ test.describe('F167 on the phone', () => {
     const ring = () => cell.evaluate((el) => getComputedStyle(el).borderTopColor);
     const transparent = 'rgba(0, 0, 0, 0)';
     await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
-    expect(await ring()).not.toBe(transparent);
+    await expect.poll(ring).not.toBe(transparent);
     await expect(page.getByRole('button', { name: `Start cooking ${fresh}` })).toBeVisible();
     await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
-    expect(await ring()).not.toBe(transparent);
+    await expect.poll(ring).not.toBe(transparent);
     await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
-    expect(await ring()).toBe(transparent);
+    await expect.poll(ring).toBe(transparent);
     await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
   });
 });
@@ -832,7 +832,9 @@ test.describe('F167 on the computer', () => {
     const chip = where.getByRole('button', { name: new RegExp(fresh) });
     await expect(chip).toBeVisible();
     await expect(chip.locator('svg')).toHaveCount(1);
+    // Both matches the phone: every cooking day, fresh as well as batch (cabledrawer 7 Nov, r1 L4).
     await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
+    await expect(where.getByText('COOK', { exact: true })).toBeVisible();
   });
 });
 
