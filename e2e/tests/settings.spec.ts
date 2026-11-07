@@ -323,6 +323,36 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   await expect.poll(() => recent.getByRole('listitem').count()).toBeGreaterThan(before);
 });
 
+test('one Cooked it is one row in Recent changes, with one Undo (cabledrawer 7 Nov)', async ({ page }) => {
+  const s = stamp();
+  const food = await makeFood(page, `Moong ${s}`);
+  await stock(page, food.id, await placeId(page, 'Cupboard'), 800);
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as Json[];
+  const dinner = slots.find((x) => x.name === 'Dinner')!;
+  const today = ((await (await page.request.get('/api/v1/household')).json()) as Json).today as string;
+  const post = async (path: string, data: Json, status: number) => {
+    const response = await page.request.post(`/api/v1${path}`, { data, headers: key() });
+    expect(response.status(), await response.text()).toBe(status);
+    return (await response.json()) as Json;
+  };
+  const name = `Khichdi ${s}`;
+  const recipe = await post('/recipes', { name, serves: 4, lines: [{ words: 'moong', food_id: food.id, amount: 200, unit: 'g' }] }, 201);
+  const planned = await post('/plan/items', { date: today, slot_id: dinner.id, recipe_id: recipe.id }, 201);
+  await post(`/plan/items/${planned.item_id}/cook`, { choices: [] }, 201);
+  await post(`/plan/meals/${planned.meal_id}/cooked`, {}, 200); // the meal's own answer, the second change
+
+  await page.goto('/settings');
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Recent changes' }).click();
+  const recent = section(page, 'Recent changes');
+  await expect(recent.getByRole('listitem').filter({ hasText: new RegExp(`Cooked .*${name}`) })).toHaveCount(1);
+  const undo = recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${name}`) });
+  await expect(undo).toHaveCount(1);
+  await undo.click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: Cooked ${name}` })).toBeVisible();
+  await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${name}`) })).toHaveCount(0);
+  await page.request.delete(`/api/v1/plan/items/${planned.item_id}`, { headers: key() });
+});
+
 test('an ingredient brought back by a Pantry Undo says so in Recent changes, and its removal loses its Undo', async ({
   page,
 }) => {

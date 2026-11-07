@@ -226,8 +226,6 @@ def list_changes(
     query = select(Change).where(
         Change.household_id == kitchen.household_id, Change.kind.not_in(KEY_ONLY_KINDS)
     )
-    if before is not None:
-        query = query.where(Change.id < before)
     if food_id is not None:
         query = query.where(Change.food_id == food_id)
     if area is not None:
@@ -257,12 +255,15 @@ def list_changes(
             Change.kind != "undo",
             Change.kind.not_in(NOTE_KINDS),
         )
+    whole = query  # every change this list could show, from any page: a press folds into its first
+    if before is not None:
+        query = query.where(Change.id < before)
     rows: list[Change] = []
     cursor: int | None = None
     while len(rows) <= limit:
         older = query if cursor is None else query.where(Change.id < cursor)
         chunk = list(kitchen.db.scalars(older.order_by(Change.id.desc()).limit(limit + 1)))
-        folded = set() if mine else _folded(kitchen, query, chunk)
+        folded = set() if mine else _folded(kitchen, whole, chunk)
         rows += [c for c in chunk if c.id not in folded]
         if len(chunk) <= limit:
             break
@@ -328,7 +329,7 @@ def _folded(kitchen: Kitchen, query: Any, chunk: list[Change]) -> set[int]:
     wanted = {
         i
         for t in targets.values()
-        if t.kind == "cooked"
+        if t.kind in ("cooked", "plan_cooked")
         for i in (t.undo_data or {}).get("together", [])
     }
     parts = (
@@ -348,7 +349,9 @@ def _folded(kitchen: Kitchen, query: Any, chunk: list[Change]) -> set[int]:
     first_of: dict[int, int] = {}  # a change's id → the first of its press
     for key, target in targets.items():
         together_ids = (
-            (target.undo_data or {}).get("together", []) if target.kind == "cooked" else []
+            (target.undo_data or {}).get("together", [])
+            if target.kind in ("cooked", "plan_cooked")
+            else []
         )
         first = min([target.id, *(i for i in together_ids if i in parts)])
         if first != target.id:

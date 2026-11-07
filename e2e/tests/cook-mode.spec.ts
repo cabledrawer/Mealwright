@@ -828,7 +828,7 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
     // Recent changes names each press on its own; the Undo of the first puts back only the soup.
     await page.goto('/settings');
     const recent = page.getByRole('region', { name: 'Recent changes' });
-    // (Settings → Recent changes lists the plan's own "Cooked … (Breakfast on …)" line too; the pantry's has the portions.)
+    // (One Cooked it is one row, the pantry's with the portions; the plan's own line is folded into it.)
     await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${khichdi.name} \\(\\d+ portions?\\)`) })).toHaveCount(1);
     await recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${soup.name} \\(\\d+ portions?\\)`) }).click();
     await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${soup.name}`);

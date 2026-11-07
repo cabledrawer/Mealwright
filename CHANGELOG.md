@@ -10,7 +10,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Changed
 
-- **Recent changes live in Settings only (0.8.0, F172, cabledrawer 7 Nov).** Settings → Recent changes lists every kind of change (pantry, shopping, plan, cooking, recipes, imports, ingredients, shops and places), newest first, each with Undo, and "Show more" for older ones. The Recent changes button on Ingredients and the list at the bottom of Pantry are gone. The toast still offers Undo straight after each change. `GET /changes` with no `area` already listed everything; `area` still works.
+- **Recent changes live in Settings only (0.8.0, F172, cabledrawer 7 Nov).** Settings → Recent changes lists every kind of change (pantry, shopping, plan, cooking, recipes, imports, ingredients, shops and places), newest first, each with Undo, and "Show more" for older ones. The Recent changes button on Ingredients and the list at the bottom of Pantry are gone. The toast still offers Undo straight after each change. `GET /changes` with no `area` already listed everything; `area` still works. One Cooked it is one row with one Undo (cabledrawer 7 Nov): the meal's own "Cooked …" line is folded into the pantry's, in the server's list, so every client gets one row.
 
 ## [0.8.0-alpha.1] - 2026-11-07
 

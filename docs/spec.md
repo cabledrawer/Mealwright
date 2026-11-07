@@ -738,6 +738,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **The version on screen (cabledrawer 7 Nov):** the sidebar and About show the version exactly as the tag ("v0.8.0-alpha.1"), not Python's "0.8.0a1".
 - **The version label (cabledrawer 7 Nov):** the sidebar keeps the name: "Mealwright v0.8.0-alpha.1".
 - **Month in Both (cabledrawer 7 Nov):** the computer matches the phone: the COOK tag goes on every cooking day, batch or fresh, in Cook and in Both.
+- **Cooked it in Recent changes (cabledrawer 7 Nov):** one Cooked it is one row, with one Undo (one action, one Undo).
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 

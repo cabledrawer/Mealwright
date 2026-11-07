@@ -288,3 +288,42 @@ def test_a_meal_with_a_batch_and_a_recipe_is_one_row_with_one_undo(kitchen: Test
     assert [(t["before"]["amount"], t["after"]["amount"]) for t in back] == [(left / 1000, 900)]
     assert [c["id"] for c in rows if c["kind"] == "cooked"] == [own["change"]["id"]]
     assert not any(c["can_undo"] for c in rows if c["kind"] == "cooked")
+
+
+def all_list(client: TestClient, query: str = "") -> dict[str, Any]:
+    """Settings → Recent changes: every kind of change, not one area."""
+    return dict(ok(client.get(f"{API}/changes{query}")))
+
+
+def test_settings_recent_changes_has_one_row_for_one_cooked_it(kitchen: TestClient) -> None:
+    """cabledrawer 7 Nov: "fold it into one row (one action, one Undo)". The meal's answer
+    (`plan_cooked`) is not a row of its own beside the pantry's `cooked`, and nor is its Undo."""
+    _dal, meal, item = eaten_today(kitchen)
+    pantry = ok(cook(kitchen, item), 201)["change"]
+    answer = answer_cooked(kitchen, meal, tubs=1)["change"]
+    cooked = [c for c in all_list(kitchen)["changes"] if c["kind"] in ("cooked", "plan_cooked")]
+    assert [c["id"] for c in cooked] == [pantry["id"]]
+    assert cooked[0]["can_undo"]
+
+    said = ok(undo(kitchen, pantry["id"]))
+    assert said["result"] == "done" and undone(kitchen, answer["id"])
+    rows = all_list(kitchen)["changes"]
+    assert [c["id"] for c in rows if c["kind"] == "undo"] == [said["change"]["id"]]
+    assert [c["id"] for c in rows if c["kind"] in ("cooked", "plan_cooked")] == [pantry["id"]]
+
+
+def test_a_cooked_it_is_never_split_across_pages(kitchen: TestClient) -> None:
+    """Newest first, a page of two: the Cooked it row is whole on the page where its first
+    change is, and the answer that came after it is not shown alone on the page before."""
+    _dal, meal, item = eaten_today(kitchen)
+    pantry = ok(cook(kitchen, item), 201)["change"]
+    answer = answer_cooked(kitchen, meal)["change"]
+    for name in ("Corner shop", "Market"):  # a shop's removal is a change of its own
+        shop = ok(kitchen.post(f"{API}/shops", json={"name": name}), 201)
+        ok(kitchen.delete(f"{API}/shops/{shop['id']}"))
+    first = all_list(kitchen, "?limit=2")
+    assert pantry["id"] not in [c["id"] for c in first["changes"]]
+    assert answer["id"] not in [c["id"] for c in first["changes"]]
+    second = all_list(kitchen, f"?limit=50&before={first['next']}")
+    ids = [c["id"] for c in second["changes"]]
+    assert pantry["id"] in ids and answer["id"] not in ids
