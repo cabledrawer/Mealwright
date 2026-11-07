@@ -431,3 +431,20 @@ def test_nothing_crosses_into_another_household(kitchen: TestClient, neighbour: 
 def test_the_stocktake_needs_a_signed_in_person(client: TestClient) -> None:
     assert client.get(STOCKTAKE).status_code == 401
     assert client.post(f"{STOCKTAKE}/restart").status_code in (401, 403)
+
+
+def test_removing_a_place_takes_its_stocktake_progress_with_it(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    shelf = kitchen.post(f"{API}/places", json={"name": "Garage shelf", "kind": "cupboard"})
+    assert shelf.status_code == 201, shelf.text
+    shelf_id = shelf.json()["id"]
+    jam = food(kitchen, "Jam", place_id=shelf_id)
+    answer(kitchen, shelf_id, jam["id"], {"fraction": 0})
+    assert kitchen.post(f"{STOCKTAKE}/places/{shelf_id}/finish").status_code == 200
+    removed = kitchen.delete(f"{API}/places/{shelf_id}", params={"move_to": cupboard})
+    assert removed.status_code == 200, removed.text
+    after = kitchen.get(STOCKTAKE).json()
+    assert shelf_id not in [p["id"] for p in after["places"]]
+    assert kitchen.get(f"{STOCKTAKE}/places/{shelf_id}").status_code == 404
+    # What it held moved on, and shows in the Cupboard's list.
+    assert "Jam" in rows(kitchen, cupboard)
