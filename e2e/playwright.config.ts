@@ -168,6 +168,9 @@ export default defineConfig({
     { name: 'phone 0.7 plan month', testMatch: 'plan-month.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 plan month', testMatch: 'plan-month.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 plan month', testMatch: 'plan-month.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Stocktake: place by place, picks, counts, staples, the pack size asked once (0.8, S6).
+    { name: 'phone 0.8 stocktake', testMatch: 'stocktake.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 stocktake', testMatch: 'stocktake.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Settings: the section list, Meal slots, Shops & places and Recent changes (0.8, S1).
     { name: 'phone 0.8 settings', testMatch: 'settings.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.8 settings', testMatch: 'settings.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
