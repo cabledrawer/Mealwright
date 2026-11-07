@@ -11,6 +11,7 @@
   import IngredientSheet from '#lib/components/IngredientSheet.svelte';
   import AskOnce from '#lib/components/AskOnce.svelte';
   import NewIngredient from '#lib/components/NewIngredient.svelte';
+  import StarterPacks from '#lib/components/StarterPacks.svelte';
   import { lastOwnChange } from '#lib/client/changes.js';
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
@@ -150,6 +151,7 @@
   <IngredientSheet />
   <AskOnce />
   <NewIngredient />
+  <StarterPacks />
   <Toast />
 {/if}
 

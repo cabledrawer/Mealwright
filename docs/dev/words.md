@@ -811,3 +811,14 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Amount box, no amount yet (F60, proposed):** a row of quick amounts (**1 packet** and the other own sizes first, then **250 g · 500 g · 1 kg**, **250 ml · 500 ml · 1 L**, **1 · 2 · 6 · 12**) that fill the box.
 - **Different pack? (F153):** the choice that is what was bought starts selected, so the planned amount can be chosen again; nothing new on screen.
 - **N1 also covers Already have it (proposed, for cabledrawer):** when someone else removed or moved the line before the find was sent, the finder gets the same note as for a tick: **Wren had removed this. Your tick still went into the pantry.** And the note **Paneer is counted differently now, so nothing went into the pantry.** (N8) is sent when the ingredient is now counted another way.
+
+## 44. Starter ingredient packs (0.8 R4; proposed, for cabledrawer unless the spec has the words)
+
+- **Button on Ingredients (phone and computer):** **Add a starter pack**. The dialog is headed **Add a starter pack**, then **{Pack} starter pack** (**Indian starter pack**) once one is picked.
+- **The seven packs:** Everyday basics · Indian · Chinese · Japanese · Middle Eastern · Household · Baking. Each button: the name, then **123 ingredients · 12 already here**.
+- **First line:** "Pick a pack. You’ll see its ingredients first and can untick any. Only ingredients are added, never anything in your pantry or on your list." The Household pack adds: "These are added as “Don’t count it”: always assumed to be in stock."
+- **The list:** every ingredient ticked; **3 of 120 ticked** with **Untick all** / **Tick all**; a row already in the household is greyed, unticked and says **Already have** (**Already have as “Thuvaram paruppu”** when it has it under another name).
+- **Buttons:** **Back**, **Cancel**, and **Add 41 ingredients** (**Add 1 ingredient**); off when none is ticked.
+- **Toast and Recent changes** (the server's words): **Added the Indian starter pack: 41 ingredients**, with Undo (one Undo for all of them).
+- **Nothing new:** "There’s nothing new to add: you already have these ingredients."
+

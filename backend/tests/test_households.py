@@ -268,7 +268,12 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request
 # always changes the signed-in person's own household, so there is nothing of another
 # household's to point at. Its isolation is in test_privacy.py.
-NAMED_NOT_NUMBERED = {("PUT", "/api/v1/privacy/switches/{connection}")}
+# The starter pack to add is named too ("indian"): the packs are bundled and the same for every
+# household; what it adds goes into the signed-in household only (test_starter_packs.py).
+NAMED_NOT_NUMBERED = {
+    ("PUT", "/api/v1/privacy/switches/{connection}"),
+    ("POST", "/api/v1/starter-packs/{pack_id}/add"),
+}
 
 
 def endpoints_with_ids(client: TestClient) -> set[tuple[str, str]]:

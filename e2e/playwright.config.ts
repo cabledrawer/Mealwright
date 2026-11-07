@@ -83,6 +83,8 @@ export default defineConfig({
     // Shopping and the "Pantry keeps it by" question (0.3).
     { name: 'phone 0.8 pack sizes', testMatch: 'pack-sizes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.8 pack sizes', testMatch: 'pack-sizes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'phone 0.8 starter packs', testMatch: 'starter-packs.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 starter packs', testMatch: 'starter-packs.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
 
     { name: 'phone 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },

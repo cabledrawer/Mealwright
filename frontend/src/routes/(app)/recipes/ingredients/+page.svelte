@@ -28,6 +28,7 @@
   import { newNameFor } from '#lib/ingredientSearch.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import { save } from '#lib/save.js';
+  import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
 
   const list = new IngredientsList();
@@ -253,6 +254,11 @@
             >
           {/if}
         </div>
+        {#if !network.offline}
+          <button type="button" class="starter" onclick={() => starterPacks.show()}
+            >Add a starter pack</button
+          >
+        {/if}
       </div>
 
       <div class="card">
@@ -403,6 +409,17 @@
     color: var(--color-inverse-text);
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .starter {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
   }
 
