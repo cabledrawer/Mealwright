@@ -91,6 +91,18 @@ export function cookedOn(plan: Plan | null, day: string) {
   return plan?.batch_cooks.filter((b) => b.cooked_on === day) ?? [];
 }
 
+/** A meal item that is cooking: a recipe in a meal still to cook or already cooked (not a tub
+ * eaten, an ingredient or a note). The same rule as the Cook view's list (planCook.ts). */
+export function isCooking(meal: PlanMeal, item: PlanItem): boolean {
+  return item.kind === 'recipe' && (meal.status === 'planned' || meal.status === 'cooked');
+}
+
+/** Whether a day has any cooking: a batch's cook day or a recipe cooked fresh (F167). */
+export function cooksOn(plan: Plan | null, day: string): boolean {
+  if (cookedOn(plan, day).length > 0) return true;
+  return !!plan?.meals.some((m) => m.date === day && m.items.some((i) => isCooking(m, i)));
+}
+
 /** Which batch a meal belongs to, by its tubs: for the colour in the Month view. */
 export function batchOfMeal(plan: Plan | null, meal: PlanMeal): number | null {
   for (const item of meal.items) {

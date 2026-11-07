@@ -10,7 +10,15 @@
   import type { PlanShow } from '#lib/planShow.js';
   import { dayFull, dayOfMonth, dayShort, monthWords } from '#lib/planDates.js';
   import { drag, pressable } from '#lib/planDrag.svelte.js';
-  import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf } from '#lib/planMeals.js';
+  import {
+    colourOfBatch,
+    cookBatchOfItem,
+    cookedOn,
+    cooksOn,
+    isCooking,
+    itemName,
+    tubOf
+  } from '#lib/planMeals.js';
   import type { PlanBatch, PlanItem, PlanMeal } from '#lib/client/plan.js';
 
   let { actions, show }: { actions: PlanActions; show: PlanShow } = $props();
@@ -44,7 +52,10 @@
   const chipsOn = (day: string): Chip[] => {
     const all = mealsOn(day).flatMap((meal) => meal.items.map((item) => chipOf(meal, item)));
     const cooking = all.filter((c) => c.cook);
-    return show === 'cook' ? cooking : [...cooking, ...all.filter((c) => !c.cook)];
+    // Cook shows every recipe being cooked, a batch's first, then fresh ones (F167).
+    if (show === 'cook')
+      return [...cooking, ...all.filter((c) => !c.cook && isCooking(c.meal, c.item))];
+    return [...cooking, ...all.filter((c) => !c.cook)];
   };
 
   let fillNote = $state('');
@@ -113,7 +124,7 @@
           <div class="top">
             <span class="num">{dayOfMonth(day)}</span>
             {#if day === model.today}<span class="now">Today</span>{/if}
-            {#if cookedOn(model.plan, day).length}
+            {#if show === 'cook' ? cooksOn(model.plan, day) : cookedOn(model.plan, day).length}
               <span class="cook" title="Cook day">COOK</span>
             {/if}
           </div>

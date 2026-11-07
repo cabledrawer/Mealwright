@@ -43,7 +43,7 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-type Which = 'A' | 'B' | 'C' | 'D' | 'L' | 'M' | 'T' | 'U';
+type Which = 'A' | 'B' | 'C' | 'D' | 'F' | 'L' | 'M' | 'T' | 'U';
 const kind = () => {
   const name = test.info().project.name;
   return name.startsWith('phone') ? 'phone' : name.startsWith('webkit') ? 'webkit' : 'computer';
@@ -55,6 +55,8 @@ function dayFor(today: string, which: Which): string {
   if (which === 'T') return addDays(today, -7 * { computer: 10, webkit: 25, phone: 40 }[kind()]);
   if (which === 'C') return addDays(today, -7 * { computer: 9, webkit: 14, phone: 19 }[kind()] + 1);
   if (which === 'L') return addDays(wed(83), -2); // Monday; the day after is the target
+  // F (F167): a Wednesday of its own, with one fresh recipe and no batch, cleared before each test.
+  if (which === 'F') return wed(84);
   // M (F149, F137): a Wednesday no other test here uses, cleared before each test.
   if (which === 'M') return wed(kind() === 'computer' ? 82 : 81);
   if (kind() === 'computer') return wed({ A: 80, B: 81, D: 80 }[which]);
@@ -646,7 +648,10 @@ async function cookAndEat(page: Page, day: string, slot: Record<string, number>)
   const fresh = `${word} Fresh`;
   await cookedOnce(page, batch, day, slot);
   await planned(page, await makeRecipe(page, fresh), day, slot.Lunch);
-  return { batch, fresh };
+  // Something that is not cooking, so Cook can be seen leaving it out.
+  const note = `${word} Takeaway`;
+  await call(page, 'POST', '/plan/items', { date: day, slot_id: slot.Snack, note });
+  return { batch, fresh, note };
 }
 
 const showSwitch = (page: Page) =>
@@ -727,12 +732,12 @@ test.describe('F149: the Show switch on the Month', () => {
 test.describe('F149: the Show switch on the computer’s Month', () => {
   test.skip(() => kind() === 'phone', 'the computer’s month');
 
-  test('Cook shows only the cooking chips, blue with a pan; Eat and Both show every chip', async ({
+  test('Cook shows only the cooking chips, batch and fresh, blue with a pan; Eat and Both show every chip', async ({
     page
   }) => {
     const { today, slot } = await setup(page);
     const day = dayFor(today, 'M');
-    const { batch, fresh } = await cookAndEat(page, day, slot);
+    const { batch, fresh, note } = await cookAndEat(page, day, slot);
     await openMonthOf(page, today, day);
     const where = page.getByTestId(`day-${day}`);
     const chip = (name: string) => where.getByRole('button', { name: new RegExp(name) });
@@ -740,11 +745,14 @@ test.describe('F149: the Show switch on the computer’s Month', () => {
 
     await expect(chip(batch)).toBeVisible();
     await expect(chip(fresh)).toBeVisible();
+    await expect(chip(note)).toBeVisible();
 
     await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
     await expect(chip(batch)).toBeVisible();
-    await expect(chip(fresh)).toHaveCount(0);
+    await expect(chip(fresh)).toBeVisible(); // F167: fresh cooking is cooking too
+    await expect(chip(note)).toHaveCount(0);
     await expect(chip(batch).locator('svg')).toHaveCount(1); // the pan
+    await expect(chip(fresh).locator('svg')).toHaveCount(1);
     const [chipColour, cookColour] = await page.evaluate((selector) => {
       const probe = document.createElement('i');
       probe.style.background = 'var(--color-cook)';
@@ -763,6 +771,60 @@ test.describe('F149: the Show switch on the computer’s Month', () => {
 
     await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
     await expect(chip(fresh)).toBeVisible();
+  });
+});
+
+// --- F167: Month → Cook marks every day with cooking, a fresh recipe as well as a batch ---------
+
+/** A day with one fresh recipe and no batch, with a name of its own. */
+async function freshOnly(page: Page, day: string, slot: Record<string, number>) {
+  await clearDay(page, day);
+  const fresh = `${stamp()} Fresh`;
+  await planned(page, await makeRecipe(page, fresh), day, slot.Dinner);
+  return fresh;
+}
+
+test.describe('F167 on the phone', () => {
+  test.skip(() => kind() !== 'phone', 'the phone’s month');
+
+  test('a day cooked fresh gets the blue ring in Cook and Both, and none in Eat', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'F');
+    const fresh = await freshOnly(page, day, slot);
+    await openMonthOf(page, today, day);
+    const cell = page.getByRole('group', { name: 'Days' }).getByRole('button', {
+      name: dayName(day),
+      exact: true
+    });
+    await cell.click();
+    const ring = () => cell.evaluate((el) => getComputedStyle(el).borderTopColor);
+    const transparent = 'rgba(0, 0, 0, 0)';
+    await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
+    expect(await ring()).not.toBe(transparent);
+    await expect(page.getByRole('button', { name: `Start cooking ${fresh}` })).toBeVisible();
+    await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
+    expect(await ring()).not.toBe(transparent);
+    await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
+    expect(await ring()).toBe(transparent);
+    await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
+  });
+});
+
+test.describe('F167 on the computer', () => {
+  test.skip(() => kind() === 'phone', 'the computer’s month');
+
+  test('a day cooked fresh has the COOK tag and a blue chip with a pan in Cook', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const day = dayFor(today, 'F');
+    const fresh = await freshOnly(page, day, slot);
+    await openMonthOf(page, today, day);
+    const where = page.getByTestId(`day-${day}`);
+    await showSwitch(page).getByRole('button', { name: 'Cook', exact: true }).click();
+    await expect(where.getByText('COOK', { exact: true })).toBeVisible();
+    const chip = where.getByRole('button', { name: new RegExp(fresh) });
+    await expect(chip).toBeVisible();
+    await expect(chip.locator('svg')).toHaveCount(1);
+    await showSwitch(page).getByRole('button', { name: 'Both', exact: true }).click();
   });
 });
 

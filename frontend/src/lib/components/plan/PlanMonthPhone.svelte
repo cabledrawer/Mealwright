@@ -4,7 +4,7 @@
   // that switch says underneath: what is eaten, what is cooked (with Start cooking), or both.
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
-  import { cookedOn, mealColour } from '#lib/planMeals.js';
+  import { cooksOn, mealColour } from '#lib/planMeals.js';
   import PlanDays from './PlanDays.svelte';
   import type { PlanShow } from '#lib/planShow.js';
   import type { CookEntry } from '#lib/planCook.js';
@@ -32,7 +32,7 @@
   const dots = (day: string) => (model.plan?.meals.filter((m) => m.date === day) ?? []).slice(0, 4);
   const eating = $derived(show !== 'cook');
   const cooking = $derived(show !== 'eat');
-  const cooksOnSelected = $derived(cookedOn(model.plan, selected).length > 0);
+  const cooksOnSelected = $derived(cooksOn(model.plan, selected));
   /** What the marks mean (the mockup's words). */
   const legend = $derived(
     show === 'eat'
@@ -56,7 +56,7 @@
         class="day"
         class:out={!inMonth(day)}
         class:today={day === model.today}
-        class:cook={cooking && cookedOn(model.plan, day).length > 0}
+        class:cook={cooking && cooksOn(model.plan, day)}
         aria-pressed={day === selected}
         aria-current={day === model.today ? 'date' : undefined}
         aria-label={dayFull(day)}
