@@ -249,6 +249,7 @@ def make_food(
         kitchen.db.add(food)
         kitchen.db.flush()
         edit.also(food.id)
+    edit.extra["keep_in_use"] = True  # its Undo keeps it if it has been used (cabledrawer 7 Nov)
     return edit.record("food_created", f"Added {food.name}", food.id)
 
 
