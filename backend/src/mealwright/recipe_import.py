@@ -24,7 +24,6 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from mealwright import drafts, page_budget, page_fetch, photos, pints
-from mealwright.aisles import DEFAULT_AISLE
 from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -53,7 +52,7 @@ from mealwright.api.v1.recipe_schemas import (
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref
-from mealwright.conversions import table
+from mealwright.conversions import guess_aisle, table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import find as find_food
 from mealwright.foods import name_owner, name_taken, refresh_table_key, suggested_shop
@@ -799,7 +798,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                 staple=link.kind == "staple",
                 place_id=place_id,
                 shop_id=suggested_shop(kitchen, link.name or ""),
-                aisle=row.aisle if row and row.aisle else DEFAULT_AISLE,
+                aisle=guess_aisle(link.name or "", row),
                 table_key=row.key if row else None,
             )
             db.add(food)

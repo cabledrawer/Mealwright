@@ -11,7 +11,7 @@ come in a batch to POST /shopping/actions: a sync_action row, a counter number a
 
 import uuid
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -30,6 +30,8 @@ from mealwright.foods import amount_out, change_out, find, pack_line_out, resolv
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean_name, fold
+from mealwright.shop_from_plan import work_out
+from mealwright.shop_why import why_text
 from mealwright.shopping import Act
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
@@ -64,6 +66,9 @@ class ItemOut(BaseModel):
     amount: AmountOut | None
     # Whole packs to buy and the need, when there is an amount (F120). Null: nothing to say.
     pack: PackLineOut | None = None
+    # Why it is on the list, ready to show (S3): the planned recipes and days, "Added by you",
+    # "120 g needed" when the pack is bigger than the need, "no pack size". Never stored.
+    why: str = ""
     shop: Ref | None
     aisle: str
     aisle_name: str
@@ -144,12 +149,23 @@ def list_out(kitchen: Kitchen, shopping_list: ShoppingList) -> ListOut:
     )
 
 
-def _item_out(kitchen: Kitchen, item: ListItem, food: Food, shops: dict[int, Shop]) -> ItemOut:
+def _item_out(
+    kitchen: Kitchen,
+    item: ListItem,
+    food: Food,
+    shops: dict[int, Shop],
+    uses: dict[int, dict[str, set[date]]] | None = None,
+) -> ItemOut:
+    """`uses`: what the plan needs (shop_from_plan.Worked.uses); worked out here when a plan
+    item is shown on its own."""
     size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
     shop = shops.get(item.shop_id) if item.shop_id else None
     place = item.put_away_place_id
     aisle = food.aisle if food.aisle in AISLE_KEYS else DEFAULT_AISLE
     place_row = kitchen.db.get(Place, place) if place else None
+    pack = pack_line_out(kitchen, food, item.amount_milli)
+    if uses is None:
+        uses = work_out(kitchen).uses if item.source == "plan" else {}
     return ItemOut(
         id=item.id,
         list_id=item.list_id,
@@ -157,7 +173,8 @@ def _item_out(kitchen: Kitchen, item: ListItem, food: Food, shops: dict[int, Sho
         amount=(
             amount_out(food, item.amount_milli, size) if item.amount_milli is not None else None
         ),
-        pack=pack_line_out(kitchen, food, item.amount_milli),
+        pack=pack,
+        why=why_text(kitchen, item, food, pack, uses),
         shop=Ref(id=shop.id, name=shop.name) if shop else None,
         aisle=aisle,
         aisle_name=AISLE_LABELS[aisle],
@@ -216,6 +233,7 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
             )
         )
     )
+    uses = work_out(kitchen).uses if any(i.source == "plan" for i in items) else {}
     by_shop: dict[int | None, list[tuple[ListItem, Food]]] = {}
     for item in items:
         food = _visible_food(kitchen, item.food_id)
@@ -229,7 +247,7 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
     for shop_id in ordered:
         shop = shops.get(shop_id) if shop_id is not None else None
         pairs = sorted(by_shop[shop_id], key=lambda pair: (fold(pair[1].name), pair[0].id))
-        outs = [(_item_out(kitchen, i, f, shops), i) for i, f in pairs]
+        outs = [(_item_out(kitchen, i, f, shops, uses), i) for i, f in pairs]
         aisles = []
         for key in _aisle_order(shop):
             members = [o for o, i in outs if o.aisle == key and i.ticked_at is None]

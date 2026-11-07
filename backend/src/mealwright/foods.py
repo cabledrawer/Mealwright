@@ -8,7 +8,6 @@ from fastapi import status
 from sqlalchemy import select
 
 from mealwright import amounts
-from mealwright.aisles import DEFAULT_AISLE
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -41,6 +40,7 @@ from mealwright.conversions import (
     Known,
     TableRow,
     UnitAmount,
+    guess_aisle,
     suggestion,
     table,
     to_base_milli,
@@ -243,7 +243,7 @@ def make_food(
             staple=staple,
             place_id=place_id,
             shop_id=shop_id,
-            aisle=aisle or (row.aisle if row and row.aisle else DEFAULT_AISLE),
+            aisle=aisle or guess_aisle(name, row),
             table_key=row.key if row else None,
         )
         kitchen.db.add(food)

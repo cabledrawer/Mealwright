@@ -190,21 +190,7 @@ def test_a_line_that_cannot_be_compared_counts_stock_as_enough_or_goes_on_with_n
     assert amounts(kitchen) == {pepper["id"]: None}  # salt is in stock; pepper is not
 
 
-def test_inner_recipes_tubs_plain_ingredients_and_headings_add_nothing(
-    kitchen: TestClient, rice: dict[str, Any]
-) -> None:
-    inner = recipe(kitchen, "Masala", line(rice["id"], 50, "g"))
-    outer = ok(
-        kitchen.post(
-            f"{API}/recipes",
-            json={
-                "name": "Curry",
-                "lines": [{"kind": "ingredient", "words": "masala", "recipe_id": inner}],
-            },
-        ),
-        201,
-    )["id"]
-    plan(kitchen, outer)
+def test_plain_ingredients_add_nothing(kitchen: TestClient) -> None:
     fruit = new_food(kitchen, "Plan fruit")
     ok(
         kitchen.post(

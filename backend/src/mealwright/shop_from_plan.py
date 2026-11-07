@@ -20,9 +20,10 @@ function each):
   the meal's own servings for the cook day, so a meal for 4 plus one tub buys for 5).
   Tubs and plain ingredients ("Fruit") need nothing bought: a tub is already made, and a
   plain ingredient has no amount.
-- Inner recipes (a line that uses another recipe) add nothing, made ahead or not, as in the
-  recipe stock hints (cabledrawer 20 Oct: "inner recipes are checked in a later version"). A
-  made-ahead recipe is made, not bought.
+- Inner recipes (a line that uses another recipe) add that recipe's ingredients, one batch at
+  its own amounts, at any depth, unless it is made ahead and enough of it is in the pantry
+  (S3, "Recipes inside recipes"; proposed, for cabledrawer: one batch per line, scaled with the
+  outer recipe's servings).
 - Stock: everything in the pantry counts, in every place, and stock past its use-by date still
   counts (the Pantry shows it; the person decides). A stand-in ("Can use instead")
   covers what the ingredient's own stock doesn't, if it is counted the same way (weight with
@@ -56,7 +57,7 @@ import math
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import and_, or_, select
@@ -135,6 +136,8 @@ class Worked:
     to_buy: dict[int, ToBuy] = field(default_factory=dict)  # food id → what to buy
     # staple id → (names of the recipes that use it, ids of the meal items that use it)
     staples: dict[int, tuple[list[str], set[int]]] = field(default_factory=dict)
+    # ingredient id → the planned recipes that need it and the days (the list's "why", S3)
+    uses: dict[int, dict[str, set[date]]] = field(default_factory=dict)
 
 
 def base_amount(milli: int | None) -> int | float | None:
@@ -160,6 +163,19 @@ def servings_for(item: MealItem, recipe: Recipe, batch_tubs: int | None) -> int 
 def round_up(milli: int, counted_as: str) -> int:
     """Whole grams, millilitres or items, always upwards (F56: no "5½ cinnamon sticks")."""
     return min(math.ceil(milli / MILLI) * MILLI, MAX_MILLI)
+
+
+def _must_make(line: Line, inner: Recipe, foods: dict[int, Food], stock: Stock) -> bool:
+    """Does a line that uses another recipe add that recipe's ingredients? Yes, unless the
+    recipe is made ahead and enough of it is in the pantry (spec, Recipes inside recipes: "only
+    when there's not enough of it made"; with no amount to compare, any stock counts, as in
+    the stock hints)."""
+    if not inner.made_ahead or inner.homemade_food_id is None:
+        return True
+    made = foods.get(inner.homemade_food_id)
+    if made is None:
+        return True
+    return not stock.has_enough(made, stock.need(line, made) or 0)
 
 
 def _stand_ins(kitchen: Kitchen) -> dict[int, list[int]]:
@@ -217,7 +233,7 @@ def work_out(kitchen: Kitchen) -> Worked:
     worked = Worked(days=days, foods=_foods(kitchen))
 
     rows = db.execute(
-        select(MealItem, Meal.id)
+        select(MealItem, Meal.id, Meal.day)
         .join(Meal, and_(Meal.household_id == MealItem.household_id, Meal.id == MealItem.meal_id))
         .join(
             MealSlot, and_(MealSlot.household_id == Meal.household_id, MealSlot.id == Meal.slot_id)
@@ -248,42 +264,67 @@ def work_out(kitchen: Kitchen) -> Worked:
     # Only the cook item gets the batch's portions: the first copy of the recipe in its cook
     # meal, by position then id (batches.cook_batches_of). A second copy is an ordinary item.
     cook_item: dict[tuple[int, int], int] = {}
-    for item, meal_id in sorted(rows, key=lambda row: (row[0].position, row[0].id)):
+    for item, meal_id, _day in sorted(rows, key=lambda row: (row[0].position, row[0].id)):
         cook_item.setdefault((meal_id, item.recipe_id or 0), item.id)
     recipes = live_recipes(kitchen)
     foods = worked.foods
     stock = Stock(kitchen, foods)
     lines: dict[int, list[Line]] = defaultdict(list)
-    planned = {item.recipe_id for item, _ in rows if item.recipe_id in recipes}
-    for line in _lines(kitchen, set(recipes), only=planned):
-        lines[line.recipe_id].append(line)
+    planned = {item.recipe_id for item, _, _ in rows if item.recipe_id in recipes}
+    # The recipes they use as ingredients, at any depth (loops are refused on save; `seen`
+    # guards anyway), so a recipe inside a recipe is worked through too (S3, item 7).
+    wanted = set(planned)
+    while wanted:
+        for line in _lines(kitchen, set(recipes), only=wanted):
+            lines[line.recipe_id].append(line)
+        wanted = {
+            line.sub_recipe_id
+            for recipe_id in wanted
+            for line in lines[recipe_id]
+            if line.sub_recipe_id in recipes and line.sub_recipe_id not in lines
+        }
 
     needs: dict[int, Need] = defaultdict(Need)
     staple_names: dict[int, set[str]] = defaultdict(set)
     staple_items: dict[int, set[int]] = defaultdict(set)
+
+    def add_lines(
+        recipe_id: int,
+        per_food: dict[int, Need],
+        uses_staples: set[int],
+        seen: frozenset[int],
+    ) -> None:
+        """One batch of a recipe's ingredients, and of every recipe it uses that has to be made
+        (S3, item 7: not one that is made ahead and in the pantry)."""
+        for line in lines.get(recipe_id, ()):
+            if line.food_id is None:
+                inner = recipes.get(line.sub_recipe_id or 0)
+                if inner is None or inner.id in seen or not _must_make(line, inner, foods, stock):
+                    continue
+                add_lines(inner.id, per_food, uses_staples, seen | {inner.id})
+                continue
+            food = foods.get(line.food_id)
+            if food is None:
+                continue
+            if food.staple:
+                uses_staples.add(food.id)
+                continue
+            got = stock.need(line, food)
+            if got is None:
+                per_food[food.id].unknown = True
+            else:
+                per_food[food.id].add(got)
+
     # Each recipe is worked out once (its own amounts), then scaled for each meal that uses it.
     once: dict[int, tuple[dict[int, Need], set[int]]] = {}
-    for item, meal_id in rows:
+    for item, meal_id, day in rows:
         recipe: Recipe | None = recipes.get(item.recipe_id or 0)
         if recipe is None:  # removed, or its Undo window is over
             continue
         if recipe.id not in once:
             per_food: dict[int, Need] = defaultdict(Need)
             uses_staples: set[int] = set()
-            for line in lines.get(recipe.id, ()):
-                if line.food_id is None:  # an inner recipe, or an unlinked line
-                    continue
-                food = foods.get(line.food_id)
-                if food is None:
-                    continue
-                if food.staple:
-                    uses_staples.add(food.id)
-                    continue
-                got = stock.need(line, food)
-                if got is None:
-                    per_food[food.id].unknown = True
-                else:
-                    per_food[food.id].add(got)
+            add_lines(recipe.id, per_food, uses_staples, frozenset({recipe.id}))
             once[recipe.id] = (per_food, uses_staples)
         per_food, uses_staples = once[recipe.id]
         for food_id in uses_staples:
@@ -292,6 +333,7 @@ def work_out(kitchen: Kitchen) -> Worked:
         cooks = cook_item.get((meal_id, recipe.id)) == item.id
         servings = servings_for(item, recipe, tubs.get((meal_id, recipe.id)) if cooks else None)
         for food_id, part in per_food.items():
+            worked.uses.setdefault(food_id, {}).setdefault(recipe.name, set()).add(day)
             total = needs[food_id]
             if part.unknown:
                 total.unknown = True

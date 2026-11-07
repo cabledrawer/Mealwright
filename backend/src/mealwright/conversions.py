@@ -12,7 +12,7 @@ from functools import cache
 from importlib.resources import files
 from typing import Literal
 
-from mealwright.aisles import AISLE_KEYS
+from mealwright.aisles import AISLE_KEYS, DEFAULT_AISLE
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -91,6 +91,16 @@ def table() -> Table:
             if other != row.key:
                 raise ValueError(f"{name!r} is in both {other} and {row.key}")
     return Table(rows, by_name)
+
+
+def guess_aisle(name: str, row: TableRow | None = None) -> str:
+    """The starting aisle for a new ingredient (F54, cabledrawer 6 Nov): the bundled table's aisle
+    for its name, else for a table name inside it as whole words ("organic basmati rice" →
+    basmati rice), else "other". `row` is the table row already matched by the name, if any."""
+    found = row if row is not None else table().match(name)
+    if found is None or not found.aisle:
+        found = table().close(name)
+    return found.aisle if found is not None and found.aisle else DEFAULT_AISLE
 
 
 # --- Converting -----------------------------------------------------------------------------
