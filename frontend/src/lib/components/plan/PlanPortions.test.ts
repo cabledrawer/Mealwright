@@ -189,7 +189,9 @@ describe('the meal’s menu (0.7 P1)', () => {
       const part = mealOf(1, '2026-10-20', 4, [item, done]);
       model.plan = plan([part]);
       const dialog = open({ kind: 'meal', meal: part });
-      await expect.element(dialog.getByRole('group', { name: 'Serves' })).toBeVisible();
+      // The one left to cook names its recipe (F166): "Serves · Sambar".
+      await expect.element(dialog.getByRole('group', { name: 'Serves · Sambar' })).toBeVisible();
+      expect(dialog.getByRole('group', { name: 'Serves · Rasam' }).elements()).toHaveLength(0);
       expect(dialog.getByRole('group', { name: 'Rasam serves' }).elements()).toHaveLength(0);
     });
 
