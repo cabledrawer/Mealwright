@@ -418,9 +418,27 @@ export class ShoppingModel {
 
   /** An entry for the Undo list: Undo of the change with this action ID. */
   #undoEntry(actionId: string, label: string): UndoEntry {
-    const entry: UndoEntry = { label, undo: () => this.undo(actionId, entry.label) };
+    const entry: UndoEntry = {
+      label,
+      undo: async () => {
+        const result = await this.undo(actionId, entry.label);
+        // "Add as bought": one Undo takes back the tick, then the add (no second toast).
+        const added = this.#boughtAdds[actionId];
+        if (added) {
+          delete this.#boughtAdds[actionId];
+          void sendAction(makeAction({ kind: 'undo', undoes: added })).then(
+            () => void this.load(),
+            () => undefined
+          );
+        }
+        return result;
+      }
+    };
     return entry;
   }
+
+  /** "Add as bought": the tick's action ID → the add's, so one Undo takes both back. */
+  #boughtAdds: Record<string, string> = {};
 
   /**
    * Undo a change: an `undo` action, queued after it (sync-protocol section 9), so it works
@@ -471,7 +489,9 @@ export class ShoppingModel {
      */
     group?: { queued: (actionId: string) => void },
     /** A typed amount ("1 l milk"): the add carries it, so it joins a line there already. */
-    amount?: { amount: number; sizeId: number | null }
+    amount?: { amount: number; sizeId: number | null },
+    /** The new line's ID, when the caller needs it (Add as bought ticks that line). */
+    itemId: string = newChangeId()
   ): Promise<Outcome<ActionResult> | null> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
@@ -496,7 +516,7 @@ export class ShoppingModel {
       {
         kind: 'add',
         list_id: list.id,
-        item_id: newChangeId(),
+        item_id: itemId,
         food_id: food.id,
         ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {})
       },
@@ -540,6 +560,53 @@ export class ShoppingModel {
     return outcome;
   }
 
+  /**
+   * "Add as bought" (F117): an ingredient that was not on the list goes straight into the
+   * pantry. It is an add and a tick, one after the other in the queue (so it works offline,
+   * like a tick), with one Undo for both. The tick's toast says where it went, with Change.
+   */
+  async addAsBought(
+    food: Pick<FoodRow, 'id' | 'name'> & Partial<FoodRow>,
+    amount?: { amount: number; sizeId: number | null }
+  ): Promise<void> {
+    const itemId = newChangeId();
+    const addQueued = new Promise<string>((resolve) => {
+      void this.add(food, `${food.name} added`, { queued: resolve }, amount, itemId);
+    });
+    const addId = await addQueued;
+    const line = this.item(itemId);
+    if (!line) return; // joined a line that was there already: it stays an ordinary add
+    const outcome = this.tick(line, addId);
+    void outcome;
+  }
+
+  /**
+   * "Already have it" (F117): what is at home goes into the pantry as found at home, not bought
+   * (its own words in Recent changes), and the line goes into the trolley. Works offline.
+   */
+  foundAtHome(
+    item: ListItem,
+    found: { amount: number; sizeId: number | null; placeId: number | null; words: string }
+  ) {
+    const name = this.food(item.food_id)?.name ?? 'Ingredient';
+    const place = found.placeId === null ? null : this.placeName(found.placeId);
+    return this.#act(
+      {
+        kind: 'found_at_home',
+        item_id: item.id,
+        amount: found.amount,
+        size_id: found.sizeId,
+        place_id: found.placeId
+      },
+      {
+        label: `Found ${name} at home: ${found.words}${place ? ` → ${place}` : ''}`,
+        saved: (result) => {
+          if (result.status === 'ignored' && result.message) toasts.show(result.message);
+        }
+      }
+    );
+  }
+
   /** A live, unticked line for this ingredient already on the open list, if any. */
   lineFor(foodId: number): ListItem | undefined {
     const list = this.list;
@@ -559,7 +626,7 @@ export class ShoppingModel {
    * goes, with Change and Undo, and the desktop Put away panel shows it (UX principle 8).
    * When the server has answered, the toast says where it really went.
    */
-  tick(item: ListItem) {
+  tick(item: ListItem, addedBy?: string) {
     let shown: Shown | undefined;
     let tickId: string | undefined;
     const outcome = this.#act(
@@ -568,6 +635,7 @@ export class ShoppingModel {
         quiet: true,
         queued: (actionId) => {
           tickId = actionId;
+          if (addedBy) this.#boughtAdds[actionId] = addedBy;
           // No amount, and not a staple (a staple is only restocked): ask how much.
           if (!item.amount && !this.food(item.food_id)?.staple) this.askingHowMuch = item.id;
           shown = this.#tickToast(item, actionId);

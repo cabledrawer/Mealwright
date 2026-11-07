@@ -15,6 +15,8 @@ export interface Tick {
   place_id: number | null;
   bought: { amount: number; display: string } | null;
   standing: boolean;
+  /** "Already have it": found at home, not bought. */
+  found?: boolean;
 }
 
 export interface ListRow {

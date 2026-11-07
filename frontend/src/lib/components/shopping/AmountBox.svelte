@@ -30,7 +30,8 @@
     view,
     onclose,
     onremove,
-    onmove
+    onmove,
+    onhave
   }: {
     model: ShoppingModel;
     view: ViewItem;
@@ -40,6 +41,8 @@
     onremove: () => void;
     /** "Move to…": the shop and list choices (a keyboard and a screen reader reach them here). */
     onmove: () => void;
+    /** "Already have it": how much is at home (saves the box first, as Done does). */
+    onhave: () => void;
   } = $props();
 
   const uid = $props.id();
@@ -84,6 +87,35 @@
   });
 
   const showUnits = $derived(choices.length > 1);
+
+  /** A line with no amount: quick picks (F60, cabledrawer 28 Oct): its own sizes first, then ready-made
+   * amounts by kind (250 g · 500 g · 1 kg, 250 ml · 500 ml · 1 L, 1 · 2 · 6 · 12). */
+  const quick = $derived.by(() => {
+    if (item.amount) return [];
+    const out: { label: string; text: string }[] = sizes.map((z) => ({
+      label: `1 ${z.name}`,
+      text: `1 ${z.name}`
+    }));
+    const ready = {
+      weight: [250, 500, 1000],
+      volume: [250, 500, 1000],
+      count: [1, 2, 6, 12]
+    }[food.counted_as];
+    for (const n of ready) {
+      const [small, big] = food.counted_as === 'weight' ? ['g', 'kg'] : ['ml', 'L'];
+      if (food.counted_as === 'count') out.push({ label: String(n), text: String(n) });
+      else if (n >= 1000)
+        out.push({ label: `${n / 1000}\u00a0${big}`, text: `${n / 1000} ${big}` });
+      else out.push({ label: `${n}\u00a0${small}`, text: `${n} ${small}` });
+    }
+    return out;
+  });
+
+  function usePick(text: string) {
+    problem = null;
+    draft = { text, unit: draft.unit };
+    input?.focus();
+  }
 
   /** Save what the box holds, if it changed. False when it can't be read (and says why). */
   function save(): boolean {
@@ -184,10 +216,27 @@
   <span class="hint" id="{uid}-hint"
     >The box holds the real amount: edit it, or use − / +.{unitHintFor(food)}</span
   >
+  {#if quick.length}
+    <div class="quick" role="group" aria-label="Quick amounts for {food.name}">
+      {#each quick as pick (pick.text)}
+        <button type="button" class="chip" onclick={() => usePick(pick.text)}>{pick.label}</button>
+      {/each}
+    </div>
+  {/if}
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
   <div class="foot">
     <button type="button" class="move" onclick={onmove}>
       <Icon name="arrow-right" size={20} stroke={2.2} />Move to…
+    </button>
+    <button
+      type="button"
+      class="move"
+      onclick={() => {
+        if (save()) onhave();
+        else input?.focus();
+      }}
+    >
+      <Icon name="check" size={20} stroke={2.2} />Already have it
     </button>
     <button type="button" class="remove" onclick={onremove}>
       <Icon name="trash" size={20} stroke={2.2} />Remove from list
@@ -309,6 +358,23 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
+  }
+
+  .quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .quick .chip {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
   }
 
   .foot {

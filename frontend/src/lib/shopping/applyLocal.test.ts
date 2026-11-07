@@ -366,3 +366,50 @@ describe('applyLocal: a move (sync protocol 6.1)', () => {
     expect(row(shown, 'i-onions')!.shop_id).toBe(1);
   });
 });
+
+describe('applyLocal: Already have it (found_at_home, sync-protocol 7.6)', () => {
+  it('shows the line ticked as found, with the amount at home and the place chosen', () => {
+    const found = act({
+      kind: 'found_at_home',
+      item_id: 'i-dal',
+      amount: 250,
+      size_id: null,
+      place_id: 3
+    });
+    const shown = applyLocal(sampleCopy(), [found], me);
+    expect(row(shown, 'i-dal')!.ticks).toEqual([
+      {
+        id: found.id,
+        by: tess,
+        at: found.made_at,
+        place_id: 3,
+        bought: { amount: 250, display: '250\u00a0g' },
+        standing: true,
+        found: true
+      }
+    ]);
+  });
+
+  it('does nothing to a line already ticked, and an Undo still waiting hides it', () => {
+    const copy = sampleCopy();
+    const again = act({ kind: 'found_at_home', item_id: 'i-paneer', amount: 100 });
+    expect(row(applyLocal(copy, [again], me), 'i-paneer')!.ticks).toHaveLength(1);
+    const found = act({ kind: 'found_at_home', item_id: 'i-dal', amount: 100 });
+    const undo = act({ kind: 'undo', undoes: found.id });
+    expect(row(applyLocal(copy, [found, undo], me), 'i-dal')!.ticks).toEqual([]);
+  });
+
+  it('words a pack amount with the ingredient’s size', () => {
+    const copy = withPacks();
+    const eggs = act({ kind: 'add', list_id: 'main', item_id: 'i-eggs', food_id: 8 });
+    const foundEggs = act({
+      kind: 'found_at_home',
+      item_id: 'i-eggs',
+      amount: 3,
+      size_id: 80,
+      place_id: 1
+    });
+    const shown = applyLocal(copy, [eggs, foundEggs], me);
+    expect(row(shown, 'i-eggs')!.ticks[0]!.bought).toEqual({ amount: 3, display: '½ box' });
+  });
+});

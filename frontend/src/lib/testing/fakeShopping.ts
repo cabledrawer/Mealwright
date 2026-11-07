@@ -156,6 +156,16 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
           })
         );
         break;
+      case 'found_at_home':
+        // "Already have it": what is at home goes in, marked found (sync-protocol 7.6).
+        item?.ticks.push(
+          tick(String(action.id), {
+            place_id: (action.place_id as number | null) ?? 3,
+            found: true,
+            bought: { amount: Number(action.amount), display: String(action.amount) }
+          })
+        );
+        break;
       case 'untick':
         item?.ticks.forEach((t) => (t.standing = false));
         break;
@@ -191,12 +201,21 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
         const fresh = action.new_food as { name: string; counted_as: 'weight' } | undefined;
         const foodId = fresh ? 90 : Number(action.food_id);
         if (fresh) copy.foods.push(food(90, fresh.name, 'other'));
-        copy.items.push(item_(String(action.item_id), String(action.list_id), foodId));
+        const made = item_(String(action.item_id), String(action.list_id), foodId);
+        if (typeof action.amount === 'number') {
+          made.amount = action.amount;
+          made.display = String(action.amount);
+        }
+        copy.items.push(made);
         break;
       }
       case 'undo': {
         const before = done.get(String(action.undoes));
         if (before?.kind === 'add') gone(String(before.item_id), 'Tess');
+        if (before?.kind === 'tick' || before?.kind === 'found_at_home') {
+          const ticked = copy.items.find((i) => i.id === before.item_id);
+          ticked?.ticks.forEach((t) => t.id === before.id && (t.standing = false));
+        }
         if (before?.kind === 'move') {
           const back = was.get(String(before.id));
           const moved = copy.items.find((i) => i.id === before.item_id);

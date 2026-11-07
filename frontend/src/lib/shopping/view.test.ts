@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByShop, listCounts, planWords, subtitle, syncedWith } from './view';
+import { groupByShop, inTrolleyOrder, listCounts, planWords, subtitle, syncedWith } from './view';
 import type { ListItem, ShoppingCopy } from './types';
 
 const wren = { login_id: 2, name: 'Wren' };
@@ -171,5 +171,35 @@ describe('subtitle', () => {
   it('leaves the people out when the server cannot say', () => {
     expect(subtitle(main, 3, null, 1)).toBe('3 to buy');
     expect(syncedWith([me], 1)).toBeNull();
+  });
+});
+
+describe('inTrolleyOrder (F173)', () => {
+  const ticked = (id: string, at: string) =>
+    ({
+      item: item(id, 1),
+      food: food(1, 'Onions', 'veg_fruit'),
+      ticks: [{ ...tick, id: `t-${id}`, at }]
+    }) as never;
+
+  it('lists the most recently ticked first, not by name', () => {
+    const rows = [
+      ticked('a', '2026-11-07T10:00:00Z'),
+      ticked('b', '2026-11-07T10:05:00Z'),
+      ticked('c', '2026-11-07T10:02:00Z')
+    ];
+    expect(inTrolleyOrder(rows).map((v: { item: { id: string } }) => v.item.id)).toEqual([
+      'b',
+      'c',
+      'a'
+    ]);
+  });
+
+  it('keeps a steady order for the same moment', () => {
+    const rows = [ticked('b', '2026-11-07T10:00:00Z'), ticked('a', '2026-11-07T10:00:00Z')];
+    expect(inTrolleyOrder(rows).map((v: { item: { id: string } }) => v.item.id)).toEqual([
+      'a',
+      'b'
+    ]);
   });
 });

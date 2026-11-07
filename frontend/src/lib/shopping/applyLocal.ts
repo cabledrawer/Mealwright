@@ -107,6 +107,23 @@ export function applyLocal(
         });
         break;
       }
+      case 'found_at_home': {
+        const item = itemOf(action.item_id);
+        if (!item || item.ticks.some((t) => t.standing)) break;
+        item.ticks.push({
+          id: action.id,
+          by: hints.me ?? { login_id: 0, name: '' },
+          at: action.made_at,
+          place_id: action.place_id ?? null,
+          bought: {
+            amount: action.amount,
+            display: localDisplay(action.amount, action.size_id ?? null, foodOf(item.food_id)) ?? ''
+          },
+          standing: true,
+          found: true
+        });
+        break;
+      }
       case 'untick': {
         const item = itemOf(action.item_id);
         for (const t of item?.ticks ?? []) if (action.tick_ids.includes(t.id)) t.standing = false;

@@ -24,6 +24,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import { inTrolleyOrder } from '#lib/shopping/view.js';
 
   const model = new ShoppingModel();
   const uid = $props.id();
@@ -47,9 +48,10 @@
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);
   });
-  // Why each line is there comes from the server's list read: ask again when the copy moves.
+  // Why each line is there (Plan shopping) and whether "Make it a staple?" is offered (phone too)
+  // come from the server's list read: ask again when the copy moves.
   $effect(() => {
-    if (!plan || !model.loaded) return;
+    if (!model.loaded) return;
     void model.copy.cursor;
     void model.list?.id;
     void network.offline;
@@ -140,7 +142,7 @@
       : [])
   ]);
   const total = $derived(model.groups.reduce((n, g) => n + g.toBuy, 0));
-  const trolleyRows = $derived(model.groups.flatMap((g) => g.trolley));
+  const trolleyRows = $derived(inTrolleyOrder(model.groups.flatMap((g) => g.trolley)));
   // A dot for each shop, in the order of the shops (shops have no colour of their own).
   const DOTS = ['#2e9e6b', '#d99a1e', '#4a8fd6', '#c45fa0', '#8a6fd1', '#d9694a'];
   const dotOf = (shopId: number | null) => {

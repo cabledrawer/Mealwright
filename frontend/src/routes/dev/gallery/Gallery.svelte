@@ -964,6 +964,7 @@
         view={rows.toorDal}
         onclose={() => {}}
         onmove={() => {}}
+        onhave={() => {}}
         onremove={() => (asking = true)}
       />
     </div>

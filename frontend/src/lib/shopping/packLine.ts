@@ -75,3 +75,10 @@ export function packLine(food: ShopFood | undefined, need: number | null): strin
   const parts = packParts(food, need);
   return parts ? `${parts.buy} · ${parts.need}` : null;
 }
+
+/** "60 g needed · no pack size yet", for a line with an amount, no Usual size and common sizes to
+ * pick from (Dark-ShopInShop08-Phone; proposed, for cabledrawer); null for a staple or no amount. */
+export function needLine(food: ShopFood | undefined, need: number | null): string | null {
+  if (!food || food.staple || need === null || need <= 0 || usualSize(food)) return null;
+  return `${amountText(food, need)} needed · no pack size yet`;
+}

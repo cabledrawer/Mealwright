@@ -52,7 +52,8 @@
   $effect.pre(() => {
     if (!tickId) tickId = ticks[0]?.id ?? '';
   });
-  let initial: string | null = null;
+  /** The choice that is what was bought, once the sizes are known; null until then. */
+  let initial = $state<string | null>(null);
   let otherCount = $state('1');
   let otherAmount = $state('');
   let otherUnit = $state('');
@@ -64,8 +65,8 @@
       .sizesOf(food.id)
       .then((s) => {
         sizes = s;
-        if (initial === null && choices.length && item.amount) {
-          initial = choices[0]!.key;
+        if (initial === null && choices.length && (item.amount || boughtNow)) {
+          initial = boughtKey ?? choices[0]!.key;
           picked = initial;
         }
       })
@@ -77,6 +78,10 @@
     if (!otherUnit) otherUnit = units[0]!.name;
   });
 
+  /** What the selected purchase put into the pantry (base amount), if the server has said. */
+  const boughtNow = $derived(
+    (ticks.find((t) => t.id === tickId) ?? ticks[0])?.bought?.amount ?? null
+  );
   const choices = $derived.by(() => {
     const out: Choice[] = [];
     const seen: string[] = [];
@@ -88,6 +93,14 @@
     };
     const planned = item.amount;
     const size = sizes.find((s) => s.id === item.size_id);
+    // What was bought comes first, so it can be told apart from the planned amount (F153).
+    if (boughtNow) {
+      const bs = sizes.find(
+        (s) => s.amount > 0 && boughtNow % s.amount === 0 && boughtNow / s.amount > 1
+      );
+      if (bs) add(boughtNow / bs.amount, bs.amount, bs.id);
+      add(1, boughtNow, sizes.find((s) => s.amount === boughtNow)?.id ?? null);
+    }
     if (planned) {
       if (size && Number.isInteger(planned / size.amount) && planned / size.amount > 1) {
         add(planned / size.amount, size.amount, size.id);
@@ -102,6 +115,11 @@
     }
     return out;
   });
+
+  /** The choice that adds up to what was bought (F153: compared with this, not the planned one). */
+  const boughtKey = $derived(
+    boughtNow ? (choices.find((c) => c.count * c.pack === boughtNow)?.key ?? null) : null
+  );
 
   const other = $derived.by(() => {
     const count = Math.floor(Number(otherCount));
@@ -121,7 +139,7 @@
       return;
     }
     const tick = ticks.find((t) => t.id === tickId) ?? ticks[0];
-    if (chosen && tick && picked !== initial) {
+    if (chosen && tick && picked !== (boughtKey ?? initial)) {
       void model.differentPack(item, tick, chosen.count, chosen.pack, chosen.sizeId);
     }
     onclose();

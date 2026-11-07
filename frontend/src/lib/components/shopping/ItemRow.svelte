@@ -24,9 +24,9 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { save } from '#lib/save.js';
-  import { packLine, packParts, usualSize } from '#lib/shopping/packLine.js';
+  import { needLine, packLine, packParts, usualSize } from '#lib/shopping/packLine.js';
+  import FoundSheet from './FoundSheet.svelte';
   import PackSheet from './PackSheet.svelte';
-  import PutAwayLine from './PutAwayLine.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
   import RowMenu from './RowMenu.svelte';
 
@@ -57,19 +57,23 @@
   const food = $derived(view.food);
   const tick = $derived(view.ticks[0]);
   /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
-  const packs = $derived(trolley ? null : packLine(food, item.amount));
 
   /** Plan shopping: the pack words are the amount ("1 jar (500 g)"); the need goes in the why. */
   const buy = $derived(plan && !trolley ? packParts(food, item.amount)?.buy : undefined);
   const why = $derived(plan && !trolley ? model.whyOf(item) : '');
   /** "Usual pack?": the common sizes, under a line with an amount and no size known. */
   const picks = $derived(
-    plan && !trolley && item.amount && !food.staple && !usualSize(food)
+    !trolley && item.amount && !food.staple && !usualSize(food)
       ? (item.pack?.suggestions ?? [])
       : []
   );
+  const packs = $derived(
+    trolley
+      ? null
+      : (packLine(food, item.amount) ?? (picks.length ? needLine(food, item.amount) : null))
+  );
   let whyOpen = $state(false);
-  const offerStaple = $derived(plan && !trolley && model.stapleOffered(item));
+  const offerStaple = $derived(!trolley && model.stapleOffered(item));
 
   function pick(choice: PackSuggestion) {
     let undoer: (() => Promise<string | void>) | null = null;
@@ -107,6 +111,17 @@
       : null
   );
   const putAway = $derived(trolley ? model.putAwayFor(item) : null);
+  /** The line under a name in the trolley: what went in ("2 × 200 g"), found at home, planned. */
+  const trolleySub = $derived.by(() => {
+    if (!trolley || !putAway) return '';
+    const parts: string[] = [];
+    if (putAway.kind === 'staple') parts.push('Restocked · staples aren’t counted');
+    else if (putAway.kind === 'none') parts.push('Not in the pantry yet. No amount.');
+    else parts.push(putAway.amount);
+    if (tick?.found) parts.push('found at home');
+    if (planned && !tick?.found) parts.push(planned);
+    return parts.join(' · ');
+  });
 
   // Just ticked with no amount: "How much?" opens on its row (F62). The row may be a new one in
   // the trolley by now, so the model remembers which item asked.
@@ -141,7 +156,16 @@
 
   // --- Swipe (phone) -------------------------------------------------------------------------------
   let open = $state<Side>(untrack(() => (swiped ? 'left' : null)));
-  const swipeable = $derived(model.device === 'phone' && !trolley && !editing);
+  const swipeable = $derived(model.device === 'phone' && !editing);
+  /** "Already have it": how much is at home (a sheet), then it goes into the pantry as found. */
+  let haveOpen = $state(false);
+
+  /** In the trolley, swipe left clears just this line (F72, cabledrawer 6 Nov). */
+  function clearNow() {
+    const back = keepFocus(nameButton ?? rowEl ?? document.body);
+    void model.clearTicked([item]);
+    back();
+  }
 
   function openBox() {
     open = null;
@@ -229,26 +253,49 @@
       onclose={() => void closeBox()}
       onremove={() => ask()}
       onmove={() => openMove()}
+      onhave={() => {
+        editing = false;
+        haveOpen = true;
+      }}
     />
   {:else}
     <SwipeRow
       bleed={14}
       enabled={swipeable}
       bind:open
-      left={{
-        label: 'Remove',
-        describe: `${food.name} from the list`,
-        icon: 'trash',
-        tone: 'danger',
-        run: () => removeNow()
-      }}
-      right={{
-        label: 'Move…',
-        describe: `${food.name} to another shop or list`,
-        icon: 'arrow-right',
-        tone: 'move',
-        run: () => openMove()
-      }}
+      left={trolley
+        ? {
+            label: 'Clear',
+            describe: `${food.name} from the trolley`,
+            icon: 'trash',
+            tone: 'danger',
+            run: () => clearNow()
+          }
+        : {
+            label: 'Remove',
+            describe: `${food.name} from the list`,
+            icon: 'trash',
+            tone: 'danger',
+            run: () => removeNow()
+          }}
+      right={trolley
+        ? undefined
+        : {
+            label: 'Already have it',
+            describe: `${food.name}: it is at home`,
+            icon: 'check',
+            tone: 'used',
+            run: () => (haveOpen = true)
+          }}
+      rightMore={trolley
+        ? undefined
+        : {
+            label: 'Move…',
+            describe: `${food.name} to another shop or list`,
+            icon: 'arrow-right',
+            tone: 'move',
+            run: () => openMove()
+          }}
     >
       <div class="line">
         <label class="tick">
@@ -277,26 +324,34 @@
         </label>
         {#if trolley}
           <span class="what">
-            <span class="top">
-              <span class="name">{food.name}</span>
-              {#if item.display}<span class="bought">{item.display}</span>{/if}
-            </span>
-            {#if planned}<span class="sub">{planned}</span>{/if}
-            {#if putAway}
-              <PutAwayLine
-                state={putAway}
-                name={food.name}
-                changing={placing}
-                onchange={() => (model.placing = placing ? null : item.id)}
-                onadd={(button) => {
-                  autoOpened = false;
-                  packButton = button;
-                  packOpen = true;
-                }}
-                onundo={() => void model.undoTick(item)}
-              />
-            {/if}
+            <span class="name">{food.name}</span>
+            {#if trolleySub}<span class="sub">{trolleySub}</span>{/if}
           </span>
+          {#if putAway?.kind === 'amount'}
+            <button
+              type="button"
+              class="place"
+              aria-expanded={placing}
+              aria-label="Change where {food.name} went"
+              onclick={() => (model.placing = placing ? null : item.id)}
+              >→ {putAway.place ?? 'Pantry'}<Icon
+                name="chevron-down"
+                size={12}
+                stroke={2.8}
+              /></button
+            >
+          {:else if putAway?.kind === 'none'}
+            <button
+              type="button"
+              class="place"
+              aria-label="Add amount for {food.name}"
+              onclick={(event) => {
+                autoOpened = false;
+                packButton = event.currentTarget;
+                packOpen = true;
+              }}>Add amount</button
+            >
+          {/if}
           {#if clear}
             <button
               type="button"
@@ -407,13 +462,15 @@
         onclick={() => (addingPlace = true)}>+ Place</button
       >
     {/if}
-    <button
-      type="button"
-      class="pack"
-      bind:this={packButton}
-      aria-expanded={packOpen}
-      onclick={() => (packOpen = !packOpen)}>Different pack?</button
-    >
+    {#if !tick?.found}
+      <button
+        type="button"
+        class="pack"
+        bind:this={packButton}
+        aria-expanded={packOpen}
+        onclick={() => (packOpen = !packOpen)}>Different pack?</button
+      >
+    {/if}
   {/if}
 
   {#if packOpen && trolley && view.ticks.length}
@@ -452,6 +509,10 @@
       onpick={moveTo}
       onclose={() => (moving = false)}
     />
+  {/if}
+
+  {#if haveOpen}
+    <FoundSheet {model} {item} {food} onclose={() => (haveOpen = false)} />
   {/if}
 
   {#if asking}
@@ -613,8 +674,32 @@
   }
 
   .trolley .line {
-    align-items: flex-start;
-    padding: var(--space-3) 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-height: 56px;
+    padding: var(--space-2) 0;
+  }
+
+  /* The place the tick went to, as a button: "→ Fridge ▾" (F72, cabledrawer 28 Oct). */
+  .place {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 36px;
+    padding: 0 var(--space-6);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .place[aria-expanded='true'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
   }
 
   /* A 44 px tap area around the 28 px square, as in the mockup's row. */
@@ -668,14 +753,6 @@
     min-width: 0;
   }
 
-  .top {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--space-4);
-    padding-top: var(--space-4);
-  }
-
   /* Names wrap between words, never inside one: the name's starting width is its longest word
      (`flex-basis: min-content`, which `overflow-wrap: anywhere` would make tiny), and the amount
      moves under it when that doesn't fit. The cap at the row's width means only a word wider
@@ -700,7 +777,8 @@
   }
 
   .trolley .name {
-    color: var(--color-text-muted);
+    flex: none;
+    color: var(--color-text);
   }
 
   /* Under the name, on its own line, in line with it. */
@@ -710,12 +788,6 @@
     padding-bottom: var(--space-3);
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .bought {
-    flex: none;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .sub {

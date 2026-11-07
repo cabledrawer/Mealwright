@@ -96,9 +96,12 @@ describe('the Shopping page', () => {
     const fold = page.getByRole('button', { name: 'In the trolley · 2' });
     await expect.element(fold).toHaveAttribute('aria-expanded', 'false');
     await fold.click();
-    await expect.element(page.getByText('In the Fridge · 2 packs')).toBeVisible();
-    await expect.element(page.getByText('In the Fridge · 1 bunch')).toBeVisible();
-    expect(document.body.textContent).not.toContain('→ Fridge');
+    // One line each (F72): name, what went in under it, and the place as a button.
+    await expect.element(page.getByText('2 packs', { exact: true })).toBeVisible();
+    await expect.element(page.getByText('1 bunch', { exact: true })).toBeVisible();
+    await expect
+      .element(page.getByRole('button', { name: 'Change where Paneer went' }))
+      .toHaveTextContent('→ Fridge');
     await openChange('Paneer');
     await expect.element(page.getByRole('button', { name: 'Different pack?' })).toBeVisible();
     await expect.element(page.getByRole('radio', { name: 'Fridge' })).toBeVisible();
@@ -1551,12 +1554,13 @@ describe('the Shopping page', () => {
       expect(toast.getByRole('button', { name: 'Change' }).elements()).toEqual([]);
     });
 
-    it('the Undo on a ticked row takes that tick back', async () => {
+    it('unticking a ticked row takes that tick back (its line has no Undo link now, F72)', async () => {
       await render(1000);
       await page.getByRole('button', { name: 'In the trolley · 2' }).click();
-      await page.getByRole('button', { name: 'Undo ticking Paneer' }).click();
+      expect(document.body.textContent).not.toContain('Undo ticking');
+      await page.getByRole('checkbox', { name: 'Untick Paneer' }).click();
       await vi.waitFor(() =>
-        expect(server.actions.at(-1)).toMatchObject({ kind: 'undo', undoes: 't-pan' })
+        expect(server.actions.at(-1)).toMatchObject({ kind: 'untick', tick_ids: ['t-pan'] })
       );
     });
   });

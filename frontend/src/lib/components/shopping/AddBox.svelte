@@ -3,7 +3,8 @@
   // nobody has used offers + New ingredient: "tahini", which asks Pantry keeps it by.
   import Icon from '#lib/components/Icon.svelte';
   import type { FoodRow } from '#lib/client/types.js';
-  import type { FoodSize } from '#lib/shopping/types.js';
+  import type { FoodSize, ShopFood } from '#lib/shopping/types.js';
+  import { packParts, usualSize } from '#lib/shopping/packLine.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import {
     countedAsFor,
@@ -128,6 +129,75 @@
     return read;
   }
 
+  // --- How many? (F134) ----------------------------------------------------------------------
+  // A counted ingredient with no usual size (Mango) asks "How many?" instead of putting 1.
+  const HOW_MANY = [1, 2, 6, 12];
+  let howMany = $state<{ name: string; run: (n: number) => void } | null>(null);
+  let howManyTyped = $state('');
+
+  function answerCount(n: number) {
+    const ask = howMany;
+    if (!ask || !(n >= 1 && n <= 999)) return;
+    howMany = null;
+    howManyTyped = '';
+    ask.run(Math.floor(n));
+  }
+
+  /** Does this counted ingredient need asking how many? (a size to buy it in settles it) */
+  async function needsCount(food: Pick<FoodRow, 'id' | 'counted_as' | 'staple'>): Promise<boolean> {
+    if (food.counted_as !== 'count' || food.staple) return false;
+    const sizes = food.id > 0 ? await model.sizesOf(food.id).catch(() => []) : [];
+    return !usualSize({ sizes });
+  }
+
+  // --- Add as bought (F117) ------------------------------------------------------------------
+  /** The best match gets "Add as bought" too: exactly the name typed, else the first. */
+  const top = $derived(
+    found.find((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase()) ?? found[0]
+  );
+  /** "Straight into the pantry · 1 jar (500 g) → Cupboard" */
+  let boughtHint = $state('');
+  $effect(() => {
+    const food = top;
+    boughtHint = '';
+    if (!food) return;
+    let current = true;
+    void (async () => {
+      const sizes = food.id > 0 ? await model.sizesOf(food.id).catch(() => []) : [];
+      const shop = { ...food, sizes } as unknown as ShopFood;
+      const usual = usualSize(shop);
+      const pack = usual ? packParts(shop, usual.amount)?.buy : undefined;
+      const place = food.place?.name ?? 'Cupboard';
+      if (current) boughtHint = `Straight into the pantry · ${pack ? `${pack} ` : ''}→ ${place}`;
+    })();
+    return () => (current = false);
+  });
+
+  async function bought(food: FoodRow) {
+    if (busy) return;
+    busy = true;
+    try {
+      if (zeroTyped()) return;
+      const typedAmount = split?.amountText;
+      let amount: { amount: number; sizeId: number | null } | null = null;
+      if (typedAmount) {
+        amount = await amountFor(food, typedAmount);
+        if (!amount) return;
+      } else if (await needsCount(food)) {
+        reset();
+        howMany = {
+          name: food.name,
+          run: (n) => void model.addAsBought(food, { amount: n, sizeId: null })
+        };
+        return;
+      }
+      reset();
+      void model.addAsBought(food, amount ?? undefined);
+    } finally {
+      busy = false;
+    }
+  }
+
   /** An add is under way (waiting for sizes or for "Pantry keeps it by"): a second tap or
    * Enter is ignored, so the same thing isn't added twice. */
   let busy = false;
@@ -169,6 +239,14 @@
       onexisting(line.id);
       return;
     }
+    if (await needsCount(food)) {
+      howMany = {
+        name: food.name,
+        run: (n) =>
+          void model.add(food, `${food.name} added`, undefined, { amount: n, sizeId: null })
+      };
+      return;
+    }
     void model.add(food);
   }
 
@@ -198,6 +276,13 @@
       else amount = { amount: read.amount, sizeId: null };
     }
     reset();
+    if (!amount && chosen.counted_as === 'count' && !chosen.staple && !chosen.sizes.length) {
+      howMany = {
+        name: chosen.name,
+        run: (n) => void model.addNew(chosen, { amount: n, sizeId: null })
+      };
+      return;
+    }
     void model.addNew(chosen, amount ?? undefined);
   }
 
@@ -231,6 +316,40 @@
       >
     {/if}
   </form>
+  {#if howMany}
+    <div class="howmany" role="group" aria-label="How many {howMany.name}?">
+      <span class="lead">How many {howMany.name}?</span>
+      <div class="picks">
+        {#each HOW_MANY as n (n)}
+          <button type="button" onclick={() => answerCount(n)}>{n}</button>
+        {/each}
+      </div>
+      <form
+        class="typed"
+        onsubmit={(event) => {
+          event.preventDefault();
+          answerCount(Number(howManyTyped));
+        }}
+      >
+        <label class="visually-hidden" for="{uid}-count">Another number</label>
+        <input
+          id="{uid}-count"
+          inputmode="numeric"
+          maxlength="3"
+          placeholder="Another number"
+          bind:value={howManyTyped}
+        />
+        <button type="submit" disabled={!(Number(howManyTyped) >= 1)}>Add</button>
+        <button
+          type="button"
+          onclick={() => {
+            howMany = null;
+            howManyTyped = '';
+          }}>Cancel</button
+        >
+      </form>
+    </div>
+  {/if}
   <ul id="{uid}-list" aria-label="Matching ingredients">
     {#each found as food (food.id)}
       <li>
@@ -242,6 +361,20 @@
         </button>
       </li>
     {/each}
+    {#if top && answeredFor === whole && !model.lineFor(top.id)}
+      <li class="bought-row">
+        <button
+          type="button"
+          class="bought"
+          aria-label="Add as bought"
+          aria-describedby="{uid}-bought-hint"
+          onclick={() => void bought(top)}
+        >
+          <span class="name">Add as bought</span>
+          {#if boughtHint}<span class="hint" id="{uid}-bought-hint">{boughtHint}</span>{/if}
+        </button>
+      </li>
+    {/if}
     {#if typed && !exact && answeredFor === whole}
       <li>
         <button type="button" class="new" onclick={() => void create()}>
@@ -336,5 +469,63 @@
 
   .new {
     color: var(--color-accent);
+  }
+
+  /* Add as bought: its own full-width line under the matches (mockup Dark-ShopInShop08-Phone). */
+  .bought-row {
+    flex-basis: 100%;
+  }
+
+  ul button.bought {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    text-align: left;
+  }
+
+  .bought .hint {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+  }
+
+  .howmany {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+
+  .howmany .lead {
+    font-weight: var(--weight-bold);
+  }
+
+  .howmany .picks,
+  .howmany .typed {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .howmany button {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .howmany button:disabled {
+    opacity: 0.5;
   }
 </style>

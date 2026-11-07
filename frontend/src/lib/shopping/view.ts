@@ -110,7 +110,7 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
       );
       if (items.length) aisles.push({ key, name: AISLE_NAMES[key]!, items });
     }
-    const trolley = sorted.filter((v) => v.ticks.length > 0);
+    const trolley = inTrolleyOrder(sorted.filter((v) => v.ticks.length > 0));
     groups.push({
       shopId: id,
       name: shop?.name ?? ANY_SHOP,
@@ -121,6 +121,18 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
     });
   }
   return groups;
+}
+
+/** When a line was last ticked (its newest standing tick), as a number to compare. */
+function lastTicked(view: ViewItem): number {
+  return Math.max(0, ...view.ticks.map((t) => Date.parse(t.at) || 0));
+}
+
+/** The trolley: most recently ticked first (F173, cabledrawer 7 Nov); a tie keeps a steady order. */
+export function inTrolleyOrder(views: ViewItem[]): ViewItem[] {
+  return [...views].sort(
+    (a, b) => lastTicked(b) - lastTicked(a) || a.item.id.localeCompare(b.item.id)
+  );
 }
 
 /** How many on a list still need buying, and how many are in the trolley. */

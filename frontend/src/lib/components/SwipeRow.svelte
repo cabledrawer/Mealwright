@@ -37,6 +37,7 @@
 
   let {
     right,
+    rightMore,
     left,
     enabled = true,
     bleed = 0,
@@ -45,6 +46,8 @@
   }: {
     /** Shown by swiping right. */
     right?: SwipeAction;
+    /** A second button beside `right` (Shopping: Already have it, then Move…). */
+    rightMore?: SwipeAction;
     /** Shown by swiping left. */
     left?: SwipeAction;
     enabled?: boolean;
@@ -57,7 +60,7 @@
 
   // Side names: 'left' means the row is slid LEFT (the `left` action's button shows).
   const toLeft = $derived(left ? WIDTH : 0);
-  const toRight = $derived(right ? WIDTH : 0);
+  const toRight = $derived((right ? WIDTH : 0) + (right && rightMore ? WIDTH : 0));
   let drag = $state<number | null>(null);
   const live = $derived(enabled && (toLeft > 0 || toRight > 0));
   const offset = $derived(drag ?? restOffset(open, toLeft, toRight));
@@ -83,6 +86,23 @@
           class="visually-hidden"
         >
           {right.describe}</span
+        >{/if}
+    </button>
+  {/if}
+  {#if live && offset > 0 && right && rightMore}
+    <button
+      type="button"
+      class="act on-left"
+      style:left="{WIDTH}px"
+      data-tone={rightMore.tone}
+      onclick={() => press(rightMore)}
+    >
+      <Icon
+        name={rightMore.icon}
+        size={20}
+        stroke={2.3}
+      />{rightMore.label}{#if rightMore.describe}<span class="visually-hidden">
+          {rightMore.describe}</span
         >{/if}
     </button>
   {/if}
