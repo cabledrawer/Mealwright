@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { groupByShop, inTrolleyOrder, listCounts, planWords, subtitle, syncedWith } from './view';
+import {
+  groupByShop,
+  inTrolleyOrder,
+  listCounts,
+  planWords,
+  subtitle,
+  syncedWith,
+  tickTime
+} from './view';
 import type { ListItem, ShoppingCopy } from './types';
 
 const wren = { login_id: 2, name: 'Wren' };
@@ -201,5 +209,20 @@ describe('inTrolleyOrder (F173)', () => {
       'a',
       'b'
     ]);
+  });
+
+  it("compares the server's zone-less times and a queued tick's UTC times as UTC", () => {
+    // The server ticked at 10:00 (no zone); a phone ticked at 10:05 UTC while offline.
+    const rows = [
+      ticked('server', '2026-11-07T10:00:00'),
+      ticked('queued', '2026-11-07T10:05:00.000Z')
+    ];
+    expect(inTrolleyOrder(rows).map((v: { item: { id: string } }) => v.item.id)).toEqual([
+      'queued',
+      'server'
+    ]);
+    expect(tickTime('2026-11-07T10:00:00')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0));
+    expect(tickTime('2026-11-07T10:00:00.250')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0, 250));
+    expect(tickTime('2026-11-07T11:00:00+01:00')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0));
   });
 });

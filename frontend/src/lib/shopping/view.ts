@@ -125,7 +125,14 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
 
 /** When a line was last ticked (its newest standing tick), as a number to compare. */
 function lastTicked(view: ViewItem): number {
-  return Math.max(0, ...view.ticks.map((t) => Date.parse(t.at) || 0));
+  return Math.max(0, ...view.ticks.map((t) => tickTime(t.at)));
+}
+
+/** A tick's time as milliseconds, always read as UTC: the server's times have no zone ("…T10:05:00",
+ * which `Date.parse` would take as this phone's local time), a queued tick's end in Z. */
+export function tickTime(at: string): number {
+  const zoned = /(?:Z|[+-]\d\d:?\d\d)$/i.test(at);
+  return Date.parse(zoned ? at : `${at}Z`) || 0;
 }
 
 /** The trolley: most recently ticked first (F173, cabledrawer 7 Nov); a tie keeps a steady order. */
