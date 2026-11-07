@@ -1312,12 +1312,22 @@ class StuckResolver:
         return [PUBLIC]
 
 
+def let_go(resolver: StuckResolver) -> None:
+    """Answer the stuck look-ups and wait for them to end. The running count is shared:
+    one still counted when the next test starts its 16 makes that test's cap one short."""
+    resolver.release.set()
+    for thread in threading.enumerate():
+        if thread.name == "name-look-up":
+            thread.join(5)
+    assert outbound._look_ups_running == 0
+
+
 @pytest.fixture
 def stuck(monkeypatch: pytest.MonkeyPatch) -> Iterator[StuckResolver]:
     resolver = StuckResolver()
     monkeypatch.setattr(outbound, "_lookup", resolver.lookup)
     yield resolver
-    resolver.release.set()  # a late answer is thrown away
+    let_go(resolver)  # a late answer is thrown away
 
 
 def test_a_look_up_waits_at_most_the_time_left(gate: OutboundGate, stuck: StuckResolver) -> None:
@@ -1369,6 +1379,7 @@ def test_past_sixteen_stuck_look_ups_a_new_one_times_out_at_once(
     gate: OutboundGate, stuck: StuckResolver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The cap on stuck look-ups: 16 threads waiting on the resolver, then no more started."""
+    assert outbound._look_ups_running == 0  # none left over from another test
     monkeypatch.setattr(outbound, "MAX_STUCK_PER_HOUSEHOLD", outbound.MAX_STUCK_LOOK_UPS)
     for number in range(outbound.MAX_STUCK_LOOK_UPS):
         with pytest.raises(outbound.OutboundFailed) as caught:
@@ -1538,7 +1549,7 @@ def test_a_redirects_look_up_is_timed_too(
         assert time.monotonic() - started < 1.5
         assert resolver.asked == ["second.example"]
     finally:
-        resolver.release.set()
+        let_go(resolver)
 
 
 def test_a_quick_look_up_still_fetches_within_the_time(
