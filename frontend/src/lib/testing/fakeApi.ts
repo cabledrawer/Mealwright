@@ -74,6 +74,7 @@ export function toorDal(overrides: Partial<Food> = {}): Food {
         added_when_shopping: false
       }
     ],
+    pack_suggestions: [],
     cup_weight: { grams: 200, from: 'you', cup_ml: 250 },
     item_weight: null,
     running_low_at: { amount: 250, unit: 'g', display: '½ packet' },

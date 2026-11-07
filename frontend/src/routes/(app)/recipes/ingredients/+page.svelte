@@ -13,6 +13,7 @@
   import type { FoodFilter, FoodRow, FoodWrite } from '#lib/client/types.js';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import PackCell from '#lib/components/PackCell.svelte';
   import PantrySwitch from '#lib/components/PantrySwitch.svelte';
   import IngredientEditor from '#lib/components/IngredientEditor.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -100,6 +101,8 @@
   /** The staple whose whole restock date is showing (a tap on "Restocked 3 weeks ago"). */
   let dateShownFor = $state<number | null>(null);
 
+  const KEPT_WORD = { weight: 'Weight', volume: 'Volume', count: 'Count' } as const;
+
   /** The quiet line under a food's name. */
   function note(food: FoodRow, phone: boolean): string {
     const maybe = mergeTarget(food);
@@ -107,7 +110,9 @@
     if (phone) {
       const restocked =
         food.staple && food.restocked_days_ago != null ? columnWords(food.restocked_days_ago) : '';
-      return [food.counted_as_display, restocked, food.place?.name].filter(Boolean).join(' · ');
+      // The pack has its own line under the name, so the first words only say how it's kept.
+      const kept = food.pack && !food.staple ? KEPT_WORD[food.counted_as] : food.counted_as_display;
+      return [kept, restocked, food.place?.name].filter(Boolean).join(' · ');
     }
     if (food.matched_name && food.matched_name !== food.name) return `also: ${food.matched_name}`;
     if (food.other_names.length) return `also: ${food.other_names.join(', ')}`;
@@ -252,7 +257,9 @@
 
       <div class="card">
         <div class="heads" aria-hidden="true">
-          <span>Ingredient</span><span>Kept by</span><span>Lives in</span><span>Recipes</span>
+          <span>Ingredient</span><span>Pack</span><span>Kept by</span><span>Lives in</span><span
+            >Recipes</span
+          >
         </div>
         {#if list.foods.length}
           <ul>
@@ -260,16 +267,28 @@
               {@const maybe = !!mergeTarget(food)}
               {@const desk = note(food, false)}
               <li class:maybe class:open={food.id === selectedId}>
-                <button
-                  type="button"
-                  class="row"
-                  aria-current={food.id === selectedId ? 'true' : undefined}
-                  onclick={() => open(food)}
-                >
-                  <span class="name">{food.name}</span>
-                  <span class="note phone">{note(food, true)}</span>
-                  {#if desk}<span class="note desk">{desk}</span>{/if}
-                </button>
+                <div class="main">
+                  <button
+                    type="button"
+                    class="row"
+                    aria-current={food.id === selectedId ? 'true' : undefined}
+                    onclick={() => open(food)}
+                  >
+                    <span class="name">{food.name}</span>
+                    <span class="note phone">{note(food, true)}</span>
+                    {#if desk}<span class="note desk">{desk}</span>{/if}
+                  </button>
+                  {#if !desktop && !maybe}
+                    <span class="packline"
+                      ><PackCell {food} onother={() => ingredientEditor.open(food.id)} /></span
+                    >
+                  {/if}
+                </div>
+                {#if desktop}
+                  <span class="col"
+                    >{#if !maybe}<PackCell {food} onother={() => open(food)} />{/if}</span
+                  >
+                {/if}
                 <span class="col">
                   {#if food.staple}
                     <span class="stack">
@@ -506,9 +525,26 @@
     border-bottom: none;
   }
 
-  .row {
+  /* The name's button, and under it (a phone) the pack. */
+  .main {
     display: flex;
     flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+  }
+
+  .packline {
+    padding-bottom: var(--space-4);
+  }
+
+  .packline:empty {
+    display: none;
+  }
+
+  .row {
+    display: flex;
+    flex: none;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-1);
@@ -674,7 +710,9 @@
     .heads,
     li {
       display: grid;
-      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.9fr) 80px;
+      grid-template-columns:
+        minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.8fr)
+        70px;
       column-gap: 14px;
     }
 
@@ -732,6 +770,10 @@
 
     .desk {
       display: block;
+    }
+
+    .main {
+      display: contents;
     }
 
     .tip {

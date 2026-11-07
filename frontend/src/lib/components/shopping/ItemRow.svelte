@@ -18,6 +18,7 @@
   import AmountBox from './AmountBox.svelte';
   import MovePicker from './MovePicker.svelte';
   import NewPlace from '../NewPlace.svelte';
+  import { packLine } from '#lib/shopping/packLine.js';
   import PackSheet from './PackSheet.svelte';
   import PutAwayLine from './PutAwayLine.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
@@ -43,6 +44,8 @@
   const item = $derived(view.item);
   const food = $derived(view.food);
   const tick = $derived(view.ticks[0]);
+  /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
+  const packs = $derived(trolley ? null : packLine(food, item.amount));
 
   let editing = $state(false);
   let asking = $state(false);
@@ -275,6 +278,7 @@
               />
             {/if}
           </span>
+          {#if packs}<span class="packs">{packs}</span>{/if}
         {/if}
       </div>
     </SwipeRow>
@@ -498,6 +502,15 @@
 
   .trolley .name {
     color: var(--color-text-muted);
+  }
+
+  /* Under the name, on its own line, in line with it. */
+  .packs {
+    flex-basis: 100%;
+    padding-left: calc(var(--touch-target) - var(--space-4) - var(--space-2) + var(--space-6));
+    padding-bottom: var(--space-3);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .bought {

@@ -8,6 +8,7 @@ import type {
   FoodList,
   FoodPatch,
   FoodWrite,
+  PackSuggestion,
   Place,
   PlaceKind,
   Shop
@@ -79,6 +80,15 @@ export const addSize = (
     'POST',
     `/foods/${id}/sizes`,
     answers.length ? { ...size, amount: { ...size.amount, answers } } : size,
+    key(idempotencyKey)
+  );
+
+/** A tapped common size (F120, F121): made, and made the Usual size at once. */
+export const addSuggestedSize = (id: number, pick: PackSuggestion, idempotencyKey: string) =>
+  api<FoodWrite>(
+    'POST',
+    `/foods/${id}/sizes`,
+    { name: pick.name, amount: pick.amount, usual: true },
     key(idempotencyKey)
   );
 

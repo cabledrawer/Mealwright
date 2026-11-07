@@ -88,6 +88,20 @@ export interface MaybeSame extends Ref {
 }
 
 /** A row of the Ingredients list. */
+/** A common size from the bundled table (F120, F121). A tap makes it the Usual size. */
+export interface PackSuggestion {
+  /** The table's word ("jar"); null for the generic sizes. */
+  pack: string | null;
+  /** What the size is called when it is made ("jar", else "pack"). */
+  name: string;
+  /** In g, ml or items. */
+  amount: number;
+  /** "jar · 500 g". */
+  display: string;
+  /** "500 g". */
+  amount_text: string;
+}
+
 export interface FoodRow extends Ref {
   other_names: string[];
   matched_name: string | null;
@@ -95,6 +109,11 @@ export interface FoodRow extends Ref {
   staple: boolean;
   /** "Packets · 500 g", "Slices", "Staple". */
   counted_as_display: string;
+  /** The Pack column (F121): the Usual size, the other sizes, and (with no size at all) the
+   * common sizes to pick from. Left out of the rows the shopping list's search builds. */
+  pack?: Size | null;
+  more_sizes?: Size[];
+  pack_suggestions?: PackSuggestion[];
   place: Ref | null;
   stand_ins: Ref[];
   maybe_same: MaybeSame[];
@@ -135,6 +154,8 @@ export interface Food extends Ref {
   place: Ref | null;
   shop: Ref | null;
   sizes: Size[];
+  /** Common sizes it doesn't have yet (F120, F121). */
+  pack_suggestions: PackSuggestion[];
   cup_weight: { grams: number; from: 'you' | 'table'; cup_ml: number } | null;
   item_weight: { grams: number; from: 'you' | 'table' } | null;
   running_low_at: AmountOut | null;
