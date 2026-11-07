@@ -736,13 +736,17 @@ describe('the Pantry page', () => {
     );
   });
 
-  it('has no Recent changes list: that is in Settings now (F172)', async () => {
+  it('desktop: has no Recent changes list, that is in Settings now (F172)', async () => {
     await render(1300);
     expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toHaveLength(0);
     expect(page.getByRole('heading', { name: 'Recent changes' }).elements()).toHaveLength(0);
     expect(requests.filter((r) => r.path === '/changes')).toHaveLength(0);
+  });
+
+  it('phone: has no Recent changes list at the bottom either (F172)', async () => {
     await render(390);
     expect(page.getByRole('heading', { name: 'Recent changes' }).elements()).toHaveLength(0);
+    expect(requests.filter((r) => r.path === '/changes')).toHaveLength(0);
   });
 
   it('phone: the round + button opens the Add to pantry sheet when online', async () => {
