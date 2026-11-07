@@ -139,3 +139,37 @@ def test_a_tub_given_another_use_by_since_the_cooking_moved_keeps_it(
     cooked_on, use_bys = _batch_row(kitchen, made["batch_id"])
     assert cooked_on == D1
     assert later in {u.isoformat() for u in use_bys}
+
+
+def test_undo_of_to_the_freezer_keeps_a_use_by_set_since(
+    kitchen: TestClient, cook: dict, wren: int
+) -> None:
+    """Review r1 M1: "To the freezer" records what it left, so its Undo puts the tub back in
+    the fridge but keeps a use-by (and whose) set since."""
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    tub = view(kitchen)["tubs"][0]
+    frozen = ok(kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer"))
+    later = (D1 + timedelta(days=40)).isoformat()
+    url = f"{API}/plan/tubs/{tub['id']}"
+    ok(kitchen.patch(url, json={"use_by": later, "member_login_id": wren}))
+    assert undo(kitchen, frozen)["result"] == "partly"
+    now = view(kitchen)["tubs"][0]
+    assert (now["use_by"], now["member_login_id"]) == (later, wren)
+    assert now["place_id"] == tub["place_id"]
+
+
+def test_a_tub_edit_of_two_fields_puts_back_the_one_not_changed_since(
+    kitchen: TestClient, cook: dict, wren: int
+) -> None:
+    """Review r1 L2: a tub edit of whose and use-by, then whose again: Undo puts the use-by
+    back and says "partly", not "nothing"."""
+    make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
+    tub = view(kitchen)["tubs"][0]
+    url = f"{API}/plan/tubs/{tub['id']}"
+    later = (D1 + timedelta(days=9)).isoformat()
+    first = ok(kitchen.patch(url, json={"use_by": later, "member_login_id": wren}))
+    ok(kitchen.patch(url, json={"member_login_id": 1}))
+    result = undo(kitchen, first)
+    assert result["result"] == "partly"
+    now = view(kitchen)["tubs"][0]
+    assert (now["use_by"], now["member_login_id"]) == (tub["use_by"], 1)

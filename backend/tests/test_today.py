@@ -690,3 +690,37 @@ def test_another_households_ids_get_404_and_nothing_changes(
     assert [w["meal_id"] for w in out["waiting"]] == [their_item["meal_id"]]
     assert [m["id"] for m in out["plan"]["meals"]] == [their_item["meal_id"]]
     assert meal not in [w["meal_id"] for w in out["waiting"]] and out["tubs_left"] == []
+
+
+def test_undo_of_older_leftovers_keeps_a_tub_added_since(
+    kitchen: TestClient, yesterday: dict[str, Any]
+) -> None:
+    """F165 (review r1 L3): Undo of an older "Any left over?" takes off only its own tubs from
+    the batch's count; a tub added since stays counted."""
+    meal = yesterday["meal_id"]
+    with db_of(kitchen) as db:
+        item = db.scalars(select(MealItem).where(MealItem.meal_id == meal)).one()
+        batch = BatchCook(
+            household_id=1,
+            recipe_id=item.recipe_id,
+            recipe_name="Sambar",
+            cook_meal_id=meal,
+            cooked_on=ago(kitchen, 1),
+            tub_count=2,
+            pattern="pick",
+        )
+        db.add(batch)
+        db.flush()
+        for _ in range(2):
+            db.add(Tub(household_id=1, batch_id=batch.id, use_by=ahead(kitchen, 2)))
+        db.commit()
+    done = answer(kitchen, meal, "cooked", {"leftovers": {"count": 2, "place_kind": "fridge"}})
+    with db_of(kitchen) as db:  # a later change adds one more tub to the same batch
+        batch = db.scalars(select(BatchCook)).one()
+        db.add(Tub(household_id=1, batch_id=batch.id, use_by=ahead(kitchen, 2)))
+        batch.tub_count = 5
+        db.commit()
+    undo(kitchen, done)
+    with db_of(kitchen) as db:
+        assert db.scalar(select(func.count(Tub.id))) == 3
+        assert db.scalars(select(BatchCook)).one().tub_count == 3

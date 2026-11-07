@@ -254,9 +254,15 @@ def _make_tubs(
         db.add(tub)
         db.flush()
         before = batch.tub_count
-        steps.append({"op": "new_tub", "tub": tub.id, "count": None if new_batch else before})
+        step: dict[str, Any] = {
+            "op": "new_tub",
+            "tub": tub.id,
+            "count": None if new_batch else before,
+        }
+        steps.append(step)
         if not new_batch:
             batch.tub_count = before + 1
+            step["to"] = batch.tub_count  # F165
     db.flush()
     return leftovers.count
 

@@ -523,7 +523,8 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
         tub.use_by = new_day
     if not changed:
         return None
-    steps[0]["to"] = left
+    # One step per changed field, so Undo can put back one and say "partly" (F165).
+    steps = [{**steps[0], "to": {field: value}} for field, value in left.items()]
     kitchen.db.flush()
     name = tub_name(kitchen, tub)
     if set(fields) == {"member_login_id"}:
@@ -594,9 +595,12 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
         kitchen.db.flush()
         if meal is not None and not items_of(kitchen, meal):
             _drop_meal(kitchen, meal, steps)
-    steps.append(_tub_fields(tub))
+    before = _tub_fields(tub)
     tub.place_id = freezer.id
     tub.use_by = tub_use_by(kitchen, "freezer", today(kitchen.household))
+    # What it left, one step per field, so Undo can say "partly" (F165).
+    steps.append({**before, "to": {"place_id": freezer.id}})
+    steps.append({**before, "to": {"use_by": tub.use_by.isoformat()}})
     kitchen.db.flush()
     return _finish(kitchen, "plan_tub", f"{name} to the freezer", steps)
 
@@ -906,7 +910,7 @@ def leftover_tub(
         db.flush()
         before = batch.tub_count
         batch.tub_count = max(made + 1, 1)
-        steps.append({"op": "new_tub", "tub": spare.id, "count": before})
+        steps.append({"op": "new_tub", "tub": spare.id, "count": before, "to": batch.tub_count})
     clone = MealItem(
         household_id=kitchen.household_id,
         meal_id=target.id,
@@ -1350,7 +1354,10 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         db.delete(tub)
         db.flush()
         if batch is not None and step["count"] is not None:
-            batch.tub_count = step["count"]
+            if "to" not in step or batch.tub_count == step["to"]:
+                batch.tub_count = step["count"]
+            else:  # the count has changed again since (F165): take off just this tub
+                batch.tub_count = max(batch.tub_count - 1, 1)
         return True
     if op == "tub_eat":
         tub = _own(kitchen, Tub, step["tub"])
@@ -1384,8 +1391,11 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
                 tub.use_by = date.fromisoformat(step["use_by"])
             else:
                 whole = False
-        if left is None:
-            tub.place_id = step["place_id"] if _own(kitchen, Place, step["place_id"]) else None
+        if left is None or "place_id" in left:
+            if left is None or tub.place_id == left["place_id"]:
+                tub.place_id = step["place_id"] if _own(kitchen, Place, step["place_id"]) else None
+            else:
+                whole = False
         db.flush()
         return whole
     if op == "del_tub":
