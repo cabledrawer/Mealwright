@@ -81,6 +81,9 @@ export default defineConfig({
     { name: 'phone 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // Shopping and the "Pantry keeps it by" question (0.3).
+    { name: 'phone 0.8 pack sizes', testMatch: 'pack-sizes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 pack sizes', testMatch: 'pack-sizes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+
     { name: 'phone 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3', testMatch: /(^|\/)shopping[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // The All recipes page and its states (0.4).
