@@ -89,8 +89,9 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
   await slots.getByRole('textbox', { name: 'Name of Snack' }).fill(name);
   await page.keyboard.press('Enter');
   await expect(rowOf(page, 'Meal slots', name)).toBeVisible();
-  const found = (await (await page.request.get('/api/v1/meal-slots')).json()) as Json[];
-  expect(found.map((s) => s.name)).toContain(name);
+  await expect
+    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()) as Json[]).map((s) => s.name))
+    .toContain(name);
   await undoFromToast(page, `Undone: Renamed Snack to ${name}`);
   await expect(rowOf(page, 'Meal slots', 'Snack')).toBeVisible();
   // Reorder: Breakfast down, then up again, so the plan is left as it was.
@@ -171,8 +172,9 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
   await shops.getByRole('button', { name: `Remove ${renamed}` }).click();
   await expect(rowOf(page, 'Shops', renamed)).toHaveCount(0);
   await expect(page.getByRole('status').filter({ hasText: `Removed the shop ${renamed}` })).toBeVisible();
-  const gone = (await (await page.request.get(`/api/v1/foods/${milk.id}`)).json()) as Json;
-  expect(gone.shop).toBeNull();
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${milk.id}`)).json()) as Json).shop)
+    .toBeNull();
   await undoFromToast(page, `Undone: Removed the shop ${renamed}`);
   await expect(rowOf(page, 'Shops', renamed)).toBeVisible();
   const back = (await (await page.request.get(`/api/v1/foods/${milk.id}`)).json()) as Json;
@@ -218,13 +220,18 @@ test('Places: add with a kind; a place with things in it asks where to move them
       .filter((p: Json) => p.groups.some((g: Json) => g.food.id === dal.id))
       .map((p: Json) => p.name);
   };
-  expect(await lots()).toEqual(['Cupboard']);
-  expect(((await (await page.request.get(`/api/v1/foods/${rice.id}`)).json()) as Json).place.id).toBe(cupboard);
+  // The screen changes at once; the server catches up a moment later.
+  await expect.poll(lots).toEqual(['Cupboard']);
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${rice.id}`)).json()) as Json).place.id)
+    .toBe(cupboard);
   // Undo: the place is back, with what moved.
   await undoFromToast(page, `Undone: Removed the place ${name}`);
   await expect(rowOf(page, 'Places at home', name)).toBeVisible();
-  expect(await lots()).toEqual([name]);
-  expect(((await (await page.request.get(`/api/v1/foods/${rice.id}`)).json()) as Json).place.name).toBe(name);
+  await expect.poll(lots).toEqual([name]);
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/v1/foods/${rice.id}`)).json()) as Json).place.name)
+    .toBe(name);
   // Use the stock up so the shelf can be removed again, without a question.
   for (const food of [rice, dal]) {
     const pantry = (await (await page.request.get('/api/v1/pantry')).json()) as Json;
