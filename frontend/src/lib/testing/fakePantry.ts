@@ -15,6 +15,7 @@ export function lot(
     stock: { amount: 0, display, short: display.split(' · ')[0] },
     use_by: useBy,
     days_left: daysLeft,
+    date_kind: 'use_by',
     use_soon: daysLeft !== null && daysLeft <= 2,
     added_on: '2026-10-12',
     frozen_on: null,
@@ -40,6 +41,7 @@ export function group(
     dates_count: new Set(lots.map((l) => l.use_by)).size,
     use_by: dated[0]?.use_by ?? null,
     days_left: dated[0]?.days_left ?? null,
+    date_kind: 'use_by',
     use_soon: !!dated[0] && dated[0].days_left! <= 2,
     running_low: false,
     lots,
@@ -78,6 +80,7 @@ export function samplePantry() {
         name: 'Fridge',
         kind: 'fridge',
         items: 3,
+        tubs: [],
         groups: [
           group(20, 'Spinach', '200 g', [spinach]),
           group(21, 'Paneer', '2 packs · 400 g', paneer),
@@ -89,6 +92,7 @@ export function samplePantry() {
         name: 'Freezer',
         kind: 'freezer',
         items: 1,
+        tubs: [],
         groups: [group(30, 'Frozen peas', '450 g', [lot('450 g', '2027-01-15', 90)])]
       },
       {
@@ -96,6 +100,7 @@ export function samplePantry() {
         name: 'Cupboard',
         kind: 'cupboard',
         items: 2,
+        tubs: [],
         groups: [
           group(7, 'Toor dal', '1½ packets · about 750 g', [
             lot('1½ packets · about 750 g', null, null)
@@ -103,7 +108,7 @@ export function samplePantry() {
           group(41, 'Basmati rice', '300 g', [lot('300 g', null, null)], { running_low: true })
         ]
       },
-      { id: 4, name: 'Spice rack', kind: 'cupboard', items: 0, groups: [] }
+      { id: 4, name: 'Spice rack', kind: 'cupboard', items: 0, groups: [], tubs: [] }
     ],
     staples: [
       { id: 60, name: 'Salt' },
@@ -123,8 +128,9 @@ export function samplePantry() {
       stock: spinach.stock,
       use_by: spinach.use_by,
       days_left: 0,
-      position: 1,
-      of: 1
+      date_kind: 'use_by',
+      use_soon: true,
+      lots_count: 1
     },
     {
       id: paneer[0]!.id,
@@ -133,8 +139,9 @@ export function samplePantry() {
       stock: paneer[0]!.stock,
       use_by: paneer[0]!.use_by,
       days_left: 2,
-      position: 1,
-      of: 2
+      date_kind: 'use_by',
+      use_soon: true,
+      lots_count: 2
     }
   ];
   return { pantry, useSoon, spinach, paneer, yoghurt };

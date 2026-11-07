@@ -153,6 +153,9 @@ export interface Food extends Ref {
   count_word_plural: string | null;
   place: Ref | null;
   shop: Ref | null;
+  /** Use by or Best before (0.8); locked = always Use by (meat, fish, chilled dairy). */
+  date_kind: DateKind;
+  date_kind_locked: boolean;
   sizes: Size[];
   /** Common sizes it doesn't have yet (F120, F121). */
   pack_suggestions: PackSuggestion[];
@@ -191,6 +194,7 @@ export type FoodPatch =
   | { count_word: string | null }
   | { place_id: number | null }
   | { shop_id: number | null }
+  | { date_kind: DateKind }
   | { running_low_at: AmountIn | null }
   | { cup_weight: number | null }
   | { item_weight: number | null }
@@ -235,12 +239,16 @@ export interface Household {
 
 // --- Stock (the Pantry screen, contract 6.4) ---------------------------------------
 
+/** What the date on an ingredient means (0.8, cabledrawer 7 Nov). */
+export type DateKind = 'use_by' | 'best_before';
+
 /** One packet, one bag, one carton: kept separately so the oldest is used first. */
 export interface Lot {
   id: number;
   stock: AmountOut;
   use_by: string | null;
   days_left: number | null;
+  date_kind: DateKind;
   use_soon: boolean;
   added_on: string;
   frozen_on: string | null;
@@ -258,14 +266,29 @@ export interface Group {
   dates_count: number;
   use_by: string | null;
   days_left: number | null;
+  date_kind: DateKind;
   use_soon: boolean;
   running_low: boolean;
   lots: Lot[];
 }
 
+/** The tubs of one batch in one place (F131, 0.8): "Lemon rice · 2 tubs · use by Tue". */
+export interface TubRow {
+  batch_id: number;
+  recipe_name: string;
+  colour: string | null;
+  tubs: number;
+  /** "2 tubs", "¾ tub". */
+  words: string;
+  use_by: string;
+  days_left: number;
+  use_soon: boolean;
+}
+
 export interface PantryPlace extends Place {
   items: number;
   groups: Group[];
+  tubs: TubRow[];
 }
 
 export type PantryFilter = 'all' | 'use_soon' | 'running_low' | 'staples';
@@ -290,9 +313,11 @@ export interface UseSoonLot {
   stock: AmountOut;
   use_by: string | null;
   days_left: number | null;
-  /** "Paneer · 1 of 2 packs". */
-  position: number;
-  of: number;
+  date_kind: DateKind;
+  use_soon: boolean;
+  /** One row per ingredient and place (0.8): `stock` is all its packets that are soon ("2 packets"),
+   * `lots_count` how many, `id` the soonest. */
+  lots_count: number;
 }
 
 /** The answer to every stock write: the change, and the food's groups as they are now. */

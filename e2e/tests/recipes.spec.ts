@@ -34,6 +34,16 @@ async function makeFood(page: Page, name: string, extra: object = {}) {
 }
 
 async function putInPantry(page: Page, foodId: number, grams: number, extra: object = {}) {
+  // Use soon nudges only for Use by dates (0.8, cabledrawer 7 Nov): a food made here sits in the
+  // cupboard, which is Best before, so say Use by.
+  if ('use_by' in extra) {
+    const patched = await page.request.fetch(`/api/v1/foods/${foodId}`, {
+      method: 'PATCH',
+      data: { date_kind: 'use_by' },
+      headers: key(),
+    });
+    expect(patched.ok(), await patched.text()).toBe(true);
+  }
   await call(page, 'POST', '/stock', { food_id: foodId, amount: { amount: grams, unit: 'g' }, ...extra });
 }
 
@@ -153,7 +163,7 @@ test('Pantry’s link to the recipes for what is going off opens All recipes on 
 
   await page.goto('/pantry');
   await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
-  await page.getByRole('link', { name: isPhone(page) ? 'Recipes that use them →' : 'Recipes for these' }).click();
+  await page.getByRole('link', { name: isPhone(page) ? 'Recipes that use them →' : 'Recipes that use them' }).click();
   await expect(page).toHaveURL('/recipes?filter=use-soon');
   const chip = page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'Use soon', exact: true });
   await expect(chip).toHaveAttribute('aria-pressed', 'true');

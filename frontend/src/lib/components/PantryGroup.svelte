@@ -5,7 +5,7 @@
   // its menu (LotMenu: Used · Binned · To freezer · Move to… · Change use-by date…, and
   // the ¼ · ½ · ¾ · Full picks for an open one).
   import type { Group, Lot, Place } from '#lib/client/types.js';
-  import { boughtWords, dateWords, useByWords } from '#lib/dates.js';
+  import { boughtWords, whenWords } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
@@ -60,7 +60,15 @@
       ? boughtWords(group.lots[0].added_on, today)
       : ''
   );
-  const date = $derived(dateWords(group.use_by, group.days_left) || bought);
+  /** "Use by Mon" · "best before 1 Nov" · red "Use by passed: don’t eat" · grey "Best before
+   * passed · probably fine". Capital on the phone, where the words stand alone on a line. */
+  const when = $derived(
+    whenWords(group.date_kind, group.use_by, group.days_left, {
+      capital: swipes,
+      soon: group.use_soon
+    })
+  );
+  const date = $derived(when.text || bought);
   /** "½ tub · about 250 g · open · running low". */
   const amountWords = $derived(
     [group.stock.display, single?.open ? 'open' : '', group.running_low ? 'running low' : '']
@@ -77,11 +85,7 @@
   let swiped = $state<'left' | 'right' | null>(null);
   /** Binned takes the packet that goes first: the soonest use-by (the list is oldest first). */
   const first = $derived(group.lots[0]);
-  const detail = $derived(
-    [place.name, group.stock.display, group.use_by ? useByWords(group.use_by, group.days_left) : '']
-      .filter(Boolean)
-      .join(' · ')
-  );
+  const detail = $derived([place.name, group.stock.display, when.text].filter(Boolean).join(' · '));
 
   function usedAll() {
     usedOpen = false;
@@ -164,13 +168,14 @@
               <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
             {/if}
           </span>
-          <!-- Desktop columns are narrow: the date goes under the amount there. -->
-          {#if date}
-            <span class="date under" class:soon={group.use_soon}>{date}</span>
-          {/if}
         </span>
         {#if date}
-          <span class="date side" class:soon={group.use_soon} aria-hidden="true">{date}</span>
+          <span
+            class="date"
+            class:soon={group.use_soon && !when.passed}
+            class:late={when.tone === 'late'}
+            class:bb={when.tone === 'bb'}>{date}</span
+          >
         {/if}
         <span class="chevron" class:flipped={open}
           ><Icon name="chevron-down" size={16} stroke={2.4} /></span
@@ -232,7 +237,7 @@
             >
               <span class="lot-amount">{lot.stock.display}{lot.open ? ' · open' : ''}</span>
               <span class="lot-date" class:soon={lot.use_soon}
-                >{useByWords(lot.use_by, lot.days_left)}</span
+                >{whenWords(lot.date_kind, lot.use_by, lot.days_left).text || 'no date'}</span
               >
               <span class="lot-go" aria-hidden="true"
                 ><Icon name="chevron-down" size={16} stroke={2.4} /></span
@@ -426,6 +431,8 @@
 
   .date {
     flex: none;
+    max-width: 45%;
+    text-align: right;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
@@ -439,8 +446,14 @@
     font-weight: var(--weight-bold);
   }
 
-  .date.under {
-    display: none;
+  /* A passed Use by is red; a passed Best before is grey and quiet (0.8). */
+  .date.late {
+    color: var(--color-use-soon-text);
+    font-weight: var(--weight-bold);
+  }
+
+  .date.bb {
+    color: var(--color-text-muted);
   }
 
   .chevron {
@@ -604,34 +617,47 @@
     font: var(--weight-semibold) 1rem var(--font-ui);
   }
 
-  /* Desktop: a little denser, inside a place column. */
+  /* Desktop: one line per ingredient, name · amount · date, inside a place card (F66). */
   @media (min-width: 768px) {
     .row {
       min-height: var(--touch-target);
     }
+    .what {
+      display: contents;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto 16px;
+      column-gap: var(--space-4);
+    }
     .name {
+      overflow: hidden;
       font-size: var(--text-base);
+      font-weight: var(--weight-semibold);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .also {
+      grid-column: 1;
+      grid-row: 2;
+      font-size: var(--text-sm);
     }
     .amount,
     .lot {
       font-size: var(--text-sm);
     }
+    .amount {
+      color: var(--color-text);
+      white-space: nowrap;
+    }
     .date {
+      max-width: none;
       font-size: var(--text-xs);
+      white-space: nowrap;
     }
-    .tap {
-      display: none;
-    }
-    .date.side {
-      display: none;
-    }
-    .date.under {
-      display: inline-block;
-      align-self: flex-start;
-      margin-top: var(--space-1);
-    }
+    .tap,
     .click {
-      display: inline;
+      display: none;
     }
   }
 </style>

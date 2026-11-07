@@ -10,7 +10,7 @@
   // ingredient", cabledrawer 19 Oct: the recipes don't block it; their lines keep their words
   // and show "not linked").
   import { MAX_AMOUNT_TEXT, MAX_TYPED_AMOUNT, parseAmount } from '#lib/amountText.js';
-  import type { CountedAs, Food, Ref } from '#lib/client/types.js';
+  import type { CountedAs, DateKind, Food, Ref } from '#lib/client/types.js';
   import { canRemove } from '#lib/canRemove.js';
   import { FoodModel } from '#lib/foodEditor.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
@@ -215,6 +215,16 @@
       { place_id: id },
       (f) => (f.place = place && { id: place.id, name: place.name }),
       place ? `Lives in ${place.name}` : 'No usual place'
+    );
+  }
+
+  /** Use by or Best before (0.8): meat, fish and chilled dairy are always Use by. */
+  function setDateKind(event: Event) {
+    const value = valueOf(event) as DateKind;
+    void model.setField(
+      { date_kind: value },
+      (f) => (f.date_kind = value),
+      value === 'use_by' ? 'Date is Use by' : 'Date is Best before'
     );
   }
 
@@ -569,6 +579,23 @@
             <option value={NEW_PLACE}>+ Place</option>
           </select>
         </label>
+        <label>
+          Date on the packet
+          <select
+            value={food.date_kind}
+            disabled={food.date_kind_locked}
+            aria-describedby={food.date_kind_locked ? `${uid}-date-hint` : undefined}
+            onchange={setDateKind}
+          >
+            <option value="use_by">Use by</option>
+            <option value="best_before">Best before</option>
+          </select>
+        </label>
+        {#if food.date_kind_locked}
+          <p id="{uid}-date-hint" class="hint wide">
+            Meat, fish and chilled dairy are always Use by.
+          </p>
+        {/if}
         {#if addingPlace}
           <div class="wide">
             <NewPlace

@@ -203,21 +203,19 @@ test("Used from Use soon takes it out, and Undo puts it back", async ({
 }) => {
   const food = await stocked(page, "Spinach", 0);
   await page.goto("/pantry");
-  if (isPhone(page)) {
-    // The Use soon card shows one item; "N more →" opens the rest in the same card.
-    await expect(
-      page.getByRole("heading", { name: "Use soon", level: 2 }),
-    ).toBeVisible();
-    const more = page.getByRole("button", { name: /^\d+ more →$/ });
-    if (await more.count()) await more.click();
-  }
+  await expect(
+    page.getByRole("heading", { name: /^Use soon · \d+$/, level: 2 }),
+  ).toBeVisible();
+  // The phone shows 3 rows and the computer 4 cards until "Show all N".
+  const all = page.getByRole("button", { name: /^Show all \d+$/ });
+  if (await all.count()) await all.first().click();
   const row = page
     .getByRole("listitem")
     .filter({ hasText: food.name })
-    .filter({
-      has: page.getByRole("button", { name: "Binned" }),
-    });
-  await row.first().getByRole("button", { name: "Used" }).click();
+    .filter({ has: page.getByRole("button", { name: "Used…" }) });
+  await row.first().getByRole("button", { name: "Used…" }).click();
+  await page.getByRole("radio", { name: "All" }).click();
+  await page.getByRole("button", { name: "Used all of it" }).click();
   await expect.poll(() => lotsOf(page, food.id)).toBe(0);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect.poll(() => lotsOf(page, food.id)).toBe(1);
@@ -286,9 +284,9 @@ test("F101: + Place in Add to pantry makes the place and puts the stock there", 
   expect(places.at(-1)).toMatchObject({ name: where, kind: "freezer" });
   const pantry = await (await page.request.get("/api/v1/pantry")).json();
   const shed = pantry.places.find((p: { name: string }) => p.name === where);
-  expect(
-    shed.groups.map((g: { food: { id: number } }) => g.food.id),
-  ).toContain(food.id);
+  expect(shed.groups.map((g: { food: { id: number } }) => g.food.id)).toContain(
+    food.id,
+  );
 });
 
 test("F101: + Place in Add to pantry can be cancelled, and a name the household has picks that place", async ({
@@ -833,33 +831,32 @@ test("phone: a row behind “+ N more” in a place’s card opens its marks and
   ).toBeVisible();
 });
 
-test("Use soon rows have room between their buttons, and the + sits in the middle of its circle (0.5.1)", async ({
+test("Use soon buttons are big enough to touch, and the + sits in the middle of its circle (0.5.1, 0.8)", async ({
   page,
 }) => {
-  for (const n of ["Gap lemon", "Gap milk", "Gap paneer"]) await stocked(page, n, 1);
+  for (const n of ["Gap lemon", "Gap milk", "Gap paneer"])
+    await stocked(page, n, 1);
   await page.goto("/pantry");
-  await expect(page.getByRole("button", { name: /^Gap paneer/ }).first()).toBeVisible();
-  const more = page.getByRole("button", { name: /^\d+ more/ });
+  await expect(
+    page.getByRole("heading", { name: /^Use soon · \d+$/, level: 2 }),
+  ).toBeVisible();
   if (isPhone(page)) {
-    await more.click();
-    const plus = await page.getByRole("button", { name: "Add to pantry" }).evaluate((b) => {
-      const box = b.getBoundingClientRect();
-      const icon = b.querySelector("svg")!.getBoundingClientRect();
-      return Math.abs((box.top + box.bottom) / 2 - (icon.top + icon.bottom) / 2);
-    });
+    const plus = await page
+      .getByRole("button", { name: "Add to pantry" })
+      .evaluate((b) => {
+        const box = b.getBoundingClientRect();
+        const icon = b.querySelector("svg")!.getBoundingClientRect();
+        return Math.abs(
+          (box.top + box.bottom) / 2 - (icon.top + icon.bottom) / 2,
+        );
+      });
     expect(plus).toBeLessThan(1);
   }
-  const gaps = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll(".soon-list > li")].filter(
-      (li) => (li as HTMLElement).offsetParent,
-    );
-    const boxes = rows.map((li) =>
-      [...li.querySelectorAll(".soon-actions .pill")].map((b) => b.getBoundingClientRect()),
-    );
-    return boxes
-      .slice(1)
-      .map((row, i) => Math.min(...row.map((r) => r.top)) - Math.max(...boxes[i]!.map((r) => r.bottom)));
-  });
-  expect(gaps.length).toBeGreaterThanOrEqual(2);
-  for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(8);
+  const heights = await page.evaluate(() =>
+    [...document.querySelectorAll(".rows .pill, .strip .pill")]
+      .filter((b) => (b as HTMLElement).offsetParent)
+      .map((b) => b.getBoundingClientRect().height),
+  );
+  expect(heights.length).toBeGreaterThanOrEqual(3);
+  for (const height of heights) expect(height).toBeGreaterThanOrEqual(43.5);
 });

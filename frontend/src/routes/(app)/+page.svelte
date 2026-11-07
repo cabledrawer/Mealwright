@@ -19,7 +19,7 @@
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
   import MealRecipes from '#lib/components/today/MealRecipes.svelte';
   import { cookTarget, isCookable } from '#lib/cookTargets.js';
-  import { dateWords } from '#lib/dates.js';
+  import { dateWords, whenWords as packetWhen } from '#lib/dates.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -313,13 +313,16 @@
             </li>
           {/each}
           {#each data.use_soon_lots as lot (`lot-${lot.id}`)}
+            {@const when = packetWhen(lot.date_kind, lot.use_by, lot.days_left, { capital: true })}
             <li>
               <span class="what"
                 ><span class="n">{lot.food.name}</span><span class="muted"
                   >{lot.place.name} · {lot.stock.short ?? lot.stock.display}</span
                 ></span
               >
-              <span class="when">{dateWords(lot.use_by, lot.days_left)}</span>
+              <span class="when" class:bb={when.tone === 'bb'}
+                >{when.text}{when.ago ? ` · ${when.ago}` : ''}</span
+              >
             </li>
           {/each}
         </ul>
@@ -660,6 +663,14 @@
     color: var(--color-use-soon-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
+    max-width: 55%;
+    text-align: right;
+  }
+
+  /* A passed Best before is quiet: grey, "probably fine" (0.8). */
+  .when.bb {
+    background: var(--color-fill);
+    color: var(--color-text-muted);
   }
 
   .next {

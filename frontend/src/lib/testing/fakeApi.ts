@@ -63,6 +63,8 @@ export function toorDal(overrides: Partial<Food> = {}): Food {
     count_word_plural: null,
     place: { id: 3, name: 'Cupboard' },
     shop: { id: 1, name: 'Spice Bazaar' },
+    date_kind: 'best_before',
+    date_kind_locked: false,
     sizes: [
       {
         id: 12,

@@ -69,3 +69,57 @@ export function addedWords(iso: string, today: string): string {
   if (days < 7) return `added ${weekday.format(noonUtc(iso))}`;
   return `added ${dayMonth.format(noonUtc(iso))}`;
 }
+
+// --- Use by and Best before (0.8, cabledrawer 7 Nov) ------------------------------------------------
+
+export type DateKind = 'use_by' | 'best_before';
+
+/** How the date reads on a row: red for a passed Use by, grey for a passed Best before, the
+ * soon colour for a Use by that is close, else plain. */
+export type DateTone = 'late' | 'bb' | 'soon' | 'plain';
+
+/** "Passed yesterday", "Passed 3 days ago" (proposed, for cabledrawer). */
+export function passedWords(daysLeft: number): string {
+  const ago = -daysLeft;
+  return ago <= 1 ? 'Passed yesterday' : `Passed ${ago} days ago`;
+}
+
+export interface WhenWords {
+  /** What the date says: "Use by Sun", "Use by passed: don't eat", "Best before passed · probably fine". */
+  text: string;
+  /** How long ago it passed ("Passed 3 days ago"), else empty. */
+  ago: string;
+  tone: DateTone;
+  passed: boolean;
+}
+
+const lowerDay = (words: string) =>
+  words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words;
+
+/**
+ * The date on a packet in plain words. A passed Use by is never "probably fine"; a passed
+ * Best before is. `capital` starts "Use by Sun" with a capital (phone rows, Use soon); a row
+ * in a desktop column writes "use by Sun".
+ */
+export function whenWords(
+  kind: DateKind,
+  iso: string | null,
+  daysLeft: number | null,
+  options: { capital?: boolean; soon?: boolean } = {}
+): WhenWords {
+  if (!iso || daysLeft === null) return { text: '', ago: '', tone: 'plain', passed: false };
+  if (daysLeft < 0) {
+    const ago = passedWords(daysLeft);
+    return kind === 'use_by'
+      ? { text: 'Use by passed: don’t eat', ago, tone: 'late', passed: true }
+      : { text: 'Best before passed · probably fine', ago, tone: 'bb', passed: true };
+  }
+  const label = kind === 'use_by' ? 'use by' : 'best before';
+  const start = options.capital ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
+  return {
+    text: `${start} ${lowerDay(dateWords(iso, daysLeft))}`,
+    ago: '',
+    tone: options.soon ? 'soon' : 'plain',
+    passed: false
+  };
+}

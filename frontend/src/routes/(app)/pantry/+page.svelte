@@ -13,7 +13,14 @@
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import { addToPantry } from '#lib/addToPantry.svelte.js';
-  import type { PantryFilter, PantryPlace, Ref, UseSoonLot } from '#lib/client/types.js';
+  import type {
+    Group,
+    PantryFilter,
+    PantryPlace,
+    Ref,
+    TubRow,
+    UseSoonLot
+  } from '#lib/client/types.js';
   import AddToPantry from '#lib/components/AddToPantry.svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -21,15 +28,15 @@
   import PantrySwitch from '#lib/components/PantrySwitch.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import PantryGroup from '#lib/components/PantryGroup.svelte';
-  import SwipeRow from '#lib/components/SwipeRow.svelte';
+  import PantryTub from '#lib/components/PantryTub.svelte';
+  import UseSoon from '#lib/components/UseSoon.svelte';
   import UsedSheet from '#lib/components/UsedSheet.svelte';
-  import { compactDateWords, dateWords } from '#lib/dates.js';
+  import { whenWords } from '#lib/dates.js';
   import { chipWords } from '#lib/restockWords.js';
   import type { Name as IconName } from '#lib/components/Icon.svelte';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
-  import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import { needsServer } from '#lib/downWords.js';
   import { blockedWhileDown } from '#lib/serverNeeded.js';
   import { PantryModel } from '#lib/pantry.svelte.js';
@@ -50,17 +57,14 @@
     return () => media.removeEventListener('change', onChange);
   });
 
-  /** The Use soon item whose "How much?" is open, and which ones are swiped open. */
+  /** The Use soon item whose "How much?" is open. */
   let usedFor = $state<UseSoonLot | null>(null);
   let usedOpen = $state(false);
-  const soonSwiped = $state<Record<number, 'left' | 'right' | null>>({});
 
-  /** Phone: the Use soon card shows every item, not just the first. */
-  let soonAll = $state(false);
   let addingStaple = $state(false);
   /** Place columns showing every food, not just the first few (desktop). */
   let expanded = $state<Record<number, boolean>>({});
-  const FIRST = 8;
+  const FIRST = 6;
   /** Phone, All: a place's card shows this many rows, then "+ 3 more in the Cupboard". */
   const PHONE_FIRST = 6;
 
@@ -173,14 +177,8 @@
     { value: 'staples', label: () => 'Staples' }
   ];
 
-  function lotWords(lot: UseSoonLot) {
-    const date = dateWords(lot.use_by, lot.days_left);
-    const what =
-      lot.of > 1
-        ? `${lot.position}\u00a0of\u00a0${lot.of}`
-        : (lot.stock.short ?? lot.stock.display);
-    return { what, date, compactDate: compactDateWords(lot.use_by, lot.days_left) };
-  }
+  /** A place has something to show: packets or tubs. */
+  const hasRows = (place: PantryPlace) => place.groups.length > 0 || place.tubs.length > 0;
 
   /** "+ Add to pantry": the sheet online; offline, a toast says why it can't open (cabledrawer 18 Oct). */
   function addClicked() {
@@ -251,84 +249,14 @@
 
 <PantrySwitch current="pantry" />
 
-{#snippet useSoonRow(lot: UseSoonLot, compact: boolean)}
-  {@const words = lotWords(lot)}
-  <button
-    type="button"
-    class="soon-name"
-    disabled={network.offline}
-    onclick={() => ingredientEditor.open(lot.food.id)}
-    >{lot.food.name} · {compact ? words.compactDate : words.what}</button
-  >
-  <span class="soon-actions">
-    <button
-      type="button"
-      class="pill"
-      disabled={network.offline}
-      onclick={() => void model.used(lot.id, lot.food.name)}>Used</button
-    >
-    <button
-      type="button"
-      class="pill"
-      disabled={network.offline}
-      onclick={() => void model.binned(lot.id, lot.food.name)}>Binned</button
-    >
-    {#if lot.place.kind !== 'freezer'}
-      <button
-        type="button"
-        class="pill"
-        disabled={network.offline}
-        onclick={() => void model.toFreezer(lot.id, lot.food.name)}>To freezer</button
-      >
-    {/if}
-  </span>
-{/snippet}
-
-{#snippet useSoonRows(lots: UseSoonLot[], compact: boolean)}
-  <ul class="soon-list">
-    {#each lots as lot (lot.id)}
-      <li class:swipe-li={compact && phone}>
-        {#if compact && phone}
-          <SwipeRow
-            bleed={0}
-            bind:open={() => soonSwiped[lot.id] ?? null, (side) => (soonSwiped[lot.id] = side)}
-            right={{
-              label: 'Used…',
-              describe: lot.food.name,
-              icon: 'check',
-              tone: 'used',
-              run: () => {
-                if (!blockedWhileDown()) openUsed(lot);
-              }
-            }}
-            left={{
-              label: 'Binned',
-              describe: lot.food.name,
-              icon: 'trash',
-              tone: 'danger',
-              run: () => {
-                if (!blockedWhileDown()) void model.binned(lot.id, lot.food.name);
-              }
-            }}
-          >
-            <div class="soon-line">{@render useSoonRow(lot, compact)}</div>
-          </SwipeRow>
-        {:else}
-          {@render useSoonRow(lot, compact)}
-        {/if}
-      </li>
-    {/each}
-  </ul>
-{/snippet}
-
-<!-- Opens All recipes on its "Use soon" filter: the recipes that use what is about to go off. -->
-{#snippet recipesFor(words: string)}
-  <a class="recipes-for" href="{resolve('/(app)/recipes')}?filter=use-soon">{words}</a>
-{/snippet}
-
 {#snippet placeCard(place: PantryPlace, heading: boolean, limit: number | null, icon = false)}
-  {@const groups = place.groups}
-  {@const visible = limit && !expanded[place.id] ? groups.slice(0, limit) : groups}
+  <!-- Packets first, then the tubs left, each ingredient on one line (name · amount · date). -->
+  {@const rows = [
+    ...place.groups.map((group) => ({ group, tub: null as TubRow | null })),
+    ...place.tubs.map((tub) => ({ group: null as Group | null, tub }))
+  ]}
+  {@const visible = limit && !expanded[place.id] ? rows.slice(0, limit) : rows}
+  {@const moreRows = rows.length - visible.length}
   <section class="place" aria-labelledby="{uid}-place-{place.id}">
     <div class="place-head" class:visually-hidden={!heading} class:with-icon={icon}>
       {#if icon}<span class="place-icon" aria-hidden="true"
@@ -337,28 +265,30 @@
       <h2 id="{uid}-place-{place.id}">{place.name}</h2>
       <span class="count">{place.items} {place.items === 1 ? 'ingredient' : 'ingredients'}</span>
     </div>
-    {#if groups.length}
+    {#if rows.length}
       <ul class="groups">
-        {#each visible as group (group.food.id)}
-          <PantryGroup
-            {group}
-            {place}
-            {places}
-            {model}
-            {shopping}
-            swipes={phone}
-            today={pantry?.today}
-          />
+        {#each visible as row (row.group ? `g${row.group.food.id}` : `t${row.tub?.batch_id}`)}
+          {#if row.group}
+            <PantryGroup
+              group={row.group}
+              {place}
+              {places}
+              {model}
+              {shopping}
+              swipes={phone}
+              today={pantry?.today}
+            />
+          {:else if row.tub}
+            <PantryTub tub={row.tub} capital={phone} />
+          {/if}
         {/each}
       </ul>
-      {#if visible.length < groups.length}
+      {#if moreRows > 0}
         <button
           type="button"
           class="show-all"
           onclick={() => (expanded = { ...expanded, [place.id]: true })}
-          >{icon
-            ? `+ ${groups.length - visible.length} more in the ${place.name}`
-            : `Show all ${groups.length}`}</button
+          >{icon ? `+ ${moreRows} more in the ${place.name}` : `${moreRows} more`}</button
         >
       {/if}
     {:else}
@@ -469,10 +399,10 @@
     {#if searching}
       {@render results()}
     {:else}
-      {#if places.filter((p) => p.groups.length).length > 1}
+      {#if places.filter(hasRows).length > 1}
         <!-- Jump chips (mockup PantryPlaces-Phone): straight to a place's card. -->
         <nav class="jump" aria-label="Jump to a place">
-          {#each places.filter((p) => p.groups.length) as place (place.id)}
+          {#each places.filter(hasRows) as place (place.id)}
             <button type="button" onclick={() => jumpTo(place.id)}
               >{place.name} · {place.items}</button
             >
@@ -480,20 +410,7 @@
         </nav>
       {/if}
       {#if model.useSoon.length}
-        <section class="soon-card" aria-labelledby="{uid}-soon">
-          <h2 id="{uid}-soon" class="soon-title">Use soon</h2>
-          {@render useSoonRows(soonAll ? model.useSoon : model.useSoon.slice(0, 1), true)}
-          {#if model.useSoon.length > 1}
-            <button
-              type="button"
-              class="soon-more"
-              aria-expanded={soonAll}
-              onclick={() => (soonAll = !soonAll)}
-              >{soonAll ? 'Show fewer' : `${model.useSoon.length - 1} more →`}</button
-            >
-          {/if}
-          {@render recipesFor('Recipes that use them →')}
-        </section>
+        <UseSoon lots={model.useSoon} {model} phone onhowmuch={openUsed} />
       {/if}
       {#if pantry.counts.items === 0}
         <div class="card first">
@@ -505,7 +422,7 @@
         </div>
       {:else}
         {#each places as place (place.id)}
-          {#if place.groups.length === 0}
+          {#if !hasRows(place)}
             <!-- An empty place folds to one line. -->
             <p class="folded">
               <span class="place-icon quiet" aria-hidden="true"
@@ -526,23 +443,25 @@
   </div>
 {:else}
   <div class="desk">
-    <section class="main-side" aria-label="What’s in the pantry">
-      <div class="tools">
-        {@render searchBox('Find in pantry')}
-        <div class="filters" role="group" aria-label="Show">
-          {#each FILTERS as f (f.value)}
-            <button
-              type="button"
-              class="filter"
-              aria-pressed={model.filter === f.value}
-              onclick={() => (model.filter = f.value)}>{f.label()}</button
-            >
-          {/each}
-        </div>
+    <div class="tools">
+      {@render searchBox('Find in pantry')}
+      <div class="filters" role="group" aria-label="Show">
+        {#each FILTERS as f (f.value)}
+          <button
+            type="button"
+            class="filter"
+            aria-pressed={model.filter === f.value}
+            onclick={() => (model.filter = f.value)}>{f.label()}</button
+          >
+        {/each}
       </div>
-      {#if searching}
-        {@render results()}
-      {:else if pantry.counts.items === 0 && model.filter === 'all'}
+    </div>
+    {#if searching}
+      {@render results()}
+    {:else}
+      <!-- Use soon: a strip of four cards across the top (F66, cabledrawer 6 Nov). -->
+      <UseSoon lots={model.useSoon} {model} phone={false} onhowmuch={openUsed} />
+      {#if pantry.counts.items === 0 && pantry.counts.tubs === 0 && model.filter === 'all'}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
@@ -551,28 +470,14 @@
           >
         </div>
       {:else}
-        <div class="columns">
+        <section class="columns" aria-label="What’s in the pantry">
           {#each places as place (place.id)}
             <div class="card column">{@render placeCard(place, true, FIRST)}</div>
           {/each}
-        </div>
+        </section>
       {/if}
-    </section>
-
-    <aside class="side" aria-label="Use soon and staples">
-      <section class="card side-card" aria-labelledby="{uid}-dsoon">
-        <div class="side-head">
-          <h2 id="{uid}-dsoon">Use soon</h2>
-          {#if model.useSoon.length}{@render recipesFor('Recipes for these')}{/if}
-        </div>
-        {#if model.useSoon.length}
-          {@render useSoonRows(model.useSoon, false)}
-        {:else}
-          <p class="hint">Nothing needs using up soon.</p>
-        {/if}
-      </section>
       {@render staples(true)}
-    </aside>
+    {/if}
   </div>
 {/if}
 
@@ -581,15 +486,28 @@
   <UsedSheet
     open={usedOpen}
     name={lot.food.name}
-    detail={[lot.place.name, lot.stock.display, dateWords(lot.use_by, lot.days_left)]
+    detail={[
+      lot.place.name,
+      lot.stock.display,
+      whenWords(lot.date_kind, lot.use_by, lot.days_left, { capital: true }).text
+    ]
       .filter(Boolean)
       .join(' · ')}
+    unitWord={lot.lots_count === 1 ? (lot.stock.as_sold?.size?.name ?? null) : null}
     countedAs={usedCounted}
     total={lot.stock.amount}
     allWords={lot.stock.short ?? lot.stock.display}
     onall={() => {
       usedDone();
-      void model.used(lot.id, lot.food.name);
+      // One packet: used up. Several that are soon: take their total, soonest first.
+      if (lot.lots_count === 1) void model.used(lot.id, lot.food.name);
+      else
+        void model.usedSome(
+          lot.food.id,
+          lot.food.name,
+          { amount: lot.stock.amount, unit: usedUnit },
+          lot.place.id
+        );
     }}
     onpart={(amount) => {
       usedDone();
@@ -788,8 +706,7 @@
   }
 
   .show-all,
-  .link,
-  .soon-more {
+  .link {
     min-height: var(--touch-target);
     padding: 0;
     border: none;
@@ -798,116 +715,6 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     text-align: left;
-    cursor: pointer;
-  }
-
-  /* Use soon: a salmon card on phones, a white card on desktop. */
-  .soon-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-6) 14px;
-    border-radius: var(--radius-xl);
-    background: var(--color-use-soon-chip);
-  }
-
-  .soon-title {
-    color: var(--color-use-soon-heading);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .soon-more {
-    color: var(--color-use-soon-heading);
-  }
-
-  .recipes-for {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    color: var(--color-accent);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    text-decoration: none;
-  }
-
-  .recipes-for:hover {
-    text-decoration: underline;
-  }
-
-  .soon-card .recipes-for {
-    color: var(--color-use-soon-heading);
-  }
-
-  .side-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0 var(--space-5);
-  }
-
-  .soon-list {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .soon-list li {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: var(--touch-target);
-  }
-
-  /* A swipeable Use soon item is a small white card of its own (mockup PantrySwipe-Phone). */
-  .soon-list li.swipe-li {
-    display: block;
-    margin-bottom: var(--space-3);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-
-  .soon-line {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-3);
-    min-height: 54px;
-    padding: 0 12px;
-  }
-
-  .soon-name {
-    min-height: var(--touch-target);
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .soon-actions {
-    display: flex;
-    gap: var(--space-3);
-  }
-
-  .pill {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
     cursor: pointer;
   }
 
@@ -1010,17 +817,9 @@
     font-size: var(--text-base);
   }
 
-  /* Desktop */
+  /* Desktop: tools, Use soon as a strip, the places across the width, then Staples. */
   .desk {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--space-9);
-  }
-
-  .main-side {
-    display: flex;
-    flex: 999 1 640px;
     flex-direction: column;
     gap: var(--space-7);
     min-width: 0;
@@ -1093,7 +892,7 @@
     font-weight: var(--weight-bold);
   }
 
-  /* Four places side by side when there's room, otherwise two by two. */
+  /* The places fill the width: two across, three when there's room (F66). */
   .columns {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1101,9 +900,9 @@
     align-items: start;
   }
 
-  @container (min-width: 760px) {
+  @container (min-width: 900px) {
     .columns {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 
@@ -1116,45 +915,12 @@
     padding-top: 0;
   }
 
-  .side {
-    display: flex;
-    flex: 1 1 300px;
-    flex-direction: column;
-    gap: 14px;
-    min-width: 0;
-  }
-
-  .side-card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    padding: var(--space-7) 18px;
-    border-radius: var(--radius-2xl);
-  }
-
-  .side-card h2,
   .staples.panel h2 {
     color: var(--color-text);
     font-size: var(--text-xl);
     font-weight: var(--weight-extrabold);
     letter-spacing: normal;
     text-transform: none;
-  }
-
-  /* Room above and below each row, so one row's 44 px buttons don't nearly touch the next
-     row's (cabledrawer 24 Oct: "they almost clash into the ones above and below them"; 0.5.1). */
-  .side-card .soon-list li {
-    padding: var(--space-3) 0;
-    border-top: 1px solid var(--color-divider);
-  }
-
-  .side-card .soon-name {
-    font-size: var(--text-base);
-  }
-
-  .side-card .pill {
-    border: 1px solid var(--color-border-strong);
-    font-size: var(--text-sm);
   }
 
   .staples.panel {

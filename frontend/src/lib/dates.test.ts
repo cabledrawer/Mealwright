@@ -6,7 +6,8 @@ import {
   compactDateWords,
   dateWords,
   pickedDateWords,
-  useByWords
+  useByWords,
+  whenWords
 } from './dates';
 
 describe('use-by dates in plain words', () => {
@@ -63,5 +64,33 @@ describe('boughtWords (a pantry row with no use-by, cabledrawer 20 Oct)', () => 
     expect(boughtWords('2026-10-24', '2026-10-24')).toBe('bought today');
     expect(boughtWords('2026-10-23', '2026-10-24')).toBe('bought yesterday');
     expect(boughtWords('2026-10-03', '2026-10-24')).toBe('bought 3 Oct');
+  });
+});
+
+describe('Use by and Best before words (0.8, cabledrawer 7 Nov)', () => {
+  it('a passed Use by says don’t eat, never probably fine, and how long ago', () => {
+    const w = whenWords('use_by', '2026-10-14', -3);
+    expect(w).toEqual({
+      text: 'Use by passed: don’t eat',
+      ago: 'Passed 3 days ago',
+      tone: 'late',
+      passed: true
+    });
+    expect(whenWords('use_by', '2026-10-16', -1).ago).toBe('Passed yesterday');
+  });
+
+  it('a passed Best before says probably fine', () => {
+    const w = whenWords('best_before', '2026-10-14', -3);
+    expect(w.text).toBe('Best before passed · probably fine');
+    expect(w.tone).toBe('bb');
+  });
+
+  it('a date to come reads use by or best before, with or without a capital', () => {
+    expect(whenWords('use_by', '2026-10-19', 2, { capital: true }).text).toBe('Use by Mon');
+    expect(whenWords('use_by', '2026-10-19', 2).text).toBe('use by Mon');
+    expect(whenWords('use_by', '2026-10-17', 0, { capital: true }).text).toBe('Use by today');
+    expect(whenWords('best_before', '2026-11-12', 26).text).toBe('best before 12 Nov');
+    expect(whenWords('use_by', '2026-10-19', 2, { soon: true }).tone).toBe('soon');
+    expect(whenWords('use_by', null, null).text).toBe('');
   });
 });

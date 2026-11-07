@@ -96,9 +96,9 @@ describe('the Pantry page', () => {
     await expect
       .element(page.getByRole('button', { name: 'Add Basmati rice to the shopping list' }))
       .toBeVisible();
-    // "Recipes for these" opens All recipes on its Use soon filter (0.4).
+    // "Recipes that use them" opens All recipes on its Use soon filter (0.4).
     await expect
-      .element(page.getByRole('link', { name: 'Recipes for these' }))
+      .element(page.getByRole('link', { name: 'Recipes that use them' }))
       .toHaveAttribute('href', '/recipes?filter=use-soon');
     expect(page.getByText('Tubs', { exact: true }).elements()).toHaveLength(0);
   });
@@ -131,22 +131,46 @@ describe('the Pantry page', () => {
     expect(el.textContent?.trim()).toBe('Add to pantry');
   });
 
-  it('phone: the Use soon card links to the recipes that use them, also when opened to every item', async () => {
+  it('phone: Use soon shows 3 rows then Show all N, and links to the recipes that use them', async () => {
+    const more = ['Basil', 'Chives', 'Dill'].map((name, i) => ({
+      ...structuredClone(sample.useSoon[0]!),
+      id: 900 + i,
+      food: { id: 900 + i, name },
+      days_left: 1
+    }));
+    sample.useSoon.push(...more);
     await render(390);
     const link = page.getByRole('link', { name: 'Recipes that use them →' });
     await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
     expect(page.getByText('Recipes for these').elements()).toHaveLength(0);
-    // “1 more →” shows the rest of the items in the same card: one card, one link.
-    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(1);
-    await page.getByRole('button', { name: /\d+ more →/ }).click();
-    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(2);
-    await expect.element(link).toHaveAttribute('href', '/recipes?filter=use-soon');
+    const rows = () => document.querySelectorAll('section[aria-labelledby$="-h"] .rows > li');
+    expect(rows()).toHaveLength(3);
+    await page.getByRole('button', { name: 'Show all 5' }).click();
+    expect(rows()).toHaveLength(5);
     expect(page.getByRole('link', { name: 'Recipes that use them →' }).elements()).toHaveLength(1);
     await expect
       .element(page.getByRole('button', { name: 'Show fewer' }))
       .toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('button', { name: 'Show fewer' }).click();
-    expect(document.querySelectorAll('.soon-card .soon-list > li')).toHaveLength(1);
+    expect(rows()).toHaveLength(3);
+  });
+
+  it('desktop: Use soon is a strip of 4 cards with Show all N', async () => {
+    const more = ['Basil', 'Chives', 'Dill'].map((name, i) => ({
+      ...structuredClone(sample.useSoon[0]!),
+      id: 900 + i,
+      food: { id: 900 + i, name },
+      days_left: 1
+    }));
+    sample.useSoon.push(...more);
+    await render(1300);
+    await expect.element(page.getByRole('heading', { name: 'Use soon · 5' })).toBeVisible();
+    const cards = () => document.querySelectorAll('.strip > li');
+    expect(cards()).toHaveLength(4);
+    await page.getByRole('button', { name: 'Show all 5' }).click();
+    expect(cards()).toHaveLength(5);
+    await page.getByRole('button', { name: 'Show fewer' }).click();
+    expect(cards()).toHaveLength(4);
   });
 
   it('no link to recipes when nothing needs using up soon', async () => {
@@ -318,8 +342,8 @@ describe('the Pantry page', () => {
     const extra = structuredClone(cupboard.groups[0]!);
     extra.food = { ...extra.food, id: 90, name: 'Garden hose' };
     sample.pantry.places.push(
-      { id: 5, name: 'Garage', kind: 'cupboard', items: 1, groups: [extra] },
-      { id: 6, name: 'Cellar', kind: 'cupboard', items: 0, groups: [] }
+      { id: 5, name: 'Garage', kind: 'cupboard', items: 1, groups: [extra], tubs: [] },
+      { id: 6, name: 'Cellar', kind: 'cupboard', items: 0, groups: [], tubs: [] }
     );
     await render(390);
     expect(page.getByRole('tablist').elements()).toHaveLength(0);
@@ -547,7 +571,8 @@ describe('the Pantry page', () => {
       await expect
         .element(page.getByRole('dialog', { name: 'How much Spinach did you use?' }))
         .toBeVisible();
-      await page.getByRole('button', { name: /^Used all/ }).click();
+      await page.getByRole('radio', { name: 'All' }).click();
+      await page.getByRole('button', { name: 'Used all of it' }).click();
       await vi.waitFor(() =>
         expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)).toBeDefined()
       );
@@ -560,9 +585,9 @@ describe('the Pantry page', () => {
       swipe(await slideOf(spinachRow()), 110);
       await page.getByRole('button', { name: 'Used… Spinach' }).click();
       const sheet = page.getByRole('dialog', { name: 'How much Spinach did you use?' });
-      await expect.element(sheet.getByRole('button', { name: '¼' })).toBeVisible();
+      await expect.element(sheet.getByRole('radio', { name: '¼' })).toBeVisible();
       await sheet.getByRole('textbox').fill('50');
-      await sheet.getByRole('button', { name: 'Used', exact: true }).click();
+      await sheet.getByRole('button', { name: /^Used 50/ }).click();
       await vi.waitFor(() => {
         const sent = requests.find((r) => r.path === '/foods/20/used');
         expect(sent?.body).toMatchObject({ amount: { amount: 50, unit: 'g' }, place_id: 1 });
@@ -587,7 +612,7 @@ describe('the Pantry page', () => {
 
     it('a Use soon item swipes the same way', async () => {
       await render(390);
-      const soon = page.getByRole('region', { name: 'Use soon' });
+      const soon = page.getByRole('region', { name: /^Use soon/ });
       const name = soon.getByRole('button', { name: /^Spinach/ });
       swipe(await slideOf(name), 110);
       await expect.element(soon.getByRole('button', { name: 'Used… Spinach' })).toBeVisible();
@@ -599,8 +624,8 @@ describe('the Pantry page', () => {
       await render(1300);
       expect(document.querySelector('.slide')).toBeNull();
       await page
+        .getByRole('region', { name: 'What’s in the pantry' })
         .getByRole('button', { name: /^Spinach/ })
-        .first()
         .click();
       await page
         .getByRole('button', { name: /^200 g/ })
@@ -610,11 +635,18 @@ describe('the Pantry page', () => {
     });
   });
 
+  /** Used… on the Spinach card, then All, then the button that says what it does. */
+  async function usedAllOnSpinach(region: ReturnType<typeof page.getByRole>) {
+    await region.getByRole('button', { name: 'Used…' }).first().click();
+    await page.getByRole('radio', { name: 'All' }).click();
+    await page.getByRole('button', { name: 'Used all of it' }).click();
+  }
+
   it('Used takes it off at once, saves with a change ID, and offers Undo', async () => {
     await render(1300);
-    const side = page.getByRole('complementary', { name: /Use soon/ });
+    const side = page.getByRole('region', { name: /^Use soon/ });
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).toBeVisible();
-    await side.getByRole('button', { name: 'Used' }).first().click();
+    await usedAllOnSpinach(side);
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).not.toBeInTheDocument();
     await vi.waitFor(() =>
       expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)).toBeDefined()
@@ -630,8 +662,8 @@ describe('the Pantry page', () => {
 
   it('Ctrl+Z after a pantry change says what was undone', async () => {
     await render(1300);
-    const side = page.getByRole('complementary', { name: /Use soon/ });
-    await side.getByRole('button', { name: 'Used' }).first().click();
+    const side = page.getByRole('region', { name: /^Use soon/ });
+    await usedAllOnSpinach(side);
     await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
     document.body.addEventListener('keydown', handleUndoKey, { once: true });
     document.body.dispatchEvent(
@@ -644,8 +676,8 @@ describe('the Pantry page', () => {
   it('a failed change puts it back and says so calmly', async () => {
     routes({ [`POST /stock/${sample.spinach.id}/used`]: [503, { detail: 'Busy' }] });
     await render(1300);
-    const side = page.getByRole('complementary', { name: /Use soon/ });
-    await side.getByRole('button', { name: 'Used' }).first().click();
+    const side = page.getByRole('region', { name: /^Use soon/ });
+    await usedAllOnSpinach(side);
     await vi.waitFor(() => expect(toasts.current?.message).toBe('Couldn’t save. Try again.'));
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).toBeVisible();
   });
@@ -1162,5 +1194,138 @@ describe('the Pantry page', () => {
         place_id: 9
       })
     );
+  });
+
+  describe('Use by and Best before (0.8, cabledrawer 7 Nov)', () => {
+    const soonRow = (
+      name: string,
+      extra: Partial<(typeof sample.useSoon)[number]>
+    ): (typeof sample.useSoon)[number] => ({
+      ...structuredClone(sample.useSoon[0]!),
+      id: 800 + name.length,
+      food: { id: 800 + name.length, name },
+      ...extra
+    });
+
+    it('a passed Use by is red, says don’t eat and how long ago, and has Binned first', async () => {
+      sample.useSoon = [soonRow('Lemon', { days_left: -3, use_by: '2026-10-14' })];
+      await render(1300);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+      await expect.element(card.getByText(/Passed 3 days ago/)).toBeVisible();
+      expect(card.getByText(/probably fine/).elements()).toHaveLength(0);
+      const buttons = card
+        .getByRole('button')
+        .elements()
+        .map((b) => b.textContent?.trim());
+      expect(buttons.filter((b) => ['Binned', 'Used…', 'To freezer'].includes(b ?? ''))).toEqual([
+        'Binned',
+        'Used…'
+      ]);
+    });
+
+    it('a passed Best before is grey, says probably fine, and has no To freezer', async () => {
+      sample.useSoon = [
+        soonRow('Toor dal', { days_left: -3, use_by: '2026-10-14', date_kind: 'best_before' })
+      ];
+      await render(1300);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await expect.element(card.getByText(/Best before passed · probably fine/)).toBeVisible();
+      expect(card.getByText(/don’t eat/).elements()).toHaveLength(0);
+      expect(card.getByRole('button', { name: 'To freezer' }).elements()).toHaveLength(0);
+    });
+
+    it('a Use by that is only close says the day', async () => {
+      await render(390);
+      await expect
+        .element(
+          page
+            .getByRole('region', { name: /^Use soon/ })
+            .getByText(/Use by today/)
+            .first()
+        )
+        .toBeVisible();
+    });
+
+    it('rows in a place say use by and best before in their own words', async () => {
+      const dal = sample.pantry.places[2]!.groups[0]!;
+      dal.date_kind = 'best_before';
+      dal.use_by = '2026-11-01';
+      dal.days_left = 15;
+      await render(1300);
+      await expect.element(page.getByText('best before 1 Nov')).toBeVisible();
+      await expect.element(page.getByText('use by today').first()).toBeVisible();
+    });
+
+    it('a place shows its tubs like packets, with their use-by', async () => {
+      sample.pantry.places[0]!.tubs = [
+        {
+          batch_id: 5,
+          recipe_name: 'Lemon rice',
+          colour: null,
+          tubs: 2,
+          words: '2 tubs',
+          use_by: '2026-10-20',
+          days_left: 3,
+          use_soon: false
+        }
+      ];
+      sample.pantry.places[0]!.items += 1;
+      await render(1300);
+      await expect.element(page.getByText('Lemon rice')).toBeVisible();
+      await expect.element(page.getByText('2 tubs')).toBeVisible();
+      await expect.element(page.getByText('use by Tue')).toBeVisible();
+    });
+  });
+
+  describe('How much? (F79)', () => {
+    async function open() {
+      await render(1300);
+      const card = page.getByRole('region', { name: /^Use soon/ });
+      await card.getByRole('button', { name: 'Used…' }).first().click();
+      return page.getByRole('dialog', { name: 'How much Spinach did you use?' });
+    }
+
+    it('starts with nothing chosen, and the one main button follows each choice', async () => {
+      const sheet = await open();
+      for (const radio of sheet.getByRole('radio').elements()) {
+        expect(radio.getAttribute('aria-checked')).toBe('false');
+      }
+      const main = sheet.getByRole('button', { name: 'Choose how much' });
+      await expect.element(main).toBeDisabled();
+      await sheet.getByRole('radio', { name: '¾' }).click();
+      await expect.element(sheet.getByRole('button', { name: 'Used ¾ of it' })).toBeEnabled();
+      await sheet.getByRole('radio', { name: '½' }).click();
+      await expect.element(sheet.getByRole('button', { name: 'Used ½ of it' })).toBeVisible();
+      await sheet.getByRole('radio', { name: 'All' }).click();
+      await expect.element(sheet.getByRole('button', { name: 'Used all of it' })).toBeVisible();
+      await sheet.getByRole('textbox').fill('120');
+      await expect.element(sheet.getByRole('button', { name: /^Used 120/ })).toBeVisible();
+      expect(sheet.getByRole('radio', { name: 'All' }).element().getAttribute('aria-checked')).toBe(
+        'false'
+      );
+      await sheet.getByRole('radio', { name: '¼' }).click();
+      await expect.element(sheet.getByRole('button', { name: 'Used ¼ of it' })).toBeVisible();
+      await expect.element(sheet.getByRole('textbox')).toHaveValue('');
+    });
+
+    it('a pack with a name says it: Used ¾ bag', async () => {
+      const bag = { id: 8, name: 'bag', plural: 'bags', amount: 200 };
+      sample.useSoon[0]!.stock = {
+        amount: 200,
+        display: '1 bag · 200 g',
+        short: '1 bag',
+        as_sold: { count: 1, size: bag }
+      };
+      const sheet = await open();
+      await sheet.getByRole('radio', { name: '¾' }).click();
+      await expect.element(sheet.getByRole('button', { name: 'Used ¾ bag' })).toBeVisible();
+    });
+
+    it('Cancel changes nothing', async () => {
+      const sheet = await open();
+      await sheet.getByRole('button', { name: 'Cancel' }).click();
+      expect(requests.some((r) => r.method === 'POST')).toBe(false);
+    });
   });
 });
