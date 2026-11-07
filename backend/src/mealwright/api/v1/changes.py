@@ -43,7 +43,17 @@ from mealwright.history import (
     undo_message,
     undo_until,
 )
-from mealwright.models import Change, ChangeLine, Food, Recipe, StockLot, utcnow
+from mealwright.models import (
+    Change,
+    ChangeLine,
+    Food,
+    MealItem,
+    Recipe,
+    RecipeLine,
+    StapleCheck,
+    StockLot,
+    utcnow,
+)
 from mealwright.stock import lots_of, place_totals
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
@@ -477,6 +487,68 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     )
 
 
+def in_use(kitchen: Kitchen, food_id: int) -> bool:
+    """Is this ingredient used anywhere: a recipe line (or made ahead by a recipe), the plan,
+    the shopping list, the pantry, or a staple someone has dealt with (cabledrawer 7 Nov)? A
+    staple counts once it has been checked ("Got it") or restocked, not by being a staple."""
+    db, home = kitchen.db, kitchen.household_id
+    food = db.get(Food, food_id)
+    if food is None or food.household_id != home:
+        return False
+    if food.restocked_at is not None or food.restock_typed_at is not None:
+        return True
+    if db.get(StapleCheck, food_id) is not None:
+        return True
+    if recipes.made_ahead_of(kitchen, food_id) is not None:
+        return True
+    if db.scalar(
+        select(RecipeLine.id)
+        .where(RecipeLine.household_id == home, RecipeLine.food_id == food_id)
+        .limit(1)
+    ):
+        return True
+    if db.scalar(
+        select(MealItem.id)
+        .where(MealItem.household_id == home, MealItem.food_id == food_id)
+        .limit(1)
+    ):
+        return True
+    return shopping.still_needed(kitchen, food_id)
+
+
+def _keep_in_use(
+    kitchen: Kitchen, change: Change, foods: dict[str, Any], tally: Tally
+) -> frozenset[int]:
+    """The Undo of an Add ingredient or a starter pack takes out only the ingredients not used
+    anywhere; the rest stay, and the message says how many (cabledrawer 7 Nov)."""
+    if change.kind != "food_created":
+        return frozenset()
+    kept = frozenset(
+        int(key.split(":")[0])
+        for key, (old, _new) in foods.get("fields", {}).items()
+        if key.endswith(":exists") and old is None and in_use(kitchen, int(key.split(":")[0]))
+    )
+    if kept:
+        tally.skipped += len(kept)
+        count = len(kept)
+        taken = (
+            sum(
+                1
+                for key, (old, _new) in foods.get("fields", {}).items()
+                if key.endswith(":exists") and old is None
+            )
+            - count
+        )
+        if taken:
+            tally.message = (
+                f"Took out what could be: {count} ingredient{'s are' if count > 1 else ' is'}"
+                f" already in use, so {'they stay' if count > 1 else 'it stays'}."
+            )
+        else:
+            tally.message = "Nothing to take out: these ingredients are already in use."
+    return kept
+
+
 def _still_needed(kitchen: Kitchen, change: Change, foods: dict[str, Any]) -> bool:
     """An `add` that brought its ingredient back (5.9): its Undo removes it again, but not
     while it has stock or is on a list (0.2's rule): then it stays."""
@@ -521,7 +593,8 @@ def undo_change(
         cooking.undo_sizes(kitchen, change, tally)
     if data.get("foods") and not _still_needed(kitchen, change, data["foods"]):
         done_before = tally.done
-        touched_foods = undo_foods(kitchen, data["foods"], tally)
+        kept = _keep_in_use(kitchen, change, data["foods"], tally)
+        touched_foods = undo_foods(kitchen, data["foods"], tally, kept)
         if tally.done > done_before:
             shopping.bump_foods(kitchen, touched_foods, batch)
     if data.get("lot_amounts"):
@@ -539,6 +612,8 @@ def undo_change(
     back, revived = _bring_back(kitchen, [lot for lot, *_ in touched.values()], data)
     named = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
     message = _message(kitchen, result, short, tally.joined_bought, named.name if named else None)
+    if tally.message:
+        message = tally.message
     if tally.sentence and result != "done":
         message = f"{message} {tally.sentence}"
     if back:

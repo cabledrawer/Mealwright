@@ -438,6 +438,8 @@ class Tally:
     joined_bought: bool = False
     # Why something was left alone, when the generic words need adding to (proposed, for cabledrawer).
     sentence: str | None = None
+    # The whole answer, when the generic words don't fit (an Undo that left ingredients in use).
+    message: str | None = None
 
     @property
     def result(self) -> UndoResult:
@@ -678,10 +680,24 @@ def fix_usual_sizes(kitchen: Kitchen, food_ids: Iterable[int]) -> None:
                 size.usual = size is keep
 
 
+def _food_of(collection: str, key: str, old: Any, new: Any) -> int | None:
+    """The food one entry of a food change belongs to."""
+    if collection == "fields":
+        return int(key.split(":")[0])
+    for value in (new, old):
+        if isinstance(value, dict) and value.get("food_id") is not None:
+            return int(value["food_id"])
+    return None
+
+
 def undo_foods(
-    kitchen: Kitchen, changes: dict[str, dict[str, list[Any]]], tally: Tally
+    kitchen: Kitchen,
+    changes: dict[str, dict[str, list[Any]]],
+    tally: Tally,
+    keep: frozenset[int] = frozenset(),
 ) -> set[int]:
-    """Put back each changed part that still looks the way the change left it."""
+    """Put back each changed part that still looks the way the change left it. Nothing of the
+    foods in `keep` is touched (ingredients in use, when an Undo takes out new ones)."""
     ids = foods_in(changes)
     current = snapshot(kitchen, ids)
     fields = changes.get("fields", {})
@@ -704,6 +720,8 @@ def undo_foods(
         "meal_items",
     ):
         for key, (old, new) in sorted(changes.get(collection, {}).items()):
+            if keep and _food_of(collection, key, old, new) in keep:
+                continue
             if (
                 collection == "fields"
                 and key.split(":")[0] in created
