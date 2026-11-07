@@ -33,6 +33,8 @@ function row(id: number, name: string, extra: Partial<StocktakeRow> = {}): Stock
     answer: null,
     fraction_now: '1',
     more_now: 2,
+    counted: false,
+    count_now: null,
     count_word: null,
     count_word_plural: null,
     ...extra
@@ -122,6 +124,8 @@ describe('the Stocktake page', () => {
       food: { id: 7, name: 'Tinned tomatoes', counted_as: 'count' },
       pack: null,
       stock: { amount: 2, display: '2 tins' },
+      counted: true,
+      count_now: '2',
       count_word: 'tin',
       count_word_plural: 'tins',
       fraction_now: null,
@@ -130,6 +134,49 @@ describe('the Stocktake page', () => {
     await render([tins]);
     const group = page.getByRole('group', { name: 'Tinned tomatoes: how many' });
     await expect.element(group.getByText(/^2\s+tins$/)).toBeVisible();
+  });
+
+  it('a row whose pack is a tin is counted whole: minus 2 tins plus, no fractions', async () => {
+    const tin = {
+      id: 2,
+      name: 'tin',
+      plural: 'tins',
+      amount: 400,
+      display: 'Tin = 400 g',
+      usual: true,
+      added_when_shopping: false
+    };
+    const tins = row(7, 'Chickpeas', {
+      pack: tin,
+      stock: { amount: 800, display: '2 tins' },
+      counted: true,
+      count_now: '2',
+      count_word: 'tin',
+      count_word_plural: 'tins',
+      fraction_now: null,
+      more_now: 0
+    });
+    await render([tins, row(8, 'Jam', { food: { id: 8, name: 'Jam', counted_as: 'weight' } })], {
+      'POST /stocktake/places/3/foods/7/answer': () => [
+        200,
+        {
+          change: changeOf(901, 'Stocktake: Chickpeas 1 tin in the Cupboard'),
+          row: { ...tins, answered: true, count_now: '1' },
+          answered: 1,
+          total: 2
+        }
+      ]
+    });
+    const group = page.getByRole('group', { name: 'Chickpeas: how many' });
+    await expect.element(group.getByText(/^2\s+tins$/)).toBeVisible();
+    await expect
+      .element(page.getByRole('radiogroup', { name: 'Chickpeas' }))
+      .not.toBeInTheDocument();
+    // The jar-like row keeps its picks.
+    await expect.element(page.getByRole('radiogroup', { name: 'Jam' })).toBeVisible();
+    await group.getByRole('button', { name: 'One fewer' }).click();
+    await vi.waitFor(() => expect(answers()).toHaveLength(1));
+    expect(answers()[0]!.body).toEqual({ count: 1 });
   });
 
   it('says so when Next cannot be saved', async () => {

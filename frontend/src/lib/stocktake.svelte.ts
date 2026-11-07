@@ -41,6 +41,10 @@ export function countWords(row: StocktakeRow, n: number): string {
   return word ? `${n}\u00a0${word}` : String(n);
 }
 
+/** How many there are now, for a counted row. */
+export const countNowOf = (row: StocktakeRow): number =>
+  countOf(row) ?? (row.count_now != null ? Number(row.count_now) : 0);
+
 export const countOf = (row: StocktakeRow): number | null =>
   row.answer?.count != null ? Number(row.answer.count) : null;
 

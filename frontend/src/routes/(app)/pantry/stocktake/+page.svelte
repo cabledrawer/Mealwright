@@ -10,7 +10,7 @@
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import {
-    countOf,
+    countNowOf,
     countWords,
     fractionOf,
     moreOf,
@@ -62,16 +62,16 @@
       ? `A staple: not counted. ${chipWords(row.restocked_on, row.restocked_days_ago)}.`
       : 'A staple: not counted.';
 
-  const counted = (row: StocktakeRow) => row.food.counted_as === 'count';
+  const counted = (row: StocktakeRow) => row.counted;
 
   function meta(row: StocktakeRow): string {
     if (row.staple) return 'staple';
-    if (counted(row)) return 'counted';
+    if (counted(row)) return row.pack ? `${packWords(row)} · counted` : 'counted';
     return row.pack ? packWords(row) : 'no pack size yet';
   }
 
   /** What the − / + shows: the answer, else what is there now. */
-  const countNow = (row: StocktakeRow) => countOf(row) ?? row.stock.amount;
+  const countNow = countNowOf;
 
   // --- Typing a pack size ("Other…") ---------------------------------------------------------
 

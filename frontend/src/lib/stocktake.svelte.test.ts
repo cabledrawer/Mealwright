@@ -47,6 +47,8 @@ function row(id: number, name: string, extra: Partial<StocktakeRow> = {}): Stock
     answer: null,
     fraction_now: null,
     more_now: 0,
+    counted: false,
+    count_now: null,
     count_word: null,
     count_word_plural: null,
     ...extra

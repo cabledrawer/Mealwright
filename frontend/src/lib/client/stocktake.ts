@@ -33,7 +33,11 @@ export interface StocktakeRow {
    *  the whole packets besides it. */
   fraction_now: string | null;
   more_now: number;
-  /** An ingredient counted one by one: its word ("tin", "tins"); null: none. */
+  /** Counted one by one (a count, or a pack word of "tin"): − / + with `count_now`, no
+   *  fractions. The server decides; the screen follows. */
+  counted: boolean;
+  count_now: string | null;
+  /** The word for the count ("tin", "tins"); null: none. */
   count_word: string | null;
   count_word_plural: string | null;
 }
