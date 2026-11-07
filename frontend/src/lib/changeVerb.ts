@@ -25,6 +25,7 @@ const VERB_KINDS = new Set([
   'found',
   'repacked',
   'cooked',
+  'stocktake',
   'recipe_removed',
   'draft_removed',
   'shop_removed',

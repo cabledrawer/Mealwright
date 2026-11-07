@@ -8,6 +8,7 @@ describe('the kinds in Settings → Recent changes (F172)', () => {
     for (const kind of [
       'used',
       'cooked',
+      'stocktake',
       'plan_add',
       'plan_slot',
       'shop_removed',

@@ -238,6 +238,8 @@
 
 <PageHeader title="Pantry" overline={summary}>
   {#snippet actions()}
+    <!-- The Stocktake (F118): place by place, in its own screen. -->
+    <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
     <!-- Adding needs the server: offline the button stays, and a tap says why (cabledrawer 18 Oct). -->
     {#if phone}
       <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
@@ -564,6 +566,21 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     cursor: pointer;
+  }
+
+  .stocktake-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target);
+    padding: 0 18px;
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
   }
 
   .add-pill {

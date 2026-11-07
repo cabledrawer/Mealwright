@@ -837,3 +837,15 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **The ingredient editor:** **Date on the packet** with **Use by** / **Best before**; for meat, fish and chilled dairy (milk, cream, yoghurt, cheese, paneer) the choice is off and says "Meat, fish and chilled dairy are always Use by." (cabledrawer 7 Nov); every other ingredient can be switched. Recent changes: **Homemade pickle is now Use by** (proposed). Refused: "Homemade pickle is always Use by: it can't be switched to Best before." (proposed). After a switch, the toast says **Date is Use by** or **Date is Best before** (proposed).
 - **How much?** (mockup): **¼ · ½ · ¾ · All**, nothing chosen until one is tapped; the one main button says **Choose how much** (off; proposed), then **Used ¾ bag**, **Used all of it**, or, with no pack name, **Used ¾ of it** (proposed); **Or exactly … g** turns it into **Used 120 g**; **Cancel**.
 - **A packet with no date in its menu** says **no date** (was "no use-by date"; proposed).
+
+## 44. Stocktake (0.8 S6, F118; proposed, for cabledrawer unless the mockup or spec has the words)
+
+- **The button** on Pantry's header (phone and computer): **Stocktake**.
+- **The screen** (mockup Dark-Stocktake08-Phone): **Stop, carry on later**; **Place 3 of 5**; title **Stocktake · Cupboard**; under it, **How much is there? A best guess is fine. 4 of 9 done here.**
+- **Per ingredient:** the picks **None · ¼ · ½ · ¾ · Full**; a staple says **A staple: not counted. Restocked 3 Nov.** (just "A staple: not counted." when it was never restocked); the button **It’s a staple** (the mockup's straight apostrophe is curly on screen); a counted ingredient has **−** and **+** (read out as "One fewer" and "One more").
+- **Pack size asked once** (mockup): **no pack size yet**, **What does it come in? Asked once.**, the common sizes (**200 g**, **500 g**, **1 kg**), **Other…**; proposed: **Use this size** for the typed one. Once there is one, the ¼ ½ ¾ Full picks work.
+- **More packets** (proposed): with a pick chosen, **More bags besides this one** with − and + (the pack's own plural: "More packets besides this one").
+- **Something else** (mockup): **+ Something else in the Cupboard**; the box is "Find an ingredient to count in the Cupboard" (proposed).
+- **Moving on** (mockup): **← Fridge** and **Next: Spice rack →**; on the last place **Finish** (proposed).
+- **The end** (proposed): **Stocktake finished**, "Every place is counted. The pantry shows what you said.", **Back to Pantry**, **Start a new stocktake**. A load that fails: "Couldn’t open the stocktake. Try again."
+- **Recent changes** (spec, cabledrawer 7 Nov: "recorded as stocktake"; the words proposed): **Stocktake: Toor dal ½ bag in the Cupboard**, **Stocktake: no Toor dal in the Cupboard** (None), **Stocktake: Sambar powder is a staple in the Cupboard**, **Stocktake: Tamarind pack is 500 g** (the pack size asked once). After Undo: "Undone: " and those words.
