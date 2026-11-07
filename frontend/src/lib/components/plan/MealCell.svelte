@@ -306,10 +306,17 @@
   .who {
     display: flex;
     flex-wrap: wrap;
+    min-width: 0;
     gap: var(--space-2);
   }
 
+  /* A name too long for the card ends in "…" (F168). */
   .who span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     padding: 2px var(--space-4);
     border-radius: var(--radius-full);
     background: var(--color-surface);

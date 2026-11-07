@@ -797,3 +797,39 @@ test("a second copy of the cooked recipe in the cook meal is not a COOK card, an
     })
     .toEqual([day, [copy.item_id]]); // the cooking stayed; only the copy went
 });
+
+test("F168: at 1101 px a person's name under a tub that is too wide for its card ends in an ellipsis", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { today, slot } = await setup(page);
+  const day = far(today, 9);
+  const { sun, batch } = await batchWithTubs(page, `${stamp()} Dal`, day, slot);
+  const me = (await (await page.request.get("/api/v1/me")).json()) as {
+    id: number;
+  };
+  const tubs = ((await planRange(page, day, sun)).tubs as { id: number; batch_id: number }[]).filter(
+    (t) => t.batch_id === batch,
+  );
+  for (const tub of tubs)
+    await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_login_id: me.id });
+  await page.setViewportSize({ width: 1101, height: 900 });
+  await openWeekOf(page, today, day);
+  // At 200% text the name no longer fits its card, as "Longhousename" did at 100% on a narrow week.
+  await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+  const chips = cell(page, sun, slot.Lunch).locator(".who span");
+  await expect(chips.first()).toBeVisible();
+  const report = await chips.first().evaluate((el) => {
+    const style = getComputedStyle(el);
+    const card = el.closest("button")!.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    return {
+      overflow: style.overflowX,
+      ellipsis: style.textOverflow,
+      cut: el.scrollWidth > el.clientWidth,
+      inside: box.right <= card.right + 0.5,
+    };
+  });
+  expect(report).toMatchObject({ overflow: "hidden", ellipsis: "ellipsis", cut: true, inside: true });
+  await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+});
