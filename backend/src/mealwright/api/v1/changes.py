@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import cooking, drafts, plan, recipes, removals, shopping, together
+from mealwright import cooking, drafts, plan, recipes, removals, restock, shopping, together
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -495,8 +495,8 @@ def in_use(kitchen: Kitchen, food_id: int) -> bool:
     food = db.get(Food, food_id)
     if food is None or food.household_id != home:
         return False
-    if food.restocked_at is not None or food.restock_typed_at is not None:
-        return True
+    if food.restock_typed_at is not None or restock.restocked(db, home, [food]):
+        return True  # a kept or typed date, or a standing Restocked tick on the list
     if db.get(StapleCheck, food_id) is not None:
         return True
     if recipes.made_ahead_of(kitchen, food_id) is not None:

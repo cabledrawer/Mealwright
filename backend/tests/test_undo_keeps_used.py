@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import counter, db, main_id, new_id, ok, one
 
-from mealwright.models import Change, Meal, MealItem
+from mealwright.models import Change, Meal, MealItem, Recipe
 
 API = "/api/v1"
 SOME = "Took out what could be: 3 ingredients are already in use, so they stay."
@@ -19,14 +19,14 @@ ONE = "1 ingredient is already in use, so it stays."
 NONE = "Nothing to take out: these ingredients are already in use."
 
 
-def pack(kitchen: TestClient) -> tuple[int, list[dict[str, Any]]]:
+def pack(kitchen: TestClient, name: str = "baking") -> tuple[int, list[dict[str, Any]]]:
     keys = [
         item["key"]
         for item in next(
-            p for p in ok(kitchen.get(f"{API}/starter-packs"))["packs"] if p["id"] == "baking"
+            p for p in ok(kitchen.get(f"{API}/starter-packs"))["packs"] if p["id"] == name
         )["items"]
     ]
-    body = ok(kitchen.post(f"{API}/starter-packs/baking/add", json={"keys": keys}), 201)
+    body = ok(kitchen.post(f"{API}/starter-packs/{name}/add", json={"keys": keys}), 201)
     foods = ok(kitchen.get(f"{API}/foods", params={"limit": 500}))["foods"]
     assert len(foods) == len(keys) and len(keys) > 4
     return body["change"]["id"], foods
@@ -74,7 +74,42 @@ def use_staple(kitchen: TestClient, food: dict[str, Any]) -> None:
     ok(kitchen.put(f"{API}/shopping/staples/{food['id']}/got-it"))
 
 
-USES = [use_recipe, use_plan, use_shopping, use_pantry, use_staple]
+def use_restocked_on_the_list(kitchen: TestClient, food: dict[str, Any]) -> None:
+    """Restocked through Shopping, then Clear ticked: the tick still dates the restock."""
+    ok(kitchen.patch(f"{API}/foods/{food['id']}", json={"staple": True}))
+    lists = ok(kitchen.get(f"{API}/shopping/lists"))["lists"]
+    item = ok(
+        kitchen.post(f"{API}/shopping/lists/{lists[0]['id']}/items", json={"food_id": food["id"]}),
+        201,
+    )
+    ticked = one(kitchen, "tick", counter(kitchen), item_id=item["item"]["id"])
+    assert ticked["status"] == "applied"
+    ok(kitchen.post(f"{API}/shopping/lists/{lists[0]['id']}/clear-ticked", json={}))
+
+
+def use_restock_typed(kitchen: TestClient, food: dict[str, Any]) -> None:
+    ok(kitchen.patch(f"{API}/foods/{food['id']}", json={"staple": True}))
+    ok(kitchen.patch(f"{API}/foods/{food['id']}", json={"restocked_on": "2026-11-01"}))
+
+
+def use_made_ahead(kitchen: TestClient, food: dict[str, Any]) -> None:
+    recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Batter", "lines": []}), 201)
+    with db(kitchen) as session:
+        made = session.get(Recipe, recipe["id"])
+        made.made_ahead, made.homemade_food_id = True, food["id"]
+        session.commit()
+
+
+USES = [
+    use_recipe,
+    use_plan,
+    use_shopping,
+    use_pantry,
+    use_staple,
+    use_restocked_on_the_list,
+    use_restock_typed,
+    use_made_ahead,
+]
 
 
 @pytest.mark.parametrize("use", USES, ids=lambda f: f.__name__)
@@ -118,6 +153,17 @@ def test_a_single_add_nobody_uses_is_taken_out(kitchen: TestClient) -> None:
     undo = ok(kitchen.post(f"{API}/changes/{change_id}/undo"))
     assert undo["result"] == "done"
     assert undo["message"] == "Undone."
+    assert names(kitchen) == set()
+
+
+def test_the_household_pack_undone_straight_away_takes_out_every_staple(
+    kitchen: TestClient,
+) -> None:
+    """U1-a (cabledrawer 7 Nov): being a staple is not being in use."""
+    change_id, foods = pack(kitchen, "household")
+    assert any(f["staple"] for f in foods)
+    undo = ok(kitchen.post(f"{API}/changes/{change_id}/undo"))
+    assert undo["result"] == "done"
     assert names(kitchen) == set()
 
 
