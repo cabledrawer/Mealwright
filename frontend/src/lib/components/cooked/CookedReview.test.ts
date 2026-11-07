@@ -251,6 +251,17 @@ describe('the "Cooked it" review', () => {
     expect(asked.body.items).toEqual([{ item_id: 100, portions: 5 }]);
   });
 
+  it('F170: a recipe with no Serves has no Portions cooked, and says how to scale it', async () => {
+    previews = [[{ ...proposal('Sandwich', [row('Toor dal', 1)]), servings: null }]];
+    await show(['Sandwich']);
+    const dialog = page.getByRole('dialog', { name: 'Cooked Sandwich' });
+    await has(dialog, 'Add Serves to the recipe to scale it.');
+    await expect
+      .element(dialog.getByRole('group', { name: 'Portions cooked' }))
+      .not.toBeInTheDocument();
+    await expect.element(dialog.getByText('as planned')).not.toBeInTheDocument();
+  });
+
   it('several recipes: one tab for each, one Confirm for all', async () => {
     previews = [[proposal('Dosa', [row('Rice', 1)]), proposal('Chutney', [row('Coconut', 2)])]];
     await show(['Dosa', 'Chutney']);

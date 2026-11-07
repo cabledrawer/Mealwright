@@ -214,7 +214,10 @@
             aria-labelledby={review.tabs.length > 1 ? `${uid}-tab-${review.active}` : undefined}
             class="panel"
           >
-            {#if tab}
+            {#if tab?.proposal && !tab.proposal.servings}
+              <!-- F170: with no Serves there is nothing to scale by, so no Portions cooked. -->
+              <p class="note" data-testid="no-serves">Add Serves to the recipe to scale it.</p>
+            {:else if tab}
               <div class="portions">
                 <span class="words">
                   <b>Portions cooked</b>

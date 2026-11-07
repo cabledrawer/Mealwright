@@ -588,3 +588,21 @@ test('F166: Serves in the Plan menu of a meal cooked in parts names the recipe i
     for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
   }
 });
+
+test('F170: a recipe with no Serves has no Portions cooked and says how to scale it', async ({ page }) => {
+  const k = await setup(page);
+  await clearWaiting(page);
+  const name = `Sandwich ${stamp()}`;
+  const recipe = (await call(page, 'POST', '/recipes', { name, serves: null, lines: [] })).id as number; // no Serves
+  const planned = await k.plan(recipe, waitingDay(k.today), k.slot.Lunch);
+  try {
+    await openToday(page, name);
+    const dialog = review(page, name);
+    await expect(dialog.getByText('Add Serves to the recipe to scale it.')).toBeVisible();
+    await expect(dialog.getByRole('group', { name: 'Portions cooked' })).toHaveCount(0);
+    await expect(dialog.getByText('as planned')).toHaveCount(0);
+    await checkPage(page); // both themes
+  } finally {
+    await page.request.fetch(`/api/v1/plan/meals/${planned.meal_id}/didnt`, { method: 'POST', headers: key() });
+  }
+});
