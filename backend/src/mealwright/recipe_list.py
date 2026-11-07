@@ -53,6 +53,7 @@ from mealwright.api.v1.recipe_list_schemas import (
 )
 from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import AskOnce, Known, UnitAmount, to_base_milli
+from mealwright.date_kinds import date_kind
 from mealwright.foods import known_from, visible
 from mealwright.household import cup_ml, today
 from mealwright.models import (
@@ -124,6 +125,25 @@ class Stock:
         # How much of each ingredient is in each place (place id → thousandths).
         self.in_place: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
         self.soonest: dict[int, date] = {}
+        # A Best before date is not a nudge to cook (Use soon counts it only once passed, and a
+        # passed one isn't a nudge either): only an ingredient's Use by dates are.
+        place_kinds = {
+            p.id: p.kind
+            for p in kitchen.db.scalars(
+                select(Place).where(Place.household_id == kitchen.household_id)
+            )
+        }
+        other: dict[int, list[str]] = defaultdict(list)
+        for name in kitchen.db.scalars(
+            select(FoodName).where(FoodName.household_id == kitchen.household_id)
+        ):
+            other[name.food_id].append(name.name)
+        use_by_foods = {
+            food.id
+            for food in foods.values()
+            if date_kind(food, [food.name, *other[food.id]], place_kinds.get(food.place_id or 0))
+            == "use_by"
+        }
         for lot in kitchen.db.scalars(
             select(StockLot).where(
                 StockLot.household_id == kitchen.household_id, StockLot.amount_milli > 0
@@ -132,7 +152,11 @@ class Stock:
             self.total[lot.food_id] += lot.amount_milli
             self.in_place[lot.food_id][lot.place_id] += lot.amount_milli
             # A packet whose date has passed is not a nudge to cook: the Pantry shows it.
-            if lot.use_by is not None and self.today <= lot.use_by <= soon:
+            if (
+                lot.use_by is not None
+                and lot.food_id in use_by_foods
+                and self.today <= lot.use_by <= soon
+            ):
                 best = self.soonest.get(lot.food_id)
                 if best is None or lot.use_by < best:
                     self.soonest[lot.food_id] = lot.use_by

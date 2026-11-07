@@ -23,6 +23,15 @@ def stock(kitchen: TestClient, food_id: int, amount: float, unit: str, **extra: 
     ok(kitchen.post(f"{API}/stock", json=body), 201)
 
 
+def fresh(kitchen: TestClient, name: str, **fields: Any) -> dict[str, Any]:
+    """An ingredient whose date is a Use by one (0.8): Use soon nudges only for those, and a
+    table row such as spinach says Best before."""
+    made = food(kitchen, name, **fields)
+    if not made["date_kind_locked"]:
+        ok(kitchen.patch(f"{API}/foods/{made['id']}", json={"date_kind": "use_by"}))
+    return made
+
+
 def place_id(kitchen: TestClient, name: str) -> int:
     return next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["name"] == name)
 
@@ -77,7 +86,7 @@ def test_the_title_count_is_every_recipe_whatever_is_filtered(kitchen: TestClien
 
 
 def test_enough_for_the_recipe_when_the_amounts_can_be_compared(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     stock(kitchen, rice["id"], 500, "g")
     make(kitchen, "Small", lines=[line(rice["id"], 200, "g")])
     make(kitchen, "Exact", lines=[line(rice["id"], 0.5, "kg")])
@@ -88,7 +97,7 @@ def test_enough_for_the_recipe_when_the_amounts_can_be_compared(kitchen: TestCli
 
 
 def test_two_lines_for_the_same_ingredient_are_added_up(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     stock(kitchen, rice["id"], 200, "g")
     make(kitchen, "Twice", lines=[line(rice["id"], 100, "g"), line(rice["id"], 150, "g")])
     assert row(kitchen, "Twice")["stock"] == {"counted": 1, "missing": 1, "can_cook_now": False}
@@ -143,7 +152,7 @@ def test_a_staple_is_always_in_stock_and_the_freezer_counts(kitchen: TestClient)
 
 
 def test_lines_without_an_amount_and_headings_never_count(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     nothing = food(kitchen, "Zorba nothing")
     stock(kitchen, rice["id"], 500, "g")
     make(
@@ -188,7 +197,7 @@ def test_a_recipe_using_an_unchecked_recipe_is_never_all_in_stock_or_can_cook_no
 ) -> None:
     """cabledrawer 20 Oct: a recipe that uses another recipe that isn't made ahead is left out of
     Can cook now and never says "all in stock"; inner recipes are checked in a later version."""
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     dal = food(kitchen, "Zorba dal")
     stock(kitchen, rice["id"], 500, "g")
     base = make(kitchen, "Plain base")
@@ -302,7 +311,7 @@ def test_a_made_ahead_recipe_that_uses_an_unchecked_one_is_still_checked_by_its_
 
 
 def test_removed_and_merged_ingredients_do_not_count(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     ok(kitchen.delete(f"{API}/foods/{rice['id']}"))
     make(kitchen, "Gone", lines=[{"words": "rice", "amount": 1, "unit": "cup"}])
     assert row(kitchen, "Gone")["stock"] is None
@@ -313,11 +322,11 @@ def test_removed_and_merged_ingredients_do_not_count(kitchen: TestClient) -> Non
 
 def test_what_a_recipe_uses_that_is_about_to_go_off(kitchen: TestClient) -> None:
     now = today(kitchen)
-    spinach = food(kitchen, "Spinach")
-    paneer = food(kitchen, "Paneer")
-    milk = food(kitchen, "Milk", counted_as="volume")
-    old = food(kitchen, "Old kale")
-    far = food(kitchen, "Far cabbage")
+    spinach = fresh(kitchen, "Spinach")
+    paneer = fresh(kitchen, "Paneer")
+    milk = fresh(kitchen, "Milk", counted_as="volume")
+    old = fresh(kitchen, "Old kale")
+    far = fresh(kitchen, "Far cabbage")
     stock(kitchen, spinach["id"], 200, "g", use_by=now.isoformat())
     stock(kitchen, paneer["id"], 200, "g", use_by=now.isoformat())
     stock(kitchen, milk["id"], 1000, "ml", use_by=(now + timedelta(days=2)).isoformat())
@@ -340,8 +349,8 @@ def test_what_a_recipe_uses_that_is_about_to_go_off(kitchen: TestClient) -> None
 
 def test_only_the_soonest_date_is_named(kitchen: TestClient) -> None:
     now = today(kitchen)
-    spinach = food(kitchen, "Spinach")
-    paneer = food(kitchen, "Paneer")
+    spinach = fresh(kitchen, "Spinach")
+    paneer = fresh(kitchen, "Paneer")
     stock(kitchen, spinach["id"], 200, "g", use_by=(now + timedelta(days=1)).isoformat())
     stock(kitchen, paneer["id"], 200, "g", use_by=(now + timedelta(days=2)).isoformat())
     make(kitchen, "Both", lines=[line(paneer["id"], 1, "g"), line(spinach["id"], 1, "g")])
@@ -351,10 +360,10 @@ def test_only_the_soonest_date_is_named(kitchen: TestClient) -> None:
 
 def test_use_soon_keeps_exactly_the_recipes_that_have_a_use_soon_hint(kitchen: TestClient) -> None:
     now = today(kitchen)
-    spinach = food(kitchen, "Spinach")
-    old = food(kitchen, "Old kale")
-    far = food(kitchen, "Far cabbage")
-    rice = food(kitchen, "Zorba rice")
+    spinach = fresh(kitchen, "Spinach")
+    old = fresh(kitchen, "Old kale")
+    far = fresh(kitchen, "Far cabbage")
+    rice = fresh(kitchen, "Zorba rice")
     stock(kitchen, spinach["id"], 200, "g", use_by=now.isoformat())
     stock(kitchen, old["id"], 200, "g", use_by=(now - timedelta(days=1)).isoformat())
     stock(kitchen, far["id"], 200, "g", use_by=(now + timedelta(days=3)).isoformat())
@@ -374,8 +383,8 @@ def test_use_soon_keeps_exactly_the_recipes_that_have_a_use_soon_hint(kitchen: T
 
 def test_use_soon_works_with_search_tags_and_can_cook_now(kitchen: TestClient) -> None:
     now = today(kitchen).isoformat()
-    spinach = food(kitchen, "Spinach")
-    paneer = food(kitchen, "Paneer")
+    spinach = fresh(kitchen, "Spinach")
+    paneer = fresh(kitchen, "Paneer")
     ghee = food(kitchen, "Ghee")
     stock(kitchen, spinach["id"], 200, "g", use_by=now)
     stock(kitchen, paneer["id"], 200, "g", use_by=now)
@@ -404,7 +413,7 @@ def test_use_soon_works_with_search_tags_and_can_cook_now(kitchen: TestClient) -
 
 def test_use_soon_keeps_the_totals_and_the_paging_right(kitchen: TestClient) -> None:
     now = today(kitchen).isoformat()
-    spinach = food(kitchen, "Spinach")
+    spinach = fresh(kitchen, "Spinach")
     stock(kitchen, spinach["id"], 5000, "g", use_by=now)
     for i in range(7):
         make(kitchen, f"Soon {i}", lines=[line(spinach["id"], 10, "g")])
@@ -430,7 +439,7 @@ def test_use_soon_takes_only_true_or_false(kitchen: TestClient) -> None:
 
 
 def test_can_cook_now_keeps_recipes_with_nothing_missing(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     dal = food(kitchen, "Zorba dal")
     stock(kitchen, rice["id"], 500, "g")
     make(kitchen, "Plain rice", lines=[line(rice["id"], 100, "g")])
@@ -489,7 +498,7 @@ def test_a_recipe_is_found_by_the_recipe_it_uses(kitchen: TestClient) -> None:
 
 
 def test_search_tag_and_can_cook_now_work_together(kitchen: TestClient) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     dal = food(kitchen, "Zorba dal")
     stock(kitchen, rice["id"], 500, "g")
     make(kitchen, "Rice bowl", tags=["Quick"], lines=[line(rice["id"], 100, "g")])
@@ -538,7 +547,7 @@ def count_queries(kitchen: TestClient, **params: Any) -> int:
 def test_the_list_reads_a_fixed_number_of_queries_however_many_recipes(
     kitchen: TestClient,
 ) -> None:
-    rice = food(kitchen, "Zorba rice")
+    rice = fresh(kitchen, "Zorba rice")
     dal = food(kitchen, "Zorba dal")
     stock(kitchen, rice["id"], 5000, "g", use_by=today(kitchen).isoformat())
 
@@ -574,3 +583,14 @@ def test_the_list_reads_a_fixed_number_of_queries_however_many_recipes(
     everything = listing(kitchen, limit=500)["recipes"]
     assert len(everything) == 300 and all(r["stock"]["missing"] == 1 for r in everything)
     assert all(r["use_soon"]["foods"][0]["name"] == "Zorba rice" for r in everything)
+
+
+def test_a_best_before_packet_is_no_nudge_to_cook(kitchen: TestClient) -> None:
+    """0.8: Use soon counts a Best before date only once it has passed, and a passed date is
+    no nudge either, so a recipe's Use soon hint comes only from Use by ingredients."""
+    now = today(kitchen)
+    dal = food(kitchen, "Toor dal")  # the pack-size table says best before
+    stock(kitchen, dal["id"], 200, "g", use_by=now.isoformat())
+    make(kitchen, "Dal soup", lines=[line(dal["id"], 100, "g")])
+    assert row(kitchen, "Dal soup")["use_soon"] is None
+    assert names(kitchen, use_soon="true") == []
