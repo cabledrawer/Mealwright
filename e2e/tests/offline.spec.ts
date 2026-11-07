@@ -536,3 +536,196 @@ test('a slow network doesn’t hold the saved list back, and the list updates wh
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
 });
+
+// --- Shopping on the phone, "in the shop" (0.8, S4): Add as bought and Already have it ---------
+
+/** An ingredient bought in 500 g packets, not on the list. */
+async function packetFood(page: Page, name: string): Promise<number> {
+  const { food } = await call(page, 'POST', '/foods', { name, counted_as: 'weight' });
+  await call(page, 'POST', `/foods/${food.id}/sizes`, { name: 'packet', amount: 500 });
+  return food.id;
+}
+
+/** The newest pantry change that names this ingredient. */
+async function pantryChanges(page: Page, name: string): Promise<{ kind: string; summary: string }[]> {
+  const { changes } = await (await page.request.get('/api/v1/changes?area=pantry&limit=100')).json();
+  return changes.filter((c: { summary: string }) => c.summary.includes(name));
+}
+
+/** Already have it, from the amount box (a swipe does the same on a phone): the half packet. */
+async function haveHalf(page: Page, name: string) {
+  await page.getByRole('button', { name, exact: true }).click();
+  await page.getByRole('button', { name: 'Already have it' }).click();
+  const sheet = page.getByRole('dialog', { name: `Already have ${name}` });
+  await sheet.getByRole('radio', { name: /^250/ }).click();
+  await sheet.getByRole('button', { name: /^Put 250.g in the pantry$/ }).click();
+  await expect(sheet).toBeHidden();
+}
+
+test('S4: Add as bought offline is an add and a tick in the queue; the pantry has it once back', async ({ page, context }) => {
+  const name = `Jaggery ${tag()}`;
+  await signIn(page);
+  const foodId = await packetFood(page, name);
+  await start(page);
+
+  await context.setOffline(true);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  await page.getByRole('button', { name: 'Add as bought' }).click();
+  await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({ timeout: 15_000 });
+  const line = (await serverItems(page)).filter((i) => i.food.name === name);
+  expect(line).toHaveLength(1);
+  expect(line[0]!.ticked_at).not.toBeNull();
+  await expect.poll(() => pantryStock(page, foodId)).toEqual([[500, '1 packet']]);
+  expect((await pantryChanges(page, name))[0]!.summary).toMatch(/^Bought 1.packet /);
+});
+
+test('S4: Already have it offline: the amount at home is queued, and the pantry has it as found, not bought, once back', async ({ page, context }) => {
+  const name = `Ghee ${tag()}`;
+  await signIn(page);
+  await ingredient(page, name);
+  const foodId = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json()).foods[0].id;
+  await start(page, name);
+
+  await context.setOffline(true);
+  await haveHalf(page, name);
+  await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+  // Shown as found, in the trolley, at once.
+  await page.getByRole('button', { name: /^In the trolley/ }).first().click();
+  await expect(page.getByText('250 g · found at home')).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => pantryStock(page, foodId)).toEqual([[250, '250 g']]);
+  const [newest] = await pantryChanges(page, name);
+  expect(newest!.kind).toBe('found');
+  expect(newest!.summary).toMatch(new RegExp(`^Found ${name} at home: 250.g → `));
+  expect((await pantryChanges(page, name)).filter((c) => c.kind === 'shopped')).toEqual([]);
+});
+
+test('S4: Already have it sent twice (the answer was lost) puts the amount in once', async ({ page }) => {
+  const name = `Hing ${tag()}`;
+  await signIn(page);
+  await ingredient(page, name);
+  const foodId = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json()).foods[0].id;
+  await start(page, name);
+
+  // The server gets the first send and the phone never hears back, so it sends the same action
+  // again: the server answers it from its record, and applies nothing twice.
+  let sends = 0;
+  await page.route('**/api/v1/shopping/actions', async (route) => {
+    sends += 1;
+    if (sends === 1) {
+      await route.fetch();
+      await route.abort('failed');
+    } else {
+      await route.continue();
+    }
+  });
+  await haveHalf(page, name);
+  await expect.poll(() => sends, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+  await expect(bar(page)).toBeHidden({ timeout: 30_000 });
+  await expect.poll(() => pantryStock(page, foodId)).toEqual([[250, '250 g']]);
+  expect((await pantryChanges(page, name)).filter((c) => c.kind === 'found')).toHaveLength(1);
+});
+
+test('S4: Already have it on two phones: both amounts go in, no "Did you buy 2?", one line in the trolley', async ({ page, context, browser }) => {
+  const name = `Jeera ${tag()}`;
+  await signIn(page);
+  await settleCards(page);
+  await ingredient(page, name);
+  const foodId = (await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json()).foods[0].id;
+  const otherContext = await browser.newContext();
+  await otherContext.clock.install({ time: testNow() });
+  const other = await otherContext.newPage();
+  try {
+    await signIn(other);
+    await start(page, name);
+    await start(other, name);
+    await context.setOffline(true);
+    await otherContext.setOffline(true);
+    await haveHalf(page, name);
+    await haveHalf(other, name);
+    await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+    await expect(bar(other)).toContainText(waitingText(other, 1), { timeout: 10_000 });
+
+    await context.setOffline(false);
+    await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+    await otherContext.setOffline(false);
+    await expect(bar(other)).toBeHidden({ timeout: 15_000 });
+
+    await expect.poll(() => pantryStock(page, foodId)).toEqual([[500, '500 g']]);
+    expect((await pantryChanges(page, name)).filter((c) => c.kind === 'found')).toHaveLength(2);
+    for (const p of [page, other]) {
+      await expect(p.getByRole('region', { name: 'Did you buy 2?' })).toHaveCount(0);
+    }
+    const mine = (await serverItems(page)).filter((i) => i.food.name === name);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.ticked_at).not.toBeNull();
+  } finally {
+    await otherContext.close();
+  }
+});
+
+// --- F130 (PR 128 review L1, L2): a new name offline, with an amount, and on two phones --------
+
+test('F130: offline, "500 g" and a new name: the add keeps the amount, and the ingredient is made once when the server is back', async ({ page, context }) => {
+  const name = `Paneer ${tag()}`;
+  await signIn(page);
+  await start(page);
+
+  await context.setOffline(true);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(`500 g ${name}`);
+  await page.getByRole('button', { name: `+ New ingredient: “${name}”` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pantry keeps it by' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: new RegExp(`^Change amount: ${name}, 500`) })).toBeVisible();
+  await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({ timeout: 15_000 });
+  const lines = (await serverItems(page)).filter((i) => i.food.name === name);
+  expect(lines).toHaveLength(1);
+  expect((lines[0] as unknown as { amount: { amount: number } }).amount.amount).toBe(500);
+  const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
+  expect(foods.filter((f: { name: string }) => f.name === name)).toHaveLength(1);
+});
+
+test('F130: the same new name added offline on two phones ends up as one ingredient', async ({ page, context, browser }) => {
+  const name = `Kokum ${tag()}`;
+  await signIn(page);
+  const otherContext = await browser.newContext();
+  await otherContext.clock.install({ time: testNow() });
+  const other = await otherContext.newPage();
+  try {
+    await signIn(other);
+    await start(page);
+    await start(other);
+    await context.setOffline(true);
+    await otherContext.setOffline(true);
+    for (const p of [page, other]) {
+      await p.getByRole('textbox', { name: 'Add an item' }).fill(name);
+      await p.getByRole('button', { name: `+ New ingredient: “${name}”` }).click();
+      const dialog = p.getByRole('dialog', { name: 'Pantry keeps it by' });
+      await dialog.getByRole('radio', { name: /One by one/ }).click();
+      await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(bar(p)).toContainText(waitingText(p, 1), { timeout: 10_000 });
+    }
+    await context.setOffline(false);
+    await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+    await otherContext.setOffline(false);
+    await expect(bar(other)).toBeHidden({ timeout: 15_000 });
+
+    const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
+    expect(foods.filter((f: { name: string }) => f.name === name)).toHaveLength(1);
+    // One line on the list: the second add joined the first (they are the same ingredient).
+    expect((await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(1);
+  } finally {
+    await otherContext.close();
+  }
+});
