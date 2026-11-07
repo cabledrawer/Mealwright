@@ -157,7 +157,7 @@ class UseSoonLot(LotOut):
 
 class UseSoonTub(TubRow):
     """A batch's tubs in one place that are Use soon (a use-by up to the Use soon days ahead,
-    or passed), as the "Eat it on…" card (cabledrawer 7 Nov): "Lemon rice · Fridge · 2 tubs"."""
+    or passed), as the "Eat it on…" card: "Lemon rice · Fridge · 2 tubs"."""
 
     place: PlaceRef
 
