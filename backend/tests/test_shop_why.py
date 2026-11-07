@@ -255,3 +255,27 @@ def test_use_by_and_unknown_ingredients_never_offer_it(kitchen: TestClient) -> N
     plan(kitchen, recipe(kitchen, "Odd", line(plain["id"], 1, "g"), line(odd["id"], 1, "g")), 1)
     view = shown(kitchen)
     assert not any(row["staple_offer"] for row in view.values())
+
+
+def test_a_loop_of_recipes_on_the_list_stops_and_still_lists_the_rest(kitchen: TestClient) -> None:
+    """Saving refuses a loop, but one that got in another way must not hang the list (S3 r1 L4)."""
+    from mealwright.models import RecipeLine
+
+    seed = new_food(kitchen, "Why loop seed")
+    inner = make(kitchen, "Why loop inner", lines=[line(seed["id"], 10, "g")])
+    outer = curry_with(kitchen, inner)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(
+            RecipeLine(
+                household_id=1,
+                recipe_id=inner["id"],
+                position=1,
+                kind="ingredient",
+                words="back to the curry",
+                sub_recipe_id=outer,
+            )
+        )
+        db.commit()
+    plan(kitchen, outer, 1)
+    assert [r["food_id"] for r in plan_lines(kitchen)] == [seed["id"]]
+    assert shown(kitchen)["Why loop seed"]["amount"]["amount"] == 10

@@ -100,6 +100,14 @@ describe('Plan shopping', () => {
     await expect.element(page.getByText('Added by you').first()).toBeVisible();
   });
 
+  it('reaches a row’s why before its ⋯ with the keyboard, as they are seen (S3 r1 L1)', async () => {
+    await render(1300);
+    await expect.element(page.getByText('Sambar (Tue) · Rasam (Thu)')).toBeVisible();
+    const why = page.getByText('Sambar (Tue) · Rasam (Thu)').element();
+    const more = page.getByRole('button', { name: 'More for Onions' }).element();
+    expect(why.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('has the shop chips, and a chip shows just that shop', async () => {
     await render(1300);
     await expect

@@ -210,6 +210,17 @@
   }
 </script>
 
+{#snippet menu()}
+  <RowMenu
+    name={food.name}
+    items={[
+      { label: 'Change amount', run: () => openBox() },
+      { label: 'Move to…', run: (from) => openMove(from) },
+      { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
+    ]}
+  />
+{/snippet}
+
 <li class="item" class:trolley class:highlight class:plan bind:this={rowEl}>
   {#if editing && !trolley}
     <AmountBox
@@ -320,16 +331,7 @@
               {buy ?? item.display ?? 'Add amount'}
               {#if item.display}<Icon name="chevron-down" size={14} stroke={2.4} />{/if}
             </button>
-            {#if model.device === 'computer'}
-              <RowMenu
-                name={food.name}
-                items={[
-                  { label: 'Change amount', run: () => openBox() },
-                  { label: 'Move to…', run: (from) => openMove(from) },
-                  { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
-                ]}
-              />
-            {/if}
+            {#if model.device === 'computer' && !plan}{@render menu()}{/if}
           </span>
           {#if plan}
             {#if why}
@@ -343,6 +345,8 @@
             {:else}
               <span class="why"></span>
             {/if}
+            <!-- After the why, so the keyboard meets them in the order they are seen. -->
+            {#if model.device === 'computer'}{@render menu()}{/if}
           {:else if packs}
             <span class="packs">{packs}</span>
           {/if}
@@ -521,7 +525,7 @@
     order: 4;
   }
 
-  .plan:not(.trolley) .end > :global(.row-menu) {
+  .plan:not(.trolley) .line > :global(.row-menu) {
     order: 5;
   }
 
