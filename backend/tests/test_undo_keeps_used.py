@@ -1,15 +1,17 @@
-"""Undo of an Add ingredient or a starter pack keeps the ingredients in use (0.8, cabledrawer 7 Nov):
-it takes out only the ingredients not used anywhere (a recipe, the plan, the shopping list, the
-pantry, a staple); the ones in use stay, and the message says how many."""
+"""Undo of an Add ingredient, a starter pack or a typed list item's ingredient keeps the
+ingredients in use (0.8, cabledrawer 7 Nov): it takes out only the ingredients not used anywhere
+(a recipe, the plan, the shopping list, the pantry, a staple); the ones in use stay, and the
+message says how many."""
 
 from datetime import date
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sync_kit import ok
+from sqlalchemy import select
+from sync_kit import counter, db, main_id, new_id, ok, one
 
-from mealwright.models import Meal, MealItem
+from mealwright.models import Change, Meal, MealItem
 
 API = "/api/v1"
 SOME = "Took out what could be: 3 ingredients are already in use, so they stay."
@@ -124,3 +126,53 @@ def test_a_pack_nobody_uses_is_all_taken_out(kitchen: TestClient) -> None:
     undo = ok(kitchen.post(f"{API}/changes/{change_id}/undo"))
     assert undo["result"] == "done"
     assert names(kitchen) == set()
+
+
+# U1-b (cabledrawer 7 Nov): one rule for every Undo that would take out an ingredient, the one made
+# with a new shopping-list item too.
+def _list_made(kitchen: TestClient, name: str) -> tuple[str, int, int]:
+    """A list item typed as a new ingredient: (the add action's id, the food, its change)."""
+    add_id = new_id()
+    result = one(
+        kitchen,
+        "add",
+        id=add_id,
+        list_id=main_id(kitchen),
+        item_id=new_id(),
+        new_food={"name": name, "counted_as": "weight"},
+    )
+    assert result["status"] == "applied"
+    with db(kitchen) as session:
+        made = session.scalars(
+            select(Change).where(Change.kind == "food_created", Change.food_id == result["food_id"])
+        ).one()
+        return add_id, result["food_id"], made.id
+
+
+def _undo_the_item(kitchen: TestClient, add_id: str) -> None:
+    assert one(kitchen, "undo", counter(kitchen), undoes=add_id)["status"] == "applied"
+
+
+def test_a_list_made_ingredient_still_on_the_list_stays(kitchen: TestClient) -> None:
+    _add, _food, made = _list_made(kitchen, "Tahini")
+    undone = ok(kitchen.post(f"{API}/changes/{made}/undo"))
+    assert undone["result"] == "nothing" and undone["message"] == NONE
+    assert "Tahini" in names(kitchen)
+
+
+def test_undoing_the_list_item_keeps_its_ingredient_used_elsewhere(kitchen: TestClient) -> None:
+    add_id, food_id, made = _list_made(kitchen, "Tahini")
+    use_recipe(kitchen, {"id": food_id, "name": "Tahini"})
+    _undo_the_item(kitchen, add_id)  # the list item goes
+    undone = ok(kitchen.post(f"{API}/changes/{made}/undo"))
+    assert undone["result"] == "nothing" and undone["message"] == NONE
+    assert "Tahini" in names(kitchen)  # it is in a recipe, so it stays
+
+
+def test_undoing_the_list_item_then_its_ingredient_used_nowhere_takes_it_out(
+    kitchen: TestClient,
+) -> None:
+    add_id, _food, made = _list_made(kitchen, "Tahini")
+    _undo_the_item(kitchen, add_id)
+    undone = ok(kitchen.post(f"{API}/changes/{made}/undo"))
+    assert undone["result"] == "done" and "Tahini" not in names(kitchen)

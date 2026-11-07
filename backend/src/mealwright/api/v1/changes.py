@@ -519,11 +519,11 @@ def in_use(kitchen: Kitchen, food_id: int) -> bool:
 def _keep_in_use(
     kitchen: Kitchen, change: Change, foods: dict[str, Any], tally: Tally
 ) -> frozenset[int]:
-    """The Undo of an Add ingredient or a starter pack takes out only the ingredients not used
-    anywhere; the rest stay, and the message says how many (cabledrawer 7 Nov)."""
-    # Only an Add ingredient or a starter pack (they say so); an ingredient made on the way to
-    # adding a shopping-list item (`shopping.py`) is taken out with its item, as before.
-    if change.kind != "food_created" or not (change.undo_data or {}).get("keep_in_use"):
+    """The Undo of a change that made ingredients (Add ingredient, a starter pack, or the
+    ingredient made with a new shopping-list item) takes out only the ones not used anywhere;
+    the rest stay, and the message says how many (cabledrawer 7 Nov: one rule for every Undo that
+    would take out an ingredient)."""
+    if change.kind != "food_created":
         return frozenset()
     kept = frozenset(
         int(key.split(":")[0])

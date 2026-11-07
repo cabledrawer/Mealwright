@@ -533,9 +533,11 @@ def test_a_phone_ahead_of_the_server_gets_a_full_copy(kitchen: TestClient) -> No
 
 def test_new_food_carries_its_packet_sizes(kitchen: TestClient) -> None:
     main = main_id(kitchen)
+    add_id = new_id()
     result = one(
         kitchen,
         "add",
+        id=add_id,
         list_id=main,
         item_id=new_id(),
         new_food={
@@ -564,7 +566,9 @@ def test_new_food_carries_its_packet_sizes(kitchen: TestClient) -> None:
         ).one()
         assert len(((created.undo_data or {}).get("foods") or {}).get("sizes", {})) == 2
         created_id = created.id
-    # Undo of that change takes the ingredient and its sizes away again.
+    # Once its list item is undone (on the list it is in use and would stay, cabledrawer 7 Nov),
+    # the Undo of that change takes the ingredient and its sizes away again.
+    assert one(kitchen, "undo", counter(kitchen), undoes=add_id)["status"] == "applied"
     undone = ok(kitchen.post(f"{API}/changes/{created_id}/undo"))
     assert undone["result"] == "done"
     with db(kitchen) as session:

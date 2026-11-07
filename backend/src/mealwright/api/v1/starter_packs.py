@@ -148,7 +148,6 @@ def _made(
     count = len(todo)
     things = "ingredient" if count == 1 else "ingredients"
     name = starter_packs.pack_name(pack_id)
-    edit.extra["keep_in_use"] = True  # its Undo keeps what has been used (cabledrawer 7 Nov)
     edit.extra["starter_pack"] = {"pack": pack_id, "added": count, "skipped": skipped}
     return edit.record("food_created", f"Added the {name} starter pack: {count} {things}", None)
 
