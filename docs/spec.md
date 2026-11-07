@@ -730,6 +730,11 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Ingredient names in Shopping's words (cabledrawer 7 Nov):** used as typed, so "Add 1 eggs" can happen; a singular/plural rule is 0.9.5 polish.
 - **Cook mode's step text can't be selected (cabledrawer 7 Nov: OK),** so swiping works; copy a step from the recipe page.
 
+**From the v0.8.0-alpha.1 hand test (cabledrawer 7 Nov), wave 3:**
+
+- **F165, Undo on the Plan (cabledrawer 7 Nov):** Undo of an older plan change never overwrites a later one: what has changed again since stays, and the message says so ("Put back what could be for … : some of it has changed again since.").
+- **The version on screen (cabledrawer 7 Nov):** the sidebar and About show the version exactly as the tag ("v0.8.0-alpha.1"), not Python's "0.8.0a1".
+
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
 - **What it's for:** pick recipes for the week that can be cooked together in one session, with shared prep and shared cooking "so there is minimal waiting around". Shopping isn't a goal: the list from the plan already adds shared ingredients together. Two parts: **suggestions** (recipes picked for a batch session) and **batch cook mode** (one session across those recipes).
