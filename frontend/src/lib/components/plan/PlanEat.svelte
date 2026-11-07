@@ -27,7 +27,12 @@
 <div class="eat">
   {#each shown as eat (eat.day)}
     {@const today = eat.day === model.today}
-    <section class="day" class:today aria-label={dayFull(eat.day) + (today ? ', today' : '')}>
+    <section
+      class="day"
+      class:today
+      data-plan-day={eat.day}
+      aria-label={dayFull(eat.day) + (today ? ', today' : '')}
+    >
       <div class="head">
         <h3>{today ? `Today · ${dayWords(eat.day)}` : dayWords(eat.day)}</h3>
         {#if eat.cooks}

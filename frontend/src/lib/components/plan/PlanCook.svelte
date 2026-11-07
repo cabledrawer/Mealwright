@@ -84,7 +84,13 @@
   <div class="days">
     {#each shown as cook (cook.day)}
       {@const today = cook.day === model.today}
-      <section class="day" class:today id="cook-{cook.day}" aria-label={dayFull(cook.day)}>
+      <section
+        class="day"
+        class:today
+        id="cook-{cook.day}"
+        data-plan-day={cook.day}
+        aria-label={dayFull(cook.day)}
+      >
         <div class="head">
           <h3>{today ? `Today · ${dayWords(cook.day)}` : dayWords(cook.day)}</h3>
           <span class="total">{cookDayTotal(cook, timeWords)}</span>

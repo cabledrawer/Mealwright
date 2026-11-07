@@ -328,4 +328,44 @@ test.describe('F150: This week', () => {
     await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeEnabled(); // not today's week
     await expect(page.locator('.range')).toContainText(String(Number(day.slice(8))));
   });
+
+  /** Meals at breakfast, lunch and dinner on today+2 … today+6, so the week's list is long. */
+  async function longWeek(page: Page, today: string) {
+    const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+    const slot = Object.fromEntries(slots.map((x) => [x.name, x.id])) as Record<string, number>;
+    const recipe = (await call(page, 'POST', '/recipes', { name: `Pongal ${stamp()}`, serves: 2, lines: [] })).id as number;
+    const meals: number[] = [];
+    for (let n = 2; n <= 6; n++)
+      for (const name of ['Breakfast', 'Lunch', 'Dinner']) {
+        const made = await call(page, 'POST', '/plan/items', { date: addDays(today, n), slot_id: slot[name], recipe_id: recipe });
+        if (!meals.includes(made.meal_id)) meals.push(made.meal_id);
+      }
+    return meals;
+  }
+
+  test('F169: + Plan opens the Plan scrolled to that day in the list, and picks it in the phone’s Month', async ({ page }) => {
+    const { today } = await openWithPlan(page);
+    const meals = await longWeek(page, today);
+    const day = addDays(today, 6); // the Friday, the last of the five days
+    try {
+      // The list (Eat) first: on a phone it is the Plan's own choice, on a computer it is kept here.
+      await page.evaluate(() => localStorage.setItem('mealwright.plan-show', 'eat'));
+      await page.setViewportSize({ width: page.viewportSize()!.width, height: 480 }); // so the week needs scrolling
+      await page.goto('/');
+      await row(page, day).getByRole('link', { name: '+ Plan' }).click();
+      await expect(page).toHaveURL(new RegExp(`/plan\\?day=${day}$`));
+      const section = (d: string) => page.locator(`[data-plan-day="${d}"]`);
+      await expect(section(day)).toBeInViewport();
+      await expect(section(addDays(today, 2))).not.toBeInViewport(); // the Monday was scrolled past
+      // The phone's Month picks that day rather than the 1st or today.
+      if (test.info().project.name.includes('phone')) {
+        await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Month' }).click();
+        const cell = page.getByRole('group', { name: 'Days' }).getByRole('button', { name: new RegExp(`^\\w+ ${Number(day.slice(8))}\\b`) });
+        await expect(cell).toHaveAttribute('aria-pressed', 'true');
+      }
+    } finally {
+      await page.evaluate(() => localStorage.removeItem('mealwright.plan-show'));
+      for (const id of meals) await page.request.fetch(`/api/v1/plan/meals/${id}`, { method: 'DELETE', headers: key() });
+    }
+  });
 });

@@ -43,10 +43,13 @@
   const recipes = new RecipeList();
 
   // F150: Today's "+ Plan" opens the Plan on the week of that day ("/plan?day=2026-11-09").
+  // F169: and scrolled to that day in a list, or with that day picked in the phone's Month.
+  let wantedDay = $state<string | null>(null);
   if (browser) {
     const wanted = new URLSearchParams(location.search).get('day');
     if (wanted && /^\d{4}-\d{2}-\d{2}$/.test(wanted) && !Number.isNaN(Date.parse(wanted))) {
       model.anchor = wanted;
+      wantedDay = wanted;
     }
   }
 
@@ -179,6 +182,36 @@
       }
     });
   });
+
+  // F169: once the wanted day's week is on the page, bring that day into view (or pick it).
+  $effect(() => {
+    const day = wantedDay;
+    if (day === null || !model.loaded || !model.days.includes(day)) return;
+    untrack(() => {
+      wantedDay = null;
+      picked = day;
+      void showDay(day);
+    });
+  });
+
+  /** Scroll a list (Eat, Cook, the phone's week) to a day: the day itself, else the next one listed. */
+  async function showDay(day: string) {
+    if (model.view !== 'week') return;
+    if (past.includes(day)) earlier = true;
+    // Eat and Cook are fetched when first shown, so their days may need a moment to appear.
+    for (let tries = 0; tries < 30 && !left; tries++) {
+      await tick();
+      const sections = [...document.querySelectorAll<HTMLElement>('[data-plan-day]')];
+      const found =
+        sections.find((el) => el.dataset.planDay === day) ??
+        sections.find((el) => (el.dataset.planDay ?? '') > day);
+      if (found) {
+        found.scrollIntoView({ block: 'start' });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
 
   const readonly = $derived(network.offline);
 

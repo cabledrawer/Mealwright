@@ -35,7 +35,12 @@
 
 <div class="days">
   {#each days as day (day)}
-    <section class="day" class:today={day === model.today} aria-label={dayFull(day)}>
+    <section
+      class="day"
+      class:today={day === model.today}
+      data-plan-day={day}
+      aria-label={dayFull(day)}
+    >
       <h3>
         <span class="dow">{dayShort(day).toUpperCase()}</span>
         <span class="num">{dayOfMonth(day)}</span>
