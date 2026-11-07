@@ -824,7 +824,7 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **A pack where every row is Already have:** "You already have every ingredient in this pack." (cabledrawer 7 Nov)
 - **While loading and if it fails:** **Loading…**; "Couldn’t load the starter packs." (or the server's own words), with **Close** and **Try again** (cabledrawer 7 Nov)
 
-## 43. Pantry and Use soon (0.8 S5, F64, F66, F78, F79, F131; proposed, for cabledrawer unless the mockups or spec have the words)
+## 45. Pantry and Use soon (0.8 S5, F64, F66, F78, F79, F131; proposed, for cabledrawer unless the mockups or spec have the words)
 
 - **Use soon (both screens):** **Use soon · 6**, **Recipes that use them** (phone: **Recipes that use them →**), **Show all 6** / **Show fewer**; the phone shows 3 rows, the computer 4 cards. Rows say the place and amount: **Fridge · 2 packets**. The phone's hint: "Swipe a row: right for Used, left for Binned." (the mockup's words).
 - **Dates on a row** (mockups): **Use by Sun** (phone), **use by 12 Nov** (a place card), **best before 1 Nov**; a passed Use by is red, **Use by passed: don't eat**; a passed Best before is grey, **Best before passed · probably fine** (spec line, cabledrawer 7 Nov). Under either, how long ago: **Passed 3 days ago** (the mockup), and, proposed, **Passed yesterday** for one day.
