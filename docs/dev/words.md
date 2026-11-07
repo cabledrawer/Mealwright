@@ -821,6 +821,6 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Buttons:** **Back**, **Cancel**, and **Add 41 ingredients** (**Add 1 ingredient**); off when none is ticked.
 - **Toast and Recent changes** (the server's words): **Added the Indian starter pack: 41 ingredients**, with Undo (one Undo for all of them).
 - **Nothing new:** "There’s nothing new to add: you already have these ingredients."
-- **A pack where every row is Already have:** "You already have every ingredient in this pack." (proposed, for cabledrawer)
-- **While loading and if it fails:** **Loading…**; "Couldn’t load the starter packs." (or the server's own words), with **Close** and **Try again** (proposed, for cabledrawer)
+- **A pack where every row is Already have:** "You already have every ingredient in this pack." (cabledrawer 7 Nov)
+- **While loading and if it fails:** **Loading…**; "Couldn’t load the starter packs." (or the server's own words), with **Close** and **Try again** (cabledrawer 7 Nov)
 
