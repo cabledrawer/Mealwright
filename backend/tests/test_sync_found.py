@@ -1,0 +1,171 @@
+"""Already have it (`found_at_home`, docs/dev/sync-protocol.md 4.2 and 7.6): the amount at home
+goes into the pantry as found, not bought; repeats, Undo, untick and two phones."""
+
+import pytest
+from fastapi.testclient import TestClient
+from sync_kit import PHONE_A, PHONE_B, PHONE_R, S0, action, changes, one, s0, send, tick
+
+
+def _found(
+    client: TestClient, s: S0, name: str, amount: int, place: str | None = None, **extra: object
+) -> object:
+    fields: dict[str, object] = {"item_id": s.items[name], "amount": amount, **extra}
+    if place is not None:
+        fields["place_id"] = s.places[place]
+    device = extra.pop("device", PHONE_A) if "device" in extra else PHONE_A
+    fields.pop("device", None)
+    return one(client, "found_at_home", s.c0, str(device), **fields)
+
+
+def test_found_goes_into_the_pantry_as_found_not_bought(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Toor dal", 500, "Cupboard", size_id=s.sizes["Toor dal"])
+    assert done["status"] == "applied"  # type: ignore[index]
+    assert s.lots("Toor dal") == [("Cupboard", 500)]
+    assert s.changes_of("Toor dal", "shopped") == []
+    (change,) = s.changes_of("Toor dal", "found")
+    assert change.summary == "Found Toor dal at home: 1\u00a0packet → Cupboard"
+    row = s.item(kitchen, "Toor dal")
+    (t,) = row["ticks"]
+    assert t["found"] is True and t["standing"] and t["bought"]["amount"] == 500
+    assert t["place_id"] == s.places["Cupboard"]
+
+
+def test_found_takes_only_what_is_at_home_not_the_list_amount(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _found(kitchen, s, "Paneer", 100, "Fridge")
+    assert s.lots("Paneer") == [("Fridge", 100)]
+    (change,) = s.changes_of("Paneer", "found")
+    assert change.summary == "Found Paneer at home: about ½\u00a0pack → Fridge"
+
+
+def test_found_without_a_place_uses_the_usual_one(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _found(kitchen, s, "Milk", 1000)
+    assert s.lots("Milk") == [("Fridge", 1000)]
+
+
+def test_a_tick_is_not_found(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    tick(kitchen, s, "Toor dal")
+    assert s.item(kitchen, "Toor dal")["ticks"][0]["found"] is False
+
+
+def test_found_sent_twice_is_applied_once(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    body = action(
+        "found_at_home", s.c0, item_id=s.items["Milk"], amount=1000, place_id=s.places["Fridge"]
+    )
+    first = send(kitchen, body)["results"][0]
+    again = send(kitchen, body)["results"][0]
+    assert first["status"] == "applied" and again["repeat"] is True
+    assert again["status"] == "applied"
+    assert s.total("Milk") == 1000
+    assert len(s.changes_of("Milk", "found")) == 1
+
+
+def test_found_after_the_same_phone_ticked_is_ignored(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    tick(kitchen, s, "Milk")
+    second = _found(kitchen, s, "Milk", 1000)
+    assert (second["status"], second["reason"]) == ("ignored", "already_ticked")  # type: ignore[index]
+    assert s.total("Milk") == 2000
+
+
+def test_found_on_a_line_someone_removed_still_counts_like_a_tick(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    one(kitchen, "delete", s.c0, item_id=s.items["Milk"])
+    done = _found(kitchen, s, "Milk", 1000)
+    assert done["status"] == "applied"  # type: ignore[index]
+    assert s.total("Milk") == 1000
+
+
+def test_found_on_a_line_that_never_existed_is_ignored(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = one(kitchen, "found_at_home", s.c0, item_id="nope", amount=5)
+    assert (done["status"], done["reason"]) == ("ignored", "gone")
+    assert s.total("Milk") == 0
+
+
+def test_found_for_a_staple_puts_nothing_in(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Salt", 500)
+    assert done["status"] == "applied"  # type: ignore[index]
+    assert s.total("Salt") == 0
+    assert s.changes_of("Salt", "found") == []
+
+
+@pytest.mark.parametrize("amount", [0, -5])
+def test_found_needs_an_amount_above_nothing(kitchen: TestClient, amount: int) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Milk", amount)
+    assert (done["status"], done["reason"]) == ("refused", "bad_action")  # type: ignore[index]
+
+
+def test_undo_of_found_takes_it_out_and_unticks(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Toor dal", 500, "Cupboard")
+    undone = one(kitchen, "undo", s.c0, PHONE_A, undoes=done["id"])  # type: ignore[index]
+    assert undone["status"] == "applied"
+    assert s.total("Toor dal") == 0
+    assert s.item(kitchen, "Toor dal")["ticks"][0]["standing"] is False
+
+
+def test_untick_of_found_then_undo_puts_it_back_as_found(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Toor dal", 500, "Cupboard")
+    gone = one(
+        kitchen,
+        "untick",
+        s.c0,
+        item_id=s.items["Toor dal"],
+        tick_ids=[done["id"]],  # type: ignore[index]
+    )
+    assert s.total("Toor dal") == 0
+    one(kitchen, "undo", s.c0, PHONE_A, undoes=gone["id"])
+    assert s.total("Toor dal") == 500
+    assert s.changes_of("Toor dal", "shopped") == []
+    assert len(s.changes_of("Toor dal", "found")) == 2
+
+
+def test_different_pack_does_not_apply_to_found(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    done = _found(kitchen, s, "Paneer", 100)
+    r = one(
+        kitchen,
+        "different_pack",
+        s.c0,
+        item_id=s.items["Paneer"],
+        tick_id=done["id"],  # type: ignore[index]
+        count=1,
+        pack=400,
+    )
+    assert (r["status"], r["reason"]) == ("ignored", "no_change")
+    assert s.total("Paneer") == 100
+
+
+def test_found_on_two_phones_is_two_finds_and_no_card(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _found(kitchen, s, "Milk", 1000, device=PHONE_A)
+    _found(s.wren, s, "Milk", 500, device=PHONE_R)
+    assert s.total("Milk") == 1500
+    assert [q for q in changes(kitchen)["questions"] if q["open"]] == []
+    assert len(s.item(kitchen, "Milk")["ticks"]) == 2
+
+
+def test_found_then_a_bought_tick_on_another_phone_asks_nothing(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _found(kitchen, s, "Milk", 1000, device=PHONE_A)
+    tick(kitchen, s, "Milk", PHONE_B)
+    assert [q for q in changes(kitchen)["questions"] if q["open"]] == []
+    assert s.total("Milk") == 3000
+
+
+def test_found_from_the_pantry_recent_changes_can_be_undone(kitchen: TestClient) -> None:
+    s = s0(kitchen)
+    _found(kitchen, s, "Toor dal", 500, "Cupboard")
+    (change,) = s.changes_of("Toor dal", "found")
+    r = kitchen.post(f"/api/v1/changes/{change.id}/undo", headers={"Idempotency-Key": "k-found-1"})
+    assert r.status_code == 200, r.text
+    assert s.total("Toor dal") == 0
+    assert s.item(kitchen, "Toor dal")["ticks"][0]["standing"] is False

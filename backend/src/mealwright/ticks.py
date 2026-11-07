@@ -46,8 +46,15 @@ from mealwright.stock import (
     what_text,
 )
 
-TICK_KINDS = ("tick", "untick", "put_away", "different_pack", "answer_double_tick")
-AMOUNT_KINDS = ("shopped", "repacked")  # a purchase's changes that change amounts (7.5)
+TICK_KINDS = (
+    "tick",
+    "found_at_home",
+    "untick",
+    "put_away",
+    "different_pack",
+    "answer_double_tick",
+)
+AMOUNT_KINDS = ("shopped", "found", "repacked")  # a purchase's changes that change amounts (7.5)
 
 
 # --- Reading -------------------------------------------------------------------------------------
@@ -57,6 +64,13 @@ def get_tick(kitchen: Kitchen, tick_id: str | None) -> ListTick | None:
     if not tick_id:
         return None
     return kitchen.db.get(ListTick, (kitchen.household_id, tick_id))
+
+
+def is_found(kitchen: Kitchen, tick: ListTick) -> bool:
+    """Was this purchase "Already have it" (found at home, not bought)? The purchase's ID is
+    its action's ID, and that action's kind says so (no column needed)."""
+    row = shopping.action_row(kitchen, tick.id)
+    return row is not None and row.kind == "found_at_home"
 
 
 def server_order(query: Select[ListTick]) -> Select[ListTick]:
@@ -288,10 +302,68 @@ def tick(act: Act) -> None:
         )
 
 
+def found_at_home(act: Act) -> None:
+    """ "Already have it": the line comes off the list (it goes into the trolley as ticked) and
+    the amount found goes into the pantry, recorded as found at home, not bought. Everything
+    else is a tick: the same purchase row, so Undo, untick and clearing work the same."""
+    kitchen = act.kitchen
+    found = _start(act)
+    if found is None:
+        return
+    item, food = found
+    standing = ticks_of(kitchen, item.id)
+    if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
+        act.ignore("already_ticked")
+        return
+    from mealwright import sync
+
+    when = sync.happened_at(act)
+    milli = None if food.staple else shopping.milli_of(act.payload["amount"])
+    size = shopping.get_size(kitchen, food, act.payload.get("size_id"))
+    place = get_place(kitchen, act.payload.get("place_id")) or get_place(
+        kitchen, item.put_away_place_id
+    )
+    if place is None:
+        place = default_place(kitchen, food)
+    row = ListTick(
+        household_id=kitchen.household_id,
+        id=act.id,
+        item_id=item.id,
+        login_id=kitchen.login.id,
+        login_name=kitchen.login.name,
+        device_id=act.device_id,
+        ticked_at=when,
+        place_id=place.id,
+        bought_milli=milli or None,
+        bought_size_id=size.id if size and milli else None,
+        restock=False,
+    )
+    kitchen.db.add(row)
+    kitchen.db.flush()
+    if row.bought_milli:
+        edit = StockEdit(kitchen)
+        amounts = lot_amounts(row.bought_milli, size)
+        one_big = size is not None and len(amounts) == 1 and amounts[0] > size.amount_milli
+        put_in(kitchen, edit, food, place, amounts, None if one_big else size, added_at=when)
+        shown = size or usual_size(kitchen, food.id)
+        amount = short_text(food, row.bought_milli, shown)
+        summary = f"Found {food.name} at home: {amount} → {place.name}"
+        change = edit.record("found", summary, food.id, {"action": act.id})
+        change.tick_id = row.id
+        row.change_id = change.id
+        act.change = change
+    sync_copy(kitchen, item, act.seq)
+    _removed_list(act, item, ticked=bool(row.bought_milli))
+
+
 def _ask(act: Act, item: ListItem, new: ListTick) -> None:
     """Open "Did you buy 2?", or add this purchase to the open one (3.6)."""
     kitchen = act.kitchen
-    others = [t for t in ticks_of(kitchen, item.id) if t.bought_milli and t.id != new.id]
+    others = [
+        t
+        for t in ticks_of(kitchen, item.id)
+        if t.bought_milli and t.id != new.id and not is_found(kitchen, t)
+    ]
     if not others:
         return
     question = open_question(kitchen, item.id)
@@ -493,7 +565,8 @@ def _put_back_one(act: Act, tick: ListTick, undos: list[Change]) -> None:
     if shown is not None and total % shown.amount_milli:
         shown = None  # part of a packet: "300 g Toor dal", as the untick said (SY-26u)
     summary = f"Ticked again: {what_text(food, total, shown)} → {place.name}"
-    change = edit.record("shopped", summary, food.id, {"action": act.id})
+    kind = "found" if is_found(kitchen, tick) else "shopped"
+    change = edit.record(kind, summary, food.id, {"action": act.id})
     change.tick_id = tick.id
     tick.change_id = change.id
     act.change = act.change or change
@@ -680,7 +753,7 @@ def different_pack(act: Act) -> None:
     if tick.reversed_at is not None:
         act.ignore("not_ticked")
         return
-    if food.staple:
+    if food.staple or is_found(kitchen, tick):  # found at home was never "bought"
         act.ignore("no_change")
         return
     pack = shopping.milli_of(act.payload["pack"]) or 0
@@ -741,7 +814,7 @@ def different_pack(act: Act) -> None:
 
 def _just_one(what: str) -> Callable[[Change], str]:
     def summary(change: Change) -> str:
-        if change.kind == "shopped":
+        if change.kind in ("shopped", "found"):
             return f"Just 1: took back {what}"
         return f"Just 1: {change.summary}"
 
@@ -792,6 +865,7 @@ def answer_double_tick(act: Act) -> None:
 
 HANDLERS: dict[str, Callable[[Act], None]] = {
     "tick": tick,
+    "found_at_home": found_at_home,
     "untick": untick,
     "put_away": put_away,
     "different_pack": different_pack,
@@ -807,7 +881,7 @@ def undo(act: Act, target: SyncAction) -> None:
     kitchen = act.kitchen
     kind = target.kind
     payload = target.payload or {}
-    if kind == "tick":
+    if kind in ("tick", "found_at_home"):
         tick = get_tick(kitchen, target.id)
         if tick is None:
             act.ignore("nothing_to_undo")
@@ -959,7 +1033,7 @@ def pantry_undo(kitchen: Kitchen, change: Change, batch: Batch) -> Change:
     tick = get_tick(kitchen, change.tick_id)
     if (
         tick is not None
-        and change.kind == "shopped"
+        and change.kind in ("shopped", "found")
         and tick.change_id == change.id
         and tick.reversed_at is None
     ):

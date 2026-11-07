@@ -216,6 +216,7 @@ All are **queueable offline**. Payload fields are required unless marked optiona
 | `delete` | `item_id` | Tombstones the item. |
 | `move` | `item_id`, `list_id`, `shop_id` (a shop, or `null` for Any shop) | **Proposed, for cabledrawer** (spec "Moving a shopping item", cabledrawer 22 Oct, question 3; the details are the builder's, marked in 6.1). Moves an **unticked** line to that shop on that list. If the ingredient is already there on an unticked line, the amounts add up and this line is taken off (`merged`). Works offline. |
 | `tick` | `item_id` | A purchase: stock into the pantry (section 7). |
+| `found_at_home` | `item_id`, `amount` (base units), `size_id` (optional), `place_id` (optional) | "Already have it" (0.8, F117, cabledrawer 6-7 Nov): a purchase like `tick`, but of the amount found at home, recorded as found, not bought (7.6). Works offline. |
 | `untick` | `item_id`, `tick_ids` | Reverses the listed purchases that are still standing (rule L-2). |
 | `put_away` | `item_id`, `place_id`, `tick_ids`, `use_by` (optional) | Records the place on the item and moves the listed purchases' stock there (7.3). On an unticked item it just records the place for the next tick. |
 | `different_pack` | `item_id`, `tick_id`, `count` (whole number 1 to 99), `pack` (base amount of one pack), `size_id` (optional) | "What did you buy?": changes that purchase to `count` × `pack` (7.4). |
@@ -309,7 +310,7 @@ GET /api/v1/shopping/changes?since=1040
                 "amount": 1, "size_id": null, "display": "1 bunch", "source": "typed", "hand_edited": false,
                 "put_away_place_id": null,
                 "ticks": [ { "id": "5d0e…", "by": { "login_id": 2, "name": "Wren" }, "at": "…",
-                             "place_id": 1, "bought": { "amount": 1, "display": "1 bunch" }, "standing": true } ],
+                             "place_id": 1, "bought": { "amount": 1, "display": "1 bunch" }, "standing": true, "found": false } ],
                 "added_by": { "login_id": 1, "name": "Tess" },
                 "deleted": false, "merged_into_id": null, "version": 1041 },
               { "id": "9e02…", "list_id": "…", "deleted": true, "version": 1046 } ],
@@ -490,6 +491,15 @@ The person says purchase `tick_id` was really `count` × `pack`:
 - The purchase gets `reversed_at`. The item's `ticked_*` copy follows the first purchase still standing, or clears. A reversed purchase closes an open question as `none` unless that's how "Just 1" settled it.
 - **Putting a purchase back** (Undo of an untick or of "Just 1") puts back **exactly what the reversal took out, lot by lot**, no more: one new `shopped` change ("Ticked again: 300 g Toor dal → Cupboard", with `tick_id`) whose lines are the reversal's lines the other way round, into the same lots (or, if a lot has since been deleted, a new lot of that amount in the purchase's place). If the reversal took back 300 g because 200 g had been used, putting it back gives 300 g, not 500 g (SY-26u, SY-24u). It clears `reversed_at`, points `list_tick.change_id` at the new change, and puts back the purchase's `bought` as it was when it was reversed. (0.2 has no redo, so we don't undo the undo.) Undo of "Just 1" also reopens the card.
 - **Undo from Pantry → Recent changes** of a purchase's changes: 5.8.
+
+### 7.6 `found_at_home` ("Already have it", 0.8)
+
+- **What it is:** a `tick` whose amount is chosen by the person (what is at home, from the "How much is at home?" sheet) and whose place is in the action. It makes the same purchase (`list_tick`, id = the action's ID), so the line goes into the trolley, **Clear ticked**, untick and Undo work as for a tick. No database change: a purchase is "found" when its action's kind is `found_at_home`, and the tick row sent to phones carries `found: true`.
+- **The change** is its own kind, `found`, worded "Found Ghee at home: 1 jar → Cupboard" (a Recent changes row, undoable like a purchase). Its Undo is a purchase's Undo (reverse the purchase, unticks the line); an untick then Undo puts it back as `found` ("Ticked again: …"). The amount counts as a purchase's amount for taking back (`AMOUNT_KINDS`).
+- **Rules:** the same device sending it for a line it already ticked → `ignored already_ticked` (so a repeat of another ID is harmless); the same action ID twice → the stored answer, applied once (5.3); an unknown line → `ignored gone`; a line another phone removed still takes the stock in, as a tick does (L-9). A staple puts nothing in (it is only ticked). `amount` must be above 0 (`bad_action`).
+- **No "Did you buy 2?"** from a found purchase: it never opens the card, and is left out when a later bought tick counts purchases. "Different pack?" does not apply to it (`ignored no_change`).
+- **Add as bought** needs no new action: it is an `add` followed by a `tick` of the new item, both in the queue, with one Undo for the pair (two `undo` actions, tick first).
+- Tests: `backend/tests/test_sync_found.py` (applied once, repeat, same device twice, two phones with no card, Undo, untick then Undo, Pantry Undo); the browser tests offline, sent twice and two phones are in `e2e/tests/shopping-phone.spec.ts`.
 
 ## 8. Notes and the card
 

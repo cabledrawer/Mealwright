@@ -58,6 +58,7 @@ STOCK_KINDS = (
     "to_freezer",
     "use_by",
     "shopped",
+    "found",
     "repacked",
     "cooked",
 )

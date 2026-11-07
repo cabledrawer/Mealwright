@@ -100,6 +100,7 @@ class TickRow(BaseModel):
     place_id: int | None
     bought: Bought | None  # null: a staple or an item with no amount (no stock)
     standing: bool  # false once reversed (untick, "Just 1", Undo)
+    found: bool  # "Already have it": found at home, not bought
 
 
 class ItemRow(BaseModel):
@@ -288,6 +289,7 @@ def _ticks(kitchen: Kitchen, item: ListItem, food: Food | None) -> list[TickRow]
                 place_id=tick.place_id,
                 bought=bought,
                 standing=tick.reversed_at is None,
+                found=ticks.is_found(kitchen, tick),
             )
         )
     return out

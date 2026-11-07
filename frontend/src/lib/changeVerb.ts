@@ -22,6 +22,7 @@ const VERB_KINDS = new Set([
   'to_freezer',
   'use_by',
   'shopped',
+  'found',
   'repacked',
   'cooked',
   'recipe_removed',

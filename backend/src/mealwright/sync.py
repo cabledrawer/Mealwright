@@ -167,6 +167,17 @@ class Tick(ActionBase):
     item_id: RowId
 
 
+class FoundAtHome(ActionBase):
+    """ "Already have it": `amount` (base units, with an optional `size_id`) is what is at home,
+    `place_id` where it goes (omitted: the line's place, else the ingredient's usual one)."""
+
+    kind: Literal["found_at_home"]
+    item_id: RowId
+    amount: Amount
+    size_id: RowNumber | None = None
+    place_id: RowNumber | None = None
+
+
 class Untick(ActionBase):
     kind: Literal["untick"]
     item_id: RowId
@@ -221,6 +232,7 @@ Action = Annotated[
     | Delete
     | MoveLine
     | Tick
+    | FoundAtHome
     | Untick
     | PutAway
     | DifferentPack
