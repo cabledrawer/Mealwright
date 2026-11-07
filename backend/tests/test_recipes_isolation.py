@@ -509,6 +509,8 @@ def test_search_tags_filters_and_stock_hints_never_see_the_other_household(
     kitchen: TestClient, neighbour: TestClient, mine: dict[str, Any]
 ) -> None:
     # Household 1: Toor dal with another name, stock that goes off today, a tagged recipe.
+    # Use soon nudges only for Use by dates (0.8); Toor dal is Best before unless chosen.
+    ok(kitchen.patch(f"{API}/foods/{mine['food_id']}", json={"date_kind": "use_by"}))
     ok(kitchen.post(f"{API}/foods/{mine['food_id']}/other-names", json={"name": "thuvaram"}), 201)
     ok(
         kitchen.post(
@@ -582,6 +584,9 @@ def test_the_other_households_stock_and_use_by_dates_change_no_hint(
     toor2 = ok(
         neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
     )["food"]
+    ok(neighbour.patch(f"{API}/foods/{toor2['id']}", json={"date_kind": "use_by"}))
+    # Use soon nudges only for Use by dates (0.8); Toor dal is Best before unless chosen.
+    ok(kitchen.patch(f"{API}/foods/{mine['food_id']}", json={"date_kind": "use_by"}))
     make(
         kitchen,
         "Plain dal",
@@ -646,6 +651,9 @@ def test_the_use_soon_filter_never_sees_the_other_household(
     toor2 = ok(
         neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
     )["food"]
+    ok(neighbour.patch(f"{API}/foods/{toor2['id']}", json={"date_kind": "use_by"}))
+    # Use soon nudges only for Use by dates (0.8); Toor dal is Best before unless chosen.
+    ok(kitchen.patch(f"{API}/foods/{mine['food_id']}", json={"date_kind": "use_by"}))
     make(
         kitchen,
         "Plain dal",
@@ -707,6 +715,9 @@ def test_the_recipe_page_stock_never_sees_the_other_household(
     toor2 = ok(
         neighbour.post(f"{API}/foods", json={"name": "Toor dal", "counted_as": "weight"}), 201
     )["food"]
+    ok(neighbour.patch(f"{API}/foods/{toor2['id']}", json={"date_kind": "use_by"}))
+    # Use soon nudges only for Use by dates (0.8); Toor dal is Best before unless chosen.
+    ok(kitchen.patch(f"{API}/foods/{mine['food_id']}", json={"date_kind": "use_by"}))
     ok(
         neighbour.post(
             f"{API}/stock", json={"food_id": toor2["id"], "amount": {"amount": 5000, "unit": "g"}}
