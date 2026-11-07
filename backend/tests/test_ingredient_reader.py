@@ -924,3 +924,16 @@ def test_a_note_that_already_has_brackets_gets_no_more(text: str) -> None:
     assert (line.amount, line.unit, line.name) == (D(2), "tbsp", "raw papaya paste")
     assert line.note == "optional"
     assert line.other_names == ()
+
+
+def test_deeply_nested_brackets_read_fast() -> None:
+    """A line of hundreds of nested brackets (from an imported page) reads in one pass: only one
+    extra pair is taken off, so the time doesn't grow with the square of the line's length."""
+    import time
+
+    depth = (MAX_LINE_CHARS - 10) // 2
+    text = "1 tsp x " + "(" * depth + "y" + ")" * depth
+    started = time.perf_counter()
+    for _ in range(20):
+        read_line(text)
+    assert time.perf_counter() - started < 0.5

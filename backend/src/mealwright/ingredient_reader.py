@@ -670,12 +670,13 @@ _BARE_NUMBER = re.compile(rf"[\d{_G}][\d{_G}.,/\s\-\u2013]*")
 
 def _unwrapped(part: str) -> str:
     """ "(optional)" inside a bracket is "optional": a part that is nothing but one more bracket
-    loses that pair (a variety written "((kashmiri) (less spicy))" has two, and is kept)."""
-    while part[:1] in ("(", "[") and part[-1:] in (")", "]") and len(_brackets(part)[1]) == 1:
+    loses that pair (a variety written "((kashmiri) (less spicy))" has two, and is kept).
+    One pair only, in one pass: deeper nesting stays as written, so a line of many nested
+    brackets can't make reading slow (release 0.8.0-alpha.1 security pass)."""
+    if part[:1] in ("(", "[") and part[-1:] in (")", "]"):
         text, inner = _brackets(part)
-        if text.strip():
-            break
-        part = inner[0]
+        if len(inner) == 1 and not text.strip():
+            return inner[0]
     return part
 
 

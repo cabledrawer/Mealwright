@@ -30,6 +30,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Reader: "1 teaspoon (4) garlic" (0.8.0, F139).** It is 1 tsp garlic with the note "(4)" (also "(4-5)", "(4.5)", "(½)", "(1/2)"), written before or after the name; it no longer reads as "1 tsp 4".
 - **Reader: the doubled "((optional))" (0.8.0).** "2 tbsps raw papaya paste ((optional))" reads exactly as "(optional)": the note "optional", no extra brackets and no other name "(optional)".
 
+### Security
+
+- **Reader: a line of many nested brackets (0.8.0, release security pass).** Only one extra pair of brackets is taken off a note, in one pass, so an imported page with hundreds of nested brackets on its ingredient lines can no longer make the import slow. "((optional))" still reads as "optional".
+
 ## [0.7.0] - 2026-11-06
 
 The cooking milestone: "Cooked it" takes what a meal used from the pantry, with a review first; Cook mode walks through a recipe step by step; the Plan gets Both · Eat · Cook, COOK and EAT cards, portions and a Month view with "Fill from freezer first"; staples show when they were last restocked; and many import, shopping and pantry fixes from cabledrawer's hand tests. Words not yet confirmed by cabledrawer are marked "proposed, for cabledrawer" in `docs/dev/words.md`.
