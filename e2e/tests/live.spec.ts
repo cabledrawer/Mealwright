@@ -101,9 +101,12 @@ test('the Pantry refreshes live and keeps what is typed in an open form', async 
   await sheet.getByRole('button', { name: 'Cancel' }).click();
   await expect(sheet).toBeHidden();
   // Recent changes is no longer on the Pantry (F172), so look in the place cards themselves;
-  // in the shared household they are long, and the new line may be behind "Show all".
+  // in the shared household they are long, and the new line may be behind "Show all N" (a
+  // computer) or "+ N more in the <place>" (a phone). Each goes once clicked, so click the
+  // first one left until none are.
+  const more = page.getByRole('button', { name: /^(Show all \d+|\+ \d+ more in the )/ });
   await expect(async () => {
-    for (const all of await page.getByRole('button', { name: /^Show all \d+/ }).all()) await all.click();
+    while ((await more.count()) > 0) await more.first().click({ timeout: 2_000 });
     await expect(page.getByText(name).first()).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 10_000 });
   await other.close();
