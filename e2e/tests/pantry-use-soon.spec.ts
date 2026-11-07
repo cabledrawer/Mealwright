@@ -260,6 +260,48 @@ test("tubs left show on the Pantry page in their place, with their use-by", asyn
   await checkPage(page); // both themes
 });
 
+test("a tub that is soon shows in Use soon on both screens, even with nothing else soon (M1)", async ({
+  page,
+}) => {
+  const base = await today(page);
+  const slots = (await (
+    await page.request.get("/api/v1/meal-slots")
+  ).json()) as {
+    id: number;
+    name: string;
+  }[];
+  const dinner = slots.find((s) => s.name === "Dinner")!.id;
+  const name = `Soon tub ${stamp()}`;
+  const recipe = (await api(page, "POST", "/recipes", { name })).id as number;
+  const meal = await api(page, "POST", "/plan/items", {
+    date: addDays(base, 7 * 84),
+    slot_id: dinner,
+    recipe_id: recipe,
+  });
+  await api(page, "POST", `/plan/items/${meal.item_id}/batch`, {
+    tub_count: 1,
+    pattern: "pick",
+  });
+  const left = (await (
+    await page.request.get("/api/v1/plan/tubs-left")
+  ).json()) as { tubs: { id: number; recipe_name: string }[] };
+  const tub = left.tubs.find((t) => t.recipe_name === name)!;
+  await api(page, "PATCH", `/plan/tubs/${tub.id}`, {
+    use_by: addDays(base, 1),
+  });
+  await page.goto("/pantry");
+  // On the phone this strip used to be hidden when no packet was soon.
+  const strip = page.getByRole("region", { name: /^Use soon · \d+$/ });
+  await showAll(page);
+  await expect(strip.getByText(name)).toBeVisible();
+  await expect(
+    strip
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByRole("button", { name: "Eat it on…" }),
+  ).toBeVisible();
+});
+
 test("nothing sits below the places and Staples on the Pantry page", async ({
   page,
 }) => {

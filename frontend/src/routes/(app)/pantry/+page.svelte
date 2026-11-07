@@ -413,7 +413,7 @@
           {/each}
         </nav>
       {/if}
-      {#if model.useSoon.length}
+      {#if model.useSoon.length || model.useSoonTubs.length}
         <UseSoon
           lots={model.useSoon}
           tubs={model.useSoonTubs}
