@@ -92,8 +92,8 @@ async function tabThrough(page: Page, limit = 400): Promise<Stop[]> {
 }
 
 /** Wait until the page has finished filling in: the list of controls (with their names) stays
- *  the same for half a second. Some names change once the page's data arrives (Ingredients'
- *  "Recent changes" button gains its count), and measuring before that made the test race
+ *  the same for half a second. Some names change once the page's data arrives (a count on a
+ *  button, say), and measuring before that made the test race
  *  the page. This waits for the page; it never skips a control. */
 async function pageSettled(page: Page): Promise<string[]> {
   let last = await expected(page);

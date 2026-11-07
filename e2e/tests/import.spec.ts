@@ -367,7 +367,7 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   expect(after.foods).toHaveLength(0);
 });
 
-test('F144: an import is undone from Recent changes on Ingredients once its toast has gone, on a phone too', async ({ page }) => {
+test('F144: an import is undone from Settings → Recent changes once its toast has gone, on a phone too', async ({ page }) => {
   const title = unique('Dal tadka');
   const spice = unique('Hing');
   await page.goto('/recipes/import');
@@ -382,18 +382,9 @@ test('F144: an import is undone from Recent changes on Ingredients once its toas
   await expect(undo).toBeVisible();
   await page.mouse.move(0, 0); // a toast under the pointer waits; move it away
   await expect(undo).toBeHidden({ timeout: 15_000 }); // let the toast go
-  // Reach Ingredients the way a phone does: by the tabs, no typed address.
-  if (onPhone()) {
-    await page.getByRole('link', { name: 'Pantry', exact: true }).click();
-    await page.getByRole('link', { name: 'Ingredients', exact: true }).click();
-    await page.getByRole('button', { name: 'Recent changes' }).click();
-  } else {
-    await page.goto('/recipes/ingredients');
-    await page.getByRole('button', { name: /^Recent changes( · \d+\+?)?$/ }).click();
-  }
-  const recent = onPhone()
-    ? page.getByRole('dialog', { name: 'Recent changes' })
-    : page.getByRole('region', { name: 'Recent changes' });
+  // The import is in Settings → Recent changes (F172: the only place), on a phone and a computer.
+  await page.goto('/settings');
+  const recent = page.getByRole('region', { name: 'Recent changes' });
   await expect(recent.getByText(`Imported ${title}`, { exact: false })).toBeVisible();
   await recent.getByRole('button', { name: new RegExp(`^Undo: Imported ${title}`) }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();

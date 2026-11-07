@@ -120,7 +120,7 @@ test('Today: the review shows what comes out, Confirm takes it, one Undo gives i
   await expect.poll(() => have(page, `Toor dal ${s}`)).toBe(800);
 });
 
-test('F125: Undo of Cooked it in Pantry → Recent changes also undoes the meal’s Cooked', async ({ page }) => {
+test('F125: Undo of Cooked it in Settings → Recent changes also undoes the meal’s Cooked', async ({ page }) => {
   test.skip(projectIndex() !== 0, 'Chromium on the computer; the others share the waiting card');
   const k = await setup(page);
   await clearWaiting(page);
@@ -136,7 +136,7 @@ test('F125: Undo of Cooked it in Pantry → Recent changes also undoes the meal�
   await expect.poll(() => have(page, `Moong dal ${s}`)).toBe(600);
 
   // One "Cooked it", one line in Recent changes, one Undo.
-  await page.goto('/pantry');
+  await page.goto('/settings');
   const recent = page.getByRole('region', { name: 'Recent changes' });
   const undo = recent.getByRole('button', { name: `Undo: Cooked ${name} (4 portions)` });
   await expect(undo).toHaveCount(1);
