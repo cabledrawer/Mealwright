@@ -4,6 +4,14 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- **Settings: a section list, Meal slots, Shops & places, Recent changes (0.8.0, F74, F101, F172, cabledrawer 7 Nov).** Settings has a list of its sections (a list on the left on a computer, at the top on a phone): Appearance, Amounts, Meal slots, Shops & places, Recent changes, Privacy, Sign-in. **Meal slots** (admins only, hidden from everyone else and refused by the server): switch, rename, put in order (drag, or Move up and Move down) and add; no removing; each change has Undo. **Shops & places** (anyone in the household): shops in the order you visit them and places in order with their kind, each renamed, added and removed. Removing a shop moves its ingredients and shopping lines to "Any shop", with Undo. A place with things in it asks "Cupboard has 14 things in it. Move them to…" and removes it once they are moved, with Undo; the last Fridge and the last Freezer stay. New API: `PATCH`, `PUT .../order` and `DELETE` on `/api/v1/places` and `/api/v1/shops`, and `PATCH`, `POST` and `PUT /meal-slots/order` on meal slots (`docs/dev/api-0.2.md` 6.3). No database change.
+
+### Changed
+
+- **Recent changes live in Settings only (0.8.0, F172, cabledrawer 7 Nov).** Settings → Recent changes lists every kind of change (pantry, shopping, plan, cooking, recipes, imports, ingredients, shops and places), newest first, each with Undo, and "Show more" for older ones. The Recent changes button on Ingredients and the list at the bottom of Pantry are gone. The toast still offers Undo straight after each change. `GET /changes` with no `area` already listed everything; `area` still works.
+
 ## [0.8.0-alpha.1] - 2026-11-07
 
 The first 0.8.0 test version: wave 2, "what 0.7 left". Cooking a meal with several recipes one recipe at a time now reads right on Today, the Plan and the Cook view; Cooked it works on a meal planned for a later day; the Plan's Month gets Both · Eat · Cook; Today's This week shows seven days; Cook mode's per-step box is redrawn and its steps follow the finger; import Check gets swipes and the One at a time gaps filled; and slow or flaky tests are fixed. No database change: v0.7.0's data is used as it is, but back up first as always (`docs/dev/test-on-homelab.md` section 4.1).
