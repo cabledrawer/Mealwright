@@ -126,9 +126,9 @@ def _made(
         for item in todo:
             others = others_of[item.key]
             conversion = item.conversion_row()
-            aisle = (conversion.aisle if conversion else None) or (
-                "household" if item.staple else DEFAULT_AISLE
-            )
+            # The table's aisle (cabledrawer 7 Nov): Household-pack items are food staples and
+            # take their own aisle, never the Household aisle (that is for cleaning things).
+            aisle = item.pack_row().aisle or DEFAULT_AISLE
             food = Food(
                 household_id=kitchen.household_id,
                 name=item.name,

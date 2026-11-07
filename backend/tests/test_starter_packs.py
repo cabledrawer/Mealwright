@@ -190,14 +190,14 @@ def test_each_new_ingredient_comes_with_its_counting_aisle_sizes_shop_and_names(
     ghee = food_named(kitchen, "ghee")
     assert ghee is not None
     assert ghee["counted_as"] == "weight"
-    assert ghee["aisle"] == "tins_jars"  # the food-conversions aisle
+    assert ghee["aisle"] == "tins_jars"  # the pack-size table's aisle (cabledrawer 7 Nov)
     assert ghee["shop"]["id"] == indian  # a world-aisle ingredient with a cuisine → that shop
     assert ghee["pack_suggestions"][0]["pack"] == "jar"  # the usual sizes (suggested)
     assert {n["name"] for n in ghee["other_names"]} == {"clarified butter", "nei"}
     assert not ghee["staple"]
-    # Not in the conversion table: counted as its pack sizes are, aisle Other.
+    # Not in the conversion table: counted as its pack sizes are; aisle from the pack table.
     dal = food_named(kitchen, "toor dal")
-    assert dal is not None and dal["counted_as"] == "weight" and dal["aisle"] == "other"
+    assert dal is not None and dal["counted_as"] == "weight" and dal["aisle"] == "dry_goods"
     assert dal["shop"]["id"] == indian
     row = pack_table().rows["toor_dal"]
     assert {n["name"].lower() for n in dal["other_names"]} >= {
@@ -254,3 +254,22 @@ def test_what_is_there_already_is_read_under_the_household_lock(
     monkeypatch.setattr(api, "_have", watched)
     assert add(kitchen, "baking", keys(pack)[:1]).status_code == 201
     assert seen == [True]
+
+
+def test_household_pack_items_take_the_table_aisle_never_household(kitchen: TestClient) -> None:
+    """cabledrawer 7 Nov: the Household pack is food staples; the Household aisle is for cleaning."""
+    household = packs(kitchen)["household"]
+    assert add(kitchen, "household", keys(household)).status_code == 201
+    for item in household["items"]:
+        food = food_named(kitchen, item["name"])
+        assert food is not None
+        assert food["aisle"] == pack_table().rows[item["key"]].aisle != "household"
+
+
+def test_every_pack_size_row_has_a_known_aisle() -> None:
+    from mealwright.aisles import AISLE_KEYS
+
+    rows = pack_table().rows.values()
+    assert all(row.aisle in AISLE_KEYS and row.aisle not in ("household", "other") for row in rows)
+    assert pack_table().rows["spinach"].dates == "use by"
+    assert "dried fenugreek leaves" in pack_table().rows["kasuri_methi"].names

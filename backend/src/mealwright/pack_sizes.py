@@ -16,6 +16,7 @@ from functools import cache
 from importlib.resources import files
 from typing import Literal
 
+from mealwright.aisles import AISLE_KEYS
 from mealwright.conversions import TableRow
 from mealwright.conversions import table as conversion_table
 from mealwright.names import normalise
@@ -97,6 +98,7 @@ class PackRow:
     where: Where
     dates: str
     cuisine: str = ""  # indian, chinese, japanese, middle eastern, or empty
+    aisle: str = ""  # an aisle key (mealwright.aisles), or empty
 
 
 @dataclass(frozen=True)
@@ -134,6 +136,8 @@ def table() -> PackTable:
             raise ValueError(f"{record['key']}: where {where!r}")
         if (record.get("cuisine") or "") not in ("", *CUISINE_WORDS):
             raise ValueError(f"{record['key']}: cuisine {record['cuisine']!r}")
+        if (record.get("aisle") or "") not in ("", *AISLE_KEYS):
+            raise ValueError(f"{record['key']}: aisle {record['aisle']!r}")
         if record["key"] in rows:
             raise ValueError(f"{record['key']} twice")
         row = PackRow(
@@ -144,6 +148,7 @@ def table() -> PackTable:
             where=where,  # type: ignore[arg-type]
             dates=record["dates"],
             cuisine=record.get("cuisine") or "",
+            aisle=record.get("aisle") or "",
         )
         rows[row.key] = row
         for name in (row.key.replace("_", " "), *row.names):
