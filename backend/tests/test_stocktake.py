@@ -1,6 +1,7 @@
 """The Stocktake (F118, 0.8): place by place, each answer its own change with Undo, the pack
 size asked once, staples, and the progress kept on the server for the household."""
 
+from datetime import date, timedelta
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -448,3 +449,122 @@ def test_removing_a_place_takes_its_stocktake_progress_with_it(kitchen: TestClie
     assert kitchen.get(f"{STOCKTAKE}/places/{shelf_id}").status_code == 404
     # What it held moved on, and shows in the Cupboard's list.
     assert "Jam" in rows(kitchen, cupboard)
+
+
+# --- Review round 1 ---------------------------------------------------------------------------
+
+
+def dated_packs(kitchen: TestClient, food_id: int, where: int, days: list[int]) -> list[int]:
+    """One 1 kg bag per date (days from today), added one at a time: their lot ids."""
+    ids: list[int] = []
+    for day in days:
+        use_by = (date.today() + timedelta(days=day)).isoformat()
+        body = {
+            "food_id": food_id,
+            "amount": {"amount": 1, "unit": "bag"},
+            "place_id": where,
+            "use_by": use_by,
+        }
+        response = kitchen.post(f"{API}/stock", json=body)
+        assert response.status_code == 201, response.text
+        ids.append(response.json()["groups"][0]["lots"][-1]["id"])
+    return ids
+
+
+def lots(kitchen: TestClient, food_id: int, place_id: int) -> dict[int, tuple[int, Any]]:
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        found = db.scalars(
+            select(StockLot).where(StockLot.food_id == food_id, StockLot.place_id == place_id)
+        )
+        return {lot.id: (lot.amount_milli, lot.use_by) for lot in found}
+
+
+def test_the_row_says_how_many_packets_are_there_before_any_pick(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    dated_packs(kitchen, dal["id"], cupboard, [3, 5, 9])
+    row = rows(kitchen, cupboard)["Toor dal"]
+    assert row["answered"] is False and row["answer"] is None
+    assert (row["fraction_now"], row["more_now"]) == ("1", 2)
+
+
+def test_an_answer_that_matches_what_is_there_keeps_every_packet_and_date(
+    kitchen: TestClient,
+) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    ids = dated_packs(kitchen, dal["id"], cupboard, [3, 5, 9])
+    before = lots(kitchen, dal["id"], cupboard)
+    same = answer(kitchen, cupboard, dal["id"], {"fraction": 1, "more": 2}).json()
+    assert same["change"] is None  # nothing to change
+    assert lots(kitchen, dal["id"], cupboard) == before
+    assert same["row"]["answered"] is True
+    # Three quarters of the open one: only one packet changes, the dates stay.
+    down = answer(kitchen, cupboard, dal["id"], {"fraction": 0.75, "more": 2}).json()
+    after = lots(kitchen, dal["id"], cupboard)
+    assert set(after) == set(ids)  # no packet made or lost
+    assert [after[i][1] for i in ids] == [before[i][1] for i in ids]
+    assert sum(a for a, _ in after.values()) == 2_750_000
+    assert sum(after[i][0] != before[i][0] for i in ids) == 1
+    assert down["row"]["answer"] == {"fraction": "0.75", "more": 2, "count": None}
+
+
+def test_a_staple_is_left_out_of_the_places_total(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    rice = food(kitchen, "Basmati rice", staple=True, place_id=cupboard)
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    shown = kitchen.get(f"{STOCKTAKE}/places/{cupboard}").json()
+    assert (shown["answered"], shown["total"]) == (0, 1)
+    assert [r["food"]["name"] for r in shown["rows"]] == ["Basmati rice", "Toor dal"]
+    done = answer(kitchen, cupboard, dal["id"], {"fraction": 0.5}).json()
+    assert (done["answered"], done["total"]) == (1, 1)  # "1 of 1 done", reachable
+    step = next(p for p in kitchen.get(STOCKTAKE).json()["places"] if p["id"] == cupboard)
+    assert (step["answered"], step["total"]) == (1, 1)
+    assert rice["id"] != dal["id"]
+
+
+def test_answering_again_with_the_same_value_keeps_the_first_undo(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    first = answer(kitchen, cupboard, dal["id"], {"fraction": 0.5}).json()
+    again = answer(kitchen, cupboard, dal["id"], {"fraction": 0.5}).json()
+    assert again["change"] is None
+    undone = kitchen.post(f"{API}/changes/{first['change']['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    row = rows(kitchen, cupboard)["Toor dal"]
+    assert row["answered"] is False and row["answer"] is None
+
+
+def test_the_picks_read_stock_that_changed_since_to_the_nearest_quarter(
+    kitchen: TestClient,
+) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    dal = food(kitchen, "Toor dal", place_id=cupboard)
+    packet(kitchen, dal["id"], "bag", 1000)
+    add(kitchen, dal["id"], 1100, "g", cupboard)  # 1.1 bags
+    now = rows(kitchen, cupboard)["Toor dal"]
+    assert (now["fraction_now"], now["more_now"]) == ("1", 0)  # not "None" with a hidden count
+    add(kitchen, dal["id"], 1600, "g", cupboard)  # 2.7 bags
+    now = rows(kitchen, cupboard)["Toor dal"]
+    assert (now["fraction_now"], now["more_now"]) == ("0.75", 2)
+    assert answer(kitchen, cupboard, dal["id"], {"fraction": 0.75, "more": 2}).status_code == 200
+
+
+def test_a_counted_row_carries_its_word(kitchen: TestClient) -> None:
+    cupboard = place(kitchen, "Cupboard")
+    tins = food(kitchen, "Tinned tomatoes", counted_as="count", place_id=cupboard)
+    assert kitchen.patch(f"{API}/foods/{tins['id']}", json={"count_word": "tin"}).status_code == 200
+    food(kitchen, "Onion", counted_as="count", place_id=cupboard)
+    found = rows(kitchen, cupboard)
+    assert (
+        found["Tinned tomatoes"]["count_word"],
+        found["Tinned tomatoes"]["count_word_plural"],
+    ) == (
+        "tin",
+        "tins",
+    )
+    assert found["Onion"]["count_word"] is None

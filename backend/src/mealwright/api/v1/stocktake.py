@@ -1,5 +1,5 @@
 """The Stocktake: go through the home place by place and say how much of each ingredient there
-is (F118, 0.8; docs/dev/api-0.2.md 6.6).
+is (F118, 0.8; docs/dev/api-0.2.md 6.5a).
 
 Each answer is saved as it is tapped, as its own stock change (kind `stocktake`) with Undo. The
 progress is kept on the server for the household (`stocktake_place`, `stocktake_entry`), so it
@@ -87,6 +87,13 @@ class StocktakeRow(BaseModel):
     pack: SizeOut | None  # its Usual size; null: ask once (not for a staple or a counted one)
     pack_suggestions: list[PackSuggestion]  # the common sizes to ask with
     answer: StocktakeAnswerOut | None  # null until answered (and again after an Undo)
+    # What is there now, as the picks read it (answered or not): the open packet's share and
+    # the whole packets besides it, so the count shows before a pick and a pick keeps it.
+    fraction_now: Decimal | None
+    more_now: int
+    # An ingredient counted one by one: its word ("slices"), for "2 slices"; null: none.
+    count_word: str | None
+    count_word_plural: str | None
 
 
 class StocktakePlaceStep(PlaceRef):
@@ -194,7 +201,8 @@ class Stocktake:
         )
 
     def progress(self, place_id: int) -> tuple[int, int]:
-        found = self.members(place_id)
+        # A staple isn't counted, so it is neither done nor still to do ("N of N" can be reached).
+        found = [f for f in self.members(place_id) if not f.staple]
         return sum(self.is_answered(place_id, f.id) for f in found), len(found)
 
     # -- sizes --
@@ -221,20 +229,31 @@ class Stocktake:
     def stock_in(self, place_id: int, food_id: int) -> int:
         return sum(lot.amount_milli for lot in self.lots.get(place_id, {}).get(food_id, []))
 
-    def answer_of(self, food: Food, place_id: int) -> StocktakeAnswerOut | None:
+    def reading(self, food: Food, place_id: int) -> tuple[Decimal | None, int]:
+        """What is in the place as the picks read it: (the open packet's share, whole packets
+        besides it), to the nearest quarter. Unknown (no pack size, or counted one by one):
+        (None, 0). 1.1 bags is Full, 2.7 bags is ¾ and 2 more."""
         total = self.stock_in(place_id, food.id)
-        if food.counted_as == "count":
-            return StocktakeAnswerOut(fraction=None, more=0, count=Decimal(total) / 1000)
-        if total <= 0:
-            return StocktakeAnswerOut(fraction=Decimal(0), more=0, count=None)
         size = self.usual(food.id)
-        if size is None or size.amount_milli <= 0:
-            return StocktakeAnswerOut(fraction=None, more=0, count=None)
+        if food.counted_as == "count" or size is None or size.amount_milli <= 0:
+            return None, 0
+        if total <= 0:
+            return Decimal(0), 0
         whole, rest = divmod(total, size.amount_milli)
-        if rest == 0:
-            return StocktakeAnswerOut(fraction=Decimal(1), more=whole - 1, count=None)
-        nearest = QUARTERS[round(rest * 4 / size.amount_milli)]
-        return StocktakeAnswerOut(fraction=nearest, more=whole, count=None)
+        quarters = round(rest * 4 / size.amount_milli)
+        if quarters == 4:
+            whole, quarters = whole + 1, 0
+        if quarters == 0:
+            return (Decimal(1), whole - 1) if whole > 0 else (Decimal(0), 0)
+        return QUARTERS[quarters], whole
+
+    def answer_of(self, food: Food, place_id: int) -> StocktakeAnswerOut | None:
+        if food.counted_as == "count":
+            return StocktakeAnswerOut(
+                fraction=None, more=0, count=Decimal(self.stock_in(place_id, food.id)) / 1000
+            )
+        fraction, more = self.reading(food, place_id)
+        return StocktakeAnswerOut(fraction=fraction, more=more, count=None)
 
     def row(self, food: Food, place_id: int) -> StocktakeRow:
         answered = self.is_answered(place_id, food.id)
@@ -247,6 +266,7 @@ class Stocktake:
                 restock.restocked(self.db, self.kitchen.household_id, [food]).get(food.id),
             )
         counted = food.counted_as == "count"
+        now = self.reading(food, place_id)
         return StocktakeRow(
             food=FoodBrief(id=food.id, name=food.name, counted_as=food.counted_as),  # type: ignore[arg-type]
             staple=food.staple,
@@ -262,6 +282,10 @@ class Stocktake:
                 else []
             ),
             answer=self.answer_of(food, place_id) if answered and not food.staple else None,
+            fraction_now=now[0],
+            more_now=now[1],
+            count_word=food.count_word if counted else None,
+            count_word_plural=food.count_word_plural if counted else None,
         )
 
 
@@ -464,12 +488,25 @@ def answer(
                 text = _amount_words(food, target, size)
                 summary = _words(food, place, text)
             change = edit.record("stocktake", summary, food.id)
-        entry.answered = True
-        entry.change_id = change.id if change is not None else None
-        entry.at = utcnow()
+        _mark_answered(kitchen, entry, change)
         return change
 
     return _write(kitchen, response, place, food, apply)
+
+
+def _mark_answered(kitchen: Kitchen, entry: StocktakeEntry, change: Change | None) -> None:
+    """The row is answered. An answer that changed nothing keeps the change of the answer that
+    stands, so an Undo of that one still makes the row unanswered again."""
+    if change is None and entry.answered and entry.change_id is not None:
+        undone = kitchen.db.scalar(
+            select(Change.undone_by_change_id).where(Change.id == entry.change_id)
+        )
+        if undone is None:
+            entry.at = utcnow()
+            return
+    entry.answered = True
+    entry.change_id = change.id if change is not None else None
+    entry.at = utcnow()
 
 
 def _usual(kitchen: Kitchen, food_id: int) -> FoodSize | None:
