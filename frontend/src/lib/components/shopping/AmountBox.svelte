@@ -228,16 +228,18 @@
     <button type="button" class="move" onclick={onmove}>
       <Icon name="arrow-right" size={20} stroke={2.2} />Move to…
     </button>
-    <button
-      type="button"
-      class="move"
-      onclick={() => {
-        if (save()) onhave();
-        else input?.focus();
-      }}
-    >
-      <Icon name="check" size={20} stroke={2.2} />Already have it
-    </button>
+    {#if !food.staple}
+      <button
+        type="button"
+        class="move"
+        onclick={() => {
+          if (save()) onhave();
+          else input?.focus();
+        }}
+      >
+        <Icon name="check" size={20} stroke={2.2} />Already have it
+      </button>
+    {/if}
     <button type="button" class="remove" onclick={onremove}>
       <Icon name="trash" size={20} stroke={2.2} />Remove from list
     </button>

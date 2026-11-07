@@ -201,6 +201,15 @@ describe('Shopping on the phone', () => {
       await page.getByRole('button', { name: 'Already have it' }).click();
     }
 
+    it('is not offered on a staple (it has Got it / Restocked, and nothing would go in)', async () => {
+      copy.foods.find((f) => f.name === 'Toor dal')!.staple = true;
+      await render();
+      await page.getByRole('button', { name: /^Toor dal$/ }).click();
+      await expect.element(page.getByRole('button', { name: 'Move to…' })).toBeVisible();
+      expect(page.getByRole('button', { name: 'Already have it' }).elements()).toEqual([]);
+      expect(page.getByText('Already have it').elements()).toEqual([]);
+    });
+
     it('asks how much is at home, starting from the list amount, and where', async () => {
       await render();
       await openHave('Toor dal');

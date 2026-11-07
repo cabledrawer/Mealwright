@@ -158,6 +158,14 @@
   // --- Swipe (phone) -------------------------------------------------------------------------------
   let open = $state<Side>(untrack(() => (swiped ? 'left' : null)));
   const swipeable = $derived(model.device === 'phone' && !editing);
+  /** Swipe right on a staple has only Move…: it has Got it / Restocked, not Already have it. */
+  const moveAction = $derived({
+    label: 'Move…',
+    describe: `${food.name} to another shop or list`,
+    icon: 'arrow-right' as const,
+    tone: 'move' as const,
+    run: () => openMove()
+  });
   /** "Already have it": how much is at home (a sheet), then it goes into the pantry as found. */
   let haveOpen = $state(false);
 
@@ -281,22 +289,16 @@
           }}
       right={trolley
         ? undefined
-        : {
-            label: 'Already have it',
-            describe: `${food.name}: it is at home`,
-            icon: 'check',
-            tone: 'used',
-            run: () => (haveOpen = true)
-          }}
-      rightMore={trolley
-        ? undefined
-        : {
-            label: 'Move…',
-            describe: `${food.name} to another shop or list`,
-            icon: 'arrow-right',
-            tone: 'move',
-            run: () => openMove()
-          }}
+        : food.staple
+          ? moveAction
+          : {
+              label: 'Already have it',
+              describe: `${food.name}: it is at home`,
+              icon: 'check',
+              tone: 'used',
+              run: () => (haveOpen = true)
+            }}
+      rightMore={trolley || food.staple ? undefined : moveAction}
     >
       <div class="line">
         <label class="tick">
