@@ -17,7 +17,7 @@ Read section 0 for the whole idea, then only the sections your pull request need
 | 4 | Actions: the envelope, each action kind, amounts, new ingredients in `add`, what stays online-only | server, phone queue |
 | 5 | The server: endpoints (incl. the one-at-a-time list requests, 5.1), order and the counter, repeats, per-action results, catching up ("changes since"), errors, server-made changes, changes made while a phone was offline | server |
 | 6 | The rules for clashes (L-1 …), each with its test; 6.1 moving a line (M-1 …, proposed) | server, checker |
-| 7 | The pantry side of a tick: tick, a purchase's stock, put away, "Different pack?", taking a purchase back | server pantry |
+| 7 | The pantry side of a tick: tick, a purchase's stock, put away, "Different pack?", taking a purchase back, Already have it (7.6) | server pantry |
 | 8 | Quiet notes (N1 …) and the "Did you buy 2?" card | server, Shopping screen |
 | 9 | Undo | server, screens |
 | 10 | Live updates (PR 5) | PR 5 |
@@ -496,7 +496,7 @@ The person says purchase `tick_id` was really `count` × `pack`:
 
 - **What it is:** a `tick` whose amount is chosen by the person (what is at home, from the "How much is at home?" sheet) and whose place is in the action. It makes the same purchase (`list_tick`, id = the action's ID), so the line goes into the trolley, **Clear ticked**, untick and Undo work as for a tick. No database change: a purchase is "found" when its action's kind is `found_at_home`, and the tick row sent to phones carries `found: true`.
 - **The change** is its own kind, `found`, worded "Found Ghee at home: 1 jar → Cupboard" (a Recent changes row, undoable like a purchase). Its Undo is a purchase's Undo (reverse the purchase, unticks the line); an untick then Undo puts it back as `found` ("Ticked again: …"). The amount counts as a purchase's amount for taking back (`AMOUNT_KINDS`).
-- **Rules:** the same device sending it for a line it already ticked → `ignored already_ticked` (so a repeat of another ID is harmless); the same action ID twice → the stored answer, applied once (5.3); an unknown line → `ignored gone`; a line another phone removed still takes the stock in, as a tick does (L-9). A staple puts nothing in (it is only ticked). `amount` must be above 0 (`bad_action`).
+- **Rules:** the same device sending it for a line it already ticked → `ignored already_ticked` (so a repeat of another ID is harmless); the same action ID twice → the stored answer, applied once (5.3); an unknown line → `ignored gone`; a line another phone removed still takes the stock in, as a tick does (L-9): the removed ingredient comes back as for a tick (7.1) and the Undo removes it again, and the finder gets N1 when the deleter hadn't seen the find (L-6, L-9). A staple puts nothing in (it is only ticked). `amount` must be above 0 (`bad_action`).
 - **No "Did you buy 2?"** from a found purchase: it never opens the card, and is left out when a later bought tick counts purchases. "Different pack?" does not apply to it (`ignored no_change`).
 - **Add as bought** needs no new action: it is an `add` followed by a `tick` of the new item, both in the queue, with one Undo for the pair (two `undo` actions, tick first).
 - Tests: `backend/tests/test_sync_found.py` (applied once, repeat, same device twice, two phones with no card, Undo, untick then Undo, Pantry Undo); the browser tests (offline, sent twice with the answer lost, two phones) are in `e2e/tests/offline.spec.ts` ("S4: …"), and the 390 px screen in `e2e/tests/shop-phone.spec.ts`.

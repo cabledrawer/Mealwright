@@ -1212,7 +1212,7 @@ def _lost_to_delete(act: Act, item: ListItem, food: Food) -> None:
             SyncAction.household_id == kitchen.household_id,
             SyncAction.item_id == item.id,
             SyncAction.seq > act.seen,
-            SyncAction.kind.in_(("set_amount", "tick")),
+            SyncAction.kind.in_(("set_amount", "tick", "found_at_home")),
             SyncAction.status == "applied",
             SyncAction.undone_by_action_id.is_(None),
         )
