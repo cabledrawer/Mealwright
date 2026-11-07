@@ -1220,7 +1220,8 @@ describe('the Pantry page', () => {
         .map((b) => b.textContent?.trim());
       expect(buttons.filter((b) => ['Binned', 'Used…', 'To freezer'].includes(b ?? ''))).toEqual([
         'Binned',
-        'Used…'
+        'Used…',
+        'To freezer'
       ]);
     });
 

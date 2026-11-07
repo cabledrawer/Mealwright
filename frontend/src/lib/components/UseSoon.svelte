@@ -40,13 +40,15 @@
   /** What is on a row: place and amount ("Fridge · 2 packets"). */
   const what = (lot: UseSoonLot) => `${lot.place.name} · ${lot.stock.short ?? lot.stock.display}`;
 
-  /** Which buttons a row has, in order (cabledrawer 7 Nov): a passed Use by has Binned first and no
-   * To freezer; a passed Best before has no To freezer; Use by that is only close has all three. */
+  /** Which buttons a row has, in order (cabledrawer 7 Nov): a passed Use by has Binned first; a
+   * passed Best before has no To freezer; anything else has Used, Binned and To freezer, as
+   * before (To freezer only outside the freezer). */
   function actions(lot: UseSoonLot): ('used' | 'binned' | 'freezer')[] {
     const passed = lot.days_left !== null && lot.days_left < 0;
-    if (passed && lot.date_kind === 'use_by') return ['binned', 'used'];
+    const freezer = lot.place.kind === 'freezer' ? [] : (['freezer'] as const);
+    if (passed && lot.date_kind === 'use_by') return ['binned', 'used', ...freezer];
     if (passed) return ['used', 'binned'];
-    return lot.place.kind === 'freezer' ? ['used', 'binned'] : ['used', 'binned', 'freezer'];
+    return ['used', 'binned', ...freezer];
   }
 
   const LABEL = { used: 'Used…', binned: 'Binned', freezer: 'To freezer' } as const;
