@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Settings, Shops and places (0.8)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow-x:hidden;background:#111614}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.sec{display:flex;flex-direction:column;gap:2px}
+.sec button{display:flex;align-items:center;border:none;background:transparent;border-radius:12px;padding:0 14px;min-height:44px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;text-align:left;cursor:pointer}
+.sec button[aria-current="true"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.card{background:#1B221F;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.card h2{margin:0 0 4px;font-size:17px;font-weight:800}
+.card p{margin:0 0 6px;font-size:13px;color:#A3AFA8}
+.r{display:flex;align-items:center;gap:12px;min-height:52px;border-top:1px solid #26302B}
+.grip{color:#5C6862;cursor:grab;flex:none}
+.r .n{flex:1;font-size:15px;font-weight:700}
+.r .k{font-size:13px;color:#A3AFA8}
+.icon{width:36px;height:36px;border:none;background:transparent;color:#A3AFA8;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.addb{align-self:flex-start;margin-top:8px;border:1px dashed #4A554E;background:transparent;color:#6FCF9E;border-radius:12px;padding:0 14px;min-height:40px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.kind{border:1px solid #39433D;background:#111614;border-radius:999px;padding:0 10px;min-height:32px;font:700 12px 'Plus Jakarta Sans',sans-serif;color:#C5CEC8}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px">
+<a href="Dark-Today.dc.html">Today</a>
+<a href="Dark-Plan.dc.html">Plan</a>
+<a href="Dark-ShopPlan08-Desktop.dc.html">Shopping</a>
+<a href="Dark-Pantry08-Desktop.dc.html">Pantry</a>
+<a href="Dark-Recipe.dc.html">Recipes</a>
+<a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a>
+</nav>
+<a href="Dark-Settings08-Desktop.dc.html" aria-current="page" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1F3A2D; color: #8FE0B5; text-decoration: none; font-size: 14px; font-weight: 700">Tess · Settings</a>
+</aside>
+
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Settings</h1>
+<div style="display: grid; grid-template-columns: 240px minmax(0, 760px); gap: 28px; align-items: start">
+
+<nav class="sec" aria-label="Settings sections">
+<button>Appearance</button>
+<button>Amounts</button>
+<button>Meal slots</button>
+<button aria-current="true">Shops &amp; places</button>
+<button>Privacy</button>
+<button>Sign-in</button>
+<span style="font-size: 12px; color: #7E8A83; padding: 10px 14px 0">Household, Your data and About come in 0.9.</span>
+</nav>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section class="card" aria-label="Shops">
+<h2>Shops</h2>
+<p>In the order you visit them. Shopping groups the list by shop in this order.</p>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span style="width: 12px; height: 12px; border-radius: 6px; background: #6FCF9E"></span><span class="n">Supermarket</span><span class="k">58 ingredients</span><button class="icon" aria-label="Rename Supermarket">✎</button><button class="icon" aria-label="Remove Supermarket">✕</button></div>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span style="width: 12px; height: 12px; border-radius: 6px; background: #F3C766"></span><span class="n">Indian grocer</span><span class="k">31 ingredients</span><button class="icon" aria-label="Rename Indian grocer">✎</button><button class="icon" aria-label="Remove Indian grocer">✕</button></div>
+<sc-if value="{{ adding }}" hint-placeholder-val="{{ true }}">
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><label for="newshop" style="position: absolute; left: -9999px">New shop</label><input id="newshop" type="text" value="Farmers market" style="flex: 1; min-height: 40px; border: 1px solid #6FCF9E; border-radius: 10px; padding: 0 12px; background: #111614; color: #E9EEEB; font: 600 15px 'Plus Jakarta Sans', sans-serif"><button onClick="{{ stopAdd }}" style="border: none; background: #E9EEEB; color: #111614; border-radius: 10px; min-height: 40px; padding: 0 14px; font: 800 14px 'Plus Jakarta Sans', sans-serif; cursor: pointer">Add</button></div>
+</sc-if>
+<button class="addb" onClick="{{ startAdd }}">+ New shop</button>
+<p style="margin-top: 6px">Removing a shop moves its ingredients to "Any shop", with Undo.</p>
+</section>
+
+<section class="card" aria-label="Places">
+<h2>Places at home</h2>
+<p>Where things are kept. Each kind tells Mealwright how long things last there.</p>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span class="n">Fridge</span><span class="kind">Fridge</span><button class="icon" aria-label="Rename Fridge">✎</button><button class="icon" aria-label="Remove Fridge">✕</button></div>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span class="n">Freezer</span><span class="kind">Freezer</span><button class="icon" aria-label="Rename Freezer">✎</button><button class="icon" aria-label="Remove Freezer">✕</button></div>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span class="n">Cupboard</span><span class="kind">Cupboard</span><button class="icon" aria-label="Rename Cupboard">✎</button><button class="icon" aria-label="Remove Cupboard">✕</button></div>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span class="n">Spice rack</span><span class="kind">Cupboard</span><button class="icon" aria-label="Rename Spice rack">✎</button><button class="icon" aria-label="Remove Spice rack">✕</button></div>
+<div class="r"><span class="grip" aria-hidden="true">⋮⋮</span><span class="n">Cook shelf</span><span class="kind">Cupboard</span><button class="icon" aria-label="Rename Cook shelf">✎</button><button class="icon" aria-label="Remove Cook shelf">✕</button></div>
+<button class="addb">+ New place</button>
+<p style="margin-top: 6px">A place with things in it can't be removed until they're moved: Mealwright says how many and offers "Move them to…".</p>
+</section>
+</div>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const a = s.add !== false;
+return { adding: a, startAdd: () => this.setState({ add: true }), stopAdd: () => this.setState({ add: false }) };
+}
+}
+</script>
+</body>
+</html>
