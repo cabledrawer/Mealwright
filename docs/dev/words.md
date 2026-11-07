@@ -741,7 +741,7 @@ Written by Claude Code on 2 Nov from the spec's "Restock dates, "How much?", nav
 - **"+ New recipe" (cabledrawer 28 Oct: "Add by hand · Import from a link"):** the button keeps its name **New recipe**; it opens a small choice with two items, **Add by hand** and **Import recipe** (cabledrawer 5 Nov, F146: was **Import from a link**; the page takes pasted text too).
 - **Import in the Recipes section (cabledrawer 31 Oct, F113: "All recipes · Import · Drafts · Ingredients"):** the sidebar item and the phone button are both **Import**. The page it opens is still called **Import a recipe**. The **Import a recipe** link on the Recipes list is gone.
 - **Settings (cabledrawer 28 Oct, F2):** a cog after the name (sidebar foot) and beside the avatar (phone page header). The link's name is unchanged (**Tess · Settings**); the cog has no words of its own.
-- **The version (cabledrawer 28 Oct: "Mealwright 0.7.0"):** small grey text **Mealwright 0.7.0** at the foot of the sidebar (not when it is collapsed) and at the bottom of Settings on the phone.
+- **The version (cabledrawer 28 Oct: "Mealwright 0.7.0"):** small grey text **Mealwright 0.7.0** at the foot of the sidebar (not when it is collapsed) and at the bottom of Settings on the phone. **cabledrawer 7 Nov:** the version is shown exactly as the tag, **Mealwright v0.8.0-alpha.1** (then v0.8.0-beta.1, v0.8.0-rc.1, v0.8.0), not Python's 0.8.0a1; the server's own version is unchanged.
 - **The phone's switch (cabledrawer 28 Oct, F76: "Pantry · Ingredients"):** two links at the top of the Pantry tab, **Pantry** and **Ingredients**, in a box named (for screen readers) **Pantry or Ingredients**. The Pantry tab opens the one chosen last.
 
 ## 37. After the v0.7.0-beta.2 re-test (cabledrawer 5 Nov)

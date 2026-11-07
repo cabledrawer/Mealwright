@@ -252,10 +252,10 @@ test('the version is small grey text: in the sidebar foot on a computer, at the 
   await page.goto(isPhone(page) ? '/settings' : '/');
   // (The sidebar is in the page on a phone too, hidden: only the one that shows counts.)
   const version = page.locator('p.version:visible');
-  await expect(version).toHaveText(/^Mealwright \d+\.\d+\.\d+/);
+  await expect(version).toHaveText(/^Mealwright v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$/); // the tag form (cabledrawer 7 Nov)
   await expect(version).toHaveCount(1);
   if (!isPhone(page)) {
-    await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByText(/^Mealwright \d/)).toBeVisible();
+    await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByText(/^Mealwright v\d/)).toBeVisible();
   }
   await checkPage(page);
 });

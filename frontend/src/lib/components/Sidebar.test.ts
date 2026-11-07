@@ -83,7 +83,7 @@ describe('the sidebar’s Drafts entry', () => {
   it('shows the build’s own version as small text at the foot, and a cog by the name (N1, F2)', async () => {
     await open({ 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });
     await expect.element(page.getByText(VERSION_WORDS)).toBeVisible();
-    expect(VERSION_WORDS).toMatch(/^Mealwright \d+\.\d+\.\d+/);
+    expect(VERSION_WORDS).toMatch(/^Mealwright v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$/);
     expect(document.querySelector('.settings .cog')).not.toBeNull();
   });
 });
