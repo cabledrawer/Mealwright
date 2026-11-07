@@ -12,8 +12,16 @@
     model,
     item,
     named = false,
+    after = false,
     disabled = false
-  }: { model: PlanModel; item: PlanItem; named?: boolean; disabled?: boolean } = $props();
+  }: {
+    model: PlanModel;
+    item: PlanItem;
+    named?: boolean;
+    /** Name the recipe after the word, "Serves · Lentil soup" (a meal cooked in parts, F166). */
+    after?: boolean;
+    disabled?: boolean;
+  } = $props();
 
   /** The most people a recipe can be planned for (the server's limit). */
   const MOST = 99;
@@ -47,7 +55,13 @@
     if (timer !== undefined) send();
   });
 
-  const label = $derived(named ? `${itemName(item, model.plan)} serves` : 'Serves');
+  const label = $derived(
+    after
+      ? `Serves · ${itemName(item, model.plan)}`
+      : named
+        ? `${itemName(item, model.plan)} serves`
+        : 'Serves'
+  );
 </script>
 
 <div class="serves" role="group" aria-label={label}>

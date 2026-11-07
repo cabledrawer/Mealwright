@@ -561,3 +561,30 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
     for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
   }
 });
+
+test('F166: Serves in the Plan menu of a meal cooked in parts names the recipe it changes', async ({ page }) => {
+  const k = await setup(page);
+  const s = stamp();
+  const bread = `Banana bread ${s}`;
+  const soup = `Lentil soup ${s}`;
+  const day = addDays(k.today, -(17 + projectIndex() * 2));
+  const a = await k.plan(await k.recipe(bread, []), day, k.slot.Dinner!);
+  const b = await k.plan(await k.recipe(soup, []), day, k.slot.Dinner!);
+  try {
+    await call(page, 'POST', `/plan/items/${a.item_id}/cook`, { choices: [] });
+    await call(page, 'POST', `/plan/meals/${a.meal_id}/cooked`, {});
+    await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', soup);
+    const sheet = page.getByRole('dialog');
+    // The one still to cook is the one Serves changes, and the label says so.
+    await expect(sheet.getByRole('group', { name: `Serves · ${soup}` })).toBeVisible();
+    await expect(sheet.getByRole('group', { name: 'Serves', exact: true })).toHaveCount(0);
+    await expect(sheet.getByText(`Serves · ${soup}`, { exact: true })).toBeVisible();
+  } finally {
+    const pantry = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as {
+      changes: { id: number; kind: string; summary: string; can_undo: boolean }[];
+    };
+    for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(s)))
+      await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
+    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
+  }
+});

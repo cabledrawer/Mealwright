@@ -132,6 +132,15 @@
     return recipes.length > 1 ? recipes : [];
   });
 
+  /** A meal cooked in parts (F166): its Serves says which recipe it changes, "Serves · Lentil soup". */
+  const servesNamed = $derived(
+    !!target &&
+      (target.kind === 'item' || target.kind === 'meal') &&
+      target.meal.status === 'planned' &&
+      target.meal.items.some((i) => i.cooked) &&
+      target.meal.items.filter((i) => i.kind === 'recipe').length > 1
+  );
+
   /** The cooked recipes the note names: the one pressed, or those of the meal. */
   const cookedNames = $derived.by((): string[] => {
     if (!target || !holdsCooked) return [];
@@ -433,6 +442,7 @@
                 {model}
                 item={serving}
                 named={servesItems.length > 1}
+                after={servesNamed}
                 disabled={actions.readonly}
               />
             {/each}
