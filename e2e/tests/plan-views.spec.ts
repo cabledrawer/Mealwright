@@ -431,9 +431,10 @@ for (const width of [800, 1024]) {
         await expect(page.getByRole('dialog', { name: 'Add to the plan' })).toHaveCount(0);
         // The month, with its day.
         await page.getByRole('button', { name: 'Month', exact: true }).click();
-        // The Month's own panel: wait for the month itself before measuring (the failure's page was
-        // still showing the week's cards under a pressed Month button).
-        await expect(page.getByRole('complementary', { name: 'This month' })).toBeVisible();
+        // Wait for the month itself before measuring (the failure's page was still showing the week's
+        // cards under a pressed Month button). Both widths are under 1100 px ("compact"), where the
+        // Plan shows the phone's month grid (its "Days" group), not the wide month and its side panel.
+        await expect(page.getByRole('group', { name: 'Days', exact: true })).toBeVisible();
         await expectWhole(page, `Month, ${at}`);
         await page.getByRole('button', { name: 'Week', exact: true }).click();
         await expect(show(page, 'Eat')).toBeVisible();
