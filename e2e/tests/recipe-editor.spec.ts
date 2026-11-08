@@ -474,8 +474,14 @@ test('the photo: untouched leaves photo_id out, Remove photo sends null, Cancel 
   // While "Changes not saved · Undo" is up the upload is kept, so Undo can bring it back...
   await expect(page.getByText('Changes not saved')).toBeVisible();
   expect(deleted.length).toBe(0);
-  // ...and it goes once that toast has gone.
-  await expect.poll(() => deleted.length, { timeout: 20_000 }).toBe(1);
+  // ...and it goes once that toast has gone (the page's clock jumps the toast's seconds, one at a
+  // time, instead of the test waiting for them).
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(1000);
+      return deleted.length;
+    }, { timeout: 20_000 })
+    .toBe(1);
 });
 
 test('the server’s words about a photo are shown as they are', async ({ page }) => {
