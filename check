@@ -120,14 +120,45 @@ stop_child() {
   for name in "${!BESIDE[@]}"; do stop_group "${BESIDE[$name]}"; done
   BESIDE=()
 }
-cleanup() { stop_child; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
+cleanup() { stop_child; stop_group "${SAMPLER:-}"; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# The load sampler (cabledrawer 8 Nov, T2): every 30 s, for the whole run, one line in .check/load.log:
+#   date load1 load5 load15 running/total mem-available
+# load1/5/15 are the machine's load averages (1, 5 and 15 minutes), running/total the processes
+# running now and in all, mem-available the memory the machine can still give out, in MB. The summary
+# ends with the highest and the mean load1 while the browser steps ran. Its own process group, so
+# stop_group ends it with its sleep.
+LOAD_LOG="$ROOT/.check/load.log"
+BROWSER_T0="" BROWSER_T1=""
+sample_load() {
+  local l1 l5 l15 run _ mem
+  read -r l1 l5 l15 run _ </proc/loadavg || return 0
+  mem="$(awk '/^MemAvailable:/ { printf "%d", $2 / 1024 }' /proc/meminfo)"
+  printf '%s %s %s %s %s %sMB\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$l1" "$l5" "$l15" "$run" "$mem" >>"$LOAD_LOG"
+}
+( while :; do sample_load; sleep 30; done ) </dev/null >/dev/null 2>&1 9>&- &
+SAMPLER=$!
+# The highest and the mean load1 between BROWSER_T0 and BROWSER_T1 (ISO times sort as text).
+load_summary() {
+  [[ -n "$BROWSER_T0" && -n "$BROWSER_T1" ]] || return 0
+  awk -v a="$BROWSER_T0" -v b="$BROWSER_T1" '
+    $1 >= a && $1 <= b { n++; sum += $2; if ($2 > max) max = $2 }
+    END { if (n) printf "Load (load1) while the browser steps ran: max %.2f, mean %.2f, %d samples (.check/load.log)", max, sum / n, n }' "$LOAD_LOG"
+}
+
 names=() results=() notes=() times=() flaky=()
 
 record() { names+=("$1"); results+=("$2"); notes+=("$3"); times+=("$4"); }
+
+# result_of <step name>: that step's result (PASS, FAIL, SKIP…), empty if it hasn't been recorded.
+result_of() {
+  local i r=""
+  for i in "${!names[@]}"; do [[ "${names[$i]}" == "$1" ]] && r="${results[$i]}"; done
+  printf '%s' "$r"
+}
 
 # step <name> <command...>: run a command, log its output, record PASS or FAIL.
 step() {
@@ -229,6 +260,12 @@ if ((!FAST)); then
 fi
 show "Only failures are shown here; the whole run is in .check/check.log." ""
 
+# The image build starts now, beside the light steps (lint, types, installs) and is finished
+# before the browser tests start, so it never competes with them (cabledrawer 8 Nov, T2). It only
+# needs the source (.dockerignore keeps the folders those steps write out of it).
+if ((!FAST)) && [[ -f "$ROOT/Dockerfile" ]]; then
+  start_beside "image: build" "ran beside the lint, types and install steps" docker build -t "$IMAGE" .
+fi
 
 # --- Backend -----------------------------------------------------------------
 if need uv; then
@@ -241,16 +278,19 @@ if need uv; then
   step "backend: ruff lint"      backend uv run --frozen ruff check .
   step "backend: mypy"           backend sh -c 'uv run --frozen mypy && uv run --frozen mypy --strict scripts'
   # --durations=25: the 25 slowest tests are named at the end of the step's log.
-  # -n: the backend tests run in several workers (pytest-xdist, cabledrawer 31 Oct). Four by default;
-  # CHECK_PYTEST_WORKERS changes it (1 runs them all in one process, as before).
-  workers=(-n "${CHECK_PYTEST_WORKERS:-4}")
-  [[ "${CHECK_PYTEST_WORKERS:-4}" == 1 ]] && workers=(-p no:xdist)
+  # -n: the backend tests run in several workers (pytest-xdist, cabledrawer 31 Oct). Four by default
+  # (the fast check, which has the machine to itself); CHECK_PYTEST_WORKERS changes it. In a full
+  # check they run beside the browser tests, so only two (cabledrawer 8 Nov, T2: less running at once):
+  # CHECK_PYTEST_WORKERS_BESIDE changes that. 1 runs them all in one process, as before.
+  pytest_workers() { if [[ "$1" == 1 ]]; then echo "-p no:xdist"; else echo "-n $1"; fi; }
   if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
+    read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS:-4}")"
     step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25
   else
+    read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS_BESIDE:-2}")"
     # Finished after the browser tests (finish_beside, below). At a lower priority (nice), so
     # the browser tests, which have timings to keep, always come first for the processor.
-    start_beside "backend: pytest" "ran beside the browser tests" \
+    start_beside "backend: pytest" "ran beside the browser tests (${CHECK_PYTEST_WORKERS_BESIDE:-2} workers)" \
                                  backend env TMPDIR="$RUN_TMP" nice -n 10 uv run --frozen pytest -q "${workers[@]}" --durations=25
   fi
   step "backend: licences"       backend uv run --frozen python -I scripts/check_licences.py
@@ -307,10 +347,8 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   fi
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
-  # The image only needs the source: it is built while the browser tests run, and checked after.
-  if [[ -f "$ROOT/Dockerfile" ]]; then
-    start_beside "image: build" "ran beside the browser tests" docker build -t "$IMAGE" .
-  fi
+  # The image build (started at the top) must be finished before the browser tests start.
+  finish_beside "image: build"
   # Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
   # (Safari's engine) beside it, each with its own four servers (E2E_APP_PORT, + 10, + 20),
   # saved sign-in, test-results folder and JSON report. All serve the web app built once by
@@ -318,6 +356,7 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   # WebKit as one stream, as before (for a smaller machine).
   e2e_port="${E2E_APP_PORT:-18080}"
   if [[ -f "$ROOT/frontend/build/index.html" ]]; then
+    BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
     if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
       e2e_beside=("phone + webkit:phone,webkit:10")
     else
@@ -336,6 +375,7 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
                                      PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-desktop.json" \
                                      sh -c 'cd e2e && npx playwright test --output test-results/desktop'
     for b in "${e2e_beside[@]}"; do finish_beside "browser: ${b%%:*}"; done
+    sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
     list_flaky "browser: desktop" "$ROOT/.check/browser-desktop.json"
     for b in "${e2e_beside[@]}"; do
       IFS=: read -r label projects offset <<<"$b"
@@ -423,11 +463,7 @@ no_gallery_in_image() {
 if ((FAST)); then
   skip "image" "fast run"
 elif [[ -f "$ROOT/Dockerfile" ]]; then
-  if [[ -n "${BESIDE[image: build]:-}" ]]; then
-    finish_beside "image: build"
-  else
-    step "image: build"          docker build -t "$IMAGE" .
-  fi
+  finish_beside "image: build"   # a no-op: it was finished before the browser tests
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
   # The component gallery is for development builds only (spec "Keeping the UI good",
@@ -486,6 +522,7 @@ SUMMARY="$ROOT/.check/summary.md"
     for t in "${flaky[@]}"; do echo "- \`$t\`"; done
     echo
   fi
+  [[ -z "$(load_summary)" ]] || { load_summary; echo; echo; }
   if ((fail == 0 && missing == 0)); then
     if ((FAST)); then
       echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
@@ -515,6 +552,7 @@ if [[ -s "$ROOT/.check/slowest-browser-tests.txt" ]]; then
   show "$(sed 's/^/  /' "$ROOT/.check/slowest-browser-tests.txt")"
 fi
 show ""
+[[ -z "$(load_summary)" ]] || show "$(load_summary)"
 show "$(grep -m1 '^\*\*RESULT' "$SUMMARY")"
 show "Summary to paste: .check/summary.md · whole run: .check/check.log · each step: .check/logs/"
 ((fail == 0 && missing == 0))
