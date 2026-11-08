@@ -267,7 +267,9 @@ test.describe('theme', () => {
       'aria-pressed',
       'true',
     );
-    expect(await ground(page)).toBe(GROUND.dark);
+    // After a click the colour changes when the page has applied the choice: wait for it, as the
+    // device checks above do (a busy machine read it before the change: full check, 8 Nov).
+    await expect.poll(() => ground(page)).toBe(GROUND.dark);
     await savedToAccount(page, 'dark');
 
     // Still dark after a reload, and already dark before the app has started.
@@ -279,13 +281,13 @@ test.describe('theme', () => {
     await page.emulateMedia({ colorScheme: 'dark' });
     const group2 = await themeControls(page);
     await group2.getByRole('button', { name: 'Light' }).click();
-    expect(await ground(page)).toBe(GROUND.light);
+    await expect.poll(() => ground(page)).toBe(GROUND.light);
     await savedToAccount(page, 'light');
     await page.reload();
     expect(await ground(page)).toBe(GROUND.light);
 
     await (await themeControls(page)).getByRole('button', { name: 'Auto' }).click();
-    expect(await ground(page)).toBe(GROUND.dark);
+    await expect.poll(() => ground(page)).toBe(GROUND.dark);
   });
 
   test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
