@@ -113,6 +113,9 @@ async function seedWeek(page: Page, k: { today: string; slot: Record<string, num
 
 // --- The switch -----------------------------------------------------------------------------------
 
+/** The Cook view (PlanCook.svelte), whose code is loaded when it is first shown. */
+const cookView = (page: Page) => page.locator('div.cook > div.days');
+
 test('Both opens first on a computer and Eat first on a phone, and the choice is kept on this device', async ({ page }) => {
   await page.goto('/plan');
   await expect(show(page, isPhone(page) ? 'Eat' : 'Both')).toHaveAttribute('aria-pressed', 'true');
@@ -120,8 +123,13 @@ test('Both opens first on a computer and Eat first on a phone, and the choice is
   await expect(switchOf(page).getByRole('button')).toHaveText(['Both', 'Eat', 'Cook']);
   await show(page, 'Cook').click();
   await expect(show(page, 'Cook')).toHaveAttribute('aria-pressed', 'true');
+  // The Cook view's code and styles load when first shown: wait for the view itself before
+  // reloading, or the reload cuts that load short and WebKit reports it as a page error (flaky in
+  // two full checks, 8 Nov). The same after the reload, which loads it again.
+  await expect(cookView(page)).toBeVisible();
   await page.reload();
   await expect(show(page, 'Cook')).toHaveAttribute('aria-pressed', 'true');
+  await expect(cookView(page)).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('mealwright.plan-show'))).toBe('cook');
   // Blocked storage: the layout decides, and nothing is raised.
   await page.addInitScript(() => {
