@@ -32,6 +32,13 @@ FROM python:3.14-slim-trixie@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0
 LABEL org.opencontainers.image.title="Mealwright" \
       org.opencontainers.image.description="Self-hosted meal planning, pantry and shopping." \
       org.opencontainers.image.licenses="AGPL-3.0-only"
+# Security fix (cabledrawer 8 Nov): the base image's zlib has CVE-2026-76844 and CVE-2026-85091
+# (both HIGH), fixed in Debian's 1:1.3.dfsg+really1.3.1-1+deb13u1. Install exactly that version and
+# nothing else, then remove apt's lists. Drop this once python:3.14-slim-trixie ships it.
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends --only-upgrade \
+      zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+ && rm -rf /var/lib/apt/lists/*
 # A user with no login and no home folder; everything Mealwright keeps lives in /data.
 # pip isn't needed at run time (uv installed everything above), and it carries its own
 # copies of other libraries, so remove it.

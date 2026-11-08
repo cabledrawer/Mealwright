@@ -33,6 +33,7 @@ The second 0.8.0 test version: wave 3, shopping and the pantry. Settings gets it
 ### Security
 
 - **Three fixes found in the review of this version (0.8.0).** (1) Removing a shop or a place freed its number, and the next one made in any household took it, so an Undo could show another household's shop or place name on an ingredient. Removed numbers are never used again, and the Undo, the ingredient screen and the pantry now ignore any shop or place that isn't the household's own. The database change is that the `place` and `shop` tables are rebuilt once, at start-up, with every row, number and link kept (nothing is lost; the back-up line above covers it). (2) A member of the household could undo an admin's meal-slot change (hiding, renaming or ordering Lunch) from Recent changes, though changing it is admin-only. Undo of a meal-slot change is now admin-only too (403 for a member, and no Undo button for them). (3) Shopping from the plan worked out a recipe inside a recipe again for every line that used it, so a household member could save a deeply nested recipe that made the Shopping page take tens of seconds and hold up the server. Each inner recipe is now worked out once; the list is the same.
+- **zlib in the image (0.8.0, cabledrawer 8 Nov).** The image's base (python:3.14-slim-trixie) carries a zlib with two HIGH warnings, CVE-2026-76844 and CVE-2026-85091. The image now installs Debian's fixed zlib1g, exactly 1:1.3.dfsg+really1.3.1-1+deb13u1, and nothing else; the line comes out once the base image ships the fix.
 
 ### For developers
 
