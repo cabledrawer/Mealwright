@@ -985,6 +985,10 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
     have_reports=(); for r in "${e2e_reports[@]}"; do [[ -f "$r" ]] && have_reports+=("$r"); done
     ((${#have_reports[@]})) && (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${have_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
+    # For the fixes PR (cabledrawer 8 Nov, T2b): the failed browser tests by the PR that last changed
+    # their spec file on this line, shown at the end of a failed run and kept in
+    # .check/fixes-list.txt. Nothing when no test failed.
+    ((${#have_reports[@]})) && (cd "$ROOT/e2e" && node scripts/fixes-list.mjs "${have_reports[@]}") >"$ROOT/.check/fixes-list.txt" 2>&1
   fi
 else
   skip "browser tests" "none yet"
@@ -1166,6 +1170,10 @@ show "  $(printf '%-28s %s' "whole run" "${SECONDS}s")"
 if [[ -s "$ROOT/.check/slowest-browser-tests.txt" ]]; then
   show "" "25 slowest browser tests (.check/slowest-browser-tests.txt):"
   show "$(sed 's/^/  /' "$ROOT/.check/slowest-browser-tests.txt")"
+fi
+if [[ -s "$ROOT/.check/fixes-list.txt" ]]; then
+  show "" "For the fixes PR on top of this line (.check/fixes-list.txt):"
+  show "$(sed 's/^/  /' "$ROOT/.check/fixes-list.txt")"
 fi
 show ""
 [[ -z "$(load_summary)" ]] || show "$(load_summary)"
