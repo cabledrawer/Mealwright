@@ -117,10 +117,13 @@ test.beforeEach(async ({ page }) => {
 test("Shopping shows the list by shop and aisle, and passes the accessibility checks", async ({
   page,
 }) => {
-  const name = `Basmati ${tag()}`;
+  // A name the aisle guess knows nothing of, so it lands in "Other" (Basmati is guessed Dry goods).
+  const name = `Zzyzx ${tag()}`;
   await onList(page, name);
   await page.goto("/shopping");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Shopping");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    /^(Plan s|S)hopping$/, // "Plan shopping" from 1100 px wide
+  );
   await expect(page.getByText(/\d+ to buy/).first()).toBeVisible();
   await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   await expect(
