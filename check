@@ -37,6 +37,26 @@ case "${1:-}" in
 esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# One check at a time on this machine (cabledrawer 8 Nov, T2): every mode takes the same lock, in
+# every copy of the repo, so two runs never load the machine together (load makes timing tests
+# fail) and never delete each other's .check folder. A second run waits for the first; with
+# CHECK_LOCK_WAIT=0 it refuses instead (exit 75). Only this script holds the lock (fd 9 is
+# closed for every step), so a server left running by a stopped check can't keep it.
+CHECK_LOCK="${CHECK_LOCK:-/tmp/mealwright-check.lock}"
+exec 9>>"$CHECK_LOCK" || { echo "Can't open the check lock $CHECK_LOCK." >&2; exit 75; }
+if ! flock -n 9; then
+  echo "Another ./check is running on this machine: $(cat "$CHECK_LOCK.who" 2>/dev/null || echo 'details unknown')." >&2
+  if [[ "${CHECK_LOCK_WAIT:-1}" == 0 ]]; then
+    echo "Not starting (CHECK_LOCK_WAIT=0). Run it again when that one has finished." >&2
+    exit 75
+  fi
+  echo "Waiting for it to finish (Ctrl-C to give up)…" >&2
+  flock 9 || exit 75
+  echo "Lock free: starting." >&2
+fi
+printf '%s, pid %s, %s, started %s\n' "$ROOT" "$$" "${1:-full}" "$(date '+%H:%M:%S')" >"$CHECK_LOCK.who"
+
 LOGS="$ROOT/.check/logs"
 IMAGE="${CHECK_IMAGE:-mealwright:check}"   # set CHECK_IMAGE to run ./check in two worktrees at once
 
@@ -114,7 +134,7 @@ step() {
   local name="$1"; shift
   local log="$LOGS/${name// /-}.log" start=$SECONDS
   printf '%-28s ' "$name"
-  (cd "$ROOT" && "$@") </dev/null >"$log" 2>&1 &   # no step reads the terminal
+  (cd "$ROOT" && "$@") </dev/null >"$log" 2>&1 9>&- &   # no step reads the terminal or holds the lock
   CHILD=$!
   if wait "$CHILD"; then
     CHILD=""
@@ -138,7 +158,7 @@ start_beside() {
   local log="$LOGS/${name// /-}.log"
   BESIDE_LOG[$name]="$log" BESIDE_START[$name]=$(date +%s) BESIDE_NOTE[$name]="$note"
   printf '%-28s %s\n' "$name" "started, runs beside the next steps"
-  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 &
+  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 9>&- &
   BESIDE[$name]=$!
 }
 finish_beside() {
