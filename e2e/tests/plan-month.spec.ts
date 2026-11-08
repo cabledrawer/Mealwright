@@ -85,7 +85,7 @@ async function dropMine(page: Page, day: string, names: string[], items: number[
     await call(page, 'DELETE', `/plan/batches/${batch.id}`);
   }
   for (const id of items) {
-    await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+    await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 }
 
@@ -439,13 +439,27 @@ test.describe('on a computer', () => {
       const { today, slot } = await setup(page);
       const day = dayFor(today, 'K');
       await clearDay(page, day);
-      await cookedOnce(page, `${stamp()} Curry`, day, slot);
-
-      await openMonthOf(page, today, day);
-      const cooking = page.getByTestId(`day-${day}`);
-      await expect(cooking.getByText('COOK', { exact: true })).toBeVisible();
-      expect(await inside(cooking.getByText('COOK', { exact: true }), cooking)).toBe(true);
-      expect(await inside(cooking.getByRole('button', { name: /^Add to / }), cooking)).toBe(true);
+      const curry = `${stamp()} Curry`;
+      const cook = await cookedOnce(page, curry, day, slot);
+      try {
+        await openMonthOf(page, today, day);
+        const cooking = page.getByTestId(`day-${day}`);
+        await expect(cooking.getByText('COOK', { exact: true })).toBeVisible();
+        // Measured until the layout has settled (fonts, chips), not once the moment COOK shows.
+        await expect
+          .poll(() => inside(cooking.getByText('COOK', { exact: true }), cooking), {
+            message: 'COOK stays inside its day'
+          })
+          .toBe(true);
+        await expect
+          .poll(() => inside(cooking.getByRole('button', { name: /^Add to / }), cooking), {
+            message: 'Add stays inside its day'
+          })
+          .toBe(true);
+      } finally {
+        // Its own batch goes too: a day takes only 10, and repeated runs left one each time.
+        await dropMine(page, day, [curry], [cook.item_id]);
+      }
     });
 
     test(`F84: on a very full day the Today and COOK tags stay inside it at ${width} px`, async ({
