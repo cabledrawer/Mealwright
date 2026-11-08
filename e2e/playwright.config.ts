@@ -230,7 +230,10 @@ export default defineConfig({
   },
   webServer: {
     command: 'node serve.mjs',
-    url: `${local(PORTS.main)}/api/v1/version`,
+    // serve.mjs says when every server answers. Not `url`: Playwright's port probe before the
+    // start could hang ~2 min on this machine (WSL mirrored networking: a closed local port
+    // times out instead of refusing), which made a 1-test run take ~2.5 min (T2, 8 Nov).
+    wait: { stdout: /E2E: all test servers are ready\./ },
     reuseExistingServer: false,
     // Generous: in ./check three sets of servers, the backend tests and the image build all start
     // at about the same time.

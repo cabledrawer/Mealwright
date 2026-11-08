@@ -80,7 +80,10 @@ process.on('SIGINT', () => shutdown(0));
 async function ready(port) {
   for (let i = 0; i < 600; i++) {
     try {
-      if ((await fetch(`http://127.0.0.1:${port}/api/v1/version`)).ok) return;
+      // At most 2 s a try: on this machine (WSL, mirrored networking) a connection to a closed
+      // local port can hang for minutes instead of being refused (T2, 8 Nov).
+      const res = await fetch(`http://127.0.0.1:${port}/api/v1/version`, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) return;
     } catch {
       // not up yet
     }
@@ -112,3 +115,5 @@ for (const { name, port, plainHttp } of servers) {
   children.push(child);
   await ready(port);
 }
+// Playwright waits for this line (webServer.wait in playwright.config.ts), not for a port.
+if (!stopping) console.log('E2E: all test servers are ready.');
