@@ -76,12 +76,22 @@
     min-width: 0;
   }
 
+  /* The actions give way before Settings is pushed off the screen: when the row is too
+     narrow (a 320 px phone at 200% text) they wrap, right-aligned, instead. */
   .actions {
     display: flex;
-    flex: none;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: var(--space-4);
+    min-width: 0;
     margin-left: auto;
+  }
+
+  /* Each action keeps its own size (the round + stays round); only the row wraps. */
+  .actions > :global(*) {
+    flex: none;
   }
 
   .back {
