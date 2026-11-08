@@ -29,7 +29,15 @@ from mealwright.api.v1.schemas import (
     SizeOut,
 )
 from mealwright.auth import SameOrigin
-from mealwright.conversions import AskOnce, Known, UnitAmount, convert_milli, table, to_base_milli
+from mealwright.conversions import (
+    AskOnce,
+    Known,
+    UnitAmount,
+    convert_milli,
+    guess_aisle,
+    table,
+    to_base_milli,
+)
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import (
     UNIT_WORDS,
@@ -1503,6 +1511,8 @@ def split(food_id: StoredInt, body: Split, kitchen: Here, response: Response) ->
                     count_word_plural=food.count_word_plural,
                     place_id=food.place_id,
                     shop_id=food.shop_id,
+                    # F54: never the Other pile; the same aisle as the ingredient it came from.
+                    aisle=food.aisle or guess_aisle(name),
                 )
                 db.add(new)
                 db.flush()

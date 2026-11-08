@@ -535,6 +535,9 @@ def test_split_a_plain_other_name(kitchen: TestClient) -> None:
     assert body["food"]["name"] == "Red onion"
     assert body["food"]["counted_as"] == "count"
     assert body["food"]["place"]["name"] == "Cupboard"
+    # F54 sweep: a split-off name is not left in the Other pile.
+    assert body["food"]["aisle"] == onion["aisle"]
+    assert body["food"]["aisle"] not in (None, "other")
 
     undo = kitchen.post(f"{API}/changes/{body['change']['id']}/undo").json()
     assert undo["result"] == "done"
