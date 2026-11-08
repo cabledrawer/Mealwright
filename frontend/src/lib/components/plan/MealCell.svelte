@@ -31,6 +31,16 @@
     };
   }
 
+  /** Open the drop zones above the place when the scrolling week would cut them off below it
+   *  (a short window, or a tall tray): a pointer can only drop where it can reach. */
+  function fit(node: HTMLElement) {
+    let box: HTMLElement | null = node.parentElement;
+    while (box && !/(auto|scroll|hidden)/.test(getComputedStyle(box).overflowY))
+      box = box.parentElement;
+    const edge = box ? box.getBoundingClientRect().bottom : window.innerHeight;
+    if (node.getBoundingClientRect().bottom > edge) node.classList.add('up');
+  }
+
   const cards = $derived(meal ? weekCards(model.plan!, meal, model.people, model.slotsOn) : []);
   const where = $derived(`${slot.name} on ${dayFull(day)}`);
 </script>
@@ -138,7 +148,7 @@
 
   {#if over && drag.carried}
     {#if drag.carried.zones}
-      <div class="zones" aria-hidden="true">
+      <div class="zones" aria-hidden="true" use:fit>
         <span data-drop-zone="move" class:on={over.mode === 'move'}>Move</span>
         <span data-drop-zone="copy" class:on={over.mode === 'copy'}>Copy <small>Alt</small></span>
         {#if drag.carried.leftoversOk?.(day, slot.id) ?? true}
@@ -147,7 +157,7 @@
         {/if}
       </div>
     {:else}
-      <div class="zones one" aria-hidden="true"><span class="on">Drop here</span></div>
+      <div class="zones one" aria-hidden="true" use:fit><span class="on">Drop here</span></div>
     {/if}
   {/if}
 </div>
@@ -388,6 +398,25 @@
     color: var(--color-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
+  }
+
+  /* The gap between the place and its zones still counts as the place, so the zones stay open
+     while the pointer crosses it. */
+  .zones::before {
+    content: '';
+    position: absolute;
+    inset: auto -2px 100% -2px;
+    height: calc(var(--space-2) + 2px);
+  }
+
+  .zones.up {
+    inset: auto var(--space-2) 100% var(--space-2);
+    margin-top: 0;
+    margin-bottom: var(--space-2);
+  }
+
+  .zones.up::before {
+    inset: 100% -2px auto -2px;
   }
 
   .zones span {

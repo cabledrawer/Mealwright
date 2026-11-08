@@ -262,6 +262,37 @@ test.describe('on a computer', () => {
     await expect(cell(page, next, slot.Dinner)).not.toContainText(name);
   });
 
+  test('a short window: the bottom row\'s drop zones open where the pointer can reach them', async ({ page }) => {
+    // The line's full check (8 Nov): with "Tubs left" in the tray the week box was short, and the
+    // zones under the Dinner row hung below its visible edge, so dropping on "Leftovers here" did nothing.
+    await page.setViewportSize({ width: 1280, height: 640 });
+    const { today, slot } = await setup(page);
+    const name = `Short ${stamp()}`;
+    const recipe = await makeRecipe(page, name);
+    const day = inWeek(today, 2);
+    await planned(page, recipe, day, slot.Lunch);
+    await openWeekOf(page, today, day);
+    const next = addDays(day, 1);
+    const target = cell(page, next, slot.Dinner);
+    const a = await centre(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first());
+    const b = await centre(target, 0.2);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(a.x + 12, a.y + 12, { steps: 3 });
+    await page.mouse.move(b.x, b.y, { steps: 10 });
+    const zone = target.locator('[data-drop-zone="leftovers"]');
+    await expect(zone).toBeVisible();
+    // No scrolling: what is under the zone's middle, where a person would let go, is the zone.
+    const box = (await zone.boundingBox())!;
+    const z = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-drop-zone]')?.getAttribute('data-drop-zone') ?? null, z)).toBe('leftovers');
+    await page.mouse.move(z.x, z.y, { steps: 4 });
+    await expect(zone).toHaveClass(/\bon\b/);
+    await page.mouse.up();
+    await expect(page.getByRole('status').filter({ hasText: 'Leftovers' })).toBeVisible();
+    await expect(target).toContainText(name);
+  });
+
   // No service worker here: on WebKit, once it controls the page, page.route stops seeing its
   // requests (see import-pints.spec.ts).
   test.describe('a slow household answer', () => {

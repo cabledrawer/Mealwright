@@ -62,9 +62,10 @@ class Drag {
     let zone: DropMode | null = null;
     for (const el of document.elementsFromPoint(x, y)) {
       if (!(el instanceof HTMLElement)) continue;
-      // A drop zone belongs to the place it hangs from, even when it hangs below that place.
+      // A drop zone (and the box and gaps around the zones) belongs to the place it hangs from,
+      // even when it hangs below or above that place.
       const z = el.dataset.dropZone as DropMode | undefined;
-      const host = z ? el.closest<HTMLElement>('[data-drop-day]') : el;
+      const host = el.closest<HTMLElement>('[data-drop-day]');
       if (z && host?.dataset.dropDay && zone === null) zone = z;
       if (host?.dataset.dropDay) {
         day = host.dataset.dropDay;
