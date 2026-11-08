@@ -1,5 +1,6 @@
 // The slowest browser tests across one or more Playwright JSON reports, slowest first. One line
-// each, "12.3 s  [project] file:line › title" (the time of its last try). For ./check (cabledrawer 8 Nov).
+// each, "12.3 s  [project] file:line › title". The time is the total of every try; a retried test
+// says "(2 tries)" so it never looks faster than it was. For ./check (cabledrawer 8 Nov).
 // Usage: node scripts/slowest.mjs <how many> <report.json>...
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -17,10 +18,11 @@ for (const file of files.filter((f) => existsSync(f))) {
   for (const suite of report.suites ?? []) {
     for (const { spec, titles } of specs(suite)) {
       for (const test of spec.tests) {
-        const last = test.results.at(-1);
-        if (!last) continue;
-        const name = `[${test.projectName}] ${spec.file}:${spec.line} › ${[...titles, spec.title].join(' › ')}`;
-        found.push({ ms: last.duration, name });
+        if (!test.results.length) continue;
+        const ms = test.results.reduce((sum, r) => sum + r.duration, 0);
+        const tries = test.results.length > 1 ? ` (${test.results.length} tries)` : '';
+        const name = `[${test.projectName}] ${spec.file}:${spec.line} › ${[...titles, spec.title].join(' › ')}${tries}`;
+        found.push({ ms, name });
       }
     }
   }
