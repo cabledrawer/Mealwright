@@ -358,7 +358,7 @@ step() {
     record "$name" FAIL "$(stopped_note "$name")" "$((SECONDS - start))s"
     echo "FAIL ($(stopped_note "$name"))"
     printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
   elif ((ok)); then
     record "$name" PASS "" "$((SECONDS - start))s"
     echo "PASS ($((SECONDS - start))s)"
@@ -366,7 +366,7 @@ step() {
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
   fi
 }
 
@@ -405,7 +405,7 @@ finish_beside() {
     record "$name" FAIL "$(stopped_note "$name")" "$took"
     echo "FAIL ($(stopped_note "$name"))"
     printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
   elif ((ok)); then
     record "$name" PASS "${BESIDE_NOTE[$name]}" "$took"
     echo "PASS ($took)"
@@ -413,7 +413,7 @@ finish_beside() {
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$took"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
   fi
 }
 
