@@ -122,6 +122,9 @@ test('a tap on an ingredient opens the ingredient editor, and a recipe line open
   await page.goto(`/recipes/${recipe.id}`);
   await page.getByRole('button', { name: /thuvaram paruppu/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  // The editor inside the sheet is loaded when first opened, then reads the ingredient: wait for it
+  // before leaving the page, or the next page cuts that load short (a page error in WebKit).
+  await expect(page.getByRole('dialog').getByRole('heading', { name: /^Toor dal/ })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.goto(`/recipes/${outer.id}`);
   await page.getByRole('link', { name: /the podi/ }).click();
