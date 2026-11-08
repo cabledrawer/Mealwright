@@ -77,6 +77,23 @@ function shutdown(code) {
 process.on('SIGTERM', () => shutdown(0));
 process.on('SIGINT', () => shutdown(0));
 
+// Playwright starts this script in its own process group, so when ./check is stopped (Ctrl-C,
+// a closed session, the step watchdog) and Playwright dies without stopping it, nothing else
+// reaches these servers. So watch Playwright itself (its pid, from playwright.config.ts) and
+// stop when it has gone (T2a proof 10b, 8 Nov).
+const runner = Number(process.env.E2E_RUNNER_PID || 0);
+if (runner) {
+  setInterval(() => {
+    try {
+      process.kill(runner, 0);
+    } catch (err) {
+      if (err.code !== 'ESRCH') return;
+      console.error('Playwright has stopped: stopping the test servers.');
+      shutdown(1);
+    }
+  }, 1000).unref();
+}
+
 async function ready(port) {
   for (let i = 0; i < 600; i++) {
     try {

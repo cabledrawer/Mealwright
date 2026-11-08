@@ -241,5 +241,7 @@ export default defineConfig({
     // Stop serve.mjs politely at the end of the run, so it can stop the servers and remove its
     // throwaway data folder. Playwright's default is to kill it outright, which skips that.
     gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
+    // serve.mjs stops by itself if this runner dies without stopping it (Ctrl-C, a watchdog).
+    env: { E2E_RUNNER_PID: String(process.pid) },
   },
 });
