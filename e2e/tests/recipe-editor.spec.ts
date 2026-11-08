@@ -47,6 +47,10 @@ test.beforeEach(async ({ page }) => {
 
 test('a new recipe: New recipe opens it, Save waits for a name, lands on the recipe, and Edit opens it again', async ({ page }) => {
   await page.goto('/recipes');
+  // The list's count ("0 recipes") shows when the list has loaded. On an empty kitchen the page
+  // then swaps its "New recipe" button for a new one, so a menu opened before that is closed
+  // under the click (the app's behaviour; the test waits for the settled page).
+  await expect(page.getByText(/^\d+ recipes?$/)).toBeVisible();
   await page.getByRole('button', { name: 'New recipe', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Add by hand' }).click();
   await expect(page).toHaveURL(/\/recipes\/new$/);
