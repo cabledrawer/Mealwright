@@ -19,6 +19,7 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
+    ADMIN_ONLY_KINDS,
     JOINED_BOUGHT_MESSAGES,
     KEY_ONLY_KINDS,
     NOTE_KINDS,
@@ -767,6 +768,8 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         change = kitchen.db.get(Change, change_id)
         if change is None or change.household_id != kitchen.household_id:
             raise not_found("That change")
+        if change.kind in ADMIN_ONLY_KINDS:
+            kitchen.admin_only()  # a meal slot's change is undone by an admin, as it is made
         refused = undo_kind_refusal(change)
         if refused == "already_undone":
             raise already_undone()

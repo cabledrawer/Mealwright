@@ -150,7 +150,12 @@ NOTE_KINDS = ("food_back",)
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:
     return (
-        change.kind != "undo"
+# Changes only the household's admin can undo, as only an admin can make them (meal slots).
+ADMIN_ONLY_KINDS = ("plan_slot",)
+
+
+        (change.kind not in ADMIN_ONLY_KINDS or kitchen.login.role == "admin")
+        and change.kind != "undo"
         and change.kind not in KEY_ONLY_KINDS
         and change.kind not in NOTE_KINDS
         and change.undone_by_change_id is None
