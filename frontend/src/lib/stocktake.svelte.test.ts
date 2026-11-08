@@ -246,6 +246,30 @@ describe('the stocktake', () => {
     expect(model.place?.number).toBe(2);
   });
 
+  it('a refresh that was started for one place never puts it back after Next moved on', async () => {
+    // Your own answer makes the server say "pantry changed", which starts a refresh of the place on
+    // screen; if that answers after Next, it must not bring the finished place back.
+    api.getStocktake.mockResolvedValue(overview(3));
+    api.getStocktakePlace.mockResolvedValueOnce(place([row(7, 'Toor dal')]));
+    const model = new StocktakeModel();
+    await model.open();
+
+    let answerOld!: (value: StocktakePlace) => void;
+    api.getStocktakePlace.mockReturnValueOnce(
+      new Promise<StocktakePlace>((resolve) => (answerOld = resolve))
+    );
+    const refreshing = model.reload();
+
+    api.finishPlace.mockResolvedValue(overview(4));
+    api.getStocktakePlace.mockResolvedValueOnce(place([], 2));
+    expect(await model.next()).toBe(true);
+    expect(model.place?.number).toBe(2);
+
+    answerOld(place([row(7, 'Toor dal')]));
+    await refreshing;
+    expect(model.place?.number).toBe(2);
+  });
+
   it('adds something else to the place in A to Z order, once', async () => {
     api.getStocktake.mockResolvedValue(overview(3));
     api.getStocktakePlace.mockResolvedValue(place([row(7, 'Toor dal'), row(2, 'Atta')]));

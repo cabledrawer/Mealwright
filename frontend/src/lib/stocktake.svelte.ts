@@ -80,8 +80,9 @@ export class StocktakeModel {
     if (id === undefined) return;
     try {
       const [overview, place] = await Promise.all([getStocktake(), getStocktakePlace(id)]);
-      // Don't replace rows while an answer is still on its way.
-      if (Object.keys(this.#latest).length === 0) {
+      // Don't replace rows while an answer is still on its way, nor put back a place the
+      // person has already moved on from (Next, Back) while this was being fetched.
+      if (Object.keys(this.#latest).length === 0 && this.place?.place.id === id) {
         this.overview = overview;
         this.place = place;
       }
