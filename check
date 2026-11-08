@@ -175,7 +175,17 @@ scanners_reason() {
 # whether the scanners run) may then be out of date. The newest of the fetch record and the branch's
 # own record of origin/main counts. Nothing when it is recent.
 origin_stale_note() {
-  local gitdir f newest=0 t
+  local gitdir f newest=0 t remote localmain
+  # Ask Forgejo for main (read-only, 10 s at most, never a password prompt). If it answers, compare;
+  # if it can't be reached, fall back to how long ago origin/main was fetched.
+  localmain="$(git -C "$ROOT" rev-parse -q --verify origin/main 2>/dev/null)"
+  if remote="$(GIT_TERMINAL_PROMPT=0 timeout 10 git -C "$ROOT" ls-remote origin refs/heads/main 9>&- 2>/dev/null)" &&
+     [[ -n "$remote" ]]; then
+    remote="${remote%%[[:space:]]*}"
+    [[ "$remote" == "$localmain" ]] ||
+      echo "origin/main (${localmain:0:8}) is not Forgejo's main (${remote:0:8}): it may be stale, run git fetch"
+    return 0
+  fi
   gitdir="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
   for f in "$gitdir/FETCH_HEAD" "$gitdir/refs/remotes/origin/main" "$gitdir/packed-refs"; do
     t="$(stat -c %Y "$f" 2>/dev/null)" && ((t > newest)) && newest=$t
