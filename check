@@ -134,6 +134,7 @@ if ! flock -n 9; then
   echo "Lock free: starting." >&2
 fi
 printf '%s, pid %s, %s, started %s\n' "$ROOT" "$$" "$MODE" "$(date '+%H:%M:%S')" >"$CHECK_LOCK.who"
+SECONDS=0   # "whole run" in the summary counts from here, not from the wait for the lock
 
 LOGS="$ROOT/.check/logs"
 IMAGE="${CHECK_IMAGE:-mealwright:check}"   # set CHECK_IMAGE to run ./check in two worktrees at once
@@ -429,11 +430,15 @@ new_spec_files() {
 # judge_flaky <full|files> <report.json>...: records the rule's verdict. "twice" needs the history,
 # so only a full run applies it.
 judge_flaky() {
-  local mode="$1" out line newfiles twice=() fresh=() prev=()
+  local mode="$1" out line newfiles twice=() fresh=() prev=() reports=() r
   shift
+  # Only the streams that wrote a report (one that was stopped or skipped has none: its own row
+  # says so, and list_flaky has already failed a stream that passed without one).
+  for r in "$@"; do [[ -f "$r" ]] && reports+=("$r"); done
+  ((${#reports[@]})) || return 0
   [[ "$mode" == full ]] && prev=(--previous "$HIST/flaky-last.txt")
   newfiles="$(new_spec_files)"
-  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --judge "${prev[@]}" ${newfiles:+--new-files "$newfiles"} "$@" 2>&1)"; then
+  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --judge "${prev[@]}" ${newfiles:+--new-files "$newfiles"} "${reports[@]}" 2>&1)"; then
     record "browser: flaky rule" FAIL "e2e/scripts/flaky.mjs failed: $(head -n 1 <<<"$out")" "-"
     show "$(printf '%-28s %s' "browser: flaky rule" "FAIL (e2e/scripts/flaky.mjs failed)")" "$(sed 's/^/    /' <<<"$out")"
     return 0
@@ -924,7 +929,8 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
     fi
     # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
-    (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${e2e_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
+    have_reports=(); for r in "${e2e_reports[@]}"; do [[ -f "$r" ]] && have_reports+=("$r"); done
+    ((${#have_reports[@]})) && (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${have_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
   fi
 else
   skip "browser tests" "none yet"
