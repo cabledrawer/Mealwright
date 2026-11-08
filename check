@@ -326,7 +326,13 @@ limit_minutes() {
 start_watchdog() {
   local secs=$(( $(limit_minutes "$2") * 60 + 30 ))
   rm -f "$3"
-  ( sleep "$secs"; : >"$3"; stop_group "$1" ) </dev/null >/dev/null 2>&1 9>&- &
+  # A step run beside the others can end long before the check collects it (pytest ends while the
+  # browsers still run): the watchdog then must not mark it stopped. Ended = gone, or a zombie the
+  # check hasn't waited for yet.
+  ( sleep "$secs"
+    st="$(ps -o stat= -p "$1" 2>/dev/null)"
+    [[ -n "$st" && "$st" != Z* ]] || exit 0
+    : >"$3"; stop_group "$1" ) </dev/null >/dev/null 2>&1 9>&- &
   WD=$!
 }
 stop_watchdog() {
