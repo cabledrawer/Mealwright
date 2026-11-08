@@ -742,6 +742,11 @@
       background: var(--color-accent-soft);
     }
 
+    /* "Add a pack" in the open row: accent on the green row is 4.3:1, under 4.5. */
+    li.open :global(.add) {
+      color: var(--color-accent-on-soft);
+    }
+
     li.open .name {
       color: var(--color-accent-on-soft);
     }

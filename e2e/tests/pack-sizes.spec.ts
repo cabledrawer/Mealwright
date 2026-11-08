@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { isPhone, setAccountTheme } from './a11y.ts';
+import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // Pack sizes on Ingredients (F121) and the suggested Usual shop of a new ingredient (cabledrawer
 // 7 Nov), against the real server. Phone: the pack is a line under the name; computer: a column.
@@ -82,6 +82,20 @@ test('Add a pack offers common sizes, and a tap makes one the Usual size', async
   await row.getByRole('button', { name: '500 g', exact: true }).click();
   await expect(row.getByText('pack · 500 g')).toBeVisible();
   await expect(row.getByRole('button', { name: /^Add a pack/ })).toHaveCount(0);
+});
+
+test('on the computer, the open ingredient’s Add a pack is readable on its green row', async ({
+  page,
+}) => {
+  test.skip(isPhone(page), 'the open row is green only on the computer');
+  const name = `Packed sumac ${test.info().project.name} ${Date.now()}`;
+  await makeFood(page, name);
+  const list = await find(page, name);
+  await list.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+  const row = list.getByRole('listitem').filter({ hasText: name });
+  await expect(row).toHaveClass(/\bopen\b/);
+  await expect(row.getByRole('button', { name: `Add a pack for ${name}` })).toBeVisible();
+  await checkPage(page); // axe in light and dark: the button's words on the green row
 });
 
 test('a new ingredient gets the suggested shop, and one tap changes it', async ({ page }) => {
