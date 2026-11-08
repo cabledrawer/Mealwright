@@ -16,7 +16,7 @@ const servers = [
 ];
 
 // With E2E_SKIP_BUILD=1 the web app already built in ../frontend/build is used as it is:
-// ./check builds it once (its size-limit step) and runs two sets of servers on that one build,
+// ./check builds it once (its size-limit step) and runs three sets of servers on that one build,
 // because two builds into the same folder at once would spoil it.
 if (process.env.E2E_SKIP_BUILD === '1') {
   if (!existsSync('../frontend/build/index.html')) {

@@ -119,7 +119,7 @@ step() {
   if wait "$CHILD"; then
     CHILD=""
     record "$name" PASS "" "$((SECONDS - start))s"
-    echo "PASS"
+    echo "PASS ($((SECONDS - start))s)"
   else
     CHILD=""
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
@@ -152,7 +152,7 @@ finish_beside() {
   rm -f "$log.end"
   if ((ok)); then
     record "$name" PASS "${BESIDE_NOTE[$name]}" "$took"
-    echo "PASS"
+    echo "PASS ($took)"
   else
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$took"
     echo "FAIL"
@@ -183,6 +183,22 @@ not_set_up() { printf '%-28s NOT SET UP (%s)\n' "$1" "$2"; record "$1" "NOT SET 
 need() { command -v "$1" >/dev/null 2>&1; }
 
 backend() { (cd backend && "$@"); }
+
+# Installs are re-used when nothing they depend on has changed (cabledrawer 8 Nov): npm ci wipes and
+# rebuilds node_modules every time, which is slow. lock_stamp <dir> is a fingerprint of that
+# folder's package.json, package-lock.json, the Node version and npm's own record of what is
+# installed (node_modules/.package-lock.json, so a hand-run npm install there also counts). A
+# full install saves it in node_modules/.mealwright-install; the next full run skips the
+# install when it still matches. A changed lock file (a new Playwright version too) re-installs.
+lock_stamp() {
+  (cd "$ROOT/$1" && cat package.json package-lock.json node_modules/.package-lock.json 2>/dev/null; node --version) |
+    sha256sum | cut -d' ' -f1
+}
+installed_as_locked() {
+  [[ -d "$ROOT/$1/node_modules" && "$(cat "$ROOT/$1/node_modules/.mealwright-install" 2>/dev/null)" == "$(lock_stamp "$1")" ]]
+}
+save_stamp() { lock_stamp "$1" >"$ROOT/$1/node_modules/.mealwright-install"; }
+REUSED="re-used: lock file unchanged since the last install"
 
 if ((FAST)); then
   show "*** FAST RUN: not valid for a pull request. Only a full ./check is. ***" ""
@@ -227,8 +243,11 @@ fi
 if [[ -f "$ROOT/frontend/package.json" ]]; then
   if ((FAST)) && [[ -d "$ROOT/frontend/node_modules" ]]; then
     skip "frontend: install" "fast run"
+  elif installed_as_locked frontend; then
+    skip "frontend: install" "$REUSED"
   else
     step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
+    [[ "${results[-1]}" == PASS ]] && save_stamp frontend
   fi
   # Lint and svelte-check only read the code, so they run beside the unit tests. `svelte-kit
   # sync` (the generated files in .svelte-kit) runs first, on its own, so the later syncs
@@ -257,29 +276,54 @@ fi
 if ((FAST)); then
   skip "browser tests" "fast run"
 elif [[ -f "$ROOT/e2e/package.json" ]]; then
-  step "browser: install"        sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
+  # The browsers themselves: `playwright install` is a quick no-op once the locked version's
+  # browsers are there, so it always runs; only npm ci is skipped when the lock is unchanged.
+  if installed_as_locked e2e; then
+    step "browser: install"      sh -c 'cd e2e && npx playwright install chromium-headless-shell webkit'
+    notes[-1]="$REUSED (browsers checked)"
+  else
+    step "browser: install"      sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
+    [[ "${results[-1]}" == PASS ]] && save_stamp e2e
+  fi
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
   # The image only needs the source: it is built while the browser tests run, and checked after.
   if [[ -f "$ROOT/Dockerfile" ]]; then
     start_beside "image: build" "ran beside the browser tests" docker build -t "$IMAGE" .
   fi
-  # Two runs side by side (cabledrawer 30 Oct): desktop here, and phone + WebKit beside it, each
-  # with its own four servers (E2E_APP_PORT, and that + 10), saved sign-in, test-results folder
-  # and JSON report. Both serve the web app built once by "frontend: size limit" above
-  # (E2E_SKIP_BUILD=1).
+  # Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
+  # (Safari's engine) beside it, each with its own four servers (E2E_APP_PORT, + 10, + 20),
+  # saved sign-in, test-results folder and JSON report. All serve the web app built once by
+  # "frontend: size limit" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and
+  # WebKit as one stream, as before (for a smaller machine).
   e2e_port="${E2E_APP_PORT:-18080}"
   if [[ -f "$ROOT/frontend/build/index.html" ]]; then
-    start_beside "browser: phone + webkit" "ran beside browser: desktop" \
-      env TMPDIR="$RUN_TMP" E2E_PROJECTS=phone E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + 10)) \
-          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-phone.json" \
-          sh -c 'cd e2e && npx playwright test --output test-results/phone'
+    if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
+      e2e_beside=("phone + webkit:phone,webkit:10")
+    else
+      e2e_beside=("phone:phone:10" "webkit:webkit:20")
+    fi
+    reports=("$ROOT/.check/browser-desktop.json")
+    for b in "${e2e_beside[@]}"; do
+      IFS=: read -r label projects offset <<<"$b"
+      start_beside "browser: $label" "ran beside browser: desktop" \
+        env TMPDIR="$RUN_TMP" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + offset)) \
+            PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
+            sh -c "cd e2e && npx playwright test --output test-results/${projects//,/-}"
+      reports+=("$ROOT/.check/browser-${projects//,/-}.json")
+    done
     step "browser: desktop"      env TMPDIR="$RUN_TMP" E2E_PROJECTS=desktop E2E_SKIP_BUILD=1 E2E_APP_PORT="$e2e_port" \
                                      PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-desktop.json" \
                                      sh -c 'cd e2e && npx playwright test --output test-results/desktop'
-    finish_beside "browser: phone + webkit"
+    for b in "${e2e_beside[@]}"; do finish_beside "browser: ${b%%:*}"; done
     list_flaky "browser: desktop" "$ROOT/.check/browser-desktop.json"
-    list_flaky "browser: phone + webkit" "$ROOT/.check/browser-phone.json"
+    for b in "${e2e_beside[@]}"; do
+      IFS=: read -r label projects offset <<<"$b"
+      list_flaky "browser: $label" "$ROOT/.check/browser-${projects//,/-}.json"
+    done
+    # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
+    # on the screen at the end, and in .check/slowest-browser-tests.txt.
+    (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
   else
     record "browser tests" FAIL "no built web app (frontend: size limit builds it)" "-"
     show "browser tests                FAIL (no built web app)"
@@ -440,6 +484,17 @@ show ""
 for i in "${!names[@]}"; do
   [[ "${results[$i]}" == PASS ]] || show "$(printf '%-28s %s%s' "${names[$i]}" "${results[$i]}" "${notes[$i]:+ (${notes[$i]})}")"
 done
+# Each step's time (cabledrawer 8 Nov), and the 25 slowest browser tests when they ran.
+show "" "Step times:"
+for i in "${!names[@]}"; do
+  [[ "${times[$i]}" == - ]] || show "$(printf '  %-28s %s' "${names[$i]}" "${times[$i]}")"
+done
+show "  $(printf '%-28s %s' "whole run" "${SECONDS}s")"
+if [[ -s "$ROOT/.check/slowest-browser-tests.txt" ]]; then
+  show "" "25 slowest browser tests (.check/slowest-browser-tests.txt):"
+  show "$(sed 's/^/  /' "$ROOT/.check/slowest-browser-tests.txt")"
+fi
+show ""
 show "$(grep -m1 '^\*\*RESULT' "$SUMMARY")"
 show "Summary to paste: .check/summary.md · whole run: .check/check.log · each step: .check/logs/"
 ((fail == 0 && missing == 0))

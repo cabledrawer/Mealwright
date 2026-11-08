@@ -40,17 +40,23 @@ const webkit = {
 // Safari's engine at phone size, only for the screens a phone changes most (Check on the phone, F141).
 const webkitPhone = { ...webkit, viewport: { width: 390, height: 844 }, hasTouch: true };
 
-// E2E_PROJECTS picks one half of the projects (./check runs the two halves side by side, each
-// with its own servers): "phone" is every phone and WebKit project, "desktop" is all the rest.
-// Unset or empty, every project runs.
-const half = process.env.E2E_PROJECTS || undefined;
-if (half !== undefined && half !== 'phone' && half !== 'desktop') {
-  throw new Error(`E2E_PROJECTS must be "phone" or "desktop", not "${half}".`);
+// E2E_PROJECTS picks one or more of the three streams (./check runs them side by side, each
+// with its own servers; cabledrawer 8 Nov): "phone" is every Chromium phone project, "webkit" every
+// WebKit (Safari engine) project, "desktop" all the rest. Several, comma-separated ("phone,webkit"
+// is the old phone half). Unset or empty, every project runs.
+const STREAMS = ['phone', 'webkit', 'desktop'];
+const wanted = (process.env.E2E_PROJECTS || '').split(',').filter(Boolean);
+for (const w of wanted) {
+  if (!STREAMS.includes(w)) throw new Error(`E2E_PROJECTS must be phone, webkit or desktop (comma-separated), not "${w}".`);
 }
-const inPhoneHalf = (name: string) =>
-  name.startsWith('phone') || name.startsWith('webkit') || name === 'screens phone-light' || name === 'slow phone';
+const streamOf = (name: string) =>
+  name.startsWith('webkit')
+    ? 'webkit'
+    : name.startsWith('phone') || name === 'screens phone-light' || name === 'slow phone'
+      ? 'phone'
+      : 'desktop';
 const pick = (projects: Project[]) =>
-  half === undefined ? projects : projects.filter((p) => inPhoneHalf(p.name ?? '') === (half === 'phone'));
+  wanted.length === 0 ? projects : projects.filter((p) => wanted.includes(streamOf(p.name ?? '')));
 
 export default defineConfig({
   testDir: './tests',
@@ -202,7 +208,7 @@ export default defineConfig({
     command: 'node serve.mjs',
     url: `${local(PORTS.main)}/api/v1/version`,
     reuseExistingServer: false,
-    // Generous: in ./check two sets of servers, the backend tests and the image build all start
+    // Generous: in ./check three sets of servers, the backend tests and the image build all start
     // at about the same time.
     timeout: 300_000,
     // Stop serve.mjs politely at the end of the run, so it can stop the servers and remove its
