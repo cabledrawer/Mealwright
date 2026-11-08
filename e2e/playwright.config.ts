@@ -86,7 +86,8 @@ export default defineConfig({
     { name: 'phone', testMatch: 'shell.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop', testMatch: 'shell.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Ingredients, Pantry and Undo (0.2).
-    { name: 'phone 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
+    // pantry-list.spec.ts runs on desktop only (cabledrawer 8 Nov, option A in the T2 device list).
+    { name: 'phone 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, testIgnore: /pantry-list\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.2', testMatch: /(^|\/)(pantry|ingredients|undo)[^/]*\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
     // Shopping and the "Pantry keeps it by" question (0.3).
     { name: 'phone 0.8 pack sizes', testMatch: 'pack-sizes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
