@@ -363,7 +363,10 @@ test('a timer found in the step starts on a tap, counts down, and ends with the 
   await page.clock.runFor(65_000);
   await expect(card).toContainText('08:5');
   expect((await page.evaluate(() => (window as any).__chime)).oscillators).toBe(0);
-  await page.clock.runFor(540_000);
+  // The timer counts to a deadline it looks at every 250 ms, so the rest of the ten minutes is
+  // jumped in one go (fastForward fires the page's timers once): the countdown was shown ticking
+  // above, and the end, the chime and its three plays are checked below as before.
+  await page.clock.fastForward(540_000);
   await expect(card).toContainText('Time’s up');
   // Three chimes of two notes each, a clear gap apart.
   const chime = await page.evaluate(() => (window as any).__chime);
@@ -658,7 +661,8 @@ test('no outside request and no policy violation while cooking', async ({ page }
   await page.goto(`/recipes/${id}/cook`);
   await next(page).click();
   await page.getByRole('button', { name: 'Start timer for 10 minutes' }).click();
-  await page.clock.runFor(601_000);
+  await page.clock.runFor(1_000); // a few real ticks, then the rest of the ten minutes in one jump
+  await page.clock.fastForward(600_000);
   await expect(page.getByTestId('timer')).toContainText('Time’s up');
   expect(violations).toEqual([]);
   expect(outside).toEqual([]);
@@ -704,8 +708,9 @@ test('coming back to the front asks for the screen lock again and shows the righ
       document.dispatchEvent(new Event('visibilitychange'));
     }, state);
   await show('hidden');
-  // Two minutes pass while the page is hidden (the test clock moves; nothing ticks for it).
-  await page.clock.runFor(120_000);
+  // Two minutes pass while the page is hidden (the test clock jumps; a hidden page's timers
+  // hardly run, so the coming back to the front is what shows the right time).
+  await page.clock.fastForward(120_000);
   await show('visible');
   await expect.poll(asked).toBe(2);
   await expect(page.getByTestId('timer')).toContainText(/0(7:5\d|8:00)/);
