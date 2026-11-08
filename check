@@ -164,8 +164,21 @@ scanners_reason() {
   base="$(git -C "$ROOT" merge-base HEAD origin/main 2>/dev/null)" || { echo "no origin/main to compare with"; return; }
   { git -C "$ROOT" diff --name-only "$base" HEAD; git -C "$ROOT" diff --name-only HEAD
     git -C "$ROOT" ls-files --others --exclude-standard; } |
-    grep -xE 'backend/(pyproject\.toml|uv\.lock)|(frontend|e2e)/package(-lock)?\.json|frontend/osv-scanner\.toml|Dockerfile|check' >/dev/null &&
-    echo "the branch changes a library, a lock file, the Dockerfile or the scanner settings"
+    grep -xE 'backend/(pyproject\.toml|uv\.lock)|(frontend|e2e)/package(-lock)?\.json|(.*/)?osv-scanner\.toml|(.*/)?\.npmrc|\.dockerignore|Dockerfile|check' >/dev/null &&
+    echo "the branch changes a library, a lock file, the Dockerfile, .dockerignore, an .npmrc or the scanner settings"
+}
+# A note when origin/main was last fetched more than 24 hours ago: the comparison above (and so
+# whether the scanners run) may then be out of date. The newest of the fetch record and the branch's
+# own record of origin/main counts. Nothing when it is recent.
+origin_stale_note() {
+  local gitdir f newest=0 t
+  gitdir="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
+  for f in "$gitdir/FETCH_HEAD" "$gitdir/refs/remotes/origin/main" "$gitdir/packed-refs"; do
+    t="$(stat -c %Y "$f" 2>/dev/null)" && ((t > newest)) && newest=$t
+  done
+  if ((newest == 0 || $(date +%s) - newest > 86400)); then
+    echo "origin/main was last fetched more than 24 h ago: this may be stale, run git fetch"
+  fi
 }
 SCANNERS_WHY="$(scanners_reason)"
 if [[ "$MODE" == scan ]]; then
@@ -204,10 +217,14 @@ stop_child() {
   for name in "${!BESIDE[@]}"; do stop_group "${BESIDE_WD[$name]:-}"; stop_group "${BESIDE[$name]}"; done
   BESIDE=()
 }
-cleanup() { stop_child; stop_group "${SAMPLER:-}"; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
+# Every background job, even one that no variable knows yet: a Ctrl-C between `&` and `CHILD=$!`
+# would otherwise leave that step running (cabledrawer 8 Nov, T2).
+stop_all_jobs() { local pid; for pid in $(jobs -p); do stop_group "$pid"; done; }
+cleanup() { stop_child; stop_group "${SAMPLER:-}"; stop_all_jobs; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+trap 'exit 129' HUP   # closing the terminal stops the run cleanly too: no servers or temp folders left behind
 
 # The load sampler (cabledrawer 8 Nov, T2): every 30 s, for the whole run, one line in .check/load.log:
 #   date load1 load5 load15 running/total mem-available
@@ -511,7 +528,8 @@ case "$MODE" in
 esac
 show "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
 if [[ "$MODE" == full || "$MODE" == scan ]]; then
-  show "Scanners: ${SCANNERS_WHY:-skipped ($NO_SCAN)}."
+  stale="$(origin_stale_note)"
+  show "Scanners: ${SCANNERS_WHY:-skipped ($NO_SCAN)}${stale:+ ($stale)}."
 fi
 show "Only failures are shown here; the whole run is in .check/check.log." ""
 
@@ -858,7 +876,7 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   # The unit tests run in headless Chromium, so install it first (a quick no-op once
   # it is there). `npm test` itself no longer installs it.
   step "frontend: browser"       sh -c 'cd frontend && npx playwright install chromium-headless-shell'
-  step "frontend: tests"         sh -c 'cd frontend && npm test'
+  step "frontend: tests"         env TMPDIR="$RUN_TMP" sh -c 'cd frontend && npm test'
   finish_beside "frontend: lint"
   finish_beside "frontend: svelte-check"
   # The browser code size limit (spec "Keeping the UI good", item 5): build the app, test the size
