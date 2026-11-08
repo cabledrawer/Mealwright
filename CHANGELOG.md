@@ -7,6 +7,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### Fixed
 
 - **A request no longer fails now and then with "socket hang up" after a few idle seconds (F130, cabledrawer 9 Nov).** The server closed a connection after 5 idle seconds, while a reverse proxy in front of it (Caddy keeps them for 2 minutes) or the browser tests could send the next request on it at that very moment. The server now keeps idle connections open for 130 seconds, a little longer than common proxies keep them by default, so a proxy on its default settings never reuses one the server has already closed.
+- **A theme picked while the app is starting now stays (cabledrawer 8 Nov).** On a busy server the app opens from this device after half a second and acts on the server's answer when it comes; that late answer put the account's older theme back over one the person had just picked (found by the T2 full check, `shell.spec.ts`). The person's most recent choice now always wins: a server answer at start-up, or the one asked for once the connection is back after opening offline, never overwrites a theme picked after the app started. Nothing else about themes changes: with no pick meanwhile, the account's theme still wins over this device's copy.
 
 ## [0.8.0-alpha.2] - 2026-11-08
 

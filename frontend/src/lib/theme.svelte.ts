@@ -69,6 +69,12 @@ class Theme {
 
   #media: MediaQueryList | null = null;
   #saveToAccount: ((choice: ThemeChoice) => void) | null = null;
+  #picks = 0;
+
+  /** How many times the person has picked a theme since the page loaded. */
+  get picks(): number {
+    return this.#picks;
+  }
 
   /** Start following the device setting. Returns a function that stops it. */
   start(): () => void {
@@ -86,14 +92,20 @@ class Theme {
 
   /** The person picked a theme. */
   set(choice: ThemeChoice): void {
+    this.#picks += 1;
     this.choice = choice;
     save(choice);
     this.#apply();
     this.#saveToAccount?.(choice);
   }
 
-  /** The account's choice, on signing in: it wins over this device's copy. */
-  adopt(choice: ThemeChoice): void {
+  /**
+   * The account's choice, on signing in: it wins over this device's copy. But the person's most
+   * recent choice always wins: given `picksAtStart` (picks when the app started), an answer
+   * that comes after the person has picked a theme since then changes nothing (cabledrawer 8 Nov).
+   */
+  adopt(choice: ThemeChoice, picksAtStart?: number): void {
+    if (picksAtStart !== undefined && picksAtStart !== this.#picks) return;
     this.choice = choice;
     save(choice);
     this.#apply();

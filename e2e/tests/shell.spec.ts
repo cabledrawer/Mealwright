@@ -288,6 +288,47 @@ test.describe('theme', () => {
     expect(await ground(page)).toBe(GROUND.dark);
   });
 
+  test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
+    page,
+  }) => {
+    // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3, line 290).
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    await (await themeControls(page)).getByRole('button', { name: 'Light' }).click();
+    await expect.poll(() => ground(page)).toBe(GROUND.light);
+    await savedToAccount(page, 'light');
+
+    // A busy server: it reads who is signed in (theme Light) at once, but its answer only
+    // arrives after the person has picked Auto (the app opens from this device meanwhile).
+    let release!: () => void;
+    const picked = new Promise<void>((done) => (release = done));
+    let held = false;
+    await page.route('**/api/v1/me', async (route) => {
+      if (held || route.request().method() !== 'GET') return route.continue();
+      held = true;
+      const response = await route.fetch();
+      await picked;
+      await route.fulfill({ response });
+    });
+    const late = page.waitForResponse(
+      (r) => r.url().endsWith('/api/v1/me') && r.request().method() === 'GET',
+    );
+    await page.reload();
+    const group = isPhone(page)
+      ? page.locator('main').getByRole('group', { name: 'Theme' })
+      : page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', { name: 'Theme' });
+    await group.getByRole('button', { name: 'Auto' }).click();
+    await expect.poll(() => ground(page)).toBe(GROUND.dark);
+
+    release();
+    await late;
+    // The app acts on the late answer straight after it lands; give it that moment.
+    await page.waitForTimeout(1500);
+    expect(await ground(page), 'still the Auto the person picked').toBe(GROUND.dark);
+    await expect(group.getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true');
+    await savedToAccount(page, 'auto');
+  });
+
   test('the dark theme is its own palette, not inverted colours', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');

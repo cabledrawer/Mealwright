@@ -18,6 +18,7 @@ import { releaseServerLists, serverListsHeld } from '#lib/offline/confirmed.js';
 import { askAgain, restart, START_WAIT_MS } from '#lib/offline/opening.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { SETUP } from '#lib/session.svelte.js';
+import { theme, type ThemeChoice } from '#lib/theme.svelte.js';
 import { load as signInLoad } from '../(auth)/+layout';
 import { load } from './+layout';
 
@@ -38,6 +39,15 @@ const DEVICE = '11111111-2222-4333-8444-555555555555';
 const signedInAs = (id: number, name: string) => ({
   'GET /setup': [200, { needs_setup: false }] as [number, unknown],
   'GET /me': [200, { id, name, username: name.toLowerCase(), role: 'member', theme: 'auto' }] as [
+    number,
+    unknown
+  ]
+});
+
+/** Signed in as Wren, whose account's theme is `choice`. */
+const wrenWithTheme = (choice: ThemeChoice) => ({
+  ...signedInAs(2, 'Wren'),
+  'GET /me': [200, { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: choice }] as [
     number,
     unknown
   ]
@@ -441,6 +451,72 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(1);
+  });
+
+  describe('the theme (cabledrawer 8 Nov: the person’s most recent choice always wins)', () => {
+    afterEach(() => theme.adopt('auto'));
+
+    it('a theme picked after the app opened stays when the server’s slower answer comes', async () => {
+      await wrensPhone(1);
+      theme.adopt('light');
+      // The server read Wren's account (Light) before she picked; its answer arrives late.
+      const server = slowly(wrenWithTheme('light'));
+      await begin();
+      theme.set('auto');
+      server.release();
+      await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(session.me).toMatchObject({ id: 2 });
+      expect(theme.choice).toBe('auto');
+      expect(document.documentElement.dataset.themeChoice).toBe('auto');
+    });
+
+    it('nothing picked meanwhile: the late answer’s account theme still wins over this device’s copy', async () => {
+      await wrensPhone(1);
+      theme.adopt('light');
+      const server = slowly(wrenWithTheme('dark'));
+      await begin();
+      expect(theme.choice).toBe('light');
+      server.release();
+      await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(theme.choice).toBe('dark');
+    });
+
+    it('a theme picked before the app started doesn’t count: the account’s wins, as before', async () => {
+      await wrensPhone(1);
+      theme.set('dark');
+      const server = slowly(wrenWithTheme('light'));
+      await begin();
+      server.release();
+      await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(theme.choice).toBe('light');
+    });
+
+    it('opened offline, then a theme picked: it stays when the server is asked again (#47)', async () => {
+      await wrensPhone(1);
+      theme.adopt('light');
+      const offline = slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
+      await begin();
+      offline.release();
+      await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
+      vi.unstubAllGlobals();
+      theme.set('dark');
+      fakeApi(wrenWithTheme('light'));
+      await askAgain();
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(session.me).toMatchObject({ id: 2 });
+      expect(theme.choice).toBe('dark');
+    });
+
+    it('answered in time: the account’s theme wins over this device’s copy, as before', async () => {
+      await wrensPhone(1);
+      theme.set('dark');
+      fakeApi(wrenWithTheme('light'));
+      await begin();
+      expect(theme.choice).toBe('light');
+    });
   });
 
   it('the list isn’t asked for until the server has said who is signed in; sending starts at once', async () => {

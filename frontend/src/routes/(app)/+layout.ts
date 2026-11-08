@@ -40,12 +40,18 @@ import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import type { LayoutLoad } from './$types';
 
+/** Theme picks when this start began. A late answer (or the server asked again after opening
+ * offline) is acted on by a later run of load, so it keeps the first run's count: a theme the
+ * person picked after the app started is newer than the server's, and stays (cabledrawer 8 Nov). */
+let picksAtStart = 0;
+
 export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // Only on starting the app and after signing in, not on every page change.
   const heading = untrack(() => url.pathname + url.search);
   const start = newStart();
   const late = takeLateAnswer();
   if (late) return decide(late.answer, heading, late);
+  picksAtStart = theme.picks;
   const asked = askServer(fetch);
   const answer = await inTime(asked);
   if (answer) return decide(answer, heading);
@@ -115,8 +121,9 @@ async function decideNow(answer: Answer, heading: string, late: LateAnswer | nul
   }
   openAs(me);
   await startDevice(me);
-  // The account's theme wins over this device's copy.
-  theme.adopt(me.theme);
+  // The account's theme wins over this device's copy, but not over a theme picked since the
+  // app started (a slow server's answer is older than that choice).
+  theme.adopt(me.theme, picksAtStart);
 }
 
 /**
