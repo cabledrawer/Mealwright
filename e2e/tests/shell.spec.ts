@@ -9,7 +9,9 @@ import { checkPage, expectTouchTargets } from './a11y.ts';
 const PAGES = [
   { path: '/', title: 'Today', tab: 'Today' },
   { path: '/plan', title: 'Plan', tab: 'Plan' },
-  { path: '/shopping', title: 'Shopping', tab: 'Shop' },
+  // From 1100 px wide, Shopping is "Plan shopping" (0.8, spec "Plan shopping"); the sidebar
+  // link keeps the name Shopping.
+  { path: '/shopping', title: 'Shopping', tab: 'Shop', wide: 'Plan shopping' },
   { path: '/pantry', title: 'Pantry', tab: 'Pantry' },
   // On desktop the sidebar shows Recipes as a tree, and marks All recipes.
   { path: '/recipes', title: 'Recipes', tab: 'Recipes', sidebar: 'All recipes' },
@@ -20,6 +22,10 @@ const GROUND = { light: 'rgb(245, 246, 244)', dark: 'rgb(17, 22, 20)' };
 type Violation = { directive: string; blockedURI: string; sample: string };
 
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? 0) < 768;
+
+/** The page's own name: its heading and the window title. */
+const heading = (page: Page, p: { title: string; wide?: string }) =>
+  p.wide && (page.viewportSize()?.width ?? 0) >= 1100 ? p.wide : p.title;
 
 /** Record CSP violations and anything sent anywhere other than the app itself. */
 async function watch(page: Page, baseURL: string) {
@@ -68,10 +74,11 @@ test.beforeEach(async ({ page }) => {
 
 test('every page opens, with its title and the right tab marked', async ({ page, baseURL }) => {
   const watcher = await watch(page, baseURL!);
-  for (const { path, title, sidebar } of PAGES) {
+  for (const p of PAGES) {
+    const { path, title, sidebar } = p;
     await page.goto(path);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-    await expect(page).toHaveTitle(`${title} · Mealwright`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading(page, p));
+    await expect(page).toHaveTitle(`${heading(page, p)} · Mealwright`);
     await expect(mainNav(page).locator('[aria-current="page"]')).toHaveCount(1);
     await expect(mainNav(page).locator('[aria-current="page"]')).toContainText(
       isPhone(page) ? PAGES.find((p) => p.path === path)!.tab : (sidebar ?? title),
@@ -104,12 +111,13 @@ test('every page uses curly apostrophes on screen, never a straight one', async 
 test('the main navigation moves between pages', async ({ page, baseURL }) => {
   const watcher = await watch(page, baseURL!);
   await page.goto('/');
-  for (const { path, title, tab } of [...PAGES.slice(1), PAGES[0]!]) {
+  for (const p of [...PAGES.slice(1), PAGES[0]!]) {
+    const { path, title, tab } = p;
     await mainNav(page)
       .getByRole('link', { name: isPhone(page) ? tab : title, exact: true })
       .click();
     await expect(page).toHaveURL(path);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(heading(page, p));
   }
   // Screen readers hear the new page's name; nobody sees it (it's hidden by our CSS,
   // not by an inline style, which the CSP would block).
