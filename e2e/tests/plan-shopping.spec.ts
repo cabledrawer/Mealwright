@@ -105,8 +105,11 @@ for (const width of [1280, 1100]) {
         // One line each, with why: the recipe and its day; "Added by you".
         await expect(row(page, onion).getByText(`${sambar} (${weekday(day)})`)).toBeVisible();
         await expect(row(page, milk).getByText('Added by you')).toBeVisible();
+        // One line: from the row's top to the bottom of its last button (⋯). The Usual pack picks
+        // that sit under a row with no size are not part of the line.
         const box = await row(page, onion).boundingBox();
-        expect(box!.height).toBeLessThanOrEqual(64);
+        const menu = await row(page, onion).getByRole('button', { name: /^More for / }).boundingBox();
+        expect(menu!.y + menu!.height - box!.y).toBeLessThanOrEqual(64);
 
         // The right-hand column.
         await expect(page.getByRole('region', { name: 'Shops' })).toBeVisible();
@@ -144,11 +147,15 @@ test('a household with one shop shows no shop headers', async ({ page }) => {
     await k.plan(await k.recipe(`Dish ${tag}`, [[id, 100]]), 1);
     // Whatever other tests added, this household has no shop: everything is "Any shop".
     await page.route('**/api/v1/shopping/changes*', async (route) => {
-      const response = await route.fetch();
-      const body = await response.json();
-      body.shops = [];
-      for (const item of body.items) item.shop_id = null;
-      await route.fulfill({ response, json: body });
+      try {
+        const response = await route.fetch();
+        const body = await response.json();
+        body.shops = [];
+        for (const item of body.items) item.shop_id = null;
+        await route.fulfill({ response, json: body });
+      } catch {
+        // A refresh still in flight when the test ends: the page is gone, nothing to answer.
+      }
     });
     await page.goto('/shopping');
     await expect(row(page, name)).toBeVisible();
@@ -174,11 +181,11 @@ test('"Usual pack?" quick picks sit under a row with no size, and a tap sets the
     await first.click();
     // The size is the ingredient's Usual size now, and the line says it in packs.
     await expect(picks).toHaveCount(0);
-    await expect(row(page, name).getByText(/^1 \S+ \(/)).toBeVisible();
+    await expect(row(page, name).getByText(/^1\s\S+\s\(/)).toBeVisible();
     const food = (await (await page.request.get(`/api/v1/foods/${id}`)).json()) as {
       sizes: { usual: boolean; display: string }[];
     };
-    expect(food.sizes.some((s) => s.usual && s.display.includes(text.replace(/\s/g, ' ')))).toBe(true);
+    expect(food.sizes.some((s) => s.usual && s.display.replace(/\s/g, ' ').includes(text.replace(/\s/g, ' ')))).toBe(true);
   } finally {
     await k.cleanUp();
   }

@@ -1332,6 +1332,12 @@ test("desktop: a keyboard alone opens the amount box, saves it, and answers the 
   await expect(page.getByRole("button", { name, exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
+  // Plan shopping (a list made from the plan) also has the row's why as a button between the
+  // amount and ⋯ (S3: the keyboard meets it before the menu).
+  if (
+    await page.evaluate(() => document.activeElement?.classList.contains("why"))
+  )
+    await page.keyboard.press("Tab");
   const more = page.getByRole("button", { name: `More for ${name}` });
   await expect(more).toBeFocused();
   await expect(more).toBeVisible();

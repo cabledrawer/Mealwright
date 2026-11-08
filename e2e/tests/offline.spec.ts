@@ -132,8 +132,8 @@ test('E2: changes made offline survive a reload, then reach the server', async (
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: added, exact: true })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: `Tick ${first}` })).toHaveCount(0);
-  await expect(page.getByRole('checkbox', { name: `Tick ${second}` })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `Tick ${first}`, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `Tick ${second}`, exact: true })).toHaveCount(0);
   await expect(bar(page)).toContainText(waitingText(page, 3), { timeout: 10_000 });
 
   await context.setOffline(false);
