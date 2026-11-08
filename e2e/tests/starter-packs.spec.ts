@@ -164,6 +164,10 @@ test("Undo of a pack keeps an ingredient a recipe uses and says so (cabledrawer 
   await expect(
     page.getByText(`Added the Japanese starter pack: ${count} ingredients`),
   ).toBeVisible();
+  // The toast shows at once and the server answers a moment later: wait for it.
+  await expect
+    .poll(async () => (await foods(page)).some((f) => f.name === "miso"))
+    .toBe(true);
   const miso = (await foods(page)).find((f) => f.name === "miso")!;
   const made = await page.request.post("/api/v1/recipes", {
     data: {
@@ -174,7 +178,7 @@ test("Undo of a pack keeps an ingredient a recipe uses and says so (cabledrawer 
   expect(made.status()).toBe(201);
   const recipe = (await made.json()) as { id: number };
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(
     page.getByText(
       "Took out what could be: 1 ingredient is already in use, so it stays.",
