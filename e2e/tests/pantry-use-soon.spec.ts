@@ -159,8 +159,19 @@ test("the date type shows in the ingredient editor, and meat is locked to Use by
       date_kind: string;
     };
   expect((await shown()).date_kind).toBe("best_before");
-  await page.goto(`/recipes/ingredients?open=${food.id}`);
-  const select = page.getByLabel("Date on the packet");
+  // The Ingredients page has no ?open=: find the ingredient and open its editor.
+  await page.goto("/recipes/ingredients");
+  await page
+    .getByRole("searchbox", { name: "Search ingredients" })
+    .fill(food.name);
+  await page
+    .getByRole("region", { name: "All ingredients" })
+    .getByRole("button", { name: new RegExp(`^${food.name}`) })
+    .click();
+  const editor = isPhone(page)
+    ? page.getByRole("dialog", { name: `Edit ${food.name}` })
+    : page.getByRole("complementary", { name: `Edit ${food.name}` });
+  const select = editor.getByLabel("Date on the packet");
   await expect(select).toBeVisible();
   await select.selectOption("use_by");
   await expect.poll(async () => (await shown()).date_kind).toBe("use_by");
