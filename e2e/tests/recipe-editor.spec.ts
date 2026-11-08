@@ -733,8 +733,9 @@ test('the editor passes the accessibility checks in both themes, new and filled 
   await inTheme(page, 'dark');
 });
 
-test('a very long name wraps, and text at 200% still fits', async ({ browser }, info) => {
-  const context = await browser.newContext({ ...info.project.use, bypassCSP: true });
+test('a very long name wraps, and text at 200% still fits', async ({ browser }) => {
+  // A new context gets the project's options and this worker's server and sign-in by itself.
+  const context = await browser.newContext({ bypassCSP: true });
   await context.clock.install({ time: testNow() });
   const page = await context.newPage();
   try {
