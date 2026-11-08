@@ -55,8 +55,15 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('/recipes shows the list beside a calm empty reading pane, and passes the accessibility checks', async ({ page }) => {
+  // With no recipe at all the page shows "No recipes yet" and no reading pane, so this test makes
+  // its own (it used to rely on other specs having left some).
+  await makeRecipe(page, { name: `Pane ${stamp()}`, steps: [{ text: 'Stir.' }] });
   await page.goto('/recipes');
   await expect(list(page).getByRole('heading', { name: 'Recipes', level: 1 })).toBeVisible();
+  // The list has finished loading (its card says aria-busy until then), so the accessibility
+  // check below never reads a half-drawn list.
+  await expect(list(page).locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(list(page).getByText('Loading…')).toHaveCount(0);
   await expect(reading(page).getByRole('heading', { name: 'Choose a recipe' })).toBeVisible();
   await expect(reading(page).getByText('Pick one from the list to read it here.')).toBeVisible();
   await expect(reading(page).getByRole('article')).toHaveCount(0);
@@ -424,6 +431,7 @@ async function goOffline(page: Page, context: BrowserContext, path: string, sear
   // leave the list with nothing to show (the steady note), which is a different test.
   await expect(list(page).getByRole('link', { name: new RegExp(searched) }).first()).toBeVisible();
   await page.waitForLoadState('networkidle');
+  // Kept: the app's start-up after the stream opens has no signal to wait for; the next step cuts the network.
   await page.waitForTimeout(500);
   await context.route('**/api/**', (route) => route.abort());
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
