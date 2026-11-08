@@ -1366,7 +1366,8 @@ def test_place_and_shop_ids_migration_keeps_rows_and_never_reuses_an_id(tmp_path
     """0.8 release (security finding M1): `place` and `shop` are rebuilt with "never reuse an
     id": every row, id, index and link stays, an id removed after the upgrade is not handed out
     again, and going back rebuilds them without it. (A top id removed before the upgrade can be
-    handed out once more: the counter starts at the highest id left; parked for cabledrawer.)"""
+    handed out once more: the counter starts at the highest id left; left as it is, cabledrawer
+    8 Nov.)"""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
     migrate.downgrade(engine, STOCKTAKE_MIGRATION)
