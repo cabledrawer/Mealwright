@@ -61,8 +61,11 @@ test("add a pack, untick two, add: the rest come in, then one Undo takes them al
     page.getByText(`Added the Japanese starter pack: ${count} ingredients`),
   ).toBeVisible();
 
-  const added = (await foods(page)).filter((f) => !before.has(f.name));
-  expect(added).toHaveLength(count);
+  // The toast shows at once and the server answers a moment later: wait for it.
+  const newOnes = async () =>
+    (await foods(page)).filter((f) => !before.has(f.name));
+  await expect.poll(async () => (await newOnes()).length).toBe(count);
+  const added = await newOnes();
   const names = added.map((f) => f.name);
   expect(names).toContain("miso");
   expect(names).not.toContain("mirin");
@@ -71,7 +74,7 @@ test("add a pack, untick two, add: the rest come in, then one Undo takes them al
   // Nothing but ingredients: the pantry is as it was.
   expect(await pantryItems(page)).toBe(stocked);
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
     .poll(
       async () => (await foods(page)).filter((f) => !before.has(f.name)).length,
@@ -111,7 +114,7 @@ test("an ingredient already there by its other name shows Already have and is sk
     ).toBeVisible();
     const after = await foods(page);
     expect(after.some((f) => f.name === "bonito flakes")).toBe(false);
-    await page.getByRole("button", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect
       .poll(
         async () =>
@@ -135,10 +138,14 @@ test("Household items come in as staples", async ({ page }) => {
   await expect(
     page.getByText(/^Added the Household starter pack: \d+ ingredients$/),
   ).toBeVisible();
+  await expect
+    .poll(
+      async () => (await foods(page)).filter((f) => !before.has(f.name)).length,
+    )
+    .toBeGreaterThan(0);
   const added = (await foods(page)).filter((f) => !before.has(f.name));
-  expect(added.length).toBeGreaterThan(0);
   expect(added.every((f) => f.staple)).toBe(true);
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
     .poll(
       async () => (await foods(page)).filter((f) => !before.has(f.name)).length,
