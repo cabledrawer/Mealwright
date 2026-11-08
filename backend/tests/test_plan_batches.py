@@ -1641,7 +1641,7 @@ def test_a_tub_past_its_use_by_is_too_late_to_freeze(
     assert kitchen.post(f"{API}/plan/tubs/{tubs[1]}/freezer").status_code == 200
 
 
-# --- Binned on a tub (cabledrawer 8 Nov, 0.8) ----------------------------------------------------------
+# --- Binned on a tub (cabledrawer 8 Nov, 0.8) -----------------
 
 
 def _tub_left_id(kitchen: TestClient) -> int:

@@ -1454,7 +1454,7 @@ describe('the Pantry page', () => {
         sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3, tubs: 1 })];
         routes({
           // Like the server: a binned tub is gone from Use soon.
-          'POST /plan/tubs/51/bin': () => {
+          'POST /plan/tubs/51/bin': (): [number, unknown] => {
             sample.useSoonTubs = [];
             return [
               200,
