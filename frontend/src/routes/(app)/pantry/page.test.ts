@@ -32,6 +32,14 @@ describe('the Pantry page', () => {
         200,
         { lots: sample.useSoon.filter((lot) => !gone.has(lot.id)), tubs: sample.useSoonTubs }
       ],
+      // Like the server: a binned tub is gone from Use soon.
+      'POST /plan/tubs/51/bin': () => {
+        sample.useSoonTubs = [];
+        return [
+          200,
+          { change: changeOf(700, 'Binned Lemon rice tub'), meal_id: null, item_id: null }
+        ];
+      },
       'POST /changes/700/undo': [
         200,
         { result: 'done', message: '', change: changeOf(702, 'Undid'), food: null }
@@ -1452,16 +1460,6 @@ describe('the Pantry page', () => {
 
       it('Binned on a passed tub bins it, takes its card away and offers Undo', async () => {
         sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3, tubs: 1 })];
-        routes({
-          // Like the server: a binned tub is gone from Use soon.
-          'POST /plan/tubs/51/bin': (): [number, unknown] => {
-            sample.useSoonTubs = [];
-            return [
-              200,
-              { change: changeOf(700, 'Binned Lemon rice tub'), meal_id: null, item_id: null }
-            ];
-          }
-        });
         await render(1300);
         const card = page.getByRole('region', { name: /^Use soon/ });
         await card
