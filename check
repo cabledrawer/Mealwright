@@ -103,7 +103,8 @@ RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/mealwright-check-XXXXXX")"
 # it stops the running step and everything the step started, then removes the temp folder.
 set -m
 CHILD=""
-declare -A BESIDE=() BESIDE_LOG=() BESIDE_START=() BESIDE_NOTE=()   # steps running beside the others (start_beside)
+declare -A BESIDE=() BESIDE_LOG=() BESIDE_START=() BESIDE_NOTE=() BESIDE_WD=()   # steps running beside the others (start_beside)
+CHILD_WD=""
 stop_group() {
   [[ -n "$1" ]] || return 0
   kill -TERM -- "-$1" 2>/dev/null
@@ -115,9 +116,10 @@ stop_group() {
   kill -KILL -- "-$1" 2>/dev/null
 }
 stop_child() {
+  stop_group "$CHILD_WD"; CHILD_WD=""
   stop_group "$CHILD"; CHILD=""
   local name
-  for name in "${!BESIDE[@]}"; do stop_group "${BESIDE[$name]}"; done
+  for name in "${!BESIDE[@]}"; do stop_group "${BESIDE_WD[$name]:-}"; stop_group "${BESIDE[$name]}"; done
   BESIDE=()
 }
 cleanup() { stop_child; stop_group "${SAMPLER:-}"; case "$RUN_TMP" in */mealwright-check-??????) rm -rf "$RUN_TMP" ;; esac; }
@@ -160,19 +162,67 @@ result_of() {
   printf '%s' "$r"
 }
 
+# A time limit on every step (cabledrawer 8 Nov, T2: a hung step must never hold the machine for hours).
+# Minutes, one variable per kind of step, each changeable (CHECK_LIMIT_BROWSER=60 ./check). A
+# watchdog per step, not `timeout`: `timeout` would only stop the step's first process, and the
+# servers it started would be left running. After the limit (and 30 s for the step to end by itself)
+# the watchdog calls stop_group on the step's own process group, the same as Ctrl-C does, and the
+# step is recorded FAIL with "stopped after N min (limit <variable>)".
+limit_var() {
+  case "$1" in
+    *": install"|*": sync")                                   echo CHECK_LIMIT_INSTALL ;;
+    "browser: desktop"|"browser: phone"*|"browser: webkit"*)  echo CHECK_LIMIT_BROWSER ;;
+    "backend: pytest")                                        echo CHECK_LIMIT_PYTEST ;;
+    "image: "*)                                               echo CHECK_LIMIT_IMAGE ;;
+    "pip-audit"|"bandit"|"osv-scanner")                       echo CHECK_LIMIT_SCAN ;;
+    *)                                                        echo CHECK_LIMIT_OTHER ;;
+  esac
+}
+limit_minutes() {
+  local var default
+  var="$(limit_var "$1")"
+  case "$var" in
+    CHECK_LIMIT_BROWSER) default=45 ;;
+    CHECK_LIMIT_PYTEST|CHECK_LIMIT_IMAGE|CHECK_LIMIT_SCAN) default=20 ;;
+    *) default=15 ;;
+  esac
+  echo "${!var:-$default}"
+}
+# start_watchdog <step pid> <step name> <flag file>: sets WD to the watchdog's pid (its own group).
+start_watchdog() {
+  local secs=$(( $(limit_minutes "$2") * 60 + 30 ))
+  rm -f "$3"
+  ( sleep "$secs"; : >"$3"; stop_group "$1" ) </dev/null >/dev/null 2>&1 9>&- &
+  WD=$!
+}
+stop_watchdog() {
+  [[ -n "$1" ]] || return 0
+  kill -TERM -- "-$1" 2>/dev/null
+  wait "$1" 2>/dev/null
+}
+stopped_note() { echo "stopped after $(limit_minutes "$1") min (limit $(limit_var "$1"))"; }
+
 # step <name> <command...>: run a command, log its output, record PASS or FAIL.
 step() {
   local name="$1"; shift
-  local log="$LOGS/${name// /-}.log" start=$SECONDS
+  local log="$LOGS/${name// /-}.log" start=$SECONDS ok=1
+  local flag="$log.stopped"
   printf '%-28s ' "$name"
   (cd "$ROOT" && "$@") </dev/null >"$log" 2>&1 9>&- &   # no step reads the terminal or holds the lock
   CHILD=$!
-  if wait "$CHILD"; then
-    CHILD=""
+  start_watchdog "$CHILD" "$name" "$flag"; CHILD_WD=$WD
+  wait "$CHILD" || ok=0
+  stop_watchdog "$CHILD_WD"; CHILD_WD=""
+  CHILD=""
+  if [[ -e "$flag" ]]; then
+    record "$name" FAIL "$(stopped_note "$name")" "$((SECONDS - start))s"
+    echo "FAIL ($(stopped_note "$name"))"
+    printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
+    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+  elif ((ok)); then
     record "$name" PASS "" "$((SECONDS - start))s"
     echo "PASS ($((SECONDS - start))s)"
   else
-    CHILD=""
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
@@ -191,6 +241,7 @@ start_beside() {
   printf '%-28s %s\n' "$name" "started, runs beside the next steps"
   (cd "$ROOT" && "$@"; rc=$?; date +%s >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 9>&- &
   BESIDE[$name]=$!
+  start_watchdog "${BESIDE[$name]}" "$name" "$log.stopped"; BESIDE_WD[$name]=$WD
 }
 finish_beside() {
   local name="$1"
@@ -198,10 +249,16 @@ finish_beside() {
   local log="${BESIDE_LOG[$name]}" ok=1 took
   printf '%-28s ' "$name"
   wait "${BESIDE[$name]}" || ok=0
-  unset "BESIDE[$name]"
+  stop_watchdog "${BESIDE_WD[$name]:-}"
+  unset "BESIDE[$name]" "BESIDE_WD[$name]"
   took="$(( $(cat "$log.end" 2>/dev/null || date +%s) - BESIDE_START[$name] ))s"
   rm -f "$log.end"
-  if ((ok)); then
+  if [[ -e "$log.stopped" ]]; then
+    record "$name" FAIL "$(stopped_note "$name")" "$took"
+    echo "FAIL ($(stopped_note "$name"))"
+    printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
+    tail -n 40 "$log" | sed 's/^/    /' | tee /dev/fd/3
+  elif ((ok)); then
     record "$name" PASS "${BESIDE_NOTE[$name]}" "$took"
     echo "PASS ($took)"
   else
@@ -355,6 +412,11 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   # "frontend: size limit" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and
   # WebKit as one stream, as before (for a smaller machine).
   e2e_port="${E2E_APP_PORT:-18080}"
+  # In ./check only (E2E_CHECK_MODE, read by playwright.config.ts): Playwright stops by itself after
+  # 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
+  # when the browser step's time limit is up. The step watchdog above is the backstop.
+  check_pw=(E2E_CHECK_MODE=1 E2E_MAX_FAILURES="${CHECK_MAX_FAILURES:-20}"
+            E2E_GLOBAL_TIMEOUT_MS="$(( $(limit_minutes "browser: desktop") * 60000 ))")
   if [[ -f "$ROOT/frontend/build/index.html" ]]; then
     BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
     if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
@@ -366,12 +428,12 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
     for b in "${e2e_beside[@]}"; do
       IFS=: read -r label projects offset <<<"$b"
       start_beside "browser: $label" "ran beside browser: desktop" \
-        env TMPDIR="$RUN_TMP" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + offset)) \
+        env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + offset)) \
             PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
             sh -c "cd e2e && npx playwright test --output test-results/${projects//,/-}"
       reports+=("$ROOT/.check/browser-${projects//,/-}.json")
     done
-    step "browser: desktop"      env TMPDIR="$RUN_TMP" E2E_PROJECTS=desktop E2E_SKIP_BUILD=1 E2E_APP_PORT="$e2e_port" \
+    step "browser: desktop"      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS=desktop E2E_SKIP_BUILD=1 E2E_APP_PORT="$e2e_port" \
                                      PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-desktop.json" \
                                      sh -c 'cd e2e && npx playwright test --output test-results/desktop'
     for b in "${e2e_beside[@]}"; do finish_beside "browser: ${b%%:*}"; done

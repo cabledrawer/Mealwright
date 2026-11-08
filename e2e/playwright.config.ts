@@ -67,6 +67,14 @@ export default defineConfig({
   // check, but ./check lists it as flaky in its summary and the PR, to fix in the next tidy-up.
   retries: 1,
   forbidOnly: true,
+  // In ./check only (it sets E2E_CHECK_MODE; cabledrawer 8 Nov, T2): stop after 20 failed tests, and
+  // when the browser step's time limit is up, so a crashed server or a hang can't run for hours.
+  ...(process.env.E2E_CHECK_MODE
+    ? {
+        maxFailures: Number(process.env.E2E_MAX_FAILURES ?? 20),
+        globalTimeout: Number(process.env.E2E_GLOBAL_TIMEOUT_MS ?? 45 * 60_000),
+      }
+    : {}),
   globalSetup: './global-setup.ts',
   projects: pick([
     { name: 'chromium', testMatch: 'csp.spec.ts', use: { browserName: 'chromium' } },
