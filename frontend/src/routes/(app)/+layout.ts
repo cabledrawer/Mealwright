@@ -40,40 +40,43 @@ import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import type { LayoutLoad } from './$types';
 
-/** Theme picks when this start began. A late answer (or the server asked again after opening
- * offline) is acted on by a later run of load, so it keeps the first run's count: a theme the
- * person picked after the app started is newer than the server's, and stays (cabledrawer 8 Nov). */
-let picksAtStart = 0;
-
 export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // Only on starting the app and after signing in, not on every page change.
   const heading = untrack(() => url.pathname + url.search);
   const start = newStart();
   const late = takeLateAnswer();
-  if (late) return decide(late.answer, heading, late);
-  picksAtStart = theme.picks;
+  if (late) return decide(late.answer, heading, late.picks, late);
+  // Theme picks when this start asks: a theme picked after that is newer than the server's
+  // answer, and stays (cabledrawer 8 Nov). Kept with this start's answer, even when that answer
+  // comes late and another start has begun meanwhile.
+  const picks = theme.picks;
   const asked = askServer(fetch);
   const answer = await inTime(asked);
-  if (answer) return decide(answer, heading);
+  if (answer) return decide(answer, heading, picks);
   // No answer yet: open as whoever was last signed in here, as offline, and decide when the
   // server answers. Not over someone else who has just signed in: they wait for it.
   const last = await lastSignedIn();
   if (last && (!session.me || session.me.id === last.id)) {
     holdServerLists();
     openAs(fromDevice(last));
-    void answeredLate(asked, start, last.id);
+    void answeredLate(asked, start, last.id, picks);
     return;
   }
   // Nobody to open as, and the browser says it is offline: no need to wait to know.
   if (!last && navigator.onLine === false) redirect(307, signInPath(heading));
-  return decide(await asked, heading);
+  return decide(await asked, heading, picks);
 };
 
 /** Decide, then let the server's lists through: once it is known who is signed in, or that
  * nobody is (sign in, setup). Not after a server error: who is signed in still isn't known. */
-async function decide(answer: Answer, heading: string, late: LateAnswer | null = null) {
+async function decide(
+  answer: Answer,
+  heading: string,
+  picks: number,
+  late: LateAnswer | null = null
+) {
   try {
-    await decideNow(answer, heading, late);
+    await decideNow(answer, heading, picks, late);
   } catch (error) {
     if (isRedirect(error)) releaseServerLists();
     throw error;
@@ -81,7 +84,12 @@ async function decide(answer: Answer, heading: string, late: LateAnswer | null =
   releaseServerLists();
 }
 
-async function decideNow(answer: Answer, heading: string, late: LateAnswer | null): Promise<void> {
+async function decideNow(
+  answer: Answer,
+  heading: string,
+  picks: number,
+  late: LateAnswer | null
+): Promise<void> {
   if ('error' in answer) {
     if (!cantReach(answer.error)) throw answer.error;
     const last = await lastSignedIn();
@@ -89,7 +97,7 @@ async function decideNow(answer: Answer, heading: string, late: LateAnswer | nul
     // Offline: this device's theme stays as it is; nothing is saved to the account. The
     // server is asked who is signed in once it can be reached (askAgain).
     openAs(fromDevice(last));
-    openedOffline(last.id);
+    openedOffline(last.id, picks);
     return;
   }
   session.setup = answer.setup;
@@ -123,7 +131,7 @@ async function decideNow(answer: Answer, heading: string, late: LateAnswer | nul
   await startDevice(me);
   // The account's theme wins over this device's copy, but not over a theme picked since the
   // app started (a slow server's answer is older than that choice).
-  theme.adopt(me.theme, picksAtStart);
+  theme.adopt(me.theme, picks);
 }
 
 /**

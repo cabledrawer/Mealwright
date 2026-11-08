@@ -101,8 +101,8 @@ class Theme {
 
   /**
    * The account's choice, on signing in: it wins over this device's copy. But the person's most
-   * recent choice always wins: given `picksAtStart` (picks when the app started), an answer
-   * that comes after the person has picked a theme since then changes nothing (cabledrawer 8 Nov).
+   * recent choice always wins: given `picksAtStart` (picks when the start asked the server), an
+   * answer that comes after the person has picked a theme since then changes nothing (cabledrawer 8 Nov).
    */
   adopt(choice: ThemeChoice, picksAtStart?: number): void {
     if (picksAtStart !== undefined && picksAtStart !== this.#picks) return;

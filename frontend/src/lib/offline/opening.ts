@@ -63,14 +63,17 @@ export const restart = {
   rerun: async (): Promise<void> => (await import('$app/navigation')).refreshAll()
 };
 
-/** A late answer, and the login the app had opened as from this device. */
-export type LateAnswer = { answer: Answer; openedAs: number };
+/** A late answer, the login the app had opened as from this device, and how many theme picks
+ * there had been when that start asked (a theme picked since is newer than the answer). */
+export type LateAnswer = { answer: Answer; openedAs: number; picks: number };
 
 let starts = 0;
 let late: LateAnswer | null = null;
 /** The login the app opened as from this device, while the server hasn't said who is signed
  * in (the late answer was "still no connection", or it opened offline); else null. */
 let unconfirmed: number | null = null;
+/** Theme picks when the start that opened as `unconfirmed` asked. */
+let unconfirmedPicks = 0;
 let asking = false;
 
 /** A new start of +layout.ts: a late answer to an earlier one is then left alone. */
@@ -79,10 +82,11 @@ export function newStart(): number {
   return ++starts;
 }
 
-/** The app opened offline as `openedAs`: the server is asked who is signed in once it can be
- * reached (askAgain). */
-export function openedOffline(openedAs: number): void {
+/** The app opened offline as `openedAs` (`picks` theme picks when it asked): the server is
+ * asked who is signed in once it can be reached (askAgain). */
+export function openedOffline(openedAs: number, picks: number): void {
   unconfirmed = openedAs;
+  unconfirmedPicks = picks;
 }
 
 /**
@@ -94,6 +98,7 @@ export function openedOffline(openedAs: number): void {
  */
 export async function askAgain(fetch: typeof globalThis.fetch = globalThis.fetch): Promise<void> {
   const openedAs = unconfirmed;
+  const picks = unconfirmedPicks;
   if (openedAs === null || asking) return;
   asking = true;
   const start = starts;
@@ -114,7 +119,7 @@ export async function askAgain(fetch: typeof globalThis.fetch = globalThis.fetch
     return;
   }
   unconfirmed = null;
-  await decideLate({ answer, openedAs });
+  await decideLate({ answer, openedAs, picks });
 }
 
 /** Asking again got no real answer: no connection, or the server had a problem (a 5xx).
@@ -142,20 +147,22 @@ export function takeLateAnswer(): LateAnswer | null {
 }
 
 /** The server answered after the app opened from this device as `openedAs` (start number
- * `start`). +layout.ts decides on it, and lets the server's lists through once it has. */
+ * `start`, asked with `picks` theme picks so far). +layout.ts decides on it, and lets the
+ * server's lists through once it has. */
 export async function answeredLate(
   asked: Promise<Answer>,
   start: number,
-  openedAs: number
+  openedAs: number,
+  picks: number
 ): Promise<void> {
   const answer = await asked;
   // Another start has asked again since (signed in, say): its answer decides.
   if (start !== starts) return;
   if ('error' in answer && cantReach(answer.error)) {
     // Still no connection: carry on as opened, as offline, and ask again once it's back.
-    unconfirmed = openedAs;
+    openedOffline(openedAs, picks);
     releaseServerLists();
     return;
   }
-  await decideLate({ answer, openedAs });
+  await decideLate({ answer, openedAs, picks });
 }

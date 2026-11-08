@@ -291,7 +291,7 @@ test.describe('theme', () => {
   test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
     page,
   }) => {
-    // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3, line 290).
+    // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3 on 8 Nov).
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
     await (await themeControls(page)).getByRole('button', { name: 'Light' }).click();
@@ -320,12 +320,15 @@ test.describe('theme', () => {
     await group.getByRole('button', { name: 'Auto' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.dark);
 
+    // The app asks for the shopping list only once it has acted on the server's answer (the
+    // lists are held back until then): that request is the sign the late answer was acted on.
+    const listAsked = page.waitForRequest((r) => r.url().includes('/api/v1/shopping/changes'));
+    await page.getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping' }).first().click();
     release();
     await late;
-    // The app acts on the late answer straight after it lands; give it that moment.
-    await page.waitForTimeout(1500);
+    await listAsked;
     expect(await ground(page), 'still the Auto the person picked').toBe(GROUND.dark);
-    await expect(group.getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => document.documentElement.dataset.themeChoice)).toBe('auto');
     await savedToAccount(page, 'auto');
   });
 

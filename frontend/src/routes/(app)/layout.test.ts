@@ -471,6 +471,57 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       expect(document.documentElement.dataset.themeChoice).toBe('auto');
     });
 
+    it('a page change while the late answer is acted on (a new start) doesn’t let it undo the pick', async () => {
+      // Seen in the browser: Shopping tapped as the late answer landed started load again,
+      // and that start's count must not be the late answer's.
+      await wrensPhone(1);
+      theme.adopt('light');
+      let account: ThemeChoice = 'light';
+      fakeApi({
+        ...signedInAs(2, 'Wren'),
+        'GET /me': () => [
+          200,
+          { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: account }
+        ]
+      });
+      // Each GET /me is answered when asked (the account as it is then) and held: the first
+      // until release(), later ones until releaseLater().
+      const inner = globalThis.fetch;
+      let release!: () => void;
+      let releaseLater!: () => void;
+      const released = new Promise<void>((done) => (release = done));
+      const releasedLater = new Promise<void>((done) => (releaseLater = done));
+      releases.push(release, releaseLater);
+      let meAsked = 0;
+      vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
+        const answer = inner(...args);
+        if (String(args[0]).endsWith('/me') && (args[1]?.method ?? 'GET') === 'GET') {
+          meAsked += 1;
+          await (meAsked === 1 ? released : releasedLater);
+        }
+        return answer;
+      });
+      await begin();
+      theme.set('auto');
+      account = 'auto'; // saved to the account
+      // Acting on the late answer: a page change starts load again beside it.
+      restart.rerun = () => {
+        const lateRun = begin();
+        const newRun = Promise.resolve(open()).then(() => undefined);
+        reruns.push(lateRun, newRun);
+        return Promise.allSettled([lateRun, newRun]).then(() => undefined);
+      };
+      release();
+      await vi.waitFor(() => expect(reruns).toHaveLength(2));
+      // The late answer (Light, read before the pick) has been acted on: Auto stays.
+      await expect(reruns[0]).resolves.toBeUndefined();
+      expect(theme.choice).toBe('auto');
+      // And the new start's own answer (Auto, read after the pick) agrees.
+      releaseLater();
+      await Promise.allSettled(reruns);
+      expect(theme.choice).toBe('auto');
+    });
+
     it('nothing picked meanwhile: the late answer’s account theme still wins over this device’s copy', async () => {
       await wrensPhone(1);
       theme.adopt('light');
