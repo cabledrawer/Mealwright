@@ -379,6 +379,28 @@ stop_watchdog() {
 }
 stopped_note() { echo "stopped after $(limit_minutes "$1") min (limit $(limit_var "$1"))"; }
 
+# print_failure <step name> <log>: what a failed step puts on the screen (and in the full log). The
+# last 40 lines of its log, except for a browser stream that wrote a report (T2c S5): Playwright's
+# list ends with long error blocks, so the 40 lines were mostly one stack trace and cut the list of
+# failed tests. For that: one line per failed test, the first error block only, and where the whole log
+# is. A stream with no report (stopped, killed) keeps the tail.
+declare -A STREAM_REPORT=()   # "browser: <label>" -> its JSON report (set by run_browser_streams)
+print_failure() {
+  local name="$1" log="$2" report="${STREAM_REPORT[$1]:-}" failed
+  if [[ -n "$report" && -f "$report" ]] &&
+     failed="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --failed "$report" 2>/dev/null)" && [[ -n "$failed" ]]; then
+    {
+      echo "Failed tests ($(wc -l <<<"$failed")):"
+      awk -F'\t' 'NR <= 30 { printf "  [%s] %s › %s\n", $1, $2, $3 } END { if (NR > 30) printf "  … and %d more (node e2e/scripts/flaky.mjs --failed %s)\n", NR - 30, "'"$report"'" }' <<<"$failed"
+      echo "First error:"
+      awk '/^  1\) / { on = 1 } /^  2\) / { on = 0 } on' "$log" | head -n 40
+      echo "Whole log: ${log#"$ROOT"/}"
+    }
+  else
+    tail -n 40 "$log"
+  fi | sed 's/^/    /' | tee -a /dev/fd/3
+}
+
 # step <name> <command...>: run a command, log its output, record PASS or FAIL.
 step() {
   local name="$1"; shift
@@ -395,7 +417,7 @@ step() {
     record "$name" FAIL "$(stopped_note "$name")" "$((SECONDS - start))s"
     echo "FAIL ($(stopped_note "$name"))"
     printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
+    print_failure "$name" "$log"
   elif ((ok)); then
     record "$name" PASS "" "$((SECONDS - start))s"
     echo "PASS ($((SECONDS - start))s)"
@@ -403,7 +425,7 @@ step() {
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$((SECONDS - start))s"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
+    print_failure "$name" "$log"
   fi
 }
 
@@ -442,7 +464,7 @@ finish_beside() {
     record "$name" FAIL "$(stopped_note "$name")" "$took"
     echo "FAIL ($(stopped_note "$name"))"
     printf '%-28s FAIL (%s)\n' "$name" "$(stopped_note "$name")" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
+    print_failure "$name" "$log"
   elif ((ok)); then
     record "$name" PASS "${BESIDE_NOTE[$name]}" "$took"
     echo "PASS ($took)"
@@ -450,7 +472,7 @@ finish_beside() {
     record "$name" FAIL "see .check/logs/${name// /-}.log" "$took"
     echo "FAIL"
     printf '%-28s FAIL\n' "$name" >&3
-    tail -n 40 "$log" | sed 's/^/    /' | tee -a /dev/fd/3
+    print_failure "$name" "$log"
   fi
 }
 
@@ -708,6 +730,7 @@ run_browser_streams() {
   for b in "${STREAM_DEFS[@]}"; do
     IFS=: read -r label projects offset <<<"$b"
     e2e_reports+=("$ROOT/.check/browser-${projects//,/-}.json")
+    STREAM_REPORT["browser: $label"]="$ROOT/.check/browser-${projects//,/-}.json"
     if [[ -z "$first" ]]; then first="$b"; continue; fi
     mapfile -t args < <(stream_args "$label")
     start_beside "browser: $label" "ran beside browser: ${first%%:*}" \
@@ -1254,6 +1277,28 @@ for r in "${results[@]}"; do
   esac
 done
 
+# table_rows <full|collapse>: the summary's table rows. In the pull request's paste (collapse), skipped
+# steps that share one note become a single row ("a, b, c | SKIP | note"); the full log has every row (T2c L9).
+table_rows() {
+  local i j same names_joined done_=" "
+  for i in "${!names[@]}"; do
+    if [[ "$1" == collapse && "${results[$i]}" == SKIP ]]; then
+      [[ "$done_" == *" $i "* ]] && continue
+      same=() names_joined=""
+      for j in "${!names[@]}"; do
+        [[ "${results[$j]}" == SKIP && "${notes[$j]}" == "${notes[$i]}" ]] && same+=("$j")
+      done
+      if ((${#same[@]} > 1)); then
+        for j in "${same[@]}"; do names_joined+="${names_joined:+, }${names[$j]}"; done
+        for j in "${same[@]}"; do done_+="$j "; done
+        echo "| $names_joined | SKIP | - | ${notes[$i]} |"
+        continue
+      fi
+    fi
+    echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
+  done
+}
+
 # The full table goes to .check/summary.md (to paste into the pull request) and the full log.
 # The screen gets the steps that didn't pass, the result, and where the files are.
 SUMMARY="$ROOT/.check/summary.md"
@@ -1304,9 +1349,7 @@ fi
   echo
   echo "| Step | Result | Time | Note |"
   echo "|---|---|---|---|"
-  for i in "${!names[@]}"; do
-    echo "| ${names[$i]} | ${results[$i]} | ${times[$i]} | ${notes[$i]} |"
-  done
+  table_rows collapse
   echo
   if ((${#flaky[@]})); then
     echo "**Flaky browser tests** (failed once, passed on retry; fix in the next tidy-up):"
@@ -1324,20 +1367,26 @@ fi
 } >"$SUMMARY"
 echo
 cat "$SUMMARY"
+echo; echo "The full table (the summary above joins skipped steps that have the same note):"; table_rows full
 
 show ""
 for i in "${!names[@]}"; do
   [[ "${results[$i]}" == PASS ]] || show "$(printf '%-28s %s%s' "${names[$i]}" "${results[$i]}" "${notes[$i]:+ (${notes[$i]})}")"
 done
 # Each step's time (cabledrawer 8 Nov), and the 25 slowest browser tests when they ran.
-show "" "Step times:"
+# Only the steps that took 10 s or more, and the 5 slowest tests (T2c L1): the summary file and the full
+# log keep every step and the 25 slowest.
+show "" "Step times (steps of 10 s or more; every step is in .check/check.log and the summary):"
 for i in "${!names[@]}"; do
-  [[ "${times[$i]}" == - ]] || show "$(printf '  %-28s %s' "${names[$i]}" "${times[$i]}")"
+  [[ "${times[$i]}" == - ]] && continue
+  line="$(printf '  %-28s %s' "${names[$i]}" "${times[$i]}")"
+  if [[ "${times[$i]}" =~ ^([0-9]+)s$ && ${BASH_REMATCH[1]} -ge 10 ]]; then show "$line"; else printf '%s\n' "$line"; fi   # the others to the log only
 done
 show "  $(printf '%-28s %s' "whole run" "${SECONDS}s")"
 if [[ -s "$ROOT/.check/slowest-browser-tests.txt" ]]; then
-  show "" "25 slowest browser tests (.check/slowest-browser-tests.txt):"
-  show "$(sed 's/^/  /' "$ROOT/.check/slowest-browser-tests.txt")"
+  show "" "5 slowest browser tests (the 25 slowest: .check/slowest-browser-tests.txt):"
+  show "$(head -n 5 "$ROOT/.check/slowest-browser-tests.txt" | sed 's/^/  /')"
+  sed -n '6,$p' "$ROOT/.check/slowest-browser-tests.txt" | sed 's/^/  /'   # the rest, to the log only
 fi
 if [[ -s "$ROOT/.check/fixes-list.txt" ]]; then
   show "" "For the fixes PR on top of this line (.check/fixes-list.txt):"
