@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createServer } from 'node:net';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,6 +48,23 @@ export type WorkerServer = {
 const BACKEND = fileURLToPath(new URL('../../backend', import.meta.url));
 const FRONTEND_BUILD = fileURLToPath(new URL('../../frontend/build', import.meta.url));
 
+/** A restarted worker (Playwright starts a new one after a failure, with the same number and so the
+ *  same port) must never find its predecessor's server there and take it for its own (T2b S8): wait
+ *  until the port is free (the old server stops within a second or two of its worker going), and
+ *  refuse if it never is. */
+async function waitUntilPortFree(port: number) {
+  for (let i = 0; i < 150; i++) {
+    const free = await new Promise<boolean>((resolve) => {
+      const probe = createServer();
+      probe.once('error', () => resolve(false));
+      probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
+    });
+    if (free) return;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error(`Port ${port} is in use by something else (an old test server?): the worker's server can't start there.`);
+}
+
 async function waitUntilUp(port: number, child: ChildProcess) {
   for (let i = 0; i < 1200; i++) {
     if (child.exitCode !== null || child.signalCode !== null) {
@@ -79,6 +97,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
       const scratch = mkdtempSync(join(tmpdir(), `mealwright-e2e-w${workerInfo.parallelIndex}-`));
       const dataDir = join(scratch, 'data');
       mkdirSync(dataDir);
+      await waitUntilPortFree(port);
       // Started through a small shell that stops the server when this worker is gone, even when the
       // worker is killed outright (SIGKILL, so no exit hook runs): it checks every second.
       const watch = [
@@ -89,6 +108,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
       ].join('\n');
       const child = spawn('sh', ['-c', watch, 'sh', String(process.pid), BACKEND, join(BACKEND, 'scripts/e2e_server.py')], {
         stdio: 'inherit',
+        detached: true, // its own process group: stopping the group stops the shell and the server
         env: {
           ...process.env,
           MEALWRIGHT_DATA_DIR: dataDir,
@@ -98,9 +118,16 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
           MEALWRIGHT_ALLOW_PLAIN_HTTP: 'true',
         },
       });
+      const signalGroup = (signal: NodeJS.Signals) => {
+        try {
+          process.kill(-child.pid!, signal);
+        } catch {
+          // already gone
+        }
+      };
       const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
       // If this worker is stopped (Ctrl-C, or Playwright ending it), the server must not outlive it.
-      const stopServer = () => child.kill('SIGTERM');
+      const stopServer = () => signalGroup('SIGTERM');
       process.once('exit', stopServer);
       try {
         await waitUntilUp(port, child);
@@ -115,8 +142,8 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
       } finally {
         process.off('exit', stopServer);
         if (child.exitCode === null && child.signalCode === null) {
-          child.kill('SIGTERM');
-          const killer = setTimeout(() => child.kill('SIGKILL'), 5000);
+          signalGroup('SIGTERM');
+          const killer = setTimeout(() => signalGroup('SIGKILL'), 5000);
           await ended;
           clearTimeout(killer);
         }
