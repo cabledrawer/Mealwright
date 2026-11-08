@@ -430,11 +430,16 @@ export class PlanModel {
     );
   }
 
-  /** Put a tub in a meal (from tubs left, or moving one that is in a meal already). */
+  /** Put a tub from tubs left in a meal. If another phone has put it in a meal meanwhile, the
+   * server refuses (409 tub_taken) rather than moving it out of that meal; the plan reloads. */
   placeTub(tubId: number, name: string, day: string, slotId: number) {
     return this.#send({
       label: `Put ${name} in ${this.slotName(slotId)}`,
-      send: (key) => placeTub(tubId, { date: day, slot_id: slotId }, key)
+      send: (key) => placeTub(tubId, { date: day, slot_id: slotId }, key, true),
+      refused: (error) => {
+        if (error.code === 'tub_taken') kitchen.changed();
+        return false;
+      }
     });
   }
 

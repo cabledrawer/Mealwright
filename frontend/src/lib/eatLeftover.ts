@@ -32,7 +32,13 @@ export async function eatLeftover(
       .slice(0, count);
     const tub = made.at(-1);
     if (!tub) return;
-    const written = await placeTub(tub.id, { date: to.day, slot_id: to.slotId }, newChangeId());
+    // A tub another phone has put in a meal meanwhile is refused (409 tub_taken), not moved.
+    const written = await placeTub(
+      tub.id,
+      { date: to.day, slot_id: to.slotId },
+      newChangeId(),
+      true
+    );
     if (written.change?.can_undo) placed.undo = serverUndo(written.change.id);
     kitchen.changed();
   } catch (error) {
