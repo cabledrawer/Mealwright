@@ -52,10 +52,13 @@ async function kitchen(page: Page) {
       return made.item_id as number;
     },
     mine: (id: string) => lines.push(id),
+    // A reused connection the server has just closed fails with "socket hang up" (ECONNRESET);
+    // maxRetries: 3 tries a request again only for that (never for an HTTP status), so a clean-up
+    // no longer fails the test, and what the test checks is unchanged.
     async cleanUp() {
-      for (const id of items) await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
-      for (const id of lines) await page.request.fetch(`/api/v1/shopping/items/${id}`, { method: 'DELETE', headers: key() });
-      await page.request.fetch('/api/v1/shopping/from-plan', { method: 'POST' });
+      for (const id of items) await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
+      for (const id of lines) await page.request.fetch(`/api/v1/shopping/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
+      await page.request.fetch('/api/v1/shopping/from-plan', { method: 'POST', maxRetries: 3 });
     },
   };
 }

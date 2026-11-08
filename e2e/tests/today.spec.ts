@@ -365,7 +365,7 @@ test.describe('F150: This week', () => {
       }
     } finally {
       await page.evaluate(() => localStorage.removeItem('mealwright.plan-show'));
-      for (const id of meals) await page.request.fetch(`/api/v1/plan/meals/${id}`, { method: 'DELETE', headers: key() });
+      for (const id of meals) await page.request.fetch(`/api/v1/plan/meals/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
     }
   });
 });

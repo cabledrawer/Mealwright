@@ -550,7 +550,7 @@ test('Cooked it from Cook now opens the review for the planned meal', async ({ p
   await review.getByRole('button', { name: 'Cancel' }).first().click();
   await expect(review).toHaveCount(0);
   for (const { itemId } of await plannedToday(page, id)) {
-    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key() });
+    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });
 
@@ -579,7 +579,7 @@ test('after Undo of Cooked it, Cook mode from the same meal ends with Back and C
   await expect(footerButtons(page)).toHaveText(['← Back', 'Cooked it']);
   await expectNoLeaveButtons(page);
   for (const { itemId } of await plannedToday(page, id)) {
-    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key() });
+    await page.request.fetch(`/api/v1/plan/items/${itemId}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });
 
@@ -610,7 +610,7 @@ test('Cook now adds nothing to the plan when the recipe is already planned today
   await expect(page.getByRole('button', { name: 'Cooked it' })).toBeVisible();
   const planned = await plannedToday(page, id);
   expect(planned).toHaveLength(1);
-  await page.request.fetch(`/api/v1/plan/items/${planned[0]!.itemId}`, { method: 'DELETE', headers: key() });
+  await page.request.fetch(`/api/v1/plan/items/${planned[0]!.itemId}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
 });
 
 test('when the plan cannot be written Cook mode still opens, without Cooked it, and says so', async ({ page }) => {
@@ -842,7 +842,7 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
       await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
     }
     for (const id of [first.item_id as number, second.item_id as number]) {
-      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
     }
   }
 });
@@ -886,7 +886,7 @@ test('F157: reloading the cook address, Cooked it still reviews only this recipe
       await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
     }
     for (const id of [first.item_id as number, second.item_id as number]) {
-      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
+      await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
     }
   }
 });
@@ -936,6 +936,6 @@ test('F159: Plan, Cook, a later day\'s meal, Start cooking, Confirm: it is cooke
     for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(soup.name))) {
       await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
     }
-    await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key() });
+    await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });

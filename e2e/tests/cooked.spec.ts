@@ -558,7 +558,7 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
     };
     for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(s)))
       await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
-    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
+    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });
 
@@ -585,7 +585,7 @@ test('F166: Serves in the Plan menu of a meal cooked in parts names the recipe i
     };
     for (const change of pantry.changes.filter((c) => c.kind === 'cooked' && c.can_undo && c.summary.includes(s)))
       await page.request.fetch(`/api/v1/changes/${change.id}/undo`, { method: 'POST', headers: key() });
-    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key() });
+    for (const made of [a, b]) await page.request.fetch(`/api/v1/plan/items/${made.item_id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });
 
