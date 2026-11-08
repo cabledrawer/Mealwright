@@ -125,6 +125,27 @@ fi
 # CHECK_LOCK_WAIT=0 it refuses instead (exit 75). Only this script holds the lock (fd 9 is
 # closed for every step), so a server left running by a stopped check can't keep it.
 CHECK_LOCK="${CHECK_LOCK:-/tmp/mealwright-check.lock}"
+# A ./check started by something that already holds the lock (e.g. `flock <lock> ./check`) would
+# wait for itself forever: refuse at once instead (cabledrawer 8 Nov). Looks at this shell's own open
+# files and every parent's, up to process 1.
+lock_held_above() {
+  local want p fd
+  want="$(readlink -f -- "$CHECK_LOCK" 2>/dev/null)" || return 1
+  p=$$
+  while [[ -n "$p" && "$p" != 0 && "$p" != 1 ]]; do
+    for fd in /proc/"$p"/fd/*; do
+      [[ "$(readlink -- "$fd" 2>/dev/null)" == "$want" ]] && { echo "$p"; return 0; }
+    done
+    p="$(awk '{print $4}' /proc/"$p"/stat 2>/dev/null)"
+  done
+  return 1
+}
+if holder="$(lock_held_above)"; then
+  [[ "$holder" == "$$" ]] && holder=$PPID   # inherited from whatever started it
+  echo "This ./check was started by something that already holds the check lock (process $holder: $(ps -o args= -p "$holder" 2>/dev/null | cut -c1-120))." >&2
+  echo "It would wait for itself forever, so it isn't starting. ./check takes the lock itself: run it without flock." >&2
+  exit 75
+fi
 exec 9>>"$CHECK_LOCK" || { echo "Can't open the check lock $CHECK_LOCK." >&2; exit 75; }
 if ! flock -n 9; then
   echo "Another ./check is running on this machine: $(cat "$CHECK_LOCK.who" 2>/dev/null || echo 'details unknown')." >&2
