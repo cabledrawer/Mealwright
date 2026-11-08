@@ -352,3 +352,41 @@ test("nothing sits below the places and Staples on the Pantry page", async ({
   expect(last).toBe(true);
   expect(isPhone(page) || true).toBe(true);
 });
+
+test("on the computer a long amount never cuts the name, and the row stays inside its place", async ({
+  page,
+}) => {
+  test.skip(isPhone(page), "the one-line row is the computer's (F66)");
+  // An open, running-low packet has the longest amount line: "about 50 g · ¼ pack · open · running low".
+  const food = await stockedAt(page, "Chickpeas dried", 40, "Fridge");
+  await api(page, "POST", `/stock/${food.lot}/left`, { fraction: "0.25" });
+  await api(page, "PATCH", `/foods/${food.id}`, {
+    running_low_at: { amount: 500, unit: "g" },
+  });
+  await page.goto("/pantry");
+  const fridge = page.getByRole("region", { name: "Fridge", exact: true });
+  const more = fridge.getByRole("button", { name: /more( in the Fridge)?$/ });
+  if (await more.count()) await more.first().click();
+  const row = fridge.getByRole("listitem").filter({ hasText: food.name });
+  await expect(row).toContainText("running low");
+  // Every ingredient row in every place: the name shows whole (it may wrap, never cut to
+  // "B" or "E…"), and nothing in the row reaches past its place's right edge.
+  const cut = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("li.group")].flatMap((li) => {
+      const name = li.querySelector<HTMLElement>(".name");
+      const card = li.closest("section");
+      if (!name || !card) return [];
+      const edge = card.getBoundingClientRect().right;
+      const out = [...li.querySelectorAll<HTMLElement>(".head *")].some(
+        (el) => el.getBoundingClientRect().right > edge + 0.5,
+      );
+      const clipped = name.scrollWidth > name.clientWidth + 1;
+      return clipped || out
+        ? [
+            `${name.textContent}: ${clipped ? "cut" : ""}${out ? " outside" : ""}`,
+          ]
+        : [];
+    }),
+  );
+  expect(cut).toEqual([]);
+});

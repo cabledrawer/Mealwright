@@ -625,17 +625,19 @@
     .what {
       display: contents;
     }
+    /* Neither the name nor the amount is ever cut: each wraps between words, the amount
+       takes the room the name doesn't need, and "+ List" goes on its own line under. */
     .row {
+      flex-basis: 100%;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto 16px;
+      grid-template-columns: minmax(auto, max-content) minmax(min-content, 1fr) auto 16px;
       column-gap: var(--space-4);
     }
     .name {
-      overflow: hidden;
+      /* At least 6rem; only a word longer than the room left breaks inside. */
+      min-width: 6rem;
       font-size: var(--text-base);
       font-weight: var(--weight-semibold);
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     .also {
       grid-column: 1;
@@ -647,13 +649,13 @@
       font-size: var(--text-sm);
     }
     .amount {
+      min-width: 0;
       color: var(--color-text);
-      white-space: nowrap;
+      text-align: right;
     }
     .date {
-      max-width: none;
+      max-width: 10rem;
       font-size: var(--text-xs);
-      white-space: nowrap;
     }
     .tap,
     .click {
