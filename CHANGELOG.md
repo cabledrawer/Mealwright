@@ -12,6 +12,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - **Recent changes live in Settings only (0.8.0, F172, cabledrawer 7 Nov).** Settings → Recent changes lists every kind of change (pantry, shopping, plan, cooking, recipes, imports, ingredients, shops and places), newest first, each with Undo, and "Show more" for older ones. The Recent changes button on Ingredients and the list at the bottom of Pantry are gone. The toast still offers Undo straight after each change. `GET /changes` with no `area` already listed everything; `area` still works. One Cooked it is one row with one Undo (cabledrawer 7 Nov): the meal's own "Cooked …" line is folded into the pantry's, in the server's list, so every client gets one row.
 
+### For developers
+
+- **Steadier tests and a faster `./check` (0.8.0, cabledrawer 8 Nov).** Speed tests time the test's own CPU, not the wall clock; the Cook mode timer test jumps the clock; the F84 tags, WebKit Plan list and Recipes panes tests no longer depend on timing or on other tests' data; one fixed wait replaced, the rest kept with their reason. `./check` prints each step's time and the 25 slowest browser tests, re-uses the frontend and browser installs when the lock files and Playwright are unchanged, and runs the browser tests in three streams side by side (desktop, phone, Safari engine; `CHECK_BROWSER_STREAMS=2` for two).
+
 ## [0.8.0-alpha.1] - 2026-11-07
 
 The first 0.8.0 test version: wave 2, "what 0.7 left". Cooking a meal with several recipes one recipe at a time now reads right on Today, the Plan and the Cook view; Cooked it works on a meal planned for a later day; the Plan's Month gets Both · Eat · Cook; Today's This week shows seven days; Cook mode's per-step box is redrawn and its steps follow the finger; import Check gets swipes and the One at a time gaps filled; and slow or flaky tests are fixed. No database change: v0.7.0's data is used as it is, but back up first as always (`docs/dev/test-on-homelab.md` section 4.1).
