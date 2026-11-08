@@ -126,7 +126,9 @@ test("a passed Use by is red and says don’t eat; a passed Best before is grey 
     ["Binned", "Used…", "To freezer"].includes(b.trim()),
   );
   expect(actions).toEqual(["Binned", "Used…", "To freezer"]);
-  await expect(useBy.getByRole("button", { name: "To freezer" })).toBeDisabled();
+  await expect(
+    useBy.getByRole("button", { name: "To freezer" }),
+  ).toBeDisabled();
   await expect(useBy).toContainText(
     "Too late to freeze: the use by date has passed.",
   );
@@ -135,9 +137,11 @@ test("a passed Use by is red and says don’t eat; a passed Best before is grey 
   await expect(bestBefore).toContainText("Best before passed · probably fine");
   await expect(bestBefore).toContainText("Passed 2 days ago");
   await expect(bestBefore).not.toContainText("don’t eat");
+  // Best before food can always be frozen: To freezer is there and works.
   await expect(
     bestBefore.getByRole("button", { name: "To freezer" }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
+  await expect(bestBefore).not.toContainText("Too late to freeze");
 
   // A Best before date to come is not Use soon, and its row in the Cupboard says so.
   await expect(soonRow(page, tin.name)).toHaveCount(0);
@@ -161,8 +165,13 @@ test("the date type shows in the ingredient editor, and meat is locked to Use by
   await select.selectOption("use_by");
   await expect.poll(async () => (await shown()).date_kind).toBe("use_by");
 
+  // The bundled table matches a whole name or an other name, so a unique ingredient gets
+  // "chicken breast" as an other name to be the table's meat row.
   const chicken = await api(page, "POST", "/foods", {
-    name: `Chicken breast ${stamp()}`,
+    name: `Poultry ${stamp()}`,
+  });
+  await api(page, "POST", `/foods/${chicken.food.id}/other-names`, {
+    name: "chicken breast",
   });
   const locked = await page.request.fetch(`/api/v1/foods/${chicken.food.id}`, {
     method: "PATCH",
@@ -299,6 +308,11 @@ test("a tub that is soon shows in Use soon on both screens, even with nothing el
   await page.goto("/pantry");
   // On the phone this strip used to be hidden when no packet was soon.
   const strip = page.getByRole("region", { name: /^Use soon · \d+$/ });
+  // Wait for the strip before Show all, or the button isn't there yet and a card past the
+  // first four stays hidden.
+  await expect(
+    page.getByRole("heading", { name: /^Use soon · \d+$/, level: 2 }),
+  ).toBeVisible();
   await showAll(page);
   await expect(strip.getByText(name)).toBeVisible();
   await expect(

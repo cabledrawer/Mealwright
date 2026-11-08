@@ -332,7 +332,13 @@ test("Ctrl+Z undoes a pantry change on desktop", async ({ page }) => {
   // before: make this one Use by so it has a Binned button in the strip.
   await api(page, "PATCH", `/foods/${food.id}`, { date_kind: "use_by" });
   await page.goto("/pantry");
-  const side = page.getByRole("complementary", { name: /Use soon/ });
+  const side = page.getByRole("region", { name: /^Use soon · \d+$/ });
+  // Four cards show until "Show all N", and earlier tests left packets that are soon too.
+  await expect(
+    side.getByRole("heading", { name: /^Use soon · \d+$/ }),
+  ).toBeVisible();
+  const all = side.getByRole("button", { name: /^Show all \d+$/ });
+  if (await all.count()) await all.click();
   await side
     .getByRole("listitem")
     .filter({ hasText: food.name })
