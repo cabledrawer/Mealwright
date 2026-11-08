@@ -1481,7 +1481,8 @@ describe('the Pantry page', () => {
         sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3 })];
         await render(390);
         const card = page.getByRole('region', { name: /^Use soon/ });
-        await expect.element(card.getByRole('button', { name: 'Binned' }).first()).toBeVisible();
+        const tub = card.getByRole('listitem').filter({ hasText: 'Lemon rice' });
+        await expect.element(tub.getByRole('button', { name: 'Binned' })).toBeVisible();
         expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
       });
 
