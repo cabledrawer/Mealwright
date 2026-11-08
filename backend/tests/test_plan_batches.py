@@ -1620,3 +1620,22 @@ def test_eat_it_on_from_tubs_left_refuses_a_tub_that_is_in_a_meal(
     moved = kitchen.post(url, json={"date": day(2), "slot_id": slots["Dinner"]})
     assert moved.status_code == 200
     assert where_tubs_are(kitchen, slots)[0] == (1, day(2), "Dinner")
+
+
+def test_a_tub_past_its_use_by_is_too_late_to_freeze(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    """cabledrawer 8 Nov: as a packet. The day before and the day itself work; from the day after
+    the server refuses (422 too_late_to_freeze) and nothing moves."""
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    tubs = [t["id"] for t in view(kitchen)["tubs"]]
+    _set_tub_use_by(kitchen, -1)
+    refused = kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freezer")
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["code"] == "too_late_to_freeze"
+    assert "Too late to freeze" in refused.json()["detail"]
+    assert {t["place_kind"] for t in view(kitchen)["tubs"]} == {"fridge"}
+    _set_tub_use_by(kitchen, 0)
+    assert kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freezer").status_code == 200
+    _set_tub_use_by(kitchen, 1)
+    assert kitchen.post(f"{API}/plan/tubs/{tubs[1]}/freezer").status_code == 200

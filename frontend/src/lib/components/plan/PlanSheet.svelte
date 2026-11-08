@@ -10,6 +10,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
+  import { TOO_LATE_TO_FREEZE, tubTooLateToFreeze } from '#lib/tooLateToFreeze.js';
   import type { DropMode } from '#lib/client/plan.js';
   import type { PlanActions, PlanTarget as Target } from '#lib/planActions.js';
   import {
@@ -231,8 +232,12 @@
     onclose();
   }
 
+  /** Too late to freeze (cabledrawer 8 Nov): a tub past its use-by date, as a packet. */
+  const tubTooLate = $derived(!!tub && tubTooLateToFreeze(tub.tub.use_by, model.today));
+  const uid = $props.id();
+
   function toFreezer() {
-    if (!tubItem || !tub) return;
+    if (!tubItem || !tub || tubTooLate) return;
     void model.toFreezer(tub.tub.id, itemName(tubItem, model.plan));
     onclose();
   }
@@ -501,8 +506,15 @@
             {/if}
           {/if}
           {#if tub && tub.tub.place_kind !== 'freezer'}
-            <button type="button" disabled={actions.readonly} onclick={toFreezer}>To freezer</button
+            <button
+              type="button"
+              disabled={actions.readonly || tubTooLate}
+              aria-describedby={tubTooLate ? `${uid}-late` : undefined}
+              onclick={toFreezer}>To freezer</button
             >
+            {#if tubTooLate}
+              <p class="hint" id="{uid}-late" data-testid="tub-too-late">{TOO_LATE_TO_FREEZE}</p>
+            {/if}
           {/if}
           <!-- F49: taking a tub off a meal keeps the tub, so it isn't red and it says so. -->
           {#if holdsCooked}

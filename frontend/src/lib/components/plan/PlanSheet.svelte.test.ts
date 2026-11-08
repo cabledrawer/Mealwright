@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
+import type { Plan, PlanItem, PlanMeal } from '#lib/client/plan.js';
 import type { PlanActions, PlanTarget } from '#lib/planActions.js';
 import PlanSheet from './PlanSheet.svelte';
 import '#lib/styles/tokens.css';
@@ -44,7 +44,7 @@ const meal: PlanMeal = {
   eater_login_ids: []
 };
 
-function open(target: PlanTarget) {
+function open(target: PlanTarget, plan: Plan | null = null) {
   const openCooked = vi.fn();
   const model = {
     slotsOn: [{ id: 1, name: 'Dinner' }],
@@ -53,7 +53,7 @@ function open(target: PlanTarget) {
     today: '2026-11-02',
     startsOn: 1,
     anchor: '2026-11-02',
-    plan: null,
+    plan,
     people: [],
     removeItem: vi.fn(),
     removeMeal: vi.fn()
@@ -92,5 +92,51 @@ describe('the Plan menu of a part-cooked meal (F157)', () => {
     document.body.innerHTML = '';
     open({ kind: 'item', meal, item: khichdi });
     await expect.element(page.getByRole('button', { name: 'Remove' })).toBeVisible();
+  });
+});
+
+describe('To freezer on a leftover tub (cabledrawer 8 Nov)', () => {
+  function tubMeal(useBy: string) {
+    const tubItem = { ...item(7, 'Lemon rice', false), kind: 'tub' as const, tub_id: 70 };
+    const tubMeal: PlanMeal = { ...meal, id: 6, items: [tubItem] };
+    const plan = {
+      start: '2026-11-02',
+      end: '2026-11-02',
+      meals: [tubMeal],
+      batch_cooks: [{ id: 3, cooked_on: '2026-10-30', recipe_name: 'Lemon rice' }],
+      tubs: [
+        {
+          id: 70,
+          batch_id: 3,
+          amount_quarters: 4,
+          number: 1,
+          place_id: 1,
+          place_kind: 'fridge',
+          member_login_id: null,
+          use_by: useBy
+        }
+      ]
+    } as unknown as Plan;
+    return { target: { kind: 'item', meal: tubMeal, item: tubItem } as PlanTarget, plan };
+  }
+
+  it('is greyed out with the note once the use-by date has passed', async () => {
+    const { target, plan } = tubMeal('2026-11-01');
+    open(target, plan);
+    const button = page.getByRole('button', { name: 'To freezer' });
+    await expect.element(button).toBeDisabled();
+    await expect
+      .element(page.getByTestId('tub-too-late'))
+      .toHaveTextContent('Too late to freeze: the use by date has passed.');
+    expect(button.element().getAttribute('aria-describedby')).toBe(
+      page.getByTestId('tub-too-late').element().id
+    );
+  });
+
+  it('still works on the use-by day itself, with no note', async () => {
+    const { target, plan } = tubMeal('2026-11-02');
+    open(target, plan);
+    await expect.element(page.getByRole('button', { name: 'To freezer' })).toBeEnabled();
+    expect(page.getByTestId('tub-too-late').elements()).toHaveLength(0);
   });
 });

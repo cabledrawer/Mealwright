@@ -10,3 +10,8 @@ export const TOO_LATE_TO_FREEZE = 'Too late to freeze: the use by date has passe
 /** `daysLeft` is the server's count from the household's today (negative once it has passed). */
 export const tooLateToFreeze = (kind: DateKind, daysLeft: number | null): boolean =>
   kind === 'use_by' && daysLeft !== null && daysLeft < 0;
+
+/** A leftover tub is always Use by (cabledrawer 8 Nov): too late from the day after its date. Dates
+ * are yyyy-mm-dd text, so they compare as text; `today` is the household's day. */
+export const tubTooLateToFreeze = (useBy: string, today: string): boolean =>
+  !!today && useBy < today;

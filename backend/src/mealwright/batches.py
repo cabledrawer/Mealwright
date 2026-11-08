@@ -591,6 +591,12 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
         raise Problem(
             status.HTTP_409_CONFLICT, "already_frozen", "That tub is already in the freezer."
         )
+    if tub.use_by < today(kitchen.household):  # as a packet: the use-by day itself still works
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "too_late_to_freeze",
+            "Too late to freeze: the use by date has passed.",  # cabledrawer 7 Nov, tubs 8 Nov
+        )
     steps: list[dict[str, Any]] = []
     name = tub_name(kitchen, tub)
     item = item_of_tub(kitchen, tub)
