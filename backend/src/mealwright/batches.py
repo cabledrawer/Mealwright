@@ -592,7 +592,7 @@ def bin_tub(kitchen: Kitchen, tub: Tub) -> Change:
         raise Problem(
             status.HTTP_409_CONFLICT,
             "tub_in_meal",
-            "That tub is planned for a meal. Take it out of the meal first.",  # proposed
+            "That tub is planned for a meal. Take it out of the meal first.",  # cabledrawer 8 Nov
         )
     steps = [{"op": "tub_eat", "tub": tub.id, "from": tub.amount_quarters, "to": 0}]
     tub.amount_quarters = 0
