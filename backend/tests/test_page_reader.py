@@ -32,6 +32,8 @@ from mealwright.page_reader import (
     read_page,
 )
 
+# Timing checks here use time.process_time() (this process's own CPU), not wall-clock, so a busy
+# machine can't fail them; a reader that really is slow still uses the CPU and still fails.
 PAGES = Path(__file__).parent / "import_pages"
 URL = "https://site.example/recipes/one/"
 NO_NUTRITION: dict[str, Decimal | None] = dict.fromkeys(NUTRIENTS)
@@ -555,9 +557,9 @@ def test_a_very_long_number_in_a_time_is_refused_quickly(time_: str) -> None:
     """Number text over 20 characters is refused before it's converted, like 0.4's amounts
     (MAX_NUMBER_TEXT). Turning a long digit string into a number takes time that grows with
     its square, and a big enough one overflowed."""
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read(totalTime=time_)
-    assert time.monotonic() - start < 1
+    assert time.process_time() - start < 1
     assert found_.total_minutes is None
 
 
@@ -582,9 +584,9 @@ def test_real_times_are_read_as_before_the_number_limit() -> None:
     ],
 )
 def test_a_very_long_number_in_nutrition_is_refused_quickly(field: str, value: str) -> None:
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read(nutrition=facts(**{field: value}))
-    assert time.monotonic() - start < 1
+    assert time.process_time() - start < 1
     assert found_.nutrition == NO_NUTRITION
 
 
@@ -592,9 +594,9 @@ def test_a_very_long_number_in_nutrition_is_refused_quickly(field: str, value: s
     "value", ["1" * 5_000_000 + " servings", "4." + MILLION_DIGITS, "1" * 21 + " cookies"]
 )
 def test_a_very_long_number_in_a_yield_is_refused_quickly(value: str) -> None:
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read(recipeYield=value)
-    assert time.monotonic() - start < 2
+    assert time.process_time() - start < 2
     assert (found_.serves, found_.makes) == (None, None)
 
 
@@ -987,9 +989,9 @@ def test_a_section_that_lists_itself_is_walked_quickly() -> None:
     """A nameless section listing itself 50 times, 8 deep, is 50**8 visits unchecked."""
     loop = {"@id": "#loop", "@type": "HowToSection", "itemListElement": [{"@id": "#loop"}] * 50}
     html = json_ld({"@graph": [recipe(recipeInstructions=[step("Boil."), {"@id": "#loop"}]), loop]})
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read_page(html, URL)
-    assert time.monotonic() - start < 1
+    assert time.process_time() - start < 1
     assert found_ is not None
     assert found_.steps == lines("Boil.")
 
@@ -1001,9 +1003,9 @@ def test_sections_that_list_each_other_many_times_are_walked_quickly() -> None:
         for n in range(9)
     ]
     html = json_ld({"@graph": [recipe(recipeInstructions=[step("Boil."), {"@id": "#s0"}]), *chain]})
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read_page(html, URL)
-    assert time.monotonic() - start < 1
+    assert time.process_time() - start < 1
     assert found_ is not None
     assert found_.steps == lines("Boil.")
 
@@ -1034,9 +1036,9 @@ def big_tidied(monkeypatch: pytest.MonkeyPatch) -> list[int]:
 
 
 def _read_big(*graph: object, **fields: Any) -> PageRecipe:
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read_page(json_ld({"@graph": [recipe(**fields), *graph, BIG_OBJECT]}), URL)
-    assert time.monotonic() - start < 2  # about 0.1 s; without the fix, minutes
+    assert time.process_time() - start < 2  # about 0.1 s; without the fix, minutes
     assert found_ is not None
     return found_
 
@@ -1110,9 +1112,9 @@ def test_one_big_text_used_by_eight_fields_is_tidied_once(monkeypatch: pytest.Mo
     keys += ["recipeCuisine", "recipeInstructions"]
     fields = {key: {"@id": "#big"} for key in keys}
     big = {"@id": "#big", "@type": "HowToStep", "name": text}
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read_page(json_ld({"@graph": [recipe(**fields), big]}), URL)
-    assert time.monotonic() - start < 2  # about 0.3 s
+    assert time.process_time() - start < 2  # about 0.3 s
     assert count == [1]
     assert found_ is not None
     stirs = " ".join(["Stir."] * 50_000)
@@ -1324,9 +1326,9 @@ def microdata_read(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
 
 def _read_nested(counts: dict[str, int], html: str, seconds: float = 2) -> PageRecipe:
     counts["limit"] = 2 * max(len(html), 1_000_000)
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read_page(html, URL)
-    assert time.monotonic() - start < seconds  # without the limit, minutes
+    assert time.process_time() - start < seconds  # without the limit, minutes
     assert found_ is not None
     return found_
 
@@ -1393,9 +1395,9 @@ def test_a_5_mb_name_of_half_tags_is_read_in_linear_time() -> None:
     """2.6 million "<a" with no ">": the old tag pattern started a scan to the end of the text
     at every "<", taking over an hour; read in about a second now."""
     name = "<a" * (FIVE_MB // 2)
-    start = time.monotonic()
+    start = time.process_time()
     found_ = read(name=name)
-    assert time.monotonic() - start < 5
+    assert time.process_time() - start < 5
     assert found_.name.startswith("<a<a")
 
 
@@ -1405,9 +1407,9 @@ def test_one_endless_start_tag_takes_little_memory_or_time() -> None:
     html = "<a x='" * (FIVE_MB // 6)
     tracemalloc.start()
     try:
-        start = time.monotonic()
+        start = time.process_time()
         assert read_page(html, URL) is None
-        took = time.monotonic() - start
+        took = time.process_time() - start
         peak = tracemalloc.get_traced_memory()[1]
     finally:
         tracemalloc.stop()

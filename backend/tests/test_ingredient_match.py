@@ -625,9 +625,9 @@ def test_a_big_kitchen_is_matched_quickly(db: Session) -> None:
         )
     ]
     assert len(lines) == 200
-    started = time.perf_counter()
+    started = time.process_time()
     results = [match_line(kitchen, line) for line in lines]
-    elapsed = time.perf_counter() - started
+    elapsed = time.process_time() - started
     assert elapsed < 1.0, f"200 lines against 2,000 ingredients took {elapsed:.1f} s"
     assert results[0].label == "to_confirm" or results[0].label == "matched"
     assert results[2].label == "needs_you"

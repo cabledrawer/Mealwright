@@ -41,12 +41,12 @@ def _stopwatch() -> Iterator[Callable[[], float]]:
     the whole test run it can stop everything for 1 to 2 seconds at any moment (measured 28 Oct:
     23 such stops in one run), and these huge texts set it off. That isn't the server being slow."""
     gc.disable()
-    started = time.monotonic()
+    started = time.process_time()
     ended: list[float] = []
     try:
-        yield lambda: (ended[0] if ended else time.monotonic()) - started
+        yield lambda: (ended[0] if ended else time.process_time()) - started
     finally:
-        ended.append(time.monotonic())
+        ended.append(time.process_time())
         gc.enable()
 
 
