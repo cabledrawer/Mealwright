@@ -72,6 +72,11 @@
 #   CHECK_PYTEST_WORKERS (4), CHECK_PYTEST_WORKERS_BESIDE (2)
 #                               backend test workers: alone (fast), and beside the browser tests
 #   CHECK_BROWSER_STREAMS=2     phone and WebKit as one stream
+#   CHECK_WORKERS_DESKTOP (4), CHECK_WORKERS_PHONE (3), CHECK_WORKERS_WEBKIT (2)
+#                               Playwright workers per browser stream (1 to 6), each with its own
+#                               test server; the counts are in each browser step's note
+# The summary's "Settings:" line lists every CHECK_* and E2E_* value set for the run. A full run with
+# CHECK_STOP_EARLY=0 or its own CHECK_HISTORY_DIR says NOT valid for a pull request, top and bottom.
 #   CHECK_SCANNERS=1            run the scanners even when nothing they cover changed
 #   CHECK_IMAGE, E2E_APP_PORT   the image tag and the first test-server port (a second copy of
 #                               the repo needs its own)
@@ -109,6 +114,23 @@ done
 if [[ "$MODE" == files && ${#BROWSER_FILES[@]} == 0 ]]; then echo "--browser-files needs at least one spec file." >&2; usage; fi
 if ((ALL_TESTS)) && [[ "$MODE" != fast ]]; then echo "--all only works with --fast." >&2; usage; fi
 if ((UPDATE_SNAPSHOTS)) && [[ "$MODE" != files ]]; then echo "--update-snapshots only works with --browser-files." >&2; usage; fi
+for v in CHECK_WORKERS_DESKTOP CHECK_WORKERS_PHONE CHECK_WORKERS_WEBKIT; do
+  [[ -z "${!v:-}" || "${!v}" =~ ^[1-6]$ ]] || { echo "$v must be 1 to 6 (a stream has ports for six workers), not \"${!v}\"." >&2; exit 2; }
+done
+# S2 (cabledrawer 8 Nov): every CHECK_* and E2E_* variable set for this run that isn't just its default,
+# said in the summary ("Settings:"). Two of them change what the run proves, so a run with either is
+# not valid for a pull request: CHECK_STOP_EARLY=0 (it runs on after a failure) and a CHECK_HISTORY_DIR
+# of its own (the flaky-test history it judges by is not the real one).
+SETTINGS=()
+while IFS='=' read -r name value; do
+  case "$name=$value" in
+    E2E_APP_PORT=18080|CHECK_STOP_EARLY=1|CHECK_BROWSER_STREAMS=3|CHECK_LOCK_WAIT=1|CHECK_HISTORY_DIR=) continue ;;
+  esac
+  SETTINGS+=("$name=$value")
+done < <(env | grep -E '^(CHECK_|E2E_)' | sort)
+NOT_VALID_WHY=()
+[[ "${CHECK_STOP_EARLY:-1}" == 0 ]] && NOT_VALID_WHY+=("CHECK_STOP_EARLY=0")
+[[ -n "${CHECK_HISTORY_DIR:-}" ]] && NOT_VALID_WHY+=("CHECK_HISTORY_DIR=$CHECK_HISTORY_DIR")
 # Which test servers start is ./check's own choice (--browser-files and --rerun-failed set it from
 # the files); one left set in the shell must never make a full run start fewer (T2a review L1).
 unset E2E_SERVERS PW_SERVERS
@@ -649,14 +671,14 @@ run_browser_streams() {
     if [[ -z "$first" ]]; then first="$b"; continue; fi
     mapfile -t args < <(stream_args "$label")
     start_beside "browser: $label" "ran beside browser: ${first%%:*}" \
-      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_WORKERS="$(stream_workers "$label")" \
           E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS+E2E_SERVERS="$PW_SERVERS"} \
           PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
           sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
   done
   IFS=: read -r label projects offset <<<"$first"
   mapfile -t args < <(stream_args "$label")
-  step "browser: $label" env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+  step "browser: $label" env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_WORKERS="$(stream_workers "$label")" \
           E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS+E2E_SERVERS="$PW_SERVERS"} \
           PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
           sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
@@ -665,9 +687,32 @@ run_browser_streams() {
     [[ "$b" == "$first" ]] || finish_beside "browser: $label"
   done
   sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
+  local i
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label _ <<<"$b"
+    for i in "${!names[@]}"; do
+      [[ "${names[$i]}" == "browser: $label" ]] && notes[i]="${notes[i]:+${notes[i]}; }$(stream_workers "$label") workers"
+    done
+  done
 }
 
 e2e_port="${E2E_APP_PORT:-18080}"
+# stream_workers <label>: how many workers each browser stream runs (cabledrawer 8 Nov, T2b): every
+# worker has its own test server (e2e/tests/clock.ts). Desktop 4, phone 3, WebKit 2 (WebKit is the
+# heaviest per browser); CHECK_WORKERS_DESKTOP, CHECK_WORKERS_PHONE and CHECK_WORKERS_WEBKIT change
+# them (1 to 6: a stream has ports for six). When phone and WebKit share a stream
+# (CHECK_BROWSER_STREAMS=2), the smaller of the two.
+stream_workers() {
+  local d="${CHECK_WORKERS_DESKTOP:-4}" p="${CHECK_WORKERS_PHONE:-3}" w="${CHECK_WORKERS_WEBKIT:-2}" n
+  case "$1" in
+    desktop) n=$d ;;
+    phone) n=$p ;;
+    webkit) n=$w ;;
+    *) n=$(( p < w ? p : w )) ;;
+  esac
+  [[ "$n" =~ ^[1-6]$ ]] || { echo "CHECK_WORKERS_* must be 1 to 6, not \"$n\"." >&2; exit 2; }
+  echo "$n"
+}
 # In ./check only (E2E_CHECK_MODE, read by playwright.config.ts): Playwright stops by itself after
 # 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
 # when the browser step's time limit is up. The step watchdog above is the backstop.
@@ -1176,6 +1221,11 @@ case "$MODE" in
          [[ "$(result_of rerun)" == SKIP ]] && PASS_LABEL="NOTHING TO RERUN"
          MODE_TAIL="${MODE_BANNER:-DIAGNOSIS RUN, NOT valid for a pull request.}" ;;
 esac
+# A full run with a setting that changes what it proves says so, top and bottom, like the other modes.
+if [[ "$MODE" == full && ${#NOT_VALID_WHY[@]} -gt 0 ]]; then
+  PASS_LABEL="PASS, NOT VALID FOR A PULL REQUEST"
+  MODE_TAIL="NOT valid for a pull request: ${NOT_VALID_WHY[*]} (a setting that changes what the run proves)."
+fi
 {
   case "$MODE" in
     fast)  echo "## ./check summary (FAST RUN: not valid for a pull request)"
@@ -1190,10 +1240,18 @@ esac
     rerun) echo "## ./check summary (DIAGNOSIS RUN, NOT valid for a pull request)"
            echo
            echo "**$MODE_TAIL**" ;;
-    *)     echo "## ./check summary" ;;
+    *)     if [[ -n "$MODE_TAIL" ]]; then
+             echo "## ./check summary (NOT valid for a pull request)"
+             echo
+             echo "**$MODE_TAIL**"
+           else
+             echo "## ./check summary"
+           fi ;;
   esac
   echo
   echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
+  echo
+  if ((${#SETTINGS[@]})); then echo "Settings: ${SETTINGS[*]}"; else echo "Settings: none changed (all defaults)"; fi
   echo
   echo "| Step | Result | Time | Note |"
   echo "|---|---|---|---|"
