@@ -159,7 +159,11 @@ test('a household with one shop shows no shop headers', async ({ page }) => {
     });
     await page.goto('/shopping');
     await expect(row(page, name)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: /· \d+$/ })).toHaveCount(0);
+    // No "<shop> · 3" header. ("In the trolley · 2" also ends in a count: things other tests
+    // ticked in this shared household.)
+    await expect(
+      page.getByRole('heading', { level: 2, name: /· \d+$/ }).filter({ hasNotText: /^In the trolley/ }),
+    ).toHaveCount(0);
   } finally {
     await k.cleanUp();
   }
