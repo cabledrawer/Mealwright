@@ -961,3 +961,44 @@ def test_two_phones_saying_got_it_at_once_both_get_an_answer(kitchen: TestClient
         assert codes == [200, 200]
     with db(kitchen) as session:
         assert len(list(session.scalars(select(StapleCheck)))) == 1
+
+
+# --- Recipes inside recipes: the work grows with the recipes, not the paths (release M2) ----------
+
+
+def nested_tree(kitchen: TestClient, depth: int, width: int) -> tuple[int, dict[str, Any]]:
+    """L0 uses 1 g of seed; each level above lists the level below on `width` lines."""
+    seed = new_food(kitchen, "Seed")
+    below = recipe(kitchen, "L0", line(seed["id"], 1, "g"))
+    for k in range(1, depth + 1):
+        inner = [{"kind": "ingredient", "words": f"w{i}", "recipe_id": below} for i in range(width)]
+        below = recipe(kitchen, f"L{k}", *inner)
+    return below, seed
+
+
+def test_a_nested_recipe_adds_up_once_per_line(kitchen: TestClient) -> None:
+    top, seed = nested_tree(kitchen, 3, 4)
+    plan(kitchen, top)
+    assert amounts(kitchen) == {seed["id"]: 4**3}
+
+
+def test_a_deep_wide_recipe_tree_is_worked_out_in_bounded_steps(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mealwright import shop_from_plan
+
+    calls = {"n": 0}
+    real = shop_from_plan._must_make
+
+    def counted(*args: Any, **kwargs: Any) -> bool:
+        calls["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(shop_from_plan, "_must_make", counted)
+    top, seed = nested_tree(kitchen, 6, 10)
+    plan(kitchen, top)  # the plan step
+    assert calls["n"] <= 1000  # 60 lines a pass; walking every path would be a million
+    assert amounts(kitchen) == {seed["id"]: 10**6}
+    calls["n"] = 0
+    ok(kitchen.get(f"{API}/shopping/lists/{main_id(kitchen)}"))  # the list read
+    assert calls["n"] <= 1000

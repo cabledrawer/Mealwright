@@ -288,20 +288,54 @@ def work_out(kitchen: Kitchen) -> Worked:
     staple_names: dict[int, set[str]] = defaultdict(set)
     staple_items: dict[int, set[int]] = defaultdict(set)
 
+    # One batch of each recipe at any depth, worked out once and remembered (a recipe listed on
+    # many lines, or inside many recipes, is not walked again: the work is per distinct recipe,
+    # not per path, so a deep or wide tree can't make the sums take forever). A result is kept
+    # only when no loop guard fired inside it, which makes it the same for any way in.
+    batch: dict[int, tuple[dict[int, Need], set[int]]] = {}
+
+    def merge(part: dict[int, Need], into: dict[int, Need]) -> None:
+        """Add one batch's needs to another's (the same as adding its lines one by one)."""
+        for food_id, need in part.items():
+            total = into[food_id]
+            if need.unknown:
+                total.unknown = True
+            if need.unknown_by_size:
+                total.too_big()
+            else:
+                total.add(need.milli)
+
     def add_lines(
         recipe_id: int,
         per_food: dict[int, Need],
         uses_staples: set[int],
         seen: frozenset[int],
-    ) -> None:
+    ) -> bool:
         """One batch of a recipe's ingredients, and of every recipe it uses that has to be made
-        (S3, item 7: not one that is made ahead and in the pantry)."""
+        (S3, item 7: not one that is made ahead and in the pantry). Adds to `per_food` and
+        `uses_staples`; True when the loop guard fired somewhere inside."""
+        guarded = False
         for line in lines.get(recipe_id, ()):
             if line.food_id is None:
                 inner = recipes.get(line.sub_recipe_id or 0)
-                if inner is None or inner.id in seen or not _must_make(line, inner, foods, stock):
+                if inner is None:
                     continue
-                add_lines(inner.id, per_food, uses_staples, seen | {inner.id})
+                if inner.id in seen:
+                    guarded = True
+                    continue
+                if not _must_make(line, inner, foods, stock):
+                    continue
+                if inner.id in batch:
+                    inner_food, inner_staples = batch[inner.id]
+                else:
+                    inner_food = defaultdict(Need)
+                    inner_staples = set()
+                    if add_lines(inner.id, inner_food, inner_staples, seen | {inner.id}):
+                        guarded = True  # depends on the way in: use it, don't keep it
+                    else:
+                        batch[inner.id] = (inner_food, inner_staples)
+                merge(inner_food, per_food)
+                uses_staples |= inner_staples
                 continue
             food = foods.get(line.food_id)
             if food is None:
@@ -314,6 +348,7 @@ def work_out(kitchen: Kitchen) -> Worked:
                 per_food[food.id].unknown = True
             else:
                 per_food[food.id].add(got)
+        return guarded
 
     # Each recipe is worked out once (its own amounts), then scaled for each meal that uses it.
     once: dict[int, tuple[dict[int, Need], set[int]]] = {}
