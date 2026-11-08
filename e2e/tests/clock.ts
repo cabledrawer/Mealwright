@@ -53,9 +53,9 @@ async function waitUntilUp(port: number, child: ChildProcess) {
       throw new Error(`The worker's Mealwright server on port ${port} stopped while starting (${child.exitCode ?? child.signalCode}).`);
     }
     try {
-      if ((await fetch(`${local(port)}/api/v1/version`)).ok) return;
+      if ((await fetch(`${local(port)}/api/v1/version`, { signal: AbortSignal.timeout(2000) })).ok) return;
     } catch {
-      // not up yet
+      // not up yet (a try gives up after 2 s: a closed port can hang for minutes here, not refuse)
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
