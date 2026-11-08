@@ -604,7 +604,10 @@ test.describe('on a phone', () => {
 
     await page.getByRole('group', { name: 'View' }).getByRole('button', { name: 'Month' }).click();
     await page.getByRole('button', { name: dayName(day), exact: true }).click();
-    await expect(page.getByRole('region', { name: dayName(day) })).toContainText(name);
+    // The day's meals, not its cooking above them (PlanCook, `cook-<day>`): on Both that has the
+    // same name once the day has any cooking (fresh too since F167), and it loads a moment later.
+    const meals = page.getByRole('region', { name: dayName(day) }).and(page.locator(':not([id^="cook-"])'));
+    await expect(meals).toContainText(name);
     expect(slot.Dinner).toBeTruthy();
   });
 

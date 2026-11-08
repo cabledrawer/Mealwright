@@ -74,8 +74,9 @@ test('/recipes shows the list beside a calm empty reading pane, and passes the a
   );
   await expect(list(page).getByRole('button', { name: 'New recipe', exact: true })).toHaveAttribute('aria-haspopup', 'menu');
   // Hidden until they work: not drawn, not stubbed (Drafts is in the sidebar, not in the panes).
+  // Whole words only: other tests' recipes in the list have names like "Edited 1794…".
   await expect(
-    page.getByRole('main').getByText(/Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts/),
+    page.getByRole('main').getByText(/\b(Plan it|Start cooking|Cook once|Planned|Edit|Delete|Drafts)\b/),
   ).toHaveCount(0);
   await checkPage(page);
 });
