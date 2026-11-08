@@ -226,6 +226,7 @@ async function goOffline(page: Page, context: BrowserContext, id: number, name: 
   await page.goto(`/recipes/${id}`);
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
   await hello;
+  // Kept: the app's start-up after the stream opens has no signal to wait for; the next step cuts the network.
   await page.waitForTimeout(500);
   await context.route('**/api/**', (route) => route.abort());
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));

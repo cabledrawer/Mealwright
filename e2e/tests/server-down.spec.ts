@@ -42,6 +42,7 @@ for (const { name, path, notes, realTime: realTimePage } of PAGES) {
     const realTime = realTimePage && testInfo.project.name === 'desktop 0.7 server down';
     if (realTime) test.slow();
     // A second of the page's time: really waited, or the page's clock moved on at once.
+    // Kept: the real-time run waits real seconds on purpose (the other run moves the page's clock).
     const second = () => (realTime ? page.waitForTimeout(1000) : page.clock.runFor(1000));
     /** Wait for the bar to come or go, letting the page's time pass a second at a time. */
     const barTurns = (shown: boolean) =>

@@ -95,6 +95,7 @@ test('the Pantry refreshes live and keeps what is typed in an open form', async 
   await call(other, 'POST', '/stock', { food_id: food.id, amount: { amount: 300, unit: 'g' } });
 
   // The open form is left alone...
+  // Kept: proves the open form is left alone (nothing happens), so it can only be waited out.
   await page.waitForTimeout(1500);
   await expect(sheet.getByRole('searchbox', { name: 'Find an ingredient' })).toHaveValue('half typed');
   // ...and the list behind it is up to date once it is closed.
@@ -143,9 +144,11 @@ test.describe('the connection bar', () => {
   test('a blip shows nothing at all', async ({ page, context }) => {
     await open(page, '/shopping');
     await context.setOffline(true);
+    // Kept: a blip of one second is the thing being tested.
     await page.waitForTimeout(1000);
     await context.setOffline(false);
     // Past the 3 seconds it would have taken, still nothing, and no toast.
+    // Kept: proves nothing shows past the 3 seconds a notice would have taken.
     await page.waitForTimeout(4000);
     await expect(bar(page)).toBeHidden();
     await expect(page.getByText('Back online')).toHaveCount(0);
@@ -257,6 +260,7 @@ test.describe('the app talks only to itself', () => {
     await page.reload();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     expect(context.serviceWorkers().length).toBeGreaterThan(0);
+    // Kept: proves no request left the app's address; a stray request can only be waited for.
     await page.waitForTimeout(1000);
     // Proof that the worker's own requests (its precaching) were seen, not just the page's.
     expect(fromWorker, 'no request from the service worker was seen').toBeGreaterThan(0);

@@ -105,6 +105,7 @@ async function start(page: Page, row?: string) {
     await expect(page.getByRole('checkbox', { name: `Tick ${row}` })).toBeVisible();
     await expect.poll(() => savedCopyNames(page, row)).toBe(true);
   }
+  // Kept: the app's start-up after the stream opens has no signal to wait for; the tests then cut the network.
   await page.waitForTimeout(500);
 }
 
@@ -348,6 +349,7 @@ test('other tabs: signing out in one tab clears every other tab and takes it to 
   await expect(other.getByText(name)).toHaveCount(0);
   await expect(other.getByRole('heading', { name: 'Shopping' })).toHaveCount(0);
   // And it didn't make the phone database again.
+  // Kept: proves the phone database is NOT made, so there is no state to wait for.
   await other.waitForTimeout(1500);
   expect(await phoneDatabase(other)).toBe(false);
   expect(await phoneDatabase(page)).toBe(false);

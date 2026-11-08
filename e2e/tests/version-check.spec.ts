@@ -14,6 +14,7 @@ async function underWorker(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // Kept: the app's own start-up has no signal to wait for, and the tests then prove nothing happens.
   await page.waitForTimeout(1500); // the app's own start-up has settled
 }
 
@@ -23,6 +24,7 @@ const statusLines = (page: Page) => page.getByRole('status').allInnerTexts();
 /** The window getting focus back: where SvelteKit's own check listens. */
 const focusBack = async (page: Page) => {
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  // Kept: proves no update check is made after the focus event, so it can only be waited out.
   await page.waitForTimeout(1500);
 };
 
@@ -38,6 +40,7 @@ const backIntoView = async (page: Page) => {
     set('visible');
     window.dispatchEvent(new Event('focus'));
   });
+  // Kept: proves no update check is made, so it can only be waited out.
   await page.waitForTimeout(1500);
 };
 
@@ -119,6 +122,7 @@ test('the window getting focus with no connection: the same bar as before, no to
   await context.setOffline(true);
   // The app finds out it is offline by itself (after about three seconds); let that settle,
   // so the bar is the one it would show anyway, then look.
+  // Kept: the app notices it is offline by itself after about 3 seconds; waiting it out is the test.
   await page.waitForTimeout(5000);
   const before = await statusLines(page);
   const worker = await workerState(page);
@@ -184,6 +188,7 @@ test('a new worker waits: the open page keeps working and keeps its worker', asy
     await registration.update();
   });
   await expect.poll(async () => (await workerState(page)).waiting, { timeout: 15_000 }).toBe(true);
+  // Kept: proves the waiting worker does NOT take over, so it can only be waited out.
   await page.waitForTimeout(1500); // long enough for it to take over, if anything let it
 
   const after = await workerState(page);

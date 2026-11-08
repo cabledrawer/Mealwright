@@ -74,6 +74,7 @@ test('the service worker keeps only the app, never /api, and leaves the live str
   // Use the app a little: lists, pantry, the stream.
   await page.goto('/pantry');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pantry');
+  // Kept: collects every request the app makes in a while; absence of others can only be waited out.
   await page.waitForTimeout(1000);
 
   const api = answers.filter((a) => a.url.startsWith('/api/'));

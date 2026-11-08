@@ -990,6 +990,7 @@ test("opening Shopping asks for the list once and then goes quiet", async ({
   });
   await page.goto("/shopping");
   await page.waitForLoadState("networkidle");
+  // Kept: proves the list is asked for once only, so it can only be waited out.
   await page.waitForTimeout(1500);
   expect(asked).toBe(1);
 });

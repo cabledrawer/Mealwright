@@ -63,6 +63,7 @@ test('taps on a staple and on + List made while the connection fails are sent on
   const addRice = page.getByRole('button', { name: `Add ${rice} to the shopping list`, exact: true });
   await expect(addOil).toBeVisible();
   await expect(addRice).toBeVisible();
+  // Kept: the app's start-up after the stream opens has no signal to wait for; the next step cuts the network.
   await page.waitForTimeout(500);
 
   // The connection fails; both taps are made before the bar turns to Offline.
@@ -90,6 +91,7 @@ test('taps on a staple and on + List made while the connection fails are sent on
   // Each was sent exactly once.
   expect(await timesAdded(page, staple.id)).toBe(1);
   expect(await timesAdded(page, low.id)).toBe(1);
+  // Kept: proves nothing is sent a second time, so it can only be waited out.
   await page.waitForTimeout(1500);
   expect(await timesAdded(page, staple.id)).toBe(1);
   expect(await timesAdded(page, low.id)).toBe(1);

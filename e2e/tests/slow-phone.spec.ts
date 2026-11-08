@@ -59,7 +59,8 @@ test('slow phone: ticking an item shows it ticked at once', async ({ page }) => 
   await page.goto('/shopping');
   const tick = page.getByRole('checkbox', { name: `Tick ${name}` });
   await expect(tick).toBeVisible({ timeout: LOAD });
-  await page.waitForTimeout(500);
+  // The page's own start-up requests are answered before the network slows down.
+  await page.waitForLoadState('networkidle');
 
   await slowDown(page);
   const server = hold(page, /\/api\/v1\/shopping\/actions/, ['POST']);
@@ -79,7 +80,8 @@ test('slow phone: adding an item shows it on the list at once', async ({ page })
   await call(page, 'POST', '/foods', { name, counted_as: 'weight' });
   await page.goto('/shopping');
   await expect(page.getByRole('textbox', { name: 'Add an item' })).toBeVisible({ timeout: LOAD });
-  await page.waitForTimeout(500);
+  // The page's own start-up requests are answered before the network slows down.
+  await page.waitForLoadState('networkidle');
 
   await slowDown(page);
   const server = hold(page, /\/api\/v1\/shopping\/actions/, ['POST']);
@@ -107,7 +109,8 @@ test('slow phone: opening Pantry and Shopping shows the page at once', async ({ 
   // Wait for the list itself: the phone keeps this copy, so the next visit can draw it
   // without the server.
   await expect(page.getByText(/\d+ to buy/).first()).toBeVisible({ timeout: LOAD });
-  await page.waitForTimeout(500);
+  // The page's own start-up requests are answered before the network slows down.
+  await page.waitForLoadState('networkidle');
 
   await slowDown(page);
   const server = hold(page, /\/api\/v1\/(pantry|shopping)/, ['GET']);

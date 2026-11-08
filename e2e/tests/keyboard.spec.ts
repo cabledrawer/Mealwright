@@ -99,6 +99,7 @@ async function pageSettled(page: Page): Promise<string[]> {
   let last = await expected(page);
   let same = 0;
   for (let i = 0; i < 100 && same < 5; i++) {
+    // Kept: the page-settled loop samples the page every 100 ms until it stops changing; there is no single state to wait for.
     await page.waitForTimeout(100);
     const now = await expected(page);
     same = JSON.stringify(now) === JSON.stringify(last) ? same + 1 : 0;

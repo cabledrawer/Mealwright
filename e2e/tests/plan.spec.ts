@@ -527,6 +527,7 @@ test.describe('a finger on a computer-sized screen', () => {
       await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(0) });
       for (let i = 1; i <= 10; i++) {
         await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(i) });
+        // Kept: 16 ms is the pace of the drag's touch moves (one frame), not a wait for a state.
         await page.waitForTimeout(16);
       }
       await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

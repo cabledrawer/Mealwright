@@ -368,6 +368,7 @@ async function goOffline(page: Page, context: BrowserContext) {
   await page.goto('/recipes');
   await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toBeVisible();
   await hello;
+  // Kept: the app's start-up after the stream opens has no signal to wait for; the next step cuts the network.
   await page.waitForTimeout(500);
   // Only our server is unreachable: the app comes to the foreground, fetches and finds out.
   await context.route('**/api/**', (route) => route.abort());
@@ -509,6 +510,7 @@ test('opening the page asks for the list once', async ({ page }) => {
   await page.route('**/api/v1/recipes/tags', (route) => route.fulfill({ json: { tags: [] } }));
   await page.goto('/recipes');
   await expect(page.locator('li')).toHaveCount(3);
+  // Kept: proves no second search request is made, so it can only be waited out.
   await page.waitForTimeout(600); // longer than the 200 ms pause before a search
   expect(asked).toHaveLength(1);
 });
