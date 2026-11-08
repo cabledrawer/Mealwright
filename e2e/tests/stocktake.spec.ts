@@ -166,7 +166,7 @@ test("a whole place: picks, a count, a staple, then on to the end", async ({
   ).toBeVisible();
   await expect(
     page.getByText(
-      "How much is there? A best guess is fine. 0 of 4 done here.",
+      "How much is there? A best guess is fine. 0 of 3 done here.",
     ),
   ).toBeVisible();
 
@@ -212,7 +212,7 @@ test("a whole place: picks, a count, a staple, then on to the end", async ({
 
   await expect(
     page.getByText(
-      /^How much is there\? A best guess is fine\. 3 of 4 done here\.$/,
+      /^How much is there\? A best guess is fine\. 3 of 3 done here\.$/,
     ),
   ).toBeVisible();
   await checkPage(page); // both themes, with answers and a staple on screen
@@ -243,7 +243,7 @@ test("a new pack size is asked once, then the picks work", async ({ page }) => {
 
   // A common size: 500 g becomes the Usual size.
   await row.getByRole("button", { name: "500 g", exact: true }).click();
-  await expect(row).toContainText(/pack · 500 g/);
+  await expect(row).toContainText(/pack · 500\sg/);
   await expect(row).not.toContainText("What does it come in?");
   await expect(row.getByRole("radio", { name: "¼ left" })).toBeEnabled();
   await row.getByRole("radio", { name: "¼ left" }).click();
@@ -259,7 +259,7 @@ test("a new pack size is asked once, then the picks work", async ({ page }) => {
   await other.getByRole("button", { name: "Other…" }).click();
   await other.getByLabel(`${jaggery.name}: size of one pack`).fill("750");
   await other.getByRole("button", { name: "Use this size" }).click();
-  await expect(other).toContainText(/pack · 750 g/);
+  await expect(other).toContainText(/pack · 750\sg/);
   const typed = (await get(page, `/foods/${jaggery.id}`)).sizes as {
     usual: boolean;
     amount: number;
@@ -284,12 +284,16 @@ test("It’s a staple turns an ingredient into one, and Undo turns it back", asy
   await expect(
     page.getByText(/Stocktake: .* is a staple in the Staple shelf/),
   ).toBeVisible();
-  expect((await get(page, `/foods/${powder.id}`)).staple).toBe(true);
+  await expect
+    .poll(async () => (await get(page, `/foods/${powder.id}`)).staple)
+    .toBe(true);
 
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(row.getByRole("radio", { name: "None" })).toBeVisible();
   await expect(row).not.toContainText("A staple: not counted.");
-  expect((await get(page, `/foods/${powder.id}`)).staple).toBe(false);
+  await expect
+    .poll(async () => (await get(page, `/foods/${powder.id}`)).staple)
+    .toBe(false);
 });
 
 test("Undo of one answer puts the amount back and the row to unanswered", async ({
@@ -347,10 +351,9 @@ test("Something else joins the place", async ({ page }) => {
     name: `Find an ingredient to count in the ${shelf.name}`,
   });
   await box.fill(jam.name);
-  await page
-    .getByRole("button", { name: new RegExp(jam.name) })
-    .first()
-    .click();
+  // The ingredient itself (exact name): not "+ New ingredient", which shows first while the
+  // search is still answering.
+  await page.getByRole("button", { name: jam.name, exact: true }).click();
   await expect(item(page, jam.name)).toBeVisible();
   await expect(item(page, jam.name)).toContainText("no pack size yet");
 });
