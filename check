@@ -21,22 +21,98 @@
 # A quick run for use while working, after a chunk of work or a round of review fixes
 # (cabledrawer 17 Oct, spec section 9). It keeps lint, types, the backend tests, the
 # frontend unit tests, the outbound-gate / no-telemetry test and the licence allow
-# list. It skips the slow steps: fresh installs (it only installs if a folder is
-# missing), the Docker image build and image checks, the vulnerability scanners
-# (pip-audit, Bandit, osv-scanner, Trivy) and the browser (Playwright) tests.
-# Its summary says FAST RUN at the top and bottom and is NOT valid for a pull
-# request. Only a full ./check is.
+# list. It skips the slow steps: the Docker image build and image checks, the
+# vulnerability scanners (pip-audit, Bandit, osv-scanner, Trivy) and the browser
+# (Playwright) tests. Installs are re-used while the lock file is unchanged and done again
+# when a library changed (the same fingerprint as the full run). Its summary says FAST RUN at
+# the top and bottom and is NOT valid for a pull request. Only a full ./check is.
+#
+# More modes (cabledrawer 8 Nov, T2). Each takes the machine-wide lock, so only one check runs at
+# a time, and none is valid for a pull request; the summary says so at the top and bottom:
+#
+#   ./check --browser-files <spec file>... [--update-snapshots]
+#       The early run for one pull request: only those spec files (e2e/tests/<name>.spec.ts;
+#       the name alone is enough), on all three streams side by side (desktop, phone, WebKit),
+#       with one test server per stream where the files allow it (the first-run and strict
+#       servers only when sign-in.spec.ts is listed, the screenshots server only when
+#       screens.spec.ts is). screens.spec.ts is added when the branch changes anything under
+#       frontend/src. Builds the web app first, as the full check does. --update-snapshots
+#       (only here, never in the full check) saves new screenshots, for the two screens
+#       projects only; with it, screens.spec.ts is the only file that runs.
+#
+#   ./check --rerun-failed
+#       Runs again only the browser tests that failed in this copy's last completed full run
+#       (kept in .check-history/last-full/<folder name>/), each stream with its own servers,
+#       on the current commit. Says which commit the failures came from. For diagnosis.
+#
+#   ./check --scan-only
+#       pip-audit, Bandit, osv-scanner, then a fresh image of the current commit (its own tag,
+#       CHECK_IMAGE with -scan added) and Trivy on it. No tests. For the start of a line of
+#       work and a weekly run, so new security warnings are known before a release check.
+#
+# Settings by variable (all optional):
+#   CHECK_LOCK_WAIT=0           refuse (exit 75) instead of waiting when another check runs
+#   CHECK_STOP_EARLY=0          run the browser tests even when an earlier step has failed
+#   CHECK_LIMIT_BROWSER (45), CHECK_LIMIT_PYTEST (20), CHECK_LIMIT_IMAGE (20), CHECK_LIMIT_SCAN (20),
+#   CHECK_LIMIT_INSTALL (15), CHECK_LIMIT_OTHER (15)
+#                               minutes a step may take before the watchdog stops it
+#   CHECK_MAX_FAILURES (20)     Playwright stops after this many failed tests
+#   CHECK_PYTEST_WORKERS (4), CHECK_PYTEST_WORKERS_BESIDE (2)
+#                               backend test workers: alone (fast), and beside the browser tests
+#   CHECK_BROWSER_STREAMS=2     phone and WebKit as one stream
+#   CHECK_SCANNERS=1            run the scanners even when nothing they cover changed
+#   CHECK_IMAGE, E2E_APP_PORT   the image tag and the first test-server port (a second copy of
+#                               the repo needs its own)
+#   CHECK_HISTORY_DIR           where the flaky-test history is kept (default: .check-history
+#                               in the main checkout)
+# Every run writes .check/load.log (the machine's load every 30 s).
 
 set -uo pipefail
 
-FAST=0
-case "${1:-}" in
-  "") ;;
-  --fast) FAST=1 ;;
-  *) echo "Usage: ./check [--fast]" >&2; exit 2 ;;
-esac
+usage() {
+  echo "Usage: ./check [--fast | --scan-only | --rerun-failed | --browser-files <spec file>... [--update-snapshots]]" >&2
+  exit 2
+}
+MODE=full FAST=0 UPDATE_SNAPSHOTS=0
+BROWSER_FILES=()
+set_mode() {
+  [[ "$MODE" == full ]] || { echo "Use only one of --fast, --scan-only, --rerun-failed and --browser-files." >&2; usage; }
+  MODE="$1"
+}
+while (($#)); do
+  case "$1" in
+    --fast) set_mode fast; FAST=1 ;;
+    --scan-only) set_mode scan ;;
+    --rerun-failed) set_mode rerun ;;
+    --browser-files)
+      set_mode files; shift
+      while (($#)) && [[ "$1" != --* ]]; do BROWSER_FILES+=("$1"); shift; done
+      continue ;;
+    --update-snapshots) UPDATE_SNAPSHOTS=1 ;;
+    *) usage ;;
+  esac
+  shift
+done
+if [[ "$MODE" == files && ${#BROWSER_FILES[@]} == 0 ]]; then echo "--browser-files needs at least one spec file." >&2; usage; fi
+if ((UPDATE_SNAPSHOTS)) && [[ "$MODE" != files ]]; then echo "--update-snapshots only works with --browser-files." >&2; usage; fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# --browser-files: each name as e2e/tests/<name>.spec.ts, relative to e2e/ (tests/<name>.spec.ts).
+SPEC_FILES=()
+if [[ "$MODE" == files ]]; then
+  for f in "${BROWSER_FILES[@]}"; do
+    rel="${f#"$ROOT"/}"; rel="${rel#./}"; rel="${rel#e2e/}"
+    [[ "$rel" == tests/* ]] || rel="tests/$rel"
+    [[ "$rel" == *.spec.ts && -f "$ROOT/e2e/$rel" ]] || { echo "No such spec file: $f (give a name from e2e/tests/, like plan.spec.ts)." >&2; exit 2; }
+    SPEC_FILES+=("$rel")
+  done
+  if ((UPDATE_SNAPSHOTS)); then
+    for rel in "${SPEC_FILES[@]}"; do
+      [[ "$rel" == tests/screens.spec.ts ]] || { echo "--update-snapshots updates only the saved screenshots: list only screens.spec.ts with it." >&2; exit 2; }
+    done
+  fi
+fi
 
 # One check at a time on this machine (cabledrawer 8 Nov, T2): every mode takes the same lock, in
 # every copy of the repo, so two runs never load the machine together (load makes timing tests
@@ -55,7 +131,7 @@ if ! flock -n 9; then
   flock 9 || exit 75
   echo "Lock free: starting." >&2
 fi
-printf '%s, pid %s, %s, started %s\n' "$ROOT" "$$" "${1:-full}" "$(date '+%H:%M:%S')" >"$CHECK_LOCK.who"
+printf '%s, pid %s, %s, started %s\n' "$ROOT" "$$" "$MODE" "$(date '+%H:%M:%S')" >"$CHECK_LOCK.who"
 
 LOGS="$ROOT/.check/logs"
 IMAGE="${CHECK_IMAGE:-mealwright:check}"   # set CHECK_IMAGE to run ./check in two worktrees at once
@@ -90,6 +166,10 @@ scanners_reason() {
     echo "the branch changes a library, a lock file, the Dockerfile or the scanner settings"
 }
 SCANNERS_WHY="$(scanners_reason)"
+if [[ "$MODE" == scan ]]; then
+  SCANNERS_WHY="--scan-only"
+  IMAGE="$IMAGE-scan"   # its own tag: a scan never uses, or replaces, the image of a full check
+fi
 NO_SCAN="no library, lock file or Dockerfile change"
 
 # The backend tests and the browser tests run with a private temp folder (their TMPDIR), made
@@ -373,6 +453,18 @@ run_completed() {
   (cd "$ROOT/e2e" && node scripts/flaky.mjs --complete "${CHECK_MAX_FAILURES:-20}" "$@") >/dev/null 2>&1
 }
 
+# save_last_full <report.json>...: a copy of a completed full run's reports and its commit, for
+# ./check --rerun-failed. One folder per copy of the repo (its folder name), in the shared history
+# folder, so it survives `rm -rf .check` and the next run's start. commit.txt is written last: a
+# folder without it is not a finished copy.
+save_last_full() {
+  local dir="$HIST/last-full/$(basename "$ROOT")" r
+  rm -rf "$dir" && mkdir -p "$dir" || return 1
+  for r in "$@"; do cp "$r" "$dir/" || return 1; done
+  date -u '+%Y-%m-%d %H:%M UTC' >"$dir/when.txt"
+  git -C "$ROOT" rev-parse HEAD >"$dir/commit.txt"
+}
+
 # save_flaky_history <report.json>...: this completed full run's flaky tests become "the previous
 # run" for the next one.
 save_flaky_history() {
@@ -406,8 +498,12 @@ REUSED="re-used: lock file unchanged since the last install"
 if ((FAST)); then
   show "*** FAST RUN: not valid for a pull request. Only a full ./check is. ***" ""
 fi
+case "$MODE" in
+  scan) show "*** SCAN-ONLY RUN: not valid for a pull request. No tests run. ***" "" ;;
+  rerun) show "*** DIAGNOSIS RUN, NOT valid for a pull request. ***" "" ;;
+esac
 show "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
-if ((!FAST)); then
+if [[ "$MODE" == full || "$MODE" == scan ]]; then
   show "Scanners: ${SCANNERS_WHY:-skipped ($NO_SCAN)}."
 fi
 show "Only failures are shown here; the whole run is in .check/check.log." ""
@@ -415,10 +511,295 @@ show "Only failures are shown here; the whole run is in .check/check.log." ""
 # The image build starts now, beside the light steps (lint, types, installs) and is finished
 # before the browser tests start, so it never competes with them (cabledrawer 8 Nov, T2). It only
 # needs the source (.dockerignore keeps the folders those steps write out of it).
-if ((!FAST)) && [[ -f "$ROOT/Dockerfile" ]]; then
+if [[ "$MODE" == full && -f "$ROOT/Dockerfile" ]]; then
   start_beside "image: build" "ran beside the lint, types and install steps" docker build -t "$IMAGE" .
 fi
 
+# Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
+# (Safari's engine) beside it, each with its own servers (E2E_APP_PORT, + 10, + 20), saved
+# sign-in, test-results folder and JSON report. All serve the web app built once by
+# "frontend: build" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and WebKit as
+# one stream, as before (for a smaller machine). Each is "label:projects:port offset".
+if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
+  STREAM_DEFS=("desktop:desktop:0" "phone + webkit:phone,webkit:10")
+else
+  STREAM_DEFS=("desktop:desktop:0" "phone:phone:10" "webkit:webkit:20")
+fi
+e2e_reports=()
+
+# skip_streams <reason>: every browser stream, recorded as skipped.
+skip_streams() {
+  local b label
+  for b in "${STREAM_DEFS[@]}"; do IFS=: read -r label _ <<<"$b"; skip "browser: $label" "$1"; done
+}
+
+# early_stop_reason: the name of the step that already failed, when the run can't pass any more
+# (cabledrawer 8 Nov, T2): any step recorded so far that isn't PASS or SKIP, or a beside step (the
+# backend tests) that has ended with an error. Nothing when all is well, or when CHECK_STOP_EARLY=0
+# (to see the browser results of a run that has failed already).
+early_stop_reason() {
+  [[ "${CHECK_STOP_EARLY:-1}" == 0 ]] && return 1
+  local i name rc
+  for i in "${!names[@]}"; do
+    case "${results[$i]}" in PASS|SKIP) ;; *) echo "${names[$i]}"; return 0 ;; esac
+  done
+  for name in "${!BESIDE[@]}"; do
+    rc="$(beside_rc "$name")"
+    [[ -n "$rc" && "$rc" != 0 ]] && { echo "$name"; return 0; }
+  done
+  return 1
+}
+
+# run_browser_streams: start the streams in STREAM_DEFS (the first in the foreground, the others
+# beside it), wait for all, and record the times of the load window. A stream's own extra
+# Playwright arguments come from stream_args <label> (one per line); PW_SERVERS says which of
+# the test servers to start (E2E_SERVERS, see e2e/serve.mjs; leave PW_SERVERS unset for all).
+run_browser_streams() {
+  local b label projects offset first="" args
+  BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label projects offset <<<"$b"
+    e2e_reports+=("$ROOT/.check/browser-${projects//,/-}.json")
+    if [[ -z "$first" ]]; then first="$b"; continue; fi
+    mapfile -t args < <(stream_args "$label")
+    start_beside "browser: $label" "ran beside browser: ${first%%:*}" \
+      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS+E2E_SERVERS="$PW_SERVERS"} \
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
+          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
+  done
+  IFS=: read -r label projects offset <<<"$first"
+  mapfile -t args < <(stream_args "$label")
+  step "browser: $label" env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS+E2E_SERVERS="$PW_SERVERS"} \
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
+          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label _ <<<"$b"
+    [[ "$b" == "$first" ]] || finish_beside "browser: $label"
+  done
+  sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
+}
+
+e2e_port="${E2E_APP_PORT:-18080}"
+# In ./check only (E2E_CHECK_MODE, read by playwright.config.ts): Playwright stops by itself after
+# 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
+# when the browser step's time limit is up. The step watchdog above is the backstop.
+check_pw=(E2E_CHECK_MODE=1 E2E_MAX_FAILURES="${CHECK_MAX_FAILURES:-20}"
+          E2E_GLOBAL_TIMEOUT_MS="$(( $(limit_minutes "browser: desktop") * 60000 ))")
+
+# gate_browser_streams: true when the browser streams may start. Otherwise they are recorded as
+# skipped and why: the web build failed (never run on a build left from an earlier run), or an
+# earlier step has failed (see early_stop_reason).
+gate_browser_streams() {
+  local early
+  if [[ "$(result_of "frontend: build")" == FAIL ]]; then
+    skip_streams "web build failed"
+  elif early="$(early_stop_reason)"; then
+    skip_streams "stopped early: $early failed (the run can't pass)"
+    show "Browser tests not started: stopped early, $early failed (the run can't pass; CHECK_STOP_EARLY=0 runs them anyway)."
+  elif [[ -f "$ROOT/frontend/build/index.html" ]]; then
+    return 0
+  else
+    record "browser tests" FAIL "no built web app (frontend: build builds it)" "-"
+    show "browser tests                FAIL (no built web app)"
+  fi
+  return 1
+}
+
+# The frontend's libraries (re-used while the lock file is unchanged) and the browser tests'
+# own (e2e) with the browsers themselves.
+frontend_install() {
+  if ((FAST)) && [[ -d "$ROOT/frontend/node_modules" ]]; then
+    skip "frontend: install" "fast run"
+  elif installed_as_locked frontend; then
+    skip "frontend: install" "$REUSED"
+  else
+    step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
+    [[ "${results[-1]}" == PASS ]] && save_stamp frontend
+  fi
+}
+browser_install() {
+  # The browsers themselves: `playwright install` is a quick no-op once the locked version's
+  # browsers are there, so it always runs; only npm ci is skipped when the lock is unchanged.
+  if installed_as_locked e2e; then
+    step "browser: install"      sh -c 'cd e2e && npx playwright install chromium-headless-shell webkit'
+    [[ "${results[-1]}" == PASS ]] && notes[-1]="$REUSED (browsers checked)"
+  else
+    step "browser: install"      sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
+    [[ "${results[-1]}" == PASS ]] && save_stamp e2e
+  fi
+}
+
+# --- --browser-files and --rerun-failed ----------------------------------------
+# Both run only browser tests, on the current commit, after the same web build as the full check
+# (the web app is built first, from this commit). Neither is valid for a pull request.
+
+# Which streams have a test among the chosen ones: stream_test_count <projects> <playwright args...>
+stream_test_count() {
+  local out projects="$1"; shift
+  out="$(cd "$ROOT/e2e" && E2E_PROJECTS="$projects" npx playwright test --list "$@" 2>&1)"
+  if [[ "$out" =~ Total:\ ([0-9]+)\ test ]]; then echo "${BASH_REMATCH[1]}"; else echo 0; fi
+}
+regex_escape() { sed 's/[][\\.*+?^$(){}|\/]/\\&/g' <<<"$1"; }
+
+# --browser-files: the files' own arguments, the same on every stream, plus the one screens
+# project of the stream when saving screenshots.
+snapshot_project() {
+  case "$1" in desktop) echo "screens desktop-dark" ;; phone) echo "screens phone-light" ;; esac
+}
+stream_args() {
+  local f
+  case "$MODE" in
+    files)
+      for f in "${SPEC_FILES[@]}"; do printf '%s\n' "/$(regex_escape "$f")\$"; done
+      if ((UPDATE_SNAPSHOTS)); then printf '%s\n' --update-snapshots --project "$(snapshot_project "$1")"; fi ;;
+    rerun) printf '%s' "${RERUN_ARGS[$1]}" ;;
+  esac
+}
+
+# The test servers the chosen files need (E2E_SERVERS, e2e/serve.mjs): "main" always; the first-run
+# and strict servers only for sign-in.spec.ts; the screenshots server only for screens.spec.ts.
+servers_for() {
+  local f need=()
+  for f in "$@"; do
+    case "$f" in
+      */sign-in.spec.ts) need+=(fresh strict) ;;
+      */screens.spec.ts) need+=(shots) ;;
+    esac
+  done
+  printf '%s\n' "${need[@]}" | sort -u | paste -sd, -
+}
+
+# True when the branch (against origin/main, plus work not committed yet) changes the web app's
+# source. Without origin/main there is nothing to compare with: then it counts as changed.
+frontend_changed() {
+  local base
+  base="$(git -C "$ROOT" merge-base HEAD origin/main 2>/dev/null)" || return 0
+  [[ -n "$(git -C "$ROOT" diff --name-only "$base" -- frontend/src; git -C "$ROOT" ls-files --others --exclude-standard -- frontend/src)" ]]
+}
+
+MODE_BANNER=""   # set by the modes that aren't a full run
+targeted_run() {
+  local b label projects offset keep=() n
+  if [[ ! -f "$ROOT/e2e/package.json" || ! -f "$ROOT/frontend/package.json" ]]; then
+    record "browser tests" FAIL "no e2e or frontend folder" "-"; return
+  fi
+  if [[ "$MODE" == rerun ]]; then rerun_prepare || return 0; fi
+  if [[ "$MODE" == files ]]; then
+    if ((!UPDATE_SNAPSHOTS)) && frontend_changed && [[ " ${SPEC_FILES[*]} " != *" tests/screens.spec.ts "* ]]; then
+      SPEC_FILES+=(tests/screens.spec.ts)
+      show "Added screens.spec.ts: this branch changes the web app (frontend/src)."
+    fi
+    local servers; servers="$(servers_for "${SPEC_FILES[@]}")"
+    PW_SERVERS="$servers"
+    MODE_BANNER="BROWSER FILES RUN: not valid for a pull request. Files: ${SPEC_FILES[*]}."
+    ((!UPDATE_SNAPSHOTS)) || MODE_BANNER="$MODE_BANNER Screenshots were saved (--update-snapshots), for the two screens projects only."
+    show "$MODE_BANNER" "Test servers: main${servers:+, $servers}." ""
+  fi
+  frontend_install
+  rm -rf "$ROOT/frontend/build"
+  step "frontend: build"         sh -c 'cd frontend && npm run -s build'
+  browser_install
+  if [[ "$MODE" == files ]]; then
+    # Only the streams that have a test among the files (a phone-only file has none on desktop).
+    for b in "${STREAM_DEFS[@]}"; do
+      IFS=: read -r label projects offset <<<"$b"
+      if [[ "$(result_of "browser: install")" != PASS || "$(result_of "frontend: build")" != PASS ]]; then keep+=("$b"); continue; fi
+      if ((UPDATE_SNAPSHOTS)) && [[ -z "$(snapshot_project "$label")" ]]; then
+        skip "browser: $label" "no screenshots to save on this stream"; continue
+      fi
+      mapfile -t sargs < <(stream_args "$label")
+      n="$(stream_test_count "$projects" "${sargs[@]}")"
+      if ((n)); then keep+=("$b"); else skip "browser: $label" "none of these files has a test on this stream"; fi
+    done
+    STREAM_DEFS=("${keep[@]}")
+  fi
+  if ((${#STREAM_DEFS[@]} == 0)); then
+    record "browser tests" FAIL "no test in the chosen files runs on any stream" "-"
+    show "browser tests                FAIL (no test in the chosen files runs on any stream)"
+  elif gate_browser_streams; then
+    run_browser_streams
+    for b in "${STREAM_DEFS[@]}"; do
+      IFS=: read -r label projects _ <<<"$b"
+      list_flaky "browser: $label" "$ROOT/.check/browser-${projects//,/-}.json"
+    done
+    judge_flaky files "${e2e_reports[@]}"
+  fi
+}
+
+# --rerun-failed: from the last completed full run in this copy's folder name (kept by
+# save_last_full), the failed tests of each stream, found with flaky.mjs --rerun.
+declare -A RERUN_ARGS=()
+rerun_prepare() {
+  local last report proj label offset total=0 out defs=() order p rerun_files=()
+  last="$HIST/last-full/$(basename "$ROOT")"
+  if [[ ! -f "$last/commit.txt" ]]; then
+    RERUN_NONE="There is no last full run to take the failures from (looked in $last): run the full ./check first."
+    MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. Nothing was run: $RERUN_NONE"
+    record "rerun" FAIL "no last full run" "-"; show "$MODE_BANNER"
+    return 1
+  fi
+  RERUN_FROM="$(cat "$last/commit.txt")"
+  RERUN_NOW="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')"
+  for p in desktop phone webkit phone-webkit; do
+    report="$last/browser-$p.json"
+    [[ -f "$report" ]] || continue
+    if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --rerun "$report" 2>&1)"; then
+      record "rerun" FAIL "e2e/scripts/flaky.mjs failed: $(head -n 1 <<<"$out")" "-"; return 1
+    fi
+    [[ -n "$out" ]] || continue
+    case "$p" in
+      desktop|phone|webkit) label="$p"; offset=$(case "$p" in desktop) echo 0 ;; phone) echo 10 ;; *) echo 20 ;; esac) ;;
+      phone-webkit) label="phone + webkit"; offset=10 ;;
+    esac
+    local args="" kind value
+    while IFS=$'\t' read -r kind value; do
+      case "$kind" in
+        project) args+="--project"$'\n'"$value"$'\n' ;;
+        grep) args+="--grep"$'\n'"$value"$'\n' ;;
+        count) total=$((total + value)) ;;
+        file) rerun_files+=("tests/$value") ;;
+      esac
+    done <<<"$out"
+    RERUN_ARGS[$label]="$args"
+    defs+=("$label:${p//-/,}:$offset")
+  done
+  MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. The failures come from commit $RERUN_FROM (the last full run); this run is on commit $RERUN_NOW."
+  if ((total == 0)); then
+    record "rerun" SKIP "nothing failed in the last full run (commit $RERUN_FROM)" "-"
+    show "$MODE_BANNER" "Nothing to rerun: no browser test failed in the last full run."
+    return 1
+  fi
+  STREAM_DEFS=("${defs[@]}")
+  PW_SERVERS="$(servers_for "${rerun_files[@]}")"
+  show "$MODE_BANNER" "Rerunning $total failed browser tests (test servers: main${PW_SERVERS:+, $PW_SERVERS})." ""
+}
+
+# --- Security scanners -------------------------------------------------------
+# These send package names and versions to vulnerability databases (pip-audit,
+# osv-scanner) or download one (Trivy). Nothing about the homelab is sent. Trivy's
+# own usage data and update check are switched off (--disable-telemetry,
+# --skip-version-check).
+pip_audit() {
+  (cd backend && uv export -q --frozen --all-groups --no-emit-project \
+     --format requirements-txt -o "$ROOT/.check/requirements.txt") &&
+  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$PIP_AUDIT" -r "$ROOT/.check/requirements.txt" \
+    --require-hashes --disable-pip --progress-spinner off
+}
+
+# The component gallery's marker text (defined once, in the gallery page) must not be in the
+# web app inside the image. grep exits 1 for "not found"; any other failure fails the step.
+no_gallery_in_image() {
+  local marker
+  marker=$(sed -n "s/.*MARKER = '\(.*\)';/\1/p" frontend/src/routes/dev/gallery/Gallery.svelte)
+  [[ -n "$marker" ]] || { echo "Can't find the marker in the gallery page."; return 1; }
+  docker run --rm --entrypoint sh "$IMAGE" -c '
+    test -f /app/frontend/index.html || { echo "no web app in the image"; exit 2; }
+    grep -rqF -- "$1" /app/frontend; [ $? -eq 1 ]' _ "$marker"
+}
+
+tests_steps() {
 # --- Backend -----------------------------------------------------------------
 if need uv; then
   if ((FAST)) && [[ -d "$ROOT/backend/.venv" ]]; then
@@ -494,103 +875,16 @@ fi
 # --- Browser tests (Playwright, headless Chromium) ------------------------------
 # They start the real app on 127.0.0.1 with an empty data folder.
 
-# Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
-# (Safari's engine) beside it, each with its own servers (E2E_APP_PORT, + 10, + 20), saved
-# sign-in, test-results folder and JSON report. All serve the web app built once by
-# "frontend: build" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and WebKit as
-# one stream, as before (for a smaller machine). Each is "label:projects:port offset".
-if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
-  STREAM_DEFS=("desktop:desktop:0" "phone + webkit:phone,webkit:10")
-else
-  STREAM_DEFS=("desktop:desktop:0" "phone:phone:10" "webkit:webkit:20")
-fi
-e2e_reports=()
-
-# skip_streams <reason>: every browser stream, recorded as skipped.
-skip_streams() {
-  local b label
-  for b in "${STREAM_DEFS[@]}"; do IFS=: read -r label _ <<<"$b"; skip "browser: $label" "$1"; done
-}
-
-# early_stop_reason: the name of the step that already failed, when the run can't pass any more
-# (cabledrawer 8 Nov, T2): any step recorded so far that isn't PASS or SKIP, or a beside step (the
-# backend tests) that has ended with an error. Nothing when all is well, or when CHECK_STOP_EARLY=0
-# (to see the browser results of a run that has failed already).
-early_stop_reason() {
-  [[ "${CHECK_STOP_EARLY:-1}" == 0 ]] && return 1
-  local i name rc
-  for i in "${!names[@]}"; do
-    case "${results[$i]}" in PASS|SKIP) ;; *) echo "${names[$i]}"; return 0 ;; esac
-  done
-  for name in "${!BESIDE[@]}"; do
-    rc="$(beside_rc "$name")"
-    [[ -n "$rc" && "$rc" != 0 ]] && { echo "$name"; return 0; }
-  done
-  return 1
-}
-
-# run_browser_streams: start the streams in STREAM_DEFS (the first in the foreground, the others
-# beside it), wait for all, and record the times of the load window. A stream's own extra
-# Playwright arguments come from stream_args <label> (one per line); PW_SERVERS says which of
-# the test servers to start (E2E_SERVERS, see e2e/serve.mjs; unset: all).
-stream_args() { :; }
-PW_SERVERS=""
-run_browser_streams() {
-  local b label projects offset first="" args
-  BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
-  for b in "${STREAM_DEFS[@]}"; do
-    IFS=: read -r label projects offset <<<"$b"
-    e2e_reports+=("$ROOT/.check/browser-${projects//,/-}.json")
-    if [[ -z "$first" ]]; then first="$b"; continue; fi
-    mapfile -t args < <(stream_args "$label")
-    start_beside "browser: $label" "ran beside browser: ${first%%:*}" \
-      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
-          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS:+E2E_SERVERS="$PW_SERVERS"} \
-          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
-          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
-  done
-  IFS=: read -r label projects offset <<<"$first"
-  mapfile -t args < <(stream_args "$label")
-  step "browser: $label" env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
-          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS:+E2E_SERVERS="$PW_SERVERS"} \
-          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
-          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
-  for b in "${STREAM_DEFS[@]}"; do
-    IFS=: read -r label _ <<<"$b"
-    [[ "$b" == "$first" ]] || finish_beside "browser: $label"
-  done
-  sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
-}
-
 if ((FAST)); then
   skip "browser tests" "fast run"
 elif [[ -f "$ROOT/e2e/package.json" ]]; then
-  # The browsers themselves: `playwright install` is a quick no-op once the locked version's
-  # browsers are there, so it always runs; only npm ci is skipped when the lock is unchanged.
-  if installed_as_locked e2e; then
-    step "browser: install"      sh -c 'cd e2e && npx playwright install chromium-headless-shell webkit'
-    [[ "${results[-1]}" == PASS ]] && notes[-1]="$REUSED (browsers checked)"
-  else
-    step "browser: install"      sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
-    [[ "${results[-1]}" == PASS ]] && save_stamp e2e
-  fi
+  browser_install
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
   step "browser: script tests"   sh -c 'cd e2e && node --test "scripts/*.test.mjs"'
   # The image build (started at the top) must be finished before the browser tests start.
   finish_beside "image: build"
-  e2e_port="${E2E_APP_PORT:-18080}"
-  # In ./check only (E2E_CHECK_MODE, read by playwright.config.ts): Playwright stops by itself after
-  # 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
-  # when the browser step's time limit is up. The step watchdog above is the backstop.
-  check_pw=(E2E_CHECK_MODE=1 E2E_MAX_FAILURES="${CHECK_MAX_FAILURES:-20}"
-            E2E_GLOBAL_TIMEOUT_MS="$(( $(limit_minutes "browser: desktop") * 60000 ))")
-  if [[ "$(result_of "frontend: build")" == FAIL ]]; then
-    skip_streams "web build failed"
-  elif early="$(early_stop_reason)"; then
-    skip_streams "stopped early: $early failed (the run can't pass)"
-    show "Browser tests not started: stopped early, $early failed (the run can't pass; CHECK_STOP_EARLY=0 runs them anyway)."
-  elif [[ -f "$ROOT/frontend/build/index.html" ]]; then
+  if gate_browser_streams; then
     run_browser_streams
     for b in "${STREAM_DEFS[@]}"; do
       IFS=: read -r label projects _ <<<"$b"
@@ -598,16 +892,14 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
     done
     judge_flaky full "${e2e_reports[@]}"
     if run_completed "${e2e_reports[@]}"; then
-      save_flaky_history "${e2e_reports[@]}" || show "The flaky-test history in $HIST couldn't be written."
+      save_flaky_history "${e2e_reports[@]}" && save_last_full "${e2e_reports[@]}" ||
+        show "The flaky-test history or the last full run's reports in $HIST couldn't be written."
     else
       show "Flaky-test history not written: the browser tests did not all run to the end."
     fi
     # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
     (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${e2e_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
-  else
-    record "browser tests" FAIL "no built web app (frontend: build builds it)" "-"
-    show "browser tests                FAIL (no built web app)"
   fi
 else
   skip "browser tests" "none yet"
@@ -629,19 +921,9 @@ left_in_tmp() {
   fi
 }
 step "tests: nothing left"     left_in_tmp
-
-# --- Security scanners -------------------------------------------------------
-# These send package names and versions to vulnerability databases (pip-audit,
-# osv-scanner) or download one (Trivy). Nothing about the homelab is sent. Trivy's
-# own usage data and update check are switched off (--disable-telemetry,
-# --skip-version-check).
-pip_audit() {
-  (cd backend && uv export -q --frozen --all-groups --no-emit-project \
-     --format requirements-txt -o "$ROOT/.check/requirements.txt") &&
-  uvx -q --exclude-newer "$EXCLUDE_NEWER" "$PIP_AUDIT" -r "$ROOT/.check/requirements.txt" \
-    --require-hashes --disable-pip --progress-spinner off
 }
 
+scanner_steps() {
 if ((FAST)); then
   skip "scanners" "fast run"
 elif [[ -z "$SCANNERS_WHY" ]]; then
@@ -668,34 +950,30 @@ elif need docker; then
 else
   record "osv-scanner" FAIL "docker is not installed" "-"
 fi
-
-# The component gallery's marker text (defined once, in the gallery page) must not be in the
-# web app inside the image. grep exits 1 for "not found"; any other failure fails the step.
-no_gallery_in_image() {
-  local marker
-  marker=$(sed -n "s/.*MARKER = '\(.*\)';/\1/p" frontend/src/routes/dev/gallery/Gallery.svelte)
-  [[ -n "$marker" ]] || { echo "Can't find the marker in the gallery page."; return 1; }
-  docker run --rm --entrypoint sh "$IMAGE" -c '
-    test -f /app/frontend/index.html || { echo "no web app in the image"; exit 2; }
-    grep -rqF -- "$1" /app/frontend; [ $? -eq 1 ]' _ "$marker"
 }
 
-# --- Docker image ------------------------------------------------------------
+image_steps() {
 if ((FAST)); then
   skip "image" "fast run"
 elif [[ -f "$ROOT/Dockerfile" ]]; then
-  finish_beside "image: build"   # a no-op: it was finished before the browser tests
+  if [[ "$MODE" == scan ]]; then
+    step "image: build"          docker build -t "$IMAGE" .   # a fresh image of this commit, for Trivy
+  else
+    finish_beside "image: build"   # a no-op: it was finished before the browser tests
+  fi
   if [[ "$(result_of "image: build")" != PASS ]]; then
     # Never check an old image left by an earlier run (cabledrawer 8 Nov, T2).
     for img_step in "image: no telemetry" "image: no gallery" "image: export" "image: trivy"; do
-      skip "$img_step" "image build failed"
+      [[ "$MODE" == scan && "$img_step" == "image: no "* ]] || skip "$img_step" "image build failed"
     done
   else
-  step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
+  if [[ "$MODE" != scan ]]; then   # the scan-only run runs no tests, not even these two
+    step "image: no telemetry"   docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
-  # The component gallery is for development builds only (spec "Keeping the UI good",
-  # item 3): its marker text must not be anywhere in the web app inside the image.
-  step "image: no gallery"       no_gallery_in_image
+    # The component gallery is for development builds only (spec "Keeping the UI good",
+    # item 3): its marker text must not be anywhere in the web app inside the image.
+    step "image: no gallery"     no_gallery_in_image
+  fi
   # Trivy reads an exported copy of the image and gets no access to Docker itself.
   if [[ -z "$SCANNERS_WHY" ]]; then
     skip "image: export" "only needed for Trivy"
@@ -712,6 +990,14 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
 else
   skip "image" "no Dockerfile yet"
 fi
+}
+
+# --- What this run does -----------------------------------------------------
+case "$MODE" in
+  scan)         scanner_steps; image_steps ;;
+  files|rerun)  targeted_run ;;
+  *)            tests_steps; scanner_steps; image_steps ;;
+esac
 
 # --- Summary -----------------------------------------------------------------
 pass=0 fail=0 skipped=0 missing=0
@@ -727,14 +1013,35 @@ done
 # The full table goes to .check/summary.md (to paste into the pull request) and the full log.
 # The screen gets the steps that didn't pass, the result, and where the files are.
 SUMMARY="$ROOT/.check/summary.md"
+# What the other modes say at the top and at the bottom: none is valid for a pull request.
+PASS_LABEL="PASS" MODE_TAIL=""
+case "$MODE" in
+  fast)  PASS_LABEL="FAST PASS"
+         MODE_TAIL="FAST RUN: not valid for a pull request; run the full \`./check\`." ;;
+  scan)  PASS_LABEL="SCAN-ONLY PASS"
+         MODE_TAIL="SCAN-ONLY run (\`./check --scan-only\`): pip-audit, Bandit, osv-scanner and Trivy on a fresh image of this commit; no tests ran. Not valid for a pull request." ;;
+  files) PASS_LABEL="BROWSER FILES PASS"
+         MODE_TAIL="${MODE_BANNER:-BROWSER FILES RUN: not valid for a pull request. Files: ${SPEC_FILES[*]}.}" ;;
+  rerun) PASS_LABEL="DIAGNOSIS PASS"
+         [[ "$(result_of rerun)" == SKIP ]] && PASS_LABEL="NOTHING TO RERUN"
+         MODE_TAIL="${MODE_BANNER:-DIAGNOSIS RUN, NOT valid for a pull request.}" ;;
+esac
 {
-  if ((FAST)); then
-    echo "## ./check summary (FAST RUN: not valid for a pull request)"
-    echo
-    echo "**This was a FAST run (\`./check --fast\`). It skipped installs, browser tests, scanners and the image. Only a full \`./check\` counts for a pull request.**"
-  else
-    echo "## ./check summary"
-  fi
+  case "$MODE" in
+    fast)  echo "## ./check summary (FAST RUN: not valid for a pull request)"
+           echo
+           echo "**This was a FAST run (\`./check --fast\`). It skipped the image, browser tests and scanners. Only a full \`./check\` counts for a pull request.**" ;;
+    scan)  echo "## ./check summary (SCAN-ONLY: not valid for a pull request)"
+           echo
+           echo "**$MODE_TAIL**" ;;
+    files) echo "## ./check summary (BROWSER FILES RUN: not valid for a pull request)"
+           echo
+           echo "**$MODE_TAIL**" ;;
+    rerun) echo "## ./check summary (DIAGNOSIS RUN, NOT valid for a pull request)"
+           echo
+           echo "**$MODE_TAIL**" ;;
+    *)     echo "## ./check summary" ;;
+  esac
   echo
   echo "Commit \`$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')\`, $(date -u '+%Y-%m-%d %H:%M UTC')"
   echo
@@ -752,14 +1059,10 @@ SUMMARY="$ROOT/.check/summary.md"
   fi
   [[ -z "$(load_summary)" ]] || { load_summary; echo; echo; }
   if ((fail == 0 && missing == 0)); then
-    if ((FAST)); then
-      echo "**RESULT: FAST PASS** ($pass passed, $skipped skipped). FAST RUN: not valid for a pull request; run the full \`./check\`."
-    else
-      echo "**RESULT: PASS** ($pass passed, $skipped skipped)"
-    fi
+    echo "**RESULT: $PASS_LABEL** ($pass passed, $skipped skipped)${MODE_TAIL:+. $MODE_TAIL}"
   else
     echo "**RESULT: FAIL** ($fail failed, $missing not set up, $pass passed, $skipped skipped)"
-    if ((FAST)); then echo "FAST RUN: not valid for a pull request."; fi
+    [[ -z "$MODE_TAIL" ]] || echo "$MODE_TAIL"
   fi
 } >"$SUMMARY"
 echo
@@ -782,5 +1085,6 @@ fi
 show ""
 [[ -z "$(load_summary)" ]] || show "$(load_summary)"
 show "$(grep -m1 '^\*\*RESULT' "$SUMMARY")"
+[[ -z "$MODE_TAIL" ]] || show "$MODE_TAIL"
 show "Summary to paste: .check/summary.md · whole run: .check/check.log · each step: .check/logs/"
 ((fail == 0 && missing == 0))

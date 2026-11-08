@@ -16,6 +16,8 @@ export default async function globalSetup() {
   await api.storageState({ path: AUTH_FILE });
   await api.dispose();
 
+  // The screenshots server only runs when the screenshots are tested (E2E_SERVERS, see serve.mjs).
+  if (process.env.E2E_SERVERS !== undefined && !process.env.E2E_SERVERS.split(',').includes('shots')) return;
   const shots = await request.newContext({ baseURL: local(PORTS.shots) });
   const made = await shots.post('/api/v1/setup', { data: ADMIN });
   if (made.status() !== 201) {

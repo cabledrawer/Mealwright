@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { failedTests, flakyTests, incompleteReason, judge, keyOf } from './flaky-lib.mjs';
+import { failedTests, flakyTests, incompleteReason, judge, keyOf, rerunSelection } from './flaky-lib.mjs';
 
 const script = fileURLToPath(new URL('./flaky.mjs', import.meta.url));
 
@@ -71,6 +71,20 @@ test('a report with errors, or as many failures as the limit, is not a complete 
   assert.equal(incompleteReason(report([], { unexpected: 19 }), 20), '');
 });
 
+test('a rerun selection matches exactly the failed tests, by project, file and titles', () => {
+  const r = report([['phone 0.7 x', 'it’s (1) [ok]', 'unexpected'], ['phone 0.7 x', 'fine', 'expected'], ['desktop 0.7 x', 'it’s (1) [ok]', 'flaky']]);
+  const pick = rerunSelection(r);
+  assert.equal(pick.count, 1);
+  assert.deepEqual(pick.projects, ['phone 0.7 x']);
+  assert.deepEqual(pick.files, ['plan.spec.ts']);
+  // Playwright matches --grep against "project file describe… title", joined with spaces.
+  const re = new RegExp(pick.grep);
+  assert.ok(re.test(' phone 0.7 x plan.spec.ts Plan it’s (1) [ok]'));
+  assert.ok(!re.test(' desktop 0.7 x plan.spec.ts Plan it’s (1) [ok]'));
+  assert.ok(!re.test(' phone 0.7 x plan.spec.ts Plan fine'));
+  assert.equal(rerunSelection(report([['phone', 'a', 'flaky']])), null);
+});
+
 test('flaky.mjs on fake report files: list, judge, complete, failed', () => {
   const dir = mkdtempSync(join(tmpdir(), 'flaky-test-'));
   try {
@@ -86,6 +100,10 @@ test('flaky.mjs on fake report files: list, judge, complete, failed', () => {
     );
     assert.equal(run('--judge', path), '');
     assert.equal(run('--failed', path), 'desktop\tfresh.spec.ts\tPlan › b\n');
+    assert.equal(
+      run('--rerun', path),
+      'project\tdesktop\nfile\tfresh.spec.ts\ngrep\t^\\s*(?:desktop fresh\\.spec\\.ts Plan b)$\ncount\t1\n',
+    );
     assert.equal(run('--complete', '20', path), '');
   } finally {
     rmSync(dir, { recursive: true, force: true });

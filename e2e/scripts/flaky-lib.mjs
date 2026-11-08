@@ -63,3 +63,22 @@ export function judge({ flaky, previous = [], newFiles = [] }) {
   }
   return { twice, newFile };
 }
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/** What to run again for a report's failed tests: the projects they ran in, one Playwright --grep
+ *  that matches exactly them (Playwright matches it against "project file title", the describe
+ *  titles between, all joined with spaces), and their files. Null when nothing failed. */
+export function rerunSelection(report) {
+  const failed = failedTests(report);
+  if (!failed.length) return null;
+  const grep = failed
+    .map((t) => escapeRegExp([t.project, t.file, ...t.titles].join(' ')))
+    .join('|');
+  return {
+    count: failed.length,
+    projects: [...new Set(failed.map((t) => t.project))],
+    files: [...new Set(failed.map((t) => t.file))],
+    grep: `^\\s*(?:${grep})$`,
+  };
+}

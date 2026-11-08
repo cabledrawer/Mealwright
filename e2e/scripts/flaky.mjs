@@ -8,11 +8,12 @@
 //   node scripts/flaky.mjs --complete <max failures> <report.json>...
 //                                                   exit 0 when every report is of a run that went to
 //                                                   the end, else 1 and the reason on stderr
+//   node scripts/flaky.mjs --rerun <report.json>    what to run again for its failed tests (see rerunSelection)
 //   node scripts/flaky.mjs --failed <report.json>...  "project<TAB>file<TAB>title › title" per failed test
 // Any error (a missing or broken report) exits with an error: ./check records that as a failure,
 // never as "no flaky tests".
 import { existsSync, readFileSync } from 'node:fs';
-import { failedTests, flakyTests, incompleteReason, judge, keyOf, readReport } from './flaky-lib.mjs';
+import { failedTests, flakyTests, incompleteReason, judge, keyOf, readReport, rerunSelection } from './flaky-lib.mjs';
 
 const args = process.argv.slice(2);
 const mode = args[0]?.startsWith('--') ? args.shift() : '';
@@ -51,6 +52,16 @@ try {
         console.error(`${path}: ${why}`);
         process.exit(1);
       }
+    }
+  } else if (mode === '--rerun') {
+    // For ./check --rerun-failed, one report: "project", "file", "grep" and "count" lines, nothing
+    // when no test failed.
+    const pick = rerunSelection(readReport(args[0]));
+    if (pick) {
+      for (const p of pick.projects) console.log(`project\t${p}`);
+      for (const f of pick.files) console.log(`file\t${f}`);
+      console.log(`grep\t${pick.grep}`);
+      console.log(`count\t${pick.count}`);
     }
   } else if (mode === '--failed') {
     for (const path of args) {

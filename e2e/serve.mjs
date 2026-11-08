@@ -8,12 +8,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const base = Number(process.env.E2E_APP_PORT ?? 18080);
+// E2E_SERVERS says which of the extra servers to start: a comma-separated list of fresh, strict
+// and shots, or empty for none (./check --browser-files starts only the ones its files use).
+// Unset: all of them. "main" always runs.
+const extra = process.env.E2E_SERVERS === undefined ? ['fresh', 'strict', 'shots'] : process.env.E2E_SERVERS.split(',').filter(Boolean);
+for (const name of extra) {
+  if (!['fresh', 'strict', 'shots'].includes(name)) throw new Error(`E2E_SERVERS must be fresh, strict or shots (comma-separated), not "${name}".`);
+}
 const servers = [
   { name: 'fresh', port: base + 1, plainHttp: true },
   { name: 'strict', port: base + 2, plainHttp: false },
   { name: 'shots', port: base + 3, plainHttp: true },
   { name: 'main', port: base, plainHttp: true }, // last: Playwright waits for this one
-];
+].filter(({ name }) => name === 'main' || extra.includes(name));
 
 // With E2E_SKIP_BUILD=1 the web app already built in ../frontend/build is used as it is:
 // ./check builds it once (its size-limit step) and runs three sets of servers on that one build,
