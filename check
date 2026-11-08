@@ -74,8 +74,8 @@
 #                               CHECK_LIMIT_BROWSER minutes; the watchdog comes 30 s after it)
 #   CHECK_PYTEST_WORKERS (4), CHECK_PYTEST_WORKERS_BESIDE (2)
 #                               backend test workers: alone (fast, or first), and beside the browser tests
-#   CHECK_PYTEST_FIRST=1        full run: the backend tests run on their own, before the browser
-#                               tests, with CHECK_PYTEST_WORKERS (default: beside the browser tests)
+#   CHECK_PYTEST_FIRST (1)      full run: the backend tests run on their own, before the browser
+#                               tests, with CHECK_PYTEST_WORKERS; 0 runs them beside the browser tests
 #   CHECK_BROWSER_STREAMS=2     phone and WebKit as one stream
 #   CHECK_WORKERS_DESKTOP (3), CHECK_WORKERS_PHONE (2), CHECK_WORKERS_WEBKIT (2)
 #                               Playwright workers per browser stream (1 to 6), each with its own
@@ -533,6 +533,15 @@ if [[ -z "$HIST" ]]; then
   HIST="$(dirname "${gitdir:-$ROOT/.git}")/.check-history"
 fi
 
+# branch_name: the branch checked out; in a detached copy (the frozen copy a full check runs in) the
+# branch whose tip is this commit, else "(detached)". One word: flaky-last.branch is "<branch> <hash>".
+branch_name() {
+  local b
+  b="$(git -C "$ROOT" branch --show-current 2>/dev/null)"
+  [[ -n "$b" ]] || b="$(git -C "$ROOT" branch --points-at HEAD --format='%(refname:short)' 2>/dev/null | grep -v '^(' | head -n 1)"
+  echo "${b:-(detached)}"
+}
+
 # The spec files added on this branch since it left origin/main (committed, staged or new), by name.
 new_spec_files() {
   local base
@@ -566,7 +575,7 @@ judge_flaky() {
     # say which branch the last full run was on, and which this one is.
     local was now
     was="$(cut -d' ' -f1 "$HIST/flaky-last.branch" 2>/dev/null)"; was="${was:-?}"
-    now="$(git -C "$ROOT" branch --show-current 2>/dev/null)"; now="${now:-?}"
+    now="$(branch_name)"
     record "browser: flaky twice" FAIL "${#twice[@]} flaky in this run (branch $now) and in the last full run (branch $was): listed below" "-"
     show "$(printf '%-28s %s' "browser: flaky twice" "FAIL (flaky in this run, branch $now, and in the last full run, branch $was):")"
     for line in "${twice[@]}"; do show "    $line"; done
@@ -653,7 +662,7 @@ save_last_run() {
 save_flaky_history() {
   mkdir -p "$HIST" && (cd "$ROOT/e2e" && node scripts/flaky.mjs "$@") >"$HIST/flaky-last.txt.new" &&
     mv -f "$HIST/flaky-last.txt.new" "$HIST/flaky-last.txt" &&
-    printf '%s %s\n' "$(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')" "$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')" >"$HIST/flaky-last.branch"
+    printf '%s %s\n' "$(branch_name)" "$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')" >"$HIST/flaky-last.branch"
 }
 
 skip() { printf '%-28s SKIP (%s)\n' "$1" "$2"; record "$1" SKIP "$2" "-"; }
@@ -687,7 +696,7 @@ case "$MODE" in
   scan) show "*** SCAN-ONLY RUN: not valid for a pull request. No tests run. ***" "" ;;
   rerun) show "*** DIAGNOSIS RUN, NOT valid for a pull request. ***" "" ;;
 esac
-show "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')"
+show "Mealwright checks: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') on $(branch_name)"
 if [[ "$MODE" == full || "$MODE" == scan ]]; then
   stale="$(origin_stale_note)"
   show "Scanners: ${SCANNERS_WHY:-skipped ($NO_SCAN)}${stale:+ ($stale)}."
@@ -1103,9 +1112,10 @@ if need uv; then
   if [[ -f "$ROOT/e2e/scripts/test-map.mjs" ]] && need node; then
     step "tests: map"            sh -c 'cd e2e && node scripts/test-map.mjs validate'
   fi
-  # CHECK_PYTEST_FIRST=1 (cabledrawer 8 Nov, T2c): in a full run too, on their own before the browser
-  # tests, with CHECK_PYTEST_WORKERS, to compare the time and load with running them beside.
-  if ((FAST)) || [[ "${CHECK_PYTEST_FIRST:-0}" == 1 ]] || [[ ! -f "$ROOT/e2e/package.json" ]]; then
+  # CHECK_PYTEST_FIRST (cabledrawer 8 Nov, T2c), on by default: in a full run too, on their own before
+  # the browser tests, with CHECK_PYTEST_WORKERS. Beside the browsers (=0) their timing tests failed
+  # under load, and the browser load was higher (run 1 vs run 2 in T2c's PR).
+  if ((FAST)) || [[ "${CHECK_PYTEST_FIRST:-1}" == 1 ]] || [[ ! -f "$ROOT/e2e/package.json" ]]; then
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS:-4}")"
     chosen=()
     if ((FAST)); then choose_fast_tests; fi
@@ -1114,7 +1124,7 @@ if need uv; then
     else
       step "backend: pytest"     backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25 "${chosen[@]}"
       if ((FAST)) && [[ "$FAST_CHOICE" == some ]]; then notes[-1]="${#chosen[@]} test files chosen by what changed"; fi
-      if ((!FAST)) && [[ "${CHECK_PYTEST_FIRST:-0}" == 1 && -z "${notes[-1]}" ]]; then notes[-1]="ran first, on its own (${CHECK_PYTEST_WORKERS:-4} workers)"; fi
+      if ((!FAST)) && [[ "${CHECK_PYTEST_FIRST:-1}" == 1 && -z "${notes[-1]}" ]]; then notes[-1]="ran first, on its own (${CHECK_PYTEST_WORKERS:-4} workers)"; fi
     fi
   else
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS_BESIDE:-2}")"
