@@ -63,6 +63,15 @@ async function kitchen(page: Page) {
   };
 }
 
+/** The card, open: on a computer's Plan shopping it starts folded ("Check you have these · 2 Show"). */
+async function openCard(page: Page) {
+  const card = page.getByRole('region', { name: 'Check you have these' });
+  await expect(card).toBeVisible();
+  const toggle = card.getByRole('button', { name: /^Check you have these/ });
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+  return card;
+}
+
 const line = (foodId: number, amount: number, unit = 'g') => ({ words: 'x', food_id: foodId, amount, unit });
 
 /** The main list's lines, from the sync copy, with the ingredient's name. */
@@ -155,8 +164,7 @@ test('Check you have these: Got it stays hidden until the plan changes; + Add pu
     const stew = await k.recipe(`Stew ${tag}`, [line(oilId, 1, 'tbsp'), line(turmericId, 1, 'tsp'), line(rice, 100)]);
     await k.plan(stew, 2);
     await page.goto('/shopping');
-    const card = page.getByRole('region', { name: 'Check you have these' });
-    await expect(card).toBeVisible();
+    const card = await openCard(page);
     await expect(card.getByText('Staples this week’s recipes use')).toBeVisible();
     await expect(card.getByText(`Stew ${tag}`)).toHaveCount(2);
     // The plan never puts a staple on the list itself.
@@ -166,12 +174,14 @@ test('Check you have these: Got it stays hidden until the plan changes; + Add pu
     await card.getByRole('button', { name: `Got it, ${oil}` }).click();
     await expect(card.getByRole('button', { name: `Got it, ${oil}` })).toHaveCount(0);
     await page.reload();
+    await openCard(page);
     await expect(card.getByRole('button', { name: `Got it, ${turmeric}` })).toBeVisible();
     await expect(card.getByRole('button', { name: `Got it, ${oil}` })).toHaveCount(0);
 
     // Another meal that uses it: it asks again.
     await k.plan(stew, 3);
     await page.reload();
+    await openCard(page);
     await expect(card.getByRole('button', { name: `Got it, ${oil}` })).toBeVisible();
 
     // + Add: an ordinary line, and it leaves the card.
@@ -198,8 +208,7 @@ test('the card is readable in the dark theme and stays on screen at the phone’
     await k.plan(stew, 2);
     await setAccountTheme(page, 'dark');
     await page.goto('/shopping');
-    const card = page.getByRole('region', { name: 'Check you have these' });
-    await expect(card).toBeVisible();
+    const card = await openCard(page);
     const box = (await card.boundingBox())!;
     const width = page.viewportSize()!.width;
     expect(box.x).toBeGreaterThanOrEqual(0);
