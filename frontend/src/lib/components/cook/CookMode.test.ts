@@ -2,7 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { Recipe, RecipeLine, RecipeStep } from '#lib/client/recipes.js';
-import { CookTimers } from '#lib/cookTimers.svelte.js';
+import { CookTimers, TICK_MS } from '#lib/cookTimers.svelte.js';
 import { ScreenAwake } from '#lib/screenAwake.svelte.js';
 import CookMode from './CookMode.svelte';
 import '#lib/styles/tokens.css';
@@ -429,7 +429,11 @@ describe('Cook mode', () => {
       flushSync();
       expect(said()).toContain('08:55');
       expect(playChime).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(540_000);
+      // The rest of the ten minutes passes as it does on a phone that slept: the clock jumps and
+      // the next look at it (one tick) finds the timer over. Stepping 2,160 more ticks one by
+      // one took about ten real seconds, and over fifteen on a busy machine.
+      vi.setSystemTime(Date.now() + 540_000);
+      await vi.advanceTimersByTimeAsync(TICK_MS);
       flushSync();
       expect(said()).toContain('Time’s up');
       expect(playChime).toHaveBeenCalledTimes(1);
