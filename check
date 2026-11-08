@@ -53,9 +53,10 @@
 #       projects only; with it, screens.spec.ts is the only file that runs.
 #
 #   ./check --rerun-failed
-#       Runs again only the browser tests that failed in this copy's last completed full run
-#       (kept in .check-history/last-full/<folder name>/), each stream with its own servers,
-#       on the current commit. Says which commit the failures came from. For diagnosis.
+#       Runs again only the browser tests that failed in this copy's last full run, even one that was
+#       stopped early (its reports are kept in .check-history/last-run/<folder name>/), each stream
+#       with its own servers, on the current commit. Says which commit the failures came from, and
+#       "that run was stopped early (<reason>)" when it was. For diagnosis.
 #
 #   ./check --scan-only
 #       pip-audit, Bandit, osv-scanner, then a fresh image of the current commit (its own tag,
@@ -523,8 +524,13 @@ judge_flaky() {
     case "$kind" in twice) twice+=("$line") ;; new) fresh+=("$line") ;; esac
   done <<<"$out"
   if ((${#twice[@]})); then
-    record "browser: flaky twice" FAIL "${#twice[@]} flaky in this run and in the last full run: listed below" "-"
-    show "$(printf '%-28s %s' "browser: flaky twice" "FAIL (flaky in this run and in the last full run):")"
+    # The history is one per clone, shared by every branch and worktree of it (cabledrawer 8 Nov, T2c L5):
+    # say which branch the last full run was on, and which this one is.
+    local was now
+    was="$(cut -d' ' -f1 "$HIST/flaky-last.branch" 2>/dev/null)"; was="${was:-?}"
+    now="$(git -C "$ROOT" branch --show-current 2>/dev/null)"; now="${now:-?}"
+    record "browser: flaky twice" FAIL "${#twice[@]} flaky in this run (branch $now) and in the last full run (branch $was): listed below" "-"
+    show "$(printf '%-28s %s' "browser: flaky twice" "FAIL (flaky in this run, branch $now, and in the last full run, branch $was):")"
     for line in "${twice[@]}"; do show "    $line"; done
   fi
   if ((${#fresh[@]})); then
@@ -573,11 +579,43 @@ save_last_full() {
   git -C "$ROOT" rev-parse HEAD >"$dir/commit.txt"
 }
 
+# save_last_run <report.json>...: the same for every full run that wrote reports, completed or not
+# (T2c S1), in .check-history/last-run/<folder name>/, for ./check --rerun-failed: a run stopped by
+# its failure limit or time limit (a crashed server) is the one worth rerunning. stopped.txt says why
+# when the run did not go to the end. last-full (above) stays for the flaky history only.
+stopped_reason() {
+  local b label i out
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label _ <<<"$b"
+    for i in "${!names[@]}"; do
+      [[ "${names[$i]}" == "browser: $label" ]] || continue
+      case "${results[$i]}" in
+        PASS) ;;
+        FAIL) [[ "${notes[$i]}" == stopped* ]] && { echo "$label: ${notes[$i]}"; return; } ;;
+        *) echo "$label: ${results[$i]} (${notes[$i]})"; return ;;
+      esac
+    done
+  done
+  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --complete "${CHECK_MAX_FAILURES:-20}" "$@" 2>&1)"; then
+    out="${out#*: }"; echo "${out%%$'\n'*}"
+  fi
+}
+save_last_run() {
+  local dir="$HIST/last-run/$(basename "$ROOT")" r why
+  rm -rf "$dir" && mkdir -p "$dir" || return 1
+  for r in "$@"; do [[ -f "$r" ]] && { cp "$r" "$dir/" || return 1; }; done
+  date -u '+%Y-%m-%d %H:%M UTC' >"$dir/when.txt"
+  why="$(stopped_reason "$@")"
+  [[ -z "$why" ]] || printf '%s\n' "$why" >"$dir/stopped.txt"
+  git -C "$ROOT" rev-parse HEAD >"$dir/commit.txt"
+}
+
 # save_flaky_history <report.json>...: this completed full run's flaky tests become "the previous
 # run" for the next one.
 save_flaky_history() {
   mkdir -p "$HIST" && (cd "$ROOT/e2e" && node scripts/flaky.mjs "$@") >"$HIST/flaky-last.txt.new" &&
-    mv -f "$HIST/flaky-last.txt.new" "$HIST/flaky-last.txt"
+    mv -f "$HIST/flaky-last.txt.new" "$HIST/flaky-last.txt" &&
+    printf '%s %s\n' "$(git -C "$ROOT" branch --show-current 2>/dev/null || echo '?')" "$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')" >"$HIST/flaky-last.branch"
 }
 
 skip() { printf '%-28s SKIP (%s)\n' "$1" "$2"; record "$1" SKIP "$2" "-"; }
@@ -871,12 +909,12 @@ targeted_run() {
   fi
 }
 
-# --rerun-failed: from the last completed full run in this copy's folder name (kept by
-# save_last_full), the failed tests of each stream, found with flaky.mjs --rerun.
+# --rerun-failed: from the last full run in this copy's folder name, completed or stopped early (kept by
+# save_last_run), the failed tests of each stream, found with flaky.mjs --rerun.
 declare -A RERUN_ARGS=()
 rerun_prepare() {
   local last report proj label offset total=0 out defs=() order p rerun_files=()
-  last="$HIST/last-full/$(basename "$ROOT")"
+  last="$HIST/last-run/$(basename "$ROOT")"
   if [[ ! -f "$last/commit.txt" ]]; then
     RERUN_NONE="There is no last full run to take the failures from (looked in $last): run the full ./check first."
     MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. Nothing was run: $RERUN_NONE"
@@ -909,6 +947,9 @@ rerun_prepare() {
     defs+=("$label:${p//-/,}:$offset")
   done
   MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. The failures come from commit $RERUN_FROM (the last full run); this run is on commit $RERUN_NOW."
+  if [[ -s "$last/stopped.txt" ]]; then
+    MODE_BANNER="$MODE_BANNER That run was stopped early ($(head -n 1 "$last/stopped.txt"))."
+  fi
   if ((total == 0)); then
     record "rerun" SKIP "nothing failed in the last full run (commit $RERUN_FROM)" "-"
     show "$MODE_BANNER" "Nothing to rerun: no browser test failed in the last full run."
@@ -1086,6 +1127,10 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
       list_flaky "browser: $label" "$ROOT/.check/browser-${projects//,/-}.json"
     done
     judge_flaky full "${e2e_reports[@]}"
+    have_reports=(); for r in "${e2e_reports[@]}"; do [[ -f "$r" ]] && have_reports+=("$r"); done
+    if ((${#have_reports[@]})); then
+      save_last_run "${have_reports[@]}" || show "The last run's reports in $HIST couldn't be written."
+    fi
     if run_completed "${e2e_reports[@]}"; then
       save_flaky_history "${e2e_reports[@]}" && save_last_full "${e2e_reports[@]}" ||
         show "The flaky-test history or the last full run's reports in $HIST couldn't be written."
@@ -1094,7 +1139,6 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
     fi
     # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
-    have_reports=(); for r in "${e2e_reports[@]}"; do [[ -f "$r" ]] && have_reports+=("$r"); done
     ((${#have_reports[@]})) && (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${have_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
     # For the fixes PR (cabledrawer 8 Nov, T2b): the failed browser tests by the PR that last changed
     # their spec file on this line, shown at the end of a failed run and kept in
