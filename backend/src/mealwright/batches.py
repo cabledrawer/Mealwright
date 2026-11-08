@@ -576,6 +576,30 @@ def eat_tub(kitchen: Kitchen, tub: Tub, quarters: int | None) -> Change:
     return _finish(kitchen, "plan_tub", summary, steps)
 
 
+def bin_tub(kitchen: Kitchen, tub: Tub) -> Change:
+    """Binned on a tub (cabledrawer 8 Nov): the whole of what is left of it is thrown away, as
+    packet Binned does. Same record as eating a tub (`tub_eat`), so its Undo gives back what was
+    binned, and the Recent changes line says "Binned Veg biryani tub". Proposed, for cabledrawer: a
+    tub planned for a meal is refused (take it out of the meal first), so a meal never holds a
+    tub that is gone."""
+    if tub.amount_quarters <= 0:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "tub_eaten",
+            "That tub is all eaten.",  # proposed, for cabledrawer
+        )
+    if item_of_tub(kitchen, tub) is not None:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "tub_in_meal",
+            "That tub is planned for a meal. Take it out of the meal first.",  # proposed
+        )
+    steps = [{"op": "tub_eat", "tub": tub.id, "from": tub.amount_quarters, "to": 0}]
+    tub.amount_quarters = 0
+    kitchen.db.flush()
+    return _finish(kitchen, "plan_tub", f"Binned {tub_name(kitchen, tub)}", steps)
+
+
 def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
     """Freeze a tub: it leaves its meal (back to tubs left, in the freezer) and gets a use-by
     the household's freezer life from today (as the pantry's To freezer does). Proposed, for

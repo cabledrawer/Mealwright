@@ -5,7 +5,7 @@
 
 import { ApiError, cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';
-import { placeTub, type PlanWrite } from './client/plan';
+import { binTub, placeTub, type PlanWrite } from './client/plan';
 import { createFood, listFoods, patchFood } from './client/foods';
 import {
   addStock,
@@ -243,6 +243,45 @@ export class PantryModel {
       saved: () => kitchen.changed(),
       undo: {
         label: `Put ${tub.recipe_name} in ${slotName}`,
+        labelFrom: (value) => value.change?.summary,
+        skip: (value) => value.change === null,
+        run: (value) => {
+          const change = value.change;
+          if (!change?.can_undo) return false;
+          undoer ??= serverUndo(change.id);
+          return undoer();
+        }
+      }
+    });
+  }
+
+  /** "Binned" on a passed tub card (cabledrawer 8 Nov): its soonest tub is thrown away, with Undo. */
+  binnedTub(tub: UseSoonTub) {
+    let before: UseSoonTub[] | null = null;
+    let undoer: (() => Promise<string | void>) | null = null;
+    return save<PlanWrite>({
+      apply: () => {
+        before = $state.snapshot(this.useSoonTubs) as UseSoonTub[];
+        this.useSoonTubs = this.useSoonTubs.flatMap((row) => {
+          if (row.tub_id !== tub.tub_id) return [row];
+          if (row.tubs <= 1) return [];
+          const tubs = row.tubs - 1;
+          return [{ ...row, tubs, words: `${tubs} ${tubs === 1 ? 'tub' : 'tubs'}` }];
+        });
+      },
+      rollback: () => {
+        if (before) this.useSoonTubs = before;
+      },
+      send: (key) => binTub(tub.tub_id, key),
+      // The tub was eaten or put in a meal since this card was drawn: the server refuses (the
+      // toast says so) and the card is looked at again.
+      refused: (error) => {
+        if (error.code === 'tub_eaten' || error.code === 'tub_in_meal') void this.load();
+        return false;
+      },
+      saved: () => kitchen.changed(),
+      undo: {
+        label: `Binned ${tub.recipe_name} tub`,
         labelFrom: (value) => value.change?.summary,
         skip: (value) => value.change === null,
         run: (value) => {

@@ -270,6 +270,16 @@ def eat_tub(
     )
 
 
+@router.post("/plan/tubs/{plan_tub_id}/bin")
+def bin_tub(plan_tub_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
+    """Binned on a tub (0.8): what is left of it is thrown away; Undo gives it back. A tub that
+    is eaten already is refused (`409 tub_eaten`), and so is one planned for a meal
+    (`409 tub_in_meal`)."""
+    return _run(
+        kitchen, response, lambda: batches.bin_tub(kitchen, batches.find_tub(kitchen, plan_tub_id))
+    )
+
+
 @router.post("/plan/tubs/{plan_tub_id}/freezer")
 def tub_to_freezer(plan_tub_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """To freezer: the tub leaves its meal, goes in the freezer and gets a use-by the

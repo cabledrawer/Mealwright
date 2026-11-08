@@ -245,6 +245,11 @@ export const editTub = (
   key: string
 ) => api<PlanWrite>('PATCH', `/plan/tubs/${id}`, fields, { idempotencyKey: key });
 
+/** Binned on a tub (cabledrawer 8 Nov): what is left of it is thrown away. Online only, like the
+ * other tub writes. */
+export const binTub = (id: number, key: string) =>
+  api<PlanWrite>('POST', `/plan/tubs/${id}/bin`, undefined, { idempotencyKey: key });
+
 export const tubToFreezer = (id: number, key: string) =>
   api<PlanWrite>('POST', `/plan/tubs/${id}/freezer`, undefined, { idempotencyKey: key });
 

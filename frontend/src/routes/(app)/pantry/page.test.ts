@@ -1419,12 +1419,71 @@ describe('the Pantry page', () => {
           .not.toBeInTheDocument();
       });
 
-      it('a tub past its use-by is shown as passed, with no Eat it on…', async () => {
+      it('a tub past its use-by is shown as passed, with Binned and no Eat it on…', async () => {
         sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3 })];
         await render(1300);
         const card = page.getByRole('region', { name: /^Use soon/ });
         await expect.element(card.getByText('Lemon rice')).toBeVisible();
         await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+        expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
+        await expect
+          .element(
+            card
+              .getByRole('listitem')
+              .filter({ hasText: 'Lemon rice' })
+              .getByRole('button', { name: 'Binned' })
+          )
+          .toBeEnabled();
+      });
+
+      it('a tub that is not past its date has no Binned button', async () => {
+        sample.useSoonTubs = [tubCard()];
+        await render(1300);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByRole('button', { name: 'Eat it on…' })).toBeVisible();
+        expect(
+          card
+            .getByRole('listitem')
+            .filter({ hasText: 'Lemon rice' })
+            .getByRole('button', { name: 'Binned' })
+            .elements()
+        ).toHaveLength(0);
+      });
+
+      it('Binned on a passed tub bins it, takes its card away and offers Undo', async () => {
+        sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3, tubs: 1 })];
+        routes({
+          // Like the server: a binned tub is gone from Use soon.
+          'POST /plan/tubs/51/bin': () => {
+            sample.useSoonTubs = [];
+            return [
+              200,
+              { change: changeOf(700, 'Binned Lemon rice tub'), meal_id: null, item_id: null }
+            ];
+          }
+        });
+        await render(1300);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await card
+          .getByRole('listitem')
+          .filter({ hasText: 'Lemon rice' })
+          .getByRole('button', { name: 'Binned' })
+          .click();
+        await vi.waitFor(() =>
+          expect(
+            requests.find((r) => r.method === 'POST' && r.path === '/plan/tubs/51/bin')
+          ).toBeDefined()
+        );
+        await expect.element(card.getByText('Lemon rice')).not.toBeInTheDocument();
+        await vi.waitFor(() => expect(toasts.current?.message).toBe('Binned Lemon rice tub'));
+        expect(toasts.current?.action?.label).toBe('Undo');
+      });
+
+      it('on the phone a passed tub row has Binned too', async () => {
+        sample.useSoonTubs = [tubCard({ use_by: '2026-10-14', days_left: -3 })];
+        await render(390);
+        const card = page.getByRole('region', { name: /^Use soon/ });
+        await expect.element(card.getByRole('button', { name: 'Binned' }).first()).toBeVisible();
         expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
       });
 

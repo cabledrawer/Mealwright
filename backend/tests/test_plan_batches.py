@@ -1639,3 +1639,61 @@ def test_a_tub_past_its_use_by_is_too_late_to_freeze(
     assert kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freezer").status_code == 200
     _set_tub_use_by(kitchen, 1)
     assert kitchen.post(f"{API}/plan/tubs/{tubs[1]}/freezer").status_code == 200
+
+
+# --- Binned on a tub (cabledrawer 8 Nov, 0.8) ----------------------------------------------------------
+
+
+def _tub_left_id(kitchen: TestClient) -> int:
+    """A tub in no meal: the first of the batch's tubs left."""
+    return kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]["id"]
+
+
+def test_binning_a_tub_empties_it_and_undo_gives_it_back(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    tub = _tub_left_id(kitchen)
+    binned = kitchen.post(f"{API}/plan/tubs/{tub}/bin")
+    assert binned.status_code == 200, binned.text
+    assert binned.json()["change"]["summary"] == "Binned Veg biryani tub"
+    assert tub not in [t["id"] for t in kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]]
+    assert next(t for t in view(kitchen)["tubs"] if t["id"] == tub)["amount_quarters"] == 0
+    assert undo(kitchen, binned.json())["result"] == "done"
+    assert next(t for t in view(kitchen)["tubs"] if t["id"] == tub)["amount_quarters"] == 4
+    assert tub in [t["id"] for t in kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]]
+
+
+def test_a_binned_tub_is_in_recent_changes_and_can_not_be_binned_twice(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    tub = _tub_left_id(kitchen)
+    assert kitchen.post(f"{API}/plan/tubs/{tub}/bin").status_code == 200
+    again = kitchen.post(f"{API}/plan/tubs/{tub}/bin")
+    assert again.status_code == 409 and again.json()["code"] == "tub_eaten"
+    summaries = [c["summary"] for c in kitchen.get(f"{API}/changes").json()["changes"]]
+    assert "Binned Veg biryani tub" in summaries
+
+
+def test_a_tub_planned_for_a_meal_can_not_be_binned(
+    kitchen: TestClient, cook: dict[str, Any]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=2)
+    in_meal = next(
+        t["id"]
+        for t in view(kitchen)["tubs"]
+        if t["id"] not in [x["id"] for x in kitchen.get(f"{API}/plan/tubs-left").json()["tubs"]]
+    )
+    refused = kitchen.post(f"{API}/plan/tubs/{in_meal}/bin")
+    assert refused.status_code == 409 and refused.json()["code"] == "tub_in_meal"
+    assert "Take it out of the meal first" in refused.json()["detail"]
+
+
+def test_another_household_can_not_bin_my_tub(
+    kitchen: TestClient, neighbour: TestClient, cook: dict[str, Any]
+) -> None:
+    make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
+    tub = _tub_left_id(kitchen)
+    assert neighbour.post(f"{API}/plan/tubs/{tub}/bin").status_code == 404
+    assert next(t for t in view(kitchen)["tubs"] if t["id"] == tub)["amount_quarters"] == 4

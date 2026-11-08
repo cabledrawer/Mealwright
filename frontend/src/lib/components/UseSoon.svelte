@@ -135,7 +135,18 @@
   {/snippet}
 
   {#snippet eatIt(tub: UseSoonTub)}
-    {#if tub.days_left >= 0}
+    {#if tub.days_left < 0}
+      <!-- A passed tub (cabledrawer 8 Nov): nothing to eat it on, so Binned. -->
+      <button
+        type="button"
+        class="pill"
+        aria-describedby="{uid}-nt{tub.tub_id}"
+        disabled={network.offline}
+        onclick={() => {
+          if (!blockedWhileDown()) void model.binnedTub(tub);
+        }}>Binned</button
+      >
+    {:else}
       <button
         type="button"
         class="pill"
