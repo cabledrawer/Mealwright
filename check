@@ -394,7 +394,11 @@ stopped_note() { echo "stopped after $(limit_minutes "$1") min (limit $(limit_va
 # is. A stream with no report (stopped, killed) keeps the tail.
 declare -A STREAM_REPORT=()   # "browser: <label>" -> its JSON report (set by run_browser_streams)
 print_failure() {
-  local name="$1" log="$2" report="${STREAM_REPORT[$1]:-}" failed
+  local name="$1" log="$2" report="${STREAM_REPORT[$1]:-}" failed text
+  # Built in a variable and written with printf to the log and to fd 3, as show() does. Not a tee to the screen:
+  # that opens the screen file again with its own position, and when the screen is a file
+  # (`./check > out.txt`) the next lines written through fd 3 overwrite what tee wrote (T2c run 5).
+  text="$(
   if [[ -n "$report" && -f "$report" ]] &&
      failed="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --failed "$report" 2>/dev/null)" && [[ -n "$failed" ]]; then
     {
@@ -406,7 +410,9 @@ print_failure() {
     }
   else
     tail -n 40 "$log"
-  fi | sed 's/^/    /' | tee -a /dev/fd/3
+  fi | sed 's/^/    /'
+  )"
+  printf '%s\n' "$text"; printf '%s\n' "$text" >&3
 }
 
 # step <name> <command...>: run a command, log its output, record PASS or FAIL.

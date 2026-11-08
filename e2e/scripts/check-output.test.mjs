@@ -26,7 +26,7 @@ function screenFile(tee) {
 
 test('every tee to the screen in ./check appends (tee -a /dev/fd/3)', () => {
   const tees = checkScript.match(/\btee\b[^\n|]*\/dev\/fd\/3/g) ?? [];
-  assert.ok(tees.length > 0, './check copies lines to the screen with tee');
+  // (None now: print_failure writes with printf to the log and fd 3, which also keeps what follows; see check-lint.test.mjs.)
   for (const t of tees) assert.match(t, /^tee -a \/dev\/fd\/3$/, `"${t}" must append, or it overwrites the screen file's start`);
 });
 
