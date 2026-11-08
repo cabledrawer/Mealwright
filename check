@@ -91,7 +91,7 @@
 # log's path (a stream with no report shows the last 40 lines); a run shows the steps of 10 s or more and
 # the 5 slowest browser tests, the files keep all; .check/summary.md joins skipped steps with the same
 # note into one row, the full table is in .check/check.log. A worker's test server writes its log to a
-# file and a test that fails gets the end of it attached. ESLint keeps a cache in frontend/node_modules/.cache.
+# file and a test that fails gets the end of it attached. The fast run's ESLint keeps a cache in frontend/node_modules/.cache (the full run has none).
 
 set -uo pipefail
 
@@ -848,7 +848,7 @@ stream_listing() {
   local json="$RUN_TMP/listing.json" out stream count
   STREAM_COUNTS=() STREAM_LISTING_ERR=""
   rm -f "$json"
-  if ! out="$(cd "$ROOT/e2e" && env -u E2E_PROJECTS PLAYWRIGHT_JSON_OUTPUT_FILE="$json" npx playwright test --list --reporter=json "$@" 2>&1 >/dev/null)" || [[ ! -s "$json" ]]; then
+  if ! out="$(cd "$ROOT/e2e" && env -u E2E_PROJECTS E2E_WORKERS=1 PLAYWRIGHT_JSON_OUTPUT_FILE="$json" npx playwright test --list --reporter=json "$@" 2>&1 >/dev/null)" || [[ ! -s "$json" ]]; then
     STREAM_LISTING_ERR="$(printf '%s\n' "$out" | tail -n 5)"; return 1
   fi
   if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --streams "$json" 2>&1)"; then STREAM_LISTING_ERR="$out"; return 1; fi
@@ -971,6 +971,7 @@ rerun_prepare() {
     return 1
   fi
   RERUN_FROM="$(cat "$last/commit.txt")"
+  RERUN_FROM_WHEN="$(cat "$last/when.txt" 2>/dev/null || echo 'an unknown time')"
   RERUN_NOW="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')"
   for p in desktop phone webkit phone-webkit; do
     report="$last/browser-$p.json"
@@ -995,7 +996,7 @@ rerun_prepare() {
     RERUN_ARGS[$label]="$args"
     defs+=("$label:${p//-/,}:$offset")
   done
-  MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. The failures come from commit $RERUN_FROM (the last full run); this run is on commit $RERUN_NOW."
+  MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. The failures come from the full run of $RERUN_FROM_WHEN on commit $RERUN_FROM (the last one that ran browser tests; a later run that stopped before them left none); this run is on commit $RERUN_NOW."
   if [[ -s "$last/stopped.txt" ]]; then
     MODE_BANNER="$MODE_BANNER That run was stopped early ($(head -n 1 "$last/stopped.txt"))."
   fi
@@ -1131,10 +1132,16 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   # sync` (the generated files in .svelte-kit) runs first, on its own, so the later syncs
   # (svelte-check's and the unit tests') find them up to date and write nothing.
   step "frontend: sync"          sh -c 'cd frontend && npx svelte-kit sync'
-  # `npm run lint` is "prettier --check . && eslint ." (e2e/scripts/check-lint.test.mjs fails if it changes);
-  # here ESLint keeps a cache in node_modules/.cache (git-ignored, gone with a new install), so a run that
-  # changed little re-lints only what changed (T2c L7). Same rules, same result.
-  start_beside "frontend: lint" "ran beside the unit tests (ESLint cache)" sh -c 'cd frontend && npx prettier --check . && npx eslint --cache --cache-location node_modules/.cache/eslint/ .'
+  # `npm run lint` is "prettier --check . && eslint ." (e2e/scripts/check-lint.test.mjs fails if it changes).
+  # The fast run lets ESLint keep a cache in node_modules/.cache (git-ignored, gone with a new install), so a
+  # run that changed little re-lints only what changed (T2c L7). The full run never uses it: the web app's
+  # type-aware rules (projectService) can change a file's result when ANOTHER file's types change, which
+  # the cache (it looks at the file itself) would not notice. Same rules, same result in the fast run.
+  if ((FAST)); then
+    start_beside "frontend: lint" "ran beside the unit tests (ESLint cache)" sh -c 'cd frontend && npx prettier --check . && npx eslint --cache --cache-location node_modules/.cache/eslint/ .'
+  else
+    start_beside "frontend: lint" "ran beside the unit tests" sh -c 'cd frontend && npm run lint'
+  fi
   start_beside "frontend: svelte-check" "ran beside the unit tests" sh -c 'cd frontend && npm run check'
   # The unit tests run in headless Chromium, so install it first (a quick no-op once
   # it is there). `npm test` itself no longer installs it.
