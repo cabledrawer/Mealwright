@@ -249,8 +249,8 @@ test.describe('the connection bar', () => {
 });
 
 test.describe('the app talks only to itself', () => {
-  test('every request the app makes goes to the app’s own address only', async ({ page, context }) => {
-    const base = new URL(test.info().project.use.baseURL ?? 'http://127.0.0.1').origin;
+  test('every request the app makes goes to the app’s own address only', async ({ page, context, baseURL }) => {
+    const base = new URL(baseURL!).origin;
     const strangers: string[] = [];
     let fromWorker = 0;
     context.on('request', (request) => {

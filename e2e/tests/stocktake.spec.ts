@@ -1,6 +1,5 @@
 import { test, expect, testNow, type Page } from "./clock.ts";
 import { checkPage, setAccountTheme } from "./a11y.ts";
-import { AUTH_FILE } from "./servers.ts";
 
 // The Stocktake (0.8 S6, F118): place by place, None · ¼ · ½ · ¾ · Full, a count, a staple, the
 // pack size asked once, Stop and carry on later, and Undo of one answer. Runs on the phone
@@ -362,6 +361,7 @@ test("Stop, carry on later reopens at the first place not finished, also on a se
   page,
   browser,
   baseURL,
+  storageState,
 }) => {
   const mine = await start(page, ["First shelf", "Second shelf"]);
   const [first, second] = mine.places as [
@@ -408,7 +408,7 @@ test("Stop, carry on later reopens at the first place not finished, also on a se
 
   // A second phone (its own browser, the same household) carries on from the same place.
   const context = await browser.newContext({
-    storageState: AUTH_FILE,
+    storageState,
     baseURL,
     viewport: page.viewportSize() ?? undefined,
   });

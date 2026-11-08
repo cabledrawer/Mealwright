@@ -1,23 +1,15 @@
-// Before the tests: create the admin on the "main" server and keep its session, so
-// tests of the app itself start signed in. The same on the "shots" server, which also gets
-// its fixed test data (review/seed-shots.ts) for the saved screenshots.
+// Before the tests: on the "shots" server (when it runs), create the admin, add its fixed test
+// data (review/seed-shots.ts) for the saved screenshots, and keep its session. The other tests'
+// servers are each worker's own (tests/clock.ts), set up there.
 import { mkdirSync } from 'node:fs';
 import { request } from '@playwright/test';
 import { seed } from './review/seed-shots.ts';
-import { ADMIN, AUTH_FILE, PORTS, SHOTS_AUTH_FILE, local } from './tests/servers.ts';
+import { ADMIN, PORTS, SHOTS_AUTH_FILE, local } from './tests/servers.ts';
 
 export default async function globalSetup() {
-  const api = await request.newContext({ baseURL: local(PORTS.main) });
-  const response = await api.post('/api/v1/setup', { data: ADMIN });
-  if (response.status() !== 201) {
-    throw new Error(`Couldn't set up the test server: ${response.status()} ${await response.text()}`);
-  }
-  mkdirSync('.auth', { recursive: true });
-  await api.storageState({ path: AUTH_FILE });
-  await api.dispose();
-
   // The screenshots server only runs when the screenshots are tested (E2E_SERVERS, see serve.mjs).
   if (process.env.E2E_SERVERS !== undefined && !process.env.E2E_SERVERS.split(',').includes('shots')) return;
+  mkdirSync('.auth', { recursive: true });
   const shots = await request.newContext({ baseURL: local(PORTS.shots) });
   const made = await shots.post('/api/v1/setup', { data: ADMIN });
   if (made.status() !== 201) {

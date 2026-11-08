@@ -62,7 +62,9 @@ export default defineConfig({
   testDir: './tests',
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
   expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0, threshold: 0 } },
-  workers: 1,
+  // Each worker runs its own Mealwright server (tests/clock.ts), so files can run side by side:
+  // E2E_WORKERS per stream (at most 6: a stream's ports run out after that).
+  workers: Number(process.env.E2E_WORKERS ?? 1),
   // One more try for a test that fails (cabledrawer 30 Oct): one that then passes doesn't fail the
   // check, but ./check lists it as flaky in its summary and the PR, to fix in the next tidy-up.
   retries: 1,

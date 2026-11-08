@@ -645,14 +645,14 @@ test('the last step ends with Back alone (no meal); the cross goes back to the r
   await expect(page).toHaveURL(`/recipes/${id}`);
 });
 
-test('no outside request and no policy violation while cooking', async ({ page }) => {
+test('no outside request and no policy violation while cooking', async ({ page, baseURL }) => {
   await fakeBrowserThings(page);
   const violations: string[] = [];
   page.on('console', (m) => {
     if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text());
   });
   const outside: string[] = [];
-  const own = new URL(test.info().project.use.baseURL ?? 'http://127.0.0.1').origin;
+  const own = new URL(baseURL!).origin;
   page.on('request', (r) => {
     const url = new URL(r.url());
     if (url.protocol.startsWith('http') && url.origin !== own) outside.push(r.url());

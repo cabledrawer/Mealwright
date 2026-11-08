@@ -197,6 +197,7 @@ test.describe('signed in', () => {
   test('the theme is saved to your account and follows you to another device', async ({
     page,
     browser,
+    app,
   }) => {
     await page
       .getByRole('complementary', { name: 'Sidebar' })
@@ -207,7 +208,7 @@ test.describe('signed in', () => {
     );
 
     // Another browser, which has never seen Mealwright, signs in and gets Dark.
-    const other = await browser.newContext({ baseURL: local(PORTS.main), colorScheme: 'light' });
+    const other = await browser.newContext({ baseURL: app.url, colorScheme: 'light' });
     await other.clock.install({ time: testNow() });
     const second = await other.newPage();
     await second.goto('/sign-in');
@@ -277,11 +278,11 @@ test.describe('plain http:// on the network', () => {
     await expect(heading(page)).toHaveText('Today');
   });
 
-  test('allowed for testing: a clear warning, and signing in works', async ({ page }) => {
-    await page.goto(`${insecure(PORTS.main)}/sign-in`);
+  test('allowed for testing: a clear warning, and signing in works', async ({ page, app }) => {
+    await page.goto(`${app.insecureUrl}/sign-in`);
     await expect(page.getByRole('status')).toHaveText(PLAIN_WARNING);
     await signIn(page);
-    await expect(page).toHaveURL(`${insecure(PORTS.main)}/`);
+    await expect(page).toHaveURL(`${app.insecureUrl}/`);
     await expect(heading(page)).toHaveText('Today');
   });
 });
