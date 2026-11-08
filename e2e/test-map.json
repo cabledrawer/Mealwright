@@ -1,0 +1,240 @@
+{
+  "note": "Which tests a change can break (./check --fast reads this; the full ./check runs everything). paths: globs from the repo root (* is inside a folder, ** goes through folders). backend: test files under backend/tests; browser: spec files under e2e/tests (globs allowed). Every backend test file and every spec file must be named by one area (or by always), or ./check fails: add a new test here. A changed path that no area, all_paths or ignore_paths names runs everything. A change to words in docs/dev/words.md or frontend/src also selects the spec files that look for the changed words (e2e/scripts/test-map.mjs).",
+  "all_paths": [
+    "backend/src/mealwright/models.py",
+    "backend/src/mealwright/db.py",
+    "backend/src/mealwright/main.py",
+    "backend/src/mealwright/config.py",
+    "backend/src/mealwright/errors.py",
+    "backend/src/mealwright/migrate.py",
+    "backend/src/mealwright/migrations/**",
+    "backend/src/mealwright/__init__.py",
+    "backend/src/mealwright/__main__.py",
+    "backend/src/mealwright/limits.py",
+    "backend/src/mealwright/names.py",
+    "backend/src/mealwright/api/__init__.py",
+    "backend/src/mealwright/api/v1/__init__.py",
+    "backend/src/mealwright/api/v1/context.py",
+    "backend/src/mealwright/api/v1/schemas.py",
+    "backend/pyproject.toml",
+    "backend/uv.lock",
+    "backend/tests/conftest.py",
+    "backend/tests/*_kit.py",
+    "backend/scripts/**",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/*.config.*",
+    "frontend/src/app.html",
+    "frontend/src/app.d.ts",
+    "frontend/src/lib/api.ts",
+    "frontend/src/lib/client/client.test.ts",
+    "frontend/src/lib/client/types.ts",
+    "e2e/tests/clock.ts",
+    "e2e/tests/servers.ts",
+    "e2e/tests/a11y.ts",
+    "e2e/playwright.config.ts",
+    "e2e/global-setup.ts",
+    "e2e/serve.mjs",
+    "e2e/package.json",
+    "e2e/package-lock.json",
+    "e2e/review/**",
+    "check",
+    "check-map.json",
+    "e2e/test-map.json",
+    "e2e/scripts/**",
+    "Dockerfile"
+  ],
+  "ignore_paths": [
+    "docs/**",
+    "**/*.md",
+    ".claude/**",
+    ".gitignore",
+    ".github/**",
+    "LICENSE",
+    "e2e/tests/screens.spec.ts-snapshots/**",
+    "e2e/.auth/**",
+    "e2e/REVIEW.md"
+  ],
+  "always": {
+    "backend": [
+      "test_api.py", "test_licences.py", "test_telemetry.py", "test_wording.py", "test_outbound.py",
+      "test_frontend.py", "test_shutdown.py", "test_start_refusals.py", "test_test_clock.py",
+      "test_tmp_cleanup.py", "test_logs.py", "test_jobs.py", "test_purge.py", "test_db.py",
+      "test_migrations.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py"
+    ]
+  },
+  "areas": [
+    {
+      "name": "Plan",
+      "paths": [
+        "backend/src/mealwright/plan.py", "backend/src/mealwright/batches.py", "backend/src/mealwright/together.py",
+        "backend/src/mealwright/api/v1/plan.py", "backend/src/mealwright/api/v1/batches.py",
+        "frontend/src/routes/(app)/plan/**", "frontend/src/lib/components/plan/**",
+        "frontend/src/lib/plan*", "frontend/src/lib/portions*", "frontend/src/lib/client/plan.ts",
+        "frontend/src/lib/tubUseBy*", "frontend/src/lib/tooLateToFreeze*", "frontend/src/lib/placeTubFromLeft*"
+      ],
+      "backend": [
+        "test_plan*.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py",
+        "test_release_ids_and_slot_undo.py"
+      ],
+      "browser": ["plan.spec.ts", "plan-cards.spec.ts", "plan-cook-once.spec.ts", "plan-month.spec.ts", "plan-portions.spec.ts", "plan-views.spec.ts"]
+    },
+    {
+      "name": "Today and cooking",
+      "paths": [
+        "backend/src/mealwright/today.py", "backend/src/mealwright/cooked.py", "backend/src/mealwright/cooking.py",
+        "backend/src/mealwright/date_kinds.py", "backend/src/mealwright/deduction.py",
+        "backend/src/mealwright/api/v1/today.py", "backend/src/mealwright/api/v1/cooked.py",
+        "frontend/src/lib/components/today/**", "frontend/src/lib/components/cook/**", "frontend/src/lib/components/cooked/**",
+        "frontend/src/lib/cook*", "frontend/src/lib/today*", "frontend/src/lib/client/cook.ts", "frontend/src/lib/client/today.ts",
+        "frontend/src/lib/eatLeftover*", "frontend/src/lib/chime*", "frontend/src/lib/screenAwake*", "frontend/src/lib/components/KeepAwake.svelte",
+        "frontend/src/routes/(app)/+page.svelte", "frontend/src/routes/(app)/recipes/[id]/cook/**"
+      ],
+      "backend": ["test_today.py", "test_cook*.py", "test_date_kinds.py", "test_deduction.py", "test_undo_keeps_used.py"],
+      "browser": ["today.spec.ts", "cooked.spec.ts", "cook-mode.spec.ts"]
+    },
+    {
+      "name": "Shopping",
+      "paths": [
+        "backend/src/mealwright/shopping.py", "backend/src/mealwright/shop_why.py", "backend/src/mealwright/shop_from_plan.py",
+        "backend/src/mealwright/buying.py", "backend/src/mealwright/restock.py", "backend/src/mealwright/pack_sizes.py",
+        "backend/src/mealwright/starter_packs.py", "backend/src/mealwright/api/v1/shopping*.py", "backend/src/mealwright/api/v1/starter_packs.py",
+        "backend/src/mealwright/data/pack-sizes.csv", "backend/src/mealwright/data/starter-packs.csv",
+        "frontend/src/routes/(app)/shopping/**", "frontend/src/lib/components/shopping/**", "frontend/src/lib/shopping/**",
+        "frontend/src/lib/components/PackCell.svelte", "frontend/src/lib/components/PackPicks*", "frontend/src/lib/components/StarterPacks*",
+        "frontend/src/lib/components/MissingBar.svelte", "frontend/src/lib/restockWords*", "frontend/src/lib/picks*", "frontend/src/lib/starterPacks*",
+        "frontend/src/lib/client/starterPacks.ts", "frontend/src/lib/components/RestockedSection.svelte"
+      ],
+      "backend": [
+        "test_shopping.py", "test_shop_*.py", "test_buying.py", "test_restock.py", "test_pack_*.py",
+        "test_starter_packs.py", "test_one_total.py", "test_tick_*.py", "test_sync_ticks.py"
+      ],
+      "browser": [
+        "shopping.spec.ts", "shop-phone.spec.ts", "pack-sizes.spec.ts", "starter-packs.spec.ts",
+        "plan-shopping.spec.ts", "plan-list.spec.ts", "staples-nav.spec.ts"
+      ]
+    },
+    {
+      "name": "Pantry and ingredients",
+      "paths": [
+        "backend/src/mealwright/stock.py", "backend/src/mealwright/foods.py", "backend/src/mealwright/amounts.py",
+        "backend/src/mealwright/conversions.py", "backend/src/mealwright/aisles.py", "backend/src/mealwright/ingredient_match.py",
+        "backend/src/mealwright/removals.py", "backend/src/mealwright/api/v1/pantry.py", "backend/src/mealwright/api/v1/foods.py",
+        "backend/src/mealwright/api/v1/stocktake.py", "backend/src/mealwright/data/food-conversions.csv",
+        "frontend/src/routes/(app)/pantry/**", "frontend/src/routes/(app)/recipes/ingredients/**",
+        "frontend/src/lib/components/Pantry*", "frontend/src/lib/components/Ingredient*", "frontend/src/lib/components/UseSoon.svelte",
+        "frontend/src/lib/components/UsedCount.svelte", "frontend/src/lib/components/UsedSheet.svelte", "frontend/src/lib/components/UsedInRecipes.svelte",
+        "frontend/src/lib/components/NewIngredient*", "frontend/src/lib/components/NewPlace*", "frontend/src/lib/components/LotMenu.svelte",
+        "frontend/src/lib/components/RemoveIngredient.svelte", "frontend/src/lib/components/AddToPantry.svelte", "frontend/src/lib/components/FoodPicker.svelte",
+        "frontend/src/lib/pantry*", "frontend/src/lib/stocktake*", "frontend/src/lib/foodEditor*", "frontend/src/lib/ingredient*",
+        "frontend/src/lib/addToPantry*", "frontend/src/lib/amount*", "frontend/src/lib/canRemove*", "frontend/src/lib/newIngredient*",
+        "frontend/src/lib/client/stock.ts", "frontend/src/lib/client/foods.ts", "frontend/src/lib/client/stocktake.ts", "frontend/src/lib/client/stock.test.ts",
+        "frontend/src/lib/placesAndShops*", "frontend/src/lib/freshness*"
+      ],
+      "backend": [
+        "test_pantry.py", "test_stock*.py", "test_foods.py", "test_food_back.py", "test_amounts.py", "test_conversions.py",
+        "test_ingredient_match.py", "test_big_numbers.py", "test_long_amounts.py", "test_kitchen.py"
+      ],
+      "browser": ["pantry.spec.ts", "pantry-list.spec.ts", "pantry-use-soon.spec.ts", "ingredients.spec.ts", "ingredients-recipes.spec.ts", "stocktake.spec.ts", "undo.spec.ts"]
+    },
+    {
+      "name": "Recipes",
+      "paths": [
+        "backend/src/mealwright/recipes.py", "backend/src/mealwright/recipe_list.py", "backend/src/mealwright/photos.py",
+        "backend/src/mealwright/pints.py", "backend/src/mealwright/api/v1/recipe*.py", "backend/src/mealwright/api/v1/photos.py",
+        "frontend/src/routes/(app)/recipes/+*", "frontend/src/routes/(app)/recipes/[id]/**", "frontend/src/routes/(app)/recipes/new/**",
+        "frontend/src/routes/(app)/recipes/page.test.ts",
+        "frontend/src/lib/components/recipe/**", "frontend/src/lib/components/Recipe*", "frontend/src/lib/components/NewRecipeChoice*",
+        "frontend/src/lib/components/ServingsStepper.svelte", "frontend/src/lib/components/NutritionStrip.svelte", "frontend/src/lib/components/ZoomPhoto.svelte",
+        "frontend/src/lib/components/ChooseRecipe.svelte", "frontend/src/lib/components/FilterChips.svelte",
+        "frontend/src/lib/recipe*", "frontend/src/lib/recipes/**", "frontend/src/lib/client/recipes.ts", "frontend/src/lib/photoFallback*"
+      ],
+      "backend": [
+        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_recipes_isolation.py"
+      ],
+      "browser": [
+        "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "recipe-editor.spec.ts",
+        "paper-cuts.spec.ts"
+      ]
+    },
+    {
+      "name": "Import and drafts",
+      "paths": [
+        "backend/src/mealwright/recipe_import.py", "backend/src/mealwright/page_*.py", "backend/src/mealwright/pasted_recipe.py",
+        "backend/src/mealwright/drafts.py", "backend/src/mealwright/line_prep.py", "backend/src/mealwright/ingredient_reader.py",
+        "backend/src/mealwright/api/v1/imports.py", "backend/src/mealwright/api/v1/import_schemas.py",
+        "backend/src/mealwright/api/v1/drafts.py", "backend/src/mealwright/api/v1/draft_schemas.py",
+        "frontend/src/routes/(app)/recipes/import/**", "frontend/src/routes/(app)/recipes/drafts/**",
+        "frontend/src/lib/components/import/**", "frontend/src/lib/components/drafts/**",
+        "frontend/src/lib/import*", "frontend/src/lib/drafts*", "frontend/src/lib/draftWords*", "frontend/src/lib/checkMode*",
+        "frontend/src/lib/client/imports.ts", "frontend/src/lib/client/drafts.ts"
+      ],
+      "backend": [
+        "test_import_*.py", "test_recipe_import.py", "test_page_*.py", "test_pasted_recipe.py", "test_drafts.py",
+        "test_ingredient_reader.py", "test_hidden_characters.py", "test_lone_surrogate.py"
+      ],
+      "browser": ["import.spec.ts", "import-check-phone.spec.ts", "import-pints.spec.ts", "import-steps.spec.ts", "drafts.spec.ts"]
+    },
+    {
+      "name": "Settings and privacy",
+      "paths": [
+        "backend/src/mealwright/outbound.py", "backend/src/mealwright/network_guard.py", "backend/src/mealwright/own_network.py",
+        "backend/src/mealwright/api/v1/privacy.py", "backend/src/mealwright/api/v1/kitchen.py",
+        "frontend/src/routes/(app)/settings/**", "frontend/src/lib/components/privacy/**", "frontend/src/lib/components/RecentChanges.svelte",
+        "frontend/src/lib/privacy*", "frontend/src/lib/proxyGap.ts", "frontend/src/lib/client/privacy.ts", "frontend/src/lib/client/settingsLists.ts",
+        "frontend/src/lib/client/changes.ts", "frontend/src/lib/allChanges*", "frontend/src/lib/change*"
+      ],
+      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py"],
+      "browser": ["settings.spec.ts", "privacy.spec.ts"]
+    },
+    {
+      "name": "Sign-in, households and security",
+      "paths": [
+        "backend/src/mealwright/auth.py", "backend/src/mealwright/security.py", "backend/src/mealwright/household.py",
+        "backend/src/mealwright/api/v1/account.py", "frontend/src/routes/(auth)/**", "frontend/src/lib/session*"
+      ],
+      "backend": [
+        "test_account.py", "test_households.py", "test_signed_out.py", "test_security_*.py", "test_plain_http.py",
+        "test_sign_in_behind_proxy.py"
+      ],
+      "browser": ["sign-in.spec.ts", "csp.spec.ts"]
+    },
+    {
+      "name": "Sync, live updates and offline",
+      "paths": [
+        "backend/src/mealwright/sync.py", "backend/src/mealwright/events.py", "backend/src/mealwright/ticks.py",
+        "backend/src/mealwright/history.py", "backend/src/mealwright/api/v1/sync.py", "backend/src/mealwright/api/v1/events.py",
+        "backend/src/mealwright/api/v1/changes.py", "backend/src/mealwright/api/v1/version.py", "backend/src/mealwright/frontend.py",
+        "frontend/src/lib/offline/**", "frontend/src/lib/network*", "frontend/src/lib/version*", "frontend/src/lib/undo*",
+        "frontend/src/lib/sendTwice.ts", "frontend/src/lib/serverNeeded.ts", "frontend/src/lib/downWords*", "frontend/src/service-worker/**",
+        "frontend/src/routes/(app)/offline.test.ts", "frontend/src/lib/components/Connection*", "frontend/src/lib/components/OfflineNote.svelte"
+      ],
+      "backend": ["test_sync_*.py", "test_event*.py", "test_events.py", "test_history.py", "test_tick_time.py", "test_keep_alive.py"],
+      "browser": ["offline.spec.ts", "live.spec.ts", "installable.spec.ts", "server-down.spec.ts", "version-check.spec.ts"]
+    },
+    {
+      "name": "The page shell and styles (shared by every screen)",
+      "paths": [
+        "frontend/src/routes/(app)/+*", "frontend/src/routes/(app)/error.test.ts", "frontend/src/routes/(app)/layout.test.ts",
+        "frontend/src/routes/+*", "frontend/src/routes/dev/**", "frontend/src/lib/styles/**",
+        "frontend/src/lib/components/Sidebar*", "frontend/src/lib/components/TabBar.svelte", "frontend/src/lib/components/Button.svelte",
+        "frontend/src/lib/components/Icon.svelte", "frontend/src/lib/components/Logo.svelte", "frontend/src/lib/components/PageHeader.svelte",
+        "frontend/src/lib/components/EmptyState.svelte", "frontend/src/lib/components/Switch*", "frontend/src/lib/components/TextField.svelte",
+        "frontend/src/lib/components/Toast.svelte", "frontend/src/lib/components/ThemeSwitch.svelte", "frontend/src/lib/components/AskOnce*",
+        "frontend/src/lib/components/SwipeRow*", "frontend/src/lib/components/EatItOn.svelte", "frontend/src/lib/sidebar*", "frontend/src/lib/theme*",
+        "frontend/src/lib/toast*", "frontend/src/lib/swipe.ts", "frontend/src/lib/radioKeys*", "frontend/src/lib/focusNear.ts", "frontend/src/lib/dates*",
+        "frontend/src/lib/timeWords*", "frontend/src/lib/plainWords*", "frontend/src/lib/save*", "frontend/src/lib/askOnce*", "frontend/src/lib/testing/**"
+      ],
+      "backend": [],
+      "browser": [
+        "shell.spec.ts", "a11y.spec.ts", "calm.spec.ts", "keyboard.spec.ts", "gallery.spec.ts", "slow-phone.spec.ts"
+      ]
+    },
+    {
+      "name": "The saved screenshots",
+      "paths": ["e2e/tests/screens.spec.ts", "e2e/screens.*"],
+      "backend": [],
+      "browser": ["screens.spec.ts"]
+    }
+  ]
+}

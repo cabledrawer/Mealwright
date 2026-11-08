@@ -27,6 +27,16 @@
 # when a library changed (the same fingerprint as the full run). Its summary says FAST RUN at
 # the top and bottom and is NOT valid for a pull request. Only a full ./check is.
 #
+# The fast run runs only the backend tests the branch's changes can touch (cabledrawer 8 Nov, T2b):
+# e2e/test-map.json maps code areas to backend test files and browser spec files; the changes are
+# those against the merge base with origin/main plus work not committed yet. It prints which tests
+# it chose and why, and the exact `./check --browser-files ...` command for the browser spec files
+# the same changes touch (including the specs that look for words the change edits in docs/dev/words.md
+# or the web app). A change to something shared, or to a file the map doesn't know, runs all the
+# backend tests. `./check --fast --all` runs all of them. The fast run (and the full run) fail when a
+# backend test file or a browser spec file is not in the map: add a new test there.
+# The full run never chooses: it runs everything.
+#
 # More modes (cabledrawer 8 Nov, T2). Each takes the machine-wide lock, so only one check runs at
 # a time, and none is valid for a pull request; the summary says so at the top and bottom:
 #
@@ -72,10 +82,10 @@
 set -uo pipefail
 
 usage() {
-  echo "Usage: ./check [--fast | --scan-only | --rerun-failed | --browser-files <spec file>... [--update-snapshots]]" >&2
+  echo "Usage: ./check [--fast [--all] | --scan-only | --rerun-failed | --browser-files <spec file>... [--update-snapshots]]" >&2
   exit 2
 }
-MODE=full FAST=0 UPDATE_SNAPSHOTS=0
+MODE=full FAST=0 UPDATE_SNAPSHOTS=0 ALL_TESTS=0
 BROWSER_FILES=()
 set_mode() {
   [[ "$MODE" == full ]] || { echo "Use only one of --fast, --scan-only, --rerun-failed and --browser-files." >&2; usage; }
@@ -84,6 +94,7 @@ set_mode() {
 while (($#)); do
   case "$1" in
     --fast) set_mode fast; FAST=1 ;;
+    --all) ALL_TESTS=1 ;;
     --scan-only) set_mode scan ;;
     --rerun-failed) set_mode rerun ;;
     --browser-files)
@@ -96,6 +107,7 @@ while (($#)); do
   shift
 done
 if [[ "$MODE" == files && ${#BROWSER_FILES[@]} == 0 ]]; then echo "--browser-files needs at least one spec file." >&2; usage; fi
+if ((ALL_TESTS)) && [[ "$MODE" != fast ]]; then echo "--all only works with --fast." >&2; usage; fi
 if ((UPDATE_SNAPSHOTS)) && [[ "$MODE" != files ]]; then echo "--update-snapshots only works with --browser-files." >&2; usage; fi
 # Which test servers start is ./check's own choice (--browser-files and --rerun-failed set it from
 # the files); one left set in the shell must never make a full run start fewer (T2a review L1).
@@ -883,6 +895,43 @@ no_gallery_in_image() {
     grep -rqF -- "$1" /app/frontend; [ $? -eq 1 ]' _ "$marker"
 }
 
+# choose_fast_tests: for the fast run, which backend test files to run (cabledrawer 8 Nov, T2b). Sets
+# FAST_CHOICE to all (everything: --all, a shared or unknown file changed, or the map can't be read),
+# some (the files in `chosen`, as tests/test_x.py for pytest) or none, and says which and why. The
+# browser spec files the same changes touch are printed as one ./check --browser-files command.
+FAST_CHOICE=all
+choose_fast_tests() {
+  local out kind value why=() backend_files=() browser_files=() all_reason=""
+  chosen=()
+  if ((ALL_TESTS)); then show "Fast run: all the backend tests (--all)."; return; fi
+  if ! need node || [[ ! -f "$ROOT/e2e/scripts/test-map.mjs" ]]; then
+    show "Fast run: all the backend tests (no map to choose with)."; return
+  fi
+  if ! out="$(cd "$ROOT/e2e" && node scripts/test-map.mjs select 2>&1)"; then
+    show "Fast run: all the backend tests (the map couldn't be read: $(head -n 1 <<<"$out"))."; return
+  fi
+  while IFS=$'\t' read -r kind value; do
+    case "$kind" in
+      all) all_reason="$value" ;;
+      backend) backend_files+=("$value") ;;
+      browser) browser_files+=("$value") ;;
+      why) why+=("$value") ;;
+    esac
+  done <<<"$out"
+  if [[ -n "$all_reason" ]]; then
+    show "Fast run: all the backend tests ($all_reason; the browser spec files can't be chosen: use --browser-files with the ones you know)."; return
+  fi
+  chosen=("${backend_files[@]}")
+  if ((${#chosen[@]})); then FAST_CHOICE=some; else FAST_CHOICE=none; fi
+  show "Fast run: ${#chosen[@]} backend test files chosen by what changed (e2e/test-map.json)${why[0]:+:}" "$(printf '  %s\n' "${why[@]}")"
+  ((${#chosen[@]})) && show "  Backend: ${chosen[*]}"
+  if ((${#browser_files[@]})); then
+    show "  Browser spec files these changes touch (run them with the lock, on all three streams):" "    ./check --browser-files ${browser_files[*]}"
+  else
+    show "  No browser spec file is touched by these changes."
+  fi
+}
+
 tests_steps() {
 # --- Backend -----------------------------------------------------------------
 if need uv; then
@@ -900,9 +949,21 @@ if need uv; then
   # check they run beside the browser tests, so only two (cabledrawer 8 Nov, T2: less running at once):
   # CHECK_PYTEST_WORKERS_BESIDE changes that. 1 runs them all in one process, as before.
   pytest_workers() { if [[ "$1" == 1 ]]; then echo "-p no:xdist"; else echo "-n $1"; fi; }
+  # The map of what each change touches (e2e/test-map.json): its files must name every backend
+  # test file and browser spec file, in the full run too, so a new test is mapped the day it is added.
+  if [[ -f "$ROOT/e2e/scripts/test-map.mjs" ]] && need node; then
+    step "tests: map"            sh -c 'cd e2e && node scripts/test-map.mjs validate'
+  fi
   if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS:-4}")"
-    step "backend: pytest"       backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25
+    chosen=()
+    if ((FAST)); then choose_fast_tests; fi
+    if ((FAST)) && [[ "$FAST_CHOICE" == none ]]; then
+      skip "backend: pytest" "no backend test is touched by these changes (--all runs them all)"
+    else
+      step "backend: pytest"     backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25 "${chosen[@]}"
+      if ((FAST)) && [[ "$FAST_CHOICE" == some ]]; then notes[-1]="${#chosen[@]} test files chosen by what changed"; fi
+    fi
   else
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS_BESIDE:-2}")"
     # Finished after the browser tests (finish_beside, below). At a lower priority (nice), so
