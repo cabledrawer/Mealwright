@@ -8,7 +8,8 @@ Places and shops can be removed (0.8), and without "never reuse an id" the next 
 made, in any household, was given the id of a removed one: an Undo then put back a pointer to
 somebody else's row. The two tables are rebuilt with `AUTOINCREMENT`, as the other tables that
 have an Undo already are. Every row, id, index and link stays as it was; only new ids change
-(a removed id is never used again). Going back rebuilds them without it.
+(an id removed from now on is never used again; the counter starts at the highest id left, so
+a top id removed before this upgrade can come back once). Going back rebuilds them without it.
 """
 
 from collections.abc import Sequence
