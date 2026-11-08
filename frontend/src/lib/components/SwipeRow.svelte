@@ -34,6 +34,9 @@
   import Icon from './Icon.svelte';
 
   const WIDTH = 104;
+  /** Two buttons side by side on a very narrow screen (320 px) are slimmer, so the name keeps room. */
+  const NARROW_PAIR = 84;
+  let screen = $state(0);
 
   let {
     right,
@@ -60,7 +63,9 @@
 
   // Side names: 'left' means the row is slid LEFT (the `left` action's button shows).
   const toLeft = $derived(left ? WIDTH : 0);
-  const toRight = $derived((right ? WIDTH : 0) + (right && rightMore ? WIDTH : 0));
+  const both = $derived(Boolean(right && rightMore));
+  const each = $derived(both && screen > 0 && screen < 340 ? NARROW_PAIR : WIDTH);
+  const toRight = $derived((right ? each : 0) + (both ? each : 0));
   let drag = $state<number | null>(null);
   const live = $derived(enabled && (toLeft > 0 || toRight > 0));
   const offset = $derived(drag ?? restOffset(open, toLeft, toRight));
@@ -79,9 +84,17 @@
   }
 </script>
 
+<svelte:window bind:innerWidth={screen} />
+
 <div class="swipe" style:margin={bleed ? `0 -${bleed}px` : undefined}>
   {#if live && offset > 0 && right}
-    <button type="button" class="act on-left" data-tone={right.tone} onclick={() => press(right)}>
+    <button
+      type="button"
+      class="act on-left"
+      style:width={each === WIDTH ? undefined : `${each}px`}
+      data-tone={right.tone}
+      onclick={() => press(right)}
+    >
       <Icon name={right.icon} size={20} stroke={2.3} />{right.label}{#if right.describe}<span
           class="visually-hidden"
         >
@@ -93,7 +106,8 @@
     <button
       type="button"
       class="act on-left"
-      style:left="{WIDTH}px"
+      style:left="{each}px"
+      style:width={each === WIDTH ? undefined : `${each}px`}
       data-tone={rightMore.tone}
       onclick={() => press(rightMore)}
     >
