@@ -6,6 +6,9 @@ backend/.venv
 backend/.mypy_cache
 backend/.pytest_cache
 backend/.ruff_cache
+backend/.hypothesis
+backend/.coverage
+backend/htmlcov
 backend/tests
 **/__pycache__
 **/node_modules

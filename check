@@ -97,6 +97,9 @@ while (($#)); do
 done
 if [[ "$MODE" == files && ${#BROWSER_FILES[@]} == 0 ]]; then echo "--browser-files needs at least one spec file." >&2; usage; fi
 if ((UPDATE_SNAPSHOTS)) && [[ "$MODE" != files ]]; then echo "--update-snapshots only works with --browser-files." >&2; usage; fi
+# Which test servers start is ./check's own choice (--browser-files and --rerun-failed set it from
+# the files); one left set in the shell must never make a full run start fewer (T2a review L1).
+unset E2E_SERVERS PW_SERVERS
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -457,10 +460,14 @@ judge_flaky() {
     for line in "${fresh[@]}"; do show "    $line"; done
   fi
   if ((${#twice[@]} == 0 && ${#fresh[@]} == 0)); then
+    # Without origin/main there is no "new on this branch": say so rather than pass quietly (review L4).
+    local nobase=""
+    git -C "$ROOT" merge-base HEAD origin/main >/dev/null 2>&1 ||
+      nobase="; no origin/main, so the new-spec-file rule could not run"
     if [[ "$mode" == full ]]; then
-      record "browser: flaky rule" PASS "no test flaky in two full runs in a row${newfiles:+, none flaky in the new spec files ($newfiles)}" "-"
+      record "browser: flaky rule" PASS "no test flaky in two full runs in a row${newfiles:+, none flaky in the new spec files ($newfiles)}$nobase" "-"
     else
-      record "browser: flaky rule" PASS "${newfiles:+none flaky in the new spec files ($newfiles); }the two-in-a-row rule needs a full run" "-"
+      record "browser: flaky rule" PASS "${newfiles:+none flaky in the new spec files ($newfiles); }the two-in-a-row rule needs a full run$nobase" "-"
     fi
   fi
 }
@@ -669,7 +676,9 @@ browser_install() {
 stream_test_count() {
   local out projects="$1"; shift
   out="$(cd "$ROOT/e2e" && E2E_PROJECTS="$projects" npx playwright test --list "$@" 2>&1)"
-  if [[ "$out" =~ Total:\ ([0-9]+)\ test ]]; then echo "${BASH_REMATCH[1]}"; else echo 0; fi
+  # "Total: N tests" is printed even when no test matches; without it, the listing itself broke
+  # (a config or spec error), which must fail, never read as "no test here" (T2a review L3).
+  if [[ "$out" =~ Total:\ ([0-9]+)\ test ]]; then echo "${BASH_REMATCH[1]}"; else printf '%s\n' "$out" | tail -n 5; return 1; fi
 }
 regex_escape() { sed 's/[][\\.*+?^$(){}|\/]/\\&/g' <<<"$1"; }
 
@@ -727,6 +736,10 @@ targeted_run() {
     ((!UPDATE_SNAPSHOTS)) || MODE_BANNER="$MODE_BANNER Screenshots were saved (--update-snapshots), for the two screens projects only."
     show "$MODE_BANNER" "Test servers: main${servers:+, $servers}." ""
   fi
+  # The test servers run the backend with `uv run`: without this, a copy with no backend/.venv
+  # built it inside Playwright's server start-up, unseen and untimed (~2 min of a 1-test run).
+  # On a copy that has it, this takes about a second.
+  step "backend: sync" backend uv sync --frozen
   frontend_install
   rm -rf "$ROOT/frontend/build"
   step "frontend: build"         sh -c 'cd frontend && npm run -s build'
@@ -740,7 +753,11 @@ targeted_run() {
         skip "browser: $label" "no screenshots to save on this stream"; continue
       fi
       mapfile -t sargs < <(stream_args "$label")
-      n="$(stream_test_count "$projects" "${sargs[@]}")"
+      if ! n="$(stream_test_count "$projects" "${sargs[@]}")"; then
+        record "browser: $label" FAIL "Playwright couldn't list the tests: see .check/check.log" "-"
+        show "$(printf '%-28s %s' "browser: $label" "FAIL (Playwright couldn't list the tests)")" "$(sed 's/^/    /' <<<"$n")"
+        continue
+      fi
       if ((n)); then keep+=("$b"); else skip "browser: $label" "none of these files has a test on this stream"; fi
     done
     STREAM_DEFS=("${keep[@]}")
