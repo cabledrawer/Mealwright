@@ -5,8 +5,11 @@
 //   node scripts/test-map.mjs select [--base <commit>]
 //       The changed files (against the base, default the merge base with origin/main, plus work not
 //       committed yet), as tab-separated lines: "all<TAB>reason" when everything must run, else
-//       "backend<TAB>tests/test_x.py" and "browser<TAB>plan.spec.ts" lines, then "why<TAB>text".
-//       Without a base to compare with it says "all".
+//       "backend<TAB>tests/test_x.py" and "browser<TAB>plan.spec.ts" lines, then "why<TAB>text" (one line
+//       per area, with a count and up to three file names). Backend tests are chosen only for changes
+//       under backend/ (and the check script and the Dockerfile); a shared or unknown web app or
+//       browser-test file says "allbrowser<TAB>reason" (the spec files can't be chosen) and no backend
+//       test. A spec file that no longer exists is never listed. Without a base it says "all".
 // The full ./check never reads the map for choosing: it always runs everything.
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -92,53 +95,79 @@ export function specsWith(words, specTexts) {
   return hits;
 }
 
-/** What to run for these changed paths. `wordHits` is specsWith's answer. */
+/** A path the backend tests can be affected by: under backend/, or the check script or the Dockerfile.
+ *  Changes to the web app and the browser tests alone pick no backend test (T2c S3). */
+const touchesBackend = (path) => path.startsWith('backend/') || path === 'check' || path === 'Dockerfile';
+
+/** One line for a group of changed files: "Plan: 12 files (plan.py, +page.svelte, tubs.ts)" (T2c S6). */
+function groupLine(label, paths) {
+  const names = [...new Set(paths.map((p) => p.split('/').pop()))];
+  const shown = names.slice(0, 3).join(', ');
+  return `${label}: ${paths.length} file${paths.length === 1 ? '' : 's'} (${shown}${names.length > 3 ? ', …' : ''})`;
+}
+
+/** What to run for these changed paths. `wordHits` is specsWith's answer. Returns the backend test
+ *  files, the browser spec files, `all` (a reason when ALL the backend tests must run and the browser
+ *  files can't be chosen), `allBrowser` (a reason when only the browser files can't be chosen: a shared or
+ *  unknown web app or browser-test file) and `why`: one line per area, not one per file. */
 export function select(map, changed, wordHits = new Map()) {
   const backend = new Set();
   const browser = new Set();
-  const why = [];
+  const groups = new Map(); // label -> changed paths
+  const note = (label, path) => groups.set(label, [...(groups.get(label) ?? []), path]);
   const backendAll = backendTests();
   const specs = browserSpecs();
   const pick = (globs, files) => files.filter((f) => matches(globs, f));
   let everything = '';
+  let allBrowser = '';
   let anyBackend = false;
   for (const path of changed) {
     if (matches(map.ignore_paths ?? [], path)) continue;
     if (path.startsWith('backend/')) anyBackend = true;
     const own = /^backend\/tests\/(.*test_[^/]*\.py)$/.exec(path);
     if (own) {
-      backend.add(own[1]);
-      why.push(`${path}: a test file changed`);
+      if (backendAll.includes(own[1])) {
+        backend.add(own[1]);
+        note('test files changed', path);
+      } else note('test files deleted or renamed (not run)', path);
       continue;
     }
     const spec = /^e2e\/tests\/([^/]*\.spec\.ts)$/.exec(path);
     if (spec) {
-      browser.add(spec[1]);
-      why.push(`${path}: a spec file changed`);
+      // A deleted or renamed spec file is no longer there to run (T2b light review).
+      if (specs.includes(spec[1])) {
+        browser.add(spec[1]);
+        note('spec files changed', path);
+      } else note('spec files deleted or renamed (not run)', path);
       continue;
     }
-    if (matches(map.all_paths ?? [], path)) {
-      everything = `${path} is shared by every test`;
-      break;
-    }
-    const areas = map.areas.filter((a) => matches(a.paths ?? [], path));
-    if (!areas.length) {
-      everything = `${path} is in no area of e2e/test-map.json`;
-      break;
+    const shared = matches(map.all_paths ?? [], path);
+    const areas = shared ? [] : map.areas.filter((a) => matches(a.paths ?? [], path));
+    if (shared || !areas.length) {
+      const reason = shared ? `${path} is shared by every test` : `${path} is in no area of e2e/test-map.json`;
+      if (touchesBackend(path)) {
+        everything = reason;
+        break;
+      }
+      allBrowser ||= reason;
+      continue;
     }
     for (const a of areas) {
-      for (const f of pick(a.backend ?? [], backendAll)) backend.add(f);
+      if (touchesBackend(path)) for (const f of pick(a.backend ?? [], backendAll)) backend.add(f);
       for (const f of pick(a.browser ?? [], specs)) browser.add(f);
-      why.push(`${path}: ${a.name}`);
+      note(a.name, path);
     }
   }
-  if (everything) return { all: everything, backend, browser, why };
+  if (everything) return { all: everything, allBrowser: '', backend, browser, why: [] };
   if (anyBackend) for (const f of pick(map.always?.backend ?? [], backendAll)) backend.add(f);
-  for (const [name, found] of wordHits) {
-    browser.add(name);
-    why.push(`${name}: looks for ${found.slice(0, 3).map((w) => `"${w}"`).join(', ')}${found.length > 3 ? ' …' : ''}`);
+  const why = [...groups].map(([label, paths]) => groupLine(label, paths));
+  if (wordHits.size) {
+    const names = [...wordHits.keys()];
+    for (const n of names) browser.add(n);
+    const shown = names.slice(0, 3).join(', ');
+    why.push(`spec files that look for words this change edits: ${names.length} (${shown}${names.length > 3 ? ', …' : ''})`);
   }
-  return { all: '', backend, browser, why };
+  return { all: '', allBrowser, backend, browser, why };
 }
 
 const git = (args) => execFileSync('git', ['-C', ROOT, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 << 20 });
@@ -181,7 +210,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       if (r.all) console.log(`all\t${r.all}`);
       else {
         for (const f of [...r.backend].sort()) console.log(`backend\ttests/${f}`);
-        for (const f of [...r.browser].sort()) console.log(`browser\t${f}`);
+        if (r.allBrowser) console.log(`allbrowser\t${r.allBrowser}`);
+        else for (const f of [...r.browser].sort()) console.log(`browser\t${f}`);
       }
       for (const w of r.why) console.log(`why\t${w}`);
       if (!changed.length) console.log('why\tnothing changed');

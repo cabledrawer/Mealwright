@@ -32,8 +32,10 @@
 # those against the merge base with origin/main plus work not committed yet. It prints which tests
 # it chose and why, and the exact `./check --browser-files ...` command for the browser spec files
 # the same changes touch (including the specs that look for words the change edits in docs/dev/words.md
-# or the web app). A change to something shared, or to a file the map doesn't know, runs all the
-# backend tests. `./check --fast --all` runs all of them. The fast run (and the full run) fail when a
+# or the web app). Backend tests are chosen only by changes under backend/ (and the check script and the
+# Dockerfile): a change to the web app or the browser tests alone runs none, and a shared or unknown
+# file there only means the browser spec files can't be chosen (T2c). A shared or unknown file under
+# backend/ runs all the backend tests. `./check --fast --all` runs all of them. The fast run (and the full run) fail when a
 # backend test file or a browser spec file is not in the map: add a new test there.
 # The full run never chooses: it runs everything.
 #
@@ -946,7 +948,7 @@ no_gallery_in_image() {
 # browser spec files the same changes touch are printed as one ./check --browser-files command.
 FAST_CHOICE=all
 choose_fast_tests() {
-  local out kind value why=() backend_files=() browser_files=() all_reason=""
+  local out kind value why=() backend_files=() browser_files=() all_reason="" browser_all=""
   chosen=()
   if ((ALL_TESTS)); then show "Fast run: all the backend tests (--all)."; return; fi
   if ! need node || [[ ! -f "$ROOT/e2e/scripts/test-map.mjs" ]]; then
@@ -958,6 +960,7 @@ choose_fast_tests() {
   while IFS=$'\t' read -r kind value; do
     case "$kind" in
       all) all_reason="$value" ;;
+      allbrowser) browser_all="$value" ;;
       backend) backend_files+=("$value") ;;
       browser) browser_files+=("$value") ;;
       why) why+=("$value") ;;
@@ -970,7 +973,9 @@ choose_fast_tests() {
   if ((${#chosen[@]})); then FAST_CHOICE=some; else FAST_CHOICE=none; fi
   show "Fast run: ${#chosen[@]} backend test files chosen by what changed (e2e/test-map.json)${why[0]:+:}" "$(printf '  %s\n' "${why[@]}")"
   ((${#chosen[@]})) && show "  Backend: ${chosen[*]}"
-  if ((${#browser_files[@]})); then
+  if [[ -n "$browser_all" ]]; then
+    show "  The browser spec files can't be chosen ($browser_all): use --browser-files with the ones you know."
+  elif ((${#browser_files[@]})); then
     show "  Browser spec files these changes touch (run them with the lock, on all three streams):" "    ./check --browser-files ${browser_files[*]}"
   else
     show "  No browser spec file is touched by these changes."

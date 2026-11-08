@@ -48,6 +48,42 @@ test('a change selects its area’s tests; docs select none; a shared file or an
   assert.match(select(map, ['check']).all, /shared/);
 });
 
+test('a change to the web app or the browser tests alone picks no backend test (T2c S3)', () => {
+  const map = readMap();
+  const web = select(map, ['frontend/src/routes/(app)/plan/+page.svelte', 'frontend/src/lib/components/plan/Card.svelte']);
+  assert.equal(web.all, '');
+  assert.equal(web.backend.size, 0, 'no backend path changed');
+  assert.ok(web.browser.has('plan.spec.ts'));
+  // A shared or unknown web app / browser-test file: no browser file can be chosen, still no backend test.
+  for (const path of ['frontend/package.json', 'frontend/src/lib/brand-new-shared.ts', 'e2e/tests/clock.ts', 'e2e/playwright.config.ts']) {
+    const r = select(map, [path]);
+    assert.equal(r.all, '', path);
+    assert.ok(r.allBrowser, path);
+    assert.equal(r.backend.size, 0, path);
+  }
+  // With a backend path too, that path still picks its tests.
+  const both = select(map, ['frontend/package.json', 'backend/src/mealwright/plan.py']);
+  assert.ok(both.backend.has('test_plan.py'));
+  assert.ok(both.allBrowser);
+  assert.match(select(map, ['frontend/package.json', 'backend/src/mealwright/models.py']).all, /models\.py/);
+  assert.match(select(map, ['Dockerfile']).all, /shared/);
+});
+
+test('the reasons are one line per area, with a count and up to three names (T2c S6)', () => {
+  const paths = ['a', 'b', 'c', 'd', 'e'].map((n) => `frontend/src/lib/components/plan/${n}.svelte`);
+  const r = select(readMap(), paths);
+  assert.deepEqual(r.why, ['Plan: 5 files (a.svelte, b.svelte, c.svelte, …)']);
+  const one = select(readMap(), ['backend/src/mealwright/plan.py']);
+  assert.deepEqual(one.why, ['Plan: 1 file (plan.py)']);
+});
+
+test('a deleted or renamed spec file or test file is not listed to run (T2b light review)', () => {
+  const r = select(readMap(), ['e2e/tests/gone-for-good.spec.ts', 'e2e/tests/today.spec.ts', 'backend/tests/test_gone_for_good.py']);
+  assert.deepEqual([...r.browser], ['today.spec.ts']);
+  assert.ok(![...r.backend].some((f) => f.includes('gone_for_good')));
+  assert.ok(r.why.some((w) => /deleted or renamed/.test(w)));
+});
+
 test('a changed test file selects itself (and the always tests)', () => {
   const r = select(readMap(), ['backend/tests/test_plan.py', 'e2e/tests/today.spec.ts']);
   assert.ok(r.backend.has('test_plan.py'));
