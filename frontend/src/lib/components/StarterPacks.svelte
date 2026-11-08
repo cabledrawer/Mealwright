@@ -82,95 +82,99 @@
 </script>
 
 <dialog bind:this={dialog} aria-labelledby="{uid}-title" oncancel={() => starterPacks.close()}>
-  <form
-    onsubmit={(event) => {
-      event.preventDefault();
-      add();
-    }}
-  >
-    <h2 id="{uid}-title">{picked ? `${picked.name} starter pack` : 'Add a starter pack'}</h2>
+  <!-- Only while open: a closed dialog keeps no words in the page (its "Loading…" was found by
+       other screens' tests, and is read by nothing while shut). -->
+  {#if starterPacks.open}
+    <form
+      onsubmit={(event) => {
+        event.preventDefault();
+        add();
+      }}
+    >
+      <h2 id="{uid}-title">{picked ? `${picked.name} starter pack` : 'Add a starter pack'}</h2>
 
-    {#if problem}
-      <p class="problem" role="alert">{problem}</p>
-      <div class="buttons">
-        <button type="button" class="quiet" onclick={() => starterPacks.close()}>Close</button>
-        <button type="button" class="main" onclick={() => void load()}>Try again</button>
-      </div>
-    {:else if !loaded}
-      <p class="hint">Loading…</p>
-    {:else if !picked}
-      <p class="hint">
-        Pick a pack. You’ll see its ingredients first and can untick any. Only ingredients are
-        added, never anything in your pantry or on your list.
-      </p>
-      <ul class="packs">
-        {#each packs as pack (pack.id)}
-          <li>
-            <button type="button" class="pack" onclick={() => pick(pack.id)}>
-              <span class="label">{pack.name}</span>
-              <span class="hint"
-                >{pack.items.length} ingredients{#if pack.already_have}
-                  · {pack.already_have} already here{/if}</span
-              >
-            </button>
-          </li>
-        {/each}
-      </ul>
-      <div class="buttons">
-        <button type="button" class="quiet" onclick={() => starterPacks.close()}>Cancel</button>
-      </div>
-    {:else}
-      {#if picked.items.some((i) => i.staple)}
-        <p class="hint">These are added as “Don’t count it”: always assumed to be in stock.</p>
-      {/if}
-      {#if fresh.length === 0}
-        <p class="hint">You already have every ingredient in this pack.</p>
+      {#if problem}
+        <p class="problem" role="alert">{problem}</p>
+        <div class="buttons">
+          <button type="button" class="quiet" onclick={() => starterPacks.close()}>Close</button>
+          <button type="button" class="main" onclick={() => void load()}>Try again</button>
+        </div>
+      {:else if !loaded}
+        <p class="hint">Loading…</p>
+      {:else if !picked}
+        <p class="hint">
+          Pick a pack. You’ll see its ingredients first and can untick any. Only ingredients are
+          added, never anything in your pantry or on your list.
+        </p>
+        <ul class="packs">
+          {#each packs as pack (pack.id)}
+            <li>
+              <button type="button" class="pack" onclick={() => pick(pack.id)}>
+                <span class="label">{pack.name}</span>
+                <span class="hint"
+                  >{pack.items.length} ingredients{#if pack.already_have}
+                    · {pack.already_have} already here{/if}</span
+                >
+              </button>
+            </li>
+          {/each}
+        </ul>
+        <div class="buttons">
+          <button type="button" class="quiet" onclick={() => starterPacks.close()}>Cancel</button>
+        </div>
       {:else}
-        <div class="all">
-          <span class="hint" aria-live="polite">{chosen.length} of {fresh.length} ticked</span>
+        {#if picked.items.some((i) => i.staple)}
+          <p class="hint">These are added as “Don’t count it”: always assumed to be in stock.</p>
+        {/if}
+        {#if fresh.length === 0}
+          <p class="hint">You already have every ingredient in this pack.</p>
+        {:else}
+          <div class="all">
+            <span class="hint" aria-live="polite">{chosen.length} of {fresh.length} ticked</span>
+            <button
+              type="button"
+              class="link"
+              onclick={() =>
+                (unticked = chosen.length ? new Set(fresh.map((i) => i.key)) : new Set())}
+              >{chosen.length ? 'Untick all' : 'Tick all'}</button
+            >
+          </div>
+        {/if}
+        <ul class="items" aria-label="{picked.name} ingredients">
+          {#each picked.items as item (item.key)}
+            <li class:have={item.already_have}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={!item.already_have && !unticked.has(item.key)}
+                  disabled={item.already_have}
+                  onchange={() => toggle(item.key)}
+                />
+                <span class="box" aria-hidden="true"></span>
+                <span class="what">{item.name}</span>
+                {#if item.already_have}
+                  <span class="tag"
+                    >{item.have_as ? `Already have as “${item.have_as}”` : 'Already have'}</span
+                  >
+                {/if}
+              </label>
+            </li>
+          {/each}
+        </ul>
+        <div class="buttons">
+          <button type="button" class="quiet" onclick={() => (pickedId = null)}>Back</button>
           <button
-            type="button"
-            class="link"
-            onclick={() =>
-              (unticked = chosen.length ? new Set(fresh.map((i) => i.key)) : new Set())}
-            >{chosen.length ? 'Untick all' : 'Tick all'}</button
+            type="submit"
+            class="main"
+            aria-describedby={network.offline ? `${uid}-down` : undefined}
+            disabled={!chosen.length || network.offline}
+            >{chosen.length === 1 ? 'Add 1 ingredient' : `Add ${chosen.length} ingredients`}</button
           >
         </div>
+        {#if network.offline}<p class="hint" id="{uid}-down">{offlineReason}</p>{/if}
       {/if}
-      <ul class="items" aria-label="{picked.name} ingredients">
-        {#each picked.items as item (item.key)}
-          <li class:have={item.already_have}>
-            <label>
-              <input
-                type="checkbox"
-                checked={!item.already_have && !unticked.has(item.key)}
-                disabled={item.already_have}
-                onchange={() => toggle(item.key)}
-              />
-              <span class="box" aria-hidden="true"></span>
-              <span class="what">{item.name}</span>
-              {#if item.already_have}
-                <span class="tag"
-                  >{item.have_as ? `Already have as “${item.have_as}”` : 'Already have'}</span
-                >
-              {/if}
-            </label>
-          </li>
-        {/each}
-      </ul>
-      <div class="buttons">
-        <button type="button" class="quiet" onclick={() => (pickedId = null)}>Back</button>
-        <button
-          type="submit"
-          class="main"
-          aria-describedby={network.offline ? `${uid}-down` : undefined}
-          disabled={!chosen.length || network.offline}
-          >{chosen.length === 1 ? 'Add 1 ingredient' : `Add ${chosen.length} ingredients`}</button
-        >
-      </div>
-      {#if network.offline}<p class="hint" id="{uid}-down">{offlineReason}</p>{/if}
-    {/if}
-  </form>
+    </form>
+  {/if}
 </dialog>
 
 <style>

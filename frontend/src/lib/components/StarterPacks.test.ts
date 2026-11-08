@@ -83,6 +83,11 @@ afterEach(() => {
 });
 
 describe('Add a starter pack', () => {
+  it('puts no words in the page while it is shut (another screen looks for its own "Loading…")', () => {
+    expect(document.body.textContent).not.toContain('Loading…');
+    expect(document.body.textContent).not.toContain('Pick a pack');
+  });
+
   it('lists the packs, then a pack with every ingredient ticked and Already have rows left out', async () => {
     starterPacks.show();
     await page.getByRole('button', { name: /^Indian/ }).click();
