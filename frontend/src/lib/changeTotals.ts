@@ -1,5 +1,5 @@
 // The lines under a change in Recent changes: one per ingredient and place, from the
-// server's `totals` (amounts already worded as sold): "Paneer: 0 g → 2 packs · 400 g",
+// server's `totals` (amounts already worded as sold): "Paneer: 0 g → 400 g · 2 packs",
 // "Chana masala: Cupboard → Freezer".
 
 import type { ChangeTotal } from './client/types';

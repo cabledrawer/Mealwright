@@ -1,7 +1,7 @@
 // The Pantry screen's data (contract 6.4): what's where, and what to use soon,
 // fetched together. Every change shows at once (optimistic), goes
 // through save() with its change ID and Undo, and then the screen is fetched again so
-// the server's wording ("1½ packets · about 750 g") replaces any guess.
+// the server's wording ("about 750 g · 1½ packets") replaces any guess.
 
 import { ApiError, cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';

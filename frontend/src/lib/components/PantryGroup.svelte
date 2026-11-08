@@ -1,7 +1,7 @@
 <script lang="ts">
   // One ingredient in one place on the Pantry screen (mockups Phone-Pantry,
-  // Desktop-Pantry): "Paneer · 2 packs · 400 g" and its soonest date. Opened, it lists
-  // each packet ("1 pack · 200 g · use by Mon"), oldest first; tapping a packet opens
+  // Desktop-Pantry): "Paneer · 400 g · 2 packs" and its soonest date. Opened, it lists
+  // each packet ("200 g · 1 pack · use by Mon"), oldest first; tapping a packet opens
   // its menu (LotMenu: Used · Binned · To freezer · Move to… · Change use-by date…, and
   // the ¼ · ½ · ¾ · Full picks for an open one).
   import type { Group, Lot, Place } from '#lib/client/types.js';
@@ -69,7 +69,7 @@
     })
   );
   const date = $derived(when.text || bought);
-  /** "½ tub · about 250 g · open · running low". */
+  /** "about 250 g · ½ tub · open · running low". */
   const amountWords = $derived(
     [group.stock.display, single?.open ? 'open' : '', group.running_low ? 'running low' : '']
       .filter(Boolean)
@@ -118,7 +118,7 @@
 
   /** "About 250 g left": what is left of the single packet, as its line says it. */
   const leftWords = $derived.by(() => {
-    const about = single?.stock.display.split(' · ').at(-1) ?? '';
+    const about = single?.stock.display.split(' · ')[0] ?? '';
     return `${about.charAt(0).toLocaleUpperCase()}${about.slice(1)} left`;
   });
 
@@ -497,7 +497,7 @@
     list-style: none;
   }
 
-  /* "1 pack · 200 g · use by Mon": tap for what you can do with it. */
+  /* "200 g · 1 pack · use by Mon": tap for what you can do with it. */
   .lot {
     display: flex;
     flex-wrap: wrap;

@@ -7,18 +7,18 @@ import type { FoodSize, ShopFood } from './types';
 
 const NBSP = ' ';
 
-/** Python's amounts.exact_text: "123 g", "7.3 g", "1.235 kg", "under 0.1 g" (half up). */
+/** Python's amounts.exact_text: "123 g", "7.3 g", "1.235 kg", "a tiny amount" (half up). */
 export function exactText(amount: number, countedAs: 'weight' | 'volume'): string {
   const [small, big] = countedAs === 'weight' ? ['g', 'kg'] : ['ml', 'L'];
   const unit = (value: number) =>
     value >= 1000 ? `${String(value / 1000)}${NBSP}${big}` : `${String(value)}${NBSP}${small}`;
   const milli = Math.round(amount * 1000);
-  if (milli > 0 && milli < 50) return `under ${unit(0.1)}`;
+  if (milli > 0 && milli < 50) return 'a tiny amount';
   if (milli >= 10_000) return unit(Math.floor((milli + 500) / 1000));
   return unit(Math.floor((milli + 50) / 100) / 10);
 }
 
-/** Python's amounts.count_text without "left": "5 eggs", "1½ onions", "under ½ egg". */
+/** Python's amounts.count_text without "left": "5 eggs", "1½ onions", "less than half an egg". */
 export function countText(
   amount: number,
   word: string | null | undefined,
@@ -29,7 +29,10 @@ export function countText(
   const whole = Math.floor(halves / 2);
   const half = halves % 2 === 1;
   const number = whole && half ? `${whole}½` : half ? '½' : String(whole);
-  if (halves === 0 && milli > 0) return word ? `under ½${NBSP}${word}` : 'under ½';
+  if (halves === 0 && milli > 0)
+    return word
+      ? `less than half ${/^[aeiou]/i.test(word) ? 'an' : 'a'}${NBSP}${word}`
+      : 'less than half';
   if (!word) return number;
   const many = halves !== 1 && halves !== 2;
   return `${number}${NBSP}${many ? (wordPlural ?? `${word}s`) : word}`;

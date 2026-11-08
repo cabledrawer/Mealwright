@@ -20,7 +20,7 @@ const lot = {
   open: true,
   stock: {
     amount: 100,
-    display: '½ pack · about 100 g',
+    display: 'about 100 g · ½ pack',
     as_sold: { count: 0.5, size: { id: 1, name: 'pack', plural: 'packs', amount: 200 } }
   }
 } as unknown as Lot;

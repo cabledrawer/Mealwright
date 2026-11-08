@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { packLine, packParts, wholePacks } from './packLine';
+import { countText, exactText, packLine, packParts, wholePacks } from './packLine';
 import type { ShopFood } from './types';
 
 const NBSP = ' ';
@@ -57,7 +57,7 @@ describe('what to buy in whole packs', () => {
     const jar = food('weight', [size('jar', 'jars', 500)]);
     expect(packLine(jar, 123.4)).toBe(`1${NBSP}jar (500${NBSP}g) · 123${NBSP}g needed`);
     expect(packLine(jar, 7.25)).toBe(`1${NBSP}jar (500${NBSP}g) · 7.3${NBSP}g needed`);
-    expect(packLine(jar, 0.02)).toBe(`1${NBSP}jar (500${NBSP}g) · under 0.1${NBSP}g needed`);
+    expect(packLine(jar, 0.02)).toBe(`1${NBSP}jar (500${NBSP}g) · a tiny amount needed`);
     const bag = food('weight', [size('bag', 'bags', 5000)]);
     expect(packLine(bag, 1234.5)).toBe(`1${NBSP}bag (5${NBSP}kg) · 1.235${NBSP}kg needed`);
     const eggs = {
@@ -87,5 +87,19 @@ describe("the pack words alone, for Plan shopping's amount column", () => {
       need: `120${NBSP}g needed`
     });
     expect(packParts(food('weight', []), 120)).toBeNull();
+  });
+});
+
+describe('how much is left, in words (cabledrawer 8 Nov)', () => {
+  it('says "less than half a/an <word>" for under a half of a counted ingredient', () => {
+    expect(countText(0.24, 'onion', 'onions')).toBe(`less than half an${NBSP}onion`);
+    expect(countText(0.24, 'tomato', 'tomatoes')).toBe(`less than half a${NBSP}tomato`);
+    expect(countText(0.24, null, null)).toBe('less than half');
+    expect(countText(0.5, 'onion', 'onions')).toBe(`½${NBSP}onion`);
+  });
+
+  it('says "a tiny amount" for under 0.1 g, and leaves 3 ml alone', () => {
+    expect(exactText(0.04, 'weight')).toBe('a tiny amount');
+    expect(exactText(3, 'volume')).toBe(`3${NBSP}ml`);
   });
 });

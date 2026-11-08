@@ -90,7 +90,7 @@ class LineOut(BaseModel):
 
 class TotalOut(BaseModel):
     """One ingredient in one place: its whole amount there before and after the change,
-    other packets included, worded as sold ("Paneer: 1 pack · 200 g → 2 packs · 400 g").
+    other packets included, worded as sold ("Paneer: 200 g · 1 pack → 400 g · 2 packs").
     Changes recorded before 0.2.1 only add up the packets they touched."""
 
     food_id: int

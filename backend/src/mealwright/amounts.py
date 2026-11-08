@@ -178,7 +178,7 @@ def exact_text(milli: int, counted_as: CountedAs) -> str:
     """An amount as typed or bought: "200 g", "7.5 g", "1 kg", "1.25 kg", "1.5 L"."""
     value = Decimal(milli) / MILLI
     if 0 < value < Decimal("0.05"):  # would round to nothing: never show "0 g" for some
-        return "under " + _with_unit(Decimal("0.1"), counted_as)
+        return "a tiny amount"  # cabledrawer 8 Nov, was "under 0.1 g"
     if value >= 10:
         return _with_unit(value.quantize(Decimal(1), rounding=ROUND_HALF_UP), counted_as)
     return _with_unit(value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), counted_as)
@@ -194,7 +194,8 @@ def count_text(milli: int, word: str | None, word_plural: str | None) -> str:
     halves = round_half_up(Decimal(milli) / 500)
     number = quarters_text(halves * 2)
     if halves == 0 and milli > 0:  # never "0 left" when there's some
-        return f"under ½{NBSP}{word}" if word else f"under ½{NBSP}left"
+        # cabledrawer 8 Nov: "less than half an onion", "less than half left".
+        return f"less than half {article(word)}{NBSP}{word}" if word else "less than half left"
     if word:
         many = halves not in (1, 2)  # "½ slice", "1 slice", "0 slices", "1½ slices"
         return f"{number}{NBSP}{(word_plural or plural(word)) if many else word}"
@@ -222,7 +223,7 @@ class AsSold:
     count: Decimal | None  # how many of that size, rounded (¼ steps, or ½ for count foods)
     about: bool
     short: str  # the first part only: "1½ packets", "200 g", "9 left"
-    display: str  # "1½ packets · about 750 g"
+    display: str  # "about 750 g · 1½ packets" (the amount first; cabledrawer 8 Nov)
 
 
 def as_sold(
@@ -236,7 +237,7 @@ def as_sold(
 
     - Count foods: a count to the nearest ½, plus "bought as a dozen" when the size isn't 1.
     - Weight and volume foods with a size: that size to the nearest ¼, then the amount. A
-      whole number of sizes is exact ("2 packets · 1 kg"); anything else is "about".
+      whole number of sizes is exact ("1 kg · 2 packets"); anything else is "about".
     - No size: just the amount ("200 g").
     """
     milli = max(milli, 0)
@@ -263,12 +264,12 @@ def as_sold(
             Decimal(whole),
             False,
             short,
-            f"{short} · {exact_text(milli, counted_as)}",
+            f"{exact_text(milli, counted_as)} · {short}",
         )
 
     quarters = round_half_up(Decimal(milli) * 4 / size.amount_milli)
     if quarters == 0:
-        short = f"under ¼{NBSP}{size.name}"
+        short = f"less than ¼{NBSP}{size.name}"
     else:
         short = f"{quarters_text(quarters)}{NBSP}{size.name if quarters <= 4 else size.plural}"
     return AsSold(
@@ -278,5 +279,5 @@ def as_sold(
         Decimal(quarters) / 4,
         True,
         short,
-        f"{short} · {about_text(milli, counted_as)}",
+        f"{about_text(milli, counted_as)} · {short}",  # the amount first (cabledrawer 8 Nov)
     )

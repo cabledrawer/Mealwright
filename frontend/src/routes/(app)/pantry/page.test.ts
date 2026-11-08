@@ -753,7 +753,7 @@ describe('the Pantry page', () => {
 
   it('a full, unopened pack has the picks too, with Full chosen', async () => {
     await render(1300);
-    await page.getByRole('button', { name: /^Paneer 2 packs/ }).click();
+    await page.getByRole('button', { name: /^Paneer 400 g · 2 packs/ }).click();
     await page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button').first().click();
     const menu = page.getByRole('dialog', { name: /Paneer/ });
     const picks = menu.getByRole('radiogroup', { name: 'How much is left? Best guess is fine.' });
@@ -1146,7 +1146,7 @@ describe('the Pantry page', () => {
       .getByRole('button', { name: /^Paneer/ })
       .click();
     const packets = page.getByRole('list', { name: 'Packets of Paneer' }).getByRole('button');
-    await expect.element(packets.first()).toMatchTextContent(/1 pack · 200 g/);
+    await expect.element(packets.first()).toMatchTextContent(/200 g · 1 pack/);
     await expect.element(page.getByText('Oldest gets used first.')).toBeVisible();
     (packets.first().element() as HTMLElement).focus();
     await userEvent.keyboard('{Enter}');
@@ -1553,7 +1553,7 @@ describe('the Pantry page', () => {
       const bag = { id: 8, name: 'bag', plural: 'bags', amount: 200 };
       sample.useSoon[0]!.stock = {
         amount: 200,
-        display: '1 bag · 200 g',
+        display: '200 g · 1 bag',
         short: '1 bag',
         as_sold: { count: 1, size: bag }
       };

@@ -68,17 +68,17 @@ def test_two_packets_make_two_lots(kitchen: TestClient, toor: dict[str, Any]) ->
     assert body["change"]["summary"] == "Added 2\u00a0packets Toor dal → Cupboard"
     [made] = body["groups"]
     assert made["place"]["name"] == "Cupboard"  # no usual place: Cupboard
-    assert made["stock"]["display"] == "2\u00a0packets · 1\u00a0kg"
+    assert made["stock"]["display"] == "1\u00a0kg · 2\u00a0packets"
     assert made["lots_count"] == 2
-    assert [lot["stock"]["display"] for lot in made["lots"]] == ["1\u00a0packet · 500\u00a0g"] * 2
+    assert [lot["stock"]["display"] for lot in made["lots"]] == ["500\u00a0g · 1\u00a0packet"] * 2
 
 
 def test_half_a_packet_and_typed_grams(kitchen: TestClient, toor: dict[str, Any]) -> None:
     body = add(kitchen, toor["id"], 1.5, "packet")
     assert [lot["stock"]["amount"] for lot in body["groups"][0]["lots"]] == [500.0, 250.0]
-    assert body["groups"][0]["stock"]["display"] == "1½\u00a0packets · about 750\u00a0g"
+    assert body["groups"][0]["stock"]["display"] == "about 750\u00a0g · 1½\u00a0packets"
     body = add(kitchen, toor["id"], 200, "g")
-    assert body["groups"][0]["stock"]["display"] == "2\u00a0packets · about 950\u00a0g"
+    assert body["groups"][0]["stock"]["display"] == "about 950\u00a0g · 2\u00a0packets"
     assert body["groups"][0]["lots"][-1]["size_id"] is None  # typed grams: no size
 
 
@@ -120,7 +120,7 @@ def test_cups_need_a_weight(kitchen: TestClient, toor: dict[str, Any]) -> None:
 def test_set_left_with_quick_picks(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lot = add(kitchen, toor["id"], 1, "packet")["groups"][0]["lots"][0]
     body = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5}).json()
-    assert body["groups"][0]["lots"][0]["stock"]["display"] == "½\u00a0packet · about 250\u00a0g"
+    assert body["groups"][0]["lots"][0]["stock"]["display"] == "about 250\u00a0g · ½\u00a0packet"
     assert body["groups"][0]["lots"][0]["open"] is True
     assert body["change"]["summary"] == "Toor dal: 1\u00a0packet → about ½\u00a0packet"
     body = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 1}).json()
@@ -252,7 +252,7 @@ def test_pantry_groups_by_place(kitchen: TestClient, toor: dict[str, Any]) -> No
     fridge = shown["places"][0]
     assert fridge["items"] == 1
     paneer_group = fridge["groups"][0]
-    assert paneer_group["stock"]["display"] == "2\u00a0packs · 400\u00a0g"
+    assert paneer_group["stock"]["display"] == "400\u00a0g · 2\u00a0packs"
     assert paneer_group["dates_count"] == 2
     assert paneer_group["days_left"] == 1
     assert paneer_group["use_soon"] is True
@@ -374,7 +374,7 @@ def test_binned_without_soon_still_takes_only_that_packet(kitchen: TestClient) -
 def test_editor_shows_the_stock(kitchen: TestClient, toor: dict[str, Any]) -> None:
     add(kitchen, toor["id"], 1.5, "packet")
     shown = kitchen.get(f"{API}/foods/{toor['id']}").json()
-    assert shown["stock"]["display"] == "1½\u00a0packets · about 750\u00a0g"
+    assert shown["stock"]["display"] == "about 750\u00a0g · 1½\u00a0packets"
 
 
 def test_cannot_remove_a_food_with_stock(kitchen: TestClient, toor: dict[str, Any]) -> None:
@@ -394,8 +394,8 @@ def test_recent_changes_for_the_pantry(kitchen: TestClient, toor: dict[str, Any]
     assert [c["kind"] for c in listed] == ["set_left", "added"]
     [line] = listed[0]["lines"]
     assert line["food"]["name"] == "Toor dal"
-    assert line["before"]["display"] == "1\u00a0packet · 500\u00a0g"
-    assert line["after"]["display"] == "½\u00a0packet · about 250\u00a0g"
+    assert line["before"]["display"] == "500\u00a0g · 1\u00a0packet"
+    assert line["after"]["display"] == "about 250\u00a0g · ½\u00a0packet"
     assert line["place_before"]["name"] == line["place_after"]["name"] == "Cupboard"
 
 
@@ -600,7 +600,7 @@ def test_recent_changes_totals_two_packets(kitchen: TestClient) -> None:
     assert total["place_after"]["name"] == "Fridge"
     assert (total["before"]["display"], total["after"]["display"]) == (
         "0\u00a0g",
-        "2\u00a0packs · 400\u00a0g",
+        "400\u00a0g · 2\u00a0packs",
     )
 
 
@@ -620,12 +620,12 @@ def _shown(kitchen: TestClient, row: int = 0) -> tuple[str, str]:
 def test_totals_count_stock_that_was_already_there(kitchen: TestClient) -> None:
     paneer = _paneer(kitchen)
     add(kitchen, paneer["id"], 200, "g")
-    assert _shown(kitchen) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+    assert _shown(kitchen) == ("0\u00a0g", "200\u00a0g · 1\u00a0pack")
     second = add(kitchen, paneer["id"], 1, "pack")
-    assert _shown(kitchen) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
+    assert _shown(kitchen) == ("200\u00a0g · 1\u00a0pack", "400\u00a0g · 2\u00a0packs")
     lot = second["groups"][0]["lots"][-1]["id"]
     kitchen.post(f"{API}/stock/{lot}/used")
-    assert _shown(kitchen) == ("2\u00a0packs · 400\u00a0g", "1\u00a0pack · 200\u00a0g")
+    assert _shown(kitchen) == ("400\u00a0g · 2\u00a0packs", "200\u00a0g · 1\u00a0pack")
 
 
 def test_totals_stay_right_after_later_changes(kitchen: TestClient) -> None:
@@ -635,10 +635,10 @@ def test_totals_stay_right_after_later_changes(kitchen: TestClient) -> None:
     add(kitchen, paneer["id"], 1, "pack")
     kitchen.post(f"{API}/foods/{paneer['id']}/used", json={"amount": {"amount": 100, "unit": "g"}})
     # Newest first: used, then the three adds.
-    assert _shown(kitchen, 0) == ("3\u00a0packs · 600\u00a0g", "2½\u00a0packs · about 500\u00a0g")
-    assert _shown(kitchen, 1) == ("2\u00a0packs · 400\u00a0g", "3\u00a0packs · 600\u00a0g")
-    assert _shown(kitchen, 2) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
-    assert _shown(kitchen, 3) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+    assert _shown(kitchen, 0) == ("600\u00a0g · 3\u00a0packs", "about 500\u00a0g · 2½\u00a0packs")
+    assert _shown(kitchen, 1) == ("400\u00a0g · 2\u00a0packs", "600\u00a0g · 3\u00a0packs")
+    assert _shown(kitchen, 2) == ("200\u00a0g · 1\u00a0pack", "400\u00a0g · 2\u00a0packs")
+    assert _shown(kitchen, 3) == ("0\u00a0g", "200\u00a0g · 1\u00a0pack")
 
 
 def test_undo_lines_show_the_whole_amount_and_restore_the_right_stock(
@@ -652,11 +652,11 @@ def test_undo_lines_show_the_whole_amount_and_restore_the_right_stock(
     # Undo the use: back to 400 g, and the Undo's own line reads 200 g → 400 g.
     kitchen.post(f"{API}/changes/{used['change']['id']}/undo")
     assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 400.0
-    assert _shown(kitchen) == ("1\u00a0pack · 200\u00a0g", "2\u00a0packs · 400\u00a0g")
+    assert _shown(kitchen) == ("200\u00a0g · 1\u00a0pack", "400\u00a0g · 2\u00a0packs")
     # Undo the second add: only that packet goes, the first 200 g stays.
     kitchen.post(f"{API}/changes/{second['change']['id']}/undo")
     assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 200.0
-    assert _shown(kitchen) == ("2\u00a0packs · 400\u00a0g", "1\u00a0pack · 200\u00a0g")
+    assert _shown(kitchen) == ("400\u00a0g · 2\u00a0packs", "200\u00a0g · 1\u00a0pack")
     lots = group(kitchen, "Paneer")["lots"]
     assert len(lots) == 1
 
@@ -668,15 +668,15 @@ def test_changes_from_before_0_2_1_keep_the_old_wording(kitchen: TestClient) -> 
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         db.execute(update(ChangeLine).values(total_before_milli=None, total_after_milli=None))
         db.commit()
-    assert _shown(kitchen) == ("0\u00a0g", "1\u00a0pack · 200\u00a0g")
+    assert _shown(kitchen) == ("0\u00a0g", "200\u00a0g · 1\u00a0pack")
 
 
 def test_a_second_packet_of_toor_dal(kitchen: TestClient, toor: dict[str, Any]) -> None:
     add(kitchen, toor["id"], 1, "packet")
     add(kitchen, toor["id"], 1, "packet")
     before, after = _shown(kitchen)
-    assert before == "1\u00a0packet · 500\u00a0g"
-    assert after == "2\u00a0packets · 1\u00a0kg"
+    assert before == "500\u00a0g · 1\u00a0packet"
+    assert after == "1\u00a0kg · 2\u00a0packets"
 
 
 def test_recent_changes_totals_a_move(kitchen: TestClient) -> None:
@@ -695,7 +695,7 @@ def test_recent_changes_totals_a_partial_undo(kitchen: TestClient, toor: dict[st
     undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
     assert undo["result"] == "partly"
     [total] = _totals(kitchen)
-    assert total["before"]["display"] == "1¼\u00a0packets · about 600\u00a0g"  # 100 g + 500 g
+    assert total["before"]["display"] == "about 600\u00a0g · 1¼\u00a0packets"  # 100 g + 500 g
     assert total["after"]["display"] == "0\u00a0g"
 
 

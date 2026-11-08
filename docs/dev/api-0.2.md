@@ -10,7 +10,7 @@ Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this pag
 - **Rules for every endpoint (§1):** everything under `/api/v1`, signed in, same-origin for browser writes, `snake_case`; scoped to the household (another household's id is a 404); errors are `{detail, code}` with a plain sentence the screen shows as it is (§1.1).
 - **Retries (§1.2):** writes may carry an `Idempotency-Key`; the same key again changes nothing and returns the original change. From 0.3 the sync queue sends the same IDs in the body.
 - **Amounts (§2, §4):** stored as whole thousandths of the base unit (g, ml or count) in `amount_milli`; JSON carries plain numbers with at most 3 decimals, and finer is refused, not rounded. People's amounts come in as `AmountIn` (§4.3); a missing conversion is asked once (§4.4).
-- **Display (§5):** the server sends the as-sold wording ready made (`display`, "1½ packets · about 750 g"), with no-break spaces; screens never rebuild it.
+- **Display (§5):** the server sends the as-sold wording ready made (`display`, "about 750 g · 1½ packets"), with no-break spaces; screens never rebuild it.
 - **Tables (§3):** household settings, places and shops, foods (ingredients on screen) with sizes and other names, stock (lots), and the change log behind Undo; migrations in order in §3.7.
 - **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5.
 - **Words:** the API says "food"; screens say "ingredient" (`docs/dev/words.md`).
@@ -275,7 +275,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 ### 5.1 Rounding (spec, "Decided for 0.2")
 
-- **As sold** (in a size): nearest ¼, shown with ¼ ½ ¾ ("1½ packets", "¾ packet"). Singular up to and including 1, plural above. A non-zero amount that rounds to 0 shows "under ¼ packet".
+- **As sold** (in a size): nearest ¼, shown with ¼ ½ ¾ ("1½ packets", "¾ packet"). Singular up to and including 1, plural above. A non-zero amount that rounds to 0 shows "less than ¼ packet".
 - **Count foods**: nearest ½ ("1½ onions" → with no count word, "1½ left").
 - **"About" figures**: 2 significant figures ("about 750 g", "about 1.5 L"). Used whenever the as-sold figure isn't a whole number of sizes.
 - **Exact figures** (typed amounts, whole sizes): whole grams/ml from 10 up, one decimal below 10, kg/L from 1000 with trailing zeros dropped ("1 kg", "1.25 kg").
@@ -292,17 +292,17 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 | Situation | `display` |
 |---|---|
-| Toor dal, 750 g, usual packet 500 g | `1½ packets · about 750 g` |
-| Chickpeas, 2 lots of 500 g | `2 packets · 1 kg` |
-| Paneer, 2 lots of 200 g (size "pack") | `2 packs · 400 g` |
-| Milk, 1.5 L, usual bottle 1 L | `1½ bottles · about 1.5 L` |
+| Toor dal, 750 g, usual packet 500 g | `about 750 g · 1½ packets` |
+| Chickpeas, 2 lots of 500 g | `1 kg · 2 packets` |
+| Paneer, 2 lots of 200 g (size "pack") | `400 g · 2 packs` |
+| Milk, 1.5 L, usual bottle 1 L | `about 1.5 L · 1½ bottles` |
 | Eggs (count), 9, usual dozen | `9 left · bought as a dozen` |
 | Bread (count word slice), 14, usual loaf 20 | `14 slices · bought as a loaf` |
 | Drumsticks (count word piece), 6 | `6 pieces` |
 | Spinach, 200 g, no size | `200 g` |
-| Toor dal, 40 g, packet 500 g | `under ¼ packet · about 40 g` |
-| Yoghurt lot, 250 g of a 500 g tub | `½ tub · about 250 g` (the web app adds "· open") |
-| Yoghurt lot, 500 g of a 500 g tub | `1 tub · 500 g` |
+| Toor dal, 40 g, packet 500 g | `about 40 g · less than ¼ packet` |
+| Yoghurt lot, 250 g of a 500 g tub | `about 250 g · ½ tub` (the web app adds "· open") |
+| Yoghurt lot, 500 g of a 500 g tub | `500 g · 1 tub` |
 
 ### 5.4 Shape
 
@@ -312,7 +312,7 @@ The client shows the question with the "Remember for next time" switch (on by de
   "as_sold": { "count": 1.5, "size": { "id": 12, "name": "packet", "plural": "packets", "amount": 500 } },
   "about": true,
   "short": "1½ packets",
-  "display": "1½ packets · about 750 g"
+  "display": "about 750 g · 1½ packets"
 }
 ```
 
@@ -390,7 +390,7 @@ The client shows the question with the "Remember for next time" switch (on by de
   "stand_ins": [ { "id": 15, "name": "Moong dal", "both_ways": false } ],
   "stands_in_for": [],
   "maybe_same": [],
-  "stock": { "amount": 750, "display": "1½ packets · about 750 g", "…": "…" },   // null until the stock PR
+  "stock": { "amount": 750, "display": "about 750 g · 1½ packets", "…": "…" },   // null until the stock PR
   "last_change": { "id": 790, "summary": "Changed weight of 1 cup to 200 g", "can_undo": true }
 }
 ```
@@ -616,12 +616,12 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
       "groups": [
         {
           "food": { "id": 20, "name": "Paneer", "counted_as": "weight" },
-          "stock": { "amount": 400, "display": "2 packs · 400 g", "…": "…" },
+          "stock": { "amount": 400, "display": "400 g · 2 packs", "…": "…" },
           "lots_count": 2, "dates_count": 2,
           "use_by": "2026-10-19", "days_left": 2, "use_soon": true,
           "running_low": false,
           "lots": [
-            { "id": 501, "stock": { "display": "1 pack · 200 g", "…": "…" }, "use_by": "2026-10-19", "days_left": 2, "use_soon": true, "added_on": "2026-10-12", "frozen_on": null, "size_id": 30, "open": false },
+            { "id": 501, "stock": { "display": "200 g · 1 pack", "…": "…" }, "use_by": "2026-10-19", "days_left": 2, "use_soon": true, "added_on": "2026-10-12", "frozen_on": null, "size_id": 30, "open": false },
             { "id": 502, "…": "…" }
           ]
         }
@@ -644,7 +644,7 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
 
 ```json
 { "lots": [ { "id": 501, "food": {"id": 20, "name": "Paneer"}, "place": {"id": 1, "name": "Fridge", "kind": "fridge"},
-              "stock": {"display": "2 packs · 400 g", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
+              "stock": {"display": "400 g · 2 packs", "…": "…"}, "use_by": "2026-10-19", "days_left": 2,
               "date_kind": "use_by", "use_soon": true, "lots_count": 2, "lot_ids": [41, 44], "…": "…" } ],
   "tubs": [ { "batch_id": 3, "tub_id": 12, "recipe_name": "Lemon rice", "words": "2 tubs", "use_by": "2026-10-20",
               "days_left": 3, "use_soon": true, "place": {"id": 1, "name": "Fridge", "kind": "fridge"}, "…": "…" } ] }
@@ -676,7 +676,7 @@ Summaries: "Added 2 packets Toor dal → Cupboard", "Used 200 g Spinach", "Binne
 - **One Cooked it is one row (cabledrawer 7 Nov).** The meal's own answer (`plan_cooked`) and its Undo are not listed beside the pantry's `cooked` change of the same press, whose row carries the one Undo (an Undo of either takes back both, F125). A press that has no pantry change (the answer given on its own) is still its own row. A page never splits the pair: the answer is left out wherever the press's first change is, on this page or an older one, so `limit` counts rows, and `before` pages by the id of the last row shown.
 - `area=pantry` lists stock changes, and the Undos of stock changes, only (Pantry → Recent changes); omit it for everything (food edits, merges).
 - `area=ingredients` (0.3) lists changes to ingredients (`food_created`, `food_edited`, `food_removed`, `merged`, `split`), and the Undos of those, only (Ingredients → Recent changes). Only the signed-in household's changes ever come back.
-- Each change carries `totals`, for showing in Recent changes: one entry per ingredient and place, the ingredient's whole amount in that place before and after the change (other packets included; from 0.2.1, saved with the change so it stays right later) worded as sold: `[{ "food_id", "name", "place_before", "place_after", "before": AmountOut, "after": AmountOut }]`. "Added 2 packs Paneer" gives one entry, "Paneer: 1 pack · 200 g → 2 packs · 400 g" if a pack was already there (`place_before` is null for packets the change added); a move gives "Cupboard → Fridge" with the same amount on both sides (only the packets moved). Changes recorded before 0.2.1 add up just the packets they touched. Undos have them too. Ingredient changes have none.
+- Each change carries `totals`, for showing in Recent changes: one entry per ingredient and place, the ingredient's whole amount in that place before and after the change (other packets included; from 0.2.1, saved with the change so it stays right later) worded as sold: `[{ "food_id", "name", "place_before", "place_after", "before": AmountOut, "after": AmountOut }]`. "Added 2 packs Paneer" gives one entry, "Paneer: 200 g · 1 pack → 400 g · 2 packs" if a pack was already there (`place_before` is null for packets the change added); a move gives "Cupboard → Fridge" with the same amount on both sides (only the packets moved). Changes recorded before 0.2.1 add up just the packets they touched. Undos have them too. Ingredient changes have none.
 - Each change also carries `lines`, one per packet, for detail (and thinning): `[{ "food": {id, name}, "lot_id", "before": AmountOut, "after": AmountOut, "place_before", "place_after", "use_by_before", "use_by_after" }]` (empty for food changes).
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).
 
@@ -720,7 +720,7 @@ Undo reverses **just that change**, line by line, and later changes stay:
 ## 7. Decisions on the open points (lead, 17 Oct)
 
 1. **Removing a food:** allowed only when it has no stock (and, from 0.4, no recipes); soft delete, undoable; a quiet "Remove" link in the editor. Proposed to cabledrawer in the PR and recorded in the spec as a proposal.
-2. **Open packs:** one display rule for every lot plus the `open` flag; the web app adds "· open" and the ¼ ½ ¾ Full picker. A whole number of sizes never says "about" ("1 tub · 500 g").
+2. **Open packs:** one display rule for every lot plus the `open` flag; the web app adds "· open" and the ¼ ½ ¾ Full picker. A whole number of sizes never says "about" ("500 g · 1 tub").
 3. **No redo** (undoing an Undo) in 0.2.
 4. **"Not the same"** is saved quietly with no Undo.
 5. **Count foods with no count word** read "5 left".

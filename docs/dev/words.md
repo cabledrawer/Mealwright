@@ -90,7 +90,7 @@ Today · Plan · Shopping · Pantry · Recipes (sidebar names). Phone tabs: Toda
 
 ## 4. Amounts and dates
 
-- **Amounts are shown the way they're sold** and the arithmetic stays behind the scenes: "1½ packets · about 750 g", "1½ bottles · about 1.5 L", eggs "9 left · bought as a dozen" (spec Pantry; "Measure stock the way it's sold"). The server makes these strings (`display`); the screen never rebuilds them (api, "Decision: the server returns structured numbers and a ready `display` string").
+- **Amounts are shown the way they're sold** and the arithmetic stays behind the scenes: "about 750 g · 1½ packets", "about 1.5 L · 1½ bottles", eggs "9 left · bought as a dozen" (spec Pantry; "Measure stock the way it's sold"). The server makes these strings (`display`); the screen never rebuilds them (api, "Decision: the server returns structured numbers and a ready `display` string").
 - **A no-break space** sits between a number and its unit or count word ("750 g", "1½ packets", "2 L") so a narrow column never wraps "750 / g" (api, "No-break spaces"). Fractions are ¼ ½ ¾ and "Full"; quick picks read "¼ · ½ · ¾ · Full" (spec "Part-used packets"; "Marks in the opened pantry row").
 - **"about"** marks a best guess ("about 250 g", "About 250 g left · type it instead") (spec "Part-used packets").
 - **Count words:** "1 bunch of Coriander" (spec, cabledrawer 18 Oct); an ingredient counted one by one says "5 left", not grams.
@@ -272,7 +272,7 @@ The line under a ticked row stays until the row is unticked or cleared. No ticke
 
 **Recent changes: a first amount (approved, cabledrawer 21 Oct)**
 
-Giving a ticked line with no amount its first amount ("How much?" → "Different pack?") used to read "Flour: bought 1 pack · 1 kg instead of 0 g". It now reads **Flour: bought 1 pack · 1 kg (first amount)**.
+Giving a ticked line with no amount its first amount ("How much?" → "Different pack?") used to read "Flour: bought 1 kg · 1 pack instead of 0 g". It now reads **Flour: bought 1 kg · 1 pack (first amount)**.
 
 ---
 
@@ -523,7 +523,7 @@ Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLi
 - **How much? for a new ingredient (friction 21):** the choices are 250 g · 500 g · 1 kg (or 250 ml · 500 ml · 1 L) when the ingredient has no sizes of its own, then Other…. Nothing new is written. Items counted one by one have no ready-made choice (their count goes in Other…).
 - **Undo after a bought joined line (follow-up 9):** instead of "Nothing to put back: it has all changed again since." the server says **Nothing to put back: the line it joined has been bought, so it stays as it is.** (all of it left alone) or **Put back what could be: the line it joined has been bought, so that part stays.** (some).
 - **"for example"** replaces "e.g." in the boxes of the Used sheet, the amount box on Shopping, steps, the Pantry rows and the ingredient editor.
-- **Already done before this PR, nothing new:** Today in the use-by quick picks (18 Oct), packet sizes up front in "How do you count it?" (18 Oct), "is back in Ingredients" after an Undo (the server's own sentence), a new staple with no stock ("+ Staple", 18 Oct), "bought 1 pack · 1 kg (first amount)" (section 14).
+- **Already done before this PR, nothing new:** Today in the use-by quick picks (18 Oct), packet sizes up front in "How do you count it?" (18 Oct), "is back in Ingredients" after an Undo (the server's own sentence), a new staple with no stock ("+ Staple", 18 Oct), "bought 1 kg · 1 pack (first amount)" (section 14).
 
 ## 25. Small fixes (0.7 PR B5)
 
@@ -831,6 +831,7 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **Buttons:** **Used…**, **Binned**, **To freezer**. A passed Use by lists Binned first.
 - **Too late to freeze (cabledrawer 7 Nov):** once a Use by date has passed (from the day after), **To freezer** is greyed out, with the note "Too late to freeze: the use by date has passed." (on a Use soon row and in a packet's menu); on the Use by day it works, and Best before food can always be frozen. The server's refusal says the same words. A leftover tub past its date is the same (cabledrawer 8 Nov): **To freezer** greyed out with the same note, in the Plan's tub menu.
 - **A tub in Use soon (cabledrawer 7 Nov: "Leftover tubs: yes, add them to Use soon as the mockup's “Eat it on…” card"):** **Lemon rice** · **Fridge · 2 tubs** · **Use by Tue**, one button **Eat it on…**. Its sheet (proposed, for cabledrawer): title **Eat Lemon rice on…**, one button per free meal, as in "Any left over?" (**Today · Lunch**, **Tomorrow · Dinner**, **Monday · Dinner**), only up to the tub's use-by day; **Cancel**; "Looking for free meals…" while loading; "Couldn’t load the plan. Try again."; "No free meal before its use-by day." (all proposed, for cabledrawer). The Undo toast says **Put Lemon rice in Dinner** (proposed). A passed tub shows **Use by passed: don’t eat** (the same words as a packet) and has no button.
+- **How much is left (cabledrawer 8 Nov; replaces every "under …" wording):** counts to the nearest ½, packs to the nearest ¼, as before. **less than half an onion** ("less than half a/an <word>"), **less than half left**, **½ onion** stays; with a weight or volume the amount comes first: **about 50 g · less than ¼ packet**, **about 63 g · ¼ packet**, **about 100 g · less than ¼ bag**, a whole number of packs **1 kg · 2 packets**; **a tiny amount** for under 0.1 g; **3 ml** stays. Short forms (pack part only): **less than ¼ packet**.
 - **A tub that went into a meal meanwhile (Eat it on… refused):** "That tub is already planned for another meal." (cabledrawer 8 Nov; replaces "That tub is already in a meal. Look again."). It shows as a toast and the card is looked at again.
 - **Pantry place cards:** one line per ingredient; **3 more** under a card (proposed; the mockup has "3 more"); tubs show as **Lemon rice · 2 tubs · use by Tue**, or **¾ tub** for one part-eaten tub.
 - **The ingredient editor:** **Date on the packet** with **Use by** / **Best before**; for meat, fish and chilled dairy (milk, cream, yoghurt, cheese, paneer) the choice is off and says "Meat, fish and chilled dairy are always Use by." (cabledrawer 7 Nov); every other ingredient can be switched. Recent changes: **Homemade pickle is now Use by** (proposed). Refused: "Homemade pickle is always Use by: it can't be switched to Best before." (proposed). After a switch, the toast says **Date is Use by** or **Date is Best before** (proposed).

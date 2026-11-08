@@ -53,21 +53,21 @@ export function samplePantry() {
   const spinach = lot('200 g', '2026-10-17', 0);
   const packSize = { id: 8, name: 'pack', plural: 'packs', amount: 200 };
   const paneer = [
-    lot('1 pack · 200 g', '2026-10-19', 2, {
+    lot('200 g · 1 pack', '2026-10-19', 2, {
       stock: {
         amount: 200,
-        display: '1 pack · 200 g',
+        display: '200 g · 1 pack',
         short: '1 pack',
         as_sold: { count: 1, size: packSize }
       }
     }),
-    lot('1 pack · 200 g', '2026-10-21', 4)
+    lot('200 g · 1 pack', '2026-10-21', 4)
   ];
-  const yoghurt = lot('½ tub · about 250 g', '2026-10-21', 4, {
+  const yoghurt = lot('about 250 g · ½ tub', '2026-10-21', 4, {
     open: true,
     stock: {
       amount: 250,
-      display: '½ tub · about 250 g',
+      display: 'about 250 g · ½ tub',
       as_sold: { count: 0.5, size: { id: 9, name: 'tub', plural: 'tubs', amount: 500 } }
     }
   });
@@ -83,8 +83,8 @@ export function samplePantry() {
         tubs: [],
         groups: [
           group(20, 'Spinach', '200 g', [spinach]),
-          group(21, 'Paneer', '2 packs · 400 g', paneer),
-          group(24, 'Yoghurt', '½ tub · about 250 g', [yoghurt])
+          group(21, 'Paneer', '400 g · 2 packs', paneer),
+          group(24, 'Yoghurt', 'about 250 g · ½ tub', [yoghurt])
         ]
       },
       {
@@ -102,8 +102,8 @@ export function samplePantry() {
         items: 2,
         tubs: [],
         groups: [
-          group(7, 'Toor dal', '1½ packets · about 750 g', [
-            lot('1½ packets · about 750 g', null, null)
+          group(7, 'Toor dal', 'about 750 g · 1½ packets', [
+            lot('about 750 g · 1½ packets', null, null)
           ]),
           group(41, 'Basmati rice', '300 g', [lot('300 g', null, null)], { running_low: true })
         ]

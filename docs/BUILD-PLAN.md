@@ -90,7 +90,7 @@ The shopping list's offline sync is the biggest technical risk (spec section 6),
 **Build:**
 
 - Data: food (name, other names, pantry unit, usual place, preferred shop, staple flag, running-low level, weight of one item, weight of a cup), sale units (packet = 500 g, dozen = 12, loaf = 20 slices), "can use instead" links, merge history, stock lots (each packet with its own use-by), places (Fridge, Freezer, Cupboard, Spice rack; renameable), shops (with aisle order).
-- Stored in g, ml or count; shown "as sold" ("1½ packets · about 750 g").
+- Stored in g, ml or count; shown "as sold" ("about 750 g · 1½ packets").
 - Conversions: bundled offline table plus the household's own "ask once" answers on top. Household answers always win. **Check the table's licence before bundling** and note the source in `docs/`.
 - Change log for every stock change (who, what, before → after), Undo for 7 days, history kept 12 months then thinned to monthly totals (both adjustable later in Settings).
 - Screens: Pantry (`*Pantry*`): places as tabs on phone and columns on desktop, packets grouped with dates, ¼ · ½ · ¾ · Full quick picks, Use soon (Used / Binned / To freezer), staples chips, Recent changes with Undo. Ingredients (`Ingredients-*`): list, search by any name, filters, the editor, merge, "can use instead". The ingredient editor is one component opened from anywhere.

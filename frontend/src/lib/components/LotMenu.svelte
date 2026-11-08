@@ -114,7 +114,7 @@
     act(() => value !== lot?.use_by && model.setUseBy(id, name, value));
   }
 
-  const about = $derived(lot ? (lot.stock.display.split(' · ').at(-1) ?? '') : '');
+  const about = $derived(lot ? (lot.stock.display.split(' · ')[0] ?? '') : '');
 </script>
 
 <dialog

@@ -382,7 +382,7 @@ describe('the ingredient editor, opened from anywhere', () => {
   });
 
   it('"Remove from Ingredients" shows only when none is in the pantry', async () => {
-    food = toorDal({ stock: { amount: 750, display: '1½ packets · about 750 g' } });
+    food = toorDal({ stock: { amount: 750, display: 'about 750 g · 1½ packets' } });
     const dialog = await openToorDal();
     await expect.element(dialog.getByText('Packet = 500 g')).toBeVisible();
     expect(dialog.getByRole('button', { name: 'Remove from Ingredients' }).elements()).toHaveLength(

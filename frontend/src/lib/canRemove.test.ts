@@ -5,7 +5,7 @@ describe('removing an ingredient', () => {
   it('is offered only when none is in the pantry', () => {
     expect(canRemove({ stock: null })).toBe(true);
     expect(canRemove({ stock: { amount: 0, display: '0 g' } })).toBe(true);
-    expect(canRemove({ stock: { amount: 750, display: '1½ packets · about 750 g' } })).toBe(false);
+    expect(canRemove({ stock: { amount: 750, display: 'about 750 g · 1½ packets' } })).toBe(false);
   });
 
   it('is not blocked by the recipes that use it (cabledrawer 19 Oct)', () => {

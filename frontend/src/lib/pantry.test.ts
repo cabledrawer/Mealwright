@@ -23,7 +23,7 @@ describe('putting the server’s answer on screen', () => {
   it('adds a group to a place that didn’t have that food', () => {
     const { pantry } = samplePantry();
     const moved = {
-      ...group(21, 'Paneer', '1 pack · 200 g', [lot('1 pack · 200 g', '2027-01-17', 92)]),
+      ...group(21, 'Paneer', '200 g · 1 pack', [lot('200 g · 1 pack', '2027-01-17', 92)]),
       place: { id: 2, name: 'Freezer', kind: 'freezer' as const }
     };
     withGroups(pantry, [moved]);

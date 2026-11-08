@@ -34,28 +34,47 @@ TUB = Size(9, "tub", "tubs", 500_000)
     ("milli", "counted_as", "size", "word", "expected"),
     [
         # The examples in docs/dev/api-0.2.md section 5.3 and the mockups.
-        (750_000, "weight", PACKET, None, "1½\u00a0packets · about 750\u00a0g"),
-        (1_000_000, "weight", PACKET, None, "2\u00a0packets · 1\u00a0kg"),
-        (400_000, "weight", PACK, None, "2\u00a0packs · 400\u00a0g"),
-        (1_500_000, "volume", BOTTLE, None, "1½\u00a0bottles · about 1.5\u00a0L"),
+        (750_000, "weight", PACKET, None, "about 750\u00a0g · 1½\u00a0packets"),
+        (1_000_000, "weight", PACKET, None, "1\u00a0kg · 2\u00a0packets"),
+        (400_000, "weight", PACK, None, "400\u00a0g · 2\u00a0packs"),
+        (1_500_000, "volume", BOTTLE, None, "about 1.5\u00a0L · 1½\u00a0bottles"),
         (9_000, "count", DOZEN, None, "9\u00a0left · bought as a dozen"),
         (14_000, "count", LOAF, "slice", "14\u00a0slices · bought as a loaf"),
         (6_000, "count", None, "piece", "6\u00a0pieces"),
         (200_000, "weight", None, None, "200\u00a0g"),
-        (40_000, "weight", PACKET, None, "under ¼\u00a0packet · about 40\u00a0g"),
-        (250_000, "weight", TUB, None, "½\u00a0tub · about 250\u00a0g"),
-        (500_000, "weight", TUB, None, "1\u00a0tub · 500\u00a0g"),
-        (125_000, "weight", PACKET, None, "¼\u00a0packet · about 130\u00a0g"),
+        (40_000, "weight", PACKET, None, "about 40\u00a0g · less than ¼\u00a0packet"),
+        (250_000, "weight", TUB, None, "about 250\u00a0g · ½\u00a0tub"),
+        (500_000, "weight", TUB, None, "500\u00a0g · 1\u00a0tub"),
+        (125_000, "weight", PACKET, None, "about 130\u00a0g · ¼\u00a0packet"),
         (1_000, "count", None, "slice", "1\u00a0slice"),
         (500, "count", None, "slice", "½\u00a0slice"),
         (1_500, "count", None, None, "1½\u00a0left"),
         (0, "count", None, None, "0\u00a0left"),
         (0, "weight", PACKET, None, "0\u00a0g"),
-        (200, "count", None, None, "under ½\u00a0left"),
-        (240, "count", None, "egg", "under ½\u00a0egg"),
-        (4, "weight", None, None, "under 0.1\u00a0g"),
-        (49, "volume", None, None, "under 0.1\u00a0ml"),
+        (200, "count", None, None, "less than half left"),
+        (240, "count", None, "egg", "less than half an\u00a0egg"),
+        (4, "weight", None, None, "a tiny amount"),
+        (49, "volume", None, None, "a tiny amount"),
         (50, "weight", None, None, "0.1\u00a0g"),
+        # cabledrawer 8 Nov: "less than half a/an <word>", the amount first beside a pack.
+        (240, "count", None, "onion", "less than half an\u00a0onion"),
+        (240, "count", None, "tomato", "less than half a\u00a0tomato"),
+        (500, "count", None, "onion", "½\u00a0onion"),
+        (3_000, "volume", None, None, "3\u00a0ml"),
+        (
+            125_000,
+            "weight",
+            Size(13, "packet", "packets", 500_000),
+            None,
+            "about 130\u00a0g · ¼\u00a0packet",
+        ),
+        (
+            30_000,
+            "weight",
+            Size(14, "bag", "bags", 500_000),
+            None,
+            "about 30\u00a0g · less than ¼\u00a0bag",
+        ),
     ],
 )
 def test_as_sold_display(
@@ -234,6 +253,6 @@ def test_numbers_never_wrap_away_from_their_units(
 
 
 def test_no_break_space_examples() -> None:
-    assert as_sold(750_000, "weight", PACKET).display == "1½\u00a0packets · about 750\u00a0g"
+    assert as_sold(750_000, "weight", PACKET).display == "about 750\u00a0g · 1½\u00a0packets"
     assert as_sold(9_000, "count", DOZEN).display == "9\u00a0left · bought as a dozen"
     assert exact_text(1_250_000, "volume") == "1.25\u00a0L"

@@ -114,7 +114,7 @@ class AmountOut(BaseModel):
     as_sold: AsSoldOut | None
     about: bool
     short: str  # "1½ packets"
-    display: str  # "1½ packets · about 750 g"
+    display: str  # "about 750 g · 1½ packets"
 
 
 class Answer(BaseModel):

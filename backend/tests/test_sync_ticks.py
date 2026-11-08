@@ -440,7 +440,7 @@ def test_sy15_different_pack(kitchen: TestClient) -> None:
     )
     assert done["status"] == "applied" and done["change"]["kind"] == "repacked"
     assert done["change"]["summary"] == (
-        "Paneer: bought 1\u00a0pack · 400\u00a0g instead of 2\u00a0packs · 400\u00a0g"
+        "Paneer: bought 400\u00a0g · 1\u00a0pack instead of 400\u00a0g · 2\u00a0packs"
     )
     assert s.lots("Paneer") == [("Fridge", 400)]
     answer = changes(kitchen)
@@ -471,7 +471,7 @@ def test_sy15b_a_first_amount_is_worded_as_one(kitchen: TestClient) -> None:
     )
     assert done["status"] == "applied" and done["change"]["kind"] == "repacked"
     summary = done["change"]["summary"]
-    assert summary == "Flour: bought 1\u00a0pack · 1\u00a0kg (first amount)"
+    assert summary == "Flour: bought 1\u00a0kg · 1\u00a0pack (first amount)"
     assert "instead of" not in summary
 
 
@@ -1040,7 +1040,7 @@ def _repacked_with_use_between(kitchen: TestClient) -> dict[str, Any]:
 
 
 BACK = (
-    "Paneer is back to 2\u00a0packs · 400\u00a0g."
+    "Paneer is back to 400\u00a0g · 2\u00a0packs."
     " Some had been used since, so check how much is left."
 )
 

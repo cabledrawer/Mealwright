@@ -285,9 +285,9 @@ def test_upgrading_a_0_2_0_database_keeps_everything_and_old_changes_read_as_bef
 
         # Old changes keep their old wording: only the packets they touched.
         old = _wording(app)
-        assert old[2] == [(f"0{NB}g", f"1{NB}pack · 200{NB}g")]  # not "1 pack → 2 packs"
-        assert old[4] == [(f"1{NB}pack · 200{NB}g", f"0{NB}g")]
-        assert old[3] == [(f"0{NB}g", f"2{NB}packets · 1{NB}kg")]
+        assert old[2] == [(f"0{NB}g", f"200{NB}g · 1{NB}pack")]  # not "1 pack → 2 packs"
+        assert old[4] == [(f"200{NB}g · 1{NB}pack", f"0{NB}g")]
+        assert old[3] == [(f"0{NB}g", f"1{NB}kg · 2{NB}packets")]
         assert app.get("/api/v1/foods/1").json()["stock"]["amount"] == 200.0
         assert app.get("/api/v1/foods", params={"q": "thuvaram"}).json()["foods"][0]["name"] == (
             "Toor dal"
@@ -302,7 +302,7 @@ def test_upgrading_a_0_2_0_database_keeps_everything_and_old_changes_read_as_bef
         assert added.status_code == 201, added.text
         new = _wording(app)
         newest = max(new)
-        assert new[newest] == [(f"1{NB}pack · 200{NB}g", f"2{NB}packs · 400{NB}g")]
+        assert new[newest] == [(f"200{NB}g · 1{NB}pack", f"400{NB}g · 2{NB}packs")]
         assert {key: value for key, value in new.items() if key != newest} == old
 
         # Undoing an old change still reverses just its own lines. The made-up 0.2.0 changes
