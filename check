@@ -239,9 +239,15 @@ start_beside() {
   local log="$LOGS/${name// /-}.log"
   BESIDE_LOG[$name]="$log" BESIDE_START[$name]=$(date +%s) BESIDE_NOTE[$name]="$note"
   printf '%-28s %s\n' "$name" "started, runs beside the next steps"
-  (cd "$ROOT" && "$@"; rc=$?; date +%s >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 9>&- &
+  (cd "$ROOT" && "$@"; rc=$?; echo "$(date +%s) $rc" >"$log.end"; exit $rc) </dev/null >"$log" 2>&1 9>&- &
   BESIDE[$name]=$!
   start_watchdog "${BESIDE[$name]}" "$name" "$log.stopped"; BESIDE_WD[$name]=$WD
+}
+# beside_rc <name>: the exit code of a beside step that has already ended, empty while it runs.
+beside_rc() {
+  local log="${BESIDE_LOG[$1]:-}" _
+  [[ -n "$log" && -f "$log.end" ]] || return 0
+  read -r _ rc <"$log.end" && printf '%s' "$rc"
 }
 finish_beside() {
   local name="$1"
@@ -251,7 +257,9 @@ finish_beside() {
   wait "${BESIDE[$name]}" || ok=0
   stop_watchdog "${BESIDE_WD[$name]:-}"
   unset "BESIDE[$name]" "BESIDE_WD[$name]"
-  took="$(( $(cat "$log.end" 2>/dev/null || date +%s) - BESIDE_START[$name] ))s"
+  local ended
+  read -r ended _ <"$log.end" 2>/dev/null || ended=$(date +%s)
+  took="$(( ended - BESIDE_START[$name] ))s"
   rm -f "$log.end"
   if [[ -e "$log.stopped" ]]; then
     record "$name" FAIL "$(stopped_note "$name")" "$took"
@@ -378,11 +386,19 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   step "frontend: tests"         sh -c 'cd frontend && npm test'
   finish_beside "frontend: lint"
   finish_beside "frontend: svelte-check"
-  # The browser code size limit (spec "Keeping the UI good", item 5): test the size
-  # script on a fake build, then build the app and fail if its largest page (its JS and
+  # The browser code size limit (spec "Keeping the UI good", item 5): build the app, test the size
+  # script on a fake build, and fail if the largest page (its JS and
   # CSS, shared code included, gzip-compressed) is over frontend/browser-code-limit.txt.
   # Raising that number needs cabledrawer's OK.
-  step "frontend: size limit"    sh -c 'cd frontend && node --test scripts/check-size.test.mjs && npm run -s build && node scripts/check-size.mjs'
+  # The build is its own step, and the old build is removed first (cabledrawer 8 Nov, T2): if the
+  # build fails, nothing may go on to use a build left from an earlier run.
+  rm -rf "$ROOT/frontend/build"
+  step "frontend: build"         sh -c 'cd frontend && npm run -s build'
+  if [[ "$(result_of "frontend: build")" == PASS ]]; then
+    step "frontend: size limit"  sh -c 'cd frontend && node --test scripts/check-size.test.mjs && node scripts/check-size.mjs'
+  else
+    skip "frontend: size limit" "web build failed"
+  fi
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
   skip "frontend" "no frontend yet"
@@ -390,6 +406,75 @@ fi
 
 # --- Browser tests (Playwright, headless Chromium) ------------------------------
 # They start the real app on 127.0.0.1 with an empty data folder.
+
+# Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
+# (Safari's engine) beside it, each with its own servers (E2E_APP_PORT, + 10, + 20), saved
+# sign-in, test-results folder and JSON report. All serve the web app built once by
+# "frontend: build" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and WebKit as
+# one stream, as before (for a smaller machine). Each is "label:projects:port offset".
+if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
+  STREAM_DEFS=("desktop:desktop:0" "phone + webkit:phone,webkit:10")
+else
+  STREAM_DEFS=("desktop:desktop:0" "phone:phone:10" "webkit:webkit:20")
+fi
+e2e_reports=()
+
+# skip_streams <reason>: every browser stream, recorded as skipped.
+skip_streams() {
+  local b label
+  for b in "${STREAM_DEFS[@]}"; do IFS=: read -r label _ <<<"$b"; skip "browser: $label" "$1"; done
+}
+
+# early_stop_reason: the name of the step that already failed, when the run can't pass any more
+# (cabledrawer 8 Nov, T2): any step recorded so far that isn't PASS or SKIP, or a beside step (the
+# backend tests) that has ended with an error. Nothing when all is well, or when CHECK_STOP_EARLY=0
+# (to see the browser results of a run that has failed already).
+early_stop_reason() {
+  [[ "${CHECK_STOP_EARLY:-1}" == 0 ]] && return 1
+  local i name rc
+  for i in "${!names[@]}"; do
+    case "${results[$i]}" in PASS|SKIP) ;; *) echo "${names[$i]}"; return 0 ;; esac
+  done
+  for name in "${!BESIDE[@]}"; do
+    rc="$(beside_rc "$name")"
+    [[ -n "$rc" && "$rc" != 0 ]] && { echo "$name"; return 0; }
+  done
+  return 1
+}
+
+# run_browser_streams: start the streams in STREAM_DEFS (the first in the foreground, the others
+# beside it), wait for all, and record the times of the load window. A stream's own extra
+# Playwright arguments come from stream_args <label> (one per line); PW_SERVERS says which of
+# the test servers to start (E2E_SERVERS, see e2e/serve.mjs; unset: all).
+stream_args() { :; }
+PW_SERVERS=""
+run_browser_streams() {
+  local b label projects offset first="" args
+  BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label projects offset <<<"$b"
+    e2e_reports+=("$ROOT/.check/browser-${projects//,/-}.json")
+    if [[ -z "$first" ]]; then first="$b"; continue; fi
+    mapfile -t args < <(stream_args "$label")
+    start_beside "browser: $label" "ran beside browser: ${first%%:*}" \
+      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS:+E2E_SERVERS="$PW_SERVERS"} \
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
+          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
+  done
+  IFS=: read -r label projects offset <<<"$first"
+  mapfile -t args < <(stream_args "$label")
+  step "browser: $label" env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 \
+          E2E_APP_PORT=$((e2e_port + offset)) ${PW_SERVERS:+E2E_SERVERS="$PW_SERVERS"} \
+          PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
+          sh -c 'out="$1"; shift; cd e2e && exec npx playwright test --output "test-results/$out" "$@"' _ "${projects//,/-}" "${args[@]}"
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label _ <<<"$b"
+    [[ "$b" == "$first" ]] || finish_beside "browser: $label"
+  done
+  sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
+}
+
 if ((FAST)); then
   skip "browser tests" "fast run"
 elif [[ -f "$ROOT/e2e/package.json" ]]; then
@@ -397,7 +482,7 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   # browsers are there, so it always runs; only npm ci is skipped when the lock is unchanged.
   if installed_as_locked e2e; then
     step "browser: install"      sh -c 'cd e2e && npx playwright install chromium-headless-shell webkit'
-    notes[-1]="$REUSED (browsers checked)"
+    [[ "${results[-1]}" == PASS ]] && notes[-1]="$REUSED (browsers checked)"
   else
     step "browser: install"      sh -c 'cd e2e && npm ci --no-audit --no-fund && npx playwright install chromium-headless-shell webkit'
     [[ "${results[-1]}" == PASS ]] && save_stamp e2e
@@ -406,48 +491,28 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
   # The image build (started at the top) must be finished before the browser tests start.
   finish_beside "image: build"
-  # Three runs side by side (cabledrawer 8 Nov; two since 30 Oct): desktop here, phone and WebKit
-  # (Safari's engine) beside it, each with its own four servers (E2E_APP_PORT, + 10, + 20),
-  # saved sign-in, test-results folder and JSON report. All serve the web app built once by
-  # "frontend: size limit" above (E2E_SKIP_BUILD=1). CHECK_BROWSER_STREAMS=2 runs phone and
-  # WebKit as one stream, as before (for a smaller machine).
   e2e_port="${E2E_APP_PORT:-18080}"
   # In ./check only (E2E_CHECK_MODE, read by playwright.config.ts): Playwright stops by itself after
   # 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
   # when the browser step's time limit is up. The step watchdog above is the backstop.
   check_pw=(E2E_CHECK_MODE=1 E2E_MAX_FAILURES="${CHECK_MAX_FAILURES:-20}"
             E2E_GLOBAL_TIMEOUT_MS="$(( $(limit_minutes "browser: desktop") * 60000 ))")
-  if [[ -f "$ROOT/frontend/build/index.html" ]]; then
-    BROWSER_T0="$(date '+%Y-%m-%dT%H:%M:%S')"; sample_load
-    if [[ "${CHECK_BROWSER_STREAMS:-3}" == 2 ]]; then
-      e2e_beside=("phone + webkit:phone,webkit:10")
-    else
-      e2e_beside=("phone:phone:10" "webkit:webkit:20")
-    fi
-    reports=("$ROOT/.check/browser-desktop.json")
-    for b in "${e2e_beside[@]}"; do
-      IFS=: read -r label projects offset <<<"$b"
-      start_beside "browser: $label" "ran beside browser: desktop" \
-        env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS="$projects" E2E_SKIP_BUILD=1 E2E_APP_PORT=$((e2e_port + offset)) \
-            PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-${projects//,/-}.json" \
-            sh -c "cd e2e && npx playwright test --output test-results/${projects//,/-}"
-      reports+=("$ROOT/.check/browser-${projects//,/-}.json")
-    done
-    step "browser: desktop"      env TMPDIR="$RUN_TMP" "${check_pw[@]}" E2E_PROJECTS=desktop E2E_SKIP_BUILD=1 E2E_APP_PORT="$e2e_port" \
-                                     PLAYWRIGHT_JSON_OUTPUT_FILE="$ROOT/.check/browser-desktop.json" \
-                                     sh -c 'cd e2e && npx playwright test --output test-results/desktop'
-    for b in "${e2e_beside[@]}"; do finish_beside "browser: ${b%%:*}"; done
-    sample_load; BROWSER_T1="$(date '+%Y-%m-%dT%H:%M:%S')"
-    list_flaky "browser: desktop" "$ROOT/.check/browser-desktop.json"
-    for b in "${e2e_beside[@]}"; do
-      IFS=: read -r label projects offset <<<"$b"
+  if [[ "$(result_of "frontend: build")" == FAIL ]]; then
+    skip_streams "web build failed"
+  elif early="$(early_stop_reason)"; then
+    skip_streams "stopped early: $early failed (the run can't pass)"
+    show "Browser tests not started: stopped early, $early failed (the run can't pass; CHECK_STOP_EARLY=0 runs them anyway)."
+  elif [[ -f "$ROOT/frontend/build/index.html" ]]; then
+    run_browser_streams
+    for b in "${STREAM_DEFS[@]}"; do
+      IFS=: read -r label projects _ <<<"$b"
       list_flaky "browser: $label" "$ROOT/.check/browser-${projects//,/-}.json"
     done
     # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
-    (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
+    (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${e2e_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1
   else
-    record "browser tests" FAIL "no built web app (frontend: size limit builds it)" "-"
+    record "browser tests" FAIL "no built web app (frontend: build builds it)" "-"
     show "browser tests                FAIL (no built web app)"
   fi
 else
@@ -526,6 +591,12 @@ if ((FAST)); then
   skip "image" "fast run"
 elif [[ -f "$ROOT/Dockerfile" ]]; then
   finish_beside "image: build"   # a no-op: it was finished before the browser tests
+  if [[ "$(result_of "image: build")" != PASS ]]; then
+    # Never check an old image left by an earlier run (cabledrawer 8 Nov, T2).
+    for img_step in "image: no telemetry" "image: no gallery" "image: export" "image: trivy"; do
+      skip "$img_step" "image build failed"
+    done
+  else
   step "image: no telemetry"     docker run --rm -v "$ROOT/backend/scripts:/scripts:ro" \
                                    --entrypoint python "$IMAGE" -I /scripts/check_no_telemetry.py
   # The component gallery is for development builds only (spec "Keeping the UI good",
@@ -542,6 +613,7 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
                                    image --input /scan/image.tar --scanners vuln \
                                    --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
                                    --disable-telemetry --skip-version-check
+  fi
   fi
 else
   skip "image" "no Dockerfile yet"
