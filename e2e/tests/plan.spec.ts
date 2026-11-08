@@ -63,8 +63,32 @@ async function planned(page: Page, recipeId: number, day: string, slotId: number
   return (await call(page, 'POST', '/plan/items', { date: day, slot_id: slotId, recipe_id: recipeId })) as Write;
 }
 
+/**
+ * The page's own API reads still in flight (fetches under /api/v1; the live stream is an
+ * EventSource, not counted). WebKit reports a fetch that a navigation cuts short as a page error
+ * ("… due to access control checks"), so the tests let the page finish before they leave it.
+ */
+const inFlight = new Set<object>();
+
+test.beforeEach(async ({ page }) => {
+  inFlight.clear();
+  page.on('request', (request) => {
+    if (request.resourceType() === 'fetch' && new URL(request.url()).pathname.startsWith('/api/v1/')) inFlight.add(request);
+  });
+  page.on('requestfinished', (request) => inFlight.delete(request));
+  page.on('requestfailed', (request) => inFlight.delete(request));
+});
+
+/** Waits until the page has no API read in flight (the reads after a change: the plan, the tubs left). */
+async function settled() {
+  await expect.poll(() => inFlight.size, { message: 'the page finished its API reads' }).toBe(0);
+}
+
 /** Open the Plan on the week that holds `day` (the Next week button, as a person would). */
 async function openWeekOf(page: Page, today: string, day: string) {
+  // The plan reloads after a move (the plan, then the tubs left): going to /plan in the middle cut
+  // that read short, which WebKit reports as a page error (T2a's full check, 8 Nov).
+  await settled();
   await page.goto('/plan');
   const back = Math.round((new Date(`${day}T12:00:00Z`).getTime() - new Date(`${today}T12:00:00Z`).getTime()) / 86_400_000 / 7);
   for (let i = 0; i < back; i++) await page.getByRole('button', { name: 'Next week' }).click();
