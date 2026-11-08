@@ -91,6 +91,9 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
         },
       });
       const ended = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      // If this worker is stopped (Ctrl-C, or Playwright ending it), the server must not outlive it.
+      const stopServer = () => child.kill('SIGTERM');
+      process.once('exit', stopServer);
       try {
         await waitUntilUp(port, child);
         const api = await request.newContext({ baseURL: local(port) });
@@ -102,6 +105,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
         await api.dispose();
         await use({ port, url: local(port), insecureUrl: insecure(port), storageState });
       } finally {
+        process.off('exit', stopServer);
         if (child.exitCode === null && child.signalCode === null) {
           child.kill('SIGTERM');
           const killer = setTimeout(() => child.kill('SIGKILL'), 5000);
