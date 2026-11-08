@@ -838,7 +838,7 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **How much?** (mockup): **¼ · ½ · ¾ · All**, nothing chosen until one is tapped; the one main button says **Choose how much** (off; proposed), then **Used ¾ bag**, **Used all of it**, or, with no pack name, **Used ¾ of it** (proposed); **Or exactly … g** turns it into **Used 120 g**; **Cancel**.
 - **A packet with no date in its menu** says **no date** (was "no use-by date"; proposed).
 
-## 44. Stocktake (0.8 S6, F118; proposed, for cabledrawer unless the mockup or spec has the words)
+## 46. Stocktake (0.8 S6, F118; proposed, for cabledrawer unless the mockup or spec has the words)
 
 - **The button** on Pantry's header (phone and computer): **Stocktake**.
 - **The screen** (mockup Dark-Stocktake08-Phone): **Stop, carry on later**; **Place 3 of 5**; title **Stocktake · Cupboard**; under it, **How much is there? A best guess is fine. 4 of 9 done here.**
