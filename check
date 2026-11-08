@@ -57,6 +57,8 @@
 #   CHECK_LIMIT_INSTALL (15), CHECK_LIMIT_OTHER (15)
 #                               minutes a step may take before the watchdog stops it
 #   CHECK_MAX_FAILURES (20)     Playwright stops after this many failed tests
+#   CHECK_GLOBAL_TIMEOUT_MIN    Playwright's own time limit for a browser stream (default: the
+#                               CHECK_LIMIT_BROWSER minutes; the watchdog comes 30 s after it)
 #   CHECK_PYTEST_WORKERS (4), CHECK_PYTEST_WORKERS_BESIDE (2)
 #                               backend test workers: alone (fast), and beside the browser tests
 #   CHECK_BROWSER_STREAMS=2     phone and WebKit as one stream
@@ -433,7 +435,11 @@ judge_flaky() {
     for line in "${fresh[@]}"; do show "    $line"; done
   fi
   if ((${#twice[@]} == 0 && ${#fresh[@]} == 0)); then
-    record "browser: flaky rule" PASS "no test flaky twice in a row${newfiles:+, none flaky in the new spec files ($newfiles)}" "-"
+    if [[ "$mode" == full ]]; then
+      record "browser: flaky rule" PASS "no test flaky in two full runs in a row${newfiles:+, none flaky in the new spec files ($newfiles)}" "-"
+    else
+      record "browser: flaky rule" PASS "${newfiles:+none flaky in the new spec files ($newfiles); }the two-in-a-row rule needs a full run" "-"
+    fi
   fi
 }
 
@@ -481,12 +487,13 @@ backend() { (cd backend && "$@"); }
 
 # Installs are re-used when nothing they depend on has changed (cabledrawer 8 Nov): npm ci wipes and
 # rebuilds node_modules every time, which is slow. lock_stamp <dir> is a fingerprint of that
-# folder's package.json, package-lock.json, the Node version and npm's own record of what is
+# folder's package.json, package-lock.json, .npmrc (its settings change what is installed), the
+# Node version and npm's own record of what is
 # installed (node_modules/.package-lock.json, so a hand-run npm install there also counts). A
 # full install saves it in node_modules/.mealwright-install; the next full run skips the
 # install when it still matches. A changed lock file (a new Playwright version too) re-installs.
 lock_stamp() {
-  (cd "$ROOT/$1" && cat package.json package-lock.json node_modules/.package-lock.json 2>/dev/null; node --version) |
+  (cd "$ROOT/$1" && cat package.json package-lock.json .npmrc node_modules/.package-lock.json 2>/dev/null; node --version) |
     sha256sum | cut -d' ' -f1
 }
 installed_as_locked() {
@@ -586,7 +593,7 @@ e2e_port="${E2E_APP_PORT:-18080}"
 # 20 failed tests (a crashed server would otherwise fail, retry and time out every test left) and
 # when the browser step's time limit is up. The step watchdog above is the backstop.
 check_pw=(E2E_CHECK_MODE=1 E2E_MAX_FAILURES="${CHECK_MAX_FAILURES:-20}"
-          E2E_GLOBAL_TIMEOUT_MS="$(( $(limit_minutes "browser: desktop") * 60000 ))")
+          E2E_GLOBAL_TIMEOUT_MS="$(( ${CHECK_GLOBAL_TIMEOUT_MIN:-$(limit_minutes "browser: desktop")} * 60000 ))")
 
 # gate_browser_streams: true when the browser streams may start. Otherwise they are recorded as
 # skipped and why: the web build failed (never run on a build left from an earlier run), or an
@@ -610,9 +617,9 @@ gate_browser_streams() {
 # The frontend's libraries (re-used while the lock file is unchanged) and the browser tests'
 # own (e2e) with the browsers themselves.
 frontend_install() {
-  if ((FAST)) && [[ -d "$ROOT/frontend/node_modules" ]]; then
-    skip "frontend: install" "fast run"
-  elif installed_as_locked frontend; then
+  # The fast run does the same (cabledrawer 8 Nov, T2): it used to re-use any node_modules, whatever
+  # the lock file said, so a changed library was never installed.
+  if installed_as_locked frontend; then
     skip "frontend: install" "$REUSED"
   else
     step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
@@ -834,9 +841,9 @@ fi
 
 # --- Frontend ----------------------------------------------------------------
 if [[ -f "$ROOT/frontend/package.json" ]]; then
-  if ((FAST)) && [[ -d "$ROOT/frontend/node_modules" ]]; then
-    skip "frontend: install" "fast run"
-  elif installed_as_locked frontend; then
+  # The fast run does the same (cabledrawer 8 Nov, T2): it used to re-use any node_modules, whatever
+  # the lock file said, so a changed library was never installed.
+  if installed_as_locked frontend; then
     skip "frontend: install" "$REUSED"
   else
     step "frontend: install"     sh -c 'cd frontend && npm ci --no-audit --no-fund'
