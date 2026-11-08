@@ -651,8 +651,8 @@
 
   .x {
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: var(--touch-target);
+    height: var(--touch-target);
     margin-left: auto;
     border: none;
     border-radius: var(--radius-md);
