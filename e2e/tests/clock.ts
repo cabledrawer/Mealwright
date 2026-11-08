@@ -79,7 +79,15 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
       const scratch = mkdtempSync(join(tmpdir(), `mealwright-e2e-w${workerInfo.parallelIndex}-`));
       const dataDir = join(scratch, 'data');
       mkdirSync(dataDir);
-      const child = spawn('uv', ['run', '--frozen', '--project', BACKEND, 'python', join(BACKEND, 'scripts/e2e_server.py')], {
+      // Started through a small shell that stops the server when this worker is gone, even when the
+      // worker is killed outright (SIGKILL, so no exit hook runs): it checks every second.
+      const watch = [
+        'uv run --frozen --project "$2" python "$3" & server=$!',
+        'trap \'kill "$server" 2>/dev/null; wait "$server"; exit\' TERM INT',
+        'while kill -0 "$1" 2>/dev/null && kill -0 "$server" 2>/dev/null; do sleep 1; done',
+        'kill "$server" 2>/dev/null; wait "$server"',
+      ].join('\n');
+      const child = spawn('sh', ['-c', watch, 'sh', String(process.pid), BACKEND, join(BACKEND, 'scripts/e2e_server.py')], {
         stdio: 'inherit',
         env: {
           ...process.env,
