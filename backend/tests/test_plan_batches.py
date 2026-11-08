@@ -1614,7 +1614,7 @@ def test_eat_it_on_from_tubs_left_refuses_a_tub_that_is_in_a_meal(
     )
     assert refused.status_code == 409
     assert refused.json()["code"] == "tub_taken"
-    assert refused.json()["detail"] == "That tub is already in a meal. Look again."
+    assert refused.json()["detail"] == "That tub is already planned for another meal."
     assert where_tubs_are(kitchen, slots)[0] == (1, day(1), "Lunch")
     # The plan's own Move (no flag) still moves it.
     moved = kitchen.post(url, json={"date": day(2), "slot_id": slots["Dinner"]})

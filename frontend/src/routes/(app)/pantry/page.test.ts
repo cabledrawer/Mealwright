@@ -1447,7 +1447,7 @@ describe('the Pantry page', () => {
           ],
           'POST /plan/tubs/51/place': [
             409,
-            { detail: 'That tub is already in a meal. Look again.', code: 'tub_taken' }
+            { detail: 'That tub is already planned for another meal.', code: 'tub_taken' }
           ]
         });
         await render(1300);
@@ -1461,7 +1461,7 @@ describe('the Pantry page', () => {
           )
         );
         await vi.waitFor(() =>
-          expect(toasts.current?.message).toBe('That tub is already in a meal. Look again.')
+          expect(toasts.current?.message).toBe('That tub is already planned for another meal.')
         );
       });
 

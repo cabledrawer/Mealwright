@@ -460,7 +460,7 @@ def place_tub(
         raise Problem(
             status.HTTP_409_CONFLICT,
             "tub_taken",
-            "That tub is already in a meal. Look again.",  # proposed, for cabledrawer
+            "That tub is already planned for another meal.",  # cabledrawer 8 Nov
         )
     if existing is not None:
         return plan.move_item(kitchen, existing, day, slot_id, "move")

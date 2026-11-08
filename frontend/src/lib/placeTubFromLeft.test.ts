@@ -12,7 +12,7 @@ import { toasts } from './toast.svelte';
 
 const TAKEN = [
   409,
-  { detail: 'That tub is already in a meal. Look again.', code: 'tub_taken' }
+  { detail: 'That tub is already planned for another meal.', code: 'tub_taken' }
 ] as const;
 
 beforeEach(() => network.reset());
@@ -41,7 +41,7 @@ describe('the Plan puts a tub from Tubs left', () => {
     await model.placeTub(51, 'Lemon rice tub', '2026-10-18', 2);
     expect(kitchen.version).toBe(before + 1);
     expect(toasts.current?.tone).toBe('problem');
-    expect(toasts.current?.message).toContain('That tub is already in a meal. Look again.');
+    expect(toasts.current?.message).toContain('That tub is already planned for another meal.');
   });
 });
 
@@ -66,7 +66,7 @@ describe('"Eat it on…" after Cooked it', () => {
     ).toEqual({ date: '2026-11-07', slot_id: 3, from_tubs_left: true });
     expect(placed.undo).toBeNull();
     expect(toasts.current?.message).toBe(
-      'Cooked it is saved, but the tub isn’t planned. That tub is already in a meal. Look again. It stays in Tubs left.'
+      'Cooked it is saved, but the tub isn’t planned. That tub is already planned for another meal. It stays in Tubs left.'
     );
   });
 });
