@@ -278,12 +278,25 @@ finish_beside() {
 }
 
 # list_flaky <step name> <report.json>: the browser tests in one Playwright JSON report that
-# failed once and passed on their one retry (cabledrawer 30 Oct). They don't fail the check, but
-# they go in that step's note and in the summary, to fix in the next tidy-up.
+# failed once and passed on their one retry (cabledrawer 30 Oct). They go in that step's note and in
+# the summary; the rule below (judge_flaky) says when they fail the check. An error from
+# flaky.mjs, or no report from a stream that passed, is a FAIL row, never "no flaky tests"
+# (cabledrawer 8 Nov, T2).
 list_flaky() {
-  local name="$1" report="$2" i found=()
-  [[ -f "$report" ]] || return 0
-  mapfile -t found < <(cd "$ROOT/e2e" && node scripts/flaky.mjs "$report" 2>/dev/null)
+  local name="$1" report="$2" i found=() out
+  if [[ ! -f "$report" ]]; then
+    if [[ "$(result_of "$name")" == PASS ]]; then
+      record "$name: report" FAIL "the step passed but wrote no JSON report" "-"
+      show "$(printf '%-28s %s' "$name: report" "FAIL (the step passed but wrote no JSON report)")"
+    fi
+    return 0
+  fi
+  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs "$report" 2>&1)"; then
+    record "$name: flaky list" FAIL "e2e/scripts/flaky.mjs failed: $(head -n 1 <<<"$out")" "-"
+    show "$(printf '%-28s %s' "$name: flaky list" "FAIL (e2e/scripts/flaky.mjs failed)")" "$(sed 's/^/    /' <<<"$out")"
+    return 0
+  fi
+  [[ -z "$out" ]] || mapfile -t found <<<"$out"
   ((${#found[@]})) || return 0
   flaky+=("${found[@]}")
   for i in "${!names[@]}"; do
@@ -291,6 +304,80 @@ list_flaky() {
   done
   show "$(printf '%-28s %s' "$name" "${#found[@]} flaky (passed on retry):")"
   for i in "${found[@]}"; do show "    $i"; done
+}
+
+# The flaky-test rule (cabledrawer 8 Nov, T2). A test that failed and then passed on its retry in this
+# run AND in the previous completed full run fails the check, and so does a flaky test in a spec file
+# that is new on this branch, even once. The history is in .check-history/ in the MAIN checkout's
+# root (found from the shared git folder, so every copy and worktree of the repo uses the same
+# one; CHECK_HISTORY_DIR changes it). It is outside .check, which each run deletes, and outside
+# the repo (.gitignore). Only a completed full run writes it (save_flaky_history).
+HIST="${CHECK_HISTORY_DIR:-}"
+if [[ -z "$HIST" ]]; then
+  gitdir="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  HIST="$(dirname "${gitdir:-$ROOT/.git}")/.check-history"
+fi
+
+# The spec files added on this branch since it left origin/main (committed, staged or new), by name.
+new_spec_files() {
+  local base
+  base="$(git -C "$ROOT" merge-base HEAD origin/main 2>/dev/null)" || return 0
+  { git -C "$ROOT" diff --name-only --diff-filter=A "$base" -- 'e2e/tests/*.spec.ts'
+    git -C "$ROOT" ls-files --others --exclude-standard -- 'e2e/tests/*.spec.ts'; } |
+    sort -u | xargs -r -n1 basename | paste -sd, -
+}
+
+# judge_flaky <full|files> <report.json>...: records the rule's verdict. "twice" needs the history,
+# so only a full run applies it.
+judge_flaky() {
+  local mode="$1" out line newfiles twice=() fresh=() prev=()
+  shift
+  [[ "$mode" == full ]] && prev=(--previous "$HIST/flaky-last.txt")
+  newfiles="$(new_spec_files)"
+  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --judge "${prev[@]}" ${newfiles:+--new-files "$newfiles"} "$@" 2>&1)"; then
+    record "browser: flaky rule" FAIL "e2e/scripts/flaky.mjs failed: $(head -n 1 <<<"$out")" "-"
+    show "$(printf '%-28s %s' "browser: flaky rule" "FAIL (e2e/scripts/flaky.mjs failed)")" "$(sed 's/^/    /' <<<"$out")"
+    return 0
+  fi
+  while IFS=$'\t' read -r kind line; do
+    case "$kind" in twice) twice+=("$line") ;; new) fresh+=("$line") ;; esac
+  done <<<"$out"
+  if ((${#twice[@]})); then
+    record "browser: flaky twice" FAIL "${#twice[@]} flaky in this run and in the last full run: listed below" "-"
+    show "$(printf '%-28s %s' "browser: flaky twice" "FAIL (flaky in this run and in the last full run):")"
+    for line in "${twice[@]}"; do show "    $line"; done
+  fi
+  if ((${#fresh[@]})); then
+    record "browser: flaky (new tests)" FAIL "${#fresh[@]} flaky in a spec file that is new on this branch: listed below" "-"
+    show "$(printf '%-28s %s' "browser: flaky (new tests)" "FAIL (flaky in a spec file new on this branch):")"
+    for line in "${fresh[@]}"; do show "    $line"; done
+  fi
+  if ((${#twice[@]} == 0 && ${#fresh[@]} == 0)); then
+    record "browser: flaky rule" PASS "no test flaky twice in a row${newfiles:+, none flaky in the new spec files ($newfiles)}" "-"
+  fi
+}
+
+# run_completed <report.json>...: true when every browser stream ran to its end (each step passed
+# or failed on its own, none was skipped or stopped) and Playwright itself wasn't stopped
+# (e2e/scripts/flaky.mjs --complete). Only then does a full run write the history.
+run_completed() {
+  local b label i
+  for b in "${STREAM_DEFS[@]}"; do
+    IFS=: read -r label _ <<<"$b"
+    for i in "${!names[@]}"; do
+      [[ "${names[$i]}" == "browser: $label" ]] || continue
+      case "${results[$i]}" in PASS) ;; FAIL) [[ "${notes[$i]}" != stopped* ]] || return 1 ;; *) return 1 ;; esac
+    done
+    [[ -n "$(result_of "browser: $label")" ]] || return 1
+  done
+  (cd "$ROOT/e2e" && node scripts/flaky.mjs --complete "${CHECK_MAX_FAILURES:-20}" "$@") >/dev/null 2>&1
+}
+
+# save_flaky_history <report.json>...: this completed full run's flaky tests become "the previous
+# run" for the next one.
+save_flaky_history() {
+  mkdir -p "$HIST" && (cd "$ROOT/e2e" && node scripts/flaky.mjs "$@") >"$HIST/flaky-last.txt.new" &&
+    mv -f "$HIST/flaky-last.txt.new" "$HIST/flaky-last.txt"
 }
 
 skip() { printf '%-28s SKIP (%s)\n' "$1" "$2"; record "$1" SKIP "$2" "-"; }
@@ -489,6 +576,7 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
   fi
   step "browser: licences"       backend uv run --frozen python -I scripts/check_licences.py --npm-dev ../e2e
   step "browser: typecheck"      sh -c 'cd e2e && npm run -s typecheck'
+  step "browser: script tests"   sh -c 'cd e2e && node --test "scripts/*.test.mjs"'
   # The image build (started at the top) must be finished before the browser tests start.
   finish_beside "image: build"
   e2e_port="${E2E_APP_PORT:-18080}"
@@ -508,6 +596,12 @@ elif [[ -f "$ROOT/e2e/package.json" ]]; then
       IFS=: read -r label projects _ <<<"$b"
       list_flaky "browser: $label" "$ROOT/.check/browser-${projects//,/-}.json"
     done
+    judge_flaky full "${e2e_reports[@]}"
+    if run_completed "${e2e_reports[@]}"; then
+      save_flaky_history "${e2e_reports[@]}" || show "The flaky-test history in $HIST couldn't be written."
+    else
+      show "Flaky-test history not written: the browser tests did not all run to the end."
+    fi
     # The 25 slowest browser tests (cabledrawer 8 Nov), for speeding the run up: in the full log,
     # on the screen at the end, and in .check/slowest-browser-tests.txt.
     (cd "$ROOT/e2e" && node scripts/slowest.mjs 25 "${e2e_reports[@]}") >"$ROOT/.check/slowest-browser-tests.txt" 2>&1

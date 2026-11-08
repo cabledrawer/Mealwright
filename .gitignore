@@ -34,6 +34,8 @@ Thumbs.db
 
 # ./check logs
 /.check/
+# The flaky-test history and the last full run's browser reports (outside .check, which each run deletes)
+/.check-history/
 
 # Playwright output
 /e2e/test-results/
