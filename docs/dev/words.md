@@ -261,12 +261,12 @@ The line under a ticked row stays until the row is unticked or cleared. No ticke
 
 | What was ticked | The line | Buttons |
 |---|---|---|
-| A line with an amount | **In the Fridge · 2 L** | **Change** (the places, and "Different pack?" under them; cabledrawer 21 Oct: "“Different pack?” under Change is OK") · **Undo** |
+| A line with an amount | **In the Fridge · 2 L** | **Change** (the places, and "Different pack?" under them; cabledrawer 21 Oct: "“Different pack?” under Change is OK") (the **Undo** link was dropped in 0.8.0, cabledrawer 8 Nov: undo with the toast or by unticking) |
 | A line with no amount | **Not in the pantry yet. No amount.** (amber) | **Add amount** (opens "How much?") |
 | A staple | **Restocked · staples aren’t counted** | **Undo** |
 
 - Toasts when ticking: "Milk → Fridge" with Change and Undo (as before); a staple says **Salt restocked** (cabledrawer 20 Oct); a line with no amount says "Drumsticks ticked".
-- Screen-reader names for the buttons on the line (approved, cabledrawer 21 Oct): "Change where Milk went", "Undo ticking Milk", "Add amount for Drumsticks". The line itself is a group called "Where Milk went".
+- Screen-reader names for the buttons on the line (approved, cabledrawer 21 Oct): "Change where Milk went", "Add amount for Drumsticks" ("Undo ticking Milk" went with the Undo link in 0.8.0, cabledrawer 8 Nov). The line itself is a group called "Where Milk went".
 - Before the server has answered (offline), the line says where the tick will go, from the line's own amount and the ingredient's usual place. Once the server has answered, it says what really went in.
 - **The Put away panel (desktop; cabledrawer 20 Oct):** "Ticked items with an amount go straight into the pantry. Each ticked row says where it went." The last tick still shows beneath it with Where and Undo last tick; for a staple or a line with no amount there is no Where.
 
