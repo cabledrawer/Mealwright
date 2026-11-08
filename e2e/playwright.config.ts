@@ -1,6 +1,6 @@
 import { defineConfig, devices, type Project } from '@playwright/test';
 import { FIXED_MOMENT } from './tests/clock.ts';
-import { AUTH_FILE, PORTS, local } from './tests/servers.ts';
+import { AUTH_FILE, MAX_WORKERS, PORTS, local } from './tests/servers.ts';
 
 // Every test runs on one fixed date and time (tests/clock.ts). Worked out once, here in the
 // main process, so the servers (serve.mjs) and every worker get the same shift.
@@ -55,16 +55,28 @@ const streamOf = (name: string) =>
     : name.startsWith('phone') || name === 'screens phone-light' || name === 'slow phone'
       ? 'phone'
       : 'desktop';
+// Every project says which stream it is in (metadata), so ./check can count a listing's tests per stream
+// without knowing these rules (scripts/flaky.mjs --streams).
 const pick = (projects: Project[]) =>
-  wanted.length === 0 ? projects : projects.filter((p) => wanted.includes(streamOf(p.name ?? '')));
+  projects
+    .map((p) => ({ ...p, metadata: { ...p.metadata, stream: streamOf(p.name ?? '') } }))
+    .filter((p) => wanted.length === 0 || wanted.includes(p.metadata.stream));
+
+// E2E_WORKERS: the workers per stream, checked here once (T2c L3): a whole number from 1 to MAX_WORKERS (each
+// worker has its own server port, and a stream has ports for MAX_WORKERS), never a quiet fallback.
+const workersRaw = process.env.E2E_WORKERS;
+const workers = workersRaw === undefined || workersRaw === '' ? 1 : Number(workersRaw);
+if (!Number.isInteger(workers) || workers < 1 || workers > MAX_WORKERS) {
+  throw new Error(`E2E_WORKERS must be a whole number from 1 to ${MAX_WORKERS} (a stream has ports for ${MAX_WORKERS} workers), not "${workersRaw}".`);
+}
 
 export default defineConfig({
   testDir: './tests',
   // Saved screenshots: animations off, no blinking caret, and no pixels allowed to differ.
   expect: { toHaveScreenshot: { animations: 'disabled', caret: 'hide', maxDiffPixels: 0, threshold: 0 } },
   // Each worker runs its own Mealwright server (tests/clock.ts), so files can run side by side:
-  // E2E_WORKERS per stream (at most 6: a stream's ports run out after that).
-  workers: Number(process.env.E2E_WORKERS ?? 1),
+  // E2E_WORKERS per stream (at most 6: a stream's ports run out after that; checked above).
+  workers,
   // One more try for a test that fails (cabledrawer 30 Oct): one that then passes doesn't fail the
   // check, but ./check lists it as flaky in its summary and the PR, to fix in the next tidy-up.
   retries: 1,

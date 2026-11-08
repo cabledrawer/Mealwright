@@ -86,6 +86,12 @@
 #   CHECK_HISTORY_DIR           where the flaky-test history is kept (default: .check-history
 #                               in the main checkout)
 # Every run writes .check/load.log (the machine's load every 30 s).
+#
+# What it prints (T2c): a failed browser stream shows one line per failed test, the first error and the
+# log's path (a stream with no report shows the last 40 lines); a run shows the steps of 10 s or more and
+# the 5 slowest browser tests, the files keep all; .check/summary.md joins skipped steps with the same
+# note into one row, the full table is in .check/check.log. A worker's test server writes its log to a
+# file and a test that fails gets the end of it attached. ESLint keeps a cache in frontend/node_modules/.cache.
 
 set -uo pipefail
 
@@ -129,6 +135,8 @@ while IFS='=' read -r name value; do
   case "$name=$value" in
     E2E_APP_PORT=18080|CHECK_STOP_EARLY=1|CHECK_BROWSER_STREAMS=3|CHECK_LOCK_WAIT=1|CHECK_HISTORY_DIR=) continue ;;
   esac
+  # ./check sets E2E_WORKERS itself for every stream (CHECK_WORKERS_*): a value set in the shell does nothing.
+  [[ "$name" == E2E_WORKERS ]] && value="$value (ignored: use CHECK_WORKERS_DESKTOP, CHECK_WORKERS_PHONE, CHECK_WORKERS_WEBKIT)"
   SETTINGS+=("$name=$value")
 done < <(env | grep -E '^(CHECK_|E2E_)' | sort)
 NOT_VALID_WHY=()
@@ -829,13 +837,28 @@ browser_install() {
 # Both run only browser tests, on the current commit, after the same web build as the full check
 # (the web app is built first, from this commit). Neither is valid for a pull request.
 
-# Which streams have a test among the chosen ones: stream_test_count <projects> <playwright args...>
+# Which streams have a test among the chosen ones (T2c L4): ONE Playwright listing of the chosen
+# files (loading the config takes seconds), counted per stream by each project's metadata.stream
+# (playwright.config.ts). stream_listing <playwright args...> fills STREAM_COUNTS (stream -> tests) and
+# fails with the listing's last lines in STREAM_LISTING_ERR when the listing itself broke (a config or
+# spec error), which must fail, never read as "no test here" (T2a review L3).
+declare -A STREAM_COUNTS=()
+STREAM_LISTING_ERR=""
+stream_listing() {
+  local json="$RUN_TMP/listing.json" out stream count
+  STREAM_COUNTS=() STREAM_LISTING_ERR=""
+  rm -f "$json"
+  if ! out="$(cd "$ROOT/e2e" && env -u E2E_PROJECTS PLAYWRIGHT_JSON_OUTPUT_FILE="$json" npx playwright test --list --reporter=json "$@" 2>&1 >/dev/null)" || [[ ! -s "$json" ]]; then
+    STREAM_LISTING_ERR="$(printf '%s\n' "$out" | tail -n 5)"; return 1
+  fi
+  if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --streams "$json" 2>&1)"; then STREAM_LISTING_ERR="$out"; return 1; fi
+  while IFS=$'\t' read -r stream count; do [[ -z "$stream" ]] || STREAM_COUNTS[$stream]=$count; done <<<"$out"
+}
+# stream_test_count <projects, comma-separated>: the tests of those streams in the last listing.
 stream_test_count() {
-  local out projects="$1"; shift
-  out="$(cd "$ROOT/e2e" && E2E_PROJECTS="$projects" npx playwright test --list "$@" 2>&1)"
-  # "Total: N tests" is printed even when no test matches; without it, the listing itself broke
-  # (a config or spec error), which must fail, never read as "no test here" (T2a review L3).
-  if [[ "$out" =~ Total:\ ([0-9]+)\ test ]]; then echo "${BASH_REMATCH[1]}"; else printf '%s\n' "$out" | tail -n 5; return 1; fi
+  local p n=0
+  for p in ${1//,/ }; do n=$((n + ${STREAM_COUNTS[$p]:-0})); done
+  echo "$n"
 }
 regex_escape() { sed 's/[][\\.*+?^$(){}|\/]/\\&/g' <<<"$1"; }
 
@@ -877,7 +900,7 @@ frontend_changed() {
 
 MODE_BANNER=""   # set by the modes that aren't a full run
 targeted_run() {
-  local b label projects offset keep=() n
+  local b label projects offset keep=() n f
   if [[ ! -f "$ROOT/e2e/package.json" || ! -f "$ROOT/frontend/package.json" ]]; then
     record "browser tests" FAIL "no e2e or frontend folder" "-"; return
   fi
@@ -903,18 +926,21 @@ targeted_run() {
   browser_install
   if [[ "$MODE" == files ]]; then
     # Only the streams that have a test among the files (a phone-only file has none on desktop).
+    local listed=1 lfiles=()
+    for f in "${SPEC_FILES[@]}"; do lfiles+=("/$(regex_escape "$f")\$"); done
+    stream_listing "${lfiles[@]}" || listed=0
     for b in "${STREAM_DEFS[@]}"; do
       IFS=: read -r label projects offset <<<"$b"
       if [[ "$(result_of "browser: install")" != PASS || "$(result_of "frontend: build")" != PASS ]]; then keep+=("$b"); continue; fi
       if ((UPDATE_SNAPSHOTS)) && [[ -z "$(snapshot_project "$label")" ]]; then
         skip "browser: $label" "no screenshots to save on this stream"; continue
       fi
-      mapfile -t sargs < <(stream_args "$label")
-      if ! n="$(stream_test_count "$projects" "${sargs[@]}")"; then
+      if ((!listed)); then
         record "browser: $label" FAIL "Playwright couldn't list the tests: see .check/check.log" "-"
-        show "$(printf '%-28s %s' "browser: $label" "FAIL (Playwright couldn't list the tests)")" "$(sed 's/^/    /' <<<"$n")"
+        show "$(printf '%-28s %s' "browser: $label" "FAIL (Playwright couldn't list the tests)")" "$(sed 's/^/    /' <<<"$STREAM_LISTING_ERR")"
         continue
       fi
+      n="$(stream_test_count "$projects")"
       if ((n)); then keep+=("$b"); else skip "browser: $label" "none of these files has a test on this stream"; fi
     done
     STREAM_DEFS=("${keep[@]}")
@@ -1105,7 +1131,10 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   # sync` (the generated files in .svelte-kit) runs first, on its own, so the later syncs
   # (svelte-check's and the unit tests') find them up to date and write nothing.
   step "frontend: sync"          sh -c 'cd frontend && npx svelte-kit sync'
-  start_beside "frontend: lint" "ran beside the unit tests" sh -c 'cd frontend && npm run lint'
+  # `npm run lint` is "prettier --check . && eslint ." (e2e/scripts/check-lint.test.mjs fails if it changes);
+  # here ESLint keeps a cache in node_modules/.cache (git-ignored, gone with a new install), so a run that
+  # changed little re-lints only what changed (T2c L7). Same rules, same result.
+  start_beside "frontend: lint" "ran beside the unit tests (ESLint cache)" sh -c 'cd frontend && npx prettier --check . && npx eslint --cache --cache-location node_modules/.cache/eslint/ .'
   start_beside "frontend: svelte-check" "ran beside the unit tests" sh -c 'cd frontend && npm run check'
   # The unit tests run in headless Chromium, so install it first (a quick no-op once
   # it is there). `npm test` itself no longer installs it.

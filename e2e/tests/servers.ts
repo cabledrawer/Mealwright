@@ -1,5 +1,6 @@
 // The three Mealwright servers the browser tests use (started by serve.mjs).
-//   main:   only what Playwright waits for at start-up; no test uses it. Each worker starts its own
+//   main:   only what Playwright waits for at start-up; no browser test uses it (e2e/review/screens.ts --serve
+//           does: it starts serve.mjs and signs in on this port). Kept for that. Each worker starts its own
 //           server instead (tests/clock.ts), set up with the admin "tess", plain http:// allowed.
 //   fresh:  never set up, for the first-run setup test.
 //   strict: plain http:// not allowed, as in a real install behind HTTPS.

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +43,8 @@ export type WorkerServer = {
   /** The same server by a name that isn't localhost (plain http://, as a real install without HTTPS). */
   insecureUrl: string;
   storageState: Awaited<ReturnType<Awaited<ReturnType<typeof request.newContext>>['storageState']>>;
+  /** Where this worker's server writes its log (T2c L10): attached to a test that fails, never printed otherwise. */
+  logFile: string;
 };
 
 const BACKEND = fileURLToPath(new URL('../../backend', import.meta.url));
@@ -66,7 +68,8 @@ async function waitUntilPortFree(port: number) {
 }
 
 async function waitUntilUp(port: number, child: ChildProcess) {
-  for (let i = 0; i < 1200; i++) {
+  const deadline = Date.now() + 120_000; // the 120 s the message below says (the fixture's own timeout is 150 s)
+  while (Date.now() < deadline) {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`The worker's Mealwright server on port ${port} stopped while starting (${child.exitCode ?? child.signalCode}).`);
     }
@@ -97,6 +100,10 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
       const scratch = mkdtempSync(join(tmpdir(), `mealwright-e2e-w${workerInfo.parallelIndex}-`));
       const dataDir = join(scratch, 'data');
       mkdirSync(dataDir);
+      // The server's own output goes to a file, not into the test output (T2c L10): it would otherwise
+      // sit in the list output and the JSON report of whichever test was running.
+      const logFile = join(scratch, 'server.log');
+      const log = openSync(logFile, 'a');
       await waitUntilPortFree(port);
       // Started through a small shell that stops the server when this worker is gone, even when the
       // worker is killed outright (SIGKILL, so no exit hook runs): it checks every second.
@@ -107,7 +114,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
         'kill "$server" 2>/dev/null; wait "$server"',
       ].join('\n');
       const child = spawn('sh', ['-c', watch, 'sh', String(process.pid), BACKEND, join(BACKEND, 'scripts/e2e_server.py')], {
-        stdio: 'inherit',
+        stdio: ['ignore', log, log],
         detached: true, // its own process group: stopping the group stops the shell and the server
         env: {
           ...process.env,
@@ -118,6 +125,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
           MEALWRIGHT_ALLOW_PLAIN_HTTP: 'true',
         },
       });
+      closeSync(log); // the child has its own copy
       const signalGroup = (signal: NodeJS.Signals) => {
         try {
           process.kill(-child.pid!, signal);
@@ -138,7 +146,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
         }
         const storageState = await api.storageState();
         await api.dispose();
-        await use({ port, url: local(port), insecureUrl: insecure(port), storageState });
+        await use({ port, url: local(port), insecureUrl: insecure(port), storageState, logFile });
       } finally {
         process.off('exit', stopServer);
         if (child.exitCode === null && child.signalCode === null) {
@@ -159,7 +167,20 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
   // The main server's address (the config's default) and the saved sign-in become the worker's.
   // Anything else a test or project sets (the first-run server, no sign-in, the screenshots
   // sign-in) stays as it is.
-  baseURL: async ({ baseURL, workerServer }, use) => use(baseURL === local(PORTS.main) ? workerServer.url : baseURL),
+  // A test that fails gets the end of its worker's server log as an attachment ("server-log": the list
+  // reporter names it under that test's error), so the log is found when it is needed and costs nothing else.
+  baseURL: async ({ baseURL, workerServer }, use, testInfo) => {
+    const mine = baseURL === local(PORTS.main);
+    await use(mine ? workerServer.url : baseURL);
+    if (mine && testInfo.status !== testInfo.expectedStatus && testInfo.status !== 'skipped') {
+      try {
+        const tail = readFileSync(workerServer.logFile, 'utf8').split('\n').slice(-200).join('\n');
+        await testInfo.attach('server-log', { body: tail, contentType: 'text/plain' });
+      } catch {
+        // no log to attach
+      }
+    }
+  },
   storageState: async ({ storageState, workerServer }, use) =>
     use(storageState === AUTH_FILE ? workerServer.storageState : storageState),
 

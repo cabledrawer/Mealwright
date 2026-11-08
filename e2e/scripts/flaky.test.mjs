@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { failedTests, flakyTests, incompleteReason, judge, keyOf, rerunSelection } from './flaky-lib.mjs';
+import { failedTests, flakyTests, incompleteReason, judge, keyOf, rerunSelection, streamCounts } from './flaky-lib.mjs';
 
 const script = fileURLToPath(new URL('./flaky.mjs', import.meta.url));
 
@@ -120,6 +120,30 @@ test('flaky.mjs fails on a missing or broken report, never "no flaky tests"', ()
       assert.notEqual(result.status, 0, path);
       assert.equal(result.stdout, '');
     }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a listing is counted per stream by each project\'s metadata, in one go (T2c L4)', () => {
+  const listing = report([['phone 0.6 plan', 'a', 'x'], ['desktop 0.6 plan', 'b', 'x'], ['desktop 0.6 plan', 'c', 'x'], ['webkit 0.6 plan', 'd', 'x']]);
+  listing.config = {
+    projects: [
+      { name: 'phone 0.6 plan', metadata: { stream: 'phone' } },
+      { name: 'desktop 0.6 plan', metadata: { stream: 'desktop' } },
+      { name: 'webkit 0.6 plan', metadata: { stream: 'webkit' } },
+    ],
+  };
+  assert.deepEqual(streamCounts(listing), { phone: 1, desktop: 2, webkit: 1 });
+  const dir = mkdtempSync(join(tmpdir(), 'flaky-test-'));
+  try {
+    const file = join(dir, 'listing.json');
+    writeFileSync(file, JSON.stringify(listing));
+    const out = execFileSync('node', [script, '--streams', file], { encoding: 'utf8' });
+    assert.deepEqual(out.trim().split('\n').sort(), ['desktop\t2', 'phone\t1', 'webkit\t1']);
+    listing.config.projects[0].metadata = {};
+    writeFileSync(file, JSON.stringify(listing));
+    assert.notEqual(spawnSync('node', [script, '--streams', file]).status, 0, 'a project without a stream is an error, never "no test"');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

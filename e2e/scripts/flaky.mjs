@@ -10,10 +10,12 @@
 //                                                   the end, else 1 and the reason on stderr
 //   node scripts/flaky.mjs --rerun <report.json>    what to run again for its failed tests (see rerunSelection)
 //   node scripts/flaky.mjs --failed <report.json>...  "project<TAB>file<TAB>title › title" per failed test
+//   node scripts/flaky.mjs --streams <listing.json>  "stream<TAB>count" for each stream that has a test, from
+//                                                   `playwright test --list --reporter=json` (one listing for all)
 // Any error (a missing or broken report) exits with an error: ./check records that as a failure,
 // never as "no flaky tests".
 import { existsSync, readFileSync } from 'node:fs';
-import { failedTests, flakyTests, incompleteReason, judge, keyOf, readReport, rerunSelection } from './flaky-lib.mjs';
+import { failedTests, flakyTests, incompleteReason, judge, keyOf, readReport, rerunSelection, streamCounts } from './flaky-lib.mjs';
 
 const args = process.argv.slice(2);
 const mode = args[0]?.startsWith('--') ? args.shift() : '';
@@ -67,6 +69,8 @@ try {
     for (const path of args) {
       for (const t of failedTests(readReport(path))) console.log(`${t.project}\t${t.file}\t${t.titles.join(' › ')}`);
     }
+  } else if (mode === '--streams') {
+    for (const [stream, count] of Object.entries(streamCounts(readReport(args[0])))) console.log(`${stream}\t${count}`);
   } else {
     throw new Error(`Unknown option ${mode}`);
   }

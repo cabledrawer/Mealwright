@@ -82,3 +82,20 @@ export function rerunSelection(report) {
     grep: `^\\s*(?:${grep})$`,
   };
 }
+
+/** How many tests each stream (desktop, phone, webkit) has in a `playwright test --list --reporter=json`
+ *  listing: { desktop: 3, ... }. The stream of a project is its metadata.stream (playwright.config.ts). */
+export function streamCounts(listing) {
+  const streamOf = new Map();
+  for (const p of listing.config?.projects ?? []) {
+    if (!p.metadata?.stream) throw new Error(`project "${p.name}" has no metadata.stream: playwright.config.ts gives every project one`);
+    streamOf.set(p.name, p.metadata.stream);
+  }
+  const counts = {};
+  for (const t of tests(listing)) {
+    const stream = streamOf.get(t.project);
+    if (!stream) throw new Error(`a test in project "${t.project}", which the listing's config doesn't have`);
+    counts[stream] = (counts[stream] ?? 0) + 1;
+  }
+  return counts;
+}
