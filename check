@@ -73,9 +73,11 @@
 #   CHECK_GLOBAL_TIMEOUT_MIN    Playwright's own time limit for a browser stream (default: the
 #                               CHECK_LIMIT_BROWSER minutes; the watchdog comes 30 s after it)
 #   CHECK_PYTEST_WORKERS (4), CHECK_PYTEST_WORKERS_BESIDE (2)
-#                               backend test workers: alone (fast), and beside the browser tests
+#                               backend test workers: alone (fast, or first), and beside the browser tests
+#   CHECK_PYTEST_FIRST=1        full run: the backend tests run on their own, before the browser
+#                               tests, with CHECK_PYTEST_WORKERS (default: beside the browser tests)
 #   CHECK_BROWSER_STREAMS=2     phone and WebKit as one stream
-#   CHECK_WORKERS_DESKTOP (4), CHECK_WORKERS_PHONE (3), CHECK_WORKERS_WEBKIT (2)
+#   CHECK_WORKERS_DESKTOP (3), CHECK_WORKERS_PHONE (2), CHECK_WORKERS_WEBKIT (2)
 #                               Playwright workers per browser stream (1 to 6), each with its own
 #                               test server; the counts are in each browser step's note
 # The summary's "Settings:" line lists every CHECK_* and E2E_* value set for the run. A full run with
@@ -775,12 +777,12 @@ run_browser_streams() {
 
 e2e_port="${E2E_APP_PORT:-18080}"
 # stream_workers <label>: how many workers each browser stream runs (cabledrawer 8 Nov, T2b): every
-# worker has its own test server (e2e/tests/clock.ts). Desktop 4, phone 3, WebKit 2 (WebKit is the
-# heaviest per browser); CHECK_WORKERS_DESKTOP, CHECK_WORKERS_PHONE and CHECK_WORKERS_WEBKIT change
+# worker has its own test server (e2e/tests/clock.ts). Desktop 3, phone 2, WebKit 2 (cabledrawer 8 Nov,
+# after 4/3/2 ran the load to 35 on 12 cores and timing tests failed); CHECK_WORKERS_DESKTOP, CHECK_WORKERS_PHONE and CHECK_WORKERS_WEBKIT change
 # them (1 to 6: a stream has ports for six). When phone and WebKit share a stream
 # (CHECK_BROWSER_STREAMS=2), the smaller of the two.
 stream_workers() {
-  local d="${CHECK_WORKERS_DESKTOP:-4}" p="${CHECK_WORKERS_PHONE:-3}" w="${CHECK_WORKERS_WEBKIT:-2}" n
+  local d="${CHECK_WORKERS_DESKTOP:-3}" p="${CHECK_WORKERS_PHONE:-2}" w="${CHECK_WORKERS_WEBKIT:-2}" n
   case "$1" in
     desktop) n=$d ;;
     phone) n=$p ;;
@@ -1101,7 +1103,9 @@ if need uv; then
   if [[ -f "$ROOT/e2e/scripts/test-map.mjs" ]] && need node; then
     step "tests: map"            sh -c 'cd e2e && node scripts/test-map.mjs validate'
   fi
-  if ((FAST)) || [[ ! -f "$ROOT/e2e/package.json" ]]; then
+  # CHECK_PYTEST_FIRST=1 (cabledrawer 8 Nov, T2c): in a full run too, on their own before the browser
+  # tests, with CHECK_PYTEST_WORKERS, to compare the time and load with running them beside.
+  if ((FAST)) || [[ "${CHECK_PYTEST_FIRST:-0}" == 1 ]] || [[ ! -f "$ROOT/e2e/package.json" ]]; then
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS:-4}")"
     chosen=()
     if ((FAST)); then choose_fast_tests; fi
@@ -1110,6 +1114,7 @@ if need uv; then
     else
       step "backend: pytest"     backend env TMPDIR="$RUN_TMP" uv run --frozen pytest -q "${workers[@]}" --durations=25 "${chosen[@]}"
       if ((FAST)) && [[ "$FAST_CHOICE" == some ]]; then notes[-1]="${#chosen[@]} test files chosen by what changed"; fi
+      if ((!FAST)) && [[ "${CHECK_PYTEST_FIRST:-0}" == 1 && -z "${notes[-1]}" ]]; then notes[-1]="ran first, on its own (${CHECK_PYTEST_WORKERS:-4} workers)"; fi
     fi
   else
     read -ra workers <<<"$(pytest_workers "${CHECK_PYTEST_WORKERS_BESIDE:-2}")"
