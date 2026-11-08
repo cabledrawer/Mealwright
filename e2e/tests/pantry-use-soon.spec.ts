@@ -119,12 +119,17 @@ test("a passed Use by is red and says don’t eat; a passed Best before is grey 
   await expect(useBy).toContainText("Use by passed: don’t eat");
   await expect(useBy).toContainText("Passed 3 days ago");
   await expect(useBy).not.toContainText("probably fine");
-  // Binned first, and no To freezer for a packet that is past its Use by.
+  // Binned first, then Used…, and To freezer shown but greyed out with its note (cabledrawer 7 Nov,
+  // option D): a packet past its Use by can't be frozen.
   const buttons = await useBy.getByRole("button").allTextContents();
   const actions = buttons.filter((b) =>
     ["Binned", "Used…", "To freezer"].includes(b.trim()),
   );
-  expect(actions).toEqual(["Binned", "Used…"]);
+  expect(actions).toEqual(["Binned", "Used…", "To freezer"]);
+  await expect(useBy.getByRole("button", { name: "To freezer" })).toBeDisabled();
+  await expect(useBy).toContainText(
+    "Too late to freeze: the use by date has passed.",
+  );
 
   const bestBefore = soonRow(page, dal.name);
   await expect(bestBefore).toContainText("Best before passed · probably fine");

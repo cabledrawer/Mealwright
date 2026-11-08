@@ -406,7 +406,7 @@
   .ago {
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
-    opacity: 0.9;
+    /* No opacity: it took the muted text under 4.5:1 on the grey chip (axe, 8 Nov). */
   }
 
   .pill {

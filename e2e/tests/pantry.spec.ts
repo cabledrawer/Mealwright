@@ -328,6 +328,9 @@ test("F101: + Place in Add to pantry can be cancelled, and a name the household 
 test("Ctrl+Z undoes a pantry change on desktop", async ({ page }) => {
   test.skip(isPhone(page), "Ctrl+Z is a desktop keyboard shortcut");
   const food = await stocked(page, "Coriander", 0);
+  // Use soon holds only Use by packets (S5), and the bundled table says coriander is best
+  // before: make this one Use by so it has a Binned button in the strip.
+  await api(page, "PATCH", `/foods/${food.id}`, { date_kind: "use_by" });
   await page.goto("/pantry");
   const side = page.getByRole("complementary", { name: /Use soon/ });
   await side
