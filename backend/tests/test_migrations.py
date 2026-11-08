@@ -1357,3 +1357,61 @@ def test_stocktake_migration_adds_two_empty_tables_and_goes_back_and_forward(
         for table in tables:
             assert connection.exec_driver_sql(f"SELECT count(*) FROM {table}").scalar_one() == 0  # noqa: S608
     assert _row_counts(engine, skip) == before
+
+
+STOCKTAKE_MIGRATION = "c7e2f4a9b816"  # the one just before places and shops stopped reusing ids
+
+
+def test_place_and_shop_ids_migration_keeps_rows_and_never_reuses_an_id(tmp_path: Path) -> None:
+    """0.8 release (security finding M1): `place` and `shop` are rebuilt with "never reuse an
+    id": every row, id, index and link stays, a removed top id is not handed out again, and
+    going back rebuilds them without it."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    migrate.downgrade(engine, STOCKTAKE_MIGRATION)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO shop (household_id, name, position, created_at)"
+            " VALUES (1, 'Corner shop', 0, '2026-11-01')"
+        )
+        shop_id = connection.exec_driver_sql("SELECT max(id) FROM shop").scalar_one()
+        connection.exec_driver_sql("UPDATE food SET shop_id = ? WHERE id = 1", (shop_id,))
+    skip = {*STOCKTAKE_TABLES, "alembic_version"}
+    before = _row_counts(engine, skip)
+
+    def rows() -> dict[str, list[tuple[object, ...]]]:
+        with engine.connect() as connection:
+            return {
+                table: [
+                    tuple(r)
+                    for r in connection.exec_driver_sql(f"SELECT * FROM {table} ORDER BY id")  # noqa: S608
+                ]
+                for table in ("place", "shop")
+            }
+
+    held = rows()
+    assert "AUTOINCREMENT" not in _table_sql(engine, "place")
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    for table in ("place", "shop"):
+        assert "AUTOINCREMENT" in _table_sql(engine, table)
+        assert {i["name"] for i in inspect(engine).get_indexes(table)} == {
+            f"ix_{table}_household_id"
+        }
+    assert rows() == held
+    assert _row_counts(engine, skip) == before
+    with engine.begin() as connection:
+        assert (
+            connection.exec_driver_sql("SELECT shop_id FROM food WHERE id = 1").scalar_one()
+            == shop_id
+        )
+        connection.exec_driver_sql("DELETE FROM food WHERE shop_id = ?", (shop_id,))
+        connection.exec_driver_sql("DELETE FROM shop WHERE id = ?", (shop_id,))
+        connection.exec_driver_sql(
+            "INSERT INTO shop (household_id, name, position, created_at)"
+            " VALUES (1, 'Next shop', 0, '2026-11-02')"
+        )
+        assert connection.exec_driver_sql("SELECT max(id) FROM shop").scalar_one() > shop_id
+    migrate.downgrade(engine, STOCKTAKE_MIGRATION)
+    for table in ("place", "shop"):
+        assert "AUTOINCREMENT" not in _table_sql(engine, table)

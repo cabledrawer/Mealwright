@@ -178,6 +178,7 @@ class Place(Base):
     renaming a place never breaks them."""
 
     __tablename__ = "place"
+    __table_args__ = ({"sqlite_autoincrement": True},)  # a removed id is never handed out again
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(
@@ -199,6 +200,7 @@ DEFAULT_PLACES = (
 
 class Shop(Base):
     __tablename__ = "shop"
+    __table_args__ = ({"sqlite_autoincrement": True},)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(

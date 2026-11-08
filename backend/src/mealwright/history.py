@@ -42,8 +42,10 @@ from mealwright.models import (
     ListNote,
     ListTick,
     MealItem,
+    Place,
     Recipe,
     RecipeLine,
+    Shop,
     ShoppingList,
     StockLot,
     SyncAction,
@@ -148,12 +150,12 @@ KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved")
 NOTE_KINDS = ("food_back",)
 
 
-def can_undo(kitchen: Kitchen, change: Change) -> bool:
-    return (
 # Changes only the household's admin can undo, as only an admin can make them (meal slots).
 ADMIN_ONLY_KINDS = ("plan_slot",)
 
 
+def can_undo(kitchen: Kitchen, change: Change) -> bool:
+    return (
         (change.kind not in ADMIN_ONLY_KINDS or kitchen.login.role == "admin")
         and change.kind != "undo"
         and change.kind not in KEY_ONLY_KINDS
@@ -499,6 +501,14 @@ def _restore_field(kitchen: Kitchen, key: str, value: Any) -> bool:
         return False
     if name in RESTOCK_FIELDS and value is not None:
         value = datetime.fromisoformat(value)
+    if name in ("place_id", "shop_id") and value is not None:
+        # A place or shop id from the record may be gone, or (ids once were reused) another
+        # household's: it goes back as none, never as someone else's.
+        row: Place | Shop | None = (
+            kitchen.db.get(Place, value) if name == "place_id" else kitchen.db.get(Shop, value)
+        )
+        if row is None or row.household_id != kitchen.household_id:
+            value = None
     setattr(food, name, value)
     return True
 

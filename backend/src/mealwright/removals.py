@@ -217,13 +217,20 @@ def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
     if data is None:
         return
     db = kitchen.db
-    model = Shop if change.kind == "shop_removed" else Place
-    if db.get(model, data["id"]) is not None:
+    model: type[Shop] | type[Place] = Shop if change.kind == "shop_removed" else Place
+    taken: Place | Shop | None = (
+        db.get(Shop, data["id"]) if model is Shop else db.get(Place, data["id"])
+    )
+    if taken is not None:
+        # Another household's row on that id (ids once were reused) is not told about.
+        mine = taken.household_id == kitchen.household_id
         raise Problem(
             status.HTTP_409_CONFLICT,
             "cannot_undo",
             "That can’t be undone: a newer "
-            f"{'shop' if model is Shop else 'place'} has taken its place.",  # proposed
+            f"{'shop' if model is Shop else 'place'} has taken its place."  # proposed
+            if mine
+            else "That can’t be undone.",
         )
     if model is Shop:
         db.add(

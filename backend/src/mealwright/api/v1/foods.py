@@ -321,18 +321,24 @@ def names_by_food(kitchen: Kitchen) -> dict[int, list[str]]:
 # --- Describing -----------------------------------------------------------------------------
 
 
+def _mine[T: (Place, Shop)](kitchen: Kitchen, model: type[T], row_id: int | None) -> T | None:
+    """This household's place or shop, else None (never another household's)."""
+    row = kitchen.db.get(model, row_id) if row_id is not None else None
+    return row if row is not None and row.household_id == kitchen.household_id else None
+
+
 def _place_ref(kitchen: Kitchen, place_id: int | None) -> Ref | None:
-    place = kitchen.db.get(Place, place_id) if place_id is not None else None
+    place = _mine(kitchen, Place, place_id)
     return Ref(id=place.id, name=place.name) if place is not None else None
 
 
 def _place_kind(kitchen: Kitchen, place_id: int | None) -> str | None:
-    place = kitchen.db.get(Place, place_id) if place_id is not None else None
+    place = _mine(kitchen, Place, place_id)
     return place.kind if place is not None else None
 
 
 def _shop_ref(kitchen: Kitchen, shop_id: int | None) -> Ref | None:
-    shop = kitchen.db.get(Shop, shop_id) if shop_id is not None else None
+    shop = _mine(kitchen, Shop, shop_id)
     return Ref(id=shop.id, name=shop.name) if shop is not None else None
 
 

@@ -164,7 +164,7 @@ def default_place(kitchen: Kitchen, food: Food) -> Place:
     """The food's usual place, or Cupboard (spec section 6, "Decided for 0.3")."""
     if food.place_id is not None:
         place = kitchen.db.get(Place, food.place_id)
-        if place is not None:
+        if place is not None and place.household_id == kitchen.household_id:
             return place
     place = first_place(kitchen, "cupboard")
     if place is None:  # pragma: no cover (every household has a cupboard)

@@ -128,6 +128,8 @@ def _early_tubs(
         select(Tub).where(Tub.household_id == kitchen.household_id, Tub.batch_id.in_(batch_ids))
     ):
         place = kitchen.db.get(Place, tub.place_id) if tub.place_id else None
+        if place is not None and place.household_id != kitchen.household_id:
+            place = None
         kind = place.kind if place is not None and place.kind == "freezer" else "fridge"
         if tub.use_by == tub_use_by(kitchen, kind, meal.day):
             new_use_by = tub_use_by(kitchen, kind, cooked_on)
