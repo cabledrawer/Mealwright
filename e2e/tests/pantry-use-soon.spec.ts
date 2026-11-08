@@ -279,7 +279,9 @@ test("a tub that is soon shows in Use soon on both screens, even with nothing el
   const name = `Soon tub ${stamp()}`;
   const recipe = (await api(page, "POST", "/recipes", { name })).id as number;
   const meal = await api(page, "POST", "/plan/items", {
-    date: addDays(base, 7 * 84),
+    // A tub's use-by can't be before its cook day, so cook it tomorrow and keep that as its
+    // use-by (tubs left, in no meal, so no other test's plan is touched).
+    date: addDays(base, 1),
     slot_id: dinner,
     recipe_id: recipe,
   });
