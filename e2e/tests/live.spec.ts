@@ -61,9 +61,10 @@ test('a second window sees a tick live', async ({ page, context }) => {
   await expect(other.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
 
   // Ticking in one window takes the item off the "to buy" part of the other, with no reload
-  // (it moves into the folded "In the trolley").
+  // (it moves into "In the trolley": folded on a phone, a panel on the computer, where its
+  // "Untick …" would also match a name that isn't exact).
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
-  await expect(other.getByRole('checkbox', { name: `Tick ${name}` })).toHaveCount(0, {
+  await expect(other.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(0, {
     timeout: 10_000,
   });
   await other.close();

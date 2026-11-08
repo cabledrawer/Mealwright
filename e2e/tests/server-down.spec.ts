@@ -372,7 +372,8 @@ test('Shopping: a tick’s Undo still works while the server is down (it is queu
   for (let n = 0; n < 12; n++) await page.clock.runFor(1000);
   await expect(bar(page)).toBeVisible();
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
-  await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toHaveCount(0);
+  // Exact: on the computer the trolley panel's "Untick …" is on screen too.
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(0);
   await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
 });
