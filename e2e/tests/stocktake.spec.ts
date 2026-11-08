@@ -389,6 +389,15 @@ test("Stop, carry on later reopens at the first place not finished, also on a se
     page.getByRole("button", { name: `← ${first.name}` }),
   ).toBeVisible();
 
+  // The server has the first place as finished (Next saves a moment after the screen moves on).
+  await expect
+    .poll(async () => {
+      const all = (await get(page, "/stocktake")) as {
+        places: { id: number; finished: boolean }[];
+      };
+      return all.places.find((p) => p.id === first.id)?.finished;
+    })
+    .toBe(true);
   // Stop: leave. Opening Stocktake again goes to the first place not finished: the second.
   await page.getByRole("link", { name: "Stop, carry on later" }).click();
   await expect(page).toHaveURL(/\/pantry$/);
