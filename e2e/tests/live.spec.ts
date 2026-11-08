@@ -219,7 +219,13 @@ test.describe('the connection bar', () => {
   }) => {
     await open(page, '/shopping');
     await context.setOffline(true);
-    await expect(bar(page)).toBeVisible({ timeout: 10_000 });
+    // The bar waits 3 s of the page's time before it shows (so a blip shows nothing): the page's
+    // clock jumps those seconds instead of the test waiting them. What the bar says and looks
+    // like is what is checked here, not its timing (the tests above check that).
+    await expect(async () => {
+      await page.clock.runFor(1000);
+      await expect(bar(page)).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 10_000 });
     await checkPage(page); // both themes
     // 44 px targets are checked by checkPage on the phone; on desktop check Try now itself.
     const box = await bar(page).getByRole('button', { name: 'Try now' }).boundingBox();
