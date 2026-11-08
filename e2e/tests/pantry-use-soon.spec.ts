@@ -257,8 +257,10 @@ test("tubs left show on the Pantry page in their place, with their use-by", asyn
   const dinner = slots.find((s) => s.name === "Dinner")!.id;
   const name = `Tub rice ${stamp()}`;
   const recipe = (await api(page, "POST", "/recipes", { name })).id as number;
-  // Weeks 80 and on belong to no other test's plan.
-  const day = addDays(base, 7 * 82);
+  // The Monday 730 days ahead (the plan allows 731): plan.spec, plan-cook-once, plan-views,
+  // plan-cards, plan-month and plan-portions use the weeks up to week 104's Sunday (day 729), and
+  // weeks start on Monday, so no other test shows this week (week 82 was plan-cards' own).
+  const day = addDays(base, 730);
   const meal = await api(page, "POST", "/plan/items", {
     date: day,
     slot_id: dinner,
