@@ -633,7 +633,7 @@ stopped_reason() {
     done
   done
   if ! out="$(cd "$ROOT/e2e" && node scripts/flaky.mjs --complete "${CHECK_MAX_FAILURES:-20}" "$@" 2>&1)"; then
-    out="${out#*: }"; echo "${out%%$'\n'*}"
+    out="${out#*: }"; out="${out%%$'\n'*}"; sed 's/\x1b\[[0-9;]*m//g' <<<"$out"
   fi
 }
 save_last_run() {
