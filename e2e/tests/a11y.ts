@@ -259,6 +259,12 @@ export type CheckOptions = AxeOptions & {
  */
 export async function checkPage(page: Page, options: CheckOptions = {}) {
   const where = new URL(page.url()).pathname;
+  // Every scan starts at the top of the page (cabledrawer 8 Nov). Left where the last click
+  // scrolled it, the phone's fixed page header covers whichever row is under it, and axe calls
+  // that row's buttons partly covered (settings.spec.ts:150 in full check 3; 17 scans on the
+  // phone were at such a scroll). axe still checks the whole page, scrolled or not.
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   for (const theme of options.themes ?? THEMES) {
     await inTheme(page, theme);
     await expectNoAxeViolations(page, `${where}, ${isPhone(page) ? 'phone' : 'desktop'}, ${theme}`, options);
