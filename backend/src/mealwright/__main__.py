@@ -12,6 +12,14 @@ from mealwright.main import UnsupportedSetup, create_app
 
 GRACEFUL_SECONDS = 5
 
+# How long an idle connection stays open for its next request. uvicorn's default is 5 s.
+# A reverse proxy keeps its own idle connections to us open for longer (Caddy 2 min, Traefik
+# 90 s, nginx 60 s) and reuses them. If we close one first, a request the proxy sends on it
+# at that moment fails ("socket hang up" / "connection reset"). A proxy must never reuse a
+# connection we have already closed, so we wait a little longer than the longest of those
+# defaults.
+KEEP_ALIVE_SECONDS = 130
+
 
 class StoppableServer(uvicorn.Server):
     """uvicorn waits for open connections before it runs the app's shutdown, and a live
@@ -51,6 +59,8 @@ def main() -> None:
         log_config=None,
         # Backstop: after this many seconds anything still open is cut off.
         timeout_graceful_shutdown=GRACEFUL_SECONDS,
+        # Idle connections outlive a reverse proxy's (see KEEP_ALIVE_SECONDS).
+        timeout_keep_alive=KEEP_ALIVE_SECONDS,
     )
     StoppableServer(config, app.state.events).run()
 

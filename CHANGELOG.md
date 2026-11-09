@@ -4,6 +4,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Fixed
+
+- **A request no longer fails now and then with "socket hang up" after a few idle seconds (F130, cabledrawer 9 Nov).** The server closed a connection after 5 idle seconds, while a reverse proxy in front of it (Caddy keeps them for 2 minutes) or the browser tests could send the next request on it at that very moment. The server now keeps idle connections open for 130 seconds, a little longer than common proxies keep them by default, so a proxy on its default settings never reuses one the server has already closed.
+
 ## [0.8.0-alpha.2] - 2026-11-08
 
 The second 0.8.0 test version: wave 3, shopping and the pantry. Settings gets its section list, Meal slots, Shops & places and all Recent changes; ingredients get pack sizes, where to buy them and starter packs; Shopping gets Plan shopping on the computer and a reworked phone screen for the shop; the Pantry gets Use soon, Use by and Best before, tubs and a Stocktake; and Undo of an added ingredient keeps the ones already in use. **Before you install it: back up your data.** This version changes the database (one new column on ingredients, `food.date_kind`, and two new tables for the stocktake, `stocktake_place` and `stocktake_entry`; the places and shops tables are rebuilt with all their rows, see Security), and the old version can't read a database the new one has changed. The steps are the same as before (`docs/dev/test-on-homelab.md`, section 4.1): stop the app, make a dated copy of the `data` folder in `backups/` with the old version's number in its name, check it is there and not tiny. To go back, follow section 5 of the same file (restore that backup with the 0.8.0-alpha.1 image; anything changed after the update is lost).
