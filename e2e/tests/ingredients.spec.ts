@@ -204,3 +204,46 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
   await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeInViewport();
 });
 
+
+test('F191: below the width where the editor fits beside the list it opens in view, and keeps in view on a resize', async ({
+  page,
+}) => {
+  test.skip(isPhone(page), 'computer layouts');
+  // A long list, so an editor dropped under it is far out of sight (F191).
+  const foods = [];
+  for (let i = 0; i < 25; i++) foods.push(await makeFood(page, `Narrow editor ${i}`));
+  const food = foods[0]!;
+  const search = async () => {
+    await page.getByRole('searchbox', { name: 'Search ingredients' }).fill('Narrow editor');
+    await expect(row()).toBeVisible();
+  };
+  const row = () =>
+    page
+      .getByRole('region', { name: 'All ingredients' })
+      .getByRole('button', { name: new RegExp(`^${food.name}`) });
+  const editor = () => page.getByRole('dialog', { name: `Edit ${food.name}` });
+  const beside = () => page.getByRole('complementary', { name: `Edit ${food.name}` });
+
+  for (const width of [912, 1100, 1299]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto('/recipes/ingredients');
+    await search();
+    await row().click();
+    // Beside the list or as a panel over the page: either way it is on screen.
+    await expect(editor().or(beside()), `at ${width} px`).toBeInViewport();
+  }
+
+  // Wide: beside the list. Narrowing with it open: it moves to a panel, in view. Widening again
+  // puts it back beside the list.
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await page.goto('/recipes/ingredients');
+  await search();
+  await row().click();
+  await expect(beside()).toBeInViewport();
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await expect(editor()).toBeInViewport();
+  await expect(beside()).toHaveCount(0);
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(beside()).toBeInViewport();
+  await expect(editor()).toHaveCount(0);
+});

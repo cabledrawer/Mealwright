@@ -50,6 +50,14 @@
 
   const isDesktop = () => browser && matchMedia('(min-width: 768px)').matches;
   let desktop = $state(isDesktop());
+
+  // The editor sits beside the list only where the two fit side by side: the list's 480 px, the
+  // gap and the editor's 340 px (the .layout rules below). Narrower, flex-wrap would drop it
+  // under the whole list, out of sight (F191), so it opens as a panel over the page, as on
+  // the narrow layouts elsewhere, with the list still in view.
+  const SIDE_BY_SIDE_MIN = 480 + 24 + 340;
+  let layoutWidth = $state(0);
+  const sideBySide = $derived(desktop && layoutWidth >= SIDE_BY_SIDE_MIN);
   $effect(() => {
     const media = matchMedia('(min-width: 768px)');
     const onChange = () => (desktop = media.matches);
@@ -85,9 +93,29 @@
     }
   });
 
+  /** True while the open ingredient is only the one the page opened by itself. */
+  let startedOpen = false;
+
   // Desktop starts with the first food open, as in the mockup.
   $effect(() => {
-    if (selectedId === null && list.foods[0] && isDesktop()) selectedId = list.foods[0].id;
+    if (selectedId === null && list.foods[0] && sideBySide) {
+      selectedId = list.foods[0].id;
+      startedOpen = true;
+    }
+  });
+
+  // Resizing with an editor open moves it between the side panel and the sheet, so it stays
+  // in view (F191).
+  $effect(() => {
+    if (layoutWidth === 0) return;
+    if (!sideBySide && selectedId !== null) {
+      // The first one opened by itself is not an editor someone asked for: it just goes.
+      if (!startedOpen) ingredientEditor.open(selectedId);
+      selectedId = null;
+    } else if (sideBySide && ingredientEditor.foodId !== null) {
+      selectedId = ingredientEditor.foodId;
+      ingredientEditor.close();
+    }
   });
 
   // Back to the tab after a while: fetch again (live updates come in 0.3).
@@ -128,8 +156,9 @@
       toasts.show(cantReachWords());
       return;
     }
-    // Desktop edits beside the list; phones get the sheet.
-    if (isDesktop()) {
+    // Beside the list where there is room; otherwise the panel or sheet over the page.
+    startedOpen = false;
+    if (sideBySide) {
       selectedId = food.id;
     } else ingredientEditor.open(food.id);
   }
@@ -219,7 +248,7 @@
   <!-- From the first failure, so the words don't change when the bar comes (F67). -->
   <OfflineNote screen="Ingredients" />
 {:else}
-  <div class="layout">
+  <div class="layout" bind:clientWidth={layoutWidth}>
     <section class="list-side" aria-label="All ingredients">
       <div class="tools">
         <label class="search">
@@ -366,7 +395,7 @@
       </p>
     </section>
 
-    {#if desktop}
+    {#if sideBySide}
       <div class="side">
         {#if selectedId !== null}
           <aside class="panel" aria-label={panelName ? `Edit ${panelName}` : 'Edit'}>
@@ -376,7 +405,10 @@
                 variant="panel"
                 onname={(n) => (panelName = n)}
                 onclose={() => (selectedId = null)}
-                onopen={(id) => (selectedId = id)}
+                onopen={(id) => {
+                  startedOpen = false;
+                  selectedId = id;
+                }}
               />
             {/key}
           </aside>
