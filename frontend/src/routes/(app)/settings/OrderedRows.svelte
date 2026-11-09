@@ -4,6 +4,7 @@
   // Settings for meal slots, shops and places. It changes nothing itself: it says what was
   // asked (onorder, onrename, onremove) and the screen sends it.
   import { tick, type Snippet } from 'svelte';
+  import { focusOnMount } from '#lib/focusOnMount.js';
   import Icon from '#lib/components/Icon.svelte';
 
   let {
@@ -77,11 +78,6 @@
       return;
     }
     if (await onrename(item, name)) editing = null;
-  }
-
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus();
-    node.select();
   }
 </script>
 
@@ -187,8 +183,11 @@
     list-style: none;
   }
 
+  /* A row that is too narrow for everything wraps its buttons under the name; the name keeps its
+     words whole (F177: "Breakfast" and "Cupboard" broke in two). */
   li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-4);
     min-height: 54px;
@@ -215,9 +214,9 @@
   }
 
   .name {
-    flex: 1;
-    min-width: 0;
-    overflow-wrap: anywhere;
+    flex: 1 1 auto;
+    min-width: min-content;
+    overflow-wrap: break-word;
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
   }

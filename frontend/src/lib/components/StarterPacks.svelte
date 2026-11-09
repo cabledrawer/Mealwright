@@ -112,8 +112,9 @@
               <button type="button" class="pack" onclick={() => pick(pack.id)}>
                 <span class="label">{pack.name}</span>
                 <span class="hint"
-                  >{pack.items.length} ingredients{#if pack.already_have}
-                    · {pack.already_have} already here{/if}</span
+                  >{pack.items.length} ingredients{pack.already_have
+                    ? ` · ${pack.already_have} already here`
+                    : ''}</span
                 >
               </button>
             </li>

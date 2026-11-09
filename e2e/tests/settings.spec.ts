@@ -419,3 +419,91 @@ test('on the Plan, a member sees the Meals switches greyed, with why (review r1 
   await expect(meals.getByText('Only an admin can change this.')).toBeVisible();
   for (const button of await meals.getByRole('button').all()) await expect(button).toBeDisabled();
 });
+
+test('F175, F176: a change made on the page shows in Recent changes at once, and Undo from there puts the rows above back, with no reload', async ({
+  page,
+}) => {
+  const s = stamp();
+  await page.goto('/settings');
+  const slots = section(page, 'Meal slots');
+  const recent = section(page, 'Recent changes');
+  const name = `Midday ${s}`;
+  // A rename: its line is in Recent changes, with no reload (F176).
+  await slots.getByRole('button', { name: 'Rename Snack' }).click();
+  await slots.getByRole('textbox', { name: 'Name of Snack' }).fill(name);
+  await page.keyboard.press('Enter');
+  await expect(rowOf(page, 'Meal slots', name)).toBeVisible();
+  await expect(recent.getByText(`Renamed Snack to ${name}`).first()).toBeVisible();
+  // Undo from Recent changes: the Meal slots row has its old name back, with no reload (F175).
+  await recent.getByRole('button', { name: `Undo: Renamed Snack to ${name}` }).click();
+  await expect(rowOf(page, 'Meal slots', 'Snack')).toBeVisible();
+  await expect(rowOf(page, 'Meal slots', name)).toHaveCount(0);
+
+  // A switch: the same.
+  const snack = slots.getByRole('switch', { name: 'Show Snack in the plan' });
+  const was = await snack.isChecked();
+  await snack.click();
+  await expect(snack).toBeChecked({ checked: !was });
+  const line = `${was ? 'Hid' : 'Showed'} Snack in the plan`;
+  await recent.getByRole('button', { name: `Undo: ${line}` }).first().click();
+  await expect(snack).toBeChecked({ checked: was });
+
+  // A shop: adding it, removing it, and bringing it back from Recent changes.
+  const shops = section(page, 'Shops & places');
+  const shop = `Corner ${s}`;
+  await shops.getByRole('button', { name: '+ New shop' }).click();
+  await shops.getByRole('textbox', { name: 'New shop' }).fill(shop);
+  await shops.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
+  await shops.getByRole('button', { name: `Remove ${shop}` }).click();
+  await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
+  await expect(recent.getByText(`Removed the shop ${shop}`).first()).toBeVisible();
+  await recent.getByRole('button', { name: `Undo: Removed the shop ${shop}` }).click();
+  await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
+  // Leave it as it was.
+  await shops.getByRole('button', { name: `Remove ${shop}` }).click();
+  await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
+});
+
+test('F178: "+ New shop", "+ New place" and "+ New meal" put the cursor in the name box', async ({ page }) => {
+  await page.goto('/settings');
+  const shops = section(page, 'Shops & places');
+  await shops.getByRole('button', { name: '+ New shop' }).click();
+  await expect(shops.getByRole('textbox', { name: 'New shop' })).toBeFocused();
+  await shops.getByRole('button', { name: 'Cancel' }).click();
+  await shops.getByRole('button', { name: '+ New place' }).click();
+  await expect(shops.getByRole('textbox', { name: 'New place' })).toBeFocused();
+  await shops.getByRole('button', { name: 'Cancel' }).click();
+  const slots = section(page, 'Meal slots');
+  await slots.getByRole('button', { name: '+ New meal' }).click();
+  await expect(slots.getByRole('textbox', { name: 'New meal' })).toBeFocused();
+});
+
+test('F192: the footnote under Places at home has a space after “Move them to…”.', async ({ page }) => {
+  await page.goto('/settings');
+  const places = section(page, 'Places at home');
+  await expect(
+    places.getByText('offers “Move them to…”. Mealwright needs at least one Fridge and one Freezer.'),
+  ).toBeVisible();
+});
+
+test('F177: Meal slots and Places keep each name whole, down to a narrow column', async ({ page }) => {
+  // The computer's column at about 912 px and the phone's at 390 px both broke "Breakfast" and
+  // "Cupboard" in two ("Breakfa / st"). Each name sits on one line (a broken word has two boxes).
+  await page.setViewportSize({ width: isPhone(page) ? 360 : 912, height: 800 });
+  await page.goto('/settings');
+  for (const [within, name] of [
+    ['Meal slots', 'Breakfast'],
+    ['Places at home', 'Cupboard'],
+  ] as const) {
+    const row = rowOf(page, within, name).first();
+    await expect(row).toBeVisible();
+    const boxes = await row.getByText(name, { exact: true }).first().evaluate((el) => {
+      const text = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE) as Text;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      return range.getClientRects().length;
+    });
+    expect(boxes, `${name} on one line`).toBe(1);
+  }
+});

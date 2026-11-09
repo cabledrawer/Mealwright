@@ -11,6 +11,16 @@ class Freshness {
    * own saves, which already show the server's answer.
    */
   elsewhere = $state(0);
+  /**
+   * Moves on after a change made on the Settings page (a meal, a shop or a place, an amount
+   * setting): Settings' Recent changes fetch again to show it (F176).
+   */
+  settings = $state(0);
+
+  /** Say that Settings itself wrote something. */
+  wroteSettings(): void {
+    this.settings++;
+  }
 
   /** Say that foods or stock changed on the server. */
   changed(options: { elsewhere?: boolean } = {}): void {

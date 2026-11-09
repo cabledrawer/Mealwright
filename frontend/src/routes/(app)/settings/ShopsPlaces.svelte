@@ -18,6 +18,8 @@
   } from '#lib/client/settingsLists.js';
   import type { Place, PlaceKind, Shop } from '#lib/client/types.js';
   import { nothingChanged } from '#lib/downWords.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { focusOnMount } from '#lib/focusOnMount.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { save } from '#lib/save.js';
@@ -56,9 +58,22 @@
     seen = network.backAgain;
     void load();
   });
+  // An Undo from anywhere on the page (the toast, or Recent changes below) puts a shop or a place
+  // back on the server: read the rows again and tell the other pickers (F175).
+  let undoneSeen = kitchen.elsewhere;
+  $effect(() => {
+    if (kitchen.elsewhere === undoneSeen) return;
+    undoneSeen = kitchen.elsewhere;
+    void load();
+    void placesAndShops.load(true).catch(() => {});
+  });
 
   /** The rest of the app's pickers fetch the lists again. */
-  const refreshShared = () => void placesAndShops.load(true).catch(() => {});
+  const refreshShared = () => {
+    void placesAndShops.load(true).catch(() => {});
+    // Recent changes, further down this page, fetch again (F176).
+    kitchen.wroteSettings();
+  };
 
   function wordsOf(error: unknown): string {
     return error instanceof ApiError && !cantReach(error)
@@ -101,13 +116,7 @@
       undo: {
         label: `Removed the shop ${shop.name}`,
         skip: (done) => done.change === null,
-        run: (done) =>
-          done.change?.can_undo
-            ? serverUndo(done.change.id, () => {
-                void load();
-                refreshShared();
-              })()
-            : false
+        run: (done) => (done.change?.can_undo ? serverUndo(done.change.id, refreshShared)() : false)
       }
     });
   }
@@ -122,6 +131,7 @@
     try {
       const shop = await placesAndShops.addShop(name);
       if (!shops.some((s) => s.id === shop.id)) shops = [...shops, shop];
+      kitchen.wroteSettings();
       newShop = '';
       addingShop = false;
     } catch (error) {
@@ -191,13 +201,7 @@
       undo: {
         label: `Removed the place ${place.name}`,
         skip: (done) => done.change === null,
-        run: (done) =>
-          done.change?.can_undo
-            ? serverUndo(done.change.id, () => {
-                void load();
-                refreshShared();
-              })()
-            : false
+        run: (done) => (done.change?.can_undo ? serverUndo(done.change.id, refreshShared)() : false)
       }
     });
   }
@@ -213,6 +217,7 @@
     try {
       const place = await placesAndShops.addPlace(name, newKind);
       if (!places.some((p) => p.id === place.id)) places = [...places, place];
+      kitchen.wroteSettings();
       newPlace = '';
       addingPlace = false;
     } catch (error) {
@@ -248,6 +253,7 @@
       <label class="sr" for="new-shop">New shop</label>
       <input
         id="new-shop"
+        use:focusOnMount
         type="text"
         maxlength="60"
         placeholder="Shop name"
@@ -318,6 +324,7 @@
       <label class="sr" for="new-place">New place</label>
       <input
         id="new-place"
+        use:focusOnMount
         type="text"
         maxlength="40"
         placeholder="Place name"
@@ -346,8 +353,9 @@
   {#if placeNote}<p class="warning-line" role="alert">{placeNote}</p>{/if}
   <p class="detail">
     A place with things in it can’t be removed until they’re moved: Mealwright says how many and
-    offers “Move them to…”.{#if hasFixed}
-      Mealwright needs at least one Fridge and one Freezer.{/if}
+    offers “Move them to…”.{hasFixed
+      ? ' Mealwright needs at least one Fridge and one Freezer.'
+      : ''}
   </p>
 </section>
 

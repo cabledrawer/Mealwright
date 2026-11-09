@@ -11,10 +11,12 @@
 
   const recent = new AllChanges();
 
-  // Fetch again after a change here or elsewhere, when stock moved, and when the connection
+  // Fetch again after a change here (an Undo, or a change made in the sections above) or elsewhere,
+  // when stock moved, and when the connection
   // comes back.
   $effect(() => {
     void kitchen.version;
+    void kitchen.settings;
     void live.pantry;
     void network.backAgain;
     void recent.load();

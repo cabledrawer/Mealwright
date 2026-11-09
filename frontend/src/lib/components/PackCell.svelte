@@ -34,8 +34,9 @@
       send: (key) => addSuggestedSize(food.id, choice, key),
       saved: () => kitchen.changed({ elsewhere: true }),
       undo: {
+        // One wording for the whole toast, and the one on the pack cell: it used to change to
+        // the server's ("added Block = 250 g") while showing (F179).
         label: `${food.name}: added ${choice.display}`,
-        labelFrom: (result) => result.change?.summary,
         skip: (result) => result.change === null,
         run: (result) => (result.change ? (undoer ??= serverUndo(result.change.id))() : false)
       }

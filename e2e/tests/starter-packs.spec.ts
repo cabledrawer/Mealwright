@@ -191,3 +191,23 @@ test("Undo of a pack keeps an ingredient a recipe uses and says so (cabledrawer 
   await page.request.delete(`/api/v1/recipes/${recipe.id}`);
   await page.request.delete(`/api/v1/foods/${miso.id}`);
 });
+
+test("F181: a pack card says how many ingredients and how many are already here, with a space before the dot", async ({
+  page,
+}) => {
+  // Make sure the Japanese pack has something already here.
+  const made = await page.request.post("/api/v1/foods", {
+    data: { name: "miso", counted_as: "weight" },
+    headers: { "idempotency-key": crypto.randomUUID() },
+  });
+  expect([201, 409, 422]).toContain(made.status());
+  await page.goto("/recipes/ingredients");
+  await page.getByRole("button", { name: "Add a starter pack" }).click();
+  const dialog = page.getByRole("dialog");
+  const japanese = dialog.getByRole("button", { name: /^Japanese/ });
+  await expect(japanese).toBeVisible();
+  await expect(japanese).toContainText(/ingredients · \d+ already here/);
+  for (const card of await dialog.getByRole("button", { name: /\d+ ingredients/ }).all()) {
+    expect(await card.innerText()).not.toMatch(/ingredients·/);
+  }
+});

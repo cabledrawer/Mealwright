@@ -630,7 +630,10 @@
   .popup {
     position: absolute;
     top: calc(var(--touch-target) + var(--space-2));
-    right: 0;
+    /* From the box's left edge, over the columns beside it. Anchored to its right edge, a box
+       narrower than the list (the editor at about 912 px) pushed the list left, half under the
+       sidebar (F185). */
+    left: 0;
     z-index: 5;
     width: min(24rem, calc(100vw - 4rem));
     max-height: 60vh;

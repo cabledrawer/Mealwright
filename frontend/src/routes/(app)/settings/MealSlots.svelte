@@ -9,6 +9,8 @@
   import { addMealSlot, orderMealSlots, renameMealSlot } from '#lib/client/settingsLists.js';
   import Switch from '#lib/components/Switch.svelte';
   import { nothingChanged } from '#lib/downWords.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
+  import { focusOnMount } from '#lib/focusOnMount.js';
   import { network } from '#lib/network.svelte.js';
   import { save } from '#lib/save.js';
   import OrderedRows from './OrderedRows.svelte';
@@ -39,6 +41,17 @@
     seen = network.backAgain;
     void load();
   });
+  // An Undo from anywhere on the page (the toast, or Recent changes below) puts a meal back on
+  // the server: read the rows again (F175).
+  let undoneSeen = kitchen.elsewhere;
+  $effect(() => {
+    if (kitchen.elsewhere === undoneSeen) return;
+    undoneSeen = kitchen.elsewhere;
+    void load();
+  });
+
+  /** Something was written here: Recent changes, further down this page, fetch again (F176). */
+  const wrote = () => kitchen.wroteSettings();
 
   function wordsOf(error: unknown): string {
     return error instanceof ApiError && !cantReach(error)
@@ -52,7 +65,7 @@
       label,
       skip: (done: { change: { can_undo: boolean; id: number } | null }) => done.change === null,
       run: (done: { change: { can_undo: boolean; id: number } | null }) =>
-        done.change?.can_undo ? serverUndo(done.change.id, () => void load())() : false
+        done.change?.can_undo ? serverUndo(done.change.id)() : false
     };
   }
 
@@ -62,6 +75,7 @@
       apply: () => (slots = ids.map((id) => before.find((s) => s.id === id)!)),
       rollback: () => (slots = before),
       send: (key) => orderMealSlots(ids, key),
+      saved: wrote,
       undo: undoOf('Changed the order of the meals')
     });
   }
@@ -74,6 +88,7 @@
         apply: () => (slots = before.map((s) => (s.id === slot.id ? { ...s, name } : s))),
         rollback: () => (slots = before),
         send: (key) => renameMealSlot(slot.id, name, key),
+        saved: wrote,
         quiet: true,
         undo: undoOf(`Renamed ${slot.name} to ${name}`)
       }).then((outcome) => {
@@ -89,6 +104,7 @@
       apply: () => (slots = before.map((s) => (s.id === slot.id ? { ...s, enabled } : s))),
       rollback: () => (slots = before),
       send: (key) => switchMealSlot(slot.id, enabled, key),
+      saved: wrote,
       undo: undoOf(`${enabled ? 'Showed' : 'Hid'} ${slot.name} in the plan`)
     });
   }
@@ -103,6 +119,7 @@
     try {
       const slot = await addMealSlot(wanted);
       slots = [...slots, slot];
+      wrote();
       name = '';
       adding = false;
     } catch (error) {
@@ -142,7 +159,14 @@
   {#if adding}
     <form class="add" onsubmit={add}>
       <label class="sr" for="new-slot">New meal</label>
-      <input id="new-slot" type="text" maxlength="40" placeholder="Meal name" bind:value={name} />
+      <input
+        id="new-slot"
+        use:focusOnMount
+        type="text"
+        maxlength="40"
+        placeholder="Meal name"
+        bind:value={name}
+      />
       <button type="submit" class="solid" disabled={!name.trim() || network.offline}>Add</button>
       <button type="button" class="quiet" onclick={() => ((adding = false), (name = ''))}
         >Cancel</button

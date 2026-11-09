@@ -13,6 +13,7 @@
   import { changePints, getHousehold } from '#lib/client/household.js';
   import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
   import type { Pints } from '#lib/client/types.js';
+  import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import {
     cantCheckText,
@@ -75,6 +76,7 @@
     pints = us ? 'us' : 'uk';
     try {
       pints = (await changePints(pints)).pints;
+      kitchen.wroteSettings();
     } catch (error) {
       pints = before;
       pintsProblem =

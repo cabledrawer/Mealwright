@@ -764,3 +764,22 @@ test('a very long name wraps, and text at 200% still fits', async ({ browser }) 
     await context.close();
   }
 });
+
+test('F185: the pick-list opens from the box and stays clear of the sidebar, at a narrow window', async ({ page }) => {
+  test.skip(isPhone(page), 'computer layout');
+  const food = await makeFood(page, unique('Test Dosa batter'));
+  const recipe = await makeRecipe(page, { name: unique('Narrow list') });
+  await page.setViewportSize({ width: 912, height: 800 });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
+  const box = page.getByLabel('Ingredient 1', { exact: true });
+  await box.fill(food.name.split(' ').slice(0, 2).join(' '));
+  const list = page.getByRole('listbox', { name: 'Matching ingredients' });
+  await expect(list.getByRole('option', { name: new RegExp(`^${food.name}`) })).toBeVisible();
+  const popup = (await list.locator('xpath=../..').boundingBox())!;
+  const input = (await box.boundingBox())!;
+  const sidebar = (await page.getByRole('complementary', { name: 'Sidebar' }).boundingBox())!;
+  expect(popup.x).toBeGreaterThanOrEqual(sidebar.x + sidebar.width);
+  expect(popup.x).toBeGreaterThanOrEqual(input.x - 1);
+  expect(popup.x + popup.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+});

@@ -82,6 +82,11 @@ test('Add a pack offers common sizes, and a tap makes one the Usual size', async
   await row.getByRole('button', { name: '500 g', exact: true }).click();
   await expect(row.getByText('pack · 500 g')).toBeVisible();
   await expect(row.getByRole('button', { name: /^Add a pack/ })).toHaveCount(0);
+  // F179: the toast keeps its one wording once the server has answered (it used to change from
+  // "added pack · 500 g" to "added Pack = 500 g" while showing).
+  const toast = page.getByRole('status').filter({ hasText: `${name}: added` });
+  await expect(toast).toHaveText(new RegExp(`${name}: added pack · 500 g`));
+  await expect(toast).not.toContainText('=');
 });
 
 test('on the computer, the open ingredient’s Add a pack is readable on its green row', async ({
