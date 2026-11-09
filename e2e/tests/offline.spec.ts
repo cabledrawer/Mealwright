@@ -335,6 +335,57 @@ test('F196: offline, Undo before anything is sent leaves nothing behind once bac
   await expect.poll(async () => (await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
 });
 
+test('F196 (cabledrawer 9 Nov): offline "as bought" never joins another phone\'s line still to buy', async ({
+  page,
+  context,
+  browser,
+}) => {
+  const name = `Loquat ${tag()}`;
+  await signIn(page);
+  const otherContext = await browser.newContext();
+  await otherContext.clock.install({ time: testNow() });
+  const other = await otherContext.newPage();
+  try {
+    await signIn(other);
+    await start(page);
+
+    // Phone A goes offline; phone B (online) makes the ingredient and wants 3 of it.
+    await context.setOffline(true);
+    const { food } = await call(other, 'POST', '/foods', { name, counted_as: 'count' });
+    await call(other, 'POST', `/shopping/lists/${await mainList(other)}/items`, {
+      food_id: food.id,
+      amount: { amount: 3, unit: 'count' },
+    });
+
+    // Phone A knows nothing of it: "+ New ingredient, as bought", 2 of it.
+    await newAsBought(page, name);
+    await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
+    await context.setOffline(false);
+    await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+
+    // B's line is still 3, still to buy; phone A's 2 is its own line, in the trolley.
+    const lines = (await serverItems(page)).filter((i) => i.food.name === name) as unknown as {
+      amount: { amount: number };
+      ticked_at: string | null;
+    }[];
+    expect(lines.map((l) => [l.amount.amount, l.ticked_at !== null]).sort()).toEqual([
+      [2, true],
+      [3, false],
+    ]);
+    await expect.poll(() => pantryAmounts(page, name)).toEqual([2]);
+    const fold = page.getByRole('button', { name: /^In the trolley/ });
+    if (await fold.count()) {
+      if ((await fold.first().getAttribute('aria-expanded')) === 'false') await fold.first().click();
+    }
+    const trolley = page.getByRole('checkbox', { name: `Untick ${name}`, exact: true });
+    await expect(trolley).toHaveCount(1);
+    await expect(trolley.locator('xpath=ancestor::li[1]').locator('.sub')).toHaveText('2');
+    await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(1);
+  } finally {
+    await otherContext.close();
+  }
+});
+
 test('F62: offline, ticking a line with no amount still asks How much?, and the answer is a second queued change', async ({
   page,
   context,
