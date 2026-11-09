@@ -9,6 +9,8 @@ import { isPhone } from './a11y.ts';
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
+// The plural question of a counted ingredient (F197): lower case, the last word plural (a tag ends in a digit).
+const howMany = (name: string) => `How many ${name.toLowerCase()}s?`;
 const chromium = (page: Page) => page.context().browser()?.browserType().name() === 'chromium';
 
 async function call(page: Page, method: 'POST' | 'PATCH', path: string, data?: object) {
@@ -212,7 +214,7 @@ test('How many? (F134): a new counted ingredient asks 1 · 2 · 6 · 12 and adds
   await open(page);
   await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
   await page.getByRole('list', { name: 'Matching ingredients' }).getByRole('button', { name, exact: true }).click();
-  const ask = page.getByRole('group', { name: `How many ${name}` });
+  const ask = page.getByRole('group', { name: howMany(name), exact: true });
   for (const n of ['1', '2', '6', '12']) await expect(ask.getByRole('button', { name: n, exact: true })).toBeVisible();
   await ask.getByRole('button', { name: '6', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^Change amount: ${name}, 6`) })).toBeVisible();
@@ -341,13 +343,16 @@ test('F198: Add as bought twice for one ingredient is one trolley row, and untic
   for (let n = 1; n <= 2; n++) {
     await add.fill(name);
     await page.getByRole('button', { name: 'Add as bought' }).click();
-    await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '1', exact: true }).click();
+    await page.getByRole('group', { name: howMany(name), exact: true }).getByRole('button', { name: '1', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: name }).first()).toBeVisible();
   }
   await openTrolleyOf(page);
   const row = page.getByRole('checkbox', { name: `Untick ${name}` });
   await expect(row).toHaveCount(1);
-  await expect(row.locator('xpath=ancestor::li[1]')).toContainText('2');
+  // The joined amount, exactly: 1 + 1 (the name's tag has digits, so it is not searched).
+  await expect(row.locator('xpath=ancestor::li[1]').locator('.sub')).toHaveText('2');
   await row.click();
-  await expect(page.getByRole('checkbox', { name: new RegExp(`${name}$`) })).not.toHaveCount(0);
+  // Really unticked: no trolley row any more, and the line is back on the list to buy.
+  await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true }).first()).toBeVisible();
 });

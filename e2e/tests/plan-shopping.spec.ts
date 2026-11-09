@@ -289,3 +289,33 @@ test('a long name is shown whole in a one-line row at 1101 px when the row has r
     await k.cleanUp();
   }
 });
+
+// FR2 review: the minimum room for a name and an amount (rem) must not push a row wider than its
+// column when the text is large (125% to 200%).
+for (const percent of [125, 200]) {
+  test(`a one-line row fits its column at 1100 px with the sidebar open and ${percent}% text`, async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    const k = await kitchen(page);
+    const tag = stamp().slice(-6);
+    try {
+      const name = `Thigh fillets ${tag}`;
+      await k.typed(await k.food(name), 600);
+      await page.goto('/shopping');
+      await expect(row(page, name).getByRole('button', { name, exact: true })).toBeVisible();
+      await page.evaluate((p) => (document.documentElement.style.fontSize = `${p}%`), percent);
+      const line = row(page, name).locator('.line');
+      await expect(line).toBeVisible();
+      const fits = await line.evaluate((el) => {
+        const column = el.getBoundingClientRect();
+        const over = [...el.children].filter((c) => {
+          const r = c.getBoundingClientRect();
+          return r.width > 0 && (r.right > column.right + 0.5 || r.left < column.left - 0.5);
+        });
+        return { over: over.length, scroll: el.scrollWidth - el.clientWidth };
+      });
+      expect(fits).toEqual({ over: 0, scroll: 0 });
+    } finally {
+      await k.cleanUp();
+    }
+  });
+}

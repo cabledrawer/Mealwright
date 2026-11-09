@@ -12,6 +12,8 @@ import { ADMIN } from './servers.ts';
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
+// The plural question of a counted ingredient (F197): lower case, the last word plural (a tag ends in a digit).
+const howMany = (name: string) => `How many ${name.toLowerCase()}s?`;
 
 async function call(page: Page, method: 'POST', path: string, data?: object) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
@@ -228,7 +230,7 @@ test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and 
   await dialog.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(dialog).toBeHidden();
   // One by one with no pack size asks "How many?" first (F134), also offline.
-  await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '1', exact: true }).click();
+  await page.getByRole('group', { name: howMany(name), exact: true }).getByRole('button', { name: '1', exact: true }).click();
   await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
 
@@ -258,7 +260,7 @@ test('F196: offline, a brand-new name can be added as bought in one go: an add a
   await dialog.getByRole('radio', { name: /One by one/ }).click();
   await dialog.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(dialog).toBeHidden();
-  await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '2', exact: true }).click();
+  await page.getByRole('group', { name: howMany(name), exact: true }).getByRole('button', { name: '2', exact: true }).click();
   // Not left on the list to buy: it is in the trolley, ticked, with its place on the row.
   await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
   // (On a phone the trolley is a fold; on a computer it is a panel that is always open.)
@@ -283,6 +285,56 @@ test('F196: offline, a brand-new name can be added as bought in one go: an add a
     p.groups.filter((g) => g.food.name === name).map((g) => g.stock.amount),
   );
   expect(inPantry).toEqual([2]);
+});
+
+/** "+ New ingredient, as bought" for a counted name: the questions, then two of it. */
+async function newAsBought(page: Page, name: string) {
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  await page.getByRole('button', { name: `+ New ingredient, as bought: “${name}”` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pantry keeps it by' });
+  await dialog.getByRole('radio', { name: /One by one/ }).click();
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('group', { name: howMany(name), exact: true }).getByRole('button', { name: '2', exact: true }).click();
+}
+
+async function pantryAmounts(page: Page, name: string): Promise<number[]> {
+  const pantry = await (await page.request.get('/api/v1/pantry')).json();
+  return pantry.places.flatMap((p: { groups: { food: { name: string }; stock: { amount: number } }[] }) =>
+    p.groups.filter((g) => g.food.name === name).map((g) => g.stock.amount),
+  );
+}
+
+test('F196: online, Undo takes back the tick and the add of a brand-new name together', async ({ page }) => {
+  const name = `Medlar ${tag()}`;
+  await signIn(page);
+  await start(page);
+  await newAsBought(page, name);
+  const toast = page.getByRole('status').filter({ hasText: name });
+  await expect(toast).toBeVisible();
+  await expect.poll(() => pantryAmounts(page, name)).toEqual([2]);
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name}` })).toBeVisible();
+  await expect.poll(() => pantryAmounts(page, name)).toEqual([]);
+  await expect.poll(async () => (await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
+});
+
+test('F196: offline, Undo before anything is sent leaves nothing behind once back online', async ({ page, context }) => {
+  const name = `Sloe ${tag()}`;
+  await signIn(page);
+  await start(page);
+  await context.setOffline(true);
+  await newAsBought(page, name);
+  const toast = page.getByRole('status').filter({ hasText: name });
+  await expect(toast).toBeVisible();
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name}` })).toBeVisible();
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
+    timeout: 15_000,
+  });
+  expect(await pantryAmounts(page, name)).toEqual([]);
+  expect((await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
 });
 
 test('F62: offline, ticking a line with no amount still asks How much?, and the answer is a second queued change', async ({
@@ -769,7 +821,7 @@ test('F130: the same new name added offline on two phones ends up as one ingredi
       await dialog.getByRole('radio', { name: /One by one/ }).click();
       await dialog.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(dialog).toBeHidden();
-      await p.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '2', exact: true }).click();
+      await p.getByRole('group', { name: howMany(name), exact: true }).getByRole('button', { name: '2', exact: true }).click();
       await expect(bar(p)).toContainText(waitingText(p, 1), { timeout: 10_000 });
     }
     await context.setOffline(false);
