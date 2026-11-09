@@ -141,6 +141,32 @@ describe('applyLocal: the copy with the waiting changes on top', () => {
     expect(row(shown, 'i-new')).toMatchObject({ food_id: made.id, shop_id: null, amount: null });
   });
 
+  it('an add joins the unticked line of the same ingredient and shop; as bought, it is its own line', () => {
+    const joined = applyLocal(
+      sampleCopy(),
+      [act({ kind: 'add', list_id: 'main', item_id: 'i-new', food_id: 3, amount: 200 })],
+      me
+    );
+    expect(row(joined, 'i-new')).toBeUndefined();
+    expect(row(joined, 'i-yoghurt')).toMatchObject({ amount: 700 });
+    const own = applyLocal(
+      sampleCopy(),
+      [
+        act({
+          kind: 'add',
+          list_id: 'main',
+          item_id: 'i-new',
+          food_id: 3,
+          amount: 200,
+          as_bought: true
+        })
+      ],
+      me
+    );
+    expect(row(own, 'i-new')).toMatchObject({ food_id: 3, shop_id: 1, amount: 200, ticks: [] });
+    expect(row(own, 'i-yoghurt')).toMatchObject({ amount: 500 });
+  });
+
   it('an ingredient from the add box the copy doesn’t have yet shows from the hint', () => {
     const shown = applyLocal(
       sampleCopy(),
