@@ -707,5 +707,32 @@ def test_guess_how_a_new_ingredient_is_counted(kitchen: TestClient) -> None:
     assert unknown == {"counted_as": "weight", "from_table": False}
 
 
+def test_guess_counts_lemons_onions_and_eggs_one_by_one_even_with_words_before(
+    kitchen: TestClient,
+) -> None:
+    # F195: "Alpha2 lemons" was guessed by weight, though lemons, onions and eggs are the New
+    # ingredient box's own examples of One by one.
+    for name in (
+        "lemons",
+        "Lemon",
+        "Alpha2 lemons",
+        "Unwaxed lemons",
+        "Red onions",
+        "Spring onions",
+        "Free range eggs",
+        "Large eggs",
+    ):
+        answer = kitchen.get(f"{API}/foods/guess", params={"name": name}).json()
+        assert answer == {"counted_as": "count", "from_table": True}, name
+
+
+def test_guess_goes_by_the_last_words_not_the_first(kitchen: TestClient) -> None:
+    # Mango chutney is not a mango, and lemon juice is its own row (by volume).
+    chutney = kitchen.get(f"{API}/foods/guess", params={"name": "Mango chutney"}).json()
+    assert chutney["counted_as"] != "count"
+    juice = kitchen.get(f"{API}/foods/guess", params={"name": "Fresh lemon juice"}).json()
+    assert juice["counted_as"] == "volume"
+
+
 def test_guess_needs_sign_in(client: TestClient) -> None:
     assert client.get(f"{API}/foods/guess", params={"name": "Onion"}).status_code == 401

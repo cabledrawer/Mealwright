@@ -619,8 +619,9 @@ def guess_counted_as(
     name: Annotated[str, Query(min_length=1, max_length=120)], kitchen: Here
 ) -> Guess:
     """How a brand-new ingredient would be counted, for "How do you count it?": the bundled
-    table's answer if it knows the name, else by weight. Nothing is looked up online."""
-    row = table().match(name)
+    table's answer if it knows the name (or the name ends in one it knows: "free range eggs"),
+    else by weight. Nothing is looked up online."""
+    row = table().match(name) or table().ending(name)
     counted: CountedAs = row.counted_as if row else "weight"
     return Guess(counted_as=counted, from_table=row is not None)
 

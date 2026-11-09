@@ -120,14 +120,14 @@ tamarind,tamarind|imli|puli|tamarind block,block,200 g|400 g|1 kg,specialist,bes
 tamarind_paste,tamarind paste|tamarind concentrate,jar,200 g|400 g,specialist,best before,indian,tins_jars
 milk,milk|whole milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,,dairy
 semi_skimmed_milk,semi-skimmed milk|semi skimmed milk,bottle,2.272 l|1.136 l|568 ml,supermarket,use by,,dairy
-skimmed_milk,skimmed milk,bottle,2.272 l|1.136 l,supermarket,use by,,dairy
+skimmed_milk,skimmed milk|skim milk,bottle,2.272 l|1.136 l,supermarket,use by,,dairy
 double_cream,double cream|heavy cream,pot,300 ml|600 ml|150 ml,supermarket,use by,,dairy
 whipping_cream,whipping cream,pot,300 ml|600 ml,supermarket,use by,,dairy
 single_cream,single cream|cooking cream,pot,300 ml|150 ml,supermarket,use by,,dairy
 sour_cream,sour cream|soured cream,pot,300 ml|150 ml,supermarket,use by,,dairy
 creme_fraiche,creme fraiche|crème fraîche,pot,300 ml|200 ml,supermarket,use by,,dairy
-yoghurt,yoghurt|yogurt|natural yoghurt|curd|thayir|dahi,tub,500 g|1 kg|2 kg,supermarket,use by,,dairy
-greek_yoghurt,greek yoghurt|greek yogurt,tub,500 g|1 kg,supermarket,use by,,dairy
+yoghurt,yoghurt|yogurt|natural yoghurt|natural yogurt|plain yoghurt|plain yogurt|curd|thayir|dahi,tub,500 g|1 kg|2 kg,supermarket,use by,,dairy
+greek_yoghurt,greek yoghurt|greek yogurt|greek style yoghurt|greek style yogurt,tub,500 g|1 kg,supermarket,use by,,dairy
 butter,butter|salted butter,block,250 g|500 g,supermarket,best before,,dairy
 unsalted_butter,unsalted butter,block,250 g,supermarket,best before,,dairy
 ghee,ghee|clarified butter|nei,jar,500 g|1 kg|2 kg,world aisle,best before,indian,tins_jars
@@ -376,7 +376,7 @@ freekeh,freekeh|frikeh|green wheat,bag,200 g|500 g|1 kg,specialist,best before,m
 mograbieh,giant couscous|pearl couscous|mograbieh|maftoul,bag,500 g|1 kg,specialist,best before,middle eastern,dry_goods
 vermicelli_arabic,sha'riyah|shariyah|arabic vermicelli|egyptian vermicelli,bag,500 g|1 kg,specialist,best before,middle eastern,dry_goods
 filo,filo|filo pastry|phyllo|kataifi|kunafa dough,pack,270 g|250 g|400 g|500 g,world aisle,best before,middle eastern,bakery
-labneh,labneh|labna|strained yoghurt,tub,450 g|500 g|200 g|1 kg,world aisle,use by,middle eastern,dairy
+labneh,labneh|labna|strained yoghurt|strained yogurt,tub,450 g|500 g|200 g|1 kg,world aisle,use by,middle eastern,dairy
 akkawi,akkawi|nabulsi|white cheese|jibneh,pack,250 g|400 g|1 kg,specialist,use by,middle eastern,dairy
 hummus,hummus|houmous,tub,200 g|300 g|1 kg,supermarket,use by,middle eastern,veg_fruit
 fava_beans,fava beans|ful medames|foul medames|broad beans tinned,tin,400 g|450 g,world aisle,best before,middle eastern,tins_jars

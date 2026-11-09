@@ -256,3 +256,34 @@ def test_the_openapi_document_names_the_refusal(kitchen: TestClient) -> None:
     schema = kitchen.get(f"{API}/openapi.json").json()
     post = schema["paths"]["/api/v1/stock/{lot_id}/to-freezer"]["post"]
     assert "too_late_to_freeze" in post["description"]
+
+
+def test_chilled_dairy_is_use_by_in_either_spelling(kitchen: TestClient) -> None:
+    # F200: "Plain yoghurt" and "Yogurt" are the same ingredient to the table; "Plain yoghurt"
+    # was not locked to Use by while "Yogurt" was.
+    for name in (
+        "Yogurt",
+        "Yoghurt",
+        "Plain yoghurt",
+        "Plain yogurt",
+        "Natural yoghurt",
+        "Natural yogurt",
+        "Greek yoghurt",
+        "Greek yogurt",
+        "Greek style yoghurt",
+        "Greek style yogurt",
+        "Strained yogurt",
+        "Skim milk",
+        "Skimmed milk",
+    ):
+        assert kind_of(kitchen, food(kitchen, name)["id"]) == ("use_by", True), name
+
+
+def test_every_yoghurt_name_in_the_table_has_its_yogurt_twin() -> None:
+    # The sweep behind F200: any name spelled one way matches the other spelling too.
+    for row in table().rows.values():
+        for name in row.names:
+            for one, other in (("yoghurt", "yogurt"), ("yogurt", "yoghurt")):
+                if one in name:
+                    twin = table().match(name.replace(one, other))
+                    assert twin is not None and twin.key == row.key, name

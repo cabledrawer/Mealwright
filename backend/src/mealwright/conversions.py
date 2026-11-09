@@ -63,6 +63,17 @@ class Table:
                 best = (len(table_name), key)
         return self.rows[best[1]] if best else None
 
+    def ending(self, name: str) -> TableRow | None:
+        """A row whose name is the end of this name, as whole words ("Alpha2 lemons" → lemon,
+        "free range eggs" → eggs): the thing named is what the last words say. Not "mango
+        chutney", which is not a mango. The longest such name wins. Used only for guesses."""
+        words = f" {normalise(name)}"
+        best: tuple[int, str] | None = None
+        for table_name, key in self.by_name.items():
+            if words.endswith(f" {table_name}") and (best is None or len(table_name) > best[0]):
+                best = (len(table_name), key)
+        return self.rows[best[1]] if best else None
+
 
 @cache
 def table() -> Table:
