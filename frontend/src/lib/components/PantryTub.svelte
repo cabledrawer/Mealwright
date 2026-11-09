@@ -66,7 +66,7 @@
     font-weight: var(--weight-bold);
   }
 
-  /* A computer: one line, name · amount · date. */
+  /* A computer: name · amount · date side by side; a long name wraps, never "…" (F180). */
   @media (min-width: 768px) {
     .tub {
       grid-template-columns: minmax(0, 1fr) auto auto;
@@ -75,11 +75,9 @@
 
     .name {
       grid-column: auto;
-      overflow: hidden;
       font-size: var(--text-base);
       font-weight: var(--weight-semibold);
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
     }
 
     .amount {
