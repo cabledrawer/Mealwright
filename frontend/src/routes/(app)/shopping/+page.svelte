@@ -338,7 +338,10 @@
               class="chip"
               onclick={(event) => {
                 const back = keepFocus(event.currentTarget);
-                void model.clearTicked(trolleyRows.flatMap(linesOf).map((v) => v.item));
+                void model.clearTicked(
+                  trolleyRows.flatMap(linesOf).map((v) => v.item),
+                  trolleyRows.length
+                );
                 back();
               }}>Clear ticked</button
             >
@@ -466,7 +469,10 @@
                     class="clear"
                     onclick={(event) => {
                       const back = keepFocus(event.currentTarget);
-                      void model.clearTicked(group.trolley.flatMap(linesOf).map((v) => v.item));
+                      void model.clearTicked(
+                        group.trolley.flatMap(linesOf).map((v) => v.item),
+                        group.trolley.length
+                      );
                       back();
                     }}>Clear ticked</button
                   >

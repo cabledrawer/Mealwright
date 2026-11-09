@@ -943,14 +943,15 @@ export class ShoppingModel {
     );
   }
 
-  clearTicked(items: ListItem[]) {
+  /** `rows`: how many rows the person saw go (a joined row is several lines but one row). */
+  clearTicked(items: ListItem[], rows = items.length) {
     const list = this.list;
     if (!list || !items.length) return Promise.resolve(null);
     const gone = items.map((i) => i.id);
     return this.#act(
       { kind: 'clear_ticked', list_id: list.id, item_ids: gone },
       {
-        label: `Cleared ${gone.length} ticked ${gone.length === 1 ? 'item' : 'items'}`
+        label: `Cleared ${rows} ticked ${rows === 1 ? 'item' : 'items'}`
       }
     );
   }

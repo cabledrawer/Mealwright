@@ -381,6 +381,19 @@ describe('Shopping on the phone', () => {
         expect(page.getByRole('checkbox', { name: 'Tick Paneer' }).elements()).toHaveLength(0);
       });
 
+      it('clearing it says one item, and takes both lines out', async () => {
+        await openJoined();
+        await page.getByRole('button', { name: 'Clear Paneer', exact: true }).click();
+        await expect
+          .element(page.getByRole('status').filter({ hasText: 'Cleared 1 ticked item' }))
+          .toBeVisible();
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action)).toMatchObject([
+            { kind: 'clear_ticked', item_ids: ['i-paneer', 'i-paneer2'] }
+          ])
+        );
+      });
+
       it('changing the place is one toast and one Undo for both lines', async () => {
         await openJoined();
         await page.getByRole('button', { name: 'Change where Paneer went' }).click();

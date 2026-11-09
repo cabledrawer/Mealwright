@@ -181,7 +181,10 @@
   /** In the trolley, swipe left clears just this line (F72, cabledrawer 6 Nov). */
   function clearNow() {
     const back = keepFocus(nameButton ?? rowEl ?? document.body);
-    void model.clearTicked(lines.map((l) => l.item));
+    void model.clearTicked(
+      lines.map((l) => l.item),
+      1
+    );
     back();
   }
 
@@ -372,7 +375,10 @@
               aria-label="Clear {food.name}"
               onclick={(event) => {
                 const back = keepFocus(event.currentTarget);
-                void model.clearTicked(lines.map((l) => l.item));
+                void model.clearTicked(
+                  lines.map((l) => l.item),
+                  1
+                );
                 back();
               }}><Icon name="close" size={16} stroke={2.4} /></button
             >
