@@ -449,9 +449,13 @@ test("F40: a recipe is dragged from its photo as well as from its name", async (
   await page
     .getByRole("searchbox", { name: "Find a recipe to plan" })
     .fill(name);
-  const item = page
-    .getByRole("list", { name: "Recipes to plan" })
-    .getByRole("button", { name: new RegExp(`^${name}`) });
+  const strip = page.getByRole("list", { name: "Recipes to plan" });
+  // The search asks again 200 ms after the last key: wait for its answer, or the cards move under
+  // the mouse between finding this card and pressing on it.
+  await expect(
+    strip.getByRole("button").filter({ hasNotText: name }),
+  ).toHaveCount(0);
+  const item = strip.getByRole("button", { name: new RegExp(`^${name}`) });
   await expect(item).toBeVisible();
   const picture = item.locator("img");
   await expect

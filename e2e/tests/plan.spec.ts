@@ -243,6 +243,9 @@ test.describe('on a computer', () => {
     const day = inWeek(today, 1);
     await openWeekOf(page, today, day);
     await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(name);
+    // The search asks again 200 ms after the last key: wait for its answer, or the cards move under
+    // the mouse between finding this card and pressing on it (WebKit, full check 5).
+    await expect(page.getByRole('list', { name: 'Recipes to plan' }).getByRole('button').filter({ hasNotText: name })).toHaveCount(0);
     const item = page.getByRole('button', { name: `${name}. Choose a day to plan it` });
     await item.scrollIntoViewIfNeeded();
     await mouseDrag(page, item, cell(page, day, slot.Dinner));
@@ -404,6 +407,8 @@ test.describe('on a computer', () => {
     await makeRecipe(page, other);
     await openWeekOf(page, today, inWeek(today, 5));
     await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(other);
+    // Wait for the search's answer, or the card can be redrawn between focusing it and pressing Enter.
+    await expect(page.getByRole('list', { name: 'Recipes to plan' }).getByRole('button').filter({ hasNotText: other })).toHaveCount(0);
     const tray = page.getByRole('button', { name: `${other}. Choose a day to plan it` });
     await tray.focus();
     await page.keyboard.press('Enter');
