@@ -159,8 +159,12 @@
     cursor: pointer;
   }
 
+  /* The dishes go under the meal's name when the two don't fit side by side (a narrow panel, such as
+     the Month's day panel at 800-1100 px, or large text), instead of squeezing the dishes until every
+     word breaks. */
   .meal {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: var(--space-5);
     min-height: var(--touch-target);
@@ -190,7 +194,7 @@
   }
 
   .dishes {
-    flex: 1;
+    flex: 1 1 6rem;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);

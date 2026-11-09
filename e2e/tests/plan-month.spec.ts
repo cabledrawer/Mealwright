@@ -998,3 +998,60 @@ test.describe('F137: a Week card’s name breaks between words only', () => {
     }
   });
 });
+
+test.describe('the Month’s day panel at 800 and 1024 px (the computer’s compact Month)', () => {
+  test.skip(() => kind() === 'phone', 'the computer’s narrow widths');
+
+  for (const width of [800, 1024]) {
+    test(`at ${width} px the day sits beside the grid at normal text; at 200% text it goes under the grid, its words whole`, async ({
+      page
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const { today, slot } = await setup(page);
+      const day = dayFor(today, 'M');
+      await clearDay(page, day);
+      const name = `Pongal ${Date.now().toString(36).slice(-6)}`;
+      await planned(page, await makeRecipe(page, name), day, slot.Breakfast);
+      await openMonthOf(page, today, day);
+      await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
+      const grid = page.getByRole('group', { name: 'Days', exact: true });
+      const cell = grid.getByRole('button', { name: dayName(day), exact: true });
+      await cell.click();
+      await expect(cell).toHaveAttribute('aria-pressed', 'true');
+      const meal = page.getByRole('button', { name: new RegExp(`^Breakfast: ${name}`) });
+      const words = meal.locator('.name');
+      await expect(words).toBeVisible();
+      const where = async () => {
+        const g = (await grid.boundingBox())!;
+        const m = (await meal.boundingBox())!;
+        return m.x >= g.x + g.width ? 'beside' : m.y >= g.y + g.height ? 'under' : 'overlapping';
+      };
+      const broken = () =>
+        words.evaluate((el) => {
+          const node = el.firstChild!;
+          const out: string[] = [];
+          for (const m of (el.textContent ?? '').matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, m.index!);
+            range.setEnd(node, m.index! + m[0].length);
+            const lines = new Set(
+              [...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top / 4))
+            );
+            if (lines.size > 1) out.push(m[0]);
+          }
+          return out;
+        });
+      // Normal text: as drawn, the day's meals beside the month (F47).
+      await expect.poll(where).toBe('beside');
+      // At 800 px that panel is about 240 px wide even at normal text: the dishes go under the meal's
+      // name when they don't fit beside it, instead of being squeezed until a word breaks.
+      await expect.poll(broken).toEqual([]);
+      // 200% text: the panel beside the grid was about 240 px wide, and the dishes were squeezed until
+      // every word broke (WebKit, full checks 1 and 4). Now the day goes under the grid, as on the phone.
+      await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+      await expect.poll(where).toBe('under');
+      await expect.poll(broken).toEqual([]);
+      await expectNoSidewaysScroll(page);
+    });
+  }
+});

@@ -45,57 +45,64 @@
     mealColour(model.plan, meal);
 </script>
 
-<div class="phone-month">
-  <div class="grid" role="group" aria-label="Days">
-    {#each model.days.slice(0, 7) as day (day)}
-      <span class="head" aria-hidden="true">{dayShort(day).slice(0, 1)}</span>
-    {/each}
-    {#each model.days as day (day)}
-      <button
-        type="button"
-        class="day"
-        class:out={!inMonth(day)}
-        class:today={day === model.today}
-        class:cook={cooking && cooksOn(model.plan, day)}
-        aria-pressed={day === selected}
-        aria-current={day === model.today ? 'date' : undefined}
-        aria-label={dayFull(day)}
-        onclick={() => onselect(day)}
-      >
-        <span class="num">{dayOfMonth(day)}</span>
-        {#if eating}
-          <span class="dots" aria-hidden="true">
-            {#each dots(day) as meal (meal.id)}
-              {@const colour = colourOf(meal)}
-              <span class="dot" style:background={colour ? `var(--batch-${colour})` : undefined}
-              ></span>
-            {/each}
-          </span>
-        {/if}
-      </button>
-    {/each}
-    <p class="legend" data-testid="month-legend">{legend}</p>
-  </div>
+<div class="month-box">
+  <div class="phone-month">
+    <div class="grid" role="group" aria-label="Days">
+      {#each model.days.slice(0, 7) as day (day)}
+        <span class="head" aria-hidden="true">{dayShort(day).slice(0, 1)}</span>
+      {/each}
+      {#each model.days as day (day)}
+        <button
+          type="button"
+          class="day"
+          class:out={!inMonth(day)}
+          class:today={day === model.today}
+          class:cook={cooking && cooksOn(model.plan, day)}
+          aria-pressed={day === selected}
+          aria-current={day === model.today ? 'date' : undefined}
+          aria-label={dayFull(day)}
+          onclick={() => onselect(day)}
+        >
+          <span class="num">{dayOfMonth(day)}</span>
+          {#if eating}
+            <span class="dots" aria-hidden="true">
+              {#each dots(day) as meal (meal.id)}
+                {@const colour = colourOf(meal)}
+                <span class="dot" style:background={colour ? `var(--batch-${colour})` : undefined}
+                ></span>
+              {/each}
+            </span>
+          {/if}
+        </button>
+      {/each}
+      <p class="legend" data-testid="month-legend">{legend}</p>
+    </div>
 
-  <div class="list">
-    <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
-    {#if show === 'cook' || (show === 'both' && cooksOnSelected)}
-      {#await import('./PlanCook.svelte') then { default: Cook }}
-        <Cook {actions} days={[selected]} {onstart} summary={false} />
-      {/await}
-    {/if}
-    {#if show === 'eat'}
-      {#await import('./PlanEat.svelte') then { default: Eat }}
-        <Eat {actions} days={[selected]} {oncook} />
-      {/await}
-    {:else if show === 'both'}
-      <!-- Both keeps the day's meals with their + (the phone's Both list), under the cooking. -->
-      <PlanDays {actions} days={[selected]} />
-    {/if}
+    <div class="list">
+      <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
+      {#if show === 'cook' || (show === 'both' && cooksOnSelected)}
+        {#await import('./PlanCook.svelte') then { default: Cook }}
+          <Cook {actions} days={[selected]} {onstart} summary={false} />
+        {/await}
+      {/if}
+      {#if show === 'eat'}
+        {#await import('./PlanEat.svelte') then { default: Eat }}
+          <Eat {actions} days={[selected]} {oncook} />
+        {/await}
+      {:else if show === 'both'}
+        <!-- Both keeps the day's meals with their + (the phone's Both list), under the cooking. -->
+        <PlanDays {actions} days={[selected]} />
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
+  /* Measured in em, so the room the month has is judged at the text size in use. */
+  .month-box {
+    container-type: inline-size;
+  }
+
   .phone-month {
     display: flex;
     flex-direction: column;
@@ -103,23 +110,27 @@
   }
 
   /* From a tablet's width (768 px) the day's meals sit beside the grid, so the month and the day
-     fit one screen (F47): the day's list scrolls on its own. */
+     fit one screen (F47): the day's list scrolls on its own. Only when there is room for both at the
+     text size in use: with large text the day goes under the grid, as on the phone, instead of being
+     squeezed until its words break (cabledrawer 9 Nov). */
   @media (min-width: 768px) {
-    .phone-month {
-      flex-direction: row;
-      align-items: flex-start;
-    }
+    @container (min-width: 26em) {
+      .phone-month {
+        flex-direction: row;
+        align-items: flex-start;
+      }
 
-    .grid,
-    .list {
-      flex: 1 1 0;
-      min-width: 0;
-    }
+      .grid,
+      .list {
+        flex: 1 1 0;
+        min-width: 0;
+      }
 
-    .list {
-      max-height: calc(100dvh - 2 * var(--space-10) - 140px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
+      .list {
+        max-height: calc(100dvh - 2 * var(--space-10) - 140px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
     }
   }
 
